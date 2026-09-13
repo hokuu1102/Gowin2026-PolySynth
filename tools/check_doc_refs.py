@@ -82,7 +82,7 @@ RE_BACKTICK = re.compile(r"`([^`\n]+)`")
 RE_MDLINK = re.compile(r"\]\(([^)\s]+)\)")
 
 # ── 内联豁免标记（相当于 # noqa）────────────────────────
-# ⭐ 为什么必须有：`files/文档地图.md` 的《路径校正表》**故意**把
+# ⭐ 为什么必须有：`files/00-总览/文档地图.md` 的《路径校正表》**故意**把
 #    「错误写法」列在左列 —— 那是它的全部意义。没有豁免机制的话，
 #    检查器会去举报这张表存在的目的本身。
 #
@@ -169,7 +169,7 @@ def resolve(ref: str, md_rel_dir: str, tracked: set[str]) -> bool:
     在【git 跟踪清单】里找这个引用。三种基准都试一遍。
 
     为什么接受三种：本项目旧文档大量写【files/ 相对】路径
-    （例：files/ 下的文档写 `方案抉择/左手区方案.md`），
+    （例：files/ 下的文档写 `10-硬件/左手区方案.md`），
     这是历史的合法写法；一刀切只认仓库根会产生大量误报。
     新文档建议统一用【仓库根相对】。
     """
@@ -312,7 +312,7 @@ def main() -> int:
         print(f"ℹ️  提示：{len(soft)} 处「裸文件名」（缺目录）")
         print("    这不一定是错 —— 索引表的「文件 | 位置」结构里裸名是正确写法。")
         print("    但正文引用建议写全，否则点击时按当前文档目录解析，容易点不开。")
-        print("    写法：files/方案抉择/硬件选型表.md")
+        print("    写法：files/30-方案决策/硬件选型表.md")
         for src, lineno, ref in soft[:15]:
             print(f"      {src}:{lineno}  →  {ref}")
         if len(soft) > 15:
@@ -321,7 +321,7 @@ def main() -> int:
     print()
     if hard:
         print(f"结论：❌ 有 {len(hard)} 处硬错误，需要修。")
-        print("参考 files/文档地图.md 里的「路径校正表」查正确路径。")
+        print("参考 files/00-总览/文档地图.md 里的「路径校正表」查正确路径。")
         return 0 if args.warn_only else 1
     print("结论：✅ 通过")
     return 0
