@@ -518,13 +518,16 @@ FPGA --I2S--> DAC 模块 --Line Out--> ┬--> 3.5mm → 有源音箱（用它的
 
 ## 附录 B · 接口速查（详见 `files/模块/硬件接口总表.md`）
 
+> ⚠️ **本附录只是"扫一眼"用**，**针脚的唯一权威是** `files\模块\硬件接口总表.md` **§二之二「画板用逐针总表」**。
+> 下面这段是早期版本，**部分行已过时**（例如 `J1` 已降级为退路预留、`J3` 已拆成 `J3L`/`J3R`、`J5` 已改为右手区 SPI）。
+
 ```text
 J1  音频输出      5pin   I2S_BCLK / LRCLK / DIN / MCLK / MUTE / AMP_EN + 3V3 GND
                           → 3.5mm 插座 → 有源音箱 AUX IN（⚠️ 不接 INPUT）
 J2  UI 串口屏     4pin   5V / GND / TX / RX          （电平待核实）
 J3  左手区传感器 10pin   3V3 / GND×2 / SPI_SCLK / MOSI / MISO / CS1 / CS2 / I2C×2  ⭐已定稿
 J4  拨弦          4pin   3V3 / GND / PLUCK_A / PLUCK_B
-J5  颤音模块      6pin   3V3 / GND / MOD_ANALOG / I2C×2 / GND   （与 J3 同构，可互换）
+J5  右手区 SPI    6pin   3V3 / GND / SPI_SCLK / MOSI / MISO / CS3  ⭐推子在 P4 就地数字化（原 MOD_ANALOG+I2C×2 已让位）
 J6  辅助控制      8pin   3V3 / GND / ENC_A / ENC_B / ENC_SW / KEY1 / KEY2 / GND
 J7  LED 指引      8pin   3V3 / 5V / GND / SCL / SDA / DATA / CLK / LATCH  （最宽留）
 J8  调试测试点     —     I2S×4 / DAC 模拟 / 传感器原始信号 / 电源
