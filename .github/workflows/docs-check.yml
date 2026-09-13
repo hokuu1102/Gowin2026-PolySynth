@@ -1,0 +1,51 @@
+# 每次推送 / PR 自动校验文档交叉引用。
+# 私有仓库（GitHub Free）每月 2000 分钟额度，本任务约 20 秒，完全够用。
+
+name: 文档检查
+
+# 为什么【不加 paths 过滤】：
+#   本项目文档互相引用密集，一次 git mv 重命名会同时影响
+#   引用方与被引用方，而引用方文件的 diff 可能为空。
+#   与其写一个容易漏触发的过滤条件，不如每次都跑 —— 它只要几秒。
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  doc-refs:
+    name: 交叉引用有效性
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 校验文档交叉引用
+        run: python3 tools/check_doc_refs.py
+
+      - name: 提示失败时怎么办
+        if: failure()
+        run: |
+          echo "::error title=文档交叉引用有错::引用指向了不存在的文件或目录。"
+          echo ""
+          echo "本地复现：  python3 tools/check_doc_refs.py"
+          echo ""
+          echo "常见原因与修法："
+          echo "  1. 文件被重命名/移动，但引用方没改"
+          echo "     → 查 files/文档地图.md 的《路径校正表》"
+          echo "  2. 引用没带目录（如只写 硬件选型表.md）"
+          echo "     → 点击时按当前文档目录解析，会点不开"
+          echo "     → 写成 files/方案抉择/硬件选型表.md"
+          echo "  3. 确实要故意展示错误路径（如路径校正表本身）"
+          echo "     → 在该行或该段加上 <!-- refcheck:ignore-line -->"
+          echo "        或 <!-- refcheck:off --> … <!-- refcheck:on -->"
+
+# ── 说明：为什么这里【不】检查人名泄漏 ─────────────────
+# 人名清单（names.local.txt）故意不入库，所以 CI 里拿不到它。
+# 若日后想放进 CI，做法是把它存成仓库 Secret 并在步骤里回写，
+# 但那等于把姓名搬进 GitHub —— 与「不出现人名」的初衷相悖。
+# 因此人名自查保留在本地：见 CONTRIBUTING.md §六 第 ① 条。
