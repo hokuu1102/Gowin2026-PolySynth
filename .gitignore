@@ -1,0 +1,45 @@
+# ⚠️ 排除项说明
+
+# ── 含人名 / 会话存档（不予公开）─────────────────────────
+# 项目规则是「文档不出现人名」，而本仓库为公开仓库。
+# WorkBuddy 记忆文件里含队友姓名，故整目录排除。
+# 如需入库，请先脱敏。
+files/历史/WorkBuddy记忆/
+
+# ── Windows / 编辑器 垃圾文件 ───────────────────────────
+Thumbs.db
+ehthumbs.db
+desktop.ini
+.DS_Store
+*~
+*.tmp
+*.bak
+
+# ── Office / WPS 临时文件 ──────────────────────────────
+~$*.doc
+~$*.docx
+~$*.xls
+~$*.xlsx
+~$*.ppt
+~$*.pptx
+
+# ── EDA / CAD 工程临时文件 ─────────────────────────────
+*.bak
+*.bck
+*.ddb
+*.lck
+*.prjpcb
+Project\ Outputs/
+History/
+__Previews/
+
+# ── 3D 打印切片临时文件（保留原始 STL/STEP）──────────────
+*.gcode
+*.3mf
+*.bgcode
+
+# ── Python / 脚本缓存 ──────────────────────────────────
+__pycache__/
+*.pyc
+.venv/
+venv/
