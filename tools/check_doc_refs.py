@@ -67,8 +67,8 @@ DOC_EXT = {
     ".csv", ".json", ".yml", ".yaml", ".xlsx", ".docx", ".zip",
     ".v", ".sv", ".vhd", ".c", ".h", ".py", ".ps1",
 }
-# 其中这些扩展名参与「裸文件名」提示
-DOC_ONLY_EXT = {".md", ".pdf", ".png", ".txt", ".csv", ".xlsx", ".docx"}
+# 注：不再按扩展名区分「裸文件名」的处理方式 —— 见文件末尾 check_file 里的说明。
+#     （早先只放过 .md/.pdf 等少数扩展名，导致 .v/.py/.cst 的裸名被误判成硬错误）
 
 # ── 不扫描 .md 的目录 ──────────────────────────────────
 # files/历史/ 是历史留档，故意保留旧引用（旧文件名/旧结构），
@@ -104,6 +104,9 @@ EXAMPLE_PATH_NAMES = {
     "History", "Project Outputs", "__Previews",
     "node_modules", "dist", "build", "out",
     "WorkBuddy记忆",
+    # 通用 EDA / 构建产物目录名：文档里提到它们是在描述"会生成这个目录"，
+    # 不是在引用仓库里的某个路径（例：gw_sh 会写 impl/ 目录）
+    "impl", "pnr", "gwsynthesis", "temp", "logs",
 }
 
 
@@ -238,13 +241,17 @@ def check_file(
             is_bare = "/" not in ref and "\\" not in ref
 
             if resolve(ref, md_rel_dir, tracked):
-                if is_bare and ext in DOC_ONLY_EXT:
+                if is_bare:
                     soft.append((rel, lineno, ref))
                 continue
 
-            if is_bare and ext in DOC_ONLY_EXT:
-                # 裸名且找不到 —— 可能只是索引表写法，也可能是真的错了。
-                # 归入提示，不判失败（避免误报把 CI 变噪音）。
+            if is_bare:
+                # ⭐ 裸文件名一律归入【提示】，不判失败 —— 与扩展名无关。
+                #    理由：裸名在这类文档里有大量合法用法（索引表的「文件|位置」、
+                #    提到外部资产的文件名、说明某个生成物的名字…），
+                #    而它是不是"坏引用"取决于上下文，检查器判断不了。
+                #    （早先只放过 .md/.pdf 等少数扩展名，结果 .v/.py/.cst
+                #     被误判成硬错误 —— 又一个"误报训练人忽略检查器"的例子。）
                 soft.append((rel, lineno, ref + "  （仓库里找不到同名文件）"))
             else:
                 hard.append((rel, lineno, ref))
