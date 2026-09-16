@@ -65,6 +65,15 @@
 git fetch origin
 git rev-parse origin/main        # 必须 === 你上次推完记下的那个 SHA
 
+# ①b ⭐⭐ 若远端已变（别人推了/合了 PR）→ 改用 rebase，⛔ 绝不再 force
+#     force 会把你没看到的那些提交【整体抹掉】，且不留痕迹
+git log --oneline -6 origin/main            # 先看清远端多了什么
+git branch archive/<日期>-<主题> HEAD        # 存档仍要打
+git rebase origin/main                      # 把自己的一串重放到远端之上
+git reset --soft origin/main                # 再压成 1 个
+git commit -F 交付说明.txt
+git push origin main                        # ⭐ 普通推送（快进），不带 --force
+
 # ② 存档别丢：压之前先把这一串存进一个本地分支
 git branch archive/2026-09-14-板子划分
 
@@ -75,9 +84,16 @@ git diff --stat archive/... HEAD  # 必须为空 —— 内容不能变，只是
 git push --force-with-lease origin main
 ```
 
+> ⭐⭐ **2026-09-16 事故复盘（真发生过）**：准备 `reset --soft <上次交付>` + `--force-with-lease` 时，
+> 第 ① 步校验发现 `origin/main` 已经不是上次交付点 —— **队友的 `TLC5916` 驱动已作为 PR 合进 `main`**。
+> 若照原计划 force 推上去，**`rtl/drivers/tlc5916_driver.sv` + tb + 仿真脚本会被静默抹掉**。
+> ✅ 实际做法：`git rebase origin/main` → 压缩 → **普通推送**（快进），队友的东西一根没少。
+> ⇒ ⭐ **教训：`--force-with-lease` 只保护"你没拉取过的新提交"，不保护"你已经 fetch 到、但没并进自己历史"的提交。**
+> **只要第 ① 步发现远端变了，就必须转到 ①b 的 rebase 路线。**
+
 | 允许重写历史 ✅ | 不允许重写历史 ⛔ |
 |---|---|
-| `origin/main` **还是你上次推的那个 SHA**（没人动过） | 有人已经 fork / 建分支 / 提过 PR —— **先问**，问不到就往前加新提交 |
+| `origin/main` **还是你上次推的那个 SHA**（没人动过） | 有人已经 fork / 建分支 / 提过 PR —— ⭐ **改用 ①b 的 rebase + 普通推送**（不是"往前加新提交"，那样历史会分叉） |
 | 提交内容**没有变**，只是零碎提交合并（内容等价） | 要改的是**提交内容本身**（那应该新提一个 `revise`） |
 | 用 `--force-with-lease`（不是 `--force`） | 用 `--force`（会覆盖掉别人可能已推的提交） |
 | **压之前先打 `archive/<日期>-<主题>` 分支或 tag**（存档不丢） | 直接 `reset --hard` 把存档轨也抹了 |
