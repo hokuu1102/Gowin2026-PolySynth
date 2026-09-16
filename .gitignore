@@ -50,6 +50,13 @@ Project\ Outputs/
 History/
 __Previews/
 
+# ── HDL 仿真产物（由 sim/ 脚本重新生成）──────────────────────
+/build/
+*.vvp
+*.vcd
+*.fst
+*.gtkw
+
 # ── 3D 打印切片临时文件（保留原始 STL/STEP）──────────────
 *.gcode
 *.3mf
