@@ -1,0 +1,42 @@
+<?xml version="1" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<!--
+  Gowin2026.gprj - Gowin project file (project = "polyphonic synth, competition 2026")
+
+  WHY THIS FILE EXISTS (P1: "Gowin can synthesise"):
+    Simulation passing does NOT prove the RTL is synthesisable / that the pin
+    constraints are legal. This project lets us run the WHOLE flow (synthesis +
+    place & route + bitstream) from the command line, with NO board attached:
+        build_cli.tcl   ->   impl/gwsynthesis/Gowin2026_syn_rsc.xml  (resources)
+                             impl/pnr/Gowin2026.pin.html            (pin legality)
+                             impl/pnr/Gowin2026.rpt.html            (timing)
+                             impl/pnr/Gowin2026.fs                  (bitstream)
+
+  DEVICE CHOICE - read before changing:
+    pn="GW5AT-LV60PG484AC2/I1" is the board we PHYSICALLY HAVE (the Gowin
+    DK_START / "jishi" board, device id gw5at60b-003, silkscreen-confirmed).
+    The COMPETITION board is the Sipeed "Tang Mega 60K" dock, whose part number
+    is reported as GW5AT-LV60PG484AC1/I0 (Sipeed wiki + example project) but has
+    NOT been confirmed from the physical silkscreen yet - the repo notes this
+    drift explicitly (files/20-代码/RTL规划前仓库事实核验.md).
+    Same die + same package (GW5AT-60B / PBGA484A) => synthesis legality, pin
+    legality and the resource report below are valid for both. Only the speed
+    grade differs, so timing numbers here are optimistic; re-run with the dock
+    part number once the board is in hand.
+
+  KEEP THE FILE LIST MINIMAL: only what the M0 top actually instantiates.
+  Add each new module here as it lands (one line), so a broken module can never
+  hide behind someone else's error.
+-->
+<Project>
+    <Template>FPGA</Template>
+    <Version>5</Version>
+    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC2/I1">gw5at60b-003</Device>
+    <FileList>
+        <File path="rtl/clk_gen.v" type="file.verilog" enable="1"/>
+        <File path="rtl/w3c/i2s_tx.v" type="file.verilog" enable="1"/>
+        <File path="rtl/top.v" type="file.verilog" enable="1"/>
+        <File path="constr/top.cst" type="file.cst" enable="1"/>
+        <File path="constr/top.sdc" type="file.sdc" enable="1"/>
+    </FileList>
+</Project>

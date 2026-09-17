@@ -1,0 +1,13 @@
+﻿# latency_stats latency_m2_din.log unit=cycles fs=48828.1 label=M2 UP/DOWN 拨弦 → 板上 DAC
+metric,value
+count,50
+min,325
+max,1263
+mean,780.820000
+median,774.5
+std,297.398432
+range,938
+max_ms,0.025260
+range_ms,0.018760
+max_frames,1.233398
+mean_frames,0.762520

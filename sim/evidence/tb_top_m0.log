@@ -1,0 +1,22 @@
+﻿VCD info: dumpfile build/sim/tb_top_m0/tb_top_m0.vcd opened for output.
+
+==================== top / M0 顶层验收 ====================
+  A 时基    : HP_BCK 周期 min=16 max=16 clk（期望 16）· 上升沿 4096 个
+              HP_WS  周期 min=1024 max=1024 clk（期望 1024）· 上升沿 64 个
+  B 安全态  : PA_EN_n 为低 0 拍 · 翻转 0 次 · 复位期间非 1 的拍数 0
+  C 延时开  : 复位释放后第 102 拍拉低（期望 100）· 总翻转 1 次 · 拉低后又变高 0 拍
+  D 心跳    : 翻转 127 次 · 间隔 min=512 max=512 clk（期望 512）
+  E 静音    : HP_DIN 为 1 的拍数 0（期望 0）
+  F A8      : bck=0 ws=0 din=0 pa=0 hb=0 pa(延时)=0
+  证据      : sim/evidence/top_m0_pa_trace.csv（应只有表头）+ 波形 build/sim/tb_top_m0/
+==========================================================
+  ok : A · HP_BCK 周期恰好 16 clk（3.125 MHz）
+  ok : A · HP_WS 周期恰好 1024 clk（48.828125 kHz）
+  ok : B ⭐ 安全态 —— PA_EN_n 全程为 1、0 次翻转、复位期间就已为 1
+  ok : C · 延时开功放：第 102 拍拉低（= 100 + 2）且**只翻转 1 次**（无毛刺）
+  ok : D · 心跳 LED 活着且半周期恰好 512 clk（127 次翻转）
+  ok : E · 静音是真静音 —— HP_DIN 全程为 0
+  ok : F · A8 无 X/Z 传播（5 个顶层输出 + 延时实例）
+
+PASS: M0 顶层验收通过（时基正确 + 安全态无窄脉冲 + 静音无噪声 + 心跳活着 + 无 X）
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_m0.sv:202: $finish called at 1310971000 (1ps)

@@ -1,0 +1,39 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// constr/top.cst · 引脚约束（Tang Mega 60K Dock）
+//
+// ⭐ 每一条都来自**官方 60K 引脚约束**
+//    （`files/开发板原理图/tang_mega_60K_pins.cst`，Sipeed 官方，本地有、被 gitignore），
+//    ⛔ 不是估的、也不是从旧基石板抄的。
+//
+// ⚠️ 本文件只写"M0 用到的脚"。左/右手区板、TLC5916、编码器、按键、屏等
+//    要等 `files/10-硬件/硬件接口总表.md` 的 `J1`~`J11` 冻结后再补（属 T23/UI 预留）。
+// ─────────────────────────────────────────────────────────────────────────────
+
+//====== SYS ======
+// 系统时钟 50 MHz（⛔ 不是旧基石板的 F13）
+IO_LOC  "clk"   V22;
+IO_PORT "clk"   IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+
+// 复位按钮（官方示例的复位脚；⚠️ 原候选 Y12 其实是 Key_in[1]）
+IO_LOC  "rst_n" AA13;
+IO_PORT "rst_n" IO_TYPE=LVCMOS15 PULL_MODE=UP BANK_VCCIO=1.5;
+
+//====== AUDIO ======（板载 DAC = PT8211-S + 功放 NS4263，⛔ 不需要 MCLK）
+IO_LOC  "HP_BCK" Y17;
+IO_PORT "HP_BCK" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "HP_WS"  AB17;
+IO_PORT "HP_WS"  IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "HP_DIN" AA16;
+IO_PORT "HP_DIN" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+// ⭐⭐ 功放使能（**低有效**）。
+//     `PULL_MODE=UP` 是**必须**的：FPGA 配置期间引脚被上拉为高 ⇒ 功放保持关断，
+//     ⛔ 避免上电/配置阶段的"啪"声与不确定状态（官方例程同样是 UP）。
+IO_LOC  "PA_EN_n" AB16;
+IO_PORT "PA_EN_n" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+//====== LEDS ======（板级活体见证用第 0 颗；⚠️ 与 SDRAM1_D6 / PMOD 复用，本设计不用 SDRAM）
+IO_LOC  "led_heartbeat" T18;
+IO_PORT "led_heartbeat" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;

@@ -90,7 +90,8 @@ module i2s_tx #(
     endfunction
 
     // ⚠️ 同一个 always 块内对内部状态统一用**阻塞赋值**：装载样点与"算第 0 位"必须在同一拍可见。
-    always @(posedge clk or negedge rst_n) begin
+    // ⚠️ **同步复位**（`W3接口冻结表.md` §〇 约定 2）—— ⛔ 不写 `or negedge rst_n`
+    always @(posedge clk) begin
         if (!rst_n) begin
             bit_cnt <= {BW{1'b0}};
             ch      <= 1'b0;

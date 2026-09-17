@@ -67,3 +67,18 @@ __pycache__/
 *.pyc
 .venv/
 venv/
+
+# ── Gowin 工程产物（⭐ 可由 `build_cli.tcl` 一条命令重新生成）──────────
+#    ⛔ 只忽略**生成物**：`Gowin2026.gprj`（工程本体）与 `constr/*.cst`（引脚约束）
+#       是**要入库的交付物**，别一起忽略掉。
+/impl/
+/backup/
+*.gprj.user
+*.fs
+*.binx
+*.vg
+*.prj
+*.gao
+*.gvio
+*.rao
+

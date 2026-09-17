@@ -39,11 +39,13 @@ module clk_gen #(
 );
 
     // ── 帧内 clk 计数 ────────────────────────────────────────────────
+    // ⚠️ **同步复位**（`W3接口冻结表.md` §〇 约定 2：全设计统一同步复位、低有效）
+    //    ⇒ ⛔ 不要写成 `always @(posedge clk or negedge rst_n)`（那是异步复位，与约定不符）
     localparam integer CW = $clog2(CLK_PER_SAMPLE);   // 1024 → 10
 
     reg [CW-1:0] cnt;
-    always @(posedge clk or negedge rst_n) begin
-        if (!rst_n)                        cnt <= {CW{1'b0}};
+    always @(posedge clk) begin
+        if (!rst_n)                         cnt <= {CW{1'b0}};
         else if (cnt == CLK_PER_SAMPLE - 1) cnt <= {CW{1'b0}};
         else                                cnt <= cnt + 1'b1;
     end
@@ -59,7 +61,7 @@ module clk_gen #(
     wire          at_bclk_half = (cnt[$clog2(BCLK_DIV/2)-1:0] == { $clog2(BCLK_DIV/2){1'b0} });
 
     // ── 节拍输出（全部寄存，单时钟域）────────────────────────────────
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk) begin
         if (!rst_n) begin
             tick_audio   <= 1'b0;
             mclk_en      <= 1'b0;
