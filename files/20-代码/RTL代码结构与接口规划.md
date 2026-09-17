@@ -491,7 +491,7 @@ M1 是第一次能出声的最小路径：`50 MHz → audio_timebase → 1 个 p
 ## 9. 仓库资料引用基线
 
 - 当前仓库已有的接口草案：[`files/20-代码/W3接口冻结表.md`](https://github.com/hokuu1102/Gowin2026-PolySynth/blob/6442a098d3bd7df90e18e86a9bb1b908e28e24de/files/20-%E4%BB%A3%E7%A0%81/W3%E6%8E%A5%E5%8F%A3%E5%86%BB%E7%BB%93%E8%A1%A8.md)
-- 旧延迟预算：[`files/20-代码/延迟预算逐段分解.md`](https://github.com/hokuu1102/Gowin2026-PolySynth/blob/6442a098d3bd7df90e18e86a9bb1b908e28e24de/files/20-%E4%BB%A3%E7%A0%81/%E5%BB%B6%E8%BF%9F%E9%A2%84%E7%AE%97%E9%80%90%E6%AE%B5%E5%88%86%E8%A7%A3.md)
+- ~~旧延迟预算~~ ⛔ **已作废**：原 `files/20-代码/延迟预算逐段分解.md` 按"3 片 ADC 共享一条 SPI 总线 + 模拟 RC `10 kΩ+100 nF`（每通道 ≥5 ms）"估算，**两个前提都已推翻** ⇒ 已归档到 `files/历史/`，**引用其数字前必须以现行口径重算**（见 `files/20-代码/已知问题与风险清单.md` 的 `K-07` / `K-31`）
 - 资源评估：[`files/20-代码/FPGA平台与资源评估.md`](https://github.com/hokuu1102/Gowin2026-PolySynth/blob/6442a098d3bd7df90e18e86a9bb1b908e28e24de/files/20-%E4%BB%A3%E7%A0%81/FPGA%E5%B9%B3%E5%8F%B0%E4%B8%8E%E8%B5%84%E6%BA%90%E8%AF%84%E4%BC%B0.md)
 - Dock 音频引脚：[`files/10-硬件/开发板与引脚资料.md`](https://github.com/hokuu1102/Gowin2026-PolySynth/blob/6442a098d3bd7df90e18e86a9bb1b908e28e24de/files/10-%E7%A1%AC%E4%BB%B6/%E5%BC%80%E5%8F%91%E6%9D%BF%E4%B8%8E%E5%BC%95%E8%84%9A%E8%B5%84%E6%96%99.md)
 - TLC5916 实验驱动现已在远端 `main`；其功能仿真覆盖移位/LE，但 `OE` 仍需本文所述 guard 才满足最新安全约束。
