@@ -100,6 +100,15 @@ module tb_checkers;
     chk_min_pulse #(.NAME("oe_n"), .ACTIVE_LOW(1), .MIN_CYCLES(4)) u_a1 (
         .clk(clk), .rst_n(rst_n), .sig(oe_n), .err_cnt(a1_err));
 
+    // ⭐ A1 的**第二条路径**：`MIN_NS`（真实时间 / 亚周期毛刺）—— 独立实例、独立信号。
+    //    ⚠️ 这里 `MIN_NS=200`（远大于时钟周期 20 ns），所以任何短于 200 ns 的低电平都算毛刺；
+    //       下面的用例会打一个 **3 ns** 的毛刺（同步检查按 clk 采样**可能采不到**）。
+    reg         glitch_sig = 1'b1;
+    wire [31:0] a1ns_err;
+    integer     ns_before;
+    chk_min_pulse #(.NAME("glitch_sig"), .ACTIVE_LOW(1), .MIN_CYCLES(2), .MIN_NS(200)) u_a1ns (
+        .clk(clk), .rst_n(rst_n), .sig(glitch_sig), .err_cnt(a1ns_err));
+
     // 低电平持续 n 个 clk 周期（在 negedge 上动作 ⇒ 被采样的拍数恰好 = n）
     task automatic low_pulse;
         input integer n;
@@ -236,6 +245,42 @@ module tb_checkers;
             $display("FAIL: A1 没抓到单周期窄脉冲（负向测试失效）"); errors = errors + 1;
         end
 
+        // ⭐ 2026-09-17 补：A1 的**第二条检查路径**（`MIN_NS` 亚周期毛刺）——
+        //    原来只有 `MIN_CYCLES`（同步宽度）这一条被验过，`MIN_NS>0` 的**真实时间**
+        //    检查路径**一次都没跑过**。这里给一个独立实例、故意把阈值设得很宽
+        //    （`MIN_NS = 200` > 时钟周期 20 ns），再打一个**比时钟周期还窄**的毛刺。
+        //    ⚠️ 用 `#3` 制造 3 ns 的毛刺：同步检查（按 clk 采样）**可能根本采不到它**，
+        //       只有真实时间检查能抓 —— 这正是那条路径存在的理由。
+        //    ⚠️⚠️ 时序注意：必须在检查器 `armed`（复位释放后第一拍）**之后**再打毛刺，
+        //       否则那次跳变被当成"初始化对齐"而不判 —— 本 tb 第一版就栽在这里
+        //       （表现为 err 恒 0，看起来像"检查器失效"，其实是**用例太早**）。
+        $display("--- A1b 亚周期毛刺（MIN_NS 路径，同步检查看不见的那种）---");
+        repeat (8) @(negedge clk);          // ⭐ 确保 armed 已完成（复位释放 + 若干拍）
+        ns_before = a1ns_err;
+        glitch_sig = 1'b0;
+        #3;
+        glitch_sig = 1'b1;                  // 3 ns 的低脉冲（< 一个 clk 周期 20 ns）
+        #100;
+        if (a1ns_err > ns_before)
+            $display("  ok : A1b ⭐ 亚周期毛刺被真实时间检查抓到（%0d 次）—— 同步检查看不见它", a1ns_err);
+        else begin
+            $display("FAIL: A1b 亚周期毛刺没被抓到（MIN_NS 路径失效，err=%0d）", a1ns_err);
+            errors = errors + 1;
+        end
+
+        // 正例：给一个**足够宽**的低电平（> MIN_NS），不应被真实时间检查误报
+        ns_before = a1ns_err;
+        glitch_sig = 1'b0;
+        #500;                   // 500 ns >> MIN_NS=200
+        glitch_sig = 1'b1;
+        #100;
+        if (a1ns_err == ns_before)
+            $display("  ok : A1b 足够宽的脉冲未被真实时间检查误报");
+        else begin
+            $display("FAIL: A1b 把足够宽的脉冲误报成毛刺（%0d -> %0d）", ns_before, a1ns_err);
+            errors = errors + 1;
+        end
+
         // ═══════════════════════════ A2 ═══════════════════════════
         $display("--- A2 正例：LE 保持低时的移位 ---");
         sck_cycle(); sck_cycle(); sck_cycle(); sck_cycle();
@@ -273,6 +318,14 @@ module tb_checkers;
         repeat (2) @(negedge clk);
         if (a5_err == 32'd1) $display("  ok : A5 多驱动源被抓到（负向测试）");
         else begin $display("FAIL: A5 没抓到多驱动源（负向测试失效）"); errors = errors + 1; end
+
+        // ⭐ 2026-09-17 补：**三路同时有效**（检查器的计数逻辑是 `> 1`，要验它不只看两路）
+        $display("--- A4b 边界：三路片选同时有效（不是只看两路）---");
+        @(negedge clk); cs_n = 3'b000;      // 三路全选
+        @(negedge clk); cs_n = 3'b111;
+        repeat (2) @(negedge clk);
+        if (a4_err == 32'd2) $display("  ok : A4b 三路同时有效也被抓到（err 2 次，计数逻辑正确）");
+        else begin $display("FAIL: A4b 三路同时有效的判定不对（err=%0d，期望 2）", a4_err); errors = errors + 1; end
 
         // ═══════════════════════════ A7 ═══════════════════════════
         $display("--- A7 正例：按 phase_inc 前进 ---");

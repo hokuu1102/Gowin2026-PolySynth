@@ -64,10 +64,34 @@ module i2s_rx_model #(
     // ⚠️ 必须用**移位之后**的值（`sr_next`）：在"最后一位"那一拍，非阻塞赋值还没更新 `sr`，
     //    用旧 `sr` 提取会整体错一位（本文件实测踩过 —— M1 的"逐点一致"会因此永远差 1 bit）。
     wire [SLOT_BITS-1:0] sr_next  = {sr[SLOT_BITS-2:0], din};
-    wire [DATA_BITS-1:0] raw_left  = (MSB_DELAY >= 0 && (SLOT_BITS - 1 - MSB_DELAY) >= DATA_BITS - 1)
-                                     ? sr_next[SLOT_BITS-1-MSB_DELAY -: DATA_BITS] : {DATA_BITS{1'b0}};
-    wire [DATA_BITS-1:0] raw_right = sr_next[DATA_BITS-1:0];
-    wire [DATA_BITS-1:0] raw = (JUSTIFY == 0) ? raw_left : raw_right;
+
+    // ⭐ 与 `rtl/w3c/i2s_tx.v` 的 `calc_bit` **严格镜像**（2026-09-17 重写）：
+    //    位序号约定：`s[SLOT_BITS-1]` = 本时隙送出的**第 1 位**，`s[SLOT_BITS-1-b]` = 第 b 位。
+    //    · `JUSTIFY=1` 右对齐（LSBJ）：数据占时隙**尾部** `DATA_BITS` 位
+    //      ⇒ 第 i 位（i=0 是 MSB）在 `s[DATA_BITS-1-i]`
+    //    · `JUSTIFY=0` 左对齐（Philips）：MSB 落在第 `MSB_DELAY` 位
+    //      ⇒ 第 i 位在 `s[SLOT_BITS-1-(MSB_DELAY+i)]`
+    //    ⚠️ 左对齐若 `SLOT_BITS < DATA_BITS + MSB_DELAY`，**低位会被静默丢弃** ——
+    //       模型这里**照样按同一规则丢弃**，这样"模型与发送器一致"仍然成立，
+    //       而"低位丢失"这件事由 `tb/w3c/tb_i2s_tx_sweep.sv` 用**已知必错**的配置显式证明。
+    function [DATA_BITS-1:0] extract;
+        input [SLOT_BITS-1:0] s;
+        integer i2;
+        begin
+            extract = {DATA_BITS{1'b0}};
+            for (i2 = 0; i2 < DATA_BITS; i2 = i2 + 1) begin
+                if (JUSTIFY == 0) begin
+                    if ((MSB_DELAY + i2) < SLOT_BITS)
+                        extract[DATA_BITS-1-i2] = s[SLOT_BITS-1-(MSB_DELAY+i2)];
+                end else begin
+                    if (((SLOT_BITS-DATA_BITS) + i2) < SLOT_BITS)
+                        extract[DATA_BITS-1-i2] = s[SLOT_BITS-1-((SLOT_BITS-DATA_BITS)+i2)];
+                end
+            end
+        end
+    endfunction
+
+    wire [DATA_BITS-1:0] raw = extract(sr_next);
 
     // 16 bit → 24 bit：**左移对齐到高位**（与 i2s_tx 的"取高 16 位"互逆）
     wire signed [SAMPLE_W-1:0] raw_ext = $signed(raw) <<< (SAMPLE_W - DATA_BITS);
@@ -80,9 +104,9 @@ module i2s_rx_model #(
 
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
-            bit_cnt <= {BW{1'b0}};
-            sr      <= {SLOT_BITS{1'b0}};
-            ch      <= 1'b0;
+            bit_cnt = {BW{1'b0}};
+            sr      = {SLOT_BITS{1'b0}};
+            ch      = 1'b0;
             sample_l <= {SAMPLE_W{1'b0}};
             sample_r <= {SAMPLE_W{1'b0}};
             valid_l  <= 1'b0;
@@ -95,11 +119,21 @@ module i2s_rx_model #(
             valid_r <= 1'b0;
 
             if (bck_rise) begin
-                sr      <= {sr[SLOT_BITS-2:0], din};
-                ch      <= ch_now;
+                // ⭐⭐ **用 WS 划时隙**（2026-09-17 重写）—— 与真实 DAC 的做法一致。
+                //    ⛔ 旧写法是"从我看到的第一条 BCK 上升沿开始数位"，隐含假设
+                //       "BCK 的第一个上升沿恰好落在帧/时隙边界上"。一旦 `i2s_tx` 的
+                //       `HP_BCK` 复位极性变了（数据改在下降沿变化、采样沿移半拍），
+                //       这个假设就崩了 ⇒ 模型与 DUT 的位对齐错开一位（现象：几乎全错，
+                //       但"看起来格式都对"）。真实器件不会有这个问题，因为它**靠 WS 界定时隙**。
+                //    ⇒ 现在：BCK 上升沿移位；**WS 一变就是新时隙的第 0 位**；收满 SLOT_BITS 位出样点。
+                sr = {sr[SLOT_BITS-2:0], din};
+                if (ch_now !== ch) begin
+                    ch      = ch_now;   // ⭐ 时隙边界：本拍就是新时隙的**第 0 位**
+                    bit_cnt = 0;
+                end
+
                 if (bit_cnt == SLOT_BITS - 1) begin
-                    bit_cnt <= {BW{1'b0}};
-                    // 一个时隙收满 ⇒ 出样点（这里用的是"本时隙开始时锁存的 ch"）
+                    // 一个时隙收满 ⇒ 出样点（`ch` = 本时隙的声道）
                     if (ch == 1'b0) begin
                         sample_l <= raw_ext;
                         valid_l  <= 1'b1;
@@ -117,8 +151,9 @@ module i2s_rx_model #(
                             recon_r <= $rtoi(y2_r);
                         end
                     end
+                    bit_cnt = 0;
                 end else begin
-                    bit_cnt <= bit_cnt + 1'b1;
+                    bit_cnt = bit_cnt + 1'b1;
                 end
             end
         end

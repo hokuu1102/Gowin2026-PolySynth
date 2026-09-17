@@ -104,9 +104,27 @@ foreach ($tb in $tbs) {
   $runOut | ForEach-Object { Write-Host "    $_" }
 
   $txt = ($runOut | Out-String)
-  # ⭐ 只有"非零退出"或"行首 FAIL"才算失败 —— 见文件头的结论约定
-  $errLines = ([regex]::Matches($txt, "(?m)^\s*ERROR")).Count
-  if ($runExit -ne 0 -or $txt -match "(?m)^\s*FAIL") {
+  # ⭐ 只有"非零退出"或"FAIL 行"才算失败 —— 见文件头的结论约定
+  #
+  # ⚠️⚠️ 判定正则的加固（2026-09-17 实测后改，**两轮才定下来**）：
+  #    原来是 `(?m)^\s*FAIL`。三个问题：
+  #      ① **`\s` 在多行模式下会匹配换行符** ⇒ `^\s*FAIL` 可能**跨行**匹配；
+  #      ② 它要求 `FAIL` 前面**只有空白** ⇒ 一旦有人写成 `$display("  ⛔ FAIL: …")`
+  #         就会**静默漏判**（该失败却报通过）；
+  #      ③ ⚠️ 但**放宽成"行内含 FAIL 就算失败"也不行**：实测 `tb_i2s_tx_sweep`
+  #         会打印说明性文字 `<- MUST FAIL`（讲"这一档本来就应该失败"），
+  #         被误判成失败（tb 其实 PASS）—— **假失败**。
+  #    ⭐ 最终口径（**与 tb 的打印约定配套**）：
+  #      判据 = 行首（允许空白）出现的 **`FAIL:`（带冒号）**，或 `$fatal` 的非零退出。
+  #      ⇒ ① tb 给结论必须用 **`FAIL:`（带冒号）**；
+  #        ② 日志里讲"本来该失败"请写 `MUST FAIL`（字母前缀，不会被抓）或别打印到 stdout。
+  #      两条纪律已写进 `files/20-代码/仿真与验证方案.md` §五。
+  #    ⚠️ 为什么用 `[^A-Za-z]*` 而不是 `.*`：`.*` 会把 `<- MUST FAIL` 这类
+  #       **说明性文字**也判成失败（实测踩过：`tb_i2s_tx_sweep` 因此假失败）；
+  #       而 `[^A-Za-z]*` 既允许 `⛔ FAIL:`（装饰符）又排除 `MUST FAIL`（字母）。
+  $failRx   = [regex]"(?m)^[ \t]*[^A-Za-z]*FAIL:"
+  $errLines = ([regex]::Matches($txt, "(?m)^[ \t]*ERROR")).Count
+  if ($runExit -ne 0 -or $failRx.IsMatch($txt)) {
     if ($errLines -gt 0) { Write-Host ("    （日志另有 " + $errLines + " 行 ERROR，属诊断信息）") -ForegroundColor DarkGray }
     $fail += $name
   } else {

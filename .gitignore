@@ -73,6 +73,8 @@ venv/
 #       是**要入库的交付物**，别一起忽略掉。
 /impl/
 /backup/
+# ⚠️ `bringup/synth_check.tcl` 会在 `bringup/` 下生成一份 impl/（合成自检专用）⇒ 一并忽略
+bringup/impl/
 *.gprj.user
 *.fs
 *.binx

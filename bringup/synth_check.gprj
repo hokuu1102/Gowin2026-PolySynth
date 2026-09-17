@@ -1,0 +1,28 @@
+<?xml version="1" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<!--
+  synth_check.gprj - project used ONLY for the "does every module synthesise?" check
+  (see bringup/01-*.md section 3-5 and K-46).
+
+  WHY A SEPARATE PROJECT:
+    Gowin only COMPILES modules reachable from the top module. A file that is merely
+    listed gets "Analyzing ..." but NOT "Compiling module ...", so being listed is NOT
+    evidence of being synthesisable (K-46).  This project's top is
+    bringup/synth_check_top.v, which instantiates every module we want checked.
+
+  NOTE: synthesis only (no .cst needed, no bitstream, no board).
+  NOTE: keep this file ASCII-only for the Chinese-free paths we need here.
+-->
+<Project>
+    <Template>FPGA</Template>
+    <Version>5</Version>
+    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC2/I1">gw5at60b-003</Device>
+    <FileList>
+        <File path="../rtl/clk_gen.v" type="file.verilog" enable="1"/>
+        <File path="../rtl/rst_sync.v" type="file.verilog" enable="1"/>
+        <File path="../rtl/sync_input.v" type="file.verilog" enable="1"/>
+        <File path="../rtl/w3c/i2s_tx.v" type="file.verilog" enable="1"/>
+        <File path="../rtl/drivers/tlc5916_driver.sv" type="file.verilog" enable="1"/>
+        <File path="../bringup/synth_check_top.v" type="file.verilog" enable="1"/>
+    </FileList>
+</Project>

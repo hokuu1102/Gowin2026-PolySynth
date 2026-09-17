@@ -26,6 +26,10 @@ ERROR [A8] probe 出现 X/Z：xxxxxxxx (t=75670000)
 --- A1 反例：恰好 1 拍的窄脉冲（K-01 的真实故障形态）---
 ERROR [A1] oe_n 出现窄脉冲：有效电平只有 1 个 clk 周期（要求 ≥ 4）
   ok : A1 单周期窄脉冲被抓到（负向测试）
+--- A1b 亚周期毛刺（MIN_NS 路径，同步检查看不见的那种）---
+ERROR [A1] glitch_sig 出现亚周期毛刺：有效电平只有 3000（要求 ≥ 200 ns）
+  ok : A1b ⭐ 亚周期毛刺被真实时间检查抓到（1 次）—— 同步检查看不见它
+  ok : A1b 足够宽的脉冲未被真实时间检查误报
 --- A2 正例：LE 保持低时的移位 ---
   ok : A2 移位期间 LE 为低，不误报
 --- A2 反例：LE 为高时 SCK 出现边沿（K-03）---
@@ -40,6 +44,9 @@ ERROR [A4/A5] adc_cs_n 同时有 2 路有效（100）—— 片选必须互斥�
 --- A5 反例：MISO 两个驱动源同时使能 ---
 ERROR [A4/A5] miso_drv_en 同时有 2 路有效（011）—— 片选必须互斥、MISO 只能有单一驱动源
   ok : A5 多驱动源被抓到（负向测试）
+--- A4b 边界：三路片选同时有效（不是只看两路）---
+ERROR [A4/A5] adc_cs_n 同时有 3 路有效（000）—— 片选必须互斥、MISO 只能有单一驱动源
+  ok : A4b 三路同时有效也被抓到（err 2 次，计数逻辑正确）
 --- A7 正例：按 phase_inc 前进 ---
   ok : A7 正常前进不误报
 --- A7 正例：变调（只改 phase_inc）不误报 —— K-10 的正确做法 ---
@@ -51,4 +58,4 @@ ERROR [A7] phase_acc 相位增量异常：实测 4294937296，期望 5000（旧 
   ok : A7 合法的相位重启（jump_ok）未被误报
 
 PASS: A1/A2/A3/A4/A5/A6/A7/A8 结构类断言全部按预期工作（含负向测试）
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\checkers\tb_checkers.sv:313: $finish called at 77480000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\checkers\tb_checkers.sv:366: $finish called at 78420000 (1ps)

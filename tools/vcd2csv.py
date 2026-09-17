@@ -331,7 +331,20 @@ def main() -> int:
 
     width = args.width or tgt.width
     t0 = int(round(args.t0 / tick_s)) if args.t0 is not None else tgt.changes[0][0]
-    t1 = int(round(args.t1 / tick_s)) if args.t1 is not None else tgt.changes[-1][0]
+    # ⚠️⚠️ 默认时间窗的**上界**（2026-09-17 修，vcd2csv 的 `--on` 模式曾漏掉末尾采样点）：
+    #    原来 `t1` 默认取**目标信号**的最后一次变化时刻。但在 `--on SIGNAL --edge` 模式下，
+    #    采样时刻是由**另一个信号**决定的 —— 它的边沿可能**晚于**目标信号的最后一次变化。
+    #    实测反例：`sample` 在 t=15/25 变化、`tick` 在 t=20/45 上升
+    #      ⇒ 默认 `t1 = 25` ⇒ **t=45 那次采样被裁掉**（只导出 1 行、少了第 2 个点）。
+    #    ⇒ 修法：`--on` 模式下，默认上界取**两者变化时刻的最大值**（覆盖所有采样沿）。
+    #    ⚠️ 这不是"数值算错"，而是**默认窗口把数据裁掉** —— 属于"静默少点"，
+    #       对后面的 FFT/统计是隐性的（点数变少、频谱分辨率变差，但不会报错）。
+    if args.t1 is not None:
+        t1 = int(round(args.t1 / tick_s))
+    elif on_sig is not None and on_sig.changes:
+        t1 = max(tgt.changes[-1][0], on_sig.changes[-1][0])
+    else:
+        t1 = tgt.changes[-1][0]
 
     rows: list[str] = []
     xs = 0

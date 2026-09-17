@@ -48,6 +48,10 @@ module tb_i2s_tx;
     );
 
     // ── 激励：64 点正弦表 ───────────────────────────────────────────
+    // ⚠️⚠️ 本 tb 的激励**必须保持正弦**：它同时产出 M1 的证据链
+    //     （`sim/evidence/i2s_tx_l.csv` → FFT 单谱峰 + SNR）。
+    //     ⛔ 不要为了"覆盖更全"把它换成随机流 —— 那会让频谱变成噪声、毁掉证据。
+    //     ⭐ 值域覆盖由**独立的** `tb/w3c/tb_i2s_tx_prbs.sv` 负责（伪随机 + 逐位走查）。
     integer i;
     reg signed [SAMPLE_W-1:0] sine_tbl [0:63];
     initial begin

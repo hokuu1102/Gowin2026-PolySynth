@@ -43,6 +43,37 @@ module clk_gen #(
     //    ⇒ ⛔ 不要写成 `always @(posedge clk or negedge rst_n)`（那是异步复位，与约定不符）
     localparam integer CW = $clog2(CLK_PER_SAMPLE);   // 1024 → 10
 
+    // ⭐⭐ 参数合法性（R-17，2026-09-17 加）—— 本模块把 `$clog2` 当**移位量/位选**用，
+    //    只在"参数是 2 的幂"时才等于真除法/真取模。⛔ 否则会**静默给错频率**：
+    //      · `BCLK_DIV=12` ⇒ 实际仍按 ÷16 走（`cnt[3:0]`），BCLK 比预期低 33%
+    //      · `BCLK_DIV=2`  ⇒ `$clog2(BCLK_DIV/2)=0` ⇒ 零宽位选（`cnt[-1:0]`）
+    //      · `CLK_PER_SAMPLE` 非 2 的幂 ⇒ `cnt == CLK_PER_SAMPLE-1` 仍对，但 `bpos` 的
+    //        右移截断会让 `SLOT_BCK` 与实际时隙对不上
+    //    ⇒ 用 `initial` 在**仿真启动时**明确告警（⛔ 综合工具忽略 `initial`，所以这只是仿真侧防线；
+    //      上板前必须靠人检查 —— 已写进 `files/20-代码/工具链与Gowin工程.md` 的验收清单）。
+    function integer is_pow2;
+        input integer v;
+        begin
+            is_pow2 = (v > 0) && ((v & (v - 1)) == 0);
+        end
+    endfunction
+
+    localparam PARAM_OK = is_pow2(CLK_PER_SAMPLE) && is_pow2(BCLK_DIV) && is_pow2(MCLK_DIV)
+                          && (BCLK_DIV >= 2) && (MCLK_DIV >= 2)
+                          && (CLK_PER_SAMPLE >= BCLK_DIV);
+
+    initial begin
+        if (!PARAM_OK)
+            $display("ERROR [clk_gen] 参数必须全为 2 的幂且 BCLK_DIV/MCLK_DIV >= 2、CLK_PER_SAMPLE >= BCLK_DIV：CLK_PER_SAMPLE=%0d BCLK_DIV=%0d MCLK_DIV=%0d（当前实现把 $clog2 当移位量用 ⇒ 非 2 的幂会**静默给错频率**）",
+                     CLK_PER_SAMPLE, BCLK_DIV, MCLK_DIV);
+        // ⭐ R-05：跨模块一致性 —— `i2s_tx` 的每声道时隙数必须与这里算出来的一致。
+        //    真实约束：`CLK_PER_SAMPLE == BCLK_DIV × SLOT_BITS × 2`
+        //    （本模块只能检查"能被 2×BCLK_DIV 整除"，SLOT_BITS 由调用方在 tb/顶层核对）。
+        if ((CLK_PER_SAMPLE % (BCLK_DIV * 2)) != 0)
+            $display("ERROR [clk_gen] CLK_PER_SAMPLE(%0d) 不能被 2×BCLK_DIV(%0d) 整除 ⇒ 左右时隙不等长",
+                     CLK_PER_SAMPLE, BCLK_DIV * 2);
+    end
+
     reg [CW-1:0] cnt;
     always @(posedge clk) begin
         if (!rst_n)                         cnt <= {CW{1'b0}};

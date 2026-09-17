@@ -78,8 +78,30 @@ module chk_min_pulse #(
     end
 
     // ── ② 亚周期毛刺检查（可选）──────────────────────────────
+    // ⚠️⚠️ 初始化缺陷修复（2026-09-17，本模块自检抓出来的）：
+    //    原来 `lvl_o` 初值是 `1'b0`、`t_edge` 初值是 0。如果被监视信号**上电初值就是有效电平**
+    //    （例如 `ACTIVE_LOW=1` 而信号初值为 0），那么**第一次跳变**时判的是
+    //    "上一段是无效电平" ⇒ **第一个毛刺永远漏报**（本模块的自检用例正好命中这一点：
+    //    信号初值 1、打一个 3 ns 的低脉冲，结果 err=0）。
+    //    ⇒ 修法：**在复位释放那一刻，把 `lvl_o`/`t_edge` 对齐到信号的当前电平**
+    //      （而不是靠一个猜的初值）。这样"上电就有效的窄脉冲"也能被抓到。
+    reg armed;
+    initial begin
+        armed = 1'b0;
+    end
+
+    always @(posedge clk) begin
+        if (rst_n !== 1'b1) armed = 1'b0;
+        else if (!armed) begin
+            // 复位释放后的第一拍：把"上一段"初始化成**当前真实电平**与当前时刻
+            armed = 1'b1;
+            lvl_o = sig;
+            t_edge = $time;
+        end
+    end
+
     always @(sig) begin
-        if (rst_n === 1'b1 && MIN_NS > 0) begin
+        if (rst_n === 1'b1 && MIN_NS > 0 && armed) begin
             // 上一段电平（`lvl_o`）是否有效、且持续时间不足 MIN_NS
             if ((ACTIVE_LOW == 1 ? ~lvl_o : lvl_o) === 1'b1 && ($time - t_edge) < MIN_NS) begin
                 err_cnt = err_cnt + 32'd1;
@@ -91,7 +113,8 @@ module chk_min_pulse #(
             end
             t_edge = $time;
             lvl_o = sig;
-        end else begin
+        end else if (rst_n === 1'b1 && MIN_NS > 0 && !armed) begin
+            // 还没 armed：只跟踪，不判定（避免用未初始化状态误报）
             t_edge = $time;
             lvl_o = sig;
         end

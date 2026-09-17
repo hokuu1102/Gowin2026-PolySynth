@@ -1,0 +1,23 @@
+﻿VCD info: dumpfile build/sim/tb_i2s_tx_timing/tb_i2s_tx_timing.vcd opened for output.
+
+================ i2s_tx vs PT8211 timing ================
+  [manual] DAC samples DIN on BCK RISING edge; Fbck<=18.4MHz; tH>=25ns
+  [ours  ] tSU(min) = 160 ns   tHD(min) = 160 ns   (target >= 100 ns)
+           WS setup(min) = 160 ns
+           BCK tH(min) = 160 ns (>= 25) · tL(min) = 160 ns
+           BCK period = 320..320 ns (nominal 320) · WS period = 20480..20480 ns
+           DIN changes = 307 · BCK rising = 1153 · WS changes = 35
+           bit period with >1 DIN change = 0
+  A8     : din=0 bck=0 ws=0
+========================================================
+  ok : DIN setup to BCK rising edge = 160 ns (>= 100)
+  ok : DIN hold after BCK rising edge = 160 ns (>= 100)
+  ok : BCK high time = 160 ns (manual tH >= 25 ns)
+  ok : BCK period = 320..320 ns (= 3.125 MHz, manual max 18.4 MHz)
+  ok : WS period = 20480..20480 ns (= 48.828 kHz, manual max 384 kHz)
+  ok : WS setup to BCK rising edge = 160 ns (>= 100)
+  ok : no bit period had more than one DIN change (glitch-free)
+  ok : A8 no X/Z
+
+PASS: I2S output timing has >=100ns setup/hold around the DAC sampling edge (PT8211 manual limits met)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_i2s_tx_timing.sv:184: $finish called at 368891000 (1ps)

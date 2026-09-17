@@ -54,6 +54,19 @@ module top #(
     output wire led_heartbeat    // LEDs[0] = T18
 );
 
+    // ── ⭐ R-08：外部复位先同步（异步输入 → 同步释放）──────────────────
+    //    `rst_n` 来自板上按键，是**异步**输入；直接当同步复位分发，可能让不同 FF
+    //    在释放沿采到不同值（一部分复位、一部分没复位，且各模块互相不一致）。
+    //    `rst_sync` 把它过两级 FF ⇒ 释放沿在全设计里**严格同一个时钟沿**。
+    //    ⚠️ 代价：复位生效晚 2 拍（40 ns），对本设计无影响。
+    //    ⛔ 注意它**不**去抖按键抖动（那是 `debounce`/T14 的事）。
+    wire rst_n_sync;
+    rst_sync #(.STAGES(2)) u_rst_sync (
+        .clk         (clk),
+        .rst_n_async (rst_n),
+        .rst_n_sync  (rst_n_sync)
+    );
+
     // ── 时基 ────────────────────────────────────────────────────────
     wire tick_audio, mclk_en, bclk_en, bclk_half_en, lrclk, frame_start;
 
@@ -63,7 +76,7 @@ module top #(
         .MCLK_DIV       (4)       // MCLK = 12.5 MHz（板载 DAC 不用，留作观测）
     ) u_clk_gen (
         .clk          (clk),
-        .rst_n        (rst_n),
+        .rst_n        (rst_n_sync),
         .tick_audio   (tick_audio),
         .mclk_en      (mclk_en),
         .bclk_en      (bclk_en),
@@ -85,7 +98,7 @@ module top #(
         .LRCK_POL  (0)
     ) u_i2s_tx (
         .clk          (clk),
-        .rst_n        (rst_n),
+        .rst_n        (rst_n_sync),
         .bclk_en      (bclk_en),
         .bclk_half_en (bclk_half_en),
         .frame_start  (frame_start),
@@ -96,29 +109,62 @@ module top #(
         .HP_DIN       (HP_DIN)
     );
 
-    // ── ⭐ 安全态：功放使能（低有效）────────────────────────────────
+    // ── ⭐⭐ 安全态：功放使能（低有效）—— 但**不是普通使能**！──────────────
+    //   🔴 **2026-09-17 查 `NS4263` 手册原件后的重大发现**：
+    //     板载功放 `NS4263` 的 `SD` 脚（= 我们的 `PA_EN_n`）是**"一线脉冲控制"**，
+    //     ⛔ **不是简单的使能电平** —— 它靠**下降沿的个数**决定工作模式。
+    //     手册 §10.1 原文的模式表：
+    //       | `SD`                        | `HP-IN` | 工作模式            |
+    //       | **初始化低 或 一个下降沿**   | 逻辑低   | **AB 类，桥式输出**  | ← ⭐ 我们要的
+    //       | **连续两个下降沿**           | 逻辑低   | **D 类，桥式输出**   | ← ⚠️ 音色/EMI 不同
+    //       | 低                          | 逻辑高   | AB 类，单端（耳机）  |
+    //       | **高（>100 µs）**            | 低/高    | **低功耗关断**       |
+    //     ⚠️⚠️ 而且手册电气特性表给了 `THI SD 高电平时间 1~12 µs` / `TLO SD 低电平时间 1~12 µs`
+    //       ⇒ **高/低电平的持续时间也在被计数** —— 与 `TLC5916` 的 Special Mode 是**同类陷阱**。
+    //
+    //   ⭐ 对本设计的两条要求（**这就是本段代码存在的理由**）：
+    //     ① **上电到稳态只允许出现恰好 1 个下降沿**（= 进 AB 类）。
+    //        ⛔ 绝不能让"复位/抖动"产生**第 2 个**下降沿（那会切到 **D 类**）。
+    //        ⇒ 本模块的做法：`PA_ON_AFTER_RESET=0` 时**永远输出高**（0 个下降沿 = 关断，安全）；
+    //          置 1 时**只在复位释放后延时一次**拉低（**恰好 1 个下降沿**）。
+    //     ② ⭐ **关断要走"高电平 > 100 µs"这条路**（手册：高 >100 µs = 低功耗关断），
+    //        ⛔ 而不是"再给一个下降沿"。
+    //     ⚠️ 代价与现状：M0 安全态是"永久关断"，所以**当前不会有任何下降沿**；
+    //        等真正开功放（`PA_ON_AFTER_RESET=1`）时才会有那**唯一**一个下降沿。
+    //     ⛔ 不要为了"关断功放"把 `pa_en_n_r` 再拉低一次 —— 那会变成 D 类。
     reg pa_en_n_r;
 
     generate
         if (PA_ON_AFTER_RESET == 0) begin : g_pa_off
-            // M0 安全态：**永远关断**（无窄脉冲、无上电"啪"声）
+            // M0 安全态：**永远关断**（0 个下降沿；无窄脉冲、无上电"啪"声）
             always @(posedge clk) begin
-                if (!rst_n) pa_en_n_r <= 1'b1;
-                else        pa_en_n_r <= 1'b1;
+                if (!rst_n_sync) pa_en_n_r <= 1'b1;
+                else             pa_en_n_r <= 1'b1;
             end
         end else begin : g_pa_on
-            // 复位释放后等 `PA_ON_DELAY` 拍再开（避免上电瞬态）
-            reg [23:0] pa_cnt;
+            // ⭐ **一次性**延时开功放：复位释放后等 `PA_ON_DELAY` 拍，然后**永久保持低**
+            //    ⇒ 全程**恰好 1 个下降沿** ⇒ NS4263 进 **AB 类桥式输出**（我们要的）。
+            //    ⚠️ `pa_cnt` 位宽必须**够装下 `PA_ON_DELAY`**（原来 24 位，>16.7M 会永不到 ⇒ R-16）。
+            //       这里用 `$clog2` 自动算宽度。
+            localparam integer PA_CNT_W = (PA_ON_DELAY < 2) ? 1 : $clog2(PA_ON_DELAY + 1);
+            reg [PA_CNT_W-1:0] pa_cnt;
+            reg                pa_done;      // ⭐ 已开过 ⇒ 之后**永不再变**（保证只有 1 个下降沿）
             always @(posedge clk) begin
-                if (!rst_n) begin
-                    pa_cnt    <= 24'd0;
-                    pa_en_n_r <= 1'b1;              // ⭐ 复位期间关断
-                end else if (pa_cnt < PA_ON_DELAY) begin
-                    pa_cnt    <= pa_cnt + 1'b1;
-                    pa_en_n_r <= 1'b1;              // ⭐ 计时期间也保持关断
-                end else begin
-                    pa_en_n_r <= 1'b0;              // 开功放
+                if (!rst_n_sync) begin
+                    pa_cnt    <= {PA_CNT_W{1'b0}};
+                    pa_done   <= 1'b0;
+                    pa_en_n_r <= 1'b1;              // ⭐ 复位期间关断（高）
+                end else if (!pa_done) begin
+                    if (pa_cnt < PA_ON_DELAY[PA_CNT_W-1:0]) begin
+                        pa_cnt    <= pa_cnt + 1'b1;
+                        pa_en_n_r <= 1'b1;          // ⭐ 计时期间保持关断（高）
+                    end else begin
+                        pa_done   <= 1'b1;          // ⭐ 锁死：这是**唯一**的下降沿
+                        pa_en_n_r <= 1'b0;          // 开功放（1→0，恰好 1 个下降沿）
+                    end
                 end
+                // ⚠️ `pa_done` 之后**不再有任何赋值** ⇒ `pa_en_n_r` 永久保持 0
+                //    （⛔ 不要加"关断"分支：那会产生第 2 个下降沿 ⇒ D 类）
             end
         end
     endgenerate
@@ -130,7 +176,7 @@ module top #(
     reg        hb;
 
     always @(posedge clk) begin
-        if (!rst_n) begin
+        if (!rst_n_sync) begin
             hb_cnt <= 32'd0;
             hb     <= 1'b0;
         end else if (hb_cnt >= HEARTBEAT_DIV - 1) begin

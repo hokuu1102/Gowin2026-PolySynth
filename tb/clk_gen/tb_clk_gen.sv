@@ -28,7 +28,18 @@ module tb_clk_gen;
     reg rst_n = 1'b0;
     always #(T/2) clk = ~clk;
 
-    wire tick_audio, mclk_en, bclk_en, lrclk, frame_start;
+    // ⭐ 2026-09-17（R-11 修复）：`bclk_half_en` 与 `frame_start` 原来**既没接进测量、
+    //    也没有任何断言** —— 而 `i2s_tx` 的正确性**恰好依赖这两个的相位**：
+    //      · `bclk_half_en` 决定 `HP_BCK` 的翻转时刻（数据/采样沿的相位关系）
+    //      · `frame_start` 决定"第 0 位"在哪一拍（帧内位对齐）
+    //    ⇒ 本 tb 现在对它们补三条判据：
+    //      ① `bclk_half_en` 间隔恒 = BCLK_DIV/2（= 8），且**恰好每 2 次 `bclk_en` 出现 1 次**
+    //      ② `bclk_half_en` 与 `bclk_en` **同拍**（i2s_tx 的 `if (bclk_half_en) HP_BCK <= ~HP_BCK;`
+    //         与 `else if (bclk_en)` 的相对关系依赖这一点）
+    //      ③ `frame_start` 间隔恒 = CLK_PER_SAMPLE，且**必须与 `bclk_en` 同拍**
+    //         （`i2s_tx` 用 `if (frame_start) … else if (bclk_en)` ⇒ 两者若不同拍，
+    //          就等于"偷掉/多算一个位槽"，且 `HP_BCK` 相位与帧的关系不再固定）
+    wire tick_audio, mclk_en, bclk_en, bclk_half_en, lrclk, frame_start;
 
     // ── A8 监视（必须声明在被连信号之后、例化之前）────────────────────
     wire [31:0] a8_lrclk, a8_bclk, a8_tick;
@@ -46,6 +57,7 @@ module tb_clk_gen;
         .tick_audio  (tick_audio),
         .mclk_en     (mclk_en),
         .bclk_en     (bclk_en),
+        .bclk_half_en(bclk_half_en),
         .lrclk       (lrclk),
         .frame_start (frame_start)
     );
@@ -63,6 +75,16 @@ module tb_clk_gen;
     integer lrclk_low_at_tick;           // 帧起点处 lrclk 为低的次数
     integer n_tick_checked;
 
+    // ── ⭐ R-11 新增：`bclk_half_en` 与 `frame_start` 的测量（原来完全没测）────
+    integer n_half, last_half, gap_half_min, gap_half_max;
+    integer n_frame, last_frame, gap_frame_min, gap_frame_max;
+    integer half_without_bclk;           // `bclk_half_en` 出现但 `bclk_en` 没出现的次数
+    integer bclk_without_half;           // `bclk_en` 出现但 `bclk_half_en` 没出现的次数
+    integer frame_without_bclk;          // `frame_start` 出现但 `bclk_en` 没出现的次数
+    integer bclk_without_frame;          // `bclk_en` 与 `frame_start` 同拍次数（应等于帧数）
+    integer half_pairs;                  // 每两次 `bclk_en` 之间 `bclk_half_en` 的次数统计
+    integer half_since_bclk;             // 距上次 `bclk_en` 以来 `bclk_half_en` 的次数
+
     initial begin
         $dumpfile("build/sim/tb_clk_gen/tb_clk_gen.vcd");
         $dumpvars(0, tb_clk_gen);
@@ -74,6 +96,13 @@ module tb_clk_gen;
         gap_bclk_min = 1 << 30; gap_bclk_max = 0;
         gap_mclk_min = 1 << 30; gap_mclk_max = 0;
         lrclk_low_at_tick = 0; n_tick_checked = 0;
+
+        // R-11 新增
+        n_half = 0; last_half = -1; gap_half_min = 1 << 30; gap_half_max = 0;
+        n_frame = 0; last_frame = -1; gap_frame_min = 1 << 30; gap_frame_max = 0;
+        half_without_bclk = 0; bclk_without_half = 0;
+        frame_without_bclk = 0; bclk_without_frame = 0;
+        half_pairs = 0; half_since_bclk = 0;
 
         // 复位
         rst_n = 1'b0;
@@ -90,6 +119,14 @@ module tb_clk_gen;
         $display("  tick_audio  : %0d 次 · 间隔 min=%0d max=%0d clk", n_tick, gap_tick_min, gap_tick_max);
         $display("  bclk_en     : %0d 次 · 间隔 min=%0d max=%0d clk", n_bclk, gap_bclk_min, gap_bclk_max);
         $display("  mclk_en     : %0d 次 · 间隔 min=%0d max=%0d clk", n_mclk, gap_mclk_min, gap_mclk_max);
+        $display("  bclk_half_en: %0d 次 · 间隔 min=%0d max=%0d clk（期望 %0d）",
+                 n_half, gap_half_min, gap_half_max, BCLK_DIV / 2);
+        $display("  frame_start : %0d 次 · 间隔 min=%0d max=%0d clk（期望 %0d）",
+                 n_frame, gap_frame_min, gap_frame_max, CLK_PER_SAMPLE);
+        $display("  相位关系    : bclk_en 缺 half 的拍数 %0d · half 缺 bclk_en 的拍数 %0d",
+                 bclk_without_half, half_without_bclk);
+        $display("                frame_start 缺 bclk_en 的拍数 %0d · bclk_en∩frame_start 次数 %0d（= 帧数）",
+                 frame_without_bclk, bclk_without_frame);
         $display("  lrclk       : 低 %0d / 高 %0d 个 clk", n_lrclk_low, n_lrclk_high);
         $display("--------------------------------------------------");
         $display("  ⇒ fs   = 50 MHz / %0d = %.6f kHz", CLK_PER_SAMPLE, 50000.0 / CLK_PER_SAMPLE);
@@ -171,8 +208,72 @@ module tb_clk_gen;
             errors = errors + 1;
         end
 
+        // ── ⭐ R-11 判据：`bclk_half_en` 与 `frame_start`（i2s_tx 的时序前提）──
+        if (gap_half_min == BCLK_DIV / 2 && gap_half_max == BCLK_DIV / 2)
+            $display("  ok : bclk_half_en 间隔恰好 %0d clk（HP_BCK 翻转节拍精确）", BCLK_DIV / 2);
+        else begin
+            $display("FAIL: bclk_half_en 间隔不是恰好 %0d（min=%0d max=%0d）",
+                     BCLK_DIV / 2, gap_half_min, gap_half_max);
+            errors = errors + 1;
+        end
+
+        // ⚠️ 判据纠正（2026-09-17，本 tb 第一版写反了）：
+        //    `bclk_en` 每 `BCLK_DIV`(16) 拍一次；`bclk_half_en` 每 `BCLK_DIV/2`(8) 拍一次
+        //    ⇒ **`half` 是 `bclk` 的 2 倍**（不是同拍！）。"半周期翻转"的含义正是：
+        //      每 16 拍里有 2 次 `half`，其中**只有 1 次**与 `bclk` 同拍（数据/WS 更新那一拍），
+        //      另 1 次在中间（HP_BCK 翻到另一半）——**这就是数据窗居中的来源**。
+        //    ⇒ 正确的三条判据是：
+        //      ① `half` 次数 = 2 × `bclk` 次数
+        //      ② 每个 `bclk` 那拍**必定**同时有 `half`（`bclk_without_half == 0`）
+        //      ③ `half` 里与 `bclk` 不同拍的那部分**恰好占一半**（`half_without_bclk == n_bclk`）
+        if (bclk_without_half == 0)
+            $display("  ok : 每个 bclk_en 那拍都同时有 bclk_half_en（%0d 次）", n_bclk);
+        else begin
+            $display("FAIL: 有 %0d 次 bclk_en 没有伴随 bclk_half_en", bclk_without_half);
+            errors = errors + 1;
+        end
+
+        if (n_half == 2 * n_bclk)
+            $display("  ok : bclk_half_en : bclk_en = 2:1（%0d : %0d）—— 半周期翻转节拍正确", n_half, n_bclk);
+        else begin
+            $display("FAIL: bclk_half_en : bclk_en 不是 2:1（%0d : %0d）", n_half, n_bclk);
+            errors = errors + 1;
+        end
+
+        if (half_without_bclk == n_bclk)
+            $display("  ok : bclk_half_en 中恰好一半不与 bclk_en 同拍（%0d 次）⇒ 数据窗居中",
+                     half_without_bclk);
+        else begin
+            $display("FAIL: bclk_half_en 与 bclk_en 不同拍的次数应为 %0d，实测 %0d",
+                     n_bclk, half_without_bclk);
+            errors = errors + 1;
+        end
+
+        if (gap_frame_min == CLK_PER_SAMPLE && gap_frame_max == CLK_PER_SAMPLE)
+            $display("  ok : frame_start 间隔恰好 %0d clk（每帧一次）", CLK_PER_SAMPLE);
+        else begin
+            $display("FAIL: frame_start 间隔不是恰好 %0d（min=%0d max=%0d）",
+                     CLK_PER_SAMPLE, gap_frame_min, gap_frame_max);
+            errors = errors + 1;
+        end
+
+        if (frame_without_bclk == 0)
+            $display("  ok : frame_start **必定与 bclk_en 同拍**（i2s_tx 的帧内位对齐前提）");
+        else begin
+            $display("FAIL: 有 %0d 次 frame_start 不与 bclk_en 同拍 —— i2s_tx 会偷掉/多算一个位槽",
+                     frame_without_bclk);
+            errors = errors + 1;
+        end
+
+        if (n_frame > 0 && bclk_without_frame == n_frame)
+            $display("  ok : 每帧恰好一个 frame_start（%0d 帧 → %0d 次同拍）", n_frame, bclk_without_frame);
+        else begin
+            $display("FAIL: 每帧的 frame_start 次数不对（%0d 帧 → %0d 次同拍）", n_frame, bclk_without_frame);
+            errors = errors + 1;
+        end
+
         $display("");
-        if (errors == 0) $display("PASS: clk_gen 时基全部符合（分频链精确 + 极差为 0 + 无 X）");
+        if (errors == 0) $display("PASS: clk_gen 时基全部符合（分频链精确 + 极差为 0 + 相位关系正确 + 无 X）");
         else             $fatal(1, "FAIL: clk_gen 时基有 %0d 项不符合预期", errors);
 
         #100;
@@ -203,6 +304,37 @@ module tb_clk_gen;
                     if (t_win - last_bclk > gap_bclk_max) gap_bclk_max = t_win - last_bclk;
                 end
                 last_bclk = t_win;
+
+                // ⭐ R-11：`bclk_en` 与 `bclk_half_en` 必须同拍（i2s_tx 依赖这个相对关系）
+                if (bclk_half_en !== 1'b1) bclk_without_half = bclk_without_half + 1;
+                // ⭐ R-11：`bclk_en` 与 `frame_start` 同拍 ⇒ 该次就是"帧的第 0 个 BCLK"
+                if (frame_start === 1'b1) bclk_without_frame = bclk_without_frame + 1;
+                // ⭐ R-11：统计"两次 bclk_en 之间 bclk_half_en 出现了几次"（应为 2）
+                half_pairs = half_pairs + 1;
+                half_since_bclk = 0;
+            end
+
+            // ── ⭐ R-11 新增：`bclk_half_en`（HP_BCK 的翻转使能）──
+            if (bclk_half_en === 1'b1) begin
+                n_half = n_half + 1;
+                half_since_bclk = half_since_bclk + 1;
+                if (last_half >= 0) begin
+                    if (t_win - last_half < gap_half_min) gap_half_min = t_win - last_half;
+                    if (t_win - last_half > gap_half_max) gap_half_max = t_win - last_half;
+                end
+                last_half = t_win;
+                if (bclk_en !== 1'b1) half_without_bclk = half_without_bclk + 1;
+            end
+
+            // ── ⭐ R-11 新增：`frame_start`（帧内第 0 个 BCLK）──
+            if (frame_start === 1'b1) begin
+                n_frame = n_frame + 1;
+                if (last_frame >= 0) begin
+                    if (t_win - last_frame < gap_frame_min) gap_frame_min = t_win - last_frame;
+                    if (t_win - last_frame > gap_frame_max) gap_frame_max = t_win - last_frame;
+                end
+                last_frame = t_win;
+                if (bclk_en !== 1'b1) frame_without_bclk = frame_without_bclk + 1;
             end
 
             if (mclk_en === 1'b1) begin

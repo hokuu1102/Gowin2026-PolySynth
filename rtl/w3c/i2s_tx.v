@@ -20,7 +20,10 @@
 // ⭐ 因此本模块把"格式"全部做成**参数**：
 //    · `JUSTIFY=1` 右对齐（LSBJ / 日本格式，**当前默认，PT8211 用这个**）
 //    · `JUSTIFY=0` 左对齐（Philips 标准 I2S：MSB 相对时隙起点延迟 `MSB_DELAY` 个 BCK）
-//    📌 `SLOT_BITS == DATA_BITS` 时（每声道 16 个 BCK）两者**完全等价**。
+//    📌 `SLOT_BITS == DATA_BITS` 且 `MSB_DELAY == 0` 时两者**完全等价**。
+//       ⚠️ 但 `SLOT_BITS == DATA_BITS` 而 `MSB_DELAY == 1`（Philips 的常规取值）时
+//       左对齐**放不下** `DATA_BITS` 位 ⇒ **最低 1 位被静默丢弃**（见下方 `PARAM_OK` 自检）。
+//       ⇒ ⛔ "16 BCK 时隙 + 16 bit 数据 + MSB 延迟 1" 这个组合**本身不自洽**，别用。
 //
 // ⭐⭐ 时序约定（踩过两次才定下来，⛔ 别改回去）
 //   1. **一帧只在 `frame_start` 装载一次左右样点**。
@@ -30,8 +33,31 @@
 //      ⛔ 用非阻塞赋值的话，第 0 位会拿到上一帧的旧值。
 //   3. `HP_WS` **由本模块自己的计数器决定**（帧边界强制为左、进入右时隙置右），
 //      ⛔ 不要直通 `clk_gen` 的 `lrclk` 寄存器 —— 它比位边界晚一拍，会让 WS 与数据错开半个 BCK。
-//   4. `HP_BCK` 由 `bclk_half_en` 翻转（周期 = 16 clk = 3.125 MHz），数据在 `bclk_en` 边界更新
-//      ⇒ DAC 在 `HP_BCK` 的另一个边沿采样时，数据已稳定半个周期 ✅
+//   4. ⭐⭐ **数据必须在 `HP_BCK` 的"另一个边沿"上变化**（2026-09-17 修，见下）。
+//
+// ⭐⭐⭐ 为什么 `HP_BCK` 复位值是 **1**（不是 0）—— 2026-09-17 根据 **PT8211 手册原文**修
+//   手册（Princeton PT8211 V1.5 §FUNCTION DESCRIPTION）逐字写着：
+//     · "Each valid DIN data will be shifted to the input register in the
+//        **rising edge of the BCK**"            ⇒ **DAC 在 BCK 上升沿采 DIN**
+//     · "…the serial bus input data format … is **Japanese or LSBJ**" ⇒ 右对齐（本模块 `JUSTIFY=1`）
+//     · "When the Word Select (WS) clock in the **Low** level, the DIN data will be shifted
+//        to the **right** input register … High level → **left**"  ⇒ ⚠️ **WS 低 = 右声道**
+//        （⛔ 与标准 Philips I2S 相反！本项目音频是**单声道**（左右同一路）⇒ 无听感影响，
+//          真要分左右时用 `LRCK_POL` 参数切；⛔ 别再照抄"WS 低 = 左"这个 I2S 说法）
+//   ⇒ 既然 DAC 在**上升沿**采样，数据就**必须**在**下降沿**变化，否则两者同拍、
+//     建立时间 ≈ 0（实测：修之前 `HP_BCK` 与 `HP_DIN` 在**同一个 clk 沿**更新）。
+//   ⚠️ **这个缺陷仿真抓不到**：`tb/models/i2s_rx_model.sv` 是"检测到 BCK 上升沿后**再打一拍**"才取
+//     DIN（等价于在上升沿后 20 ns 采样），因此它对"数据在哪个边沿变化"完全不敏感 ——
+//     ⛔ 这也是"仿真全过、上板错位"的典型来源。真正的判据见 `tb/w3c/tb_i2s_tx_timing.sv`
+//     （逐位量"数据变化沿 → 最近的 BCK 上升沿"的间隔，要求 ≥ 半个位周期）。
+//   ✅ 改法：`HP_BCK` 复位值取 **1** ⇒ 它在 `cnt==1`（= 数据/WS 更新那一拍）**下降**、
+//     在 `cnt==9` **上升**（`bclk_half_en` 每 8 拍一次、`bclk_en` 每 16 拍一次）
+//      ⇒ ⭐ **采样沿正好落在数据窗正中**：数据在下降沿变 → **建立 8 clk = 160 ns**；
+//        上升沿采样后再过 **保持 8 clk = 160 ns** 才轮到下一次数据变化。
+//        （一个位周期 16 clk = 320 ns，DAC 采样点距两侧各 160 ns —— 理想值。）
+//      ⛔ 不要"为了好看"把它改回 0 —— 那会把这个余量重新变成 0（数据与采样同拍）。
+//      ⚠️ 判据见 `tb/w3c/tb_i2s_tx_timing.sv`（逐位量"数据变化沿 → 最近 BCK 上升沿"的间隔，
+//        并把 PT8211 手册的 tH ≥ 25 ns / Fbck ≤ 18.4 MHz / Fws ≤ 384 kHz 一起断言）。
 //
 // ⛔ 不用 PLL、不用门控时钟：所有输出都是"由 clk 寄存出来"的引脚信号。
 // ─────────────────────────────────────────────────────────────────────────────
@@ -60,14 +86,54 @@ module i2s_tx #(
 
     localparam integer BW = $clog2(SLOT_BITS);
 
+    // ── ⚠️ 参数合法性（2026-09-17 加：扫档验证时发现的**静默截断**缺陷）──────────
+    // ① 左对齐（标准 I2S）要求时隙里**放得下** `MSB_DELAY + DATA_BITS` 位。
+    //   ⛔ 反例：`SLOT_BITS=16 / DATA_BITS=16 / MSB_DELAY=1`
+    //      ⇒ MSB 落在 bit1、LSB 应落在 **bit16**，而位序号只到 **bit15**
+    //      ⇒ **LSB 永远发不出去**，实际只发了 15 位（**静默截断，仿真/上板都不会报错**）。
+    //   ⭐ 这不是"实现 bug"，而是**Philips I2S 用 16 个 BCK 装 16 bit 数据本身不自洽**：
+    //      要么 `MSB_DELAY=0`（此时左对齐与右对齐**完全等价**），要么时隙 ≥ `DATA_BITS + MSB_DELAY`。
+    // ② ⭐ 右对齐（`JUSTIFY=1`）要求时隙 ≥ `DATA_BITS`，否则 `i2 = b-(SLOT_BITS-DATA_BITS)` 为正
+    //      ⇒ 取到的是**低位**（丢掉 MSB ⇒ 等于噪声）。同样静默。
+    //   ⇒ 本参数供 tb 直接引用（单一事实来源），并在仿真启动时告警（⛔ 综合工具忽略 `initial`）。
+    localparam PARAM_OK =
+        ((JUSTIFY == 0) ? (SLOT_BITS >= (DATA_BITS + MSB_DELAY)) : (SLOT_BITS >= DATA_BITS))
+        && (SLOT_BITS >= 2) && (DATA_BITS >= 1);
+
+    // ⭐ 取高 `min(DATA_BITS, SAMPLE_W)` 位（R-07）—— 用下面 `top_bits()` 函数做，见 L116 起。
+    //    ⛔ 原来直接写 `sh_l[SAMPLE_W-1 -: DATA_BITS]`：当 `DATA_BITS > SAMPLE_W` 时
+    //       低位越界 —— 仿真给 x、多数综合器零扩展 ⇒ **两边不一致**（"仿真过、上板错"那一类）。
+
+    initial begin
+        if (!PARAM_OK)
+            $display("ERROR [i2s_tx] 参数不自洽：JUSTIFY=%0d SLOT_BITS=%0d DATA_BITS=%0d MSB_DELAY=%0d ⇒ 会有数据位被**静默丢弃**",
+                     JUSTIFY, SLOT_BITS, DATA_BITS, MSB_DELAY);
+        if (DATA_BITS > SAMPLE_W)
+            $display("ERROR [i2s_tx] DATA_BITS(%0d) > SAMPLE_W(%0d)：高 %0d 位将被零扩展（确认这是你要的）",
+                     DATA_BITS, SAMPLE_W, DATA_BITS - SAMPLE_W);
+    end
+
     reg [BW-1:0]              bit_cnt;   // 当前时隙内位序号 0..SLOT_BITS-1
     reg                       ch;        // 0 = 左、1 = 右
     reg signed [SAMPLE_W-1:0] sh_l, sh_r;
 
-    // 取高 DATA_BITS 位（24 bit 内部样点 → 16 bit DAC；⛔ 直接截断、未做舍入/抖动）
-    wire [DATA_BITS-1:0] d16_l = sh_l[SAMPLE_W-1 -: DATA_BITS];
-    wire [DATA_BITS-1:0] d16_r = sh_r[SAMPLE_W-1 -: DATA_BITS];
-    wire [DATA_BITS-1:0] d16   = (ch == 1'b0) ? d16_l : d16_r;
+    // ⭐ 取高 `min(DATA_BITS, SAMPLE_W)` 位（R-07，2026-09-17 修）
+    //    ⛔ 原来直接写 `sh_l[SAMPLE_W-1 -: DATA_BITS]`：当 `DATA_BITS > SAMPLE_W` 时
+    //       低位越界 —— 仿真给 x、多数综合器零扩展 ⇒ **两边不一致**（"仿真过、上板错"那一类）。
+    //    ⇒ 用函数按位取：`k < SAMPLE_W` 才取，其余补 0（常量循环，可综合）。
+    function [DATA_BITS-1:0] top_bits;
+        input [SAMPLE_W-1:0] s;
+        integer k;
+        begin
+            top_bits = {DATA_BITS{1'b0}};
+            for (k = 0; k < DATA_BITS; k = k + 1)
+                if (k < SAMPLE_W) top_bits[DATA_BITS-1-k] = s[SAMPLE_W-1-k];
+        end
+    endfunction
+
+    wire [DATA_BITS-1:0] d16_l = top_bits(sh_l);
+    wire [DATA_BITS-1:0] d16_r = top_bits(sh_r);
+    // ⚠️ 原来这里还有一个 `wire d16 = (ch==0)?d16_l:d16_r;`，**从未被引用**（死逻辑，U-9）⇒ 已删。
 
     // 当前位序号应输出的数据位（两种对齐都实现）
     // ⚠️ 必须是**函数**（按传入的 b 计算），⛔ 不能用"组合 always 算好的 bit_out"：
@@ -97,8 +163,8 @@ module i2s_tx #(
             ch      <= 1'b0;
             sh_l    <= {SAMPLE_W{1'b0}};
             sh_r    <= {SAMPLE_W{1'b0}};
-            HP_BCK  <= 1'b0;
-            HP_WS   <= 1'b0 ^ LRCK_POL[0];      // 复位后 = 左声道
+            HP_BCK  <= 1'b1;                    // ⭐ 复位值 = 1（见文件头 R-03：数据在 BCK 下降沿变化）
+            HP_WS   <= 1'b0 ^ LRCK_POL[0];      // 复位后 = 左声道（⚠️ PT8211 手册是"WS 低=右"，见文件头）
             HP_DIN  <= 1'b0;
         end else begin
             if (bclk_half_en) HP_BCK <= ~HP_BCK;   // 3.125 MHz 方波（寄存输出，不是门控时钟）
@@ -110,7 +176,14 @@ module i2s_tx #(
                 bit_cnt = {BW{1'b0}};
                 ch      = 1'b0;
                 HP_WS   <= 1'b0 ^ LRCK_POL[0];     // 帧起点 = 左声道
-                HP_DIN  <= calc_bit({BW{1'b0}}, d16_l);   // 用**刚装载**的数据算第 0 位
+                // ⭐⭐ 这里必须**直接用 `sample_l`**，⛔ 不能用 `d16_l`（2026-09-17 修，R-04）
+                //    `d16_l` 是由 `sh_l` **连续赋值**派生出来的网线：仿真里
+                //    `sh_l = sample_l;`（阻塞）之后，连续赋值要等到**下一个 delta** 才更新，
+                //    所以本拍读 `d16_l` 拿到的是**上一帧**的数据；而综合器按"新值"处理
+                //    ⇒ **仿真与综合不一致**（正是"仿真过、上板错"那一类）。
+                //    默认档（`SLOT_BITS=32`）看不出来：第 0 位落在时隙前部、`calc_bit` 恒为 0；
+                //    ⚠️ 一旦 `SLOT_BITS == DATA_BITS`（16 BCK 时隙），**第 0 位就是 MSB** ⇒ 立刻错。
+                HP_DIN  <= calc_bit({BW{1'b0}}, top_bits(sample_l));
             end else if (bclk_en) begin
                 if (bit_cnt == SLOT_BITS - 1) begin
                     bit_cnt = {BW{1'b0}};

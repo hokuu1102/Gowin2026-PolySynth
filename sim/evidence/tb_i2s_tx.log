@@ -20,4 +20,4 @@
   ok : A8 无 X/Z 传播（HP_BCK/HP_WS/HP_DIN）
 
 PASS: i2s_tx + S2 解串逐点一致（M1 的核心判据通过）
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_i2s_tx.sv:218: $finish called at 5325051000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_i2s_tx.sv:222: $finish called at 5325051000 (1ps)
