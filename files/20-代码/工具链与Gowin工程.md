@@ -113,17 +113,38 @@ create_clock -name clk_sys -period 20 -waveform {0 10} [get_ports {clk}]
 
 ---
 
-## 六、怎么加一个新模块（一行）
+## 六、怎么加一个新模块（一行）—— ⚠️ 这里有个**静默**陷阱
 
 在 `Gowin2026.gprj` 的 `<FileList>` 里加一行：
 
 ```xml
-<File path="rtl/xxx.v" type="file.verilog" enable="1"/>
+<File path="rtl/xxx.v"  type="file.verilog" enable="1"/>
+<File path="rtl/xxx.sv" type="file.verilog" enable="1"/>   <!-- ⭐ .sv 也是 file.verilog！ -->
 ```
 
-> ⚠️ `.sv` 文件对应的 `type` 取值**待首次实测确认后再写进文档**（⛔ 不凭猜写）。
-> ⭐ **只加"顶层真正会例化到"的模块** —— 否则别人的半成品会挡住你的构建，
-> 出错时分不清是谁的问题。
+> ### ⛔⛔ 陷阱：文件 `type` 写错时，高云**不报错、直接静默跳过**（2026-09-17 实测）
+> 我一开始把 `.sv` 猜成 `type="file.systemverilog"` —— 构建**照样 exit 0、照样出 bitstream**，
+> 但日志里**既没有** `Analyzing … xxx.sv`、**也没有** `Compiling module 'xxx'`。
+> 也就是说：**文件"看起来登记进工程了"，其实压根没被读**。
+> ⇒ 如果 `top` 例化了它，就会变成"例化了一个不存在的模块"；如果没例化，你会以为"我的模块过了工具链"，**其实没有**。
+>
+> ✅ **正确做法**（依据：Gowin 自带例程 `<Gowin安装>\IDE\data\examples\cpu\cpu.gprj` —— 它的 `.sv` 全部登记为 `type="file.verilog"`）：
+> 1. `.v` 与 `.sv` **都用 `type="file.verilog"`**；
+> 2. ⭐ **每次加完文件，去日志里确认那两行真的出现了**：
+>    ```text
+>    Analyzing Verilog file '…\rtl\drivers\tlc5916_driver.sv'
+>    Compiling module 'tlc5916_driver'(…)
+>    ```
+>    只有第 1 行 = **只做了语法解析**；两行都有 = 真的进了综合。
+
+> ### ⚠️ 第二条（同样重要）：**"被解析" ≠ "被综合"**
+> 没有被顶层例化到的模块，Gowin **只分析、不编译**（实测：`tlc5916_driver.sv` 登记正确后，
+> 日志只有 `Analyzing`、没有 `Compiling module 'tlc5916_driver'`）。
+> ⇒ **"这个模块能综合"这句话，只有在它被顶层可达地例化之后才成立。**
+> ⛔ 别拿"我把它加进工程了、构建过了"当"它能综合"的证据。
+
+> ⭐ **只加"顶层真正会例化到"的模块**（`clk_gen` / `i2s_tx` / `top` 就是全部）
+> —— 把别人的半成品加进来，既不能被综合，出错时还分不清是谁的问题。
 
 ---
 
