@@ -1,0 +1,24 @@
+﻿VCD info: dumpfile build/sim/tb_clk_gen/tb_clk_gen.vcd opened for output.
+
+================ clk_gen 时基实测 ================
+  窗口        : 8192 个 clk（163840 ns，期望 8 帧）
+  tick_audio  : 8 次 · 间隔 min=1024 max=1024 clk
+  bclk_en     : 512 次 · 间隔 min=16 max=16 clk
+  mclk_en     : 2048 次 · 间隔 min=4 max=4 clk
+  lrclk       : 低 4097 / 高 4095 个 clk
+--------------------------------------------------
+  ⇒ fs   = 50 MHz / 1024 = 48.828125 kHz
+  ⇒ BCLK = 50 MHz / 16 = 3.125000 MHz（= 64.0 × fs）
+  ⇒ MCLK = 50 MHz / 4 = 12.500 MHz（= 256 × fs）
+==================================================
+  ok : tick_audio 间隔恰好 1024 clk（fs 精确）
+  ok : bclk_en 间隔恰好 16 clk（BCLK 精确）
+  ok : mclk_en 间隔恰好 4 clk（MCLK 精确）
+  ok : 每帧 64 个 BCLK 使能（8 帧 → 512 次）
+  ok : 每帧 256 个 MCLK 使能
+  ok : lrclk 低/高各占半帧（低 4097 / 高 4095）
+  ok : 帧起点处 lrclk = 低（左声道先发，标准 I2S）
+  ok : A8 无 X/Z 传播
+
+PASS: clk_gen 时基全部符合（分频链精确 + 极差为 0 + 无 X）
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\clk_gen\tb_clk_gen.sv:179: $finish called at 164011000 (1ps)
