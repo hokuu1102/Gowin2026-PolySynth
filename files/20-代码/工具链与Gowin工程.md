@@ -45,7 +45,7 @@ cd C:\Users\hokuu\Desktop\FPGA\FPGA2026
 |---|---|---|---|
 | 1 | 综合/布线**零 error** | 控制台 / `impl/pnr/Gowin2026.log` | 进程退出码 `0` |
 | 2 | ⭐⭐ **时序**：违规端点 + `Actual Fmax` | `impl/pnr/Gowin2026_tr_content.html` | `Numbers of Setup Violated Endpoints = 0`、`Numbers of Hold Violated Endpoints = 0`、`Max Frequency Summary` 的 `Actual Fmax ≥` 目标频率 |
-| 3 | ⭐⭐ **脚位合法**：脚真的存在、`IO_TYPE`/上下拉/驱动按我们写的生效 | `impl/pnr/Gowin2026.rpt.txt` **§7 Pinout by Port Name**（或 `Gowin2026.pin.html`） | **逐脚核对**（表里有 `Site`/`Bank`/`IO Type`/`Pull Mode`/`Drive`…） |
+| 3 | ⭐⭐ **脚位合法**：脚真的存在、`IO_TYPE`/上下拉/驱动按我们写的生效 | 生成目录里的 `Gowin2026.rpt.txt` **§7 Pinout by Port Name**（或 `Gowin2026.pin.html`） | **逐脚核对**（表里有 `Site`/`Bank`/`IO Type`/`Pull Mode`/`Drive`…） |
 | 4 | 资源占用 | `impl/gwsynthesis/Gowin2026_syn_rsc.xml` | `Register` / `Alu` / `Lut` 计数 |
 
 > ⭐ 第 2、3 条是**仿真给不了**的东西：
