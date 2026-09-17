@@ -1,42 +1,134 @@
 ﻿# tb_all.ps1 —— 一条命令跑全部 tb（L0 交付物 T1）
-# 用法:  pwsh -File sim\tb_all.ps1            # 跑全部
-#        pwsh -File sim\tb_all.ps1 -Filter tlc # 只跑名字含 tlc 的
+#
+# ⚠️⚠️ 本文件必须保存为【UTF-8 with BOM】。Windows PowerShell 5.1 对无 BOM 的 .ps1
+#     按本地代码页（GBK）解码 ⇒ 中文注释变乱码 ⇒ 直接 `Unexpected token '}'` 解析失败。
+#     历史上这个脚本就是因此从没被真正跑通过（T1 一直没验收）。
+#
+# ⭐ 用法（本机只装了 Windows PowerShell 5.1，⛔ 没有 pwsh 7；下面这条在 5.1 与 7 上都能跑）：
+#     powershell -NoProfile -ExecutionPolicy Bypass -File sim\tb_all.ps1
+#     powershell -NoProfile -ExecutionPolicy Bypass -File sim\tb_all.ps1 -Filter tlc
+#
+# ⚠️ 为什么必须带 -ExecutionPolicy Bypass：本机执行策略禁止直接运行 .ps1
+#     （`& .\sim\tb_all.ps1` 会报 "running scripts is disabled on this system"）。
+#     ⛔ 不要为此去改全局执行策略 —— 带上这个开关就够了。
+#
+# 做什么：自动发现 tb/**/tb_*.sv → 逐个用 iverilog 编译（RTL + tb/models + tb/checkers + 该 tb）
+#         → 跑 vvp → 汇总通过/失败 → 证据落 sim/evidence/。
+# 判定（⭐ 结论约定）：**tb 自己给结论** —— 编译/运行非零退出、或日志出现行首 `FAIL` ⇒ 该 tb 失败。
+#       ⛔ **不把 `ERROR` 当失败**：T3 的负向测试会**故意**打印 `ERROR [A3]/[A6]/[A8]`，
+#          那正是"断言确实会触发"的证据。ERROR 行只做计数与展示。
+#       X 传播由 `tb/checkers/chk_xprop.sv`（A8）在每个 tb 里主动监视。
 param([string]$Filter = "")
+
 $ErrorActionPreference = "Continue"
-$root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommandPath)
-$tbDir = Join-Path $root "tb"
-$evDir = Join-Path $root "sim\evidence"
-New-Item -ItemType Directory -Force -Path $evDir | Out-Null
 
-if (-not (Get-Command iverilog -ErrorAction SilentlyContinue)) {
-  Write-Host "⛔ 找不到 iverilog —— 请先安装 Icarus Verilog 并加入 PATH" -ForegroundColor Red; exit 2
+# ⭐ 定位仓库根：用 $PSScriptRoot（本脚本在 sim/ 下 ⇒ 上一级即仓库根）。
+#    ⛔ 不要用 $MyInvocation.MyCommandPath —— 它在 PS 5.1 下为 $null，
+#       会让 $root 变成 null、所有路径失效，表现是"每个 tb 都编译失败"（已踩过）。
+$root   = Split-Path -Parent $PSScriptRoot
+$tbDir  = Join-Path $root "tb"
+$evDir  = Join-Path $root "sim\evidence"
+$bldDir = Join-Path $root "build\sim"
+New-Item -ItemType Directory -Force -Path $evDir, $bldDir | Out-Null
+
+$iverilogCmd = Get-Command iverilog -ErrorAction SilentlyContinue
+$vvpCmd      = Get-Command vvp      -ErrorAction SilentlyContinue
+if (-not $iverilogCmd -or -not $vvpCmd) {
+  Write-Host "⛔ 找不到 iverilog / vvp —— 请先安装 Icarus Verilog 并加入 PATH" -ForegroundColor Red
+  exit 2
 }
-# RTL 源文件（新增目录时在这里补）
-$rtl = @(Get-ChildItem (Join-Path $root "rtl") -Recurse -Filter *.sv,*.v -ErrorAction SilentlyContinue |
-         Where-Object { $_.Name -notlike "tb_*" } | ForEach-Object { $_.FullName })
-$models = @(Get-ChildItem (Join-Path $root "tb\models") -Recurse -Filter *.sv,*.v -ErrorAction SilentlyContinue |
-            ForEach-Object { $_.FullName })
-$tbs = @(Get-ChildItem $tbDir -Recurse -Filter tb_*.sv -ErrorAction SilentlyContinue |
-         Where-Object { $Filter -eq "" -or $_.Name -like "*$Filter*" })
+$iverilog = $iverilogCmd.Source
+$vvp      = $vvpCmd.Source
 
-if ($tbs.Count -eq 0) { Write-Host "⚠️ 没找到 tb（tb/**/tb_*.sv）"; exit 0 }
+# ── 源文件发现（新增 rtl/ 子目录时不用改这里）──────────────
+# ⚠️ 用 -Include（不是 -Filter）：-Filter 只接受【一个】模式，
+#    `-Filter *.sv,*.v` 会因参数绑定失败而整条命令报错（已踩过）。
+function Get-HdlSources([string]$Dir) {
+  @(Get-ChildItem -Path $Dir -Recurse -Include *.sv, *.v -File -ErrorAction SilentlyContinue |
+    Where-Object { $_.Name -notlike "tb_*" } |
+    Sort-Object FullName |
+    ForEach-Object { $_.FullName })
+}
 
-$pass = 0; $fail = @()
+$rtl    = Get-HdlSources (Join-Path $root "rtl")
+$models = Get-HdlSources (Join-Path $root "tb\models")
+$chk    = Get-HdlSources (Join-Path $root "tb\checkers")   # T3 的断言 A1~A8
+$tbs    = @(Get-ChildItem -Path $tbDir -Recurse -Include tb_*.sv -File -ErrorAction SilentlyContinue |
+            Where-Object { $Filter -eq "" -or $_.Name -like "*$Filter*" } |
+            Sort-Object FullName)
+
+if ($tbs.Count -eq 0) {
+  Write-Host "⚠️ 没找到 tb（tb/**/tb_*.sv）" -ForegroundColor Yellow
+  exit 0
+}
+
+Write-Host ("RTL " + $rtl.Count + " 个 · 模型 " + $models.Count + " 个 · 检查器 " + $chk.Count + " 个 · tb " + $tbs.Count + " 个") -ForegroundColor DarkGray
+
+$pass = 0
+$fail = @()
 foreach ($tb in $tbs) {
-  $name = $tb.BaseName
-  $vvp  = Join-Path $env:TEMP "$name.vvp"
-  Write-Host "`n=== 运行 $name ===" -ForegroundColor Cyan
-  & iverilog -g2012 -o $vvp @rtl @models $tb.FullName 2>&1 | Tee-Object -FilePath (Join-Path $evDir "$name.compile.log")
-  if ($LASTEXITCODE -ne 0) { $fail += "$name(编译)"; continue }
-  $log = Join-Path $evDir "$name.log"
-  & vvp $vvp 2>&1 | Tee-Object -FilePath $log
-  # ⭐ 判定：非零退出 或 日志里出现 FAIL/ERROR/X 传播
-  $txt = (Get-Content $log -Raw -ErrorAction SilentlyContinue)
-  if ($LASTEXITCODE -ne 0 -or $txt -match "\bFAIL|ERROR|assertion.*failed") { $fail += $name }
-  else { $pass++ }
-  Copy-Item (Join-Path $env:TEMP "$name.vcd") $evDir -ErrorAction SilentlyContinue
+  $name   = $tb.BaseName
+  $outDir = Join-Path $bldDir $name
+  New-Item -ItemType Directory -Force -Path $outDir | Out-Null
+  $vvpFile    = Join-Path $outDir ($name + ".vvp")
+  $compileLog = Join-Path $evDir ($name + ".compile.log")
+  $runLog     = Join-Path $evDir ($name + ".log")
+  $stamp      = Get-Date
+
+  Write-Host ("`n=== 编译 " + $name + " ===") -ForegroundColor Cyan
+  # ⭐ tb 自己写死了 $dumpfile 的路径（如 build/sim/tlc5916/xxx.vcd），而 iverilog/vvp
+  #    **不会替它建目录** —— 目录不存在就报 "Unable to open ... for output"，
+  #    而且是**运行时**才报（编译一切正常），表现为"tb 莫名失败"。
+  #    ⇒ 按 tb 源码里的 $dumpfile 先把目录建出来（通用写法，新增 tb 不用改这里）。
+  $src = Get-Content -LiteralPath $tb.FullName -Raw -Encoding UTF8
+  foreach ($m in [regex]::Matches($src, '\$dumpfile\s*\(\s*"([^"]+)"')) {
+    $dumpPath = $m.Groups[1].Value
+    if (-not [System.IO.Path]::IsPathRooted($dumpPath)) { $dumpPath = Join-Path $root $dumpPath }
+    $dumpDir = Split-Path -Parent $dumpPath
+    if ($dumpDir) { New-Item -ItemType Directory -Force -Path $dumpDir | Out-Null }
+  }
+  $compileArgs = @("-g2012", "-Wall", "-o", $vvpFile) + $rtl + $models + $chk + @($tb.FullName)
+  $compileOut  = & $iverilog @compileArgs 2>&1
+  $compileOut | Out-File -FilePath $compileLog -Encoding utf8
+  $compileOut | Where-Object { "$_" -match "\S" } | ForEach-Object { Write-Host "    $_" }
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host ("    ⛔ 编译失败 —— 见 sim/evidence/" + $name + ".compile.log") -ForegroundColor Red
+    $fail += ($name + "(编译)")
+    continue
+  }
+
+  Write-Host ("=== 运行 " + $name + " ===") -ForegroundColor Cyan
+  $runOut  = & $vvp $vvpFile 2>&1
+  $runExit = $LASTEXITCODE
+  $runOut | Out-File -FilePath $runLog -Encoding utf8
+  $runOut | ForEach-Object { Write-Host "    $_" }
+
+  $txt = ($runOut | Out-String)
+  # ⭐ 只有"非零退出"或"行首 FAIL"才算失败 —— 见文件头的结论约定
+  $errLines = ([regex]::Matches($txt, "(?m)^\s*ERROR")).Count
+  if ($runExit -ne 0 -or $txt -match "(?m)^\s*FAIL") {
+    if ($errLines -gt 0) { Write-Host ("    （日志另有 " + $errLines + " 行 ERROR，属诊断信息）") -ForegroundColor DarkGray }
+    $fail += $name
+  } else {
+    if ($errLines -gt 0) { Write-Host ("    ℹ️ 日志含 " + $errLines + " 行 ERROR —— 负向测试的预期结果，不算失败") -ForegroundColor DarkGray }
+    $pass++
+  }
+
+  # 波形证据：本 tb 这次跑出来的 .vcd（tb 自带 $dumpfile ⇒ 落在 build/ 或仓库根）
+  # ⚠️ 必须排除 sim/evidence/ 自身 —— 否则第二轮扫描会把它当成源文件，
+  #    报 "Cannot overwrite the item ... with itself"。
+  foreach ($d in @($bldDir, $root)) {
+    Get-ChildItem -Path $d -Filter *.vcd -Recurse -File -ErrorAction SilentlyContinue |
+      Where-Object { $_.LastWriteTime -ge $stamp -and $_.FullName -notlike ($evDir + "\*") } |
+      ForEach-Object { Copy-Item $_.FullName (Join-Path $evDir $_.Name) -Force }
+  }
 }
+
 Write-Host "`n================ 汇总 ================" -ForegroundColor Yellow
-Write-Host "通过 $pass / 共 $($tbs.Count)"
-if ($fail.Count) { Write-Host ("失败: " + ($fail -join ", ")) -ForegroundColor Red; exit 1 }
+Write-Host ("通过 " + $pass + " / 共 " + $tbs.Count)
+if ($fail.Count) {
+  Write-Host ("失败: " + ($fail -join ", ")) -ForegroundColor Red
+  exit 1
+}
 Write-Host "✅ 全部通过（证据在 sim/evidence/）" -ForegroundColor Green
+exit 0

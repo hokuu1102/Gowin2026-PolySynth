@@ -32,6 +32,17 @@ import os
 import subprocess
 import sys
 
+# ── 输出编码兜底（与 tools/check_doc_refs.py 同一段）─────────
+# ⚠️ Windows 控制台默认 GBK，遇到 emoji 会直接 UnicodeEncodeError 崩掉 ——
+#    本机实测（2026-09-17）：不加重定向时 `python tools/check_names.py`
+#    扫描本身是好的，却在**打印汇总行**时崩溃、退出码非 0，
+#    读起来像"查出了人名"，实际是假警报。
+for _stream in (sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 NAMES_FILE = os.path.join(REPO, 'names.local.txt')
 

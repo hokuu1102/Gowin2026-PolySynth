@@ -1,0 +1,26 @@
+﻿VCD info: dumpfile build/sim/tb_checkers/tb_checkers.vcd opened for output.
+--- A8 / A3 干净窗口（不应有任何违规）---
+ERROR [A3] led_clk 与 spi_sck 各翻转 8/8 次却全程取值相同 —— 疑似同一根网线（⛔ 灯 CLK 与 SPI SCK 必须各自独立）
+  ok : A8 干净窗口内无 X 传播（不误报）
+  ok : A3 两根独立时钟未被误判为同一根网线
+  ok : A3 同一根网线被抓到（负向测试）
+--- A6 正例：帧内完成 ---
+  ok : A6 第 100 拍完成（< 1024）不误报
+  ok : A6 未置 deadline_fault
+--- A6 反例 1：超时（第 1500 拍才完成 > 1024）---
+ERROR [A6] tb_top 帧超时：frame_done 在第 1501 拍，超过 1024 拍上限
+  ok : A6 超时被抓到（负向测试）
+  ok : A6 超时后 deadline_fault = 1
+--- A6 反例 2：整帧不给 frame_done ---
+  ok : A6 边界语义：未到下一个 tick 前不报（本帧仍在进行）
+ERROR [A6] tb_top 帧未完成：1202 拍内未见到 frame_done 就到了下一个 tick
+  ok : A6 整帧未完成 → 在下一次 tick 时报出（负向测试）
+--- A8 反例：注入 X ---
+ERROR [A8] probe 出现 X/Z：xxxxxxxx (t=75610000)
+ERROR [A8] probe 出现 X/Z：xxxxxxxx (t=75630000)
+ERROR [A8] probe 出现 X/Z：xxxxxxxx (t=75650000)
+ERROR [A8] probe 出现 X/Z：xxxxxxxx (t=75670000)
+  ok : A8 注入 X 被抓到（负向测试）
+
+PASS: A3/A6/A8 结构类断言全部按预期工作（含负向测试）
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\checkers\tb_checkers.sv:157: $finish called at 75920000 (1ps)

@@ -22,6 +22,19 @@ module tb_tlc5916_driver;
     integer error_count;
     reg [7:0] captured_data;
 
+    // ── A8 · X/Z 传播监视（T3 · `tb/checkers/chk_xprop.sv`）──────────────
+    // ⭐ 每个 tb 都应挂上它：X 传播是"仿真看着对、上板全死"的最常见来源。
+    //    err_cnt 不直接判失败，而是在 initial 末尾并进本 tb 的 error_count（结论仍由 tb 给）。
+    // ⚠️ 例化必须放在**所有被连信号声明之后**（Icarus 报 "Unable to bind wire/reg/memory
+    //    `captured_data`" 就是这个原因，不是信号名写错）。
+    wire [31:0] a8_clk, a8_sdi, a8_le, a8_oe, a8_busy, a8_dat;
+    chk_xprop #(.W(1), .NAME("tlc_clk"))  u_a8_clk  (.clk(clk), .rst_n(rst_n), .sig(tlc_clk),      .err_cnt(a8_clk));
+    chk_xprop #(.W(1), .NAME("tlc_sdi"))  u_a8_sdi  (.clk(clk), .rst_n(rst_n), .sig(tlc_sdi),      .err_cnt(a8_sdi));
+    chk_xprop #(.W(1), .NAME("tlc_le"))   u_a8_le   (.clk(clk), .rst_n(rst_n), .sig(tlc_le),       .err_cnt(a8_le));
+    chk_xprop #(.W(1), .NAME("tlc_oe_n")) u_a8_oe   (.clk(clk), .rst_n(rst_n), .sig(tlc_oe_n),     .err_cnt(a8_oe));
+    chk_xprop #(.W(1), .NAME("busy"))     u_a8_busy (.clk(clk), .rst_n(rst_n), .sig(busy),         .err_cnt(a8_busy));
+    chk_xprop #(.W(8), .NAME("captured")) u_a8_dat  (.clk(clk), .rst_n(rst_n), .sig(captured_data),.err_cnt(a8_dat));
+
     tlc5916_driver dut (
         .clk            (clk),
         .rst_n          (rst_n),
@@ -189,6 +202,15 @@ module tb_tlc5916_driver;
         send_and_check(8'h3C);
         check_synchronous_reset();
         send_and_check(8'h5A);
+
+        // ── A8 结论：并进本 tb 的 error_count（tb 自己给结论，见验收方案 §六）──
+        if (a8_clk == 0 && a8_sdi == 0 && a8_le == 0 && a8_oe == 0 && a8_busy == 0 && a8_dat == 0) begin
+            $display("PASS: A8 无 X/Z 传播");
+        end else begin
+            $display("FAIL: A8 检测到 X/Z 传播（clk=%0d sdi=%0d le=%0d oe=%0d busy=%0d dat=%0d）",
+                     a8_clk, a8_sdi, a8_le, a8_oe, a8_busy, a8_dat);
+            error_count = error_count + 1;
+        end
 
         if (error_count == 0) begin
             $display("PASS: all TLC5916 tests completed successfully");

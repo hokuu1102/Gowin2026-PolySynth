@@ -1,0 +1,10 @@
+﻿VCD info: dumpfile build/sim/tlc5916/tlc5916_tb.vcd opened for output.
+PASS: TLC5916 transmitted 00 correctly
+PASS: TLC5916 transmitted a5 correctly
+PASS: TLC5916 transmitted ff correctly
+PASS: TLC5916 transmitted 3c correctly
+PASS: synchronous reset behavior checked
+PASS: TLC5916 transmitted 5a correctly
+PASS: A8 无 X/Z 传播
+PASS: all TLC5916 tests completed successfully
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_tlc5916_driver.sv:227: $finish called at 43551000 (1ps)
