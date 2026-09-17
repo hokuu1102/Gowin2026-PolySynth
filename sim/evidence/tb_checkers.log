@@ -21,6 +21,34 @@ ERROR [A8] probe 出现 X/Z：xxxxxxxx (t=75630000)
 ERROR [A8] probe 出现 X/Z：xxxxxxxx (t=75650000)
 ERROR [A8] probe 出现 X/Z：xxxxxxxx (t=75670000)
   ok : A8 注入 X 被抓到（负向测试）
+--- A1 正例：够宽的有效脉冲（8 拍 ≥ 4）---
+  ok : A1 宽度足够不误报
+--- A1 反例：恰好 1 拍的窄脉冲（K-01 的真实故障形态）---
+ERROR [A1] oe_n 出现窄脉冲：有效电平只有 1 个 clk 周期（要求 ≥ 4）
+  ok : A1 单周期窄脉冲被抓到（负向测试）
+--- A2 正例：LE 保持低时的移位 ---
+  ok : A2 移位期间 LE 为低，不误报
+--- A2 反例：LE 为高时 SCK 出现边沿（K-03）---
+ERROR [A2] le 为高时 sck 出现边沿（le=1/1 sck=0→1）—— 锁存脚必须在移位期间保持低
+ERROR [A2] le 为高时 sck 出现边沿（le=1/1 sck=1→0）—— 锁存脚必须在移位期间保持低
+  ok : A2 LE 高电平期间移位的边沿被抓到（负向测试）
+--- A4/A5 正例：单路有效、以及全无效（总线空闲）---
+  ok : A4/A5 单路有效与全无效都不误报
+--- A4 反例：两路片选同时有效 ---
+ERROR [A4/A5] adc_cs_n 同时有 2 路有效（100）—— 片选必须互斥、MISO 只能有单一驱动源
+  ok : A4 片选同时有效被抓到（负向测试）
+--- A5 反例：MISO 两个驱动源同时使能 ---
+ERROR [A4/A5] miso_drv_en 同时有 2 路有效（011）—— 片选必须互斥、MISO 只能有单一驱动源
+  ok : A5 多驱动源被抓到（负向测试）
+--- A7 正例：按 phase_inc 前进 ---
+  ok : A7 正常前进不误报
+--- A7 正例：变调（只改 phase_inc）不误报 —— K-10 的正确做法 ---
+  ok : A7 变调只改 phase_inc（相位连续）不误报
+--- A7 反例：变调时清零相位（K-10 的错误做法）---
+ERROR [A7] phase_acc 相位增量异常：实测 4294937296，期望 5000（旧 inc）或 5000（新 inc）—— ⛔ 变调只许改 phase_inc，不许清零相位
+  ok : A7 相位清零被抓到（负向测试）
+--- A7 正例：合法相位重启（jump_ok=1）不报 ---
+  ok : A7 合法的相位重启（jump_ok）未被误报
 
-PASS: A3/A6/A8 结构类断言全部按预期工作（含负向测试）
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\checkers\tb_checkers.sv:157: $finish called at 75920000 (1ps)
+PASS: A1/A2/A3/A4/A5/A6/A7/A8 结构类断言全部按预期工作（含负向测试）
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\checkers\tb_checkers.sv:313: $finish called at 77480000 (1ps)
