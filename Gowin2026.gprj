@@ -36,6 +36,12 @@
         <File path="rtl/clk_gen.v" type="file.verilog" enable="1"/>
         <File path="rtl/rst_sync.v" type="file.verilog" enable="1"/>
         <File path="rtl/sync_input.v" type="file.verilog" enable="1"/>
+        <!-- W3b synthesis interfaces. W1-1 contains safe inactive skeletons;
+             later W1 tasks replace their tie-offs with functional RTL. -->
+        <File path="rtl/w3b/oscillator_bank.v" type="file.verilog" enable="1"/>
+        <File path="rtl/w3b/envelope_bank.v" type="file.verilog" enable="1"/>
+        <File path="rtl/w3b/tdm_render_mixer.v" type="file.verilog" enable="1"/>
+        <File path="rtl/w3b/test_mode_ctrl.v" type="file.verilog" enable="1"/>
         <File path="rtl/w3c/i2s_tx.v" type="file.verilog" enable="1"/>
         <File path="rtl/top.v" type="file.verilog" enable="1"/>
         <!-- ⭐ SystemVerilog 文件登记成 type="file.verilog"（**和 .v 一样**，不是 file.systemverilog！）
