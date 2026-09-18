@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Module name="top" Register="33" Alu="31" Lut="17" T_Register="55(33)" T_Alu="40(31)" T_Lut="35(17)">
+<Module name="top" Register="56" Alu="51" Lut="21" T_Register="78(56)" T_Alu="60(51)" T_Lut="39(21)">
  <SubModule name="u_rst_sync" Register="2" T_Register="2(2)"/>
  <SubModule name="u_clk_gen" Register="13" Alu="9" Lut="9" T_Register="13(13)" T_Alu="9(9)" T_Lut="9(9)"/>
  <SubModule name="u_i2s_tx" Register="7" Lut="9" T_Register="7(7)" T_Lut="9(9)"/>

@@ -1,4 +1,5 @@
 ﻿VCD info: dumpfile build/sim/tlc5916/tlc5916_tb.vcd opened for output.
+NOTE [top] PA_ON_AFTER_RESET=0 ⇒ 功放**永久关断**（0 个下降沿）。这是 M0 安全态验证档；⚠️ 交付/上板请用 1，否则板子没声音（R-16）
 PASS: TLC5916 transmitted 00 correctly
 PASS: TLC5916 transmitted a5 correctly
 PASS: TLC5916 transmitted ff correctly

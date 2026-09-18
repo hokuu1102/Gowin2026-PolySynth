@@ -62,7 +62,9 @@ $mutations = @(
   # NOTE: an earlier attempt shrank the window to HALF_DIV (=500 ns) and LEAKED -- that value
   # exactly MEETS the datasheet minimum (tw(OE) >= 500 ns), so the assertion correctly passed.
   # A mutant must actually VIOLATE the spec (see C21): shrink to HALF_DIV/2 = 250 ns.
-  @{ id = "M17"; file = "rtl\drivers\tlc5916_driver.sv"; find = "                                 rec_phase <  REC_OE_FALL_PH + REC_CLK_PERIOD) ? 1'b0 : 1'b1;"; repl = "                                 rec_phase <  REC_OE_FALL_PH + (HALF_DIV/2)) ? 1'b0 : 1'b1;"; why = "K-66 regression: OE window shrunk to 250 ns -> violates tw(OE) 500 ns (must be caught)" }
+  @{ id = "M17"; file = "rtl\drivers\tlc5916_driver.sv"; find = "                                 rec_phase <  REC_OE_FALL_PH + REC_CLK_PERIOD) ? 1'b0 : 1'b1;"; repl = "                                 rec_phase <  REC_OE_FALL_PH + (HALF_DIV/2)) ? 1'b0 : 1'b1;"; why = "K-66 regression: OE window shrunk to 250 ns -> violates tw(OE) 500 ns (must be caught)" },
+  # ---- R-16: the DELIVERED default must actually turn the amp on (else the board is silent) ----
+  @{ id = "M18"; file = "rtl\top.v"; find = "    parameter integer PA_ON_AFTER_RESET = 1,"; repl = "    parameter integer PA_ON_AFTER_RESET = 0,"; why = "R-16 regression: default back to 0 -> amp never turns on -> silent board (guard I must catch it)" }
 )
 
 if ($Filter -ne "") { $mutations = @($mutations | Where-Object { $_.id -like "*$Filter*" }) }

@@ -49,6 +49,25 @@ module tb_top_m0;
     );
 
     // ═══════════════════════════════════════════════════════════════
+    // ⭐⭐ I · **交付默认值守卫**（`R-16`，2026-09-17 加）
+    //    ⚠️ 为什么需要：`top.v` 的 `PA_ON_AFTER_RESET` 默认值决定"**上板默认有没有声音**"。
+    //      若默认是 0 ⇒ 板载 `NS4263` 永远关断 ⇒ **喇叭/耳机都没声音**，
+    //      而 I2S 波形、DAC 输入、所有仿真结论**全都是对的** ⇒ 这种"没声音"极难定位。
+    //    ⇒ 本条断言：**裸例化（不传参）时，默认值必须是"能出声"的那一档**。
+    //      ⛔ 如果将来有人把默认值改回 0，这条会立刻 FAIL。
+    //    ⭐ 注意区分：实例 A **显式传 0** 是有意的（验安全态），
+    //      本条查的是"**不传参时**会怎样"。
+    // ═══════════════════════════════════════════════════════════════
+    wire HP_BCK_d, HP_WS_d, HP_DIN_d, PA_EN_n_d, hb_d;
+    top #(
+        .HEARTBEAT_DIV (HB_DIV)          // ⚠️ 只覆盖心跳周期；`PA_ON_AFTER_RESET` **故意不传**
+    ) u_top_default (
+        .clk (clk), .rst_n (rst_n),
+        .HP_BCK (HP_BCK_d), .HP_WS (HP_WS_d), .HP_DIN (HP_DIN_d),
+        .PA_EN_n (PA_EN_n_d), .led_heartbeat (hb_d)
+    );
+
+    // ═══════════════════════════════════════════════════════════════
     // C · 反向检：PA_ON_AFTER_RESET = 1（延时开功放）
     // ═══════════════════════════════════════════════════════════════
     wire HP_BCK_b, HP_WS_b, HP_DIN_b, PA_EN_n_b, hb_b;
@@ -92,6 +111,11 @@ module tb_top_m0;
     integer pa_a_fall, pa_b_fall;
     reg     pa_a_prev, pa_b_prev;
 
+    // ⭐ I · 交付默认值守卫用的量（裸例化实例）
+    integer pa_d_fall, pa_d_release_at;
+    reg     pa_d_prev;
+    integer t_win_d;
+
     integer din_nonzero;
     integer hb_a_trans, last_hb_a, hb_a_gap_min, hb_a_gap_max;
     reg     hb_a_d;
@@ -117,6 +141,7 @@ module tb_top_m0;
         pa_a_fall = 0; pa_a_prev = 1'b1;
         pa_b_trans = 0; pa_b_release_at = -1; pa_b_high_after = 0; pa_b_d = 1'b1;
         pa_b_fall = 0; pa_b_prev = 1'b1;
+        pa_d_fall = 0; pa_d_release_at = -1; pa_d_prev = 1'b1;
         din_nonzero = 0;
         hb_a_trans = 0; last_hb_a = -1; hb_a_gap_min = 1 << 30; hb_a_gap_max = 0; hb_a_d = 1'b0;
 
@@ -238,6 +263,30 @@ module tb_top_m0;
             errors = errors + 1;
         end
 
+        // ⭐⭐ I · 交付默认值守卫（`R-16`）：**裸例化**（不传 `PA_ON_AFTER_RESET`）时必须"能出声"
+        //    ⚠️ 实现注意：裸例化的 `PA_ON_DELAY` 是默认值 **1_048_576 拍（≈21 ms）**，
+        //       而本 tb 只跑 64 帧（≈1.3 ms）⇒ **延时根本没到**，⛔ 不能靠"等到它拉低"来判。
+        //    ⇒ ⭐ 正确判据：**直接查参数的默认值**（层次化引用参数，iverilog/Gowin 都支持），
+        //      即"**裸例化时那个参数是几**" —— 这才是"默认值守卫"该查的东西。
+        $display("  I 默认值  : 裸例化时 PA_ON_AFTER_RESET = %0d（0 = 永不开 ⇒ 板子没声音；1 = 会开）",
+                 u_top_default.PA_ON_AFTER_RESET);
+        if (u_top_default.PA_ON_AFTER_RESET == 1)
+            $display("  ok : I · ⭐ **交付默认值正确** —— 不传参时功放会开 ⇒ 上板有声音");
+        else begin
+            $display("FAIL: I · ⛔ **交付默认值会让板子没声音**（PA_ON_AFTER_RESET=%0d）—— 请改 `top.v` 的默认值（R-16）",
+                     u_top_default.PA_ON_AFTER_RESET);
+            errors = errors + 1;
+        end
+
+        // ⭐ 同时反向确认：**显式传 0 时必须真的是"永不开"**（安全态档没被改坏）
+        if (u_top_safe.PA_ON_AFTER_RESET == 0 && pa_a_fall == 0)
+            $display("  ok : I · 显式传 `PA_ON_AFTER_RESET=0` 时确实**永不开**（安全态档仍可用）");
+        else begin
+            $display("FAIL: I · 显式传 0 时功放却动了（参数=%0d，下降沿=%0d）",
+                     u_top_safe.PA_ON_AFTER_RESET, pa_a_fall);
+            errors = errors + 1;
+        end
+
         $display("");
         if (errors == 0) $display("PASS: M0 顶层验收通过（时基正确 + 安全态无窄脉冲 + 静音无噪声 + 心跳活着 + 无 X）");
         else             $fatal(1, "FAIL: M0 顶层有 %0d 项不符合预期", errors);
@@ -323,6 +372,13 @@ module tb_top_m0;
             if (PA_EN_n_b === 1'b0 && pa_b_prev === 1'b1) pa_b_fall = pa_b_fall + 1;
             pa_b_prev = PA_EN_n_b;
             pa_b_d = PA_EN_n_b;
+
+            // ⭐ I · 裸例化实例（默认值）：只统计"下降沿个数"与"首次拉低的拍数"
+            if (PA_EN_n_d === 1'b0 && pa_d_prev === 1'b1) begin
+                pa_d_fall = pa_d_fall + 1;
+                if (pa_d_release_at < 0) pa_d_release_at = t_win;
+            end
+            pa_d_prev = PA_EN_n_d;
 
             // D · 心跳
             if (hb_a !== hb_a_d) begin

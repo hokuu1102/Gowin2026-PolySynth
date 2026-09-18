@@ -1,4 +1,5 @@
 ﻿VCD info: dumpfile build/sim/tb_i2s_tx_prbs/tb_i2s_tx_prbs.vcd opened for output.
+NOTE [top] PA_ON_AFTER_RESET=0 ⇒ 功放**永久关断**（0 个下降沿）。这是 M0 安全态验证档；⚠️ 交付/上板请用 1，否则板子没声音（R-16）
 
 ================ i2s_tx value/bit-pattern coverage ================
   LCG random  : 512 frames (fixed seed DEADBEEF, reproducible)

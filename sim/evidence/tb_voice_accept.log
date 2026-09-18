@@ -1,0 +1,23 @@
+﻿VCD info: dumpfile build/sim/tb_voice_accept/tb_voice_accept.vcd opened for output.
+NOTE [top] PA_ON_AFTER_RESET=0 ⇒ 功放**永久关断**（0 个下降沿）。这是 M0 安全态验证档；⚠️ 交付/上板请用 1，否则板子没声音（R-16）
+
+============ 乙（合成核心）验收判据包 ============
+  ⚠️ 当前用的是**行为桩** u_voice（m2_stub_voice）——
+     真模块落地后必须换掉重跑（桩过 ≠ 真模块过，见 L56 / 63 号）
+------------------------------------------------
+  [变调] 只改 phase_inc（2 kHz）—— A7 应保持 0 违规
+------------------------------------------------
+  帧数       : tick_audio 98 次 · frame_done 98 次
+  输出活动   : 非零样点 77824 拍
+  A6 帧内截止: 0 次违规（期望 0）
+  A7 相位前进: 0 次违规（期望 0）
+  A8 X/Z     : sample=0 acc=0（期望 0/0）
+================================================
+  ok : A6 每帧都在 1024 拍内给出 frame_done（M2 的 <=2 帧预算就此成立）
+  ok : A7 相位只按 phase_inc 前进（变调**没有**清零相位 ⇒ 无咔哒）
+  ok : A8 输出与相位都无 X/Z 传播
+  ok : 每帧恰好一次 frame_done（98/98）
+  ok : 输出确实有非零样点（77824 拍）—— 不是「假装在工作」
+
+PASS: 乙的合成核心验收判据包（当前为行为桩）全部通过
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\voice\tb_voice_accept.sv:277: $finish called at 2007171000 (1ps)
