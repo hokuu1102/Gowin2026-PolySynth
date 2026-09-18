@@ -3,7 +3,7 @@
 > **2026 全国大学生嵌入式芯片与系统设计竞赛 · FPGA 创新设计赛道 · 选题二**
 > 基于 FPGA 的**实时多音色合成电子乐器引擎** —— 全部音频通路由 FPGA HDL 实现，逐样本实时合成，**非播放预录 PCM**。
 > **当前阶段**：机械原型验证 + 关键器件实测准备
-> **最后更新**：2026-09-13
+> **最后更新**：2026-09-18
 
 ---
 
@@ -19,6 +19,7 @@
 | **查某个器件选哪个型号** | [`files/30-方案决策/硬件选型表.md`](files/30-方案决策/硬件选型表.md) |
 | **对齐接口针脚** | [`files/10-硬件/硬件接口总表.md`](files/10-硬件/硬件接口总表.md) |
 | **运行 TLC5916 驱动仿真** | [`files/20-代码/TLC5916驱动验证.md`](files/20-代码/TLC5916驱动验证.md) |
+| **运行 MCP3208 驱动与扫描器仿真** | [`files/20-代码/MCP3208驱动验证.md`](files/20-代码/MCP3208驱动验证.md) |
 | ⭐ **现在这份代码能验什么 / 板子到手后怎么上板验** | [`bringup/README.md`](bringup/README.md)（`bringup/` = 验证专用文件夹，⛔ 不放成品 RTL） |
 | ⭐ **往仓库提交改动** | [`CONTRIBUTING.md`](CONTRIBUTING.md)（提交格式 / 分支 / 推送前自查） |
 | **竞赛用作品简介** | [`files/00-总览/作品简介.md`](files/00-总览/作品简介.md) |
@@ -82,11 +83,16 @@ model/                              ← 3D 模型（STL）
 files/40-参考资料/高云2026FPGA.pdf                     ← 赛题选题指南原文
 
 rtl/drivers/
-└── tlc5916_driver.sv             ← 单颗 TLC5916 串行驱动
+├── tlc5916_driver.sv             ← 单颗 TLC5916 串行驱动
+├── mcp3208_driver.sv             ← 单颗 MCP3208 SPI 转换驱动
+└── mcp3208_scanner.sv            ← 单颗 MCP3208 八通道扫描器
 tb/drivers/
-└── tb_tlc5916_driver.sv          ← 自检查 Testbench
+├── tb_tlc5916_driver.sv          ← TLC5916 自检查 Testbench
+├── tb_mcp3208_driver.sv          ← MCP3208 驱动自检查 Testbench
+└── tb_mcp3208_scanner.sv         ← MCP3208 扫描器自检查 Testbench
 sim/
-└── run_tlc5916.ps1               ← Icarus Verilog 回归脚本
+├── run_tlc5916.ps1               ← TLC5916 Icarus Verilog 回归脚本
+└── run_mcp3208.ps1               ← MCP3208 Icarus Verilog 回归脚本
 ```
 
 ---
