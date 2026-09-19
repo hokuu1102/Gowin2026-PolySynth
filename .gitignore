@@ -78,6 +78,8 @@ bringup/impl/
 # ⚠️ 同理：`bringup/jishi/build_jishi.ps1` 会在 `bringup/jishi/` 下生成 impl/（基石板上板工程）
 #    ⭐ 但 `bringup/jishi/evidence/` 里的**四份报告要入库**（便于复核，与 `sim/evidence/` 同惯例）
 bringup/jishi/impl/
+# W1-2 dedicated Dock wavetable-tone build output (project files stay tracked).
+bringup/wavetable_tone/impl/
 *.gprj.user
 *.fs
 *.binx

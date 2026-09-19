@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<!-- W1-2 dedicated Tang Mega 60K Dock pROM -> DDS -> I2S proof project. -->
+<Project>
+    <Template>FPGA</Template>
+    <Version>5</Version>
+    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC2/I1">gw5at60b-003</Device>
+    <FileList>
+        <File path="../../ip/wavetable_sine_rom_ip/wavetable_sine_rom_ip.v" type="file.verilog" enable="1"/>
+        <File path="../../rtl/clk_gen.v" type="file.verilog" enable="1"/>
+        <File path="../../rtl/rst_sync.v" type="file.verilog" enable="1"/>
+        <File path="../../rtl/w3b/wavetable_bank.v" type="file.verilog" enable="1"/>
+        <File path="../../rtl/w3b/dds_wavetable_core.v" type="file.verilog" enable="1"/>
+        <File path="../../rtl/w3c/i2s_tx.v" type="file.verilog" enable="1"/>
+        <File path="../../rtl/bringup/wavetable_tone_top.v" type="file.verilog" enable="1"/>
+        <!-- Same public pins as rtl/top.v: reuse the reviewed Dock constraints. -->
+        <File path="../../constr/top.cst" type="file.cst" enable="1"/>
+        <File path="../../constr/top.sdc" type="file.sdc" enable="1"/>
+    </FileList>
+</Project>
