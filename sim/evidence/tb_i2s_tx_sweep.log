@@ -1,6 +1,6 @@
 ﻿ERROR [i2s_tx] 参数不自洽：JUSTIFY=0 SLOT_BITS=16 DATA_BITS=16 MSB_DELAY=1 ⇒ 会有数据位被**静默丢弃**
 VCD info: dumpfile build/sim/tb_i2s_tx_sweep/tb_i2s_tx_sweep.vcd opened for output.
-NOTE [top] PA_ON_AFTER_RESET=0 ⇒ 功放**永久关断**（0 个下降沿）。这是 M0 安全态验证档；⚠️ 交付/上板请用 1，否则板子没声音（R-16）
+NOTE [top] PA_ON_AFTER_RESET=1 ⇒ 复位后等 1048576 拍（≈20.9 ms）开功放，全程**恰好 1 个下降沿** ⇒ NS4263 进 AB 类桥式输出（K-61）
   [x] (7) #1 got 0x3ffe00 exp 0x3fffff
   [x] (7) #2 got 0x064400 exp 0x0645e9
   [x] (7) #3 got 0x3fb000 exp 0x3fb11a

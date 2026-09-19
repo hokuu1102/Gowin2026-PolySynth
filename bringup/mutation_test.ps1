@@ -15,6 +15,13 @@
 #   3. run `sim\tb_all.ps1` (expects exit != 0)
 #   4. restore the file, verify it is byte-identical to the backup
 #   5. report GREEN(leak)=BAD / RED(caught)=GOOD
+#   6. run the regression ONE more time on the restored (clean) code, so that
+#      sim/evidence/*.log is regenerated from CLEAN code (see the NOTE below)
+#
+# NOTE (evidence contamination -- found 2026-09-18): tb_all.ps1 REWRITES sim/evidence/*.log.
+#   So every mutant run overwrites the committed evidence with a log full of FAIL lines.
+#   Restoring only the RTL leaves those contaminated logs behind, and they look like real
+#   acceptance evidence.  That is why step 6 exists: the last action is always a clean run.
 #
 # NOTE: ASCII only.  PowerShell 5.1 decodes BOM-less UTF-8 as GBK -> syntax error (K-38).
 # NOTE: the file must be restored even if the run throws -- restore happens in a finally-like
@@ -123,5 +130,17 @@ if ($leaks -gt 0) {
   Write-Host ("FAIL: " + $leaks + " mutation(s) were NOT caught by the test suite (blind spot)") -ForegroundColor Red
   exit 1
 }
+
+# ---- regenerate evidence from CLEAN code (see the contamination NOTE at the top) ----
+Write-Host ""
+Write-Host "=== regenerating sim/evidence from the restored (clean) RTL ===" -ForegroundColor Cyan
+$null = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all.ps1") 2>&1
+$cleanExit = $LASTEXITCODE
+if ($cleanExit -ne 0) {
+  Write-Host "FAIL: clean re-run of the regression did not pass -- evidence may be contaminated" -ForegroundColor Red
+  exit 3
+}
+Write-Host "OK: sim/evidence regenerated from clean code" -ForegroundColor Green
+
 Write-Host "PASS: every injected defect was caught by the regression suite" -ForegroundColor Green
 exit 0

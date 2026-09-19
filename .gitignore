@@ -75,6 +75,9 @@ venv/
 /backup/
 # ⚠️ `bringup/synth_check.tcl` 会在 `bringup/` 下生成一份 impl/（合成自检专用）⇒ 一并忽略
 bringup/impl/
+# ⚠️ 同理：`bringup/jishi/build_jishi.ps1` 会在 `bringup/jishi/` 下生成 impl/（基石板上板工程）
+#    ⭐ 但 `bringup/jishi/evidence/` 里的**四份报告要入库**（便于复核，与 `sim/evidence/` 同惯例）
+bringup/jishi/impl/
 *.gprj.user
 *.fs
 *.binx

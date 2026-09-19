@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Module name="jishi_top" Register="40" Alu="31" Lut="25" T_Register="65(40)" T_Alu="40(31)" T_Lut="45(25)">
+ <SubModule name="u_rst_sync" Register="2" T_Register="2(2)"/>
+ <SubModule name="u_clk_gen" Register="13" Alu="9" Lut="9" T_Register="13(13)" T_Alu="9(9)" T_Lut="9(9)"/>
+ <SubModule name="u_i2s_tx" Register="10" Lut="11" T_Register="10(10)" T_Lut="11(11)"/>
+</Module>

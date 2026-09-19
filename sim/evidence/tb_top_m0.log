@@ -1,5 +1,5 @@
 ﻿NOTE [top] PA_ON_AFTER_RESET=0 ⇒ 功放**永久关断**（0 个下降沿）。这是 M0 安全态验证档；⚠️ 交付/上板请用 1，否则板子没声音（R-16）
-NOTE [top] PA_ON_AFTER_RESET=0 ⇒ 功放**永久关断**（0 个下降沿）。这是 M0 安全态验证档；⚠️ 交付/上板请用 1，否则板子没声音（R-16）
+NOTE [top] PA_ON_AFTER_RESET=1 ⇒ 复位后等 1048576 拍（≈20.9 ms）开功放，全程**恰好 1 个下降沿** ⇒ NS4263 进 AB 类桥式输出（K-61）
 NOTE [top] PA_ON_AFTER_RESET=1 ⇒ 复位后等 100 拍（≈0.0 ms）开功放，全程**恰好 1 个下降沿** ⇒ NS4263 进 AB 类桥式输出（K-61）
 VCD info: dumpfile build/sim/tb_top_m0/tb_top_m0.vcd opened for output.
 
@@ -24,9 +24,9 @@ VCD info: dumpfile build/sim/tb_top_m0/tb_top_m0.vcd opened for output.
   ok : G · rst_sync 把复位释放延后**恰好 2 拍**（异步输入 → 同步释放）
   H NS4263  : PA_EN_n 下降沿 1 个（实例A 期望 0；实例B 期望恰好 1）
   ok : H · ⭐ NS4263 模式正确 —— 实例A 0 个下降沿（关断）、实例B 恰好 1 个（AB 类桥式）
-  I 默认值  : 裸例化时 PA_ON_AFTER_RESET = 0（0 = 永不开 ⇒ 板子没声音；1 = 会开）
-FAIL: I · ⛔ **交付默认值会让板子没声音**（PA_ON_AFTER_RESET=0）—— 请改 `top.v` 的默认值（R-16）
+  I 默认值  : 裸例化时 PA_ON_AFTER_RESET = 1（0 = 永不开 ⇒ 板子没声音；1 = 会开）
+  ok : I · ⭐ **交付默认值正确** —— 不传参时功放会开 ⇒ 上板有声音
   ok : I · 显式传 `PA_ON_AFTER_RESET=0` 时确实**永不开**（安全态档仍可用）
 
-FATAL: C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_m0.sv:292: FAIL: M0 顶层有 1 项不符合预期
-       Time: 1310871000  Scope: tb_top_m0
+PASS: M0 顶层验收通过（时基正确 + 安全态无窄脉冲 + 静音无噪声 + 心跳活着 + 无 X）
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_m0.sv:295: $finish called at 1310971000 (1ps)

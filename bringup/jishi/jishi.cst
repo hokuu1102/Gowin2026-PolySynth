@@ -1,0 +1,66 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// jishi.cst · **基石板引脚约束**（配 `bringup/jishi/jishi_top.v`）
+//
+// ⚠️⚠️ **本文件与 `constr/top.cst`（Dock 用）是两套东西，⛔ 不要互相照搬。**
+//     两板同为 `PG484` 封装，但**布线与引出不同** ⇒ 引脚结论**不可移植**。
+//
+// ⭐ 每条 ball 的**出处**（⛔ 不是猜的）：
+//   · `clk` / `rst_n` / `beep`：官方 60K 基石板例程 `.cst`（9 个例程一致）
+//     ＋ `ADDA/src/top_system.cst`（同板**实测跑通过**）
+//   · `led_heartbeat`：⚠️ **待你按丝印确认**（见文件末"待确认"）
+//
+// ⚠️ 改本文件前请**先关掉 Gowin IDE**（同 `U26`：高云只认工程里登记的文件）。
+// ─────────────────────────────────────────────────────────────────────────────
+
+//====== SYS ======
+// ⭐ 系统时钟 50 MHz（基石板板载晶振；⛔ 不是 Dock 的 V22）
+IO_LOC  "clk"   F13;
+IO_PORT "clk"   IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+
+// ⭐ 复位按键（低有效）。
+//    ⚠️ 注意本脚在 **1.2 V bank**（`LVCMOS12` / `BANK_VCCIO=1.2`）—— 与 Dock 的 1.5 V 不同。
+//    `PULL_MODE=UP`：按键松开时保持"不复位"（与 ADDA 实测一致）。
+IO_LOC  "rst_n" D1;
+IO_PORT "rst_n" IO_TYPE=LVCMOS12 PULL_MODE=UP BANK_VCCIO=1.2;
+
+//====== I2S 三线（上板主看对象）======
+// ⚠️⚠️ 基石板**没有** I2S DAC（那是 Dock 才有的 PT8211）⇒
+//    这三根**只是"引出来给示波器/逻辑分析仪看"**，用普通 IO（本文件末有"待确认"）。
+//    判据：BCK 必须 3.125 MHz、WS 必须 48.828 kHz、DIN 必须在动。
+IO_LOC  "HP_BCK" T18;   //=== J14.19 原 DAC_D0 —— ⭐ 引到排针上，杜邦线就能量 ===
+IO_PORT "HP_BCK" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "HP_WS"  F20;   //=== J14.20 原 DAC_D1 ===
+IO_PORT "HP_WS"  IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "HP_DIN" R17;   //=== J14.21 原 DAC_D2 ===
+IO_PORT "HP_DIN" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+//====== LEDS ======
+// ⭐ 心跳 LED（活体见证）：不亮/不快闪 ⇒ 时钟或复位没通。
+//    ⚠️ ball 待你按丝印确认（官方 LED 例程用的是 `F21`，可作首选）。
+IO_LOC  "led_heartbeat" F21;
+IO_PORT "led_heartbeat" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+//====== ⭐⭐ 蜂鸣器（**必须约束**）======
+//   ⭐ 为什么要它：`beep` 若不约束 ⇒ 引脚悬空 ⇒ **一直叫**（对乐器项目是灾难）。
+//   ⭐ 极性：**高 = 响、低 = 静音**（NPN 低边驱动）。
+//     依据：官方 9 个例程都写 `assign Beep = 1'b0;`（= 不响）。
+//   ⭐⭐ `PULL_MODE=DOWN` 是**特意加的**（官方例程用 `NONE`）：
+//     FPGA 在**上电未配置完成 / 复位期间引脚是高阻** ⇒ 此时若悬空，NPN 基极可能被
+//     漏电/干扰顶起来 ⇒ **上电瞬间"叫一声"甚至持续叫**。
+//     加弱下拉把这段窗口也钉在低电平。
+//     ⚠️ 若上板后行为异常（本机无板可验），把 `DOWN` 改回 `NONE`（= 官方例程口径）。
+//   ⛔ `A18` **不是**蜂鸣器脚（扩展板里的 `A18` 是 PCIe 金手指的**连接器**脚标号；
+//     FPGA 的 `A18` 在官方 OV5640 例程里是 `cam_vsync`）—— 别照字面接。
+IO_LOC  "beep" A13;
+IO_PORT "beep" IO_TYPE=LVCMOS33 PULL_MODE=DOWN DRIVE=8 BANK_VCCIO=3.3;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ⚠️ 待你确认的 4 个 ball（其余全部有出处）
+//   ① `HP_BCK/HP_WS/HP_DIN`：基石板**没有 I2S DAC** ⇒ 这三根只是"引给示波器看"。
+//      请按**扩展板丝印 / 排针**选 3 个**空闲且在同一 3.3 V bank**的脚。
+//      ⛔ 避开 `R19`（被龙芯 LS2K1000 占用，PR2017 不可用）与 `A18`。
+//   ② `led_heartbeat`：官方 LED 例程用 `F21`，本文件先按它写。
+//   ⭐ 只要你把确认后的 ball 填进来，其余逻辑**一行都不用改**。
+// ─────────────────────────────────────────────────────────────────────────────

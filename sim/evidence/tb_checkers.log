@@ -1,5 +1,5 @@
 ﻿VCD info: dumpfile build/sim/tb_checkers/tb_checkers.vcd opened for output.
-NOTE [top] PA_ON_AFTER_RESET=0 ⇒ 功放**永久关断**（0 个下降沿）。这是 M0 安全态验证档；⚠️ 交付/上板请用 1，否则板子没声音（R-16）
+NOTE [top] PA_ON_AFTER_RESET=1 ⇒ 复位后等 1048576 拍（≈20.9 ms）开功放，全程**恰好 1 个下降沿** ⇒ NS4263 进 AB 类桥式输出（K-61）
 --- A8 / A3 干净窗口（不应有任何违规）---
 ERROR [A3] led_clk 与 spi_sck 各翻转 8/8 次却全程取值相同 —— 疑似同一根网线（⛔ 灯 CLK 与 SPI SCK 必须各自独立）
   ok : A8 干净窗口内无 X 传播（不误报）

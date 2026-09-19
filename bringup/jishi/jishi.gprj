@@ -1,0 +1,36 @@
+<?xml version="1" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<!--
+  jishi.gprj - 基石板上板验证工程（bringup/jishi/）
+
+  用途：用「手上已有的基石板」验证当前代码的最底层三件事（时钟通 / 复位对 / I2S 在动），
+        不必等 Dock 与右手板。
+
+  ⚠️ 与 Gowin2026.gprj（Dock 交付工程）的关系：
+     · 两者**共用同一份 rtl/**（用相对路径 ../../rtl/ 引用）
+       ⇒ 改了 rtl/ 本工程自动跟着变，不需要维护两份逻辑
+     · ⛔ 本工程**不进** Gowin2026.gprj，也**不改** constr/top.cst
+       ⇒ 「不破坏正式代码」
+     · 差别只在「顶层外壳 + 引脚表」：jishi_top.v + jishi.cst
+
+  ⚠️ 器件料号与 ADDA 工程一致（GW5AT-LV60PG484AC2/I1）—— 那是**同板实测跑通过**的料号。
+     官方 Dock 例程用的是 AC1/I0（同一颗芯片的另一个版本），差异见 K-45。
+-->
+<Project>
+    <Template>FPGA</Template>
+    <Version>5</Version>
+    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC2/I1">gw5at60b-003</Device>
+    <FileList>
+        <!-- ⭐ 基石板专用顶层外壳（本目录） -->
+        <File path="jishi_top.v" type="file.verilog" enable="1"/>
+
+        <!-- ⭐ 与 Dock 工程共用的同一份逻辑（相对路径引用 rtl/） -->
+        <File path="../../rtl/clk_gen.v" type="file.verilog" enable="1"/>
+        <File path="../../rtl/rst_sync.v" type="file.verilog" enable="1"/>
+        <File path="../../rtl/w3c/i2s_tx.v" type="file.verilog" enable="1"/>
+
+        <!-- ⭐ 约束：引脚 + 时序（⚠️ .sdcz 必须登记，否则时序分析是空的，见 U52） -->
+        <File path="jishi.cst" type="file.cst" enable="1"/>
+        <File path="jishi.sdc" type="file.sdc" enable="1"/>
+    </FileList>
+</Project>
