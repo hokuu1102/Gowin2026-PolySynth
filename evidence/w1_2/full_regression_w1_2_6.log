@@ -1,0 +1,368 @@
+RTL 11 个 · 模型 2 个 · 检查器 7 个 · tb 13 个
+
+=== 编译 tb_checkers ===
+=== 运行 tb_checkers ===
+    VCD info: dumpfile build/sim/tb_checkers/tb_checkers.vcd opened for output.
+    --- A8 / A3 干净窗口（不应有任何违规）---
+    ERROR [A3] led_clk 与 spi_sck 各翻转 8/8 次却全程取值相同 —— 疑似同一根网线（⛔ 灯 CLK 与 SPI SCK 必须各自独立）
+      ok : A8 干净窗口内无 X 传播（不误报）
+      ok : A3 两根独立时钟未被误判为同一根网线
+      ok : A3 同一根网线被抓到（负向测试）
+    --- A6 正例：帧内完成 ---
+      ok : A6 第 100 拍完成（< 1024）不误报
+      ok : A6 未置 deadline_fault
+    --- A6 反例 1：超时（第 1500 拍才完成 > 1024）---
+    ERROR [A6] tb_top 帧超时：frame_done 在第 1501 拍，超过 1024 拍上限
+      ok : A6 超时被抓到（负向测试）
+      ok : A6 超时后 deadline_fault = 1
+    --- A6 反例 2：整帧不给 frame_done ---
+      ok : A6 边界语义：未到下一个 tick 前不报（本帧仍在进行）
+    ERROR [A6] tb_top 帧未完成：1202 拍内未见到 frame_done 就到了下一个 tick
+      ok : A6 整帧未完成 → 在下一次 tick 时报出（负向测试）
+    --- A8 反例：注入 X ---
+    ERROR [A8] probe 出现 X/Z：xxxxxxxx (t=75610000)
+    ERROR [A8] probe 出现 X/Z：xxxxxxxx (t=75630000)
+    ERROR [A8] probe 出现 X/Z：xxxxxxxx (t=75650000)
+    ERROR [A8] probe 出现 X/Z：xxxxxxxx (t=75670000)
+      ok : A8 注入 X 被抓到（负向测试）
+    --- A1 正例：够宽的有效脉冲（8 拍 ≥ 4）---
+      ok : A1 宽度足够不误报
+    --- A1 反例：恰好 1 拍的窄脉冲（K-01 的真实故障形态）---
+    ERROR [A1] oe_n 出现窄脉冲：有效电平只有 1 个 clk 周期（要求 ≥ 4）
+      ok : A1 单周期窄脉冲被抓到（负向测试）
+    --- A1b 亚周期毛刺（MIN_NS 路径，同步检查看不见的那种）---
+    ERROR [A1] glitch_sig 出现亚周期毛刺：有效电平只有 3000（要求 ≥ 200 ns）
+      ok : A1b ⭐ 亚周期毛刺被真实时间检查抓到（1 次）—— 同步检查看不见它
+      ok : A1b 足够宽的脉冲未被真实时间检查误报
+    --- A2 正例：LE 保持低时的移位 ---
+      ok : A2 移位期间 LE 为低，不误报
+    --- A2 反例：LE 为高时 SCK 出现边沿（K-03）---
+    ERROR [A2] le 为高时 sck 出现边沿（le=1/1 sck=0→1）—— 锁存脚必须在移位期间保持低
+    ERROR [A2] le 为高时 sck 出现边沿（le=1/1 sck=1→0）—— 锁存脚必须在移位期间保持低
+      ok : A2 LE 高电平期间移位的边沿被抓到（负向测试）
+    --- A4/A5 正例：单路有效、以及全无效（总线空闲）---
+      ok : A4/A5 单路有效与全无效都不误报
+    --- A4 反例：两路片选同时有效 ---
+    ERROR [A4/A5] adc_cs_n 同时有 2 路有效（100）—— 片选必须互斥、MISO 只能有单一驱动源
+      ok : A4 片选同时有效被抓到（负向测试）
+    --- A5 反例：MISO 两个驱动源同时使能 ---
+    ERROR [A4/A5] miso_drv_en 同时有 2 路有效（011）—— 片选必须互斥、MISO 只能有单一驱动源
+      ok : A5 多驱动源被抓到（负向测试）
+    --- A4b 边界：三路片选同时有效（不是只看两路）---
+    ERROR [A4/A5] adc_cs_n 同时有 3 路有效（000）—— 片选必须互斥、MISO 只能有单一驱动源
+      ok : A4b 三路同时有效也被抓到（err 2 次，计数逻辑正确）
+    --- A7 正例：按 phase_inc 前进 ---
+      ok : A7 正常前进不误报
+    --- A7 正例：变调（只改 phase_inc）不误报 —— K-10 的正确做法 ---
+      ok : A7 变调只改 phase_inc（相位连续）不误报
+    --- A7 反例：变调时清零相位（K-10 的错误做法）---
+    ERROR [A7] phase_acc 相位增量异常：实测 4294937296，期望 5000（旧 inc）或 5000（新 inc）—— ⛔ 变调只许改 phase_inc，不许清零相位
+      ok : A7 相位清零被抓到（负向测试）
+    --- A7 正例：合法相位重启（jump_ok=1）不报 ---
+      ok : A7 合法的相位重启（jump_ok）未被误报
+
+    PASS: A1/A2/A3/A4/A5/A6/A7/A8 结构类断言全部按预期工作（含负向测试）
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\checkers\tb_checkers.sv:366: $finish called at 78420000 (1ps)
+    ℹ️ 日志含 15 行 ERROR —— 负向测试的预期结果，不算失败
+
+=== 编译 tb_clk_gen ===
+=== 运行 tb_clk_gen ===
+    VCD info: dumpfile build/sim/tb_clk_gen/tb_clk_gen.vcd opened for output.
+
+    ================ clk_gen 时基实测 ================
+      窗口        : 8192 个 clk（163840 ns，期望 8 帧）
+      tick_audio  : 8 次 · 间隔 min=1024 max=1024 clk
+      bclk_en     : 512 次 · 间隔 min=16 max=16 clk
+      mclk_en     : 2048 次 · 间隔 min=4 max=4 clk
+      bclk_half_en: 1024 次 · 间隔 min=8 max=8 clk（期望 8）
+      frame_start : 8 次 · 间隔 min=1024 max=1024 clk（期望 1024）
+      相位关系    : bclk_en 缺 half 的拍数 0 · half 缺 bclk_en 的拍数 512
+                    frame_start 缺 bclk_en 的拍数 0 · bclk_en∩frame_start 次数 8（= 帧数）
+      lrclk       : 低 4097 / 高 4095 个 clk
+    --------------------------------------------------
+      ⇒ fs   = 50 MHz / 1024 = 48.828125 kHz
+      ⇒ BCLK = 50 MHz / 16 = 3.125000 MHz（= 64.0 × fs）
+      ⇒ MCLK = 50 MHz / 4 = 12.500 MHz（= 256 × fs）
+    ==================================================
+      ok : tick_audio 间隔恰好 1024 clk（fs 精确）
+      ok : bclk_en 间隔恰好 16 clk（BCLK 精确）
+      ok : mclk_en 间隔恰好 4 clk（MCLK 精确）
+      ok : 每帧 64 个 BCLK 使能（8 帧 → 512 次）
+      ok : 每帧 256 个 MCLK 使能
+      ok : lrclk 低/高各占半帧（低 4097 / 高 4095）
+      ok : 帧起点处 lrclk = 低（左声道先发，标准 I2S）
+      ok : A8 无 X/Z 传播
+      ok : bclk_half_en 间隔恰好 8 clk（HP_BCK 翻转节拍精确）
+      ok : 每个 bclk_en 那拍都同时有 bclk_half_en（512 次）
+      ok : bclk_half_en : bclk_en = 2:1（1024 : 512）—— 半周期翻转节拍正确
+      ok : bclk_half_en 中恰好一半不与 bclk_en 同拍（512 次）⇒ 数据窗居中
+      ok : frame_start 间隔恰好 1024 clk（每帧一次）
+      ok : frame_start **必定与 bclk_en 同拍**（i2s_tx 的帧内位对齐前提）
+      ok : 每帧恰好一个 frame_start（8 帧 → 8 次同拍）
+
+    PASS: clk_gen 时基全部符合（分频链精确 + 极差为 0 + 相位关系正确 + 无 X）
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\clk_gen\tb_clk_gen.sv:280: $finish called at 164011000 (1ps)
+
+=== 编译 tb_clk_gen_badparam ===
+=== 运行 tb_clk_gen_badparam ===
+    ERROR [clk_gen] 参数必须全为 2 的幂且 BCLK_DIV/MCLK_DIV >= 2、CLK_PER_SAMPLE >= BCLK_DIV：CLK_PER_SAMPLE=1000 BCLK_DIV=12 MCLK_DIV=4（当前实现把 $clog2 当移位量用 ⇒ 非 2 的幂会**静默给错频率**）
+    ERROR [clk_gen] CLK_PER_SAMPLE(1000) 不能被 2×BCLK_DIV(24) 整除 ⇒ 左右时隙不等长
+    VCD info: dumpfile build/sim/tb_clk_gen_badparam/tb_clk_gen_badparam.vcd opened for output.
+
+    ================ clk_gen 参数自检（负向）================
+      非法参数实例(1000/12/4) 的 bclk_en 次数 = 258
+      合法参数实例(1024/16/4) 的 bclk_en 次数 = 256
+      ⚠️ 上面若出现 ERROR [clk_gen] 行，那正是**预期结果**
+    ========================================================
+      ok : 非法参数确实被**静默按 ÷16** 处理（258 次 ≈ 256）—— 证明必须靠 PARAM_OK 告警
+      ok : 合法参数下 bclk_en 次数正常（256 ≈ 256）
+
+    PASS: clk_gen 参数自检按预期工作（非法参数会告警；合法参数无告警；两者都不卡死）
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\clk_gen\tb_clk_gen_badparam.sv:104: $finish called at 82091000 (1ps)
+    ℹ️ 日志含 2 行 ERROR —— 负向测试的预期结果，不算失败
+
+=== 编译 tb_tlc5916_driver ===
+=== 运行 tb_tlc5916_driver ===
+    VCD info: dumpfile build/sim/tlc5916/tlc5916_tb.vcd opened for output.
+    PASS: TLC5916 transmitted 00 correctly
+    PASS: TLC5916 transmitted a5 correctly
+    PASS: TLC5916 transmitted ff correctly
+    PASS: TLC5916 transmitted 3c correctly
+    PASS: synchronous reset behavior checked
+    PASS: TLC5916 transmitted 5a correctly
+    --- bit-walk: 8 single-bit patterns (proves bit position + MSB-first order) ---
+    PASS: TLC5916 transmitted 01 correctly
+    PASS: TLC5916 transmitted 02 correctly
+    PASS: TLC5916 transmitted 04 correctly
+    PASS: TLC5916 transmitted 08 correctly
+    PASS: TLC5916 transmitted 10 correctly
+    PASS: TLC5916 transmitted 20 correctly
+    PASS: TLC5916 transmitted 40 correctly
+    PASS: TLC5916 transmitted 80 correctly
+      ok : 逐位走查 8/8 通过（每一位的位置与 MSB-first 位序都对）
+    --- A1: OE single-cycle glitch must NOT reach the pin ---
+      ok : A1 前置：outputs_enable=1 稳定后 tlc_oe_n=0（LED 使能）
+      ok : A1 ⭐ 1 拍窄脉冲被稳定窗完全滤掉（tlc_oe_n 未动）
+    --- A1b: OE change during transfer must wait for IDLE ---
+      ok : A1b ⭐ 传输期间 OE 保持不变（只在 CLK 静止 + LE 低时才更新）
+      ok : A1b 回到 IDLE 后 OE 正确关断（outputs_enable=0 被接受）
+    PASS: A2 LE 在移位期间全程为低（含上面的 OE 用例期间）
+    PASS: A1 全程未出现窄脉冲（OE/LE 都过了最小宽度检查）
+    --- K-57: OE stable window vs datasheet tw(OE) >= 500 ns ---
+      ok : K-57 OE 稳定窗 = 500 ns（≥ 手册 500 ns）
+    PASS: A8 无 X/Z 传播
+    --- K-66: Normal-Mode recovery sequence (datasheet 101 pulse + LE low) ---
+      ok : K-66 ⭐ `OE` 低窗口**每个恢复窗口恰好跨过 1 个 CLK 上升沿**（2 次窗口 / 2 个沿）
+      ok : K-66 ⭐ 恢复期间 `LE` **全程低**（⇒ 第 4 个沿必判 Normal Mode）
+      ok : K-66 ⭐ `OE` 低电平宽度 1000 ns ≥ 手册 tw(OE) 500 ns
+      ok : K-66 恢复序列发了 12 个 CLK 周期（≥5，第 4 个沿能采到 LE）
+      ok : K-66 恢复序列**每次复位后恰好跑一次**（本 tb 有 2 次复位释放 ⇒ 2 次）
+    PASS: all TLC5916 tests completed successfully
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\drivers\tb_tlc5916_driver.sv:495: $finish called at 137520000 (1ps)
+
+=== 编译 tb_latency_m2 ===
+=== 运行 tb_latency_m2 ===
+    VCD info: dumpfile build/sim/tb_latency_m2/tb_latency_m2.vcd opened for output.
+
+    ==================== M2 低延迟实测（50 次）====================
+      事件      : UP 25 次 / DOWN 25 次（合成激励，⛔ 不依赖左手板实物）
+      ① 事件→样点算好（桩，最快情形）  : min=3 max=3 clk（0.060 µs）
+      ② ⭐ 事件→板上 DAC 收到数据位     : min=325 max=1263 clk
+         = 6.500 ~ 25.260 µs = 0.3174 ~ 1.2334 音频帧
+         均值 = 780.820 clk = 0.7625 帧（1 帧 = 1024 clk = 20.48 µs）
+      极差      : 938 clk = 0.0188 ms（判据 < 0.100 ms）
+      ⭐ 输出级固有分量（②−①）: 322 ~ 1260 clk = 0.314 ~ 1.230 帧 —— 帧量化 + 串行化，⛔ 躲不开
+      ⭐ 留给合成链（`note_manager`+`voice`+`mixer`）的余量 = 2 帧 − ②最坏 = 785 clk = 15.700 µs
+      A8        : din=0 bck=0 ws=0 sample=0
+      证据      : sim/evidence/latency_m2_din.log（50 行）· _sample.log（诊断）
+      ⭐ 权威判定：python tools\latency_stats.py sim\evidence\latency_m2_din.log --unit cycles --expect-count 50
+    =============================================================
+      ok : 最大延迟 1263 clk = 1.2334 帧 ≤ 2 帧（数字端目标）
+      ok : 极差 938 clk = 0.0188 ms ≤ 0.100 ms（确定性无抖动）
+      ok : 统计次数 = 50（M2 要求 50）
+      ok : A8 无 X/Z 传播（HP_DIN/HP_BCK/HP_WS/样点）
+
+    PASS: M2 数字端延迟上界与抖动均达标（50 次，极差 < 0.1 ms）
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\latency\tb_latency_m2.sv:194: $finish called at 2820771000 (1ps)
+
+=== 编译 tb_top_m0 ===
+=== 运行 tb_top_m0 ===
+    NOTE [top] PA_ON_AFTER_RESET=0 ⇒ 功放**永久关断**（0 个下降沿）。这是 M0 安全态验证档；⚠️ 交付/上板请用 1，否则板子没声音（R-16）
+    NOTE [top] PA_ON_AFTER_RESET=1 ⇒ 复位后等 1048576 拍（≈20.9 ms）开功放，全程**恰好 1 个下降沿** ⇒ NS4263 进 AB 类桥式输出（K-61）
+    NOTE [top] PA_ON_AFTER_RESET=1 ⇒ 复位后等 100 拍（≈0.0 ms）开功放，全程**恰好 1 个下降沿** ⇒ NS4263 进 AB 类桥式输出（K-61）
+    VCD info: dumpfile build/sim/tb_top_m0/tb_top_m0.vcd opened for output.
+
+    ==================== top / M0 顶层验收 ====================
+      A 时基    : HP_BCK 周期 min=16 max=16 clk（期望 16）· 上升沿 4097 个
+                  HP_WS  周期 min=1024 max=1024 clk（期望 1024）· 上升沿 64 个
+      B 安全态  : PA_EN_n 为低 0 拍 · 翻转 0 次 · 复位期间非 1 的拍数 0
+      C 延时开  : 复位释放后第 104 拍拉低（期望 100）· 总翻转 1 次 · 拉低后又变高 0 拍
+      D 心跳    : 翻转 127 次 · 间隔 min=512 max=512 clk（期望 512）
+      G rst_sync: 输入释放拍 9 · 同步输出释放拍 11 · 延迟 2 拍（期望恰好 2）
+      E 静音    : HP_DIN 为 1 的拍数 0（期望 0）
+      F A8      : bck=0 ws=0 din=0 pa=0 hb=0 pa(延时)=0
+      证据      : sim/evidence/top_m0_pa_trace.csv（应只有表头）+ 波形 build/sim/tb_top_m0/
+    ==========================================================
+      ok : A · HP_BCK 周期恰好 16 clk（3.125 MHz）
+      ok : A · HP_WS 周期恰好 1024 clk（48.828125 kHz）
+      ok : B ⭐ 安全态 —— PA_EN_n 全程为 1、0 次翻转、复位期间就已为 1
+      ok : C · 延时开功放：第 104 拍拉低（= 100 + 4，含 rst_sync 的 2 拍）且**只翻转 1 次**
+      ok : D · 心跳 LED 活着且半周期恰好 512 clk（127 次翻转）
+      ok : E · 静音是真静音 —— HP_DIN 全程为 0
+      ok : F · A8 无 X/Z 传播（5 个顶层输出 + 延时实例）
+      ok : G · rst_sync 把复位释放延后**恰好 2 拍**（异步输入 → 同步释放）
+      H NS4263  : PA_EN_n 下降沿 1 个（实例A 期望 0；实例B 期望恰好 1）
+      ok : H · ⭐ NS4263 模式正确 —— 实例A 0 个下降沿（关断）、实例B 恰好 1 个（AB 类桥式）
+      I 默认值  : 裸例化时 PA_ON_AFTER_RESET = 1（0 = 永不开 ⇒ 板子没声音；1 = 会开）
+      ok : I · ⭐ **交付默认值正确** —— 不传参时功放会开 ⇒ 上板有声音
+      ok : I · 显式传 `PA_ON_AFTER_RESET=0` 时确实**永不开**（安全态档仍可用）
+
+    PASS: M0 顶层验收通过（时基正确 + 安全态无窄脉冲 + 静音无噪声 + 心跳活着 + 无 X）
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\top\tb_top_m0.sv:295: $finish called at 1310971000 (1ps)
+
+=== 编译 tb_voice_accept ===
+=== 运行 tb_voice_accept ===
+    VCD info: dumpfile build/sim/tb_voice_accept/tb_voice_accept.vcd opened for output.
+
+    ============ 乙（合成核心）验收判据包 ============
+      ⚠️ 当前用的是**行为桩** u_voice（m2_stub_voice）——
+         真模块落地后必须换掉重跑（桩过 ≠ 真模块过，见 L56 / 63 号）
+    ------------------------------------------------
+      [变调] 只改 phase_inc（2 kHz）—— A7 应保持 0 违规
+    ------------------------------------------------
+      帧数       : tick_audio 98 次 · frame_done 98 次
+      输出活动   : 非零样点 77824 拍
+      A6 帧内截止: 0 次违规（期望 0）
+      A7 相位前进: 0 次违规（期望 0）
+      A8 X/Z     : sample=0 acc=0（期望 0/0）
+    ================================================
+      ok : A6 每帧都在 1024 拍内给出 frame_done（M2 的 <=2 帧预算就此成立）
+      ok : A7 相位只按 phase_inc 前进（变调**没有**清零相位 ⇒ 无咔哒）
+      ok : A8 输出与相位都无 X/Z 传播
+      ok : 每帧恰好一次 frame_done（98/98）
+      ok : 输出确实有非零样点（77824 拍）—— 不是「假装在工作」
+
+    PASS: 乙的合成核心验收判据包（当前为行为桩）全部通过
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\voice\tb_voice_accept.sv:277: $finish called at 2007171000 (1ps)
+
+=== 编译 tb_w1_interfaces ===
+=== 运行 tb_w1_interfaces ===
+    PASS: W1-1 W3b interfaces elaborate at 32x1 with safe inactive outputs
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\w3b\tb_w1_interfaces.sv:116: $finish called at 200000 (1ps)
+
+=== 编译 tb_wavetable_bank ===
+=== 运行 tb_wavetable_bank ===
+    VCD info: dumpfile build/sim/wavetable/tb_wavetable_bank.vcd opened for output.
+    PASS: wavetable_bank 512/512 samples matched with deterministic one-cycle reads
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\w3b\tb_wavetable_bank.sv:129: $finish called at 10420000 (1ps)
+
+=== 编译 tb_i2s_tx ===
+=== 运行 tb_i2s_tx ===
+    VCD info: dumpfile build/sim/tb_i2s_tx/tb_i2s_tx.vcd opened for output.
+      · 左 #0 解串=0 期望=0（高 16 位一致）
+      · 左 #1 解串=410880 期望=411113（高 16 位一致）
+      · 左 #2 解串=818176 期望=818268（高 16 位一致）
+      · 左 #3 解串=1217536 期望=1217542（高 16 位一致）
+
+    ================ i2s_tx / S2 解串实测 ================
+      帧数        : 收到左 260 / 右 260 个样点（期望 256）
+      逐点一致    : 左 256 对 / 0 错 · 右 256 对 / 0 错
+      HP_BCK 周期 : min=16 max=16 clk（期望 16 = 3.125 MHz）
+      HP_WS  周期 : min=1024 max=1024 clk（期望 1024 = 48.828125 kHz）
+      HP_WS  占空 : 低 133122 / 高 133118 clk
+      样点 CSV    : sim/evidence/i2s_tx_l.csv / _r.csv（交给 tools/csv_fft.py）
+    =====================================================
+      ok : 左声道解串样点与激励**逐点一致**（256 点）
+      ok : 右声道解串样点与激励**逐点一致**（256 点）
+      ok : HP_BCK 周期恰好 16 clk（3.125 MHz）
+      ok : HP_WS 周期恰好 1024 clk（48.828125 kHz）
+      ok : HP_WS 低 = 左声道（260 个帧起点处均为低）
+      ok : A8 无 X/Z 传播（HP_BCK/HP_WS/HP_DIN）
+
+    PASS: i2s_tx + S2 解串逐点一致（M1 的核心判据通过）
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\w3c\tb_i2s_tx.sv:222: $finish called at 5325051000 (1ps)
+
+=== 编译 tb_i2s_tx_prbs ===
+=== 运行 tb_i2s_tx_prbs ===
+    VCD info: dumpfile build/sim/tb_i2s_tx_prbs/tb_i2s_tx_prbs.vcd opened for output.
+
+    ================ i2s_tx value/bit-pattern coverage ================
+      LCG random  : 512 frames (fixed seed DEADBEEF, reproducible)
+      bit walk    : 48 frames (1<<k and ~(1<<k) for k=0..23)
+      edge values : 16 frames (7FFFFF/800000/0/FFFFFF/0000FF)
+      L channel   : ok 578 / bad 0
+      R channel   : ok 580 / bad 0
+      A8          : din=0 bck=0 ws=0
+    ==================================================================
+      ok : L channel: every value (incl. all bit patterns) round-trips exactly
+      ok : R channel: every value round-trips exactly
+      ok : A8 no X/Z
+
+    PASS: i2s_tx round-trips the full 24-bit value range, every single-bit pattern, and the truncation edge cases
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\w3c\tb_i2s_tx_prbs.sv:197: $finish called at 11878651000 (1ps)
+
+=== 编译 tb_i2s_tx_sweep ===
+=== 运行 tb_i2s_tx_sweep ===
+    ERROR [i2s_tx] 参数不自洽：JUSTIFY=0 SLOT_BITS=16 DATA_BITS=16 MSB_DELAY=1 ⇒ 会有数据位被**静默丢弃**
+    VCD info: dumpfile build/sim/tb_i2s_tx_sweep/tb_i2s_tx_sweep.vcd opened for output.
+      [x] (7) #1 got 0x3ffe00 exp 0x3fffff
+      [x] (7) #2 got 0x064400 exp 0x0645e9
+      [x] (7) #3 got 0x3fb000 exp 0x3fb11a
+
+    ================ i2s_tx parameter sweep ================
+      clk A = 1024 clk/frame (64 BCK) | clk B = 512 clk/frame (32 BCK)
+      (1) default LSBJ right, 32BCK : ok 128 / bad 0
+      (2) left-align MSB_DELAY=1    : ok 128 / bad 0
+      (3)<->(4) left(D=0) vs right, 16BCK : same 69632 / diff 0 clk
+      (4) right-align 16BCK         : ok 128 / bad 0
+      (5) LRCK_POL=1 (L/R swapped)  : ok 128 / bad 0
+      (6) DATA_BITS=8               : ok 128 / bad 0
+      (7) NEGATIVE bad param combo  : ok 62 / bad 66  <- MUST FAIL
+      PARAM_OK self-check           : (1)-(6) = 111111 | (7) = 0 (must be 0)
+      A8 (HP_DIN X/Z)               : default 0 | 16BCK 0 | bad 0
+    =======================================================
+      ok : (1) default LSBJ right-align point-by-point match (regression intact)
+      ok : (2) left-align Philips (MSB_DELAY=1, 32BCK) point-by-point match
+      ok : (3)<->(4) left(D=0) and right align produce IDENTICAL bitstream (69632 clk)
+      ok : (4) right-align 16BCK slot point-by-point match (SLOT_BITS parameter works)
+      ok : (5) LRCK_POL=1 point-by-point match with mirrored model
+      ok : (6) DATA_BITS=8 point-by-point match (width param works)
+      ok : (7) NEGATIVE case holds: PARAM_OK flags it AND the compare really fails
+      ok : (1)-(6) parameter self-check all pass
+      ok : A8 no X/Z on all three HP_DIN nets
+      R-14 extreme samples (0x7FFFFF / 0x800000 / 0 / 0xFFFFFF): ok 66 / bad 0
+      ok : R-14 极端样点截断正确（取高 16 位、不溢出；−0.5LSB 直流偏置为已知取舍）
+
+    PASS: i2s_tx works in every parameter mode (incl. 16BCK equivalence and the inconsistent-parameter negative proof)
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\w3c\tb_i2s_tx_sweep.sv:419: $finish called at 1392891000 (1ps)
+    ℹ️ 日志含 1 行 ERROR —— 负向测试的预期结果，不算失败
+
+=== 编译 tb_i2s_tx_timing ===
+=== 运行 tb_i2s_tx_timing ===
+    VCD info: dumpfile build/sim/tb_i2s_tx_timing/tb_i2s_tx_timing.vcd opened for output.
+
+    ================ i2s_tx vs PT8211 timing ================
+      [manual] DAC samples DIN on BCK RISING edge; Fbck<=18.4MHz; tH>=25ns
+      [ours  ] tSU(min) = 160 ns   tHD(min) = 160 ns   (target >= 100 ns)
+               WS setup(min) = 160 ns
+               BCK tH(min) = 160 ns (>= 25) · tL(min) = 160 ns
+               BCK period = 320..320 ns (nominal 320) · WS period = 20480..20480 ns
+               DIN changes = 307 · BCK rising = 1153 · WS changes = 35
+               bit period with >1 DIN change = 0
+      A8     : din=0 bck=0 ws=0
+    ========================================================
+      ok : DIN setup to BCK rising edge = 160 ns (>= 100)
+      ok : DIN hold after BCK rising edge = 160 ns (>= 100)
+      ok : BCK high time = 160 ns (manual tH >= 25 ns)
+      ok : BCK period = 320..320 ns (= 3.125 MHz, manual max 18.4 MHz)
+      ok : WS period = 20480..20480 ns (= 48.828 kHz, manual max 384 kHz)
+      ok : WS setup to BCK rising edge = 160 ns (>= 100)
+      ok : no bit period had more than one DIN change (glitch-free)
+      ok : A8 no X/Z
+
+    PASS: I2S output timing has >=100ns setup/hold around the DAC sampling edge (PT8211 manual limits met)
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\w3c\tb_i2s_tx_timing.sv:184: $finish called at 368891000 (1ps)
+
+================ 汇总 ================
+通过 13 / 共 13
+✅ 全部通过（证据在 sim/evidence/）

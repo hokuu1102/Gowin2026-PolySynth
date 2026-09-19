@@ -80,18 +80,29 @@ foreach ($tb in $tbs) {
   #    **不会替它建目录** —— 目录不存在就报 "Unable to open ... for output"，
   #    而且是**运行时**才报（编译一切正常），表现为"tb 莫名失败"。
   #    ⇒ 按 tb 源码里的 $dumpfile 先把目录建出来（通用写法，新增 tb 不用改这里）。
+  # Never allow a failed compile to fall through to a stale simulation image.
+  if (Test-Path -LiteralPath $vvpFile) { Remove-Item -LiteralPath $vvpFile -Force }
   $src = Get-Content -LiteralPath $tb.FullName -Raw -Encoding UTF8
+  if ([string]::IsNullOrWhiteSpace($src)) {
+    "FAIL: empty testbench source: $($tb.FullName)" | Out-File -FilePath $compileLog -Encoding utf8
+    Write-Host "    ⛔ tb 源文件为空 —— 拒绝运行旧仿真产物" -ForegroundColor Red
+    $fail += ($name + "(空文件)")
+    continue
+  }
   foreach ($m in [regex]::Matches($src, '\$dumpfile\s*\(\s*"([^"]+)"')) {
     $dumpPath = $m.Groups[1].Value
     if (-not [System.IO.Path]::IsPathRooted($dumpPath)) { $dumpPath = Join-Path $root $dumpPath }
     $dumpDir = Split-Path -Parent $dumpPath
     if ($dumpDir) { New-Item -ItemType Directory -Force -Path $dumpDir | Out-Null }
   }
-  $compileArgs = @("-g2012", "-Wall", "-o", $vvpFile) + $rtl + $models + $chk + @($tb.FullName)
+  # Normal regression uses the portable table. Gowin synthesis does not set
+  # this macro, so hardware takes the generated pROM branch instead.
+  $compileArgs = @("-g2012", "-Wall", "-DWAVETABLE_BEHAVIORAL", "-s", $name, "-o", $vvpFile) + $rtl + $models + $chk + @($tb.FullName)
   $compileOut  = & $iverilog @compileArgs 2>&1
+  $compileExit = $LASTEXITCODE
   $compileOut | Out-File -FilePath $compileLog -Encoding utf8
   $compileOut | Where-Object { "$_" -match "\S" } | ForEach-Object { Write-Host "    $_" }
-  if ($LASTEXITCODE -ne 0) {
+  if ($compileExit -ne 0) {
     Write-Host ("    ⛔ 编译失败 —— 见 sim/evidence/" + $name + ".compile.log") -ForegroundColor Red
     $fail += ($name + "(编译)")
     continue

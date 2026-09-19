@@ -1,0 +1,14 @@
+generator=tools/gen_wavetable_bank.py
+waveform=sine
+depth=512
+data_width=16
+amplitude=32767
+minimum=-32767
+maximum=32767
+sum=0
+sample_0=0
+sample_128=32767
+sample_256=0
+sample_384=-32767
+half_wave_symmetry=PASS
+sample_sha256_be=83c0f2211910e1a369afa9ed4b11239eba7acf5dc83f7726b8e496fd5cdb67cf

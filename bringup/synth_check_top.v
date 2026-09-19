@@ -38,6 +38,8 @@ module synth_check_top #(
     input  wire [7:0]  led_data,
     input  wire        outputs_enable,
     input  wire signed [SAMPLE_W-1:0] sample_in,
+    input  wire        wavetable_rd_en,
+    input  wire [8:0]  wavetable_addr,
 
     // 时基输出
     output wire        tick_audio,
@@ -59,6 +61,11 @@ module synth_check_top #(
     output wire        tlc_oe_n,
     output wire        tlc_busy,
     output wire        tlc_done,
+
+    // W1-2 wavetable pROM outputs. Keeping these at the top-level prevents
+    // synthesis from pruning the ROM and makes its resource use observable.
+    output wire signed [15:0] wavetable_sample,
+    output wire               wavetable_valid,
 
     // 观测用（把内部信号引出来，防优化 + 方便看资源）
     output wire [31:0] obs
@@ -138,7 +145,24 @@ module synth_check_top #(
         .done           (tlc_done)
     );
 
+    // -- W1-2 Gowin pROM wavetable -------------------------------------------
+    // The default (non-WAVETABLE_BEHAVIORAL) path instantiates the generated
+    // wavetable_sine_rom_ip module, so this synthesis-only project verifies the
+    // real vendor primitive and its initialization data.
+    wavetable_bank u_wavetable_bank (
+        .clk_i    (clk),
+        .rst_n_i  (rst_n_sync),
+        .rd_en_i  (wavetable_rd_en),
+        .addr_i   (wavetable_addr),
+        .sample_o (wavetable_sample),
+        .valid_o  (wavetable_valid)
+    );
+
     // 把若干内部信号汇成一个观测字（防止综合器把"只被观测"的逻辑剪掉）
-    assign obs = {24'd0, led_data} ^ {28'd0, tlc_busy, tlc_done, HP_DIN, lrclk} ^ {28'd0, sync_probe};
+    assign obs = {16'd0, wavetable_sample}
+               ^ {24'd0, led_data}
+               ^ {28'd0, tlc_busy, tlc_done, HP_DIN, lrclk}
+               ^ {28'd0, sync_probe}
+               ^ {31'd0, wavetable_valid};
 
 endmodule
