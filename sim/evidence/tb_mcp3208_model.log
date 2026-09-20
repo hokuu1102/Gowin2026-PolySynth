@@ -1,0 +1,7 @@
+﻿VCD info: dumpfile build/sim/mcp3208_model/tb_mcp3208_model.vcd opened for output.
+NOTE [top] PA_ON_AFTER_RESET=1 鈬?澶嶄綅鍚庣瓑 1048576 鎷嶏紙鈮?0.9 ms锛夊紑鍔熸斁锛屽叏绋?*鎭板ソ 1 涓笅闄嶆部** 鈬?NS4263 杩?AB 绫绘ˉ寮忚緭鍑猴紙K-61锛?
+PASS CH0: model returned 400
+PASS CH1: model returned 401
+PASS CH7: model returned 407
+PASS: mcp3208_model returns IDVAL+channel correctly
+C:\Users\kate-125\WorkBuddy\Claw\Gowin2026-PolySynth-clean\tb\models\tb_mcp3208_model.sv:92: $finish called at 72260000 (1ps)

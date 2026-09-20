@@ -147,6 +147,16 @@ module tb_checkers;
         .clk(clk), .rst_n(rst_n), .v(drv_en), .err_cnt(a5_err));
 
     // ═══════════════════════════════════════════════════════════
+    // A4p · "同源扇出逐拍一致"（A4 的并行采集口径，K-79）
+    //   —— 三片 MCP3208 并行采集时，CS/SCLK/MOSI 必须锁步（逐拍一致）。
+    //   正例：三路完全一致不报；反例：某一路不同（未锁步/串线）必须报。
+    // ═══════════════════════════════════════════════════════════
+    reg  [2:0]  fanout_v = 3'b000;
+    wire [31:0] a4p_err;
+    chk_fanout_same #(.N(3), .NAME("fanout_test")) u_a4p (
+        .clk(clk), .rst_n(rst_n), .v(fanout_v), .err_cnt(a4p_err));
+
+    // ═══════════════════════════════════════════════════════════
     // A7 · 相位只按 `phase_inc` 前进（⛔ 变调不许清零）—— `K-10`
     // ═══════════════════════════════════════════════════════════
     reg  [31:0] p_acc = 32'd0, p_inc = 32'd1000;
@@ -326,6 +336,23 @@ module tb_checkers;
         repeat (2) @(negedge clk);
         if (a4_err == 32'd2) $display("  ok : A4b 三路同时有效也被抓到（err 2 次，计数逻辑正确）");
         else begin $display("FAIL: A4b 三路同时有效的判定不对（err=%0d，期望 2）", a4_err); errors = errors + 1; end
+
+        // ═════════════════════════ A4p（并行扇出一致性）═══════════════════════
+        $display("--- A4p 正例：三路完全一致（锁步扇出）不误报 ---");
+        @(negedge clk); fanout_v = 3'b111;   // 三路全 1，逐拍一致
+        @(negedge clk); fanout_v = 3'b111;
+        @(negedge clk); fanout_v = 3'b000;   // 三路全 0，逐拍一致
+        @(negedge clk); fanout_v = 3'b000;
+        repeat (2) @(negedge clk);
+        if (a4p_err == 32'd0) $display("  ok : A4p 三路逐拍一致不误报");
+        else begin $display("FAIL: A4p 把一致的三路误判成不一致（err=%0d）", a4p_err); errors = errors + 1; end
+
+        $display("--- A4p 反例：某一路与主路不同（未锁步/串线）---");
+        @(negedge clk); fanout_v = 3'b001;      // bit1/bit2=0 与 bit0=1 不同
+        @(negedge clk); fanout_v = 3'b000;
+        repeat (2) @(negedge clk);
+        if (a4p_err == 32'd1) $display("  ok : A4p 扇出不一致被抓到（负向测试）");
+        else begin $display("FAIL: A4p 没抓到扇出不一致（负向测试失效，err=%0d）", a4p_err); errors = errors + 1; end
 
         // ═══════════════════════════ A7 ═══════════════════════════
         $display("--- A7 正例：按 phase_inc 前进 ---");
