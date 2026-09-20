@@ -150,9 +150,25 @@ module adc_farm #(
     endgenerate
 
     // ⚠️ 兼容别名（片 0/1/2）—— 让既有 tb 与集成不改一行
-    assign sample_data0 = sample_data_packed[11:0];
-    assign sample_data1 = sample_data_packed[23:12];
-    assign sample_data2 = sample_data_packed[35:24];
+    // ⭐ K-89 修复（2026-09-20）：原来是**无条件** assign：
+    //      sample_data0/1/2 = sample_data_packed[11:0]/[23:12]/[35:24]
+    //    但 packed 宽度是 N_ADC*12 ⇒ N_ADC<3 时**索引越界读出 X**
+    //    （实测 N_ADC=2：sample_data2 = xxx）。
+    //    ⇒ 改为 generate 保护：**不存在的片接 12'd0**，⛔ 不越界。
+    wire [35:0] sample_data_alias;      // 固定 3 片宽（片 0/1/2）
+
+    generate
+        for (g = 0; g < 3; g = g + 1) begin : gen_alias
+            if (g < N_ADC)
+                assign sample_data_alias[g*12 +: 12] = sample_data_packed[g*12 +: 12];
+            else
+                assign sample_data_alias[g*12 +: 12] = 12'd0;   // ⛔ 不越界
+        end
+    endgenerate
+
+    assign sample_data0 = sample_data_alias[11:0];
+    assign sample_data1 = sample_data_alias[23:12];
+    assign sample_data2 = sample_data_alias[35:24];
 
     // ── 故障（预留 sticky，当前未实现死片检测，保持 0）─────────────────────
     reg [N_ADC-1:0] fault_r;

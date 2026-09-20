@@ -86,7 +86,11 @@ $mutations = @(
   # "not found" and the script used to count that as a PASS -- see K-87.
   # Both mutants now target the parameterised code, so they stay valid for any N_ADC >= 3.
   @{ id = "M21"; file = "rtl\drivers\adc_farm.sv"; find = "assign adc_cs_n[g] = adc_cs_n[0];"; repl = "assign adc_cs_n[g] = ~adc_cs_n[0];"; why = "L8/adc_farm regression: fanout slave CS inverted -> fanout mismatch (A4p) must be caught" },
-  @{ id = "M22"; file = "rtl\drivers\adc_farm.sv"; find = "assign sample_data1 = sample_data_packed[23:12];"; repl = "assign sample_data1 = sample_data_packed[35:24];"; why = "L8/adc_farm regression: slave 1 alias reads slave 2's slice -> sample_data1 wrong (must be caught)" }
+  # NOTE (2026-09-20, second re-point): the aliases moved AGAIN when K-89 was fixed --
+  # they now go through sample_data_alias[35:0] with a generate guard.  The alias output
+  # still exists, so M22 was re-pointed to the current line.  This second skip is exactly
+  # the failure mode K-87 is meant to surface, and the new exit-4 check caught it.
+  @{ id = "M22"; file = "rtl\drivers\adc_farm.sv"; find = "assign sample_data1 = sample_data_alias[23:12];"; repl = "assign sample_data1 = sample_data_alias[35:24];"; why = "L8/adc_farm regression: slave 1 alias reads slave 2's slice -> sample_data1 wrong (must be caught)" }
 )
 
 if ($Filter -ne "") { $mutations = @($mutations | Where-Object { $_.id -like "*$Filter*" }) }

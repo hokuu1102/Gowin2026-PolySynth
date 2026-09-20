@@ -1,0 +1,9 @@
+﻿iverilog.exe : C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_w1_interfaces.sv:47: warning: Port 6 (timbre_id_i) of mod
+ule oscillator_bank expects 2 bit(s), given 1.
+At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:101 char:18
++   $compileOut  = & $iverilog @compileArgs 2>&1
++                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\hokuu\...it(s), given 1.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_w1_interfaces.sv:47:        : Padding 1 high bits of the port.
