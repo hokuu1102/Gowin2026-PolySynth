@@ -1,19 +1,14 @@
 // ─────────────────────────────────────────────────────────────────────────────
 // tb_voice_accept.sv · **乙（合成核心）的验收判据包**（`K-44` / `T8` / `T9` / `T10`）
 //
-// ⭐⭐ 为什么先写这个（`B10`）：乙的 `voice`/`adsr`/`note_manager` 还没落地，
-//    之前的状态是"**等他**"。这份 tb 把"等他"变成"**他一来就能验**"：
-//    ⭐ 乙只要把他的模块按下面的**接口契约**接进来（或告诉我实际端口名），
-//      这条 tb 立刻就能跑，判据已经写好且**每条都证明过会失败**（见文件尾"自检"一节）。
+// T10 real-voice acceptance: DDS + pROM wavetable + ADSR + amplitude scaling.
 //
 // ⭐ 用法（乙上手三步）
 //   ① 看 §一 的**接口契约**——如果你模块的端口名/位宽不同，改 §二 的例化即可；
 //   ② 跑 `powershell -NoProfile -ExecutionPolicy Bypass -File sim\tb_all.ps1 -Filter voice_accept`；
 //   ③ 若 FAIL，看日志里带 `FAIL:` 的行（每条都写明"期望 vs 实测"）。
 //
-// ⚠️ 现在这个文件**能编译、能跑、会 PASS**（因为它用 §二 里的**行为桩**代替乙的模块）。
-//    ⛔ 一旦乙的真模块落地，**必须把桩换掉重跑** —— 桩过 ≠ 真模块过
-//      （这正是 `L56`/`TROUBLESHOOTING 63 号`的教训：**验收全绿却上板必错**）。
+// No behavioral voice stub is permitted in this test.
 // ─────────────────────────────────────────────────────────────────────────────
 `timescale 1ns/1ps
 
@@ -36,7 +31,7 @@ module tb_voice_accept;
     // ── 时钟 / 时基 ──────────────────────────────────────────────────────
     // ⚠️⚠️ 时基必须**寄存输出**，与真的 `clk_gen` 保持一致（`tick_audio <= (cnt == 0)`）。
     //    ⛔ 第一版我写成组合输出（`wire tick_audio = (cnt == 0)`）⇒ `tick_audio` 与
-    //      `cnt` 同拍变化，而下游 `A7` 检查器与桩都按"**寄存**的 tick"设计
+    //      `cnt` 同拍变化，而下游 `A7` 检查器与真实 voice 都按"**寄存**的 tick"设计
     //      ⇒ **相位差一拍** ⇒ A7 实测相位增量读到 **0**（假失败）。
     //    📌 教训：**tb 自造时基时必须照抄被测系统的输出寄存方式**，
     //      ⛔ 不要图省事写成组合逻辑（`L57` 同源：相位/边界约定变了，依赖它的判据全会错）。
@@ -54,7 +49,7 @@ module tb_voice_accept;
     integer errors = 0;
 
     // ═══════════════════════════════════════════════════════════════════════
-    // §二 · 被测对象（⚠️ 现在是**行为桩**；乙的真模块落地后换掉这里）
+    // §二 · 被测对象：真实 voice RTL
     // ═══════════════════════════════════════════════════════════════════════
     reg                    note_on  = 1'b0;
     reg                    note_off = 1'b0;
@@ -65,8 +60,7 @@ module tb_voice_accept;
     wire [W_PHASE-1:0]         phase_acc;
     wire [W_PHASE-1:0]         phase_inc;
 
-    // ── 行为桩：一个最小 DDS（**只为了证明判据链能跑通**，⛔ 不代表乙的实现）──
-    m2_stub_voice #(
+    voice #(
         .CLK_PER_SAMPLE (CLK_PER_SAMPLE),
         .W_PHASE        (W_PHASE),
         .SAMPLE_W       (SAMPLE_W)
@@ -88,7 +82,7 @@ module tb_voice_accept;
     // ═══════════════════════════════════════════════════════════════════════
     wire [31:0] a6_viol, a7_err, a8_sample, a8_acc;
 
-    // A6：每帧必须在 CLK_PER_SAMPLE 拍内给出 frame_done（M2 的"≤2 帧"就此而来）
+    // A6：每帧必须在 CLK_PER_SAMPLE 拍内给出 frame_done（证明单 voice 不拖跨帧）。
     chk_deadline #(
         .CLK_PER_SAMPLE (CLK_PER_SAMPLE),
         .NAME           ("voice.frame_done")
@@ -100,7 +94,7 @@ module tb_voice_accept;
 
     // A7：**变调只许改 phase_inc，⛔ 绝不清零 phase_acc**（K-10 的正解）
     //   ⚠️⚠️ 这里有个**必须处理的正常现象**（2026-09-17 实测踩到）：
-    //     桩/voice 在**起振那一帧**会把 `inc` 从 0 装载成目标值 ——
+    //     voice 在**起振那一帧**会把 `inc` 从 0 装载成目标值 ——
     //     于是"**上一帧 acc 的增量是 0**"（因为还没起振）⇒ A7 会把它当成"相位跳变"。
     //     ⛔ 那不是缺陷，是"**从静止到起振**"这个合法事件。
     //   ⇒ 检查器为此提供了 `jump_ok` 端口（"这一次 tick 是合法的相位重启"）。
@@ -121,9 +115,8 @@ module tb_voice_accept;
     //     ⭐ 关于"变调"：变调**不**放行（`inc` 变了但 `acc` 必须连续前进）——
     //       那正是 A7 要抓的核心场景，放行它就等于没验。
 
-    // ── `voice_active`：本帧是否有音在响（与桩的 `active` 同源，但只在本 tb 用）──
-    //    ⚠️ 乙的真模块落地后，这个标志应换成**他模块的真实"正在发声"输出**
-    //      （或直接从 `sample_out` 非零/包络非零推出来）。
+    // ── `voice_active`：验收侧记录 note gate 生命周期，只用于控制 A7 的 jump_ok。──
+    //    它不窥探 DUT 内部状态；Release 期间相位仍由真实 voice 连续推进。
     reg voice_active;
     always @(posedge clk) begin
         if (!rst_n)       voice_active <= 1'b0;
@@ -193,9 +186,8 @@ module tb_voice_accept;
         rst_n = 1'b1;
 
         $display("");
-        $display("============ 乙（合成核心）验收判据包 ============");
-        $display("  ⚠️ 当前用的是**行为桩** u_voice（m2_stub_voice）——");
-        $display("     真模块落地后必须换掉重跑（桩过 ≠ 真模块过，见 L56 / 63 号）");
+        $display("============ T10 真实 voice 验收 ============");
+        $display("  DUT = voice（DDS + pROM 波表 + ADSR + 幅度缩放）");
         $display("------------------------------------------------");
 
         // ① 起一个 1 kHz 音
@@ -221,6 +213,8 @@ module tb_voice_accept;
         note_off = 1'b0;
         wait_frames(16);
 
+        // voice has a fixed pROM/multiply pipeline; allow its final frame_done.
+        repeat (4) @(posedge clk);
         #1;
         $display("------------------------------------------------");
         $display("  帧数       : tick_audio %0d 次 · frame_done %0d 次", n_tick, n_frame_done);
@@ -232,7 +226,7 @@ module tb_voice_accept;
 
         // ── 判据（每条都写明"期望 vs 实测"）────────────────────────────
         if (a6_viol == 0)
-            $display("  ok : A6 每帧都在 %0d 拍内给出 frame_done（M2 的 <=2 帧预算就此成立）", CLK_PER_SAMPLE);
+            $display("  ok : A6 每帧都在 %0d 拍内给出 frame_done（单 voice 不拖跨帧）", CLK_PER_SAMPLE);
         else begin
             $display("FAIL: A6 有 %0d 帧超时（>%0d 拍）⇒ 32 复音时会拖过帧边界", a6_viol, CLK_PER_SAMPLE);
             errors = errors + 1;
@@ -269,7 +263,7 @@ module tb_voice_accept;
 
         $display("");
         if (errors == 0)
-            $display("PASS: 乙的合成核心验收判据包（当前为行为桩）全部通过");
+            $display("PASS: T10 真实 voice 的 A6/A7/A8 与活动样点验收全部通过");
         else
             $fatal(1, "FAIL: 合成核心验收有 %0d 项不符合预期", errors);
 
@@ -277,74 +271,4 @@ module tb_voice_accept;
         $finish;
     end
 
-endmodule
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 行为桩：最小 DDS voice（**只为让判据链能跑**，⛔ 不是乙的实现）
-//   ⭐ 复查人请把注意力放在 §五 的判据上，⛔ 不要把这个桩当成设计参考
-// ─────────────────────────────────────────────────────────────────────────────
-module m2_stub_voice #(
-    parameter integer CLK_PER_SAMPLE = 1024,
-    parameter integer W_PHASE        = 32,
-    parameter integer SAMPLE_W       = 24
-) (
-    input  wire                    clk,
-    input  wire                    rst_n,
-    input  wire                    tick_audio,
-    input  wire                    note_on,
-    input  wire                    note_off,
-    input  wire [W_PHASE-1:0]      note_inc,
-    output reg signed [SAMPLE_W-1:0] sample_out,
-    output reg                     frame_done,
-    output wire [W_PHASE-1:0]      phase_acc,
-    output wire [W_PHASE-1:0]      phase_inc
-);
-    reg [W_PHASE-1:0] acc;
-    reg [W_PHASE-1:0] inc;
-    reg               active;
-    reg [15:0]        fd_cnt;
-
-    assign phase_acc = acc;
-    assign phase_inc = inc;
-
-    // 正弦表（64 点，幅度 1/2 满量程）
-    reg signed [SAMPLE_W-1:0] sine_tbl [0:63];
-    integer i;
-    initial begin
-        for (i = 0; i < 64; i = i + 1)
-            sine_tbl[i] = $rtoi(0.5 * 8388607.0 * $sin(2.0 * 3.141592653589793 * i / 64.0));
-    end
-
-    always @(posedge clk) begin
-        if (!rst_n) begin
-            acc        <= {W_PHASE{1'b0}};
-            inc        <= {W_PHASE{1'b0}};
-            active     <= 1'b0;
-            sample_out <= {SAMPLE_W{1'b0}};
-            frame_done <= 1'b0;
-            fd_cnt     <= 16'd0;
-        end else begin
-            frame_done <= 1'b0;
-
-            if (note_on)  begin active <= 1'b1; inc <= note_inc; end
-            if (note_off) begin active <= 1'b0; end
-            if (tick_audio) begin
-                // ⭐ 变调**只改 inc**、⛔ 永不写 acc ⇒ A7 常绿（K-10 的正解）
-                if (active) begin
-                    acc        <= acc + inc;
-                    sample_out <= sine_tbl[acc[W_PHASE-1 -: 6]];
-                end else begin
-                    sample_out <= {SAMPLE_W{1'b0}};
-                end
-            end
-
-            // frame_done：在帧末尾给一次脉冲（**帧内**完成 ⇒ A6 常绿）
-            if (fd_cnt == CLK_PER_SAMPLE - 2) begin
-                fd_cnt     <= 16'd0;
-                frame_done <= 1'b1;
-            end else begin
-                fd_cnt <= fd_cnt + 16'd1;
-            end
-        end
-    end
 endmodule

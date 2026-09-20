@@ -25,6 +25,11 @@
         <File path="../rtl/w3c/i2s_tx.v" type="file.verilog" enable="1"/>
         <File path="../rtl/drivers/tlc5916_driver.sv" type="file.verilog" enable="1"/>
         <File path="../rtl/w3b/wavetable_bank.v" type="file.verilog" enable="1"/>
+        <File path="../rtl/w3b/adsr.v" type="file.verilog" enable="1"/>
+        <File path="../rtl/w3b/envelope_bank.v" type="file.verilog" enable="1"/>
+        <File path="../rtl/w3b/dds_wavetable_core.v" type="file.verilog" enable="1"/>
+        <File path="../rtl/w3b/voice.v" type="file.verilog" enable="1"/>
+        <File path="../rtl/w3b/voice_i2s_chain.v" type="file.verilog" enable="1"/>
         <File path="../bringup/synth_check_top.v" type="file.verilog" enable="1"/>
     </FileList>
 </Project>

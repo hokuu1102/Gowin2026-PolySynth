@@ -9,10 +9,13 @@ module dds_wavetable_core (
     input  wire                      sample_tick_i,
     input  wire [31:0]               phase_inc_i,
     output wire signed [15:0]        sample_o,
-    output wire                      valid_o
+    output wire                      valid_o,
+    output wire [31:0]               phase_acc_o
 );
 
     reg [31:0] phase_acc;
+
+    assign phase_acc_o = phase_acc;
 
     always @(posedge clk_i) begin
         if (!rst_n_i)

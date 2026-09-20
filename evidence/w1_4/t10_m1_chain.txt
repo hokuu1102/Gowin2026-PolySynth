@@ -1,0 +1,58 @@
+W1-4 / T10 / M1 REAL SYNTH CHAIN ACCEPTANCE
+date=2026-09-20
+status=PASS_SIMULATION_AND_SYNTHESIS
+board_validation=NOT_RUN_BOARD_UNAVAILABLE
+
+chain=clk_gen -> voice(DDS+pROM+ADSR+amplitude scaling) -> i2s_tx -> external HP_BCK/HP_WS/HP_DIN
+voice_stub=REMOVED
+
+[voice acceptance]
+command=powershell -NoProfile -ExecutionPolicy Bypass -File sim\tb_all.ps1 -Filter voice_accept
+tick_audio=98
+frame_done=98
+a6_deadline_violations=0
+a7_phase_violations=0
+a8_sample_xz=0
+a8_phase_xz=0
+result=PASS
+
+[external I2S chain]
+command=powershell -NoProfile -ExecutionPolicy Bypass -File sim\tb_all.ps1 -Filter voice_i2s_chain
+decoded_left=1032/1032
+decoded_right=1032/1032
+pointwise_match_left=1032/1032
+pointwise_match_right=1032/1032
+golden_match=1027/1027
+golden_mismatch=0
+result=PASS
+
+[FFT]
+source=sim/evidence/voice_i2s_chain_l.csv
+sample_rate_hz=48828.125
+samples=1016
+expected_frequency_hz=762.939453125
+measured_frequency_hz=762.4776
+frequency_error_hz=0.4619
+snr_db=125.41
+maximum_spur_dbc=-105.1
+peak_count=1
+peak_count_threshold_db=-40
+result=PASS
+note=Spectrum CSV generated; PNG was not generated because matplotlib is unavailable.
+
+[Gowin synthesis]
+command=D:\Gowin\Software\Gowin_V1.9.12.03_x64\IDE\bin\gw_sh.exe bringup\synth_check.tcl
+result=PASS
+voice_chain_dsp_MULTALU27X18=1
+voice_chain_bsram=1
+voice_phase_registers=32
+voice_adsr_state_registers=19
+vendor_prom_wrapper_simulation=PASS
+
+[full regression]
+result=20/20 PASS
+
+[scope boundary]
+true_UP_DOWN_to_DAC_M2_latency=NOT_RUN
+reason=note_manager_and_polyphonic_mixer_are_not_landed_yet; existing M2 result still uses its documented event-manager stub
+next_remeasure_point=after_L6_note_manager_and_mixer_integration

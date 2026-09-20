@@ -28,7 +28,8 @@ module synth_check_top #(
     parameter integer DATA_BITS      = 16,
     parameter integer SLOT_BITS      = 32,
     parameter integer CLK_HZ         = 50_000_000,
-    parameter integer DATA_HZ        = 1_000_000
+    parameter integer DATA_HZ        = 1_000_000,
+    parameter integer POLY_TARGET    = 32
 ) (
     input  wire        clk,
     input  wire        rst_n,
@@ -40,6 +41,11 @@ module synth_check_top #(
     input  wire signed [SAMPLE_W-1:0] sample_in,
     input  wire        wavetable_rd_en,
     input  wire [8:0]  wavetable_addr,
+    input  wire [POLY_TARGET-1:0] env_gate,
+    input  wire [POLY_TARGET*8-1:0] env_velocity,
+    input  wire        note_on,
+    input  wire        note_off,
+    input  wire [31:0] note_inc,
 
     // 时基输出
     output wire        tick_audio,
@@ -66,6 +72,21 @@ module synth_check_top #(
     // synthesis from pruning the ROM and makes its resource use observable.
     output wire signed [15:0] wavetable_sample,
     output wire               wavetable_valid,
+
+    // W1-3 ADSR outputs remain public so all 32 independent state machines
+    // survive synthesis and are visible in the hierarchy/resource report.
+    output wire [POLY_TARGET*16-1:0] env_level,
+    output wire [POLY_TARGET-1:0]    env_active,
+
+    // T10 real single-voice integration path.
+    output wire               chain_HP_BCK,
+    output wire               chain_HP_WS,
+    output wire               chain_HP_DIN,
+    output wire               chain_tick_audio,
+    output wire signed [23:0] chain_sample,
+    output wire               chain_voice_done,
+    output wire [31:0]        chain_phase_acc,
+    output wire [31:0]        chain_phase_inc,
 
     // 观测用（把内部信号引出来，防优化 + 方便看资源）
     output wire [31:0] obs
@@ -156,6 +177,36 @@ module synth_check_top #(
         .addr_i   (wavetable_addr),
         .sample_o (wavetable_sample),
         .valid_o  (wavetable_valid)
+    );
+
+    // -- W1-3 independent per-voice ADSR bank -------------------------------
+    envelope_bank #(
+        .POLY_TARGET (POLY_TARGET)
+    ) u_envelope_bank (
+        .clk_i         (clk),
+        .rst_n_i       (rst_n_sync),
+        .sample_tick_i (tick_audio),
+        .gate_i        (env_gate),
+        .velocity_i    (env_velocity),
+        .env_level_o   (env_level),
+        .env_active_o  (env_active)
+    );
+
+    // -- T10 DDS + pROM + ADSR + amplitude scaling + I2S --------------------
+    voice_i2s_chain u_voice_i2s_chain (
+        .clk_i           (clk),
+        .rst_n_i         (rst_n_sync),
+        .note_on_i       (note_on),
+        .note_off_i      (note_off),
+        .note_inc_i      (note_inc),
+        .HP_BCK          (chain_HP_BCK),
+        .HP_WS           (chain_HP_WS),
+        .HP_DIN          (chain_HP_DIN),
+        .tick_audio_o    (chain_tick_audio),
+        .sample_dbg_o    (chain_sample),
+        .voice_done_o    (chain_voice_done),
+        .phase_acc_dbg_o (chain_phase_acc),
+        .phase_inc_dbg_o (chain_phase_inc)
     );
 
     // 把若干内部信号汇成一个观测字（防止综合器把"只被观测"的逻辑剪掉）

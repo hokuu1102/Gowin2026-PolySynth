@@ -1,0 +1,2 @@
+﻿VCD info: dumpfile build/sim/tb_adsr/tb_adsr.vcd opened for output.
+PASS: ADSR follows attack, decay, sustain, and release through its public interface

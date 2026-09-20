@@ -108,7 +108,7 @@ module tb_w1_interfaces;
         if (active_n !== 6'd0) errors = errors + 1;
 
         if (errors == 0)
-            $display("PASS: W1-1 W3b interfaces elaborate at 32x1 with safe inactive outputs");
+            $display("PASS: W3b interfaces elaborate at 32x1 with safe outputs under idle inputs");
         else
             $fatal(1, "FAIL: W1-1 interface contract has %0d error(s)", errors);
 

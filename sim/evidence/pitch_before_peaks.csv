@@ -1,0 +1,3 @@
+﻿# peak_count pitch_before.csv min_db=-40.0 sep_hz=578.989625 count=1
+index,freq_hz,db_rel_peak
+1,771.986166,0.0000

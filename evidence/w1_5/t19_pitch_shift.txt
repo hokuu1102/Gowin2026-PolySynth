@@ -1,0 +1,66 @@
+W1-5 / T19 PHASE-CONTINUOUS PITCH ACCEPTANCE
+date=2026-09-20
+status=PASS_SIMULATION_FFT_AND_SYNTHESIS
+board_validation=NOT_RUN_BOARD_UNAVAILABLE
+
+[public seam]
+dut=voice_i2s_chain
+observed=HP_BCK,HP_WS,HP_DIN,tick_audio_o,voice_done_o,phase_acc_dbg_o,phase_inc_dbg_o
+private_hierarchical_state_access=NO
+
+[held-note transition]
+note_on_events=1
+frequency_before_hz=762.939453125
+frequency_after_hz=1525.87890625
+phase_at_update=3019898880
+phase_at_update_nonzero=PASS
+a7_phase_discontinuities=0
+continuous_phase_and_envelope_golden=616/616
+external_i2s_point_errors=0
+xz_errors=0
+result=PASS
+
+[negative mutation proof]
+mutation=reset phase_acc to zero when phase_inc changes
+transition_frame_selected_non_periodic=301
+observed_a7_errors=1
+test_result=FAIL_AS_REQUIRED
+failure_reason=A7 detected a non-inc phase delta at the held-note pitch transition
+mutation_removed=YES
+
+[FFT before]
+samples=253
+measured_frequency_hz=762.1978
+frequency_error_hz=0.7417
+peak_count=1
+snr_db=99.06
+maximum_spur_dbc=-100.2
+result=PASS
+
+[FFT after]
+samples=288
+measured_frequency_hz=1525.8789
+frequency_error_hz=0.0000
+peak_count=1
+snr_db=99.31
+maximum_spur_dbc=-98.4
+result=PASS
+
+[regression]
+command=powershell -NoProfile -ExecutionPolicy Bypass -File sim\tb_all.ps1
+result=21/21 PASS
+
+[Gowin synthesis]
+command=D:\Gowin\Software\Gowin_V1.9.12.03_x64\IDE\bin\gw_sh.exe bringup\synth_check.tcl
+result=PASS
+compiled_modules=voice_i2s_chain,voice,dds_wavetable_core,adsr,i2s_tx
+
+[artifacts]
+testbench=tb/voice/tb_pitch_shift_accept.sv
+run_log=sim/evidence/tb_pitch_shift_accept.log
+before_samples=sim/evidence/pitch_before.csv
+after_samples=sim/evidence/pitch_after.csv
+before_spectrum=sim/evidence/pitch_before_spectrum.csv
+after_spectrum=sim/evidence/pitch_after_spectrum.csv
+before_peaks=sim/evidence/pitch_before_peaks.csv
+after_peaks=sim/evidence/pitch_after_peaks.csv

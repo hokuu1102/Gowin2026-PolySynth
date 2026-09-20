@@ -1,0 +1,2 @@
+﻿VCD info: dumpfile build/sim/tb_envelope_bank/tb_envelope_bank.vcd opened for output.
+PASS: envelope_bank keeps per-voice ADSR state independent
