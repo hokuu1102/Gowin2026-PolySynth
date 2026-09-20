@@ -73,7 +73,9 @@ $mutations = @(
   # ---- R-16: the DELIVERED default must actually turn the amp on (else the board is silent) ----
   @{ id = "M18"; file = "rtl\top.v"; find = "    parameter integer PA_ON_AFTER_RESET = 1,"; repl = "    parameter integer PA_ON_AFTER_RESET = 0,"; why = "R-16 regression: default back to 0 -> amp never turns on -> silent board (guard I must catch it)" },
   @{ id = "M19"; file = "rtl\drivers\debounce.sv"; find = "end else if (key_cnt[ki] >= DB_CYC - 1) begin"; repl = "end else if (key_cnt[ki] >= 0) begin"; why = "T14 regression: debounce window removed -> bounce passes through -> key_down fires many times (must be caught)" },
-  @{ id = "M20"; file = "rtl\drivers\calib.sv"; find = "quo_r <= 24'(FULL) << 8;"; repl = "quo_r <= 24'(FULL) << 7;"; why = "T13 regression: span gain computed wrong -> calibrated full-scale does not converge to 4095 (must be caught)" }
+  @{ id = "M20"; file = "rtl\drivers\calib.sv"; find = "quo_r <= 24'(FULL) << 8;"; repl = "quo_r <= 24'(FULL) << 7;"; why = "T13 regression: span gain computed wrong -> calibrated full-scale does not converge to 4095 (must be caught)" },
+  @{ id = "M21"; file = "rtl\drivers\adc_farm.sv"; find = "assign adc_cs_n[1]  = adc_cs_n[0];"; repl = "assign adc_cs_n[1]  = ~adc_cs_n[0];"; why = "L8/adc_farm regression: slave 1 CS inverted -> fanout mismatch (A4p) must be caught" },
+  @{ id = "M22"; file = "rtl\drivers\adc_farm.sv"; find = "assign sample_data1 = miso1_shift[11:0];"; repl = "assign sample_data1 = miso2_shift[11:0];"; why = "L8/adc_farm regression: slave 1 data sourced from slave 2 MISO -> sample_data1 wrong (must be caught)" }
 )
 
 if ($Filter -ne "") { $mutations = @($mutations | Where-Object { $_.id -like "*$Filter*" }) }
