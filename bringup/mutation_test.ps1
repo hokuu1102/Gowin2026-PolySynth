@@ -71,7 +71,9 @@ $mutations = @(
   # A mutant must actually VIOLATE the spec (see C21): shrink to HALF_DIV/2 = 250 ns.
   @{ id = "M17"; file = "rtl\drivers\tlc5916_driver.sv"; find = "                                 rec_phase <  REC_OE_FALL_PH + REC_CLK_PERIOD) ? 1'b0 : 1'b1;"; repl = "                                 rec_phase <  REC_OE_FALL_PH + (HALF_DIV/2)) ? 1'b0 : 1'b1;"; why = "K-66 regression: OE window shrunk to 250 ns -> violates tw(OE) 500 ns (must be caught)" },
   # ---- R-16: the DELIVERED default must actually turn the amp on (else the board is silent) ----
-  @{ id = "M18"; file = "rtl\top.v"; find = "    parameter integer PA_ON_AFTER_RESET = 1,"; repl = "    parameter integer PA_ON_AFTER_RESET = 0,"; why = "R-16 regression: default back to 0 -> amp never turns on -> silent board (guard I must catch it)" }
+  @{ id = "M18"; file = "rtl\top.v"; find = "    parameter integer PA_ON_AFTER_RESET = 1,"; repl = "    parameter integer PA_ON_AFTER_RESET = 0,"; why = "R-16 regression: default back to 0 -> amp never turns on -> silent board (guard I must catch it)" },
+  @{ id = "M19"; file = "rtl\drivers\debounce.sv"; find = "end else if (key_cnt[ki] >= DB_CYC - 1) begin"; repl = "end else if (key_cnt[ki] >= 0) begin"; why = "T14 regression: debounce window removed -> bounce passes through -> key_down fires many times (must be caught)" },
+  @{ id = "M20"; file = "rtl\drivers\calib.sv"; find = "quo_r <= 24'(FULL) << 8;"; repl = "quo_r <= 24'(FULL) << 7;"; why = "T13 regression: span gain computed wrong -> calibrated full-scale does not converge to 4095 (must be caught)" }
 )
 
 if ($Filter -ne "") { $mutations = @($mutations | Where-Object { $_.id -like "*$Filter*" }) }
