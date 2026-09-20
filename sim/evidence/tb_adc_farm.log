@@ -1,4 +1,3 @@
 ﻿VCD info: dumpfile build/sim/adc_farm/tb_adc_farm.vcd opened for output.
-NOTE [top] PA_ON_AFTER_RESET=1 鈬?澶嶄綅鍚庣瓑 1048576 鎷嶏紙鈮?0.9 ms锛夊紑鍔熸斁锛屽叏绋?*鎭板ソ 1 涓笅闄嶆部** 鈬?NS4263 杩?AB 绫绘ˉ寮忚緭鍑猴紙K-61锛?
 PASS: 2 frames, 16 sample_valid, 24 samples total, frame period=500000 ns, fanout clean
-C:\Users\kate-125\WorkBuddy\Claw\Gowin2026-PolySynth-clean\tb\drivers\tb_adc_farm.sv:176: $finish called at 696541000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_adc_farm.sv:176: $finish called at 696541000 (1ps)

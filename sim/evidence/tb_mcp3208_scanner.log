@@ -1,4 +1,3 @@
 ﻿VCD info: dumpfile build/sim/mcp3208/mcp3208_scanner_tb.vcd opened for output.
-NOTE [top] PA_ON_AFTER_RESET=1 ⇒ 复位后等 1048576 拍（≈20.9 ms）开功放，全程**恰好 1 个下降沿** ⇒ NS4263 进 AB 类桥式输出（K-61）
 PASS: 2 frames, 16 samples, frame period=500000 ns
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_mcp3208_scanner.sv:285: $finish called at 696541000 (1ps)

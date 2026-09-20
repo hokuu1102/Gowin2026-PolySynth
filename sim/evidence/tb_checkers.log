@@ -1,5 +1,4 @@
 ﻿VCD info: dumpfile build/sim/tb_checkers/tb_checkers.vcd opened for output.
-NOTE [top] PA_ON_AFTER_RESET=1 ⇒ 复位后等 1048576 拍（≈20.9 ms）开功放，全程**恰好 1 个下降沿** ⇒ NS4263 进 AB 类桥式输出（K-61）
 --- A8 / A3 干净窗口（不应有任何违规）---
 ERROR [A3] led_clk 与 spi_sck 各翻转 8/8 次却全程取值相同 —— 疑似同一根网线（⛔ 灯 CLK 与 SPI SCK 必须各自独立）
   ok : A8 干净窗口内无 X 传播（不误报）
@@ -48,6 +47,11 @@ ERROR [A4/A5] miso_drv_en 同时有 2 路有效（011）—— 片选必须互�
 --- A4b 边界：三路片选同时有效（不是只看两路）---
 ERROR [A4/A5] adc_cs_n 同时有 3 路有效（000）—— 片选必须互斥、MISO 只能有单一驱动源
   ok : A4b 三路同时有效也被抓到（err 2 次，计数逻辑正确）
+--- A4p 正例：三路完全一致（锁步扇出）不误报 ---
+  ok : A4p 三路逐拍一致不误报
+--- A4p 反例：某一路与主路不同（未锁步/串线）---
+ERROR [A4p] fanout_test 某一路与第 0 路不一致（001）—— 同源扇出必须逐拍一致（并行采集锁步）
+  ok : A4p 扇出不一致被抓到（负向测试）
 --- A7 正例：按 phase_inc 前进 ---
   ok : A7 正常前进不误报
 --- A7 正例：变调（只改 phase_inc）不误报 —— K-10 的正确做法 ---
@@ -59,4 +63,4 @@ ERROR [A7] phase_acc 相位增量异常：实测 4294937296，期望 5000（旧 
   ok : A7 合法的相位重启（jump_ok）未被误报
 
 PASS: A1/A2/A3/A4/A5/A6/A7/A8 结构类断言全部按预期工作（含负向测试）
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\checkers\tb_checkers.sv:366: $finish called at 78420000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\checkers\tb_checkers.sv:393: $finish called at 78620000 (1ps)

@@ -1,5 +1,4 @@
 ﻿VCD info: dumpfile build/sim/tb_i2s_tx_timing/tb_i2s_tx_timing.vcd opened for output.
-NOTE [top] PA_ON_AFTER_RESET=1 ⇒ 复位后等 1048576 拍（≈20.9 ms）开功放，全程**恰好 1 个下降沿** ⇒ NS4263 进 AB 类桥式输出（K-61）
 
 ================ i2s_tx vs PT8211 timing ================
   [manual] DAC samples DIN on BCK RISING edge; Fbck<=18.4MHz; tH>=25ns

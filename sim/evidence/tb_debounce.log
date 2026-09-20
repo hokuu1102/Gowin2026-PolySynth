@@ -1,5 +1,4 @@
 ﻿VCD info: dumpfile build/sim/debounce/tb_debounce.vcd opened for output.
-NOTE [top] PA_ON_AFTER_RESET=1 鈬?澶嶄綅鍚庣瓑 1048576 鎷嶏紙鈮?0.9 ms锛夊紑鍔熸斁锛屽叏绋?*鎭板ソ 1 涓笅闄嶆部** 鈬?NS4263 杩?AB 绫绘ˉ寮忚緭鍑猴紙K-61锛?
 ok : key0 down: exactly one event after bounce
 ok : key0 level normalized to 1 (pressed)
 ok : key0 up: exactly one event after bounce
@@ -14,4 +13,4 @@ ok : EC11 illegal: no count on illegal step
 ok : A8: no X/Z on key_level/enc_state
 ok : self-check: correct branch is reachable
 PASS: debounce T14 all 13 checks ok
-C:\Users\kate-125\WorkBuddy\Claw\Gowin2026-PolySynth\tb\drivers\tb_debounce.sv:270: $finish called at 20045070000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_debounce.sv:270: $finish called at 20045070000 (1ps)

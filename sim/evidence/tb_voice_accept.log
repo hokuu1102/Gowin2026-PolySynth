@@ -1,4 +1,4 @@
-VCD info: dumpfile build/sim/tb_voice_accept/tb_voice_accept.vcd opened for output.
+﻿VCD info: dumpfile build/sim/tb_voice_accept/tb_voice_accept.vcd opened for output.
 
 ============ T10 真实 voice 验收 ============
   DUT = voice（DDS + pROM 波表 + ADSR + 幅度缩放）
@@ -18,4 +18,4 @@ VCD info: dumpfile build/sim/tb_voice_accept/tb_voice_accept.vcd opened for outp
   ok : 输出确实有非零样点（96259 拍）—— 不是「假装在工作」
 
 PASS: T10 真实 voice 的 A6/A7/A8 与活动样点验收全部通过
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\voice\tb_voice_accept.sv:271: $finish called at 2007251000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\voice\tb_voice_accept.sv:271: $finish called at 2007251000 (1ps)
