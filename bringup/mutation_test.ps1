@@ -1,4 +1,4 @@
-# mutation_test.ps1 -- MUTATION TESTING: inject a known defect, require the suite to catch it.
+﻿# mutation_test.ps1 -- MUTATION TESTING: inject a known defect, require the suite to catch it.
 #
 # Usage (from the repository root):
 #   powershell -NoProfile -ExecutionPolicy Bypass -File bringup\mutation_test.ps1
@@ -26,6 +26,12 @@
 # NOTE: ASCII only.  PowerShell 5.1 decodes BOM-less UTF-8 as GBK -> syntax error (K-38).
 # NOTE: the file must be restored even if the run throws -- restore happens in a finally-like
 #       block after every mutation, and the script refuses to leave a mutation in place.
+#
+# NOTE (K-87, found 2026-09-20): "anchor text not found" is reported as SKIP and -- since
+#   K-87 -- makes the whole run FAIL (exit 4).  Reason: a mutant whose anchor no longer
+#   matches guards NOTHING, yet the run used to still print "PASS".  That is how M21/M22
+#   silently stopped protecting adc_farm after its N_ADC parameterisation.  When you change
+#   the RTL that a mutant targets, you MUST re-point the anchor in the same commit.
 
 param([string]$Filter = "")
 
@@ -74,8 +80,13 @@ $mutations = @(
   @{ id = "M18"; file = "rtl\top.v"; find = "    parameter integer PA_ON_AFTER_RESET = 1,"; repl = "    parameter integer PA_ON_AFTER_RESET = 0,"; why = "R-16 regression: default back to 0 -> amp never turns on -> silent board (guard I must catch it)" },
   @{ id = "M19"; file = "rtl\drivers\debounce.sv"; find = "end else if (key_cnt[ki] >= DB_CYC - 1) begin"; repl = "end else if (key_cnt[ki] >= 0) begin"; why = "T14 regression: debounce window removed -> bounce passes through -> key_down fires many times (must be caught)" },
   @{ id = "M20"; file = "rtl\drivers\calib.sv"; find = "quo_r <= 24'(FULL) << 8;"; repl = "quo_r <= 24'(FULL) << 7;"; why = "T13 regression: span gain computed wrong -> calibrated full-scale does not converge to 4095 (must be caught)" },
-  @{ id = "M21"; file = "rtl\drivers\adc_farm.sv"; find = "assign adc_cs_n[1]  = adc_cs_n[0];"; repl = "assign adc_cs_n[1]  = ~adc_cs_n[0];"; why = "L8/adc_farm regression: slave 1 CS inverted -> fanout mismatch (A4p) must be caught" },
-  @{ id = "M22"; file = "rtl\drivers\adc_farm.sv"; find = "assign sample_data1 = miso1_shift[11:0];"; repl = "assign sample_data1 = miso2_shift[11:0];"; why = "L8/adc_farm regression: slave 1 data sourced from slave 2 MISO -> sample_data1 wrong (must be caught)" }
+  # NOTE (2026-09-20): M21/M22 anchors were rewritten.  The original anchors pointed at
+  # the hard-coded "slave 1/2" assigns, which were replaced by a `generate for` loop when
+  # N_ADC was parameterised (to support 5..6 boards).  The anchors had silently become
+  # "not found" and the script used to count that as a PASS -- see K-87.
+  # Both mutants now target the parameterised code, so they stay valid for any N_ADC >= 3.
+  @{ id = "M21"; file = "rtl\drivers\adc_farm.sv"; find = "assign adc_cs_n[g] = adc_cs_n[0];"; repl = "assign adc_cs_n[g] = ~adc_cs_n[0];"; why = "L8/adc_farm regression: fanout slave CS inverted -> fanout mismatch (A4p) must be caught" },
+  @{ id = "M22"; file = "rtl\drivers\adc_farm.sv"; find = "assign sample_data1 = sample_data_packed[23:12];"; repl = "assign sample_data1 = sample_data_packed[35:24];"; why = "L8/adc_farm regression: slave 1 alias reads slave 2's slice -> sample_data1 wrong (must be caught)" }
 )
 
 if ($Filter -ne "") { $mutations = @($mutations | Where-Object { $_.id -like "*$Filter*" }) }
@@ -117,10 +128,12 @@ foreach ($m in $mutations) {
 Write-Host ""
 Write-Host "================ mutation testing summary ================" -ForegroundColor Yellow
 $leaks = 0
+$skipped = 0
 foreach ($r in $results) {
   if ($r.Caught -eq $true)  { $s = "caught" } elseif ($r.Caught -eq $false) { $s = "LEAK" } else { $s = "skipped" }
   Write-Host ("  " + $r.Id.PadRight(5) + " " + $s.PadRight(9) + " " + $r.Note)
   if ($r.Caught -eq $false) { $leaks++ }
+  if ($r.Caught -eq $null)  { $skipped++ }
 }
 Write-Host "=========================================================="
 
@@ -129,6 +142,16 @@ $bad = @($results | Where-Object { $_.Restored -eq $false }).Count
 if ($bad -gt 0) {
   Write-Host ("FAIL: " + $bad + " file(s) were NOT restored properly -- check git status NOW") -ForegroundColor Red
   exit 2
+}
+
+# NOTE (K-87): a SKIPPED mutant is NOT a pass.  "anchor not found" means the mutant no longer
+# guards anything -- the RTL moved and nobody re-pointed the mutation.  Counting it as
+# success would let a whole module silently lose its regression guard (that is exactly
+# what happened to M21/M22 on 2026-09-20).  Treat it as a failure of the SAME severity.
+if ($skipped -gt 0) {
+  Write-Host ("FAIL: " + $skipped + " mutation(s) were SKIPPED -- anchor text not found.") -ForegroundColor Red
+  Write-Host "      A skipped mutant guards NOTHING.  Re-point the anchor at the current RTL (see K-87)." -ForegroundColor Red
+  exit 4
 }
 if ($leaks -gt 0) {
   Write-Host ("FAIL: " + $leaks + " mutation(s) were NOT caught by the test suite (blind spot)") -ForegroundColor Red
