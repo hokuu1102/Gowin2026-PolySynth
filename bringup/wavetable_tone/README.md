@@ -1,5 +1,9 @@
 # W1-2 波表单音上板工程
 
+> **当前状态（2026-09-20）**：RTL、仿真、综合、布局布线、时序分析和码流生成均已完成；
+> 因 Tang Mega 60K Dock 板卡尚未到手，实物烧录、440 Hz 听音及示波器测量均为
+> **未执行（NOT RUN / DEFERRED）**。在完成下方“上板验收”前，不得标记为“已上板通过”。
+
 这个独立工程用于验证真实链路：
 
 `50 MHz → DDS 相位累加器 → Gowin pROM → I2S → PT8211 → NS4263`
@@ -43,6 +47,8 @@ bringup/wavetable_tone/impl/pnr/wavetable_tone.fs
 `impl/` 是可再生成的大文件目录，已被 `.gitignore` 排除。
 
 ## 上板验收
+
+当前因板卡未到而延期，以下项目均未执行：
 
 1. 先把耳机或扬声器音量调到最低；
 2. 使用 Gowin Programmer 下载 `wavetable_tone.fs`；
