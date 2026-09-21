@@ -1,2 +1,12 @@
-﻿VCD Error: C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_calib.sv:123: Unable to open build/sim/calib/tb_calib.vcd for output.
+﻿VCD info: dumpfile build/sim/calib/tb_calib.vcd opened for output.
+ok : default passthrough: out == raw (gain=1.0, zero=0)
+ok : tare: out = raw - zero = 500 - 100 = 400
+ok : span: divider finished (busy==0)
+ok : span: calibrated full-scale converges to 4095
+ok : err: span code <= zero code is rejected
+ok : underflow: raw < zero -> out clamped to 0
+ok : A8: no X/Z on out_val
+PASS: calib T13 all 7 checks ok
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_calib.sv:213: $finish called at 1602000 (1ps)
+
 

@@ -1,2 +1,37 @@
-﻿VCD Error: C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\clk_gen\tb_clk_gen.sv:90: Unable to open build/sim/tb_clk_gen/tb_clk_gen.vcd for output.
+﻿VCD info: dumpfile build/sim/tb_clk_gen/tb_clk_gen.vcd opened for output.
+
+================ clk_gen 鏃跺熀瀹炴祴 ================
+  绐楀彛        : 8192 涓?clk锛?63840 ns锛屾湡鏈?8 甯э級
+  tick_audio  : 8 娆?路 闂撮殧 min=1024 max=1024 clk
+  bclk_en     : 512 娆?路 闂撮殧 min=16 max=16 clk
+  mclk_en     : 2048 娆?路 闂撮殧 min=4 max=4 clk
+  bclk_half_en: 1024 娆?路 闂撮殧 min=8 max=8 clk锛堟湡鏈?8锛?
+  frame_start : 8 娆?路 闂撮殧 min=1024 max=1024 clk锛堟湡鏈?1024锛?
+  鐩镐綅鍏崇郴    : bclk_en 缂?half 鐨勬媿鏁?0 路 half 缂?bclk_en 鐨勬媿鏁?512
+                frame_start 缂?bclk_en 鐨勬媿鏁?0 路 bclk_en鈭ゝrame_start 娆℃暟 8锛? 甯ф暟锛?
+  lrclk       : 浣?4097 / 楂?4095 涓?clk
+--------------------------------------------------
+  鈬?fs   = 50 MHz / 1024 = 48.828125 kHz
+  鈬?BCLK = 50 MHz / 16 = 3.125000 MHz锛? 64.0 脳 fs锛?
+  鈬?MCLK = 50 MHz / 4 = 12.500 MHz锛? 256 脳 fs锛?
+==================================================
+  ok : tick_audio 闂撮殧鎭板ソ 1024 clk锛坒s 绮剧‘锛?
+  ok : bclk_en 闂撮殧鎭板ソ 16 clk锛圔CLK 绮剧‘锛?
+  ok : mclk_en 闂撮殧鎭板ソ 4 clk锛圡CLK 绮剧‘锛?
+  ok : 姣忓抚 64 涓?BCLK 浣胯兘锛? 甯?鈫?512 娆★級
+  ok : 姣忓抚 256 涓?MCLK 浣胯兘
+  ok : lrclk 浣?楂樺悇鍗犲崐甯э紙浣?4097 / 楂?4095锛?
+  ok : 甯ц捣鐐瑰 lrclk = 浣庯紙宸﹀０閬撳厛鍙戯紝鏍囧噯 I2S锛?
+  ok : A8 鏃?X/Z 浼犳挱
+  ok : bclk_half_en 闂撮殧鎭板ソ 8 clk锛圚P_BCK 缈昏浆鑺傛媿绮剧‘锛?
+  ok : 姣忎釜 bclk_en 閭ｆ媿閮藉悓鏃舵湁 bclk_half_en锛?12 娆★級
+  ok : bclk_half_en : bclk_en = 2:1锛?024 : 512锛夆€斺€?鍗婂懆鏈熺炕杞妭鎷嶆纭?
+  ok : bclk_half_en 涓伆濂戒竴鍗婁笉涓?bclk_en 鍚屾媿锛?12 娆★級鈬?鏁版嵁绐楀眳涓?
+  ok : frame_start 闂撮殧鎭板ソ 1024 clk锛堟瘡甯т竴娆★級
+  ok : frame_start **蹇呭畾涓?bclk_en 鍚屾媿**锛坕2s_tx 鐨勫抚鍐呬綅瀵归綈鍓嶆彁锛?
+  ok : 姣忓抚鎭板ソ涓€涓?frame_start锛? 甯?鈫?8 娆″悓鎷嶏級
+
+PASS: clk_gen 鏃跺熀鍏ㄩ儴绗﹀悎锛堝垎棰戦摼绮剧‘ + 鏋佸樊涓?0 + 鐩镐綅鍏崇郴姝ｇ‘ + 鏃?X锛?
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\clk_gen\tb_clk_gen.sv:280: $finish called at 164011000 (1ps)
+
 

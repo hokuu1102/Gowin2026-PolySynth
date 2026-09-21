@@ -1,2 +1,4 @@
-﻿VCD Error: C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_adsr.sv:46: Unable to open build/sim/tb_adsr/tb_adsr.vcd for output.
+﻿VCD info: dumpfile build/sim/tb_adsr/tb_adsr.vcd opened for output.
+PASS: ADSR follows attack, decay, sustain, and release through its public interface
+
 

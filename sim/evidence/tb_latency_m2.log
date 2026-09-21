@@ -1,2 +1,24 @@
-﻿VCD Error: C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\latency\tb_latency_m2.sv:112: Unable to open build/sim/tb_latency_m2/tb_latency_m2.vcd for output.
+﻿VCD info: dumpfile build/sim/tb_latency_m2/tb_latency_m2.vcd opened for output.
+
+==================== M2 浣庡欢杩熷疄娴嬶紙50 娆★級====================
+  浜嬩欢      : UP 25 娆?/ DOWN 25 娆★紙鍚堟垚婵€鍔憋紝鉀?涓嶄緷璧栧乏鎵嬫澘瀹炵墿锛?
+  鈶?浜嬩欢鈫掓牱鐐圭畻濂斤紙妗╋紝鏈€蹇儏褰級  : min=3 max=3 clk锛?.060 碌s锛?
+  鈶?猸?浜嬩欢鈫掓澘涓?DAC 鏀跺埌鏁版嵁浣?    : min=325 max=1263 clk
+     = 6.500 ~ 25.260 碌s = 0.3174 ~ 1.2334 闊抽甯?
+     鍧囧€?= 780.820 clk = 0.7625 甯э紙1 甯?= 1024 clk = 20.48 碌s锛?
+  鏋佸樊      : 938 clk = 0.0188 ms锛堝垽鎹?< 0.100 ms锛?
+  猸?杈撳嚭绾у浐鏈夊垎閲忥紙鈶♀垝鈶狅級: 322 ~ 1260 clk = 0.314 ~ 1.230 甯?鈥斺€?甯ч噺鍖?+ 涓茶鍖栵紝鉀?韬蹭笉寮€
+  猸?鐣欑粰鍚堟垚閾撅紙`note_manager`+`voice`+`mixer`锛夌殑浣欓噺 = 2 甯?鈭?鈶℃渶鍧?= 785 clk = 15.700 碌s
+  A8        : din=0 bck=0 ws=0 sample=0
+  璇佹嵁      : sim/evidence/latency_m2_din.log锛?0 琛岋級路 _sample.log锛堣瘖鏂級
+  猸?鏉冨▉鍒ゅ畾锛歱ython tools\latency_stats.py sim\evidence\latency_m2_din.log --unit cycles --expect-count 50
+=============================================================
+  ok : 鏈€澶у欢杩?1263 clk = 1.2334 甯?鈮?2 甯э紙鏁板瓧绔洰鏍囷級
+  ok : 鏋佸樊 938 clk = 0.0188 ms 鈮?0.100 ms锛堢‘瀹氭€ф棤鎶栧姩锛?
+  ok : 缁熻娆℃暟 = 50锛圡2 瑕佹眰 50锛?
+  ok : A8 鏃?X/Z 浼犳挱锛圚P_DIN/HP_BCK/HP_WS/鏍风偣锛?
+
+PASS: M2 鏁板瓧绔欢杩熶笂鐣屼笌鎶栧姩鍧囪揪鏍囷紙50 娆★紝鏋佸樊 < 0.1 ms锛?
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\latency\tb_latency_m2.sv:194: $finish called at 2820771000 (1ps)
+
 

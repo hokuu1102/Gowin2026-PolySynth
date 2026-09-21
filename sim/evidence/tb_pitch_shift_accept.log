@@ -1,3 +1,6 @@
-﻿ERROR: C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\voice\tb_pitch_shift_accept.sv:95: $readmemh: Unable to open rtl/w3b/rom/sine_512x16.hex for reading.
-VCD Error: C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\voice\tb_pitch_shift_accept.sv:101: Unable to open build/sim/tb_pitch_shift_accept/tb_pitch_shift_accept.vcd for output.
+﻿VCD info: dumpfile build/sim/tb_pitch_shift_accept/tb_pitch_shift_accept.vcd opened for output.
+T19_ACCEPT note_on=1 phase_before=3019898880 A7=0 golden=616/616 i2s_errors=0 xz=0
+PASS: held-note pitch update preserves phase/envelope and external I2S continuity
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\voice\tb_pitch_shift_accept.sv:157: $finish called at 12718430000 (1ps)
+
 

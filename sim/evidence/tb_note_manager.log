@@ -59,6 +59,14 @@
   ok  : ????殑 voice0..15
   ok  : voice16..???圓XIS_W=4 ??1??
   ok  : ???????=?彈 AXIS_W??潪 POLY_TARGE?
+== 9: mid-retrigger voice is not stealable ==
+  ok  : section 9: clean slate (0 gates)
+  ok  : section 9: axis 5 owns voice0
+  ok  : section 9: exactly 1 gate before the test
+  ok  : section 9: axis 5 still owns voice0 (hold kept it busy)
+  ok  : section 9: the other axis landed on a DIFFERENT voice
+  ok  : section 9: axis 5 was NOT stolen (still on voice0)
 PASS: note_manager acceptance (T54) - all judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:528: $finish called at 56840000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:600: $finish called at 150400000 (1ps)
+
 

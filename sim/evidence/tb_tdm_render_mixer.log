@@ -1,0 +1,35 @@
+﻿ERROR [tdm_render_mixer] POLY_TARGET+2=34 > RENDER_DEADLINE_CYC=4 => 姣忓抚閮戒細瓒呮椂锛圓6 澶辨晥锛?
+== 1: deadline_fault stays 0 (A6) ==
+  ok  : worst case 5 frames: deadline_fault stays 0
+== 2: one dry_valid per frame, fixed latency ==
+  ok  : exactly 1 dry_valid pulse per frame
+  ok  : latency identical across two frames (determinism)
+  ok  : latency is a fixed POLY_TARGET+3
+== 3: single-voice mixing ==
+  ok  : 3000 x 0.5 = 1500 (matches hand calc)
+  ok  : full env => ~3000
+  ok  : zero env => 0 (silence)
+  ok  : negative input => negative output (signed ok)
+  ok  : negative magnitude ~ 3000
+== 4: multi-voice summing ==
+  ok  : 2 voices => ~2x
+  ok  : 3 voices => ~3x
+  ok  : summing is linear (monotonic)
+== 5: max input, no wrap ==
+  ok  : max input stays POSITIVE (no wrap)
+  ok  : max input == 2097056 (exact: env 0xFFFF is 65535/65536)
+     [dbgMax] sSat=2097056 MAXTHEO=2097088 acc=137432662080 sh=2097056
+  ok  : min input stays NEGATIVE (no wrap)
+     [dbgMin] sSat=-2097120 acc=-137436856320 sh=-2097120
+  ok  : min input == -2097120 (exact arithmetic-shift result)
+== 6: deadline_fault is sticky ==
+  ok  : tight-deadline instance: fault set after one frame
+  ok  : sticky: fault still 1 after several frames
+  ok  : fault clears only on reset
+== 7: real saturation via wide samples ==
+  ok  : wide positive overflow clamps to signed24 MAX (no wrap)
+  ok  : wide negative overflow clamps to signed24 MIN (no wrap)
+PASS: tdm_render_mixer acceptance (T56) - all judgements held
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_tdm_render_mixer.sv:317: $finish called at 17940000 (1ps)
+
+

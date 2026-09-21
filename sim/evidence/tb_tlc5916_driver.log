@@ -1,2 +1,38 @@
-﻿VCD Error: C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_tlc5916_driver.sv:274: Unable to open build/sim/tlc5916/tlc5916_tb.vcd for output.
+﻿VCD info: dumpfile build/sim/tlc5916/tlc5916_tb.vcd opened for output.
+PASS: TLC5916 transmitted 00 correctly
+PASS: TLC5916 transmitted a5 correctly
+PASS: TLC5916 transmitted ff correctly
+PASS: TLC5916 transmitted 3c correctly
+PASS: synchronous reset behavior checked
+PASS: TLC5916 transmitted 5a correctly
+--- bit-walk: 8 single-bit patterns (proves bit position + MSB-first order) ---
+PASS: TLC5916 transmitted 01 correctly
+PASS: TLC5916 transmitted 02 correctly
+PASS: TLC5916 transmitted 04 correctly
+PASS: TLC5916 transmitted 08 correctly
+PASS: TLC5916 transmitted 10 correctly
+PASS: TLC5916 transmitted 20 correctly
+PASS: TLC5916 transmitted 40 correctly
+PASS: TLC5916 transmitted 80 correctly
+  ok : 閫愪綅璧版煡 8/8 閫氳繃锛堟瘡涓€浣嶇殑浣嶇疆涓?MSB-first 浣嶅簭閮藉锛?
+--- A1: OE single-cycle glitch must NOT reach the pin ---
+  ok : A1 鍓嶇疆锛歰utputs_enable=1 绋冲畾鍚?tlc_oe_n=0锛圠ED 浣胯兘锛?
+  ok : A1 猸?1 鎷嶇獎鑴夊啿琚ǔ瀹氱獥瀹屽叏婊ゆ帀锛坱lc_oe_n 鏈姩锛?
+--- A1b: OE change during transfer must wait for IDLE ---
+  ok : A1b 猸?浼犺緭鏈熼棿 OE 淇濇寔涓嶅彉锛堝彧鍦?CLK 闈欐 + LE 浣庢椂鎵嶆洿鏂帮級
+  ok : A1b 鍥炲埌 IDLE 鍚?OE 姝ｇ‘鍏虫柇锛坥utputs_enable=0 琚帴鍙楋級
+PASS: A2 LE 鍦ㄧЩ浣嶆湡闂村叏绋嬩负浣庯紙鍚笂闈㈢殑 OE 鐢ㄤ緥鏈熼棿锛?
+PASS: A1 鍏ㄧ▼鏈嚭鐜扮獎鑴夊啿锛圤E/LE 閮借繃浜嗘渶灏忓搴︽鏌ワ級
+--- K-57: OE stable window vs datasheet tw(OE) >= 500 ns ---
+  ok : K-57 OE 绋冲畾绐?= 500 ns锛堚墺 鎵嬪唽 500 ns锛?
+PASS: A8 鏃?X/Z 浼犳挱
+--- K-66: Normal-Mode recovery sequence (datasheet 101 pulse + LE low) ---
+  ok : K-66 猸?`OE` 浣庣獥鍙?*姣忎釜鎭㈠绐楀彛鎭板ソ璺ㄨ繃 1 涓?CLK 涓婂崌娌?*锛? 娆＄獥鍙?/ 2 涓部锛?
+  ok : K-66 猸?鎭㈠鏈熼棿 `LE` **鍏ㄧ▼浣?*锛堚噿 绗?4 涓部蹇呭垽 Normal Mode锛?
+  ok : K-66 猸?`OE` 浣庣數骞冲搴?1000 ns 鈮?鎵嬪唽 tw(OE) 500 ns
+  ok : K-66 鎭㈠搴忓垪鍙戜簡 12 涓?CLK 鍛ㄦ湡锛堚墺5锛岀 4 涓部鑳介噰鍒?LE锛?
+  ok : K-66 鎭㈠搴忓垪**姣忔澶嶄綅鍚庢伆濂借窇涓€娆?*锛堟湰 tb 鏈?2 娆″浣嶉噴鏀?鈬?2 娆★級
+PASS: all TLC5916 tests completed successfully
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_tlc5916_driver.sv:495: $finish called at 137520000 (1ps)
+
 

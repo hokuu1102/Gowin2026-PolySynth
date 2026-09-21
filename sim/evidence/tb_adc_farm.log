@@ -1,2 +1,5 @@
-﻿VCD Error: C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_adc_farm.sv:129: Unable to open build/sim/adc_farm/tb_adc_farm.vcd for output.
+﻿VCD info: dumpfile build/sim/adc_farm/tb_adc_farm.vcd opened for output.
+PASS: 2 frames, 16 sample_valid, 24 samples total, frame period=500000 ns, fanout clean
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_adc_farm.sv:176: $finish called at 696541000 (1ps)
+
 

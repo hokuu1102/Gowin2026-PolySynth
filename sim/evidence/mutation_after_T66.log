@@ -1,0 +1,89 @@
+=== mutation testing: 40 mutant(s)  [FULL]
+    estimated: ~72.7 min (each mutant runs the full regression)
+  [M01] RED  (caught)  frame length off by one -> tick/bclk period wrong
+  [M02] RED  (caught)  BCK toggles at the wrong rate -> BCK period wrong
+  [M03] RED  (caught)  R-03 regression: data changes on the DAC sampling edge (setup ~0)
+  [M04] RED  (caught)  LSBJ off by one bit -> point-by-point compare fails
+  [M05] RED  (caught)  K-42 regression: amp enable polarity inverted
+  [M06] RED  (caught)  K-01 regression: OE guard removed -> narrow pulse reaches the pin
+  [M07] RED  (caught)  K-03 regression: LE raised while CLK is still moving
+  [M08] RED  (caught)  R-08 regression: reset release no longer 2-stage synchronised
+  [M09] RED  (caught)  A1 checker disabled -> narrow pulse no longer reported (its self-test must fail)
+  [M10] RED  (caught)  A2 checker disabled -> LE-while-CLK-moves no longer reported
+  [M11] RED  (caught)  A4/A5 checker threshold broken -> two-active never reported
+  [M12] RED  (caught)  S2 model reads pre-shift sr -> off-by-one bit (the historic M1 failure mode)
+  [M13] RED  (caught)  truncation takes LOW bits instead of high -> only value-range coverage catches it
+  [M14] RED  (caught)  K-57 regression: OE window back to 160 ns (< datasheet tw(OE) 500 ns) -- PARAM_OK must flag it
+  [M15] RED  (caught)  K-61 regression: safe-state PA_EN_n pulled low -> falling-edge count assertion (H) must catch it
+  [M16] RED  (caught)  K-66 regression: LE high during the recovery pulse -> device would switch to SPECIAL mode
+  [M17] RED  (caught)  K-66 regression: OE window shrunk to 250 ns -> violates tw(OE) 500 ns (must be caught)
+  [M18] RED  (caught)  R-16 regression: default back to 0 -> amp never turns on -> silent board (guard I must catch it)
+  [M19] RED  (caught)  T14 regression: debounce window removed -> bounce passes through -> key_down fires many times (must be caught)
+  [M20] RED  (caught)  T13 regression: span gain computed wrong -> calibrated full-scale does not converge to 4095 (must be caught)
+  [M21] RED  (caught)  L8/adc_farm regression: fanout slave CS inverted -> fanout mismatch (A4p) must be caught
+  [M22] RED  (caught)  L8/adc_farm regression: slave 1 alias reads slave 2's slice -> sample_data1 wrong (must be caught)
+  [M23] RED  (caught)  T54 regression: retrigger never pulls the gate low -> ADSR never restarts Attack (must be caught)
+  [M24] RED  (caught)  T54 regression: no candidate ever selected -> note silently dropped (must be caught)
+  [M25] RED  (caught)  T54 regression: pitch_update ignored -> glissando does not track (must be caught)
+  [M26] RED  (caught)  T54 regression: vel_update ignored -> dual-threshold velocity correction lost (must be caught)
+  [M27] RED  (caught)  T54 regression: same-axis retrigger detection removed -> a repeated key eats a second voice (must be caught)
+  [M28] RED  (caught)  T54 regression: pool mask stuck at 0 -> no voice can ever be allocated (must be caught)
+  [M29] RED  (caught)  T55 regression: table address takes a shifted phase window -> wrong DDS mapping (must be caught)
+  [M30] RED  (caught)  T55 regression: phase advances even when the voice is inactive -> idle voices drift (must be caught)
+  [M31] RED  (caught)  T55 regression: TDM capture disabled -> every lane reads 0 -> silence (must be caught)
+  [M32] RED  (caught)  T55 regression: test_mode override ignored -> T43 N-tone demo breaks (must be caught)
+  [M33] RED  (caught)  T56 regression: deadline check never fires -> A6 (frame deadline) unguarded (must be caught)
+  [M34] RED  (caught)  T56 regression: accumulation disabled -> output always 0 -> silence (must be caught)
+  [M35] RED  (caught)  T56 regression: every TDM slot reads voice 0 -> no summing (must be caught)
+  [M36] RED  (caught)  T56 regression: positive saturation removed -> overflow wraps to negative (must be caught)
+  [M37] RED  (caught)  T56 regression: negative saturation removed -> overflow wraps positive (must be caught)
+  [M38] RED  (caught)  T57 regression: top drives silence again -> board never makes a sound (must be caught)
+  [M39] RED  (caught)  T57 regression: wrong E5 phase increment -> third tone missing (must be caught)
+  [M40] RED  (caught)  T57 regression: output register mutes the mixer -> chain runs but board is silent (must be caught)
+
+================ mutation testing summary ================
+  M01   caught    frame length off by one -> tick/bclk period wrong
+  M02   caught    BCK toggles at the wrong rate -> BCK period wrong
+  M03   caught    R-03 regression: data changes on the DAC sampling edge (setup ~0)
+  M04   caught    LSBJ off by one bit -> point-by-point compare fails
+  M05   caught    K-42 regression: amp enable polarity inverted
+  M06   caught    K-01 regression: OE guard removed -> narrow pulse reaches the pin
+  M07   caught    K-03 regression: LE raised while CLK is still moving
+  M08   caught    R-08 regression: reset release no longer 2-stage synchronised
+  M09   caught    A1 checker disabled -> narrow pulse no longer reported (its self-test must fail)
+  M10   caught    A2 checker disabled -> LE-while-CLK-moves no longer reported
+  M11   caught    A4/A5 checker threshold broken -> two-active never reported
+  M12   caught    S2 model reads pre-shift sr -> off-by-one bit (the historic M1 failure mode)
+  M13   caught    truncation takes LOW bits instead of high -> only value-range coverage catches it
+  M14   caught    K-57 regression: OE window back to 160 ns (< datasheet tw(OE) 500 ns) -- PARAM_OK must flag it
+  M15   caught    K-61 regression: safe-state PA_EN_n pulled low -> falling-edge count assertion (H) must catch it
+  M16   caught    K-66 regression: LE high during the recovery pulse -> device would switch to SPECIAL mode
+  M17   caught    K-66 regression: OE window shrunk to 250 ns -> violates tw(OE) 500 ns (must be caught)
+  M18   caught    R-16 regression: default back to 0 -> amp never turns on -> silent board (guard I must catch it)
+  M19   caught    T14 regression: debounce window removed -> bounce passes through -> key_down fires many times (must be caught)
+  M20   caught    T13 regression: span gain computed wrong -> calibrated full-scale does not converge to 4095 (must be caught)
+  M21   caught    L8/adc_farm regression: fanout slave CS inverted -> fanout mismatch (A4p) must be caught
+  M22   caught    L8/adc_farm regression: slave 1 alias reads slave 2's slice -> sample_data1 wrong (must be caught)
+  M23   caught    T54 regression: retrigger never pulls the gate low -> ADSR never restarts Attack (must be caught)
+  M24   caught    T54 regression: no candidate ever selected -> note silently dropped (must be caught)
+  M25   caught    T54 regression: pitch_update ignored -> glissando does not track (must be caught)
+  M26   caught    T54 regression: vel_update ignored -> dual-threshold velocity correction lost (must be caught)
+  M27   caught    T54 regression: same-axis retrigger detection removed -> a repeated key eats a second voice (must be caught)
+  M28   caught    T54 regression: pool mask stuck at 0 -> no voice can ever be allocated (must be caught)
+  M29   caught    T55 regression: table address takes a shifted phase window -> wrong DDS mapping (must be caught)
+  M30   caught    T55 regression: phase advances even when the voice is inactive -> idle voices drift (must be caught)
+  M31   caught    T55 regression: TDM capture disabled -> every lane reads 0 -> silence (must be caught)
+  M32   caught    T55 regression: test_mode override ignored -> T43 N-tone demo breaks (must be caught)
+  M33   caught    T56 regression: deadline check never fires -> A6 (frame deadline) unguarded (must be caught)
+  M34   caught    T56 regression: accumulation disabled -> output always 0 -> silence (must be caught)
+  M35   caught    T56 regression: every TDM slot reads voice 0 -> no summing (must be caught)
+  M36   caught    T56 regression: positive saturation removed -> overflow wraps to negative (must be caught)
+  M37   caught    T56 regression: negative saturation removed -> overflow wraps positive (must be caught)
+  M38   caught    T57 regression: top drives silence again -> board never makes a sound (must be caught)
+  M39   caught    T57 regression: wrong E5 phase increment -> third tone missing (must be caught)
+  M40   caught    T57 regression: output register mutes the mixer -> chain runs but board is silent (must be caught)
+==========================================================
+
+=== regenerating sim/evidence from the restored (clean) RTL ===
+OK: sim/evidence regenerated from clean code
+PASS: every injected defect was caught by the regression suite
