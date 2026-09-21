@@ -1,4 +1,4 @@
-﻿# mutation_test.ps1 -- MUTATION TESTING: inject a known defect, require the suite to catch it.
+# mutation_test.ps1 -- MUTATION TESTING: inject a known defect, require the suite to catch it.
 #
 # Usage (from the repository root):
 #   powershell -NoProfile -ExecutionPolicy Bypass -File bringup\mutation_test.ps1
@@ -79,7 +79,11 @@ $mutations = @(
   # ---- R-16: the DELIVERED default must actually turn the amp on (else the board is silent) ----
   @{ id = "M18"; file = "rtl\top.v"; find = "    parameter integer PA_ON_AFTER_RESET = 1,"; repl = "    parameter integer PA_ON_AFTER_RESET = 0,"; why = "R-16 regression: default back to 0 -> amp never turns on -> silent board (guard I must catch it)" },
   @{ id = "M19"; file = "rtl\drivers\debounce.sv"; find = "end else if (key_cnt[ki] >= DB_CYC - 1) begin"; repl = "end else if (key_cnt[ki] >= 0) begin"; why = "T14 regression: debounce window removed -> bounce passes through -> key_down fires many times (must be caught)" },
-  @{ id = "M20"; file = "rtl\drivers\calib.sv"; find = "quo_r <= 24'(FULL) << 8;"; repl = "quo_r <= 24'(FULL) << 7;"; why = "T13 regression: span gain computed wrong -> calibrated full-scale does not converge to 4095 (must be caught)" },
+  # NOTE (2026-09-21, third re-point): K-91 replaced the SystemVerilog size casts
+  # (`24'(FULL) << 8`) with a Verilog-2001 localparam vector, because Gowin rejected the
+  # casts with EX3863 and DROPPED the whole module.  Re-point at the current RTL.
+  # The mutant must still change the gain by a factor of two (FULL<<7 instead of FULL<<8).
+  @{ id = "M20"; file = "rtl\drivers\calib.sv"; find = "quo_r <= DIVIDEND;"; repl = "quo_r <= DIVIDEND >> 1;"; why = "T13 regression: span gain computed wrong -> calibrated full-scale does not converge to 4095 (must be caught)" },
   # NOTE (2026-09-20): M21/M22 anchors were rewritten.  The original anchors pointed at
   # the hard-coded "slave 1/2" assigns, which were replaced by a `generate for` loop when
   # N_ADC was parameterised (to support 5..6 boards).  The anchors had silently become

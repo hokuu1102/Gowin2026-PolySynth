@@ -55,6 +55,23 @@ module calib #(
     localparam integer ITER = 24;
     localparam integer IW   = 5;
 
+    // ⚠️⚠️ 2026-09-21 实测踩坑（K-91，**T47 一跑就抓到**）：
+    //   本文件原来写了 3 处 **SystemVerilog 带宽度强制转换** `N'(expr)`：
+    //       `24'(FULL) << 8` / `IW'(ITER)` / `PW'(FULL)` / `DW'(FULL)`
+    //   ⇒ iverilog 接受（所以**仿真全绿**），但 ⛔ **Gowin 按 Verilog-2001 解析**：
+    //       `ERROR (EX3863) : Syntax error near '''` ×4
+    //       `ERROR (EX3928) : Module 'calib' is ignored due to previous errors`
+    //   ⇒ ⭐ **整个 calib 模块被丢弃、根本没进综合** —— 而仿真侧完全看不出来。
+    //   ⭐ 根因：工程把 `.sv` 登记成 `type="file.verilog"`（见 `Gowin2026.gprj` 注释），
+    //      即**按 Verilog-2001 子集编译** ⇒ 只能用 Verilog-2001 语法。
+    //   ⚠️ 同一个坑 `tlc5916_driver.sv` 里**已经记过一次**（`longint'()` 不可用）。
+    //   ⇒ ⭐ **纪律：`.sv` 文件里 ⛔ 不要用任何 SV 专有构造**（强制转换 / longint /
+    //      logic / always_ff / typedef …）；判据 = **必须真的跑过一次 Gowin 综合**。
+    localparam [23:0] DIVIDEND = FULL << 8;      // 等价于原来的 `24'(FULL) << 8`
+    // ⚠️ K-91：⛔ 不能对 integer 参数做位选（`FULL[DW-1:0]` / `ITER[IW-1:0]`
+    //   在 Verilog-2001 里同样非法）⇒ 先落成**有宽度的 localparam 向量**再比较/赋值。
+    localparam [IW-1:0] ITER_CNT  = ITER;
+
     reg [23:0]   rem_r;
     reg [23:0]   quo_r;
     reg [DW:0]   den_r;
@@ -87,10 +104,10 @@ module calib #(
                 cnt_r <= {IW{1'b0}};
                 rem_r <= 24'd0;
                 den_r <= raw - zero_r[cal_ch];
-                quo_r <= 24'(FULL) << 8;                  // 被除数 = FULL<<8
+                quo_r <= DIVIDEND;                        // 被除数 = FULL<<8
             end
         end else if (busy) begin
-            if (cnt_r == IW'(ITER)) begin
+            if (cnt_r == ITER_CNT) begin
                 // 写回拍：quo_r 已是 ITER 次迭代后的商
                 busy <= 1'b0;
                 if (quo_r[GW-1:0] == 0)         gain_r[div_ch] <= 1;
@@ -111,6 +128,9 @@ module calib #(
 
     // ── 零点记录 + 正常通路（1 拍流水）──────────────────────────────────────
     localparam integer PW = DW + GW + 1;   // 29：乘法中间量（防截断，K-34 教训）
+    // ⚠️ K-91：有宽度的常量向量（Verilog-2001 不能写 `PW'(FULL)` / `DW'(FULL)`）
+    localparam [PW-1:0] FULL_EXT  = FULL;
+    localparam [DW-1:0] FULL_CODE = FULL;
 
     reg [PW-1:0]  prod_r;
     reg [CW-1:0]  ch_r;
@@ -134,7 +154,9 @@ module calib #(
     always @(*) begin
         out_valid = v_r;
         out_ch    = ch_r;
-        out_val   = (shifted > PW'(FULL)) ? DW'(FULL) : shifted[DW-1:0];
+        // ⚠️ K-91：原为 `(shifted > PW'(FULL)) ? DW'(FULL) : ...`（SV 强制转换，
+        //   Gowin 报 EX3863）。改为 Verilog-2001 的有宽度常量，行为等价。
+        out_val   = (shifted > FULL_EXT) ? FULL_CODE : shifted[DW-1:0];
     end
 
     // 初始增益 = 1.0（Q8.8 = 256），零点 = 0

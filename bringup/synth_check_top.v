@@ -88,6 +88,47 @@ module synth_check_top #(
     output wire [31:0]        chain_phase_acc,
     output wire [31:0]        chain_phase_inc,
 
+    // ── ⭐ L8 采集链（T47 / K-90：这三个模块此前不在任何 Gowin 工程里）──────
+    //    ⭐ 为什么要在这里例化：Gowin 只综合**被顶层例化到**的模块（K-46）。
+    //       只把文件登记进工程 ⇒ 日志里只有 "Analyzing"、没有 "Compiling module"
+    //       ⇒ ⛔ **不是可综合性的证据**。本顶层把它们真的接起来才算证明。
+    input  wire [2:0]  adc_miso_in,
+    input  wire        adc_enable,
+    output wire [2:0]  adc_cs_n,
+    output wire [2:0]  adc_sclk,
+    output wire [2:0]  adc_mosi,
+    output wire        adc_sample_valid,
+    output wire [2:0]  adc_sample_ch,
+    output wire [35:0] adc_sample_data_packed,
+    output wire [11:0] adc_sample_data0,
+    output wire [11:0] adc_sample_data1,
+    output wire [11:0] adc_sample_data2,
+    output wire        adc_frame_done,
+    output wire [2:0]  adc_fault,
+
+    // calib（单芯片 8 通道口径；本顶层把 adc_farm 的片 0 接到它上面）
+    input  wire        cal_tare,
+    input  wire        cal_span,
+    output wire        cal_busy,
+    output wire        cal_err,
+    output wire        cal_out_valid,
+    output wire [2:0]  cal_out_ch,
+    output wire [11:0] cal_out_val,
+
+    // debounce（按键 + EC11；⛔ A/B 不做 ACTIVE_LOW 归一化）
+    input  wire [3:0]  key_in,
+    input  wire        enc_a,
+    input  wire        enc_b,
+    input  wire        enc_sw,
+    output wire [3:0]  key_level,
+    output wire [3:0]  key_down,
+    output wire [3:0]  key_up,
+    output wire        enc_sw_down,
+    output wire        enc_sw_up,
+    output wire        enc_cw,
+    output wire        enc_ccw,
+    output wire        enc_err,
+
     // 观测用（把内部信号引出来，防优化 + 方便看资源）
     output wire [31:0] obs
 );
@@ -209,11 +250,91 @@ module synth_check_top #(
         .phase_inc_dbg_o (chain_phase_inc)
     );
 
+    // ── ⭐ L8 采集链（T47 / K-90）─────────────────────────────────────────────
+    //    ⚠️ 此前 `adc_farm`/`calib`/`debounce` **不在任何 Gowin 工程里**
+    //       ⇒ 它们**只有仿真证据、没有综合证据**。本节就是补这个缺口。
+
+    // ⭐ 多片 MCP3208 并行总控（N_ADC=3：三片各自 CS/MISO，SCLK/MOSI 同源扇出）
+    adc_farm #(
+        .N_ADC (3)
+    ) u_adc_farm (
+        .clk                (clk),
+        .rst_n              (rst_n_sync),
+        .enable             (adc_enable),
+        .adc_cs_n           (adc_cs_n),
+        .adc_sclk           (adc_sclk),
+        .adc_mosi           (adc_mosi),
+        .adc_miso           (adc_miso_in),
+        .sample_valid       (adc_sample_valid),
+        .sample_ch          (adc_sample_ch),
+        .sample_data_packed (adc_sample_data_packed),
+        .sample_data0       (adc_sample_data0),
+        .sample_data1       (adc_sample_data1),
+        .sample_data2       (adc_sample_data2),
+        .frame_done         (adc_frame_done),
+        .fault              (adc_fault)
+    );
+
+    // ⭐ 逐通道零点/灵敏度标定（接片 0 的采样流；单芯片 8 通道口径）
+    calib #(
+        .NCH (8)
+    ) u_calib (
+        .clk       (clk),
+        .rst_n     (rst_n_sync),
+        .valid     (adc_sample_valid),
+        .ch        (adc_sample_ch),
+        .raw       (adc_sample_data0),
+        .tare      (cal_tare),
+        .span      (cal_span),
+        .cal_ch    (adc_sample_ch),
+        .busy      (cal_busy),
+        .err       (cal_err),
+        .out_valid (cal_out_valid),
+        .out_ch    (cal_out_ch),
+        .out_val   (cal_out_val)
+    );
+
+    // ⭐ 按键/编码器：按 K-62 先 2 级同步、再去抖
+    //    （`debounce` 的端口层面不例化 sync_input，由顶层负责 —— 这里就是那个顶层）
+    wire [6:0] key_enc_sync;
+    sync_input #(.W(7), .STAGES(2)) u_sync_key (
+        .clk      (clk),
+        .rst_n    (rst_n_sync),
+        .async_in ({enc_sw, enc_b, enc_a, key_in}),
+        .sync_out (key_enc_sync)
+    );
+
+    debounce #(
+        .NKEY (4)
+    ) u_debounce (
+        .clk        (clk),
+        .rst_n      (rst_n_sync),
+        .key_in     (key_enc_sync[3:0]),
+        .key_level  (key_level),
+        .key_down   (key_down),
+        .key_up     (key_up),
+        .enc_a      (key_enc_sync[4]),
+        .enc_b      (key_enc_sync[5]),
+        .enc_sw     (key_enc_sync[6]),
+        .enc_a_lvl  (),
+        .enc_b_lvl  (),
+        .enc_sw_lvl (),
+        .enc_sw_down(enc_sw_down),
+        .enc_sw_up  (enc_sw_up),
+        .enc_cw     (enc_cw),
+        .enc_ccw    (enc_ccw),
+        .enc_state  (),
+        .enc_err    (enc_err)
+    );
+
     // 把若干内部信号汇成一个观测字（防止综合器把"只被观测"的逻辑剪掉）
     assign obs = {16'd0, wavetable_sample}
                ^ {24'd0, led_data}
                ^ {28'd0, tlc_busy, tlc_done, HP_DIN, lrclk}
                ^ {28'd0, sync_probe}
-               ^ {31'd0, wavetable_valid};
+               ^ {31'd0, wavetable_valid}
+               ^ {29'd0, adc_sample_data0}
+               ^ {29'd0, cal_out_val}
+               ^ {28'd0, key_down};
 
 endmodule
