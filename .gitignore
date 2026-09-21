@@ -67,8 +67,20 @@ __Previews/
 #    要看的人自己在 EDA 里重新导出即可。⭐ 入库只会让 clone 变慢、且无法回收。
 #    ⚠️ 注意：`model/pcb/左手板*.step` 是**早期误入库**的（约 13 MB，已在历史里，
 #       删除工作区文件**不会**让 .git 变小）—— 见 `files/00-总览/第二周/README.md`。
-model/pcb/*.step
-model/pcb/*.STEP
+#
+# ⚠️ 2026-09-21 补齐：原来只挡了 `model/pcb/`，但 SolidWorks 还会往
+#    `model/step/` 与 `model/pcb/` 导出 `.STEP`/`.SLDPRT`/`.SLDASM`（含装配体）
+#    ⇒ 实测冒出 `model/step/左手板单板.STEP`、`.SLDASM` 等未跟踪文件。
+#    ⇒ ⭐ 改成**整个 `model/` 下的模型文件一律排除**（按扩展名，⛔ 不按目录），
+#       这样以后换目录也不会漏。
+model/**/*.step
+model/**/*.STEP
+model/**/*.stp
+model/**/*.STP
+model/**/*.SLDPRT
+model/**/*.SLDASM
+model/**/*.sldprt
+model/**/*.sldasm
 
 # ── Python / 脚本缓存 ──────────────────────────────────
 __pycache__/

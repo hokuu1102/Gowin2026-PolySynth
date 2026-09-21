@@ -342,6 +342,30 @@ module tb_oscillator_bank;
         //    ⚠️ 它们可能保留着之前的相位 ⇒ 只验"它们彼此相同"（都没动）
         chk("未选中的 lane 相位不变（彼此仍相同）", samp(8) === samp(9));
 
+        // ---- 8: test_mode must OVERRIDE voice_active (guards M32) ----
+        // Make the two sources disagree: with test_mode=1 the lane must follow
+        // test_lane_active, NOT voice_active.  If the override is lost, lane0
+        // stops advancing and the address freezes.
+        $display("== 8: test_mode overrides voice_active ==");
+        rst_n = 1'b0; repeat (4) @(negedge clk); rst_n = 1'b1;
+        repeat (4) @(negedge clk);
+
+        voice_active = {POLY{1'b0}};          // all voices IDLE ...
+        test_mode    = 1'b1;
+        test_lane_active = {LANES{1'b0}};
+        test_lane_active[0] = 1'b1;           // ... but lane0 active via test_mode
+        for (i = 0; i < LANES; i = i + 1) set_t_inc(i, INC_1STEP);
+
+        repeat (4) frame;
+        begin
+            reg [PHASE_W-1:0] a8;
+            a8 = dut.gen_lane[0].phase_q;
+            chk("test_mode=1 overrides voice_active=0 (lane0 still advances)",
+                a8 === (4 * 32'h0080_0000));
+            chk("and a lane NOT selected stays frozen",
+                dut.gen_lane[1].phase_q === 32'd0);
+        end
+
         if (errors == 0)
             $display("PASS: oscillator_bank acceptance (T55) - all judgements held");
         else

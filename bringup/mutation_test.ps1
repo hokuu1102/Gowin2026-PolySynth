@@ -246,7 +246,12 @@ $mutations = @(
   @{ id = "M29"; file = "rtl\w3b\oscillator_bank.v"; find = "addr_q <= phase_q[ADDR_MSB:ADDR_LSB];"; repl = "addr_q <= phase_q[ADDR_MSB-1:ADDR_LSB-1];"; why = "T55 regression: table address takes a shifted phase window -> wrong DDS mapping (must be caught)" },
   @{ id = "M30"; file = "rtl\w3b\oscillator_bank.v"; find = "if (lane_active)"; repl = "if (1'b1)"; why = "T55 regression: phase advances even when the voice is inactive -> idle voices drift (must be caught)" },
   @{ id = "M31"; file = "rtl\w3b\oscillator_bank.v"; find = "sample_bus_r[(cnt-1)*OSC_SAMPLE_W +: OSC_SAMPLE_W] <= rom_dout;"; repl = "sample_bus_r[(cnt-1)*OSC_SAMPLE_W +: OSC_SAMPLE_W] <= {OSC_SAMPLE_W{1'b0}};"; why = "T55 regression: TDM capture disabled -> every lane reads 0 -> silence (must be caught)" },
-  @{ id = "M32"; file = "rtl\w3b\oscillator_bank.v"; find = "wire lane_active = test_mode_i"; repl = "wire lane_active = 1'b0 ? test_mode_i : 1'b0; wire lane_active_unused = test_mode_i;"; why = "T55 regression: test_mode override ignored -> T43 N-tone demo breaks (must be caught)" },
+  # NOTE (2026-09-21): the original anchor was a PREFIX of a multi-line ternary,
+  # so the replacement left a dangling "? test_lane_active_i[g] : ...;" -> syntax
+  # error.  K-105's new check caught it (reported "MUTANT DOES NOT COMPILE"
+  # instead of silently counting it as caught).  Re-pointed to a single-line
+  # expression that genuinely disables the test_mode override.
+  @{ id = "M32"; file = "rtl\w3b\oscillator_bank.v"; find = "? test_lane_active_i[g]"; repl = "? voice_active_i[VOICE_IDX]"; why = "T55 regression: test_mode override ignored -> T43 N-tone demo breaks (must be caught)" },
 
   # ---- T56: tdm_render_mixer.  LF-only file => single-line anchors.
   @{ id = "M33"; file = "rtl\w3b\tdm_render_mixer.v"; find = "if (cnt >= DEADLINE_C)"; repl = "if (cnt >= CNT_MAX_V)"; why = "T56 regression: deadline check never fires -> A6 (frame deadline) unguarded (must be caught)" },
