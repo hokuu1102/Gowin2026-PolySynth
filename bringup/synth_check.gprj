@@ -30,6 +30,10 @@
         <File path="../rtl/w3b/dds_wavetable_core.v" type="file.verilog" enable="1"/>
         <File path="../rtl/w3b/voice.v" type="file.verilog" enable="1"/>
         <File path="../rtl/w3b/voice_i2s_chain.v" type="file.verilog" enable="1"/>
+        <!-- T54: note_manager (W3b voice allocation / stealing / parameter update).
+             Added here as well as in the main project so it is covered by the
+             "does every module really synthesise?" check (K-46 / K-91). -->
+        <File path="../rtl/w3b/note_manager.v" type="file.verilog" enable="1"/>
         <!-- ⭐ L8 acquisition chain (T47 / K-90): these three modules were in NO
              Gowin project before, so they had simulation evidence only.
              mcp3208_driver/scanner are the dependencies adc_farm instantiates. -->

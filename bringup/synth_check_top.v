@@ -129,6 +129,32 @@ module synth_check_top #(
     output wire        enc_ccw,
     output wire        enc_err,
 
+    // ── ⭐ T54 · note_manager（W3b voice 分配）──────────────────────────────
+    //    ⭐ 为什么要在这里例化：Gowin 只综合**被顶层例化到**的模块（`K-46`），
+    //       只把文件登记进工程 ⇒ 日志里只有 "Analyzing"、没有 "Compiling module"
+    //       ⇒ ⛔ **不是可综合性的证据**（`K-91` 就是这么抓到 `calib` 被整块丢弃的）。
+    input  wire        nm_note_valid,
+    input  wire [3:0]  nm_note_axis,
+    input  wire [31:0] nm_note_phase_inc,
+    input  wire [7:0]  nm_note_velocity,
+    input  wire [1:0]  nm_note_kind,
+    input  wire        nm_vel_upd_valid,
+    input  wire [3:0]  nm_vel_upd_axis,
+    input  wire [7:0]  nm_vel_upd_value,
+    input  wire        nm_pitch_upd_valid,
+    input  wire [3:0]  nm_pitch_upd_axis,
+    input  wire [31:0] nm_pitch_upd_value,
+    input  wire [1:0]  nm_default_timbre,
+    output wire [POLY_TARGET-1:0]           nm_voice_gate,
+    output wire [POLY_TARGET-1:0]           nm_voice_active,
+    output wire [POLY_TARGET*4-1:0]         nm_voice_axis,
+    output wire [POLY_TARGET*32-1:0]        nm_voice_phase_inc,
+    output wire [POLY_TARGET*8-1:0]         nm_voice_velocity,
+    output wire [POLY_TARGET*2-1:0]         nm_voice_timbre,
+    output wire [POLY_TARGET*16-1:0]        nm_voice_age,
+    output wire                             nm_alloc_valid,
+    output wire [4:0]                       nm_alloc_voice,
+
     // 观测用（把内部信号引出来，防优化 + 方便看资源）
     output wire [31:0] obs
 );
@@ -327,6 +353,53 @@ module synth_check_top #(
         .enc_err    (enc_err)
     );
 
+    // ── ⭐ T54 · note_manager（W3b · 32 voice 分配/抢占/释放/参数更新）────────
+    //    ⚠️ 这是第二周 C 组「接通出声链」的第一块：`top.v` 原本送静音，
+    //       且**所有自动功能（节拍器/鼓机/Looper）都依赖它**。
+    //    本例化只为**可综合性取证**（⛔ 不做功能验证 —— 功能由 `tb_note_manager.sv` 管）。
+    note_manager #(
+        .POLY_TARGET (POLY_TARGET),
+        .AXIS_W      (4),
+        .PHASE_W     (32),
+        .VEL_W       (8),
+        .TIMBRE_W    (2),
+        .ENV_W       (16),
+        .AGE_W       (16),
+        .RESERVED_N  (0),
+        .DEFAULT_VEL (200)
+    ) u_note_manager (
+        .clk_i             (clk),
+        .rst_n_i           (rst_n_sync),
+        .sample_tick_i     (tick_audio),
+        .note_valid_i      (nm_note_valid),
+        .note_axis_i       (nm_note_axis),
+        .note_phase_inc_i  (nm_note_phase_inc),
+        .note_velocity_i   (nm_note_velocity),
+        .note_kind_i       (nm_note_kind),
+        .vel_upd_valid_i   (nm_vel_upd_valid),
+        .vel_upd_axis_i    (nm_vel_upd_axis),
+        .vel_upd_value_i   (nm_vel_upd_value),
+        .pitch_upd_valid_i (nm_pitch_upd_valid),
+        .pitch_upd_axis_i  (nm_pitch_upd_axis),
+        .pitch_upd_value_i (nm_pitch_upd_value),
+        .default_timbre_i  (nm_default_timbre),
+        .evt_timbre_valid_i(1'b0),
+        .evt_timbre_i      (2'd0),
+        // ⚠️ 自检顶层没有真包络 ⇒ 用 0 接（综合只看结构；功能由 tb 覆盖）
+        .env_active_i      ({POLY_TARGET{1'b0}}),
+        .env_level_i       ({(POLY_TARGET*16){1'b0}}),
+        .voice_gate_o      (nm_voice_gate),
+        .voice_active_o    (nm_voice_active),
+        .voice_releasing_o (),
+        .voice_axis_o      (nm_voice_axis),
+        .voice_phase_inc_o (nm_voice_phase_inc),
+        .voice_velocity_o  (nm_voice_velocity),
+        .voice_timbre_o    (nm_voice_timbre),
+        .voice_age_o       (nm_voice_age),
+        .alloc_valid_o     (nm_alloc_valid),
+        .alloc_voice_o     (nm_alloc_voice)
+    );
+
     // 把若干内部信号汇成一个观测字（防止综合器把"只被观测"的逻辑剪掉）
     assign obs = {16'd0, wavetable_sample}
                ^ {24'd0, led_data}
@@ -335,6 +408,8 @@ module synth_check_top #(
                ^ {31'd0, wavetable_valid}
                ^ {29'd0, adc_sample_data0}
                ^ {29'd0, cal_out_val}
-               ^ {28'd0, key_down};
+               ^ {28'd0, key_down}
+               ^ {27'd0, nm_alloc_voice}
+               ^ {31'd0, nm_voice_gate};
 
 endmodule

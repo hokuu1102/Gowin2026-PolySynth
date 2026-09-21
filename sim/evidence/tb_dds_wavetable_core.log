@@ -1,3 +1,2 @@
-﻿VCD info: dumpfile build/sim/dds_wavetable_core/tb_dds_wavetable_core.vcd opened for output.
-PASS: DDS wavetable core preserves phase across phase_inc changes
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_dds_wavetable_core.sv:88: $finish called at 440000 (1ps)
+﻿VCD Error: C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_dds_wavetable_core.sv:61: Unable to open build/sim/dds_wavetable_core/tb_dds_wavetable_core.vcd for output.
+

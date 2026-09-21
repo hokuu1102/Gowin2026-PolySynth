@@ -94,7 +94,17 @@ $mutations = @(
   # they now go through sample_data_alias[35:0] with a generate guard.  The alias output
   # still exists, so M22 was re-pointed to the current line.  This second skip is exactly
   # the failure mode K-87 is meant to surface, and the new exit-4 check caught it.
-  @{ id = "M22"; file = "rtl\drivers\adc_farm.sv"; find = "assign sample_data1 = sample_data_alias[23:12];"; repl = "assign sample_data1 = sample_data_alias[35:24];"; why = "L8/adc_farm regression: slave 1 alias reads slave 2's slice -> sample_data1 wrong (must be caught)" }
+  @{ id = "M22"; file = "rtl\drivers\adc_farm.sv"; find = "assign sample_data1 = sample_data_alias[23:12];"; repl = "assign sample_data1 = sample_data_alias[35:24];"; why = "L8/adc_farm regression: slave 1 alias reads slave 2's slice -> sample_data1 wrong (must be caught)" },
+
+  # ---- T54: note_manager (W3b voice allocation).  Without these the module's
+  #      "PASS" would prove nothing -- a module with no mutant is UNVERIFIED (K-56).
+  # NOTE: note_manager.v uses bare LF (no CRLF), so anchors must be single-line.
+  @{ id = "M23"; file = "rtl\w3b\note_manager.v"; find = "assign gate_mask[mg] = gate_r[mg]"; repl = "assign gate_mask[mg] = 1'b1;"; why = "T54 regression: retrigger hold removed -> gate never drops -> ADSR never restarts Attack (must be caught)" },
+  @{ id = "M24"; file = "rtl\w3b\note_manager.v"; find = "if (pool_mask[si] && (age_r[si] >= best_age)) begin"; repl = "if (pool_mask[si] && (age_r[si] > best_age)) begin"; why = "T54 regression: strict > on equal ages selects no candidate -> note silently dropped (must be caught)" },
+  @{ id = "M25"; file = "rtl\w3b\note_manager.v"; find = "if (live_mask[i] && (axis_r[i] == pitch_upd_axis_i))"; repl = "if (1'b0 && (axis_r[i] == pitch_upd_axis_i))"; why = "T54 regression: pitch_update ignored -> glissando does not track (must be caught)" },
+  @{ id = "M26"; file = "rtl\w3b\note_manager.v"; find = "if (gate_mask[i] && (axis_r[i] == vel_upd_axis_i))"; repl = "if (1'b0 && (axis_r[i] == vel_upd_axis_i))"; why = "T54 regression: vel_update ignored -> dual-threshold velocity correction lost (must be caught)" },
+  @{ id = "M27"; file = "rtl\w3b\note_manager.v"; find = "if (gate_mask[qi] && (axis_r[qi] == note_axis_i)) begin"; repl = "if (1'b0 && (axis_r[qi] == note_axis_i)) begin"; why = "T54 regression: same-axis retrigger detection removed -> a repeated key eats a second voice (must be caught)" },
+  @{ id = "M28"; file = "rtl\w3b\note_manager.v"; find = "assign pool_mask[pg] = 1'b1;"; repl = "assign pool_mask[pg] = 1'b0;"; why = "T54 regression: pool mask stuck at 0 -> no voice can ever be allocated (must be caught)" }
 )
 
 if ($Filter -ne "") { $mutations = @($mutations | Where-Object { $_.id -like "*$Filter*" }) }

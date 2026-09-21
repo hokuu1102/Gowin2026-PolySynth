@@ -18,7 +18,7 @@
 #       ⛔ **不把 `ERROR` 当失败**：T3 的负向测试会**故意**打印 `ERROR [A3]/[A6]/[A8]`，
 #          那正是"断言确实会触发"的证据。ERROR 行只做计数与展示。
 #       X 传播由 `tb/checkers/chk_xprop.sv`（A8）在每个 tb 里主动监视。
-param([string]$Filter = "")
+param([string]$Filter = "", [int]$TimeoutSec = 120)
 
 $ErrorActionPreference = "Continue"
 
@@ -109,8 +109,36 @@ foreach ($tb in $tbs) {
   }
 
   Write-Host ("=== 运行 " + $name + " ===") -ForegroundColor Cyan
-  $runOut  = & $vvp $vvpFile 2>&1
-  $runExit = $LASTEXITCODE
+  # ⭐⭐ 看门狗（K-94，2026-09-21 补）：
+  #   ⚠️ 原来这里是**裸的** `& $vvp $vvpFile` —— ⛔ **没有任何超时**。
+  #   后果：**任何一个 tb 挂死（死循环 / 无限等待），整个回归就永久静默阻塞**
+  #         （没有输出、没有报错、退出码也没有），看起来就像"跑得慢"。
+  #   ⚠️ 尤其危险的是**变异测试**：它要跑 N 遍本脚本 ⇒
+  #      一个变异体让 tb 进入死循环 ⇒ 整套变异测试**永远跑不完**，
+  #      而且**看起来只是在慢慢跑**（K-87 家族：验收工具自身失效却无人察觉）。
+  #   ⇒ 做法：后台起进程 + 限时等待；超时就杀掉并**判该 tb 失败**（⛔ 不是"通过"）。
+  #   📌 纪律：**"没有结论"必须算失败**，⛔ 不能算通过（同 C29：跳过≠通过）。
+  $job = Start-Job -ScriptBlock {
+    param($exe, $img)
+    & $exe $img 2>&1 | Out-String
+  } -ArgumentList $vvp, $vvpFile
+
+  $done = Wait-Job -Job $job -Timeout $TimeoutSec
+  if (-not $done) {
+    Stop-Job  -Job $job -ErrorAction SilentlyContinue
+    Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+    # ⚠️ vvp 可能留下子进程，一并清掉（否则会拖慢后续 tb）
+    Get-Process vvp -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    $runOut  = @("FAIL: TIMEOUT after $TimeoutSec s -- testbench hung (no verdict is a FAILURE, see K-94)")
+    $runExit = 124
+    Write-Host ("    ⛔ 超时 " + $TimeoutSec + " s —— 判失败（挂死不是通过，见 K-94）") -ForegroundColor Red
+  } else {
+    $runOut  = Receive-Job -Job $job
+    Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
+    # ⭐ 注意：这里**不能**用 $LASTEXITCODE —— Start-Job 里拿不到子进程退出码，
+    #   所以判定完全靠日志里的 `FAIL:` 行（与下方 $failRx 一致）。
+    $runExit = 0
+  }
   $runOut | Out-File -FilePath $runLog -Encoding utf8
   $runOut | ForEach-Object { Write-Host "    $_" }
 

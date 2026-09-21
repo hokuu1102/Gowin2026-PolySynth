@@ -1,2 +1,2 @@
-﻿VCD info: dumpfile build/sim/tb_envelope_bank/tb_envelope_bank.vcd opened for output.
-PASS: envelope_bank keeps per-voice ADSR state independent
+﻿VCD Error: C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_envelope_bank.sv:68: Unable to open build/sim/tb_envelope_bank/tb_envelope_bank.vcd for output.
+

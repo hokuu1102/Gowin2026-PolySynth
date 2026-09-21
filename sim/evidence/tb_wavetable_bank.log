@@ -1,3 +1,2 @@
-﻿VCD info: dumpfile build/sim/wavetable/tb_wavetable_bank.vcd opened for output.
-PASS: wavetable_bank 512/512 samples matched with deterministic one-cycle reads
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_wavetable_bank.sv:129: $finish called at 10420000 (1ps)
+﻿VCD Error: C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_wavetable_bank.sv:54: Unable to open build/sim/wavetable/tb_wavetable_bank.vcd for output.
+
