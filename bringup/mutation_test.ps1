@@ -104,7 +104,28 @@ $mutations = @(
   @{ id = "M25"; file = "rtl\w3b\note_manager.v"; find = "if (live_mask[i] && (axis_r[i] == pitch_upd_axis_i))"; repl = "if (1'b0 && (axis_r[i] == pitch_upd_axis_i))"; why = "T54 regression: pitch_update ignored -> glissando does not track (must be caught)" },
   @{ id = "M26"; file = "rtl\w3b\note_manager.v"; find = "if (gate_mask[i] && (axis_r[i] == vel_upd_axis_i))"; repl = "if (1'b0 && (axis_r[i] == vel_upd_axis_i))"; why = "T54 regression: vel_update ignored -> dual-threshold velocity correction lost (must be caught)" },
   @{ id = "M27"; file = "rtl\w3b\note_manager.v"; find = "if (gate_mask[qi] && (axis_r[qi] == note_axis_i)) begin"; repl = "if (1'b0 && (axis_r[qi] == note_axis_i)) begin"; why = "T54 regression: same-axis retrigger detection removed -> a repeated key eats a second voice (must be caught)" },
-  @{ id = "M28"; file = "rtl\w3b\note_manager.v"; find = "assign pool_mask[pg] = 1'b1;"; repl = "assign pool_mask[pg] = 1'b0;"; why = "T54 regression: pool mask stuck at 0 -> no voice can ever be allocated (must be caught)" }
+  @{ id = "M28"; file = "rtl\w3b\note_manager.v"; find = "assign pool_mask[pg] = 1'b1;"; repl = "assign pool_mask[pg] = 1'b0;"; why = "T54 regression: pool mask stuck at 0 -> no voice can ever be allocated (must be caught)" },
+
+  # ---- T55: oscillator_bank (64 independent oscillators).  NOTE: this file is
+  #      LF-only, so every anchor must be a single line.
+  # NOTE (2026-09-21, K-98): the first version of M29 was
+  #   find: "addr_q <= phase_q[ADDR_MSB:ADDR_LSB];"
+  #   repl: "addr_q <= phase_q[ADDR_LSB +: AW];"
+  # and it LEAKED -- because ADDR_LSB=23 and AW=9, `phase_q[23 +: 9]` is bits
+  # [31:23], i.e. EXACTLY the original expression.  The mutant was semantically
+  # identical, so nothing could ever catch it (C23: first ask whether the mutant
+  # actually violates the spec).  Replaced with a genuine off-by-one bit window.
+  @{ id = "M29"; file = "rtl\w3b\oscillator_bank.v"; find = "addr_q <= phase_q[ADDR_MSB:ADDR_LSB];"; repl = "addr_q <= phase_q[ADDR_MSB-1:ADDR_LSB-1];"; why = "T55 regression: table address takes a shifted phase window -> wrong DDS mapping (must be caught)" },
+  @{ id = "M30"; file = "rtl\w3b\oscillator_bank.v"; find = "if (lane_active)"; repl = "if (1'b1)"; why = "T55 regression: phase advances even when the voice is inactive -> idle voices drift (must be caught)" },
+  @{ id = "M31"; file = "rtl\w3b\oscillator_bank.v"; find = "sample_bus_r[(cnt-1)*OSC_SAMPLE_W +: OSC_SAMPLE_W] <= rom_dout;"; repl = "sample_bus_r[(cnt-1)*OSC_SAMPLE_W +: OSC_SAMPLE_W] <= {OSC_SAMPLE_W{1'b0}};"; why = "T55 regression: TDM capture disabled -> every lane reads 0 -> silence (must be caught)" },
+  @{ id = "M32"; file = "rtl\w3b\oscillator_bank.v"; find = "wire lane_active = test_mode_i"; repl = "wire lane_active = 1'b0 ? test_mode_i : 1'b0; wire lane_active_unused = test_mode_i;"; why = "T55 regression: test_mode override ignored -> T43 N-tone demo breaks (must be caught)" },
+
+  # ---- T56: tdm_render_mixer.  LF-only file => single-line anchors.
+  @{ id = "M33"; file = "rtl\w3b\tdm_render_mixer.v"; find = "if (cnt >= DEADLINE_C)"; repl = "if (cnt >= CNT_MAX_V)"; why = "T56 regression: deadline check never fires -> A6 (frame deadline) unguarded (must be caught)" },
+  @{ id = "M34"; file = "rtl\w3b\tdm_render_mixer.v"; find = "if (cnt >= 1 && cnt <= CNT_LAST)"; repl = "if (1'b0)"; why = "T56 regression: accumulation disabled -> output always 0 -> silence (must be caught)" },
+  @{ id = "M35"; file = "rtl\w3b\tdm_render_mixer.v"; find = "wire [LW-1:0] cnt_sel = (cnt[LW-1:0] > LAST_IDX) ? LAST_IDX : cnt[LW-1:0];"; repl = "wire [LW-1:0] cnt_sel = {LW{1'b0}};"; why = "T56 regression: every TDM slot reads voice 0 -> no summing (must be caught)" },
+  @{ id = "M36"; file = "rtl\w3b\tdm_render_mixer.v"; find = "wire over_pos = ~sh[ACC_W-1] && (|sh[ACC_W-2 : SAMPLE_W-1]);"; repl = "wire over_pos = 1'b0;"; why = "T56 regression: positive saturation removed -> overflow wraps to negative (must be caught)" },
+  @{ id = "M37"; file = "rtl\w3b\tdm_render_mixer.v"; find = "wire over_neg =  sh[ACC_W-1] && ~(&sh[ACC_W-2 : SAMPLE_W-1]);"; repl = "wire over_neg = 1'b0;"; why = "T56 regression: negative saturation removed -> overflow wraps positive (must be caught)" }
 )
 
 if ($Filter -ne "") { $mutations = @($mutations | Where-Object { $_.id -like "*$Filter*" }) }

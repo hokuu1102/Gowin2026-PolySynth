@@ -34,6 +34,10 @@
              Added here as well as in the main project so it is covered by the
              "does every module really synthesise?" check (K-46 / K-91). -->
         <File path="../rtl/w3b/note_manager.v" type="file.verilog" enable="1"/>
+        <!-- T55: 64 independent oscillators (the throughput figure the judges check). -->
+        <File path="../rtl/w3b/oscillator_bank.v" type="file.verilog" enable="1"/>
+        <!-- T56: TDM render mixer (shared single multiplier + saturation). -->
+        <File path="../rtl/w3b/tdm_render_mixer.v" type="file.verilog" enable="1"/>
         <!-- ⭐ L8 acquisition chain (T47 / K-90): these three modules were in NO
              Gowin project before, so they had simulation evidence only.
              mcp3208_driver/scanner are the dependencies adc_farm instantiates. -->

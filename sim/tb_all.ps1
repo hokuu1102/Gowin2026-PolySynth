@@ -118,10 +118,33 @@ foreach ($tb in $tbs) {
   #      而且**看起来只是在慢慢跑**（K-87 家族：验收工具自身失效却无人察觉）。
   #   ⇒ 做法：后台起进程 + 限时等待；超时就杀掉并**判该 tb 失败**（⛔ 不是"通过"）。
   #   📌 纪律：**"没有结论"必须算失败**，⛔ 不能算通过（同 C29：跳过≠通过）。
+  #
+  #   ⚠️⚠️ 2026-09-21 实测踩坑（`K-94` 的**第二次修复**）：
+  #     `Start-Job` 的子进程 **工作目录不是仓库根** ⇒ ⛔ **相对路径的 `$dumpfile` 打不开**
+  #     （实测：`VCD Error: Unable to open build/sim/tb_xxx/tb_xxx.vcd for output`）。
+  #     ⭐ 危害：**波形证据静默丢失**，而 tb 本身仍"通过"（⚠️ 判定只看 `FAIL:` 行）
+  #     ⇒ 这种"验收通过了、证据却没了"正是本项目最忌讳的一类。
+  #     ⇒ ⭐ 修法：`Start-Job` 里**先 `Set-Location $root`**（把仓库根传进去）。
+  #
+  #   ⚠️⚠️ 2026-09-21 实测踩坑（`K-97`，**第三次修复**）：
+  #     我第一版把 `$runExit` **硬设成 0**（理由是"`Start-Job` 里拿不到退出码"），
+  #     只剩 `FAIL:` 正则兜底 ⇒ 🔴 **任何"跑挂了但没打印 `FAIL:`"的情况都会被判 PASS**：
+  #       · tb 崩溃 / 段错误（没有任何输出）
+  #       · 脚本本身解析失败（⚠️ 我实测时正好踩到：编辑 BOM 被剥掉 ⇒ 整脚本不执行）
+  #       · `$finish` 但**没给出结论**（既没 PASS 也没 FAIL）
+  #     ⭐ 实测后果：变异体 **M07 报 `GREEN(LEAK!)`** —— 看起来像"判据漏了"，
+  #        实际是"**运行根本没产生结论，却被当成通过**"。
+  #     ⇒ ⭐ 修法：**在 job 里显式取回真实退出码**（用一行标记传出来），
+  #       并**把"没有结论"也判失败**。
   $job = Start-Job -ScriptBlock {
-    param($exe, $img)
-    & $exe $img 2>&1 | Out-String
-  } -ArgumentList $vvp, $vvpFile
+    param($exe, $img, $wd)
+    Set-Location -LiteralPath $wd      # ⭐ 关键：让相对 $dumpfile 落在仓库根下
+    $o = & $exe $img 2>&1 | Out-String
+    $c = $LASTEXITCODE
+    if ($null -eq $c) { $c = 0 }
+    # ⭐ 把真实退出码用标记行带出来（⛔ 不能用 $LASTEXITCODE 跨 job 边界）
+    "$o`n__VVP_EXIT__=$c"
+  } -ArgumentList $vvp, $vvpFile, $root
 
   $done = Wait-Job -Job $job -Timeout $TimeoutSec
   if (-not $done) {
@@ -133,11 +156,20 @@ foreach ($tb in $tbs) {
     $runExit = 124
     Write-Host ("    ⛔ 超时 " + $TimeoutSec + " s —— 判失败（挂死不是通过，见 K-94）") -ForegroundColor Red
   } else {
-    $runOut  = Receive-Job -Job $job
+    $raw = Receive-Job -Job $job
     Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
-    # ⭐ 注意：这里**不能**用 $LASTEXITCODE —— Start-Job 里拿不到子进程退出码，
-    #   所以判定完全靠日志里的 `FAIL:` 行（与下方 $failRx 一致）。
+    $rawTxt = ($raw | Out-String)
+    # ⭐ 取回真实退出码（见 K-97）
     $runExit = 0
+    if ($rawTxt -match "__VVP_EXIT__=(-?\d+)") {
+      $runExit = [int]$Matches[1]
+      $rawTxt  = $rawTxt -replace "(?m)^__VVP_EXIT__=-?\d+\s*$", ""
+    } else {
+      # ⭐ 标记行都没出现 ⇒ job 本身异常 ⇒ **判失败**（⛔ 不能当通过）
+      $runExit = 125
+      $rawTxt = $rawTxt + "`nFAIL: runner could not read vvp exit code (job异常) -- no verdict is a FAILURE (K-97)"
+    }
+    $runOut = @($rawTxt)
   }
   $runOut | Out-File -FilePath $runLog -Encoding utf8
   $runOut | ForEach-Object { Write-Host "    $_" }
