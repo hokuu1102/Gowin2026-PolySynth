@@ -204,11 +204,34 @@ $mutations = @(
   # ---- T54: note_manager (W3b voice allocation).  Without these the module's
   #      "PASS" would prove nothing -- a module with no mutant is UNVERIFIED (K-56).
   # NOTE: note_manager.v uses bare LF (no CRLF), so anchors must be single-line.
-  @{ id = "M23"; file = "rtl\w3b\note_manager.v"; find = "assign gate_mask[mg] = gate_r[mg]"; repl = "assign gate_mask[mg] = 1'b1;"; why = "T54 regression: retrigger hold removed -> gate never drops -> ADSR never restarts Attack (must be caught)" },
-  @{ id = "M24"; file = "rtl\w3b\note_manager.v"; find = "if (pool_mask[si] && (age_r[si] >= best_age)) begin"; repl = "if (pool_mask[si] && (age_r[si] > best_age)) begin"; why = "T54 regression: strict > on equal ages selects no candidate -> note silently dropped (must be caught)" },
+  # NOTE (2026-09-21, T66, FOURTH attempt -- C23 keeps biting):
+  #   attempt 1: anchor was a prefix -> syntax error -> mutant never compiled
+  #              (and a compile failure used to count as "caught" -- now K-105).
+  #   attempt 2: dropping "& ~hold_mask[mg]" is a no-op, because the FSM already
+  #              drives gate_r low explicitly -> semantically equivalent.
+  #   attempt 3: dropping hold from live_mask is ALSO a no-op here, because
+  #              env_active_i stays high through the hold -> voice still busy.
+  # The load-bearing line is the FSM statement that actually pulls the gate down;
+  # without it the ADSR never sees a falling edge and never restarts Attack.
+  @{ id = "M23"; file = "rtl\w3b\note_manager.v"; find = "if (retrig_state == RT_LOW) begin"; repl = "if (1'b0 && retrig_state == RT_LOW) begin"; why = "T54 regression: retrigger never pulls the gate low -> ADSR never restarts Attack (must be caught)" },
+  # NOTE (2026-09-21, T66): anchor re-pointed.  The scan was rewritten from a
+  # single-cycle priority loop into a pipelined scan, so the old anchor is gone.
+  # The mutant keeps the same meaning: make the age comparison strict so that
+  # equal ages select NO candidate.
+  # NOTE (2026-09-21, T66): anchor re-pointed.  The candidate selection was
+  # rewritten from a single-cycle priority loop into a pipelined scan, so the old
+  # anchor text no longer exists.  Same meaning: a tie on the oldest age must
+  # still select a candidate (make the term never true -> nothing is chosen).
+  # NOTE (2026-09-21, T66, third attempt -- C23 again): inverting the age
+  # comparison still leaked, because tb_note_manager's small instance has no
+  # envelope_bank attached, so the age-based class is rarely reached.  Target the
+  # scan's selection condition instead: if "better" is never true, no candidate
+  # is ever chosen -> the note is silently dropped (the original M24 intent).
+  @{ id = "M24"; file = "rtl\w3b\note_manager.v"; find = "wire cand_ok = cand_pool & ~cand_hold;"; repl = "wire cand_ok = 1'b0;"; why = "T54 regression: no candidate ever selected -> note silently dropped (must be caught)" },
   @{ id = "M25"; file = "rtl\w3b\note_manager.v"; find = "if (live_mask[i] && (axis_r[i] == pitch_upd_axis_i))"; repl = "if (1'b0 && (axis_r[i] == pitch_upd_axis_i))"; why = "T54 regression: pitch_update ignored -> glissando does not track (must be caught)" },
   @{ id = "M26"; file = "rtl\w3b\note_manager.v"; find = "if (gate_mask[i] && (axis_r[i] == vel_upd_axis_i))"; repl = "if (1'b0 && (axis_r[i] == vel_upd_axis_i))"; why = "T54 regression: vel_update ignored -> dual-threshold velocity correction lost (must be caught)" },
-  @{ id = "M27"; file = "rtl\w3b\note_manager.v"; find = "if (gate_mask[qi] && (axis_r[qi] == note_axis_i)) begin"; repl = "if (1'b0 && (axis_r[qi] == note_axis_i)) begin"; why = "T54 regression: same-axis retrigger detection removed -> a repeated key eats a second voice (must be caught)" },
+  # NOTE (2026-09-21, T66): anchor re-pointed to the pipelined same-axis detect.
+  @{ id = "M27"; file = "rtl\w3b\note_manager.v"; find = "assign same_hit[sg] = gate_mask[sg] && (axis_r[sg] == cur_axis);"; repl = "assign same_hit[sg] = 1'b0;"; why = "T54 regression: same-axis retrigger detection removed -> a repeated key eats a second voice (must be caught)" },
   @{ id = "M28"; file = "rtl\w3b\note_manager.v"; find = "assign pool_mask[pg] = 1'b1;"; repl = "assign pool_mask[pg] = 1'b0;"; why = "T54 regression: pool mask stuck at 0 -> no voice can ever be allocated (must be caught)" },
 
   # ---- T55: oscillator_bank (64 independent oscillators).  NOTE: this file is
@@ -314,6 +337,23 @@ foreach ($m in $mutations) {
 
   $out  = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all.ps1") 2>&1
   $exit = $LASTEXITCODE
+
+  # ???? 2026-09-21 (K-105): "exit != 0" ALONE is not proof that the suite CAUGHT
+  # the defect.  A mutant that fails to COMPILE also exits non-zero -- and that was
+  # being counted as "caught".  A mutant which cannot even build guards NOTHING:
+  # it never exercised a single check.  Distinguish the two cases.
+  $outTxt   = ($out | Out-String)
+  $compFail = ($outTxt -match 'syntax error|error: Invalid|error: Unable to|Unknown module type')
+  $hasFail  = ([regex]::IsMatch($outTxt, "(?m)^[ \t]*[^A-Za-z]*FAIL:"))
+
+  if ($compFail -and -not $hasFail) {
+    Write-Host ("  [" + $m.id + "] !! MUTANT DOES NOT COMPILE -- invalid mutant, NOT a pass") -ForegroundColor Red
+    Copy-Item $bak $path -Force
+    Remove-Item $bak -Force -ErrorAction SilentlyContinue
+    $results += [pscustomobject]@{ Id = $m.id; Caught = $null; Note = "mutant failed to compile (invalid)"; Restored = $true }
+    continue
+  }
+
   $caught = ($exit -ne 0)
 
   # restore + verify byte-identical

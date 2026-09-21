@@ -35,7 +35,9 @@ module tb_note_manager;
     localparam integer ENV_W    = 16;
     localparam integer AGE_W    = 16;
     localparam integer IDX_W    = 5;      // $clog2(32)
-    localparam integer CLK_PER_SAMPLE = 16;
+    // ⚠️ T66: note_manager now SCANS (POLY_TARGET+4 = 36 cycles per allocation),
+    // so a 'sample tick' must be longer than that or the FSM never finishes.
+    localparam integer CLK_PER_SAMPLE = 64;
 
     reg clk = 1'b0;
     reg rst_n = 1'b0;
@@ -248,6 +250,24 @@ module tb_note_manager;
     endfunction
 
     // ── 激励任务 ────────────────────────────────────────────────────────────
+    // T66: allocation is pipelined, so wait for the FSM to drain.
+    // Waiting on alloc_valid only covers the ALLOCATE path; the retrigger and
+    // note_off paths do not raise it, so also allow a fixed settle time.
+    // T66: latch the allocate pulse while settling (it is 1 cycle wide and
+    // happens before settle returns, so sampling afterwards always misses it).
+    reg               saw_alloc;
+    reg [IDX_W-1:0]   saw_alloc_voice;
+    task settle; begin
+        saw_alloc = 1'b0;
+        repeat (POLY + 8) begin
+            @(negedge clk);
+            if (alloc_valid) begin
+                saw_alloc       = 1'b1;
+                saw_alloc_voice = alloc_voice;
+            end
+        end
+    end endtask
+
     task press_a;
         input [AXIS_W-1:0]  ax;
         input [PHASE_W-1:0] inc;
@@ -258,6 +278,7 @@ module tb_note_manager;
             note_velocity = vel; note_kind = 2'd0;
             @(negedge clk);
             note_valid = 1'b0;
+            settle;
         end
     endtask
 
@@ -269,6 +290,7 @@ module tb_note_manager;
             note_phase_inc = {PHASE_W{1'b0}}; note_velocity = {VEL_W{1'b0}};
             @(negedge clk);
             note_valid = 1'b0;
+            settle;
         end
     endtask
 
@@ -279,6 +301,7 @@ module tb_note_manager;
             b_valid = 1'b1; b_axis = ax;
             @(negedge clk);
             b_valid = 1'b0;
+            settle;
         end
     endtask
 
@@ -289,6 +312,7 @@ module tb_note_manager;
             c_valid = 1'b1; c_axis = ax;
             @(negedge clk);
             c_valid = 1'b0;
+            settle;
         end
     endtask
 
@@ -349,7 +373,7 @@ module tb_note_manager;
 
         press_a(4'd3, 32'h0010_0000, 8'd0);      // vel=0 ⇒ 应用 DEFAULT_VEL
         chk("note_on 后有 1 个 gate", popcount(voice_gate) == 1);
-        chk("分配落在最低空闲索引 voice0", alloc_valid === 1'b1 && alloc_voice === 5'd0);
+        chk("分配落在最低空闲索引 voice0", saw_alloc === 1'b1 && saw_alloc_voice === 5'd0);
         chk("voice0 的 axis = 3", axis_of(0) === 4'd3);
         chk("voice0 的 phase_inc 正确", phase_of(0) === 32'h0010_0000);
         chk("vel=0 时套用 DEFAULT_VEL(200)", vel_of(0) === 8'd200);
@@ -357,7 +381,7 @@ module tb_note_manager;
 
         press_a(4'd5, 32'h0020_0000, 8'd77);
         chk("第二个 note_on 后有 2 个 gate", popcount(voice_gate) == 2);
-        chk("分配取下一个最低空闲 voice1", alloc_voice === 5'd1);
+        chk("分配取下一个最低空闲 voice1", saw_alloc === 1'b1 && saw_alloc_voice === 5'd1);
         chk("vel 非 0 时用事件值(77)", vel_of(1) === 8'd77);
 
         // ⭐ Looper 每层覆盖音色（`K-82`）
@@ -519,6 +543,54 @@ module tb_note_manager;
         //      （`K-92` 已记录这个"轴位数 < 复音数"的事实）
         n = popcount(voice_gate);
         chk("同时可按下的上限 = 16（受 AXIS_W 限制，非 POLY_TARGET）", n == 16);
+
+        // ---- 9: mid-retrigger voice must stay BUSY (not stealable) ----
+        // Guards the K-103-era fix: during the 2-tick retrigger hold the gate is
+        // low, but the voice is still in use.  If live_mask drops the hold term,
+        // the voice looks free and a different axis can grab it -- and then the
+        // retrigger yanks the gate back up, stealing the new note's voice.
+        // NOTE: this section builds its OWN clean state; earlier sections leave
+        // many voices sounding, so nothing may be assumed about voice ownership.
+        $display("== 9: mid-retrigger voice is not stealable ==");
+        begin
+            integer v9;
+            integer total_before;
+            integer stolen_axis;
+
+            // clean slate: release every axis and let the envelopes finish
+            for (v9 = 0; v9 < 16; v9 = v9 + 1) release_a(v9[AXIS_W-1:0]);
+            run_ticks(400);
+            chk("section 9: clean slate (0 gates)", popcount(voice_gate) == 0);
+
+            // start axis 5 -> it takes the lowest free voice (voice0)
+            press_a(4'd5, 32'h0010_0000, 8'd100);
+            chk("section 9: axis 5 owns voice0", axis_of(0) === 4'd5);
+            total_before = popcount(voice_gate);
+            chk("section 9: exactly 1 gate before the test", total_before == 1);
+
+            // retrigger axis 5, then IMMEDIATELY press a different axis
+            @(negedge clk);
+            note_valid = 1'b1; note_axis = 4'd5; note_phase_inc = 32'h0033_0000;
+            note_velocity = 8'd100; note_kind = 2'd0;
+            @(negedge clk);
+            note_valid = 1'b0;
+            @(negedge clk);
+            note_valid = 1'b1; note_axis = 4'd11; note_phase_inc = 32'h0055_0000;
+            note_velocity = 8'd100; note_kind = 2'd0;
+            @(negedge clk);
+            note_valid = 1'b0;
+            settle;
+
+            chk("section 9: axis 5 still owns voice0 (hold kept it busy)",
+                axis_of(0) === 4'd5);
+            // ⚠️ `voice_gate` is the EXTERNAL gate, which is deliberately 0 while
+            // axis 5 is mid-retrigger (that is how the ADSR sees a fresh edge).
+            // So the right judgement is ownership, not the raw gate count.
+            chk("section 9: the other axis landed on a DIFFERENT voice",
+                axis_of(1) === 4'd11);
+            chk("section 9: axis 5 was NOT stolen (still on voice0)",
+                axis_of(0) === 4'd5);
+        end
 
         if (errors == 0)
             $display("PASS: note_manager acceptance (T54) - all judgements held");
