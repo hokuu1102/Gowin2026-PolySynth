@@ -234,6 +234,16 @@ $mutations = @(
   @{ id = "M27"; file = "rtl\w3b\note_manager.v"; find = "assign same_hit[sg] = gate_mask[sg] && (axis_r[sg] == cur_axis);"; repl = "assign same_hit[sg] = 1'b0;"; why = "T54 regression: same-axis retrigger detection removed -> a repeated key eats a second voice (must be caught)" },
   @{ id = "M28"; file = "rtl\w3b\note_manager.v"; find = "assign pool_mask[pg] = 1'b1;"; repl = "assign pool_mask[pg] = 1'b0;"; why = "T54 regression: pool mask stuck at 0 -> no voice can ever be allocated (must be caught)" },
 
+  # ---- K-106 (2026-09-21): event-queue overflow observability.  Before this
+  #      fix the queue dropped events SILENTLY, and the dangerous part is not
+  #      "one note lost" but a lost note_off -> the note hangs forever (the very
+  #      failure mode T38 exists to prevent).  These four guard the reporting
+  #      path itself: a silent-drop regression must go red, not unnoticed.
+  @{ id = "M45"; file = "rtl\w3b\note_manager.v"; find = "wire fifo_drop = note_valid_i && fifo_full;"; repl = "wire fifo_drop = 1'b0;"; why = "K-106 regression: overflow detection disabled -> drops become SILENT again (must be caught)" },
+  @{ id = "M46"; file = "rtl\w3b\note_manager.v"; find = "if (fifo_drop && !lost_cnt_sat) lost_cnt_r <= lost_cnt_r + 1'b1;"; repl = "if (1'b0) lost_cnt_r <= lost_cnt_r + 1'b1;"; why = "K-106 regression: lost-event counter never increments -> count lies that nothing was lost (must be caught)" },
+  @{ id = "M47"; file = "rtl\w3b\note_manager.v"; find = "if (fifo_drop)                  lost_sticky_r <= 1'b1;"; repl = "if (fifo_drop)                  lost_sticky_r <= 1'b0;"; why = "K-106 regression: sticky flag never sets -> overflow invisible on the board (must be caught)" },
+  @{ id = "M48"; file = "rtl\w3b\note_manager.v"; find = "if (fifo_drop && !lost_cnt_sat) lost_cnt_r <= lost_cnt_r + 1'b1;"; repl = "if (fifo_drop) lost_cnt_r <= lost_cnt_r + 1'b1;"; why = "K-106 regression: saturation removed -> count WRAPS (256 losses would read as 0, another silent failure) (must be caught)" },
+
   # ---- T55: oscillator_bank (64 independent oscillators).  NOTE: this file is
   #      LF-only, so every anchor must be a single line.
   # NOTE (2026-09-21, K-98): the first version of M29 was

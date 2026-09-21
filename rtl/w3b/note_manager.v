@@ -31,6 +31,23 @@
 //      `W3接口冻结表.md` §四 原写 `note_manager ≤ 4 拍` ⇒ 改为 **≤ 34 拍**。
 //      ⛔ 但**端口列表一字未改** ⇒ 队友的 tb **不需要改接口**（只需改等待拍数）。
 //
+// ⭐⭐ 2026-09-21 · `K-106` 修复：**事件队列溢出可观测化**
+//   🔴 问题：`fifo_push = note_valid_i && !fifo_full` ⇒ **溢出时静默丢弃**（无任何指示）。
+//      ⚠️ 而**丢的若是 `note_off` ⇒ 那个音永远关不掉（挂音）** —— 正是 `T38` 要防的失效模式。
+//      ⚠️ 最坏突发 = **16 键 + 节拍器 1 + 鼓机 1 = 18 > 原深度 16** ⇒ 丢 2 个。
+//   ⭐ 修法（三件一起，缺一不可）：
+//      ① `FIFO_DEPTH: 16 → 32`（覆盖 18，余量 14）—— ⭐ **减少丢音【概率】**
+//      ② ⭐⭐ **新增 `event_lost_o`（sticky）+ `event_lost_cnt_o`（饱和计数）+ `event_lost_clr_i`**
+//         —— ⭐ **让丢音【可被发现】**
+//      ③ tb 补 FIFO 溢出用例（⛔ 之前 `tb_note_manager.sv` 里**没有任何 `fifo` 字样**
+//         ⇒ 这条路径**从未被验证**）
+//   ⭐⭐ 为什么①和②**必须都有**：两者**正交** ——
+//      ① 只是"把墙往后挪"（超过 32 照样丢），② **不能阻止**丢。
+//      ⇒ 合起来才是可接受的工程语义：**"要么不丢，要么丢了立刻知道"**。
+//      ⛔ **不存在"永不丢音"**（队列有限 + 上游无限 ⇒ 数学上必然溢出）。
+//   ⚠️ **本修复【改了端口】**（+3）⇒ 属接口变更，按冻结表 §〇 约定 5 **须通知全员**。
+//      已有例化**不接新输入**也合法（`event_lost_clr_i` 悬空=恒 0 ⇒ 只置位不清）。
+//
 // ⛔ 纪律（本项目血泪）：
 //   · ⭐ **Verilog-2001 语法**（`K-91`：Gowin 按 Verilog-2001 编译，
 //     用 SV 专有构造 ⇒ **整个模块被丢弃**，而**仿真全绿**）
@@ -57,8 +74,17 @@ module note_manager #(
     // ⭐ 专用 axis_id 起点（`Looper详细设计.md` §二：建议 `4'hE` 节拍器 / `4'hF` 鼓机）
     parameter integer RESERVED_AXIS_BASE = 14,
     // ⭐⭐ 事件队列深度（`T66`）—— 扫描期间到达的事件先排队，⛔ 不丢
-    //    ⚠️ 深度 16 的依据：`AXIS_N=16` ⇒ 一个采集帧内**每个轴位最多一个事件**
-    parameter integer FIFO_DEPTH  = 16,
+    //    ⚠️ 原深度 16 的依据：`AXIS_N=16` ⇒ 一个采集帧内**每个轴位最多一个事件**。
+    //    🔴 **`K-106`（2026-09-21）**：该依据**漏算了自动功能** ——
+    //       最坏突发 = **16 键 + 节拍器 1 + 鼓机 1 = 18 个** > 16 ⇒ **丢 2 个**。
+    //    ⭐ 修法：`16 → 32`（32 ≥ 18，余量 14）。
+    //    ⚠️ 代价极小：每条事件 64 bit ⇒ 多 16×64 = **1024 bit**（60K 总 BSRAM 2124 kb 的 **0.05%**）。
+    //    ⚠️ 副作用（**必须知道**）：排空时间 16×35=560 拍 → 32×35=**1120 拍 = 22.4 µs**
+    //       ⭐ 但**听感延迟不受影响** —— `adsr` 的 `gate` 只在 `sample_tick_i`（每 1024 拍）采样，
+    //          22.4 µs 仍在一帧内（见文件头 `K-103` 的同一论证）。
+    parameter integer FIFO_DEPTH  = 32,
+    // ⭐ 丢弃事件计数位宽（8 bit ⇒ 饱和于 255；⚠️ 饱和而**不回绕**，见下方注释）
+    parameter integer EVT_LOST_CNT_W = 8,
     // voice 索引位宽（`alloc_voice_o` 用）
     parameter integer IDX_W = (POLY_TARGET <= 1) ? 1 : $clog2(POLY_TARGET)
 ) (
@@ -100,7 +126,20 @@ module note_manager #(
     output wire [POLY_TARGET*TIMBRE_W-1:0]   voice_timbre_o,     // → wavetable（`K-82`）
     output wire [POLY_TARGET*AGE_W-1:0]      voice_age_o,        // 抢占年龄（诊断）
     output wire                              alloc_valid_o,     // 分配发生（脉冲）
-    output wire [IDX_W-1:0]                  alloc_voice_o
+    output wire [IDX_W-1:0]                  alloc_voice_o,
+
+    // ── ⭐⭐ 事件队列【溢出可观测性】（`K-106`，2026-09-21）──────────────────
+    //    🔴 起因：`fifo_push = note_valid_i && !fifo_full` ⇒ **溢出时静默丢弃**，
+    //       ⛔ 无任何指示。⚠️ 而**丢的若是 `note_off` ⇒ 那个音永远关不掉（挂音）**，
+    //       正是 `T38` 专门要防的失效模式。
+    //    ⭐ 纪律（`K-106` 原话）：**任何"容量有限"的队列，都必须有【可观测的溢出指示】**。
+    //    ⭐⭐ 注意：加指示**不能**"不丢音" —— 它解决的是【可知性】而不是【概率】：
+    //       · 加深度（16→32）⇒ 把溢出阈值抬高 ⇒ **减少**丢音**概率**，但仍会丢
+    //       · 加指示          ⇒ 丢了**能立刻知道**，⛔ 但**不能阻止**丢
+    //       ⇒ ⭐ 两者**正交**，要一起做：**"要么不丢，要么丢了能立刻发现"**。
+    output wire                              event_lost_o,      // ⭐ sticky：曾发生溢出（⭐ 置位后保持）
+    output wire [EVT_LOST_CNT_W-1:0]         event_lost_cnt_o,  // ⭐ 累计丢弃事件数（**饱和**，⛔ 不回绕）
+    input  wire                              event_lost_clr_i   // ⭐ 读走后清零（1 拍脉冲或电平皆可）
 );
 
     // ── 常量（⛔ 不对 integer 参数做位选 —— `K-91` 的教训）────────────────
@@ -190,6 +229,17 @@ module note_manager #(
 
     wire fifo_push = note_valid_i && !fifo_full;
     wire fifo_pop  = (state == ST_IDLE) && !fifo_empty;
+
+    // ⭐⭐ 溢出丢弃检测（`K-106`）—— 🔴 **这一条就是"静默丢弃"的修复**
+    //    ⚠️ `note_valid_i && fifo_full` 正是"来了事件但队列满 ⇒ 丢掉"的那一拍。
+    //    ⭐ 与 `fifo_push` **互补且互斥**（push 要求 !full）⇒ 同拍只会有一个为真。
+    wire fifo_drop = note_valid_i && fifo_full;
+
+    // ⭐ 丢弃计数（**饱和**，⛔ 不回绕 —— ⚠️ 回绕会把"丢了 256 个"显示成"丢了 0 个"，
+    //    那又是**另一种静默**，与 `K-106` 的纪律直接冲突）
+    reg  [EVT_LOST_CNT_W-1:0] lost_cnt_r;
+    reg                       lost_sticky_r;
+    wire lost_cnt_sat = (lost_cnt_r == {EVT_LOST_CNT_W{1'b1}});   // 已达上限则不再加
 
     // 指向队列头（用于 `ST_DECIDE` 取出）
     wire [AXIS_W-1:0]  head_axis = fifo_ax [fifo_rd];
@@ -306,6 +356,9 @@ module note_manager #(
             cur_kind      <= 2'd0;
             alloc_valid_r <= 1'b0;
             alloc_voice_r <= {IDX_W{1'b0}};
+            // ⭐⭐ 溢出指示：硬复位清（⚠️ 上电后是干净的；上板运行中要靠 clr 输入清）
+            lost_cnt_r    <= {EVT_LOST_CNT_W{1'b0}};
+            lost_sticky_r <= 1'b0;
         end else begin
             alloc_valid_r <= 1'b0;
 
@@ -331,6 +384,18 @@ module note_manager #(
             if (fifo_push && !fifo_pop)      fifo_cnt <= fifo_cnt + 1'b1;
             else if (!fifo_push && fifo_pop) fifo_cnt <= fifo_cnt - 1'b1;
             // 同拍 push+pop ⇒ 计数不变（⛔ 不加 else 分支）
+
+            // ⭐⭐ (b2) 溢出丢弃计数 + sticky 指示（`K-106`）──────────────────
+            //    ⭐ 优先级：**先判 clr**（读走清零）⇒ 同拍"清 + 又丢一个"时，
+            //       结果是"计 1 + sticky 置位"（⭐ 新丢的那个**不会被清掉**，语义正确）。
+            if (event_lost_clr_i) begin
+                lost_cnt_r    <= fifo_drop ? {{(EVT_LOST_CNT_W-1){1'b0}}, 1'b1}
+                                           : {EVT_LOST_CNT_W{1'b0}};
+                lost_sticky_r <= fifo_drop;      // ⭐ 同拍又丢 ⇒ sticky 重新置位
+            end else begin
+                if (fifo_drop && !lost_cnt_sat) lost_cnt_r <= lost_cnt_r + 1'b1;
+                if (fifo_drop)                  lost_sticky_r <= 1'b1;   // ⭐ sticky：只置位，⛔ 不自动清
+            end
 
             // ── (c) ⭐ `note_off` 现在走队列（见 (g) 的 `ST_DECIDE`）──────
             //    ⚠️ 原来这里是"立即清所有同轴位"的旁路 ⇒ ⛔ **会挂音**：
@@ -468,13 +533,21 @@ module note_manager #(
     assign alloc_valid_o     = alloc_valid_r;
     assign alloc_voice_o     = alloc_voice_r;
 
+    // ⭐⭐ 溢出可观测性输出（`K-106`）
+    assign event_lost_o     = lost_sticky_r;
+    assign event_lost_cnt_o = lost_cnt_r;
+
     // ── 参数自检（与 `clk_gen`/`tlc5916`/`top` 的 `PARAM_OK` 同一套路）──────
     //   ⚠️ 为什么要有：这几个组合会**静默失效**，且现象极难定位 ——
     //     ① `RESERVED_N > POLY_TARGET` ⇒ 普通轴位无 voice 可用（⛔ 按下去没声音）
     //     ② `RESERVED_N > 0` 但 `RESERVED_AXIS_BASE` 越界 ⇒ 专用池永远选不到
     //     ③ ⭐ `FIFO_DEPTH` 太小 ⇒ 一帧内的事件**溢出丢弃**（⛔ 丢音）
+    //        ⭐⭐ `K-106` 修正：门槛**不是 16** —— 最坏突发 = `AXIS_N(16) + 节拍器 1 + 鼓机 1`
+    //           ⇒ **18**。⚠️ 且 `AXIS_W` 可能不是 4（`AXIS_N` 随位宽变）⇒ 按 `2^AXIS_W + 2` 算。
     //     ④ ⭐ 扫描拍数必须 << 一帧（`CLK_PER_SAMPLE`），否则**扫不完就被下一个 tick 打断**
     localparam integer AXIS_MAX = (1 << AXIS_W) - 1;
+    // ⭐ 最坏突发下界：每轴位最多 1 个事件 + 节拍器 1 + 鼓机 1（`K-106` 的口径）
+    localparam integer FIFO_MIN  = AXIS_MAX + 1 + 2;
     initial begin
         if (RESERVED_N > POLY_TARGET)
             $display("ERROR [note_manager] RESERVED_N=%0d > POLY_TARGET=%0d => 普通轴位将无 voice 可用",
@@ -482,9 +555,10 @@ module note_manager #(
         if ((RESERVED_N > 0) && (RESERVED_AXIS_BASE > AXIS_MAX))
             $display("ERROR [note_manager] RESERVED_AXIS_BASE=%0d 超出 AXIS_W=%0d 范围 => 专用池永远选不到",
                      RESERVED_AXIS_BASE, AXIS_W);
-        if (FIFO_DEPTH < 16)
-            $display("WARNING [note_manager] FIFO_DEPTH=%0d < 16 => 一个采集帧内的事件可能溢出丢弃",
-                     FIFO_DEPTH);
+        // ⭐ `K-106`：门槛按最坏突发算（16 轴 + 1 节拍器 + 1 鼓机 = 18），⛔ 不是写死 16
+        if (FIFO_DEPTH < FIFO_MIN)
+            $display("WARNING [note_manager] FIFO_DEPTH=%0d < 最坏突发 %0d (=%0d 轴 +1 节拍器 +1 鼓机) => 事件会溢出丢弃（⭐ 已由 event_lost_o 指示，但会丢音）",
+                     FIFO_DEPTH, FIFO_MIN, AXIS_MAX + 1);
         if ((POLY_TARGET + 4) > 1024)
             $display("ERROR [note_manager] POLY_TARGET+4=%0d > 1024（每帧可用 clk）=> 扫描跑不完一帧",
                      POLY_TARGET + 4);

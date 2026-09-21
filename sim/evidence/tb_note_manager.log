@@ -1,4 +1,5 @@
-﻿== 鍒ゆ嵁 1: 浜嬩欢 -> voice gate锛堝惈 DEFAULT_VEL / 闊宠壊閿佸瓨锛?=
+﻿WARNING [note_manager] FIFO_DEPTH=4 < 鏈€鍧忕獊鍙?18 (=16 杞?+1 鑺傛媿鍣?+1 榧撴満) => 浜嬩欢浼氭孩鍑轰涪寮冿紙猸?宸茬敱 event_lost_o 鎸囩ず锛屼絾浼氫涪闊筹級
+== 鍒ゆ嵁 1: 浜嬩欢 -> voice gate锛堝惈 DEFAULT_VEL / 闊宠壊閿佸瓨锛?=
   ok  : ?悗 0 ?gate
   ok  : note_?湁 1 ?gate
   ok  : ???????紩 voice0
@@ -66,7 +67,22 @@
   ok  : section 9: axis 5 still owns voice0 (hold kept it busy)
   ok  : section 9: the other axis landed on a DIFFERENT voice
   ok  : section 9: axis 5 was NOT stolen (still on voice0)
+  ok  : K-106: baseline - event_lost is 0 BEFORE any overflow
+  ok  : K-106: baseline - lost count is 0 BEFORE any overflow
+  ok  : K-106: event_lost asserts after overflowing the queue
+  ok  : K-106: lost count = 7 and 12 = 5 served + 7 lost (conservation holds)
+  ok  : K-106: the burst really did overflow (lost > 0)
+  ok  : K-106: the burst was not entirely lost (served > 0)
+  ok  : K-106: sticky stays set while later events are processed normally
+  ok  : K-106: lost count is unchanged by later normal events
+  ok  : K-106: the events that FIT were still allocated (axis 0 got a voice)
+  ok  : K-106: overflow did NOT wedge the FSM (some gate is active)
+  ok  : K-106: event_lost_clr_i clears the sticky flag
+  ok  : K-106: event_lost_clr_i clears the lost count
+  ok  : K-106: sticky can RE-ASSERT after being cleared (not a one-shot lockout)
+  ok  : K-106: lost count SATURATED at 15 (did not wrap to 0)
+  ok  : K-106: sticky is set under massive overflow too
 PASS: note_manager acceptance (T54) - all judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:600: $finish called at 150400000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:775: $finish called at 291600000 (1ps)
 
 

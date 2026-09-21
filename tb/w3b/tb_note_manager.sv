@@ -35,6 +35,9 @@ module tb_note_manager;
     localparam integer ENV_W    = 16;
     localparam integer AGE_W    = 16;
     localparam integer IDX_W    = 5;      // $clog2(32)
+    // ⭐⭐ `K-106`：溢出计数位宽。⚠️ 本 tb 用 **4 bit**（饱和于 15）而不是默认 8 bit，
+    //    ⭐ **故意**的 —— 这样"计数饱和"这条纪律**也能被判据覆盖**（灌 40 个 ⇒ 计数停在 15）。
+    localparam integer EVT_LOST_W = 4;
     // ⚠️ T66: note_manager now SCANS (POLY_TARGET+4 = 36 cycles per allocation),
     // so a 'sample tick' must be longer than that or the FSM never finishes.
     localparam integer CLK_PER_SAMPLE = 64;
@@ -92,13 +95,23 @@ module tb_note_manager;
     wire                    alloc_valid;
     wire [IDX_W-1:0]        alloc_voice;
 
+    // ⭐⭐ `K-106`：溢出可观测性（本节判据专用）
+    wire                    event_lost;
+    wire [EVT_LOST_W-1:0]   event_lost_cnt;
+    reg                     event_lost_clr = 1'b0;
+
     wire [POLY-1:0]         env_active;
     wire [POLY*ENV_W-1:0]   env_level;
 
     note_manager #(
         .POLY_TARGET(POLY), .AXIS_W(AXIS_W), .PHASE_W(PHASE_W),
         .VEL_W(VEL_W), .TIMBRE_W(TIMBRE_W), .ENV_W(ENV_W), .AGE_W(AGE_W),
-        .RESERVED_N(0), .DEFAULT_VEL(200), .IDX_W(IDX_W)
+        .RESERVED_N(0), .DEFAULT_VEL(200), .IDX_W(IDX_W),
+        // ⭐⭐ `K-106`：**故意把深度压到 4** —— 这样很容易灌满、从而**真的触发溢出**，
+        //    ⚠️ 用默认 32 要灌 33 个事件才能溢出，判据会变长且脆。
+        //    ⭐ 深度**本来就是参数**（`T66` 时就参数化了）⇒ 本 tb 覆盖"溢出的行为"，
+        //      ⛔ 不断言"默认值是多少"（那由 `FIFO_MIN` 自检 + §K-106 文档管）。
+        .FIFO_DEPTH(4), .EVT_LOST_CNT_W(EVT_LOST_W)
     ) dut (
         .clk_i(clk), .rst_n_i(rst_n), .sample_tick_i(sample_tick),
         .note_valid_i(note_valid), .note_axis_i(note_axis),
@@ -115,7 +128,10 @@ module tb_note_manager;
         .voice_releasing_o(voice_releasing), .voice_axis_o(voice_axis),
         .voice_phase_inc_o(voice_phase_inc), .voice_velocity_o(voice_velocity),
         .voice_timbre_o(voice_timbre), .voice_age_o(voice_age),
-        .alloc_valid_o(alloc_valid), .alloc_voice_o(alloc_voice)
+        .alloc_valid_o(alloc_valid), .alloc_voice_o(alloc_voice),
+        // ⭐⭐ `K-106`：事件队列溢出可观测性
+        .event_lost_o(event_lost), .event_lost_cnt_o(event_lost_cnt),
+        .event_lost_clr_i(event_lost_clr)
     );
 
     // ⭐ 真包络（判据 ④ 必须用真 ADSR —— 用桩就证明不了"Attack 重起"）
@@ -165,7 +181,10 @@ module tb_note_manager;
         .voice_gate_o(b_gate), .voice_active_o(), .voice_releasing_o(),
         .voice_axis_o(b_axis_o), .voice_phase_inc_o(), .voice_velocity_o(),
         .voice_timbre_o(), .voice_age_o(b_age),
-        .alloc_valid_o(b_alloc_valid), .alloc_voice_o(b_alloc_voice)
+        .alloc_valid_o(b_alloc_valid), .alloc_voice_o(b_alloc_voice),
+        // ⭐ `K-106`：本实例不验溢出 ⇒ 输出悬空、清输入接 0
+        //    ⚠️ 这也顺带验证了"**老例化不接新端口仍然合法**"（新输入恒 0）
+        .event_lost_o(), .event_lost_cnt_o(), .event_lost_clr_i(1'b0)
     );
 
     // ═════════════════════════════════════════════════════════════════════════
@@ -196,7 +215,9 @@ module tb_note_manager;
         .voice_gate_o(c_gate), .voice_active_o(), .voice_releasing_o(),
         .voice_axis_o(), .voice_phase_inc_o(), .voice_velocity_o(),
         .voice_timbre_o(), .voice_age_o(),
-        .alloc_valid_o(), .alloc_voice_o(c_alloc_voice)
+        .alloc_valid_o(), .alloc_voice_o(c_alloc_voice),
+        // ⭐ `K-106`：本实例不验溢出 ⇒ 输出悬空、清输入接 0
+        .event_lost_o(), .event_lost_cnt_o(), .event_lost_clr_i(1'b0)
     );
 
     // ── 切片辅助函数 ────────────────────────────────────────────────────────
@@ -590,6 +611,160 @@ module tb_note_manager;
                 axis_of(1) === 4'd11);
             chk("section 9: axis 5 was NOT stolen (still on voice0)",
                 axis_of(0) === 4'd5);
+        end
+
+        // ═════════════════════════════════════════════════════════════════════
+        // section 10 · ⭐⭐ `K-106`：事件队列【溢出可观测性】
+        //
+        //   🔴 修的是什么：`fifo_push = note_valid_i && !fifo_full` ⇒ 溢出**静默丢弃**。
+        //      ⚠️ 丢的若是 `note_off` ⇒ **挂音**（`T38` 要防的失效模式）。
+        //   ⭐ 本节判据（⚠️ **每一条都能失败** —— `K-56`/`C21`）：
+        //      ① 灌满后继续发 ⇒ **`event_lost_o` 置位**（sticky）
+        //      ② 计数 = **灌入数 − 深度**（精确值，⛔ 不是"大于 0"）
+        //      ③ 计数**饱和**（⛔ 不回绕 —— 回绕会把"丢 16 个"显示成"丢 0 个"）
+        //      ④ sticky **只置位、不自动清**（⛔ 不被后续正常帧掩盖）
+        //      ⑤ `event_lost_clr_i` 能**清掉**（且清后能再次置位 ⇒ 不是死锁）
+        //      ⑥ 溢出期间**没被丢的事件仍然被正确分配**（⛔ 不是"溢出就全废"）
+        //      ⑦ ⚠️ **反证**：不灌满时 `event_lost_o` **必须为 0**（否则判据①是空的）
+        // ═════════════════════════════════════════════════════════════════════
+        begin : fifo_overflow
+            integer n_press;
+            integer expected_cnt;
+            integer v9;                       // ⚠️ 本命名块自己的循环变量（块间不共享）
+
+            // ── ⑦ 反证基线：先确认"没溢出时指示为 0" ────────────────────────
+            //    ⚠️ 没有这一步，判据① 可能因为"标志恒 1"而假通过（`C36`）
+            event_lost_clr = 1'b1; @(negedge clk); event_lost_clr = 1'b0;
+            @(negedge clk);
+            chk("K-106: baseline - event_lost is 0 BEFORE any overflow",
+                event_lost === 1'b0);
+            chk("K-106: baseline - lost count is 0 BEFORE any overflow",
+                event_lost_cnt === {EVT_LOST_W{1'b0}});
+
+            // 先释放干净，避免上几节残留的 voice 干扰
+            for (v9 = 0; v9 < 16; v9 = v9 + 1) release_a(v9[AXIS_W-1:0]);
+            run_ticks(400);
+
+            // ── 灌入：连续 12 个事件，而 FIFO 深度 = 4 ──────────────────────
+            //    ⭐ 关键：**背靠背连发**（每个事件只隔 1 拍）⇒ FSM 来不及排空
+            //      ⇒ 前 4 个进队列，**后 8 个被丢**。
+            //    ⚠️ 用不同轴位，便于随后检查"谁真的被服务了"。
+            @(negedge clk);
+            for (n_press = 0; n_press < 12; n_press = n_press + 1) begin
+                note_valid    = 1'b1;
+                note_axis     = n_press[AXIS_W-1:0];
+                note_phase_inc= 32'h0010_0000 + n_press;
+                note_velocity = 8'd100;
+                note_kind     = 2'd0;              // note_on
+                @(negedge clk);
+                note_valid    = 1'b0;
+                @(negedge clk);                    // ⭐ 只隔 1 拍 ⇒ 必然溢出
+            end
+
+            // ── ① sticky 置位 ───────────────────────────────────────────────
+            chk("K-106: event_lost asserts after overflowing the queue",
+                event_lost === 1'b1);
+
+            // ⭐⭐ 必须先**把队列排空**再验守恒 —— 突发刚结束时 FSM 还没分配
+            //    （实测：此刻 `popcount=0`，若马上验守恒会误报 12 ≠ 7+0）。
+            //    ⚠️ 这是"判据要打在**稳态**上，⛔ 不是过渡过程"（`C33`）。
+            settle;
+            run_ticks(300);
+
+            // ── ② ⭐⭐ 计数守恒（**不变量**，⛔ 不是硬编码常数）─────────────────
+            //    🔴 我第一版写的是 `12 - 4 = 8`，**实测是 7** ⇒ 判据红了。
+            //       ⚠️ 查下去发现**是我的模型错了，RTL 是对的**：
+            //       FIFO 深度 4，但**FSM 同时在排空** ⇒ 一次突发里能被吸收的不止 4 个。
+            //       实测：`fifo_cnt` 最大到 4（✅ 没溢出覆盖），**服务了 5 个**（轴 0..4），
+            //       丢了 7 个（轴 5..11）。
+            //    ⭐ 教训（`C36`）：⭐ **判据要写成【不变量】而不是"我算出来的那个数"** ——
+            //       硬编码常数会把"我的模型错"误报成"被测错"。
+            //    ⭐ 正确的不变量 = **【守恒】**：
+            //        灌入总数 = 被服务数 + 被丢弃数
+            //      ⚠️ 它同时能抓到两种真 bug：① 静默丢（丢了但不计数）
+            //                              ② 重复计数（计数比实际丢的多）
+            expected_cnt = 12 - popcount(voice_gate);
+            if (event_lost_cnt !== expected_cnt[EVT_LOST_W-1:0]) begin
+                $display("  FAIL: K-106: lost count = %0d, but CONSERVATION says %0d (12 pressed - %0d served)",
+                         event_lost_cnt, expected_cnt, popcount(voice_gate));
+                errors = errors + 1;
+            end else begin
+                $display("  ok  : K-106: lost count = %0d and 12 = %0d served + %0d lost (conservation holds)",
+                         event_lost_cnt, popcount(voice_gate), event_lost_cnt);
+            end
+            // ⭐ 并且必须真的丢了一些、又真的服务了一些（⛔ 否则上面那条是空的）
+            chk("K-106: the burst really did overflow (lost > 0)", event_lost_cnt > 0);
+            chk("K-106: the burst was not entirely lost (served > 0)", popcount(voice_gate) > 0);
+
+            // ── ③ sticky 不被后续正常事件掩盖 ──────────────────────────────
+            //    ⚠️ 溢出早已停止，此刻**正在正常处理**队列里剩下的事件
+            //       ⇒ 若 sticky 被"正常帧"清掉，这一条会红
+            //    ⭐ 记下 settle 前的读数，之后必须**一字不变**（⛔ 不许再涨/被清）
+            expected_cnt = event_lost_cnt;
+            settle;
+            chk("K-106: sticky stays set while later events are processed normally",
+                event_lost === 1'b1);
+            chk("K-106: lost count is unchanged by later normal events",
+                event_lost_cnt === expected_cnt[EVT_LOST_W-1:0]);
+
+            // ── ⑥ 没被丢的事件仍被正确分配 ─────────────────────────────────
+            //    ⭐ 被服务的**第一个**事件（轴 0）必须真的拿到 voice
+            //    ⚠️ 反过来说：我们不能只说"报了个错就算了"，功能必须仍然工作
+            chk("K-106: the events that FIT were still allocated (axis 0 got a voice)",
+                axis_of(0) === 4'd0 || axis_of(1) === 4'd0 || axis_of(2) === 4'd0);
+            chk("K-106: overflow did NOT wedge the FSM (some gate is active)",
+                popcount(voice_gate) > 0);
+
+            // ── ⑤ clr 能清，且之后还能再次置位 ─────────────────────────────
+            event_lost_clr = 1'b1; @(negedge clk); event_lost_clr = 1'b0;
+            @(negedge clk);
+            chk("K-106: event_lost_clr_i clears the sticky flag",
+                event_lost === 1'b0);
+            chk("K-106: event_lost_clr_i clears the lost count",
+                event_lost_cnt === {EVT_LOST_W{1'b0}});
+
+            // 再次灌满 ⇒ 必须能**重新**置位（⛔ 不是清完就永久失效）
+            // ⭐ 先清干净在响的音，否则"轴位重触发"会走另一条路径
+            for (v9 = 0; v9 < 16; v9 = v9 + 1) release_a(v9[AXIS_W-1:0]);
+            run_ticks(400);
+            @(negedge clk);
+            for (n_press = 0; n_press < 12; n_press = n_press + 1) begin
+                note_valid = 1'b1; note_axis = n_press[AXIS_W-1:0];
+                note_phase_inc = 32'h0020_0000; note_velocity = 8'd100;
+                note_kind = 2'd0;
+                @(negedge clk);
+                note_valid = 1'b0;
+                @(negedge clk);
+            end
+            chk("K-106: sticky can RE-ASSERT after being cleared (not a one-shot lockout)",
+                event_lost === 1'b1);
+
+            // ── ③b 计数**饱和**而不回绕 ────────────────────────────────────
+            //    ⭐ 本 tb 取 EVT_LOST_W=4 ⇒ 饱和于 15。⚠️ 若不饱和而回绕，
+            //       "丢 16 个"会显示成 **0** —— 那是另一种静默（与 `K-106` 直接冲突）。
+            //    ⇒ 灌到超过 15 个丢失，确认读数**停在 15**（⛔ 不是 0）
+            begin : sat_check
+                integer k2;
+                event_lost_clr = 1'b1; @(negedge clk); event_lost_clr = 1'b0;
+                @(negedge clk);
+                for (k2 = 0; k2 < 40; k2 = k2 + 1) begin
+                    note_valid = 1'b1; note_axis = k2[AXIS_W-1:0];
+                    note_phase_inc = 32'h0030_0000; note_velocity = 8'd100;
+                    note_kind = 2'd0;
+                    @(negedge clk);
+                    note_valid = 1'b0;
+                    @(negedge clk);
+                end
+                if (event_lost_cnt !== {EVT_LOST_W{1'b1}}) begin
+                    $display("  FAIL: K-106: lost count = %0d after massive overflow, expected SATURATION at %0d (a wrapping counter would read 0!)",
+                             event_lost_cnt, {EVT_LOST_W{1'b1}});
+                    errors = errors + 1;
+                end else begin
+                    $display("  ok  : K-106: lost count SATURATED at %0d (did not wrap to 0)",
+                             event_lost_cnt);
+                end
+                chk("K-106: sticky is set under massive overflow too", event_lost === 1'b1);
+            end
         end
 
         if (errors == 0)

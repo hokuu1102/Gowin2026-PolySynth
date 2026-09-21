@@ -155,6 +155,12 @@ module synth_check_top #(
     output wire                             nm_alloc_valid,
     output wire [4:0]                       nm_alloc_voice,
 
+    // ⭐⭐ K-106: event-queue overflow observability (sticky + saturating count).
+    //    ⚠️ `nm_event_lost_clr` is a top-level INPUT, not a constant -- K-96.
+    input  wire                             nm_event_lost_clr,
+    output wire                             nm_event_lost,
+    output wire [7:0]                       nm_event_lost_cnt,
+
     // ── ⭐ T55 · oscillator_bank（64 路独立振荡器 —— 评分主体）──────────────
     //    ⭐ 这里例化它的**关键目的之一**是：综合报告里应当能数出
     //       **64 份相位寄存器**（`K-83`/`K-84`：评委要翻代码/报告确认"独立"）。
@@ -445,7 +451,13 @@ module synth_check_top #(
         .voice_timbre_o    (nm_voice_timbre),
         .voice_age_o       (nm_voice_age),
         .alloc_valid_o     (nm_alloc_valid),
-        .alloc_voice_o     (nm_alloc_voice)
+        .alloc_voice_o     (nm_alloc_voice),
+        // ⭐⭐ K-106: event-queue overflow observability.  Brought out to
+        // top-level pins (NOT constants) so synthesis cannot constant-fold the
+        // detector away -- that is exactly the K-96 / C37 trap.
+        .event_lost_o      (nm_event_lost),
+        .event_lost_cnt_o  (nm_event_lost_cnt),
+        .event_lost_clr_i  (nm_event_lost_clr)
     );
 
     // ── ⭐ T55 · oscillator_bank（64 路独立振荡器）──────────────────────────
@@ -545,6 +557,8 @@ module synth_check_top #(
                ^ trm_sample
                ^ {16'd0, bg_tick_cnt}            // ⭐ T32 beat_gen
                ^ {28'd0, bg_tick, bg_bar_start, bg_beat, bg_wrap}
-               ^ {16'd0, bg_bar_cnt};
+               ^ {16'd0, bg_bar_cnt}
+               ^ {23'd0, nm_event_lost_cnt}      // ⭐ K-106 overflow observability
+               ^ {31'd0, nm_event_lost};
 
 endmodule
