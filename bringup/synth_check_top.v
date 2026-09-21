@@ -185,6 +185,24 @@ module synth_check_top #(
     output wire signed [23:0] trm_sample,
     output wire        trm_fault,
 
+    // ── ⭐ T32 · beat_gen（音乐时钟：节拍器/鼓机/Looper 的共用底座）──────────
+    //    ⭐ 为什么要在这里例化：Gowin 只综合**被顶层例化到**的模块（`K-46`）；
+    //       只把文件登记进工程 ⇒ 日志里只有 "Analyzing" ⇒ ⛔ 不是可综合性证据
+    //       （`K-91` 就是这么抓到 `calib` 被整块丢弃的）。
+    //    ⚠️ `run` / `pos_reset` / `tick_inc` **引到顶层输入**，⛔ 不写常量 ——
+    //       写常量会被常量折叠（`K-96` 的教训：为了自检方便写死的常量，
+    //       会把"要被证明的电路"优化掉）。
+    input  wire        bg_run,
+    input  wire        bg_pos_reset,
+    input  wire [31:0] bg_tick_inc,
+    output wire        bg_tick,
+    output wire [15:0] bg_tick_cnt,
+    output wire        bg_bar_start,
+    output wire        bg_beat,
+    output wire        bg_transport,
+    output wire [15:0] bg_bar_cnt,
+    output wire        bg_wrap,
+
     // 观测用（把内部信号引出来，防优化 + 方便看资源）
     output wire [31:0] obs
 );
@@ -487,6 +505,30 @@ module synth_check_top #(
         .deadline_fault_o  (trm_fault)
     );
 
+    // ── ⭐ T32 · beat_gen（音乐时钟 · PPQN=960 相位累加器）──────────────────
+    //    ⚠️ 只为**可综合性**取证（⛔ 不做功能验证 —— 功能由 `tb_beat_gen.sv` 管）。
+    //    ⭐ 关键判据：综合报告里应能看到它的相位寄存器 `phase_q[31:0]`
+    //       （32 bit 相位累加器 = §1.1 的"和 DDS 同款手法"）。
+    beat_gen #(
+        .PPQN          (960),
+        .BEATS_PER_BAR (4),
+        .PHASE_W       (32),
+        .TICK_INC_W    (32)
+    ) u_beat_gen (
+        .clk_i            (clk),
+        .rst_n_i          (rst_n_sync),
+        .run_i            (bg_run),
+        .pos_reset_i      (bg_pos_reset),
+        .tick_inc_i       (bg_tick_inc),
+        .tick_o           (bg_tick),
+        .tick_cnt_o       (bg_tick_cnt),
+        .bar_start_o      (bg_bar_start),
+        .beat_o           (bg_beat),
+        .transport_o      (bg_transport),
+        .bar_cnt_o        (bg_bar_cnt),
+        .tick_cnt_wrap_o  (bg_wrap)
+    );
+
     // 把若干内部信号汇成一个观测字（防止综合器把"只被观测"的逻辑剪掉）
     assign obs = {16'd0, wavetable_sample}
                ^ {24'd0, led_data}
@@ -500,6 +542,9 @@ module synth_check_top #(
                ^ {31'd0, nm_voice_gate}
                ^ ob_sample_bus[31:0]
                ^ ob_phase_dbg
-               ^ trm_sample;
+               ^ trm_sample
+               ^ {16'd0, bg_tick_cnt}            // ⭐ T32 beat_gen
+               ^ {28'd0, bg_tick, bg_bar_start, bg_beat, bg_wrap}
+               ^ {16'd0, bg_bar_cnt};
 
 endmodule

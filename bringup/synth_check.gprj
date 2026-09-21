@@ -23,6 +23,11 @@
         <File path="../rtl/rst_sync.v" type="file.verilog" enable="1"/>
         <File path="../rtl/sync_input.v" type="file.verilog" enable="1"/>
         <File path="../rtl/w3c/i2s_tx.v" type="file.verilog" enable="1"/>
+        <!-- T32: beat_gen (PPQN=960 musical clock -- shared timebase for the
+             metronome, drum machine and looper).  Added here as well as to the
+             delivery path so it is covered by the "does every module really
+             synthesise?" check (K-46 / K-91). -->
+        <File path="../rtl/w3c/beat_gen.v" type="file.verilog" enable="1"/>
         <File path="../rtl/drivers/tlc5916_driver.sv" type="file.verilog" enable="1"/>
         <File path="../rtl/w3b/wavetable_bank.v" type="file.verilog" enable="1"/>
         <File path="../rtl/w3b/adsr.v" type="file.verilog" enable="1"/>

@@ -270,7 +270,20 @@ $mutations = @(
   # is unobservable there (C23: a mutant that cannot change behaviour is not a
   # valid mutant).  tb_top_m0 covers the silence side explicitly instead, so M40
   # now targets the audible path itself.
-  @{ id = "M40"; file = "rtl\top.v"; find = "if (mx_valid) sample_r <= mx_sample;"; repl = "if (mx_valid) sample_r <= {SAMPLE_W{1'b0}};"; why = "T57 regression: output register mutes the mixer -> chain runs but board is silent (must be caught)" }
+  @{ id = "M40"; file = "rtl\top.v"; find = "if (mx_valid) sample_r <= mx_sample;"; repl = "if (mx_valid) sample_r <= {SAMPLE_W{1'b0}};"; why = "T57 regression: output register mutes the mixer -> chain runs but board is silent (must be caught)" },
+
+  # ---- T32 / P1: beat_gen (the musical clock the metronome, drum machine and
+  #      looper all share).  These four target the three things that actually
+  #      matter: (a) the tick RATE, (b) stop holding phase, (c) the reported
+  #      tick number coinciding with the tick pulse.
+  #      NOTE (K-107): the phase-advance and the tick emit were originally the
+  #      SAME condition, which self-locked (phase can only advance on a carry,
+  #      and a carry needs the phase to have advanced) -> ZERO ticks ever.
+  #      M41 guards the decoupling itself: re-merging them must go red.
+  @{ id = "M41"; file = "rtl\w3c\beat_gen.v"; find = "wire phase_en = run_i;              // "; repl = "wire phase_en = run_i & phase_carry;  // "; why = "T32 regression (K-107): phase advance re-coupled to the carry -> self-lock -> no tick ever fires (must be caught)" },
+  @{ id = "M42"; file = "rtl\w3c\beat_gen.v"; find = "wire do_tick  = run_i & phase_carry;"; repl = "wire do_tick  = run_i;"; why = "T32 regression: a tick on EVERY clk instead of on carry -> tick rate 50 MHz (must be caught)" },
+  @{ id = "M43"; file = "rtl\w3c\beat_gen.v"; find = "if (phase_en)"; repl = "if (phase_en & ~at_bar_end)"; why = "T32 regression: phase stalls at the bar boundary -> tick interval jumps there (must be caught)" },
+  @{ id = "M44"; file = "rtl\w3c\beat_gen.v"; find = "tick_cnt_o_q  <= tick_cnt_q;"; repl = "tick_cnt_o_q  <= tick_cnt_next;"; why = "T32 regression (K-107): reported tick number off by one -> bar_start no longer lands on tick_cnt 0 (must be caught)" }
 )
 
 # ---- selection ---------------------------------------------------------------
