@@ -2,7 +2,35 @@
 #
 # Usage (from the repository root):
 #   powershell -NoProfile -ExecutionPolicy Bypass -File bringup\mutation_test.ps1
-#   powershell -NoProfile -ExecutionPolicy Bypass -File bringup\mutation_test.ps1 -Filter r03
+#   powershell -NoProfile -ExecutionPolicy Bypass -File bringup\mutation_test.ps1 -Filter M29
+#   powershell -NoProfile -ExecutionPolicy Bypass -File bringup\mutation_test.ps1 -File w3b
+#   powershell -NoProfile -ExecutionPolicy Bypass -File bringup\mutation_test.ps1 -Changed
+#
+# ---- WHICH MUTANTS TO RUN (added 2026-09-21) -----------------------------------
+#   Each mutant costs ~109 s because it runs the WHOLE regression (28 benches).
+#   All 37 take ~67 min.  Most of that is usually irrelevant: a mutant only guards
+#   the module it targets, so if you changed note_manager.v, the 18 mutants for
+#   tlc5916 / i2s_tx / checkers / clk_gen cannot possibly be affected.
+#
+#   -File <substr>    only mutants whose FILE path contains <substr>
+#                     e.g. -File w3b  -> M23..M37   (~27 min)
+#                          -File tlc  -> M06,M07,M14,M16,M17
+#   -Changed          only mutants whose file differs from HEAD (git diff)
+#                     -> the natural choice while iterating
+#   -Filter <substr>  only mutants whose ID contains <substr>  (original behaviour)
+#
+#   POLICY:
+#     * iterating on one module ....... -Changed   or   -File <that module>
+#     * before commit / push .......... FULL run (no arguments)
+#     * touched a SHARED file ......... FULL run, always
+#       (sim/tb_all.ps1, tb/models/*, tb/checkers/*, sim/evidence/*)
+#     * touched rtl/top.v ............. FULL run (it is the integration point)
+#
+# NOTE (concurrency guard, added 2026-09-21): this script MUTATES tracked files in
+#   place and restores them.  Two concurrent runs fight over the same file and can
+#   leave a mutation behind -- this really happened: a -Filter run overlapped a full
+#   run and left M25's mutation in note_manager.v.  A lock file now makes a second
+#   run refuse to start.
 #
 # WHY (this is the strongest evidence that the checks are not decoration):
 #   "All tests pass" proves nothing if the tests cannot fail.  Here we take the REAL RTL,
@@ -33,12 +61,89 @@
 #   silently stopped protecting adc_farm after its N_ADC parameterisation.  When you change
 #   the RTL that a mutant targets, you MUST re-point the anchor in the same commit.
 
-param([string]$Filter = "")
+param(
+  [string]$Filter = "",
+  [string]$File   = "",
+  [switch]$Changed
+)
 
 $ErrorActionPreference = "Continue"
 $root = Split-Path -Parent $PSScriptRoot
 $bakDir = Join-Path $root "build\mutation\backup"
 New-Item -ItemType Directory -Force -Path $bakDir | Out-Null
+
+# ---- concurrency guard -------------------------------------------------------
+# This script edits tracked source files in place and restores them.  A second
+# concurrent instance would corrupt the backup/restore cycle.  Refuse to start.
+$lockFile = Join-Path $root "build\mutation\.lock"
+if (Test-Path $lockFile) {
+  $owner = (Get-Content $lockFile -Raw -ErrorAction SilentlyContinue)
+  $alive = $false
+  if ($owner -match '^(\d+)') {
+    $alive = $null -ne (Get-Process -Id ([int]$Matches[1]) -ErrorAction SilentlyContinue)
+  }
+  if ($alive) {
+    Write-Host "FAIL: another mutation_test.ps1 is already running (pid $owner)." -ForegroundColor Red
+    Write-Host "      Concurrent runs mutate the same files and can leave a mutation behind." -ForegroundColor Red
+    Write-Host "      Wait for it to finish, or kill it first." -ForegroundColor Red
+    exit 3
+  }
+  Write-Host "NOTE: reclaiming stale lock (pid $owner is gone)" -ForegroundColor Yellow
+  Remove-Item $lockFile -Force -ErrorAction SilentlyContinue
+
+  # ---- CRASH RECOVERY (added 2026-09-21) -------------------------------------
+  # If a previous run was KILLED (Ctrl-C, executor timeout, task kill) it never
+  # reached its restore step, so the working tree may still hold a mutation.
+  # This really happened: the executor's 600 s cap killed a -File w3b run with
+  # M33 applied, and the next run then SKIPPED M33 (anchor already mutated) and
+  # its clean-up regression ran on MUTATED rtl -- i.e. a corrupted verdict.
+  #
+  # Any leftover .bak in build/mutation/backup is proof of an unclean exit.
+  # NOTE: recovery runs BEFORE the catalogue is declared below, so it must NOT
+  # depend on $mutations.  Match the backup leaf name against the files we know
+  # about by scanning rtl/ and tb/ instead.
+  $stale = @(Get-ChildItem $bakDir -Filter *.bak -File -ErrorAction SilentlyContinue)
+  if ($stale.Count -gt 0) {
+    Write-Host ("WARNING: " + $stale.Count + " leftover backup(s) -- a previous run was killed mid-mutation.") -ForegroundColor Yellow
+    # index every candidate source file by leaf name
+    $srcIndex = @{}
+    foreach ($d in @("rtl", "tb")) {
+      Get-ChildItem (Join-Path $root $d) -Recurse -File -Include *.v, *.sv -ErrorAction SilentlyContinue |
+        ForEach-Object { $srcIndex[$_.Name] = $_.FullName }
+    }
+    foreach ($b in $stale) {
+      # backup name is "<leaf>.<Mnn>.bak"
+      $leaf = ($b.Name -replace '\.[^.]*\.bak$', '')
+      if ($srcIndex.ContainsKey($leaf)) {
+        $src = $srcIndex[$leaf]
+        # NOTE: read/write BYTES, not text.  ReadAllText+WriteAllText rewrites
+        # line endings (LF -> CRLF on this host), which shows up as a 240-line
+        # diff even though the content is identical.  Bytes keep the file exact.
+        $cur = [System.IO.File]::ReadAllBytes($src)
+        $bak = [System.IO.File]::ReadAllBytes($b.FullName)
+        $same = ($cur.Length -eq $bak.Length)
+        if ($same) {
+          for ($i = 0; $i -lt $cur.Length; $i++) {
+            if ($cur[$i] -ne $bak[$i]) { $same = $false; break }
+          }
+        }
+        if (-not $same) {
+          [System.IO.File]::WriteAllBytes($src, $bak)
+          Write-Host ("  restored " + $leaf + " from " + $b.Name) -ForegroundColor Yellow
+        } else {
+          Write-Host ("  " + $leaf + " already clean") -ForegroundColor DarkGray
+        }
+      } else {
+        Write-Host ("  WARNING: cannot map backup " + $b.Name + " to a source file") -ForegroundColor Red
+      }
+      Remove-Item $b.FullName -Force -ErrorAction SilentlyContinue
+    }
+    Write-Host "  recovery done; re-run the mutation test to get a valid verdict." -ForegroundColor Yellow
+  }
+}
+"$PID $(Get-Date -Format o)" | Out-File -FilePath $lockFile -Encoding ascii
+$script:exitCode = 0
+try {
 
 # -- mutation catalogue: (id, file, find, replace, why) -------------------------
 $mutations = @(
@@ -128,9 +233,54 @@ $mutations = @(
   @{ id = "M37"; file = "rtl\w3b\tdm_render_mixer.v"; find = "wire over_neg =  sh[ACC_W-1] && ~(&sh[ACC_W-2 : SAMPLE_W-1]);"; repl = "wire over_neg = 1'b0;"; why = "T56 regression: negative saturation removed -> overflow wraps positive (must be caught)" }
 )
 
-if ($Filter -ne "") { $mutations = @($mutations | Where-Object { $_.id -like "*$Filter*" }) }
+# ---- selection ---------------------------------------------------------------
+$allCount = $mutations.Count
+$selNote  = ""
 
-Write-Host "=== mutation testing: $($mutations.Count) mutant(s) ===" -ForegroundColor Cyan
+if ($Filter -ne "") {
+  $mutations = @($mutations | Where-Object { $_.id -like "*$Filter*" })
+  $selNote = "-Filter $Filter"
+}
+if ($File -ne "") {
+  $mutations = @($mutations | Where-Object { $_.file -like "*$File*" })
+  $selNote = ($selNote + " " + "-File $File").Trim()
+}
+if ($Changed) {
+  $changedFiles = @()
+  $g1 = & git -C $root diff --name-only HEAD 2>$null
+  if ($g1) { $changedFiles += @($g1) }
+  $g2 = & git -C $root diff --name-only --cached 2>$null
+  if ($g2) { $changedFiles += @($g2) }
+  $changedFiles = @($changedFiles | Where-Object { $_ -match '\S' } | Sort-Object -Unique)
+  if ($changedFiles.Count -eq 0) {
+    Write-Host "NOTE: -Changed found no changed files (working tree == HEAD)." -ForegroundColor Yellow
+    $mutations = @()
+  } else {
+    $norm = @($changedFiles | ForEach-Object { $_.Replace('/', '\') })
+    $mutations = @($mutations | Where-Object {
+      $mf = $_.file
+      @($norm | Where-Object { $mf -like "*$_*" -or $_ -like "*$mf*" }).Count -gt 0
+    })
+  }
+  $selNote = ($selNote + " -Changed").Trim()
+}
+
+$hdr = "=== mutation testing: " + $mutations.Count + " mutant(s)"
+if ($selNote -ne "") { $hdr = $hdr + "  [selected: $selNote, of $allCount]" } else { $hdr = $hdr + "  [FULL]" }
+Write-Host $hdr -ForegroundColor Cyan
+if ($mutations.Count -gt 0) {
+  $est = [math]::Round($mutations.Count * 109 / 60.0, 1)
+  Write-Host ("    estimated: ~" + $est + " min (each mutant runs the full regression)") -ForegroundColor DarkGray
+}
+
+# NOTE (2026-09-21): selecting 0 mutants is NOT a pass.  An empty selection means
+# the filter matched nothing, so NOTHING was verified -- reporting PASS there would
+# be exactly the "no verdict counted as success" mistake (see C29 / K-97).
+if ($mutations.Count -eq 0) {
+  Write-Host "FAIL: selection matched 0 mutants -- nothing was verified." -ForegroundColor Red
+  Write-Host "      Check the -Filter / -File / -Changed arguments." -ForegroundColor Red
+  exit 5
+}
 $results = @()
 
 foreach ($m in $mutations) {
@@ -142,6 +292,8 @@ foreach ($m in $mutations) {
   if (-not $orig.Contains($m.find)) {
     Write-Host ("  [" + $m.id + "] SKIP -- anchor text not found in " + $m.file) -ForegroundColor Yellow
     $results += [pscustomobject]@{ Id = $m.id; Caught = $null; Note = "anchor not found" }
+    # do not leave the backup behind (it is the crash-recovery sentinel)
+    Remove-Item $bak -Force -ErrorAction SilentlyContinue
     continue
   }
 
@@ -155,6 +307,13 @@ foreach ($m in $mutations) {
   # restore + verify byte-identical
   Copy-Item $bak $path -Force
   $same = ([System.IO.File]::ReadAllText($path) -eq $orig)
+
+  # NOTE (2026-09-21): the .bak is deliberately kept until here, but it MUST be
+  # removed on the normal path too.  A leftover .bak is the "previous run was
+  # killed" signal used by crash recovery above -- leaving them behind after a
+  # clean run would make the next start report a false alarm and "restore" files
+  # that were never mutated.
+  Remove-Item $bak -Force -ErrorAction SilentlyContinue
 
   $mark = if ($caught) { "RED  (caught)" } else { "GREEN(LEAK!)" }
   $color = if ($caught) { "Green" } else { "Red" }
@@ -200,13 +359,20 @@ if ($leaks -gt 0) {
 # ---- regenerate evidence from CLEAN code (see the contamination NOTE at the top) ----
 Write-Host ""
 Write-Host "=== regenerating sim/evidence from the restored (clean) RTL ===" -ForegroundColor Cyan
-$null = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all.ps1") 2>&1
+# NOTE: assign to a variable so a non-zero child exit does not abort our flow.
+$cleanOut  = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all.ps1") 2>&1
 $cleanExit = $LASTEXITCODE
 if ($cleanExit -ne 0) {
   Write-Host "FAIL: clean re-run of the regression did not pass -- evidence may be contaminated" -ForegroundColor Red
   exit 3
+} else {
+  Write-Host "OK: sim/evidence regenerated from clean code" -ForegroundColor Green
+  Write-Host "PASS: every injected defect was caught by the regression suite" -ForegroundColor Green
+  $script:exitCode = 0
 }
-Write-Host "OK: sim/evidence regenerated from clean code" -ForegroundColor Green
-
-Write-Host "PASS: every injected defect was caught by the regression suite" -ForegroundColor Green
-exit 0
+}
+finally {
+  # Always release the lock, whatever path we took (including early `return`s).
+  Remove-Item $lockFile -Force -ErrorAction SilentlyContinue
+}
+exit $script:exitCode

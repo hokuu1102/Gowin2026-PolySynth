@@ -1,0 +1,39 @@
+=== mutation testing: 15 mutant(s)  [selected: -File w3b, of 37]
+    estimated: ~27.2 min (each mutant runs the full regression)
+  [M23] RED  (caught)  T54 regression: retrigger hold removed -> gate never drops -> ADSR never restarts Attack (must be caught)
+  [M24] RED  (caught)  T54 regression: strict > on equal ages selects no candidate -> note silently dropped (must be caught)
+  [M25] RED  (caught)  T54 regression: pitch_update ignored -> glissando does not track (must be caught)
+  [M26] RED  (caught)  T54 regression: vel_update ignored -> dual-threshold velocity correction lost (must be caught)
+  [M27] RED  (caught)  T54 regression: same-axis retrigger detection removed -> a repeated key eats a second voice (must be caught)
+  [M28] RED  (caught)  T54 regression: pool mask stuck at 0 -> no voice can ever be allocated (must be caught)
+  [M29] RED  (caught)  T55 regression: table address takes a shifted phase window -> wrong DDS mapping (must be caught)
+  [M30] RED  (caught)  T55 regression: phase advances even when the voice is inactive -> idle voices drift (must be caught)
+  [M31] RED  (caught)  T55 regression: TDM capture disabled -> every lane reads 0 -> silence (must be caught)
+  [M32] RED  (caught)  T55 regression: test_mode override ignored -> T43 N-tone demo breaks (must be caught)
+  [M33] RED  (caught)  T56 regression: deadline check never fires -> A6 (frame deadline) unguarded (must be caught)
+  [M34] RED  (caught)  T56 regression: accumulation disabled -> output always 0 -> silence (must be caught)
+  [M35] RED  (caught)  T56 regression: every TDM slot reads voice 0 -> no summing (must be caught)
+  [M36] RED  (caught)  T56 regression: positive saturation removed -> overflow wraps to negative (must be caught)
+  [M37] RED  (caught)  T56 regression: negative saturation removed -> overflow wraps positive (must be caught)
+
+================ mutation testing summary ================
+  M23   caught    T54 regression: retrigger hold removed -> gate never drops -> ADSR never restarts Attack (must be caught)
+  M24   caught    T54 regression: strict > on equal ages selects no candidate -> note silently dropped (must be caught)
+  M25   caught    T54 regression: pitch_update ignored -> glissando does not track (must be caught)
+  M26   caught    T54 regression: vel_update ignored -> dual-threshold velocity correction lost (must be caught)
+  M27   caught    T54 regression: same-axis retrigger detection removed -> a repeated key eats a second voice (must be caught)
+  M28   caught    T54 regression: pool mask stuck at 0 -> no voice can ever be allocated (must be caught)
+  M29   caught    T55 regression: table address takes a shifted phase window -> wrong DDS mapping (must be caught)
+  M30   caught    T55 regression: phase advances even when the voice is inactive -> idle voices drift (must be caught)
+  M31   caught    T55 regression: TDM capture disabled -> every lane reads 0 -> silence (must be caught)
+  M32   caught    T55 regression: test_mode override ignored -> T43 N-tone demo breaks (must be caught)
+  M33   caught    T56 regression: deadline check never fires -> A6 (frame deadline) unguarded (must be caught)
+  M34   caught    T56 regression: accumulation disabled -> output always 0 -> silence (must be caught)
+  M35   caught    T56 regression: every TDM slot reads voice 0 -> no summing (must be caught)
+  M36   caught    T56 regression: positive saturation removed -> overflow wraps to negative (must be caught)
+  M37   caught    T56 regression: negative saturation removed -> overflow wraps positive (must be caught)
+==========================================================
+
+=== regenerating sim/evidence from the restored (clean) RTL ===
+OK: sim/evidence regenerated from clean code
+PASS: every injected defect was caught by the regression suite
