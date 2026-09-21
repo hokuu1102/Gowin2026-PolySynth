@@ -42,11 +42,26 @@ module top #(
     // 开功放前的等待周期数（避免上电"啪"一声；默认 ~21 ms @50 MHz）
     // ⚠️ 用【无位宽】字面量：`20'd1_048_576` 会被截成 20 位 ⇒ 变成 0（2^20 需要 21 位）
     parameter integer PA_ON_DELAY       = 1_048_576,
-    // 心跳 LED 翻转周期（clk 数；默认 0.5 s @50 MHz。tb 会传小值以便快速验证）
+    // ⭐ 心跳 LED 翻转周期（clk 数；默认 0.5 s @50 MHz。tb 会传小值以便快速验证）
     parameter integer HEARTBEAT_DIV     = 25_000_000,
     // 与 `clk_gen` / `i2s_tx` 保持一致的音频参数
     parameter integer SAMPLE_W          = 24,
-    parameter integer DATA_BITS         = 16
+    parameter integer DATA_BITS         = 16,
+    // ⭐⭐ T57（2026-09-21）：**开机自检音**（⛔ 不依赖任何传感器）
+    //   · `1`（**默认**）= 复位后自动起一个 **3 音和弦**（A4 / C#5 / E5）⇒
+    //     ⭐ **上板就能听到声音**，用于证明"整条出声链在真硅片上通了"。
+    //   · `0` = **完全静音** ⇒ ⭐ 这是 **M0 安全态/静音验证档**，
+    //     由 `tb/top/tb_top_m0.sv` 显式传 `0` 来验"静音就是真的静音"。
+    //   📌 为什么默认是 1：`top.v` 是**交付顶层**，默认值必须让板子**能出声**；
+    //     "静音"是**测试配置**，⛔ 不该当交付默认值（同 `PA_ON_AFTER_RESET` 的 `R-16` 教训）。
+    parameter integer DEMO_CHORD_ON     = 1,
+    // 与 w3b 链路一致的参数（改这里要同时核对 `POLY_TARGET`）
+    parameter integer POLY_TARGET       = 32,
+    parameter integer OSC_PER_VOICE     = 2,
+    // ⭐ 开机自检音的**起音延时**（clk 数；默认 ≈40 ms @50 MHz）
+    //    ⚠️ 提成参数是为了**让 tb 能改小** —— 否则 tb 要跑 200 万拍才能听到音，
+    //       仿真会慢到超时（实测 120 s 都不够）。
+    parameter integer DEMO_NOTE_DELAY   = 2_000_000
 ) (
     input  wire clk,             // V22 · 50 MHz
     input  wire rst_n,           // AA13 · 低有效（同步复位）
@@ -92,9 +107,259 @@ module top #(
         .frame_start  (frame_start)
     );
 
-    // ── 音频源：⛔ 本版是**静音**（T8~T10 接进来之前）────────────────
-    //    ⚠️ 送单声道（左右同一路）—— 我们 `audio_t` 就是单声道，W3c 负责复制到两声道
-    wire signed [SAMPLE_W-1:0] sample_mono = {SAMPLE_W{1'b0}};
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ T57（2026-09-21）· **接通出声链** —— 撤掉静音
+    //
+    // ⚠️ 为什么这一步是本项目最关键的一次改动：
+    //   在此之前 `top.v` 送的是**常量 0**（静音）⇒ ⭐ **板子永远不出声**，
+    //   而所有仿真结论（时基、I2S 时序、DAC 帧格式）**全都是对的** ⇒
+    //   这种"全绿但没声音"极难定位（同 `R-16` 家族的教训）。
+    //
+    // ⭐ 链路（与 `代码总览图.md` 的最终形态一致，只是还没有 `w3b_top` 包顶层）：
+    //     `note_manager` → `oscillator_bank`(64 lane) → `tdm_render_mixer` → `i2s_tx`
+    //
+    // ⭐ 时钟关系（全部单时钟域，⛔ 无派生时钟）：
+    //    · `tick_audio`（每 1024 clk）驱动 `note_manager` / `oscillator_bank`
+    //    · `oscillator_bank` 用 **66 拍** TDM 取回 64 个样本，然后 `osc_valid_o` 拉高一拍
+    //    · ⭐ 用 `osc_valid_o` 当 `tdm_render_mixer.render_start_i`
+    //      ⇒ mixer 再花 **POLY_TARGET+2 = 34 拍** 算完
+    //    ⇒ 合计 **66 + 34 ≈ 100 拍**，远小于 1024 拍预算 ✅（`A6`）
+    //
+    // ⭐ 开机自检音（`DEMO_CHORD_ON=1`）：复位后自动起 **A4 + C#5 + E5** 三音和弦
+    //    ⇒ ⭐ **不依赖任何传感器**就能证明"整条链在真硅片上通了"。
+    //    ⚠️ 这只是**验证用**的固定音，⛔ 不是"预录 PCM"（是**实时合成**的三个振荡器）。
+    // ═══════════════════════════════════════════════════════════════════════
+    wire signed [SAMPLE_W-1:0] sample_mono;
+
+    generate
+    if (DEMO_CHORD_ON == 0) begin : g_silent
+        // ── M0 安全态/静音档：⛔ 不例化合成链，直接送 0 ──────────────────
+        //    ⭐ 为什么**整条链都不例化**而不是"接了但喂 0"：
+        //       ① 省资源；② ⭐ **静音就是结构上的静音**，⛔ 不给"某个内部节点
+        //       意外产生数据"留任何可能（`tb_top_m0` 的 E 判据要 `HP_DIN` 恒 0）。
+        assign sample_mono = {SAMPLE_W{1'b0}};
+    end else begin : g_sound
+        // ── 出声链 ────────────────────────────────────────────────────────
+        wire [POLY_TARGET-1:0]         nm_gate;
+        wire [POLY_TARGET-1:0]         nm_active;
+        wire [POLY_TARGET*4-1:0]       nm_axis;
+        wire [POLY_TARGET*32-1:0]      nm_phase;
+        wire [POLY_TARGET*8-1:0]       nm_vel;
+        wire [POLY_TARGET*2-1:0]       nm_timbre;
+        wire [POLY_TARGET*16-1:0]      nm_age;
+        wire                           nm_alloc_valid;
+        wire [4:0]                     nm_alloc_voice;
+
+        wire [POLY_TARGET*OSC_PER_VOICE*16-1:0] ob_samples;
+        wire                           ob_valid;
+        wire [31:0]                    ob_phase_dbg;
+
+        wire                           mx_valid;
+        wire signed [SAMPLE_W-1:0]     mx_sample;
+        wire                           mx_fault;
+
+        // ⭐ 包络：`envelope_bank` 每 voice 一份 ADSR（与 `note_manager` 的 gate 对接）
+        wire [POLY_TARGET*16-1:0]      env_level;
+        wire [POLY_TARGET-1:0]         env_active;
+
+        // ── ⭐ 开机自检音（A4+C#5+E5）的驱动信号 ──────────────────────────
+        //    ⚠️ 必须**先声明后使用**（Verilog 不允许先用后声明）
+        //    ⭐ 相位增量由 `f × 2^32 / fs` 精确算出（fs = 48828.125 Hz）：
+        //       A4=440Hz    → 0x024E8ED9
+        //       C#5=554.365Hz → 0x02E80E5D
+        //       E5=659.255Hz  → 0x0374D64B
+        //    ⚠️ `DEMO_NOTE_DELAY` 是顶层参数（tb 可改小以便快速仿真）
+        localparam [31:0] INC_A4  = 32'h024E_8ED9;
+        localparam [31:0] INC_CS5 = 32'h02E8_0E5D;
+        localparam [31:0] INC_E5  = 32'h0374_D64B;
+
+        // ⚠️ 计数器位宽必须够装下 `DEMO_NOTE_DELAY`（⛔ 不要写死 24 位）
+        localparam integer DEMO_CW = (DEMO_NOTE_DELAY < 2) ? 1 : $clog2(DEMO_NOTE_DELAY + 1);
+        localparam [DEMO_CW-1:0] DEMO_DELAY_V = DEMO_NOTE_DELAY;
+
+        reg [DEMO_CW-1:0] demo_cnt;
+        reg        demo_fired;
+        reg [1:0]  demo_step;
+        reg        demo_note_valid;
+        reg [3:0]  demo_note_axis;
+        reg [31:0] demo_note_inc;
+        reg [7:0]  demo_note_vel;
+        reg [1:0]  demo_note_kind;
+
+        envelope_bank #(
+            .POLY_TARGET (POLY_TARGET),
+            .VEL_W       (8),
+            .ENV_W       (16)
+        ) u_envelope_bank (
+            .clk_i         (clk),
+            .rst_n_i       (rst_n_sync),
+            .sample_tick_i (tick_audio),
+            .gate_i        (nm_gate),
+            .velocity_i    (nm_vel),
+            .env_level_o   (env_level),
+            .env_active_o  (env_active)
+        );
+
+        // ⭐ voice 分配 / 抢占 / 参数更新（T54）
+        note_manager #(
+            .POLY_TARGET (POLY_TARGET),
+            .AXIS_W      (4),
+            .PHASE_W     (32),
+            .VEL_W       (8),
+            .TIMBRE_W    (2),
+            .ENV_W       (16),
+            .AGE_W       (16),
+            .RESERVED_N  (0)
+        ) u_note_manager (
+            .clk_i             (clk),
+            .rst_n_i           (rst_n_sync),
+            .sample_tick_i     (tick_audio),
+            .note_valid_i      (demo_note_valid),
+            .note_axis_i       (demo_note_axis),
+            .note_phase_inc_i  (demo_note_inc),
+            .note_velocity_i   (demo_note_vel),
+            .note_kind_i       (demo_note_kind),
+            // ⚠️ 力度/音高修正通路本版**未接**（要等 W3a 采集链落地）⇒ 恒 0
+            .vel_upd_valid_i   (1'b0),
+            .vel_upd_axis_i    (4'd0),
+            .vel_upd_value_i   (8'd0),
+            .pitch_upd_valid_i (1'b0),
+            .pitch_upd_axis_i  (4'd0),
+            .pitch_upd_value_i (32'd0),
+            .default_timbre_i  (2'd0),
+            .evt_timbre_valid_i(1'b0),
+            .evt_timbre_i      (2'd0),
+            .env_active_i      (env_active),
+            .env_level_i       (env_level),
+            .voice_gate_o      (nm_gate),
+            .voice_active_o    (nm_active),
+            .voice_releasing_o (),
+            .voice_axis_o      (nm_axis),
+            .voice_phase_inc_o (nm_phase),
+            .voice_velocity_o  (nm_vel),
+            .voice_timbre_o    (nm_timbre),
+            .voice_age_o       (nm_age),
+            .alloc_valid_o     (nm_alloc_valid),
+            .alloc_voice_o     (nm_alloc_voice)
+        );
+
+        // ⭐ 64 路独立振荡器（T55）—— ⭐ 评分主体：评委可数出 64 份相位寄存器
+        oscillator_bank #(
+            .POLY_TARGET   (POLY_TARGET),
+            .OSC_PER_VOICE (OSC_PER_VOICE),
+            .PHASE_W       (32),
+            .OSC_SAMPLE_W  (16),
+            .TIMBRE_N      (4),
+            .TIMBRE_W      (2),
+            .ENABLE_FM     (0)
+        ) u_oscillator_bank (
+            .clk_i              (clk),
+            .rst_n_i            (rst_n_sync),
+            .sample_tick_i      (tick_audio),
+            .voice_active_i     (nm_active),
+            .base_phase_inc_i   (nm_phase),
+            .timbre_id_i        (2'd0),
+            .vibrato_mod_i      (16'sd0),
+            .test_mode_i        (1'b0),
+            .test_lane_active_i ({(POLY_TARGET*OSC_PER_VOICE){1'b0}}),
+            .test_phase_inc_i   ({(POLY_TARGET*OSC_PER_VOICE*32){1'b0}}),
+            .fm_cfg_valid_i     (1'b0),
+            .fm_ratio_i         (16'd0),
+            .fm_index_i         (16'd0),
+            .osc_sample_bus_o   (ob_samples),
+            .osc_valid_o        (ob_valid),
+            .phase_acc_dbg_o    (ob_phase_dbg)
+        );
+
+        // ⭐ TDM 混音 + 饱和（T56）—— ⭐ 全设计**只有 1 个 DSP**
+        //    ⚠️ `render_start_i` 用 `ob_valid`（振荡器样本就绪）⇒ 天然串行、无竞争
+        tdm_render_mixer #(
+            .POLY_TARGET         (POLY_TARGET),
+            .OSC_PER_VOICE       (OSC_PER_VOICE),
+            .OSC_SAMPLE_W        (16),
+            .ENV_W               (16),
+            .SAMPLE_W            (SAMPLE_W),
+            .CLK_PER_SAMPLE      (1024),
+            .RENDER_DEADLINE_CYC (927)
+        ) u_tdm_render_mixer (
+            .clk_i            (clk),
+            .rst_n_i          (rst_n_sync),
+            .render_start_i   (ob_valid),
+            .osc_sample_bus_i (ob_samples),
+            .env_level_i      (env_level),
+            .dry_valid_o      (mx_valid),
+            .dry_sample_o     (mx_sample),
+            .deadline_fault_o (mx_fault)
+        );
+
+        // ⭐ 输出寄存：`i2s_tx` 要求数据源**提前一帧**给出本帧样点
+        //    ⚠️ 用 `mx_valid` 打一拍 ⇒ 整帧稳定，⛔ 不会在帧中途变化
+        reg signed [SAMPLE_W-1:0] sample_r;
+        always @(posedge clk) begin
+            if (!rst_n_sync) sample_r <= {SAMPLE_W{1'b0}};
+            else if (mx_valid) sample_r <= mx_sample;
+        end
+
+        assign sample_mono = sample_r;
+
+        // ── ⭐ 开机自检音：复位后延时起一个 A4+C#5+E5 和弦 ────────────────
+        //    ⚠️ 等 `DEMO_NOTE_DELAY` 再起音（避开上电"啪"声）
+        always @(posedge clk) begin
+            if (!rst_n_sync) begin
+                demo_cnt        <= 24'd0;
+                demo_fired      <= 1'b0;
+                demo_step       <= 2'd0;
+                demo_note_valid <= 1'b0;
+                demo_note_axis  <= 4'd0;
+                demo_note_inc   <= 32'd0;
+                demo_note_vel   <= 8'd0;
+                demo_note_kind  <= 2'd0;
+            end else begin
+                demo_note_valid <= 1'b0;      // 单拍脉冲（冻结表 §〇 约定 4）
+
+                if (!demo_fired) begin
+                    if (demo_cnt < DEMO_DELAY_V) begin
+                        demo_cnt <= demo_cnt + 1'b1;
+                    end else begin
+                        // ⭐ 逐拍发三个 note_on（axis 0/1/2 ⇒ 占 voice 0/1/2）
+                        case (demo_step)
+                            2'd0: begin
+                                demo_note_axis  <= 4'd0;
+                                demo_note_inc   <= INC_A4;
+                                demo_note_vel   <= 8'd200;
+                                demo_note_kind  <= 2'd0;
+                                demo_note_valid <= 1'b1;
+                                demo_step       <= 2'd1;
+                            end
+                            2'd1: begin
+                                demo_note_axis  <= 4'd1;
+                                demo_note_inc   <= INC_CS5;
+                                demo_note_vel   <= 8'd200;
+                                demo_note_kind  <= 2'd0;
+                                demo_note_valid <= 1'b1;
+                                demo_step       <= 2'd2;
+                            end
+                            2'd2: begin
+                                demo_note_axis  <= 4'd2;
+                                demo_note_inc   <= INC_E5;
+                                demo_note_vel   <= 8'd200;
+                                demo_note_kind  <= 2'd0;
+                                demo_note_valid <= 1'b1;
+                                demo_step       <= 2'd3;
+                            end
+                            default: begin
+                                // ⭐ 三个音都起了 ⇒ **一直响着**（不发 note_off）
+                                //    ⇒ 上板就能持续听到和弦，便于示波器/耳朵确认
+                                demo_fired <= 1'b1;
+                            end
+                        endcase
+                    end
+                end
+            end
+        end
+    end
+    endgenerate
+
 
     i2s_tx #(
         .SAMPLE_W  (SAMPLE_W),

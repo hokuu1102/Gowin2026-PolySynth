@@ -39,6 +39,11 @@ module tb_top_m0;
     wire HP_BCK_a, HP_WS_a, HP_DIN_a, PA_EN_n_a, hb_a;
     top #(
         .PA_ON_AFTER_RESET (0),
+        // ⭐⭐ T57（2026-09-21）：本实例验的是 **M0 安全态 + 真静音**
+        //   ⇒ ⛔ **必须显式关掉开机自检音**（默认值是 1 = 出声）。
+        //   ⚠️ 不传这个参数的话，`top` 会自动起 A4+C#5+E5 和弦 ⇒
+        //      ⭐ E 判据（`HP_DIN` 全程为 0）必然失败。
+        .DEMO_CHORD_ON     (0),
         .HEARTBEAT_DIV     (HB_DIV),
         .SAMPLE_W          (24),
         .DATA_BITS         (16)
@@ -60,7 +65,10 @@ module tb_top_m0;
     // ═══════════════════════════════════════════════════════════════
     wire HP_BCK_d, HP_WS_d, HP_DIN_d, PA_EN_n_d, hb_d;
     top #(
-        .HEARTBEAT_DIV (HB_DIV)          // ⚠️ 只覆盖心跳周期；`PA_ON_AFTER_RESET` **故意不传**
+        .HEARTBEAT_DIV (HB_DIV),         // ⚠️ 只覆盖心跳周期；`PA_ON_AFTER_RESET` **故意不传**
+        // ⚠️ T57：本实例只查 `PA_ON_AFTER_RESET` 的默认值，⛔ 不查音频
+        //    ⇒ 关掉自检音既省仿真时间、也避免 3 份合成链同时跑
+        .DEMO_CHORD_ON (0)
     ) u_top_default (
         .clk (clk), .rst_n (rst_n),
         .HP_BCK (HP_BCK_d), .HP_WS (HP_WS_d), .HP_DIN (HP_DIN_d),
@@ -74,6 +82,7 @@ module tb_top_m0;
     top #(
         .PA_ON_AFTER_RESET (1),
         .PA_ON_DELAY       (PA_DELAY_TB),
+        .DEMO_CHORD_ON     (0),          // ⚠️ T57：本实例只查功放时序
         .HEARTBEAT_DIV     (HB_DIV),
         .SAMPLE_W          (24),
         .DATA_BITS         (16)

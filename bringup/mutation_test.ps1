@@ -230,7 +230,19 @@ $mutations = @(
   @{ id = "M34"; file = "rtl\w3b\tdm_render_mixer.v"; find = "if (cnt >= 1 && cnt <= CNT_LAST)"; repl = "if (1'b0)"; why = "T56 regression: accumulation disabled -> output always 0 -> silence (must be caught)" },
   @{ id = "M35"; file = "rtl\w3b\tdm_render_mixer.v"; find = "wire [LW-1:0] cnt_sel = (cnt[LW-1:0] > LAST_IDX) ? LAST_IDX : cnt[LW-1:0];"; repl = "wire [LW-1:0] cnt_sel = {LW{1'b0}};"; why = "T56 regression: every TDM slot reads voice 0 -> no summing (must be caught)" },
   @{ id = "M36"; file = "rtl\w3b\tdm_render_mixer.v"; find = "wire over_pos = ~sh[ACC_W-1] && (|sh[ACC_W-2 : SAMPLE_W-1]);"; repl = "wire over_pos = 1'b0;"; why = "T56 regression: positive saturation removed -> overflow wraps to negative (must be caught)" },
-  @{ id = "M37"; file = "rtl\w3b\tdm_render_mixer.v"; find = "wire over_neg =  sh[ACC_W-1] && ~(&sh[ACC_W-2 : SAMPLE_W-1]);"; repl = "wire over_neg = 1'b0;"; why = "T56 regression: negative saturation removed -> overflow wraps positive (must be caught)" }
+  @{ id = "M37"; file = "rtl\w3b\tdm_render_mixer.v"; find = "wire over_neg =  sh[ACC_W-1] && ~(&sh[ACC_W-2 : SAMPLE_W-1]);"; repl = "wire over_neg = 1'b0;"; why = "T56 regression: negative saturation removed -> overflow wraps positive (must be caught)" },
+
+  # ---- T57: top.v sound chain.  This is the "board actually makes sound" step;
+  #      before it, top.v drove sample_mono = 0 (silence) and every simulation
+  #      still passed, so these mutants guard the thing that matters most.
+  @{ id = "M38"; file = "rtl\top.v"; find = "assign sample_mono = sample_r;"; repl = "assign sample_mono = {SAMPLE_W{1'b0}};"; why = "T57 regression: top drives silence again -> board never makes a sound (must be caught)" },
+  @{ id = "M39"; file = "rtl\top.v"; find = "localparam [31:0] INC_E5  = 32'h0374_D64B;"; repl = "localparam [31:0] INC_E5  = 32'h0000_1000;"; why = "T57 regression: wrong E5 phase increment -> third tone missing (must be caught)" },
+  # NOTE (2026-09-21): the first version of M40 flipped the DEMO_CHORD_ON *default*
+  # and LEAKED -- tb_top_sound passes DEMO_CHORD_ON(1) explicitly, so the default
+  # is unobservable there (C23: a mutant that cannot change behaviour is not a
+  # valid mutant).  tb_top_m0 covers the silence side explicitly instead, so M40
+  # now targets the audible path itself.
+  @{ id = "M40"; file = "rtl\top.v"; find = "if (mx_valid) sample_r <= mx_sample;"; repl = "if (mx_valid) sample_r <= {SAMPLE_W{1'b0}};"; why = "T57 regression: output register mutes the mixer -> chain runs but board is silent (must be caught)" }
 )
 
 # ---- selection ---------------------------------------------------------------
