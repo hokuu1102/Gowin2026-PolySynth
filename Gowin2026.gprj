@@ -52,6 +52,14 @@
              Needed by the real sound chain; before this top.v sent silence. -->
         <File path="rtl/w3b/note_manager.v" type="file.verilog" enable="1"/>
         <File path="rtl/w3c/i2s_tx.v" type="file.verilog" enable="1"/>
+        <!-- T32: PPQN=960 musical clock (phase accumulator) -->
+        <File path="rtl/w3c/beat_gen.v" type="file.verilog" enable="1"/>
+        <!-- T33: synthetic metronome click on the ordinary event path -->
+        <File path="rtl/w3c/metronome.v" type="file.verilog" enable="1"/>
+        <!-- T33: one-shot percussion envelope (drums/metronome) -->
+        <File path="rtl/w3c/perc_env_bank.v" type="file.verilog" enable="1"/>
+        <!-- T33b: UART receiver (score download path) -->
+        <File path="rtl/w3c/uart_rx.v" type="file.verilog" enable="1"/>
         <File path="rtl/top.v" type="file.verilog" enable="1"/>
         <!-- ⭐ SystemVerilog 文件登记成 type="file.verilog"（**和 .v 一样**，不是 file.systemverilog！）
              ⚠️ 2026-09-17 实测：写错 type 时 Gowin **不报错、直接静默跳过该文件**

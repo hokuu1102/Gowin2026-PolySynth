@@ -18,12 +18,17 @@
 //       ⛔ 对本项目无影响；万一要改，也只是一个参数。
 //
 // ⭐ 因此本模块把"格式"全部做成**参数**：
-//    · `JUSTIFY=1` 右对齐（LSBJ / 日本格式，**当前默认，PT8211 用这个**）
-//    · `JUSTIFY=0` 左对齐（Philips 标准 I2S：MSB 相对时隙起点延迟 `MSB_DELAY` 个 BCK）
+//    · `JUSTIFY=0` 左对齐（Philips 标准 I2S）—— ⭐ **当前默认**（Tang Console / `MAX98357A`）
+//    · `JUSTIFY=1` 右对齐（LSBJ / 日本格式）—— ⚠️ 旧板 NEO Dock / `PT8211` 用这个
 //    📌 `SLOT_BITS == DATA_BITS` 且 `MSB_DELAY == 0` 时两者**完全等价**。
 //       ⚠️ 但 `SLOT_BITS == DATA_BITS` 而 `MSB_DELAY == 1`（Philips 的常规取值）时
 //       左对齐**放不下** `DATA_BITS` 位 ⇒ **最低 1 位被静默丢弃**（见下方 `PARAM_OK` 自检）。
 //       ⇒ ⛔ "16 BCK 时隙 + 16 bit 数据 + MSB 延迟 1" 这个组合**本身不自洽**，别用。
+//
+// 🔴 **换板警示（2026-09-22）**：⭐ 上面 §⭐⭐ 那段是**为 NEO Dock 的 `PT8211` 定的**。
+//    ⚠️ 板卡现已改为 **Tang Console 60K** ⇒ ⭐ **默认值已翻成 `JUSTIFY=0`**。
+//    ⚠️ **两个器件格式不同，但都能"出声"** ⇒ 语速/音量不对**很难一眼看出是格式问题** ⇒
+//    ⭐ **上板必须用示波器对比 `WS` 与 `DIN` 的相位**再确认（⭐ 见 `C-6`）。
 //
 // ⭐⭐ 时序约定（踩过两次才定下来，⛔ 别改回去）
 //   1. **一帧只在 `frame_start` 装载一次左右样点**。
@@ -67,7 +72,14 @@ module i2s_tx #(
     parameter integer SAMPLE_W  = 24,   // 内部样点位宽（audio_t）
     parameter integer DATA_BITS = 16,   // 送给 DAC 的有效位（PT8211 = 16）
     parameter integer SLOT_BITS = 32,   // 每个声道时隙的 BCK 数（= CLK_PER_SAMPLE/BCLK_DIV/2）
-    parameter integer JUSTIFY   = 1,    // 0 = 左对齐（标准 I2S）；1 = 右对齐（LSBJ/日本格式，PT8211 用）
+    // ⭐ 2026-09-22 换板：`JUSTIFY` 默认 **1 → 0**
+    //   🔴 板卡已定为 **Tang Console 60K**，其音频器件是 **`MAX98357A`**
+    //      （I2S 输入 + 内置 DAC + D 类功放），⭐ **按【标准 I2S / 左对齐】解析**，
+    //      ⛔ **不是** NEO Dock 上 `PT8211` 的 **LSBJ / 右对齐**。
+    //   ⚠️ 两种格式**都能出声**，只是**数据整体移位**（听起来像音量/音质不对）
+    //      ⇒ ⭐ 上板后应以示波器对比 `WS` 与 `DIN` 的相位确认（见 `C-6`）。
+    //   ✅ `MSB_DELAY=1` / `LRCK_POL=0` 的默认值**本来就是标准 I2S 的取值**，⛔ 不用改。
+    parameter integer JUSTIFY   = 0,    // 0 = 左对齐（标准 I2S，MAX98357A）；1 = 右对齐（LSBJ/日本格式，PT8211 用）
     parameter integer MSB_DELAY = 1,    // 仅 JUSTIFY=0：MSB 相对时隙起点延迟的 BCK 数（标准 I2S = 1）
     parameter integer LRCK_POL  = 0     // 0 = WS 低 = 左声道（标准）；1 = 取反
 ) (

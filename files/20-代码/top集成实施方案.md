@@ -94,12 +94,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File sim\tb_all.ps1
 
 ⇒ ⭐ **即使同拍相撞，也只是"丢一个事件"，不会串池**（⚠️ 比串池好排查得多）。
 
-### 步骤 ③ ⭐⭐ `RESERVED_N: 0 → 5`（**与 `metronome` 成对**）
+### 步骤 ③ ✅ **`RESERVED_N: 0 → 5`（已完成 2026-09-22，与 `metronome` 成对）**
 
-| 做什么 | `u_note_manager` 的 `.RESERVED_N (0)` → `(5)` |
+> ✅ **状态**：⭐ **已在 `rtl/top.v` 落地** —— `u_note_manager` 与 `u_metronome` **都传 `5`**（`:266` / `:299`）。
+> ⚠️ **注意**：`note_manager.v` 的**参数默认值仍是 `0`** ⇒ ⭐ **由 `top.v` 覆盖**，
+> ⚠️ **单测 `note_manager` 时若不显式传参会得到"无专用池"的行为**（⚠️ 别误判成 bug）。
+
+| 做什么 | `u_note_manager` 的 `.RESERVED_N (0)` → `(5)` ✅ **已做** |
 |---|---|
 | ⭐ **为什么必须** | `metronome` 发 `axis_id = 4'hE`，而专用池是**按 `axis_id` 选**的：<br>`pool_mask[pg] = (cur_axis >= RESERVED_AXIS) ? (pg >= NORMAL_N) : (pg < NORMAL_N)`<br>⇒ ⚠️ **`RESERVED_N=0` 时专用池不存在** ⇒ 事件进普通池 ⇒ 🔴 **32 音全响时被抢占、听不到拍子** |
-| **判据** | ⭐⭐ **32 音全响时，节拍器仍有声** ← ⭐ **这是 `T33` 的核心判据** |
+| **判据** | ⭐⭐ **32 音全响时，节拍器仍有声** ← ⭐ **这是 `T33` 的核心判据**（⚠️ **仍需上板验证**） |
 | ⭐ **可观测性** | `metronome.cfg_warn_o` 在 `RESERVED_N<1` 时置位 ⇒ ⭐ **上板可直接据此判定"是不是没给专用 voice"**（⛔ 不静默） |
 | ⚠️ **副作用** | 普通演奏的 voice 从 **32 → 27**（⚠️ 这是**既定配额**：专用 5 = 节拍器 1 + 鼓机 4） |
 

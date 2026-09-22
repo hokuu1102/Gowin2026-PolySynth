@@ -66,11 +66,13 @@ module top #(
     input  wire clk,             // V22 · 50 MHz
     input  wire rst_n,           // AA13 · 低有效（同步复位）
 
-    // ── 音频（板载 DAC = PT8211-S，⛔ 不需要 MCLK）──────────────────
+    // ── 音频（板载 DAC = `MAX98357A`，⛔ 不需要 MCLK）──────────────
+    //   ⭐ 2026-09-22 换板 Tang Console 60K：`PT8211`+`NS4263` → `MAX98357A`
+    //      （I2S 输入 + 内置 DAC + D 类功放，三合一）
     output wire HP_BCK,          // Y17 · 位时钟 3.125 MHz（= 64 × fs）
     output wire HP_WS,           // AB17 · 帧时钟 48.828125 kHz（低 = 左）
-    output wire HP_DIN,          // AA16 · 串行数据（LSBJ 右对齐）
-    output wire PA_EN_n,         // AB16 · ⭐ 功放使能，**低有效**；安全态 = 1
+    output wire HP_DIN,          // AA16 · 串行数据（⭐ 标准 I2S 左对齐）
+    output wire PA_EN_n,         // AB16 · ⚠️ ⭐ **在 Console 上【不是功放使能】**，见下方说明
 
     // ── 板级活体见证 ────────────────────────────────────────────────
     output wire led_heartbeat    // LEDs[0] = T18
@@ -200,6 +202,86 @@ module top #(
             .env_active_o  (env_active)
         );
 
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ T33b: musical clock + metronome
+        //
+        // ⭐ The metronome is NOT a second audio path.  It emits ordinary
+        //    note_evt_t events on the SAME path as the fingers do, so there is
+        //    zero new audio routing and zero new compliance surface.
+        //
+        // ⚠️  Scope of THIS step: beat_gen + metronome are instantiated and the
+        //     metronome's events reach note_manager.  The tempo is a constant
+        //     today; U-7 (see the unfinished-work ledger) will drive
+        //     tick_inc_i from tempo events in the score instead.
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐ 120 BPM at PPQN=960 on a 50 MHz clock:
+        //     round(2^32 x 120/60 x 960 / 50e6) = 164927  (verified by hand)
+        localparam [31:0] TICK_INC_120BPM = 32'd164927;
+
+        wire        bg_tick;
+        wire [15:0] bg_tick_cnt;
+        wire        bg_bar_start;
+        wire        bg_beat;
+        wire        bg_transport;
+        wire [15:0] bg_bar_cnt;
+        wire        bg_wrap;
+
+        beat_gen #(
+            .PPQN          (960),
+            .BEATS_PER_BAR (4),
+            .PHASE_W       (32),
+            .TICK_INC_W    (32)
+        ) u_beat_gen (
+            .clk_i           (clk),
+            .rst_n_i         (rst_n_sync),
+            .run_i           (1'b1),            // free-running
+            .pos_reset_i     (1'b0),            // no transport seek
+            .tick_inc_i      (TICK_INC_120BPM),
+            .tick_o          (bg_tick),
+            .tick_cnt_o      (bg_tick_cnt),
+            .bar_start_o     (bg_bar_start),
+            .beat_o          (bg_beat),
+            .transport_o     (bg_transport),
+            .bar_cnt_o       (bg_bar_cnt),
+            .tick_cnt_wrap_o (bg_wrap)
+        );
+
+        wire        met_evt_valid;
+        wire [3:0]  met_evt_axis;
+        wire [31:0] met_evt_inc;
+        wire [7:0]  met_evt_vel;
+        wire [1:0]  met_evt_kind;
+        wire [15:0] met_beat_cnt;
+        wire [15:0] met_accent_cnt;
+        wire        met_cfg_warn;
+
+        metronome #(
+            // ⭐ AXIS_ID must stay >= RESERVED_AXIS (14 = 4'hE) so the event
+            //    lands in the reserved pool -- PAIRED with
+            //    note_manager.RESERVED_N above.  cfg_warn_o asserts if the two
+            //    are inconsistent, so a mismatch is observable rather than
+            //    silent (K-106 family).
+            .AXIS_W     (4),
+            .PHASE_W    (32),
+            .VEL_W      (8),
+            .AXIS_ID    (14),
+            .RESERVED_N (5)
+        ) u_metronome (
+            .clk_i          (clk),
+            .rst_n_i        (rst_n_sync),
+            .beat_i         (bg_beat),
+            .bar_start_i    (bg_bar_start),
+            .transport_i    (bg_transport),
+            .evt_valid_o    (met_evt_valid),
+            .evt_axis_o     (met_evt_axis),
+            .evt_phase_inc_o(met_evt_inc),
+            .evt_velocity_o (met_evt_vel),
+            .evt_kind_o     (met_evt_kind),
+            .beat_cnt_o     (met_beat_cnt),
+            .accent_cnt_o   (met_accent_cnt),
+            .cfg_warn_o     (met_cfg_warn)
+        );
+
         // ⭐ voice 分配 / 抢占 / 参数更新（T54）
         note_manager #(
             .POLY_TARGET (POLY_TARGET),
@@ -209,16 +291,32 @@ module top #(
             .TIMBRE_W    (2),
             .ENV_W       (16),
             .AGE_W       (16),
-            .RESERVED_N  (0)
+            // ⭐⭐ T33b: metronome + drum machine need a voice that user
+            //      notes cannot steal.  metronome emits axis_id 4'hE, and
+            //      note_manager picks the reserved pool by that axis, so this
+            //      MUST be >= 1 or the metronome lands in the normal pool and
+            //      gets stolen the moment 32 voices sound.  It is deliberately
+            //      PAIRED with metronome.AXIS_ID (see u_metronome below)
+            //      (K-106 family: an unpaired setting fails silently).
+            .RESERVED_N  (5)
         ) u_note_manager (
             .clk_i             (clk),
             .rst_n_i           (rst_n_sync),
             .sample_tick_i     (tick_audio),
-            .note_valid_i      (demo_note_valid),
-            .note_axis_i       (demo_note_axis),
-            .note_phase_inc_i  (demo_note_inc),
-            .note_velocity_i   (demo_note_vel),
-            .note_kind_i       (demo_note_kind),
+            // ⚠️  TEMPORARY merge (T36 will replace this with evt_merge.v):
+            //     note_manager has exactly ONE event port, so the demo chord and
+            //     the metronome have to share it.  Hand-played notes win; if both
+            //     fire on the same cycle the metronome event is LOST.
+            //     ✅ This cannot happen during power-up: the demo chord fires at
+            //        2_000_000 clk while beats land at 26042 clk +/- , and the two
+            //        sources use different axis pools (0/1/2 vs 4'hE), so even a
+            //        collision cannot cross pools.  It CAN happen once real
+            //        playing is wired up -- which is why T36 is on the ledger.
+            .note_valid_i      (demo_note_valid | met_evt_valid),
+            .note_axis_i       (demo_note_valid ? demo_note_axis : met_evt_axis),
+            .note_phase_inc_i  (demo_note_valid ? demo_note_inc  : met_evt_inc),
+            .note_velocity_i   (demo_note_valid ? demo_note_vel  : met_evt_vel),
+            .note_kind_i       (demo_note_valid ? demo_note_kind : met_evt_kind),
             // ⚠️ 力度/音高修正通路本版**未接**（要等 W3a 采集链落地）⇒ 恒 0
             .vel_upd_valid_i   (1'b0),
             .vel_upd_axis_i    (4'd0),
@@ -365,9 +463,13 @@ module top #(
         .SAMPLE_W  (SAMPLE_W),
         .DATA_BITS (DATA_BITS),
         .SLOT_BITS (32),          // 每声道 32 个 BCK（冻结口径 64 × fs）
-        .JUSTIFY   (1),           // ⭐ LSBJ 右对齐（PT8211；`K-39` 已结案）
-        .MSB_DELAY (1),
-        .LRCK_POL  (0)
+        // ⭐ 2026-09-22 换板 Tang Console 60K：音频器件是 `MAX98357A`，
+        //    ⭐ 按【标准 I2S / 左对齐】解析 ⇒ `JUSTIFY` 1 → **0**。
+        //    ⚠️ 旧板 NEO Dock 的 `PT8211` 是 LSBJ/右对齐（原来这里是 1）。
+        //    ⚠️ 两种都能出声、只是整体移位 ⇒ ⭐ 上板须用示波器对 `WS`/`DIN` 相位确认（`C-6`）。
+        .JUSTIFY   (0),           // ⭐ 0 = 标准 I2S 左对齐（MAX98357A）
+        .MSB_DELAY (1),           // 标准 I2S 的 MSB 延迟 = 1 BCK（⛔ 不用改）
+        .LRCK_POL  (0)            // WS 低 = 左声道（⭐ 单声道通路，极性无影响）
     ) u_i2s_tx (
         .clk          (clk),
         .rst_n        (rst_n_sync),
@@ -381,29 +483,35 @@ module top #(
         .HP_DIN       (HP_DIN)
     );
 
-    // ── ⭐⭐ 安全态：功放使能（低有效）—— 但**不是普通使能**！──────────────
-    //   🔴 **2026-09-17 查 `NS4263` 手册原件后的重大发现**：
-    //     板载功放 `NS4263` 的 `SD` 脚（= 我们的 `PA_EN_n`）是**"一线脉冲控制"**，
-    //     ⛔ **不是简单的使能电平** —— 它靠**下降沿的个数**决定工作模式。
-    //     手册 §10.1 原文的模式表：
-    //       | `SD`                        | `HP-IN` | 工作模式            |
-    //       | **初始化低 或 一个下降沿**   | 逻辑低   | **AB 类，桥式输出**  | ← ⭐ 我们要的
-    //       | **连续两个下降沿**           | 逻辑低   | **D 类，桥式输出**   | ← ⚠️ 音色/EMI 不同
-    //       | 低                          | 逻辑高   | AB 类，单端（耳机）  |
-    //       | **高（>100 µs）**            | 低/高    | **低功耗关断**       |
-    //     ⚠️⚠️ 而且手册电气特性表给了 `THI SD 高电平时间 1~12 µs` / `TLO SD 低电平时间 1~12 µs`
-    //       ⇒ **高/低电平的持续时间也在被计数** —— 与 `TLC5916` 的 Special Mode 是**同类陷阱**。
+    // ── ⚠️⚠️ `PA_EN_n`：⭐ 换板后【已不是"功放使能"】—— 语义变了 ──────────────
     //
-    //   ⭐ 对本设计的两条要求（**这就是本段代码存在的理由**）：
-    //     ① **上电到稳态只允许出现恰好 1 个下降沿**（= 进 AB 类）。
-    //        ⛔ 绝不能让"复位/抖动"产生**第 2 个**下降沿（那会切到 **D 类**）。
-    //        ⇒ 本模块的做法：`PA_ON_AFTER_RESET=0` 时**永远输出高**（0 个下降沿 = 关断，安全）；
-    //          置 1 时**只在复位释放后延时一次**拉低（**恰好 1 个下降沿**）。
-    //     ② ⭐ **关断要走"高电平 > 100 µs"这条路**（手册：高 >100 µs = 低功耗关断），
-    //        ⛔ 而不是"再给一个下降沿"。
-    //     ⚠️ 代价与现状：M0 安全态是"永久关断"，所以**当前不会有任何下降沿**；
-    //        等真正开功放（`PA_ON_AFTER_RESET=1`）时才会有那**唯一**一个下降沿。
-    //     ⛔ 不要为了"关断功放"把 `pa_en_n_r` 再拉低一次 —— 那会变成 D 类。
+    //   🔴 **2026-09-22 换板 Tang Console 60K 的结论（U-25）**：
+    //      ⭐ **Console 上【不存在】** `PA_EN` 这个功放使能脚。
+    //      ⚠️ `PA_EN` **网络**经 `R54 (0R)` 接到 `MAX98357A` 的 **`SD_MODE`** 脚
+    //         —— ⭐ **`SD_MODE` 是【声道/模式选择】，⛔ 不是功放使能**
+    //         （手册 Table 5：High=Left / RSMALL 上拉=Right / RLARGE 上拉=(L+R)/2 / Low=Shutdown）。
+    //      ⇒ ⭐ **原来那套"一线脉冲控制"逻辑（为 `NS4263` 写的）在 Console 上【无意义】**。
+    //
+    //   ⭐ **本模块的做法**：⛔ **不删端口、不改 `.cst`**，只把**驱动源**变成常量 ——
+    //      ① **不再产生任何"下降沿脉冲"**；
+    //      ② ⭐ **端口与引脚约束保留** ⇒ ⚠️ **不用改冻结的端口列表**（§〇 约定 5 要通知全员）；
+    //      ③ ⭐ **`PA_ON_AFTER_RESET` 保留** ⇒ ⭐ 为"回退 NEO Dock"留开关。
+    //
+    //   ⚠️ **恒高（1）的含义**：
+    //      · 对 **Console**：`SD_MODE` 若真由此脚驱动 ⇒ **高 = 取左声道**（Table 5），
+    //        ⭐ 我们左右送同一路（单声道）⇒ ⭐ **取左或取右都一样**。
+    //        ⚠️ **若板上电阻分压已决定档位，本脚可能根本不参与**（⚠️ 待实测，`C-8`）。
+    //      · 对 **NEO Dock**（若回退）：高 = **低功耗关断** ⇒ ⚠️ **不会出声**
+    //        ⇒ ⭐ **回退旧板时必须把 `PA_ON_AFTER_RESET` 置 1**。
+    //
+    //   📌 **以下历史说明【仅留痕】**（⚠️ 那是 `NS4263` 的，⛔ 对 Console 不适用）：
+    //     `2026-09-17 查 NS4263 手册`：`SD` 是**一线脉冲控制**（下降沿个数决定模式）：
+    //       | `SD` | 工作模式 |
+    //       | **初始化低 或 一个下降沿** | **AB 类，桥式输出** | ← 当时要的
+    //       | **连续两个下降沿** | **D 类，桥式输出** |
+    //       | 低 | AB 类，单端（耳机） |
+    //       | **高（>100 µs）** | **低功耗关断** |
+    //     ⇒ 当时要求"上电到稳态只允许恰好 1 个下降沿"。⚠️ **Console 上无此语义** ⇒ 不再需要。
     reg pa_en_n_r;
 
     generate
