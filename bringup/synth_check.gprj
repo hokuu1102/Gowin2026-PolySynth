@@ -28,6 +28,11 @@
              delivery path so it is covered by the "does every module really
              synthesise?" check (K-46 / K-91). -->
         <File path="../rtl/w3c/beat_gen.v" type="file.verilog" enable="1"/>
+        <!-- T33: metronome (synthetic click on the EXISTING event path) and -->
+        <!-- perc_env_bank (one-shot percussion envelope; envelope_bank/adsr is -->
+        <!-- an ADSR with sustain, so it cannot make a 10-20 ms click). -->
+        <File path="../rtl/w3c/metronome.v" type="file.verilog" enable="1"/>
+        <File path="../rtl/w3c/perc_env_bank.v" type="file.verilog" enable="1"/>
         <File path="../rtl/drivers/tlc5916_driver.sv" type="file.verilog" enable="1"/>
         <File path="../rtl/w3b/wavetable_bank.v" type="file.verilog" enable="1"/>
         <File path="../rtl/w3b/adsr.v" type="file.verilog" enable="1"/>

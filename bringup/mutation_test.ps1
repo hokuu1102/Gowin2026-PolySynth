@@ -244,6 +244,24 @@ $mutations = @(
   @{ id = "M47"; file = "rtl\w3b\note_manager.v"; find = "if (fifo_drop)                  lost_sticky_r <= 1'b1;"; repl = "if (fifo_drop)                  lost_sticky_r <= 1'b0;"; why = "K-106 regression: sticky flag never sets -> overflow invisible on the board (must be caught)" },
   @{ id = "M48"; file = "rtl\w3b\note_manager.v"; find = "if (fifo_drop && !lost_cnt_sat) lost_cnt_r <= lost_cnt_r + 1'b1;"; repl = "if (fifo_drop) lost_cnt_r <= lost_cnt_r + 1'b1;"; why = "K-106 regression: saturation removed -> count WRAPS (256 losses would read as 0, another silent failure) (must be caught)" },
 
+  # ---- T33 / P2 (2026-09-22): the metronome and the percussion envelope.
+  #      M51 is the interesting one: while building metronome.v I made the valid
+  #      flag registered but left the payload combinational, so the consumer read
+  #      the NEXT beat's tone -- i.e. the accent never sounded, while the accent
+  #      COUNTER still counted it ("the counter says accent, the ear hears weak
+  #      beat").  Same family as TROUBLESHOOTING 77: a pulse and the data it
+  #      carries must be latched in the SAME cycle.
+  @{ id = "M49"; file = "rtl\w3c\metronome.v"; find = "wire fire_accent = beat_i & bar_start_i & transport_i;"; repl = "wire fire_accent = 1'b0;"; why = "T33 regression: accent never fires -> every beat is a weak beat (must be caught)" },
+  @{ id = "M50"; file = "rtl\w3c\metronome.v"; find = "wire fire        = fire_accent | fire_normal;"; repl = "wire fire        = beat_i;"; why = "T33 regression: events emitted even when transport is stopped (must be caught)" },
+  @{ id = "M51"; file = "rtl\w3c\metronome.v"; find = "evt_inc_r   <= is_accent ? INC_ACCENT : INC_NORMAL;"; repl = "evt_inc_r   <= INC_NORMAL;"; why = "T33 regression (K-109): payload no longer tracks the accent -> counter says accent, ear hears weak beat (must be caught)" },
+  @{ id = "M52"; file = "rtl\w3c\metronome.v"; find = "assign evt_axis_o        = AXIS_V;"; repl = "assign evt_axis_o        = 4'd0;"; why = "T33 regression: event loses its dedicated axis id -> lands in the normal pool and gets STOLEN when 32 voices sound (must be caught)" },
+  # NOTE (2026-09-22, K-87): M53's anchor was re-pointed after perc_env_bank gained
+  # the load_r stage (utilisation of peak_r, see K-111).  The old anchor text no
+  # longer existed, and a skipped mutant guards NOTHING.
+  @{ id = "M53"; file = "rtl\w3c\perc_env_bank.v"; find = "                                active_r <= 1'b0;      // "; repl = "                                active_r <= 1'b1;      // "; why = "T33 regression: active never clears when the envelope hits 0 -> voice never released -> HUNG NOTE (must be caught)" },
+  @{ id = "M54"; file = "rtl\w3c\perc_env_bank.v"; find = "                            level_r <= level_r - DECAY_STEP[ENV_W-1:0];"; repl = "                            level_r <= level_r - 16'd1;"; why = "T33 regression: decay 67x too slow -> click lasts ~1 s instead of 20 ms (must be caught)" },
+  @{ id = "M55"; file = "rtl\w3c\perc_env_bank.v"; find = "                        peak_r   <= vel_peak;"; repl = "                        peak_r   <= 16'd0;"; why = "T33 regression: velocity no longer latched at trigger -> accent/velocity response dead (must be caught)" },
+
   # ---- T55: oscillator_bank (64 independent oscillators).  NOTE: this file is
   #      LF-only, so every anchor must be a single line.
   # NOTE (2026-09-21, K-98): the first version of M29 was

@@ -209,6 +209,25 @@ module synth_check_top #(
     output wire [15:0] bg_bar_cnt,
     output wire        bg_wrap,
 
+    // ── ⭐ T33 · metronome（节拍器：合成 click 走【事件通路】）──────────────
+    //    ⚠️ 输入引到顶层（⛔ 不写常量 —— `K-96`：写死的常量会把要证明的电路折叠掉）。
+    //    ⭐ 本顶层没有真 `beat_gen` 拍点时用 `met_beat_force` 强制驱动（仅综合取证用）
+    input  wire        met_beat_force,
+    output wire        met_evt_valid,
+    output wire [3:0]  met_evt_axis,
+    output wire [31:0] met_evt_phase_inc,
+    output wire [7:0]  met_evt_velocity,
+    output wire [15:0] met_beat_cnt,
+    output wire [15:0] met_accent_cnt,
+    output wire        met_cfg_warn,
+
+    // ── ⭐ T33 · perc_env_bank（打击包络：一击到底，⛔ 不改队友的 envelope_bank）──
+    input  wire [3:0]  pe_trigger,
+    input  wire [31:0] pe_velocity,
+    output wire [63:0] pe_level,
+    output wire [3:0]  pe_active,
+    output wire [63:0] pe_retrig_cnt,
+
     // 观测用（把内部信号引出来，防优化 + 方便看资源）
     output wire [31:0] obs
 );
@@ -541,6 +560,50 @@ module synth_check_top #(
         .tick_cnt_wrap_o  (bg_wrap)
     );
 
+    // ── ⭐ T33 · metronome（节拍器）────────────────────────────────────────
+    //    ⚠️ 只为**可综合性 + 资源**取证（⛔ 功能由 `tb_metronome.sv` 管）。
+    //    ⭐ 它接 `beat_gen` 的真实输出 ⇒ ⭐ 顺带证明"节拍器与音乐时钟同拍"这条结构。
+    metronome #(
+        .AXIS_W      (4),
+        .PHASE_W     (32),
+        .VEL_W       (8),
+        .AXIS_ID     (14),
+        .RESERVED_N  (5)
+    ) u_metronome (
+        .clk_i            (clk),
+        .rst_n_i          (rst_n_sync),
+        .beat_i           (bg_beat | met_beat_force),
+        .bar_start_i      (bg_bar_start),
+        .transport_i      (bg_transport),
+        .evt_valid_o      (met_evt_valid),
+        .evt_axis_o       (met_evt_axis),
+        .evt_phase_inc_o  (met_evt_phase_inc),
+        .evt_velocity_o   (met_evt_velocity),
+        .evt_kind_o       (),
+        .beat_cnt_o       (met_beat_cnt),
+        .accent_cnt_o     (met_accent_cnt),
+        .cfg_warn_o       (met_cfg_warn)
+    );
+
+    // ── ⭐ T33 · perc_env_bank（打击包络，一击到底）────────────────────────
+    //    ⚠️ `trigger` / `velocity` 引到顶层（⛔ 不写常量 —— `K-96`）。
+    perc_env_bank #(
+        .N_PERC     (4),
+        .ENV_W      (16),
+        .VEL_W      (8),
+        .DECAY_STEP (67)
+    ) u_perc_env_bank (
+        .clk_i        (clk),
+        .rst_n_i      (rst_n_sync),
+        .sample_tick_i(tick_audio),
+        .trigger_i    (pe_trigger),
+        .velocity_i   (pe_velocity),
+        .level_o      (pe_level),
+        .active_o     (pe_active),
+        .busy_o       (),
+        .retrig_cnt_o (pe_retrig_cnt)
+    );
+
     // 把若干内部信号汇成一个观测字（防止综合器把"只被观测"的逻辑剪掉）
     assign obs = {16'd0, wavetable_sample}
                ^ {24'd0, led_data}
@@ -559,6 +622,15 @@ module synth_check_top #(
                ^ {28'd0, bg_tick, bg_bar_start, bg_beat, bg_wrap}
                ^ {16'd0, bg_bar_cnt}
                ^ {23'd0, nm_event_lost_cnt}      // ⭐ K-106 overflow observability
-               ^ {31'd0, nm_event_lost};
+               ^ {31'd0, nm_event_lost}
+               ^ {29'd0, met_evt_axis, met_evt_valid}   // ⭐ T33 metronome
+               ^ met_evt_phase_inc
+               ^ {24'd0, met_evt_velocity}
+               ^ {16'd0, met_beat_cnt}
+               ^ {16'd0, met_accent_cnt}
+               ^ {31'd0, met_cfg_warn}
+               ^ pe_level[31:0]                          // ⭐ T33 perc_env_bank
+               ^ {28'd0, pe_active}
+               ^ pe_retrig_cnt[31:0];
 
 endmodule

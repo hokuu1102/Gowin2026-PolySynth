@@ -1,0 +1,30 @@
+﻿VCD info: dumpfile build/sim/tb_metronome/tb_metronome.vcd opened for output.
+  ok  : baseline: transport is low
+  ok  : baseline: NO events emitted while stopped (counter still 0)
+  ok  : baseline: evt_valid_o is low while stopped
+  ok  : cfg: cfg_warn_o is CLEAR when RESERVED_N >= 1
+  ok  : events were actually emitted (test is not vacuous)
+  ok  : events are spaced EXACTLY 61440 clk apart (= 960 PPQN ticks, in step with beat_gen)
+  info: window=250000 clk, evt=5 accent=2 normal=3
+  ok  : accent + normal == total events (conservation)
+  ok  : at least one accent was observed (test is not vacuous)
+  ok  : weak beats OUTNUMBER accents -- catches 'every beat is an accent'
+  ok  : accents are exactly 4 beats apart (the real 4/4 specification)
+  ok  : every event carries a CONSISTENT payload (accent inc+vel, or normal inc+vel)
+  ok  : every event carries the dedicated axis id 4'hE (so it lands in the reserved pool)
+  ok  : evt counter agrees with the number of observed events
+  ok  : end-to-end: the event actually ALLOCATED a voice in note_manager
+  ok  : end-to-end: it landed on a RESERVED (high-index) voice, not the normal pool
+  ok  : stop test: precondition -- we are running and have emitted events
+  ok  : stop test: transport_o went low after stopping mid-run
+  ok  : stop test: NO events emitted after stopping mid-run
+  ok  : stop test: the event counter FROZE at the value when we stopped
+  ok  : gate: a beat pulse with transport_i=0 must NOT emit an event
+  ok  : gate: the counter must not advance while transport_i=0
+  ok  : gate: the SAME pulse DOES emit once transport_i=1 (gate is not stuck shut)
+  ok  : gate: the counter advanced to 1
+  ok  : gate: lowering transport_i again immediately blocks events
+  ok  : gate: the counter stayed at 1
+PASS: metronome emits one event per beat in step with beat_gen, accents on bar_start, dedicated axis
+
+
