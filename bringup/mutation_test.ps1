@@ -261,7 +261,13 @@ $mutations = @(
   @{ id = "M53"; file = "rtl\w3c\perc_env_bank.v"; find = "                                active_r <= 1'b0;      // "; repl = "                                active_r <= 1'b1;      // "; why = "T33 regression: active never clears when the envelope hits 0 -> voice never released -> HUNG NOTE (must be caught)" },
   @{ id = "M54"; file = "rtl\w3c\perc_env_bank.v"; find = "                            level_r <= level_r - DECAY_STEP[ENV_W-1:0];"; repl = "                            level_r <= level_r - 16'd1;"; why = "T33 regression: decay 67x too slow -> click lasts ~1 s instead of 20 ms (must be caught)" },
   @{ id = "M55"; file = "rtl\w3c\perc_env_bank.v"; find = "                        peak_r   <= vel_peak;"; repl = "                        peak_r   <= 16'd0;"; why = "T33 regression: velocity no longer latched at trigger -> accent/velocity response dead (must be caught)" },
-
+  # ---- T33b (2026-09-22): uart_rx -- the score-download front end (8N1).
+  #      Ported from an already-working project; these guard the pieces that a
+  #      "port" can silently break: bit order, sample point, glitch rejection.
+  @{ id = "M56"; file = "rtl\w3c\uart_rx.v"; find = "rx_data_o[bit_cnt] <= rx_d2;"; repl = "rx_data_o[3'd7 - bit_cnt] <= rx_d2;"; why = "T33b regression: bit order reversed (MSB-first) -> every byte is bit-reversed (must be caught)" },
+  @{ id = "M57"; file = "rtl\w3c\uart_rx.v"; find = "if (clk_cnt == MID_CNT) begin"; repl = "if (clk_cnt == 16'd0) begin"; why = "T33b regression: samples at the bit EDGE instead of the middle -> marginal/noisy reception (must be caught)" },
+  @{ id = "M58"; file = "rtl\w3c\uart_rx.v"; find = "if ((clk_cnt == START_MID) && (rx_d2 == 1'b1)) begin"; repl = "if (1'b0) begin"; why = "T33b regression: start-bit glitch check removed -> short noise pulses are accepted as frames (must be caught)" },
+  @{ id = "M59"; file = "rtl\w3c\uart_rx.v"; find = "rx_done_o <= 1'b1;          // "; repl = "rx_done_o <= 1'b0;          // "; why = "T33b regression: completion pulse never asserts -> no byte is ever delivered (must be caught)" },
   # ---- T55: oscillator_bank (64 independent oscillators).  NOTE: this file is
   #      LF-only, so every anchor must be a single line.
   # NOTE (2026-09-21, K-98): the first version of M29 was

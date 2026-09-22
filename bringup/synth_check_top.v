@@ -208,6 +208,11 @@ module synth_check_top #(
     output wire        bg_transport,
     output wire [15:0] bg_bar_cnt,
     output wire        bg_wrap,
+    // T33b: UART receiver (score download path).  rx is a top-level INPUT so
+    // synthesis cannot constant-fold the receiver away (K-96).
+    input  wire        uart_rx_pin,
+    output wire [7:0]  uart_rx_data,
+    output wire        uart_rx_done,
 
     // ── ⭐ T33 · metronome（节拍器：合成 click 走【事件通路】）──────────────
     //    ⚠️ 输入引到顶层（⛔ 不写常量 —— `K-96`：写死的常量会把要证明的电路折叠掉）。
@@ -605,6 +610,18 @@ module synth_check_top #(
     );
 
     // 把若干内部信号汇成一个观测字（防止综合器把"只被观测"的逻辑剪掉）
+    // ---- T33b: UART receiver (8N1 @ 115200 => BAUD_DIV=434) ----------------
+    uart_rx #(
+        .BAUD_DIV (434)
+    ) u_uart_rx (
+        .clk_i     (clk),
+        .rst_n_i   (rst_n_sync),
+        .rx_i      (uart_rx_pin),
+        .rx_data_o (uart_rx_data),
+        .rx_done_o (uart_rx_done)
+    );
+
+
     assign obs = {16'd0, wavetable_sample}
                ^ {24'd0, led_data}
                ^ {28'd0, tlc_busy, tlc_done, HP_DIN, lrclk}
@@ -621,6 +638,8 @@ module synth_check_top #(
                ^ {16'd0, bg_tick_cnt}            // ⭐ T32 beat_gen
                ^ {28'd0, bg_tick, bg_bar_start, bg_beat, bg_wrap}
                ^ {16'd0, bg_bar_cnt}
+               ^ {24'd0, uart_rx_data}                  // T33b uart_rx
+               ^ {31'd0, uart_rx_done}
                ^ {23'd0, nm_event_lost_cnt}      // ⭐ K-106 overflow observability
                ^ {31'd0, nm_event_lost}
                ^ {29'd0, met_evt_axis, met_evt_valid}   // ⭐ T33 metronome

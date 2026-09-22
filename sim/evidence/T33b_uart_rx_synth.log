@@ -1,0 +1,111 @@
+﻿*** GOWIN Tcl Command Line Console  *** 
+current device: GW5AT-60B  GW5AT-LV60PG484AC2/I1
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/ip/wavetable_sine_rom_ip/wavetable_sine_rom_ip.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/clk_gen.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/rst_sync.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/sync_input.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/w3c/i2s_tx.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/w3c/beat_gen.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/w3c/metronome.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/w3c/perc_env_bank.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/w3c/uart_rx.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/drivers/tlc5916_driver.sv"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/w3b/wavetable_bank.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/w3b/adsr.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/w3b/envelope_bank.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/w3b/dds_wavetable_core.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/w3b/voice.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/w3b/voice_i2s_chain.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/w3b/note_manager.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/w3b/oscillator_bank.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/w3b/tdm_render_mixer.v"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/drivers/mcp3208_driver.sv"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/drivers/mcp3208_scanner.sv"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/drivers/adc_farm.sv"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/drivers/calib.sv"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/rtl/drivers/debounce.sv"
+add new file: "C:/Users/hokuu/Desktop/FPGA/FPGA2026/bringup/synth_check_top.v"
+GowinSynthesis start
+Running parser ...
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\ip\wavetable_sine_rom_ip\wavetable_sine_rom_ip.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\clk_gen.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\rst_sync.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\sync_input.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\i2s_tx.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\beat_gen.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\metronome.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\perc_env_bank.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_rx.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\tlc5916_driver.sv'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\wavetable_bank.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\adsr.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\envelope_bank.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\dds_wavetable_core.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\voice.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\voice_i2s_chain.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\oscillator_bank.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\mcp3208_driver.sv'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\mcp3208_scanner.sv'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\adc_farm.sv'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\calib.sv'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\debounce.sv'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\bringup\synth_check_top.v'
+Compiling module 'synth_check_top'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\bringup\synth_check_top.v":23)
+Compiling module 'rst_sync'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\rst_sync.v":27)
+Compiling module 'sync_input(W=4)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\sync_input.v":31)
+Compiling module 'clk_gen'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\clk_gen.v":25)
+Compiling module 'i2s_tx'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\i2s_tx.v":66)
+Compiling module 'tlc5916_driver'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\tlc5916_driver.sv":37)
+Compiling module 'wavetable_bank'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\wavetable_bank.v":5)
+Compiling module 'wavetable_sine_rom_ip'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\ip\wavetable_sine_rom_ip\wavetable_sine_rom_ip.v":11)
+Compiling module 'envelope_bank'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\envelope_bank.v":6)
+Compiling module 'adsr'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\adsr.v":6)
+Compiling module 'voice_i2s_chain'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\voice_i2s_chain.v":5)
+Compiling module 'voice'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\voice.v":6)
+Compiling module 'dds_wavetable_core'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\dds_wavetable_core.v":6)
+Compiling module 'adc_farm'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\adc_farm.sv":34)
+Extracting RAM for identifier 'miso_shift'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\adc_farm.sv":120)
+Compiling module 'sync_input(RESET_VAL=1'b0)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\sync_input.v":31)
+Compiling module 'mcp3208_scanner'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\mcp3208_scanner.sv":3)
+Compiling module 'mcp3208_driver'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\mcp3208_driver.sv":3)
+Compiling module 'calib'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\calib.sv":20)
+Extracting RAM for identifier 'zero_r'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\calib.sv":49)
+Extracting RAM for identifier 'gain_r'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\calib.sv":50)
+Compiling module 'sync_input(W=7)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\sync_input.v":31)
+Compiling module 'debounce'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\debounce.sv":24)
+Compiling module 'note_manager'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":61)
+Extracting RAM for identifier 'fifo_v'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":209)
+Extracting RAM for identifier 'fifo_ax'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":210)
+Extracting RAM for identifier 'fifo_inc'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":211)
+Extracting RAM for identifier 'fifo_vel'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":212)
+Extracting RAM for identifier 'fifo_knd'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":213)
+Compiling module 'oscillator_bank'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\oscillator_bank.v":51)
+WARN  (EX3791) : Expression size 33 truncated to fit in target size 32("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\oscillator_bank.v":113)
+Compiling module 'tdm_render_mixer'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v":46)
+Compiling module 'beat_gen'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\beat_gen.v":59)
+Compiling module 'metronome'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\metronome.v":43)
+Compiling module 'perc_env_bank'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\perc_env_bank.v":51)
+Compiling module 'uart_rx'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_rx.v":44)
+NOTE  (EX0101) : Current top module is "synth_check_top"
+[5%] Running netlist conversion ...
+WARN  (CV0020) : Input sample_in[7:0] is unused("C:\Users\hokuu\Desktop\FPGA\FPGA2026\bringup\synth_check_top.v":41)
+Running device independent optimization ...
+[10%] Optimizing Phase 0 completed
+[15%] Optimizing Phase 1 completed
+[25%] Optimizing Phase 2 completed
+Running inference ...
+[30%] Inferring Phase 0 completed
+[40%] Inferring Phase 1 completed
+[50%] Inferring Phase 2 completed
+[55%] Inferring Phase 3 completed
+Running technical mapping ...
+[60%] Tech-Mapping Phase 0 completed
+[65%] Tech-Mapping Phase 1 completed
+[75%] Tech-Mapping Phase 2 completed
+[80%] Tech-Mapping Phase 3 completed
+[90%] Tech-Mapping Phase 4 completed
+[95%] Generate netlist file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\gwsynthesis\project.vg" completed
+[100%] Generate report file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\gwsynthesis\project_syn.rpt.html" completed
+GowinSynthesis finish

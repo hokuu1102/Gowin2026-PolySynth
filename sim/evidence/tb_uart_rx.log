@@ -1,0 +1,29 @@
+﻿VCD info: dumpfile build/sim/tb_uart_rx/tb_uart_rx.vcd opened for output.
+  ok  : baseline: NO rx_done while the line is idle (rx held high)
+  ok  : baseline: rx data stays 0 with no traffic
+  ok  : all 10 bytes at the REAL 115200 baud were received
+  ok  : byte[0] = 00  (real baud)
+  ok  : byte[1] = ff  (real baud)
+  ok  : byte[2] = 55  (real baud)
+  ok  : byte[3] = aa  (real baud)
+  ok  : byte[4] = 01  (real baud)
+  ok  : byte[5] = 80  (real baud)
+  ok  : byte[6] = 7f  (real baud)
+  ok  : byte[7] = fe  (real baud)
+  ok  : byte[8] = 5a  (real baud)
+  ok  : byte[9] = a5  (real baud)
+  ok  : bit order: 0x01 came back as 0x01 (LSB-first, NOT 0x80)
+  ok  : arbitrary gap: bytes on BOTH sides of a long idle gap are correct
+  ok  : back-to-back: 10 consecutive frames with NO gap are all received
+  ok  : back-to-back 10/10 matched
+  ok  : glitch: a narrow low pulse produces NO frame
+  ok  : rx_done_o is exactly 1 clk wide (never wider)
+  ok  : sync reset: rx_data_o cleared
+  ok  : sync reset: rx_done_o cleared
+  ok  : after reset the receiver still works
+  ok  : sample point: a +3% slower transmitter still decodes (mid-bit sampling)
+  ok  : sample point: a -3% faster transmitter still decodes (mid-bit sampling)
+  ok  : sample point: a +4% slower transmitter still decodes
+PASS: uart_rx 8N1 at the REAL 115200 baud (10 patterns, back-to-back, glitch reject, single-cycle done, sync reset)
+
+

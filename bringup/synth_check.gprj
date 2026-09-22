@@ -33,6 +33,10 @@
         <!-- an ADSR with sustain, so it cannot make a 10-20 ms click). -->
         <File path="../rtl/w3c/metronome.v" type="file.verilog" enable="1"/>
         <File path="../rtl/w3c/perc_env_bank.v" type="file.verilog" enable="1"/>
+        <!-- Score-download front end: UART receiver.  Ported from an already -->
+        <!-- working project (ADDA); only the reset style was made synchronous -->
+        <!-- to match freeze-table convention 2. -->
+        <File path="../rtl/w3c/uart_rx.v" type="file.verilog" enable="1"/>
         <File path="../rtl/drivers/tlc5916_driver.sv" type="file.verilog" enable="1"/>
         <File path="../rtl/w3b/wavetable_bank.v" type="file.verilog" enable="1"/>
         <File path="../rtl/w3b/adsr.v" type="file.verilog" enable="1"/>
