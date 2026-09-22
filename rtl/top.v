@@ -390,12 +390,36 @@ module top #(
             .deadline_fault_o (mx_fault)
         );
 
+        // ⭐⭐ 主混音 + 数字主音量 + 静音斜坡（master_mix，W3c 出声通路最后一级）
+        //    ⚠️ 位置：`tdm_render_mixer` → `master_mix` → `i2s_tx`
+        //    ⭐ 增益 `gain_i` 现在是**固定满增益 0x7FFF**（≈ unity）：
+        //       ① 音量旋钮（`right_analog_ctrl` 的对数映射）还没落地，留接口；
+        //       ② 先打通「合成 → 主音量 → I2S」这条地基通路，验证链不因缺音量而断。
+        //    ⭐ 静音斜坡仍在：开机从 0 渐入，避免上电"啪"声（`音频输出方案.md` §4.4）。
+        wire signed [SAMPLE_W-1:0] mm_sample;
+        wire                      mm_valid;
+        master_mix #(
+            .SAMPLE_W  (SAMPLE_W),
+            .GAIN_W    (16),
+            .RAMP_STEP (128)
+        ) u_master_mix (
+            .clk_i        (clk),
+            .rst_n_i      (rst_n_sync),
+            .sample_tick_i(tick_audio),
+            .valid_i      (mx_valid),
+            .sample_i     (mx_sample),
+            .gain_i       (16'h7FFF),     // ⭐ 固定满增益，音量旋钮落地后替换
+            .valid_o      (mm_valid),
+            .sample_o     (mm_sample),
+            .ramp_busy_o  ()
+        );
+
         // ⭐ 输出寄存：`i2s_tx` 要求数据源**提前一帧**给出本帧样点
-        //    ⚠️ 用 `mx_valid` 打一拍 ⇒ 整帧稳定，⛔ 不会在帧中途变化
+        //    ⚠️ 用 `mm_valid` 打一拍 ⇒ 整帧稳定，⛔ 不会在帧中途变化
         reg signed [SAMPLE_W-1:0] sample_r;
         always @(posedge clk) begin
             if (!rst_n_sync) sample_r <= {SAMPLE_W{1'b0}};
-            else if (mx_valid) sample_r <= mx_sample;
+            else if (mm_valid) sample_r <= mm_sample;
         end
 
         assign sample_mono = sample_r;

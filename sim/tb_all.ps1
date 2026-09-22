@@ -97,7 +97,18 @@ foreach ($tb in $tbs) {
   }
   # Normal regression uses the portable table. Gowin synthesis does not set
   # this macro, so hardware takes the generated pROM branch instead.
-  $compileArgs = @("-g2012", "-Wall", "-DWAVETABLE_BEHAVIORAL", "-s", $name, "-o", $vvpFile) + $rtl + $models + $chk + @($tb.FullName)
+  # ⭐ T48（2026-09-22）：名字带 `_prom` 的 tb 是「pROM 变体编译」——
+  #    ⛔ 不传 `-DWAVETABLE_BEHAVIORAL` ⇒ `wavetable_bank` 走综合用的 pROM 分支；
+  #    ⭐ 仿真用的 pROM 模型 `tb/models/wavetable_sine_rom_ip_model.sv`
+  #       （`$readmemh` 载 hex，替代真实 Gowin 黑盒）已由 `$models` 自动收集。
+  #    这样「行为级 case 表」与「综合 pROM」两条路径都被回归覆盖，
+  #    ⛔ 不再出现"仿真全绿、上板（走 pROM）出错"这类盲区。
+  $isPromVariant = $name -like "*_prom*"
+  if ($isPromVariant) {
+    $compileArgs = @("-g2012", "-Wall", "-s", $name, "-o", $vvpFile) + $rtl + $models + $chk + @($tb.FullName)
+  } else {
+    $compileArgs = @("-g2012", "-Wall", "-DWAVETABLE_BEHAVIORAL", "-s", $name, "-o", $vvpFile) + $rtl + $models + $chk + @($tb.FullName)
+  }
   $compileOut  = & $iverilog @compileArgs 2>&1
   $compileExit = $LASTEXITCODE
   $compileOut | Out-File -FilePath $compileLog -Encoding utf8
