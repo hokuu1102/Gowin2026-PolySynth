@@ -60,6 +60,10 @@
         <File path="rtl/w3c/perc_env_bank.v" type="file.verilog" enable="1"/>
         <!-- T33b: UART receiver (score download path) -->
         <File path="rtl/w3c/uart_rx.v" type="file.verilog" enable="1"/>
+        <!-- U-18: score player (tick -> events, tempo changes) -->
+        <File path="rtl/w3c/play_seq.v" type="file.verilog" enable="1"/>
+        <!-- U-6: event merge (hand-play + metronome into note_manager's single port) -->
+        <File path="rtl/w3c/evt_merge.v" type="file.verilog" enable="1"/>
         <File path="rtl/top.v" type="file.verilog" enable="1"/>
         <!-- ⭐ SystemVerilog 文件登记成 type="file.verilog"（**和 .v 一样**，不是 file.systemverilog！）
              ⚠️ 2026-09-17 实测：写错 type 时 Gowin **不报错、直接静默跳过该文件**

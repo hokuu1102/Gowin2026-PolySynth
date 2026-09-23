@@ -1,6 +1,6 @@
 # Gowin2026 PolySynth RTL 代码结构与接口规划
 
-> 目标：Tang Mega 60K Dock，`clk_sys=50 MHz`，严格 RTL；不用 PLL、硬核 CPU、HLS；工程路径全 ASCII。
+> 目标：Tang Mega 60K Dock，`clk_sys=50 MHz`，严格 RTL；**音频通路不用 PLL**（⚠️ 准确边界见 `K-41`/`K-114`：⛔ 禁"PLL 做全设计系统时钟"，✅ 外设/相移时钟可用 PLL）、不用硬核 CPU、不用 HLS；工程路径全 ASCII。
 > 设计基线：16 轴位，`POLY_TARGET=32`，`OSC_PER_VOICE=2`，至少 2 音色，Test Mode 为正式功能。
 > 说明：本文只定义结构、接口、时序契约和验证口径，不给出 RTL 实现。
 

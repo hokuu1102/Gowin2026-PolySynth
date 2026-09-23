@@ -127,7 +127,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File sim\tb_all.ps1
 | **4** | ⭐ 变异测试**全量**（⚠️ 改了 `top.v` ⇒ **必须全量**，`M05`/`M08`/`M15`/`M18`/`M38`–`M40` 都在 `top.v`） | `bringup\mutation_test.ps1` |
 | **5** | ⭐ **综合日志里有 `Compiling module 'metronome'`** | `K-46`/`K-91` |
 | **6** | ⭐⭐ **32 音全响时节拍器仍有声** | ⚠️ **上板**（等板子）；仿真侧可用 tb 造 32 音 + 节拍器 |
-| **7** | ⭐ **通知全员**（集成层改动） | `待发通知-合并版.md` |
+| **7** | ⭐ **通知全员**（集成层改动） | `files/历史/待发通知-合并版-过时-已被待发通知v4取代.md` |
 
 ---
 

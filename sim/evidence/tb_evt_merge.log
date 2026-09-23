@@ -1,0 +1,12 @@
+﻿VCD info: dumpfile build/sim/evt_merge/tb_evt_merge.vcd opened for output.
+  ok  : empty queue emits nothing (no garbage)
+  ok  : BOTH events survived a same-cycle collision (0 -> 2)
+  ok  : collision payloads intact (axis 1 then 2)
+  ok  : collision_cnt_o = 1 (observed)
+  ok  : round-robin rotates (A first 2, B first 2)
+  ok  : evt_valid_o is strictly single-cycle
+  ok  : overflow_o raised under sustained overload (drop_cnt=28)
+  ok  : A8 no X/Z on evt_merge outputs
+PASS: evt_merge never drops a same-cycle collision, is single-cycle, rotates, and reports overflow
+
+

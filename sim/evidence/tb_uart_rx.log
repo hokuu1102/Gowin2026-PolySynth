@@ -1,7 +1,7 @@
 ﻿VCD info: dumpfile build/sim/tb_uart_rx/tb_uart_rx.vcd opened for output.
   ok  : baseline: NO rx_done while the line is idle (rx held high)
   ok  : baseline: rx data stays 0 with no traffic
-  ok  : all 10 bytes at the REAL 115200 baud were received
+  ok  : all 10 bytes at the REAL configured baud were received
   ok  : byte[0] = 00  (real baud)
   ok  : byte[1] = ff  (real baud)
   ok  : byte[2] = 55  (real baud)
@@ -24,6 +24,6 @@
   ok  : sample point: a +3% slower transmitter still decodes (mid-bit sampling)
   ok  : sample point: a -3% faster transmitter still decodes (mid-bit sampling)
   ok  : sample point: a +4% slower transmitter still decodes
-PASS: uart_rx 8N1 at the REAL 115200 baud (10 patterns, back-to-back, glitch reject, single-cycle done, sync reset)
+PASS: uart_rx 8N1 at REAL baud (BAUD_DIV=50 => 1000000 bps): 10 patterns, back-to-back, glitch reject, single-cycle done, sync reset
 
 

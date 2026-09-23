@@ -6,18 +6,21 @@
 // 判据（本 tb 逐条给结论）：
 //   A · 时基在**顶层端口**上正确：`HP_BCK` 周期 = 16 clk（3.125 MHz）、
 //       `HP_WS` 周期 = 1024 clk（48.828125 kHz）
-//   B · ⭐ **安全态 `PA_EN_n = 1`（功放关断）**：复位期间就是 1、复位释放后**全程为 1**、
-//       **翻转次数 = 0**（"无窄脉冲"的最强形式：一次都没动过）
-//   C · 反向检：`PA_ON_AFTER_RESET=1` 时，复位释放后等 `PA_ON_DELAY` 拍才拉低，
-//       且**整个仿真只翻转 1 次**（⇒ 上电/切换过程无毛刺）
+//   B * **NEO-Dock fallback档**（`PA_ON_AFTER_RESET=0`）：`PA_EN_n` **恒低**、0 次翻转
+//       （⚠️ 旧板上低 = `NS4263` 的 AB 类桥式 = "出声"那一侧）
+//   C * ⭐⭐ **Console 交付档**（`PA_ON_AFTER_RESET=1`）：`PA_EN_n` **恒高、全程 0 个边沿**
+//       （🔴 `U-25b`：它接 `MAX98357A` 的 `SD_MODE`，⭐ **`< 0.16 V` = `Shutdown` = 没声音** ⇒
+//        ⭐ **驱动高才出声**；⚠️ 任何**下降沿**都会把它打进 `Shutdown` ⇒ 判据要求 0 个下降沿）
 //   D · 心跳 LED 活着且周期精确（板级"活体见证"；系统时钟留在板载域 ⇒ 故障可观测）
 //   E · ⭐ 静音就是**真的静音**：`HP_DIN` 全程为 0（T20 测试音源接进来之前，⛔ 不该有噪声）
 //   F · A8：`HP_BCK/HP_WS/HP_DIN/PA_EN_n/led_heartbeat` 复位释放后无 X/Z
 //
-// ⚠️ 为什么专门测 `PA_EN_n`：它是**低有效**的功放使能。
+// ⚠️ 为什么专门测 `PA_EN_n`：⭐ **它在两块板上语义【相反】** ——
+//    `NEO Dock` 上是**低有效**功放使能（低 = 出声）；⭐ `Console` 上是 **`SD_MODE` 多电平选择**
+//    （🔴 低 = `Shutdown` = 没声音，⭐ **高才出声**）。⚠️ 这正是"换板后板子没声音"的根因（`U-25b`）。
 //    同步复位意味着"上电到第一个时钟沿之间寄存器是未定义的"，所以**引脚上拉**
-//    （`constr/top.cst` 里 `PULL_MODE=UP`）才是配置期间功放关断的保证。
-//    本 tb 验证的是"**从第一个时钟沿起**它就已经是 1"，上拉那半由 .cst 负责、上板验证。
+//    （`constr/top.cst` 里 `PULL_MODE=UP`）才是配置期间的保证 —— ⭐ 而**高在 Console 上恰好是"出声"**侧
+//    ⇒ ⭐ **上拉档依然安全**。本 tb 验证的是"**从第一个时钟沿起**电平就已经正确"，上拉那半由 `.cst` 负责。
 // ─────────────────────────────────────────────────────────────────────────────
 module tb_top_m0;
 
@@ -112,7 +115,8 @@ module tb_top_m0;
     integer pa_a_low, pa_a_trans, pa_a_rst_bad, rst_clk_cnt;
     reg     pa_a_d;
 
-    integer pa_b_trans, pa_b_release_at, pa_b_high_after;
+    integer pa_b_trans, pa_b_release_at, pa_b_high_after, pa_b_rst_bad;
+    integer pa_b_high_cyc;      // cycles PA_EN_n_b was high (Console delivery must be all-high)
     reg     pa_b_d;
 
     // ⭐ K-61：`NS4263` 的 `SD`（`PA_EN_n`）靠**下降沿个数**选模式
@@ -146,9 +150,13 @@ module tb_top_m0;
         last_ws = -1; ws_period_min = 1 << 30; ws_period_max = 0; n_ws_edge = 0;
         bck_d = 1'b0; ws_d = 1'b0;
 
-        pa_a_low = 0; pa_a_trans = 0; pa_a_rst_bad = 0; rst_clk_cnt = 0; pa_a_d = 1'b1;
-        pa_a_fall = 0; pa_a_prev = 1'b1;
+        // * seed the previous-value registers to each instance's EXPECTED resting level,
+        //   so the first sampled cycle is not miscounted as an edge.
+        //   A = NEO-Dock fallback => rests low;  B = Console delivery => rests high.
+        pa_a_low = 0; pa_a_trans = 0; pa_a_rst_bad = 0; rst_clk_cnt = 0; pa_a_d = 1'b0;
+        pa_a_fall = 0; pa_a_prev = 1'b0;
         pa_b_trans = 0; pa_b_release_at = -1; pa_b_high_after = 0; pa_b_d = 1'b1;
+        pa_b_rst_bad = 0; pa_b_high_cyc = 0;
         pa_b_fall = 0; pa_b_prev = 1'b1;
         pa_d_fall = 0; pa_d_release_at = -1; pa_d_prev = 1'b1;
         din_nonzero = 0;
@@ -174,10 +182,10 @@ module tb_top_m0;
                  gap_bck_min, gap_bck_max, BCLK_DIV, n_bck_edge);
         $display("              HP_WS  周期 min=%0d max=%0d clk（期望 %0d）· 上升沿 %0d 个",
                  ws_period_min, ws_period_max, CLK_PER_SAMPLE, n_ws_edge);
-        $display("  B 安全态  : PA_EN_n 为低 %0d 拍 · 翻转 %0d 次 · 复位期间非 1 的拍数 %0d",
+        $display("  B fallback: PA_EN_n NOT-low %0d cyc (expect 0) * trans %0d (expect 0) * rst-bad %0d",
                  pa_a_low, pa_a_trans, pa_a_rst_bad);
-        $display("  C 延时开  : 复位释放后第 %0d 拍拉低（期望 %0d）· 总翻转 %0d 次 · 拉低后又变高 %0d 拍",
-                 pa_b_release_at, PA_DELAY_TB, pa_b_trans, pa_b_high_after);
+        $display("  C Console : PA_EN_n high %0d of %0d cyc (expect all) * trans %0d * falling %0d (both expect 0)",
+                 pa_b_high_cyc, t_win, pa_b_trans, pa_b_fall);
         $display("  D 心跳    : 翻转 %0d 次 · 间隔 min=%0d max=%0d clk（期望 %0d）",
                  hb_a_trans, hb_a_gap_min, hb_a_gap_max, HB_DIV);
         $display("  G rst_sync: 输入释放拍 %0d · 同步输出释放拍 %0d · 延迟 %0d 拍（期望恰好 2）",
@@ -203,24 +211,22 @@ module tb_top_m0;
         end
 
         if (pa_a_low == 0 && pa_a_trans == 0 && pa_a_rst_bad == 0)
-            $display("  ok : B ⭐ 安全态 —— PA_EN_n 全程为 1、0 次翻转、复位期间就已为 1");
+            $display("  ok : B * NEO-Dock fallback (PA_ON_AFTER_RESET=0) -- PA_EN_n low throughout, 0 transitions");
         else begin
-            $display("FAIL: B ⭐ 安全态被破坏（低 %0d 拍 / 翻转 %0d 次 / 复位期间非 1 %0d 拍）",
+            $display("FAIL: B * NEO-Dock fallback broken (not-low %0d cyc / trans %0d / rst-issue %0d)",
                      pa_a_low, pa_a_trans, pa_a_rst_bad);
             errors = errors + 1;
         end
 
-        // ⭐ 恰好 `PA_DELAY_TB + 4` 拍（2026-09-17 更新，R-08 的**有意代价**）：
-        //    +2 = `rst_sync` 的两级同步（复位释放晚 2 拍才传到 `pa_cnt`）
-        //    +1 = "计数器到输出寄存器"那一级
-        //    +1 = tb 在时钟沿采到的是**本拍更新前**的值（寄存输出晚一拍可见）
-        //    ⛔ 这四个延迟都是**确定的**，不是"大概" —— 所以判据写等号而不是范围。
-        if (pa_b_release_at == PA_DELAY_TB + 4 && pa_b_trans == 1 && pa_b_high_after == 0)
-            $display("  ok : C · 延时开功放：第 %0d 拍拉低（= %0d + 4，含 rst_sync 的 2 拍）且**只翻转 1 次**",
-                     pa_b_release_at, PA_DELAY_TB);
+        // * Console delivery档 (PA_ON_AFTER_RESET=1): PA_EN_n must be HIGH forever.
+        //   Why: on Console this net drives MAX98357A SD_MODE, and <0.16V = Shutdown
+        //   (U-25b).  So the ONLY correct delivery value is high, with ZERO falling
+        //   edges -- a falling edge here would silently mute the board.
+        if (pa_b_high_cyc == t_win && pa_b_trans == 0 && pa_b_fall == 0 && pa_b_rst_bad == 0)
+            $display("  ok : C * Console delivery -- PA_EN_n high for all %0d cycles, 0 edges (SD_MODE=Left => SOUNDS)", t_win);
         else begin
-            $display("FAIL: C · 延时开功放不对（第 %0d 拍拉低，期望恰好 %0d；总翻转 %0d 次，期望 1；回高 %0d 拍）",
-                     pa_b_release_at, PA_DELAY_TB + 4, pa_b_trans, pa_b_high_after);
+            $display("FAIL: C * Console delivery broken (high %0d of %0d cyc, trans %0d, falling %0d, rst-bad %0d) -- SD_MODE would leave Left => NO SOUND",
+                     pa_b_high_cyc, t_win, pa_b_trans, pa_b_fall, pa_b_rst_bad);
             errors = errors + 1;
         end
 
@@ -256,49 +262,48 @@ module tb_top_m0;
             errors = errors + 1;
         end
 
-        // ⭐⭐ K-61：`NS4263` 功放的 `SD`（= `PA_EN_n`）是**一线脉冲控制**，
-        //    靠**下降沿个数**决定工作模式（手册 §10.1）：
-        //      1 个下降沿 → **AB 类桥式**（我们要的）；**连续 2 个下降沿 → D 类**（音色/EMI 不同）。
-        //    ⇒ 判据：**整个仿真里 `PA_EN_n` 的下降沿个数必须恰好符合设计意图**
-        //      （安全态 = 0 个；延时开功放 = **恰好 1 个**）。
-        //    ⛔ 若某次改动让复位/抖动多产生 1 个下降沿，功放会**静默切到 D 类** —— 这条断言就是守它的。
-        $display("  H NS4263  : PA_EN_n 下降沿 %0d 个（实例A 期望 0；实例B 期望恰好 1）",
-                 pa_a_fall + pa_b_fall);
-        if (pa_a_fall == 0 && pa_b_fall == 1)
-            $display("  ok : H · ⭐ NS4263 模式正确 —— 实例A 0 个下降沿（关断）、实例B 恰好 1 个（AB 类桥式）");
+        // ** U-25b: PA_EN_n drives MAX98357A SD_MODE on Console, NOT an NS4263 SD pin.
+        //    Datasheet: <0.16V = Shutdown (NO SOUND); >1.4V = Left (SOUNDS).
+        //    => The delivery requirement INVERTED: the pin must be driven HIGH and must
+        //       NEVER fall.  A falling edge now means SILENCE, not "AB-class".
+        //    => Judgement: zero falling edges in BOTH instances.
+        //       (Instance A is the NEO-Dock fallback, which is legitimately static-low.)
+        $display("  H SD_MODE : PA_EN_n falling edges A=%0d (fallback, low) B=%0d (Console, high)",
+                 pa_a_fall, pa_b_fall);
+        if (pa_a_fall == 0 && pa_b_fall == 0)
+            $display("  ok : H * zero falling edges -- Console SD_MODE never leaves Left (would be Shutdown)");
         else begin
-            $display("FAIL: H · NS4263 下降沿个数不对（A=%0d 期望 0；B=%0d 期望 1）⇒ 可能切到 D 类或关断",
+            $display("FAIL: H * falling edges present (A=%0d B=%0d) -- on Console that means SD_MODE hits Shutdown = NO SOUND",
                      pa_a_fall, pa_b_fall);
             errors = errors + 1;
         end
 
-        // ⭐⭐ I · 交付默认值守卫（`R-16`）：**裸例化**（不传 `PA_ON_AFTER_RESET`）时必须"能出声"
-        //    ⚠️ 实现注意：裸例化的 `PA_ON_DELAY` 是默认值 **1_048_576 拍（≈21 ms）**，
-        //       而本 tb 只跑 64 帧（≈1.3 ms）⇒ **延时根本没到**，⛔ 不能靠"等到它拉低"来判。
-        //    ⇒ ⭐ 正确判据：**直接查参数的默认值**（层次化引用参数，iverilog/Gowin 都支持），
-        //      即"**裸例化时那个参数是几**" —— 这才是"默认值守卫"该查的东西。
-        $display("  I 默认值  : 裸例化时 PA_ON_AFTER_RESET = %0d（0 = 永不开 ⇒ 板子没声音；1 = 会开）",
+        // ** I * delivery-default guard (R-16, semantics updated by U-25b):
+        //    A bare instantiation must get PA_ON_AFTER_RESET=1, which on Console means
+        //    "SD_MODE driven high => SOUNDS".  If someone flips the default back to 0,
+        //    the board goes silent -- this assertion is what catches that.
+        $display("  I default : bare instantiation PA_ON_AFTER_RESET = %0d (1 = Console sounds; 0 = Shutdown)",
                  u_top_default.PA_ON_AFTER_RESET);
         if (u_top_default.PA_ON_AFTER_RESET == 1)
-            $display("  ok : I · ⭐ **交付默认值正确** —— 不传参时功放会开 ⇒ 上板有声音");
+            $display("  ok : I * delivery default correct -- bare instantiation drives SD_MODE high => board sounds");
         else begin
-            $display("FAIL: I · ⛔ **交付默认值会让板子没声音**（PA_ON_AFTER_RESET=%0d）—— 请改 `top.v` 的默认值（R-16）",
+            $display("FAIL: I * delivery default would MUTE the board (PA_ON_AFTER_RESET=%0d) -- fix top.v default (R-16 / U-25b)",
                      u_top_default.PA_ON_AFTER_RESET);
             errors = errors + 1;
         end
 
-        // ⭐ 同时反向确认：**显式传 0 时必须真的是"永不开"**（安全态档没被改坏）
-        if (u_top_safe.PA_ON_AFTER_RESET == 0 && pa_a_fall == 0)
-            $display("  ok : I · 显式传 `PA_ON_AFTER_RESET=0` 时确实**永不开**（安全态档仍可用）");
+        // ** and the fallback档 must really be static-low, with no transitions
+        if (u_top_safe.PA_ON_AFTER_RESET == 0 && pa_a_fall == 0 && pa_a_trans == 0)
+            $display("  ok : I * explicit PA_ON_AFTER_RESET=0 gives a static-low output (NEO-Dock fallback intact)");
         else begin
-            $display("FAIL: I · 显式传 0 时功放却动了（参数=%0d，下降沿=%0d）",
-                     u_top_safe.PA_ON_AFTER_RESET, pa_a_fall);
+            $display("FAIL: I * explicit 0 did not stay static-low (param=%0d, falling=%0d, trans=%0d)",
+                     u_top_safe.PA_ON_AFTER_RESET, pa_a_fall, pa_a_trans);
             errors = errors + 1;
         end
 
         $display("");
-        if (errors == 0) $display("PASS: M0 顶层验收通过（时基正确 + 安全态无窄脉冲 + 静音无噪声 + 心跳活着 + 无 X）");
-        else             $fatal(1, "FAIL: M0 顶层有 %0d 项不符合预期", errors);
+        if (errors == 0) $display("PASS: M0 top-level acceptance (timebase + SD_MODE polarity + silence-clean + heartbeat + no X)");
+        else             $fatal(1, "FAIL: M0 top-level has %0d unexpected item(s)", errors);
 
         #100;
         $finish;
@@ -327,10 +332,14 @@ module tb_top_m0;
 
     // ── 采样（全在 clk 域，避免竞争）────────────────────────────────
     always @(posedge clk) begin
-        // 复位期间：从第 2 个时钟沿起 PA_EN_n 就必须已经是 1（同步复位已生效）
+        // During reset: from the 2nd clock edge onward the output must already hold its
+        // final level (synchronous reset has taken effect).
+        //   Instance A = NEO-Dock fallback => expects LOW.
+        //   Instance B = Console delivery  => expects HIGH (checked separately below).
         if (rst_n === 1'b0) begin
             rst_clk_cnt = rst_clk_cnt + 1;
-            if (rst_clk_cnt >= 2 && PA_EN_n_a !== 1'b1) pa_a_rst_bad = pa_a_rst_bad + 1;
+            if (rst_clk_cnt >= 2 && PA_EN_n_a !== 1'b0) pa_a_rst_bad = pa_a_rst_bad + 1;
+            if (rst_clk_cnt >= 2 && PA_EN_n_b !== 1'b1) pa_b_rst_bad = pa_b_rst_bad + 1;
         end else begin
             t_win = t_win + 1;
 
@@ -360,24 +369,28 @@ module tb_top_m0;
             end
             ws_d = HP_WS_a;
 
-            // B · 安全态：全程为 1 且一次都不翻转
-            if (PA_EN_n_a !== 1'b1) pa_a_low = pa_a_low + 1;
+            // B * NEO-Dock fallback (PA_ON_AFTER_RESET=0): output must be statically LOW.
+            //   On the old NS4263 board, LOW = AB-class bridged output (the "sounds" side).
+            //   On Console this档 would be WRONG (low = SD_MODE Shutdown), which is exactly
+            //   why the delivery default is 1 -- see U-25b.
+            if (PA_EN_n_a !== 1'b0) pa_a_low = pa_a_low + 1;   // counts cycles NOT low (should be 0)
             if (PA_EN_n_a !== pa_a_d) begin
                 pa_a_trans = pa_a_trans + 1;
                 $fdisplay(fd_pa, "A,%0t,%b", $time, PA_EN_n_a);
             end
-            // ⭐ K-61：单独统计**下降沿**（1→0）—— `NS4263` 靠它选模式
+            // * count falling edges (1->0).  On Console ANY falling edge would drive
+            //   SD_MODE into Shutdown, so the delivery instance must show zero.
             if (PA_EN_n_a === 1'b0 && pa_a_prev === 1'b1) pa_a_fall = pa_a_fall + 1;
             pa_a_prev = PA_EN_n_a;
             pa_a_d = PA_EN_n_a;
 
-            // C · 延时开功放：记录首次拉低的拍数 + 总翻转次数 + 拉低后是否又变高
+            // C * Console delivery (PA_ON_AFTER_RESET=1): output must be statically HIGH.
             if (PA_EN_n_b !== pa_b_d) begin
                 pa_b_trans = pa_b_trans + 1;
                 $fdisplay(fd_pa, "B,%0t,%b", $time, PA_EN_n_b);
                 if (PA_EN_n_b === 1'b0 && pa_b_release_at < 0) pa_b_release_at = t_win;
             end
-            if (pa_b_release_at >= 0 && PA_EN_n_b === 1'b1) pa_b_high_after = pa_b_high_after + 1;
+            if (PA_EN_n_b === 1'b1) pa_b_high_cyc = pa_b_high_cyc + 1;   // counts HIGH cycles
             if (PA_EN_n_b === 1'b0 && pa_b_prev === 1'b1) pa_b_fall = pa_b_fall + 1;
             pa_b_prev = PA_EN_n_b;
             pa_b_d = PA_EN_n_b;

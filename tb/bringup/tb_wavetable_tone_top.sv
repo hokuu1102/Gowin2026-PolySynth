@@ -209,8 +209,13 @@ module tb_wavetable_tone_top;
             $display("FAIL: left/right mono copies differ %0d time(s)", stereo_mismatch);
             errors = errors + 1;
         end
-        if (pa_fall_count != 1 || PA_EN_n !== 1'b0) begin
-            $display("FAIL: PA_EN_n must make exactly one falling edge and stay low");
+        // U-25b: on Console this net drives MAX98357A SD_MODE, where <0.16V = Shutdown.
+        //   So the delivery requirement is HIGH with ZERO falling edges (a falling edge
+        //   would silently mute the board).  The old "exactly one falling edge" rule
+        //   belonged to the NEO-Dock NS4263, which is now only the fallback档.
+        if (pa_fall_count != 0 || PA_EN_n !== 1'b1) begin
+            $display("FAIL: PA_EN_n must stay HIGH with zero falling edges (SD_MODE=Left => sounds); saw %0d falling edge(s), final=%b",
+                     pa_fall_count, PA_EN_n);
             errors = errors + 1;
         end
         if (heartbeat_toggle_count < 2) begin

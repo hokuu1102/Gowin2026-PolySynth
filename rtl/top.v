@@ -3,20 +3,24 @@
 //
 // 本版只做 M0 需要的东西，刻意最小：
 //   ① `clk_gen` 产生全部节拍     ② `i2s_tx` 把样点送到板载 DAC
-//   ③ **安全态**：`PA_EN_n = 1`（功放关断）、无窄脉冲
+//   ③ ⭐ **安全态**：`PA_EN_n` 驱动**高**（Console 上是 `SD_MODE`，⚠️ 低 = `Shutdown`）、无窄脉冲
 //   ④ ⭐ **板级"活体见证"**：一个心跳 LED —— 系统时钟留在板载域，
 //      即使别的模块出问题，**心跳仍活着 ⇒ 故障可观测**（上一个项目踩过"全设计换 PLL 时钟后板子全死、
 //      连 UART 都没输出"的坑，见 `files/20-代码/已知问题与风险清单.md` `K-41` / 经验库 `L31`）
 //
 // ⭐ 引脚全部来自**官方 60K 引脚约束**（`files/开发板原理图/tang_mega_60K_pins.cst`，本地、被 gitignore）：
 //    `clk=V22`(LVCMOS33) `rst_n=AA13`(LVCMOS15/PULL_UP)
-//    `HP_BCK=Y17` `HP_WS=AB17` `HP_DIN=AA16` `PA_EN_n=AB16`（⛔ 低有效）
-//    `led_heartbeat=LEDs[0]=T18`（⚠️ 与 `SDRAM1_D6`/PMOD 复用，本设计不用 SDRAM）
+//    `HP_BCK=Y17` `HP_WS=AB17` `HP_DIN=AA16`
+//    🔴 **`PA_EN_n=Y14`**（⚠️ **2026-09-22 换板后改**：⛔ **不是 `AB16`** —— 那是 `USB_TERM_RXDN`）
+//       ⚠️ `Y14` 属 **`BANK9` = 1.5 V** ⇒ ⛔ **必须 `LVCMOS15`**；⭐ `PULL_MODE=UP`
+//       🔴 它接 **`MAX98357A` 的 `SD_MODE`** ⇒ ⭐ **高 = 出声（Left），低 = `Shutdown`**
+//          ⇒ ⭐ **"驱动高"是本设计出声的前提**（⚠️ 旧的"低有效"语义已作废）
+//    ⭐ `led_heartbeat=V13`（⚠️ **2026-09-22 换板后改**：⛔ **不是 `T18`** —— 那是 `SDRAM1_D6`）
 //
 // ⚠️ 复位：**同步复位、低有效**（`files/20-代码/W3接口冻结表.md` §〇 约定 2）。
 //    ⚠️ 但同步复位意味着**上电到第一个时钟沿之间寄存器是未定义的** —— 对 `PA_EN_n` 这种
-//    "必须上电就安全"的脚，靠的是**引脚上拉**：`.cst` 里给 `PA_EN_n` 设 `PULL_MODE=UP`
-//    ⇒ FPGA **配置期间**它被上拉为高 = 功放关断（官方例程同样这么做）。
+//    "必须上电就是正确电平"的脚，靠的是**引脚上拉**：`.cst` 里给 `PA_EN_n` 设 `PULL_MODE=UP`
+//    ⇒ FPGA **配置期间**它被上拉为高，而 ⭐ **高在 Console 上恰好是"出声"那一侧** ⇒ ⭐ **依然是安全态**。
 //
 // ⛔ 本版**还没有**（按第一周范围，属后续任务）：
 //    · ⚠️ **结构上还没按"三个包顶层"接**：`files/20-代码/代码总览图.md` 的最终形态是
@@ -72,7 +76,7 @@ module top #(
     output wire HP_BCK,          // Y17 · 位时钟 3.125 MHz（= 64 × fs）
     output wire HP_WS,           // AB17 · 帧时钟 48.828125 kHz（低 = 左）
     output wire HP_DIN,          // AA16 · 串行数据（⭐ 标准 I2S 左对齐）
-    output wire PA_EN_n,         // AB16 · ⚠️ ⭐ **在 Console 上【不是功放使能】**，见下方说明
+    output wire PA_EN_n,         // 🔴 Y14（⛔ 不是 AB16）· 接 MAX98357A 的 SD_MODE ⇒ ⭐ **高 = 出声**，见下方说明
 
     // ── 板级活体见证 ────────────────────────────────────────────────
     output wire led_heartbeat    // LEDs[0] = T18
@@ -282,6 +286,59 @@ module top #(
             .cfg_warn_o     (met_cfg_warn)
         );
 
+        // ⭐⭐ T36 / U-6：事件合流（手弹/曲谱 + 节拍器 → note_manager 的**唯一**事件口）
+        //   🔴 **为什么必须加它**：`note_manager` 只有一个事件口，
+        //      而原来两路是**直接或在一起**的 ⇒ ⚠️ **同拍相撞会静默丢一条**
+        //      （`note_valid_i` 只响一拍）。⭐ 本模块保证**两路同拍不丢**。
+        //   ⚠️ **代价（已评估）**：同拍时后发那条**晚 1 拍 = 20 ns**，
+        //      ⭐ **远小于一个音频帧 20.48 µs** ⇒ 听感不可分辨。
+        //   ⭐ 可观测：`mg_collision_cnt` / `mg_merged_cnt` / `mg_drop_cnt` / `mg_overflow`
+        //      （`K-106` 纪律：⛔ 容量有限的路径不许静默失效）
+        wire        mg_evt_valid;
+        wire [3:0]  mg_evt_axis;
+        wire [31:0] mg_evt_inc;
+        wire [7:0]  mg_evt_vel;
+        wire [1:0]  mg_evt_kind;
+        wire [15:0] mg_collision_cnt;
+        wire [15:0] mg_merged_cnt;
+        wire [15:0] mg_drop_cnt;
+        wire        mg_overflow;
+
+        evt_merge #(
+            .AXIS_W  (4),
+            .PHASE_W (32),
+            .VEL_W   (8),
+            .KIND_W  (2),
+            .DEPTH   (4)              // ⭐ 深度 4：两源各 ≤1 条/拍，足够吸收突发
+        ) u_evt_merge (
+            .clk_i            (clk),
+            .rst_n_i          (rst_n_sync),
+            // ── 源 A：演示和弦（⭐ 将来接 `play_seq` 的曲谱事件）────────────
+            .a_valid_i        (demo_note_valid),
+            .a_axis_i         (demo_note_axis),
+            .a_phase_inc_i    (demo_note_inc),
+            .a_velocity_i     (demo_note_vel),
+            .a_kind_i         (demo_note_kind),
+            // ── 源 B：节拍器 ──────────────────────────────────────────────
+            .b_valid_i        (met_evt_valid),
+            .b_axis_i         (met_evt_axis),
+            .b_phase_inc_i    (met_evt_inc),
+            .b_velocity_i     (met_evt_vel),
+            .b_kind_i         (met_evt_kind),
+            // ── 合流输出 → `note_manager` ────────────────────────────────
+            .evt_valid_o      (mg_evt_valid),
+            .evt_axis_o       (mg_evt_axis),
+            .evt_phase_inc_o  (mg_evt_inc),
+            .evt_velocity_o   (mg_evt_vel),
+            .evt_kind_o       (mg_evt_kind),
+            // ── 可观测性（⚠️ 未引到引脚，但综合时**不要**被优化掉：
+            //    它们驱动的是寄存器 → 会保留；⭐ 上板可用调试核读）──────────
+            .collision_cnt_o  (mg_collision_cnt),
+            .merged_cnt_o     (mg_merged_cnt),
+            .drop_cnt_o       (mg_drop_cnt),
+            .overflow_o       (mg_overflow)
+        );
+
         // ⭐ voice 分配 / 抢占 / 参数更新（T54）
         note_manager #(
             .POLY_TARGET (POLY_TARGET),
@@ -303,20 +360,20 @@ module top #(
             .clk_i             (clk),
             .rst_n_i           (rst_n_sync),
             .sample_tick_i     (tick_audio),
-            // ⚠️  TEMPORARY merge (T36 will replace this with evt_merge.v):
-            //     note_manager has exactly ONE event port, so the demo chord and
-            //     the metronome have to share it.  Hand-played notes win; if both
-            //     fire on the same cycle the metronome event is LOST.
-            //     ✅ This cannot happen during power-up: the demo chord fires at
-            //        2_000_000 clk while beats land at 26042 clk +/- , and the two
-            //        sources use different axis pools (0/1/2 vs 4'hE), so even a
-            //        collision cannot cross pools.  It CAN happen once real
-            //        playing is wired up -- which is why T36 is on the ledger.
-            .note_valid_i      (demo_note_valid | met_evt_valid),
-            .note_axis_i       (demo_note_valid ? demo_note_axis : met_evt_axis),
-            .note_phase_inc_i  (demo_note_valid ? demo_note_inc  : met_evt_inc),
-            .note_velocity_i   (demo_note_valid ? demo_note_vel  : met_evt_vel),
-            .note_kind_i       (demo_note_valid ? demo_note_kind : met_evt_kind),
+            // ⭐⭐ T36 / U-6（2026-09-22）：两个源经 `evt_merge` 合流。
+            //   🔴 这里原来是把两路**直接或在一起**：
+            //        .note_valid_i (demo_note_valid | met_evt_valid)
+            //        .note_axis_i  (demo_note_valid ? demo_note_axis : met_evt_axis)
+            //      ⇒ ⚠️ **同拍相撞时 demo 赢、met 的事件【静默消失】**
+            //        （`note_valid_i` 只响一拍，那一整条事件就永久没了）。
+            //   ⭐ 现在由 `evt_merge` 仲裁：⭐ **两路同拍【不丢】**，
+            //      后发的那条**晚 1 拍**（20 ns）—— 远小于一个音频帧 20.48 µs
+            //      ⇒ ⭐ 听感不可分辨；而"丢一条"是永久损失。
+            .note_valid_i      (mg_evt_valid),
+            .note_axis_i       (mg_evt_axis),
+            .note_phase_inc_i  (mg_evt_inc),
+            .note_velocity_i   (mg_evt_vel),
+            .note_kind_i       (mg_evt_kind),
             // ⚠️ 力度/音高修正通路本版**未接**（要等 W3a 采集链落地）⇒ 恒 0
             .vel_upd_valid_i   (1'b0),
             .vel_upd_axis_i    (4'd0),
@@ -483,68 +540,60 @@ module top #(
         .HP_DIN       (HP_DIN)
     );
 
-    // ── ⚠️⚠️ `PA_EN_n`：⭐ 换板后【已不是"功放使能"】—— 语义变了 ──────────────
+    // ── ⚠️⚠️ `PA_EN_n`：⭐ 换板后【语义变了】—— 从"低有效功放使能"变成"多电平模式选择" ──
     //
-    //   🔴 **2026-09-22 换板 Tang Console 60K 的结论（U-25）**：
+    //   🔴 **2026-09-22 换板 Tang Console 60K 的结论（U-25b）**：
     //      ⭐ **Console 上【不存在】** `PA_EN` 这个功放使能脚。
-    //      ⚠️ `PA_EN` **网络**经 `R54 (0R)` 接到 `MAX98357A` 的 **`SD_MODE`** 脚
-    //         —— ⭐ **`SD_MODE` 是【声道/模式选择】，⛔ 不是功放使能**
-    //         （手册 Table 5：High=Left / RSMALL 上拉=Right / RLARGE 上拉=(L+R)/2 / Low=Shutdown）。
-    //      ⇒ ⭐ **原来那套"一线脉冲控制"逻辑（为 `NS4263` 写的）在 Console 上【无意义】**。
+    //      ⚠️ `PA_EN` **网络** = SOM pin 52 = **`Y14`**，经 `R54 (0R)` 直连
+    //         `MAX98357A` 的 **`SD_MODE`**，且该网络**只有 `R89 51K` 下拉**
+    //         （⛔ **不是分压** ⇒ **电平完全由本脚决定**；⚠️ 芯片内部还有 `100 kΩ` 下拉
+    //          ⇒ ⛔ **悬空也是 Shutdown**）。
+    //      🔴 **`SD_MODE` 是多电平输入（手册）**：
+    //         | 电平 | 模式 |
+    //         | **`< 0.16 V`** | 🔴 **`Shutdown`（没声音）** |
+    //         | `0.16~0.77 V` | `(L+R)/2` |
+    //         | `0.77~1.4 V` | Right |
+    //         | **`> 1.4 V`** | ⭐ **Left（我们要的）** |
+    //      ⇒ ⭐⭐ **要出声必须驱动【高】、⛔ 不是低**（⭐ 低 = 静音）。
     //
-    //   ⭐ **本模块的做法**：⛔ **不删端口、不改 `.cst`**，只把**驱动源**变成常量 ——
-    //      ① **不再产生任何"下降沿脉冲"**；
-    //      ② ⭐ **端口与引脚约束保留** ⇒ ⚠️ **不用改冻结的端口列表**（§〇 约定 5 要通知全员）；
-    //      ③ ⭐ **`PA_ON_AFTER_RESET` 保留** ⇒ ⭐ 为"回退 NEO Dock"留开关。
+    //   🔴 **本条就是"换板后板子没声音"的根因**：
+    //      ⚠️ 旧代码（为 `NEO Dock` 的 `NS4263` 写的）在 `PA_ON_AFTER_RESET=1` 时
+    //      **把 `PA_EN_n` 拉低** ⇒ ⭐ **落进 `Shutdown`** ⇒ 🔴 **板子不出声**。
+    //      ⚠️ 而 `.cst` 已改对（`Y14`/`LVCMOS15`）⇒ ⭐ **只改 `.cst` 不改 RTL 依然没声音**。
     //
-    //   ⚠️ **恒高（1）的含义**：
-    //      · 对 **Console**：`SD_MODE` 若真由此脚驱动 ⇒ **高 = 取左声道**（Table 5），
-    //        ⭐ 我们左右送同一路（单声道）⇒ ⭐ **取左或取右都一样**。
-    //        ⚠️ **若板上电阻分压已决定档位，本脚可能根本不参与**（⚠️ 待实测，`C-8`）。
-    //      · 对 **NEO Dock**（若回退）：高 = **低功耗关断** ⇒ ⚠️ **不会出声**
-    //        ⇒ ⭐ **回退旧板时必须把 `PA_ON_AFTER_RESET` 置 1**。
+    //   ⭐ **本模块现在的做法**：
+    //      ① ⭐ **`PA_ON_AFTER_RESET=1`（默认）⇒ 恒【高】** ⇒ `SD_MODE` 取 **Left**；
+    //         ⭐ 我们 `sample_l`/`sample_r` 送的是**同一路单声道** ⇒ **取左或取右都一样**；
+    //      ② ⛔ **不再产生任何"下降沿脉冲"**（⭐ 那套 `NS4263` 一线脉冲语义在 Console 上无意义）；
+    //      ③ ⭐ **端口与引脚约束保留** ⇒ ⛔ **不用改冻结的端口列表**（§〇 约定 5 要通知全员）；
+    //      ④ ⭐ **`PA_ON_AFTER_RESET=0` 保留为 `NEO Dock` 回退档**：那时它=**低**
+    //         （⚠️ 旧板上 **低 = NS4263 的 AB 类桥式输出**，即"出声"那侧）。
     //
-    //   📌 **以下历史说明【仅留痕】**（⚠️ 那是 `NS4263` 的，⛔ 对 Console 不适用）：
-    //     `2026-09-17 查 NS4263 手册`：`SD` 是**一线脉冲控制**（下降沿个数决定模式）：
-    //       | `SD` | 工作模式 |
-    //       | **初始化低 或 一个下降沿** | **AB 类，桥式输出** | ← 当时要的
-    //       | **连续两个下降沿** | **D 类，桥式输出** |
-    //       | 低 | AB 类，单端（耳机） |
-    //       | **高（>100 µs）** | **低功耗关断** |
-    //     ⇒ 当时要求"上电到稳态只允许恰好 1 个下降沿"。⚠️ **Console 上无此语义** ⇒ 不再需要。
+    //   ⚠️ **电平注意**：`Y14` 属 **`BANK9` = 1.5 V** ⇒ ⛔ 必须 `LVCMOS15`（`.cst` 已对），
+    //      驱动高 ≈ `1.3~1.5 V` ⇒ ⭐ 仍 **> 1.4 V 门槛的临界/达标** ⇒ ⭐ **上板实测确认取 Left**。
     reg pa_en_n_r;
 
     generate
         if (PA_ON_AFTER_RESET == 0) begin : g_pa_off
-            // M0 安全态：**永远关断**（0 个下降沿；无窄脉冲、无上电"啪"声）
+            // ⭐ **NEO Dock 回退档**：旧板上"低"= AB 类桥式输出（出声）⇒ 恒低。
+            //   ⚠️ 若把本档用到 Console 上 ⇒ 🔴 **`SD_MODE` < 0.16 V = Shutdown = 没声音**。
             always @(posedge clk) begin
-                if (!rst_n_sync) pa_en_n_r <= 1'b1;
-                else             pa_en_n_r <= 1'b1;
+                if (!rst_n_sync) pa_en_n_r <= 1'b0;
+                else             pa_en_n_r <= 1'b0;
             end
         end else begin : g_pa_on
-            // ⭐ **一次性**延时开功放：复位释放后等 `PA_ON_DELAY` 拍，然后**永久保持低**
-            //    ⇒ 全程**恰好 1 个下降沿** ⇒ NS4263 进 **AB 类桥式输出**（我们要的）。
-            //    ⚠️ `pa_cnt` 位宽必须**够装下 `PA_ON_DELAY`**（原来 24 位，>16.7M 会永不到 ⇒ R-16）。
-            //       这里用 `$clog2` 自动算宽度。
-            localparam integer PA_CNT_W = (PA_ON_DELAY < 2) ? 1 : $clog2(PA_ON_DELAY + 1);
-            reg [PA_CNT_W-1:0] pa_cnt;
-            reg                pa_done;      // ⭐ 已开过 ⇒ 之后**永不再变**（保证只有 1 个下降沿）
+            // ⭐⭐ **Console 交付档（默认）**：恒【高】⇒ `SD_MODE` = Left ⇒ **出声**。
+            //   ⚠️ 为什么【无条件恒高、⛔ 不要延时计数器】：
+            //      ⭐ 旧逻辑是"等 `PA_ON_DELAY` 拍后拉低一次"（为 `NS4263` 造**恰好 1 个下降沿**）。
+            //      🔴 在 Console 上**那个下降沿本身就是致命动作** —— 它把 `SD_MODE` 从
+            //         "Left（出声）"打到 "Shutdown（静音）"。
+            //      ⇒ ⭐ **正确做法是【从头到尾保持高】**：⭐ 复位期间就是高
+            //        （⚠️ 这同时满足"上电无爆音"——`SD_MODE` 全程不出 Shutdown 跳变）。
+            //   📌 `PA_ON_DELAY` 参数**保留**（⛔ 不删）⇒ ⚠️ 供回退档/将来需要时使用，
+            //      但本档**不再使用它**（⭐ 若将来要"软启"应先确认不会跌破 `SD_MODE` 门槛）。
             always @(posedge clk) begin
-                if (!rst_n_sync) begin
-                    pa_cnt    <= {PA_CNT_W{1'b0}};
-                    pa_done   <= 1'b0;
-                    pa_en_n_r <= 1'b1;              // ⭐ 复位期间关断（高）
-                end else if (!pa_done) begin
-                    if (pa_cnt < PA_ON_DELAY[PA_CNT_W-1:0]) begin
-                        pa_cnt    <= pa_cnt + 1'b1;
-                        pa_en_n_r <= 1'b1;          // ⭐ 计时期间保持关断（高）
-                    end else begin
-                        pa_done   <= 1'b1;          // ⭐ 锁死：这是**唯一**的下降沿
-                        pa_en_n_r <= 1'b0;          // 开功放（1→0，恰好 1 个下降沿）
-                    end
-                end
-                // ⚠️ `pa_done` 之后**不再有任何赋值** ⇒ `pa_en_n_r` 永久保持 0
-                //    （⛔ 不要加"关断"分支：那会产生第 2 个下降沿 ⇒ D 类）
+                if (!rst_n_sync) pa_en_n_r <= 1'b1;   // ⭐ 复位期间即为高（配置期靠 .cst 的 PULL_UP=UP）
+                else             pa_en_n_r <= 1'b1;   // ⭐ 永远保持高 ⇒ ⛔ 无任何下降沿
             end
         end
     endgenerate
@@ -552,23 +601,21 @@ module top #(
     assign PA_EN_n = pa_en_n_r;
 
     // ── ⭐⭐ 参数自检（`R-16`，与 `clk_gen`/`tlc5916` 的 `PARAM_OK` 同一套路）──────────
-    //   ⚠️ 为什么要有它：这两个参数的**错误组合会静默失效**，而且**现象极难定位**：
-    //     ① `PA_ON_AFTER_RESET=0` ⇒ 功放**永远关断** ⇒ **喇叭/耳机都没声音**，
-    //        但 I2S 波形、DAC 输入、仿真结论**全都是对的** ⇒ 会让人去查 RTL，白费几小时；
-    //     ② `PA_ON_DELAY` 太大（超过 `PA_CNT_W` 能表示的范围）⇒ **永远数不到** ⇒ 同样"没声音"。
-    //        （`$clog2` 已按 `PA_ON_DELAY` 自动算位宽，所以这一条现在结构上不可能；
-    //          但仍把"上界"写出来，避免将来有人手改位宽。）
-    //   ⇒ 仿真启动时**明确打印状态**（⛔ 不是报错，因为 `0` 是合法的测试档）。
+    //   ⚠️ 为什么要有它：这两个档位的**错误选择会静默失效**，而且**现象极难定位**：
+    //     ① `PA_ON_AFTER_RESET=0` ⇒ 在 **Console** 上 `SD_MODE` 被拉低 ⇒
+    //        落进 **`Shutdown`（< 0.16 V）⇒ 没声音**，但 I2S 波形、DAC 输入、仿真结论
+    //        **全都是对的** ⇒ 会让人去查 RTL，白费几小时；
+    //     ② ⚠️ 反向：`=1` 若用到 **NEO Dock** 上 ⇒ 旧板 `SD` 高 = **低功耗关断** ⇒ 同样没声音。
+    //   ⇒ 仿真启动时**明确打印状态**（⛔ 不是报错，因为两个档位各自对一块板合法）。
     //   ⚠️ 换算成 ms 时**先除后乘**（避免 `PA_ON_DELAY * 1000` 在 20 位/32 位里溢出；
     //      同 `tlc5916` 的 `PER_CLK_NS`，见 `K-63`）。
     localparam integer PA_CLK_HZ       = 50_000_000;                                // V22 = 50 MHz（已查实）
     localparam integer PA_MS_X10       = (PA_ON_DELAY / (PA_CLK_HZ / 10_000)) ;      // 0.1 ms 单位
     initial begin
         if (PA_ON_AFTER_RESET == 0)
-            $display("NOTE [top] PA_ON_AFTER_RESET=0 ⇒ 功放**永久关断**（0 个下降沿）。这是 M0 安全态验证档；⚠️ 交付/上板请用 1，否则板子没声音（R-16）");
+            $display("NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.");
         else
-            $display("NOTE [top] PA_ON_AFTER_RESET=1 ⇒ 复位后等 %0d 拍（≈%0d.%0d ms）开功放，全程**恰好 1 个下降沿** ⇒ NS4263 进 AB 类桥式输出（K-61）",
-                     PA_ON_DELAY, PA_MS_X10 / 10, PA_MS_X10 % 10);
+            $display("NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.");
     end
 
     // ── 心跳 LED（活体见证）─────────────────────────────────────────

@@ -1,0 +1,18 @@
+﻿VCD info: dumpfile build/sim/play_seq/tb_play_seq.vcd opened for output.
+  ok  : reset default tick_inc = 164927 (120 BPM, not 0)
+  ok  : evt_underrun_o asserts when the buffer is empty
+  ok  : segment1 = 120 BPM, gap [26041,26042] ok
+  ok  : segment2 = 60 BPM, gap [52083,52084] ok
+  ok  : segment3 = 200 BPM, gap [15625,15625] ok
+  ok  : tick_inc=0 REJECTED, tick_inc_o stays 274878
+  ok  : tempo_cnt_o = 2 (the rejected zero tempo not counted)
+  ok  : 8 same-tick events all emitted within 0 tick (no arpeggio)
+  ok  : no event emitted before its own tick (position invariant holds)
+  ok  : note_valid_o and note_data_o same beat (8/8)
+  ok  : evt_cnt_o = 11 = pushed events (no double-read, none lost)
+  ok  : forward-dated event held back for 5 ticks (not emitted early)
+  ok  : no events consumed while run_i=0 (gate really works)
+  ok  : A8 no X/Z on play_seq outputs
+PASS: play_seq emits every due event (whole chord within one tick), latches data with valid, handshakes a standard FIFO once, applies tempo, rejects tick_inc=0, reports underrun
+
+

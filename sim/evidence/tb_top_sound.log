@@ -1,4 +1,4 @@
-﻿NOTE [top] PA_ON_AFTER_RESET=0 鈬?鍔熸斁**姘镐箙鍏虫柇**锛? 涓笅闄嶆部锛夈€傝繖鏄?M0 瀹夊叏鎬侀獙璇佹。锛涒殸锔?浜や粯/涓婃澘璇风敤 1锛屽惁鍒欐澘瀛愭病澹伴煶锛圧-16锛?
+﻿NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
 
 ==================== top / T57 鍑哄０閾鹃獙鏀?====================
   閲囬泦鏍风偣鏁?     : 2048

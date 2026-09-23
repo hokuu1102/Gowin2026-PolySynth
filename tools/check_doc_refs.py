@@ -78,6 +78,28 @@ SCAN_SKIP_DIRS = {"files/历史", "tools"}
 # ── 仓库外的本机路径前缀（跳过，不判失败）───────────────
 EXTERNAL_HINTS = ("Desktop", "Users", "Documents", "AppData", "~")
 
+# ── 构建产物目录（跳过，不判失败）───────────────────────
+# ⭐ 为什么必须跳过：这些目录**被 gitignore**，所以永远不在
+#    `git ls-files` 的清单里 ⇒ 引用它们会被判成"不存在"。
+#    但引用**构建产物是合法的** —— ⭐ 读者跑一次构建就会有，
+#    文档说的正是"跑完去看这个报告"。
+#
+# ⚠️ 实测（2026-09-22）：`impl/pnr/Gowin2026.rpt.txt` 在本地**确实存在**，
+#    却被判硬错误 ⇒ ⭐ **纯误报**。
+# ⭐ 而本文件开头的设计原则就是「**宁可漏报，不可误报** ——
+#    会误报的检查器比没有检查器更糟，它会训练队友忽略它」。
+# ⇒ ⭐ 按该原则，这类引用一律放过。
+#
+# ⚠️ **只列【真的被 gitignore】的目录**（用 `git check-ignore` 逐个核实过）：
+#      · `impl/`  → .gitignore:102
+#      · `build/` → .gitignore:54
+#      · `files/开发板原理图/` → .gitignore:24
+#        ⭐ 厂商原理图/引脚文件**不入库**（体积大 + 版权），但**引用它是合法的**：
+#           ⭐ 文档说的正是"去这个目录看原理图"，⭐ 本机确实有那份 PDF。
+#    ⛔ **不要加 `sim/evidence/`** —— ⭐ 它是**被跟踪的**（证据要入库），
+#       所以引用它必须照常检查。
+BUILD_OUTPUT_DIRS = ("impl/", "build/", "files/开发板原理图/")
+
 RE_BACKTICK = re.compile(r"`([^`\n]+)`")
 RE_MDLINK = re.compile(r"\]\(([^)\s]+)\)")
 
@@ -225,6 +247,13 @@ def check_file(
                 continue
             ref = raw.strip().rstrip(".,;:）)")
             is_dir_ref = ref.endswith("/")
+
+            # ⭐ 构建产物目录（impl/ build/）⇒ 跳过，不判失败。
+            #    ⚠️ 它们被 gitignore ⇒ 永远不在 tracked 里 ⇒ 必然误报。
+            #    ⭐ 但"跑完构建去看这个报告"是合法引用（详见 BUILD_OUTPUT_DIRS 注释）。
+            _n = normalize_ref(ref)
+            if any(_n == d.rstrip("/") or _n.startswith(d) for d in BUILD_OUTPUT_DIRS):
+                continue
 
             if is_dir_ref and normalize_ref(ref).split("/")[-1] in EXAMPLE_PATH_NAMES:
                 continue                            # 举例用的路径，不是仓库路径

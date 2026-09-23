@@ -108,7 +108,7 @@ create_clock -name clk_sys -period 20 -waveform {0 10} [get_ports {clk}]
 >
 > ⚠️ 最差路径实测是 `u_i2s_tx/ch_s2 → HP_WS_obuf`（2.130 ns 建立裕量），
 > 也就是**输出到 DAC 的路径**——这正是"只算内部路径会漏掉"的那一类。
-| ⭐ 脚位 | **7 个脚全部按 `.cst` 落位**：`clk=V22`、`rst_n=AA13`、`HP_BCK=Y17`、`HP_WS=AB17`、`HP_DIN=AA16`、`PA_EN_n=AB16`（⭐ `Pull Mode=UP` ✓ 配置期间功放关断，见 `K-42`）、`led_heartbeat=T18` |
+| ⭐ 脚位 | **7 个脚全部按 `.cst` 落位**：`clk=V22`、`rst_n=AA13`、`HP_BCK=Y17`、`HP_WS=AB17`、`HP_DIN=AA16`、🔴 旧 `PA_EN_n=AB16` → ⭐ **`PA_EN=Y14`**（⚠️ `LVCMOS15`/1.5 V，⭐ **高电平 = 出声**）、🔴 旧 `led_heartbeat=T18` → ⭐ **`V13`**（`SYS_ACT`）。⚠️ **换板后这两条都变了**，见 `Console引脚查证-20260922.md` |
 
 > ⭐ 这条基线的用处：以后**每加一个模块**（`voice`/`mixer`/`tlc5916`/`adc`…）都重跑一次，
 > 就能看出"资源涨了多少、Fmax 掉到多少" —— 32 voice 的资源与余量预算（`K-28`）从此有实测锚点。

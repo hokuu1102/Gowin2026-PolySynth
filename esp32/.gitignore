@@ -1,0 +1,47 @@
+# ============================================================================
+# esp32/ -- ESP32 SPP<->UART bridge
+# ============================================================================
+# Purpose: keep ESP-IDF build products OUT of the repository.
+#
+# NOTE: the repo-root .gitignore has "/build/" which is ANCHORED TO THE ROOT,
+#       so it does NOT cover esp32/bridge/build/.  That is why this file exists.
+# ============================================================================
+
+# --- ESP-IDF build output ---------------------------------------------------
+build/
+sdkconfig
+sdkconfig.old
+sdkconfig.ci
+managed_components/
+dependencies.lock
+
+# --- ESP-IDF / CMake leftovers ----------------------------------------------
+*.bin
+*.elf
+*.map
+*.lst
+compile_commands.json
+CMakeCache.txt
+CMakeFiles/
+.flash_args
+
+# --- Python (loopback tool) -------------------------------------------------
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# --- captured evidence is kept, but not scratch runs ------------------------
+tools/_scratch/
+
+# --- ⛔ 第三方安装包 / 下载物（⭐ 绝不入库）------------------------------------
+# 为什么：USART HMI 上位机安装包 52.9 MB、串口驱动等。
+#   ⚠️ Git 存二进制**无法回收**，删了工作区文件也不会让 .git 变小
+#      （⭐ 本仓库已有前车之鉴：model/pcb 的 .step 误入库约 13~15 MB）。
+#   ⭐ 这些是【厂商资料】，需要的人自己去官网下：
+#      http://wiki.tjc1688.com/download/usart_hmi.html
+_downloads/
+
+# --- 编译/调试临时日志（⛔ 不入库）--------------------------------------------
+*.log
+!sim/evidence/*.log

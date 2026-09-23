@@ -1,0 +1,95 @@
+# ============================================================================
+# sdkconfig.defaults -- ESP32 SPP<->UART 透传桥
+# ============================================================================
+# ⚠️ 作用：`idf.py build` 时若 sdkconfig 不存在，用它生成初值。
+#    ⇒ 保证"clone 下来就能编"，不依赖手点 menuconfig。
+#
+# 依据：ESP-IDF bt_spp_acceptor 示例 README 要求
+#       Component config -> Bluetooth -> Bluedroid Options -> SPP
+# ============================================================================
+
+# ---- 目标芯片（🔴 初代 ESP32，⛔ 不是 S3）----------------------------------
+CONFIG_IDF_TARGET="esp32"
+
+# ---- SPP（★ 必须开，否则 esp_spp_* 链接不过）--------------------------------
+CONFIG_BT_ENABLED=y
+CONFIG_BT_BLUEDROID_ENABLED=y
+CONFIG_BT_CLASSIC_ENABLED=y
+CONFIG_BT_SPP_ENABLED=y
+
+# ---- 不用 BLE / WiFi（省内存，也减少与经典蓝牙的射频争用）-------------------
+# CONFIG_BT_BLE_ENABLED is not set
+# CONFIG_BT_NIMBLE_ENABLED is not set
+# CONFIG_ESP_WIFI_ENABLED is not set
+
+# ---- 经典蓝牙连接数 ---------------------------------------------------------
+# README 提醒：BT/BLE MAX ACL CONNECTIONS 与 BR/EDR ACL Max Connections 要一致
+#
+# 🔴🔴 这里踩过【两个真坑】，都是**编译不报错**的那种（⭐ 首次 build 实测抓到）：
+#
+#   坑 A：`BT_BR_EDR_MAX_ACL_CONN_EFF` —— ⚠️ **这个符号不存在**！
+#         build 只给一句 warning：unknown kconfig symbol ...
+#         ⇒ 🔴 我"以为设了"的配置根本没生效。
+#         ⭐ 正确符号名是 `BTDM_CTRL_BR_EDR_MAX_ACL_CONN`（不带 _EFF），
+#            定义在 components/bt/controller/esp32/Kconfig.in。
+#            `_EFF` 是【派生值】⇒ ⛔ 不要直接写 `_EFF`。
+#
+#   坑 B（⭐ 严重得多）：`BTDM_CTRL_BR_EDR_MAX_ACL_CONN` 有 `depends on`：
+#            depends on BTDM_CTRL_MODE_BR_EDR_ONLY || BTDM_CTRL_MODE_BTDM
+#         ⚠️ 而 **`BTDM_CTRL_MODE` 这个 choice 我一开始【根本没设】** ⇒
+#            取第一个选项为默认 ⇒ 🔴 **默认是 `BLE_ONLY`**！
+#         实测生成出来的是：
+#            CONFIG_BTDM_CTRL_MODE_BLE_ONLY=y          ← 🔴 控制器只用 BLE
+#            CONFIG_BTDM_CTRL_BR_EDR_MAX_ACL_CONN_EFF=0
+#         🔴 **后果**：经典蓝牙控制器【根本没启用】 ⇒ 烧上去 SPP 连不上、设备搜不到。
+#         ⚠️ 而 `CONFIG_BT_CLASSIC_ENABLED=y` / `CONFIG_BT_SPP_ENABLED=y` **都显示是开的**
+#            —— 🔴 **它们骗了我**：主机栈开了，但控制器层面没有 BR/EDR。
+#         ⇒ ⭐ **必须显式选 `BR_EDR_ONLY`**（下面这条）。
+#
+# ⭐ 教训：**kconfig 的 `depends on` 会让"写了但不生效"静默发生**。
+#    ⇒ 每次改 sdkconfig.defaults 之后，**必须回读生成的 `sdkconfig` 确认真的生效**，
+#      ⛔ 不能只看"没有 warning"。
+CONFIG_BT_ACL_CONNECTIONS=1
+
+# 🔴 控制器模式：经典蓝牙【必须】是 BR_EDR_ONLY 或 BTDM
+#    ⛔ 不设的话默认是 BLE_ONLY ⇒ SPP 会静默失效
+CONFIG_BTDM_CTRL_MODE_BR_EDR_ONLY=y
+
+CONFIG_BTDM_CTRL_BR_EDR_MAX_ACL_CONN=1
+
+# ---- 日志（⚠️ 波特率调高，避免日志本身拖慢蓝牙栈）--------------------------
+# bt_spp_acceptor README 原文：
+#   "since the printing takes too much time, and it may stuck the Bluetooth stack"
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_ESP_CONSOLE_UART_BAUDRATE=921600
+
+# ---- 主任务栈 ---------------------------------------------------------------
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=4096
+
+# ---- 关掉省电（本项目是插电演示，⛔ 不需要省电；省电会增大调度抖动）---------
+# CONFIG_PM_ENABLE is not set
+CONFIG_FREERTOS_USE_TICKLESS_IDLE=
+
+# ---- ⚠️ PSRAM（⭐ 只对【带 PSRAM 的模组】有意义）-----------------------------
+#
+#  ⭐ 模式 B（水池）的内存策略是【优先 PSRAM，退化内部 DRAM】：
+#      · 有 PSRAM ⇒ 整曲水池 104 KB ⇒ 断链可撑【整曲】（~300 s）
+#      · 无 PSRAM ⇒ 退化到内部 DRAM（~64 KB）⇒ 断链撑【约 60 秒】
+#    ⇒ ⭐ 两种都能跑，只是"断链容忍时长"不同（⛔ 旧写法是直接链接失败）。
+#
+#  🔴 重要：**不开下面这个开关，`heap_caps_malloc(MALLOC_CAP_SPIRAM)` 一定失败**，
+#     于是永远走"退化"分支 —— ⚠️ 即使模组其实焊了 PSRAM 也用不上。
+#
+#  ⚠️ 本机两块板的实情（2026-09-23 核实）：
+#      · ESP32-WROOM-32E（现有，非原厂）—— ⚠️ 多半【无 PSRAM】
+#        （无 `R2` 后缀的型号都没有；见官方手册 v2.1 §1.2）
+#      · 另有一块 ESP32-S3 带 PSRAM —— 🔴 但 PSRAM 焊在 S3 模组上，
+#        【经典版 ESP32 用不了】⇒ ⛔ 不能指望它
+#
+#  ⇒ ⭐ 只有确认模组带 PSRAM 时才打开下面几行；开之前先跑：
+#        .\build.ps1 -Action chipid -Port COM7
+#     若报 `ESP32-D0W**R2**-V3` ⇒ 有 PSRAM ⇒ 可以开。
+#
+# CONFIG_SPIRAM=y
+# CONFIG_SPIRAM_USE_MALLOC=y
+# CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384

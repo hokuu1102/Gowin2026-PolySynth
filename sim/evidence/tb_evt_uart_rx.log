@@ -1,0 +1,16 @@
+﻿VCD info: dumpfile build/sim/evt_uart_rx/tb_evt_uart_rx.vcd opened for output.
+  ok  : real 115200 baud, 64-bit payload exact (big-endian ok)
+  ok  : payload containing 0xA5 bytes parsed correctly (no false sync)
+  ok  : 0xA5 in the middle of the payload does NOT resync
+  ok  : 18 x 0xA5 reset sequence DROPPED (2 frames), no bogus event
+  ok  : idle gap re-synced to idx=0 (resync_cnt=1)
+  ok  : after resync the next frame parses normally
+  ok  : a wrong header byte is counted and does NOT advance
+  ok  : 10 back-to-back frames all parsed, payloads exact
+  ok  : evt_valid_o is strictly single-cycle
+  ok  : evt_valid_o and evt_data_o are the same beat (14/14)
+  ok  : conservation -- frame_cnt=14 == events emitted, drop_cnt=2 exactly
+  ok  : A8 no X/Z on evt_uart_rx outputs
+PASS: evt_uart_rx frames 64-bit events at real baud, never false-syncs on a 0xA5 payload, drops the reset sequence, and self-heals on idle gaps
+
+

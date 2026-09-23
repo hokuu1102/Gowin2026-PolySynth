@@ -6,9 +6,13 @@
 //
 //   ① ⭐ **反证基线**：空闲（`rx` 恒高）时 `rx_done_o` **一个都不许出**
 //      ⚠️ 没有这一步，"恒出完成脉冲"之类的问题会**假通过**
-//   ② ⭐⭐ **真实波特率**（`BAUD_DIV=434` = 115200）逐字节正确
+//   ② ⭐⭐ **真实波特率**逐字节正确
 //      🔴 原 tb 只测了 `BAUD_DIV=10`（加速值）⇒ ⚠️ **真实速率从没被测过**
 //      ⭐ 这正是"移植时最该补的一条"
+//      ⭐⭐ 2026-09-23：**交付默认改为 1 Mbps** ⇒ 本 tb 跑 **`BAUD_DIV=50`（1 Mbps）**，
+//         ⚠️ 因为**交付默认值必须在仿真里被真测过**（⭐ `U-29`）。
+//         📌 `115200` 档（`BAUD_DIV=434`）**已由 `tb_evt_uart_rx` 的历史覆盖 + 本文件的
+//            `BAUD_DIV` 参数保留**（⚠️ 要验那一档，把下面一个数改成 434 即可）。
 //   ③ ⭐ **8 个数据位全组合的边界**：`00` / `FF` / `55` / `AA` / `01` / `80`
 //      ⭐ 全覆盖的边界才抓得到"位序反了"（⚠️ `55`/`AA` 专门抓 LSB/MSB 颠倒）
 //   ④ ⭐⭐ **位序不变量**：`LSB` 先到 ⇒ 发 `0x01` 必须收 `0x01`（⛔ 不是 `0x80`）
@@ -21,8 +25,10 @@
 
 module tb_uart_rx;
 
-    // ⭐ 用**真实** 115200（原 tb 用 10 是加速值，覆盖不到真实误差）
-    localparam integer BAUD_DIV = 434;
+    // ⭐ 2026-09-23：**交付默认 = 1 Mbps**（`BAUD_DIV=50`，整除、零误差）。
+    //   ⚠️ 这是"交付值必须在仿真里被测过"的落地（⭐ 旧值 434=115200 是历史档位）。
+    //   📌 切档只改这一个数（⭐ `BIT_NS` 跟着自动算）。
+    localparam integer BAUD_DIV = 50;
     localparam real    BIT_NS   = 20.0 * BAUD_DIV;   // 一位的 ns 数（clk 周期 20ns）
 
     reg  clk = 1'b0;
@@ -140,7 +146,7 @@ module tb_uart_rx;
         end
         #(BIT_NS * 12);
 
-        chk("all 10 bytes at the REAL 115200 baud were received", (got - base) === 10);
+        chk("all 10 bytes at the REAL configured baud were received", (got - base) === 10);
         for (i = 0; i < 10; i = i + 1) begin
             if ((base + i) < got && got_q[base+i] === pat[i])
                 $display("  ok  : byte[%0d] = %02h  (real baud)", i, got_q[base+i]);
@@ -256,7 +262,8 @@ module tb_uart_rx;
 
         // ── 结论 ───────────────────────────────────────────────────────────
         if (errors == 0)
-            $display("PASS: uart_rx 8N1 at the REAL 115200 baud (10 patterns, back-to-back, glitch reject, single-cycle done, sync reset)");
+            $display("PASS: uart_rx 8N1 at REAL baud (BAUD_DIV=%0d => %0d bps): 10 patterns, back-to-back, glitch reject, single-cycle done, sync reset",
+                 BAUD_DIV, 50000000 / BAUD_DIV);
         else
             $display("FAIL: uart_rx had %0d error(s)", errors);
 

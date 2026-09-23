@@ -97,27 +97,18 @@ module wavetable_tone_top #(
         .HP_DIN       (HP_DIN)
     );
 
-    // NS4263 control: one delayed falling edge selects AB bridge mode, then the
-    // pin stays low. Board and FPGA pull-ups keep the amplifier off at startup.
-    localparam integer PA_CNT_W = (PA_ON_DELAY < 2) ? 1 : $clog2(PA_ON_DELAY + 1);
-    reg [PA_CNT_W-1:0] pa_cnt;
-    reg                pa_done;
-    reg                pa_en_n_r;
+    // U-25b (2026-09-23): on the Tang Console this net drives the MAX98357A SD_MODE
+    // pin, NOT the NEO-Dock NS4263 SD pin.  Datasheet: <0.16 V = Shutdown (NO SOUND),
+    // >1.4 V = Left (SOUNDS).  So the pin must be driven HIGH and must NEVER fall --
+    // a falling edge would silently mute the board.  The old "one delayed falling
+    // edge selects AB bridge" logic belonged to the NS4263 and is now removed here.
+    // PA_ON_DELAY is kept as a parameter (unused by this branch) for the NEO-Dock
+    // fallback path; see rtl/top.v for the two-board rationale.
+    reg pa_en_n_r;
 
     always @(posedge clk) begin
-        if (!rst_n_sync) begin
-            pa_cnt    <= {PA_CNT_W{1'b0}};
-            pa_done   <= 1'b0;
-            pa_en_n_r <= 1'b1;
-        end else if (!pa_done) begin
-            if (pa_cnt < PA_ON_DELAY[PA_CNT_W-1:0]) begin
-                pa_cnt    <= pa_cnt + 1'b1;
-                pa_en_n_r <= 1'b1;
-            end else begin
-                pa_done   <= 1'b1;
-                pa_en_n_r <= 1'b0;
-            end
-        end
+        if (!rst_n_sync) pa_en_n_r <= 1'b1;   // pin pull-up keeps it high during config
+        else             pa_en_n_r <= 1'b1;   // stays high forever => SD_MODE = Left
     end
 
     assign PA_EN_n = pa_en_n_r;

@@ -28,6 +28,7 @@ TOOLS = [
     ("csv_fft.py", "CSV → FFT（主峰/SNR/杂散）"),
     ("latency_stats.py", "延迟日志 → min/max/极差 + M2 判据"),
     ("peak_count.py", "频谱 → 谱峰计数（M4 判定）"),
+    ("selftest_evt2uart.py", "evt2uart 帧模型 vs RTL 逐字节对拍"),
 ]
 
 

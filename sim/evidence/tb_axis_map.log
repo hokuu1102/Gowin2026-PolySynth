@@ -1,0 +1,19 @@
+﻿NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+  ok  : pos=0 gives the table bottom (BASE_INC)
+  ok  : pos=max gives the table top (no wrap to bottom)
+  ok  : table top > table bottom (pitch rises)
+  ok  : dual-press interp: strictly BETWEEN the two keys
+  ok  : dual-press interp: NOT equal to either endpoint
+  ok  : segment start equals the lower-key endpoint (frac=0 boundary)
+  ok  : valid deasserts in the same cycle as data (combinational)
+  ok  : valid asserts in the same cycle as data (combinational)
+  ok  : phase_inc is NEVER zero across the full position range
+  ok  : pitch is MONOTONIC inside every key segment (no inversion)
+  ok  : each key segment starts strictly ABOVE the previous one (pitch rises)
+  ok  : mode_i is wired and produces a defined output
+  ok  : axis_id is passed through to the output
+
+PASS: axis_map maps position to phase_inc, clamps at the table top, interpolates between adjacent keys, stays non-zero and monotonic, and keeps valid in the same cycle as data
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_axis_map.sv:210: $finish called at 8429000 (1ps)
+
+
