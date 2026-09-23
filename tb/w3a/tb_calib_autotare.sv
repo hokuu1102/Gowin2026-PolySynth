@@ -32,6 +32,7 @@ module tb_calib_autotare;
     // ── DUT ───────────────────────────────────────────────────────────
     reg              sample_valid;
     reg  [2:0]       sample_ch;
+    reg              retrig;                 // ⭐ 2026-09-23 新增端口（⭐ 'T' 复用）
     wire [N_ADC-1:0] tare;
     wire [2:0]       cal_ch;
     wire             busy, done;
@@ -45,6 +46,7 @@ module tb_calib_autotare;
         .rst_n         (rst_n),
         .sample_valid_i(sample_valid),
         .sample_ch_i   (sample_ch),
+        .retrig_i      (retrig),
         .tare_o        (tare),
         .cal_ch_o      (cal_ch),
         .busy_o        (busy),
@@ -148,6 +150,7 @@ module tb_calib_autotare;
         sample_valid = 1'b0;
         sample_ch    = 3'd0;
         raw_in       = 12'h000;
+        retrig       = 1'b0;
 
         rst_n = 1'b0;
         repeat (4) @(posedge clk);
@@ -183,8 +186,35 @@ module tb_calib_autotare;
         chk("done_o is asserted after the sweep", done === 1'b1);
         tare_before = tare_total;
         for (k = 0; k < 3; k = k + 1) scan_frame();
-        chk("done_o latches: NO further tare after the sweep",
+        chk("done_o latches: NO further tare after the sweep (without retrig)",
             tare_total == tare_before);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 判据 ⑦ `retrig_i` 重触发（⭐ 2026-09-23 新增 · 供 'T' 复用）
+        //   ⭐ 它必须是**唯一**的重入点 ⇒ ⭐ 触发后**再逐通道标一遍**
+        //   ⚠️ 且**不等 `DELAY_CLK`**（⭐ 上电早已完成）
+        // ═══════════════════════════════════════════════════════════════════
+        per_ch_bad = 0;
+        for (i = 0; i < NCH; i = i + 1) tare_cnt[i] = 0;
+        align_ok = 0; align_bad = 0; tare_total = 0;
+
+        @(negedge clk); retrig = 1'b1;
+        @(posedge clk); @(negedge clk); retrig = 1'b0;
+
+        //   ⭐ 立刻扫帧（⛔ 不给 DELAY 时间）⇒ ⭐ 若它傻等 DELAY 就会一个 tare 都没有
+        for (k = 0; k < 12; k = k + 1) scan_frame();
+
+        per_ch_bad = 0;
+        for (i = 0; i < NCH; i = i + 1)
+            if (tare_cnt[i] != 1) per_ch_bad = per_ch_bad + 1;
+        chk("retrig_i re-tares EVERY channel exactly once (no DELAY wait)", per_ch_bad == 0);
+        chk("retrig_i tares align with their own sample channel", align_bad == 0 && align_ok == NCH);
+        chk("retrig_i leaves done_o asserted again", done === 1'b1);
+
+        //   ⭐ 再确认自锁仍有效（⭐ retrig 已落）
+        tare_before = tare_total;
+        for (k = 0; k < 3; k = k + 1) scan_frame();
+        chk("after retrig completes, the latch still holds", tare_total == tare_before);
 
         // ═══ 判据 ⑤ `cal_ch` 顺序（⭐ 用第一次出现的顺序判断）═══
         //   ⚠️ 简化：⭐ 由判据②（各一次）+ 判据④（对齐）已能推出按序

@@ -62,6 +62,16 @@
        ⚠️ 由 top.v 例化 ⇒ 🔴 不登记会被综合【静默丢弃】
        （⭐ 后果：零点不标定 ⇒ ⚠️ 松手位置读错 ⇒ 阈值判错，而报告全绿） -->
   <File path="rtl/w3a/calib_autotare.v" type="file.verilog" enable="1"/>
+  <!-- ⭐⭐ 满行程（span）标定 + 标定命令解析（2026-09-23 深夜新增）
+       ⚠️ **现在 top.v 还没例化它们** —— ⭐ 但**仍然要登记**，理由：
+         ① 🔴 不登记 ⇒ 综合【静默丢弃】⇒ ⚠️ 我无法用真综合验证它们
+            （⭐ `K-91`：仿真全绿、真综合报错而整个模块被丢）
+         ② ⭐ 登记后 `gowin_build.ps1` 的 `U-30` 守卫才认它们
+         ③ ⭐ 接入 `top.v` 时【不用再改这里】（⭐ 少一次遗漏机会）
+       📌 反例依据：`U-30` / 84 号 —— `.gprj` 漏登记 ⇒ PnR 静默跳过
+          ⇒ 🔴 时序证据与上一版【逐位相同】 -->
+  <File path="rtl/w3a/calib_span.v" type="file.verilog" enable="1"/>
+  <File path="rtl/w3a/calib_cmd.v" type="file.verilog" enable="1"/>
   <File path="rtl/w3c/i2s_tx.v" type="file.verilog" enable="1"/>
         <!-- T32: PPQN=960 musical clock (phase accumulator) -->
         <File path="rtl/w3c/beat_gen.v" type="file.verilog" enable="1"/>
