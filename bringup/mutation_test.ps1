@@ -6,31 +6,56 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File bringup\mutation_test.ps1 -File w3b
 #   powershell -NoProfile -ExecutionPolicy Bypass -File bringup\mutation_test.ps1 -Changed
 #
-# ---- WHICH MUTANTS TO RUN (added 2026-09-21) -----------------------------------
-#   Each mutant costs ~109 s because it runs the WHOLE regression (28 benches).
-#   All 37 take ~67 min.  Most of that is usually irrelevant: a mutant only guards
-#   the module it targets, so if you changed note_manager.v, the 18 mutants for
-#   tlc5916 / i2s_tx / checkers / clk_gen cannot possibly be affected.
+# ---- WHICH MUTANTS TO RUN (added 2026-09-21, policy reinforced 2026-09-23) -----
+#   Each mutant runs the WHOLE regression (all 36 benches under tb/), so it is
+#   expensive.  Measured 2026-09-23: a FULL run of 76 mutants took >3.9 h
+#   (the old "~109 s each / all 37 take ~67 min" figures are stale -- bench
+#   count and mutant count have both grown).
+#
+#   WHY THIS IS ACCEPTABLE (and what the two modes actually prove):
+#     * FRONT END always runs: every mutant executes the FULL 36-bench regression.
+#       So "did my change BREAK the functionality?" is ALWAYS covered in full.
+#     * WHAT GETS TRIMMED is only the mutation-injection count, i.e.
+#       "is the regression still able to CATCH a defect in module X?"
+#   => A partial run is SUFFICIENT EVIDENCE for the modules it covers, but it
+#      CANNOT prove that other modules' guards still work.  That is exactly why
+#      the policy below still demands a FULL run before commit/push.
 #
 #   -File <substr>    only mutants whose FILE path contains <substr>
-#                     e.g. -File w3b  -> M23..M37   (~27 min)
-#                          -File tlc  -> M06,M07,M14,M16,M17
-#   -Changed          only mutants whose file differs from HEAD (git diff)
-#                     -> the natural choice while iterating
-#   -Filter <substr>  only mutants whose ID contains <substr>  (original behaviour)
+#                     e.g. -File w3b   -> the rtl/w3b mutants
+#                          -File tlc   -> the tlc5916 mutants
+#   -Changed          only mutants whose file differs from HEAD (git diff + index)
+#                     -> the natural choice while iterating on one module
+#   -Filter <substr>  only mutants whose ID contains <substr>  (single target)
 #
-#   POLICY:
+#   POLICY (reinforced 2026-09-23; rationale recorded as entry "K-115" in the
+#   project's known-issues / risk list under files/20-*):
 #     * iterating on one module ....... -Changed   or   -File <that module>
+#     * END OF DAY .................... FULL run (kick it off when you stop working;
+#                                       ~4 h, and its LAST step re-runs the
+#                                       regression from CLEAN RTL, so you start the
+#                                       next day with clean evidence)
 #     * before commit / push .......... FULL run (no arguments)
 #     * touched a SHARED file ......... FULL run, always
 #       (sim/tb_all.ps1, tb/models/*, tb/checkers/*, sim/evidence/*)
 #     * touched rtl/top.v ............. FULL run (it is the integration point)
+#
+#   !! BEFORE STARTING A FULL RUN, COMMIT YOUR WORK FIRST.
+#      This script edits tracked files in place.  If it dies mid-run (power loss,
+#      kill) with no commit to fall back on, you cannot tell "leftover mutation"
+#      from "my own edit".
 #
 # NOTE (concurrency guard, added 2026-09-21): this script MUTATES tracked files in
 #   place and restores them.  Two concurrent runs fight over the same file and can
 #   leave a mutation behind -- this really happened: a -Filter run overlapped a full
 #   run and left M25's mutation in note_manager.v.  A lock file now makes a second
 #   run refuse to start.
+#
+# !! WHILE A RUN IS IN FLIGHT, DO NOT touch rtl/ or tb/, and DO NOT git add.
+#    tb_all.ps1 compiles EVERY file under rtl/ and tb/ into EVERY bench, and this
+#    script treats "regression exit != 0" as CAUGHT.  So adding or breaking any
+#    file mid-run can flip every remaining mutant to a FALSE "caught".
+#    (Same-family hazard as K-105: "does not compile" counted as "was caught".)
 #
 # WHY (this is the strongest evidence that the checks are not decoration):
 #   "All tests pass" proves nothing if the tests cannot fail.  Here we take the REAL RTL,
@@ -151,7 +176,7 @@ $mutations = @(
   @{ id = "M02"; file = "rtl\clk_gen.v"; find = "bclk_half_en <= at_bclk_half;"; repl = "bclk_half_en <= at_bclk_edge;"; why = "BCK toggles at the wrong rate -> BCK period wrong" },
   @{ id = "M03"; file = "rtl\w3c\i2s_tx.v"; find = "HP_BCK  <= 1'b1;"; repl = "HP_BCK  <= 1'b0;"; why = "R-03 regression: data changes on the DAC sampling edge (setup ~0)" },
   @{ id = "M04"; file = "rtl\w3c\i2s_tx.v"; find = "i2 = b - (SLOT_BITS - DATA_BITS);"; repl = "i2 = b - (SLOT_BITS - DATA_BITS) - 1;"; why = "LSBJ off by one bit -> point-by-point compare fails" },
-  @{ id = "M05"; file = "rtl\top.v"; find = "assign PA_EN_n = pa_en_n_r;"; repl = "assign PA_EN_n = ~pa_en_n_r;"; why = "K-42 regression: amp enable polarity inverted" },
+  @{ id = "M05"; file = "rtl\top.v"; find = "assign PA_EN_n = pa_en_n_r;"; repl = "assign PA_EN_n = ~pa_en_n_r;"; why = "U-25b regression: SD_MODE polarity inverted -> driven LOW = Shutdown = SILENT board (must be caught)" },
   @{ id = "M06"; file = "rtl\drivers\tlc5916_driver.sv"; find = "if (oe_quiet) tlc_oe_n <= ~oe_hold;"; repl = "tlc_oe_n <= ~oe_hold;"; why = "K-01 regression: OE guard removed -> narrow pulse reaches the pin" },
   @{ id = "M07"; file = "rtl\drivers\tlc5916_driver.sv"; find = "state <= STATE_LE_WAIT;"; repl = "state <= STATE_LATCH_HIGH;"; why = "K-03 regression: LE raised while CLK is still moving" },
   @{ id = "M08"; file = "rtl\top.v"; find = "rst_sync #(.STAGES(2)) u_rst_sync ("; repl = "rst_sync #(.STAGES(1)) u_rst_sync ("; why = "R-08 regression: reset release no longer 2-stage synchronised" },
@@ -171,7 +196,7 @@ $mutations = @(
   # NOTE: an earlier attempt mutated the `pa_done` latch instead and LEAKED -- it did not
   # actually create a 2nd falling edge, so "LEAK" was a false alarm. A mutant must really
   # change behaviour (see C21 in the experience library).
-  @{ id = "M15"; file = "rtl\top.v"; find = "                else             pa_en_n_r <= 1'b1;"; repl = "                else             pa_en_n_r <= 1'b0;"; why = "K-61 regression: safe-state PA_EN_n pulled low -> falling-edge count assertion (H) must catch it" },
+  @{ id = "M15"; file = "rtl\top.v"; find = "                else             pa_en_n_r <= 1'b1;"; repl = "                else             pa_en_n_r <= 1'b0;"; why = "U-25b regression: delivery branch drives SD_MODE low -> Shutdown => SILENT board (the very bug U-25b fixed; must be caught)" },
   # ---- K-66: the Normal-Mode recovery sequence must keep LE low during the OE pulse ----
   # If LE went high during the pulse, the device would switch to SPECIAL mode instead of back
   # to Normal mode -- exactly the failure the sequence exists to prevent.
@@ -182,7 +207,7 @@ $mutations = @(
   # A mutant must actually VIOLATE the spec (see C21): shrink to HALF_DIV/2 = 250 ns.
   @{ id = "M17"; file = "rtl\drivers\tlc5916_driver.sv"; find = "                                 rec_phase <  REC_OE_FALL_PH + REC_CLK_PERIOD) ? 1'b0 : 1'b1;"; repl = "                                 rec_phase <  REC_OE_FALL_PH + (HALF_DIV/2)) ? 1'b0 : 1'b1;"; why = "K-66 regression: OE window shrunk to 250 ns -> violates tw(OE) 500 ns (must be caught)" },
   # ---- R-16: the DELIVERED default must actually turn the amp on (else the board is silent) ----
-  @{ id = "M18"; file = "rtl\top.v"; find = "    parameter integer PA_ON_AFTER_RESET = 1,"; repl = "    parameter integer PA_ON_AFTER_RESET = 0,"; why = "R-16 regression: default back to 0 -> amp never turns on -> silent board (guard I must catch it)" },
+  @{ id = "M18"; file = "rtl\top.v"; find = "    parameter integer PA_ON_AFTER_RESET = 1,"; repl = "    parameter integer PA_ON_AFTER_RESET = 0,"; why = "R-16/U-25b regression: default back to 0 -> SD_MODE low on Console -> SILENT board (guard I must catch it)" },
   @{ id = "M19"; file = "rtl\drivers\debounce.sv"; find = "end else if (key_cnt[ki] >= DB_CYC - 1) begin"; repl = "end else if (key_cnt[ki] >= 0) begin"; why = "T14 regression: debounce window removed -> bounce passes through -> key_down fires many times (must be caught)" },
   # NOTE (2026-09-21, third re-point): K-91 replaced the SystemVerilog size casts
   # (`24'(FULL) << 8`) with a Verilog-2001 localparam vector, because Gowin rejected the
@@ -261,7 +286,6 @@ $mutations = @(
   @{ id = "M53"; file = "rtl\w3c\perc_env_bank.v"; find = "                                active_r <= 1'b0;      // "; repl = "                                active_r <= 1'b1;      // "; why = "T33 regression: active never clears when the envelope hits 0 -> voice never released -> HUNG NOTE (must be caught)" },
   @{ id = "M54"; file = "rtl\w3c\perc_env_bank.v"; find = "                            level_r <= level_r - DECAY_STEP[ENV_W-1:0];"; repl = "                            level_r <= level_r - 16'd1;"; why = "T33 regression: decay 67x too slow -> click lasts ~1 s instead of 20 ms (must be caught)" },
   @{ id = "M55"; file = "rtl\w3c\perc_env_bank.v"; find = "                        peak_r   <= vel_peak;"; repl = "                        peak_r   <= 16'd0;"; why = "T33 regression: velocity no longer latched at trigger -> accent/velocity response dead (must be caught)" },
-  @{ id = "M60"; file = "rtl\w3c\perc_env_bank.v"; find = "if (level_r <= DECAY_STEP[ENV_W-1:0]) begin"; repl = "if (level_r >= DECAY_STEP[ENV_W-1:0]) begin"; why = "T33 regression: decay never terminates -> level stalls just above 0 and active_o never clears -> HUNG NOTE (must be caught)" },
   # ---- T33b (2026-09-22): uart_rx -- the score-download front end (8N1).
   #      Ported from an already-working project; these guard the pieces that a
   #      "port" can silently break: bit order, sample point, glitch rejection.
@@ -269,6 +293,43 @@ $mutations = @(
   @{ id = "M57"; file = "rtl\w3c\uart_rx.v"; find = "if (clk_cnt == MID_CNT) begin"; repl = "if (clk_cnt == 16'd0) begin"; why = "T33b regression: samples at the bit EDGE instead of the middle -> marginal/noisy reception (must be caught)" },
   @{ id = "M58"; file = "rtl\w3c\uart_rx.v"; find = "if ((clk_cnt == START_MID) && (rx_d2 == 1'b1)) begin"; repl = "if (1'b0) begin"; why = "T33b regression: start-bit glitch check removed -> short noise pulses are accepted as frames (must be caught)" },
   @{ id = "M59"; file = "rtl\w3c\uart_rx.v"; find = "rx_done_o <= 1'b1;          // "; repl = "rx_done_o <= 1'b0;          // "; why = "T33b regression: completion pulse never asserts -> no byte is ever delivered (must be caught)" },
+  # ---- U-18 (2026-09-22): play_seq -- the score player (tick -> events, tempo).
+  #      Guards the four things that are easy to get wrong and are SILENT:
+  #      filtering kind=2 out of the note stream, refusing tick_inc=0,
+  #      the transport gate, and the underrun indicator.
+  @{ id = "M60"; file = "rtl\w3c\play_seq.v"; find = "wire is_note_event = (evt_kind == KIND_ON) || (evt_kind == KIND_OFF);"; repl = "wire is_note_event = 1'b1;"; why = "U-18 regression: kind=2 (tempo) events are also emitted as notes -> every tempo change plays a bogus note (must be caught)" },
+  @{ id = "M61"; file = "rtl\w3c\play_seq.v"; find = "if (evt_inc != 32'd0) begin"; repl = "if (1'b1) begin"; why = "U-18 regression: tick_inc=0 is applied -> phase stops advancing -> the musical clock FREEZES (contract 3.2 risk 3; must be caught)" },
+  # ⚠️ 2026-09-22 夜重指锚点：`play_seq.v` 重写后：
+  #    · 变量 `take` 改名成 `emit_now`，且表达式拆成 `evt_due` + 门
+  #    · 🔴 **旧锚点文本现在只出现在【注释】里** ⇒ `.Replace()` 只改到注释，
+  #      RTL 没变 ⇒ 回归通过 ⇒ 误报 LEAK（变成本次全量跑的 M62）
+  #    ⭐ 教训（`K-87`）：**锚点腐烂 = 变异体什么都没守护**，必须重指。
+  @{ id = "M62"; file = "rtl\w3c\play_seq.v"; find = "wire emit_now = run_i & evt_due;"; repl = "wire emit_now = evt_due;"; why = "U-18 regression: transport gate dropped -> events are consumed while stopped (must be caught)" },
+  @{ id = "M63"; file = "rtl\w3c\play_seq.v"; find = "wire underrun = run_i & tick_i & ~evt_valid_i;"; repl = "wire underrun = 1'b0;"; why = "U-18 regression: underrun indicator disabled -> a starved buffer fails SILENTLY (K-106; must be caught)" },
+  # ---- U-6 (2026-09-22): evt_merge -- joins hand-play with metronome/score.
+  #      M64 is the one that matters most: it is EXACTLY the real bug found while
+  #      bringing this module up (missing width on push_n truncates 1+1 to 0, so
+  #      only the same-cycle collision case breaks while single-source still works).
+  @{ id = "M64"; file = "rtl\w3c\evt_merge.v"; find = "wire [15:0] push_n = (push_a ? 16'd1 : 16'd0) + (push_b ? 16'd1 : 16'd0);"; repl = "wire push_n = (push_a ? 16'd1 : 16'd0) + (push_b ? 16'd1 : 16'd0);"; why = "U-6 regression: push_n loses its width -> 1+1 truncates to 0 -> a same-cycle collision pushes NOTHING (the exact bug this module exists to fix; must be caught)" },
+  @{ id = "M65"; file = "rtl\w3c\evt_merge.v"; find = "wire          pop_now = (cnt_q != 16'd0);"; repl = "wire          pop_now = 1'b1;"; why = "U-6 regression: pop from an EMPTY queue -> emits garbage events that were never pushed (must be caught)" },
+  @{ id = "M66"; file = "rtl\w3c\evt_merge.v"; find = "if (!will_overflow) begin"; repl = "if (1'b1) begin"; why = "U-6 regression: overflow ignored -> writes past the ring and the counter runs away (silent corruption; must be caught)" },
+  @{ id = "M67"; file = "rtl\w3c\evt_merge.v"; find = "overflow_o <= 1'b1;"; repl = "overflow_o <= 1'b0;"; why = "U-6 regression: overflow flag never latches -> drops happen SILENTLY (K-106; must be caught)" },
+  @{ id = "M68"; file = "rtl\w3c\evt_merge.v"; find = "prio_b_r <= ~prio_b_r;"; repl = "prio_b_r <= prio_b_r;"; why = "U-6 regression: round-robin removed -> one source always wins, the other starves under repeated collisions (must be caught)" },
+  # ---- U-18 follow-up (2026-09-22): play_seq's three REAL defects, found after
+  #      the module was already "green".  M69 in particular needed TWO rounds of
+  #      strengthening the tb before it was caught -- counting full ticks was too
+  #      coarse, and a tick=cur+1 burst cannot tell the two behaviours apart.
+  @{ id = "M69"; file = "rtl\w3c\play_seq.v"; find = "wire evt_due = evt_valid_i & (evt_tick <= cur_tick_r);"; repl = "wire evt_due = evt_valid_i;"; why = "U-18 regression: the tick field is ignored again -> a forward-dated event fires immediately, and a whole chord spills across N ticks (arpeggio) (must be caught)" },
+  @{ id = "M70"; file = "rtl\w3c\play_seq.v"; find = "note_data_o  <= evt_data_i;"; repl = "note_data_o  <= evt_data_i ^ 64'd1;"; why = "U-18 regression: payload corrupted while valid stays correct -> 'count right, data wrong' (the 80-hao family; must be caught)" },
+  @{ id = "M71"; file = "rtl\w3c\play_seq.v"; find = "assign evt_rd_o = emit_now;"; repl = "assign evt_rd_o = 1'b0;"; why = "U-18 regression: the FIFO pop strobe is dead -> no event is ever handed over (must be caught)" },
+  @{ id = "M72"; file = "rtl\w3c\play_seq.v"; find = "note_valid_o <= is_note_event;"; repl = "note_valid_o <= 1'b1;"; why = "U-18 regression: kind=2 (tempo) leaks into the note stream -> every tempo change plays a bogus note (must be caught)" },
+  # ---- UART event framing (2026-09-22).  M73 is the one that matters most: it
+  #      reintroduces "scan for 0xA5 anywhere", which is exactly the false-sync
+  #      hazard this module's whole design avoids.
+  @{ id = "M73"; file = "rtl\w3c\evt_uart_rx.v"; find = "if (idx_q == 4'd0) begin"; repl = "if (byte_is_a5 || idx_q == 4'd0) begin"; why = "framing regression: the header is accepted anywhere in the stream -> a 0xA5 payload byte causes a FALSE SYNC (the exact hazard this design avoids) (must be caught)" },
+  @{ id = "M74"; file = "rtl\w3c\evt_uart_rx.v"; find = "if (all_a5_now) begin"; repl = "if (1'b0) begin"; why = "framing regression: the 9x0xA5 reset marker is no longer suppressed -> the PC reset sequence emits bogus events (must be caught)" },
+  @{ id = "M75"; file = "rtl\w3c\evt_uart_rx.v"; find = "end else if (idle_expired && (idx_q != 4'd0)) begin"; repl = "end else if (1'b0) begin"; why = "framing regression: idle-gap resync disabled -> a half frame wedges the parser forever, and it never self-heals (must be caught)" },
+  @{ id = "M76"; file = "rtl\w3c\evt_uart_rx.v"; find = "hdr_err_cnt_o <= sat_inc16(hdr_err_cnt_o);"; repl = "idx_q <= 4'd1;"; why = "framing regression: a wrong header byte advances anyway -> garbage is swallowed as payload instead of being rejected (must be caught)" },
   # ---- T55: oscillator_bank (64 independent oscillators).  NOTE: this file is
   #      LF-only, so every anchor must be a single line.
   # NOTE (2026-09-21, K-98): the first version of M29 was
@@ -319,14 +380,13 @@ $mutations = @(
   @{ id = "M42"; file = "rtl\w3c\beat_gen.v"; find = "wire do_tick  = run_i & phase_carry;"; repl = "wire do_tick  = run_i;"; why = "T32 regression: a tick on EVERY clk instead of on carry -> tick rate 50 MHz (must be caught)" },
   @{ id = "M43"; file = "rtl\w3c\beat_gen.v"; find = "if (phase_en)"; repl = "if (phase_en & ~at_bar_end)"; why = "T32 regression: phase stalls at the bar boundary -> tick interval jumps there (must be caught)" },
   @{ id = "M44"; file = "rtl\w3c\beat_gen.v"; find = "tick_cnt_o_q  <= tick_cnt_q;"; repl = "tick_cnt_o_q  <= tick_cnt_next;"; why = "T32 regression (K-107): reported tick number off by one -> bar_start no longer lands on tick_cnt 0 (must be caught)" },
-  # ---- master_mix (2026-09-22, 丙): digital master volume + mute ramp -- the
-  #      last stage before i2s_tx.  Guards the four failure modes a "volume stage"
-  #      can silently introduce: ramp off (click), Q scaling off-by-one (2x loud),
-  #      valid dropped (silence), mute-safe reset off (power-on pop).
-  @{ id = "M61"; file = "rtl\w3c\master_mix.v"; find = "if (ramp_up)"; repl = "if (1'b0)"; why = "master_mix regression: ramp disabled -> gain never tracks the target -> volume/mute dead (must be caught)" },
-  @{ id = "M62"; file = "rtl\w3c\master_mix.v"; find = "prod >>> (GAIN_W - 1);"; repl = "prod >>> (GAIN_W - 2);"; why = "master_mix regression: Q1.15 scaling off by one -> output 2x too loud (must be caught)" },
-  @{ id = "M63"; file = "rtl\w3c\master_mix.v"; find = "assign valid_o  = valid_i;"; repl = "assign valid_o  = 1'b0;"; why = "master_mix regression: valid dropped -> downstream (i2s_tx) never latches the sample -> silence (must be caught)" },
-  @{ id = "M64"; file = "rtl\w3c\master_mix.v"; find = "gain_r <= {GAIN_W{1'b0}};                 // 复位静音（安全态）"; repl = "gain_r <= 16'h7FFF;                 // 复位静音（安全态）"; why = "master_mix regression: reset no longer mutes -> power-on pop (must be caught)" }
+  # ---- T33 (2026-09-22): perc_env_bank -- percussion amplitude envelope (attack/decay).
+  @{ id = "M81"; file = "rtl\w3c\perc_env_bank.v"; find = "if (level_r <= DECAY_STEP[ENV_W-1:0]) begin"; repl = "if (level_r >= DECAY_STEP[ENV_W-1:0]) begin"; why = "T33 regression: decay never terminates -> level stalls just above 0 and active_o never clears -> HUNG NOTE (must be caught)" },
+  # ---- master_mix (2026-09-22): master volume / mix stage (Q1.15 gain ramp).
+  @{ id = "M82"; file = "rtl\w3c\master_mix.v"; find = "if (ramp_up)"; repl = "if (1'b0)"; why = "master_mix regression: ramp disabled -> gain never tracks the target -> volume/mute dead (must be caught)" },
+  @{ id = "M83"; file = "rtl\w3c\master_mix.v"; find = "prod >>> (GAIN_W - 1);"; repl = "prod >>> (GAIN_W - 2);"; why = "master_mix regression: Q1.15 scaling off by one -> output 2x too loud (must be caught)" },
+  @{ id = "M84"; file = "rtl\w3c\master_mix.v"; find = "assign valid_o  = valid_i;"; repl = "assign valid_o  = 1'b0;"; why = "master_mix regression: valid dropped -> downstream (i2s_tx) never latches the sample -> silence (must be caught)" },
+  @{ id = "M85"; file = "rtl\w3c\master_mix.v"; find = "gain_r <= {GAIN_W{1'b0}};                 // 复位静音（安全态）"; repl = "gain_r <= 16'h7FFF;                 // 复位静音（安全态）"; why = "master_mix regression: reset no longer mutes -> power-on pop (must be caught)" }
 )
 
 # ---- selection ---------------------------------------------------------------
