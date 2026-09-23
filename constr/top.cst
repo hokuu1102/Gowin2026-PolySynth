@@ -100,12 +100,32 @@ IO_PORT "led_heartbeat" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
 //      ⇒ ⚠️ 悬空会让 FPGA 输入级振荡。
 //
 //   📌 依据：`files/10-硬件/Console排针ball映射-C14结案-20260923.md`
-IO_LOC  "spi_sclk"   C15;    // ⭐ J9 · SDRAM0_D2（出）
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐ SPI 组：14 根连续占满 `J9` 的 `N1`~`N16`（⭐ 2026-09-23 晚重排）
+//
+//   ⭐ **为什么这样排**（⭐ 用户要求"为扩展板方便走线"）：
+//      · ⭐ **`J9` 是 2×20 双排** ⇒ ⭐ **同排左右（`N3`-`N4`）最容易并排引线**
+//      · ⭐ **每片的 `MISO`+`CS` 放在【同一排左右】** ⇒ ⭐ 扩展板上并排走，⛔ 不用跨排绕
+//      · ⭐ **顺序 = 片号顺序** ⇒ ⭐ 走线不交叉
+//      · ⭐ **`MISO`/`CS` 交错**（⭐ 用户提出）⇒ ⭐ 每片自成一对
+//      · ⚠️ `N11`/`N12` 是 `+5V`/`GND`（⭐ 板上固定）⇒ ⭐ 物理跳过
+//
+//   ⭐ **片号映射**（⭐ ⚠️ 右手板【分开处理】—— 它接推子，语义不同于左手板霍尔）：
+//      · 片0~3 = 左手板 1~4（⭐ 霍尔 ×8 各）
+//      · 片4~5 = 右手板 A/B（⭐ 预留）
+//
+//   ⚠️ **`MISO` 预留 6 根但当前只接前 2 根**（⭐ 其余留空，⭐ 内部上拉定电平）。
+//   🔴 **`MISO` 必须每片独立**：⭐ `adc_farm` 是【锁步并行】⇒ ⚠️ 多片同时选中
+//      ⇒ ⭐ 共享一根会**推挽对打**（⭐ `K-06`）。
+// ═══════════════════════════════════════════════════════════════════════════
+//   ⭐ 共享总线（⭐ 所有片同时收同一命令）
+IO_LOC  "spi_sclk"   E14;    // ⭐ J9 · N1 · SDRAM0_D0（出）
 IO_PORT "spi_sclk"   IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
 
-IO_LOC  "spi_mosi"   C14;    // ⭐ J9 · SDRAM0_D3（出）
+IO_LOC  "spi_mosi"   E13;    // ⭐ J9 · N2 · SDRAM0_D1（出）
 IO_PORT "spi_mosi"   IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
 
+//   ⭐⭐ 片0（⭐ 左手板1）—— ⭐ `MISO`+`CS` 同排左右（`N3`/`N4`）
 // ⭐⭐ 两个 MISO：**必须独立**（`K-06`）⇒ ⚠️ 都要 `PULL_MODE=UP`
 //   🔴 **⚠️ 踩过的坑（2026-09-23）**：⭐ 原来照抄输出脚的写法带了 `DRIVE=8`
 //      ⇒ 🔴 **Gowin 报 `ERROR (CT1108): Illegal port attribute value specified 'DRIVE = 8'`**
@@ -113,46 +133,77 @@ IO_PORT "spi_mosi"   IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
 //      📌 **对照易错点**：⭐ 官方 `.cst` 里 `sdram_dq[2]` **确实带 `DRIVE=8`** ——
 //         ⚠️ 但那是因为它在该设计里是**双向**的；⭐ 我们这里是**纯输入** ⇒ ⛔ 不能带。
 //      ⇒ ⭐ **纪律**：⭐ **`DRIVE` 只给输出脚**；⭐ 输入脚只写 `IO_TYPE` / `PULL_MODE` / `BANK_VCCIO`。
-IO_LOC  "spi_miso_l" B13;    // ⭐ J9 · SDRAM0_D4（入，左手板 L）
-IO_PORT "spi_miso_l" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+//   ⭐⭐ 片0（⭐ 左手板1）—— ⭐ `MISO`+`CS` 同排左右（`N3`/`N4`）
+IO_LOC  "spi_miso[0]" C15;   // ⭐ J9 · N3 · SDRAM0_D2（入）
+IO_PORT "spi_miso[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "spi_cs_n[0]" C14;   // ⭐ J9 · N4 · SDRAM0_D3（出）
+IO_PORT "spi_cs_n[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
 
-IO_LOC  "spi_miso_r" C13;    // ⭐ J9 · SDRAM0_D5（入，左手板 R）
-IO_PORT "spi_miso_r" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+//   ⭐⭐ 片1（⭐ 左手板2）—— `N5`/`N6`
+IO_LOC  "spi_miso[1]" B13;   // ⭐ J9 · N5 · SDRAM0_D4（入）
+IO_PORT "spi_miso[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "spi_cs_n[1]" C13;   // ⭐ J9 · N6 · SDRAM0_D5（出）
+IO_PORT "spi_cs_n[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
 
-IO_LOC  "spi_cs_l"   A14;    // ⭐ J9 · SDRAM0_D6（出，左手板 L 片选）
-IO_PORT "spi_cs_l"   IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+//   ⭐⭐ 片2（⭐ 左手板3）—— `N7`/`N8`
+IO_LOC  "spi_miso[2]" A14;   // ⭐ J9 · N7 · SDRAM0_D6（入）
+IO_PORT "spi_miso[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "spi_cs_n[2]" A13;   // ⭐ J9 · N8 · SDRAM0_D7（出）
+IO_PORT "spi_cs_n[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
 
-IO_LOC  "spi_cs_r"   A13;    // ⭐ J9 · SDRAM0_D7（出，左手板 R 片选）
-IO_PORT "spi_cs_r"   IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+//   ⭐⭐ 片3（⭐ 左手板4）—— `N9`/`N10`
+IO_LOC  "spi_miso[3]" B16;   // ⭐ J9 · N9 · SDRAM0_D15（入）
+IO_PORT "spi_miso[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "spi_cs_n[3]" B15;   // ⭐ J9 · N10 · SDRAM0_D14（出）
+IO_PORT "spi_cs_n[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+//   ⚠️ `N11` = +5V · `N12` = GND（⭐ 板上固定，⛔ 不可用作信号）
+
+//   ⭐⭐ 片4（⭐ 右手板A）—— `N13`/`N14`
+IO_LOC  "spi_miso[4]" A16;   // ⭐ J9 · N13 · SDRAM0_D13（入）
+IO_PORT "spi_miso[4]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "spi_cs_n[4]" A15;   // ⭐ J9 · N14 · SDRAM0_D12（出）
+IO_PORT "spi_cs_n[4]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+//   ⭐⭐ 片5（⭐ 右手板B）—— `N15`/`N16`
+IO_LOC  "spi_miso[5]" A20;   // ⭐ J9 · N15 · SDRAM0_D11（入）
+IO_PORT "spi_miso[5]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "spi_cs_n[5]" B20;   // ⭐ J9 · N16 · SDRAM0_D10（出）
+IO_PORT "spi_cs_n[5]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
 
 // ═══════════════════════════════════════════════════════════════════════════
-// ⭐⭐ TLC5916（LED 演奏指引）—— ⭐ 2026-09-23 分配
+// ⭐⭐ LED 组（TLC5916，8 根）—— ⭐ `J9` 的 `N17`~`N24`（⭐ 2026-09-23 晚重排）
 //
-//   ⭐ `SDI`/`CLK`/`LE` **三根共享**；🔴 `OE` **每板独立**（低有效）。
-//   ⭐ **从 `J9` 取**（⭐ 与 ADC 的 `D2..D7` 同组 ⇒ 排线近）
-//      ⚠️ 因为 `PMOD` 的 16 根**已全部分配完**（⭐ 见 `引脚预算核算.md` §3.1）。
+//   ⭐ **为什么从 `PMOD` 挪到 `J9`**（⭐ 用户原则：
+//      "没有特殊要求的优先走 J9/J10，PMOD 留给需求比较高的引脚"）：
+//      · ⚠️ LED 是**低速、非关键**信号 ⇒ ⭐ 不需要 PMOD 的短走线优势
+//      · ⭐ 腾出的 `PMOD1_IO6/IO7` 可以留给**真正需要的**（⭐ 如 UART/高速）
 //
-//   ⚠️ **`OE` 预留 5 根**（⭐ 用户 2026-09-23："板 B 还没画，预留 3 甚至 5 根，
-//      后续可能会加左手板"）⇒ ⭐ 现在只接实际用到的，⛔ 端口先留够。
+//   ⭐ **信号共享性**（⭐ 依据 `引脚预算核算.md`）：
+//      · ⭐ `SDI`/`CLK`/`LE` **三根共享**（⭐ 所有片同一总线）
+//      · 🔴 `OE` **每板独立**（⭐ 用户要求预留 5 根 —— "后续可能会加左手板"）
+//
 //   🔴 **`OE` 低有效** ⇒ ⭐ `PULL_MODE=UP` 保证**上电即"不使能"**（⭐ 灯全灭）
 //      —— ⚠️ 若用 DOWN，上电瞬间会**全亮**（⭐ 白耗电 + 闪一片）。
+//   📌 `N17`~`N24` 与 SPI 组**顺序相接**（⭐ SPI 到 `N16` 止）⇒ ⭐ 两组都连续 ✅
 // ═══════════════════════════════════════════════════════════════════════════
-IO_LOC  "led_sdi"     E21;   // ⭐ PMOD1_IO6（出，共享数据）
-IO_PORT "led_sdi"     IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
-
-IO_LOC  "led_clk"     D21;   // ⭐ PMOD1_IO7（出，共享时钟）
-IO_PORT "led_clk"     IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
-
-IO_LOC  "led_le"      E14;   // ⭐ J9 · SDRAM0_D0（出，共享锁存）
+IO_LOC  "led_le"      A21;   // ⭐ J9 · N17 · SDRAM0_D9（出，共享锁存）
 IO_PORT "led_le"      IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
 
-IO_LOC  "led_oe_n[0]" E13;   // ⭐ J9 · SDRAM0_D1（出，低有效）
+IO_LOC  "led_sdi"     B21;   // ⭐ J9 · N18 · SDRAM0_D8（出，共享数据，可级联）
+IO_PORT "led_sdi"     IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "led_clk"     B18;   // ⭐ J9 · N19 · SDRAM0_A12（出，共享时钟）
+IO_PORT "led_clk"     IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+//   ⭐ `OE` ×5：⭐ 低有效 ⇒ ⭐ `PULL_MODE=UP`（上电全灭）
+IO_LOC  "led_oe_n[0]" B17;   // ⭐ J9 · N20 · SDRAM0_CLK
 IO_PORT "led_oe_n[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
-IO_LOC  "led_oe_n[1]" B21;   // ⭐ J9 · SDRAM0_D8
+IO_LOC  "led_oe_n[1]" C17;   // ⭐ J9 · N21 · SDRAM0_A9
 IO_PORT "led_oe_n[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
-IO_LOC  "led_oe_n[2]" A21;   // ⭐ J9 · SDRAM0_D9
+IO_LOC  "led_oe_n[2]" D17;   // ⭐ J9 · N22 · SDRAM0_A11
 IO_PORT "led_oe_n[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
-IO_LOC  "led_oe_n[3]" B20;   // ⭐ J9 · SDRAM0_D10
+IO_LOC  "led_oe_n[3]" A19;   // ⭐ J9 · N23 · SDRAM0_A7
 IO_PORT "led_oe_n[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
-IO_LOC  "led_oe_n[4]" A20;   // ⭐ J9 · SDRAM0_D11
+IO_LOC  "led_oe_n[4]" A18;   // ⭐ J9 · N24 · SDRAM0_A8
 IO_PORT "led_oe_n[4]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;

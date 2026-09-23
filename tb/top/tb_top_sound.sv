@@ -66,8 +66,9 @@ module tb_top_sound;
         .clk (clk), .rst_n (rst_n),
         .HP_BCK (HP_BCK), .HP_WS (HP_WS), .HP_DIN (HP_DIN),
         .PA_EN_n (PA_EN_n), .led_heartbeat (led_hb),
-        .spi_miso_l (1'b1), .spi_miso_r (1'b1),
-        .spi_sclk (), .spi_mosi (), .spi_cs_l (), .spi_cs_r ()
+        //   ⚠️ 2026-09-23 晚：SPI 端口改成【预留 6 片】的向量 ⇒ ⭐ 给 6 位常量
+        //      ⭐ 本 tb 测的是出声链（T57），⛔ 不测采集 ⇒ 常量即可
+        .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n ()
     );
 
     // ⭐ 内部探针：直接看 mixer 的输出（⛔ 不要只看到 I2S 引脚就下结论）

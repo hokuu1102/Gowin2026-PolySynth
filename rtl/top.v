@@ -114,12 +114,23 @@ module top #(
     //   🔴 **`MISO` 两根独立**（`K-06`）—— ⚠️ 因为 `adc_farm` 是**并行锁步**，
     //      ⛔ "共享 MISO 靠未选中片高阻"在同时选中时不成立（会推挽对打）。
     //   ⚠️ **⛔ 用这些脚就不能插 `SDRAM` 模块**（`0Ω` 二选一）
-    output wire spi_sclk,        // C15 · J9 SDRAM0_D2
-    output wire spi_mosi,        // C14 · J9 SDRAM0_D3
-    input  wire spi_miso_l,      // B13 · J9 SDRAM0_D4（⭐ 需 10 kΩ 上拉）
-    input  wire spi_miso_r,      // C13 · J9 SDRAM0_D5（⭐ 需 10 kΩ 上拉）
-    output wire spi_cs_l,        // A14 · J9 SDRAM0_D6
-    output wire spi_cs_r,        // A13 · J9 SDRAM0_D7
+    // ⭐⭐ SPI 组（⭐ 2026-09-23 晚重排成【预留 6 片】的向量）
+    //   ⭐ **为什么改成向量**（⭐ 用户要求"CS 共 6 根、MISO 也预留"）：
+    //      ⭐ 现在硬件只有 **2 片**（左手板 L/R = 16 轴），⚠️ 但**扩展板计划加左手板**
+    //      ⇒ ⭐ **端口先留 6 位** ⇒ ⚠️ 以后加片**只改 `.cst` + `N_ADC`**，
+    //         ⛔ **不用再动端口**（⭐ 也就不用再改 tb）。
+    //   📌 **`N_ADC` 仍为 2**（⭐ 实例化的片数）⇒ ⭐ 高 4 位【暂不接】，
+    //      ⚠️ 它们有内部上拉 ⇒ ⭐ 不会悬空乱跳 ✅
+    //   🔴 **`MISO` 必须每片独立**（⭐ `K-06`）：⭐ `adc_farm` 是【锁步并行】
+    //      ⇒ ⚠️ 多片同时选中 ⇒ ⭐ 共享一根会**推挽对打**。
+    //   ⭐ **引脚按"每片 `MISO`+`CS` 同排左右"排**（⭐ 扩展板好走线）：
+    //      片0=`N3/N4` · 片1=`N5/N6` · 片2=`N7/N8` · 片3=`N9/N10`
+    //      ⚠️ `N11/N12`=`+5V/GND` · 片4=`N13/N14` · 片5=`N15/N16`
+    //   ⚠️ **⛔ 用这些脚就不能插 `SDRAM` 模块**（`0Ω` 二选一）
+    output wire spi_sclk,         // E14 · J9 N1 · SDRAM0_D0
+    output wire spi_mosi,         // E13 · J9 N2 · SDRAM0_D1
+    input  wire [5:0] spi_miso,   // N3/N5/N7/N9/N13/N15（⭐ 每片一根，内部上拉）
+    output wire [5:0] spi_cs_n,   // N4/N6/N8/N10/N14/N16（⭐ 每片一根）
 
     // ═══════════════════════════════════════════════════════════════════════
     // ⭐⭐ TLC5916（LED 演奏指引）—— ⭐ 2026-09-23 分配引脚
@@ -142,12 +153,12 @@ module top #(
     //   🔴 **引脚来源**：⭐ 从 `J9` 取（⭐ 与 ADC 的 `D2..D7` 同组 ⇒ 走线近）
     //      ⚠️ `PMOD` 的 16 根**已全部分配完**（⭐ 见 `引脚预算核算.md` §3.1）。
     // ═══════════════════════════════════════════════════════════════════════
-    output wire led_sdi,         // E21 · PMOD1_IO6（⭐ 共享数据，可级联）
-    output wire led_clk,         // D21 · PMOD1_IO7（⭐ 共享时钟）
-    output wire led_le,          // E14 · J9 SDRAM0_D0（⭐ 共享锁存）
+    output wire led_sdi,         // B21 · J9 N18 · SDRAM0_D8（⭐ 共享数据，可级联）
+    output wire led_clk,         // B18 · J9 N19 · SDRAM0_A12（⭐ 共享时钟）
+    output wire led_le,          // A21 · J9 N17 · SDRAM0_D9（⭐ 共享锁存）
     //   ⭐ `OE` ×5：⭐ 预留（⭐ 当前实际用 0~2 根，⚠️ 其余留空）
     //      ⭐ 低有效 ⇒ ⭐ 上电应为**高**（⭐ 不使能，灯全灭）
-    output wire [4:0] led_oe_n   // E13/B21/A21/B20/A20 · J9 SDRAM0_D1/D8/D9/D10/D11
+    output wire [4:0] led_oe_n   // B17/C17/D17/A19/A18 · J9 N20..N24
 );
 
     // ── ⭐ R-08：外部复位先同步（异步输入 → 同步释放）──────────────────
@@ -383,7 +394,12 @@ module top #(
         wire [1:0]  af_fault;
         wire [2*12-1:0] af_data;          // ⭐ packed：片 i = [i*12 +: 12]
         wire [1:0] af_cs_n, af_sclk, af_mosi;
-        wire [1:0] af_miso = {spi_miso_r, spi_miso_l};   // ⭐ 两根独立 MISO
+        // ⭐ **本版只接前 2 片**（⭐ `N_ADC = 2`）⇒ ⭐ `af_miso` 取端口低 2 位。
+        //   ⚠️ **端口留 6 位**（⭐ 为将来加左手板）⇒ ⭐ 高 4 位【暂不接】，
+        //      它们有内部上拉 ⇒ ⭐ 不会悬空乱跳 ✅
+        //   📌 以后扩到 N 片时：⭐ 把这里的 `[1:0]` 改成 `[N-1:0]`、
+        //      `N_ADC` 改成 N 即可 —— ⛔ **不用动端口**（⭐ 这正是留 6 位的目的）。
+        wire [1:0] af_miso = spi_miso[1:0];   // ⭐ 每片独立 MISO（⭐ K-06）
 
         adc_farm #(
             .N_ADC            (2),        // ⭐ 本版 2 片（左手板 L/R）
@@ -412,8 +428,11 @@ module top #(
         //   ⚠️ `adc_farm` 内部已把片 1 扇出成与片 0 相同 ⇒ 这里取 `[0]` 即可
         assign spi_sclk = af_sclk[0];
         assign spi_mosi = af_mosi[0];
-        assign spi_cs_l = af_cs_n[0];    // ⭐ 片 0 = 左手板 L
-        assign spi_cs_r = af_cs_n[1];    // ⭐ 片 1 = 左手板 R
+        //   ⭐ 片选：⭐ 本版 2 片 ⇒ ⭐ 只驱动低 2 位
+        //   ⚠️ 高 4 位【恒定拉到"不选中"（1）】⇒ ⭐ 即使将来接线了也不会误选中
+        //      （⭐ `CS` 低有效 ⇒ 1 = 不选中）
+        assign spi_cs_n[1:0] = af_cs_n;       // ⭐ 片 0/1 = 左手板 L/R
+        assign spi_cs_n[5:2] = 2'b11;         // ⭐ 未用的片：⭐ 保持不选中 ✅
 
         // ── ⭐ ② `calib` ×2：逐通道零点/灵敏度标定 ───────────────────────
         //   ⚠️ `calib` 是**单片 8 通道**的 ⇒ ⭐ **每片一份**（⭐ 设计草案 `D1`）

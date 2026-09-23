@@ -55,8 +55,8 @@ module tb_top_m0;
         .HP_BCK (HP_BCK_a), .HP_WS (HP_WS_a), .HP_DIN (HP_DIN_a),
         .PA_EN_n (PA_EN_n_a), .led_heartbeat (hb_a),
         // ⭐ 2026-09-23：W3a 采集链新增的输入（⭐ 本 tb 不测采集 ⇒ 常量高 = 串口空闲/无 MISO 驱动）
-        .spi_miso_l (1'b1), .spi_miso_r (1'b1),
-        .spi_sclk (), .spi_mosi (), .spi_cs_l (), .spi_cs_r ()
+        //   ⚠️ 2026-09-23 晚：端口已改成【预留 6 片】的向量 ⇒ ⭐ 给 6 位常量高
+        .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n ()
     );
 
     // ═══════════════════════════════════════════════════════════════
@@ -79,8 +79,8 @@ module tb_top_m0;
         .clk (clk), .rst_n (rst_n),
         .HP_BCK (HP_BCK_d), .HP_WS (HP_WS_d), .HP_DIN (HP_DIN_d),
         .PA_EN_n (PA_EN_n_d), .led_heartbeat (hb_d),
-        .spi_miso_l (1'b1), .spi_miso_r (1'b1),
-        .spi_sclk (), .spi_mosi (), .spi_cs_l (), .spi_cs_r ()
+        //   ⚠️ 2026-09-23 晚：端口改成【预留 6 片】的向量 ⇒ 给 6 位常量
+        .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n ()
     );
 
     // ═══════════════════════════════════════════════════════════════
@@ -98,8 +98,8 @@ module tb_top_m0;
         .clk (clk), .rst_n (rst_n),
         .HP_BCK (HP_BCK_b), .HP_WS (HP_WS_b), .HP_DIN (HP_DIN_b),
         .PA_EN_n (PA_EN_n_b), .led_heartbeat (hb_b),
-        .spi_miso_l (1'b1), .spi_miso_r (1'b1),
-        .spi_sclk (), .spi_mosi (), .spi_cs_l (), .spi_cs_r ()
+        //   ⚠️ 2026-09-23 晚：端口改成【预留 6 片】的向量 ⇒ 给 6 位常量
+        .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n ()
     );
 
     // ── F · A8：X/Z 传播（声明必须放在例化之前）──────────────────────

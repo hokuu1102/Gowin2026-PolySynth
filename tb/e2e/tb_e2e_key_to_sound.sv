@@ -55,7 +55,10 @@ module tb_e2e_key_to_sound;
 
     // ── DUT 端口 ──────────────────────────────────────────────────────
     wire HP_BCK, HP_WS, HP_DIN, PA_EN_n, led_hb;
-    wire spi_sclk, spi_mosi, spi_cs_l, spi_cs_r;
+    wire spi_sclk, spi_mosi;
+    //   ⚠️ 2026-09-23 晚：`top.v` 的 SPI 端口改成【预留 6 片】的向量
+    //      ⇒ ⭐ 本 tb 只用前 2 片（⭐ 与 `N_ADC=2` 一致）
+    wire [5:0] spi_miso, spi_cs_n;
     wire miso_l, miso_r;
 
     top #(
@@ -98,10 +101,9 @@ module tb_e2e_key_to_sound;
         .led_heartbeat (led_hb),
         .spi_sclk      (spi_sclk),
         .spi_mosi      (spi_mosi),
-        .spi_miso_l    (miso_l),
-        .spi_miso_r    (miso_r),
-        .spi_cs_l      (spi_cs_l),
-        .spi_cs_r      (spi_cs_r)
+        //   ⭐ 只用低 2 位；⭐ 高 4 位接常量（⭐ 未用的片：`CS`=1 不选中、`MISO`=1 空闲）
+        .spi_miso      ({4'b1111, miso_r, miso_l}),
+        .spi_cs_n      (spi_cs_n)
     );
 
     // ═══════════════════════════════════════════════════════════════════
@@ -112,8 +114,11 @@ module tb_e2e_key_to_sound;
     localparam [11:0] RAW_REST = 12'h7C1;       // ⭐ 静息（松手 1.60 V）
     localparam [11:0] RAW_DOWN = 12'h4D9;       // ⭐ 按下（触底 1.00 V）
 
+    //   ⭐ 未用的高 4 位 `CS` 恒定高（⭐ 不选中）⇒ ⭐ 用 assign 兜住
+    assign spi_cs_n[5:2] = 2'b11;
+
     mcp3208_model #(.IDVAL(RAW_REST)) u_adc_l (
-        .cs_n     (spi_cs_l),
+        .cs_n     (spi_cs_n[0]),
         .sclk     (spi_sclk),
         .mosi     (spi_mosi),
         .miso     (miso_l),
@@ -122,7 +127,7 @@ module tb_e2e_key_to_sound;
     );
 
     mcp3208_model #(.IDVAL(RAW_REST)) u_adc_r (
-        .cs_n     (spi_cs_r),
+        .cs_n     (spi_cs_n[1]),
         .sclk     (spi_sclk),
         .mosi     (spi_mosi),
         .miso     (miso_r),
