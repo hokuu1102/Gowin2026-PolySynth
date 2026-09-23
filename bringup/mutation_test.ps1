@@ -380,14 +380,18 @@ $mutations = @(
   @{ id = "M42"; file = "rtl\w3c\beat_gen.v"; find = "wire do_tick  = run_i & phase_carry;"; repl = "wire do_tick  = run_i;"; why = "T32 regression: a tick on EVERY clk instead of on carry -> tick rate 50 MHz (must be caught)" },
   @{ id = "M43"; file = "rtl\w3c\beat_gen.v"; find = "if (phase_en)"; repl = "if (phase_en & ~at_bar_end)"; why = "T32 regression: phase stalls at the bar boundary -> tick interval jumps there (must be caught)" },
   @{ id = "M44"; file = "rtl\w3c\beat_gen.v"; find = "tick_cnt_o_q  <= tick_cnt_q;"; repl = "tick_cnt_o_q  <= tick_cnt_next;"; why = "T32 regression (K-107): reported tick number off by one -> bar_start no longer lands on tick_cnt 0 (must be caught)" },
-  # ---- led_data (2026-09-23, 丙): LED playing-guide mapper (16 key lights + 8 status
-  #      lights -> 24-bit TLC5916 pattern).  Guards the four failure modes a "map" can
-  #      silently introduce: active flickers, guide never blinks, status misaligned,
-  #      commit refreshes every cycle.
-  @{ id = "M77"; file = "rtl\w3c\led_data.v"; find = "assign key_pattern[ki] = key_active_i[ki] | (blink_keys[ki] & blink_i);"; repl = "assign key_pattern[ki] = (blink_keys[ki] & blink_i);"; why = "led_data regression: active key no longer steady -> a held key flickers with blink (must be caught)" },
-  @{ id = "M78"; file = "rtl\w3c\led_data.v"; find = "assign key_pattern[ki] = key_active_i[ki] | (blink_keys[ki] & blink_i);"; repl = "assign key_pattern[ki] = key_active_i[ki] | blink_keys[ki];"; why = "led_data regression: guided key no longer blinks -> next-key hint stays solid (must be caught)" },
-  @{ id = "M79"; file = "rtl\w3c\led_data.v"; find = "assign pattern_next = {status_i, key_pattern};"; repl = "assign pattern_next = {status_i[STATUS_N-2:0], 1'b0, key_pattern};"; why = "led_data regression: status lights shifted by one bit -> mode/timbre/N lamps wrong (must be caught)" },
-  @{ id = "M80"; file = "rtl\w3c\led_data.v"; find = "commit_r  <= pattern_changed;"; repl = "commit_r  <= 1'b1;"; why = "led_data regression: commit asserts every cycle -> downstream refreshes needlessly (must be caught)" }
+  # ---- T33 (2026-09-22): perc_env_bank -- percussion amplitude envelope (attack/decay).
+  @{ id = "M81"; file = "rtl\w3c\perc_env_bank.v"; find = "if (level_r <= DECAY_STEP[ENV_W-1:0]) begin"; repl = "if (level_r >= DECAY_STEP[ENV_W-1:0]) begin"; why = "T33 regression: decay never terminates -> level stalls just above 0 and active_o never clears -> HUNG NOTE (must be caught)" },
+  # ---- master_mix (2026-09-22): master volume / mix stage (Q1.15 gain ramp).
+  @{ id = "M82"; file = "rtl\w3c\master_mix.v"; find = "if (ramp_up)"; repl = "if (1'b0)"; why = "master_mix regression: ramp disabled -> gain never tracks the target -> volume/mute dead (must be caught)" },
+  @{ id = "M83"; file = "rtl\w3c\master_mix.v"; find = "prod >>> (GAIN_W - 1);"; repl = "prod >>> (GAIN_W - 2);"; why = "master_mix regression: Q1.15 scaling off by one -> output 2x too loud (must be caught)" },
+  @{ id = "M84"; file = "rtl\w3c\master_mix.v"; find = "assign valid_o  = valid_i;"; repl = "assign valid_o  = 1'b0;"; why = "master_mix regression: valid dropped -> downstream (i2s_tx) never latches the sample -> silence (must be caught)" },
+  @{ id = "M85"; file = "rtl\w3c\master_mix.v"; find = "gain_r <= {GAIN_W{1'b0}};                 // 复位静音（安全态）"; repl = "gain_r <= 16'h7FFF;                 // 复位静音（安全态）"; why = "master_mix regression: reset no longer mutes -> power-on pop (must be caught)" },
+  # ---- led_data (2026-09-23): LED 演奏指引映射层（16 键灯 + 8 状态灯）。
+  @{ id = "M86"; file = "rtl\w3c\led_data.v"; find = "assign key_pattern[ki] = key_active_i[ki] | (blink_keys[ki] & blink_i);"; repl = "assign key_pattern[ki] = (blink_keys[ki] & blink_i);"; why = "led_data regression: active key no longer steady -> a held key flickers with blink (must be caught)" },
+  @{ id = "M87"; file = "rtl\w3c\led_data.v"; find = "assign key_pattern[ki] = key_active_i[ki] | (blink_keys[ki] & blink_i);"; repl = "assign key_pattern[ki] = key_active_i[ki] | blink_keys[ki];"; why = "led_data regression: guided key no longer blinks -> next-key hint stays solid (must be caught)" },
+  @{ id = "M88"; file = "rtl\w3c\led_data.v"; find = "assign pattern_next = {status_i, key_pattern};"; repl = "assign pattern_next = {status_i[STATUS_N-2:0], 1'b0, key_pattern};"; why = "led_data regression: status lights shifted by one bit -> mode/timbre/N lamps wrong (must be caught)" },
+  @{ id = "M89"; file = "rtl\w3c\led_data.v"; find = "commit_r  <= pattern_changed;"; repl = "commit_r  <= 1'b1;"; why = "led_data regression: commit asserts every cycle -> downstream refreshes needlessly (must be caught)" }
 )
 
 # ---- selection ---------------------------------------------------------------
