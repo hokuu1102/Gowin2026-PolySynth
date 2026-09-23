@@ -158,7 +158,48 @@ module top #(
     output wire led_le,          // A21 · J9 N17 · SDRAM0_D9（⭐ 共享锁存）
     //   ⭐ `OE` ×5：⭐ 预留（⭐ 当前实际用 0~2 根，⚠️ 其余留空）
     //      ⭐ 低有效 ⇒ ⭐ 上电应为**高**（⭐ 不使能，灯全灭）
-    output wire [4:0] led_oe_n   // B17/C17/D17/A19/A18 · J9 N20..N24
+    output wire [4:0] led_oe_n,  // B17/C17/D17/A19/A18 · J9 N20..N24
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ 串口（⭐ 2026-09-23 阶段C 新增）—— ⭐ 标定命令 + 曲谱事件的入口
+    //
+    //   🔴 **为什么现在才加**：⭐ `top.v` 此前**完全没有 UART 端口** ——
+    //      ⚠️ 所以 `evt_uart_rx` / `calib_cmd` / `uart_rx` **全都接不进来**。
+    //
+    //   ⭐⭐ **走【板载 USB-C】**（⭐ ⛔ 不用外接 USB-TTL）：
+    //      ```
+    //      PC ──USB-C──> BL616（桥接芯片）──> FPGA_UART.RX/TX
+    //      ```
+    //      ⇒ ⭐ **一根 USB-C 线插上就是串口** ✅
+    //
+    //   📌 **引脚出处**（⭐ 已逐条查实，⛔ 不是猜的）：
+    //      `files/10-硬件/板卡替换评估/Console引脚查证-20260922.md` §3.1
+    //      ⭐ 官方 `console60k.cst` 原话：
+    //         ```
+    //         IO_LOC "UART_RXD" V14;  IO_PORT "UART_RXD" IO_TYPE=LVCMOS33;
+    //         IO_LOC "UART_TXD" U15;  IO_PORT "UART_TXD" IO_TYPE=LVCMOS33;
+    //         ```
+    //
+    //   ⚠️⚠️ **电平：⭐ `V14`/`U15` 是 `LVCMOS33`，⛔ 不是 1.5 V**
+    //      🔴 **别与 `AA13`(`rst_n`) / `Y14`(`PA_EN_n`) 混为一谈** ——
+    //         那两个属 **`BANK9` = 1.5 V 域** ⇒ ⚠️ 那边必须 `LVCMOS15`。
+    //      📌 出处：`V14` 属 **`BANK8`**、`U15` 属 **`BANK6`**（⭐ 都不是 `BANK9`）
+    //         ⇒ ✅ **可以（也必须）用 3.3 V**。
+    //
+    //   ⭐ `uart_rx`（⭐ 输入）：⭐ 串口**空闲是高电平**
+    //      ⇒ ⚠️ 若 PC 没插，悬空会读到随机跳变 ⇒ 🔴 可能被当成假起始位持续误触发
+    //      ⇒ ⭐ **`.cst` 里给它 `PULL_MODE=UP`**（⭐ 默认拉到空闲态）。
+    //
+    //   ⚠️ `uart_tx`（⭐ 输出）：⭐ **本版先只把引脚与端口加上，⛔ 不接任何逻辑**
+    //      ⇒ 🔴 因为 `uart_tx.v` **不存在**（⭐ 要新写）
+    //      ⇒ ⭐ **恒驱动 0**（⚠️ 串口线会一直处于"break"状态，⛔ 但无害 ——
+    //         ⭐ 因为现在**没有任何东西在听它**；⭐ 且它不会被优化掉，
+    //         ⚠️ 留给下一步直接接上）。
+    //      📌 下一步：写 `uart_tx.v` ⇒ 把 `calib_span` 的进度回传出去
+    //         （⚠️ 否则 16 轴 `span` 标定**没有进度提示、几乎没法操作**）。
+    // ═══════════════════════════════════════════════════════════════════════
+    input  wire uart_rx,         // V14 · 板载 BL616 → FPGA（⭐ 标定命令 / 曲谱事件）
+    output wire uart_tx          // U15 · FPGA → 板载 BL616（⚠️ 本版未接逻辑，恒 0）
 );
 
     // ── ⭐ R-08：外部复位先同步（异步输入 → 同步释放）──────────────────
@@ -216,6 +257,159 @@ module top #(
     // ═══════════════════════════════════════════════════════════════════════
     wire signed [SAMPLE_W-1:0] sample_mono;
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ 串口前端（⭐ 2026-09-23 阶段C）
+    //
+    //   🔴 **三个消费者共用【同一个** `uart_rx` **】**（⭐ 这是本段最关键的设计）：
+    //      ```
+    //      uart_rx.rx_done_o ─┬─> evt_uart_rx  （⭐ 认 0xA5 帧 = 曲谱事件）
+    //                         └─> calib_cmd    （⭐ 认帧外的 T/S/X = 标定命令）
+    //      ```
+    //   ⭐ **两者天然共存**，因为**各自维护独立的帧边界概念**：
+    //      · `evt_uart_rx`：⭐ 只在 **`idx==0`** 位置看 `0xA5`（⭐ 不做扫描）
+    //      · `calib_cmd`  ：⭐ **同样跟踪 `0xA5` 边界**，⭐ 帧内字母一律当载荷
+    //      ⇒ ⭐ `'T'`(0x54) **不是** `0xA5` ⇒ ⭐ 两边**都不会误同步** ✅
+    //
+    //   ⚠️ **代价（⭐ 上板时要心里有数）**：
+    //      🔴 **每发一条标定命令，`evt_uart_rx.hdr_err_cnt_o` 会 +1** ——
+    //      ⭐ **这是正常的，⛔ 不是故障**。
+    //
+    //   ⚠️⚠️ **波特率必须三处一致**（⭐ 不一致会**静默收乱码**、⛔ 不报错）：
+    //      ```
+    //      uart_rx     #(.BAUD_DIV(50))       // 1 Mbps
+    //      evt_uart_rx #(.BAUD(1_000_000))
+    //      calib_cmd   #(.BAUD(1_000_000))
+    //      ```
+    //      ⭐ 切档时**三处一起改**（⭐ 依据 `uart_rx.v` / `evt_uart_rx.v` 顶部注释）。
+    //
+    //   📌 **为什么放在 `generate` 之外**：⭐ 第 ①②③ 块是**顶层基础设施**
+    //      （⭐ 命令还要喂进 `g_sound` 里的 `calib_span`）
+    //      ⇒ ⚠️ 放外面才能被 `g_sound` 引用（⭐ 且 `g_silent` 档也能保留串口）。
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // ── ⭐ ① 字节接收器（8N1 @ 1 Mbps）───────────────────────────────────
+    wire [7:0] ur_data;
+    wire       ur_done;
+
+    uart_rx #(
+        // ⭐ `BAUD_DIV = 50 MHz / 1 Mbps = 50`（⭐ 整除 ⇒ 无误差）
+        //   ⚠️ 必须与下面两个 `BAUD(1_000_000)` 一致（⭐ 否则静默乱码）
+        .BAUD_DIV(50)
+    ) u_uart_rx (
+        .clk_i     (clk),
+        .rst_n_i   (rst_n_sync),
+        //   ⭐ 引脚 `V14`（⭐ `.cst` 里已给 `PULL_MODE=UP` ⇒ 空闲态稳定）
+        .rx_i      (uart_rx),
+        .rx_data_o (ur_data),
+        .rx_done_o (ur_done)
+    );
+
+    // ── ⭐ ② 标定命令解析（`'T'` / `'S'` / `'X'`）─────────────────────────
+    //   🔴 **它自带 `0xA5` 帧边界跟踪** ⇒ ⭐ 帧内的 `T/S/X` 是**载荷**，⛔ 不当命令
+    //      （⚠️ 否则**曲谱灌入会被误当标定命令** —— 灾难性）
+    wire cmd_tare_req, cmd_span_req, cmd_abort_req;
+    wire [15:0] cmd_cnt, cmd_in_frame_cnt, cmd_resync_cnt, cmd_unknown_cnt;
+    wire [3:0]  cmd_idx;
+
+    calib_cmd #(
+        .CLK_HZ   (50_000_000),
+        .BAUD     (1_000_000),      // ⚠️ 与 `uart_rx.BAUD_DIV=50` 同一档
+        .GAP_BYTES(16)              // ⚠️ 与 `evt_uart_rx` 同值（⭐ 帧边界判断要一致）
+    ) u_calib_cmd (
+        .clk_i          (clk),
+        .rst_n_i        (rst_n_sync),
+        .rx_done_i      (ur_done),
+        .rx_data_i      (ur_data),
+        .tare_req_o     (cmd_tare_req),
+        .span_req_o     (cmd_span_req),
+        .abort_req_o    (cmd_abort_req),
+        .cmd_cnt_o      (cmd_cnt),
+        .in_frame_cnt_o (cmd_in_frame_cnt),
+        .resync_cnt_o   (cmd_resync_cnt),
+        .idx_o          (cmd_idx),
+        .unknown_cnt_o  (cmd_unknown_cnt)
+    );
+
+    // ── ⭐ ③ 曲谱事件帧解析（`0xA5` + 8 字节大端 = 64 bit 事件）──────────
+    //   ⚠️ **本版只接"解析出来"，⛔ 还没接进 `evt_merge`** ——
+    //      ⭐ 因为那要动事件合流与 `note_manager`（⚠️ 属另一批改动，
+    //      且 `SOURCE_A_SEL` 的仲裁要一起考虑）
+    //   ⇒ ⭐ **本轮先让通路"能收、可观测"，⛔ 不急着灌进合成链**
+    //      （⭐ 一次只改一个变量 —— 上板在即）
+    wire        eu_evt_valid;
+    wire [63:0] eu_evt_data;
+    wire [15:0] eu_frame_cnt, eu_resync_cnt, eu_hdr_err_cnt, eu_drop_cnt;
+    wire [3:0]  eu_idx;
+    wire        eu_synced;
+
+    evt_uart_rx #(
+        .CLK_HZ   (50_000_000),
+        .BAUD     (1_000_000),      // ⚠️ 与 `uart_rx.BAUD_DIV=50` 同一档
+        .GAP_BYTES(16)
+    ) u_evt_uart_rx (
+        .clk_i         (clk),
+        .rst_n_i       (rst_n_sync),
+        .rx_done_i     (ur_done),
+        .rx_data_i     (ur_data),
+        .evt_valid_o   (eu_evt_valid),
+        .evt_data_o    (eu_evt_data),
+        .frame_cnt_o   (eu_frame_cnt),
+        .resync_cnt_o  (eu_resync_cnt),
+        .hdr_err_cnt_o (eu_hdr_err_cnt),
+        .drop_cnt_o    (eu_drop_cnt),
+        .idx_o         (eu_idx),
+        .synced_o      (eu_synced)
+    );
+
+    // ── ⭐ ④ 串口发送器（⭐ 回传标定进度）─────────────────────────────────
+    //   ⭐⭐ **为什么必须有**（⭐ 2026-09-23 阶段C 新增）：
+    //      🔴 没有它，`span` 标定**没有任何进度回传** ——
+    //         · 操作者不知道**现在标到第几个轴**
+    //         · 不知道刚才是**通过**还是**被拒绝**
+    //         ⇒ 🔴 **16 轴逐个按到底的流程几乎没法可靠完成**
+    //   ⭐ 实现：⭐ 一个极简的发送调度器 ——
+    //      ⭐ 波特率 1 Mbps ⇒ ⭐ 一个字节 ≈ 10 µs
+    //      ⇒ ⚠️ 人类根本感知不到延迟 ⇒ ⭐ **不需要 FIFO，直接串行发即可**。
+    //
+    //   ⭐ **本版回传的字符**（⭐ 单字节 ASCII，⭐ PC 串口助手直接能看）：
+    //      | 时机 | 字符 | 含义 |
+    //      |---|---|---|
+    //      | ⭐ 收到 `'T'` | **`'t'`** | ⭐ 已受理 tare 请求 |
+    //      | ⭐ 收到 `'S'` | **`'s'`** | ⭐ 已受理 span 请求 |
+    //      | ⭐ 收到 `'X'` | **`'x'`** | ⭐ 已受理取消 |
+    //      | ⭐ `span` 需要按键 | **`'0'~'9'`/`'A'~'F'`** | ⭐ **当前要求按哪个轴**（⭐ 十六进制一位） |
+    //      | ⭐ 该轴通过 | **`'.'`** | ⭐ 这一轴标成功 |
+    //      | 🔴 该轴被拒 | **`'!'`** | ⭐ 这一轴被拒（⭐ 手没按稳 / 没按到底） |
+    //      | ⭐ 全部完成 | **`'D'`** | ⭐ 16 轴全标完 |
+    //      | 🔴 放弃 | **`'E'`** | ⭐ 反复失败 ⇒ 放弃（⭐ `REJECT_MAX` 到顶） |
+    //      ⚠️ **这套字符是【本项目自定义】的**（⭐ ESP32 侧已明确"标定命令由 FPGA 定"）
+    //         📌 出处：`FPGA2026-esp32/.../ESP32侧串口命令格式-给FPGA侧-20260923.md` §1.3
+    //      ⚠️ **⛔ 它不上 `0xA5` 帧** —— ⭐ 是**裸 ASCII**
+    //         ⇒ ⚠️ 回传方向**只有 PC 在听**，⛔ 不影响下行帧解析。
+    // ═══════════════════════════════════════════════════════════════════════
+    //   ⭐⭐ **回传请求信号（⭐ 跨 `generate` 边界）**
+    //      ⭐ 事件在 `g_sound` **内部**产生（⭐ `calib_span` 在里面），
+    //      ⚠️ 而 `u_uart_tx` 在**外面** ⇒ ⭐ 信号必须引出。
+    //      ⭐ **两个 `generate` 分支各自驱动它们**（⭐ 互斥 ⇒ ⛔ 不会冲突）：
+    //        · `g_sound`  ⇒ ⭐ 驱动真事件
+    //        · `g_silent` ⇒ ⭐ 驱动 0（⛔ 否则悬空成 `x`，⭐ 会误发垃圾字节）
+    wire       tx_req;
+    wire [7:0] tx_byte;
+    wire       tx_busy;
+
+    uart_tx #(
+        // ⚠️ 必须与 `uart_rx.BAUD_DIV` **同一档**（⭐ 否则对端收乱码）
+        .BAUD_DIV(50)
+    ) u_uart_tx (
+        .clk_i     (clk),
+        .rst_n_i   (rst_n_sync),
+        .tx_start_i(tx_req),
+        .tx_data_i (tx_byte),
+        .tx_o      (uart_tx),        // ⭐ 引脚 `U15`
+        .busy_o    (tx_busy),
+        .tx_done_o ()
+    );
+
     generate
     if (DEMO_CHORD_ON == 0) begin : g_silent
         // ── M0 安全态/静音档：⛔ 不例化合成链，直接送 0 ──────────────────
@@ -223,6 +417,13 @@ module top #(
         //       ① 省资源；② ⭐ **静音就是结构上的静音**，⛔ 不给"某个内部节点
         //       意外产生数据"留任何可能（`tb_top_m0` 的 E 判据要 `HP_DIN` 恒 0）。
         assign sample_mono = {SAMPLE_W{1'b0}};
+        //   ⭐ 静音档：⭐ 没有 `calib_span` ⇒ ⭐ 回传恒"无请求"
+        //      ⚠️ **必须显式驱动** —— 否则 `tx_req` 悬空成 `x`
+        //         ⇒ 🔴 `uart_tx` 可能把 `x` 当启动脉冲，⭐ 发出垃圾字节
+        //   📌 两个 `generate` 分支**互斥**（⭐ 只例化一个）
+        //      ⇒ ⭐ 各自驱动同名信号 **⛔ 不会冲突** ✅
+        assign tx_req  = 1'b0;
+        assign tx_byte = 8'h00;
     end else begin : g_sound
         // ── 出声链 ────────────────────────────────────────────────────────
         wire [POLY_TARGET-1:0]         nm_gate;
@@ -442,6 +643,13 @@ module top #(
         wire [11:0] cal0_val, cal1_val;
         wire [2:0]  cal0_ch,  cal1_ch;
         wire        cal0_vld, cal1_vld;
+        //   ⭐⭐ 2026-09-23 阶段B：`busy`/`err` 从【空连接】改为**接出**
+        //      🔴 接入前它们悬空 ⇒ ⭐ `calib_span` **看不到标定是否失败**
+        //      ⇒ ⚠️ 那正是"静默卡死"缺陷 ③ 的现场（⭐ 见总账 §十）。
+        //      ⚠️ 两片**只取片 0** —— ⭐ 因为两片锁步 ⇒ 行为一致
+        //         （⭐ 与 `tb_calib_autotare` 里"一片就够"的理由相同）。
+        wire        cal0_busy, cal0_err;
+        wire        cal1_busy, cal1_err;
 
         // ═══════════════════════════════════════════════════════════════════
         // ⭐⭐ 上电自动零点标定（⭐ `calib_autotare`，2026-09-23 接入）
@@ -468,6 +676,31 @@ module top #(
         wire [2:0] at_ch;
         wire       at_busy, at_done;
 
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ `calib_span` 的端口信号 —— 🔴 **必须在 `u_autotare` 【之前】声明**
+        //
+        //   🔴🔴 **这是一个真实的踩坑记录（⭐ 2026-09-23，与 `af0_pol` 同族）**：
+        //      ⚠️ 我原先把这些 `wire` 声明写在 `u_calib_span` **例化之前**，
+        //         ⭐ 但 `u_autotare.retrig_i` 用到了 `sp_busy`（⭐ 互锁门控），
+        //         ⚠️ 而 `u_autotare` **在 `u_calib_span` 之前** ⇒ 🔴 **先用后声明**
+        //      ⇒ 🔴 iverilog 只报 **`warning: implicit definition of wire 'sp_busy'`**
+        //         ⚠️ **不是 error！** ⇒ ⭐ 它会把 `sp_busy` **隐式建成 1 位 wire**
+        //         🔴 而真正的 `sp_busy` 也是 1 位 ⇒ ⚠️ **这个例子里恰好无害**，
+        //            ⭐ 但**换成一个多位信号就会被静默截断**（⭐ `83 号` 那个坑：
+        //            `wire` 不写位宽就是 1 位）⇒ 🔴 **完全可能悄悄坏掉**
+        //      📌 **纪律**：⭐ **`implicit definition` 的 warning 必须当 error 对待** ——
+        //         ⚠️ 它意味着"声明顺序错了"，⛔ 不要因为"看起来能跑"就放过。
+        //   ⭐ 修法：⭐ 把所有 `sp_*` 声明**统一提到 `u_autotare` 之前**
+        //      （⭐ 即"谁先用到，谁之前就得声明"）。
+        // ═══════════════════════════════════════════════════════════════════
+        wire [1:0] sp_span;          // ⭐ 逐片（⭐ 锁步 ⇒ 同拍）
+        wire [2:0] sp_ch;
+        wire       sp_busy, sp_done, sp_need_press, sp_reject;
+        wire [3:0] sp_cur_axis, sp_done_cnt;
+        //   ⭐ `'S'` 的门控（⭐ 与 `at_busy` 做互锁）—— ⚠️ 同样必须先声明
+        wire       sp_start_gated = cmd_span_req & ~at_busy;
+        wire       sp_start_rejected = cmd_span_req & at_busy;
+
         calib_autotare #(
             .NCH      (8),
             .N_ADC    (2),
@@ -479,11 +712,32 @@ module top #(
             .rst_n         (rst_n_sync),
             .sample_valid_i(af_sample_valid),
             .sample_ch_i   (af_sample_ch),
+            // ⭐⭐ `retrig_i`：⭐ 接 `'T'` 命令（⭐ 2026-09-23 阶段C 接通）
+            //   🔴 **互锁（⭐ 与 `'S'` 对称）**：⭐ `span` 忙时**忽略 `'T'`**
+            //      ⚠️ 否则 `tare` 与本轴的 `span` 同拍 ⇒ 🔴 **增益算错**（⭐ 见 `cal_ch_mux`）
+            //   ⚠️ 被拒时不额外回传（⭐ `'T'` 本来就有 `'t'` 回执，⭐ 够用）
+            .retrig_i      (cmd_tare_req & ~sp_busy),
             .tare_o        (at_tare),
             .cal_ch_o      (at_ch),
             .busy_o        (at_busy),
             .done_o        (at_done)
         );
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 满行程（`span`）标定 —— ⚠️ **例化体在下方**（⭐ 见 `af0_pol` 之后）
+        //
+        //   🔴 **为什么不能写在这里**（⭐ 2026-09-23 踩到）：
+        //      ⚠️ `calib_span.raw_i` 必须接 **`af0_pol`**（⭐ 反相后、`calib` 前那一路）
+        //      🔴 而 `af0_pol` 由 `axis_polarity()` 函数算出，
+        //         ⭐ 那个函数**定义在 `calib` 之前**（⭐ 见下方）
+        //      ⇒ 🔴 **Verilog 里"声明必须先于使用"** ⇒ ⚠️ 写在这里会报
+        //         `Unable to bind wire/reg/memory 'af0_pol'`
+        //      📌 这正是本项目的老坑（⭐ 交接文档也记了"声明必须先于使用"）。
+        //   ⇒ ⭐ 完整说明与例化体见 `af0_pol` 声明【之后】那一段。
+        // ═══════════════════════════════════════════════════════════════════
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 霍尔极性反相 —— ⭐ **位置在 `calib` 【之前】**（2026-09-23 第 2 版）
 
         // ═══════════════════════════════════════════════════════════════════
         // ⭐⭐ 霍尔极性反相 —— ⭐ **位置在 `calib` 【之前】**（2026-09-23 第 2 版）
@@ -534,6 +788,192 @@ module top #(
         wire [11:0] af0_pol = axis_polarity(af_data[0*12 +: 12]);
         wire [11:0] af1_pol = axis_polarity(af_data[1*12 +: 12]);
 
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 满行程（`span`）标定（⭐ `calib_span`，2026-09-23 阶段B 接入）
+        //
+        //   ⭐ **它做什么**：⭐ 把某个轴"按到底"的位置记为满行程点
+        //      ⇒ ⭐ `calib` 算出增益 `gain = (4095<<8)/(raw_底 − zero)`
+        //      ⇒ ⭐ **把 744 码的行程拉伸到 4095（满量程）** ⇒ ⭐ 分辨率 ×5.5。
+        //
+        //   ⭐⭐ **为什么值得做**（⭐ 实测的账）：
+        //      | | 只有 `tare` | `span` 之后 |
+        //      | `pos` 行程 | **744** 码 | ⭐ **4095** |
+        //      | 阈值 | `149`（⚠️ **依赖行程**） | ⭐ **`819`（固定 20%）** |
+        //      🔴 **关键收益：阈值不再依赖定位板高度** ——
+        //         ⚠️ 现在 `TRIG_TH=0x095` 是按"行程 744"算的，而**用户正在调定位板
+        //         ⇒ 行程一定会变 ⇒ 那两个阈值必须重算**（⭐ 见 `event_extract` 的注释）。
+        //         ⭐ 做完 `span` 就不用再重算了。
+        //
+        //   🔴🔴 **本版接线的两个关键点（⭐ 都踩过坑）**：
+        //
+        //   **① `raw_i` 必须用【反相后、`calib` 前】那一路**（`af0_pol`）
+        //      ⚠️ 与 `u_calib0.raw` **同一路** ⇒ ⭐ 否则记的"满行程码"与
+        //      `calib` 内部减零点的那个码**不在同一空间** ⇒ 🔴 增益算错（⭐ 静默）。
+        //      🔴 **⚠️ 这里有一个真实的顺序陷阱**（⭐ 2026-09-23 踩到）：
+        //         ⭐ `af0_pol` 由 `axis_polarity()` 函数算出来，
+        //         ⚠️ 而那个函数**定义在 `calib` 实例【之前】**（⭐ 见上方）
+        //         ⇒ 🔴 **本模块的例化必须放在 `af0_pol` 声明【之后】**
+        //         ⇒ ⚠️ 否则 iverilog 报 `Unable to bind wire/reg/memory 'af0_pol'`
+        //            （⭐ 本项目的老坑：**Verilog 里声明必须先于使用**）。
+        //      📌 所以本段**物理位置在 `af0_pol` 之后**，⛔ 不是紧跟 `u_autotare`。
+        //
+        //   **② `cal_ch` 必须【同拍仲裁】**（🔴 本模块与 `calib_autotare` 都要驱动它）
+        //      ⭐ `calib.v:106/145` 的 `raw` 是**当拍输入**
+        //      ⇒ 🔴 `cal_ch` 与 `tare`/`span` 错一拍 ⇒ **把别的通道的值记成本通道的**
+        //         （⭐ `K-87` 同族：**静默**，没有任何报错）。
+        //      ⭐ **仲裁规则**：⭐ **谁在忙用谁的**（⭐ 见 `cal_ch_mux`）。
+        //      ⚠️ **两者天然互斥**：⭐ `at_busy` 期间 `calib_span` 不会启动
+        //         （⭐ 本版 `start_i` 接常量 0 ⇒ 根本不会启动）；
+        //         阶段 C 接上 `'S'` 后，⭐ 必须在 `calib_cmd` 层加互锁。
+        //
+        //   ⚠️ **本版 `start_i` / `abort_i` 接常量 0** ——
+        //      🔴 因为触发源（`uart_rx` + `calib_cmd`）属**阶段 C**。
+        //      ⇒ ⭐ **行为与接入前完全一致**（⛔ 一个 `span` 都不发）。
+        //
+        //   ⭐ **超时兜底**（⭐ 2026-09-23 修 3 个"静默卡死"缺陷时加的）：
+        //      ⚠️ 若 `adc_farm` 停扫（SPI 挂/排线松）⇒ 采样永不来
+        //      ⭐ 状态机会**超时 ⇒ 拒绝 ⇒ 重试**（⛔ 不静默卡死）。
+        //
+        //   📌 依据：`files/20-代码/标定链接入top实施方案-20260923.md`
+        //           + `files/00-总览/未完成工作总账.md` §十（三个真缺陷）
+        // ═══════════════════════════════════════════════════════════════════
+        //   ⭐⭐ 端口信号 `sp_*` **已在 `u_autotare` 之前声明**（⭐ 见那里的说明）
+        calib_span #(
+            .NCH        (8),
+            .N_ADC      (2),
+            .AXIS_TOTAL (16),            // ⭐ = NCH × N_ADC（⚠️ 参数自检要求相等）
+            //   ⭐ 稳定性 / 投票参数：⭐ 用模块默认（⭐ 24 帧稳定 / 32 帧投票）
+            .POS_W      (12)
+        ) u_calib_span (
+            .clk           (clk),
+            .rst_n         (rst_n_sync),
+            // ⭐⭐ 2026-09-23 阶段C：接上**真正的触发源**（⭐ 原来接常量 0）
+            //   ⭐ `start_i` = `'S'` 命令（⭐ 逐轴 span）
+            //   ⭐ `abort_i` = `'X'` 命令（⭐ 取消）
+            //   🔴 **互锁**：⭐ `'S'` 到达时若 `autotare` 还在忙 ⇒ ⭐ **必须忽略**
+            //      （⚠️ 否则 `span` 与 `tare` 同拍 ⇒ `calib` 先记零点又拿它算增益
+            //        ⇒ 🔴 **增益算错** —— 见 `cal_ch_mux` 的注释）
+            //      📌 实现见下方 `sp_start_gated`
+            .start_i       (sp_start_gated),
+            .abort_i       (cmd_abort_req),
+            //   ⭐ 与 `u_autotare` **同一路**（⭐ 都用 `adc_farm` 的采样握手）
+            .sample_valid_i(af_sample_valid),
+            .sample_ch_i   (af_sample_ch),
+            //   ⭐⭐ **必须用 `af0_pol`**（⭐ 反相后、`calib` 前）—— 见上方关键点 ①
+            .raw_i         (af0_pol),
+            .span_o        (sp_span),
+            .cal_ch_o      (sp_ch),
+            //   ⭐ `calib` 的反馈（⭐ 修"静默卡死"缺陷时新增的连接）
+            //      ⚠️ 接入前这两个是【空连接】⇒ 标定失败**无法感知**
+            .cal_busy_i    (cal0_busy),
+            .cal_err_i     (cal0_err),
+            .busy_o        (sp_busy),
+            .done_o        (sp_done),
+            .cur_axis_o    (sp_cur_axis),
+            .need_press_o  (sp_need_press),
+            .reject_o      (sp_reject),
+            .done_cnt_o    (sp_done_cnt)
+        );
+
+        //   ⭐⭐ **`cal_ch` 仲裁**（⭐ 见上方关键点 ②）
+        //      ⭐ `span` 忙 ⇒ 用它的通道；⭐ 否则用 `autotare` 的。
+        //      ⚠️ 这是一个**组合选择** ⇒ ⭐ 与被选的 `tare`/`span` **同拍** ✅
+        wire [2:0] cal_ch_mux = sp_busy ? sp_ch : at_ch;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ `'S'` 命令的【互锁】（⭐ 2026-09-23 阶段C）
+        //
+        //   🔴 **为什么必须有**：⭐ `calib` 是**一个共享资源**（两片锁步），
+        //      而 `tare` 与 `span` **都要驱动它**：
+        //        · `calib.v:145`  `if (tare) zero_r[cal_ch] <= raw;`
+        //        · `calib.v:106`  `den_r <= raw - zero_r[cal_ch];`
+        //      ⚠️ 若两者**同拍拉高** ⇒ 🔴 **先记零点、又立刻拿这个零点算满量程**
+        //         ⇒ ⭐ `den_r` 变成"满量程码 − 刚记的零点" ⇒ 🔴 **增益完全错**
+        //         （⭐ 而且是**静默**的：不报错、`calib.err` 也未必触发）
+        //
+        //   ⭐ **互锁规则**：⭐ **`autotare` 忙（`at_busy`）时，忽略 `'S'`**。
+        //      ⚠️ 代价：⭐ 操作者在上电 200 ms 内敲 `'S'` 会**没反应**
+        //      ⇒ ⭐ 所以下面**回传一个 `'!'`** 让操作者知道被拒了（⛔ 不静默）。
+        //   ⚠️ 反向（`span` 忙时收到 `'T'`）**同理要拦** —— ⭐ 见 `tr_retrig` 的门控。
+        //   📌 依据：`files/20-代码/标定链接入top实施方案-20260923.md` §2.1
+        // ═══════════════════════════════════════════════════════════════════
+        //   ⭐⭐ `'S'` 的门控**已在 `u_autotare` 之前声明**（⭐ 见那里的说明）
+        //       · `sp_start_gated`   = ⭐ 放行（⭐ `at_busy` 时不放）
+        //       · `sp_start_rejected` = 🔴 被拒（⭐ 用于回传 `'!'`，⛔ 不静默吞）
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 回传调度器（⭐ 2026-09-23 阶段C）
+        //
+        //   ⭐ 波特率 1 Mbps ⇒ ⭐ 一个字节 ≈ 10 µs ⇒ ⚠️ 人类感知不到
+        //      ⇒ ⭐ **不需要 FIFO**：⭐ 事件来了就发，⭐ 发之前等上一个发完即可。
+        //   ⚠️ **代价（⭐ 诚实说明）**：⭐ 若两个事件**挨得极近**（<10 µs），
+        //      ⚠️ 第二个会被**丢弃**（⭐ 因为 `tx_busy` 还没落）。
+        //      ⭐ 本场景下事件间隔是"人按键的速度"（⭐ 毫秒级）⇒ ✅ 完全够用。
+        //      📌 若将来要发连续数据（⭐ 如波形），⭐ 那时再加 FIFO。
+        //
+        //   ⭐ 优先级（⭐ 高 → 低）：⭐ 这保证"最要紧的信息先出去"
+        //      ① ⭐ 轴号提示（⭐ `need_press`）—— 操作者**最需要知道**
+        //      ② 🔴 拒绝 / 通过（⭐ `reject` / 轴完成）
+        //      ③ ⭐ 完成 / 放弃
+        //      ④ ⭐ 命令受理回执（`'t'`/`'s'`/`'x'`）
+        // ═══════════════════════════════════════════════════════════════════
+        //   ⭐ 把"哪一轴"编码成**一位十六进制 ASCII**（⭐ 0..9 → '0'..'9'，10..15 → 'A'..'F'）
+        //      ⚠️ 16 轴 ⇒ ⭐ 一个字符就够（⭐ 简单、PC 串口助手直接可读）
+        wire [7:0] axis_char = (sp_cur_axis < 4'd10)
+                             ? (8'h30 + {4'd0, sp_cur_axis})          // '0'..'9'
+                             : (8'h41 + ({4'd0, sp_cur_axis} - 8'd10)); // 'A'..'F'
+
+        //   ⭐ 边沿检测：⭐ 把"单拍事件"变成"一个待发请求"
+        //      ⚠️ 用 `*_r` 打一拍，⭐ 只在**上升沿**产生事件（⛔ 不重复发）
+        reg sp_reject_r, sp_done_r, at_done_r, sp_busy_r;
+        reg sp_need_r;
+        always @(posedge clk) begin
+            if (!rst_n_sync) begin
+                sp_reject_r <= 1'b0;
+                sp_done_r   <= 1'b0;
+                at_done_r   <= 1'b0;
+                sp_busy_r   <= 1'b0;
+                sp_need_r   <= 1'b0;
+            end else begin
+                sp_reject_r <= sp_reject;
+                sp_done_r   <= sp_done;
+                at_done_r   <= at_done;
+                sp_busy_r   <= sp_busy;
+                sp_need_r   <= sp_need_press;
+            end
+        end
+
+        wire ev_reject   = sp_reject & ~sp_reject_r;        // 🔴 本轴被拒
+        wire ev_done     = sp_done   & ~sp_done_r;          // ⭐ 全部完成
+        wire ev_need     = sp_need_press & ~sp_need_r;      // ⭐ 开始要求按某轴
+        //   ⭐ 轴完成（⭐ `done_cnt_o` 加一）—— ⚠️ `done_cnt_o` 是 4 位计数器
+        //      ⭐ 用"值变化"当事件（⭐ 它只会加、不回绕，⚠️ 16 轴到顶后自锁）
+        reg [3:0] sp_done_cnt_r;
+        always @(posedge clk) begin
+            if (!rst_n_sync) sp_done_cnt_r <= 4'd0;
+            else             sp_done_cnt_r <= sp_done_cnt;
+        end
+        wire ev_axis_ok = (sp_done_cnt != sp_done_cnt_r) & ~ev_done;
+
+        //   ⭐⭐ 报告请求（⭐ 优先级编码）
+        wire       rep_req  = ev_need   | ev_reject | ev_axis_ok | ev_done
+                            | cmd_tare_req | cmd_span_req | cmd_abort_req
+                            | sp_start_rejected | (at_done & ~at_done_r);
+        wire [7:0] rep_byte = ev_need          ? axis_char        // ⭐ ① 轴号（⭐ 最要紧）
+                            : ev_reject        ? 8'h21            // '!' 🔴 被拒
+                            : ev_axis_ok       ? 8'h2E            // '.' ⭐ 本轴通过
+                            : ev_done          ? 8'h44            // 'D' ⭐ 全部完成
+                            : sp_start_rejected? 8'h21            // '!' 🔴 'S' 被拒（正忙）
+                            : (at_done & ~at_done_r) ? 8'h54      // 'T' ⭐ autotare 完成
+                            : cmd_tare_req     ? 8'h74            // 't' ⭐ 受理 tare
+                            : cmd_span_req     ? 8'h73            // 's' ⭐ 受理 span
+                            :                    8'h78;           // 'x' ⭐ 受理取消
+
+        //   ⭐ 单拍请求 ⇒ 交给 `uart_tx`（⭐ 它忙时自动忽略 ⇒ ⚠️ 见上方"代价"）
+        assign tx_req  = rep_req;
+        assign tx_byte = rep_byte;
+
+
         calib #(.NCH(8), .DW(12)) u_calib0 (
             .clk       (clk),
             .rst_n     (rst_n_sync),
@@ -543,10 +983,12 @@ module top #(
             .raw       (af0_pol),
             // ⭐ 2026-09-23：由"硬接 0"改为接 `calib_autotare`（⭐ 上电自动零点）
             .tare      (at_tare[0]),
-            .span      (1'b0),            // 🔴 TODO：`span` 需人工配合 ⇒ 留给校准模式
-            .cal_ch    (at_ch),
-            .busy      (),
-            .err       (),
+            // ⭐⭐ 2026-09-23 阶段B：接 `calib_span.（⭐ 原来硬接 0）
+            //   ⚠️ `span` 与 `cal_ch` 是**配套**的（⭐ 见 `cal_ch_mux` 的仲裁）
+            .span      (sp_span[0]),
+            .cal_ch    (cal_ch_mux),      // ⭐ 仲裁后的通道（⭐ 与 tare/span 同拍）
+            .busy      (cal0_busy),       // ⭐ 阶段B：从空连接改为接出
+            .err       (cal0_err),        // ⭐ 同上（⭐ `calib_span` 的失败感知）
             .out_valid (cal0_vld),
             .out_ch    (cal0_ch),
             .out_val   (cal0_val)
@@ -560,10 +1002,11 @@ module top #(
             .raw       (af1_pol),
             // ⭐ 2026-09-23：同 `u_calib0`，接 `calib_autotare`（⭐ 两片锁步、同时标）
             .tare      (at_tare[1]),
-            .span      (1'b0),            // 🔴 TODO：`span` 需人工配合 ⇒ 留给校准模式
-            .cal_ch    (at_ch),
-            .busy      (),
-            .err       (),
+            // ⭐⭐ 2026-09-23 阶段B：同 `u_calib0`（⭐ 两片锁步 ⇒ 同时标）
+            .span      (sp_span[1]),
+            .cal_ch    (cal_ch_mux),      // ⭐ 同一个仲裁源（⭐ 两片锁步）
+            .busy      (cal1_busy),       // ⭐ 阶段B：从空连接改为接出
+            .err       (cal1_err),        // ⭐ 同上
             .out_valid (cal1_vld),
             .out_ch    (cal1_ch),
             .out_val   (cal1_val)

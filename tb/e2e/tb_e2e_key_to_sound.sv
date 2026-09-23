@@ -103,7 +103,10 @@ module tb_e2e_key_to_sound;
         .spi_mosi      (spi_mosi),
         //   ⭐ 只用低 2 位；⭐ 高 4 位接常量（⭐ 未用的片：`CS`=1 不选中、`MISO`=1 空闲）
         .spi_miso      ({4'b1111, miso_r, miso_l}),
-        .spi_cs_n      (spi_cs_n)
+        .spi_cs_n      (spi_cs_n),
+        //   ⭐ 2026-09-23 阶段C：串口端口（⭐ 空闲高 = 串口空闲态）
+        .uart_rx       (1'b1),
+        .uart_tx       ()
     );
 
     // ═══════════════════════════════════════════════════════════════════

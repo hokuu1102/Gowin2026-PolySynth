@@ -72,6 +72,17 @@
           ⇒ 🔴 时序证据与上一版【逐位相同】 -->
   <File path="rtl/w3a/calib_span.v" type="file.verilog" enable="1"/>
   <File path="rtl/w3a/calib_cmd.v" type="file.verilog" enable="1"/>
+  <!-- ⭐⭐ 串口事件帧解析（2026-09-23 阶段C 接入 top.v）——
+       🔴 **它一直存在但【从未登记】** ⇒ ⚠️ 本轮接入 top.v 时才发现
+          （⭐ 提醒：⭐ **"文件在 `rtl/` 里" ⛔ 不等于"会被综合"**） -->
+  <File path="rtl/w3c/evt_uart_rx.v" type="file.verilog" enable="1"/>
+  <!-- ⭐⭐ 串口发送器（2026-09-23 阶段C 新增）—— 标定进度回传
+       ⚠️ 移植自 `FPGA招新题/phase4/uart_tx.v`，⭐ 但**修了一个真缺陷**：
+          🔴 原版在 `4'd8` 分支**把 D7 又发了一遍** ⇒ 帧长 11 位（⛔ 不是 10）
+             ⇒ ⭐ 接收端收完 8 位后线还在低 ⇒ 🔴 **被当成下一个起始位** ⇒ 幻影帧
+             📌 实测：一次发送产生 **2 个 `rx_done`**
+        + ⭐ 复位改为**同步**（与本项目 `uart_rx` 统一）+ ⭐ 内建波特率发生器 -->
+  <File path="rtl/w3c/uart_tx.v" type="file.verilog" enable="1"/>
   <File path="rtl/w3c/i2s_tx.v" type="file.verilog" enable="1"/>
         <!-- T32: PPQN=960 musical clock (phase accumulator) -->
         <File path="rtl/w3c/beat_gen.v" type="file.verilog" enable="1"/>

@@ -1,8 +1,11 @@
 ﻿NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=24 STABLE_TOL=8 VOTE_N=32 VOTE_TOL=16 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
 NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
 NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x095 REL_TH=0x059 DELTA_TH=8 REFRACT_N=150)
 NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
 NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=10)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=16 BYTE_CLK=50 HEADER=a5 T=54 S=53 X=58)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=50 => 1000000 bps at 50 MHz)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
   [tare ] autotare finished (at_done=1) -- safe to test now
   [demo0] all_quiet=0 nm_gate=0x08000000 demo_step=3 demo_fired=0 env[0]=15359
@@ -48,6 +51,6 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
   ok  : pos actually DIFFERS between released and pressed (chain can discriminate)
 
 PASS: end-to-end key-to-sound -- with the MCP3208 slave injecting real hall codes, a key press makes HP_DIN carry audio and release returns to silence
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\e2e\tb_e2e_key_to_sound.sv:466: $finish called at 49001190000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\e2e\tb_e2e_key_to_sound.sv:469: $finish called at 49001190000 (1ps)
 
 

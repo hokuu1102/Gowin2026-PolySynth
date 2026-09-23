@@ -68,7 +68,10 @@ module tb_top_sound;
         .PA_EN_n (PA_EN_n), .led_heartbeat (led_hb),
         //   ⚠️ 2026-09-23 晚：SPI 端口改成【预留 6 片】的向量 ⇒ ⭐ 给 6 位常量
         //      ⭐ 本 tb 测的是出声链（T57），⛔ 不测采集 ⇒ 常量即可
-        .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n ()
+        .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n (),
+        //   ⭐ 2026-09-23 阶段C：新增的串口端口 ——
+        //   ⭐ `uart_rx` 给【空闲高】= 串口空闲态（⚠️ 悬空会是 x）
+        .uart_rx (1'b1), .uart_tx ()
     );
 
     // ⭐ 内部探针：直接看 mixer 的输出（⛔ 不要只看到 I2S 引脚就下结论）

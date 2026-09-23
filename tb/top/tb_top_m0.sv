@@ -56,7 +56,10 @@ module tb_top_m0;
         .PA_EN_n (PA_EN_n_a), .led_heartbeat (hb_a),
         // ⭐ 2026-09-23：W3a 采集链新增的输入（⭐ 本 tb 不测采集 ⇒ 常量高 = 串口空闲/无 MISO 驱动）
         //   ⚠️ 2026-09-23 晚：端口已改成【预留 6 片】的向量 ⇒ ⭐ 给 6 位常量高
-        .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n ()
+        .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n (),
+        //   ⭐ 2026-09-23 阶段C：新增的串口端口 ——
+        //   ⭐ `uart_rx` 给【空闲高】= 串口空闲态（⚠️ 悬空会是 x）
+        .uart_rx (1'b1), .uart_tx ()
     );
 
     // ═══════════════════════════════════════════════════════════════
@@ -80,7 +83,10 @@ module tb_top_m0;
         .HP_BCK (HP_BCK_d), .HP_WS (HP_WS_d), .HP_DIN (HP_DIN_d),
         .PA_EN_n (PA_EN_n_d), .led_heartbeat (hb_d),
         //   ⚠️ 2026-09-23 晚：端口改成【预留 6 片】的向量 ⇒ 给 6 位常量
-        .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n ()
+        .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n (),
+        //   ⭐ 2026-09-23 阶段C：新增的串口端口 ——
+        //   ⭐ `uart_rx` 给【空闲高】= 串口空闲态（⚠️ 悬空会是 x）
+        .uart_rx (1'b1), .uart_tx ()
     );
 
     // ═══════════════════════════════════════════════════════════════
@@ -99,7 +105,10 @@ module tb_top_m0;
         .HP_BCK (HP_BCK_b), .HP_WS (HP_WS_b), .HP_DIN (HP_DIN_b),
         .PA_EN_n (PA_EN_n_b), .led_heartbeat (hb_b),
         //   ⚠️ 2026-09-23 晚：端口改成【预留 6 片】的向量 ⇒ 给 6 位常量
-        .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n ()
+        .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n (),
+        //   ⭐ 2026-09-23 阶段C：新增的串口端口 ——
+        //   ⭐ `uart_rx` 给【空闲高】= 串口空闲态（⚠️ 悬空会是 x）
+        .uart_rx (1'b1), .uart_tx ()
     );
 
     // ── F · A8：X/Z 传播（声明必须放在例化之前）──────────────────────
