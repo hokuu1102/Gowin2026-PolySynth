@@ -1,0 +1,14 @@
+﻿NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=200)
+  ok  : no tare before DELAY_CLK expires (hall supply settling time)
+  ok  : busy is low before DELAY_CLK expires
+  ok  : every channel received EXACTLY one tare
+  [align] ok=8  bad=0  total=8
+  ok  : every tare pulse occurred when sample_ch == cal_ch
+  ok  : done_o is asserted after the sweep
+  ok  : done_o latches: NO further tare after the sweep
+  ok  : cal_ch advanced through all channels (implied by exact-once + alignment)
+
+PASS: calib_autotare waits for the hall supply, tares every channel exactly once, aligns each tare with its own sample, and latches done
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_autotare.sv:202: $finish called at 5970000 (1ps)
+
+

@@ -1,0 +1,8 @@
+﻿iverilog.exe : C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:799: warning: Instantiating module note_manager with dang
+ling input port 32 (event_lost_clr_i) floating.
+At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:112 char:18
++   $compileOut  = & $iverilog @compileArgs 2>&1
++                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\hokuu\...lr_i) floating.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

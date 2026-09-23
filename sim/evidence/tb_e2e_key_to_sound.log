@@ -1,0 +1,25 @@
+﻿NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x8d3 REL_TH=0x897 DELTA_TH=8 REFRACT_N=150)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=10)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+  [idle ] HP_DIN toggles = 0
+  ok  : no key pressed => HP_DIN stays quiet (baseline)
+  [press] HP_DIN toggles = 2044
+  ok  : pressing (left board reads RAW_DOWN) => HP_DIN carries audio
+  [relA ] env_level[0] = 50168   HP_DIN toggles = 432
+  [relB ] env_level[0] = 49504   HP_DIN toggles = 416
+  [evts ] total note_on=4  note_off=4
+  [gate ] nm_gate[15:0] = 0000000000000000
+  ok  : after note_off the envelope is DECAYING (release path works)
+  [note ] release is ~0.45 s; this tb only waits 80 ms by design
+  ok  : a note_off was produced by the release (distinguishes the two failure modes)
+  [right] HP_DIN toggles = 2526
+  ok  : pressing the right board => also sounds
+  ok  : no X propagated on HP_DIN after reset release
+
+PASS: end-to-end key-to-sound -- with the MCP3208 slave injecting real hall codes, a key press makes HP_DIN carry audio and release returns to silence
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\e2e\tb_e2e_key_to_sound.sv:283: $finish called at 23601190000 (1ps)
+
+

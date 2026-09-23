@@ -72,7 +72,13 @@ module top #(
     //   · 1 => 演示和弦（T57 验收 tb_top_sound 用这一档）
     //   ⚠️ 源 A 只有一个人口，而手弹与 T57 的演示和弦都要走它 => 必须仲裁。
     //   📌 不直接删演示和弦：R-16/K-69 的教训，不能为了接新功能而废掉验收手段。
-    parameter integer SOURCE_A_SEL      = 0
+    parameter integer SOURCE_A_SEL      = 0,
+    // ⭐⭐ 上电自动零点标定的**等待时间**（clk 数；默认 10M ≈ **200 ms** @50 MHz）
+    //   ⭐ `calib_autotare` 用它决定"等多久才开始标定"。
+    //   ⚠️ **太短 ⇒ 霍尔供电/LDO 还没稳 ⇒ 🔴 零点记错**（⚠️ 而且**不可察觉**：
+    //      表现为"松手位置不对"，⭐ 会被误当成阈值设错）。
+    //   📌 **提成参数**是为了**让 tb 能改小** —— ⚠️ 否则仿真要跑 10M 拍。
+    parameter integer AUTOTARE_DELAY_CLK = 10_000_000
 ) (
     input  wire clk,             // V22 · 50 MHz
     input  wire rst_n,           // AA13 · 低有效（同步复位）
@@ -370,15 +376,58 @@ module top #(
         wire [2:0]  cal0_ch,  cal1_ch;
         wire        cal0_vld, cal1_vld;
 
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 上电自动零点标定（⭐ `calib_autotare`，2026-09-23 接入）
+        //
+        //   🔴 **为什么必须做**：⚠️ `calib` 未标定时 `zero = 0`
+        //      ⇒ ⭐ **松手时读到的不是 0**（⭐ 实测松手 1.60 V ≈ **1985 码**）
+        //      ⇒ 🔴 `event_extract` 的触发阈**按错的基准判**
+        //         ⚠️ 松手就被判成"按下"（挂音）、⚠️ 或要按很深才触发。
+        //
+        //   ⭐ **它做什么**：⭐ 上电等 ~200 ms（让霍尔供电稳定），
+        //      ⭐ 然后**逐个通道发一次 `tare`** ⇒ ⭐ 把每个轴的"松手位"记为零点。
+        //
+        //   🔴🔴 **关键难点**：⭐ `calib.v` 的 `if (tare) zero_r[cal_ch] <= raw;`
+        //      ⇒ ⚠️ **`raw` 是【当拍输入】**（⭐ 芯片当前送来的那个通道的值）
+        //      ⇒ 🔴 **`tare` 必须与 `sample_ch` 对得上**，否则会把**别的通道**的值
+        //         记成这个通道的零点 —— ⭐ **而且没有任何报错**（`K-87` 同族）。
+        //      ⭐ `calib_autotare` 用"**等 `sample_ch == cur_ch`**"来对齐
+        //         ⇒ ⚠️ 该判据已用**反向变异**验证：⭐ 错一拍 ⇒ tb 立刻红。
+        //
+        //   ⛔ **不做 `span`** —— ⚠️ 它需要人把每个轴按到底 ⇒ ⭐ 留给"校准模式"。
+        //   📌 依据：`files/20-代码/上电自动tare-设计方案-20260923.md`
+        // ═══════════════════════════════════════════════════════════════════
+        wire [1:0] at_tare;
+        wire [2:0] at_ch;
+        wire       at_busy, at_done;
+
+        calib_autotare #(
+            .NCH      (8),
+            .N_ADC    (2),
+            //   ⚠️ 可调：`AUTOTARE_DELAY_CLK` ⭐ 默认 10M 拍 ≈ 200 ms @50 MHz
+            //     ⚠️ 提成参数是为了**让 tb 能改小**（⭐ 否则仿真要跑 10M 拍）
+            .DELAY_CLK(AUTOTARE_DELAY_CLK)
+        ) u_autotare (
+            .clk           (clk),
+            .rst_n         (rst_n_sync),
+            .sample_valid_i(af_sample_valid),
+            .sample_ch_i   (af_sample_ch),
+            .tare_o        (at_tare),
+            .cal_ch_o      (at_ch),
+            .busy_o        (at_busy),
+            .done_o        (at_done)
+        );
+
         calib #(.NCH(8), .DW(12)) u_calib0 (
             .clk       (clk),
             .rst_n     (rst_n_sync),
             .valid     (af_sample_valid),
             .ch        (af_sample_ch),
             .raw       (af_data[0*12 +: 12]),
-            .tare      (1'b0),            // 🔴 TODO：上电自校
-            .span      (1'b0),            // 🔴 TODO：上电自校
-            .cal_ch    (3'd0),
+            // ⭐ 2026-09-23：由"硬接 0"改为接 `calib_autotare`（⭐ 上电自动零点）
+            .tare      (at_tare[0]),
+            .span      (1'b0),            // 🔴 TODO：`span` 需人工配合 ⇒ 留给校准模式
+            .cal_ch    (at_ch),
             .busy      (),
             .err       (),
             .out_valid (cal0_vld),
@@ -392,9 +441,10 @@ module top #(
             .valid     (af_sample_valid),
             .ch        (af_sample_ch),
             .raw       (af_data[1*12 +: 12]),
-            .tare      (1'b0),
-            .span      (1'b0),
-            .cal_ch    (3'd0),
+            // ⭐ 2026-09-23：同 `u_calib0`，接 `calib_autotare`（⭐ 两片锁步、同时标）
+            .tare      (at_tare[1]),
+            .span      (1'b0),            // 🔴 TODO：`span` 需人工配合 ⇒ 留给校准模式
+            .cal_ch    (at_ch),
             .busy      (),
             .err       (),
             .out_valid (cal1_vld),

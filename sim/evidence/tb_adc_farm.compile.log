@@ -1,0 +1,18 @@
+﻿iverilog.exe : C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_adc_farm.sv:52: warning: Instantiating module mcp3208
+_model with dangling input port 5 (ovr_en_i) floating.
+At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:112 char:18
++   $compileOut  = & $iverilog @compileArgs 2>&1
++                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\hokuu\...en_i) floating.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_adc_farm.sv:52: warning: Instantiating module mcp3208_model with dan
+gling input port 6 (ovr_val_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_adc_farm.sv:54: warning: Instantiating module mcp3208_model with dan
+gling input port 5 (ovr_en_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_adc_farm.sv:54: warning: Instantiating module mcp3208_model with dan
+gling input port 6 (ovr_val_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_adc_farm.sv:56: warning: Instantiating module mcp3208_model with dan
+gling input port 5 (ovr_en_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_adc_farm.sv:56: warning: Instantiating module mcp3208_model with dan
+gling input port 6 (ovr_val_i) floating.
