@@ -379,7 +379,14 @@ $mutations = @(
   @{ id = "M41"; file = "rtl\w3c\beat_gen.v"; find = "wire phase_en = run_i;              // "; repl = "wire phase_en = run_i & phase_carry;  // "; why = "T32 regression (K-107): phase advance re-coupled to the carry -> self-lock -> no tick ever fires (must be caught)" },
   @{ id = "M42"; file = "rtl\w3c\beat_gen.v"; find = "wire do_tick  = run_i & phase_carry;"; repl = "wire do_tick  = run_i;"; why = "T32 regression: a tick on EVERY clk instead of on carry -> tick rate 50 MHz (must be caught)" },
   @{ id = "M43"; file = "rtl\w3c\beat_gen.v"; find = "if (phase_en)"; repl = "if (phase_en & ~at_bar_end)"; why = "T32 regression: phase stalls at the bar boundary -> tick interval jumps there (must be caught)" },
-  @{ id = "M44"; file = "rtl\w3c\beat_gen.v"; find = "tick_cnt_o_q  <= tick_cnt_q;"; repl = "tick_cnt_o_q  <= tick_cnt_next;"; why = "T32 regression (K-107): reported tick number off by one -> bar_start no longer lands on tick_cnt 0 (must be caught)" }
+  @{ id = "M44"; file = "rtl\w3c\beat_gen.v"; find = "tick_cnt_o_q  <= tick_cnt_q;"; repl = "tick_cnt_o_q  <= tick_cnt_next;"; why = "T32 regression (K-107): reported tick number off by one -> bar_start no longer lands on tick_cnt 0 (must be caught)" },
+  # ---- T33 (2026-09-22): perc_env_bank -- percussion amplitude envelope (attack/decay).
+  @{ id = "M81"; file = "rtl\w3c\perc_env_bank.v"; find = "if (level_r <= DECAY_STEP[ENV_W-1:0]) begin"; repl = "if (level_r >= DECAY_STEP[ENV_W-1:0]) begin"; why = "T33 regression: decay never terminates -> level stalls just above 0 and active_o never clears -> HUNG NOTE (must be caught)" },
+  # ---- master_mix (2026-09-22): master volume / mix stage (Q1.15 gain ramp).
+  @{ id = "M82"; file = "rtl\w3c\master_mix.v"; find = "if (ramp_up)"; repl = "if (1'b0)"; why = "master_mix regression: ramp disabled -> gain never tracks the target -> volume/mute dead (must be caught)" },
+  @{ id = "M83"; file = "rtl\w3c\master_mix.v"; find = "prod >>> (GAIN_W - 1);"; repl = "prod >>> (GAIN_W - 2);"; why = "master_mix regression: Q1.15 scaling off by one -> output 2x too loud (must be caught)" },
+  @{ id = "M84"; file = "rtl\w3c\master_mix.v"; find = "assign valid_o  = valid_i;"; repl = "assign valid_o  = 1'b0;"; why = "master_mix regression: valid dropped -> downstream (i2s_tx) never latches the sample -> silence (must be caught)" },
+  @{ id = "M85"; file = "rtl\w3c\master_mix.v"; find = "gain_r <= {GAIN_W{1'b0}};                 // 复位静音（安全态）"; repl = "gain_r <= 16'h7FFF;                 // 复位静音（安全态）"; why = "master_mix regression: reset no longer mutes -> power-on pop (must be caught)" }
 )
 
 # ---- selection ---------------------------------------------------------------

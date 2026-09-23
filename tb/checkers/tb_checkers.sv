@@ -330,12 +330,12 @@ module tb_checkers;
         else begin $display("FAIL: A5 没抓到多驱动源（负向测试失效）"); errors = errors + 1; end
 
         // ⭐ 2026-09-17 补：**三路同时有效**（检查器的计数逻辑是 `> 1`，要验它不只看两路）
-        $display("--- A4b 边界：三路片选同时有效（不是只看两路）---");
+        $display("--- A4c 边界：三路片选同时有效（不是只看两路）---");
         @(negedge clk); cs_n = 3'b000;      // 三路全选
         @(negedge clk); cs_n = 3'b111;
         repeat (2) @(negedge clk);
-        if (a4_err == 32'd2) $display("  ok : A4b 三路同时有效也被抓到（err 2 次，计数逻辑正确）");
-        else begin $display("FAIL: A4b 三路同时有效的判定不对（err=%0d，期望 2）", a4_err); errors = errors + 1; end
+        if (a4_err == 32'd2) $display("  ok : A4c 三路同时有效也被抓到（err 2 次，计数逻辑正确）");
+        else begin $display("FAIL: A4c 三路同时有效的判定不对（err=%0d，期望 2）", a4_err); errors = errors + 1; end
 
         // ═════════════════════════ A4p（并行扇出一致性）═══════════════════════
         $display("--- A4p 正例：三路完全一致（锁步扇出）不误报 ---");
