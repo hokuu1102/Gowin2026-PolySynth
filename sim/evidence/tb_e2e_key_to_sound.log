@@ -1,25 +1,53 @@
-﻿NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000)
+﻿NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100000)
 NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
-NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x8d3 REL_TH=0x897 DELTA_TH=8 REFRACT_N=150)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x095 REL_TH=0x059 DELTA_TH=8 REFRACT_N=150)
 NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
 NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=10)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
-  [idle ] HP_DIN toggles = 0
-  ok  : no key pressed => HP_DIN stays quiet (baseline)
-  [press] HP_DIN toggles = 2044
+  [tare ] autotare finished (at_done=1) -- safe to test now
+  [demo0] all_quiet=0 nm_gate=0x08000000 demo_step=3 demo_fired=0 env[0]=15359
+  [demo1] all_quiet=0 nm_gate=0x08000000 demo_step=3 demo_fired=0 env[0]=15319
+  [demo2] all_quiet=0 nm_gate=0x08000000 demo_step=3 demo_fired=0 env[0]=15281
+  [demo3] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=15241
+  [demo4] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=15203
+  [demo5] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=15163
+  [demo6] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=15125
+  [demo7] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=15085
+  [demo8] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=15047
+  [demo9] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=15007
+  [demo10] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14969
+  [demo11] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14929
+  [demo12] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14891
+  [demo13] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14851
+  [demo14] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14813
+  [demo15] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14773
+  [demo16] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14735
+  [demo17] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14695
+  [demo18] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14655
+  [demo19] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14617
+  [demo ] demo chord fully settled after 20 round(s) (~40 ms)
+  [idleb] pos[0]=0  nm_gate[3:0]=0000  n_on=8  env[0]=14617
+  ok  : no key pressed => W3a starts NO new note (n_on unchanged)
+  ok  : no key pressed => HP_DIN is essentially quiet (demo tail allowed)
+  [press] HP_DIN toggles = 2028
   ok  : pressing (left board reads RAW_DOWN) => HP_DIN carries audio
-  [relA ] env_level[0] = 50168   HP_DIN toggles = 432
-  [relB ] env_level[0] = 49504   HP_DIN toggles = 416
-  [evts ] total note_on=4  note_off=4
+  [relA ] env_level[0] = 13563   HP_DIN toggles = 420
+  [relB ] env_level[0] = 12899   HP_DIN toggles = 464
+  [evts ] total note_on=8  note_off=8
   [gate ] nm_gate[15:0] = 0000000000000000
   ok  : after note_off the envelope is DECAYING (release path works)
   [note ] release is ~0.45 s; this tb only waits 80 ms by design
   ok  : a note_off was produced by the release (distinguishes the two failure modes)
-  [right] HP_DIN toggles = 2526
+  [right] HP_DIN toggles = 2120
   ok  : pressing the right board => also sounds
   ok  : no X propagated on HP_DIN after reset release
+  [pos  ] idle = 0   pressed = 744
+  [chain] af_data[11:0]=0x4d9  af0_pol=2854  cal0_val=751  at_done=1
+  ok  : with the key released, pos is BELOW REL_TH (reads as 'not pressed')
+  ok  : with the key pressed, pos is ABOVE TRIG_TH (reads as 'pressed')
+  ok  : pos actually DIFFERS between released and pressed (chain can discriminate)
 
 PASS: end-to-end key-to-sound -- with the MCP3208 slave injecting real hall codes, a key press makes HP_DIN carry audio and release returns to silence
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\e2e\tb_e2e_key_to_sound.sv:283: $finish called at 23601190000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\e2e\tb_e2e_key_to_sound.sv:461: $finish called at 49001190000 (1ps)
 
 

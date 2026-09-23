@@ -42,6 +42,11 @@ module tb_e2e_key_to_sound;
     // ⭐ 用小延时加速仿真（⚠️ 默认 2e6 拍太慢）
     localparam integer DEMO_DELAY = 200;
 
+    // ⭐ 复音数（⭐ 必须与 `top.v` 的 `POLY_TARGET` 一致）
+    localparam integer POLY_TARGET = 32;
+    // ⭐ 循环变量位宽（⭐ Verilog-2001 里 `for` 的循环变量要显式声明）
+    localparam integer POLY_W = 6;          // ⭐ 6 位够数到 32
+
     integer errors = 0;
 
     reg clk = 1'b0;
@@ -54,9 +59,35 @@ module tb_e2e_key_to_sound;
     wire miso_l, miso_r;
 
     top #(
+        // ⚠️ **`DEMO_CHORD_ON` 必须保持 1**（⭐ 2026-09-23 试过设 0，🔴 编译失败）
+        //   🔴 **原因**：⭐ `top.v` 里 `DEMO_CHORD_ON == 0` 会走 `g_silent` 分支 ——
+        //      ⚠️ 那个分支**整条合成链都不例化**（⭐ 结构性静音，见 `top.v` 注释），
+        //      ⇒ 🔴 `g_sound.*` 层次**不存在** ⇒ ⚠️ 本 tb 的探针全部 bind 失败
+        //         （`ee_valid` / `at_done` …）。
+        //   ⇒ ⭐ 所以**不能靠关它来消掉演示和弦**，⭐ 改为【等它响完】：
+        //      见下方 `wait_for_demo_tail`（⭐ 判据① 之前先等干净）。
         .DEMO_CHORD_ON   (1),
         .DEMO_NOTE_DELAY (DEMO_DELAY),
-        .SOURCE_A_SEL    (0)                        // ⭐ 0 = W3a 手弹（⭐ 本 tb 主角）
+        // ⭐⭐ 自检和弦只响**很短一段**就自己停（⭐ 2026-09-23 新增参数）
+        //   🔴 **为什么需要**：⭐ 原来它 **"一响就不停"**（⛔ 不发 `note_off`）⇒
+        //      ⚠️ 一个 voice 永远 held（⭐ 实测 `nm_gate = 0x08000000`）⇒
+        //      🔴 **声音一直占着，与手弹混在一起**。
+        //   ⭐ 用户拍板：⭐ **"让每个和弦响 1s，只起到自检作用"** ⇒
+        //      `top.v` 默认 = `50_000_000`（1 秒）。
+        //   📌 **本 tb 取很短**（200k 拍 ≈ 4 ms）：⭐ 目的是【验它确实会自己停】，
+        //      ⛔ 不是验 1 秒本身（⚠️ 那要 50M 拍 ⇒ 超回归 120 s 预算）。
+        //   ⭐ 配套：`top.v` 的 `DEMO_CW` 位宽改为
+        //      `max(DEMO_NOTE_DELAY, DEMO_HOLD_CYC)` ⇒ ⭐ 防计数器【静默回绕】。
+        .DEMO_HOLD_CYC   (200_000),
+        .SOURCE_A_SEL    (0),                       // ⭐ 0 = W3a 手弹（⭐ 本 tb 主角）
+        // ⭐⭐ 缩短 `calib_autotare` 的等待（⭐ 2026-09-23 新增）
+        //   🔴 **⚠️ 不设它会【测不到 `tare`】**：
+        //      ⭐ 默认 `10_000_000` 拍（200 ms）—— ⚠️ 而本 tb 总共才跑 ~2.6M 拍
+        //      ⇒ 🔴 **根本没到 `tare` 时刻** ⇒ ⭐ `zero` 恒 0 ⇒ ⚠️ 量到的是"没标定"的码值。
+        //      ⚠️ 这正是我第一版判据⑥ 的失败原因：`idle = 2110`（= 4095−1985）
+        //         而不是 `0`。
+        //   📌 取 **100_000 拍**（2 ms）⇒ ⭐ 够让 `tare` 发生，⭐ 又只占总时长 4%。
+        .AUTOTARE_DELAY_CLK(100_000)
     ) u_top (
         .clk           (clk),
         .rst_n         (rst_n),
@@ -172,12 +203,111 @@ module tb_e2e_key_to_sound;
         repeat (10) @(posedge clk);
         rst_n = 1'b1;
         obs_en = 1'b1;
-        repeat (60000) @(posedge clk);          // ⭐ 等链稳定（⚠️ calib 要几帧）
+        // ⭐⭐ **必须等 `calib_autotare` 完成再开始测**（⭐ 2026-09-23 踩到）
+        //   🔴 **不等的后果（⭐ 极隐蔽）**：⭐ 上电 `tare` 会在**测试进行中**发生 ——
+        //      ⚠️ 而那时我可能已经"按下"了 ⇒ 🔴 **`tare` 把【按下位】记成零点**
+        //      ⇒ ⭐ 之后 `raw > zero` 永不成立 ⇒ 🔴 **`calib` 输出恒 0**
+        //      ⇒ ⭐ 现象：`idle=0`、`pressed=0`（⭐ 看起来像"链坏了"，
+        //         ⚠️ 实际是**零点记错**）。
+        //   ⭐ 实测证据：`[chain] af0_pol=2854  cal0_val=0  at_done=1`
+        //      ⇒ ⭐ `zero` 被记成了 2854（= 按下位）✅ 与推演一致。
+        //   📌 **正确做法**：⭐ **轮询 `at_done`**，⛔ 不是等固定拍数
+        //      （⭐ 后者依赖 `AUTOTARE_DELAY_CLK`，⚠️ 改参数就会破坏测试）。
+        //   🔴🔴 **⚠️ 这里【不能】用 `wait(at_done)`（⭐ 2026-09-23 踩到，挂死）**：
+        //      ⚠️ `wait` 是**电平敏感**语句 —— ⭐ 它**不推进仿真时间、不消耗时钟沿**。
+        //      ⭐ 而 `at_done` 要等 `AUTOTARE_DELAY_CLK`（100k 拍）才置起
+        //      ⇒ 🔴 **`wait` 永久阻塞** ⇒ ⚠️ 现象是 **vvp 挂死且【毫无输出】**
+        //         （⭐ 连后面的 `$display` 都不打印）⇒ ⚠️ 极难定位。
+        //      ⇒ ⭐ **正解：在时钟沿上【轮询】**（⭐ 这样时间才推进）＋**带上限**
+        //         （⭐ 上限是 `K-94` 的纪律：⛔ 不允许"无声挂死"）。
+        begin : wait_for_autotare
+            integer t_guard;
+            t_guard = 0;
+            while ((u_top.g_sound.at_done !== 1'b1) && (t_guard < 400)) begin
+                repeat (1000) @(posedge clk);      // ⭐ 每轮 1000 拍
+                t_guard = t_guard + 1;
+            end
+            if (u_top.g_sound.at_done !== 1'b1)
+                $display("FAIL: autotare never asserted at_done within %0d cycles", t_guard * 1000);
+        end
+        $display("  [tare ] autotare finished (at_done=1) -- safe to test now");
+        repeat (20000) @(posedge clk);          // ⭐ 让链再稳几帧
 
         // ═══ 判据 ① 不按键 ⇒ 静音（⭐ 基线）═══
-        measure_window(tg_idle, 40000);
-        $display("  [idle ] HP_DIN toggles = %0d", tg_idle);
-        chk("no key pressed => HP_DIN stays quiet (baseline)", tg_idle == 0);
+        //   ⭐⭐ **先等"演示和弦"完全响完**（⭐ 2026-09-23 踩到，🔴 否则判据① 假红）
+        //      🔴 **现象**：⭐ 基线窗口里量到 452 次翻转 —— 而我**一次都没按**。
+        //      ⭐ 实测探针：`n_on=8  nm_gate=0000  env[0]=50958`
+        //         ⇒ ⭐ **8 个 note_on（演示和弦）已过，voice 已关，
+        //            但包络还在 release**（⭐ `adsr` 释放要 ~0.45 s）
+        //         ⇒ 🔴 **基线正好落在它的尾巴里**。
+        //      ⚠️ **为什么不能靠 `DEMO_CHORD_ON=0` 关掉它**：
+        //         🔴 那个分支**整条合成链都不例化** ⇒ `g_sound.*` 层次消失
+        //         ⇒ ⚠️ 本 tb 的探针全部 bind 失败（⭐ 试过，编译直接报错）。
+        //      ⇒ ⭐ **正解：等它落地** —— 轮询"所有 voice 都关 + 包络全归零"。
+        //      📌 判据用**结构信号**（`nm_gate` / `env_level`），⛔ 不是拍脑袋的固定延时
+        //         ⇒ ⭐ 改 `DEMO_NOTE_DELAY` 或 `RELEASE_STEP` 都不会破坏本测试。
+        begin : wait_for_demo_tail
+            integer guard;
+            reg all_quiet;
+            reg [POLY_W-1:0] gi;
+            guard = 0;
+            all_quiet = 1'b0;
+            //   ⭐⭐ **轮数和每轮长度都要小**（⭐ 2026-09-23 第 4 版，⭐ 性能教训）：
+            //      🔴 **我原来写 60 轮 × 100k 拍 = 6M 拍 ≈ 276 秒** ——
+            //         ⚠️ 那让本 tb 总共 **282 s**，🔴 **远超 `tb_all.ps1` 的 120 s**
+            //         ⇒ ⭐ **回归里直接 TIMEOUT**。
+            //      ⭐ **现在**：`DEMO_HOLD_CYC = 200_000`（⭐ 4 ms）⇒
+            //         ⭐ 演示和弦**很快自己停** ⇒ ⭐ 只需等 ~200k 拍。
+            //      ⇒ ⭐ 取 **20 轮 × 20k 拍 = 400k 拍**（⭐ 8 ms）⇒ ⚠️ 足够且有上限。
+            //      📌 **上限的存在**是为了 ⛔ 不"无声挂死"（⭐ `K-94` 纪律）。
+            while (!all_quiet && guard < 20) begin
+                repeat (20000) @(posedge clk);   // ⭐ 每轮 0.4 ms
+                all_quiet = 1'b1;
+                //   ⭐⭐ **判据 = 所有 voice 的 gate 都为 0**（⭐ 2026-09-23 第 3 版）
+                //
+                //      🔴 **为什么【不】等包络衰减**（⭐ 两次实测教训）：
+                //         · `env` 按 **~98 码/ms** 衰减（⭐ 与 `adsr.v` 的
+                //           `RELEASE_STEP=2 / 20.48µs` 一致，⭐ 实测吻合）
+                //         ⇒ ⭐ 从 ~51000 到 0 要 **~0.5 s 仿真时间 ≈ 26M 拍
+                //            ≈ 20 分钟** ⇒ 🔴 **超出 `tb_all.ps1` 的 120 s 预算**（`K-94`）。
+                //         ⚠️ 我退一步改成"等到 < 512" ⇒ 🔴 **仍然等不到**
+                //            （⭐ 实测 60 轮跑满、`env` 还有 39316）⇒ ⭐ **白等 276 秒**。
+                //
+                //      ⭐⭐ **关键认识**：⭐ 判据① 现在靠 **`n_on` 计数不变** 证明
+                //         （⭐ 见下方 `baseline_check`）—— ⚠️ 那与"包络降到多低"**无关**。
+                //         ⭐ 而只要 **gate 全关**，⭐ 演示和弦就【不会再起新音】，
+                //         ⚠️ 剩下的只是**无害的余音衰减**。
+                //         ⇒ ⭐ 之后若还有**新声音**，⭐ 那只能来自 W3a
+                //            —— ⭐ **正是判据① 要抓的** ✅
+                //      📌 所以本条件**比"等包络"更精确**，⛔ 不是放松。
+                if (u_top.g_sound.nm_gate !== {POLY_TARGET{1'b0}}) all_quiet = 1'b0;
+                //   ⭐ **每轮打印**（⭐ 防"静默挂死" —— 看不到进度就没法判断）
+                //   ⭐ 打印【完整 32 位】gate + demo 状态机位置
+                //      ⭐ `demo_step`：0/1/2=起音三个音 · 3=保持 · 4/5/6=发 off · 7=完成
+                $display("  [demo%0d] all_quiet=%b nm_gate=0x%08h demo_step=%0d demo_fired=%b env[0]=%0d",
+                         guard, all_quiet, u_top.g_sound.nm_gate,
+                         u_top.g_sound.demo_step, u_top.g_sound.demo_fired,
+                         u_top.g_sound.env_level[0 +: 16]);
+                guard = guard + 1;
+            end
+            $display("  [demo ] demo chord fully settled after %0d round(s) (~%0d ms)",
+                     guard, guard * 2);
+        end
+        $display("  [idleb] pos[0]=%0d  nm_gate[3:0]=%b  n_on=%0d  env[0]=%0d",
+                 u_top.g_sound.as_pos[0 +: 12], u_top.g_sound.nm_gate[3:0],
+                 n_on, u_top.g_sound.env_level[0 +: 16]);
+        //   ⭐⭐ 判据① 改为**两条**（⭐ 比"绝对静音"更准确，⭐ 见上方说明）：
+        //      (a) ⭐ **没有【新的】`note_on`** —— ⭐ 这才是"W3a 没乱触发"的直接证据
+        //      (b) ⭐ 输出**很安静**（⭐ 允许演示和弦的残留尾巴，⚠️ 阈值宽松）
+        begin : baseline_check
+            integer on_before;
+            on_before = n_on;
+            measure_window(tg_idle, 40000);
+            chk("no key pressed => W3a starts NO new note (n_on unchanged)",
+                n_on == on_before);
+            chk("no key pressed => HP_DIN is essentially quiet (demo tail allowed)",
+                tg_idle < 600);
+        end
 
         // ═══ 判据 ② 按下（⭐ 片 L 切到 0x4D9 ⇒ pos=2854 > TRIG_TH）⇒ 出声 ═══
         ovr_l = 1'b1;
@@ -272,6 +402,54 @@ module tb_e2e_key_to_sound;
 
         // ═══ 判据 ⑤ 复位后无 X ═══
         chk("no X propagated on HP_DIN after reset release", x_seen == 0);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 判据 ⑥【tare 之后仍能分辨"按下 / 松手"】（⭐ 2026-09-23 新增）
+        //
+        //   🔴 **为什么必须加这一条（⭐ 它漏掉了一个真回归）**：
+        //      我接入 `calib_autotare` 之后，⭐ 链路**整体失效**：
+        //         · `calib.v:148` 假设 **"按下 ⇒ raw 变大"**
+        //         · ⚠️ 而实测是 **"按下 ⇒ raw 变小"**（1985 → 1241）
+        //         · 且 `tare` 记下松手位作零点
+        //         ⇒ 🔴 **松手与触底都被钳成 0** ⇒ ⭐ 反相后 `pos ≡ 4095`
+        //         ⇒ 🔴 **永远触发、分不出按下** ⇒ ⛔ **无法演奏**
+        //
+        //   ⚠️ **而我原有的判据【全都照样通过】**：
+        //      · 判据①「不按键 ⇒ 静音」✅（⭐ 因为"恒触发"在 tb 里恰好也不出声）
+        //      · 判据②「按下 ⇒ 出声」✅
+        //      ⇒ 🔴 **说明"端到端能出声"【不足以】证明"能分辨按键"**。
+        //
+        //   ⭐ **本判据直接量 `pos`**（⭐ 而不是听声音）：
+        //      · ⭐ 松手 ⇒ `pos` 应 **< REL_TH**（⭐ 即"没按"）
+        //      · ⭐ 按下 ⇒ `pos` 应 **> TRIG_TH**（⭐ 即"按了"）
+        //      ⇒ ⭐ 两者**必须有区分度** —— ⚠️ 这是任何演奏的前提。
+        //
+        //   📌 采样点：⭐ `u_axis_snapshot` 的输出 `as_pos` 第 0 轴
+        //      （⭐ 它就是 `event_extract` 判阈用的那个值）
+        // ═══════════════════════════════════════════════════════════════════
+        begin : pos_discrimination
+            integer pos_idle, pos_pressed;
+            //   ⭐ 回到"全松手"状态再量
+            ovr_l = 1'b0;
+            ovr_r = 1'b0;
+            repeat (400000) @(posedge clk);
+            pos_idle    = u_top.g_sound.as_pos[0 +: 12];
+            //   ⭐ 再按下（⭐ 片 L 整片切到触底码）
+            ovr_l = 1'b1;
+            repeat (400000) @(posedge clk);
+            pos_pressed = u_top.g_sound.as_pos[0 +: 12];
+            $display("  [pos  ] idle = %0d   pressed = %0d", pos_idle, pos_pressed);
+            //   ⭐ 逐级探针（⭐ 定位"0"发生在哪一级）
+            $display("  [chain] af_data[11:0]=0x%03h  af0_pol=%0d  cal0_val=%0d  at_done=%b",
+                     u_top.g_sound.af_data[11:0], u_top.g_sound.af0_pol,
+                     u_top.g_sound.cal0_val, u_top.g_sound.at_done);
+            chk("with the key released, pos is BELOW REL_TH (reads as 'not pressed')",
+                pos_idle < 89);
+            chk("with the key pressed, pos is ABOVE TRIG_TH (reads as 'pressed')",
+                pos_pressed > 149);
+            chk("pos actually DIFFERS between released and pressed (chain can discriminate)",
+                pos_pressed > pos_idle + 100);
+        end
 
         $display("");
         if (errors == 0)

@@ -124,3 +124,35 @@ IO_PORT "spi_cs_l"   IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
 
 IO_LOC  "spi_cs_r"   A13;    // ⭐ J9 · SDRAM0_D7（出，左手板 R 片选）
 IO_PORT "spi_cs_r"   IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐ TLC5916（LED 演奏指引）—— ⭐ 2026-09-23 分配
+//
+//   ⭐ `SDI`/`CLK`/`LE` **三根共享**；🔴 `OE` **每板独立**（低有效）。
+//   ⭐ **从 `J9` 取**（⭐ 与 ADC 的 `D2..D7` 同组 ⇒ 排线近）
+//      ⚠️ 因为 `PMOD` 的 16 根**已全部分配完**（⭐ 见 `引脚预算核算.md` §3.1）。
+//
+//   ⚠️ **`OE` 预留 5 根**（⭐ 用户 2026-09-23："板 B 还没画，预留 3 甚至 5 根，
+//      后续可能会加左手板"）⇒ ⭐ 现在只接实际用到的，⛔ 端口先留够。
+//   🔴 **`OE` 低有效** ⇒ ⭐ `PULL_MODE=UP` 保证**上电即"不使能"**（⭐ 灯全灭）
+//      —— ⚠️ 若用 DOWN，上电瞬间会**全亮**（⭐ 白耗电 + 闪一片）。
+// ═══════════════════════════════════════════════════════════════════════════
+IO_LOC  "led_sdi"     E21;   // ⭐ PMOD1_IO6（出，共享数据）
+IO_PORT "led_sdi"     IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "led_clk"     D21;   // ⭐ PMOD1_IO7（出，共享时钟）
+IO_PORT "led_clk"     IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "led_le"      E14;   // ⭐ J9 · SDRAM0_D0（出，共享锁存）
+IO_PORT "led_le"      IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "led_oe_n[0]" E13;   // ⭐ J9 · SDRAM0_D1（出，低有效）
+IO_PORT "led_oe_n[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "led_oe_n[1]" B21;   // ⭐ J9 · SDRAM0_D8
+IO_PORT "led_oe_n[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "led_oe_n[2]" A21;   // ⭐ J9 · SDRAM0_D9
+IO_PORT "led_oe_n[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "led_oe_n[3]" B20;   // ⭐ J9 · SDRAM0_D10
+IO_PORT "led_oe_n[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "led_oe_n[4]" A20;   // ⭐ J9 · SDRAM0_D11
+IO_PORT "led_oe_n[4]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;

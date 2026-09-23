@@ -88,7 +88,13 @@ PC ──USB-TTL─> ESP32 UART2           ← 接收端
 > **`C:\Espressif`**，工具在 **`C:\Espressif\tools`** ——
 > ⚠️ **⛔ 不是默认的 `~\.espressif`**。
 
-🔴 **直接跑 `esp-idf\export.ps1` 会失败**：
+🔴 **直接跑 ESP-IDF 自带的 `export.ps1` 会失败**：
+
+<!-- refcheck:off -->
+> ⚠️ 下面这段说的是 **ESP-IDF 安装目录里**的 `export.ps1`
+> （本机即 `C:\Espressif\v5.5\esp-idf\export.ps1`），
+> ⛔ **它是仓库外的本机路径，不是本仓库的文件** ⇒ 故此处豁免交叉引用检查。
+<!-- refcheck:on -->
 
 ```
 ERROR: ESP-IDF Python virtual environment
