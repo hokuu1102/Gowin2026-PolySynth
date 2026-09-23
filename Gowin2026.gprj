@@ -51,7 +51,14 @@
         <!-- T54 (2026-09-21): voice allocation / stealing / parameter update.
              Needed by the real sound chain; before this top.v sent silence. -->
         <File path="rtl/w3b/note_manager.v" type="file.verilog" enable="1"/>
-        <File path="rtl/w3c/i2s_tx.v" type="file.verilog" enable="1"/>
+        <File path="rtl/drivers/adc_farm.sv" type="file.verilog" enable="1"/>
+  <File path="rtl/drivers/calib.sv" type="file.verilog" enable="1"/>
+  <File path="rtl/drivers/debounce.sv" type="file.verilog" enable="1"/>
+  <File path="rtl/w3a/axis_map.v" type="file.verilog" enable="1"/>
+  <File path="rtl/w3a/axis_snapshot.v" type="file.verilog" enable="1"/>
+  <File path="rtl/w3a/event_extract.v" type="file.verilog" enable="1"/>
+  <File path="rtl/w3a/param_extract.v" type="file.verilog" enable="1"/>
+  <File path="rtl/w3c/i2s_tx.v" type="file.verilog" enable="1"/>
         <!-- T32: PPQN=960 musical clock (phase accumulator) -->
         <File path="rtl/w3c/beat_gen.v" type="file.verilog" enable="1"/>
         <!-- T33: synthetic metronome click on the ordinary event path -->
@@ -64,6 +71,11 @@
         <File path="rtl/w3c/play_seq.v" type="file.verilog" enable="1"/>
         <!-- U-6: event merge (hand-play + metronome into note_manager's single port) -->
         <File path="rtl/w3c/evt_merge.v" type="file.verilog" enable="1"/>
+        <!-- ⭐ 主混音 + 数字主音量 + 静音斜坡（丙线 2026-09-22 新增）
+             ⚠️ 它由 top.v 例化（tdm_render_mixer -> master_mix -> i2s_tx）
+             ⇒ 🔴 不登记会被综合【静默丢弃】⇒ 输出无声而报告全绿（K-46/K-87 同族）
+             📌 2026-09-23 合并队友提交时补登记（构建守卫 U-30 本会拦住，先补省一轮 PnR） -->
+        <File path="rtl/w3c/master_mix.v" type="file.verilog" enable="1"/>
         <File path="rtl/top.v" type="file.verilog" enable="1"/>
         <!-- ⭐ SystemVerilog 文件登记成 type="file.verilog"（**和 .v 一样**，不是 file.systemverilog！）
              ⚠️ 2026-09-17 实测：写错 type 时 Gowin **不报错、直接静默跳过该文件**

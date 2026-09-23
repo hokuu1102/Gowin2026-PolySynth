@@ -1,0 +1,21 @@
+﻿NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+  ok  : after reset all 16 axes read 0
+  ok  : after reset all deltas read 0
+  ok  : after reset axis_seen is 0
+  ok  : axis 0 (adc0 ch0) holds the adc0 sample
+  ok  : axis 8 (adc1 ch0) holds the adc1 sample  [axis = adc*8+ch]
+  ok  : ONE sample_valid wrote BOTH chips at once (lockstep)
+  ok  : axis 3 (adc0 ch3) correct
+  ok  : axis 11 (adc1 ch3) correct
+  ok  : pos_o reflects the CURRENT frame, not the previous one
+  ok  : snapshot pulse occurred (frame_done produced snap_valid)
+  ok  : delta is POSITIVE when travel increases (axis 0)
+  ok  : delta is POSITIVE when travel increases (axis 8)
+  ok  : delta is NEGATIVE when travel decreases (axis 0)  [slide prerequisite]
+  ok  : delta is NEGATIVE when travel decreases (axis 8)
+  ok  : negative delta is not a wrapped unsigned value
+
+PASS: axis_snapshot maps (adc,ch)->axis, commits all chips in one cycle, emits a per-frame pulse, and produces a SIGNED per-axis delta (the raw material for slide/two-note detection)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_axis_snapshot.sv:223: $finish called at 1430000 (1ps)
+
+

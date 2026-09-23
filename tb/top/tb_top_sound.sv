@@ -54,6 +54,10 @@ module tb_top_sound;
     top #(
         .PA_ON_AFTER_RESET (0),        // 本 tb 只关心音频，功放时序另有 tb
         .DEMO_CHORD_ON     (1),        // ⭐ 出声档
+        // ⭐⭐ 2026-09-23：源 A 现在有仲裁（见 top.v §源 A 仲裁）——
+        //    本 tb 验的是【演示和弦】出声链 ⇒ ⭐ 必须选 1（演示和弦档）。
+        //    ⚠️ 默认 0 = W3a 手弹；⚠️ 若不选，演示和弦进不了 evt_merge，本 tb 会失败。
+        .SOURCE_A_SEL      (1),
         .DEMO_NOTE_DELAY   (2000),     // ⚠️ 改小以便快速仿真（默认 2_000_000 太慢）
         .POLY_TARGET       (POLY),
         .OSC_PER_VOICE     (OPV),
@@ -61,7 +65,9 @@ module tb_top_sound;
     ) u_top (
         .clk (clk), .rst_n (rst_n),
         .HP_BCK (HP_BCK), .HP_WS (HP_WS), .HP_DIN (HP_DIN),
-        .PA_EN_n (PA_EN_n), .led_heartbeat (led_hb)
+        .PA_EN_n (PA_EN_n), .led_heartbeat (led_hb),
+        .spi_miso_l (1'b1), .spi_miso_r (1'b1),
+        .spi_sclk (), .spi_mosi (), .spi_cs_l (), .spi_cs_r ()
     );
 
     // ⭐ 内部探针：直接看 mixer 的输出（⛔ 不要只看到 I2S 引脚就下结论）

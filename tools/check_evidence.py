@@ -41,6 +41,22 @@ for _s in (sys.stdout, sys.stderr):
 LOCK = os.path.join("build", "mutation", ".lock")
 EVID = "sim/evidence/"
 # files that are legitimately small/empty at rest (headers-only, placeholders)
+#
+# ⭐ K-117 (2026-09-23): `*.compile.log` files that are EMPTY are NORMAL and
+#    CORRECT -- they mean "iverilog compiled this bench and printed nothing",
+#    i.e. a CLEAN compile.  This was measured, not assumed:
+#       40 *.compile.log files -> 38 empty, 2 non-empty
+#       and BOTH non-empty ones contain WARNINGS (dangling port / width mismatch),
+#       not successes.
+#    So the old blanket "any 0-byte file is bad" rule fired on the healthy case
+#    and made the guard refuse EVERY commit (34 false positives at the time).
+#    The correct rule is the inverse: for compile logs, empty == clean.
+#
+#    ⚠️ Deliberately NOT added to ALLOW_EMPTY: ALLOW_EMPTY skips the emptiness
+#    check entirely, which would also hide a compile log that SHOULD have
+#    content.  Instead the exemption is scoped by suffix below, so a non-empty
+#    compile log is still checked for FAIL/error contamination further down.
+EMPTY_OK_SUFFIXES = (".compile.log",)
 ALLOW_EMPTY = set()
 
 
@@ -67,11 +83,14 @@ def main() -> int:
             "      tb_all from clean RTL), then commit.")
 
     # ── 2) tracked evidence files that are empty on disk ──────────────────
+    #   ⭐ K-117: skip `*.compile.log` -- for those, EMPTY MEANS CLEAN (measured).
     tracked = [p for p in sh(["git", "ls-files", EVID]).splitlines() if p.strip()]
     empties = []
     for p in tracked:
         if p in ALLOW_EMPTY or not os.path.isfile(p):
             continue
+        if p.endswith(EMPTY_OK_SUFFIXES):
+            continue                      # ⭐ empty compile log == clean compile
         try:
             if os.path.getsize(p) == 0:
                 empties.append(p)

@@ -181,12 +181,26 @@ module uart_rx #(
     initial begin
         if (BIT_TOO_FEW)
             // 🔴 `BAUD_DIV < 4` ⇒ 位中点采样没有意义（起始位中点检查也会失真）
-            $display("ERROR [uart_rx] BAUD_DIV=%0d < 4 => 位中点采样不可用（波特率过高）",
-                     BAUD_DIV);
+            //
+            //   ⭐⭐ U-2 升级（2026-09-23）：⭐ **`$display` → `$fatal`**
+            //     ⚠️ 原来只是 `$display` ⇒ 🔴 **不阻止任何东西**：
+            //        · 仿真会**继续跑完**，⭐ 只在日志里留一行 ERROR（⚠️ 极易被刷屏淹没）
+            //        · 综合**照常进行**（`initial` 在综合里被忽略）⇒ ⭐ 缺陷**原样进板**
+            //     🔴 **后果（为什么必须硬失败）**：⚠️ `BAUD_DIV<4` 时
+            //        `START_MID = (BAUD_DIV>>1) - 1` 会**16 位回绕**
+            //        （⭐ `BAUD_DIV=1 ⇒ (1>>1)-1 = -1 ⇒ 65535`）
+            //        ⇒ 🔴 **起始位中点检查【永远等不到】** ⇒ ⭐ **毛刺保护静默失效** ——
+            //           ⚠️ 表现为"偶发收错字节"，⭐ 而**所有测试依然绿**（`K-87` 同族）。
+            //     ⭐ 所以这条**必须让跑的人立刻停下**，⛔ 不是"记一笔继续"。
+            //   📌 `$fatal` 是本项目既有惯例（`rtl/`+`tb/` 已有 73 处）。
+            $fatal(1, "ERROR [uart_rx] BAUD_DIV=%0d < 4 => bit-midpoint sampling is unusable (baud too high); START_MID would wrap to 65535 and the glitch filter would SILENTLY stop working.",
+                      BAUD_DIV);
         if (ODD_DIV)
             // ⚠️ 奇数分频 ⇒ `MID_CNT` 截断 ⇒ 采样点偏左一点点
             //    ⭐ 不致命（0.1% 级），但**建议取偶数**（如 434）
-            $display("WARNING [uart_rx] BAUD_DIV=%0d 为奇数 => 中点采样有半拍偏差，建议取偶数",
+            //   📌 这条**保持 `$display`**：⭐ 它是**建议**不是缺陷 ⇒ ⚠️ 硬失败会误伤
+            //      （⭐ 若将来某个波特率天然是奇数分频，不该因此拒绝构建）。
+            $display("WARNING [uart_rx] BAUD_DIV=%0d is odd => midpoint sampling has a half-cycle bias; prefer an even value",
                      BAUD_DIV);
     end
 

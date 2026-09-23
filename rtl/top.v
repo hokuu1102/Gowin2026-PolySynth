@@ -65,7 +65,14 @@ module top #(
     // ⭐ 开机自检音的**起音延时**（clk 数；默认 ≈40 ms @50 MHz）
     //    ⚠️ 提成参数是为了**让 tb 能改小** —— 否则 tb 要跑 200 万拍才能听到音，
     //       仿真会慢到超时（实测 120 s 都不够）。
-    parameter integer DEMO_NOTE_DELAY   = 2_000_000
+    parameter integer DEMO_NOTE_DELAY   = 2_000_000,
+
+    // ⭐⭐ evt_merge 源 A 的来源选择（2026-09-23 新增，见下方 §源 A 仲裁）
+    //   · 0 => W3a 手弹采集链（交付/上板用这一档）
+    //   · 1 => 演示和弦（T57 验收 tb_top_sound 用这一档）
+    //   ⚠️ 源 A 只有一个人口，而手弹与 T57 的演示和弦都要走它 => 必须仲裁。
+    //   📌 不直接删演示和弦：R-16/K-69 的教训，不能为了接新功能而废掉验收手段。
+    parameter integer SOURCE_A_SEL      = 0
 ) (
     input  wire clk,             // V22 · 50 MHz
     input  wire rst_n,           // AA13 · 低有效（同步复位）
@@ -79,7 +86,21 @@ module top #(
     output wire PA_EN_n,         // 🔴 Y14（⛔ 不是 AB16）· 接 MAX98357A 的 SD_MODE ⇒ ⭐ **高 = 出声**，见下方说明
 
     // ── 板级活体见证 ────────────────────────────────────────────────
-    output wire led_heartbeat    // LEDs[0] = T18
+    output wire led_heartbeat,   // V13 · CFG_LED 绿路（SYS_ACT）
+
+    // ── ⭐⭐ W3a 采集链 · 左手区 ADC（MCP3208 ×2）────────────────────────
+    //   ⭐ **2026-09-23 新增** —— ⭐ **"按琴键出声"的物理入口**。
+    //   ⚠️ 走 **`J9` 排针**（⛔ 不是 PMOD —— 那 16 根已分完），
+    //      ⭐ 6 根**连续相邻**（`SDRAM0_D2..D7`）。
+    //   🔴 **`MISO` 两根独立**（`K-06`）—— ⚠️ 因为 `adc_farm` 是**并行锁步**，
+    //      ⛔ "共享 MISO 靠未选中片高阻"在同时选中时不成立（会推挽对打）。
+    //   ⚠️ **⛔ 用这些脚就不能插 `SDRAM` 模块**（`0Ω` 二选一）
+    output wire spi_sclk,        // C15 · J9 SDRAM0_D2
+    output wire spi_mosi,        // C14 · J9 SDRAM0_D3
+    input  wire spi_miso_l,      // B13 · J9 SDRAM0_D4（⭐ 需 10 kΩ 上拉）
+    input  wire spi_miso_r,      // C13 · J9 SDRAM0_D5（⭐ 需 10 kΩ 上拉）
+    output wire spi_cs_l,        // A14 · J9 SDRAM0_D6
+    output wire spi_cs_r         // A13 · J9 SDRAM0_D7
 );
 
     // ── ⭐ R-08：外部复位先同步（异步输入 → 同步释放）──────────────────
@@ -286,6 +307,373 @@ module top #(
             .cfg_warn_o     (met_cfg_warn)
         );
 
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ W3a 采集链（⭐⭐ 2026-09-23 新增 —— "按琴键出声"的最后一环）
+        //
+        //   链路：`adc_farm` → 语义层（`axis_snapshot` → `axis_map`
+        //          → `event_extract` / `param_extract`）→ `evt_merge` 源 A
+        //
+        //   ⭐ **为什么需要 `axis_snapshot`**：
+        //      ⚠️ `adc_farm` 一次只给【一个通道】的样本
+        //      ⇒ 🔴 **滑音/双音判据需要同时看相邻两轴** ⇒ ⭐ 必须先做**原子快照**。
+        //
+        //   ⚠️ **本版范围（⭐ MVP）**：
+        //      ⭐ **单轴越阈 → `note_on`/`note_off`** ⇒ ⭐ **按琴键出声**
+        //      ⚠️ **滑音/双音**：⭐ 接口已预留（`slide_*`/`two_note_*`），⛔ 本版恒 0。
+        // ═══════════════════════════════════════════════════════════════════
+
+        // ── ⭐ ① `adc_farm`：2 片 MCP3208 并行采集 ────────────────────────
+        wire        af_sample_valid;
+        wire [2:0]  af_sample_ch;
+        wire        af_frame_done;
+        wire [1:0]  af_fault;
+        wire [2*12-1:0] af_data;          // ⭐ packed：片 i = [i*12 +: 12]
+        wire [1:0] af_cs_n, af_sclk, af_mosi;
+        wire [1:0] af_miso = {spi_miso_r, spi_miso_l};   // ⭐ 两根独立 MISO
+
+        adc_farm #(
+            .N_ADC            (2),        // ⭐ 本版 2 片（左手板 L/R）
+            .CLK_HZ           (50_000_000),
+            .SCLK_HZ          (1_000_000),
+            .CHANNEL_RATE_HZ  (2_000)
+        ) u_adc_farm (
+            .clk              (clk),
+            .rst_n            (rst_n_sync),
+            .enable           (1'b1),     // ⭐ 常开（上电即采）
+            .adc_cs_n         (af_cs_n),
+            .adc_sclk         (af_sclk),
+            .adc_mosi         (af_mosi),
+            .adc_miso         (af_miso),
+            .sample_valid     (af_sample_valid),
+            .sample_ch        (af_sample_ch),
+            .sample_data_packed(af_data),
+            .sample_data0     (),
+            .sample_data1     (),
+            .sample_data2     (),
+            .frame_done       (af_frame_done),
+            .fault            (af_fault)
+        );
+
+        // ⭐ 同源扇出 ⇒ 只用片 0 的 SCLK/MOSI 引到引脚
+        //   ⚠️ `adc_farm` 内部已把片 1 扇出成与片 0 相同 ⇒ 这里取 `[0]` 即可
+        assign spi_sclk = af_sclk[0];
+        assign spi_mosi = af_mosi[0];
+        assign spi_cs_l = af_cs_n[0];    // ⭐ 片 0 = 左手板 L
+        assign spi_cs_r = af_cs_n[1];    // ⭐ 片 1 = 左手板 R
+
+        // ── ⭐ ② `calib` ×2：逐通道零点/灵敏度标定 ───────────────────────
+        //   ⚠️ `calib` 是**单片 8 通道**的 ⇒ ⭐ **每片一份**（⭐ 设计草案 `D1`）
+        //   ⚠️ **本版先【旁路】标定**（⭐ `tare`/`span` 未接 ⇒ 输出 = 输入）
+        //      ⇒ ⭐ 因为上电自校需要**实物配合**（⚠️ 硬件未到手）
+        //      🔴 **TODO（上板后）**：接上电自校序列（`tare`/`span` 打拍）
+        wire [11:0] cal0_val, cal1_val;
+        wire [2:0]  cal0_ch,  cal1_ch;
+        wire        cal0_vld, cal1_vld;
+
+        calib #(.NCH(8), .DW(12)) u_calib0 (
+            .clk       (clk),
+            .rst_n     (rst_n_sync),
+            .valid     (af_sample_valid),
+            .ch        (af_sample_ch),
+            .raw       (af_data[0*12 +: 12]),
+            .tare      (1'b0),            // 🔴 TODO：上电自校
+            .span      (1'b0),            // 🔴 TODO：上电自校
+            .cal_ch    (3'd0),
+            .busy      (),
+            .err       (),
+            .out_valid (cal0_vld),
+            .out_ch    (cal0_ch),
+            .out_val   (cal0_val)
+        );
+
+        calib #(.NCH(8), .DW(12)) u_calib1 (
+            .clk       (clk),
+            .rst_n     (rst_n_sync),
+            .valid     (af_sample_valid),
+            .ch        (af_sample_ch),
+            .raw       (af_data[1*12 +: 12]),
+            .tare      (1'b0),
+            .span      (1'b0),
+            .cal_ch    (3'd0),
+            .busy      (),
+            .err       (),
+            .out_valid (cal1_vld),
+            .out_ch    (cal1_ch),
+            .out_val   (cal1_val)
+        );
+
+        // ── ⭐ ③ `axis_snapshot`：16 轴原子快照 + 带符号 Δ ────────────────
+        //   🔴 **⚠️ 位宽教训**：⭐ `pos` 是 **16 轴 × 12 位 = 192 位**，
+        //      `delta` 是 **16 × 13 = 208 位** —— ⚠️ **⛔ 不是"16 位"**
+        //      （⭐ 我第一版写窄了 ⇒ iverilog 报 "expects 192 bit(s), given 16"，
+        //        ⚠️ 而它会**静默补高位 0** ⇒ 🔴 若没看 warning 就会**整条链全是 0**）
+        wire [16*12-1:0] as_pos;
+        wire [16*13-1:0] as_delta;
+        wire        as_valid;
+        wire [15:0] as_seen;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 霍尔极性反相（⭐ 2026-09-23 实测后新增）
+        //
+        //   🔴 **为什么需要**：⭐ **实测表明，按下时霍尔输出电压【变小】**：
+        //      | 状态 | 原始电压 | `calib` 输出（raw）|
+        //      |---|---|---|
+        //      | 松手 | 1.60 V | ≈ 1985 码 |
+        //      | 触底 | 1.00 V | ≈ 1241 码 |
+        //      ⇒ ⭐ **按下去码值【下降】**。
+        //   ⚠️ 而下游语义是 **"行程越大 ⇒ `pos` 越大"**：
+        //      · `event_extract`：`pos >= TRIG_TH` 判"按下"
+        //      · `axis_map`：`pos` 大 ⇒ 表索引大 ⇒ 高音键
+        //      ⇒ 🔴 **直接接上去会：全部键恒判"按下" + 按到底反而判"释放"** ⇒ ⛔ 无法演奏。
+        //
+        //   ⭐ **做法：在 `calib` 之后、`axis_snapshot` 之前取反** ——
+        //      ⭐ `pos = FULL - cal_out`（`FULL = 4095`）
+        //      ⇒ ⭐ 松手 ≈ **2110**、触底 ≈ **2854** ⇒ ⭐ **行程变为【上升】** ✅
+        //
+        //   📌 **为什么放在这一级（⛔ 不改 `calib`）**：
+        //      ⭐ `calib` 是**队友的模块**（有单测 + 变异体）⇒ 遵"一人一文件"。
+        //      ⭐ 而且极性是**接线/装配**的属性，⛔ 不是标定算法的属性 ——
+        //         放在采集链里**语义更准确**。
+        //   ⚠️ **若将来磁铁装反（→ 极性变正）**：⭐ **把这个参数设成 0 即可**，⛔ 不用改代码。
+        // ═══════════════════════════════════════════════════════════════════
+        //   ⭐ 参数：1 = 反相（⭐ 当前实测极性）· 0 = 直通（⚠️ 磁铁装反时用）
+        localparam integer INVERT_AXIS = 1;
+        localparam [11:0]  ADC_FULL    = 12'hFFF;      // ⭐ 12 位满量程
+
+        function [11:0] axis_polarity;
+            input [11:0] v;
+            begin
+                // ⚠️ 用三元表达式 ⇒ ⭐ 综合成【取反 + 常数】,⛔ 无乘法、零延迟
+                axis_polarity = INVERT_AXIS ? (ADC_FULL - v) : v;
+            end
+        endfunction
+
+        wire [11:0] cal0_pol = axis_polarity(cal0_val);
+        wire [11:0] cal1_pol = axis_polarity(cal1_val);
+
+        // ⚠️ 两片 `calib` 的输出**同拍有效**（⭐ 都源自同一个 `sample_valid`）
+        //   ⇒ ⭐ 拼成 `adc_farm` 的 packed 格式喂给快照
+        //   ⭐ 注意：这里用的是【极性校正后】的值（`calN_pol`），⛔ 不是 `calN_val`
+        wire [2*12-1:0] cal_packed = {cal1_pol, cal0_pol};
+
+        axis_snapshot #(
+            .AXIS_N (16),
+            .N_ADC  (2),
+            .POS_W  (12),
+            .DW     (13)
+        ) u_axis_snapshot (
+            .clk           (clk),
+            .rst_n         (rst_n_sync),
+            .sample_valid_i(cal0_vld),      // ⭐ 两片同拍 ⇒ 用一个即可
+            .sample_ch_i   (cal0_ch),
+            .sample_data_i (cal_packed),
+            .frame_done_i  (af_frame_done),
+            .snap_valid_o  (as_valid),
+            .pos_o         (as_pos),
+            .delta_o       (as_delta),
+            .axis_seen_o   (as_seen)
+        );
+
+        // ── ⭐ ④ `axis_map`：轴位 → `phase_inc` ──────────────────────────
+        //   ⚠️ **本版用法**：⭐ 用**触发到的那个轴**查表
+        //      ⇒ ⭐ 因此 `axis_map` 的输入**逐轴驱动**（⭐ 见下方 `ee` 的配合）
+        //   🔴 **TODO（阶段 2）**：⭐ 配合滑音 ⇒ 需要**同时算相邻两轴**的 `phase_inc`
+        wire [31:0] am_inc;
+        wire        am_valid;
+        wire [3:0]  am_axis;
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ `axis_map` 的驱动：⭐ **把触发轴的位置送进去查表**
+        //
+        //   🔴 **⚠️ 本版的设计取舍（⭐ 说清楚，⛔ 不是最终形态）**：
+        //      ⚠️ `event_extract` 一帧可能报多个事件，而 `axis_map` 只有一个入口
+        //      ⇒ ⭐ 本版**用"事件携带的轴号"去 `as_pos` 里取那个轴的行程**
+        //      ⇒ ⭐ **单键按下的路径是【完全正确】的**（⭐ 这正是本周硬指标）
+        //      ⚠️ 同帧多键时，`note_on` 事件**不会丢**（⭐ `ee_valid` 保证），
+        //         但**音高可能取到"最后一个轴"的值** —— ⚠️ 这是已知限制。
+        //   🔴 **TODO（阶段 2）**：⭐ `axis_snapshot` 已给【16 轴同帧 pos】，
+        //      ⭐ 应改成 **`axis_map` 逐轴查表并锁存 16 个 `phase_inc`**，
+        //      再按事件轴号选取 ⇒ ⭐ 那样同帧多键也正确。
+        //   📌 **依据**：⭐ `axis_map.fb_inc[0..15]` **已经是 16 轴全表**
+        //      ⇒ ⭐ 阶段 2 只需把"选轴"这一步挪进 `axis_map`，⛔ 不用改它的表。
+
+        // ── ⭐ ⑤ `event_extract`：触发 / 迟滞 / 不应期 ───────────────────
+        wire        ee_valid;
+        wire [3:0]  ee_axis;
+        wire [1:0]  ee_kind;
+        wire [11:0] ee_depth;
+        wire        ee_slide_v, ee_two_v, ee_ovf;
+        wire [7:0]  ee_lost;
+        wire [3:0]  ee_slide_ax, ee_2a, ee_2b;
+        wire signed [1:0] ee_slide_dir;
+
+        event_extract #(
+            .AXIS_N (16),
+            .POS_W  (12),
+            .DW     (13),
+            .AXIS_W (4),
+            // ── ⭐⭐ 阈值（⭐ 2026-09-23 按实测重设）──────────────────────────
+            //   🔴 **⚠️ 旧值（`TRIG=0x400`/`REL=0x300`）是【凭空定的】，没依据** ——
+            //      ⚠️ 实测极性校正后的码制下，松手 ≈ **2110**、触底 ≈ **2854**
+            //      ⇒ 🔴 旧的 `0x400`(=1024) **【低于松手值】** ⇒ ⭐ **所有键恒判"按下"**。
+            //
+            //   ⭐ **本次依据（用户 2026-09-23 拍板）**：
+            //      · ⭐ **触发阈 = 松手 + 行程的 20%**（⭐ "不要在中间，最高 20%"）
+            //        ⇒ `2110 + 0.2 × 744 ≈ 2259`) = **`12'h8D3`**
+            //      · ⭐ **释放阈 = 比触发阈低 8%**（⭐ 迟滞，⚠️ 防回弹抖动反复触发）
+            //        ⇒ `2259 − 60 = 2199` = **`12'h897`**
+            //
+            //   ⚠️ **这两个值是【首版估计】，⚠️ 上板必然要调**：
+            //      · ⭐ 定位板高度**还没定**（用户打算降低 ⇒ ⭐ **行程会变大**）
+            //      · ⚠️ 行程一变，这两个**必须跟着重算**（⭐ 所以它们是 `parameter`）
+            //      📌 **调法**：⭐ 松手码 + 20%×行程 ⇒ 填 `TRIG_TH`；`TRIG_TH − 8%×行程` ⇒ `REL_TH`
+            .TRIG_TH   (12'h8D3),
+            .REL_TH    (12'h897),
+            // ⚠️ Δ 阈值（滑音/双音用）：⭐ 目前保持默认 8
+            //   （⭐ 依据：滑动时每帧行程变约 8 码 ⇒ 见设计草案 §2.2b）
+            .REFRACT_N (150)          // ⭐ ≈30 ms @196 µs/帧
+        ) u_event_extract (
+            .clk              (clk),
+            .rst_n            (rst_n_sync),
+            .snap_valid_i     (as_valid),
+            .pos_i            (as_pos),
+            .delta_i          (as_delta),
+            .evt_valid_o      (ee_valid),
+            .evt_axis_o       (ee_axis),
+            .evt_kind_o       (ee_kind),
+            .evt_depth_o      (ee_depth),
+            // ⚠️ 滑音/双音：⭐ 接口已接，⛔ 本版恒 0（⭐ 阶段 2 填）
+            .slide_valid_o    (ee_slide_v),
+            .slide_axis_o     (ee_slide_ax),
+            .slide_dir_o      (ee_slide_dir),
+            .two_note_valid_o (ee_two_v),
+            .two_note_axis_a_o(ee_2a),
+            .two_note_axis_b_o(ee_2b),
+            .overflow_o       (ee_ovf),
+            .lost_cnt_o       (ee_lost)
+        );
+
+
+        // ═══════════════════════════════════════════════════════════════════
+        //   ⚠️ **声明与 always 放在 `event_extract` 之后** ——
+        //      🔴 因为本块**引用了 `ee_valid`/`ee_kind`/`ee_axis`**
+        //      ⇒ ⚠️ **Verilog 要求"先声明后使用"**（⭐ 否则 elaboration 报
+        //         `Unable to bind wire/reg` —— ⭐ 这是我第一版犯的错）。
+        reg [11:0] am_pos_in;
+        reg [3:0]  am_axis_in;
+        reg        am_vld_in;
+        reg        am_mode;            // ⭐ 0 = 键盘模式 · 1 = 指板模式
+
+        always @(posedge clk) begin
+            if (!rst_n_sync) begin
+                am_pos_in  <= 12'd0;
+                am_axis_in <= 4'd0;
+                am_vld_in  <= 1'b0;
+                am_mode    <= 1'b1;    // ⭐ **默认指板模式** —— ⚠️ 因为 `fb_inc` 已填**真实音高**，
+                                       //    而 `kb_inc` 还是**半音阶梯占位**（⭐ 见 `axis_map.v` TODO）
+            end else begin
+                am_vld_in <= 1'b0;     // ⭐ 默认单周期
+                if (ee_valid && (ee_kind != 2'd1)) begin
+                    // ⭐ 收到 `note_on`/`pluck` ⇒ ⭐ **用该轴的位置查表**
+                    //   ⚠️ 用【索引】取 `as_pos`（⭐ 不做算术后拼接 —— `83 号` 教训）
+                    am_pos_in  <= as_pos[ee_axis*12 +: 12];
+                    am_axis_in <= ee_axis;
+                    am_mode    <= 1'b1;              // ⭐ 指板模式（真实音高）
+                    am_vld_in  <= 1'b1;
+                end
+            end
+        end
+
+        axis_map #(
+            .AXIS_W  (4),
+            .POS_W   (12),
+            .PHASE_W (32),
+            .N_KEY   (16)
+        ) u_axis_map (
+            .clk          (clk),
+            .rst_n        (rst_n_sync),
+            .pos_valid_i  (am_vld_in),
+            .axis_id_i    (am_axis_in),
+            .pos_i        (am_pos_in),
+            .mode_i       (am_mode),
+            .phase_inc_o  (am_inc),
+            .phase_valid_o(am_valid),
+            .axis_id_o    (am_axis)
+        );
+        // ── ⭐ ⑥ `param_extract`：力度（⛔ 结构上不产生音符）───────────────
+        wire       pe_vel_v, pe_pitch_v;
+        wire [3:0] pe_vel_ax, pe_pitch_ax;
+        wire [7:0] pe_vel;
+        wire [31:0] pe_pitch;
+
+        param_extract #(
+            .AXIS_N (16),
+            .POS_W  (12),
+            .AXIS_W (4),
+            .VEL_W  (8),
+            .PHASE_W(32)
+        ) u_param_extract (
+            .clk          (clk),
+            .rst_n        (rst_n_sync),
+            .snap_valid_i (as_valid),
+            .pos_i        (as_pos),
+            .evt_valid_i  (ee_valid),
+            .evt_axis_i   (ee_axis),
+            .evt_kind_i   (ee_kind),
+            .vel_valid_o  (pe_vel_v),
+            .vel_axis_o   (pe_vel_ax),
+            .vel_value_o  (pe_vel),
+            .pitch_valid_o(pe_pitch_v),
+            .pitch_axis_o (pe_pitch_ax),
+            .pitch_value_o(pe_pitch)
+        );
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ `axis_map` 的驱动：⭐ **按 `event_extract` 报的轴号取该轴的行程**
+        //
+        //   🔴 **⚠️ 这是本版的一个【简化】**（⭐ 必须说清，⛔ 不是最终形态）：
+        //      ⚠️ `event_extract` 一帧可能报多个事件，⭐ 而 `axis_map` 只有一个入口
+        //      ⇒ ⭐ 本版**只把"当前事件"的轴喂给 `axis_map`**
+        //      ⇒ ⚠️ **同帧多事件时，音高会取错**（⭐ 但事件本身不会丢 —— 那由 `ee_valid` 保证）
+        //   🔴 **TODO（阶段 2）**：⭐ 改成 **`axis_map` 内部按 16 轴全表查**
+        //      （⭐ 它的 `fb_inc[0..15]` **已经是 16 轴全表了** ⇒ ⭐ 只需把 `pos` 改成按轴选）
+        //   📌 **本版的验收目标**：⭐ **"按琴键出声"** —— 单键按下的路径是**完全正确**的。
+        // ═══════════════════════════════════════════════════════════════════
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 源 A 的仲裁：**`evt_merge` 源 A 只有【一个】入口**
+        //
+        //   🔴 **⚠️ 这是 2026-09-23 接线时暴露出的真冲突**：
+        //      · ⭐ `T57` 的验收（`tb_top_sound`）**靠"演示和弦"走源 A 出声**
+        //        ⇒ ⭐ 那是**交付路径的证据**（"顶层真的出声"）
+        //      · ⭐ 而 ESP32 清单 §四 说"**唯一对接点 = `evt_merge` 源 A**"
+        //      · ⭐ 现在 **W3a 手弹**也要进源 A
+        //      ⇒ ⚠️ **三者抢同一个入口**。
+        //
+        //   ⭐ **本版做法：用一个参数仲裁**（⭐ 而不是删掉演示和弦 ——
+        //      ⚠️ 那样会让 `T57` 的判据**失去被测对象**，⭐ 等于自己废掉一张验收单）。
+        //      · `SOURCE_A_SEL = 0` ⇒ ⭐ **W3a 手弹**（⭐ 上板/交付用的档）
+        //      · `SOURCE_A_SEL = 1` ⇒ ⭐ **演示和弦**（⭐ `T57` 验收用的档）
+        //   🔴 **TODO（曲谱接入时）**：⭐ 那时源 A 要有 **3 个来源**（手弹/曲谱/演示）
+        //      ⇒ ⭐ 应改成 **`evt_merge` 前再加一级仲裁**（⭐ 或把源 A 也做成多路合流）。
+        //   📌 **为什么不直接删演示和弦**：⭐ `R-16`/`K-69` 的教训 ——
+        //      ⚠️ **"测试配置"和"交付默认值"要分开**，⛔ 不能为了接新功能而废掉验收手段。
+        // ═══════════════════════════════════════════════════════════════════
+        wire        w3a_evt_valid = ee_valid;
+        wire [3:0]  w3a_evt_axis  = ee_axis;
+        wire [1:0]  w3a_evt_kind  = ee_kind;
+        //   ⭐ 力度：⭐ 起音**先用默认 200**（⭐ 这就是"先触发后修正"）——
+        //     ⚠️ `param_extract` 要**等越过深阈**才算得出力度
+        //     ⇒ ⭐ 力度修正走 `note_manager.vel_upd_*`（⭐ 那是独立的通路）
+        wire [7:0]  w3a_evt_vel   = 8'd200;
+        wire [31:0] w3a_evt_inc   = am_inc;
+
+        // ⭐ 源 A 仲裁（⭐ 见上方说明）
+        wire        src_a_valid = (SOURCE_A_SEL == 1) ? demo_note_valid : w3a_evt_valid;
+        wire [3:0]  src_a_axis  = (SOURCE_A_SEL == 1) ? demo_note_axis  : w3a_evt_axis;
+        wire [31:0] src_a_inc   = (SOURCE_A_SEL == 1) ? demo_note_inc   : w3a_evt_inc;
+        wire [7:0]  src_a_vel   = (SOURCE_A_SEL == 1) ? demo_note_vel   : w3a_evt_vel;
+        wire [1:0]  src_a_kind  = (SOURCE_A_SEL == 1) ? demo_note_kind  : w3a_evt_kind;
+
         // ⭐⭐ T36 / U-6：事件合流（手弹/曲谱 + 节拍器 → note_manager 的**唯一**事件口）
         //   🔴 **为什么必须加它**：`note_manager` 只有一个事件口，
         //      而原来两路是**直接或在一起**的 ⇒ ⚠️ **同拍相撞会静默丢一条**
@@ -313,12 +701,14 @@ module top #(
         ) u_evt_merge (
             .clk_i            (clk),
             .rst_n_i          (rst_n_sync),
-            // ── 源 A：演示和弦（⭐ 将来接 `play_seq` 的曲谱事件）────────────
-            .a_valid_i        (demo_note_valid),
-            .a_axis_i         (demo_note_axis),
-            .a_phase_inc_i    (demo_note_inc),
-            .a_velocity_i     (demo_note_vel),
-            .a_kind_i         (demo_note_kind),
+            // ── ⭐⭐ 源 A：**仲裁后的来源**（⭐ 默认 W3a 手弹；⚠️ `T57` 档 = 演示和弦）──
+            //   📌 依据：⭐ ESP32 清单 §四"唯一对接点 = `evt_merge` 源 A"
+            //   ⚠️ 见上方 §源 A 仲裁（`SOURCE_A_SEL`）
+            .a_valid_i        (src_a_valid),
+            .a_axis_i         (src_a_axis),
+            .a_phase_inc_i    (src_a_inc),
+            .a_velocity_i     (src_a_vel),
+            .a_kind_i         (src_a_kind),
             // ── 源 B：节拍器 ──────────────────────────────────────────────
             .b_valid_i        (met_evt_valid),
             .b_axis_i         (met_evt_axis),
@@ -374,13 +764,17 @@ module top #(
             .note_phase_inc_i  (mg_evt_inc),
             .note_velocity_i   (mg_evt_vel),
             .note_kind_i       (mg_evt_kind),
-            // ⚠️ 力度/音高修正通路本版**未接**（要等 W3a 采集链落地）⇒ 恒 0
-            .vel_upd_valid_i   (1'b0),
-            .vel_upd_axis_i    (4'd0),
-            .vel_upd_value_i   (8'd0),
-            .pitch_upd_valid_i (1'b0),
-            .pitch_upd_axis_i  (4'd0),
-            .pitch_upd_value_i (32'd0),
+            // ⭐⭐ 力度/音高修正通路（⭐ **2026-09-23 接入 W3a `param_extract`**）
+            //   🔴 原来硬接 0（注释写着"要等 W3a 采集链落地"）⇒ ⭐ **现已落地**
+            //   ⭐ 力度：⭐ `param_extract` 在**越过深阈后**才发 ⇒ ⭐ **后到、只改已在响的 voice**
+            //      （⭐ 这就是"先触发后修正"：⭐ 起音不等力度 ⇒ 延迟与力度无关）
+            //   ⚠️ 音高：⭐ `param_extract` 本版**恒 0**（⭐ 属滑音，阶段 2）
+            .vel_upd_valid_i   (pe_vel_v),
+            .vel_upd_axis_i    (pe_vel_ax),
+            .vel_upd_value_i   (pe_vel),
+            .pitch_upd_valid_i (pe_pitch_v),
+            .pitch_upd_axis_i  (pe_pitch_ax),
+            .pitch_upd_value_i (pe_pitch),
             .default_timbre_i  (2'd0),
             .evt_timbre_valid_i(1'b0),
             .evt_timbre_i      (2'd0),
@@ -472,7 +866,7 @@ module top #(
         );
 
         // ⭐ 输出寄存：`i2s_tx` 要求数据源**提前一帧**给出本帧样点
-        //    ⚠️ 用 `mm_valid` 打一拍 ⇒ 整帧稳定，⛔ 不会在帧中途变化
+        //    ⚠️ 用 `mx_valid` 打一拍 ⇒ 整帧稳定，⛔ 不会在帧中途变化
         reg signed [SAMPLE_W-1:0] sample_r;
         always @(posedge clk) begin
             if (!rst_n_sync) sample_r <= {SAMPLE_W{1'b0}};
@@ -660,4 +1054,4 @@ module top #(
 
     assign led_heartbeat = hb;
 
-endmodule
+endmodule

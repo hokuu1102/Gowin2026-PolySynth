@@ -102,10 +102,19 @@ module tb_axis_map;
         v0 = phase_inc;
         chk("pos=0 gives the table bottom (BASE_INC)", phase_inc === expect_key(0));
 
-        // ═══ 判据 ② 轴位满量程 → 表顶（⛔ 不越界）═══
+        // ═══ 判据 ② 轴位满量程 → 落在【最后一个键】（⛔ 不越界、⛔ 不绕回表底）═══
+        //   🔴 **⚠️ 判据名一度是错的（2026-09-23 由变异体 `M77` 查出）**：
+        //      ⚠️ 原来叫 *"clamps at the table top"* —— ⭐ **但守住它的【不是钳位】**：
+        //      ⭐ 真正保证不越界的是 **`key_idx` 的位宽**（4 位 ⇒ 最大 15 ⇒ 天然 ≤ `N_KEY-1`）。
+        //      🔴 而 RTL 里那个三元钳位 **是死代码**（`key_idx >= N_KEY` 恒 False）⇒
+        //         ⚠️ **删掉它这条判据照样通过**（⭐ 实测：变异体 `M77` = LEAK）。
+        //      ⇒ ⭐ 判据名必须反映【真实机制】，⛔ 否则会让人误判"保护在哪里"（`K-87` 同族）。
+        //   📌 **这条判据仍然保留**：⭐ 它守的是**可观测结果**（"满量程得到顶键"）——
+        //      ⚠️ 将来若有人把中间量改回窄切片，⭐ **它就会红** ⇒ ⭐ 仍是有效守护。
         pos = 12'hFFF;  #1;
         v_last = phase_inc;
-        chk("pos=max gives the table top (no wrap to bottom)", phase_inc === expect_key(N_KEY-1));
+        chk("pos=max lands on the LAST key (width guarantees no overrun, no wrap)",
+            phase_inc === expect_key(N_KEY-1));
         chk("table top > table bottom (pitch rises)", v_last > v0);
 
         // ═══ 判据 ③ 双压插值：落在两键【中间】⇒ 严格在两者之间 ═══
@@ -260,7 +269,7 @@ module tb_axis_map;
 
         $display("");
         if (errors == 0)
-            $display("PASS: axis_map maps position to phase_inc, clamps at the table top, interpolates between adjacent keys, stays non-zero and monotonic, and keeps valid in the same cycle as data");
+            $display("PASS: axis_map maps position to phase_inc, lands on the last key at full scale, interpolates between adjacent keys, stays non-zero and monotonic, and keeps valid in the same cycle as data");
         else
             $fatal(1, "FAIL: axis_map had %0d error(s)", errors);
 

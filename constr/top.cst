@@ -72,3 +72,55 @@ IO_PORT "PA_EN_n" IO_TYPE=LVCMOS15 PULL_MODE=UP DRIVE=8 BANK_VCCIO=1.5;
 //      （⚠️ 红 = `READY`、蓝 = `DONE` 由配置逻辑驱动，⛔ 我们碰不到）。
 IO_LOC  "led_heartbeat" V13;
 IO_PORT "led_heartbeat" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+//====== W3a 采集链 · 左手区 ADC（MCP3208 ×2）======
+//   ⭐ **2026-09-23 新增**（⭐ W3a 接线：`adc_farm` + `calib` + 语义层接进 `top.v`）。
+//
+//   🔴 **为什么走 `J9` 排针、⛔ 不是 `PMOD`**：
+//      ⚠️ `PMOD0`/`PMOD1` 的 **16 根已全部分配完**
+//      （UART×4 · CS×3 · SPI×3 · I2S×3 · LED×2）⇒ ⭐ **再要脚只能从 `J9` 拿**。
+//
+//   ⭐ **为什么 `MISO` 要【两根独立】**：
+//      🔴 `K-06`：**每片 `MISO` 必须独立**，⛔ 不能并到一个 FPGA 输入。
+//      ⚠️ 而 `adc_farm` 是**【三片同时选中】（锁步并行）**（`adc_farm.sv:97-105`）——
+//      ⭐ "共享总线靠未选中片高阻"这个前提**在并行锁步下⛔ 不成立**
+//      ⇒ 🔴 多片同时选中会**推挽对打**。
+//      ⇒ ⭐ 本设计**只用 2 片**（左手板 L/R）⇒ **拆成 2 根独立 `MISO`**。
+//
+//   ⭐ **这 6 根在 `J9` 上是【连续相邻】的**（⭐ 用户要求"一个功能走相邻引脚"）：
+//      `SDRAM0_D2..D7` = `C15 C14 B13 C13 A14 A13`。
+//
+//   ⚠️ **这些脚在官方约束里是 `sdram_dq[*]`**（⭐ 已交叉验证），
+//      而 ⭐ **`PMOD 与 SDRAM 是 0Ω 二选一`** ⇒ ⛔ **用它们就不能插 `SDRAM` 模块**
+//      （⭐ 我们不用 SDRAM ⇒ ✅ 可用）。
+//   ⚠️ **全部 `BANK1` / `LVCMOS33`（3.3 V）** ⇒ ⭐ **与左手板电平一致，⛔ 不需电平转换**。
+//
+//   🔴 **接线必备**：⭐ **两个 `MISO` 各加 10 kΩ 上拉**（`K-62`/`C-17`）——
+//      ⚠️ Console 板上**没有上拉电阻**，且未选中时 `DOUT` 是高阻
+//      ⇒ ⚠️ 悬空会让 FPGA 输入级振荡。
+//
+//   📌 依据：`files/10-硬件/Console排针ball映射-C14结案-20260923.md`
+IO_LOC  "spi_sclk"   C15;    // ⭐ J9 · SDRAM0_D2（出）
+IO_PORT "spi_sclk"   IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "spi_mosi"   C14;    // ⭐ J9 · SDRAM0_D3（出）
+IO_PORT "spi_mosi"   IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+// ⭐⭐ 两个 MISO：**必须独立**（`K-06`）⇒ ⚠️ 都要 `PULL_MODE=UP`
+//   🔴 **⚠️ 踩过的坑（2026-09-23）**：⭐ 原来照抄输出脚的写法带了 `DRIVE=8`
+//      ⇒ 🔴 **Gowin 报 `ERROR (CT1108): Illegal port attribute value specified 'DRIVE = 8'`**
+//      ⭐ **根因**：⚠️ `DRIVE` 是**输出驱动能力**，⭐ 对**纯输入脚非法**。
+//      📌 **对照易错点**：⭐ 官方 `.cst` 里 `sdram_dq[2]` **确实带 `DRIVE=8`** ——
+//         ⚠️ 但那是因为它在该设计里是**双向**的；⭐ 我们这里是**纯输入** ⇒ ⛔ 不能带。
+//      ⇒ ⭐ **纪律**：⭐ **`DRIVE` 只给输出脚**；⭐ 输入脚只写 `IO_TYPE` / `PULL_MODE` / `BANK_VCCIO`。
+IO_LOC  "spi_miso_l" B13;    // ⭐ J9 · SDRAM0_D4（入，左手板 L）
+IO_PORT "spi_miso_l" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+IO_LOC  "spi_miso_r" C13;    // ⭐ J9 · SDRAM0_D5（入，左手板 R）
+IO_PORT "spi_miso_r" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+IO_LOC  "spi_cs_l"   A14;    // ⭐ J9 · SDRAM0_D6（出，左手板 L 片选）
+IO_PORT "spi_cs_l"   IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "spi_cs_r"   A13;    // ⭐ J9 · SDRAM0_D7（出，左手板 R 片选）
+IO_PORT "spi_cs_r"   IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;

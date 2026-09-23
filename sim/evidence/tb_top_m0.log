@@ -29,6 +29,6 @@ VCD info: dumpfile build/sim/tb_top_m0/tb_top_m0.vcd opened for output.
   ok : I * explicit PA_ON_AFTER_RESET=0 gives a static-low output (NEO-Dock fallback intact)
 
 PASS: M0 top-level acceptance (timebase + SD_MODE polarity + silence-clean + heartbeat + no X)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_m0.sv:309: $finish called at 1310971000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_m0.sv:316: $finish called at 1310971000 (1ps)
 
 
