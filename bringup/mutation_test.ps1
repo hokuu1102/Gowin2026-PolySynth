@@ -379,7 +379,15 @@ $mutations = @(
   @{ id = "M41"; file = "rtl\w3c\beat_gen.v"; find = "wire phase_en = run_i;              // "; repl = "wire phase_en = run_i & phase_carry;  // "; why = "T32 regression (K-107): phase advance re-coupled to the carry -> self-lock -> no tick ever fires (must be caught)" },
   @{ id = "M42"; file = "rtl\w3c\beat_gen.v"; find = "wire do_tick  = run_i & phase_carry;"; repl = "wire do_tick  = run_i;"; why = "T32 regression: a tick on EVERY clk instead of on carry -> tick rate 50 MHz (must be caught)" },
   @{ id = "M43"; file = "rtl\w3c\beat_gen.v"; find = "if (phase_en)"; repl = "if (phase_en & ~at_bar_end)"; why = "T32 regression: phase stalls at the bar boundary -> tick interval jumps there (must be caught)" },
-  @{ id = "M44"; file = "rtl\w3c\beat_gen.v"; find = "tick_cnt_o_q  <= tick_cnt_q;"; repl = "tick_cnt_o_q  <= tick_cnt_next;"; why = "T32 regression (K-107): reported tick number off by one -> bar_start no longer lands on tick_cnt 0 (must be caught)" }
+  @{ id = "M44"; file = "rtl\w3c\beat_gen.v"; find = "tick_cnt_o_q  <= tick_cnt_q;"; repl = "tick_cnt_o_q  <= tick_cnt_next;"; why = "T32 regression (K-107): reported tick number off by one -> bar_start no longer lands on tick_cnt 0 (must be caught)" },
+  # ---- led_data (2026-09-23, 丙): LED playing-guide mapper (16 key lights + 8 status
+  #      lights -> 24-bit TLC5916 pattern).  Guards the four failure modes a "map" can
+  #      silently introduce: active flickers, guide never blinks, status misaligned,
+  #      commit refreshes every cycle.
+  @{ id = "M77"; file = "rtl\w3c\led_data.v"; find = "assign key_pattern[ki] = key_active_i[ki] | (blink_keys[ki] & blink_i);"; repl = "assign key_pattern[ki] = (blink_keys[ki] & blink_i);"; why = "led_data regression: active key no longer steady -> a held key flickers with blink (must be caught)" },
+  @{ id = "M78"; file = "rtl\w3c\led_data.v"; find = "assign key_pattern[ki] = key_active_i[ki] | (blink_keys[ki] & blink_i);"; repl = "assign key_pattern[ki] = key_active_i[ki] | blink_keys[ki];"; why = "led_data regression: guided key no longer blinks -> next-key hint stays solid (must be caught)" },
+  @{ id = "M79"; file = "rtl\w3c\led_data.v"; find = "assign pattern_next = {status_i, key_pattern};"; repl = "assign pattern_next = {status_i[STATUS_N-2:0], 1'b0, key_pattern};"; why = "led_data regression: status lights shifted by one bit -> mode/timbre/N lamps wrong (must be caught)" },
+  @{ id = "M80"; file = "rtl\w3c\led_data.v"; find = "commit_r  <= pattern_changed;"; repl = "commit_r  <= 1'b1;"; why = "led_data regression: commit asserts every cycle -> downstream refreshes needlessly (must be caught)" }
 )
 
 # ---- selection ---------------------------------------------------------------
