@@ -30,6 +30,6 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
 == 4: deadline_fault 鎭?0锛圓6锛?=
   ok  : deadline_fault stays 0 (frame deadline met)
 PASS: top sound chain (T57) - HP_DIN is live and the mixer emits a varying waveform
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_sound.sv:232: $finish called at 42047900000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_sound.sv:233: $finish called at 42047900000 (1ps)
 
 
