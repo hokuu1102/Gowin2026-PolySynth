@@ -281,7 +281,7 @@ static const char *state_text(hmi_state_t st)
     case HMI_ST_LOADING:    return "灌谱中";
     case HMI_ST_READY:      return "就绪";
     case HMI_ST_PLAYING:    return "播放中";
-    case HMI_ST_UNDERRUN:   return "喂不饱";
+    case HMI_ST_UNDERRUN:   return "供数不足";
     case HMI_ST_LINK_LOST:  return "断链";
     case HMI_ST_OVERFLOW:   return "溢出!";
     case HMI_ST_DONE:       return "播完";
@@ -308,16 +308,18 @@ void hmi_task(void *arg)
         }
         s_c.dirty = false;
 
-        /* ① 曲谱名 -> t0.txt（⚠️ 字符串属性要双引号） */
+        /* ① 曲谱名 -> g0.txt（⭐ g0 是【滚动文本】，长歌名靠它）
+         *    ⚠️ 固定标签「曲谱：」在 t0 里，是初值，⛔ 固件不用发 */
         if (strncmp(s_c.last_song, s_c.song, sizeof(s_c.song)) != 0) {
-            snprintf(cmd, sizeof(cmd), "t0.txt=\"%s\"", s_c.song);
+            snprintf(cmd, sizeof(cmd), "g0.txt=\"%s\"", s_c.song);
             hmi_send_cmd(cmd);
             snprintf(s_c.last_song, sizeof(s_c.last_song), "%s", s_c.song);
         }
 
         /* ② 进度条 + 百分比数字
          *    ⭐ 百分比让【屏自己算】—— 只发一条 n0.val=sent*100/total
-         *    ⚠️ 屏不支持浮点 ⇒ 必须"先乘 100 再除"（官方 QA134 的写法） */
+         *    ⚠️ 屏不支持浮点 ⇒ 必须"先乘 100 再除"（官方 QA134 的写法）
+         *    ⚠️ 布局去掉了 "%" 后缀 —— 旁边就是进度条，不会误解 */
         if (s_c.sent != s_c.last_sent || s_c.total != s_c.last_total) {
             uint32_t pct = (s_c.total > 0)
                          ? (uint32_t)((uint64_t)s_c.sent * 100ull / s_c.total)
@@ -337,8 +339,10 @@ void hmi_task(void *arg)
             }
             hmi_send_cmd(cmd);
 
-            /* ③ 事件计数文本 -> t1.txt */
-            snprintf(cmd, sizeof(cmd), "t1.txt=\"事件：%u / %u\"",
+            /* ③ 事件计数 -> t2.txt（⭐ 去掉 "事件：" 前缀，省屏宽）
+             *    ⚠️ 与蓝牙【分属两个控件】—— 因为 t3.pco 改的是【整个控件】的颜色，
+             *       合并的话数字会跟着一起变红/变绿 */
+            snprintf(cmd, sizeof(cmd), "t2.txt=\"%u/%u\"",
                      (unsigned)s_c.sent, (unsigned)s_c.total);
             hmi_send_cmd(cmd);
 
@@ -346,28 +350,41 @@ void hmi_task(void *arg)
             s_c.last_total = s_c.total;
         }
 
-        /* ④ 状态字 -> t2.txt */
+        /* ④ 状态字 -> t1.txt（⭐ 去掉 "状态：" 前缀） */
         if (s_c.state != s_c.last_state) {
-            snprintf(cmd, sizeof(cmd), "t2.txt=\"状态：%s\"", state_text(s_c.state));
+            snprintf(cmd, sizeof(cmd), "t1.txt=\"%s\"", state_text(s_c.state));
             hmi_send_cmd(cmd);
             s_c.last_state = s_c.state;
         }
 
-        /* ⑤ 蓝牙连接 -> t3.txt（⭐ 与状态字是【两个维度】，分开显示） */
+        /* ⑤ 蓝牙连接 -> t3.txt + t3.pco（⭐ 独立控件，所以能单独变色）
+         *    ⭐ 用 "BT OK" / "BT --" 而不是勾叉 ——
+         *       ⚠️ "✓/✗"(U+2713/2717) 是 Unicode 符号，字库里多半没有 ⇒ 会显示成方块；
+         *       ⭐ 而 ASCII 字库必有 ⇒ 零风险。 */
         if ((int)s_c.bt_conn != s_c.last_bt_conn) {
-            snprintf(cmd, sizeof(cmd), "t3.txt=\"蓝牙：%s\"",
-                     s_c.bt_conn ? "已连接" : "未连接");
+            snprintf(cmd, sizeof(cmd), "t3.txt=\"BT %s\"",
+                     s_c.bt_conn ? "OK" : "--");
             hmi_send_cmd(cmd);
+
+            /* ⭐ 颜色（官方 HMI 颜色表：GREEN=2016 / RED=63488）
+             *    ⚠️ pco 是【整个控件】的字体色 —— 这正是 t3 要独立的原因 */
+            snprintf(cmd, sizeof(cmd), "t3.pco=%u",
+                     s_c.bt_conn ? 2016u : 63488u);
+            hmi_send_cmd(cmd);
+
             s_c.last_bt_conn = (int)s_c.bt_conn;
         }
 
-        /* ⑥ 缓冲水位 -> t4.txt（⚠️ 可选控件；没做就不显示，⛔ 不报错） */
+        /* ⑥ 缓冲水位 -> ⚠️ 本轮布局【已去掉这个控件】（屏只有 320×240，位置不够）
+         *    ⚠️ 保留代码但⛔ 不发命令 —— 免得屏报 "控件不存在"
+         *    ⭐ 若将来又加回 t4，把下面这段的 #if 打开即可 */
+#if 0
         if ((int)s_c.buf_pct != s_c.last_buf_pct) {
-            snprintf(cmd, sizeof(cmd), "t4.txt=\"缓冲：%u%%\"",
-                     (unsigned)s_c.buf_pct);
+            snprintf(cmd, sizeof(cmd), "t4.txt=\"%u%%\"", (unsigned)s_c.buf_pct);
             hmi_send_cmd(cmd);
             s_c.last_buf_pct = (int)s_c.buf_pct;
         }
+#endif
     }
 }
 

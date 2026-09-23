@@ -27,6 +27,11 @@ typedef struct {
     uint32_t tick_inc;          /* 当前 tick_inc */
     bool     running;
     bool     done;              /* 发送端是否已宣布灌完 */
+
+    /* ⭐⭐ 2026-09-23 新增（服务"看得见"） */
+    uint32_t expected_frames;   /* ⭐ 应该收多少帧（0 = 未知） */
+    uint32_t total_mismatch;    /* 🔴 实收与应到不符的次数（应恒为 0） */
+    uint32_t tick_clamped_cnt;  /* tick 限流截断次数（⚠️ 大 = 老是落后） */
 } pool_stats_t;
 
 /* 复位水池（清空、停表）。每次新曲子前调用。 */
@@ -34,6 +39,10 @@ void   pool_reset(void);
 
 /* 灌入帧对齐的字节（长度必须是 9 的整数倍）。返回实际接收的字节数。 */
 size_t pool_feed(const uint8_t *data, size_t n);
+
+/* ⭐⭐ 告诉水池"应该收多少帧"（来自协议的总数帧；0 = 未知，则不校验）
+ * 🔴 不设它的话，pool_mark_done() 无法发现"发送端发到一半就断了"。 */
+void   pool_set_expected(size_t frames);
 
 /* 声明"整曲灌完"。 */
 void   pool_mark_done(void);
