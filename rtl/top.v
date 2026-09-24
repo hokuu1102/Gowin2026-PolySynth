@@ -100,12 +100,25 @@ module top #(
     //      📌 **实测**：`tb_top_sound` 因此跑了 **108 秒**（其余 tb 都是几秒）
     //   📌 **手法照抄上面的 `AUTOTARE_DELAY_CLK`**（⭐ 先例就在旁边）
     //   ⚠️ **上板默认值 = 真值**（⛔ 不要改这几个默认值）
-    //      · `SPAN_WAIT_TIMEOUT_CLK`：⭐ 等按键的上界（50M 拍 = 1 s）
-    //      · `SPAN_STABLE_NEED`     ：⭐ 稳定判定帧数（24 帧 ≈ 4.7 ms）
-    //      · `SPAN_VOTE_N`          ：⭐ 投票帧数（取中位数）
+    //
+    //   🔴🔴 **2026-09-24 上板实测后调整（⭐ 重要）**：
+    //      ⭐ 现象：⭐ 发 `'S'` 后**每次都回 `!`（被拒）**，⭐ 每个隔 1 秒（= 超时）。
+    //      ⭐ 诊断：⭐ 用新增的 `'P'` 命令读 `af0_pol` ⇒ **实测读数**：
+    //         · 松手：⭐ 2746 ~ 2904（⭐ Δ ≈ **158**）
+    //         · 按住不动：⭐ 2880 ~ 2903（⭐ Δ ≈ **23**）
+    //      🔴 而原来的 `STABLE_TOL = 8` ⇒ ⚠️ **按住时也超**（⭐ 23 > 8）
+    //         ⇒ ⭐ `stable_cnt` 每帧被清零 ⇒ 🔴 **永远攒不到 24 帧 ⇒ 必超时**
+    //      📌 对照仿真：⭐ `tb_e2e` 里 `af0_pol = 2854` ⇒ ⭐ **与实测同一量级** ✅
+    //      ⇒ ✅ **修法：⭐ 放宽容限**（⭐ 不是改逻辑）：
+    //         · `SPAN_STABLE_TOL`：8 → **48**（⭐ 覆盖实测 23，⭐ 留 2 倍余量）
+    //         · `SPAN_STABLE_NEED`：24 → **8**（⭐ 8×500µs = 4 ms，⭐ 够快又够稳）
+    //         · `SPAN_VOTE_N`：32 → **8**
+    //         · `SPAN_VOTE_TOL`：16 → **96**（⭐ 覆盖按住时的抖动）
     parameter integer SPAN_WAIT_TIMEOUT_CLK = 50_000_000,
-    parameter integer SPAN_STABLE_NEED      = 24,
-    parameter integer SPAN_VOTE_N           = 32
+    parameter integer SPAN_STABLE_NEED      = 8,
+    parameter integer SPAN_VOTE_N           = 8,
+    parameter [11:0]  SPAN_STABLE_TOL       = 12'd48,
+    parameter [11:0]  SPAN_VOTE_TOL         = 12'd96
 ) (
     input  wire clk,             // V22 · 50 MHz
     input  wire rst_n,           // AA13 · 低有效（同步复位）
@@ -288,27 +301,39 @@ module top #(
     //      🔴 **每发一条标定命令，`evt_uart_rx.hdr_err_cnt_o` 会 +1** ——
     //      ⭐ **这是正常的，⛔ 不是故障**。
     //
-    //   ⚠️⚠️ **波特率必须三处一致**（⭐ 不一致会**静默收乱码**、⛔ 不报错）：
+    //   ⚠️⚠️ **波特率必须四处一致**（⭐ 不一致会**静默收乱码**、⛔ 不报错）：
     //      ```
-    //      uart_rx     #(.BAUD_DIV(50))       // 1 Mbps
-    //      evt_uart_rx #(.BAUD(1_000_000))
-    //      calib_cmd   #(.BAUD(1_000_000))
+    //      uart_rx     #(.BAUD_DIV(100))      // 🔴 2026-09-24：from 1 Mbps → 500 kbps
+    //      evt_uart_rx #(.BAUD(500_000))
+    //      calib_cmd   #(.BAUD(500_000))
+    //      uart_tx     #(.BAUD_DIV(100))      // ⭐ 回传方向也要同档
     //      ```
-    //      ⭐ 切档时**三处一起改**（⭐ 依据 `uart_rx.v` / `evt_uart_rx.v` 顶部注释）。
+    //      ⭐ 切档时**四处一起改**（⭐ 依据 `uart_rx.v` / `evt_uart_rx.v` 顶部注释）。
+    //
+    //   🔴🔴 **2026-09-24 实测：1 Mbps 在这块板上【有误码】**
+    //      · 现象：发 `'T'`(0x54) ⇒ 收到 **`FA 54`**（⭐ 预期是回 `74` = `'t'` 受理）
+    //        ⇒ ⚠️ **`0x74` 被误拆成两个字节**（⭐ 而且"秒回"⇒ 不是完成回包）
+    //      · 判据：⭐ **逻辑本身是对的**（`rep_byte` 的所有合法值里**没有 0xFA**）
+    //        ⇒ ⭐ 所以是**线路/时序**问题，⛔ 不是 RTL bug
+    //      · ⭐ **用户经验**：⭐ 招新题那块板 **1 Mbps 同样有问题，500 kbps 正常**
+    //      ⇒ ⭐ **结论：本板 500 kbps 起步**；⚠️ 若要更高，必须**实测误码率**再说
+    //      📌 **500 kbps 的 `BAUD_DIV = 100`**（⭐ 50 MHz ÷ 500 kbps = 100 **整除 ⇒ 误差 0**）
     //
     //   📌 **为什么放在 `generate` 之外**：⭐ 第 ①②③ 块是**顶层基础设施**
     //      （⭐ 命令还要喂进 `g_sound` 里的 `calib_span`）
     //      ⇒ ⚠️ 放外面才能被 `g_sound` 引用（⭐ 且 `g_silent` 档也能保留串口）。
     // ═══════════════════════════════════════════════════════════════════════
 
-    // ── ⭐ ① 字节接收器（8N1 @ 1 Mbps）───────────────────────────────────
+    // ── ⭐ ① 字节接收器（8N1 @ 500 kbps）───────────────────────────────────
     wire [7:0] ur_data;
     wire       ur_done;
 
     uart_rx #(
-        // ⭐ `BAUD_DIV = 50 MHz / 1 Mbps = 50`（⭐ 整除 ⇒ 无误差）
-        //   ⚠️ 必须与下面两个 `BAUD(1_000_000)` 一致（⭐ 否则静默乱码）
-        .BAUD_DIV(50)
+        // ⭐ `BAUD_DIV = 50 MHz / 500 kbps = 100`（⭐ 整除 ⇒ 无误差）
+        //   🔴 2026-09-24 从 1 Mbps 降到 500 kbps —— ⚠️ 实测 1 Mbps 下串口有误码
+        //      （⭐ 收到 `54 FA 54` 而预期是 `74`）⇒ ⭐ 与招新题那块板同样的现象
+        //   ⚠️ 必须与下面两个 `BAUD(500_000)` 一致（⭐ 否则静默乱码）
+        .BAUD_DIV(100)
     ) u_uart_rx (
         .clk_i     (clk),
         .rst_n_i   (rst_n_sync),
@@ -321,13 +346,13 @@ module top #(
     // ── ⭐ ② 标定命令解析（`'T'` / `'S'` / `'X'`）─────────────────────────
     //   🔴 **它自带 `0xA5` 帧边界跟踪** ⇒ ⭐ 帧内的 `T/S/X` 是**载荷**，⛔ 不当命令
     //      （⚠️ 否则**曲谱灌入会被误当标定命令** —— 灾难性）
-    wire cmd_tare_req, cmd_span_req, cmd_abort_req;
+    wire cmd_tare_req, cmd_span_req, cmd_abort_req, cmd_probe_req, cmd_vstat_req;
     wire [15:0] cmd_cnt, cmd_in_frame_cnt, cmd_resync_cnt, cmd_unknown_cnt;
     wire [3:0]  cmd_idx;
 
     calib_cmd #(
         .CLK_HZ   (50_000_000),
-        .BAUD     (1_000_000),      // ⚠️ 与 `uart_rx.BAUD_DIV=50` 同一档
+        .BAUD     (500_000),        // ⚠️ 与 `uart_rx.BAUD_DIV=100` 同一档
         .GAP_BYTES(16)              // ⚠️ 与 `evt_uart_rx` 同值（⭐ 帧边界判断要一致）
     ) u_calib_cmd (
         .clk_i          (clk),
@@ -337,6 +362,8 @@ module top #(
         .tare_req_o     (cmd_tare_req),
         .span_req_o     (cmd_span_req),
         .abort_req_o    (cmd_abort_req),
+        .probe_req_o    (cmd_probe_req),
+        .vstat_req_o    (cmd_vstat_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (cmd_in_frame_cnt),
         .resync_cnt_o   (cmd_resync_cnt),
@@ -358,7 +385,7 @@ module top #(
 
     evt_uart_rx #(
         .CLK_HZ   (50_000_000),
-        .BAUD     (1_000_000),      // ⚠️ 与 `uart_rx.BAUD_DIV=50` 同一档
+        .BAUD     (500_000),        // ⚠️ 与 `uart_rx.BAUD_DIV=100` 同一档
         .GAP_BYTES(16)
     ) u_evt_uart_rx (
         .clk_i         (clk),
@@ -382,7 +409,7 @@ module top #(
     //         · 不知道刚才是**通过**还是**被拒绝**
     //         ⇒ 🔴 **16 轴逐个按到底的流程几乎没法可靠完成**
     //   ⭐ 实现：⭐ 一个极简的发送调度器 ——
-    //      ⭐ 波特率 1 Mbps ⇒ ⭐ 一个字节 ≈ 10 µs
+    //      ⭐ 波特率 500 kbps ⇒ ⭐ 一个字节 ≈ 20 µs
     //      ⇒ ⚠️ 人类根本感知不到延迟 ⇒ ⭐ **不需要 FIFO，直接串行发即可**。
     //
     //   ⭐ **本版回传的字符**（⭐ 单字节 ASCII，⭐ PC 串口助手直接能看）：
@@ -409,23 +436,76 @@ module top #(
     //        · `g_silent` ⇒ ⭐ 驱动 0（⛔ 否则悬空成 `x`，⭐ 会误发垃圾字节）
     wire       tx_req;
     wire [7:0] tx_byte;
-    wire       tx_busy;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //   🔴🔴 **`uart_tx_fifo`：回传的发送队列**（⭐ 2026-09-24 新增，修 `K-126`）
+    //
+    //   ⭐ **为什么必须加**（⭐ 上板实测）：
+    //      ⚠️ 原来 `tx_req` **直连** `uart_tx.tx_start_i` ⇒ 🔴 **忙时直接丢**
+    //      · 发 `'S'` ⇒ `top.v` **同一时刻**产生两个回包：
+    //          ① `'s'`（受理，⭐ 20 µs 才发完）
+    //          ② 轴号提示（⭐ `calib_span` 的 `need_press`，⭐ **只高 1 拍 = 20 ns**）
+    //      ⇒ 🔴 **20 ns 落在 20 µs 的发送窗口里 ⇒ 必然丢，⛔ 永不重发**
+    //      ⇒ ⭐ 现象：⭐ **只收到 `s`，⭐ 之后没有任何轴号** ⇒ ⚠️ 不知道该按哪一轴
+    //
+    //   ⭐ **本模块把"忙就丢"改成"排队"** ⇒ ⭐ 上游随时可推，⭐ 它负责逐个喂
+    //   ⭐ 深度 8（⭐ 最坏"一次 `'S'` 变 3 个回包"，⭐ 8 足够）
+    //   🔴 **溢出可观测**（⭐ `K-106`）：⭐ `ovf_o` sticky + `drop_cnt_o` 饱和计数
+    //      ⛔ **没有这两个输出就【等于没修】** —— ⚠️ 只是换了个地方悄悄丢
+    //
+    //   📌 **代价**：⭐ 回包**晚一个字节**（⭐ 20 µs）—— ⚠️ 人眼无感，✅ 可接受
+    // ═══════════════════════════════════════════════════════════════════════
+    wire       txf_start;        // ⭐ FIFO → uart_tx
+    wire [7:0] txf_data;
+    wire       txf_ovf;
+    // 🔴 **`txf_ready` 必须在这里（`generate` 之外）声明** ——
+    //    ⚠️ 它由 `u_tx_fifo`（⭐ 外面）驱动，⭐ 而 `u_pos_probe`（⭐ 在 `g_sound` 里）读它
+    //    🔴 **第一版我把它放在 `g_sound` 里** ⇒ Gowin 综合报
+    //       `Undeclared symbol 'txf_ready', assumed default net type 'wire'`
+    //    ⚠️ **恰好它真的是 1 位 ⇒ 看起来能跑** ——
+    //       但这正是 `L66` 警告过的那类"隐式建 wire"的隐患，⛔ 不能放过。
+    wire       txf_ready;
+    wire       txf_idle;         // ⭐ 队列空且发送器停（⭐ 2026-09-24）
+    wire [7:0] txf_drop;
+    wire       txf_busy;         // ⭐ 来自 uart_tx
+
+    uart_tx_fifo #(.DEPTH(8)) u_tx_fifo (
+        .clk_i     (clk),
+        .rst_n_i   (rst_n_sync),
+        .push_i    (tx_req),        // ⭐ 上游：⭐ 单拍也可（⭐ 当拍即入队）
+        .data_i    (tx_byte),
+        .ready_o   (txf_ready),     // ⭐ `'P'` 诊断要用（⭐ 见 `u_pos_probe`）
+        .idle_o    (txf_idle),      // ⭐ 队列真空了（⭐ 包边界用）
+        .tx_start_o(txf_start),
+        .tx_data_o (txf_data),
+        .busy_i    (txf_busy),
+        .ovf_o     (txf_ovf),
+        .drop_cnt_o(txf_drop),
+        .ovf_clr_i (1'b0)           // ⚠️ 本版不清（⭐ 置位后保持 ⇒ 上板可观测）
+    );
 
     uart_tx #(
         // ⚠️ 必须与 `uart_rx.BAUD_DIV` **同一档**（⭐ 否则对端收乱码）
-        .BAUD_DIV(50)
+        .BAUD_DIV(100)
     ) u_uart_tx (
         .clk_i     (clk),
         .rst_n_i   (rst_n_sync),
-        .tx_start_i(tx_req),
-        .tx_data_i (tx_byte),
-        .tx_o      (uart_tx),        // ⭐ 引脚 `U15`
-        .busy_o    (tx_busy),
+        .tx_start_i(txf_start),      // ⭐ 来自 `u_tx_fifo`（⛔ 不再是 `tx_req`）
+        .tx_data_i (txf_data),       // ⭐ 同上
+        .tx_o      (uart_tx),        // ⭐ 引脚 `D15`（⭐ J9·N25）
+        .busy_o    (txf_busy),       // ⭐ 回给 `u_tx_fifo`
         .tx_done_o ()
     );
 
     generate
     if (DEMO_CHORD_ON == 0) begin : g_silent
+        // ⭐ `'P'` 诊断：⭐ 静音档没有 `af0_pol` ⇒ ⭐ 恒无回传
+        //   ⚠️ **必须声明成 `wire` 再 `assign`** ——
+        //      🔴 两个 `generate` 分支各自声明同名信号（⭐ 互斥 ⇒ ⛔ 不冲突）
+        wire       pp_push;
+        wire [7:0] pp_data;
+        assign pp_push = 1'b0;
+        assign pp_data = 8'h00;
         // ── M0 安全态/静音档：⛔ 不例化合成链，直接送 0 ──────────────────
         //    ⭐ 为什么**整条链都不例化**而不是"接了但喂 0"：
         //       ① 省资源；② ⭐ **静音就是结构上的静音**，⛔ 不给"某个内部节点
@@ -439,6 +519,24 @@ module top #(
         assign tx_req  = 1'b0;
         assign tx_byte = 8'h00;
     end else begin : g_sound
+        // ═══════════════════════════════════════════════════════════════════════
+        //   ⭐⭐ `'P'` 诊断：⭐ 回传 `pos` 读数（⭐ 2026-09-24 新增）
+        //
+        //   🔴 **为什么加**（⭐ 上板实测）：
+        //      ⭐ 跑 `'S'`（span）时只回 `s` + 一次轴号，🔴 之后全是 `!`（被拒）
+        //      ⭐ 每个 `!` **正好隔 1 秒** ⇒ ⭐ `WAIT_TIMEOUT_CLK` ⇒ 🔴 **是超时**
+        //      ⇒ ⚠️ 超时意味着"`calib_span` 在 `S_SETTLE` 等不到稳定读数"
+        //      ⇒ 🔴 **而串口完全看不到 `pos`** ⇒ ⚠️ 没法判断"帧不来"还是"读数在抖"
+        //
+        //   ⭐ 本模块：⭐ 发 `'P'` ⇒ ⭐ 回一行 `P<4位十进制>\r\n`（⭐ 7 个字节）
+        //      ⇒ ⭐ 连发几次 ⇒ ⭐ **看这个数抖不抖** ⇒ ✅ 一眼定位
+        //
+        //   📌 **回的是 `af0_pol`** —— ⭐ 与 `calib_span.raw_i` **同一路**
+        //      ⇒ ⭐ **看到的就是它判稳定的那个数** ✅
+        //   ⚠️ **它走 `u_tx_fifo`**（⛔ 不直连 `uart_tx`）
+        //      📌 这正是 `K-126` 的教训：⭐ **别假设"下游有空"**
+
+
         // ── 出声链 ────────────────────────────────────────────────────────
         wire [POLY_TARGET-1:0]         nm_gate;
         wire [POLY_TARGET-1:0]         nm_active;
@@ -711,6 +809,9 @@ module top #(
         wire [2:0] sp_ch;
         wire       sp_busy, sp_done, sp_need_press, sp_reject;
         wire [3:0] sp_cur_axis, sp_done_cnt;
+    // ⭐⭐ 2026-09-24 新增：⭐ span 的内部状态（⭐ 供 `'P'` 诊断回传）
+    wire [2:0] sp_state;
+    wire [3:0] sp_rej_cnt;
         //   ⭐ `'S'` 的门控（⭐ 与 `at_busy` 做互锁）—— ⚠️ 同样必须先声明
         wire       sp_start_gated = cmd_span_req & ~at_busy;
         wire       sp_start_rejected = cmd_span_req & at_busy;
@@ -802,6 +903,57 @@ module top #(
         wire [11:0] af0_pol = axis_polarity(af_data[0*12 +: 12]);
         wire [11:0] af1_pol = axis_polarity(af_data[1*12 +: 12]);
 
+        // ═══════════════════════════════════════════════════════════════════════
+        wire       pp_push;
+        wire [7:0] pp_data;
+        wire       pp_busy;
+        // ⚠️ `txf_ready` **已在 `generate` 之外声明**（⭐ 见 `u_tx_fifo` 那段）——
+        //    🔴 这里⛔ **不能重复声明**（⭐ 否则又变成"局部隐式 wire"）
+
+        pos_probe #(.N_BYTES(8)) u_pos_probe (
+            .clk_i      (clk),
+            .rst_n_i    (rst_n_sync),
+            .probe_req_i(cmd_probe_req),
+            .pos_i      (af0_pol),      // ⭐ 与 `calib_span.raw_i` 同一路
+            .ch_i       (af_sample_ch), // ⭐ 2026-09-24 扩展：⭐ 同时回通道号
+            .push_o     (pp_push),
+            .data_o     (pp_data),
+            .ready_i    (txf_ready),
+            .idle_i     (txf_idle),     // ⭐ 等真空了才开新包（⭐ 修包错位）
+            .busy_o     (pp_busy)
+        );
+
+        // ═══════════════════════════════════════════════════════════════════
+        //   ⭐⭐ `'V'` 诊断：⭐ 回传 `calib_span` 的【内部状态】（⭐ 2026-09-24 新增）
+        //
+        //   🔴 **为什么加**：⭐ 上板发 `'S'` 后是一长串 `!`，
+        //      ⚠️ 而 `calib_span` 有 8 个状态，⭐ **任何一个卡住都会回 `!`**
+        //      ⇒ ⭐ 从串口**看不出卡在哪一步**。
+        //   ⭐ 发 `'V'` ⇒ ⭐ 回 `V<state><axis><rej>CRLF`（⭐ 7 字节）
+        //      · `<state>` ⭐ 最有用：
+        //         `2`=SETTLE（⭐ 稳定判定过不去）· `3`=VOTE（⭐ 收不齐帧）
+        //         `1`=PROMPT（⭐ 反复重试）· `7`=DONE（⭐ 已放弃）
+        //   ⚠️ **走同一个 `u_tx_fifo`**，⭐ 且等 `idle_i` 才开新包
+        //      ⇒ ⭐ 不会与 `'P'`/`'T'`/`'S'` 的回包撞车（⭐ `K-126` 的教训）
+        // ═══════════════════════════════════════════════════════════════════
+        wire       vp_push;
+        wire [7:0] vp_data;
+        wire       vp_busy;
+
+        span_probe #(.N_BYTES(7)) u_span_probe (
+            .clk_i      (clk),
+            .rst_n_i    (rst_n_sync),
+            .req_i      (cmd_vstat_req),   // ⭐ `'V'` 命令
+            .state_i    (sp_state),        // ⭐ calib_span.state_o
+            .axis_i     (sp_cur_axis),     // ⭐ 当前轴
+            .rej_i      (sp_rej_cnt),      // ⭐ 拒绝计数
+            .push_o     (vp_push),
+            .data_o     (vp_data),
+            .ready_i    (txf_ready),
+            .idle_i     (txf_idle),
+            .busy_o     (vp_busy)
+        );
+
         // ═══════════════════════════════════════════════════════════════════
         // ⭐⭐ 满行程（`span`）标定（⭐ `calib_span`，2026-09-23 阶段B 接入）
         //
@@ -864,6 +1016,10 @@ module top #(
             .STABLE_NEED      (SPAN_STABLE_NEED),
             .VOTE_N           (SPAN_VOTE_N),
             .WAIT_TIMEOUT_CLK (SPAN_WAIT_TIMEOUT_CLK),
+            //   🔴 2026-09-24 实测后新增：⭐ 容限必须能从顶层调 ——
+            //      ⚠️ 原来没传 ⇒ 用模块默认（8 / 16）⇒ 🔴 按住时也超（实测 Δ≈23）
+            .STABLE_TOL       (SPAN_STABLE_TOL),
+            .VOTE_TOL         (SPAN_VOTE_TOL),
             .POS_W      (12)
         ) u_calib_span (
             .clk           (clk),
@@ -893,7 +1049,10 @@ module top #(
             .cur_axis_o    (sp_cur_axis),
             .need_press_o  (sp_need_press),
             .reject_o      (sp_reject),
-            .done_cnt_o    (sp_done_cnt)
+            .done_cnt_o    (sp_done_cnt),
+            //   ⭐ 2026-09-24 诊断输出（⭐ 让 `'P'` 能回传"卡在哪一步"）
+            .state_o       (sp_state),
+            .rej_cnt_o     (sp_rej_cnt)
         );
 
         //   ⭐⭐ **`cal_ch` 仲裁** —— 🔴 **2026-09-24 移到下方**（⭐ 见 `sp_busy_r` 附近）
@@ -927,7 +1086,7 @@ module top #(
         // ═══════════════════════════════════════════════════════════════════
         // ⭐⭐ 回传调度器（⭐ 2026-09-23 阶段C）
         //
-        //   ⭐ 波特率 1 Mbps ⇒ ⭐ 一个字节 ≈ 10 µs ⇒ ⚠️ 人类感知不到
+        //   ⭐ 波特率 500 kbps ⇒ ⭐ 一个字节 ≈ 20 µs ⇒ ⚠️ 人类感知不到
         //      ⇒ ⭐ **不需要 FIFO**：⭐ 事件来了就发，⭐ 发之前等上一个发完即可。
         //   ⚠️ **代价（⭐ 诚实说明）**：⭐ 若两个事件**挨得极近**（<10 µs），
         //      ⚠️ 第二个会被**丢弃**（⭐ 因为 `tx_busy` 还没落）。
@@ -1018,8 +1177,13 @@ module top #(
                             :                    8'h78;           // 'x' ⭐ 受理取消
 
         //   ⭐ 单拍请求 ⇒ 交给 `uart_tx`（⭐ 它忙时自动忽略 ⇒ ⚠️ 见上方"代价"）
-        assign tx_req  = rep_req;
-        assign tx_byte = rep_byte;
+        //   ⭐ `'P'` 诊断（⭐ 2026-09-24）：⭐ 与 `T/S/X` 的回包**共用** `u_tx_fifo`
+        //      ⇒ ⭐ 上游二选一（⭐ 用 `pp_push` 优先 —— ⚠️ 它只在回传那几拍高）
+        //      📌 **为什么要 or 而不是 mux**：⭐ 两者【不会同拍】（⭐ `'P'` 是独立命令，
+        //         ⚠️ 而 `rep_req` 由 `calib_span` 事件驱动）⇒ ⭐ 直接 or 更简单
+        //      🔴 **但字节要 mux**（⭐ 否则两个来源的数据会撞在一起）
+        assign tx_req  = rep_req | pp_push | vp_push;
+        assign tx_byte = vp_push ? vp_data : (pp_push ? pp_data : rep_byte);
 
 
         calib #(.NCH(8), .DW(12)) u_calib0 (

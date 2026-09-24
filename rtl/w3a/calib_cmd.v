@@ -71,10 +71,17 @@ module calib_cmd #(
     parameter integer GAP_BYTES = 16,
     parameter [7:0]   HEADER    = 8'hA5,      // ⭐ 与 `evt_uart_rx` 同一魔数
 
-    // ⭐⭐ 三个命令字母（⭐ 提成参数 ⇒ ⭐ tb 可改、⭐ 也便于以后换协议）
+    // ⭐⭐ 四个命令字母（⭐ 提成参数 ⇒ ⭐ tb 可改、⭐ 也便于以后换协议）
+    //   🔴 2026-09-24 新增 `CMD_PROBE = 'P'` —— ⭐ **诊断用**：
+    //      ⚠️ 起因：⭐ 上板跑 `'S'`（span）时**只回 `s` + `!`，⭐ 轴号只出一次**
+    //      ⇒ ⭐ 需要【看到实时 `pos` 读数】才能判断"稳定判定为什么过不去"
+    //      📌 设计：⭐ 发 `'P'` ⇒ ⭐ 回当前 `calib_span.cur_axis` 的
+    //         **原始码（`af0_pol`，3 位十进制）**
     parameter [7:0]   CMD_TARE  = 8'h54,      // 'T'
     parameter [7:0]   CMD_SPAN  = 8'h53,      // 'S'
-    parameter [7:0]   CMD_ABORT = 8'h58       // 'X'
+    parameter [7:0]   CMD_ABORT = 8'h58,      // 'X'
+    parameter [7:0]   CMD_PROBE = 8'h50,      // 'P' ⭐ 诊断：⭐ 回传 pos 读数
+    parameter [7:0]   CMD_VSTAT = 8'h56       // 'V' ⭐ 诊断：⭐ 回传 span 内部状态（⭐ 2026-09-24）
 ) (
     input  wire        clk_i,
     input  wire        rst_n_i,        // ⭐ 同步复位、低有效
@@ -83,10 +90,12 @@ module calib_cmd #(
     input  wire        rx_done_i,      // ⭐ 收到一个字节（单周期脉冲）
     input  wire [7:0]  rx_data_i,      // ⭐ 该字节
 
-    // ── ⭐ 三个命令脉冲（⭐ 单周期）──────────────────────────────────────────
+    // ── ⭐ 命令脉冲（⭐ 单周期）────────────────────────────────────────────
     output reg         tare_req_o,     // ⭐ 'T' ⇒ 逐轴 tare
     output reg         span_req_o,     // ⭐ 'S' ⇒ 逐轴 span
     output reg         abort_req_o,    // ⭐ 'X' ⇒ 取消
+    output reg         probe_req_o,    // ⭐ 'P' ⇒ 诊断：⭐ 回传 pos 读数（⭐ 2026-09-24 新增）
+    output reg         vstat_req_o,    // ⭐ 'V' ⇒ 诊断：⭐ 回传 span 状态（⭐ 2026-09-24 新增）
 
     // ── ⭐ 可观测性（`K-106`：⛔ 不许静默失效）────────────────────────────
     output reg  [15:0] cmd_cnt_o,      // ⭐ 已接受的命令数（饱和）
@@ -119,12 +128,14 @@ module calib_cmd #(
     // ⭐ 本字节是不是帧头
     wire byte_is_header = (rx_data_i == HEADER);
 
-    // ⭐⭐ 三个命令字母的比对（⭐ 组合）
+    // ⭐⭐ 四个命令字母的比对（⭐ 组合）
     wire byte_is_tare  = (rx_data_i == CMD_TARE);
     wire byte_is_span  = (rx_data_i == CMD_SPAN);
     wire byte_is_abort = (rx_data_i == CMD_ABORT);
+    wire byte_is_probe = (rx_data_i == CMD_PROBE);   // ⭐ 'P' 诊断（⭐ 2026-09-24）
+    wire byte_is_vstat = (rx_data_i == CMD_VSTAT);   // ⭐ 'V' 诊断（⭐ 2026-09-24）
     // ⭐ 任一命令字母
-    wire byte_is_cmd   = byte_is_tare | byte_is_span | byte_is_abort;
+    wire byte_is_cmd   = byte_is_tare | byte_is_span | byte_is_abort | byte_is_probe | byte_is_vstat;
 
     // ⭐ 只有在**帧外**（`idx_q == 0`）才认命令
     //   🔴 这是本模块的**安全核心** —— ⚠️ 帧内的字母是**载荷**，⛔ 绝不能当命令
@@ -159,6 +170,8 @@ module calib_cmd #(
             tare_req_o     <= 1'b0;
             span_req_o     <= 1'b0;
             abort_req_o    <= 1'b0;
+            probe_req_o    <= 1'b0;     // ⭐ 'P' 诊断（⭐ 2026-09-24）
+            vstat_req_o    <= 1'b0;     // ⭐ 'V' 诊断（⭐ 2026-09-24）
             cmd_cnt_o      <= 16'd0;
             in_frame_cnt_o <= 16'd0;
             resync_cnt_o   <= 16'd0;
@@ -168,6 +181,8 @@ module calib_cmd #(
             tare_req_o  <= 1'b0;
             span_req_o  <= 1'b0;
             abort_req_o <= 1'b0;
+            probe_req_o <= 1'b0;        // ⭐ 'P' 诊断（⭐ 2026-09-24）
+            vstat_req_o <= 1'b0;        // ⭐ 'V' 诊断（⭐ 2026-09-24）
 
             if (rx_done_i) begin
                 // ══ 收到一个字节 ═══════════════════════════════════════════
@@ -178,11 +193,13 @@ module calib_cmd #(
                         idx_q <= 4'd1;
                     end else if (byte_is_cmd) begin
                         // ⭐⭐ 命令（⭐ 帧外 ⇒ 安全）
-                        //   ⚠️ **互斥**：一次只可能命中一个（⭐ 三个字母不同）
-                        //   ⭐ 三者的下游都有"忙"保护 ⇒ ⛔ 不会互相打架。
+                        //   ⚠️ **互斥**：一次只可能命中一个（⭐ 四个字母互不相同）
+                        //   ⭐ 四者的下游都有"忙"保护 ⇒ ⛔ 不会互相打架。
                         if (byte_is_tare)  tare_req_o  <= 1'b1;
                         if (byte_is_span)  span_req_o  <= 1'b1;
                         if (byte_is_abort) abort_req_o <= 1'b1;
+                        if (byte_is_probe) probe_req_o <= 1'b1;   // ⭐ 'P' 诊断
+                        if (byte_is_vstat) vstat_req_o <= 1'b1;   // ⭐ 'V' 诊断
                         cmd_cnt_o <= sat_inc16(cmd_cnt_o);
                         idx_q     <= 4'd0;      // ⭐ 命令不推进帧位置
                     end else begin

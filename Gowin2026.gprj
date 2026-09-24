@@ -87,6 +87,15 @@
              📌 实测：一次发送产生 **2 个 `rx_done`**
         + ⭐ 复位改为**同步**（与本项目 `uart_rx` 统一）+ ⭐ 内建波特率发生器 -->
   <File path="rtl/w3c/uart_tx.v" type="file.verilog" enable="1"/>
+  <!-- 2026-09-24 new: TX queue for the UART reply path (fixes K-126).
+       Without it tx_req goes straight into uart_tx and a byte is SILENTLY
+       dropped whenever uart_tx is busy. -->
+  <File path="rtl/w3c/uart_tx_fifo.v" type="file.verilog" enable="1"/>
+  <!-- 2026-09-24 new: P diagnostic command. Replies with the current pos
+       reading so the operator can see whether it is stable. -->
+  <File path="rtl/w3c/pos_probe.v" type="file.verilog" enable="1"/>
+  <!-- 2026-09-24 new: V diagnostic. Reports calib_span internal state. -->
+  <File path="rtl/w3c/span_probe.v" type="file.verilog" enable="1"/>
   <File path="rtl/w3c/i2s_tx.v" type="file.verilog" enable="1"/>
         <!-- T32: PPQN=960 musical clock (phase accumulator) -->
         <File path="rtl/w3c/beat_gen.v" type="file.verilog" enable="1"/>

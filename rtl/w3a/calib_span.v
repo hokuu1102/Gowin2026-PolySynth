@@ -131,7 +131,13 @@ module calib_span #(
     output reg  [3:0]       cur_axis_o,     // ⭐ 当前要标哪个轴（⭐ 提示用）
     output reg              need_press_o,   // ⭐ 1 = 等用户按到底
     output reg              reject_o,       // ⭐ 单拍脉冲：本轴被拒（⚠️ 手没按稳）
-    output reg  [3:0]       done_cnt_o      // ⭐ 已标定轴数
+    output reg  [3:0]       done_cnt_o,     // ⭐ 已标定轴数
+    // ⭐⭐ 2026-09-24 新增：⭐ 把内部状态暴露出来（⭐ 供 `'P'` 诊断回传）
+    //   🔴 **为什么**：⭐ 上板调 `span` 时只能看到 `!`，⛔ **看不出卡在哪一步**
+    //      ⚠️ 而 8 个状态里任何一个超时都会回 `!` ⇒ ⭐ 必须能区分
+    //   📌 编码同 `S_*` 的 localparam（⭐ 0=IDLE · 1=PROMPT · 2=SETTLE · …）
+    output wire [2:0]       state_o,        // ⭐ 当前状态（⭐ 组合）
+    output wire [3:0]       rej_cnt_o       // ⭐ 已拒绝次数（⭐ 组合）
 );
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -188,6 +194,10 @@ module calib_span #(
     reg           span_sent_r;
 
     assign busy_o = (state != S_IDLE) && (state != S_DONE);
+
+    // ⭐⭐ 诊断输出（⭐ 2026-09-24）：⭐ 把状态与拒绝计数直接给顶层
+    assign state_o   = state;
+    assign rej_cnt_o = reject_cnt;
 
     always @(posedge clk) begin
         if (!rst_n) begin
