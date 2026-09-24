@@ -51,7 +51,13 @@ module calib_span #(
     // ── ⭐ 稳定性判定 ──────────────────────────────────────────────────────
     //   ⭐ 连续 `STABLE_NEED` 帧的变化都 < `STABLE_TOL` ⇒ 认为"手按住了"
     //   ⚠️ 太小 ⇒ 手还在动就开测；⚠️ 太大 ⇒ 操作要等很久
-    parameter integer STABLE_NEED = 24,     // ⭐ 24 帧 ≈ 4.7 ms @196 µs/帧
+    //   🔴 2026-09-25 更正：帧周期【不是】196 µs —— ⭐ **实测 500 µs**
+    //      📌 证据：`sim/evidence/tb_adc_farm.log` 判据行
+    //         `frame period=500000 ns`；⭐ 且 `CHANNEL_RATE_HZ=2000`
+    //         （⭐ `top.v:721`）⇒ 500 µs ✅ 两者吻合。
+    //      ⚠️ 196 µs 是【单帧 8 通道的转换耗时】8×24.5 µs，⛔ 不是帧周期
+    //         ⇒ 🔴 旧注释把"转换耗时"当成"帧周期"了（⭐ 见 `K-128`）。
+    parameter integer STABLE_NEED = 24,     // ⭐ 24 帧 ≈ 12 ms @500 µs/帧（原注释写 4.7 ms，错）
     parameter [11:0]  STABLE_TOL  = 12'd8,  // ⭐ 帧间变化 < 8 码算"没动"
 
     // ── ⭐⭐ 投票参数（⭐ 用户明确要求"多帧投票"）──────────────────────────
@@ -192,6 +198,13 @@ module calib_span #(
     //         "还没开始" 与 "直接 err 了" ⇒ ⭐ 必须主动记录已发。
     //      ⭐ 它在 `S_WAITBUSY` 发出 `span` 的那拍置起、⭐ 进 `S_PROMPT` 时清掉。
     reg           span_sent_r;
+    //   ⭐⭐ `prompt_phase`（⭐ 2026-09-25 新增，⭐ 修 `K-132`）：
+    //      ⭐ `S_PROMPT` 需要**停留 2 拍**才能造出干净的 `need_press_o` 上升沿
+    //        · 第 1 拍：`need_press_o <= 0`（⭐ 强制拉低）
+    //        · 第 2 拍：`need_press_o <= 1`（⭐ 上升沿 ⇒ `ev_need` ⇒ 回轴号）
+    //      🔴 **为什么不能靠"数拍子"**：⭐ 那样每次改状态机都得重新核对
+    //         ⇒ ⚠️ 用显式标记 ⭐ 意图清楚、⛔ 不会随重构漂移。
+    reg           prompt_phase;
 
     assign busy_o = (state != S_IDLE) && (state != S_DONE);
 
@@ -221,6 +234,8 @@ module calib_span #(
             // ⭐ 2026-09-23：兜底计数器 + 已发标记
             wait_clk_cnt<= {WCW{1'b0}};
             span_sent_r <= 1'b0;
+            // ⭐ 2026-09-25：`S_PROMPT` 的两拍标记（⭐ 见 `K-132`）
+            prompt_phase<= 1'b0;
         end else begin
             // ⭐ `span` / `reject` 都是**单拍脉冲** ⇒ ⭐ 默认拉低
             //   🔴 **这行同时是 `abort_i` 的安全保证**（⭐ 见端口声明的硬纪律）：
@@ -269,6 +284,8 @@ module calib_span #(
                 // ⭐ 2026-09-23：兜底计数器 + 已发标记也一并清（⭐ 语义 = 回到刚复位）
                 wait_clk_cnt <= {WCW{1'b0}};
                 span_sent_r  <= 1'b0;
+                // ⭐ 2026-09-25：`S_PROMPT` 两拍标记（⭐ `K-132`）
+                prompt_phase <= 1'b0;
             end else case (state)
                 // ═══ ⭐ 等触发 ═══════════════════════════════════════════
                 S_IDLE: begin
@@ -285,19 +302,41 @@ module calib_span #(
                 // ═══ ⭐ 提示"请按轴 N 到底" ═══════════════════════════════
                 S_PROMPT: begin
                     cur_axis_o   <= cur_axis;
-                    need_press_o <= 1'b1;
-                    vmin         <= 12'hFFF;
-                    vmax         <= 12'd0;
-                    vote_cnt     <= 6'd0;
-                    stable_cnt   <= 6'd0;
-                    prev_val     <= 12'hFFF;
-                    // ⭐ 2026-09-23：新的一轴 ⇒ ⭐ 清"已发"标记与兜底计数
-                    //   🔴 **必须清 `span_sent_r`** —— ⚠️ 否则下一轴会带着
-                    //      "上一轴已发过"的状态去判 `cal_err_i`，
-                    //      ⇒ 🔴 把上一轴残留的 `err` 记到本轴头上。
-                    span_sent_r  <= 1'b0;
-                    wait_clk_cnt <= {WCW{1'b0}};
-                    state        <= S_SETTLE;
+                    // 🔴🔴 2026-09-25 修 `K-132`：⭐ **`need_press_o` 必须先落一拍再起**
+                    //   ⚠️ **旧代码的 bug**：⭐ 这里只写 `need_press_o <= 1'b1`
+                    //      ⇒ ⭐ 若它**本来就是 1**（⭐ 超时重试回到 `S_PROMPT` 时就是）
+                    //        ⇒ 🔴 **没有 0→1 跳变**
+                    //      ⇒ 🔴 `top.v` 的 `ev_need = sp_need_press & ~sp_need_r`
+                    //         （⭐ **上升沿检测**）**不产生事件** ⇒ 🔴 **轴号不再回发**
+                    //      📌 上板现象：⭐ 发 `'S'` ⇒ ⭐ **只有 `s`，⭐ 没有轴号**
+                    //   ⭐ **为什么要"先落一拍"**：
+                    //      ⭐ 让 `S_PROMPT` **停留 2 拍**：
+                    //         · 第 1 拍：`need_press_o <= 0`（⭐ 强制拉低）
+                    //         · 第 2 拍：`need_press_o <= 1`（⭐ 产生干净的上升沿）
+                    //      ⇒ ⭐ 每次重试都会**重新发一次轴号** ✅
+                    //   🔴 **注意**：⭐ 这是本模块**唯一**一个"需要两拍"的状态，
+                    //      ⚠️ 所以用一个显式的 `prompt_phase` 标记，⛔ 不靠数拍子猜。
+                    if (!prompt_phase) begin
+                        // ⭐ 第 1 拍：⭐ 先把 `need_press_o` 拉低（⭐ 造出下降沿）
+                        need_press_o <= 1'b0;
+                        prompt_phase <= 1'b1;
+                    end else begin
+                        // ⭐ 第 2 拍：⭐ 拉起 `need_press_o`（⭐ 干净的上升沿 ⇒ `ev_need`）
+                        need_press_o <= 1'b1;
+                        prompt_phase <= 1'b0;
+                        vmin         <= 12'hFFF;
+                        vmax         <= 12'd0;
+                        vote_cnt     <= 6'd0;
+                        stable_cnt   <= 6'd0;
+                        prev_val     <= 12'hFFF;
+                        // ⭐ 2026-09-23：新的一轴 ⇒ ⭐ 清"已发"标记与兜底计数
+                        //   🔴 **必须清 `span_sent_r`** —— ⚠️ 否则下一轴会带着
+                        //      "上一轴已发过"的状态去判 `cal_err_i`，
+                        //      ⇒ 🔴 把上一轴残留的 `err` 记到本轴头上。
+                        span_sent_r  <= 1'b0;
+                        wait_clk_cnt <= {WCW{1'b0}};
+                        state        <= S_SETTLE;
+                    end
                 end
 
                 // ═══ ⭐ 等读数稳定（⭐ "按着不动"）════════════════════════
