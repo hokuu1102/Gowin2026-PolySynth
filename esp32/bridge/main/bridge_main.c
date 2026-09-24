@@ -76,6 +76,12 @@ static volatile uint32_t s_uart_rx_bytes = 0;  /* UART2 收到的字节数 */
 static volatile uint32_t s_bt_tx_bytes   = 0;  /* 发回蓝牙的字节数 */
 static volatile uint32_t s_bt_tx_failed  = 0;  /* 发蓝牙失败次数 */
 
+/* ---- ⭐ 帧头分类相关（⚠️ 必须定义在文件前部：gatts/SPP 数据回调要用）------- */
+static volatile uint32_t s_total_frames_rx = 0;  /* ⭐ 收到的总数帧数 */
+static volatile uint32_t s_reset_frames_rx = 0;  /* 复位标记帧数 */
+static volatile uint32_t s_unknown_frames  = 0;  /* 🔴 未知帧头帧数（应恒为 0） */
+static volatile uint32_t s_song_total      = 0;  /* ⭐ 曲谱总事件数（0=未知） */
+
 /* ===========================================================================
  * 9N 对齐缓冲
  * ===========================================================================
@@ -389,7 +395,10 @@ static void spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
         }
 #endif
         /* ⭐ 事件计数：已收字节 / 9 = 已收事件数（⭐ 与守恒等式同口径） */
-        hmi_set_events((uint32_t)(s_bt_rx_bytes / FRAME_BYTES), 0);
+        /* ⭐ 屏上事件计数（⭐ 与守恒等式同口径）
+         * 🔴 修了真 bug（2026-09-23）：原来【硬编码 total=0】
+         *    ⇒ 屏上一直 `4820/0`、进度条永远 0。总数改由【总数帧】提供。 */
+        hmi_set_events((uint32_t)(s_bt_rx_bytes / FRAME_BYTES), s_song_total);
         break;
     }
 
@@ -415,6 +424,71 @@ static void spp_cb(esp_spp_cb_event_t event, esp_spp_cb_param_t *param)
  *
  * 两种模式都保证：交给下游的永远是【完整帧】。
  */
+/* ===========================================================================
+ * ⭐⭐⭐ 帧头分类 + 过滤（⭐ 与 BLE 版同构，⛔ 两版行为必须一致）
+ * ===========================================================================
+ *   帧头 0xA5 且非全 0xA5  ⇒ ⭐ 事件帧 ⇒ ✅ 转发
+ *   帧头 0xA5 且全 9 字节 A5 ⇒ ⭐ 复位标记 ⇒ ⛔ 丢弃
+ *   帧头 0x00              ⇒ ⭐ 总数帧 ⇒ ⛔ 自己留下并解析
+ *   其他                    ⇒ 🔴 未知 ⇒ ⛔ 丢弃 + 计数
+ */
+static bool frame_is_all_a5(const uint8_t *p)
+{
+    for (int i = 0; i < FRAME_BYTES; i++) {
+        if (p[i] != FRAME_HDR_EVENT) {
+            return false;
+        }
+    }
+    return true;
+}
+
+static void frame_parse_total(const uint8_t *p)
+{
+    uint64_t v = 0;
+    for (int i = 1; i < FRAME_BYTES; i++) {
+        v = (v << 8) | p[i];
+    }
+    s_song_total = (uint32_t)v;
+    s_total_frames_rx++;
+    ESP_LOGI(TAG, "SONG TOTAL = %lu events", (unsigned long)s_song_total);
+
+    /* ⭐ 立刻告诉显示层（⚠️ 否则进度条永远是 0） */
+    hmi_set_events((uint32_t)(s_bt_rx_bytes / FRAME_BYTES), s_song_total);
+
+#if BRIDGE_MODE == BRIDGE_MODE_B_POOL
+    /* ⭐⭐ 模式 B：把"应该收多少帧"告诉水池
+     *    🔴 不给它的话，pool_mark_done() 无法发现"PC 发到一半就断了"。 */
+    pool_set_expected((size_t)s_song_total);
+#endif
+}
+
+/* ⭐ 逐帧过滤；原地压缩，返回【真正要转发的字节数】 */
+static size_t frame_filter(uint8_t *chunk, size_t n)
+{
+    size_t out = 0;
+    for (size_t off = 0; off + FRAME_BYTES <= n; off += FRAME_BYTES) {
+        uint8_t *p = chunk + off;
+
+        if (p[0] == FRAME_HDR_EVENT) {
+            if (frame_is_all_a5(p)) {
+                s_reset_frames_rx++;
+                continue;
+            }
+            if (out != off) {
+                memmove(chunk + out, p, FRAME_BYTES);
+            }
+            out += FRAME_BYTES;
+        } else if (p[0] == FRAME_HDR_TOTAL) {
+            frame_parse_total(p);
+        } else {
+            s_unknown_frames++;
+            ESP_LOGW(TAG, "unknown frame hdr 0x%02X, dropped (total=%lu)",
+                     p[0], (unsigned long)s_unknown_frames);
+        }
+    }
+    return out;
+}
+
 static void task_drain_to_uart(void *arg)
 {
     static uint8_t chunk[ALIGN_BUF_CAP];
@@ -436,12 +510,19 @@ static void task_drain_to_uart(void *arg)
             continue;
         }
         /* n 恒为 9 的整数倍 */
+
+        /* ⭐⭐⭐ 先过滤：摘掉复位标记/未知帧，总数帧自己留下 */
+        size_t fwd = frame_filter(chunk, n);
+        if (fwd == 0) {
+            continue;
+        }
+
 #if BRIDGE_MODE == BRIDGE_MODE_B_POOL
         /* ⭐ 模式 B：攒进水池，⛔ 不直接写 UART */
-        pool_feed(chunk, n);
+        pool_feed(chunk, fwd);
 #else
         /* ⭐ 模式 A：一次性写 UART，帧内无空隙 */
-        int written = uart_write_bytes(BRIDGE_UART_PORT, (const char *)chunk, n);
+        int written = uart_write_bytes(BRIDGE_UART_PORT, (const char *)chunk, fwd);
         if (written > 0) {
             s_uart_tx_bytes += written;
         }

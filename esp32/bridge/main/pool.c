@@ -133,6 +133,12 @@ static volatile uint32_t s_late_ticks_max       = 0;   /* 最大落后（tick）
 static volatile uint32_t s_tempo_events         = 0;   /* 已应用的换速次数 */
 static bool              s_pool_in_psram        = false; /* ⭐ 池是否落在 PSRAM */
 
+/* ⭐⭐ 2026-09-23 新增（⭐ 与 BLE 版同构，⛔ 两版行为必须一致） */
+static volatile uint32_t s_tick_clamped_cnt     = 0;   /* tick 限流截断次数 */
+static int64_t           s_due_tick_last        = -1;  /* 上轮推进到的 tick（-1=未开始） */
+static volatile uint32_t s_expected_frames      = 0;   /* ⭐ 应该收多少帧（0=未知） */
+static volatile uint32_t s_total_mismatch       = 0;   /* 🔴 实收与应到不符（应恒为 0） */
+
 /* ===========================================================================
  * ⭐ 水池内存分配：优先 PSRAM，退化到内部 DRAM
  * ===========================================================================
@@ -296,6 +302,17 @@ void pool_reset(void)
     s_t0_us         = 0;
     xSemaphoreGive(s_lock);
 
+    /* ⭐ 2026-09-23：新状态也要清（⚠️ 否则上一曲的值会污染这一曲）
+     * ⚠️ s_due_tick_last 用 **-1 当哨兵** —— 表示"还没开始推进"。 */
+    s_due_tick_last        = -1;
+    s_expected_frames      = 0;
+    s_total_mismatch       = 0;
+    s_tick_clamped_cnt     = 0;
+    s_late_ticks_max       = 0;
+    s_tempo_events         = 0;
+    s_sent_frames          = 0;
+    s_pool_overflow_frames = 0;
+
     /* ⭐ 首次调用时分配池内存（优先 PSRAM，退化内部 DRAM） */
     if (s_pool == NULL) {
         size_t got = pool_alloc();
@@ -348,14 +365,35 @@ size_t pool_feed(const uint8_t *data, size_t n)
     return take_bytes;
 }
 
+/* ⭐⭐ 告诉水池"应该收多少帧"（来自协议的总数帧；0 = 未知，则不校验）
+ * 🔴 不设它的话，pool_mark_done() 无法发现"发送端发到一半就断了"。 */
+void pool_set_expected(size_t frames)
+{
+    s_expected_frames = (uint32_t)frames;
+    ESP_LOGI(TAG, "pool expected = %u frames (%.2f KB)",
+             (unsigned)frames, frames * (double)FRAME_BYTES / 1024.0);
+}
+
 /* 发送端宣布"整曲灌完"——此后池只出不进 */
 void pool_mark_done(void)
 {
     xSemaphoreTake(s_lock, portMAX_DELAY);
     s_pool_done = true;
     xSemaphoreGive(s_lock);
-    ESP_LOGI(TAG, "pool marked DONE: %u frames (%.2f KB)",
-             (unsigned)s_frames, s_frames * (double)FRAME_BYTES / 1024.0);
+
+    /* ⭐⭐ 校验"实收 == 应到"（⭐ 未设期望值时跳过，⛔ 不误报） */
+    if (s_expected_frames > 0 && (uint32_t)s_frames != s_expected_frames) {
+        s_total_mismatch++;
+        ESP_LOGE(TAG,
+                 "TOTAL MISMATCH: got %u frames, expected %u (diff %+d) — "
+                 "sender may have been cut off!",
+                 (unsigned)s_frames, (unsigned)s_expected_frames,
+                 (int)((int32_t)s_frames - (int32_t)s_expected_frames));
+    }
+
+    ESP_LOGI(TAG, "pool marked DONE: %u frames (%.2f KB)%s",
+             (unsigned)s_frames, s_frames * (double)FRAME_BYTES / 1024.0,
+             (s_expected_frames > 0) ? "" : "  [expected unknown]");
 }
 
 /* 开始放水（从池内第 0 帧起，谱面时间 0 对齐到当下） */
@@ -396,6 +434,11 @@ void pool_stats(pool_stats_t *out)
     out->tick_inc        = s_tick_inc;
     out->running         = s_running;
     out->done            = s_pool_done;
+
+    /* ⭐ 2026-09-23 新增 */
+    out->expected_frames  = s_expected_frames;
+    out->total_mismatch   = s_total_mismatch;
+    out->tick_clamped_cnt = s_tick_clamped_cnt;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -428,20 +471,51 @@ void pool_pump(void)
 
     int64_t now_us   = esp_timer_get_time();
     int64_t elapsed  = now_us - s_t0_us;
-    uint32_t budget  = BRIDGE_POOL_MAX_FRAMES_PER_PUMP;
+    uint32_t budget  = BRIDGE_POOL_MAX_FRAMES_PER_PUMP;  /* ⚠️ 帧数硬上限（病态兜底） */
 
     /* 允许发送到的谱面 tick（含提前量的反向扣除） */
     uint64_t elapsed_ticks = delta_us_to_ticks(elapsed, s_tick_inc);
     int64_t  due_tick;
+    bool     allow_emit;
 
-    if (elapsed_ticks > (uint64_t)s_t0_tick + BRIDGE_POOL_LEAD_TICKS) {
-        due_tick = (int64_t)(s_t0_tick + elapsed_ticks - BRIDGE_POOL_LEAD_TICKS);
+    /* ⭐ 2026-09-23：把"还在提前量内"与"谱面 tick 就是 0"【明确分开】
+     * 🔴 旧写法在 else 里写 due_tick=0，语义含糊（同时暗示"先不发"和
+     *    "允许发 tick<=0 的帧"）⇒ 首帧 tick 为 0 时行为取决于巧合。 */
+    uint64_t lead_end = (uint64_t)s_t0_tick + BRIDGE_POOL_LEAD_TICKS;
+    if (elapsed_ticks > lead_end) {
+        due_tick   = (int64_t)(s_t0_tick + elapsed_ticks - BRIDGE_POOL_LEAD_TICKS);
+        allow_emit = true;
     } else {
-        due_tick = 0;                 /* 还在提前量之内，先不发 */
+        due_tick   = 0;
+        allow_emit = false;                 /* ⭐ 还在提前量之内，本轮一帧都不发 */
+    }
+
+    /* ⭐⭐ tick 限流（🔴 2026-09-23 新增 —— 本轮核心修改）
+     * 🔴 为什么必须限：vTaskDelay(2ms) 只是"至少 2ms"，被调度延迟后
+     *    due_tick 会一步跳很远 ⇒ 一轮连发一大批 ⇒ 可能灌满 FPGA 缓冲。
+     * ⭐ 做法：单轮最多把"允许发到的 tick"往前推 N 个 tick；落后【不补】，
+     *    代价是 late_ticks_max 变大（可见）—— ⭐ 那比溢出的静默丢好得多。 */
+    if (allow_emit) {
+        if (s_due_tick_last < 0) {
+            s_due_tick_last = due_tick;     /* ⭐ 首轮：建立基准（哨兵 -1） */
+        }
+        int64_t cap = s_due_tick_last + (int64_t)BRIDGE_POOL_MAX_TICK_ADVANCE;
+        if (due_tick > cap) {
+            due_tick = cap;                 /* ⭐ 截断 */
+            s_tick_clamped_cnt++;
+        }
+        if (due_tick > s_due_tick_last) {
+            s_due_tick_last = due_tick;
+        }
     }
 
     while (budget-- > 0) {
         uint32_t tick, kind, inc;
+
+        /* ⭐ 没到起播提前量 ⇒ 本轮一帧都不发 */
+        if (!allow_emit) {
+            break;
+        }
 
         xSemaphoreTake(s_lock, portMAX_DELAY);
 

@@ -1,0 +1,95 @@
+# ============================================================================
+# sdkconfig.defaults -- ESP32-S3 BLE <-> UART bridge
+# ============================================================================
+# ⚠️ 作用：`idf.py build` 时若 sdkconfig 不存在，用它生成初值
+#    ⇒ 保证"clone 下来就能编"，不依赖手点 menuconfig。
+#
+# 🔴🔴 本文件踩过【两个】"写了但不生效"的坑，⚠️ 都是 build 只给 warning：
+#
+#   坑 A：本文件一开始【压根不存在】⇒ 蓝牙组件没使能 ⇒ 报
+#            fatal error: esp_bt.h: No such file or directory
+#         ⚠️ 看起来像"头文件路径问题"，其实是【组件没开】。
+#         ⭐ 教训：报"某头文件找不到"时，先查【提供它的组件有没有被 CONFIG 打开】。
+#
+#   坑 B：kconfig 符号名【随芯片完全不同】——
+#            ⛔ 初代 ESP32：BTDM_CTRL_MODE_BR_EDR_ONLY / BTDM_CTRL_BLE_MAX_CONN
+#            ⭐ ESP32-S3  ：BT_CTRL_* 前缀（S3 复用 ESP32-C3 的 Kconfig，
+#                          见 components/bt/controller/esp32s3/Kconfig.in
+#                          —— 它只有一行 source .../esp32c3/Kconfig.in）
+#         ⚠️ 写错不会报错，只会 warning：
+#              unknown kconfig symbol 'BTDM_CTRL_MODE_BLE_ONLY'
+#         🔴 于是"以为设了、其实没设"。
+#         ⭐ 而且 S3【没有】控制器模式 choice（它只有 BLE，没得选）⇒
+#            ⛔ 不要照抄 SPP 版的 BR_EDR_ONLY 那一套。
+# ============================================================================
+
+# ---- 目标芯片（⭐ ESP32-S3，⛔ 不是初代 ESP32）------------------------------
+CONFIG_IDF_TARGET="esp32s3"
+
+# ---- ⭐ 蓝牙总开关（🔴 不开的话下面全是废话）--------------------------------
+CONFIG_BT_ENABLED=y
+CONFIG_BT_BLUEDROID_ENABLED=y
+CONFIG_BT_BLE_ENABLED=y
+
+# ---- 🔴🔴 BLE 4.2 特性 —— ⭐【必须开】，否则广播 API 链接不到 ------------------
+#    ⚠️ 这是本文件踩的【第三个】"配置没设 ⇒ 报错像别的问题"的坑：
+#       IDF 默认 `CONFIG_BT_BLE_42_FEATURES_SUPPORTED` 是【关】的
+#       ⇒ 头文件里这些 API 被包在 `#if (BLE_42_FEATURE_SUPPORT == TRUE)` 里：
+#            esp_ble_gap_config_adv_data()
+#            esp_ble_gap_start_advertising()
+#       ⇒ 🔴 编译能过（声明还在），但【链接失败】：
+#            undefined reference to `esp_ble_gap_start_advertising'
+#       ⚠️ 报的错是"符号未定义"，看起来像"名字写错了"或"库没加"，
+#          实际上是 **CONFIG 把实现条件编译掉了**。
+#    ⭐ 教训（与坑 A/B 同族）：
+#       **报"undefined reference"时，先查该符号是不是被某个 CONFIG 挡住。**
+CONFIG_BT_BLE_42_FEATURES_SUPPORTED=y
+
+# ⚠️ 不需要写"控制器模式 = BLE_ONLY"：S3 硬件上只有 BLE，
+#    其 Kconfig（复用 C3）里【没有】BTDM_CTRL_MODE 这个 choice。
+#    ⛔ 硬写会得到 unknown kconfig symbol 警告（无害但会误导后人）。
+
+# ---- ⭐ BLE 连接数与活动 ------------------------------------------------
+# ⚠️ S3 的正确符号名是 BT_CTRL_BLE_MAX_ACT（⛔ 不是 BTDM_CTRL_BLE_MAX_CONN）
+CONFIG_BT_ACL_CONNECTIONS=1
+CONFIG_BT_CTRL_BLE_MAX_ACT=1
+
+# ---- ⭐ MTU ---------------------------------------------------------------
+# ⚠️ ESP-IDF 里【没有】CONFIG_BT_GATT_MAX_MTU_SIZE 这个符号（我一开始写错了）。
+#    ⭐ 本地 MTU 上限是【运行时】通过 API 设的：
+#         esp_ble_gatt_set_local_mtu(517);
+#      见 ble_main.c 的 ESP_GATTS_CONNECT_EVT 分支。
+#    ⇒ ⛔ 这里不写任何 MTU 配置项，避免又一个"unknown symbol"。
+# ⚠️ 但要保证服务属性表有足够空间：
+CONFIG_BT_GATT_MAX_SR_ATTRIBUTES=100
+
+# ---- 不用 WiFi（省内存、减少射频争用）--------------------------------------
+# CONFIG_ESP_WIFI_ENABLED is not set
+
+# ---- 日志 --------------------------------------------------------------
+CONFIG_LOG_DEFAULT_LEVEL_INFO=y
+CONFIG_ESP_CONSOLE_UART_BAUDRATE=921600
+
+# ---- 主任务栈 -----------------------------------------------------------
+CONFIG_ESP_MAIN_TASK_STACK_SIZE=4096
+
+# ---- 关省电（插电演示，⛔ 不需要省电；省电会增大调度抖动）------------------
+# CONFIG_PM_ENABLE is not set
+CONFIG_FREERTOS_USE_TICKLESS_IDLE=
+
+# ---- ⭐ PSRAM（🔴 本版重点：S3 那块【有 PSRAM】，水池靠它放整曲）-----------
+#     ⚠️ 不开的话 heap_caps_malloc(MALLOC_CAP_SPIRAM) 一定失败
+#        ⇒ 水池永远走"退化到内部 DRAM"分支 ⇒ 装不下整曲 104 KB。
+#
+# ⚠️⚠️ 开 PSRAM 前【必须确认模组型号】：
+#     · ESP32-S3-WROOM-1-**N16R8** 之类的 `R` 后缀 = 有 PSRAM
+#     · 无 `R`（N4/N8/N16）= 无 PSRAM ⇒ ⚠️ 开了会在启动时报错，注释掉即可
+#
+# ⚠️ S3 用【八线 PSRAM】时 GPIO35/36/37 被占用，
+#    且 GPIO26~32 常与 flash/PSRAM 复用 ⇒ ⭐ 改引脚前查模组 datasheet。
+CONFIG_SPIRAM=y
+CONFIG_SPIRAM_MODE_OCT=y
+CONFIG_SPIRAM_TYPE_AUTO=y
+CONFIG_SPIRAM_USE_MALLOC=y
+# ⚠️ 小分配仍走内部 RAM（PSRAM 慢，且不能用于 DMA/中断上下文）
+CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384
