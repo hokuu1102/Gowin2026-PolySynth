@@ -366,7 +366,7 @@ $mutations = @(
   # is unobservable there (C23: a mutant that cannot change behaviour is not a
   # valid mutant).  tb_top_m0 covers the silence side explicitly instead, so M40
   # now targets the audible path itself.
-  @{ id = "M40"; file = "rtl\top.v"; find = "if (mx_valid) sample_r <= mx_sample;"; repl = "if (mx_valid) sample_r <= {SAMPLE_W{1'b0}};"; why = "T57 regression: output register mutes the mixer -> chain runs but board is silent (must be caught)" },
+  @{ id = "M40"; file = "rtl\top.v"; find = "else if (mm_valid) sample_r <= mm_sample;"; repl = "else if (mm_valid) sample_r <= {SAMPLE_W{1'b0}};"; why = "T57 regression: output register mutes the mixer -> chain runs but board is silent (must be caught). NOTE 2026-09-24: re-pointed -- the signal was renamed mx_* -> mm_* (master-mix stage) and the anchor went stale, which is exactly K-87/K-120." },
 
   # ---- T32 / P1: beat_gen (the musical clock the metronome, drum machine and
   #      looper all share).  These four target the three things that actually
@@ -386,7 +386,7 @@ $mutations = @(
   @{ id = "M82"; file = "rtl\w3c\master_mix.v"; find = "if (ramp_up)"; repl = "if (1'b0)"; why = "master_mix regression: ramp disabled -> gain never tracks the target -> volume/mute dead (must be caught)" },
   @{ id = "M83"; file = "rtl\w3c\master_mix.v"; find = "prod >>> (GAIN_W - 1);"; repl = "prod >>> (GAIN_W - 2);"; why = "master_mix regression: Q1.15 scaling off by one -> output 2x too loud (must be caught)" },
   @{ id = "M84"; file = "rtl\w3c\master_mix.v"; find = "assign valid_o  = valid_i;"; repl = "assign valid_o  = 1'b0;"; why = "master_mix regression: valid dropped -> downstream (i2s_tx) never latches the sample -> silence (must be caught)" },
-  @{ id = "M85"; file = "rtl\w3c\master_mix.v"; find = "gain_r <= {GAIN_W{1'b0}};                 // 复位静音（安全态）"; repl = "gain_r <= 16'h7FFF;                 // 复位静音（安全态）"; why = "master_mix regression: reset no longer mutes -> power-on pop (must be caught)" },
+  @{ id = "M85"; file = "rtl\w3c\master_mix.v"; find = "gain_r <= {GAIN_W{1'b0}};"; repl = "gain_r <= 16'h7FFF;"; why = "master_mix regression: reset no longer mutes -> power-on pop (must be caught). NOTE 2026-09-24: the anchor used to include a trailing Chinese comment; this script is BOM-less UTF-8, which PowerShell 5.1 decodes as GBK, so the anchor became mojibake and the mutant SKIPPED. Anchors must be pure ASCII -- that is K-120 trap 2." },
   # ---- W3a semantic layer: axis_map / event_extract / param_extract (2026-09-23)
   #      These are the modules that turn ADC samples into note events
   #      (i.e. 'press a key -> sound').  An unguarded W3a chain means the
