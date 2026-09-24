@@ -636,9 +636,12 @@ void task_pool_pump(void *arg)
     for (;;) {
         if (s_running) {
             pool_pump();
-            vTaskDelay(pdMS_TO_TICKS(BLE_POOL_PUMP_PERIOD_MS));
+            /* 🔴 必须【至少 1 tick】—— ⚠️ `BLE_POOL_PUMP_PERIOD_MS = 2`
+             * ⇒ `pdMS_TO_TICKS(2)` 在 100 Hz 下 = 0 ⇒ 忙循环 ⇒ 饿死 IDLE0。
+             * ⭐ 与 `task_drain` 同因，详见 ble_config.h §9b。 */
+            vTaskDelay(BLE_DELAY_TICKS_AT_LEAST_1(BLE_POOL_PUMP_PERIOD_MS));
         } else {
-            vTaskDelay(pdMS_TO_TICKS(10));
+            vTaskDelay(BLE_DELAY_TICKS_AT_LEAST_1(10));
         }
     }
 }

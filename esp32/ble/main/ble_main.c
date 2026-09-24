@@ -481,7 +481,11 @@ static void task_drain(void *arg)
     for (;;) {
         size_t n = ble_buf_take_aligned(chunk, sizeof(chunk));
         if (n == 0) {
-            vTaskDelay(pdMS_TO_TICKS(1));
+            /* 🔴 必须【至少 1 tick】—— ⚠️ `pdMS_TO_TICKS(1)` 在 100 Hz 下 = 0
+             * ⇒ `vTaskDelay(0)` 不真正让出 ⇒ 本任务（优先级 9）立刻被调度回来
+             * ⇒ 忙循环饿死同核 IDLE0 ⇒ 5 s 后 Task watchdog 触发。
+             * ⭐ 上机实测于 2026-09-24（COM29），详见 ble_config.h §9b。 */
+            vTaskDelay(BLE_DELAY_TICKS_AT_LEAST_1(1));
             continue;
         }
         /* ⭐ n 恒为 9 的整数倍 */
