@@ -130,6 +130,21 @@ foreach ($tb in $tbs) {
   #   ⇒ 做法：后台起进程 + 限时等待；超时就杀掉并**判该 tb 失败**（⛔ 不是"通过"）。
   #   📌 纪律：**"没有结论"必须算失败**，⛔ 不能算通过（同 C29：跳过≠通过）。
   #
+  #   ⚠️⚠️ 2026-09-24 实测踩坑（**第四次修复** —— 超时判据本身误报）：
+  #     🔴 现象：全量回归报 4 个 tb `TIMEOUT`（tb_top_sound / tb_e2e /
+  #        tb_calib_span / tb_uart_calib_chain），
+  #        ⚠️ **但它们的日志末尾明明写着 `PASS:` 和 `$finish called at ...`**
+  #        ⇒ 🔴 **仿真已经【成功结束】，只是没在 120 s 内返回**。
+  #     ⭐ 根因：**120 s 的预算对重 tb 太紧** ——
+  #        · `tb_top_sound` 单独跑实测 **93 s**（⭐ 它要采 2048 个 I2S 样点）
+  #        · 全量回归时机器同时在跑别的（编译下一个 tb / 变异测试 / PnR）
+  #        ⇒ ⚠️ 一超 120 s 就被判"挂死" ⇒ 🔴 **验收工具自己误报了**
+  #     📌 这正是 `K-94` 的**反面**：
+  #        原来担心的是"挂了却算通过"，⚠️ 现在踩的是"**过了却算挂**"。
+  #        ⇒ ⭐ 两者都是"判据不可靠"，⭐ 必须一起防。
+  #     ⇒ ⭐ 修法：**按 tb 分类给预算**（见下方 `$tbTimeoutSec`），
+  #        并在超时消息里**带上已产出的行数**（⭐ 一眼看出"有没有 PASS 过"）。
+  #
   #   ⚠️⚠️ 2026-09-21 实测踩坑（`K-94` 的**第二次修复**）：
   #     `Start-Job` 的子进程 **工作目录不是仓库根** ⇒ ⛔ **相对路径的 `$dumpfile` 打不开**
   #     （实测：`VCD Error: Unable to open build/sim/tb_xxx/tb_xxx.vcd for output`）。
@@ -147,6 +162,25 @@ foreach ($tb in $tbs) {
   #        实际是"**运行根本没产生结论，却被当成通过**"。
   #     ⇒ ⭐ 修法：**在 job 里显式取回真实退出码**（用一行标记传出来），
   #       并**把"没有结论"也判失败**。
+  #
+  #   ⭐⭐ 2026-09-24 新增：**按 tb 分类给超时预算**（修上面"第四次修复"那个误报）
+  #     ⚠️ 默认 120 s 对【重 tb】不够 —— 它们仿真时间就长（如 `tb_top_sound`
+  #        要采 2048 个 I2S 样点 ⇒ 42 ms 仿真时间 ⇒ vvp 实测 93 s）。
+  #     ⇒ ⭐ 重 tb 给 300 s；⭐ 其余仍 120 s（⭐ 保持"真挂死能快速抓出来"）。
+  #     📌 判据：⭐ 只有【已知仿真时间长】的 tb 才加进来，⛔ 不要普遍调大
+  #        （⚠️ 否则真挂死时要等更久才被发现）。
+  $heavyTb = @(
+    'tb_top_sound',              # ⭐ 采 2048 点 @48.8 kHz ⇒ 实测 93 s
+    'tb_e2e_key_to_sound',       # ⭐ 端到端手弹链（含演示和弦等待）⇒ 实测 ~50 s
+    'tb_calib_span',             # ⭐ 16 轴标定（含超时/拒绝等负向用例）
+    'tb_uart_calib_chain',       # ⭐ 串口 + 标定链
+    'tb_latency_m2',             # ⭐ 50 次延迟测量
+    'tb_note_manager',           # ⭐ 含 FIFO 溢出突发用例
+    'tb_i2s_tx_prbs',            # ⭐ 512 帧随机 + 位扫描
+    'tb_wavetable_bank_prom'     # ⭐ pROM 变体
+  )
+  $tbTimeoutSec = if ($heavyTb -contains $name) { 300 } else { $TimeoutSec }
+
   $job = Start-Job -ScriptBlock {
     param($exe, $img, $wd)
     Set-Location -LiteralPath $wd      # ⭐ 关键：让相对 $dumpfile 落在仓库根下
@@ -157,15 +191,28 @@ foreach ($tb in $tbs) {
     "$o`n__VVP_EXIT__=$c"
   } -ArgumentList $vvp, $vvpFile, $root
 
-  $done = Wait-Job -Job $job -Timeout $TimeoutSec
+  $done = Wait-Job -Job $job -Timeout $tbTimeoutSec
   if (-not $done) {
     Stop-Job  -Job $job -ErrorAction SilentlyContinue
     Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
     # ⚠️ vvp 可能留下子进程，一并清掉（否则会拖慢后续 tb）
     Get-Process vvp -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
-    $runOut  = @("FAIL: TIMEOUT after $TimeoutSec s -- testbench hung (no verdict is a FAILURE, see K-94)")
+    # ⭐⭐ 2026-09-24：超时消息里带上【已产出的日志】——
+    #    ⚠️ 若里面已经有 `PASS:` ⇒ 说明**仿真其实成功了**，只是没在预算内返回
+    #    ⇒ ⭐ 一眼就能区分"真挂死"和"预算太紧"（⭐ 这正是第四次修复要防的误判）
+    $partial = ""
+    if (Test-Path $runLog) {
+      $tail = (Get-Content $runLog -Tail 40 -ErrorAction SilentlyContinue) -join "`n"
+      if ($tail -match "(?m)^PASS:") {
+        $partial = "  [!!] 但日志里已出现 PASS: —— 很可能是【超时预算太紧】而不是真挂死，请人工确认"
+      } elseif ($tail -match "(?m)^FAIL:") {
+        $partial = "  [!!] 日志里有 FAIL: —— 这是真失败"
+      }
+    }
+    $runOut  = @("FAIL: TIMEOUT after $tbTimeoutSec s -- testbench hung (no verdict is a FAILURE, see K-94)$partial")
     $runExit = 124
-    Write-Host ("    ⛔ 超时 " + $TimeoutSec + " s —— 判失败（挂死不是通过，见 K-94）") -ForegroundColor Red
+    Write-Host ("    ⛔ 超时 " + $tbTimeoutSec + " s（本 tb 预算）—— 判失败（挂死不是通过，见 K-94）") -ForegroundColor Red
+    if ($partial) { Write-Host ("    " + $partial) -ForegroundColor Yellow }
   } else {
     $raw = Receive-Job -Job $job
     Remove-Job -Job $job -Force -ErrorAction SilentlyContinue

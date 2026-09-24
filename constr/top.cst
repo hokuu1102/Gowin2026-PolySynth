@@ -77,8 +77,18 @@ IO_PORT "led_heartbeat" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
 //   ⭐ **2026-09-23 新增**（⭐ W3a 接线：`adc_farm` + `calib` + 语义层接进 `top.v`）。
 //
 //   🔴 **为什么走 `J9` 排针、⛔ 不是 `PMOD`**：
-//      ⚠️ `PMOD0`/`PMOD1` 的 **16 根已全部分配完**
-//      （UART×4 · CS×3 · SPI×3 · I2S×3 · LED×2）⇒ ⭐ **再要脚只能从 `J9` 拿**。
+//      ⚠️ 当时（2026-09-22）的口径是"`PMOD0`/`PMOD1` 的 16 根已全部分配完
+//         （UART×4 · CS×3 · SPI×3 · I2S×3 · LED×2）⇒ 再要脚只能从 `J9` 拿"。
+//      🔴🔴 **2026-09-24 复核：那句话【已经过时】** ——
+//         ⭐ **实测本文件用到的 31 个 ball 里，PMOD 的 16 根【一根都没用】**：
+//           · `PMOD0`（`V18 V19 G21 G22 F18 E18 C22 B22`）⇒ 🟢 **全空**
+//           · `PMOD1`（`W19 W20 F19 F20 E22 D22 E21 D21`）⇒ 🟢 **全空**
+//         ⭐ **原因**：⭐ LED 组**已从 `PMOD` 挪到 `J9`**（⭐ 见本文件 LED 段）
+//            ⇒ ⭐ 当时腾出来的 `PMOD1_IO6/IO7` 一直**没人用**
+//      ⇒ ⭐⭐ **结论：现在 PMOD 是【空的】，要脚【优先用 PMOD】**（⭐ 它是标准排针，最好接线）
+//      📌 **教训**：⭐ **"注释里写的库存"⛔ 不能当准** ——
+//         ⚠️ 必须**按 `IO_LOC` 实际清单核一遍**（⭐ 我按注释办事，⭐ 差点把调试脚塞进已经排满的 `J9`）。
+
 //
 //   ⭐ **为什么 `MISO` 要【两根独立】**：
 //      🔴 `K-06`：**每片 `MISO` 必须独立**，⛔ 不能并到一个 FPGA 输入。
@@ -235,9 +245,12 @@ IO_PORT "led_oe_n[4]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
 //      ⚠️ 若 PC 没插，悬空脚会读到随机跳变 ⇒ 🔴 **可能被当成假起始位**、持续误触发
 //      ⇒ ⭐ 上拉把默认态钉在"空闲" ✅
 //   ⚠️ `uart_tx` 用 `PULL_MODE=NONE`：⭐ 它是**输出**，上拉无意义
-//      ⚠️ **本版未接逻辑**（`uart_tx.v` 不存在）⇒ 恒 0（串口线处于 break，⛔ 无害）
+//      ✅ **2026-09-24 更正**：⭐ **`uart_tx` 已经接好逻辑了** ——
+//         `rtl/w3c/uart_tx.v` 存在（162 行）· `top.v` 里已例化（`u_uart_tx`，`BAUD_DIV=50`）
+//         ⇒ ⭐ **空闲时输出【高】**（UART 空闲态），⛔ **不再是"恒 0 / break"**
+//         📌 旧注释写"本版未接逻辑，恒 0" —— ⚠️ **那是过时的**，⛔ 别据此误判"串口没回话是正常的"
 // ─────────────────────────────────────────────────────────────────────────────
 IO_LOC  "uart_rx" V14;       // ⭐ BANK8 · 板载 BL616 TX → FPGA（入）
 IO_PORT "uart_rx" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
-IO_LOC  "uart_tx" U15;       // ⭐ BANK6 · FPGA → 板载 BL616 RX（出，⚠️ 本版未接逻辑）
+IO_LOC  "uart_tx" U15;       // ⭐ BANK6 · FPGA → 板载 BL616 RX（出，✅ 已接逻辑）
 IO_PORT "uart_tx" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;

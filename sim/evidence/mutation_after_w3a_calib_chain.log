@@ -1,0 +1,191 @@
+=== mutation testing: 90 mutant(s)  [FULL] ===
+  estimated: ~163.5 min (each mutant runs the full regression)
+
+  [M01] RED  (caught)  frame length off by one -> tick/bclk period wrong
+  [M02] RED  (caught)  BCK toggles at the wrong rate -> BCK period wrong
+  [M03] RED  (caught)  R-03 regression: data changes on the DAC sampling edge (setup ~0)
+  [M04] RED  (caught)  LSBJ off by one bit -> point-by-point compare fails
+  [M05] RED  (caught)  U-25b regression: SD_MODE polarity inverted -> driven LOW = Shutdown = SILENT board (must be caught)
+  [M06] RED  (caught)  K-01 regression: OE guard removed -> narrow pulse reaches the pin
+  [M07] RED  (caught)  K-03 regression: LE raised while CLK is still moving
+  [M08] RED  (caught)  R-08 regression: reset release no longer 2-stage synchronised
+  [M09] RED  (caught)  A1 checker disabled -> narrow pulse no longer reported (its self-test must fail)
+  [M10] RED  (caught)  A2 checker disabled -> LE-while-CLK-moves no longer reported
+  [M11] RED  (caught)  A4/A5 checker threshold broken -> two-active never reported
+  [M12] RED  (caught)  S2 model reads pre-shift sr -> off-by-one bit (the historic M1 failure mode)
+  [M13] RED  (caught)  truncation takes LOW bits instead of high -> only value-range coverage catches it
+  [M14] RED  (caught)  K-57 regression: OE window back to 160 ns (< datasheet tw(OE) 500 ns) -- PARAM_OK must flag it
+  [M15] RED  (caught)  U-25b regression: delivery branch drives SD_MODE low -> Shutdown => SILENT board (the very bug U-25b fixed; must be caught)
+  [M16] RED  (caught)  K-66 regression: LE high during the recovery pulse -> device would switch to SPECIAL mode
+  [M17] RED  (caught)  K-66 regression: OE window shrunk to 250 ns -> violates tw(OE) 500 ns (must be caught)
+  [M18] RED  (caught)  R-16/U-25b regression: default back to 0 -> SD_MODE low on Console -> SILENT board (guard I must catch it)
+  [M19] RED  (caught)  T14 regression: debounce window removed -> bounce passes through -> key_down fires many times (must be caught)
+  [M20] RED  (caught)  T13 regression: span gain computed wrong -> calibrated full-scale does not converge to 4095 (must be caught)
+  [M21] RED  (caught)  L8/adc_farm regression: fanout slave CS inverted -> fanout mismatch (A4p) must be caught
+  [M22] RED  (caught)  L8/adc_farm regression: slave 1 alias reads slave 2's slice -> sample_data1 wrong (must be caught)
+  [M23] RED  (caught)  T54 regression: retrigger never pulls the gate low -> ADSR never restarts Attack (must be caught)
+  [M24] RED  (caught)  T54 regression: no candidate ever selected -> note silently dropped (must be caught)
+  [M25] RED  (caught)  T54 regression: pitch_update ignored -> glissando does not track (must be caught)
+  [M26] RED  (caught)  T54 regression: vel_update ignored -> dual-threshold velocity correction lost (must be caught)
+  [M27] RED  (caught)  T54 regression: same-axis retrigger detection removed -> a repeated key eats a second voice (must be caught)
+  [M28] RED  (caught)  T54 regression: pool mask stuck at 0 -> no voice can ever be allocated (must be caught)
+  [M45] RED  (caught)  K-106 regression: overflow detection disabled -> drops become SILENT again (must be caught)
+  [M46] RED  (caught)  K-106 regression: lost-event counter never increments -> count lies that nothing was lost (must be caught)
+  [M47] RED  (caught)  K-106 regression: sticky flag never sets -> overflow invisible on the board (must be caught)
+  [M48] RED  (caught)  K-106 regression: saturation removed -> count WRAPS (256 losses would read as 0, another silent failure) (must be caught)
+  [M49] RED  (caught)  T33 regression: accent never fires -> every beat is a weak beat (must be caught)
+  [M50] RED  (caught)  T33 regression: events emitted even when transport is stopped (must be caught)
+  [M51] RED  (caught)  T33 regression (K-109): payload no longer tracks the accent -> counter says accent, ear hears weak beat (must be caught)
+  [M52] RED  (caught)  T33 regression: event loses its dedicated axis id -> lands in the normal pool and gets STOLEN when 32 voices sound (must be caught)
+  [M53] RED  (caught)  T33 regression: active never clears when the envelope hits 0 -> voice never released -> HUNG NOTE (must be caught)
+  [M54] RED  (caught)  T33 regression: decay 67x too slow -> click lasts ~1 s instead of 20 ms (must be caught)
+  [M55] RED  (caught)  T33 regression: velocity no longer latched at trigger -> accent/velocity response dead (must be caught)
+  [M56] RED  (caught)  T33b regression: bit order reversed (MSB-first) -> every byte is bit-reversed (must be caught)
+  [M57] RED  (caught)  T33b regression: samples at the bit EDGE instead of the middle -> marginal/noisy reception (must be caught)
+  [M58] RED  (caught)  T33b regression: start-bit glitch check removed -> short noise pulses are accepted as frames (must be caught)
+  [M59] RED  (caught)  T33b regression: completion pulse never asserts -> no byte is ever delivered (must be caught)
+  [M60] RED  (caught)  U-18 regression: kind=2 (tempo) events are also emitted as notes -> every tempo change plays a bogus note (must be caught)
+  [M61] RED  (caught)  U-18 regression: tick_inc=0 is applied -> phase stops advancing -> the musical clock FREEZES (contract 3.2 risk 3; must be caught)
+  [M63] RED  (caught)  U-18 regression: underrun indicator disabled -> a starved buffer fails SILENTLY (K-106; must be caught)
+  [M64] RED  (caught)  U-6 regression: push_n loses its width -> 1+1 truncates to 0 -> a same-cycle collision pushes NOTHING (the exact bug this module exists to fix; must be caught)
+  [M65] RED  (caught)  U-6 regression: pop from an EMPTY queue -> emits garbage events that were never pushed (must be caught)
+  [M66] RED  (caught)  U-6 regression: overflow ignored -> writes past the ring and the counter runs away (silent corruption; must be caught)
+  [M67] RED  (caught)  U-6 regression: overflow flag never latches -> drops happen SILENTLY (K-106; must be caught)
+  [M68] RED  (caught)  U-6 regression: round-robin removed -> one source always wins, the other starves under repeated collisions (must be caught)
+  [M69] RED  (caught)  U-18 regression: the tick field is ignored again -> a forward-dated event fires immediately, and a whole chord spills across N ticks (arpeggio) (must be caught)
+  [M70] RED  (caught)  U-18 regression: payload corrupted while valid stays correct -> 'count right, data wrong' (the 80-hao family; must be caught)
+  [M71] RED  (caught)  U-18 regression: the FIFO pop strobe is dead -> no event is ever handed over (must be caught)
+  [M72] RED  (caught)  U-18 regression: kind=2 (tempo) leaks into the note stream -> every tempo change plays a bogus note (must be caught)
+  [M73] RED  (caught)  framing regression: the header is accepted anywhere in the stream -> a 0xA5 payload byte causes a FALSE SYNC (the exact hazard this design avoids) (must be caught)
+  [M74] RED  (caught)  framing regression: the 9x0xA5 reset marker is no longer suppressed -> the PC reset sequence emits bogus events (must be caught)
+  [M75] RED  (caught)  framing regression: idle-gap resync disabled -> a half frame wedges the parser forever, and it never self-heals (must be caught)
+  [M76] RED  (caught)  framing regression: a wrong header byte advances anyway -> garbage is swallowed as payload instead of being rejected (must be caught)
+  [M29] RED  (caught)  T55 regression: table address takes a shifted phase window -> wrong DDS mapping (must be caught)
+  [M30] RED  (caught)  T55 regression: phase advances even when the voice is inactive -> idle voices drift (must be caught)
+  [M31] RED  (caught)  T55 regression: TDM capture disabled -> every lane reads 0 -> silence (must be caught)
+  [M32] RED  (caught)  T55 regression: test_mode override ignored -> T43 N-tone demo breaks (must be caught)
+  [M33] RED  (caught)  T56 regression: deadline check never fires -> A6 (frame deadline) unguarded (must be caught)
+  [M34] RED  (caught)  T56 regression: accumulation disabled -> output always 0 -> silence (must be caught)
+  [M35] RED  (caught)  T56 regression: every TDM slot reads voice 0 -> no summing (must be caught)
+  [M36] RED  (caught)  T56 regression: positive saturation removed -> overflow wraps to negative (must be caught)
+  [M37] RED  (caught)  T56 regression: negative saturation removed -> overflow wraps positive (must be caught)
+  [M38] RED  (caught)  T57 regression: top drives silence again -> board never makes a sound (must be caught)
+  [M39] RED  (caught)  T57 regression: wrong E5 phase increment -> third tone missing (must be caught)
+  [M40] SKIP -- anchor text not found in rtl\top.v
+  [M41] RED  (caught)  T32 regression (K-107): phase advance re-coupled to the carry -> self-lock -> no tick ever fires (must be caught)
+  [M42] RED  (caught)  T32 regression: a tick on EVERY clk instead of on carry -> tick rate 50 MHz (must be caught)
+  [M43] RED  (caught)  T32 regression: phase stalls at the bar boundary -> tick interval jumps there (must be caught)
+  [M44] RED  (caught)  T32 regression (K-107): reported tick number off by one -> bar_start no longer lands on tick_cnt 0 (must be caught)
+  [M81] RED  (caught)  T33 regression: decay never terminates -> level stalls just above 0 and active_o never clears -> HUNG NOTE (must be caught)
+  [M82] RED  (caught)  master_mix regression: ramp disabled -> gain never tracks the target -> volume/mute dead (must be caught)
+  [M83] RED  (caught)  master_mix regression: Q1.15 scaling off by one -> output 2x too loud (must be caught)
+  [M84] RED  (caught)  master_mix regression: valid dropped -> downstream (i2s_tx) never latches the sample -> silence (must be caught)
+  [M85] SKIP -- anchor text not found in rtl\w3c\master_mix.v
+  [M88] RED  (caught)  W3a axis_map: the interpolation slope is forced to zero -> dual-press interpolation degrades to 'only the lower key' (glissando silently dies). Must be caught.
+  [M89] RED  (caught)  W3a axis_map: the valid strobe is killed -> phase_inc is produced but never handed over. Must be caught.
+  [M90] RED  (caught)  W3a event_extract: the refractory gate is removed -> a bouncing key emits repeated note_on. Must be caught.
+  [M91] RED  (caught)  W3a event_extract: the refractory counter is set to its MAX -> the key is blocked forever (fires once, never again). Must be caught.
+  [M92] RED  (caught)  W3a event_extract: hysteresis removed (release threshold == trigger threshold) -> a bouncing contact emits repeated on/off. Must be caught.
+  [M93] RED  (caught)  W3a event_extract: the axis field of a dequeued event is corrupted -> note_on arrives but plays the WRONG key. Must be caught.
+  [M94] RED  (caught)  W3a param_extract: the velocity polarity is inverted -> a fast press reads as quiet (the feature is silently backwards). Must be caught.
+  [M95] RED  (caught)  W3a param_extract: dt drops the t1 timestamp term -> the measured interval no longer reflects how fast the key was pressed (velocity becomes meaningless). Must be caught.
+  [M96] RED  (caught)  W3a param_extract: the underflow guard wraps to MAX instead of clamping to 0 -> a t2-before-t1 ordering turns the LOUDEST hit into the QUIETEST. Must be caught.
+  [M97] RED  (caught)  W3a param_extract: the edge/hold gate on the deep threshold is removed -> dt is recomputed every frame (velocity floods and jitters). Must be caught.
+
+================ mutation testing summary ================
+  M01   caught    frame length off by one -> tick/bclk period wrong
+  M02   caught    BCK toggles at the wrong rate -> BCK period wrong
+  M03   caught    R-03 regression: data changes on the DAC sampling edge (setup ~0)
+  M04   caught    LSBJ off by one bit -> point-by-point compare fails
+  M05   caught    U-25b regression: SD_MODE polarity inverted -> driven LOW = Shutdown = SILENT board (must be caught)
+  M06   caught    K-01 regression: OE guard removed -> narrow pulse reaches the pin
+  M07   caught    K-03 regression: LE raised while CLK is still moving
+  M08   caught    R-08 regression: reset release no longer 2-stage synchronised
+  M09   caught    A1 checker disabled -> narrow pulse no longer reported (its self-test must fail)
+  M10   caught    A2 checker disabled -> LE-while-CLK-moves no longer reported
+  M11   caught    A4/A5 checker threshold broken -> two-active never reported
+  M12   caught    S2 model reads pre-shift sr -> off-by-one bit (the historic M1 failure mode)
+  M13   caught    truncation takes LOW bits instead of high -> only value-range coverage catches it
+  M14   caught    K-57 regression: OE window back to 160 ns (< datasheet tw(OE) 500 ns) -- PARAM_OK must flag it
+  M15   caught    U-25b regression: delivery branch drives SD_MODE low -> Shutdown => SILENT board (the very bug U-25b fixed; must be caught)
+  M16   caught    K-66 regression: LE high during the recovery pulse -> device would switch to SPECIAL mode
+  M17   caught    K-66 regression: OE window shrunk to 250 ns -> violates tw(OE) 500 ns (must be caught)
+  M18   caught    R-16/U-25b regression: default back to 0 -> SD_MODE low on Console -> SILENT board (guard I must catch it)
+  M19   caught    T14 regression: debounce window removed -> bounce passes through -> key_down fires many times (must be caught)
+  M20   caught    T13 regression: span gain computed wrong -> calibrated full-scale does not converge to 4095 (must be caught)
+  M21   caught    L8/adc_farm regression: fanout slave CS inverted -> fanout mismatch (A4p) must be caught
+  M22   caught    L8/adc_farm regression: slave 1 alias reads slave 2's slice -> sample_data1 wrong (must be caught)
+  M23   caught    T54 regression: retrigger never pulls the gate low -> ADSR never restarts Attack (must be caught)
+  M24   caught    T54 regression: no candidate ever selected -> note silently dropped (must be caught)
+  M25   caught    T54 regression: pitch_update ignored -> glissando does not track (must be caught)
+  M26   caught    T54 regression: vel_update ignored -> dual-threshold velocity correction lost (must be caught)
+  M27   caught    T54 regression: same-axis retrigger detection removed -> a repeated key eats a second voice (must be caught)
+  M28   caught    T54 regression: pool mask stuck at 0 -> no voice can ever be allocated (must be caught)
+  M45   caught    K-106 regression: overflow detection disabled -> drops become SILENT again (must be caught)
+  M46   caught    K-106 regression: lost-event counter never increments -> count lies that nothing was lost (must be caught)
+  M47   caught    K-106 regression: sticky flag never sets -> overflow invisible on the board (must be caught)
+  M48   caught    K-106 regression: saturation removed -> count WRAPS (256 losses would read as 0, another silent failure) (must be caught)
+  M49   caught    T33 regression: accent never fires -> every beat is a weak beat (must be caught)
+  M50   caught    T33 regression: events emitted even when transport is stopped (must be caught)
+  M51   caught    T33 regression (K-109): payload no longer tracks the accent -> counter says accent, ear hears weak beat (must be caught)
+  M52   caught    T33 regression: event loses its dedicated axis id -> lands in the normal pool and gets STOLEN when 32 voices sound (must be caught)
+  M53   caught    T33 regression: active never clears when the envelope hits 0 -> voice never released -> HUNG NOTE (must be caught)
+  M54   caught    T33 regression: decay 67x too slow -> click lasts ~1 s instead of 20 ms (must be caught)
+  M55   caught    T33 regression: velocity no longer latched at trigger -> accent/velocity response dead (must be caught)
+  M56   caught    T33b regression: bit order reversed (MSB-first) -> every byte is bit-reversed (must be caught)
+  M57   caught    T33b regression: samples at the bit EDGE instead of the middle -> marginal/noisy reception (must be caught)
+  M58   caught    T33b regression: start-bit glitch check removed -> short noise pulses are accepted as frames (must be caught)
+  M59   caught    T33b regression: completion pulse never asserts -> no byte is ever delivered (must be caught)
+  M60   caught    U-18 regression: kind=2 (tempo) events are also emitted as notes -> every tempo change plays a bogus note (must be caught)
+  M61   caught    U-18 regression: tick_inc=0 is applied -> phase stops advancing -> the musical clock FREEZES (contract 3.2 risk 3; must be caught)
+  M63   caught    U-18 regression: underrun indicator disabled -> a starved buffer fails SILENTLY (K-106; must be caught)
+  M64   caught    U-6 regression: push_n loses its width -> 1+1 truncates to 0 -> a same-cycle collision pushes NOTHING (the exact bug this module exists to fix; must be caught)
+  M65   caught    U-6 regression: pop from an EMPTY queue -> emits garbage events that were never pushed (must be caught)
+  M66   caught    U-6 regression: overflow ignored -> writes past the ring and the counter runs away (silent corruption; must be caught)
+  M67   caught    U-6 regression: overflow flag never latches -> drops happen SILENTLY (K-106; must be caught)
+  M68   caught    U-6 regression: round-robin removed -> one source always wins, the other starves under repeated collisions (must be caught)
+  M69   caught    U-18 regression: the tick field is ignored again -> a forward-dated event fires immediately, and a whole chord spills across N ticks (arpeggio) (must be caught)
+  M70   caught    U-18 regression: payload corrupted while valid stays correct -> 'count right, data wrong' (the 80-hao family; must be caught)
+  M71   caught    U-18 regression: the FIFO pop strobe is dead -> no event is ever handed over (must be caught)
+  M72   caught    U-18 regression: kind=2 (tempo) leaks into the note stream -> every tempo change plays a bogus note (must be caught)
+  M73   caught    framing regression: the header is accepted anywhere in the stream -> a 0xA5 payload byte causes a FALSE SYNC (the exact hazard this design avoids) (must be caught)
+  M74   caught    framing regression: the 9x0xA5 reset marker is no longer suppressed -> the PC reset sequence emits bogus events (must be caught)
+  M75   caught    framing regression: idle-gap resync disabled -> a half frame wedges the parser forever, and it never self-heals (must be caught)
+  M76   caught    framing regression: a wrong header byte advances anyway -> garbage is swallowed as payload instead of being rejected (must be caught)
+  M29   caught    T55 regression: table address takes a shifted phase window -> wrong DDS mapping (must be caught)
+  M30   caught    T55 regression: phase advances even when the voice is inactive -> idle voices drift (must be caught)
+  M31   caught    T55 regression: TDM capture disabled -> every lane reads 0 -> silence (must be caught)
+  M32   caught    T55 regression: test_mode override ignored -> T43 N-tone demo breaks (must be caught)
+  M33   caught    T56 regression: deadline check never fires -> A6 (frame deadline) unguarded (must be caught)
+  M34   caught    T56 regression: accumulation disabled -> output always 0 -> silence (must be caught)
+  M35   caught    T56 regression: every TDM slot reads voice 0 -> no summing (must be caught)
+  M36   caught    T56 regression: positive saturation removed -> overflow wraps to negative (must be caught)
+  M37   caught    T56 regression: negative saturation removed -> overflow wraps positive (must be caught)
+  M38   caught    T57 regression: top drives silence again -> board never makes a sound (must be caught)
+  M39   caught    T57 regression: wrong E5 phase increment -> third tone missing (must be caught)
+  M40   skipped   anchor not found
+  M41   caught    T32 regression (K-107): phase advance re-coupled to the carry -> self-lock -> no tick ever fires (must be caught)
+  M42   caught    T32 regression: a tick on EVERY clk instead of on carry -> tick rate 50 MHz (must be caught)
+  M43   caught    T32 regression: phase stalls at the bar boundary -> tick interval jumps there (must be caught)
+  M44   caught    T32 regression (K-107): reported tick number off by one -> bar_start no longer lands on tick_cnt 0 (must be caught)
+  M81   caught    T33 regression: decay never terminates -> level stalls just above 0 and active_o never clears -> HUNG NOTE (must be caught)
+  M82   caught    master_mix regression: ramp disabled -> gain never tracks the target -> volume/mute dead (must be caught)
+  M83   caught    master_mix regression: Q1.15 scaling off by one -> output 2x too loud (must be caught)
+  M84   caught    master_mix regression: valid dropped -> downstream (i2s_tx) never latches the sample -> silence (must be caught)
+  M85   skipped   anchor not found
+  M88   caught    W3a axis_map: the interpolation slope is forced to zero -> dual-press interpolation degrades to 'only the lower key' (glissando silently dies). Must be caught.
+  M89   caught    W3a axis_map: the valid strobe is killed -> phase_inc is produced but never handed over. Must be caught.
+  M90   caught    W3a event_extract: the refractory gate is removed -> a bouncing key emits repeated note_on. Must be caught.
+  M91   caught    W3a event_extract: the refractory counter is set to its MAX -> the key is blocked forever (fires once, never again). Must be caught.
+  M92   caught    W3a event_extract: hysteresis removed (release threshold == trigger threshold) -> a bouncing contact emits repeated on/off. Must be caught.
+  M93   caught    W3a event_extract: the axis field of a dequeued event is corrupted -> note_on arrives but plays the WRONG key. Must be caught.
+  M94   caught    W3a param_extract: the velocity polarity is inverted -> a fast press reads as quiet (the feature is silently backwards). Must be caught.
+  M95   caught    W3a param_extract: dt drops the t1 timestamp term -> the measured interval no longer reflects how fast the key was pressed (velocity becomes meaningless). Must be caught.
+  M96   caught    W3a param_extract: the underflow guard wraps to MAX instead of clamping to 0 -> a t2-before-t1 ordering turns the LOUDEST hit into the QUIETEST. Must be caught.
+  M97   caught    W3a param_extract: the edge/hold gate on the deep threshold is removed -> dt is recomputed every frame (velocity floods and jitters). Must be caught.
+==========================================================
+FAIL: 2 mutation(s) were SKIPPED -- anchor text not found.
+      A skipped mutant guards NOTHING.  Re-point the anchor at the current RTL (see K-87).
+
+=== regenerating sim/evidence from the restored (clean) RTL ===
+OK: sim/evidence regenerated from clean code

@@ -59,6 +59,25 @@ module tb_top_sound;
         //    ⚠️ 默认 0 = W3a 手弹；⚠️ 若不选，演示和弦进不了 evt_merge，本 tb 会失败。
         .SOURCE_A_SEL      (1),
         .DEMO_NOTE_DELAY   (2000),     // ⚠️ 改小以便快速仿真（默认 2_000_000 太慢）
+        // ⭐⭐ 2026-09-24 补：漏传的 3 个加速参数
+        //    🔴 **为什么必须补**：⚠️ 不传就用 `top.v` 的默认值 ⇒
+        //       `DEMO_HOLD_CYC  = 50_000_000`（**1 秒**仿真时间）
+        //       `AUTOTARE_DELAY_CLK = 10_000_000`（200 ms）
+        //       `PA_ON_DELAY    =  1_048_576`（21 ms）
+        //       ⇒ 🔴 合计 ≈ **1.22 秒**仿真时间 ⇒ ⭐ **本 tb 实测跑了 108 秒**
+        //    ⭐ 取值照抄 `tb_e2e_key_to_sound`（⭐ 那边【实测通过】⇒ 有先例背书）
+        //    ✅ 安全性（⭐ 已逐条核实，⛔ 不是"应该没事"）：
+        //       · `PA_ON_DELAY`  —— ⭐ 本 tb 注释明说"只关心音频，功放时序另有 tb"
+        //       · `DEMO_HOLD_CYC`—— ⭐ 本 tb 在 ~6096 clk（122 µs）就开始采集，
+        //                            而 200_000 拍 = 4 ms ⇒ ✅ 采集仍在和弦发声期内
+        //       · `AUTOTARE_DELAY_CLK` —— ⭐ 本 tb 不测标定
+        //       · `SPAN_*`       —— ⭐ 本 tb 不测 `calib_span`
+        .DEMO_HOLD_CYC       (200_000),
+        .AUTOTARE_DELAY_CLK  (100_000),
+        .PA_ON_DELAY         (32),
+        .SPAN_WAIT_TIMEOUT_CLK (50_000),
+        .SPAN_STABLE_NEED      (4),
+        .SPAN_VOTE_N           (4),
         .POLY_TARGET       (POLY),
         .OSC_PER_VOICE     (OPV),
         .HEARTBEAT_DIV     (100)

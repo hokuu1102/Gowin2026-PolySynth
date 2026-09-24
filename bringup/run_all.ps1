@@ -1,4 +1,4 @@
-# run_all.ps1 -- run EVERY verification that works WITHOUT a board today,
+﻿# run_all.ps1 -- run EVERY verification that works WITHOUT a board today,
 #               then print one acceptance matrix.
 #
 # Usage:

@@ -1,4 +1,4 @@
-# mutation_result_watchdog.ps1 -- independent verdict observer for the mutation run.
+﻿# mutation_result_watchdog.ps1 -- independent verdict observer for the mutation run.
 # ASCII only.  (PS 5.1 decodes BOM-less UTF-8 as GBK -> non-ASCII can change syntax.)
 #
 # WHY: mutation_test.ps1 writes per-mutant verdicts ONLY to stdout.  It does not

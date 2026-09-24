@@ -1,4 +1,4 @@
-# probe_balls.ps1 -- find which ball numbers are LEGAL in this device/package
+﻿# probe_balls.ps1 -- find which ball numbers are LEGAL in this device/package
 #
 # WHY: the official examples do not all target the same package variant, so a ball that
 # appears in an example .cst may still be rejected with CT1113 ("Can't find pad location").

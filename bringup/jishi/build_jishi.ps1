@@ -1,4 +1,4 @@
-# build_jishi.ps1 -- one-shot build for the JISHI board + copy the reports into evidence/
+﻿# build_jishi.ps1 -- one-shot build for the JISHI board + copy the reports into evidence/
 #
 # Usage (* works from ANY directory -- the repo root is derived from this script's own path):
 #   powershell -NoProfile -ExecutionPolicy Bypass -File <repo>\bringup\jishi\build_jishi.ps1

@@ -1,4 +1,4 @@
-# gowin_build.ps1 -- build the Gowin project from the command line and copy the
+﻿# gowin_build.ps1 -- build the Gowin project from the command line and copy the
 #                    evidence (timing / pins / resources) into sim/evidence/.
 #
 # Usage (from anywhere):

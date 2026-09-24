@@ -47,6 +47,21 @@ module param_extract #(
     parameter [POS_W-1:0] VEL_T1 = 12'h200,
     //   ⭐ **深阈 t2**：⭐ 越过它 ⇒ 记时刻、算 `Δt` ⇒ 发 `vel_update`
     parameter [POS_W-1:0] VEL_T2 = 12'h600,
+
+    // ⭐⭐ `POS_FULL`：⭐ **`pos` 的满量程码值**（⭐ 2026-09-24 新增，修 `K-124`）
+    //   🔴 **为什么必须加**（⭐ `K-124` 的根因）：
+    //      ⚠️ 这个模块**看不到"行程有多大"** ⇒ 🔴 自检只能查"参数彼此的关系"
+    //      ⇒ 🔴 **`VEL_T2 = 1536` 超过实际行程 `744` 这种【超量程】永远抓不到**
+    //      ⇒ ⚠️ 上板表现：⭐ **深阈永远越不过 ⇒ 力度恒定**（⚠️ 而波形全对）
+    //   ⭐ **语义**：⭐ `pos` 满量程时的码值
+    //      · ⭐ **只 `tare`（不走 `span`）** ⇒ `POS_FULL = 744`（⭐ **上电默认档**）
+    //      · ⭐ **做过 `span`（归一化到 4095）** ⇒ `POS_FULL = 4095`
+    //   ⚠️ **`POS_FULL = 0` 是【哨兵】**：⭐ "没告诉我满量程" ⇒ 回退用 `VEL_T1`/`VEL_T2`
+    parameter [POS_W-1:0] POS_FULL = 12'd744,
+    //   ⭐ 阈值占满量程的**比例**（⭐ 只有 `POS_FULL != 0` 时才用）
+    parameter integer VEL_T1_PCT = 50,
+    parameter integer VEL_T2_PCT = 80,
+
     //   ⭐ **`Δt` 的饱和上界**（单位：快照帧）
     //      ⚠️ `Δt` 极小时（⭐ 一次快照内越两阈）⇒ ⭐ 力度取**最大**（⛔ 不回绕）
     parameter integer DT_MIN = 1,
@@ -61,7 +76,17 @@ module param_extract #(
     //   ⚠️ 依据（⭐ 变异体 `M97` 守的就是它）：
     //      ⚠️ 若无条件发 `pitch_update` ⇒ 🔴 **静止时疯狂刷参数**
     //      ⇒ ⭐ 必须"**变化超过门限才发**"。
-    parameter [POS_W:0] PITCH_DELTA_TH = 13'd32
+    parameter [POS_W:0] PITCH_DELTA_TH = 13'd32,
+
+    // ⭐⭐ **有效阈值**（⭐ 2026-09-24 新增，修 `K-124`）
+    //   ⚠️ **必须放在参数列表的【末尾】**（⭐ Verilog-2001：`parameter` 不能夹在中间
+    //      又被后面的 `parameter` 跟 ⇒ ⚠️ 用 `localparam` 会语法错）
+    //   ⭐ `POS_FULL != 0` ⇒ 按比例算（⭐ **换档只改 `POS_FULL` 一个数**）
+    //   ⚠️ `POS_FULL == 0` ⇒ 回退到显式给的 `VEL_T1`/`VEL_T2`（⭐ 向后兼容）
+    parameter [POS_W-1:0] VEL_T1_EFF =
+        (POS_FULL != 12'd0) ? (POS_FULL * VEL_T1_PCT / 100) : VEL_T1,
+    parameter [POS_W-1:0] VEL_T2_EFF =
+        (POS_FULL != 12'd0) ? (POS_FULL * VEL_T2_PCT / 100) : VEL_T2
 ) (
     input  wire                    clk,
     input  wire                    rst_n,        // ⭐ 同步复位、低有效
@@ -215,7 +240,9 @@ module param_extract #(
             end else if (scanning) begin
                 // ⭐ 当前轴的行程
                 //   ⚠️ `pos_i[scan_axis*POS_W +: POS_W]` —— ⭐ 用寄存器做索引是安全的
-                if (pos_i[scan_axis*POS_W +: POS_W] >= VEL_T2) begin
+                //   ⭐⭐ 2026-09-24：⭐ 改用 **`VEL_T2_EFF`**（⭐ 有效阈值）
+                //      🔴 原写死 `VEL_T2` ⇒ ⚠️ `POS_FULL` 形同虚设（⭐ `K-124` 的修法要生效必须用它）
+                if (pos_i[scan_axis*POS_W +: POS_W] >= VEL_T2_EFF) begin
                     // ⭐ 已越深阈：⭐ **只在"刚越过"那一刻算一次**（⭐ 迟滞）
                     if (!was_above_t2[scan_axis] && t1_seen[scan_axis]) begin
                         // ⭐⭐ `Δt = 本帧 − 越过浅阈那一帧`
@@ -300,14 +327,24 @@ module param_extract #(
     //     ② `DT_MAX <= DT_MIN` ⇒ 🔴 映射表退化 ⇒ ⚠️ 力度只有两档
     //     ③ `VEL_MAX <= VEL_MIN` ⇒ ⚠️ 极性与量程都反了
     //     ④ `PITCH_DELTA_TH == 0` ⇒ 🔴 **音高修正如无条件发**（⭐ `M97` 同类）
+    //     ⑤ 🔴🔴 **`VEL_T2_EFF > POS_FULL`**（⭐ **2026-09-24 新增，`K-124`**）
+    //        ⚠️ **深阈超过满量程** ⇒ 🔴 **永远越不过** ⇒ ⭐ **力度恒定**
+    //        📌 **这正是 `K-124` 潜伏至今的原因**：
+    //           ⚠️ 原来的自检**只能查"参数彼此的关系"**（①②③④）
+    //           🔴 **看不到"满量程"** ⇒ ⚠️ **超量程永远抓不到**
+    //        ✅ 加了 `POS_FULL` 之后，⭐ **这条守住了根因**
     // ═══════════════════════════════════════════════════════════════════════
-    localparam PARAM_OK = (VEL_T2 > VEL_T1) && (DT_MAX > DT_MIN) &&
-                          (VEL_MAX > VEL_MIN) && (PITCH_DELTA_TH > 0);
+    localparam PARAM_OK = (VEL_T2_EFF > VEL_T1_EFF) && (DT_MAX > DT_MIN) &&
+                          (VEL_MAX > VEL_MIN) && (PITCH_DELTA_TH > 0) &&
+                          ((POS_FULL == 12'd0) || (VEL_T2_EFF <= POS_FULL));
 
     initial begin
-        if (VEL_T2 <= VEL_T1)
-            $display("ERROR [param_extract] VEL_T2 (0x%03h) <= VEL_T1 (0x%03h) => the deep threshold is not above the shallow one => dt is always 0 and VELOCITY IS CONSTANT (silent loss of the feature). PARAM_OK=0.",
-                     VEL_T2, VEL_T1);
+        if (VEL_T2_EFF <= VEL_T1_EFF)
+            $display("ERROR [param_extract] VEL_T2_EFF (0x%03h) <= VEL_T1_EFF (0x%03h) => the deep threshold is not above the shallow one => dt is always 0 and VELOCITY IS CONSTANT (silent loss of the feature). PARAM_OK=0.",
+                     VEL_T2_EFF, VEL_T1_EFF);
+        if ((POS_FULL != 12'd0) && (VEL_T2_EFF > POS_FULL))
+            $display("ERROR [param_extract] VEL_T2_EFF (0x%03h = %0d) > POS_FULL (0x%03h = %0d) => the deep threshold is BEYOND the full-scale travel => it can never be crossed => VELOCITY IS CONSTANT (K-124). Fix POS_FULL (it must match the actual travel: 744 for tare-only, 4095 after span) or lower VEL_T2_PCT. PARAM_OK=0.",
+                     VEL_T2_EFF, VEL_T2_EFF, POS_FULL, POS_FULL);
         if (DT_MAX <= DT_MIN)
             $display("ERROR [param_extract] DT_MAX = %0d <= DT_MIN = %0d => the velocity map degenerates to two levels. PARAM_OK=0.",
                      DT_MAX, DT_MIN);
