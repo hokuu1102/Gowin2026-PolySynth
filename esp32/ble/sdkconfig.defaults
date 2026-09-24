@@ -45,14 +45,60 @@ CONFIG_BT_BLE_ENABLED=y
 #       **报"undefined reference"时，先查该符号是不是被某个 CONFIG 挡住。**
 CONFIG_BT_BLE_42_FEATURES_SUPPORTED=y
 
+# ---- 🔴🔴 BLE 5.0 必须【关掉】—— 上机实测确认的广播故障根因 ----------------
+# ⭐ 2026-09-24 上机实测（ESP32-S3-DevKitC-1 / ESP-IDF v5.5）：
+#
+#   症状：启动广播被控制器拒绝
+#       E BT_BTM: btm_ble_write_adv_enable_complete failed
+#       E blebridge: adv start failed: 0xD
+#     ⇒ 🔴 手机永远扫不到 "FPGA2026-Synth"。
+#
+#   ⭐ 定位方法（对照实验）：
+#     烧 IDF 官方例子 examples/bluetooth/bluedroid/ble/ble_ibeacon：
+#       I BLE_INIT: Feature Config, ADV:1, BLE_50:0, ...
+#       I IBEACON_DEMO: Advertising start successfully     ✅ 成功
+#     而我们的固件同一块板子报：
+#       I BLE_INIT: Feature Config, ADV:1, BLE_50:1, ...
+#       E adv start failed: 0xD                            🔴 失败
+#     ⇒ ⭐ 唯一实质差异 = BLE 5.0 特性位。
+#       官方例子 sdkconfig: CONFIG_BT_BLE_50_FEATURES_SUPPORTED is not set
+#       我们的（IDF 默认）: =y + EXTEND_ADV/PERIODIC_ADV/EXTEND_SCAN 全开
+#
+#   ⚠️ 为什么第一次关掉"没效果"（重要教训）：
+#     本工程当时【同时】还有另一个 bug ——
+#     GAP 回调里只 case 了 ADV_DATA_SET_COMPLETE_EVT(=0)，
+#     而 raw API 实际回调 ADV_DATA_RAW_SET_COMPLETE_EVT(=4)
+#     ⇒ start_advertising() 压根没被调用。
+#     ⇒ 🔴 **两个 bug 叠加，互相掩盖**：修了 A 才看得见 B。
+#     ⭐ 教训：**"改了没效果"不等于"这个改动无关"** ——
+#        要先确认"改动所影响的代码路径【真的执行到了】"。
+#
+# ⚠️ 注意 S3 的 Kconfig 里没有 BTDM_CTRL_MODE choice（复用 C3），
+#    ⛔ 不要照抄初代 ESP32 的 BTDM_CTRL_MODE_BLE_ONLY 写法。
+CONFIG_BT_BLE_50_FEATURES_SUPPORTED=n
+
 # ⚠️ 不需要写"控制器模式 = BLE_ONLY"：S3 硬件上只有 BLE，
 #    其 Kconfig（复用 C3）里【没有】BTDM_CTRL_MODE 这个 choice。
 #    ⛔ 硬写会得到 unknown kconfig symbol 警告（无害但会误导后人）。
 
 # ---- ⭐ BLE 连接数与活动 ------------------------------------------------
 # ⚠️ S3 的正确符号名是 BT_CTRL_BLE_MAX_ACT（⛔ 不是 BTDM_CTRL_BLE_MAX_CONN）
-CONFIG_BT_ACL_CONNECTIONS=1
-CONFIG_BT_CTRL_BLE_MAX_ACT=1
+#
+# 🔴🔴 2026-09-24 上机实测：MAX_ACT 原来是 1，导致【广播使能失败】！
+#   症状：E BT_BTM: btm_ble_write_adv_enable_complete failed
+#         E blebridge: adv start failed: 0xD
+#   ⭐ 定位：与 IDF 官方例子 ble_ibeacon 逐项 diff sdkconfig 后发现
+#      官方: BT_CTRL_BLE_MAX_ACT=6 / BT_ACL_CONNECTIONS=4
+#      我们: BT_CTRL_BLE_MAX_ACT=1 / BT_ACL_CONNECTIONS=1
+#   ⭐ 含义：MAX_ACT = 控制器可同时进行的 BLE【活动】数上限
+#      （广播本身就是一种 activity）⇒ 设成 1 太紧，
+#      ⚠️ 与日志里 "update params for an active adv" 的现象吻合。
+#   ⇒ ⭐ 改为与官方例子一致（6 / 4）。
+#
+# ⚠️ 教训：⭐ 对照实验要【diff 完整配置】，⛔ 不要只盯自己怀疑的那一项。
+#    我之前只查了 BLE 5.0，漏掉了 MAX_ACT。
+CONFIG_BT_ACL_CONNECTIONS=4
+CONFIG_BT_CTRL_BLE_MAX_ACT=6
 
 # ---- ⭐ MTU ---------------------------------------------------------------
 # ⚠️ ESP-IDF 里【没有】CONFIG_BT_GATT_MAX_MTU_SIZE 这个符号（我一开始写错了）。
@@ -69,6 +115,12 @@ CONFIG_BT_GATT_MAX_SR_ATTRIBUTES=100
 # ---- 日志 --------------------------------------------------------------
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 CONFIG_ESP_CONSOLE_UART_BAUDRATE=921600
+
+# ⚠️ 2026-09-24：曾把 BT_LOG_*_TRACE_LEVEL 开到 VERBOSE 查广播故障，
+#    定位完已移除（VERBOSE 日志很吵，会淹没业务日志）。
+#    ⭐ 注意：esp_log_level_set() 运行时【改不动】蓝牙栈日志 ——
+#       低级别日志已被编译期 TRACE_LEVEL 裁掉，必须改 sdkconfig
+#       并【全量重编译】（删 sdkconfig 后重建）。
 
 # ---- 主任务栈 -----------------------------------------------------------
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=4096

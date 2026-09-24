@@ -197,10 +197,28 @@ static void ble_start_advertising(void)
 static void gap_event_handler(esp_gap_ble_cb_event_t event,
                               esp_ble_gap_cb_param_t *param)
 {
+    /* 🔴 2026-09-24 上机诊断：先确认【回调本身有没有被调用】。
+     *    ⚠️ 现象：config_adv_data_raw 返回 OK，但
+     *       ADV_DATA_SET_COMPLETE_EVT 永不触发 ⇒ 广播起不来。
+     *    ⭐ 若这行也不出现 ⇒ GAP 回调压根没注册成功（问题在注册处）；
+     *       若出现而 SET_COMPLETE 不来 ⇒ 事件真的没产生。 */
+    ESP_LOGI(TAG, "GAP cb: event=%d", (int)event);
+
     switch (event) {
+    /* 🔴🔴 2026-09-24 上机实测：这里曾是本工程最隐蔽的一个 bug ——
+     *   配置广播用的是 esp_ble_gap_config_adv_data_raw()，
+     *   它回调的是 ESP_GAP_BLE_ADV_DATA_RAW_SET_COMPLETE_EVT（枚举值 = 4），
+     *   ⛔【不是】ESP_GAP_BLE_ADV_DATA_SET_COMPLETE_EVT（= 0）。
+     *   ⚠️ 原来只 case 了 =0 的那个 ⇒ raw 事件落到 default 分支
+     *      ⇒ ble_start_advertising() 永不调用 ⇒ 🔴 广播从未启动
+     *      ⇒ 手机永远扫不到 "FPGA2026-Synth"。
+     *   ⭐ 教训：换 API（adv_data -> adv_data_raw）时，
+     *      必须【同时】改回调里的事件常量 —— 两者是配对的。
+     *   ✅ 现在两个事件都处理，两种 API 谁都能用。 */
     case ESP_GAP_BLE_ADV_DATA_SET_COMPLETE_EVT:
+    case ESP_GAP_BLE_ADV_DATA_RAW_SET_COMPLETE_EVT:
         s_adv_configured = true;
-        ESP_LOGI(TAG, "adv data set -> start advertising");
+        ESP_LOGI(TAG, "adv data set (evt=%d) -> start advertising", (int)event);
         ble_start_advertising();
         break;
 
@@ -244,23 +262,41 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
 
         /* 再配广播数据（⭐ GAP 回调里真正启动广播） */
         {
-            esp_ble_adv_data_t adv = {
-                .set_scan_rsp        = false,
-                .include_name        = true,
-                .include_txpower     = false,
-                .min_interval        = 0x06,
-                .max_interval        = 0x10,
-                .appearance          = 0x00,
-                .manufacturer_len    = 0,
-                .p_manufacturer_data = NULL,
-                .service_data_len    = 0,
-                .p_service_data      = NULL,
-                /* ⚠️ 服务 UUID 是【16 位】（0xABF0）⇒ 长度填 2，⛔ 不是 16 */
-                .service_uuid_len    = 2,
-                .p_service_uuid      = (uint8_t *)&gatt_service_uuid16,
-                .flag = (ESP_BLE_ADV_FLAG_GEN_DISC | ESP_BLE_ADV_FLAG_BREDR_NOT_SPT),
+            /* ⭐⭐⭐ 2026-09-24 上机实测：改用【原始广播数据】API
+             *
+             * 经过（两级错误，逐个定位）：
+             *   ① 原来 .service_uuid_len = 2 配 .p_service_uuid = &(uint16_t)
+             *      ⇒ ⚠️ ESP-IDF 要求后者指向【16 字节完整 UUID】
+             *      ⇒ 报 0x102 ESP_ERR_INVALID_ARG
+             *      ⇒ ADV_DATA_SET_COMPLETE_EVT 永不触发 ⇒ 广播从未启动。
+             *   ② 把 UUID 去掉（len=0）后，config 通过了，但启动广播报：
+             *      🔴 BT_BTM: btm_ble_write_adv_enable_complete failed (0xD FAIL)
+             *      ⚠️ 广播包只剩 Flags（结构体方式的隐式组装在
+             *         include_name 未及时生效时可能产出无效包）。
+             *
+             * ⭐ 最终修法：用 esp_ble_gap_config_adv_data_raw() 【手工构造】
+             *    标准 BLE 广播包 —— 每个字段的长度/类型都显式可控，
+             *    ⛔ 不依赖结构体的隐式行为。
+             *
+             * ⭐ 包内容（标准 AD 结构，每条 = [长度][类型][数据]）：
+             *    · Flags        : 02 01 06      (LE General Discoverable, BR/EDR Not Supported)
+             *    · Complete Name: 0x0F 09 "FPGA2026-Synth"   (14 字符 + 类型 + 长度 = 16 B)
+             *    ⚠️ 合计 3 + 16 = 19 B ≤ 31 B（BLE 4.x 广播包上限）✅
+             */
+            static uint8_t adv_raw[] = {
+                0x02, 0x01, 0x06,                     /* Flags */
+                0x0F, 0x09,                           /* len=15, type=完整本地名 */
+                'F','P','G','A','2','0','2','6','-','S','y','n','t','h'
             };
-            esp_ble_gap_config_adv_data(&adv);
+            esp_err_t adv_err = esp_ble_gap_config_adv_data_raw(adv_raw,
+                                                               sizeof(adv_raw));
+            if (adv_err != ESP_OK) {
+                ESP_LOGE(TAG, "config_adv_data_raw FAILED: 0x%X (%s)",
+                         adv_err, esp_err_to_name(adv_err));
+            } else {
+                ESP_LOGI(TAG, "config_adv_data_raw OK (%u B), waiting for SET_COMPLETE",
+                         (unsigned)sizeof(adv_raw));
+            }
         }
         break;
 
@@ -627,6 +663,19 @@ void app_main(void)
      *       CONFIG_BTDM_CTRL_MODE_BLE_ONLY=y（⚠️ SPP 版踩过"默认不是它"的坑）。
      */
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
+
+    /* 🔴🔴 2026-09-24 上机实测：缺了这一步，广播使能被控制器拒绝！
+     *   症状：E BT_BTM: btm_ble_write_adv_enable_complete failed
+     *         E blebridge: adv start failed: 0xD
+     *   ⭐ 定位：与 IDF 官方例子 ble_ibeacon 对照发现，
+     *      官方在 controller_init 【之前】先调用了：
+     *          esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT);
+     *      ⭐ S3 硬件【只有 BLE】，经典蓝牙的内存若不放，
+     *         控制器可用内存偏紧 ⇒ 广播这类"活动"申请资源失败。
+     *   ⚠️ 官方【每一个】BLE 例子都有这一行，我们漏了。
+     *   ⚠️ 必须在 esp_bt_controller_init() 之前调用。 */
+    ESP_ERROR_CHECK(esp_bt_controller_mem_release(ESP_BT_MODE_CLASSIC_BT));
+
     ESP_ERROR_CHECK(esp_bt_controller_init(&bt_cfg));
     ESP_ERROR_CHECK(esp_bt_controller_enable(ESP_BT_MODE_BLE));
     ESP_ERROR_CHECK(esp_bluedroid_init());

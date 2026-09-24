@@ -73,6 +73,7 @@
  *      ⇒ ⭐ 改引脚前必须对照具体模组的 datasheet。
  *      ⭐ 这里选 GPIO17/18 —— 在 S3 上是安全的通用 IO（⛔ 不是 USB 脚）。
  *      ⚠️ GPIO19/20 是 S3 的原生 USB（D-/D+），⛔ 不要当普通串口用。
+ *      🔴 GPIO38/48 是【板载 RGB LED】，⚠️ 驱动它们会让板子亮灯。
  */
 #define BLE_UART_PORT        UART_NUM_1
 #define BLE_PIN_UART_TX      17
