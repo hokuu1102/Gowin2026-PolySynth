@@ -29,8 +29,27 @@ module tb_param_extract;
     localparam integer VEL_W   = 8;
     localparam integer PHASE_W = 32;
 
-    localparam [POS_W-1:0] T1 = 12'h200;
-    localparam [POS_W-1:0] T2 = 12'h600;
+    // ⭐⭐ 2026-09-24 修正（⭐ 修 `K-124` 的**正面回应**）
+    //   🔴 **原来的问题**：⭐ 这里【自己定了一套超量程的值】
+    //      `T1 = 0x200 (512)` / `T2 = 0x600 (1536)` —— ⚠️ **而实际行程只有 744**
+    //      ⇒ 🔴 `T2` 永远越不过 ⇒ ⚠️ **力度恒定** —— ⭐ **而 tb 却"全过"**
+    //         （⭐ 因为 tb 喂的 `pos` 是按 512/1536 造的 ⇒ ⚠️ **测的不是交付配置**）
+    //   ✅ **现在改为**：⭐ 用**与 `top.v` 完全相同的参数**
+    //      · `POS_FULL = 744`（⭐ 与 `top.v` 的 `.POS_FULL(12'd744)` 一致）
+    //      · 阈值由【比例】算出 ⇒ ⭐ `T1 = 372` / `T2 = 595`
+    //   📌 **配套**：⭐ 下面喂 `pos` 的用例值也必须按新阈值改（⭐ 见 `pos` 赋值处）
+    localparam [POS_W-1:0] POS_FULL   = 12'd744;
+    localparam integer     VEL_T1_PCT = 50;
+    localparam integer     VEL_T2_PCT = 80;
+    localparam [POS_W-1:0] T1 = POS_FULL * VEL_T1_PCT / 100;   // ⭐ = 372
+    localparam [POS_W-1:0] T2 = POS_FULL * VEL_T2_PCT / 100;   // ⭐ = 595
+    // ⭐⭐ **"越深阈"用的 `pos` 值**（⭐ 2026-09-24 新增）
+    //   🔴 **原来写死 `12'h700`（= 1792）** ⇒ ⚠️ **超过 `POS_FULL = 744`**
+    //      ⇒ ⭐ 那是【超量程的值】—— ⚠️ 正是 `K-124` 想防的那种写法
+    //      📌 而 tb 喂的 `pos` 是 tb 自己造的 ⇒ ⚠️ 超量程也【不会报错】，
+    //         但它**不代表真实档** ⇒ ⭐ 测出来的结论【不可信】
+    //   ✅ 改成档内值：⭐ `POS_FULL − 14 = 730`（⭐ 接近满行程，且 > T2）
+    localparam [POS_W-1:0] DEEP_POS = POS_FULL - 12'd14;
 
     integer errors = 0;
 
@@ -59,6 +78,11 @@ module tb_param_extract;
         .PHASE_W        (PHASE_W),
         .VEL_T1         (T1),
         .VEL_T2         (T2),
+        // ⭐⭐ 2026-09-24：⭐ 传【与 top.v 相同的满量程】⇒ 阈值按比例算
+        //   ⚠️ 不传的后果：⭐ 用模块默认（744）⇒ ⚠️ 与本 tb 的 T1/T2 不一致
+        .POS_FULL       (POS_FULL),
+        .VEL_T1_PCT     (VEL_T1_PCT),
+        .VEL_T2_PCT     (VEL_T2_PCT),
         .DT_MIN         (1),
         .DT_MAX         (10),
         .VEL_MAX        (8'd255),
@@ -152,7 +176,12 @@ module tb_param_extract;
         integer g;
         begin
             // ⭐ 越浅阈（⭐ 模拟 event_extract 发 note_on）
-            set_axis(axis, T1 + 12'h100);
+            //   🔴 **2026-09-24 修正**：⭐ 原写 `T1 + 12'h100`（= 372+256 = 628）
+            //      ⚠️ 而 `T2 = 595` ⇒ 🔴 **一次就跨过了两阈**
+            //      ⇒ ⚠️ `dt` 恒 0 ⇒ 🔴 **力度恒为 VEL_MAX**（⭐ 判据①/② 必然失败）
+            //      📌 这是阈值改小后的**连带影响** —— ⚠️ 原来 T1=512 时 +0x100 刚好在 T2=1536 之下
+            //   ✅ 改为【两阈之间】：⭐ 保证"先越浅阈、后越深阈"是两步
+            set_axis(axis, (T1 + T2) / 2);
             send_evt(axis[AXIS_W-1:0], 2'd0);   // ⭐ note_on ⇒ 记 t1_stamp
             // ⭐ 等 gap_frames 帧
             for (g = 0; g < gap_frames; g = g + 1) begin
@@ -176,7 +205,7 @@ module tb_param_extract;
 
         // ═══ 判据 ② 快按 ⇒ 力度大 ═══
         vel_n = 0;
-        press_and_time(3, 1, 12'h700);          // ⭐ gap 小 = 按得快
+        press_and_time(3, 1, DEEP_POS);          // ⭐ gap 小 = 按得快
         chk("a fast press produces a vel_update", vel_n >= 1);
         v_fast = cap_vel;
 
@@ -184,7 +213,7 @@ module tb_param_extract;
         rst_n = 1'b0; repeat (4) @(posedge clk); rst_n = 1'b1; repeat (2) @(posedge clk);
         pos = 0;
         vel_n = 0;
-        press_and_time(3, 9, 12'h700);          // ⭐ gap 大 = 按得慢
+        press_and_time(3, 9, DEEP_POS);          // ⭐ gap 大 = 按得慢
         chk("a slow press produces a vel_update", vel_n >= 1);
         v_slow = cap_vel;
 
@@ -215,7 +244,7 @@ module tb_param_extract;
             // ── 第一次：复位后立刻做 fast press ──
             rst_n = 1'b0; repeat (4) @(posedge clk); rst_n = 1'b1; repeat (2) @(posedge clk);
             pos = 0; vel_n = 0;
-            press_and_time(7, 1, 12'h700);
+            press_and_time(7, 1, DEEP_POS);
             ka = vel_n;
             va = cap_vel;
 
@@ -228,7 +257,7 @@ module tb_param_extract;
                 for (g = 0; g < 40; g = g + 1) do_snap();   // ⭐ 只推进 frame_cnt
             end
             vel_n = 0;
-            press_and_time(7, 1, 12'h700);
+            press_and_time(7, 1, DEEP_POS);
             kb = vel_n;
             vb = cap_vel;
 
@@ -251,7 +280,7 @@ module tb_param_extract;
         pos = 0;
         vel_n = 0;
         // ⭐ 越浅阈与越深阈【同一帧】⇒ Δt = 0 或 1 ⇒ ⭐ 力度最大
-        set_axis(5, 12'h700);
+        set_axis(5, DEEP_POS);
         send_evt(4'd5, 2'd0);                   // note_on（记 t1_stamp）
         do_snap();                              // ⭐ 同一帧就越深阈
         repeat (60) @(posedge clk);
@@ -262,7 +291,7 @@ module tb_param_extract;
         rst_n = 1'b0; repeat (4) @(posedge clk); rst_n = 1'b1; repeat (2) @(posedge clk);
         pos = 0;
         vel_n = 0;
-        press_and_time(5, 20, 12'h700);         // ⭐ gap 远超 DT_MAX(10)
+        press_and_time(5, 20, DEEP_POS);         // ⭐ gap 远超 DT_MAX(10)
         chk("dt >= DT_MAX drops to VEL_MIN", (vel_n >= 1) && (cap_vel === 8'd64));
         $display("  [vel] dt-max value = %0d (expect 64)", cap_vel);
 
@@ -288,13 +317,13 @@ module tb_param_extract;
             vel_n = 0;
 
             // ⭐ ① 造出"越浅阈"的状态：⭐ 记一个【很大】的 `t1_stamp`（模拟回绕前）
-            set_axis(6, 12'h300);
+            set_axis(6, (T1 + T2) / 2);
             dut.t1_stamp[6] = 16'd65000;      // ⭐ 回绕前的时刻
             dut.t1_seen [6] = 1'b1;
             // ⭐ ② 把 `frame_cnt` 设成【回绕后】的小值
             dut.frame_cnt   = 16'd100;
             // ⭐ ③ 越深阈 ⇒ 触发 dt 计算（⭐ 此时 100 - 65000 会下溢）
-            set_axis(6, 12'h700);
+            set_axis(6, DEEP_POS);
             do_snap();
             repeat (60) @(posedge clk);
 
@@ -311,7 +340,7 @@ module tb_param_extract;
         pos = 0;
         vel_n = 0;
         send_evt(4'd2, 2'd1);                   // ⭐ note_off ⇒ ⛔ 不该记 t1_stamp
-        set_axis(2, 12'h700);
+        set_axis(2, DEEP_POS);
         do_snap();
         repeat (60) @(posedge clk);
         chk("note_off does NOT start a velocity measurement", vel_n == 0);

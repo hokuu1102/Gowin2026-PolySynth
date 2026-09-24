@@ -13,16 +13,20 @@
                              impl/pnr/Gowin2026.fs                  (bitstream)
 
   DEVICE CHOICE - read before changing:
-    pn="GW5AT-LV60PG484AC2/I1" is the board we PHYSICALLY HAVE (the Gowin
-    DK_START / "jishi" board, device id gw5at60b-003, silkscreen-confirmed).
-    The COMPETITION board is the Sipeed "Tang Mega 60K" dock, whose part number
-    is reported as GW5AT-LV60PG484AC1/I0 (Sipeed wiki + example project) but has
-    NOT been confirmed from the physical silkscreen yet - the repo notes this
-    drift explicitly (files/20-代码/RTL规划前仓库事实核验.md).
-    Same die + same package (GW5AT-60B / PBGA484A) => synthesis legality, pin
-    legality and the resource report below are valid for both. Only the speed
-    grade differs, so timing numbers here are optimistic; re-run with the dock
-    part number once the board is in hand.
+    UPDATED 2026-09-24: the Console board is IN HAND and the part number was
+    confirmed from the board itself by the user:
+        pn="GW5AT-LV60PG484AC1/I0"
+    IDE settings that go with it:  Package = PBG484A, Device Version = B
+
+    (Earlier this file carried the DK_START / "jishi" board part number,
+     which is a DIFFERENT SPEED GRADE of the same die and package.
+     The RTL and the pin constraints carry over unchanged.)
+
+    TIMING NOTE: C1 is the SLOWER grade, so any Fmax measured while this file
+    still said C2 was OPTIMISTIC.  Re-read Fmax from a fresh report.
+
+    KEEP THIS COMMENT ASCII-ONLY: the Gowin project parser is picky and rejects
+    non-ASCII bytes here.
 
   KEEP THE FILE LIST MINIMAL: only what the M0 top actually instantiates.
   Add each new module here as it lands (one line), so a broken module can never
@@ -31,7 +35,7 @@
 <Project>
     <Template>FPGA</Template>
     <Version>5</Version>
-    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC2/I1">gw5at60b-003</Device>
+    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC1/I0">gw5at60b-003</Device>
     <FileList>
         <File path="ip/wavetable_sine_rom_ip/wavetable_sine_rom_ip.v" type="file.verilog" enable="1"/>
         <File path="rtl/clk_gen.v" type="file.verilog" enable="1"/>

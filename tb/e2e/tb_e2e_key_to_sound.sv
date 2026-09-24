@@ -90,7 +90,15 @@ module tb_e2e_key_to_sound;
         //      ⚠️ 这正是我第一版判据⑥ 的失败原因：`idle = 2110`（= 4095−1985）
         //         而不是 `0`。
         //   📌 取 **100_000 拍**（2 ms）⇒ ⭐ 够让 `tare` 发生，⭐ 又只占总时长 4%。
-        .AUTOTARE_DELAY_CLK(100_000)
+        .AUTOTARE_DELAY_CLK(100_000),
+        // ⭐⭐ 2026-09-24 补：`calib_span` 的三个参数（⭐ 本 tb 不验 span 的语义）
+        //   🔴 **不传的代价**：⚠️ `WAIT_TIMEOUT_CLK` 默认 50_000_000（**1 秒**仿真时间）
+        //      ⇒ ⭐ 每次跑到"等按键"的超时兜底就烧掉 1 秒
+        //   ✅ 本 tb 测的是**手弹出声链**，⛔ 不验 `calib_span` 的稳定性/投票语义
+        //      ⇒ ⭐ 取小值不影响它的判据（⭐ 真值由 `tb_calib_span` 守着）
+        .SPAN_WAIT_TIMEOUT_CLK (50_000),
+        .SPAN_STABLE_NEED      (4),
+        .SPAN_VOTE_N           (4)
     ) u_top (
         .clk           (clk),
         .rst_n         (rst_n),

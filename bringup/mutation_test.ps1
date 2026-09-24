@@ -1,4 +1,4 @@
-# mutation_test.ps1 -- MUTATION TESTING: inject a known defect, require the suite to catch it.
+﻿# mutation_test.ps1 -- MUTATION TESTING: inject a known defect, require the suite to catch it.
 #
 # Usage (from the repository root):
 #   powershell -NoProfile -ExecutionPolicy Bypass -File bringup\mutation_test.ps1
@@ -299,11 +299,12 @@ $mutations = @(
   #      the transport gate, and the underrun indicator.
   @{ id = "M60"; file = "rtl\w3c\play_seq.v"; find = "wire is_note_event = (evt_kind == KIND_ON) || (evt_kind == KIND_OFF);"; repl = "wire is_note_event = 1'b1;"; why = "U-18 regression: kind=2 (tempo) events are also emitted as notes -> every tempo change plays a bogus note (must be caught)" },
   @{ id = "M61"; file = "rtl\w3c\play_seq.v"; find = "if (evt_inc != 32'd0) begin"; repl = "if (1'b1) begin"; why = "U-18 regression: tick_inc=0 is applied -> phase stops advancing -> the musical clock FREEZES (contract 3.2 risk 3; must be caught)" },
-  # ⚠️ 2026-09-22 夜重指锚点：`play_seq.v` 重写后：
-  #    · 变量 `take` 改名成 `emit_now`，且表达式拆成 `evt_due` + 门
-  #    · 🔴 **旧锚点文本现在只出现在【注释】里** ⇒ `.Replace()` 只改到注释，
-  #      RTL 没变 ⇒ 回归通过 ⇒ 误报 LEAK（变成本次全量跑的 M62）
-  #    ⭐ 教训（`K-87`）：**锚点腐烂 = 变异体什么都没守护**，必须重指。
+  # 2026-09-22 re-pointed: after play_seq.v was rewritten the variable `take`
+  #   became `emit_now` and the expression was split into `evt_due` + a gate.
+  #   The OLD anchor text then only existed inside a COMMENT, so .Replace()
+  #   edited the comment, the RTL never changed, the regression passed and the
+  #   run reported a false LEAK (that was M62 in that full run).
+  #   Lesson (K-87): a rotten anchor means the mutant guards NOTHING.
   @{ id = "M62"; file = "rtl\w3c\play_seq.v"; find = "wire emit_now = run_i & evt_due;"; repl = "wire emit_now = evt_due;"; why = "U-18 regression: transport gate dropped -> events are consumed while stopped (must be caught)" },
   @{ id = "M63"; file = "rtl\w3c\play_seq.v"; find = "wire underrun = run_i & tick_i & ~evt_valid_i;"; repl = "wire underrun = 1'b0;"; why = "U-18 regression: underrun indicator disabled -> a starved buffer fails SILENTLY (K-106; must be caught)" },
   # ---- U-6 (2026-09-22): evt_merge -- joins hand-play with metronome/score.
@@ -400,7 +401,28 @@ $mutations = @(
   @{ id = "M94"; file = "rtl\w3a\param_extract.v"; find = "vel_value_o <= vel_of(dt_hold[emit_axis]);"; repl = "vel_value_o <= 8'd255 - vel_of(dt_hold[emit_axis]);"; why = "W3a param_extract: the velocity polarity is inverted -> a fast press reads as quiet (the feature is silently backwards). Must be caught." },
   @{ id = "M95"; file = "rtl\w3a\param_extract.v"; find = "dt_hold[scan_axis] <= frame_cnt - t1_stamp[scan_axis];"; repl = "dt_hold[scan_axis] <= frame_cnt;"; why = "W3a param_extract: dt drops the t1 timestamp term -> the measured interval no longer reflects how fast the key was pressed (velocity becomes meaningless). Must be caught." },
   @{ id = "M96"; file = "rtl\w3a\param_extract.v"; find = "dt_hold[scan_axis] <= 16'd0;"; repl = "dt_hold[scan_axis] <= 16'hFFFF;"; why = "W3a param_extract: the underflow guard wraps to MAX instead of clamping to 0 -> a t2-before-t1 ordering turns the LOUDEST hit into the QUIETEST. Must be caught." },
-  @{ id = "M97"; file = "rtl\w3a\param_extract.v"; find = "if (!was_above_t2[scan_axis] && t1_seen[scan_axis]) begin"; repl = "if (1'b1) begin"; why = "W3a param_extract: the edge/hold gate on the deep threshold is removed -> dt is recomputed every frame (velocity floods and jitters). Must be caught." }
+  @{ id = "M97"; file = "rtl\w3a\param_extract.v"; find = "if (!was_above_t2[scan_axis] && t1_seen[scan_axis]) begin"; repl = "if (1'b1) begin"; why = "W3a param_extract: the edge/hold gate on the deep threshold is removed -> dt is recomputed every frame (velocity floods and jitters). Must be caught." },
+  # M98-M113 added 2026-09-24 (coverage gap: calib_span / calib_cmd / uart_tx / calib_autotare)
+  #   NOTE: keep every comment ABOVE an array element ASCII-only.  This file is
+  #   BOM-less UTF-8; PowerShell 5.1 decodes it as GBK, which can swallow the
+  #   newline after a non-ASCII run and MERGE the next line into the comment --
+  #   silently dropping that mutant from the array (see C72).  ASCII only = safe.
+  @{ id = "M98"; file = "rtl\w3a\calib_span.v"; find = "else if (sample_valid_i && (sample_ch_i == cur_axis[2:0]) && !cal_busy_i) begin"; repl = "else if (sample_valid_i && (sample_ch_i == cur_axis[2:0] + 3'd1) && !cal_busy_i) begin"; why = "W3a calib_span: the span pulse fires on the WRONG channel, so calib consumes another channel's raw code and the gain is computed from it. Silent (no error, busy still rises). Must be caught." },
+  @{ id = "M99"; file = "rtl\w3a\calib_span.v"; find = "if (stable_cnt >= STABLE_NEED[5:0])"; repl = "if (1'b1)"; why = "W3a calib_span: the stability gate is removed -> the FSM votes while the key is still moving, so the recorded full-scale point is garbage. Must be caught." },
+  @{ id = "M100"; file = "rtl\w3a\calib_span.v"; find = "if ((vmax - vmin) > VOTE_TOL) begin"; repl = "if (1'b0) begin"; why = "W3a calib_span: the sampling-spread check is removed -> a wildly moving reading is accepted as the full-scale point (this check is the whole point of multi-frame voting). Must be caught." },
+  @{ id = "M101"; file = "rtl\w3a\calib_span.v"; find = "if (cal_err_i && span_sent_r) begin"; repl = "if (1'b0 && span_sent_r) begin"; why = "W3a calib_span: calib.err is ignored -> a rejected calibration is silently treated as success and the axis keeps its old gain (K-87 family). Must be caught." },
+  @{ id = "M102"; file = "rtl\w3a\calib_span.v"; find = "if (abort_i) begin"; repl = "if (1'b0) begin"; why = "W3a calib_span: the 'X' cancel input stops working -> the FSM can no longer leave a stuck state, only a board reset recovers. Must be caught." },
+  @{ id = "M103"; file = "rtl\w3a\calib_span.v"; find = "state <= S_VOTE;             //"; repl = "state <= S_IDLE;             //"; why = "W3a calib_span: S_SETTLE never hands over to S_VOTE once the reading is stable -> the calibration can never complete. Must be caught." },
+  @{ id = "M104"; file = "rtl\w3a\calib_cmd.v"; find = "if (idx_q == 4'd0) begin"; repl = "if (1'b1) begin"; why = "W3a calib_cmd: frame-boundary tracking removed -> letters inside a 0xA5 frame are treated as commands, so a song dump containing 0x53/0x54/0x58 triggers calibration mid-playback. Catastrophic and silent. Must be caught." },
+  @{ id = "M105"; file = "rtl\w3a\calib_cmd.v"; find = "in_frame_cnt_o <= sat_inc16(in_frame_cnt_o);"; repl = "in_frame_cnt_o <= in_frame_cnt_o;"; why = "W3a calib_cmd: the 'ignored in-frame letter' counter stops counting -> the evidence that boundary tracking does anything disappears (K-106). Must be caught." },
+  @{ id = "M106"; file = "rtl\w3a\calib_cmd.v"; find = "end else if (idle_expired && (idx_q != 4'd0)) begin"; repl = "end else if (1'b0 && (idx_q != 4'd0)) begin"; why = "W3a calib_cmd: idle resync removed -> if the sender dies half-way through a frame the parser stays 'in frame' forever and swallows every later command as payload. Must be caught." },
+  @{ id = "M107"; file = "rtl\w3a\calib_cmd.v"; find = "idx_q <= 4'd1;"; repl = "idx_q <= 4'd0;"; why = "W3a calib_cmd: the 0xA5 header no longer advances the frame position -> payload bytes are never counted, the frame boundary is lost and payload letters can be mistaken for commands. Must be caught." },
+  @{ id = "M108"; file = "rtl\w3c\uart_tx.v"; find = "tx_o      <= shifter_q[0];"; repl = "tx_o      <= shifter_q[7];"; why = "W3c uart_tx: bit order inverted (MSB first) -> 0x01 arrives as 0x80; every byte is wrong yet the frame structure is perfect, so only a loopback byte-compare catches it. Must be caught." },
+  @{ id = "M109"; file = "rtl\w3c\uart_tx.v"; find = "shifter_q  <= tx_data_i;"; repl = "shifter_q  <= shifter_q;"; why = "W3c uart_tx: the data latch is removed -> the byte comes from the live input instead of the latched copy, so changing tx_data_i mid-transmission corrupts it. Must be caught." },
+  @{ id = "M110"; file = "rtl\w3c\uart_tx.v"; find = "bit_idx_q <= BIT_STOP;"; repl = "bit_idx_q <= 4'd8;"; why = "W3c uart_tx: the stop bit is not entered after D7 -> the line goes low again and the receiver sees a phantom start bit (the ORIGINAL D7-duplication bug fixed on 2026-09-24, which produced TWO rx_done per send). Must be caught." },
+  @{ id = "M111"; file = "rtl\w3c\uart_tx.v"; find = "tx_o       <= 1'b1;"; repl = "tx_o       <= 1'b0;"; why = "W3c uart_tx: reset drives the line LOW instead of the UART idle HIGH -> the peer sees a permanent start-bit condition. Must be caught." },
+  @{ id = "M112"; file = "rtl\w3a\calib_autotare.v"; find = "if (sample_valid_i && (sample_ch_i == cur_ch)) begin"; repl = "if (sample_valid_i && (1'b1)) begin"; why = "W3a calib_autotare: tare is no longer aligned to its own channel -> calib stores another channel's code as the zero point. Silent. Must be caught." },
+  @{ id = "M113"; file = "rtl\w3a\calib_autotare.v"; find = "if (retrig_i) begin"; repl = "if (1'b0) begin"; why = "W3a calib_autotare: the 'T' re-trigger input stops working -> the operator cannot re-zero the axes without a board reset. Must be caught." }
 )
 
 # ---- selection ---------------------------------------------------------------

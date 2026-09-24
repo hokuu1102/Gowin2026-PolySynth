@@ -1,5 +1,5 @@
-﻿NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000)
-NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=24 STABLE_TOL=8 VOTE_N=32 VOTE_TOL=16 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+﻿NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=8 VOTE_N=4 VOTE_TOL=16 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
 NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
 NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x095 REL_TH=0x059 DELTA_TH=8 REFRACT_N=150)
 NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
@@ -11,8 +11,8 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
 ==================== top / T57 鍑哄０閾鹃獙鏀?====================
   閲囬泦鏍风偣鏁?     : 2048
   閲囬泦鏈?clk 鎬绘暟 : 2096281
-  HP_DIN 涓?1 鎷嶆暟 : 510336
-  HP_DIN 缈昏浆娆℃暟  : 21124
+  HP_DIN 涓?1 鎷嶆暟 : 512160
+  HP_DIN 缈昏浆娆℃暟  : 21200
   mixer 杈撳嚭 fault : 0
 ============================================================
 == 1: HP_DIN 纭疄鍦ㄥ姩锛堜笉鍐嶆槸鎭?0锛?=
@@ -23,16 +23,16 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : mixer output is mostly non-zero (sound, not silence)
   ok  : mixer output varies (AC waveform, not DC)
 == 3: 涓変釜闊崇湡鐨勫湪锛圓4 / C#5 / E5锛?=
-     A4  440.0 Hz 鑳介噺 1.940e+15
-     C#5 554.4 Hz 鑳介噺 1.850e+15
-     E5  659.3 Hz 鑳介噺 2.082e+15
-     鍙傝€?500/610/720 Hz 鑳介噺 1.420e+13 / 1.277e+13 / 2.535e+13
+     A4  440.0 Hz 鑳介噺 2.090e+15
+     C#5 554.4 Hz 鑳介噺 2.000e+15
+     E5  659.3 Hz 鑳介噺 2.254e+15
+     鍙傝€?500/610/720 Hz 鑳介噺 1.368e+13 / 1.536e+13 / 2.725e+13
   ok  : A4 tone present (energy >> off-tone reference)
   ok  : C#5 tone present (energy >> off-tone reference)
   ok  : E5 tone present (energy >> off-tone reference)
 == 4: deadline_fault 鎭?0锛圓6锛?=
   ok  : deadline_fault stays 0 (frame deadline met)
 PASS: top sound chain (T57) - HP_DIN is live and the mixer emits a varying waveform
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_sound.sv:236: $finish called at 42047900000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_sound.sv:255: $finish called at 42047900000 (1ps)
 
 
