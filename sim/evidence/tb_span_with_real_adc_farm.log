@@ -1,0 +1,16 @@
+﻿NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+=== tb_span_with_real_adc_farm锛堢湡 adc_farm + 鐪?calib_span锛?==
+猸?甯у懆鏈?= 25000 鎷?= 500 us锛堚瓙 鐪熷弬鏁?CHANNEL_RATE_HZ=2000锛?
+猸?TIMEOUT = 50_000_000 鎷?= 1 绉?= 2000 甯э紙猸?鐪熷€硷級
+
+猸?澶嶅埢涓婃澘锛氱墖0 鐨?ch7 琚寜浣?= 2903锛屽叾浣欒蛋 IDVAL+ch锛?139~2146锛?
+   鈬?璺ㄩ€氶亾鏋佸樊 = 2903 - 2139 = 764锛堚瓙 涓庡疄娴?762 鍚岄噺绾э級
+--------------------------------------------------
+缁撴灉锛歴pan=6  reject=0  state=3  axis=6 done_cnt=6 rej_cnt=0
+--------------------------------------------------
+ok  : 鐪?adc_farm 椹卞姩涓嬶紝calib_span 鑳芥甯告爣瀹氾紙span>0, reject=0锛?
+      => 鉁?璇存槑銆愮湡瀹為噰鏍锋椂搴忋€戜笅鐘舵€佹満宸ヤ綔姝ｅ父
+      => 馃敶 涓婃澘澶辫触鐨勫師鍥犲湪鍒锛堜笉鏄噰鏍锋椂搴忥級
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_with_real_adc_farm.sv:200: $finish called at 60002440000 (1ps)
+
+

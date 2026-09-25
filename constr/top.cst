@@ -28,6 +28,40 @@ IO_PORT "HP_WS"  IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
 IO_LOC  "HP_DIN" AA16;
 IO_PORT "HP_DIN" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
 
+//====== AUDIO · ⭐⭐ 外置 DAC（`PCM5102A`，⭐ 2026-09-25 新增 · 路线 A）======
+//   🔴 **为什么加**（`U-26`）：⭐ 用户**没有喇叭** ⇒ ⭐ 必须走外置 DAC 接**有源音箱**。
+//
+//   ⭐⭐ **路线 A：两路并存**（⭐ 用户 2026-09-25 拍板）
+//      · ⭐ 板载 `MAX98357A`（`HP_*`）那一路**完全不动** ⇒ ⭐ 两路同时可用
+//      · ⚠️ 代价：⭐ 多占 3 个引脚（`PMOD1_IO3/4/5`）
+//
+//   ⭐ **引脚出处（⭐ 两处已核对）**：
+//      · `files/10-硬件/板卡替换评估/引脚预算核算.md`（⭐ 规划表）
+//      · ⭐ Console 原理图（⭐ 物理核对：行 466/471/473 → `F20`/`E22`/`D22`）
+//      📌 `PMOD1` 全排：`W19 W20 F19 F20 E22 D22 E21 D21`
+//         · ⭐ `IO0/1/2`（`W19`/`W20`/`F19`）**已被 SPI 占用**
+//         · ⭐ `IO3/4/5`（`F20`/`E22`/`D22`）⇒ ✅ **本处使用**
+//         · ⚠️ `IO6/IO7`（`E21`/`D21`）⇒ ⭐ 仍空着（⭐ 2026-09-23 把 LED 挪到 `J9` 后腾出的）
+//
+//   ⚠️⚠️ **电平：⭐ `LVCMOS33`（3.3 V）** —— ⭐ 与 `HP_*` 同档。
+//      🔴 `PCM5102A` 模块是 3.3 V 逻辑 ⇒ ✅ 直连，⛔ **不需要电平转换**。
+//
+//   ⚠️ **不接 `MCLK`**（⭐ `PCM5102A` 内部 PLL 从 BCK 恢复）
+//      ⇒ 🔴 **前提：⭐ 模块必须带【板载晶振】**（`U-26`）⇒ ⛔ 否则会没声/爆音。
+//
+//   🔴🔴 **接线安全（⭐ `U-26` 原文警告）**：
+//      ⛔ **板载 `J5` 是 BTL 输出 ⇒ 不能接有源音箱（会烧！）**
+//      ✅ **正确接法**：`PMOD1_IO3/4/5` → ⭐ **`PCM5102A` 模块** → 音箱 **`Line In`**
+//         （⭐ 不是音箱的功放/高电平输入）
+IO_LOC  "I2S2_BCK"  F20;
+IO_PORT "I2S2_BCK"  IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "I2S2_LRCK" E22;
+IO_PORT "I2S2_LRCK" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "I2S2_DIN"  D22;
+IO_PORT "I2S2_DIN"  IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
 // ⭐⭐ 功放模式脚（🔴 **2026-09-22 换板后：脚 + 极性 + 电平 全变了**）。
 //
 //   🔴 **旧（`NEO Dock` / `NS4263`）**：`PA_EN_n = AB16`，**低有效**，

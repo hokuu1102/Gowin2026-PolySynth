@@ -1,7 +1,7 @@
 ﻿NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100000)
 NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=48 VOTE_N=4 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
 NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
-NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x095 REL_TH=0x059 DELTA_TH=8 REFRACT_N=150)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x095 REL_TH=0x059 DELTA_TH=8 REFRACT_N=60)
 NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
 NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=10)
 NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 T=54 S=53 X=58)
@@ -32,7 +32,15 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : E5 tone present (energy >> off-tone reference)
 == 4: deadline_fault 鎭?0锛圓6锛?=
   ok  : deadline_fault stays 0 (frame deadline met)
+== 5: 澶栫疆 DAC 閭ｄ竴璺湡鐨勬湁闊抽 ==
+     I2S2_BCK 缈昏浆=262799 路 I2S2_LRCK 缈昏浆=4108 路 I2S2_DIN 缈昏浆=21202
+     鏉胯浇 HP_DIN 缈昏浆=21202 路 涓よ矾閫愭媿涓嶄竴鑷?0 鎷?
+  ok  : I2S2_BCK toggles (external DAC has a bit clock)
+  ok  : I2S2_LRCK toggles (external DAC has a frame clock)
+  ok  : I2S2_DIN is LIVE (external DAC receives real audio, not DC)
+  ok  : I2S2_DIN toggles as much as HP_DIN (same source, same rate)
+  ok  : I2S2_DIN matches HP_DIN cycle-by-cycle (no phase drift)
 PASS: top sound chain (T57) - HP_DIN is live and the mixer emits a varying waveform
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_sound.sv:255: $finish called at 42047900000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_sound.sv:313: $finish called at 42047900000 (1ps)
 
 

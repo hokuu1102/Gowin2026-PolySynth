@@ -174,6 +174,7 @@ foreach ($tb in $tbs) {
     'tb_e2e_key_to_sound',       # ⭐ 端到端手弹链（含演示和弦等待）⇒ 实测 ~50 s
     'tb_calib_span',             # ⭐ 16 轴标定（含超时/拒绝等负向用例）
     'tb_span_realistic',         # ⭐ K-129：同比例超时复现（跑 3 场景 × 4000 帧）⇒ 实测 ~90 s
+    'tb_span_multiaxis_noise',   # ⭐ 多轴 + 逐通道噪声扫描（6 个幅度 × 3000 帧）⇒ 实测 ~115 s
     'tb_uart_calib_chain',       # ⭐ 串口 + 标定链
     'tb_latency_m2',             # ⭐ 50 次延迟测量
     'tb_note_manager',           # ⭐ 含 FIFO 溢出突发用例

@@ -1,0 +1,18 @@
+﻿NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=640000)
+=== tb_span_realistic ===
+STABLE_NEED=8 VOTE_N=8 STABLE_TOL=48 VOTE_TOL=96
+FRAME=40 鎷?閫氶亾 鈬?涓€甯?320 鎷嶏紱TIMEOUT=640000 鎷?= 2000 甯э紙猸?涓庝笂鏉垮悓姣斾緥锛?
+
+鈿狅笍 涓轰粈涔堣'鍚屾瘮渚?锛氫笂鏉?TIMEOUT=50e6 鎷?= 2000 甯с€?
+   馃敶 鑻ユ妸瓒呮椂缂╂垚鍑犵櫨鎷嶏紙鍙 1 甯э級锛屼細銆愪汉涓哄埗閫犮€戝繀瓒呮椂 鈬?缁撹浣滃簾銆?
+鈶?闆舵姈鍔細span=16 reject=0 杩沄OTE娆℃暟=16 state=7 done_cnt=0
+  ok  : ????16 ???-- span=16 (鏈熸湜 16) reject=0
+鈶?鎶栧姩卤30锛? TOL 48锛夛細span=16 reject=0 杩沄OTE娆℃暟=16 state=7
+  ok  : ???0?????-- span=16 (鏈熸湜 16) reject=0
+鈶?鎶栧姩卤60锛? TOL 48锛夛細span=16 reject=0 杩沄OTE娆℃暟=16 state=7
+  ok  : VOTE_TOL 96) 鈬?浠嶅簲鍏ㄦ爣瀹?-- span=16 (鏈熸湜 16) reject=0
+==================================================
+PASS: 鍚屾瘮渚嬭秴鏃朵笅锛宑alib_span 鍦ㄧǔ瀹?鎶栧姩杈撳叆閮借兘鏍囧畾鍏ㄩ儴 16 杞?
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_realistic.sv:186: $finish called at 76800720000 (1ps)
+
+

@@ -81,11 +81,26 @@ module top #(
     parameter integer DEMO_HOLD_CYC     = 50_000_000,
 
     // ⭐⭐ evt_merge 源 A 的来源选择（2026-09-23 新增，见下方 §源 A 仲裁）
-    //   · 0 => W3a 手弹采集链（交付/上板用这一档）
-    //   · 1 => 演示和弦（T57 验收 tb_top_sound 用这一档）
-    //   ⚠️ 源 A 只有一个人口，而手弹与 T57 的演示和弦都要走它 => 必须仲裁。
-    //   📌 不直接删演示和弦：R-16/K-69 的教训，不能为了接新功能而废掉验收手段。
+    //   🔴 **2026-09-26 更新**：⭐ 源 A 现在是 **`seq_arb` 三级仲裁**（手弹/曲谱/演示）
+    //      ⇒ ⭐ 本参数**只在"强制档"时才管用**（⭐ 见下方 §源 A 仲裁）：
+    //        · 0 => ⭐ **走 `seq_arb` 自动仲裁**（⭐ **默认** —— 手弹 + 曲谱可叠加）
+    //        · 1 => ⚠️ **强制演示和弦**（⭐ 保留给 `T57` 的 `tb_top_sound` 验收）
+    //   📌 **为什么保留它**：⭐ `tb_top_sound`（`T57` 验收）依赖"演示和弦独占源 A"
+    //      ⇒ ⚠️ 删了它**等于自己废掉一张验收单**（⭐ `R-16`/`K-69` 的教训）。
     parameter integer SOURCE_A_SEL      = 0,
+
+    // ⭐⭐ 源 B：节拍器 / 鼓机【二选一】（⭐ 2026-09-26 新增 · `T34`/`U-8`）
+    //   · 0 => ⭐ **节拍器**（⭐ **默认** —— ⭐ 上板听的就是这个拍子声）
+    //   · 1 => ⭐ **鼓机**（Kick/Snare/HiHat/Clap + 16 步音序器）
+    //   ⭐ 用户 2026-09-24 拍板："鼓机和节拍器是**二选一**的
+    //      —— 使用节拍器时不会用鼓机，用鼓机不用节拍器"
+    //   ⚠️ **为什么是编译期参数而⛔ 不是运行时切换**：
+    //      ⚠️ 那需要改 `calib_cmd`（⭐ **上板要测的模块**）⇒ ⭐ 本轮⛔ 一行不碰它。
+    //      📌 将来要"现场切" ⇒ ⭐ 只需把 `sel_drum` 换成寄存器即可（⭐ 结构已就绪）。
+    parameter integer SEL_DRUM          = 0,
+    // ⭐⭐ 鼓机的内置节奏型（⭐ 0~3，⭐ 见 `drum_gen.step_mask_of`）
+    //   · 0 = 四拍基本型（Rock）· 1 = 八分摇滚 · 2 = 十六分放克 · 3 = 圆舞曲(3/4)
+    parameter integer DRUM_PATTERN_ID   = 0,
     // ⭐⭐ 上电自动零点标定的**等待时间**（clk 数；默认 10M ≈ **200 ms** @50 MHz）
     //   ⭐ `calib_autotare` 用它决定"等多久才开始标定"。
     //   ⚠️ **太短 ⇒ 霍尔供电/LDO 还没稳 ⇒ 🔴 零点记错**（⚠️ 而且**不可察觉**：
@@ -130,6 +145,26 @@ module top #(
     output wire HP_WS,           // AB17 · 帧时钟 48.828125 kHz（低 = 左）
     output wire HP_DIN,          // AA16 · 串行数据（⭐ 标准 I2S 左对齐）
     output wire PA_EN_n,         // 🔴 Y14（⛔ 不是 AB16）· 接 MAX98357A 的 SD_MODE ⇒ ⭐ **高 = 出声**，见下方说明
+
+    // ── ⭐⭐ 音频（外置 DAC = `PCM5102A` 模块，⭐ 2026-09-25 新增）──────────
+    //   🔴 **为什么加**（⭐ `U-26`）：⭐ 用户**没有喇叭** ⇒ ⭐ 必须走外置 DAC 接有源音箱。
+    //
+    //   ⭐⭐ **路线 A：两路并存**（⭐ 用户拍板）
+    //      · ⭐ **板载 `MAX98357A` 通路【完全不动】** ⇒ ⭐ 两路同时可用
+    //      · ✅ 现有 I2S 回归判据（`tb_i2s_tx*` / `tb_top_m0` / `tb_e2e`）**全部不受影响**
+    //      · ⚠️ 代价：⭐ 多占 3 个引脚
+    //
+    //   ⭐ **引脚**（⭐ `PMOD1`，⭐ 已两处核对：引脚预算表 + Console 原理图 行 466/471/473）：
+    //      · `F20` = `PMOD1_IO3` · `E22` = `PMOD1_IO4` · `D22` = `PMOD1_IO5`
+    //      📌 `PMOD1_IO0/1/2`（`W19`/`W20`/`F19`）**已被 SPI 占用** ⇒ ⚠️ `IO3/4/5` 是空着的 ✅
+    //
+    //   ⚠️ **数据源与板载完全同源**（`sample_mono` + 同一组 `bclk_en`/`frame_start`）
+    //      ⇒ ⭐ 两路**天然同步**，⛔ 不需要额外的相位对齐。
+    //   ⚠️ **`PCM5102A` 可以不接 `MCLK`**（⭐ 内部 PLL 从 BCK 恢复）
+    //      ⇒ 🔴 **前提：⭐ 模块必须带板载晶振**（`U-26`）⇒ ⛔ 否则会没声/爆音。
+    output wire I2S2_BCK,        // F20 · PMOD1_IO3 · 外置 DAC 位时钟
+    output wire I2S2_LRCK,       // E22 · PMOD1_IO4 · 外置 DAC 帧时钟
+    output wire I2S2_DIN,        // D22 · PMOD1_IO5 · 外置 DAC 串行数据
 
     // ── 板级活体见证 ────────────────────────────────────────────────
     output wire led_heartbeat,   // V13 · CFG_LED 绿路（SYS_ACT）
@@ -683,6 +718,74 @@ module top #(
             .beat_cnt_o     (met_beat_cnt),
             .accent_cnt_o   (met_accent_cnt),
             .cfg_warn_o     (met_cfg_warn)
+        );
+
+        // ═══════════════════════════════════════════════════════════════════
+        //   ⭐⭐ 鼓机（`drum_gen`，⭐ 2026-09-26 新增 · `T34`/`U-8`）
+        //
+        //   ⭐ **它做什么**：⭐ 纯合成鼓机（Kick/Snare/HiHat/Clap）+ **16 步音序器**
+        //      ⇒ ⭐ **只吐事件**（⛔ 不碰音频通路）⇒ ⭐ 零新增合规风险。
+        //   ⭐ **16 步音序器【合并】在本模块内**（⭐ 用户 2026-09-26 拍板）
+        //      ⇒ ⛔ **不另做 `seq_16step.v`**（⭐ 少一个模块、少一层接口）。
+        //
+        //   🔴 **与节拍器【二选一】**（⭐ 用户 2026-09-24 拍板）：
+        //      · `SEL_DRUM = 0` ⇒ ⭐ **节拍器**（⭐ **默认** —— 上板听的拍子声）
+        //      · `SEL_DRUM = 1` ⇒ ⭐ **鼓机**
+        //      ⇒ ⭐ **两者都例化**，⭐ 用 `sel_drum` 选谁接到 `evt_merge` 源 B。
+        //      📌 **为什么不做成"运行时切换"**（⭐ 原设计）：
+        //         ⚠️ 那需要改 `calib_cmd`（⭐ **明天上板要测的模块**）
+        //         ⇒ ⭐ **本轮先做编译期参数**（⛔ 一行不碰 `calib_cmd`）；
+        //            ⭐ 将来要现场切，⭐ 再加串口命令即可（⭐ 接口已就绪）。
+        //
+        //   ⭐ **`AXIS_ID = 15`**（⭐ 与节拍器的 14 分开）：
+        //      ⚠️ `AXIS_W = 4` ⇒ ⭐ **≥ `RESERVED_AXIS_BASE`(14) 只有 14/15**
+        //      ⇒ ⭐ 4 个乐器**共用 15**、⭐ 靠 `PHASE_INC` 区分音色
+        //      （🔴 ⛔ 不改 `AXIS_W` —— 那会动**冻结的 64 bit 事件格式**）。
+        //
+        //   ⚠️ **`RESERVED_N` 的账**：⭐ 节拍器 1 + 鼓机 1（⭐ 共用轴号）⇒ **需要 2**
+        //      ⇒ ✅ **当前 `RESERVED_N = 5` 够用**（⛔ 不用改 `note_manager` 例化）。
+        // ═══════════════════════════════════════════════════════════════════
+        wire        drm_evt_valid;
+        wire [3:0]  drm_evt_axis;
+        wire [31:0] drm_evt_inc;
+        wire [7:0]  drm_evt_vel;
+        wire [1:0]  drm_evt_kind;
+        wire [15:0] drm_evt_cnt;
+        wire [3:0]  drm_step_cnt;
+        wire [3:0]  drm_hit_cnt;
+        wire [15:0] drm_step_evt_cnt;
+        wire        drm_cfg_warn;
+
+        drum_gen #(
+            .AXIS_W         (4),
+            .PHASE_W        (32),
+            .VEL_W          (8),
+            // ⭐ 15 = 4'hF（⭐ 与节拍器的 14 分开 ⇒ 将来"同时用"不用返工）
+            .AXIS_ID        (15),
+            .N_DRUM         (4),
+            .STEPS          (16),
+            .PATTERN_ID     (DRUM_PATTERN_ID),
+            // ⭐ 16 分音符 = PPQN(960) / 4 = 240 tick
+            .TICKS_PER_STEP (240),
+            .RESERVED_N     (5)
+        ) u_drum_gen (
+            .clk_i          (clk),
+            .rst_n_i        (rst_n_sync),
+            //   ⭐ 与节拍器**同一个 `beat_gen`** ⇒ ⭐ 天然同拍（⛔ 不自己再分频）
+            .tick_i         (bg_tick),
+            .tick_cnt_i     (bg_tick_cnt),
+            .bar_start_i    (bg_bar_start),
+            .transport_i    (bg_transport),
+            .evt_valid_o    (drm_evt_valid),
+            .evt_axis_o     (drm_evt_axis),
+            .evt_phase_inc_o(drm_evt_inc),
+            .evt_velocity_o (drm_evt_vel),
+            .evt_kind_o     (drm_evt_kind),
+            .evt_cnt_o      (drm_evt_cnt),
+            .step_cnt_o     (drm_step_cnt),
+            .hit_cnt_o      (drm_hit_cnt),
+            .step_evt_cnt_o (drm_step_evt_cnt),
+            .cfg_warn_o     (drm_cfg_warn)
         );
 
         // ═══════════════════════════════════════════════════════════════════
@@ -1511,12 +1614,132 @@ module top #(
         wire [7:0]  w3a_evt_vel   = 8'd200;
         wire [31:0] w3a_evt_inc   = am_inc;
 
-        // ⭐ 源 A 仲裁（⭐ 见上方说明）
-        wire        src_a_valid = (SOURCE_A_SEL == 1) ? demo_note_valid : w3a_evt_valid;
-        wire [3:0]  src_a_axis  = (SOURCE_A_SEL == 1) ? demo_note_axis  : w3a_evt_axis;
-        wire [31:0] src_a_inc   = (SOURCE_A_SEL == 1) ? demo_note_inc   : w3a_evt_inc;
-        wire [7:0]  src_a_vel   = (SOURCE_A_SEL == 1) ? demo_note_vel   : w3a_evt_vel;
-        wire [1:0]  src_a_kind  = (SOURCE_A_SEL == 1) ? demo_note_kind  : w3a_evt_kind;
+        // ═══════════════════════════════════════════════════════════════════
+        //   ⭐⭐ 源 A 三级仲裁（`seq_arb`，⭐ 2026-09-26 新增）
+        //
+        //   🔴 **它补的是 `top.v` 自己的 TODO**（⭐ 原文保留在下方，⛔ 不删）：
+        //      *"那时源 A 要有 3 个来源（手弹/曲谱/演示）
+        //        ⇒ 应改成 `evt_merge` 前再加一级仲裁"*
+        //
+        //   ⭐ **三个来源**：
+        //      ① ⭐ **手弹**（W3a 采集链）—— 最高优先（⭐ 人优先于机器）
+        //      ② ⭐ **曲谱**（`evt_uart_rx` 经串口灌入）
+        //      ③ ⭐ **演示**（`DEMO_CHORD_ON` 自检和弦）—— ⚠️ **自动让位**
+        //
+        //   ⚠️ **与旧 `SOURCE_A_SEL` 的关系**：
+        //      · `SOURCE_A_SEL = 0`（⭐ 默认）⇒ ⭐ **走 `seq_arb`**（手弹+曲谱可叠加）
+        //      · `SOURCE_A_SEL = 1` ⇒ ⚠️ **强制演示独占**（⭐ 保 `T57` 的 `tb_top_sound`）
+        //      📌 旧 tb 依赖"演示和弦独占源 A"⇒ ⭐ **强制档不能删**。
+        //
+        //   🔴 **曲谱那一路的接法（⭐ 重要）**：
+        //      ⚠️ `evt_uart_rx` 现在**只"解析出来"，⛔ 还没接进 `evt_merge`**
+        //         ⇒ ⭐ 本块**把 `eu_evt_valid`/`eu_evt_data` 接到 `seq_arb` 的源 2**
+        //         ⇒ ⭐⭐ **灌曲谱从此会响**（⭐ 这是本模块最直接的收益）。
+        //
+        //   🔴🔴 **64 bit 字段位域 —— ⭐ 已从【权威来源】核实（⛔ 不是凭印象）**：
+        //      📌 权威 = `tools/mid2evt.py:124-128` 的**打包**常量（⭐ 发送端）
+        //         ⇒ ⭐ 与 `tools/evt2uart.py:161` 的解包**互相印证**。
+        //      ```
+        //        tick  : bit[63:44]  20 bit   ← ⚠️ 由 play_seq 用，⛔ 不是本处
+        //        inc   : bit[43:23]  21 bit   ← ⭐ phase_inc（⭐ 注意是 21 位！）
+        //        axis  : bit[22:19]   4 bit
+        //        vel   : bit[18:11]   8 bit
+        //        kind  : bit[10:9]    2 bit
+        //        timbre: bit[8:7]     2 bit   ← ⭐ B 方案（`U-27`）
+        //      ```
+        //      🔴 **我第一版写错了**（⚠️ 凭印象写成 `[63:60]`=axis / `[59:28]`=inc …）
+        //         ⇒ ⭐ **实测 `mid2evt.py` 才发现** ⇒ ⚠️ 若照错的那样接，
+        //            🔴 **曲谱会全部响成乱七八糟的音高/轴号**（⭐ 而且**不报错** ——
+        //            ⚠️ `K-87` 同族：路径能错却不可见）。
+        //      📌 **教训**：⭐ **跨模块的位域必须回到"打包那一侧"核实**，
+        //         ⛔ 不能凭接口表的字段【顺序】去推位【位置】。
+        //      ⚠️ `inc` 是 **21 位**（⛔ 不是 32）⇒ ⭐ 高位补 0 到 32 位给 `seq_arb`。
+
+        // ⭐ 曲谱源：⭐ 从 `evt_uart_rx` 的 64 bit 打包里拆字段（⭐ 位域见上方）
+        wire [3:0]  score_evt_axis = eu_evt_data[22:19];
+        wire [31:0] score_evt_inc  = {11'd0, eu_evt_data[43:23]};
+        wire [7:0]  score_evt_vel  = eu_evt_data[18:11];
+        wire [1:0]  score_evt_kind = eu_evt_data[10:9];
+        // ═══════════════════════════════════════════════════════════════════
+        //   ⚠️ **旧的二选一写法（⭐ 保留痕迹，⭐ 已被 `seq_arb` 取代）**：
+        //      wire src_a_valid = (SOURCE_A_SEL == 1) ? demo_note_valid : w3a_evt_valid;
+        //      ...
+        //   📌 **为什么保留注释**：⭐ 它是"源 A 只有一个人口"这个约束的**历史证据**
+        //      ⇒ ⚠️ 删了就没人知道**为什么当初要仲裁**（⭐ `K-106` 纪律：保留痕迹）。
+
+        wire        sa_valid;
+        wire [3:0]  sa_axis;
+        wire [31:0] sa_inc;
+        wire [7:0]  sa_vel;
+        wire [1:0]  sa_kind;
+        wire [15:0] sa_collision_cnt;
+        wire [15:0] sa_merged_cnt;
+        wire [15:0] sa_drop_cnt;
+        wire        sa_overflow;
+        wire [15:0] sa_live_cnt;
+        wire [15:0] sa_score_cnt;
+        wire [15:0] sa_demo_cnt;
+
+        seq_arb #(
+            .AXIS_W  (4),
+            .PHASE_W (32),
+            .VEL_W   (8),
+            .KIND_W  (2),
+            .DEPTH   (6)          // ⭐ 深度 6：3 源各 ≤1 条/拍，留足余量
+        ) u_seq_arb (
+            .clk_i            (clk),
+            .rst_n_i          (rst_n_sync),
+            // ── 源 1：手弹（⭐ W3a 采集链）—— ⭐ 最高优先 ──────────────────
+            .live_valid_i     (w3a_evt_valid),
+            .live_axis_i      (w3a_evt_axis),
+            .live_phase_inc_i (w3a_evt_inc),
+            .live_velocity_i  (w3a_evt_vel),
+            .live_kind_i      (w3a_evt_kind),
+            // ── 源 2：曲谱（⭐ `evt_uart_rx` —— 🔴 本次【首次】接通）────────
+            .score_valid_i    (eu_evt_valid),
+            .score_axis_i     (score_evt_axis),
+            .score_phase_inc_i(score_evt_inc),
+            .score_velocity_i (score_evt_vel),
+            .score_kind_i     (score_evt_kind),
+            // ── 源 3：演示（⭐ 自检和弦）—— ⚠️ 自动让位 ───────────────────
+            .demo_valid_i     (demo_note_valid),
+            .demo_axis_i      (demo_note_axis),
+            .demo_phase_inc_i (demo_note_inc),
+            .demo_velocity_i  (demo_note_vel),
+            .demo_kind_i      (demo_note_kind),
+            // ── 仲裁出口 → `evt_merge` 源 A ────────────────────────────────
+            .evt_valid_o      (sa_valid),
+            .evt_axis_o       (sa_axis),
+            .evt_phase_inc_o  (sa_inc),
+            .evt_velocity_o   (sa_vel),
+            .evt_kind_o       (sa_kind),
+            // ── ⭐ 可观测性（`K-106`：⛔ 不许静默失效）──────────────────────
+            .collision_cnt_o  (sa_collision_cnt),
+            .merged_cnt_o     (sa_merged_cnt),
+            .drop_cnt_o       (sa_drop_cnt),
+            .overflow_o       (sa_overflow),
+            .live_cnt_o       (sa_live_cnt),
+            .score_cnt_o      (sa_score_cnt),
+            .demo_cnt_o       (sa_demo_cnt)
+        );
+
+        // ⭐⭐ 旧 `SOURCE_A_SEL = 1` 的**强制档**（⭐ 保 `T57` 的 `tb_top_sound`）
+        //   ⚠️ 它**绕过** `seq_arb`（⭐ 直接拿演示和弦）⇒ ⭐ 行为与改动前【完全一致】。
+        wire        src_a_valid = (SOURCE_A_SEL == 1) ? demo_note_valid : sa_valid;
+        wire [3:0]  src_a_axis  = (SOURCE_A_SEL == 1) ? demo_note_axis  : sa_axis;
+        wire [31:0] src_a_inc   = (SOURCE_A_SEL == 1) ? demo_note_inc   : sa_inc;
+        wire [7:0]  src_a_vel   = (SOURCE_A_SEL == 1) ? demo_note_vel   : sa_vel;
+        wire [1:0]  src_a_kind  = (SOURCE_A_SEL == 1) ? demo_note_kind  : sa_kind;
+
+        // ⭐⭐ 源 B 二选一（⭐ 节拍器 / 鼓机，⭐ `SEL_DRUM`，⭐ 默认节拍器）
+        //   📌 用 `generate`+`localparam` 做**编译期选择** ⇒ ⚠️ 综合会把没选中的那路
+        //      **优化掉**（⭐ 省资源）；⭐ 但两路都**例化** ⇒ ⭐ 将来改运行时只需换选择信号。
+        wire        sel_drum = (SEL_DRUM == 1);
+        wire        src_b_valid = sel_drum ? drm_evt_valid : met_evt_valid;
+        wire [3:0]  src_b_axis  = sel_drum ? drm_evt_axis  : met_evt_axis;
+        wire [31:0] src_b_inc   = sel_drum ? drm_evt_inc   : met_evt_inc;
+        wire [7:0]  src_b_vel   = sel_drum ? drm_evt_vel   : met_evt_vel;
+        wire [1:0]  src_b_kind  = sel_drum ? drm_evt_kind  : met_evt_kind;
 
         // ⭐⭐ T36 / U-6：事件合流（手弹/曲谱 + 节拍器 → note_manager 的**唯一**事件口）
         //   🔴 **为什么必须加它**：`note_manager` 只有一个事件口，
@@ -1553,12 +1776,13 @@ module top #(
             .a_phase_inc_i    (src_a_inc),
             .a_velocity_i     (src_a_vel),
             .a_kind_i         (src_a_kind),
-            // ── 源 B：节拍器 ──────────────────────────────────────────────
-            .b_valid_i        (met_evt_valid),
-            .b_axis_i         (met_evt_axis),
-            .b_phase_inc_i    (met_evt_inc),
-            .b_velocity_i     (met_evt_vel),
-            .b_kind_i         (met_evt_kind),
+            // ── ⭐⭐ 源 B：**节拍器 / 鼓机 二选一**（⭐ `SEL_DRUM`，⭐ 默认节拍器）──
+            //   📌 两路都例化，⭐ 这里选谁进 `evt_merge`（⭐ 见上方 §源 B 二选一）
+            .b_valid_i        (src_b_valid),
+            .b_axis_i         (src_b_axis),
+            .b_phase_inc_i    (src_b_inc),
+            .b_velocity_i     (src_b_vel),
+            .b_kind_i         (src_b_kind),
             // ── 合流输出 → `note_manager` ────────────────────────────────
             .evt_valid_o      (mg_evt_valid),
             .evt_axis_o       (mg_evt_axis),
@@ -1856,6 +2080,44 @@ module top #(
         .HP_BCK       (HP_BCK),
         .HP_WS        (HP_WS),
         .HP_DIN       (HP_DIN)
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //   ⭐⭐ 外置 DAC 通路（`PCM5102A` 模块，⭐ 2026-09-25 新增 · 路线 A）
+    //
+    //   ⭐ **与 `u_i2s_tx`【同参数、同数据源、同节拍】** ⇒ ⭐ 两路天然同步。
+    //   🔴 **为什么单独一个实例而不是"一个 i2s_tx 驱动两组引脚"**：
+    //      ⭐ `i2s_tx` 的输出是 `output reg`（⭐ 无法一驱二）
+    //      ⚠️ 且两者**将来可能需要不同参数**（⭐ 例如外置模块要 `JUSTIFY=1`）
+    //      ⇒ ⭐ **两个实例最灵活**，⭐ 代价仅 3 个引脚 + 少量逻辑。
+    //
+    //   ⚠️ **为什么不加 `AUDIO_OUT_SEL` 参数**（⭐ 路线 C）：
+    //      ⭐ 两路**同时输出**没有副作用（⭐ 外置 DAC 不接就没影响）
+    //      ⇒ ⭐ **不需要开关** ⇒ ⚠️ 少一个参数、少一个变异点。
+    //
+    //   📌 **`PCM5102A` 的 `JUSTIFY` 也是 0**（⭐ 它按标准 Philips I2S 解析）
+    //      ⇒ ⭐ 与 `MAX98357A` **同一档** ⇒ ⭐ 这里直接沿用上面那组参数。
+    //      ⚠️ 但**若上板听到"移位/噪声"** ⇒ ⭐ 优先调【这一路】的 `JUSTIFY`/`MSB_DELAY`
+    //         （⭐ 板载那路已经验证过是对的）—— ⭐ 见 `C-6`。
+    // ═══════════════════════════════════════════════════════════════════════
+    i2s_tx #(
+        .SAMPLE_W  (SAMPLE_W),
+        .DATA_BITS (DATA_BITS),
+        .SLOT_BITS (32),
+        .JUSTIFY   (0),           // ⭐ 与板载同档（标准 I2S 左对齐）
+        .MSB_DELAY (1),
+        .LRCK_POL  (0)
+    ) u_i2s_tx_ext (
+        .clk          (clk),
+        .rst_n        (rst_n_sync),
+        .bclk_en      (bclk_en),
+        .bclk_half_en (bclk_half_en),
+        .frame_start  (frame_start),
+        .sample_l     (sample_mono),
+        .sample_r     (sample_mono),   // ⭐ 单声道 ⇒ 左右同源（⭐ 与板载一致）
+        .HP_BCK       (I2S2_BCK),
+        .HP_WS        (I2S2_LRCK),
+        .HP_DIN       (I2S2_DIN)
     );
 
     // ── ⚠️⚠️ `PA_EN_n`：⭐ 换板后【语义变了】—— 从"低有效功放使能"变成"多电平模式选择" ──

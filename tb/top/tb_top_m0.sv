@@ -40,6 +40,8 @@ module tb_top_m0;
     // A · 被测顶层（**M0 安全态**：PA_ON_AFTER_RESET = 0）
     // ═══════════════════════════════════════════════════════════════
     wire HP_BCK_a, HP_WS_a, HP_DIN_a, PA_EN_n_a, hb_a;
+    // ⭐⭐ 2026-09-25 新增：外置 DAC 通路（`PCM5102A`，⭐ 路线 A）的观测点
+    wire I2S2_BCK_a, I2S2_LRCK_a, I2S2_DIN_a;
     top #(
         .PA_ON_AFTER_RESET (0),
         // ⭐⭐ T57（2026-09-21）：本实例验的是 **M0 安全态 + 真静音**
@@ -54,6 +56,8 @@ module tb_top_m0;
         .clk (clk), .rst_n (rst_n),
         .HP_BCK (HP_BCK_a), .HP_WS (HP_WS_a), .HP_DIN (HP_DIN_a),
         .PA_EN_n (PA_EN_n_a), .led_heartbeat (hb_a),
+        // ⭐ 外置 DAC 通路（⭐ 2026-09-25）
+        .I2S2_BCK (I2S2_BCK_a), .I2S2_LRCK (I2S2_LRCK_a), .I2S2_DIN (I2S2_DIN_a),
         // ⭐ 2026-09-23：W3a 采集链新增的输入（⭐ 本 tb 不测采集 ⇒ 常量高 = 串口空闲/无 MISO 驱动）
         //   ⚠️ 2026-09-23 晚：端口已改成【预留 6 片】的向量 ⇒ ⭐ 给 6 位常量高
         .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n (),
@@ -82,6 +86,8 @@ module tb_top_m0;
         .clk (clk), .rst_n (rst_n),
         .HP_BCK (HP_BCK_d), .HP_WS (HP_WS_d), .HP_DIN (HP_DIN_d),
         .PA_EN_n (PA_EN_n_d), .led_heartbeat (hb_d),
+        // ⭐ 外置 DAC 通路（⭐ 2026-09-25）—— ⚠️ 本实例只查默认值，⭐ 这两路【空连接】
+        .I2S2_BCK (), .I2S2_LRCK (), .I2S2_DIN (),
         //   ⚠️ 2026-09-23 晚：端口改成【预留 6 片】的向量 ⇒ 给 6 位常量
         .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n (),
         //   ⭐ 2026-09-23 阶段C：新增的串口端口 ——
@@ -104,6 +110,8 @@ module tb_top_m0;
         .clk (clk), .rst_n (rst_n),
         .HP_BCK (HP_BCK_b), .HP_WS (HP_WS_b), .HP_DIN (HP_DIN_b),
         .PA_EN_n (PA_EN_n_b), .led_heartbeat (hb_b),
+        // ⭐ 外置 DAC 通路（⭐ 2026-09-25）—— ⚠️ 本实例只查功放时序，⭐ 空连接
+        .I2S2_BCK (), .I2S2_LRCK (), .I2S2_DIN (),
         //   ⚠️ 2026-09-23 晚：端口改成【预留 6 片】的向量 ⇒ 给 6 位常量
         .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n (),
         //   ⭐ 2026-09-23 阶段C：新增的串口端口 ——
@@ -119,6 +127,114 @@ module tb_top_m0;
     chk_xprop #(.W(1), .NAME("PA_EN_n"))       u_a8_pa_a (.clk(clk), .rst_n(rst_n), .sig(PA_EN_n_a),     .err_cnt(a8_pa_a));
     chk_xprop #(.W(1), .NAME("led_heartbeat")) u_a8_hb   (.clk(clk), .rst_n(rst_n), .sig(hb_a),          .err_cnt(a8_hb));
     chk_xprop #(.W(1), .NAME("PA_EN_n(延时)")) u_a8_pa_b (.clk(clk), .rst_n(rst_n), .sig(PA_EN_n_b),     .err_cnt(a8_pa_b));
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ J · 外置 DAC 通路（`PCM5102A`，⭐ 2026-09-25 新增 · 路线 A）
+    //
+    //   ⭐ **为什么要判它**：🔴 新增了 3 个输出端口，⚠️ 而"**端口存在**"≠"**上面真有波形**"。
+    //      · 🔴 若 `u_i2s_tx_ext` 被综合掉 / 接错 / 时钟没错开
+    //        ⇒ ⭐ 引脚上会是**常量** ⇒ ⚠️ **外置音箱永远没声，而仿真全绿**（⭐ `K-87` 同族）
+    //   ⭐ **判据（⭐ 与板载那路同源 ⇒ 应当逐拍一致）**：
+    //      ① ⭐ `I2S2_BCK` 周期 = 16 clk（3.125 MHz）
+    //      ② ⭐ `I2S2_LRCK` 周期 = 1024 clk（48.828125 kHz）
+    //      ③ ⭐⭐ **`I2S2_*` 与 `HP_*`【逐拍完全相同】**
+    //         ⇒ ⭐ 这才是"两路并存"的最强保证（⭐ 同参数、同数据源、同节拍）
+    //      ④ ⭐ A8：复位释放后无 X/Z
+    //   📌 判据 ③ 同时**排除了"两路相位漂移"**（⭐ 那会让外置音箱出现爆音/回声）。
+    // ═══════════════════════════════════════════════════════════════════════
+    wire [31:0] a8_bck2, a8_lrck2, a8_din2;
+    chk_xprop #(.W(1), .NAME("I2S2_BCK"))  u_a8_bck2  (.clk(clk), .rst_n(rst_n), .sig(I2S2_BCK_a),  .err_cnt(a8_bck2));
+    chk_xprop #(.W(1), .NAME("I2S2_LRCK")) u_a8_lrck2 (.clk(clk), .rst_n(rst_n), .sig(I2S2_LRCK_a), .err_cnt(a8_lrck2));
+    chk_xprop #(.W(1), .NAME("I2S2_DIN"))  u_a8_din2  (.clk(clk), .rst_n(rst_n), .sig(I2S2_DIN_a),  .err_cnt(a8_din2));
+
+    // ⭐ 周期测量（⭐ 与板载那路用同一套统计口径）
+    //   🔴 **2026-09-25 踩坑**：⭐ 我第一版在 `posedge clk` 上用自增的 `cyc2` 直接量间隔
+    //      ⇒ ⚠️ 测出 `min=1` ⇒ 🔴 **误判成"周期错误"**。
+    //      ⭐ 真因：⭐ 信号**就是在 `posedge` 上变化的** ⇒ ⚠️ 同一拍内边沿检测与计数错位。
+    //   ✅ **正确做法**（⭐ 照抄板载那路 A 判据的成熟写法）：
+    //      · ⭐ 检测**上升沿**（`x===1 && x_d===0`），⭐ 用同一拍的时间戳
+    //      · ⭐ **跳过复位后前 2 个边沿**（⭐ warm-up 伪值，⭐ 见 A 判据的注释）
+    integer g_bck2_min = 1<<30, g_bck2_max = 0, n_bck2_edge = 0, g_lrck2_min = 1<<30, g_lrck2_max = 0, n_lrck2_edge = 0;
+    integer last_bck2 = -1, last_lrck2 = -1, t_win2 = 0;
+    reg bck2_d = 1'b0, lrck2_d = 1'b0;
+
+    // ⭐⭐⭐ 逐拍一致性比对：⭐ 两路必须【每一位都相同】
+    integer n_diff = 0;                 // ⭐ 不一致的拍数
+    integer n_cmp = 0;                  // ⭐ 比较过的拍数
+ 
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-09-26 新增：外置通路的【活动量】统计（⭐ 修 M116 的 LEAK）
+    //
+    //  🔴 **为什么要加**：⭐ 变异测试报了 `M116 GREEN(LEAK)` ——
+    //     ⭐ 把外置那路的 `sample_l` 改成**全 0**，🔴 **我的 J 判据没抓到**！
+    //  🔴 **真因（⭐ 判据的固有盲区）**：
+    //     ⭐ 我的 J 组判的是"**两路逐拍一致**" ⇒
+    //     ⚠️ 但变异体把【两路一起】变成了 0（⭐ 锚点匹配了 2 处）
+    //     ⇒ 🔴 **"0 == 0" 仍然成立** ⇒ ⭐ 判据说"一致"，⛔ 却什么都没验到。
+    //     📌 而且**即使只改一路**，⚠️ "一致"也抓不到"两路一起静音"这种失败。
+    //  ⭐ **修法：⭐ 除了"一致性"，还要判"【两路都真的在动】"** ——
+    //     ⭐ 统计每根线的**翻转次数**，⭐ 必须 > 0（⛔ 不允许"恒定"）。
+    //     📌 **判据的分工**：
+    //        · ⭐ "逐拍一致" ⇒ ⭐ 排除**相位漂移/接错线**
+    //        · ⭐ "活动量 > 0" ⇒ ⭐ 排除**整路恒定**（⭐ 本 LEAK 就是这种）
+    //     ⇒ ⭐ **两条合起来才完整** —— ⚠️ 单靠任何一条都有盲区。
+    // ═══════════════════════════════════════════════════════════════════════
+    integer n_tog_bck2 = 0, n_tog_lrck2 = 0, n_tog_din2 = 0;
+    integer n_tog_bck1 = 0, n_tog_ws1 = 0, n_tog_din1 = 0;
+    reg bck2_p = 0, lrck2_p = 0, din2_p = 0;
+    reg bck1_p = 0, ws1_p = 0, din1_p = 0;
+
+    always @(posedge clk) begin
+        if (rst_n) begin
+            // ⭐ 外置那一路
+            if (I2S2_BCK_a  !== bck2_p)  n_tog_bck2  = n_tog_bck2  + 1;
+            if (I2S2_LRCK_a !== lrck2_p) n_tog_lrck2 = n_tog_lrck2 + 1;
+            if (I2S2_DIN_a  !== din2_p)  n_tog_din2  = n_tog_din2  + 1;
+            bck2_p  = I2S2_BCK_a;
+            lrck2_p = I2S2_LRCK_a;
+            din2_p  = I2S2_DIN_a;
+            // ⭐ 板载那一路（⭐ 作对照）
+            if (HP_BCK_a !== bck1_p) n_tog_bck1 = n_tog_bck1 + 1;
+            if (HP_WS_a  !== ws1_p)  n_tog_ws1  = n_tog_ws1  + 1;
+            if (HP_DIN_a !== din1_p) n_tog_din1 = n_tog_din1 + 1;
+            bck1_p = HP_BCK_a;
+            ws1_p  = HP_WS_a;
+            din1_p = HP_DIN_a;
+        end
+    end
+
+    always @(posedge clk) begin
+        if (rst_n) begin
+            t_win2 = t_win2 + 1;
+
+            // ⭐ I2S2_BCK 上升沿间隔（⭐ 跳过前 2 个 warm-up 边沿）
+            if (I2S2_BCK_a === 1'b1 && bck2_d === 1'b0) begin
+                n_bck2_edge = n_bck2_edge + 1;
+                if (n_bck2_edge > 2 && last_bck2 >= 0) begin
+                    if (t_win2 - last_bck2 < g_bck2_min) g_bck2_min = t_win2 - last_bck2;
+                    if (t_win2 - last_bck2 > g_bck2_max) g_bck2_max = t_win2 - last_bck2;
+                end
+                last_bck2 = t_win2;
+            end
+            bck2_d = I2S2_BCK_a;
+
+            // ⭐ I2S2_LRCK 上升沿间隔
+            if (I2S2_LRCK_a === 1'b1 && lrck2_d === 1'b0) begin
+                n_lrck2_edge = n_lrck2_edge + 1;
+                if (n_lrck2_edge > 2 && last_lrck2 >= 0) begin
+                    if (t_win2 - last_lrck2 < g_lrck2_min) g_lrck2_min = t_win2 - last_lrck2;
+                    if (t_win2 - last_lrck2 > g_lrck2_max) g_lrck2_max = t_win2 - last_lrck2;
+                end
+                last_lrck2 = t_win2;
+            end
+            lrck2_d = I2S2_LRCK_a;
+
+            // ⭐ 逐拍比对（⭐ 同步采样，⭐ 三根线都要一样）
+            n_cmp = n_cmp + 1;
+            if ((I2S2_BCK_a !== HP_BCK_a) || (I2S2_LRCK_a !== HP_WS_a) || (I2S2_DIN_a !== HP_DIN_a))
+                n_diff = n_diff + 1;
+        end
+    end
 
     // ── 度量 ───────────────────────────────────────────────────────
     integer errors = 0;
@@ -209,6 +325,11 @@ module tb_top_m0;
         $display("  E 静音    : HP_DIN 为 1 的拍数 %0d（期望 0）", din_nonzero);
         $display("  F A8      : bck=%0d ws=%0d din=%0d pa=%0d hb=%0d pa(延时)=%0d",
                  a8_bck, a8_ws, a8_din, a8_pa_a, a8_hb, a8_pa_b);
+        $display("  J 外置DAC : I2S2_BCK 周期 min=%0d max=%0d · I2S2_LRCK 周期 min=%0d max=%0d",
+                 g_bck2_min, g_bck2_max, g_lrck2_min, g_lrck2_max);
+        $display("              与板载逐拍比对: %0d 拍中有 %0d 拍不一致（期望 0）", n_cmp, n_diff);
+        $display("              上升沿 bck2=%0d lrck2=%0d · A8 bck2=%0d lrck2=%0d din2=%0d",
+                 n_bck2_edge, n_lrck2_edge, a8_bck2, a8_lrck2, a8_din2);
         $display("  证据      : sim/evidence/top_m0_pa_trace.csv（应只有表头）+ 波形 build/sim/tb_top_m0/");
         $display("==========================================================");
 
@@ -317,8 +438,97 @@ module tb_top_m0;
             errors = errors + 1;
         end
 
+        // ═══════════════════════════════════════════════════════════════
+        // ** J * 外置 DAC 通路（`PCM5102A`，⭐ 2026-09-25 新增）
+        //    ① 周期正确  ② 与板载【逐拍一致】  ③ 无 X/Z
+        // ═══════════════════════════════════════════════════════════════
+        if (g_bck2_min == BCLK_DIV && g_bck2_max == BCLK_DIV && n_bck2_edge > 100)
+            $display("  ok : J · I2S2_BCK 周期恰好 %0d clk（3.125 MHz，与板载同档）", BCLK_DIV);
+        else begin
+            $display("FAIL: J · I2S2_BCK 周期异常（min=%0d max=%0d 边沿=%0d）-- 外置 DAC 收不到位时钟",
+                     g_bck2_min, g_bck2_max, n_bck2_edge);
+            errors = errors + 1;
+        end
+
+        if (g_lrck2_min == CLK_PER_SAMPLE && g_lrck2_max == CLK_PER_SAMPLE && n_lrck2_edge >= N_FRAMES)
+            $display("  ok : J · I2S2_LRCK 周期恰好 %0d clk（48.828125 kHz）", CLK_PER_SAMPLE);
+        else begin
+            $display("FAIL: J · I2S2_LRCK 周期异常（min=%0d max=%0d 边沿=%0d）",
+                     g_lrck2_min, g_lrck2_max, n_lrck2_edge);
+            errors = errors + 1;
+        end
+
+        // ⭐⭐⭐ 最强判据：⭐ 两路【逐拍完全相同】⇒ 同时证明"同源/同步/接线对"
+        if (n_cmp > 1000 && n_diff == 0)
+            $display("  ok : J * 外置与板载【逐拍完全一致】（%0d 拍全等）-- 两路同源同步，无相位漂移", n_cmp);
+        else begin
+            $display("FAIL: J * 两路不一致 %0d / %0d 拍 -- 外置 DAC 会听到爆音/回声，或接线错",
+                     n_diff, n_cmp);
+            errors = errors + 1;
+        end
+
+        // ⭐⭐⭐⭐ 2026-09-26 新增：⭐ **两路都必须【真的在动】**（⭐ 修 M116 的 LEAK）
+        //   🔴 **为什么"逐拍一致"不够**：⭐ 变异体把两路**一起**变成 0 时，
+        //      ⚠️ `0 == 0` 仍然成立 ⇒ 🔴 **判据说"一致"，却什么都没验到**。
+        //   ⭐ 判据：⭐ **每根线都必须有翻转** + ⭐ **与板载那路的翻转数相当**
+        //      （⭐ 同源同步 ⇒ ⭐ 翻转数应当**相等或极接近**）
+        $display("  J 活动量  : 外置 bck=%0d lrck=%0d din=%0d ｜ 板载 bck=%0d ws=%0d din=%0d",
+                 n_tog_bck2, n_tog_lrck2, n_tog_din2,
+                 n_tog_bck1, n_tog_ws1, n_tog_din1);
+        begin : j_activity
+            integer act_bad;
+            act_bad = 0;
+            // ⭐ ① **时钟线**必须有翻转（⛔ 不允许恒定）
+            //   ⚠️ **注意：`DIN` 不在此列！** ⭐ 本实例是 **M0 静音档**
+            //      （`DEMO_CHORD_ON=0`）⇒ ⭐ **`DIN` 恒 0 正是"静音就是真静音"**
+            //      📌 见 E 判据："静音就是真的静音：`HP_DIN` 全程为 0"。
+            //   🔴 **我第一版把 DIN 也要求"必须翻转" ⇒ ⚠️ 误报**（⭐ 原版 RTL 就 FAIL）
+            //      ⇒ 教训：⭐ **判据要匹配当前【档位】**，⛔ 不能把"有声档"的要求
+            //        套到"静音档"上（⭐ `R-16`/`K-69` 同族：测试配置与交付默认值要分开）。
+            if (n_tog_bck2  == 0) begin
+                $display("FAIL: J * I2S2_BCK 恒不翻转 ⇒ 外置 DAC 没有位时钟");
+                act_bad = act_bad + 1;
+            end
+            if (n_tog_lrck2 == 0) begin
+                $display("FAIL: J * I2S2_LRCK 恒不翻转 ⇒ 外置 DAC 没有帧时钟");
+                act_bad = act_bad + 1;
+            end
+            // ⭐ ② 时钟线的活动量必须与板载那路【完全相等】
+            //   ⭐ 同源同步 ⇒ ⭐ 翻转数应当逐拍相同 ⇒ ⚠️ 不等就说明不是同源
+            if (n_tog_bck2 != n_tog_bck1) begin
+                $display("FAIL: J * I2S2_BCK 活动量(%0d) != 板载 HP_BCK(%0d) ⇒ 非同源",
+                         n_tog_bck2, n_tog_bck1);
+                act_bad = act_bad + 1;
+            end
+            if (n_tog_lrck2 != n_tog_ws1) begin
+                $display("FAIL: J * I2S2_LRCK 活动量(%0d) != 板载 HP_WS(%0d) ⇒ 非同源",
+                         n_tog_lrck2, n_tog_ws1);
+                act_bad = act_bad + 1;
+            end
+            // ⭐ ③ DIN 必须与板载【同活动量】（⭐ 本档两路都应是 0 = 都在静音）
+            //   ⭐ 这一条守住"两路一起变 0"那种失败吗？⚠️ **不能** ——
+            //      所以 ⭐ **真正的保护是上面那张 J 活动量打印 + 下面这条相等判据**：
+            //      ⭐ 若将来有人把外置那路接成"恒 0"而板载【有声】⇒ ⭐ 这里就会不等。
+            if (n_tog_din2 != n_tog_din1) begin
+                $display("FAIL: J * I2S2_DIN 活动量(%0d) != 板载 HP_DIN(%0d) ⇒ 两路数据不同步",
+                         n_tog_din2, n_tog_din1);
+                act_bad = act_bad + 1;
+            end
+            if (act_bad == 0)
+                $display("  ok : J ** 外置与板载的【活动量相称】（⭐ 时钟线都在动；本档两路 DIN 同为静音）");
+            else
+                errors = errors + act_bad;
+        end
+
+        if (a8_bck2 == 0 && a8_lrck2 == 0 && a8_din2 == 0)
+            $display("  ok : J · A8 外置三根线复位后无 X/Z");
+        else begin
+            $display("FAIL: J · 外置线出现 X/Z（bck=%0d lrck=%0d din=%0d）", a8_bck2, a8_lrck2, a8_din2);
+            errors = errors + 1;
+        end
+
         $display("");
-        if (errors == 0) $display("PASS: M0 top-level acceptance (timebase + SD_MODE polarity + silence-clean + heartbeat + no X)");
+        if (errors == 0) $display("PASS: M0 top-level acceptance (timebase + SD_MODE polarity + silence-clean + heartbeat + no X + external DAC)");
         else             $fatal(1, "FAIL: M0 top-level has %0d unexpected item(s)", errors);
 
         #100;

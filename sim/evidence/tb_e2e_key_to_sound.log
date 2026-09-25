@@ -1,47 +1,47 @@
 ﻿NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100000)
 NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=48 VOTE_N=4 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
 NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
-NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x095 REL_TH=0x059 DELTA_TH=8 REFRACT_N=150)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x095 REL_TH=0x059 DELTA_TH=8 REFRACT_N=60)
 NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
 NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=10)
 NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 T=54 S=53 X=58)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
   [tare ] autotare finished (at_done=1) -- safe to test now
-  [demo0] all_quiet=0 nm_gate=0x08000000 demo_step=3 demo_fired=0 env[0]=15359
-  [demo1] all_quiet=0 nm_gate=0x08000000 demo_step=3 demo_fired=0 env[0]=15319
-  [demo2] all_quiet=0 nm_gate=0x08000000 demo_step=3 demo_fired=0 env[0]=15281
-  [demo3] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=15241
-  [demo4] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=15203
-  [demo5] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=15163
-  [demo6] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=15125
-  [demo7] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=15085
-  [demo8] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=15047
-  [demo9] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=15007
-  [demo10] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14969
-  [demo11] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14929
-  [demo12] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14891
-  [demo13] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14851
-  [demo14] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14813
-  [demo15] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14773
-  [demo16] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14735
-  [demo17] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14695
-  [demo18] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14655
-  [demo19] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=14617
+  [demo0] all_quiet=0 nm_gate=0x08000000 demo_step=3 demo_fired=0 env[0]=51008
+  [demo1] all_quiet=0 nm_gate=0x08000000 demo_step=3 demo_fired=0 env[0]=50968
+  [demo2] all_quiet=0 nm_gate=0x08000000 demo_step=3 demo_fired=0 env[0]=50930
+  [demo3] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=50890
+  [demo4] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=50852
+  [demo5] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=50812
+  [demo6] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=50774
+  [demo7] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=50734
+  [demo8] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=50696
+  [demo9] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=50656
+  [demo10] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=50618
+  [demo11] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=50578
+  [demo12] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=50540
+  [demo13] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=50500
+  [demo14] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=50462
+  [demo15] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=50422
+  [demo16] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=50384
+  [demo17] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=50344
+  [demo18] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=50304
+  [demo19] all_quiet=0 nm_gate=0x08000000 demo_step=7 demo_fired=1 env[0]=50266
   [demo ] demo chord fully settled after 20 round(s) (~40 ms)
-  [idleb] pos[0]=0  nm_gate[3:0]=0000  n_on=8  env[0]=14617
+  [idleb] pos[0]=0  nm_gate[3:0]=0000  n_on=8  env[0]=50266
   ok  : no key pressed => W3a starts NO new note (n_on unchanged)
   ok  : no key pressed => HP_DIN is essentially quiet (demo tail allowed)
-  [press] HP_DIN toggles = 2028
+  [press] HP_DIN toggles = 1985
   ok  : pressing (left board reads RAW_DOWN) => HP_DIN carries audio
-  [relA ] env_level[0] = 13563   HP_DIN toggles = 420
-  [relB ] env_level[0] = 12899   HP_DIN toggles = 464
+  [relA ] env_level[0] = 49212   HP_DIN toggles = 420
+  [relB ] env_level[0] = 48548   HP_DIN toggles = 340
   [evts ] total note_on=8  note_off=8
   [gate ] nm_gate[15:0] = 0000000000000000
   ok  : after note_off the envelope is DECAYING (release path works)
   [note ] release is ~0.45 s; this tb only waits 80 ms by design
   ok  : a note_off was produced by the release (distinguishes the two failure modes)
-  [right] HP_DIN toggles = 2120
+  [right] HP_DIN toggles = 2238
   ok  : pressing the right board => also sounds
   ok  : no X propagated on HP_DIN after reset release
   [pos  ] idle = 0   pressed = 744

@@ -109,6 +109,16 @@
         <File path="rtl/w3c/play_seq.v" type="file.verilog" enable="1"/>
         <!-- U-6: event merge (hand-play + metronome into note_manager's single port) -->
         <File path="rtl/w3c/evt_merge.v" type="file.verilog" enable="1"/>
+        <!-- 2026-09-26 new: source-A three-way arbiter (live / score / demo).
+             Tops up the TODO that used to live in top.v: the old two-way
+             SOURCE_A_SEL could not admit the score path at all, so a dumped
+             score produced no sound.  Same proven ring-FIFO idiom as evt_merge. -->
+        <File path="rtl/w3c/seq_arb.v" type="file.verilog" enable="1"/>
+        <!-- 2026-09-26 new: pure-synthesis drum machine (Kick/Snare/HiHat/Clap)
+             with the 16-step sequencer FOLDED IN (user decision, so no separate
+             seq_16step.v).  Event domain only: it emits events, never audio,
+             so there is no new compliance surface (no PCM, no .mem, no soft core). -->
+        <File path="rtl/w3c/drum_gen.v" type="file.verilog" enable="1"/>
         <!-- ⭐ 主混音 + 数字主音量 + 静音斜坡（丙线 2026-09-22 新增）
              ⚠️ 它由 top.v 例化（tdm_render_mixer -> master_mix -> i2s_tx）
              ⇒ 🔴 不登记会被综合【静默丢弃】⇒ 输出无声而报告全绿（K-46/K-87 同族）

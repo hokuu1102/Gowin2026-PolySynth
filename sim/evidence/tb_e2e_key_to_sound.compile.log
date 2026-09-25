@@ -9,9 +9,17 @@ At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:112 char:18
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from another 
 file.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1583: warning: Instantiating module note_manager with dangling input por
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1817: warning: Instantiating module note_manager with dangling input por
 t 32 (event_lost_clr_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\e2e\tb_e2e_key_to_sound.sv:131: warning: Instantiating module mcp3208_model wit
+h dangling input port 7 (ch_mask_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\e2e\tb_e2e_key_to_sound.sv:131: warning: Instantiating module mcp3208_model wit
+h dangling input port 8 (ch_val_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\e2e\tb_e2e_key_to_sound.sv:140: warning: Instantiating module mcp3208_model wit
+h dangling input port 7 (ch_mask_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\e2e\tb_e2e_key_to_sound.sv:140: warning: Instantiating module mcp3208_model wit
+h dangling input port 8 (ch_val_i) floating.

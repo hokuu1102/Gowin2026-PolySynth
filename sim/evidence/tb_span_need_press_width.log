@@ -1,0 +1,17 @@
+﻿NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=200)
+=== tb_span_need_press_width ===
+猸?鐩殑锛氭祴 need_press_o 瀹為檯楂樺嚑鎷嶏紙猸?鍐冲畾 ev_need 鑳藉惁鍙潬瑙﹀彂锛?
+
+鍚姩鍓? need_press_o=0 state=0
+--------------------------------------------------
+  S_PROMPT 鍋滅暀鎷嶆暟      = 4
+  need_press 鏈€瀹?       = 202 鎷?
+  need_press 涓婂崌娌挎鏁? = 2  (= top.v 鐨?ev_need 娆℃暟)
+  褰撳墠 state             = 2
+--------------------------------------------------
+ok  : need_press_o 纭疄浜х敓浜嗕笂鍗囨部 鈬?top.v 鐨?ev_need 浼氳瑙﹀彂
+NOTE: need_press 楂?202 鎷?
+==================================================
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_need_press_width.sv:151: $finish called at 6240000 (1ps)
+
+

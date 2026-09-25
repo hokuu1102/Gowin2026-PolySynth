@@ -1,0 +1,17 @@
+﻿NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=300)
+=== tb_span_retry_reemits_axis锛堝畧 K-132锛?==
+猸?缁欍€愭姈鍔ㄣ€戣鏁?鈬?蹇呭畾鍙嶅瓒呮椂閲嶈瘯
+猸?鍒ゆ嵁锛氣瓙 姣忔杩?S_PROMPT 閮藉繀椤讳骇鐢熶竴娆?need_press 涓婂崌娌?
+        锛堚瓙 鍗?ev_need_cnt 蹇呴』 鈮?prompt_entries锛屸洈 涓嶆槸 1锛?
+
+--------------------------------------------------
+  杩?S_PROMPT 娆℃暟        = 9
+  ev_need 娆℃暟锛? 鍥炶酱鍙凤級 = 9
+  reject 娆℃暟              = 9
+--------------------------------------------------
+ok  : 姣忔閲嶈瘯閮介噸鏂板彂浜嗚酱鍙凤紙9 娆?/ 9 娆¤繘 PROMPT锛?
+==================================================
+PASS: 閲嶈瘯鏃惰酱鍙蜂細閲嶆柊鍥炲彂锛圞-132 宸蹭慨锛?
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_retry_reemits_axis.sv:145: $finish called at 120240000 (1ps)
+
+

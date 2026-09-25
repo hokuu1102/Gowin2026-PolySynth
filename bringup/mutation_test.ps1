@@ -1,4 +1,4 @@
-﻿# mutation_test.ps1 -- MUTATION TESTING: inject a known defect, require the suite to catch it.
+# mutation_test.ps1 -- MUTATION TESTING: inject a known defect, require the suite to catch it.
 #
 # Usage (from the repository root):
 #   powershell -NoProfile -ExecutionPolicy Bypass -File bringup\mutation_test.ps1
@@ -422,7 +422,34 @@ $mutations = @(
   @{ id = "M110"; file = "rtl\w3c\uart_tx.v"; find = "bit_idx_q <= BIT_STOP;"; repl = "bit_idx_q <= 4'd8;"; why = "W3c uart_tx: the stop bit is not entered after D7 -> the line goes low again and the receiver sees a phantom start bit (the ORIGINAL D7-duplication bug fixed on 2026-09-24, which produced TWO rx_done per send). Must be caught." },
   @{ id = "M111"; file = "rtl\w3c\uart_tx.v"; find = "tx_o       <= 1'b1;"; repl = "tx_o       <= 1'b0;"; why = "W3c uart_tx: reset drives the line LOW instead of the UART idle HIGH -> the peer sees a permanent start-bit condition. Must be caught." },
   @{ id = "M112"; file = "rtl\w3a\calib_autotare.v"; find = "if (sample_valid_i && (sample_ch_i == cur_ch)) begin"; repl = "if (sample_valid_i && (1'b1)) begin"; why = "W3a calib_autotare: tare is no longer aligned to its own channel -> calib stores another channel's code as the zero point. Silent. Must be caught." },
-  @{ id = "M113"; file = "rtl\w3a\calib_autotare.v"; find = "if (retrig_i) begin"; repl = "if (1'b0) begin"; why = "W3a calib_autotare: the 'T' re-trigger input stops working -> the operator cannot re-zero the axes without a board reset. Must be caught." }
+  @{ id = "M113"; file = "rtl\w3a\calib_autotare.v"; find = "if (retrig_i) begin"; repl = "if (1'b0) begin"; why = "W3a calib_autotare: the 'T' re-trigger input stops working -> the operator cannot re-zero the axes without a board reset. Must be caught." },
+  # ===========================================================================
+  # M114-M117 added 2026-09-25: external DAC path (route A, two outputs at once)
+  #   The whole risk of route A is that the SECOND i2s_tx is dropped / wired to
+  #   the wrong pin / fed the wrong sample -- all of which leave the board output
+  #   perfect while the external speaker stays silent (K-87 family: invisible).
+  #   NOTE: keep every comment ABOVE an array element ASCII-only (see C72).
+  # ===========================================================================
+  @{ id = "M114"; file = "rtl\top.v"; find = ".HP_BCK       (I2S2_BCK),"; repl = ".HP_BCK       (I2S2_LRCK),"; why = "top: the external DAC bit-clock is driven by the frame-clock net -> the PCM5102A gets LRCK on BCK (no bit clock at all). Silent on the board side, external speaker stays dead. Must be caught." },
+  @{ id = "M115"; file = "rtl\top.v"; find = ".HP_WS        (I2S2_LRCK),"; repl = ".HP_WS        (I2S2_BCK),"; why = "top: the external DAC frame-clock is driven by the bit-clock net -> LRCK toggles at 3.125 MHz, the module never sees a frame boundary. Must be caught." },
+  @{ id = "M116"; file = "rtl\top.v"; find = ".HP_BCK       (I2S2_BCK),"; repl = ".HP_BCK       (I2S2_BCK), .HP_DIN (|sample_mono),"; why = "top: the external DAC data pin is illegally OR-ed with the live sample -> real audio is forced onto I2S2_DIN independently of the module's own serialiser, so the external stream no longer matches the on-board stream. Must be caught by the per-cycle equality check." },
+  @{ id = "M117"; file = "rtl\top.v"; find = ".HP_DIN       (I2S2_DIN)"; repl = ".HP_DIN       (I2S2_DIN), .HP_WS (I2S2_DIN)"; why = "top: the external data pin is also forced onto the frame clock -> the module sees a static frame clock and garbage data. Must be caught by the per-cycle equality check." },
+  # ===========================================================================
+  # M118-M123 added 2026-09-26: seq_arb (source-A arbiter) + drum_gen (drum machine)
+  #   The whole point of seq_arb is that several sources must NOT be dropped when
+  #   they collide on the same cycle, and that the demo chord yields to real
+  #   playing.  drum_gen's whole point is that ONE step may hit SEVERAL drums.
+  #   Both are the exact failure that U-18b / U-6 already burned us with once.
+  #   NOTE: keep every comment ABOVE an array element ASCII-only (see C72).
+  # ===========================================================================
+  @{ id = "M118"; file = "rtl\w3c\seq_arb.v"; find = "wire others_going = live_valid_i | score_valid_i;"; repl = "wire others_going = 1'b0;"; why = "seq_arb: 'others are going' is forced low -> the demo chord never yields, so the power-on self-test chord keeps stealing voices from real playing. Must be caught by the demo-yield judgement." },
+  @{ id = "M119"; file = "rtl\w3c\seq_arb.v"; find = "wire push_demo  = demo_valid_i & ~others_going;"; repl = "wire push_demo  = demo_valid_i;"; why = "seq_arb: the demo chord no longer yields -> the power-on self-test chord competes with real playing and can steal its voices. Must be caught by the demo-yield judgement." },
+  @{ id = "M120"; file = "rtl\w3c\seq_arb.v"; find = "end else if (push_live && push_score) begin"; repl = "end else if (push_live && 1'b0) begin"; why = "seq_arb: the live+score same-cycle case is skipped -> when the player presses a key on the same cycle as a score event, one of the two is LOST. Exactly the U-6 failure mode. Must be caught." },
+  @{ id = "M121"; file = "rtl\w3c\seq_arb.v"; find = "wire [NW-1:0] pop_src = pop_data[ENT_W +: NW];"; repl = "wire [NW-1:0] pop_src = 2'd3;"; why = "seq_arb: the popped source tag is hardwired to an invalid id -> the per-source counters (live/score/demo) all mis-attribute, so the observability that tells you WHO is flooding the arbiter becomes a lie (K-106). Must be caught." },
+  @{ id = "M122"; file = "rtl\w3c\drum_gen.v"; find = "wire        has_pending = (pending_q != 4'd0);"; repl = "wire        has_pending = 1'b0;"; why = "drum_gen: the pending list is never considered non-empty -> the drum machine silently emits NOTHING at all, while the step counter keeps running and the report stays green. Must be caught." },
+  @{ id = "M123"; file = "rtl\w3c\drum_gen.v"; find = "wire        fire        = has_pending & transport_i;"; repl = "wire        fire        = has_pending;"; why = "drum_gen: the transport gate is removed -> drums keep firing while the transport is stopped (and the tb checks that stop really stops). Must be caught." },
+  @{ id = "M124"; file = "rtl\w3c\drum_gen.v"; find = "wire        step_zero_align = transport_i & bar_start_i;"; repl = "wire        step_zero_align = 1'b0;"; why = "drum_gen: the bar-start re-alignment is removed -> the step counter free-runs and drifts away from beat_gen, so the drums no longer line up with the metronome/beat. Must be caught." },
+  @{ id = "M125"; file = "rtl\w3c\drum_gen.v"; find = "((tick_cnt_i - tick_at_step_q) >= TPS_C)"; repl = "((tick_cnt_i - tick_at_step_q) >= 16'd1)"; why = "drum_gen: the 16th-note divider collapses to one tick per step -> the pattern plays 240 times too fast and no longer lines up with the beat. Must be caught." }
 )
 
 # ---- selection ---------------------------------------------------------------

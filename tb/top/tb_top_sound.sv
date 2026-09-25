@@ -51,6 +51,13 @@ module tb_top_sound;
 
     // ── 被测顶层（⭐ 默认档 = 出声）────────────────────────────────────────
     wire HP_BCK, HP_WS, HP_DIN, PA_EN_n, led_hb;
+    // ⭐⭐ 2026-09-26 新增：外置 DAC 三根线
+    //   🔴 **为什么必须在这个 tb 里判**：⚠️ `tb_top_m0` 是 **M0 静音档**
+    //      （`DEMO_CHORD_ON=0`）⇒ ⭐ 两路 `DIN` 本来就都是 0
+    //      ⇒ 🔴 **它【原理上】测不了"音频内容"**
+    //      ⇒ ⭐ 变异体"把外置那路变成恒 0"在那边**永远抓不到**（⭐ 实测 `M116 LEAK`）。
+    //   ⭐ 本 tb 是【出声档】⇒ ⭐ **唯一能判"外置那路到底有没有音频"的地方**。
+    wire I2S2_BCK, I2S2_LRCK, I2S2_DIN;
     top #(
         .PA_ON_AFTER_RESET (0),        // 本 tb 只关心音频，功放时序另有 tb
         .DEMO_CHORD_ON     (1),        // ⭐ 出声档
@@ -85,6 +92,8 @@ module tb_top_sound;
         .clk (clk), .rst_n (rst_n),
         .HP_BCK (HP_BCK), .HP_WS (HP_WS), .HP_DIN (HP_DIN),
         .PA_EN_n (PA_EN_n), .led_heartbeat (led_hb),
+        //   ⭐⭐ 2026-09-26：外置 DAC 三根线（⭐ 见上方说明）
+        .I2S2_BCK (I2S2_BCK), .I2S2_LRCK (I2S2_LRCK), .I2S2_DIN (I2S2_DIN),
         //   ⚠️ 2026-09-23 晚：SPI 端口改成【预留 6 片】的向量 ⇒ ⭐ 给 6 位常量
         //      ⭐ 本 tb 测的是出声链（T57），⛔ 不测采集 ⇒ 常量即可
         .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n (),
@@ -130,6 +139,17 @@ module tb_top_sound;
     //    ⚠️ 判据必须用**独立**的还原路径（`C36`：探针要打在真正被证明的信号上）
     integer fd;
     integer n_din_one;          // HP_DIN 为 1 的拍数
+    // ⭐⭐ 2026-09-26 新增：⭐ **外置那路的【活动量】**（⭐ 修 `M116` 的 LEAK）
+    //   🔴 **为什么要单独统计**：⭐ 只判"两路逐拍一致"有**固有盲区** ——
+    //      ⚠️ 变异体把**两路一起**变成 0 时，`0 == 0` 仍成立 ⇒ 🔴 判据说"一致"却没验到东西。
+    //   ⭐ 本 tb 是**出声档** ⇒ ⭐ **`DIN` 必须真的在动**（⛔ 恒定 = 外置 DAC 听不到任何声音）。
+    //   📌 判据分工：⭐ "一致"排相位错；⭐ "都在动"排整路恒定 ⇒ ⭐ **两条合起来才完整**。
+    integer n_tog_din2 = 0;     // ⭐ I2S2_DIN 翻转次数
+    integer n_tog_bck2 = 0;     // ⭐ I2S2_BCK 翻转次数
+    integer n_tog_lrck2 = 0;    // ⭐ I2S2_LRCK 翻转次数
+    integer n_tog_din1 = 0;     // ⭐ HP_DIN 翻转次数（⭐ 对照）
+    integer n_diff_ext = 0;     // ⭐ 外置与板载逐拍不一致的次数
+    reg bck2_p = 0, lrck2_p = 0, din2_p = 0, din1_p = 0;
     integer n_frames;
     integer n_clk_total;        // 采集期间的总 clk 数（判据 ① 的上界）
     reg     prev_din;
@@ -137,6 +157,19 @@ module tb_top_sound;
 
     // 采样：在每帧的固定相位抓 mixer 输出（用 probe_mx_valid 做门控）
     integer cap_n;
+
+    // ⭐⭐ 2026-09-26：外置那路的活动量统计（⭐ 见上方说明）
+    always @(posedge clk) begin
+        if (I2S2_BCK  !== bck2_p)  n_tog_bck2  = n_tog_bck2  + 1;
+        if (I2S2_LRCK !== lrck2_p) n_tog_lrck2 = n_tog_lrck2 + 1;
+        if (I2S2_DIN  !== din2_p)  n_tog_din2  = n_tog_din2  + 1;
+        if (HP_DIN    !== din1_p)  n_tog_din1  = n_tog_din1  + 1;
+        if (I2S2_DIN  !== HP_DIN)  n_diff_ext  = n_diff_ext  + 1;
+        bck2_p  = I2S2_BCK;
+        lrck2_p = I2S2_LRCK;
+        din2_p  = I2S2_DIN;
+        din1_p  = HP_DIN;
+    end
 
     initial begin
         fd = $fopen("sim/evidence/top_sound_samples.csv", "w");
@@ -246,6 +279,31 @@ module tb_top_sound;
         $display("== 4: deadline_fault 恒 0（A6）==");
         // ═══════════════════════════════════════════════════════════════════
         chk("deadline_fault stays 0 (frame deadline met)", probe_mx_fault === 1'b0);
+
+        // ═══════════════════════════════════════════════════════════════════
+        //  ⭐⭐ 5: 外置 DAC 那一路【真的有音频】（⭐ 2026-09-26 新增）
+        //     🔴 **它修的是变异体 `M116` 的 LEAK** ——
+        //        ⭐ "外置那路恒 0"这种失败，⚠️ `tb_top_m0`（静音档）**原理上抓不到**。
+        //     ⭐ 本 tb 是【出声档】⇒ ⭐ 这里的 `I2S2_DIN` **必须真的在翻转**。
+        // ═══════════════════════════════════════════════════════════════════
+        $display("== 5: 外置 DAC 那一路真的有音频 ==");
+        $display("     I2S2_BCK 翻转=%0d · I2S2_LRCK 翻转=%0d · I2S2_DIN 翻转=%0d",
+                 n_tog_bck2, n_tog_lrck2, n_tog_din2);
+        $display("     板载 HP_DIN 翻转=%0d · 两路逐拍不一致=%0d 拍",
+                 n_tog_din1, n_diff_ext);
+        chk("I2S2_BCK toggles (external DAC has a bit clock)",
+            n_tog_bck2 > 100);
+        chk("I2S2_LRCK toggles (external DAC has a frame clock)",
+            n_tog_lrck2 > 10);
+        // ⭐⭐ **核心判据**：⭐ 出声档下外置那路的数据脚必须真的在动
+        chk("I2S2_DIN is LIVE (external DAC receives real audio, not DC)",
+            n_tog_din2 > 10);
+        // ⭐ 且必须与板载那路【同活动量】（⭐ 同源同步）
+        chk("I2S2_DIN toggles as much as HP_DIN (same source, same rate)",
+            n_tog_din2 == n_tog_din1);
+        // ⭐ 逐拍一致（⭐ 排除相位漂移/接错线）
+        chk("I2S2_DIN matches HP_DIN cycle-by-cycle (no phase drift)",
+            n_diff_ext == 0);
 
         if (errors == 0)
             $display("PASS: top sound chain (T57) - HP_DIN is live and the mixer emits a varying waveform");

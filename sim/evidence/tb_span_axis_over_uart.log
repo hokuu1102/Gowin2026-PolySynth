@@ -1,0 +1,61 @@
+﻿NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 T=54 S=53 X=58)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=600)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+=== tb_span_axis_over_uart锛堢鍒扮锛氳酱鍙风湡鐨勫彂鍑哄幓浜嗗悧锛?==
+猸?閾捐矾锛歶art_rx -> calib_cmd -> calib_span -> ev_need -> uart_tx -> uart_rx
+猸?璇绘暟鏄€愭姈鍔ㄣ€戠殑 鈬?蹇呭畾鍙嶅閲嶈瘯 鈬?姝ｅソ妫€楠?K-132
+
+    [probe t=410000] state 7 -> 0 (need_press=0)
+  路 鍙戦€?'S' ...
+    [probe t=22510000] state 0 -> 1 (need_press=0)
+    [probe t=22550000] need_press 0 -> 1  (state=2 prompt_phase=0)
+    [probe t=22550000] state 1 -> 2 (need_press=1)
+    [probe t=34570000] state 2 -> 1 (need_press=1)
+    [probe t=34590000] need_press 1 -> 0  (state=1 prompt_phase=1)
+    [probe t=34610000] state 1 -> 2 (need_press=1)
+    [probe t=34610000] need_press 0 -> 1  (state=2 prompt_phase=0)
+    [probe t=46630000] state 2 -> 1 (need_press=1)
+    [probe t=46650000] need_press 1 -> 0  (state=1 prompt_phase=1)
+    [probe t=46670000] need_press 0 -> 1  (state=2 prompt_phase=0)
+    [probe t=46670000] state 1 -> 2 (need_press=1)
+    [probe t=58690000] state 2 -> 1 (need_press=1)
+    [probe t=58710000] need_press 1 -> 0  (state=1 prompt_phase=1)
+    [probe t=58730000] state 1 -> 2 (need_press=1)
+    [probe t=58730000] need_press 0 -> 1  (state=2 prompt_phase=0)
+    [probe t=70750000] state 2 -> 1 (need_press=1)
+    [probe t=70770000] need_press 1 -> 0  (state=1 prompt_phase=1)
+    [probe t=70790000] need_press 0 -> 1  (state=2 prompt_phase=0)
+    [probe t=70790000] state 1 -> 2 (need_press=1)
+    [probe t=82810000] state 2 -> 1 (need_press=1)
+    [probe t=82830000] need_press 1 -> 0  (state=1 prompt_phase=1)
+    [probe t=82850000] state 1 -> 2 (need_press=1)
+    [probe t=82850000] need_press 0 -> 1  (state=2 prompt_phase=0)
+    [probe t=94870000] state 2 -> 1 (need_press=1)
+    [probe t=94890000] need_press 1 -> 0  (state=1 prompt_phase=1)
+    [probe t=94910000] need_press 0 -> 1  (state=2 prompt_phase=0)
+    [probe t=94910000] state 1 -> 2 (need_press=1)
+    [probe t=106930000] state 2 -> 1 (need_press=1)
+    [probe t=106950000] need_press 1 -> 0  (state=1 prompt_phase=1)
+    [probe t=106970000] state 1 -> 2 (need_press=1)
+    [probe t=106970000] need_press 0 -> 1  (state=2 prompt_phase=0)
+    [probe t=118990000] state 2 -> 1 (need_press=1)
+    [probe t=119010000] need_press 1 -> 0  (state=1 prompt_phase=1)
+    [probe t=119030000] need_press 0 -> 1  (state=2 prompt_phase=0)
+    [probe t=119030000] state 1 -> 2 (need_press=1)
+    [probe t=131050000] state 2 -> 7 (need_press=1)
+    [probe t=131070000] need_press 1 -> 0  (state=7 prompt_phase=0)
+--------------------------------------------------
+  绾夸笂鏀跺埌瀛楄妭鏁?= 14
+  's' 娆℃暟       = 1
+  銆愯酱鍙?'0' 娆℃暟銆? 6
+  '!' 娆℃暟       = 7
+  鏀跺埌鐨勫瓧鑺? s0!0!0!0!0!0!!
+--------------------------------------------------
+ok  : 's'锛堝彈鐞嗭級缁?UART 鐪熺殑鍙戝嚭鍘讳簡
+ok  : 銆愯酱鍙风粡 UART 鐪熺殑鍙戝嚭鍘讳簡銆?
+ok  : 鏈?7 娆℃嫆缁濄€? 娆¤酱鍙?鈬?猸?閲嶈瘯鏃惰酱鍙枫€愮‘瀹為噸鍙戙€?
+==================================================
+PASS: 杞村彿纭疄缁?UART 鍙戝嚭锛屼笖閲嶈瘯鏃朵細閲嶅彂锛圞-132 宸蹭慨锛?
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_axis_over_uart.sv:289: $finish called at 8024380000 (1ps)
+
+

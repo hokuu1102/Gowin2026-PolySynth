@@ -18,6 +18,9 @@ VCD info: dumpfile build/sim/tb_top_m0/tb_top_m0.vcd opened for output.
   G rst_sync: 杈撳叆閲婃斁鎷?9 路 鍚屾杈撳嚭閲婃斁鎷?11 路 寤惰繜 2 鎷嶏紙鏈熸湜鎭板ソ 2锛?
   E 闈欓煶    : HP_DIN 涓?1 鐨勬媿鏁?0锛堟湡鏈?0锛?
   F A8      : bck=0 ws=0 din=0 pa=0 hb=0 pa(寤舵椂)=0
+  J 澶栫疆DAC : I2S2_BCK 鍛ㄦ湡 min=16 max=16 路 I2S2_LRCK 鍛ㄦ湡 min=1024 max=1024
+              涓庢澘杞介€愭媿姣斿: 65536 鎷嶄腑鏈?0 鎷嶄笉涓€鑷达紙鏈熸湜 0锛?
+              涓婂崌娌?bck2=4097 lrck2=64 路 A8 bck2=0 lrck2=0 din2=0
   璇佹嵁      : sim/evidence/top_m0_pa_trace.csv锛堝簲鍙湁琛ㄥご锛? 娉㈠舰 build/sim/tb_top_m0/
 ==========================================================
   ok : A 路 HP_BCK 鍛ㄦ湡鎭板ソ 16 clk锛?.125 MHz锛?
@@ -33,8 +36,14 @@ VCD info: dumpfile build/sim/tb_top_m0/tb_top_m0.vcd opened for output.
   I default : bare instantiation PA_ON_AFTER_RESET = 1 (1 = Console sounds; 0 = Shutdown)
   ok : I * delivery default correct -- bare instantiation drives SD_MODE high => board sounds
   ok : I * explicit PA_ON_AFTER_RESET=0 gives a static-low output (NEO-Dock fallback intact)
+  ok : J 路 I2S2_BCK 鍛ㄦ湡鎭板ソ 16 clk锛?.125 MHz锛屼笌鏉胯浇鍚屾。锛?
+  ok : J 路 I2S2_LRCK 鍛ㄦ湡鎭板ソ 1024 clk锛?8.828125 kHz锛?
+  ok : J * 澶栫疆涓庢澘杞姐€愰€愭媿瀹屽叏涓€鑷淬€戯紙65536 鎷嶅叏绛夛級-- 涓よ矾鍚屾簮鍚屾锛屾棤鐩镐綅婕傜Щ
+  J 娲诲姩閲? : 澶栫疆 bck=8193 lrck=127 din=0 锝?鏉胯浇 bck=8193 ws=127 din=0
+  ok : J ** 澶栫疆涓庢澘杞界殑銆愭椿鍔ㄩ噺鐩哥О銆戯紙猸?鏃堕挓绾块兘鍦ㄥ姩锛涙湰妗ｄ袱璺?DIN 鍚屼负闈欓煶锛?
+  ok : J 路 A8 澶栫疆涓夋牴绾垮浣嶅悗鏃?X/Z
 
-PASS: M0 top-level acceptance (timebase + SD_MODE polarity + silence-clean + heartbeat + no X)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_m0.sv:325: $finish called at 1310971000 (1ps)
+PASS: M0 top-level acceptance (timebase + SD_MODE polarity + silence-clean + heartbeat + no X + external DAC)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_m0.sv:535: $finish called at 1310971000 (1ps)
 
 

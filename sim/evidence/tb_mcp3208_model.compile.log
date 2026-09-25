@@ -9,7 +9,7 @@ At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:112 char:18
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from another 
 file.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
@@ -17,3 +17,7 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\tb_mcp3208_model.sv:23: warning: 
  dangling input port 5 (ovr_en_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\tb_mcp3208_model.sv:23: warning: Instantiating module mcp3208_model with
  dangling input port 6 (ovr_val_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\tb_mcp3208_model.sv:23: warning: Instantiating module mcp3208_model with
+ dangling input port 7 (ch_mask_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\tb_mcp3208_model.sv:23: warning: Instantiating module mcp3208_model with
+ dangling input port 8 (ch_val_i) floating.
