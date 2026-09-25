@@ -378,10 +378,11 @@ module top #(
         .rx_done_o (ur_done)
     );
 
-    // ── ⭐ ② 标定命令解析（`'T'` / `'S'` / `'X'`）─────────────────────────
-    //   🔴 **它自带 `0xA5` 帧边界跟踪** ⇒ ⭐ 帧内的 `T/S/X` 是**载荷**，⛔ 不当命令
+    // ── ⭐ ② 控制命令解析（`'T'` / `'S'` / `'X'` / `'M'`）─────────────────
+    //   🔴 **它自带 `0xA5` 帧边界跟踪** ⇒ ⭐ 帧内的 `T/S/X/M` 是**载荷**，⛔ 不当命令
     //      （⚠️ 否则**曲谱灌入会被误当标定命令** —— 灾难性）
     wire cmd_tare_req, cmd_span_req, cmd_abort_req, cmd_probe_req, cmd_vstat_req;
+    wire cmd_test_mode_req;
     wire [15:0] cmd_cnt, cmd_in_frame_cnt, cmd_resync_cnt, cmd_unknown_cnt;
     wire [3:0]  cmd_idx;
 
@@ -399,6 +400,7 @@ module top #(
         .abort_req_o    (cmd_abort_req),
         .probe_req_o    (cmd_probe_req),
         .vstat_req_o    (cmd_vstat_req),
+        .test_mode_req_o(cmd_test_mode_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (cmd_in_frame_cnt),
         .resync_cnt_o   (cmd_resync_cnt),
@@ -453,6 +455,7 @@ module top #(
     //      | ⭐ 收到 `'T'` | **`'t'`** | ⭐ 已受理 tare 请求 |
     //      | ⭐ 收到 `'S'` | **`'s'`** | ⭐ 已受理 span 请求 |
     //      | ⭐ 收到 `'X'` | **`'x'`** | ⭐ 已受理取消 |
+    //      | ⭐ 收到 `'M'` | **`'4'/'8'/'A'/'B'/'0'`** | ⭐ Test Mode 已切至 4/8/16/32/关 |
     //      | ⭐ `span` 需要按键 | **`'0'~'9'`/`'A'~'F'`** | ⭐ **当前要求按哪个轴**（⭐ 十六进制一位） |
     //      | ⭐ 该轴通过 | **`'.'`** | ⭐ 这一轴标成功 |
     //      | 🔴 该轴被拒 | **`'!'`** | ⭐ 这一轴被拒（⭐ 手没按稳 / 没按到底） |
@@ -595,6 +598,52 @@ module top #(
         wire [POLY_TARGET*16-1:0]      env_level;
         wire [POLY_TARGET-1:0]         env_active;
 
+        // ── ⭐ T43：实体 Test Mode（板载 USB-C UART 的 'M' 命令）─────────
+        //   顺序：关 → 4 → 8 → 16 → 32 → 关。状态放在顶层而不是
+        //   `calib_cmd`，确保串口控制的状态与实际音频链使用的是同一个寄存器。
+        reg                              tm_enable_r;
+        reg [1:0]                        tm_n_code_r;
+        wire [POLY_TARGET-1:0]           tm_gate;
+        wire [POLY_TARGET*8-1:0]         tm_vel;
+        wire [POLY_TARGET*OSC_PER_VOICE-1:0] tm_lane_active;
+        wire [POLY_TARGET*OSC_PER_VOICE*32-1:0] tm_phase_inc;
+        wire [5:0]                       tm_active_n;
+
+        always @(posedge clk) begin
+            if (!rst_n_sync) begin
+                tm_enable_r <= 1'b0;
+                tm_n_code_r <= 2'b00;
+            end else if (cmd_test_mode_req) begin
+                if (!tm_enable_r) begin
+                    tm_enable_r <= 1'b1;
+                    tm_n_code_r <= 2'b00;  // 4 voices
+                end else if (tm_n_code_r == 2'b11) begin
+                    tm_enable_r <= 1'b0;
+                    tm_n_code_r <= 2'b00;
+                end else begin
+                    tm_n_code_r <= tm_n_code_r + 2'b01;
+                end
+            end
+        end
+
+        test_mode_ctrl #(
+            .POLY_TARGET   (POLY_TARGET),
+            .OSC_PER_VOICE (OSC_PER_VOICE),
+            .PHASE_W       (32),
+            .VEL_W         (8)
+        ) u_test_mode_ctrl (
+            .clk_i              (clk),
+            .rst_n_i            (rst_n_sync),
+            .sample_tick_i      (tick_audio),
+            .enable_i           (tm_enable_r),
+            .n_code_i           (tm_n_code_r),
+            .test_voice_gate_o  (tm_gate),
+            .test_velocity_o    (tm_vel),
+            .test_lane_active_o (tm_lane_active),
+            .test_phase_inc_o   (tm_phase_inc),
+            .active_n_o         (tm_active_n)
+        );
+
         // ── ⭐ 开机自检音（A4+C#5+E5）的驱动信号 ──────────────────────────
         //    ⚠️ 必须**先声明后使用**（Verilog 不允许先用后声明）
         //    ⭐ 相位增量由 `f × 2^32 / fs` 精确算出（fs = 48828.125 Hz）：
@@ -634,8 +683,10 @@ module top #(
             .clk_i         (clk),
             .rst_n_i       (rst_n_sync),
             .sample_tick_i (tick_audio),
-            .gate_i        (nm_gate),
-            .velocity_i    (nm_vel),
+            // Test Mode takes ownership of gate/velocity, so old live/demo
+            // notes cannot leak into the deterministic FFT acceptance signal.
+            .gate_i        (tm_enable_r ? tm_gate : nm_gate),
+            .velocity_i    (tm_enable_r ? tm_vel  : nm_vel),
             .env_level_o   (env_level),
             .env_active_o  (env_active)
         );
@@ -1266,8 +1317,16 @@ module top #(
         wire ev_axis_ok = (sp_done_cnt != sp_done_cnt_r) & ~ev_done;
 
         //   ⭐⭐ 报告请求（⭐ 优先级编码）
+        // 'M' reply is the newly selected state: '4'/'8'/'A'(16)/'B'(32)/'0'.
+        // This is computed from the old register values because command request
+        // and state update happen on the same clock edge.
+        wire [7:0] tm_reply_byte = !tm_enable_r          ? 8'h34
+                                : (tm_n_code_r == 2'b00) ? 8'h38
+                                : (tm_n_code_r == 2'b01) ? 8'h41
+                                : (tm_n_code_r == 2'b10) ? 8'h42
+                                                         : 8'h30;
         wire       rep_req  = ev_need   | ev_reject | ev_axis_ok | ev_done
-                            | cmd_tare_req | cmd_span_req | cmd_abort_req
+                            | cmd_tare_req | cmd_span_req | cmd_abort_req | cmd_test_mode_req
                             | sp_start_rejected | (at_done & ~at_done_r);
         wire [7:0] rep_byte = ev_need          ? axis_char        // ⭐ ① 轴号（⭐ 最要紧）
                             : ev_reject        ? 8'h21            // '!' 🔴 被拒
@@ -1277,6 +1336,7 @@ module top #(
                             : (at_done & ~at_done_r) ? 8'h54      // 'T' ⭐ autotare 完成
                             : cmd_tare_req     ? 8'h74            // 't' ⭐ 受理 tare
                             : cmd_span_req     ? 8'h73            // 's' ⭐ 受理 span
+                            : cmd_test_mode_req? tm_reply_byte    // M: 4/8/A/B/0
                             :                    8'h78;           // 'x' ⭐ 受理取消
 
         //   ⭐ 单拍请求 ⇒ 交给 `uart_tx`（⭐ 它忙时自动忽略 ⇒ ⚠️ 见上方"代价"）
@@ -1877,9 +1937,9 @@ module top #(
             .base_phase_inc_i   (nm_phase),
             .timbre_id_i        (2'd0),
             .vibrato_mod_i      (16'sd0),
-            .test_mode_i        (1'b0),
-            .test_lane_active_i ({(POLY_TARGET*OSC_PER_VOICE){1'b0}}),
-            .test_phase_inc_i   ({(POLY_TARGET*OSC_PER_VOICE*32){1'b0}}),
+            .test_mode_i        (tm_enable_r),
+            .test_lane_active_i (tm_lane_active),
+            .test_phase_inc_i   (tm_phase_inc),
             .fm_cfg_valid_i     (1'b0),
             .fm_ratio_i         (16'd0),
             .fm_index_i         (16'd0),

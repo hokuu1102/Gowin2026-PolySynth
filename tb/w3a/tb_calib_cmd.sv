@@ -1,9 +1,9 @@
 `timescale 1ns/1ps
 // ─────────────────────────────────────────────────────────────────────────────
-// tb_calib_cmd.sv · `calib_cmd` 自检（⭐ 'T'/'S'/'X' 命令解析）
+// tb_calib_cmd.sv · `calib_cmd` 自检（⭐ 'T'/'S'/'X'/'M' 命令解析）
 //
 // ⭐ 判据（⚠️ 每条都必须能失败 —— `K-56`/`C21`）
-//   ① ⭐ **帧外的 `'T'`/`'S'`/`'X'` ⇒ 对应脉冲单拍拉高**
+//   ① ⭐ **帧外的 `'T'`/`'S'`/`'X'`/`'M'` ⇒ 对应脉冲单拍拉高**
 //   ② ⭐⭐⭐ **帧【内】的命令字母 ⇒ ⛔ 一律不当命令**（🔴 本模块的核心安全）
 //      ⚠️ 这是"曲谱灌入时不会被误触发标定"的唯一保证
 //   ③ ⭐ **帧内被忽略的次数要记账**（`in_frame_cnt_o`）⇒ ⭐ 证明边界跟踪真在工作
@@ -32,6 +32,7 @@ module tb_calib_cmd;
     localparam [7:0] T   = 8'h54;             // 'T'
     localparam [7:0] S   = 8'h53;             // 'S'
     localparam [7:0] X   = 8'h58;             // 'X'
+    localparam [7:0] M   = 8'h4D;             // 'M' Test Mode
 
     integer errors = 0;
 
@@ -54,7 +55,7 @@ module tb_calib_cmd;
     // ── DUT ───────────────────────────────────────────────────────────
     reg        rx_done;
     reg  [7:0] rx_data;
-    wire       tare_req, span_req, abort_req;
+    wire       tare_req, span_req, abort_req, test_mode_req;
     wire [15:0] cmd_cnt, in_frame_cnt, resync_cnt, unknown_cnt;
     wire [3:0]  idx_o;
 
@@ -65,7 +66,8 @@ module tb_calib_cmd;
         .HEADER   (HDR),
         .CMD_TARE (T),
         .CMD_SPAN (S),
-        .CMD_ABORT(X)
+        .CMD_ABORT(X),
+        .CMD_TEST_MODE(M)
     ) dut (
         .clk_i          (clk),
         .rst_n_i        (rst_n),
@@ -74,6 +76,7 @@ module tb_calib_cmd;
         .tare_req_o     (tare_req),
         .span_req_o     (span_req),
         .abort_req_o    (abort_req),
+        .test_mode_req_o(test_mode_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (in_frame_cnt),
         .resync_cnt_o   (resync_cnt),
@@ -84,14 +87,14 @@ module tb_calib_cmd;
     // ═══════════════════════════════════════════════════════════════════
     // ⭐ 监视器：记录每个脉冲【出现时的拍数】与【持续拍数】
     // ═══════════════════════════════════════════════════════════════════
-    integer tare_seen, span_seen, abort_seen;
-    integer tare_cycles, span_cycles, abort_cycles;   // ⭐ 累计高电平拍数
+    integer tare_seen, span_seen, abort_seen, test_mode_seen;
+    integer tare_cycles, span_cycles, abort_cycles, test_mode_cycles; // ⭐ 累计高电平拍数
     integer last_tare_cycle, last_span_cycle, last_abort_cycle;
     integer cycle_cnt;
 
     initial begin
-        tare_seen = 0; span_seen = 0; abort_seen = 0;
-        tare_cycles = 0; span_cycles = 0; abort_cycles = 0;
+        tare_seen = 0; span_seen = 0; abort_seen = 0; test_mode_seen = 0;
+        tare_cycles = 0; span_cycles = 0; abort_cycles = 0; test_mode_cycles = 0;
         last_tare_cycle = -1; last_span_cycle = -1; last_abort_cycle = -1;
         cycle_cnt = 0;
     end
@@ -102,6 +105,7 @@ module tb_calib_cmd;
             if (tare_req)  begin tare_seen  = tare_seen  + 1; tare_cycles  = tare_cycles  + 1; last_tare_cycle  = cycle_cnt; end
             if (span_req)  begin span_seen  = span_seen  + 1; span_cycles  = span_cycles  + 1; last_span_cycle  = cycle_cnt; end
             if (abort_req) begin abort_seen = abort_seen + 1; abort_cycles = abort_cycles + 1; last_abort_cycle = cycle_cnt; end
+            if (test_mode_req) begin test_mode_seen = test_mode_seen + 1; test_mode_cycles = test_mode_cycles + 1; end
         end
     end
 
@@ -156,8 +160,8 @@ module tb_calib_cmd;
             //         ⚠️ 它们**不受 `rst_n` 影响**（⭐ 不是 DUT 信号）
             //      ⇒ ⭐ 若不清，后面所有 `== 0`/`== 1` 的判据都会**带着旧值**失败
             //      📌 这正是我第一版 tb 的错（⭐ 5 条假失败全部源于此）
-            tare_seen  = 0; span_seen  = 0; abort_seen  = 0;
-            tare_cycles = 0; span_cycles = 0; abort_cycles = 0;
+            tare_seen  = 0; span_seen  = 0; abort_seen  = 0; test_mode_seen = 0;
+            tare_cycles = 0; span_cycles = 0; abort_cycles = 0; test_mode_cycles = 0;
         end
     endtask
 
@@ -183,14 +187,16 @@ module tb_calib_cmd;
         chk("'S' outside a frame raises span_req", span_seen == 1);
         send_byte(X);
         chk("'X' outside a frame raises abort_req", abort_seen == 1);
-        chk("cmd_cnt_o counted all three commands", cmd_cnt == 16'd3);
+        send_byte(M);
+        chk("'M' outside a frame raises test_mode_req", test_mode_seen == 1);
+        chk("cmd_cnt_o counted all four commands", cmd_cnt == 16'd4);
 
         // ───────────────────────────────────────────────────────────────
         // ⭐ 判据⑦：脉冲必须是【单周期】
         //   ⭐ 每个命令各出现 1 次 ⇒ ⭐ 高电平拍数也必须正好是 1
         // ───────────────────────────────────────────────────────────────
         chk("each command pulse is exactly ONE cycle wide",
-            tare_cycles == 1 && span_cycles == 1 && abort_cycles == 1);
+            tare_cycles == 1 && span_cycles == 1 && abort_cycles == 1 && test_mode_cycles == 1);
 
         // ───────────────────────────────────────────────────────────────
         // ⭐⭐⭐ 判据②③：帧【内】的命令字母 ⛔ 绝不当命令
@@ -203,11 +209,12 @@ module tb_calib_cmd;
         t0 = tare_seen; s0 = span_seen; a0 = abort_seen;
         ifc0 = in_frame_cnt;
         //   ⭐ 载荷 = T S X T S X T S（⭐ 8 个全是命令字母！最坏情况）
-        send_frame(T, S, X, T, S, X, T, S);
+        send_frame(T, S, X, M, T, S, X, M);
 
         chk("payload full of T/S/X raises NO tare_req",  tare_seen  == t0);
         chk("payload full of T/S/X raises NO span_req",  span_seen  == s0);
         chk("payload full of T/S/X raises NO abort_req", abort_seen == a0);
+        chk("payload full of commands raises NO test_mode_req", test_mode_seen == 0);
         chk("cmd_cnt_o did NOT count in-frame letters", cmd_cnt == 16'd0);
         //   ⭐ 8 个载荷字节全是命令字母 ⇒ ⭐ 忽略计数应为 8
         chk("in_frame_cnt_o counted all 8 ignored payload letters",
@@ -220,7 +227,7 @@ module tb_calib_cmd;
         do_reset();
         send_byte(HDR);
         chk("0xA5 header itself raises no command", 
-            tare_seen == 0 && span_seen == 0 && abort_seen == 0);
+            tare_seen == 0 && span_seen == 0 && abort_seen == 0 && test_mode_seen == 0);
 
         // ───────────────────────────────────────────────────────────────
         // ⭐ 判据④：帧外非命令字节 ⇒ ⭐ 无脉冲，但计数
@@ -230,7 +237,7 @@ module tb_calib_cmd;
         send_byte(8'h0D);
         send_byte(8'h0A);
         chk("non-command bytes outside a frame raise no pulses",
-            tare_seen == 0 && span_seen == 0 && abort_seen == 0);
+            tare_seen == 0 && span_seen == 0 && abort_seen == 0 && test_mode_seen == 0);
         chk("non-command bytes are counted in unknown_cnt_o", unknown_cnt == 16'd2);
 
         // ───────────────────────────────────────────────────────────────
@@ -260,10 +267,10 @@ module tb_calib_cmd;
         // ⭐ 附加：连续多个命令（⭐ 确保不互相遮蔽）
         // ───────────────────────────────────────────────────────────────
         do_reset();
-        send_byte(T); send_byte(S); send_byte(X);
-        chk("consecutive T,S,X each fire exactly once",
-            tare_seen == 1 && span_seen == 1 && abort_seen == 1);
-        chk("consecutive commands: cmd_cnt_o == 3", cmd_cnt == 16'd3);
+        send_byte(T); send_byte(S); send_byte(X); send_byte(M);
+        chk("consecutive T,S,X,M each fire exactly once",
+            tare_seen == 1 && span_seen == 1 && abort_seen == 1 && test_mode_seen == 1);
+        chk("consecutive commands: cmd_cnt_o == 4", cmd_cnt == 16'd4);
 
         // ───────────────────────────────────────────────────────────────
         // ⭐ 附加：⭐ 两帧【连续】背靠背（⭐ 真实曲谱场景）
@@ -273,12 +280,12 @@ module tb_calib_cmd;
         send_frame(HDR, HDR, T, S, X, HDR, T, T);   // ⭐ 载荷里连帧头都有
         send_frame(T, T, T, T, T, T, T, T);         // ⭐ 第二帧载荷全是 T
         chk("back-to-back frames with embedded T/S/X/HDR raise no commands",
-            tare_seen == 0 && span_seen == 0 && abort_seen == 0);
+            tare_seen == 0 && span_seen == 0 && abort_seen == 0 && test_mode_seen == 0);
         chk("back-to-back frames end with idx_o == 0", idx_o === 4'd0);
 
         $display("");
         if (errors == 0)
-            $display("PASS: calib_cmd parses T/S/X only at frame boundaries, ignores payload letters, counts what it drops, and self-heals after a half frame");
+            $display("PASS: calib_cmd parses T/S/X/M only at frame boundaries, ignores payload letters, counts what it drops, and self-heals after a half frame");
         else
             $fatal(1, "FAIL: calib_cmd had %0d error(s)", errors);
 

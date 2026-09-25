@@ -8,6 +8,7 @@
 //   | `'T'` | `0x54` | ⭐ **逐轴 `tare`**（全部 16 轴） | 重新记零点 = 松手位 |
 //   | `'S'` | `0x53` | ⭐ **逐轴 `span`**（全部 16 轴） | 逐个按到底 ⇒ 满行程标定 |
 //   | `'X'` | `0x58` | ⭐ **取消** | 中止当前标定（⭐ 任意状态可退） |
+//   | `'M'` | `0x4D` | ⭐ **Test Mode 循环** | 关 → 4 → 8 → 16 → 32 → 关 |
 //
 //   ⭐ **谁定义了这个协议**：⭐ **FPGA 侧** —— ⚠️ ESP32 侧已明确
 //      *"标定命令是你们的协议，由你们定义（⛔ 不需要问我们）"*。
@@ -81,7 +82,11 @@ module calib_cmd #(
     parameter [7:0]   CMD_SPAN  = 8'h53,      // 'S'
     parameter [7:0]   CMD_ABORT = 8'h58,      // 'X'
     parameter [7:0]   CMD_PROBE = 8'h50,      // 'P' ⭐ 诊断：⭐ 回传 pos 读数
-    parameter [7:0]   CMD_VSTAT = 8'h56       // 'V' ⭐ 诊断：⭐ 回传 span 内部状态（⭐ 2026-09-24）
+    parameter [7:0]   CMD_VSTAT = 8'h56,      // 'V' ⭐ 诊断：⭐ 回传 span 内部状态（⭐ 2026-09-24）
+    // ⭐ T43：复用板载 USB-C 串口作为 Test Mode 的实体入口。
+    // 只输出一次单拍请求；4/8/16/32/关的状态机属于 top.v，避免解析器
+    // 自己保留另一份模式状态而与实际音频链失去一致。
+    parameter [7:0]   CMD_TEST_MODE = 8'h4D   // 'M'
 ) (
     input  wire        clk_i,
     input  wire        rst_n_i,        // ⭐ 同步复位、低有效
@@ -96,6 +101,7 @@ module calib_cmd #(
     output reg         abort_req_o,    // ⭐ 'X' ⇒ 取消
     output reg         probe_req_o,    // ⭐ 'P' ⇒ 诊断：⭐ 回传 pos 读数（⭐ 2026-09-24 新增）
     output reg         vstat_req_o,    // ⭐ 'V' ⇒ 诊断：⭐ 回传 span 状态（⭐ 2026-09-24 新增）
+    output reg         test_mode_req_o,// ⭐ 'M' ⇒ Test Mode 下一档（帧外才有效）
 
     // ── ⭐ 可观测性（`K-106`：⛔ 不许静默失效）────────────────────────────
     output reg  [15:0] cmd_cnt_o,      // ⭐ 已接受的命令数（饱和）
@@ -134,8 +140,10 @@ module calib_cmd #(
     wire byte_is_abort = (rx_data_i == CMD_ABORT);
     wire byte_is_probe = (rx_data_i == CMD_PROBE);   // ⭐ 'P' 诊断（⭐ 2026-09-24）
     wire byte_is_vstat = (rx_data_i == CMD_VSTAT);   // ⭐ 'V' 诊断（⭐ 2026-09-24）
+    wire byte_is_test_mode = (rx_data_i == CMD_TEST_MODE); // ⭐ 'M' Test Mode
     // ⭐ 任一命令字母
-    wire byte_is_cmd   = byte_is_tare | byte_is_span | byte_is_abort | byte_is_probe | byte_is_vstat;
+    wire byte_is_cmd   = byte_is_tare | byte_is_span | byte_is_abort |
+                         byte_is_probe | byte_is_vstat | byte_is_test_mode;
 
     // ⭐ 只有在**帧外**（`idx_q == 0`）才认命令
     //   🔴 这是本模块的**安全核心** —— ⚠️ 帧内的字母是**载荷**，⛔ 绝不能当命令
@@ -172,6 +180,7 @@ module calib_cmd #(
             abort_req_o    <= 1'b0;
             probe_req_o    <= 1'b0;     // ⭐ 'P' 诊断（⭐ 2026-09-24）
             vstat_req_o    <= 1'b0;     // ⭐ 'V' 诊断（⭐ 2026-09-24）
+            test_mode_req_o<= 1'b0;     // ⭐ 'M' Test Mode
             cmd_cnt_o      <= 16'd0;
             in_frame_cnt_o <= 16'd0;
             resync_cnt_o   <= 16'd0;
@@ -183,6 +192,7 @@ module calib_cmd #(
             abort_req_o <= 1'b0;
             probe_req_o <= 1'b0;        // ⭐ 'P' 诊断（⭐ 2026-09-24）
             vstat_req_o <= 1'b0;        // ⭐ 'V' 诊断（⭐ 2026-09-24）
+            test_mode_req_o <= 1'b0;    // ⭐ 'M' Test Mode
 
             if (rx_done_i) begin
                 // ══ 收到一个字节 ═══════════════════════════════════════════
@@ -200,6 +210,7 @@ module calib_cmd #(
                         if (byte_is_abort) abort_req_o <= 1'b1;
                         if (byte_is_probe) probe_req_o <= 1'b1;   // ⭐ 'P' 诊断
                         if (byte_is_vstat) vstat_req_o <= 1'b1;   // ⭐ 'V' 诊断
+                        if (byte_is_test_mode) test_mode_req_o <= 1'b1;
                         cmd_cnt_o <= sat_inc16(cmd_cnt_o);
                         idx_q     <= 4'd0;      // ⭐ 命令不推进帧位置
                     end else begin
@@ -241,14 +252,22 @@ module calib_cmd #(
     //     ③ `BAUD`/`CLK_HZ` 导致 `BYTE_CLK_I == 0` ⇒ ⚠️ 计时器失去意义
     //     ④ 命令字母 == `HEADER` ⇒ 🔴 **帧头被当命令** ⇒ 事件帧全废
     // ═══════════════════════════════════════════════════════════════════════
-    localparam PARAM_OK = (GAP_BYTES > 1) &&
-                          (BYTE_CLK_I > 0) &&
-                          (CMD_TARE != CMD_SPAN) &&
-                          (CMD_TARE != CMD_ABORT) &&
-                          (CMD_SPAN != CMD_ABORT) &&
-                          (CMD_TARE != HEADER) &&
-                          (CMD_SPAN != HEADER) &&
-                          (CMD_ABORT != HEADER);
+    // Every recognised command must have its own byte.  Keep this complete:
+    // a false PARAM_OK is build-visible, rather than merely a diagnostic that
+    // can scroll out of a log.
+    localparam PARAM_OK = (GAP_BYTES > 1) && (BYTE_CLK_I > 0) &&
+                          (CMD_TARE  != CMD_SPAN)  && (CMD_TARE  != CMD_ABORT) &&
+                          (CMD_TARE  != CMD_PROBE) && (CMD_TARE  != CMD_VSTAT) &&
+                          (CMD_TARE  != CMD_TEST_MODE) &&
+                          (CMD_SPAN  != CMD_ABORT) && (CMD_SPAN  != CMD_PROBE) &&
+                          (CMD_SPAN  != CMD_VSTAT) && (CMD_SPAN  != CMD_TEST_MODE) &&
+                          (CMD_ABORT != CMD_PROBE) && (CMD_ABORT != CMD_VSTAT) &&
+                          (CMD_ABORT != CMD_TEST_MODE) &&
+                          (CMD_PROBE != CMD_VSTAT) && (CMD_PROBE != CMD_TEST_MODE) &&
+                          (CMD_VSTAT != CMD_TEST_MODE) &&
+                          (CMD_TARE  != HEADER) && (CMD_SPAN  != HEADER) &&
+                          (CMD_ABORT != HEADER) && (CMD_PROBE != HEADER) &&
+                          (CMD_VSTAT != HEADER) && (CMD_TEST_MODE != HEADER);
 
     initial begin
         if (GAP_BYTES <= 1)
@@ -259,9 +278,13 @@ module calib_cmd #(
             $display("ERROR [calib_cmd] duplicate command letters (T=%02h S=%02h X=%02h) => one command is silently shadowed and never fires. PARAM_OK=0.", CMD_TARE, CMD_SPAN, CMD_ABORT);
         if ((CMD_TARE == HEADER) || (CMD_SPAN == HEADER) || (CMD_ABORT == HEADER))
             $display("ERROR [calib_cmd] a command letter equals HEADER (%02h) => every event frame would be swallowed as a command. PARAM_OK=0.", HEADER);
+        if ((CMD_TEST_MODE == CMD_TARE) || (CMD_TEST_MODE == CMD_SPAN) ||
+            (CMD_TEST_MODE == CMD_ABORT) || (CMD_TEST_MODE == CMD_PROBE) ||
+            (CMD_TEST_MODE == CMD_VSTAT) || (CMD_TEST_MODE == HEADER))
+            $display("ERROR [calib_cmd] CMD_TEST_MODE=%02h conflicts with an existing command or HEADER => Test Mode command would be ambiguous. PARAM_OK=0.", CMD_TEST_MODE);
         if (PARAM_OK)
-            $display("NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=%0d BAUD=%0d GAP_BYTES=%0d BYTE_CLK=%0d HEADER=%02h T=%02h S=%02h X=%02h)",
-                     CLK_HZ, BAUD, GAP_BYTES, BYTE_CLK_I, HEADER, CMD_TARE, CMD_SPAN, CMD_ABORT);
+            $display("NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=%0d BAUD=%0d GAP_BYTES=%0d BYTE_CLK=%0d HEADER=%02h T=%02h S=%02h X=%02h M=%02h)",
+                     CLK_HZ, BAUD, GAP_BYTES, BYTE_CLK_I, HEADER, CMD_TARE, CMD_SPAN, CMD_ABORT, CMD_TEST_MODE);
     end
 
 endmodule
