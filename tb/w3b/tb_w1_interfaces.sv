@@ -1,5 +1,5 @@
-// W1-1 contract test: elaborate all four W3b skeletons in the first-week
-// 32 voices x 1 oscillator profile and check widths plus safe tie-offs.
+// W3b interface contract test: elaborate the 32 voices x 1 oscillator profile,
+// check widths, idle datapaths, and the implemented 32-voice Test Mode config.
 `timescale 1ns/1ps
 
 module tb_w1_interfaces;
@@ -47,7 +47,7 @@ module tb_w1_interfaces;
     ) u_oscillator_bank (
         .clk_i(clk_i), .rst_n_i(rst_n_i), .sample_tick_i(sample_tick_i),
         .voice_active_i(voice_active_i), .base_phase_inc_i(base_phase_inc_i),
-        .timbre_id_i(1'b0), .vibrato_mod_i(16'sd0),
+        .timbre_id_i(2'b00), .vibrato_mod_i(16'sd0),
         .test_mode_i(test_mode_i), .test_lane_active_i(test_lane_active_i),
         .test_phase_inc_i(test_phase_inc_i), .fm_cfg_valid_i(1'b0),
         .fm_ratio_i(16'd0), .fm_index_i(16'd0),
@@ -102,13 +102,15 @@ module tb_w1_interfaces;
 
         if (osc_sample_bus !== {OSC_N*OSC_SAMPLE_W{1'b0}}) errors = errors + 1;
         if (env_level !== {POLY_TARGET*ENV_W{1'b0}}) errors = errors + 1;
-        if (test_phase_inc !== {OSC_N*PHASE_W{1'b0}}) errors = errors + 1;
+        if (test_phase_inc === {OSC_N*PHASE_W{1'b0}}) errors = errors + 1;
+        if (test_voice_gate !== {POLY_TARGET{1'b1}}) errors = errors + 1;
+        if (test_lane_active !== {OSC_N{1'b1}}) errors = errors + 1;
         if (osc_valid !== 1'b0 || dry_valid !== 1'b0 || deadline_fault !== 1'b0)
             errors = errors + 1;
-        if (active_n !== 6'd0) errors = errors + 1;
+        if (active_n !== 6'd32) errors = errors + 1;
 
         if (errors == 0)
-            $display("PASS: W3b interfaces elaborate at 32x1 with safe outputs under idle inputs");
+            $display("PASS: W3b interfaces elaborate at 32x1 and Test Mode selects 32 voices");
         else
             $fatal(1, "FAIL: W1-1 interface contract has %0d error(s)", errors);
 
