@@ -2217,24 +2217,55 @@ module top #(
     assign led_heartbeat = hb;
 
     // ═══════════════════════════════════════════════════════════════════════
-    // ⭐⭐ TLC5916 输出的【安全默认值】（⭐ 2026-09-23）
+    // ⭐⭐ LED 演奏指引链（⭐ 丙 · 2026-09-24 接入）
     //
-    //   🔴 **为什么需要**：⭐ `tlc5916_driver` **还没例化**（⭐ 属丙线）
-    //      ⇒ ⚠️ 若把这四个端口悬空，⭐ **综合会给出不确定的输出** ——
-    //      ⚠️ 而 `OE` 是**低有效**的 ⇒ 🔴 **万一综合成 0 ⇒ 灯全亮**（⭐ 白耗电、
-    //         且上电瞬间"闪一片"）。
-    //   ⭐ **本版给安全态**：
-    //      · ⭐ `led_oe_n = 5'b11111` ⇒ ⭐ **全部不使能** ⇒ ⭐ 灯全灭 ✅
-    //      · ⭐ `led_sdi/clk/le = 0` ⇒ ⭐ 无数据、无时钟、不锁存 ✅
-    //   📌 **丙接驱动时**：⭐ 只要把这三根改成接 `tlc5916_driver` 的输出、
-    //      并把 `led_oe_n` 接到它的 `tlc_oe_n`（⭐ 若需要分板 OE 则再拆）即可 ——
-    //      ⚠️ **引脚分配不用改**（⭐ 已按 5 根预留）。
-    //   ⚠️ **注意**：⭐ 这两组 `assign` 在驱动接进来时**必须删掉**，
-    //      否则会与驱动的输出**冲突**（⭐ 多驱动同一 net ⇒ 综合报错或静默取或）。
+    //   链：`led_data`（逻辑图案，CH 序）→ `tlc5916_bank`（CH→OUT 重映射
+    //       + 共享总线三片逐写 + 分板 OE）→ 顶层 `led_*` 端口。
+    //
+    //   ⚠️ **输入源（key_active/guide_key）当前用占位**：
+    //      · `key_active`（哪些键在响）→ 正确来源应是 `event_extract` 的 16 位
+    //        `key_on`，但该信号**尚未引出成 16 bit 端口**（甲的 `event_extract.v`）。
+    //      · `guide_key`（哪些键该按）→ 正确来源是 `play_seq`，但**尚未例化**（甲）。
+    //      ⇒ 本版先接 `1'b0`，接口已留好，等甲补输入源时**只改这两根**，⛔ 不用动
+    //        `led_data` / `tlc5916_bank` 本体。
+    //   ⚠️ **blink 用 `bg_beat`**（四分音符拍点，低速单周期脉冲），
+    //      "下一个键"跟随拍点闪烁。
     // ═══════════════════════════════════════════════════════════════════════
-    assign led_sdi   = 1'b0;
-    assign led_clk   = 1'b0;
-    assign led_le    = 1'b0;
-    assign led_oe_n  = 5'b11111;      // ⭐ 低有效 ⇒ 全 1 = 全部关闭（安全态）
+    wire [23:0] led_pattern;
+    wire        led_pattern_commit;
+    wire        led_busy;
+
+    // 逻辑图案层：键灯（16，CH 序）+ 状态灯（8）→ 24 bit
+    led_data #(
+        .KEY_N    (16),
+        .STATUS_N (8)
+    ) u_led_data (
+        .clk_i           (clk),
+        .rst_n_i         (rst_n_sync),
+        .guide_key_i     (16'd0),            // ⭐ 占位：待 play_seq（甲）
+        .key_active_i    (16'd0),            // ⭐ 占位：待 event_extract.key_on（甲）
+        .status_i        (8'd0),             // ⭐ 占位：待 UI 状态总线
+        .blink_i         (bg_beat),          // ⭐ 四分音符拍点 = 闪烁节拍
+        .pattern_o       (led_pattern),
+        .pattern_commit_o(led_pattern_commit)
+    );
+
+    // 物理驱动层：CH→OUT 重映射 + 共享总线三片逐写 + 分板 OE
+    tlc5916_bank #(
+        .KEY_CHIPS    (2),
+        .STATUS_CHIPS (1),
+        .OE_N         (5)
+    ) u_led_bank (
+        .clk_i           (clk),
+        .rst_n_i         (rst_n_sync),
+        .pattern_i       (led_pattern),
+        .pattern_commit_i(led_pattern_commit),
+        .global_blank_i  (1'b0),
+        .led_sdi_o       (led_sdi),
+        .led_clk_o       (led_clk),
+        .led_le_o        (led_le),
+        .led_oe_n_o      (led_oe_n),
+        .busy_o          (led_busy)
+    );
 
 endmodule

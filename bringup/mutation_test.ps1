@@ -450,6 +450,10 @@ $mutations = @(
   @{ id = "M123"; file = "rtl\w3c\drum_gen.v"; find = "wire        fire        = has_pending & transport_i;"; repl = "wire        fire        = has_pending;"; why = "drum_gen: the transport gate is removed -> drums keep firing while the transport is stopped (and the tb checks that stop really stops). Must be caught." },
   @{ id = "M124"; file = "rtl\w3c\drum_gen.v"; find = "wire        step_zero_align = transport_i & bar_start_i;"; repl = "wire        step_zero_align = 1'b0;"; why = "drum_gen: the bar-start re-alignment is removed -> the step counter free-runs and drifts away from beat_gen, so the drums no longer line up with the metronome/beat. Must be caught." },
   @{ id = "M125"; file = "rtl\w3c\drum_gen.v"; find = "((tick_cnt_i - tick_at_step_q) >= TPS_C)"; repl = "((tick_cnt_i - tick_at_step_q) >= 16'd1)"; why = "drum_gen: the 16th-note divider collapses to one tick per step -> the pattern plays 240 times too fast and no longer lines up with the beat. Must be caught." }
+  # ---- tlc5916_bank (2026-09-24, c): CH->OUT remap + shared-bus 3-chip driver. M126~M127.
+  @{ id = "M126"; file = "rtl\w3c\tlc5916_bank.sv"; find = "chip0_out[ch_to_out(oc[2:0])] = chip0_ch[oc];"; repl = "chip0_out[oc[2:0]] = chip0_ch[oc];"; why = "tlc5916_bank: CH->OUT remap removed (same-index arithmetic) -> key lamps mirror/misplace. Must be caught." },
+  @{ id = "M127"; file = "rtl\w3c\tlc5916_bank.sv"; find = "3'd0: ch_to_out = 3'd7;"; repl = "3'd0: ch_to_out = 3'd0;"; why = "tlc5916_bank: CH0 mapped to OUT0 instead of OUT7 -> top-row col3 lamp wrong. Must be caught." }
+
 )
 
 # ---- selection ---------------------------------------------------------------
