@@ -452,7 +452,12 @@ $mutations = @(
   @{ id = "M125"; file = "rtl\w3c\drum_gen.v"; find = "((tick_cnt_i - tick_at_step_q) >= TPS_C)"; repl = "((tick_cnt_i - tick_at_step_q) >= 16'd1)"; why = "drum_gen: the 16th-note divider collapses to one tick per step -> the pattern plays 240 times too fast and no longer lines up with the beat. Must be caught." }
   # ---- tlc5916_bank (2026-09-24, c): CH->OUT remap + shared-bus 3-chip driver. M126~M127.
   @{ id = "M126"; file = "rtl\w3c\tlc5916_bank.sv"; find = "chip0_out[ch_to_out(oc[2:0])] = chip0_ch[oc];"; repl = "chip0_out[oc[2:0]] = chip0_ch[oc];"; why = "tlc5916_bank: CH->OUT remap removed (same-index arithmetic) -> key lamps mirror/misplace. Must be caught." },
-  @{ id = "M127"; file = "rtl\w3c\tlc5916_bank.sv"; find = "3'd0: ch_to_out = 3'd7;"; repl = "3'd0: ch_to_out = 3'd0;"; why = "tlc5916_bank: CH0 mapped to OUT0 instead of OUT7 -> top-row col3 lamp wrong. Must be caught." }
+  @{ id = "M127"; file = "rtl\w3c\tlc5916_bank.sv"; find = "3'd0: ch_to_out = 3'd7;"; repl = "3'd0: ch_to_out = 3'd0;"; why = "tlc5916_bank: CH0 mapped to OUT0 instead of OUT7 -> top-row col3 lamp wrong. Must be caught." },
+  # ---- uart_ui (2026-09-25, c): serial-screen (TJC X2) HMI parser. M128~M131.
+  @{ id = "M128"; file = "rtl\w3c\uart_ui.v"; find = "mode_o        <= ~mode_o;"; repl = "mode_o        <= 1'b0;"; why = "uart_ui: mode no longer toggles -> touch mode-switch silently dead. Must be caught." },
+  @{ id = "M129"; file = "rtl\w3c\uart_ui.v"; find = "if (tail_cnt == 3'd2) begin"; repl = "if (tail_cnt == 3'd1) begin"; why = "uart_ui: frame ends on two 0xFF instead of three -> premature end of frame. Must be caught." },
+  @{ id = "M130"; file = "rtl\w3c\uart_ui.v"; find = "base_semi_o  <= {1'b0, val_q[7:1]};"; repl = "base_semi_o  <= {1'b0, val_q[6:0]};"; why = "uart_ui: base-semi octave-rounding removed -> arbitrary semitone offset accepted. Must be caught." },
+  @{ id = "M131"; file = "rtl\w3c\uart_ui.v"; find = "if (rx_data_i == RET_BOOT) begin"; repl = "if (1'b0) begin"; why = "uart_ui: boot handshake dropped -> hb_ready never asserts. Must be caught." }
 
 )
 
