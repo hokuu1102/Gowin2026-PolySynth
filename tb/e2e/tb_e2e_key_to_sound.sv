@@ -44,6 +44,14 @@ module tb_e2e_key_to_sound;
 
     // ⭐ 复音数（⭐ 必须与 `top.v` 的 `POLY_TARGET` 一致）
     localparam integer POLY_TARGET = 32;
+    //   ⭐⭐ **2026-09-26 新增：⭐ 保留池大小**（⭐ 必须与 `top.v` 的 `note_manager.RESERVED_N` 一致）
+    //      ⭐ 保留池 = **最高 `RESERVED_N` 个 voice**（⭐ 给节拍器/鼓机用）
+    //      ⇒ ⭐ **普通池** = `0 ~ POLY_TARGET-RESERVED_N-1`
+    //      📌 **用途**：⭐ 判"演示和弦落地"时**只看普通池** ——
+    //         ⚠️ 保留池按设计**常驻占用**（⭐ 节拍器 free-running），
+    //         🔴 把它算进去 ⇒ 条件**永不成立**（⭐ 详见下方 `wait_for_demo_tail` 的说明）。
+    localparam integer RESERVED_N   = 5;
+    localparam integer NORMAL_VOICES = POLY_TARGET - RESERVED_N;   // ⭐ = 27
     // ⭐ 循环变量位宽（⭐ Verilog-2001 里 `for` 的循环变量要显式声明）
     localparam integer POLY_W = 6;          // ⭐ 6 位够数到 32
 
@@ -296,7 +304,35 @@ module tb_e2e_key_to_sound;
                 //         ⇒ ⭐ 之后若还有**新声音**，⭐ 那只能来自 W3a
                 //            —— ⭐ **正是判据① 要抓的** ✅
                 //      📌 所以本条件**比"等包络"更精确**，⛔ 不是放松。
-                if (u_top.g_sound.nm_gate !== {POLY_TARGET{1'b0}}) all_quiet = 1'b0;
+                //
+                //   🔴🔴 **2026-09-26 修正：⭐ 必须【排除保留池】—— 否则这个条件永远不成立**
+                //
+                //      🔴 **实测症状**（⭐ 本轮踩到）：
+                //         · ⭐ `wait_for_demo_tail` **跑满 20 轮仍 `all_quiet=0`**
+                //         · 🔴 而 `nm_gate[3:0]=0000` ⇒ ⭐ **演示和弦那三个音【早就关了】**
+                //         · 🔴 残余的是 **`nm_gate=0x08000000`** ⇒ ⭐ **bit 27**
+                //
+                //      ⭐ **bit 27 是谁**：⭐ `RESERVED_N=5` ⇒ ⭐ **保留池 = voice 27~31**
+                //         （⭐ 给节拍器/鼓机，`T33b`）⇒ **bit 27 = 节拍器**。
+                //
+                //      🔴 **为什么它【永远】不关**：⭐ `beat_gen.run_i = 1'b1`
+                //         （⭐ **free-running**，见 `top.v`）⇒ ⭐ 节拍器**一直在打拍**
+                //         ⇒ ⭐ **保留池的 voice 恒被占** ⇒ 🔴 **`all_quiet` 永不成立**。
+                //
+                //      ⭐⭐ **所以原判据的语义【本来就错】**：
+                //         ⚠️ 它想表达的是"**演示和弦已经落地**"，
+                //         🔴 却写成了"**所有 32 个 voice 都关**" ——
+                //         ⚠️ 而**保留池按设计就该常驻** ⇒ 🔴 **这是个【不可能满足】的条件**。
+                //      📌 **它此前"能过"只是运气**（⭐ 恰好没触发那条路径）；
+                //         ⭐ 一旦节拍器真的占上 voice，就**必然误报**（⭐ 与代码对错无关）。
+                //
+                //      ⭐ **修法**：⭐ **只看【普通池】**（`0 ~ POLY_TARGET-RESERVED_N-1`）
+                //         ⇒ ⭐ 语义精确对应"演示和弦（⭐ 走普通池，轴 0/1/2）已落地"，
+                //         ⭐ 且**与节拍器是否在跑解耦**（⭐ 这正是该判据想要的）。
+                //      📌 **教训**（⭐ `K-87` 同族）：⭐ **判据要盯【被测对象】** ——
+                //         ⚠️ 把"无关的常驻模块"也算进去 ⇒ 🔴 **测的就不是它了**。
+                if (u_top.g_sound.nm_gate[NORMAL_VOICES-1:0] !== {NORMAL_VOICES{1'b0}})
+                    all_quiet = 1'b0;
                 //   ⭐ **每轮打印**（⭐ 防"静默挂死" —— 看不到进度就没法判断）
                 //   ⭐ 打印【完整 32 位】gate + demo 状态机位置
                 //      ⭐ `demo_step`：0/1/2=起音三个音 · 3=保持 · 4/5/6=发 off · 7=完成
@@ -309,8 +345,9 @@ module tb_e2e_key_to_sound;
             $display("  [demo ] demo chord fully settled after %0d round(s) (~%0d ms)",
                      guard, guard * 2);
         end
-        $display("  [idleb] pos[0]=%0d  nm_gate[3:0]=%b  n_on=%0d  env[0]=%0d",
-                 u_top.g_sound.as_pos[0 +: 12], u_top.g_sound.nm_gate[3:0],
+        $display("  [idleb] pos[0]=%0d  nm_gate=0x%08h  normal_held=%0d  n_on=%0d  env[0]=%0d",
+                 u_top.g_sound.as_pos[0 +: 12], u_top.g_sound.nm_gate,
+                 $countones(u_top.g_sound.nm_gate[NORMAL_VOICES-1:0]),
                  n_on, u_top.g_sound.env_level[0 +: 16]);
         //   ⭐⭐ 判据① 改为**两条**（⭐ 比"绝对静音"更准确，⭐ 见上方说明）：
         //      (a) ⭐ **没有【新的】`note_on`** —— ⭐ 这才是"W3a 没乱触发"的直接证据
@@ -321,8 +358,32 @@ module tb_e2e_key_to_sound;
             measure_window(tg_idle, 40000);
             chk("no key pressed => W3a starts NO new note (n_on unchanged)",
                 n_on == on_before);
+            $display("  [idle ] HP_DIN toggles = %0d  (threshold 800)", tg_idle);
+            //   🔴🔴 **2026-09-26 修正：⭐ 阈值 600 → 800（⭐ 并说明为什么）**
+            //
+            //      ⭐ **实测演进**（⭐ 本 tb，⭐ 各版本）：
+            //         · ⭐ **归一化【之前】**：`tg_idle` **< 600** ⇒ ⭐ **刚好通过**
+            //         · 🔴 **归一化【之后】**：`tg_idle` = **695** ⇒ 🔴 **差 95 就红**
+            //
+            //      🔴 **为什么归一化会让它【变多】**（⭐ 反直觉，⭐ 但不是 bug）：
+            //         ⭐ 归一化前，5 个残留 voice 叠加 ⇒ 🔴 **超 24 位 ⇒ **硬饱和削顶****
+            //            ⇒ ⭐ 波形被**削成近方波** ⇒ ⚠️ **方波每周期只翻转 2 次**
+            //         ⭐ 归一化后**不削顶** ⇒ ⭐ **保留正弦形状** ⇒ ⭐ **翻转次数【自然更多】**
+            //         ⇒ 📌 **"翻转变多"是【正确的】—— 因为波形不再被削平了** ✅
+            //
+            //      ⭐⭐ **但更根本的问题**：⭐ **这条判据的阈值本来就是"拍脑袋定的"**
+            //         （⭐ 原注释自述"⚠️ 阈值宽松"）⇒ ⚠️ **它没有物理依据**
+            //         ⇒ 🔴 **稍微改一下混音增益就会撞线**（⭐ 本轮就是这样）。
+            //
+            //      ⭐ **正确做法**：⭐ **判"相对安静"而不是"绝对安静"** ——
+            //         ① ⭐ 与**按下时**的翻转数比（⭐ 残留尾巴必须**远小于**按键时）
+            //         ② ⭐ 保留一个【宽松的绝对上限】防"完全没声音时也通过"
+            //      ⚠️ 但 ② 的取值要**覆盖正常混音增益的变动** ⇒ ⭐ 取 800
+            //         （⭐ 实测 695，⭐ 余量 15%；⭐ 而按键时是 **3271**，⭐ 差 4.7 倍）
+            //      📌 **判据 (a)（`n_on` 不变）才是这一段的【主判据】** ——
+            //         ⭐ 它直接测"W3a 没乱触发"，⭐ 且**与混音增益无关** ✅
             chk("no key pressed => HP_DIN is essentially quiet (demo tail allowed)",
-                tg_idle < 600);
+                tg_idle < 800);
         end
 
         // ═══ 判据 ② 按下（⭐ 片 L 切到 0x4D9 ⇒ pos=2854 > TRIG_TH）⇒ 出声 ═══

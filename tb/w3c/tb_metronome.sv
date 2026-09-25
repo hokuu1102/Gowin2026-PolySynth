@@ -227,7 +227,14 @@ module tb_metronome;
                 //       既然"valid 晚一拍"，那**数据字段若不同拍寄存，就会错配**。
                 //    ⭐ 正确做法：**判 `valid` 那一拍携带的 `inc`** ——
                 //       它才是消费者真正看到的东西（`C36`：探针打在真正被观测的线上）。
-                if (m_inc === 32'd151183) begin
+                //   🔴🔴 **2026-09-26 修正：⭐ 改成引用 DUT 的参数，⛔ 不再硬编码频率**
+                //      ⚠️ 原来写死 `32'd151183` / `32'd75591` ⇒
+                //      🔴 **一改 RTL 的音高常量，本 tb 就把所有事件判成"错配"** ⇒
+                //         ⚠️ 表现为 `accent=0 normal=0`（⭐ 而事件本来是好的）。
+                //      📌 **教训**：⭐ **tb 判据里的"期望常量"必须从 DUT 取** ——
+                //         ⚠️ 硬编码会让"正确的改动"被判成回归（⭐ `K-129` 同族）。
+                //         ⭐ 这里用层次引用 `u_met.INC_ACCENT` / `u_met.INC_NORMAL`。
+                if (m_inc === u_met.INC_ACCENT) begin
                     accent_count = accent_count + 1;
                     // ⭐ 结构性判据：相邻强拍之间的**事件序号差**必须恰好 = 4（4/4 拍）
                     //    ⚠️ 我前两版都错在"怎么数这个间隔"：
@@ -239,10 +246,10 @@ module tb_metronome;
                         accent_gap_ok = 0;
                     last_accent_evt = evt_count;
                     // ⭐ 强拍的力度也必须更大（文档 §2.1："音高更高 / 更响"）
-                    if (m_vel !== 8'd220) accent_not_on_barstart = accent_not_on_barstart + 1;
-                end else if (m_inc === 32'd75591) begin
+                    if (m_vel !== u_met.VEL_ACCENT) accent_not_on_barstart = accent_not_on_barstart + 1;
+                end else if (m_inc === u_met.INC_NORMAL) begin
                     normal_count = normal_count + 1;
-                    if (m_vel !== 8'd140) accent_not_on_barstart = accent_not_on_barstart + 1;
+                    if (m_vel !== u_met.VEL_NORMAL) accent_not_on_barstart = accent_not_on_barstart + 1;
                 end else begin
                     // ⚠️ 既不是强拍也不是弱拍 ⇒ 数据错配（正是上面那个 bug 的签名）
                     accent_not_on_barstart = accent_not_on_barstart + 1;

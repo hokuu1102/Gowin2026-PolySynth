@@ -590,6 +590,10 @@ module top #(
         wire                           mx_valid;
         wire signed [SAMPLE_W-1:0]     mx_sample;
         wire                           mx_fault;
+        //   ⭐ 2026-09-26 新增：⭐ 复音归一化的可观测输出（⭐ 当前活跃 voice 数）
+        //      ⚠️ 未引到引脚 ⇒ ⭐ 综合时**不要**被优化掉：⭐ 它驱动的是寄存器树
+        //         （⭐ 与 `mg_*` 那组同一手法）⇒ ⭐ 会保留，⭐ 上板可用调试核读。
+        wire [$clog2(POLY_TARGET):0]   mx_n_active;
 
         // ⭐ 包络：`envelope_bank` 每 voice 一份 ADSR（与 `note_manager` 的 gate 对接）
         wire [POLY_TARGET*16-1:0]      env_level;
@@ -1431,11 +1435,32 @@ module top #(
             //   ⚠️ **⚠️ 这些值依赖【行程 744 码】，⚠️ 而行程取决于定位板高度**：
             //      · ⭐ 用户正在调定位板 ⇒ ⭐ **行程一定变** ⇒ 🔴 **这两个必须跟着重算**
             //      · 📌 **重算法**：⭐ 先量 `pos@松手`（应 ≈0）与 `pos@触底` ⇒
-            //        `TRIG = 0.20 × 行程`、`REL = 0.12 × 行程`
+            //        `TRIG = 0.26 × 行程`、`REL = 0.11 × 行程`
             //      · ⭐ 或更省事：⭐ **启用 `span` 增益标定**，⭐ 把行程归一到满量程 ⇒
             //        ⭐ 阈值就**不用再跟着行程变**（⭐ 见给队友的通知）。
-            .TRIG_TH   (12'h095),
-            .REL_TH    (12'h059),
+            //
+            //   🔴🔴 **2026-09-26 上板实测调整：⭐ 加厚迟滞（⭐ 修"触发反复"）**
+            //      ⭐ **上板症状**（⭐ 用户实测）：
+            //         *"先是按下后一点就触发；然后变成按下时不触发，
+            //           回升到阈值时才触发。**在这两个情况反复循环**"*
+            //      🔴 **根因：⭐ 迟滞太薄 + 触发点太浅**
+            //         · ⭐ 原值 `TRIG=0x095(149)` / `REL=0x059(89)` ⇒ **迟滞仅 60**
+            //         · ⭐ 行程实测 **744**（⭐ 静止 1985 → 按下 2729）
+            //           ⇒ 迟滞只占 **8%** ⇒ 🔴 **读数在阈值附近抖动就会反复 on/off**
+            //         · ⭐ 而 `TRIG=149` 只占行程 **20%** ⇒ ⚠️ "按一点就触发"
+            //      🔴 **关键佐证**：⭐ 本项目实测过**单通道帧间噪声可达 Δ>48**
+            //         （⭐ 见 `待查异常-span拒绝循环-定案-20260925.md`：
+            //            正常通道 Δ≤6，⭐ 而 **ch2 的帧间跳变 >48**）
+            //         ⇒ ⚠️ **60 的迟滞挡不住 48 的噪声** ⇒ ⭐ **必然反复**。
+            //      ✅ **改法**（⭐ 保持"行程百分比"这个可重算的口径）：
+            //         · `TRIG = 0.26 × 744 ≈ 192`（`0x0C0`）⇒ 按深一点才触发
+            //         · `REL  = 0.11 × 744 ≈  80`（`0x050`）⇒ **迟滞 112**
+            //         ⇒ ⭐ **112 ≫ 48** ⇒ ✅ **即使 ch2 那种噪声也跨不过去**
+            //         ⇒ ⭐ 且 `192 < 744` ⇒ ✅ **够得着**（⭐ 不会按不出声）
+            //      ⚠️ **若启用 `span`**（⭐ 行程归一化到 4095）⇒ ⭐ 这两个要**重算**：
+            //         `TRIG = 0.26×4095 ≈ 1065`、`REL = 0.11×4095 ≈ 450`。
+            .TRIG_TH   (12'h0C0),
+            .REL_TH    (12'h050),
             // ⚠️ Δ 阈值（滑音/双音用）：⭐ 目前保持默认 8
             //   （⭐ 依据：滑动时每帧行程变约 8 码 ⇒ 见设计草案 §2.2b）
             //   🔴 2026-09-25 更正 + **改值**（⭐ `K-128`）：
@@ -1497,13 +1522,60 @@ module top #(
         reg        am_vld_in;
         reg        am_mode;            // ⭐ 0 = 键盘模式 · 1 = 指板模式
 
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔴🔴 **2026-09-26 上板实测修复：⭐ `valid` 必须与【它携带的数据】同拍**
+        //
+        //   ⭐ **上板症状**（⭐ 用户实测，⭐ 三个症状同一根因）：
+        //      · ⭐ *"按下第二个键后，会**先触发一次第一个键的声音**，
+        //           再按一次第二个键，才会发出这个键的声音"*
+        //      · ⭐ *"多个键同时按的时候，**听不出来**，感觉有问题"*
+        //      · 🔴 *"同时按下很多键之后会**卡住**，声音一直响，
+        //           按哪个键哪个键就一直放对应的音高，**松手也不会静音**"*
+        //
+        //   🔴 **根因：⭐ `valid` 与 `phase_inc` 差了【一拍】**
+        //      ⭐ 原来的接法（⚠️ 错的）：
+        //      ```
+        //        w3a_evt_valid = ee_valid        // ⭐ 来自 event_extract，【当拍】
+        //        w3a_evt_inc   = am_inc          // ⭐ 来自 axis_map
+        //        am_vld_in     <= 1'b1           // ⚠️ 在 T0 打一拍
+        //        am_pos_in     <= as_pos[...]     // ⚠️ 也在 T0 打一拍
+        //      ```
+        //      ⭐ **时序推演**：
+        //      ```
+        //        T0: ee_valid=1 (axis=2)
+        //            ⇒ w3a_evt_valid=1 且 w3a_evt_axis=2  【当拍就进了 seq_arb】
+        //            🔴 但 am_inc 此刻还是【上一个键(axis=1)】的音高！
+        //               ⚠️ 因为 am_pos_in 在 T0 这一拍【才被赋上 axis=2 的位置】
+        //        T1: am_inc 才变成 axis=2 的音
+        //            ⚠️ 而 ee_valid 已经=0 ⇒ 事件早用【旧音高】发出去了
+        //      ```
+        //      ⇒ 🔴 **事件带着【上一个键的音高】发出** ⇒ ⭐ 症状 ①
+        //      ⇒ 🔴 **`axis` 与 `phase_inc` 不匹配** ⇒ ⭐ `note_manager` 把同一个
+        //         axis 映射到了错误的 voice ⇒ ⚠️ `note_off` 找不到那个 voice
+        //         ⇒ 🔴 **松手不静音** ⇒ ⭐ 症状 ②③
+        //
+        //   ⭐⭐ **修法：⭐ 把 `valid` 也延一拍，与 `am_inc` 对齐**
+        //      ⭐ 做法：⭐ 用 `am_vld_in`（⭐ 它本来就是"数据已就绪"的标志）⭐ 作为**事件 valid**。
+        //      📌 **这正是本项目的老纪律**（⭐ `metronome` 当年踩过同一个坑）：
+        //         ⭐ **"脉冲"与"它携带的数据"必须【同拍锁存】**（`80 号` / `TROUBLESHOOTING 77 号`）。
+        //      ⚠️ **代价**：⭐ 整条链**晚 1 拍 = 20 ns** ⇒ ⭐ 远小于一个音频帧 20.48 µs
+        //         ⇒ ⭐ **听感不可分辨**。
+        //
+        //   ⚠️ **`am_axis_in` 也要一起延** —— ⭐ 否则 axis 与 inc 又错开
+        //      （⭐ 下面用 `am_axis_out` 把 axis 跟随 `am_vld_in` 一起送出）。
+        // ═══════════════════════════════════════════════════════════════════════
+        reg        am_vld_out;         // ⭐ 与 am_inc/am_axis_out **同拍**的事件 valid
+        reg [3:0]  am_axis_out;        // ⭐ 与 am_inc 同拍的轴号
+
         always @(posedge clk) begin
             if (!rst_n_sync) begin
-                am_pos_in  <= 12'd0;
-                am_axis_in <= 4'd0;
-                am_vld_in  <= 1'b0;
-                am_mode    <= 1'b1;    // ⭐ **默认指板模式** —— ⚠️ 因为 `fb_inc` 已填**真实音高**，
-                                       //    而 `kb_inc` 还是**半音阶梯占位**（⭐ 见 `axis_map.v` TODO）
+                am_pos_in   <= 12'd0;
+                am_axis_in  <= 4'd0;
+                am_vld_in   <= 1'b0;
+                am_mode     <= 1'b1;    // ⭐ **默认指板模式** —— ⚠️ 因为 `fb_inc` 已填**真实音高**，
+                                        //    而 `kb_inc` 还是**半音阶梯占位**（⭐ 见 `axis_map.v` TODO）
+                am_vld_out  <= 1'b0;
+                am_axis_out <= 4'd0;
             end else begin
                 am_vld_in <= 1'b0;     // ⭐ 默认单周期
                 if (ee_valid && (ee_kind != 2'd1)) begin
@@ -1514,6 +1586,13 @@ module top #(
                     am_mode    <= 1'b1;              // ⭐ 指板模式（真实音高）
                     am_vld_in  <= 1'b1;
                 end
+                //   ⭐⭐ `am_vld_out`/`am_axis_out` 跟随 `am_vld_in` 再延一拍
+                //      ⇒ ⭐ **与 `am_inc`（axis_map 的组合输出）严格同拍**
+                //      📌 `am_inc` 依赖 `am_pos_in`/`am_mode`/`am_axis_in`（⭐ 都在上拍锁存）
+                //         ⇒ ⭐ `am_axis_out` 必须用**同一个 `am_axis_in`**，
+                //            这样"valid / axis / inc"三者同源同拍。
+                am_vld_out  <= am_vld_in;
+                am_axis_out <= am_axis_in;
             end
         end
 
@@ -1605,9 +1684,20 @@ module top #(
         //   📌 **为什么不直接删演示和弦**：⭐ `R-16`/`K-69` 的教训 ——
         //      ⚠️ **"测试配置"和"交付默认值"要分开**，⛔ 不能为了接新功能而废掉验收手段。
         // ═══════════════════════════════════════════════════════════════════
-        wire        w3a_evt_valid = ee_valid;
-        wire [3:0]  w3a_evt_axis  = ee_axis;
-        wire [1:0]  w3a_evt_kind  = ee_kind;
+        //   🔴🔴 **2026-09-26 修正：⭐ 三者必须【同拍】**
+        //      ⚠️ 原来 `valid`/`axis` 直接来自 `event_extract`（⭐ 当拍），
+        //         🔴 而 `inc` 来自 `axis_map`（⭐ 晚一拍）⇒ ⭐ **音高错一轮**（⭐ 详见上方长注释）。
+        //      ⭐ 现在：⭐ **`valid`/`axis` 都用【延一拍】的版本与 `am_inc` 对齐**。
+        //      📌 **注意 `axis` 也要用 `am_axis_out`** —— ⚠️ 因为 `am_inc` 是由
+        //         `am_axis_in`（⭐ 上一拍锁存）算出来的 ⇒ ⭐ 三者同源同拍。
+        //      ⚠️ `kind` 仍用 `ee_kind`：⭐ 它是**当拍的单周期脉冲**，
+        //         与 `am_vld_out`（⭐ 同样延一拍）⭐ **相位一致**。
+        //      🔴 **`kind != note_off` 的过滤已在上方 `am_vld_in` 的产生处做过**
+        //         ⇒ ⭐ `am_vld_out=1` **本身就意味着"这是 note_on/pluck"**，
+        //         ⛔ 不需要再重复判一次（⚠️ 重复判反而会用到**错的** `ee_kind`）。
+        wire        w3a_evt_valid = am_vld_out;
+        wire [3:0]  w3a_evt_axis  = am_axis_out;
+        wire [1:0]  w3a_evt_kind  = 2'd0;      // ⭐ note_on（⭐ 见上行说明）
         //   ⭐ 力度：⭐ 起音**先用默认 200**（⭐ 这就是"先触发后修正"）——
         //     ⚠️ `param_extract` 要**等越过深阈**才算得出力度
         //     ⇒ ⭐ 力度修正走 `note_manager.vel_upd_*`（⭐ 那是独立的通路）
@@ -1904,9 +1994,16 @@ module top #(
             .render_start_i   (ob_valid),
             .osc_sample_bus_i (ob_samples),
             .env_level_i      (env_level),
+            //   ⭐⭐ **2026-09-26 新增：⭐ 复音归一化的输入**
+            //      ⭐ 直接复用 `note_manager.voice_active_o`（⭐ 已存在）
+            //      ⇒ ⭐ **⛔ 不用新造信号、⛔ 不用改 `note_manager`**
+            //      📌 语义：⭐ "当前分配了哪几个 voice" ⇒ ⭐ popcount 得 `N`
+            //         ⇒ ⭐ 查 `1/√N` 表 ⇒ ⭐ 归一化（⭐ 详见 mixer 内的长注释）
+            .voice_active_i   (nm_active),
             .dry_valid_o      (mx_valid),
             .dry_sample_o     (mx_sample),
-            .deadline_fault_o (mx_fault)
+            .deadline_fault_o (mx_fault),
+            .n_active_o       (mx_n_active)
         );
 
         // ⭐⭐ 主混音 + 数字主音量 + 静音斜坡（master_mix，W3c 出声通路最后一级）
@@ -2104,9 +2201,23 @@ module top #(
         .SAMPLE_W  (SAMPLE_W),
         .DATA_BITS (DATA_BITS),
         .SLOT_BITS (32),
-        .JUSTIFY   (0),           // ⭐ 与板载同档（标准 I2S 左对齐）
-        .MSB_DELAY (1),
-        .LRCK_POL  (0)
+        //   🔴🔴 **2026-09-26 上板实测更正**：⭐ 外置 `PCM5102A` 要的是
+        //      ⭐ **MSB 无延后的左对齐**（⭐ 即 `MSB_DELAY = 0`），⛔ **不是标准 I2S**！
+        //
+        //   ⭐ **实测经过**（⭐ 决定性）：
+        //      · 用 `bringup/dac_tone/dac_tone_top.v` 出的【三档】bitstream 逐个烧：
+        //         `FORMAT_SEL=0`（标准 I2S，MSB 延后 1）⇒ 🔴 **没声**
+        //         `FORMAT_SEL=1`（左对齐，MSB 无延后）⇒ ⭐ **出声了** ✅
+        //      · 且模块的 `FMT` 脚接 **3V3**（⭐ = 手册的 "High = Left-justified"）
+        //   📌 **术语陷阱**：⭐ `i2s_tx` 这个模块里的 `JUSTIFY=0` 指的是
+        //      **"Philips 标准 I2S"**（⭐ 数据在 WS 翻转后【延迟】`MSB_DELAY` 位），
+        //      ⚠️ ⛔ **不是**字面意义的"左对齐" —— ⚠️ 别被名字误导。
+        //      ⭐ 真正要"左对齐" ⇒ ⭐ **`JUSTIFY=0` + `MSB_DELAY=0`**。
+        //   ⚠️ **与板载那一路的区别**：⭐ 板载 `MAX98357A` 用 `MSB_DELAY=1`（标准 I2S）
+        //      ⇒ ⭐ **两路参数不同，这是故意的**（⭐ 实测各自都对）。
+        .JUSTIFY   (0),
+        .MSB_DELAY (0),           // ⭐ 外置 PCM5102A：左对齐（⭐ 实测出声）
+        .LRCK_POL  (0)            // ⭐ 与板载同极性（低 = 左声道）
     ) u_i2s_tx_ext (
         .clk          (clk),
         .rst_n        (rst_n_sync),

@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<!--
+  dac_tone.gprj - standalone project for the MINIMAL external-DAC sound test.
+
+  WHY THIS FILE EXISTS (2026-09-26):
+    The main bitstream (Gowin2026.gprj) has the whole synth chain:
+    adc_farm -> calib -> event_extract -> seq_arb -> evt_merge -> note_manager
+    -> oscillator_bank -> tdm_render_mixer -> master_mix -> i2s_tx.
+    When the external DAC stayed silent even though every FPGA-side waveform
+    measured correct, there were too many variables to locate the fault.
+
+    This project removes ALL of them: it instantiates ONLY a phase accumulator
+    and an I2S serialiser, and emits a fixed 440 Hz sine on I2S2_*.
+        - sound  => the fault is in the main synth chain
+        - silent => the fault is in the module / wiring / I2S format
+
+  KEEP THIS PROJECT SEPARATE: it must not share files with Gowin2026.gprj,
+  so building one can never disturb the other.
+
+  DEVICE: same part as the main project (confirmed from the board).
+  KEEP THIS COMMENT ASCII-ONLY: the Gowin project parser rejects non-ASCII here,
+  and an XML comment must not contain a double hyphen.
+-->
+<Project>
+    <Template>FPGA</Template>
+    <Version>5</Version>
+    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC1/I0">gw5at60b-003</Device>
+    <FileList>
+        <!-- 🔴 **2026-09-26 实测**：⭐ Gowin 把 `.gprj` 里的路径按
+             **【工程文件自己所在的目录】**解析，⛔ 不是按仓库根、⛔ 也不是按 CWD。
+             ⚠️ 我第一版写成 `bringup/dac_tone/...` ⇒ 被拼成
+             `bringup/dac_tone/bringup/dac_tone/...` ⇒
+             🔴 `ERROR (EX5998) : Cannot open Verilog file`。
+             ⇒ ⭐ 正确写法：⭐ **相对 `.gprj` 所在目录**（⭐ 即只写文件名）。 -->
+        <File path="dac_tone_top.v" type="file.verilog" enable="1"/>
+        <File path="dac_tone.cst" type="file.cst" enable="1"/>
+    </FileList>
+</Project>

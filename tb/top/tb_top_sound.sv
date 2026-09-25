@@ -149,6 +149,13 @@ module tb_top_sound;
     integer n_tog_lrck2 = 0;    // ⭐ I2S2_LRCK 翻转次数
     integer n_tog_din1 = 0;     // ⭐ HP_DIN 翻转次数（⭐ 对照）
     integer n_diff_ext = 0;     // ⭐ 外置与板载逐拍不一致的次数
+    //   ⭐⭐ 2026-09-26 新增：⭐ **外置 `DIN` 的 1/0 计数**
+    //      🔴 **为什么需要**：⭐ 两路格式已【故意改成不同】（⭐ 板载标准 I2S /
+    //         外置左对齐）⇒ ⭐ "逐拍相同"不再是有效判据（⭐ 详见下方判据处）。
+    //      ⭐ 新的核心判据是：⭐ **外置 `DIN` 必须【既有 1 也有 0】** ⇒
+    //         ⭐ 证明它携带**真实音频**，⛔ 不是直流静音（⭐ 即 `M116` 那种失败）。
+    integer n_din2_one  = 0;    // ⭐ I2S2_DIN == 1 的拍数
+    integer n_din2_zero = 0;    // ⭐ I2S2_DIN == 0 的拍数
     reg bck2_p = 0, lrck2_p = 0, din2_p = 0, din1_p = 0;
     integer n_frames;
     integer n_clk_total;        // 采集期间的总 clk 数（判据 ① 的上界）
@@ -165,6 +172,9 @@ module tb_top_sound;
         if (I2S2_DIN  !== din2_p)  n_tog_din2  = n_tog_din2  + 1;
         if (HP_DIN    !== din1_p)  n_tog_din1  = n_tog_din1  + 1;
         if (I2S2_DIN  !== HP_DIN)  n_diff_ext  = n_diff_ext  + 1;
+        //   ⭐ 外置 DIN 的 1/0 计数（⭐ 见上方判据）
+        if (I2S2_DIN === 1'b1)      n_din2_one  = n_din2_one  + 1;
+        else if (I2S2_DIN === 1'b0) n_din2_zero = n_din2_zero + 1;
         bck2_p  = I2S2_BCK;
         lrck2_p = I2S2_LRCK;
         din2_p  = I2S2_DIN;
@@ -299,11 +309,53 @@ module tb_top_sound;
         chk("I2S2_DIN is LIVE (external DAC receives real audio, not DC)",
             n_tog_din2 > 10);
         // ⭐ 且必须与板载那路【同活动量】（⭐ 同源同步）
-        chk("I2S2_DIN toggles as much as HP_DIN (same source, same rate)",
-            n_tog_din2 == n_tog_din1);
-        // ⭐ 逐拍一致（⭐ 排除相位漂移/接错线）
-        chk("I2S2_DIN matches HP_DIN cycle-by-cycle (no phase drift)",
-            n_diff_ext == 0);
+        //
+        //   🔴🔴 **2026-09-26 修正：⭐ 从"严格相等"改成"允许差 1"**
+        //      ⭐ **为什么**：⭐ 两路的**数据源完全相同**（⭐ 都是 `sample_mono`，
+        //         见 `top.v:2175/2227`）⇒ ⭐ 翻转数**理论上必须相等**。
+        //      ⚠️ 但两个计数器各自跟**自己的上一拍**比（`din1_p` / `din2_p`），
+        //         初值都是 0 ⇒ ⚠️ **观察窗口起点那一拍**可能只被一路计到
+        //         ⇒ 🔴 **实测差 1**（⭐ 外置 34498 / 板载 34497）。
+        //      📌 **上一版恰好相等（31318 == 31318）只是运气** ——
+        //         ⚠️ 改了混音增益（⭐ 波形变了）⇒ ⭐ 起点那拍的值不同 ⇒ 🔴 差 1 暴露出来。
+        //      ⭐ **判据的真意**是"两路**同源同速率**"（⭐ 排相位错/漏帧），
+        //         ⇒ ⭐ **差 1 拍完全等价** ⇒ 🔴 `==` **过严**：
+        //         它把"窗口边界的偶然性"当成了缺陷。
+        //      📌 **真正防缺陷的是【另外两条】**：⭐ `I2S2_DIN is LIVE`（⭐ 排整路恒定）
+        //         ＋ ⭐ `carries BOTH 1s and 0s`（⭐ 排直流静音）—— ⚠️ 它们不受本改动影响。
+        chk("I2S2_DIN toggles as much as HP_DIN (+/-1, same source & rate)",
+            (n_tog_din2 - n_tog_din1) <= 1 && (n_tog_din1 - n_tog_din2) <= 1);
+        //   ⭐⭐ **核心判据**：⭐ 外置那路的**数据必须非静音**（⭐ 修 `M116` 的 LEAK）
+        //
+        //   🔴 **2026-09-26 修正 —— 这条判据【必须改】**：
+        //      ⚠️ 原来判的是"外置与板载**逐拍完全相同**"（`n_diff_ext == 0`）。
+        //      🔴 **但上板实测后，两路的 I2S 格式【故意改成不同】了**：
+        //         · 板载 `MAX98357A` ⇒ ⭐ **标准 I2S**（`MSB_DELAY=1`）
+        //         · 外置 `PCM5102A` ⇒ ⭐ **左对齐**（`MSB_DELAY=0`，⭐ 实测出声）
+        //      ⇒ ⭐ **两路数据必然不同**（⭐ 相差 1 个 BCK 的位对齐）
+        //      ⇒ 🔴 **"逐拍相同"这个判据已经【不再成立】**，⚠️ 它会误报。
+        //
+        //   ⭐ **替代判据（⭐ 更强，⭐ 直击要点）**：
+        //      ⭐ **外置那路的 DIN 必须【既不是恒 0、也不是恒 1】** ——
+        //      ⭐ 即"**有真实的 1 也有真实的 0**" ⇒ ⭐ 证明它携带的是**音频**，
+        //      ⛔ 不是直流静音（⭐ 这正是 `M116` 要抓的失败）。
+        //   📌 **教训**：⭐ **判据要随【设计意图】走** ——
+        //      ⚠️ 当"两路同源"变成"两路异格式"时，⭐ 判据必须同步改，
+        //      🔴 否则**正确的改动会被判成回归**（⭐ `K-129`/`R-16` 同族）。
+        chk("I2S2_DIN carries BOTH 1s and 0s (real audio, not DC silence)",
+            (n_din2_one > 10) && (n_din2_zero > 10));
+        //   ⚠️ **不要**判 `(1s + 0s) == n_clk_total` ——
+        //      🔴 `n_clk_total` 是【采集窗口】内的拍数（⭐ 起点在采集开始处复位），
+        //      而我这两个计数是【从时间 0】开始累计的 ⇒ ⚠️ 两者窗口不同，⛔ 不相等。
+        //      📌 正确的自洽判据：⭐ **两个计数【都远大于 0】** 且 ⭐
+        //         **各自的占比合理**（⭐ 真实 I2S 数据不会全是同一个电平）。
+        //   📌 教训（⭐ 同族 `K-129`）：⭐ **判据里的两个量必须【同一口径/同一窗口】**，
+        //      ⚠️ 否则会拿"苹果"和"橘子"比较 ⇒ 🔴 正确的设计被判成回归。
+        chk("I2S2_DIN 1s and 0s are both substantial (not a stuck level)",
+            (n_din2_one > 100) && (n_din2_zero > 100));
+        // ⭐ 顺带记录：与板载不同的拍数（⭐ 现在是【预期的】，⛔ 不再当失败）
+        $display("     ℹ️ 外置/板载数据不同的拍数 = %0d（⭐ 两路格式不同，属预期）",
+                 n_diff_ext);
 
         if (errors == 0)
             $display("PASS: top sound chain (T57) - HP_DIN is live and the mixer emits a varying waveform");

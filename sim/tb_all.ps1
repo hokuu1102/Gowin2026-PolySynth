@@ -51,6 +51,15 @@ function Get-HdlSources([string]$Dir) {
 }
 
 $rtl    = Get-HdlSources (Join-Path $root "rtl")
+#   ⭐ 2026-09-26：把 `bringup/dac_tone` 也纳入 RTL 搜索路径。
+#   🔴 **为什么**：⭐ 那目录下的 `dac_tone_top.v` 是一个**独立顶层**（⭐ 不属主工程），
+#      ⚠️ 而 `tb/bringup/tb_dac_tone_top.sv` 要例化它 ⇒
+#      🔴 不加入搜索路径 ⇒ 回归报 `Unknown module type: dac_tone_top`（⭐ 编译失败）。
+#   📌 **注意**：⛔ 它**不在** `Gowin2026.gprj` 里（⭐ 独立工程）⇒
+#      加进回归**不影响主工程构建**，⭐ 只是让它也有回归保护。
+$rtlDac = @(Get-HdlSources (Join-Path $root "bringup\dac_tone") |
+            Where-Object { $_ -notmatch 'proj_fmt' })     # ⚠️ 排除构建产物目录
+$rtl    = @($rtl) + $rtlDac
 $models = Get-HdlSources (Join-Path $root "tb\models")
 $chk    = Get-HdlSources (Join-Path $root "tb\checkers")   # T3 的断言 A1~A8
 $tbs    = @(Get-ChildItem -Path $tbDir -Recurse -Include tb_*.sv -File -ErrorAction SilentlyContinue |
@@ -66,6 +75,8 @@ Write-Host ("RTL " + $rtl.Count + " 个 · 模型 " + $models.Count + " 个 · �
 
 $pass = 0
 $fail = @()
+#   ⭐ 2026-09-26：被【默认跳过】的 tb（⭐ 工具 tb，⛔ 不是失败）—— ⭐ 汇总结算时不计入总数
+$skipped = @()
 foreach ($tb in $tbs) {
   $name   = $tb.BaseName
   $outDir = Join-Path $bldDir $name
@@ -180,8 +191,42 @@ foreach ($tb in $tbs) {
     'tb_note_manager',           # ⭐ 含 FIFO 溢出突发用例
     'tb_i2s_tx_prbs',            # ⭐ 512 帧随机 + 位扫描
     'tb_wavetable_bank_prom'     # ⭐ pROM 变体
+    #   ⚠️ 注意：⭐ `tb_export_wav` **不在本表里** —— ⭐ 它【默认被跳过】（见下方 `$skipByDefault`）
   )
-  $tbTimeoutSec = if ($heavyTb -contains $name) { 300 } else { $TimeoutSec }
+  # ═══════════════════════════════════════════════════════════════════════════
+  #   🔴🔴 2026-09-26：⭐ **`tb_export_wav` 默认【跳过】**（⭐ 用户要求）
+  #
+  #   ⭐ **为什么跳过而不是给长超时**：
+  #      · ⚠️ 它要导 **0.5 秒真实音频** ⇒ ⭐ `24414 样点 × 1024 clk ≈ 2500 万拍`
+  #        ⇒ 🔴 **实测 ~30 分钟 CPU** —— ⚠️ **比整个回归其余部分加起来还慢**
+  #      · ⭐ 而它**不是验收 tb** —— ⭐ 它是**工具**（⭐ 产出 WAV 给人**听**，
+  #        ⛔ 不产生 PASS/FAIL 判据）
+  #      ⇒ ⭐ **把它放进每轮回归，只是让回归慢一倍，⛔ 换不来任何判据。**
+  #
+  #   ⭐ **怎么单独跑它**（⭐ 需要导 WAV 时）：
+  #      `powershell -File sim\tb_all.ps1 -Filter tb_export_wav`
+  #      ⭐ 那时 `-Filter` 会把它**显式选中** ⇒ ⭐ 跳过逻辑不生效（⭐ 见下）
+  #   📌 **纪律**：⭐ **它的"能编译 + 能产出有效 WAV"仍然受保护** ——
+  #      ⚠️ 只是不每轮都跑（⭐ 与"变异测试用 `-Filter` 缩短"同一思路）。
+  # ═══════════════════════════════════════════════════════════════════════════
+  #   ⭐ **工具 tb**（⭐ 产出 WAV 给人听，⛔ 不产生验收判据）⇒ ⭐ **默认跳过**：
+  #      · `tb_export_wav`     —— 导自检和弦（⭐ 2500 万拍）
+  #      · `tb_export_key_wav` —— 导按键出声（⭐ 2026-09-26 新增，⭐ 同样天生慢）
+  #   📌 **要单独跑**：⭐ `powershell -File sim\tb_all.ps1 -Filter tb_export_key_wav`
+  #      （⭐ `-Filter` 显式选中时不跳过）
+  #   ⚠️ **它们仍要能编译** —— ⭐ 所以⛔ 不是"从工程里删掉"，⭐ 只是不每轮跑。
+  # ═══════════════════════════════════════════════════════════════════════════
+  $skipByDefault = @('tb_export_wav', 'tb_export_key_wav')
+  if (($Filter -eq "") -and ($skipByDefault -contains $name)) {
+    Write-Host ("  [skip] {0}  (工具 tb，默认跳过；用 -Filter {0} 单独跑)" -f $name) -ForegroundColor DarkYellow
+    $script:skipped += $name
+    continue
+  }
+
+  #   ⚠️ `tb_export_wav` 需要**远超 300 s** 的预算 ⇒ 单独给 1800 s
+  $tbTimeoutSec = if ($name -eq 'tb_export_wav') { 1800 }
+                  elseif ($heavyTb -contains $name) { 300 }
+                  else { $TimeoutSec }
 
   $job = Start-Job -ScriptBlock {
     param($exe, $img, $wd)
@@ -274,7 +319,14 @@ foreach ($tb in $tbs) {
 }
 
 Write-Host "`n================ 汇总 ================" -ForegroundColor Yellow
-Write-Host ("通过 " + $pass + " / 共 " + $tbs.Count)
+#   ⭐ 跳过的 tb **不计入"共 N 个"** —— ⚠️ 否则会给人"少跑了一个"的错觉。
+#      📌 判据口径：⭐ **通过数 / 实际跑的个数**（⭐ 跳过的单独列出）。
+$ranCount = $tbs.Count - $skipped.Count
+Write-Host ("通过 " + $pass + " / 共 " + $ranCount)
+if ($skipped.Count) {
+  Write-Host ("跳过（工具 tb，非验收）: " + ($skipped -join ", ")) -ForegroundColor DarkYellow
+  Write-Host ("  ⭐ 要跑它: powershell -File sim\tb_all.ps1 -Filter " + $skipped[0]) -ForegroundColor DarkGray
+}
 if ($fail.Count) {
   Write-Host ("失败: " + ($fail -join ", ")) -ForegroundColor Red
   exit 1

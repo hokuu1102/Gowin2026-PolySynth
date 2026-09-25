@@ -109,6 +109,14 @@
         <File path="rtl/w3c/play_seq.v" type="file.verilog" enable="1"/>
         <!-- U-6: event merge (hand-play + metronome into note_manager's single port) -->
         <File path="rtl/w3c/evt_merge.v" type="file.verilog" enable="1"/>
+        <!-- 2026-09-26 teammate (bing/LED chain): top.v instantiates these two,
+             but they were committed WITHOUT being registered here.  The U-30
+             build guard caught it: Gowin would have SILENTLY omitted the files
+             (no error, byte-identical timing evidence, dead LEDs on the board).
+             Both are .sv but MUST be declared type="file.verilog" - writing
+             file.systemverilog makes Gowin skip the file without an error. -->
+        <File path="rtl/w3c/led_data.v" type="file.verilog" enable="1"/>
+        <File path="rtl/w3c/tlc5916_bank.sv" type="file.verilog" enable="1"/>
         <!-- 2026-09-26 new: source-A three-way arbiter (live / score / demo).
              Tops up the TODO that used to live in top.v: the old two-way
              SOURCE_A_SEL could not admit the score path at all, so a dumped

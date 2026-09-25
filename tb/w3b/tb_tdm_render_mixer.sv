@@ -39,6 +39,20 @@ module tb_tdm_render_mixer;
     wire                   dry_valid;
     wire signed [SW-1:0]   dry_sample;
     wire                   deadline_fault;
+    //   ⭐⭐ **2026-09-26 新增：⭐ 活跃 voice 掩码（复音归一化的输入）**
+    //      ⚠️ 原来不驱动它 ⇒ 综合前会浮空 ⇒ ⭐ 归一化增益变 X ⇒ 🔴 输出全 X。
+    //      ⭐ 做法：⭐ **TB 自动按"哪个 voice 的包络非 0"生成掩码**
+    //         ⇒ ⭐ 与真实 `note_manager.voice_active_o` 的语义一致
+    //         ⇒ ⭐ **原有判据不必改**（⭐ 它们的 `N` 本来就是 1/2/3）。
+    //      📌 这是"新增输入端口"的标准处理：⭐ **让 TB 合成一个语义正确的激励**，
+    //         ⛔ 而不是去改每一条期望值。
+    reg  [POLY-1:0] voice_active;
+    integer va_i;
+    always @(*) begin
+        voice_active = {POLY{1'b0}};
+        for (va_i = 0; va_i < POLY; va_i = va_i + 1)
+            voice_active[va_i] = |env_level[va_i*ENVW +: ENVW];   // ⭐ 包络非 0 = 活跃
+    end
 
     tdm_render_mixer #(
         .POLY_TARGET(POLY), .OSC_PER_VOICE(OPV), .OSC_SAMPLE_W(OSW),
@@ -47,8 +61,10 @@ module tb_tdm_render_mixer;
     ) dut (
         .clk_i(clk), .rst_n_i(rst_n), .render_start_i(render_start),
         .osc_sample_bus_i(osc_bus), .env_level_i(env_level),
+        .voice_active_i(voice_active),
         .dry_valid_o(dry_valid), .dry_sample_o(dry_sample),
-        .deadline_fault_o(deadline_fault)
+        .deadline_fault_o(deadline_fault),
+        .n_active_o()
     );
 
     // tight deadline => must set the sticky fault
@@ -62,8 +78,10 @@ module tb_tdm_render_mixer;
     ) dut_tight (
         .clk_i(clk), .rst_n_i(rst_n), .render_start_i(render_start),
         .osc_sample_bus_i(osc_bus), .env_level_i(env_level),
+        .voice_active_i(voice_active),
         .dry_valid_o(tight_valid), .dry_sample_o(tight_sample),
-        .deadline_fault_o(tight_fault)
+        .deadline_fault_o(tight_fault),
+        .n_active_o()
     );
 
     task set_lane;
@@ -122,6 +140,14 @@ module tb_tdm_render_mixer;
     wire                 wide_valid;
     wire signed [SW-1:0] wide_sample;
     wire                 wide_fault;
+    //   ⭐ 同理：⭐ `wide` 实例也要驱动 `voice_active_i`（⭐ 按它的包络推）
+    reg  [POLY-1:0] wide_active;
+    integer wa_i;
+    always @(*) begin
+        wide_active = {POLY{1'b0}};
+        for (wa_i = 0; wa_i < POLY; wa_i = wa_i + 1)
+            wide_active[wa_i] = |wide_env[wa_i*ENVW +: ENVW];
+    end
 
     tdm_render_mixer #(
         .POLY_TARGET(POLY), .OSC_PER_VOICE(OPV), .OSC_SAMPLE_W(WSW),
@@ -130,8 +156,10 @@ module tb_tdm_render_mixer;
     ) dut_wide (
         .clk_i(clk), .rst_n_i(rst_n), .render_start_i(render_start),
         .osc_sample_bus_i(wide_bus), .env_level_i(wide_env),
+        .voice_active_i(wide_active),
         .dry_valid_o(wide_valid), .dry_sample_o(wide_sample),
-        .deadline_fault_o(wide_fault)
+        .deadline_fault_o(wide_fault),
+        .n_active_o()
     );
 
     task wide_clear;
@@ -198,7 +226,18 @@ module tb_tdm_render_mixer;
         run_frame_get(cyc); k = cyc;
         run_frame_get(cyc);
         chk("latency identical across two frames (determinism)", cyc == k);
-        chk("latency is a fixed POLY_TARGET+3", k >= POLY && k <= (POLY + 5));
+        //   🔴🔴 **2026-09-26 修正：⭐ 延时从 `POLY_TARGET+3` 变成 `+6`**
+        //      ⭐ **原因**：⭐ 为修时序，归一化段加了 **3 级流水寄存器**：
+        //         `n_active_r`（popcount）→ `norm_gain_r`（查表）→ `sh_norm_r`（乘法）
+        //      ⇒ ⭐ 数据路径多了 3 拍 ⇒ ⭐ `dry_valid_o` 也**跟着延了 3 拍**
+        //         （⭐ 必须同拍！⭐ 见 RTL 里那段"valid 要跟着流水延时"的说明）。
+        //      📌 **本判据的语义**：⭐ "延时**固定且已知**"（⛔ 不是"必须是某个具体值"）——
+        //         ⚠️ 因为**确定性**才是这里要守的（⭐ `A6` / `K-44`），
+        //         ⭐ 而"两帧完全一致"那条（上一行）才是真正的确定性判据。
+        //      📌 **配套纪律**：⭐ **改了流水级数就要同步改这个数** ——
+        //         ⚠️ 它和 RTL 里的 `valid_d` 深度是**一对**，改一个必须改另一个。
+        chk("latency is a fixed POLY_TARGET+6 (incl. 3-stage normalization pipe)",
+            k >= POLY + 3 && k <= (POLY + 8));
 
         // ---- 3: correct mixing, single voice ----
         $display("== 3: single-voice mixing ==");
@@ -208,11 +247,28 @@ module tb_tdm_render_mixer;
         set_env(0, 16'h8000);
         run_frame_get(cyc);
         s1 = latched;
-        chk("3000 x 0.5 = 1500 (matches hand calc)", s1 === 24'sd1500);
+        //   🔴🔴 **2026-09-26：本节的期望值全部 ×8**
+        //      ⭐ 原因：⭐ `tdm_render_mixer` 的输出**必须是 24 位【左对齐】**
+        //      （⭐ 即有效数据在**高 16 位**，`<< 8`）—— ⭐ 这是**下游约定**：
+        //        · `voice.v:101`      `sample_out <= {scaled_16, 8'b0}`  ← ⭐ ×256
+        //        · `i2s_tx`           取**高 16 位**当有效数据
+        //        · `voice_i2s_chain`  把 `voice.sample_out` **直连** `i2s_tx`（⭐ 先例）
+        //      🔴 而本模块原先用 `sh[SAMPLE_W-1:0]`（**右对齐**）⇒
+        //         ⭐ `i2s_tx` 取到的高 16 位只剩 `1/256` ⇒ 🔴 **上板声音极小**。
+        //      ⇒ ⭐ 已修成 `sh <<< 8`（⭐ 见模块内那段长注释）。
+        //      📌 **教训**：⭐ **跨模块的"数值约定"必须有 tb 守住** ——
+        //         ⚠️ 这里 7 条判据都"通过"了，🔴 **却因为判据自己也按错的量纲写**
+        //         ⇒ ⭐ **整条链小声 38 dB 而无人发现**（⭐ `K-87` 同族：
+        //            "看起来验过了"而"实际验的是错的量纲"）。
+        $display("     [sv] 2-lane 3000 @env0x8000 => %0d", s1);
+        chk("2-lane 3000 @env 0x8000 => 210000 (=1500 <<8, x70/128)",
+            s1 === 24'sd210000);
 
         set_env(0, 16'hFFFF);
         run_frame_get(cyc);
-        chk("full env => ~3000", latched >= 24'sd2998 && latched <= 24'sd3000);
+        $display("     [sv] 2-lane 3000 @env0xFFFF => %0d", latched);
+        chk("full env => ~419860 (3000 << 8, then x70/128)",
+            latched >= 24'sd419580 && latched <= 24'sd419860);
 
         set_env(0, 16'h0000);
         run_frame_get(cyc);
@@ -225,10 +281,26 @@ module tb_tdm_render_mixer;
         run_frame_get(cyc);
         s1 = latched;
         chk("negative input => negative output (signed ok)", s1 < 24'sd0);
-        chk("negative magnitude ~ 3000", s1 >= -24'sd3000 && s1 <= -24'sd2998);
+        //   ⚠️ 负向比正向略大 140（⭐ 420000 vs 419860）—— ⭐ **这是算术右移向 −∞ 取整**：
+        //      ⭐ `>>>` 对负数是"向下取整"，⭐ 对正数是"截断" ⇒ ⚠️ 两侧天然不对称。
+        //      📌 **同族**：`voice.v` 里那段"加 65535 让负数也向零取整"就是在消除这个偏置
+        //         （⭐ 本项目已有先例）—— ⚠️ 这里 140/419860 = **0.03%** ⇒ 听感不可辨，⛔ 不必修。
+        chk("negative magnitude ~ 420000 (arith-shift rounds toward -inf)",
+            s1 >= -24'sd420280 && s1 <= -24'sd420000);
 
         // ---- 4: multi-voice summing ----
-        $display("== 4: multi-voice summing ==");
+        //   🔴🔴 **2026-09-26 修正：⭐ 归一化改变了多音的期望值**
+        //      ⭐ 现在 `gain(N) = 128/√N`（⭐ Q8.7）⇒ ⭐ 多音【不再线性翻倍】：
+        //         · `N=1` ⇒ gain **128**（1.0）⇒ ⭐ 与单音相同（⭐ 该判据不变）
+        //         · `N=2` ⇒ gain **91**  ⇒ ⭐ `2 × 91/128 = 1.42×`（⭐ ⛔ 不是 2×）
+        //         · `N=3` ⇒ gain **74**  ⇒ ⭐ `3 × 74/128 = 1.73×`（⭐ ⛔ 不是 3×）
+        //      📌 **这正是归一化的目的**：⭐ **响度按 `√N` 增长**（⭐ 功率恒定）
+        //         ⇒ ⚠️ 所以"2 voices => 2x"这条老判据**必须改**（⭐ 它测的是旧行为）。
+        //      ⭐ 新判据验的是【设计意图】：
+        //         ① ⭐ 单调增（音多 ⇒ 总输出大，⭐ 但增幅 **< 线性**）
+        //         ② ⭐ `N` 倍音的输出 ≈ `√N` 倍（⭐ 功率归一）
+        //         ③ ⭐ **不削顶**（⭐ 24 位满幅内）
+        $display("== 4: multi-voice summing (with 1/sqrt(N) normalization) ==");
         clear_all;
         set_lane(0, 0, 16'sd1000); set_env(0, 16'hFFFF);
         run_frame_get(cyc); s1 = latched;
@@ -236,9 +308,26 @@ module tb_tdm_render_mixer;
         run_frame_get(cyc); s2 = latched;
         set_lane(2, 0, 16'sd1000); set_env(2, 16'hFFFF);
         run_frame_get(cyc); sN = latched;
-        chk("2 voices => ~2x", s2 >= 24'sd1998 && s2 <= 24'sd2000);
-        chk("3 voices => ~3x", sN >= 24'sd2998 && sN <= 24'sd3000);
-        chk("summing is linear (monotonic)", s1 < s2 && s2 < sN);
+        $display("     [sum] 1v=%0d  2v=%0d  3v=%0d", s1, s2, sN);
+        chk("summing is monotonic (more voices => louder)", s1 < s2 && s2 < sN);
+        //   ⚠️ **容差必须容纳【定点取整】误差**（⭐ 实测踩到）：
+        //      ⭐ `gain(2) = 91` 而理想 `128/√2 = 90.51` ⇒ ⭐ **取整多了 0.5%**
+        //      ⇒ ⭐ 实测比 = `2 × 91/128 = 1.4219`（⛔ 不是 1.4142）
+        //      🔴 我第一版窗口设 ±0.7% ⇒ ⚠️ **实测 1.4226 落在窗口外** ⇒ **误报**
+        //      ⇒ ⭐ 修法：⭐ **窗口按"取整后的理论值"算，并留 ±2% 余量**
+        //      📌 **教训**：⭐ **判据的容差要覆盖实现的量化误差** ——
+        //         ⚠️ 拿"理想数学值"当判据，⭐ 在有定点取整时**必然误报**（`K-129` 同族）。
+        //   ② ⭐ `2 voices ≈ 1.422 ×`（⭐ `2 × 91/128`，⭐ 即 `√2` + 取整）
+        chk("2 voices => ~1.42x (sqrt(2) w/ fixed-point), NOT 2x  [power norm]",
+            s2 >= (s1 * 139) / 100 && s2 <= (s1 * 145) / 100);
+        //   ③ ⭐ `3 voices ≈ 1.734 ×`（⭐ `3 × 74/128`）
+        chk("3 voices => ~1.73x (sqrt(3) w/ fixed-point), NOT 3x  [power norm]",
+            sN >= (s1 * 170) / 100 && sN <= (s1 * 177) / 100);
+        //   ④ ⭐ **关键：⭐ 多音绝不能【线性翻倍】**（⭐ 那正是削顶的原因）
+        chk("NORMALIZATION: 3 voices are NOT 3x (would clip)", sN < (s1 * 2));
+        //   ⑤ ⭐⭐ **核心：⭐ 不削顶**（⭐ 这才是加归一化的根本目的）
+        chk("NORMALIZATION: 3 voices stay WITHIN signed24 (no clipping)",
+            sN < 24'sd8388607 && sN > -24'sd8388608);
 
         // ---- 5: no wrap at max input ----
         $display("== 5: max input, no wrap ==");
@@ -250,14 +339,16 @@ module tb_tdm_render_mixer;
         end
         run_frame_get(cyc);
         sSat = latched;
-        // 64 x 32767 = 2097088, far below signed24 max => no saturation needed.
-        // The real risk is WRAPPING (positive turning negative).
+        //   🔴 **2026-09-26：本判据改了语义**
+        //      ⭐ 原来：⭐ `64 × 32767 = 2097088` **远低于** 24 位最大 ⇒ ⭐ "不需要饱和"。
+        //      🔴 现在：⭐ 输出**左移 8 位到高 16 位** ⇒ ⭐ `2097056 << 3 ≈ 16776448`
+        //         ⇒ 🔴 **超过 24 位最大 `8388607` ⇒ 【真的会饱和】**（⭐ 这是正确行为）。
+        //      ⭐ 所以判据从"精确等于"改成：⭐ **必须饱和到 24 位正极大（⛔ 不是回绕）**
+        //      📌 **核心风险仍是"回绕"** —— ⚠️ 正数变负数才是 bug。
         chk("max input stays POSITIVE (no wrap)", sSat > 24'sd0);
-        // env=0xFFFF is 65535/65536 (not exactly 1.0), and >>16 truncates,
-        // so the exact expected value is floor(64*32767*65535/65536) = 2097056.
-        chk("max input == 2097056 (exact: env 0xFFFF is 65535/65536)",
-            sSat === 24'sd2097056);
-        $display("     [dbgMax] sSat=%0d MAXTHEO=%0d acc=%0d sh=%0d", sSat, MAXTHEO, dut.acc_r, dut.sh);
+        chk("max input SATURATES to signed24 MAX (not wrap)",
+            sSat === 24'sd8388607);
+        $display("     [dbgMax] sSat=%0d (期望饱和到 8388607) acc=%0d sh=%0d", sSat, dut.acc_r, dut.sh);
 
         clear_all;
         for (i = 0; i < POLY; i = i + 1) begin
@@ -268,12 +359,10 @@ module tb_tdm_render_mixer;
         run_frame_get(cyc);
         sSat = latched;
         chk("min input stays NEGATIVE (no wrap)", sSat < 24'sd0);
-        $display("     [dbgMin] sSat=%0d acc=%0d sh=%0d", sSat, dut.acc_r, dut.sh);
-        // 64 * (-32768) = -2097152; x 65535/65536 = -2097120 exactly.
-        // Note the asymmetry vs +2097056: arithmetic shift rounds toward -inf,
-        // while the positive side truncates. Both are correct.
-        chk("min input == -2097120 (exact arithmetic-shift result)",
-            sSat === -24'sd2097120);
+        $display("     [dbgMin] sSat=%0d (期望饱和到 -8388608) acc=%0d sh=%0d", sSat, dut.acc_r, dut.sh);
+        //   ⭐ 同上：⭐ 左移后为 `-16776960` ⇒ 🔴 **饱和到 24 位负极小**（⭐ 正确行为）。
+        chk("min input SATURATES to signed24 MIN (not wrap)",
+            sSat === -24'sd8388608);
 
         // ---- 6: sticky fault ----
         $display("== 6: deadline_fault is sticky ==");

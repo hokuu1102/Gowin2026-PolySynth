@@ -203,26 +203,64 @@ module tb_axis_map;
         //   ⚠️ 2026-09-23：`fb_inc` 已填入**真实指板音高**（C4/C#4/D4/D#4），
         //      ⭐ 而 `kb_inc` 仍是**半音阶梯**（示例）⇒ ⭐ **两表内容不同**
         //      ⇒ ⭐ 判据从"两模式同值"改成"**两模式必须不同、且各自等于自己的表**"（⭐ 更强）。
+        //
+        //   🔴🔴 **2026-09-26 修正（⭐ 上板实测驱动的语义变更）**：
+        //      ⚠️ 原判据假设"**指板模式也用 `pos_i` 选表**" ⇒ ⭐ 靠 `pos=0` 读表头。
+        //      🔴 **但上板实测：⭐ 那样"所有键同深度 = 同音高"**（⭐ 用户症状）。
+        //      ⇒ ⭐ **指板模式已改成用【轴号】`axis_id_i` 选表**（⭐ 见 `axis_map.v` 的
+        //         §"指板模式必须用轴号选音"）。
+        //      ⇒ ⭐ **本判据必须跟着改**：⭐ 扫【轴号】而不是扫 `pos`。
+        //      📌 **教训**（⭐ 同族 `K-129`/`81 号`）：⭐ **判据要随设计意图走** ——
+        //         ⚠️ 设计从"深度选音"改成"轴号选音"，⭐ 判据不同步就会【误报回归】。
         begin : mode_check
             integer kb_val, fb_val;
-            // ⚠️ **先把 pos 设回 0**（⭐ 上面判据 ⑥/⑦ 已把它扫到别处）
-            //    ⇒ ⭐ 因为 `fb_inc[0]` = 轴 0 = 四弦品1 = `A2`，⛔ 只在 pos=0 成立。
+            //   ⭐ 先把 `pos` 设 0（⭐ 键盘模式仍用深度 ⇒ ⭐ 这样能读到键盘表头）
             pos = 12'd0;
-            // 键盘模式（半音阶梯）
+            // 键盘模式（半音阶梯；⭐ 仍按【深度】选表）
             mode = 1'b0;  #1;
             kb_val = phase_inc;
-            // 指板模式（真实音高；pos=0 ⇒ 品1 = 一弦 C4）
-            mode = 1'b1;  #1;
+            //   ⭐⭐ **指板模式：⭐ 扫轴号**（⭐ 这是本次修正的核心）
+            //      ⭐ 判据：⭐ **不同轴号必须给出不同音高**（⭐ 这正是用户要的"按键分音"）
+            mode = 1'b1;
+            begin : fb_sweep
+                integer ax;
+                integer n_distinct;
+                reg [31:0] first_val;
+                reg seen_same_as_first;
+                n_distinct         = 0;
+                first_val          = 32'd0;
+                seen_same_as_first = 1'b0;
+                for (ax = 0; ax < 16; ax = ax + 1) begin
+                    axis_id = ax[3:0];  #1;
+                    fb_val  = phase_inc;
+                    if (ax == 0) first_val = fb_val;
+                    else if (fb_val !== first_val) n_distinct = n_distinct + 1;
+                    else seen_same_as_first = 1'b1;
+                    if (ax < 4 || ax == 15)
+                        $display("  [fret] axis=%0d -> 0x%08h (%0d Hz)",
+                                 ax, fb_val,
+                                 (fb_val * 48828125) / 1000000000);
+                end
+                //   ⭐⭐ **核心判据：⭐ 16 个轴必须给出【互不相同】的音高**
+                //      🔴 这正是上板症状的回归防线（⭐ 旧版这里恒为同一个值）
+                chk("fretboard: all 16 axes give DIFFERENT pitches (the actual bug)",
+                    n_distinct == 15);
+                //   ⭐ 轴 0 = 四弦品1 = A2（⭐ 2026-09-23 用户确认版）
+                axis_id = 4'd0;  #1;
+                chk("fretboard axis 0 == E3 (0x00DD_3595) [left board upper row col3]",
+                    phase_inc === 32'h00DD_3595);
+                //   ⭐ 轴 15 = D#4（⭐ 表尾）
+                axis_id = 4'd15;  #1;
+                chk("fretboard axis 15 == C#4 (0x0174_073A) [right board upper row col2]",
+                    phase_inc === 32'h0174_073A);
+            end
+            //   ⭐ 两模式必须不同（⭐ 回到轴 0 + pos 0 比较）
+            axis_id = 4'd0;  pos = 12'd0;  mode = 1'b1;  #1;
             fb_val = phase_inc;
-            $display("  [mode] pos=%0d kb=%0d (0x%08h)  fb=%0d (0x%08h)", pos, kb_val, kb_val, fb_val, fb_val);
-            chk("mode_i really switches the table (kb != fb for the same position)",
+            $display("  [mode] pos=%0d kb=%0d (0x%08h)  fb=%0d (0x%08h)",
+                     pos, kb_val, kb_val, fb_val, fb_val);
+            chk("mode_i really switches the table (kb != fb for the same axis/pos)",
                 kb_val !== fb_val);
-            // ⭐⭐ **表头 = 轴 0 = 四弦品1 = `A2`**（⭐ 2026-09-23 用户确认版）
-            //   ⚠️ 表头 **⛔ 不是 C4** —— C4 是**一弦品1**，⭐ 它在表的**尾部**（轴 12）。
-            //   📌 原因：⭐ 轴号 = `adc_idx×8 + CH`，而 **CH 号是布线决定的乱序**
-            //      ⇒ ⭐ **轴 0 落在"左板下排物理列1" = 四弦品1 = A2**（⛔ 不是最低音那么简单）。
-            chk("fretboard mode at pos=0 gives A2 (axis 0 = string 4, fret 1)",
-                fb_val === 32'h0093_A3B6);
         end
         mode = 1'b0;  #1;
 
@@ -231,29 +269,50 @@ module tb_axis_map;
         chk("axis_id is passed through to the output", axis_id_o === 4'd11);
 
         // ═══ 判据 ⑨ ⭐⭐ 指板表【全 16 项】逐项核对（⭐ 最强的一条）═══
-        //   ⭐ 2026-09-23 用户确认版：轴号 → 音高（⭐ 4 弦 × 4 品）
+        //   ⭐ 2026-09-26 **上板实测锚定版**：轴号 → 音高（⭐ 4 弦 × 4 品）
         //   ⚠️ **轴号【不按物理位置递增】**（CH 号是布线决定的乱序）
         //      ⇒ ⭐ 必须【逐项】核对，⛔ 不能靠公式推。
+        //
+        //   🔴🔴 **2026-09-26 修正：⭐ 本表按【物理位置 ↔ 轴号】的实测锚定重排**
+        //      ⭐ **旧表**（`轴k = FB_AXk`）🔴 **错在"按轴号升序填半音阶"** ⇒
+        //         ⚠️ 上板表现：*"音高不太符合直觉"*。
+        //      ⭐ **锚定依据**（⭐ 决定性）：
+        //         ⭐ 用户提供**上板听到的现状图**，与"旧表 + 物理对应"**8 格全吻合**：
+        //         ```
+        //           物理上排(列1~4): E3  F3  A2  A#2   <= 旧表 轴6 轴7 轴0 轴1
+        //           物理下排(列1~4): D#3 D3  C3  B2    <= 旧表 轴5 轴4 轴3 轴2
+        //         ```
+        //         ⇒ ⭐ **【轴号 ↔ 物理位置】被实测确认**（⭐ 与
+        //            `霍尔键位-CH映射-20260923.md` §二 一致）⇒ ⭐ 可确定性重排。
+        //      ⭐ **新表 = 目标**（⭐ 文档 §3.2 指板模式）：
+        //         · 三弦 = 左板**上排** ⇒ 列1~4 = `D3 D#3 E3 F3`
+        //         · 四弦 = 左板**下排** ⇒ 列1~4 = `A2 A#2 B2 C3`
+        //         · 二弦 = 右板**下排** ⇒ 列1~4 = `G3 G#3 A3 A#3`
+        //         · 一弦 = 右板**上排** ⇒ 列1~4 = `C4 C#4 D4 D#4`
+        //      📌 **右板那 8 个是按同一规律推算的** —— ⚠️ 用户右手板**还没接线**，
+        //         ⭐ 等接上后**用同样方法实测锚定**（⛔ 别当已验证）。
         begin : fb_table_check
             integer k;
             integer bad_cnt;
             reg [PHASE_W-1:0] exp_tbl [0:15];
-            exp_tbl[0]  = 32'h0093_A3B6;  // 四弦品1 A2
-            exp_tbl[1]  = 32'h009C_6B2A;  // 四弦品2 A#2
-            exp_tbl[2]  = 32'h00A5_B841;  // 四弦品3 B2
-            exp_tbl[3]  = 32'h00AF_92EE;  // 四弦品4 C3
-            exp_tbl[4]  = 32'h00C5_1339;  // 三弦品1 D3
-            exp_tbl[5]  = 32'h00D0_CB35;  // 三弦品2 D#3
-            exp_tbl[6]  = 32'h00DD_3595;  // 三弦品3 E3
-            exp_tbl[7]  = 32'h00EA_5CF4;  // 三弦品4 F3
-            exp_tbl[8]  = 32'h0107_104E;  // 二弦品1 G3
-            exp_tbl[9]  = 32'h0116_B4CE;  // 二弦品2 G#3
-            exp_tbl[10] = 32'h0127_476D;  // 二弦品3 A3
-            exp_tbl[11] = 32'h0138_D653;  // 二弦品4 A#3
-            exp_tbl[12] = 32'h015F_25DC;  // 一弦品1 C4
-            exp_tbl[13] = 32'h0174_073A;  // 一弦品2 C#4
-            exp_tbl[14] = 32'h018A_2672;  // 一弦品3 D4
-            exp_tbl[15] = 32'h01A1_966B;  // 一弦品4 D#4
+            //   ── ⭐ 左板（轴 0~7）────────────────────────────────────────────
+            exp_tbl[0]  = 32'h00DD_3595;  // 左板上排列3  E3
+            exp_tbl[1]  = 32'h00EA_5CF4;  // 左板上排列4  F3
+            exp_tbl[2]  = 32'h00AF_92EE;  // 左板下排列4  C3
+            exp_tbl[3]  = 32'h00A5_B841;  // 左板下排列3  B2
+            exp_tbl[4]  = 32'h009C_6B2A;  // 左板下排列2  A#2
+            exp_tbl[5]  = 32'h0093_A3B6;  // 左板下排列1  A2
+            exp_tbl[6]  = 32'h00C5_1339;  // 左板上排列1  D3
+            exp_tbl[7]  = 32'h00D0_CB35;  // 左板上排列2  D#3
+            //   ── ⭐ 右板（轴 8~15，⭐ 按同规律推算、⚠️ 待实测锚定）────────────
+            exp_tbl[8]  = 32'h018A_2672;  // 右板上排列3  D4
+            exp_tbl[9]  = 32'h01A1_966B;  // 右板上排列4  D#4
+            exp_tbl[10] = 32'h0138_D653;  // 右板下排列4  A#3
+            exp_tbl[11] = 32'h0127_476D;  // 右板下排列3  A3
+            exp_tbl[12] = 32'h0116_B4CE;  // 右板下排列2  G#3
+            exp_tbl[13] = 32'h0107_104E;  // 右板下排列1  G3
+            exp_tbl[14] = 32'h015F_25DC;  // 右板上排列1  C4
+            exp_tbl[15] = 32'h0174_073A;  // 右板上排列2  C#4
             //   ⚠️ 说明：本 tb 只能通过 `pos=0`（段起点）读到**表头那一项**，
             //      ⇒ ⭐ 这里用层次引用直接查表内容（⭐ 表是常量 ⇒ 查表等价于验表）。
             mode = 1'b1;

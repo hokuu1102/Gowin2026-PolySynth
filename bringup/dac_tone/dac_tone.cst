@@ -1,0 +1,28 @@
+// ═══════════════════════════════════════════════════════════════════════════
+//  dac_tone.cst —— ⭐ 最小 DAC 出声测试的引脚约束（2026-09-26）
+//
+//  ⭐ **只约束本测试用到的 6 个脚** —— ⛔ 不引用主工程的其他任何东西。
+//  📌 引脚值**从 `constr/top.cst` 逐条抠出**（⭐ ⛔ 不重新猜）。
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── 时钟与复位 ──────────────────────────────────────────────────────────────
+IO_LOC  "clk"   V22;
+IO_PORT "clk"   IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+
+//   ⚠️ `rst_n` 在 BANK9 = **1.5 V** 域（⭐ 与主工程一致，⛔ 不能改成 3.3）
+IO_LOC  "rst_n" AA13;
+IO_PORT "rst_n" IO_TYPE=LVCMOS15 PULL_MODE=UP BANK_VCCIO=1.5;
+
+// ── ⭐ 外置 DAC 三根线（`PMOD1_IO3/4/5`）────────────────────────────────────
+IO_LOC  "I2S2_BCK"  F20;
+IO_PORT "I2S2_BCK"  IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "I2S2_LRCK" E22;
+IO_PORT "I2S2_LRCK" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "I2S2_DIN"  D22;
+IO_PORT "I2S2_DIN"  IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+// ── ⭐ 心跳 LED（⭐ 活体见证：⭐ 亮灭交替 = FPGA 在跑）──────────────────────
+IO_LOC  "led_hb" V13;
+IO_PORT "led_hb" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
