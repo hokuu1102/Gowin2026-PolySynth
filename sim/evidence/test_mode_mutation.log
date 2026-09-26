@@ -1,0 +1,19 @@
+=== mutation testing: 5 mutant(s)  [selected: -Filter MTM* -TbFilter test_mode_ctrl, of 112]
+    scoped developer run: each mutant runs benches matching 'test_mode_ctrl' (not release evidence)
+  [MTM1] RED  (caught)  T43 regression: n_code 00 decodes to 8 instead of 4 -> mode count is wrong (must be caught)
+  [MTM2] RED  (caught)  T43 regression: enable bypass is ignored -> Test Mode tones leak into normal play (must be caught)
+  [MTM3] RED  (caught)  T43 regression: active_n display is stuck at 32 and disagrees with the actual gates (must be caught)
+  [MTM4] RED  (caught)  T43 regression: both oscillator lanes are enabled -> the visible voice/peak contract is false (must be caught)
+  [MTM5] RED  (caught)  T43 regression: every voice uses the same frequency -> N spectral peaks collapse to one (must be caught)
+
+================ mutation testing summary ================
+  MTM1  caught    T43 regression: n_code 00 decodes to 8 instead of 4 -> mode count is wrong (must be caught)
+  MTM2  caught    T43 regression: enable bypass is ignored -> Test Mode tones leak into normal play (must be caught)
+  MTM3  caught    T43 regression: active_n display is stuck at 32 and disagrees with the actual gates (must be caught)
+  MTM4  caught    T43 regression: both oscillator lanes are enabled -> the visible voice/peak contract is false (must be caught)
+  MTM5  caught    T43 regression: every voice uses the same frequency -> N spectral peaks collapse to one (must be caught)
+==========================================================
+
+=== regenerating sim/evidence from the restored (clean) RTL ===
+OK: sim/evidence regenerated from clean code
+PASS: every injected defect was caught by the regression suite

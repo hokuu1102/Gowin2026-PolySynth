@@ -5,6 +5,7 @@
 #   powershell -NoProfile -ExecutionPolicy Bypass -File bringup\mutation_test.ps1 -Filter M29
 #   powershell -NoProfile -ExecutionPolicy Bypass -File bringup\mutation_test.ps1 -File w3b
 #   powershell -NoProfile -ExecutionPolicy Bypass -File bringup\mutation_test.ps1 -Changed
+#   powershell -NoProfile -ExecutionPolicy Bypass -File bringup\mutation_test.ps1 -Filter MTM* -TbFilter test_mode_ctrl
 #
 # ---- WHICH MUTANTS TO RUN (added 2026-09-21, policy reinforced 2026-09-23) -----
 #   Each mutant runs the WHOLE regression (all 36 benches under tb/), so it is
@@ -27,6 +28,9 @@
 #   -Changed          only mutants whose file differs from HEAD (git diff + index)
 #                     -> the natural choice while iterating on one module
 #   -Filter <substr>  only mutants whose ID contains <substr>  (single target)
+#   -TbFilter <text>  developer-only: run only matching benches per mutant.
+#                     This is fast evidence for one module, NOT release evidence;
+#                     omit it for the required full regression before push.
 #
 #   POLICY (reinforced 2026-09-23; rationale recorded as entry "K-115" in the
 #   project's known-issues / risk list under files/20-*):
@@ -89,6 +93,7 @@
 param(
   [string]$Filter = "",
   [string]$File   = "",
+  [string]$TbFilter = "",
   [switch]$Changed
 )
 
@@ -350,6 +355,13 @@ $mutations = @(
   # expression that genuinely disables the test_mode override.
   @{ id = "M32"; file = "rtl\w3b\oscillator_bank.v"; find = "? test_lane_active_i[g]"; repl = "? voice_active_i[VOICE_IDX]"; why = "T55 regression: test_mode override ignored -> T43 N-tone demo breaks (must be caught)" },
 
+  # ---- T43 / U-3: test_mode_ctrl (4/8/16/32 independently visible tones).
+  @{ id = "MTM1"; file = "rtl\w3b\test_mode_ctrl.v"; find = "2'b00: selected_n_r = test_n0_c;"; repl = "2'b00: selected_n_r = test_n1_c;"; why = "T43 regression: n_code 00 decodes to 8 instead of 4 -> mode count is wrong (must be caught)" },
+  @{ id = "MTM2"; file = "rtl\w3b\test_mode_ctrl.v"; find = "wire mode_enabled = rst_n_i & enable_i;"; repl = "wire mode_enabled = rst_n_i;"; why = "T43 regression: enable bypass is ignored -> Test Mode tones leak into normal play (must be caught)" },
+  @{ id = "MTM3"; file = "rtl\w3b\test_mode_ctrl.v"; find = "assign active_n_o = mode_enabled ? selected_n_r : 6'd0;"; repl = "assign active_n_o = mode_enabled ? 6'd32 : 6'd0;"; why = "T43 regression: active_n display is stuck at 32 and disagrees with the actual gates (must be caught)" },
+  @{ id = "MTM4"; file = "rtl\w3b\test_mode_ctrl.v"; find = "assign test_lane_active_o[LANE] = selected && (o == 0);"; repl = "assign test_lane_active_o[LANE] = selected;"; why = "T43 regression: both oscillator lanes are enabled -> the visible voice/peak contract is false (must be caught)" },
+  @{ id = "MTM5"; file = "rtl\w3b\test_mode_ctrl.v"; find = "localparam [PHASE_W-1:0] VOICE_INC = PHASE_INC_BASE + v*PHASE_INC_STEP;"; repl = "localparam [PHASE_W-1:0] VOICE_INC = PHASE_INC_BASE;"; why = "T43 regression: every voice uses the same frequency -> N spectral peaks collapse to one (must be caught)" },
+
   # ---- T56: tdm_render_mixer.  LF-only file => single-line anchors.
   @{ id = "M33"; file = "rtl\w3b\tdm_render_mixer.v"; find = "if (cnt >= DEADLINE_C)"; repl = "if (cnt >= CNT_MAX_V)"; why = "T56 regression: deadline check never fires -> A6 (frame deadline) unguarded (must be caught)" },
   @{ id = "M34"; file = "rtl\w3b\tdm_render_mixer.v"; find = "if (cnt >= 1 && cnt <= CNT_LAST)"; repl = "if (1'b0)"; why = "T56 regression: accumulation disabled -> output always 0 -> silence (must be caught)" },
@@ -492,13 +504,20 @@ if ($Changed) {
   }
   $selNote = ($selNote + " -Changed").Trim()
 }
+if ($TbFilter -ne "") {
+  $selNote = ($selNote + " -TbFilter " + $TbFilter).Trim()
+}
 
 $hdr = "=== mutation testing: " + $mutations.Count + " mutant(s)"
 if ($selNote -ne "") { $hdr = $hdr + "  [selected: $selNote, of $allCount]" } else { $hdr = $hdr + "  [FULL]" }
 Write-Host $hdr -ForegroundColor Cyan
 if ($mutations.Count -gt 0) {
-  $est = [math]::Round($mutations.Count * 109 / 60.0, 1)
-  Write-Host ("    estimated: ~" + $est + " min (each mutant runs the full regression)") -ForegroundColor DarkGray
+  if ($TbFilter -ne "") {
+    Write-Host ("    scoped developer run: each mutant runs benches matching '" + $TbFilter + "' (not release evidence)") -ForegroundColor DarkGray
+  } else {
+    $est = [math]::Round($mutations.Count * 109 / 60.0, 1)
+    Write-Host ("    estimated: ~" + $est + " min (each mutant runs the full regression)") -ForegroundColor DarkGray
+  }
 }
 
 # NOTE (2026-09-21): selecting 0 mutants is NOT a pass.  An empty selection means
@@ -528,7 +547,11 @@ foreach ($m in $mutations) {
   $mut = $orig.Replace($m.find, $m.repl)
   [System.IO.File]::WriteAllText($path, $mut)
 
-  $out  = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all.ps1") 2>&1
+  if ($TbFilter -ne "") {
+    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all.ps1") -Filter $TbFilter 2>&1
+  } else {
+    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all.ps1") 2>&1
+  }
   $exit = $LASTEXITCODE
 
   # ???? 2026-09-21 (K-105): "exit != 0" ALONE is not proof that the suite CAUGHT
@@ -605,7 +628,11 @@ if ($leaks -gt 0) {
 Write-Host ""
 Write-Host "=== regenerating sim/evidence from the restored (clean) RTL ===" -ForegroundColor Cyan
 # NOTE: assign to a variable so a non-zero child exit does not abort our flow.
-$cleanOut  = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all.ps1") 2>&1
+if ($TbFilter -ne "") {
+  $cleanOut = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all.ps1") -Filter $TbFilter 2>&1
+} else {
+  $cleanOut = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all.ps1") 2>&1
+}
 $cleanExit = $LASTEXITCODE
 if ($cleanExit -ne 0) {
   Write-Host "FAIL: clean re-run of the regression did not pass -- evidence may be contaminated" -ForegroundColor Red
