@@ -233,25 +233,12 @@ module top #(
     //   🔴 **为什么现在才加**：⭐ `top.v` 此前**完全没有 UART 端口** ——
     //      ⚠️ 所以 `evt_uart_rx` / `calib_cmd` / `uart_rx` **全都接不进来**。
     //
-    //   ⭐⭐ **走【板载 USB-C】**（⭐ ⛔ 不用外接 USB-TTL）：
-    //      ```
-    //      PC ──USB-C──> BL616（桥接芯片）──> FPGA_UART.RX/TX
-    //      ```
-    //      ⇒ ⭐ **一根 USB-C 线插上就是串口** ✅
-    //
-    //   📌 **引脚出处**（⭐ 已逐条查实，⛔ 不是猜的）：
-    //      `files/10-硬件/板卡替换评估/Console引脚查证-20260922.md` §3.1
-    //      ⭐ 官方 `console60k.cst` 原话：
-    //         ```
-    //         IO_LOC "UART_RXD" V14;  IO_PORT "UART_RXD" IO_TYPE=LVCMOS33;
-    //         IO_LOC "UART_TXD" U15;  IO_PORT "UART_TXD" IO_TYPE=LVCMOS33;
-    //         ```
-    //
-    //   ⚠️⚠️ **电平：⭐ `V14`/`U15` 是 `LVCMOS33`，⛔ 不是 1.5 V**
-    //      🔴 **别与 `AA13`(`rst_n`) / `Y14`(`PA_EN_n`) 混为一谈** ——
-    //         那两个属 **`BANK9` = 1.5 V 域** ⇒ ⚠️ 那边必须 `LVCMOS15`。
-    //      📌 出处：`V14` 属 **`BANK8`**、`U15` 属 **`BANK6`**（⭐ 都不是 `BANK9`）
-    //         ⇒ ✅ **可以（也必须）用 3.3 V**。
+    //   ⭐⭐ **当前走 J9 排针 + 外接 USB-TTL**：
+    //      · USB-TTL TX → J9 N26 / D14 / `uart_rx`
+    //      · USB-TTL RX ← J9 N25 / D15 / `uart_tx`
+    //      · GND 必须共地；两根信号均为 LVCMOS33。
+    //   ⚠️ Console 的 V14/U15 虽是板载 BL616 的 3.3 V UART，但该链路运行
+    //      TangCore 固件且端口不便接线，故不是本设计的实际串口入口。
     //
     //   ⭐ `uart_rx`（⭐ 输入）：⭐ 串口**空闲是高电平**
     //      ⇒ ⚠️ 若 PC 没插，悬空会读到随机跳变 ⇒ 🔴 可能被当成假起始位持续误触发
@@ -265,8 +252,8 @@ module top #(
     //      📌 下一步：写 `uart_tx.v` ⇒ 把 `calib_span` 的进度回传出去
     //         （⚠️ 否则 16 轴 `span` 标定**没有进度提示、几乎没法操作**）。
     // ═══════════════════════════════════════════════════════════════════════
-    input  wire uart_rx,         // V14 · 板载 BL616 → FPGA（⭐ 标定命令 / 曲谱事件）
-    output wire uart_tx          // U15 · FPGA → 板载 BL616（✅ 已接逻辑，见 `u_uart_tx`）
+    input  wire uart_rx,         // D14 · J9 N26 · 外接 USB-TTL TX → FPGA
+    output wire uart_tx          // D15 · J9 N25 · FPGA → 外接 USB-TTL RX
 );
 
     // ── ⭐ R-08：外部复位先同步（异步输入 → 同步释放）──────────────────
@@ -377,7 +364,7 @@ module top #(
     ) u_uart_rx (
         .clk_i     (clk),
         .rst_n_i   (rst_n_sync),
-        //   ⭐ 引脚 `V14`（⭐ `.cst` 里已给 `PULL_MODE=UP` ⇒ 空闲态稳定）
+        //   ⭐ D14 / J9 N26（`.cst` 里已给 `PULL_MODE=UP` ⇒ 空闲态稳定）
         .rx_i      (uart_rx),
         .rx_data_o (ur_data),
         .rx_done_o (ur_done)
