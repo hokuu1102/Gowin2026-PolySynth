@@ -1,7 +1,75 @@
-﻿  ok  : CH2 captures vibrato depth
+﻿  ok  : reset/default P4-disabled policy is unity gain
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 minimum maps to hard mute
+  ok  : CH1 midpoint uses logarithmic attenuation
+  ok  : CH1 maximum maps to Q1.15 unity
+  ok  : CH2 captures vibrato depth
   ok  : CH3 captures rate and commits coherent controls
-  ok  : disabled right ADC path forces safe zero controls
-PASS: right analog control snapshots CH2/CH3 coherently
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\w3a\tb_right_analog_ctrl.sv:36: $finish called at 100000 (1ps)
+  ok  : disabled right ADC keeps unity and forces safe vibrato controls
+PASS: right analog control maps CH1 volume and snapshots CH2/CH3 coherently
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\w3a\tb_right_analog_ctrl.sv:52: $finish called at 2020000 (1ps)
 
 

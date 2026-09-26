@@ -23,6 +23,18 @@ module tb_vibrato_top;
         .spi_mosi(), .spi_cs_n(spi_cs_n), .led_sdi(), .led_clk(), .led_le(),
         .led_oe_n(led_oe_n), .uart_rx(uart_rx), .uart_tx()
     );
+    // Shipping board configuration: P4 is absent, so T17 must retain unity
+    // gain all the way into master_mix rather than inheriting a zero control.
+    top #(
+        .RIGHT_ADC_ENABLE(0), .PA_ON_AFTER_RESET(0), .DEMO_CHORD_ON(1),
+        .DEMO_NOTE_DELAY(1_000_000), .DEMO_HOLD_CYC(1_000_000),
+        .AUTOTARE_DELAY_CLK(10), .SPAN_WAIT_TIMEOUT_CLK(1000), .HEARTBEAT_DIV(100)
+    ) dut_no_right (
+        .clk(clk), .rst_n(rst_n),
+        .HP_BCK(), .HP_WS(), .HP_DIN(), .PA_EN_n(), .I2S2_BCK(), .I2S2_LRCK(), .I2S2_DIN(),
+        .led_heartbeat(), .spi_miso(6'b111111), .spi_sclk(), .spi_mosi(), .spi_cs_n(),
+        .led_sdi(), .led_clk(), .led_le(), .led_oe_n(), .uart_rx(uart_rx), .uart_tx()
+    );
     always @(posedge clk) if (!spi_cs_n[2]) cs2_low_count = cs2_low_count + 1;
     task chk; input [8*96-1:0] name; input cond; begin
         if (cond) $display("  ok  : %0s", name);
@@ -34,6 +46,8 @@ module tb_vibrato_top;
         repeat (35_000) @(posedge clk);
         chk("optional right ADC is instantiated as ADC #2", dut.g_sound.ADC_N == 3);
         chk("P4 chip-select is actively scanned", cs2_low_count > 10);
+        chk("P4 CH1 reaches master mix as Q1.15 unity", dut.g_sound.master_gain == 16'h7fff && dut.g_sound.u_master_mix.gain_i == dut.g_sound.master_gain);
+        chk("P4-disabled configuration retains unity master gain", dut_no_right.g_sound.master_gain == 16'h7fff && dut_no_right.g_sound.u_master_mix.gain_i == 16'h7fff);
         chk("CH2 high control enables the LFO through hysteresis", dut.g_sound.vibrato_active);
         chk("LFO output reaches the real oscillator bank", dut.g_sound.u_oscillator_bank.vibrato_mod_i === dut.g_sound.vibrato_mod);
         if (errors == 0) $display("PASS: T18 P4 ADC -> LFO -> oscillator integration");

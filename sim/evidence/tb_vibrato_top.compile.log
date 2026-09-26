@@ -1,4 +1,4 @@
-﻿iverilog.exe : C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\rtl\top.v:2464: warning: implicit definition 
+﻿iverilog.exe : C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\rtl\top.v:2466: warning: implicit definition 
 of wire 'bg_beat'.
 At C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\sim\tb_all.ps1:123 char:18
 +   $compileOut  = & $iverilog @compileArgs 2>&1
@@ -15,7 +15,11 @@ C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\rtl\w3c\seq_arb.v:1: 
 C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fi
 fo inherited from another file.
 C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\rtl\top.v:1994: warning: Instantiating module note_manager w
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\rtl\top.v:1997: warning: Instantiating module note_manager w
+ith dangling input port 32 (event_lost_clr_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\rtl\w3b\tdm_render_mixer.v:333: warning: @* is sensitive to 
+all 16 words in array 'pc_l1'.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\rtl\top.v:1997: warning: Instantiating module note_manager w
 ith dangling input port 32 (event_lost_clr_i) floating.
 C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\rtl\w3b\tdm_render_mixer.v:333: warning: @* is sensitive to 
 all 16 words in array 'pc_l1'.

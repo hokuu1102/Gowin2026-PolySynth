@@ -909,15 +909,17 @@ module top #(
         assign spi_cs_n[ADC_N-1:0] = af_cs_n;
         assign spi_cs_n[5:ADC_N] = {(6-ADC_N){1'b1}};
 
-        // ── T18 控制入口：P4 ADC CH2=深度、CH3=速率 ─────────────────────
-        // `right_analog_ctrl` 于 CH3 后一拍提交，保证 depth/rate/valid 对齐。
-        // ADC 未启用时模块把所有控制强制为 0，保持默认音色不受影响。
+        // ── 右手控制入口：CH1=主音量、CH2=深度、CH3=颤音速率 ────────────
+        // `right_analog_ctrl` 的 CH1 高 6 位经 64 点对数 LUT，直接产生
+        // `master_mix` 所需的 Q1.15 增益；CH3 后一拍提交颤音参数。
+        // ADC 未启用时，音量保持 unity、颤音控制为 0，保持现有两 ADC 板可用。
         wire [11:0] right_adc_data;
         if (RIGHT_ADC_ENABLE != 0) begin : g_right_adc_data
             assign right_adc_data = af_data[2*12 +: 12];
         end else begin : g_no_right_adc_data
             assign right_adc_data = 12'd0;
         end
+        wire [15:0] master_gain;
         wire [11:0] vib_depth_raw, vib_rate_raw;
         wire        vib_ctrl_valid;
         right_analog_ctrl u_right_analog_ctrl (
@@ -927,6 +929,7 @@ module top #(
             .sample_valid_i   (af_sample_valid),
             .sample_ch_i      (af_sample_ch),
             .sample_data_i    (right_adc_data),
+            .master_gain_o    (master_gain),
             .vibrato_depth_o  (vib_depth_raw),
             .vibrato_rate_o   (vib_rate_raw),
             .param_valid_o    (vib_ctrl_valid)
@@ -2113,10 +2116,9 @@ module top #(
 
         // ⭐⭐ 主混音 + 数字主音量 + 静音斜坡（master_mix，W3c 出声通路最后一级）
         //    ⚠️ 位置：`tdm_render_mixer` → `master_mix` → `i2s_tx`
-        //    ⭐ 增益 `gain_i` 现在是**固定满增益 0x7FFF**（≈ unity）：
-        //       ① 音量旋钮（`right_analog_ctrl` 的对数映射）还没落地，留接口；
-        //       ② 先打通「合成 → 主音量 → I2S」这条地基通路，验证链不因缺音量而断。
-        //    ⭐ 静音斜坡仍在：开机从 0 渐入，避免上电"啪"声（`音频输出方案.md` §4.4）。
+        //    ⭐ 增益由 P4 CH1 的 64 点对数 LUT 提供；`RIGHT_ADC_ENABLE=0`
+        //       时 `right_analog_ctrl` 输出 0x7FFF，保证旧硬件仍是满音量。
+        //    ⭐ 静音斜坡：开机与调节均平滑，避免可闻"啪"声。
         wire signed [SAMPLE_W-1:0] mm_sample;
         wire                      mm_valid;
         master_mix #(
@@ -2129,7 +2131,7 @@ module top #(
             .sample_tick_i(tick_audio),
             .valid_i      (mx_valid),
             .sample_i     (mx_sample),
-            .gain_i       (16'h7FFF),     // ⭐ 固定满增益，音量旋钮落地后替换
+            .gain_i       (master_gain),
             .valid_o      (mm_valid),
             .sample_o     (mm_sample),
             .ramp_busy_o  ()

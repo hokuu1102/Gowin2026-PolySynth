@@ -1,4 +1,4 @@
-﻿iverilog.exe : C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\rtl\top.v:2464: warning: implicit definition 
+﻿iverilog.exe : C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\rtl\top.v:2466: warning: implicit definition 
 of wire 'bg_beat'.
 At C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\sim\tb_all.ps1:123 char:18
 +   $compileOut  = & $iverilog @compileArgs 2>&1
