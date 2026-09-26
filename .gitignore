@@ -32,6 +32,11 @@ desktop.ini
 *.tmp
 *.bak
 
+# ── VS Code 个人配置（不入库）────────────────────────────
+# settings.json 里是机器相关绝对路径（cmake.sourceDirectory 指向本地 esp32 目录），
+# 换台机器就失效，且会泄漏本机用户名 —— 团队用不到，一律排除。
+.vscode/
+
 # ── Office / WPS / SolidWorks 的临时文件与锁文件 ─────────
 # ⚠️ `~$` 前缀是这类软件生成的临时/锁文件，扩展名五花八门
 #    （例：~$键帽1.0.SLDPRT），所以整类排除，不逐个列扩展名

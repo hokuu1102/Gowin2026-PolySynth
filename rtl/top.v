@@ -133,7 +133,12 @@ module top #(
     parameter integer SPAN_STABLE_NEED      = 8,
     parameter integer SPAN_VOTE_N           = 8,
     parameter [11:0]  SPAN_STABLE_TOL       = 12'd48,
-    parameter [11:0]  SPAN_VOTE_TOL         = 12'd96
+    parameter [11:0]  SPAN_VOTE_TOL         = 12'd96,
+
+    // T18: P4 right-hand ADC is optional until its cable and MCP3208 are
+    // physically installed. Keeping this 0 prevents an open MISO line from
+    // being interpreted as full-depth vibrato on today's two-ADC setup.
+    parameter integer RIGHT_ADC_ENABLE       = 0
 ) (
     input  wire clk,             // V22 · 50 MHz
     input  wire rst_n,           // AA13 · 低有效（同步复位）
@@ -858,22 +863,22 @@ module top #(
         //      ⚠️ **滑音/双音**：⭐ 接口已预留（`slide_*`/`two_note_*`），⛔ 本版恒 0。
         // ═══════════════════════════════════════════════════════════════════
 
-        // ── ⭐ ① `adc_farm`：2 片 MCP3208 并行采集 ────────────────────────
+        // ── ⭐ ① `adc_farm`：左手 2 片 + 可选 P4 右手 1 片 ────────────────
         wire        af_sample_valid;
         wire [2:0]  af_sample_ch;
         wire        af_frame_done;
-        wire [1:0]  af_fault;
-        wire [2*12-1:0] af_data;          // ⭐ packed：片 i = [i*12 +: 12]
-        wire [1:0] af_cs_n, af_sclk, af_mosi;
-        // ⭐ **本版只接前 2 片**（⭐ `N_ADC = 2`）⇒ ⭐ `af_miso` 取端口低 2 位。
-        //   ⚠️ **端口留 6 位**（⭐ 为将来加左手板）⇒ ⭐ 高 4 位【暂不接】，
+        localparam integer ADC_N = (RIGHT_ADC_ENABLE != 0) ? 3 : 2;
+        wire [ADC_N-1:0]  af_fault;
+        wire [ADC_N*12-1:0] af_data;      // ⭐ packed：片 i = [i*12 +: 12]
+        wire [ADC_N-1:0] af_cs_n, af_sclk, af_mosi;
+        // ⭐ 默认只接前 2 片；P4 接线与 MCP3208 均确认后，才设
+        //   RIGHT_ADC_ENABLE=1 让片 2 的 CH2/CH3 成为颤音控制。
+        //   ⚠️ **端口留 6 位**（⭐ 为将来加左手板）⇒ 其余位【暂不接】，
         //      它们有内部上拉 ⇒ ⭐ 不会悬空乱跳 ✅
-        //   📌 以后扩到 N 片时：⭐ 把这里的 `[1:0]` 改成 `[N-1:0]`、
-        //      `N_ADC` 改成 N 即可 —— ⛔ **不用动端口**（⭐ 这正是留 6 位的目的）。
-        wire [1:0] af_miso = spi_miso[1:0];   // ⭐ 每片独立 MISO（⭐ K-06）
+        wire [ADC_N-1:0] af_miso = spi_miso[ADC_N-1:0]; // 每片独立 MISO（K-06）
 
         adc_farm #(
-            .N_ADC            (2),        // ⭐ 本版 2 片（左手板 L/R）
+            .N_ADC            (ADC_N),
             .CLK_HZ           (50_000_000),
             .SCLK_HZ          (1_000_000),
             .CHANNEL_RATE_HZ  (2_000)
@@ -899,11 +904,33 @@ module top #(
         //   ⚠️ `adc_farm` 内部已把片 1 扇出成与片 0 相同 ⇒ 这里取 `[0]` 即可
         assign spi_sclk = af_sclk[0];
         assign spi_mosi = af_mosi[0];
-        //   ⭐ 片选：⭐ 本版 2 片 ⇒ ⭐ 只驱动低 2 位
-        //   ⚠️ 高 4 位【恒定拉到"不选中"（1）】⇒ ⭐ 即使将来接线了也不会误选中
+        //   ⭐ 片选：仅已启用的 ADC 被驱动；其余恒为不选中（1）。
         //      （⭐ `CS` 低有效 ⇒ 1 = 不选中）
-        assign spi_cs_n[1:0] = af_cs_n;       // ⭐ 片 0/1 = 左手板 L/R
-        assign spi_cs_n[5:2] = 2'b11;         // ⭐ 未用的片：⭐ 保持不选中 ✅
+        assign spi_cs_n[ADC_N-1:0] = af_cs_n;
+        assign spi_cs_n[5:ADC_N] = {(6-ADC_N){1'b1}};
+
+        // ── T18 控制入口：P4 ADC CH2=深度、CH3=速率 ─────────────────────
+        // `right_analog_ctrl` 于 CH3 后一拍提交，保证 depth/rate/valid 对齐。
+        // ADC 未启用时模块把所有控制强制为 0，保持默认音色不受影响。
+        wire [11:0] right_adc_data;
+        if (RIGHT_ADC_ENABLE != 0) begin : g_right_adc_data
+            assign right_adc_data = af_data[2*12 +: 12];
+        end else begin : g_no_right_adc_data
+            assign right_adc_data = 12'd0;
+        end
+        wire [11:0] vib_depth_raw, vib_rate_raw;
+        wire        vib_ctrl_valid;
+        right_analog_ctrl u_right_analog_ctrl (
+            .clk_i            (clk),
+            .rst_n_i          (rst_n_sync),
+            .enable_i         (RIGHT_ADC_ENABLE != 0),
+            .sample_valid_i   (af_sample_valid),
+            .sample_ch_i      (af_sample_ch),
+            .sample_data_i    (right_adc_data),
+            .vibrato_depth_o  (vib_depth_raw),
+            .vibrato_rate_o   (vib_rate_raw),
+            .param_valid_o    (vib_ctrl_valid)
+        );
 
         // ── ⭐ ② `calib` ×2：逐通道零点/灵敏度标定 ───────────────────────
         //   ⚠️ `calib` 是**单片 8 通道**的 ⇒ ⭐ **每片一份**（⭐ 设计草案 `D1`）
@@ -2011,6 +2038,24 @@ module top #(
         );
 
         // ⭐ 64 路独立振荡器（T55）—— ⭐ 评分主体：评委可数出 64 份相位寄存器
+        // T18: internal LFO output is Q1.15, matching oscillator_bank.
+        wire signed [15:0] vibrato_mod;
+        wire               vibrato_active;
+        wire [31:0]        vibrato_rate_inc, vibrato_phase;
+        vibrato_lfo #(
+            .CTRL_SLEW_DIV(10) // ADC commits every 0.5 ms => 5 ms slew step
+        ) u_vibrato_lfo (
+            .clk_i            (clk),
+            .rst_n_i          (rst_n_sync),
+            .ctrl_valid_i     (vib_ctrl_valid),
+            .depth_raw_i      (vib_depth_raw),
+            .rate_raw_i       (vib_rate_raw),
+            .mod_o            (vibrato_mod),
+            .depth_active_o   (vibrato_active),
+            .rate_inc_dbg_o   (vibrato_rate_inc),
+            .phase_dbg_o      (vibrato_phase)
+        );
+
         oscillator_bank #(
             .POLY_TARGET   (POLY_TARGET),
             .OSC_PER_VOICE (OSC_PER_VOICE),
@@ -2026,7 +2071,7 @@ module top #(
             .voice_active_i     (nm_active),
             .base_phase_inc_i   (nm_phase),
             .timbre_id_i        (2'd0),
-            .vibrato_mod_i      (16'sd0),
+            .vibrato_mod_i      (vibrato_mod),
             .test_mode_i        (tm_enable_r),
             .test_lane_active_i (tm_lane_active),
             .test_phase_inc_i   (tm_phase_inc),

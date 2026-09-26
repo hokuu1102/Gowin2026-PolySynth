@@ -1,0 +1,16 @@
+﻿  ok  : dead-zone below ON threshold keeps vibrato disabled
+  ok  : depth reaches ON threshold and enables vibrato
+  ok  : hysteresis holds enabled inside OFF..ON band
+  ok  : depth at OFF threshold disables vibrato
+  ok  : rate slew first step is bounded
+  ok  : rate slew second step is bounded
+  ok  : rate slew converges without a jump
+  ok  : rate update never clears LFO phase
+  ok  : triangle positive quarter-cycle
+  ok  : triangle crosses zero at half-cycle
+  ok  : triangle negative three-quarter-cycle
+  ok  : triangle returns to zero continuously
+PASS: vibrato LFO hysteresis, slew and phase continuity
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\w3b\tb_vibrato_lfo.sv:100: $finish called at 350000 (1ps)
+
+

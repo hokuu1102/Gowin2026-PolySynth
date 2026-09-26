@@ -1,0 +1,7 @@
+﻿  ok  : CH2 captures vibrato depth
+  ok  : CH3 captures rate and commits coherent controls
+  ok  : disabled right ADC path forces safe zero controls
+PASS: right analog control snapshots CH2/CH3 coherently
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\w3a\tb_right_analog_ctrl.sv:36: $finish called at 100000 (1ps)
+
+
