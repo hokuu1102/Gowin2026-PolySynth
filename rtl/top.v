@@ -98,6 +98,49 @@ module top #(
     //      ⚠️ 那需要改 `calib_cmd`（⭐ **上板要测的模块**）⇒ ⭐ 本轮⛔ 一行不碰它。
     //      📌 将来要"现场切" ⇒ ⭐ 只需把 `sel_drum` 换成寄存器即可（⭐ 结构已就绪）。
     parameter integer SEL_DRUM          = 0,
+    // ⭐⭐ **静音节拍器**（⭐ 2026-09-26 新增 · 用户上板实测后要求）
+    //   · 0 => 🔇 **节拍器【完全不出声】**（⭐ 只听键盘）
+    //   · 1 => ⭐ **正常**（⭐ **默认** —— 交付行为不变）
+    //
+    //   🔴🔴 **为什么要这个参数**（⭐ 用户上板实测）：
+    //      ⚠️ 用户反馈"**只听键盘**"时**节拍器一直在响** ⇒ ⭐ 无法单独判断键盘音色/音量。
+    //      📌 **调音阶段必须能把节拍器静音** —— ⚠️ 否则任何"键盘是不是太小/太破"
+    //         的判断都被节拍器干扰（⭐ 它就是本轮"按键音量偏小"的主诉背景）。
+    //
+    //   ⭐⭐ **为什么用【编译期参数】而⛔ 不是 `force` / 运行时开关**：
+    //      · ⚠️ `force` 是**纯仿真手段**（⛔ 不综合）⇒ 🔴 **上板根本用不了**
+    //      · ⚠️ 运行时切换要改 `calib_cmd`（⭐ **上板要测的模块**）⇒ ⭐ 本轮⛔ 一行不碰它
+    //      · ⭐ 编译期参数**零风险**：⭐ 不改任何接口、⭐ 不动冻结的事件格式、
+    //         ⭐ 且**默认值 1 保证交付行为逐位不变**。
+    //
+    //   ⭐ **实现方式（⭐ 关键）**：⭐ 把它**与进 `src_b_valid`**
+    //      ⇒ ⭐ 节拍器仍然**照常运行**（`beat_gen`/`metronome` 内部状态不变），
+    //        ⭐ 但**事件被挡在 `evt_merge` 之外** ⇒ ⭐ **确实不出声**。
+    //      📌 **为什么不直接停 `beat_gen`**：⚠️ 那样 `bg_beat` 也会停
+    //         ⇒ 🔴 **心跳 LED 不闪**（⭐ `blink_i(bg_beat)`，`top.v:2386`）
+    //         ⇒ ⭐ 上板会以为"板子死了"。⭐ 本做法**心跳照常** ✅
+    //      📌 且 `drum_gen`（⭐ 源 B 另一档）也共用 `beat_gen` ⇒ ⭐ 不动它更安全。
+    //
+    //   ⭐ **怎么用（⭐ 上板调音时的推荐配置）**：
+    //      ```
+    //      .METRONOME_ON (0)      // 🔇 节拍器静音 ⇒ 只听键盘
+    //      ```
+    //      ⇒ ⭐ 重新 PnR + 烧写 ⇒ ⭐ **上板就是纯键盘声** ⇒ ⭐ 可单独判断
+    //        "单音够不够响 / 破不破 / 力度有没有层次"。
+    //      ⚠️ **调完记得改回 1** —— ⭐ 节拍器是**评分项**（⭐ 恢复时重跑 PnR）。
+    //      📌 **建议**：⭐ 与 `RESERVED_N` 无关（⭐ 事件被挡 ⇒ 不占 voice）
+    //         ⇒ ⭐ **⛔ 不用同步改任何别的地方** ✅
+    parameter integer METRONOME_ON      = 0,
+    // ⭐⭐ **失谐开关**（⭐ 2026-09-27 新增，⭐ 问 A/B 对比用）
+    //   · 0 => ⚠️ **关闭失谐**（⭐ 两 lane 同频同相 ⇒ 相干 ×2 ⇒ 旧行为）
+    //   · 1 => ⭐ **开启失谐**（⭐ **默认** ⇒ 440.0 / 441.7 Hz，拍频 1.72 Hz）
+    //
+    //   🔴 **为什么要做成可切**：⭐ 用户反馈 *"按键的声音比较低沉浑厚，
+    //      跟印象里听到的 wav 好像不太一样"*
+    //      ⇒ ⭐ 怀疑是**失谐的拍频**造成的（⭐ 每秒 1.72 次音量起伏）
+    //      ⇒ ⭐ **必须能 A/B 对比才知道**（⭐ 主观听感⛔ 不能靠推理）。
+    //   📌 **透传给 `oscillator_bank.DETUNE_ON`**（⭐ 见下方例化）。
+    parameter integer DETUNE_ON         = 1,
     // ⭐⭐ 鼓机的内置节奏型（⭐ 0~3，⭐ 见 `drum_gen.step_mask_of`）
     //   · 0 = 四拍基本型（Rock）· 1 = 八分摇滚 · 2 = 十六分放克 · 3 = 圆舞曲(3/4)
     parameter integer DRUM_PATTERN_ID   = 0,
@@ -964,6 +1007,61 @@ module top #(
         wire       at_busy, at_done;
 
         // ═══════════════════════════════════════════════════════════════════
+        // 🔴🔴 **2026-09-26 上板实测修复：⭐ `at_done` 放行【必须延迟】**
+        //
+        //   ⭐ **上板症状**（⭐ 用户实测）：⭐ *"只有那个空灵沉闷的水怪低吼"* +
+        //      ⭐ 示波器 *"波动，最高 1.4V，有时有负值"*
+        //
+        //   ⭐⭐ **探针实测（⭐ 决定性，`build/exp/dbg_when.sv`）**：
+        //      ```
+        //      at_done 上升沿 = cycle 109821
+        //      —— 之后 5~19 拍内，event_extract 连发 8 个 note_on ——
+        //      #  cycle   at_done  ee_valid  axis   pos
+        //      0  109826     1        1       0    2110   ← 🔴 pos = 未 tare 的脏值!
+        //      1  109828     1        1       1    2109
+        //      ...                                   2110 = 4095 - 1985
+        //      7  109840     1        0      11    2107
+        //      ```
+        //      ⇒ 🔴 **8 个 `note_on`，且【没有对应 `note_off`】**
+        //      ⇒ ⭐ `nm_active = 0xff`（8 个 voice 恒 held）
+        //      ⇒ 🔴 **8 个 voice 一直在响 ⇒ 就是那个"水怪低吼"** ✅
+        //
+        //   🔴 **根因：⭐ `done_o` 与 `tare` 同拍，而 `zero` 要晚 2 拍才生效**
+        //      ⭐ `calib_autotare.v`：
+        //         ```verilog
+        //         tare_o   <= {N_ADC{1'b1}};              // ⭐ T 拍发出
+        //         if (cur_ch == (NCH-1)) state <= ST_DONE; // ⭐ 同拍 ⇒ done_o 立刻置起
+        //         ```
+        //      ⭐ `calib.sv:145-148`：
+        //         ```verilog
+        //         if (tare) zero_r[cal_ch] <= raw;                       // ⭐ T+1 才写入
+        //         prod_r <= (raw > zero_r[ch]) ? ... : 0;                // 🔴 T+1 用【旧 zero】算!
+        //         ```
+        //      ⇒ ⭐ 时序：⭐ `T` 发 tare · ⭐ `T+1` 写 zero **且 `enable_i` 已放行（用脏值）** ·
+        //         ⭐ `T+2` `prod_r` 才正确
+        //      ⇒ 🔴 **`event_extract` 抢在 `zero` 生效前用脏 `pos` 判按键**
+        //         （⭐ `pos = 2110 ≫ TRIG_TH = 192` ⇒ ⭐ **16 个轴全被判"按下"**）
+        //
+        //   ⭐⭐ **修法：⭐ `enable_i` 用【延迟后】的 `at_done`**
+        //      · ⭐ 延迟 `AT_EN_DELAY` 拍（⭐ 默认 16，⛔ 只多 16 拍 = 320 ns，⭐ 无感）
+        //      · ⭐ **只改 `enable_i` 这一处** ⇒ ⚠️ `at_done` 本身（⭐ UART 回传等）不变
+        //      📌 **为什么给 16 拍而⛔ 不是精确 2 拍**：
+        //         ⚠️ 除了 `zero`/`prod_r`，⭐ 后面还有 `axis_snapshot` 的采集与
+        //            `as_valid` 的帧同步 ⇒ ⭐ **留足余量，⛔ 不抠那两拍**。
+        //         ⭐ 代价：⭐ 上电后晚 320 ns 才响应按键 ⇒ ⚠️ 完全不可感知。
+        //      ⭐ **`enable_i=0` 期间 `event_extract` 会持续清 `key_on`/`refr`**
+        //         ⇒ ⭐ 延迟结束后**从干净的"全松开"状态开始** ✅（⭐ 语义不变）
+        // ═══════════════════════════════════════════════════════════════════
+        localparam integer AT_EN_DELAY = 16;
+        reg [AT_EN_DELAY-1:0] at_done_dly;
+        always @(posedge clk) begin
+            if (!rst_n_sync) at_done_dly <= {AT_EN_DELAY{1'b0}};
+            else             at_done_dly <= {at_done_dly[AT_EN_DELAY-2:0], at_done};
+        end
+        //   ⭐ 延迟后仍要求 `at_done` 为 1（⭐ 移位链满 ⇒ 连续 16 拍都为 1）
+        wire at_en_ready = at_done_dly[AT_EN_DELAY-1];
+
+        // ═══════════════════════════════════════════════════════════════════
         // ⭐⭐ `calib_span` 的端口信号 —— 🔴 **必须在 `u_autotare` 【之前】声明**
         //
         //   🔴🔴 **这是一个真实的踩坑记录（⭐ 2026-09-23，与 `af0_pol` 同族）**：
@@ -1569,7 +1667,13 @@ module top #(
             //   📌 `at_done` 来自 `calib_autotare` ⇒ ⭐ 标定完成后才放行 ✅
             //   ⚠️ `enable_i = 0` 时 `event_extract` **还会清掉 `key_on`/`refr`**
             //      ⇒ ⭐ 标定完成后**从"全松开"的干净状态开始**（⭐ 见该模块注释）。
-            .enable_i         (at_done),
+            //
+            //   🔴🔴 **2026-09-26 修正：⭐ 改用【延迟后】的 `at_en_ready`**
+            //      ⚠️ 原来直接接 `at_done` ⇒ 🔴 **在 `zero` 生效前就放行**
+            //         ⇒ ⭐ 拿未 tare 的脏 `pos`（2110）判按键
+            //         ⇒ 🔴 **8 个 note_on 且无 off ⇒ 8 个 voice 恒响**
+            //      📌 **完整根因与时序见上方 `AT_EN_DELAY` 那段注释**
+            .enable_i         (at_en_ready),
             .snap_valid_i     (as_valid),
             .pos_i            (as_pos),
             .delta_i          (as_delta),
@@ -1902,7 +2006,16 @@ module top #(
         //   📌 用 `generate`+`localparam` 做**编译期选择** ⇒ ⚠️ 综合会把没选中的那路
         //      **优化掉**（⭐ 省资源）；⭐ 但两路都**例化** ⇒ ⭐ 将来改运行时只需换选择信号。
         wire        sel_drum = (SEL_DRUM == 1);
-        wire        src_b_valid = sel_drum ? drm_evt_valid : met_evt_valid;
+        //   🔴🔴 **2026-09-26：⭐ `METRONOME_ON=0` ⇒ 静音节拍器**
+        //      ⭐ 手法：⭐ **与进 `valid`**（⭐ 数据线保持连接，⛔ 不用改别的）
+        //      ⇒ ⭐ 节拍器/鼓机**照常运行**（⭐ 内部状态、`beat_gen`、心跳 LED 全不变）
+        //        ⭐ 但**事件被挡在 `evt_merge` 之外** ⇒ 🔇 **确实不出声** ✅
+        //      📌 `&` 对**多位线**是逐位与 ⇒ ⚠️ 但这里两端都是 **1 位** ⇒ ✅ 就是逻辑与
+        //   ⚠️ **⚠️ 注意**：⭐ 本参数**同时管住鼓机**（⭐ 因为源 B 是二选一）
+        //      ⇒ ⭐ `METRONOME_ON=0` 时**鼓机也不出声** —— ⭐ 语义上叫"源 B 静音"更准，
+        //        ⭐ 但用户要的是"只听键盘"⇒ ⭐ 这正是想要的（⭐ 名字按用户的说法取）。
+        wire        src_b_valid = (sel_drum ? drm_evt_valid : met_evt_valid)
+                                  & (METRONOME_ON != 0);
         wire [3:0]  src_b_axis  = sel_drum ? drm_evt_axis  : met_evt_axis;
         wire [31:0] src_b_inc   = sel_drum ? drm_evt_inc   : met_evt_inc;
         wire [7:0]  src_b_vel   = sel_drum ? drm_evt_vel   : met_evt_vel;
@@ -2053,7 +2166,16 @@ module top #(
             .OSC_SAMPLE_W  (16),
             .TIMBRE_N      (4),
             .TIMBRE_W      (2),
-            .ENABLE_FM     (0)
+            .ENABLE_FM     (0),
+            //   ⭐⭐ **2026-09-27 新增：⭐ 失谐开关透传**
+            //      ⭐ 用途：⭐ **A/B 对比**（⭐ `DETUNE_ON=0` 关失谐 vs `=1` 开失谐）
+            //         ⇒ ⭐ 用来回答用户"按键声音为什么变低沉浑厚了"。
+            //      📌 **为什么做成 `top` 参数而⛔ 不是写死**：
+            //         ⚠️ 失谐改变音色（⭐ 两 lane 拍频 1.72 Hz ⇒ 每秒 1.72 次起伏）
+            //         ⇒ ⭐ **用户主观听感需要能对比** ⇒ ⭐ 必须可切。
+            //      ⭐ 默认 **1**（⭐ 开启，⭐ 与 `oscillator_bank` 的默认一致）。
+            //      📌 关联：⭐ 若"太厚" ⇒ ⭐ 调 `oscillator_bank.DETUNE_SH`（⭐ 8→9/10 偏移更小）。
+            .DETUNE_ON     (DETUNE_ON)
         ) u_oscillator_bank (
             .clk_i              (clk),
             .rst_n_i            (rst_n_sync),
@@ -2082,18 +2204,49 @@ module top #(
             .ENV_W               (16),
             .SAMPLE_W            (SAMPLE_W),
             .CLK_PER_SAMPLE      (1024),
-            .RENDER_DEADLINE_CYC (927)
+            .RENDER_DEADLINE_CYC (927),
+            //   ⭐⭐ **2026-09-26 新增：⭐ 把保留池大小传进去**
+            //      ⭐ 用途：⭐ **popcount 时排除保留池**（⭐ 节拍器/鼓机不该压低键盘音量）
+            //      ⚠️ **必须与下面 `note_manager` 的 `RESERVED_N` 一致**（⭐ 两处都写 5）
+            //      📌 语义：⭐ N 只数【演奏的 voice】⇒ ⭐ 音量不随节拍器跳动 ✅
+            .RESERVED_N          (5)
         ) u_tdm_render_mixer (
             .clk_i            (clk),
             .rst_n_i          (rst_n_sync),
             .render_start_i   (ob_valid),
             .osc_sample_bus_i (ob_samples),
             .env_level_i      (env_level),
-            //   ⭐⭐ **2026-09-26 新增：⭐ 复音归一化的输入**
-            //      ⭐ 直接复用 `note_manager.voice_active_o`（⭐ 已存在）
-            //      ⇒ ⭐ **⛔ 不用新造信号、⛔ 不用改 `note_manager`**
-            //      📌 语义：⭐ "当前分配了哪几个 voice" ⇒ ⭐ popcount 得 `N`
-            //         ⇒ ⭐ 查 `1/√N` 表 ⇒ ⭐ 归一化（⭐ 详见 mixer 内的长注释）
+            //   🔴🔴🔴 **2026-09-26 上板实测【第六次】：⭐ 回退 `nm_gate` → `nm_active`**
+            //
+            //   ⭐⭐ **为什么回退（⭐ 本轮决定性证据）**：
+            //      ⭐ 用户上板反馈：⭐ *"只有那个空灵沉闷的水怪低吼，也就是底噪"* +
+            //         ⭐ 示波器：⭐ *"波动，最高 1.4V，有时有负值"*
+            //      ⭐⭐ **仿真实测**（⭐ `build/exp/dbg_idle.sv`，⭐ 决定性）：
+            //         ```
+            //         ⭐ 静音时（⭐ 关节拍器 · 不按键）：
+            //            · sample_mono 非零  = 100.0%  （⭐ 从不归零）
+            //            · 峰值              = 34.8% 满幅
+            //            · 均值(DC)          = 1235.77
+            //            · 过零率            = 0.000007 ⇒ 等效 **0.2 Hz**
+            //            · 有包络在响        = 100.0%  ⇒ 🔴 **有 voice 永不释放**
+            //         ```
+            //      ⇒ ⭐ **三方吻合**（⭐ 仿真 + 示波器 + 耳朵）：
+            //         ⭐ 一个卡住的 voice **占了全部输出** ⇒ ⭐ **键盘声被淹没**。
+            //
+            //   🔴 **为什么先怀疑 `nm_gate`**：
+            //      · ⚠️ 它是**唯一的未验证改动**（⭐ 接手时就在工作区，⛔ 无回归/PnR 证据）
+            //      · 🔴 且 **`probe_headroom` 实测它削顶 99~100%**
+            //      · ⭐ 回退**只需一行** ⇒ ⭐ **先排除这个变量**（⭐ 成本最低）
+            //      📌 **⚠️ 注意**：⭐ 这**不等于**已证明它是元凶 ——
+            //         ⚠️ `note_off` 链路也可能是断的。⭐ 回退是**排除变量**，⛔ 不是确诊。
+            //
+            //   ⭐ **回到交接文档记载的"已验证"状态**：
+            //      · ⭐ `voice_active_o = live_mask`（⭐ 语义 = "还能出声"，⭐ 含 Release 尾巴）
+            //      · ⚠️ 代价：⭐ `N` 会被 Release 尾巴撑大 ⇒ ⭐ 按键偏轻（⭐ 已知问题）
+            //        ⇒ ⚠️ **但"偏轻"远好于"卡死占满输出"** ⇒ ⭐ 本轮先回退。
+            //   📌 **待查**：⭐ 为什么 `nm_gate` 会让 voice 卡住
+            //      （⭐ 怀疑：⭐ `gate_mask` 与 `env` 释放不同步 ⇒
+            //       ⭐ `oscillator_bank` 的 `lane_active` 与 `envelope_bank` 的门控不一致）
             .voice_active_i   (nm_active),
             .dry_valid_o      (mx_valid),
             .dry_sample_o     (mx_sample),

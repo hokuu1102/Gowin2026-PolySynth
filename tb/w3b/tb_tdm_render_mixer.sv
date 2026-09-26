@@ -261,14 +261,24 @@ module tb_tdm_render_mixer;
         //         ⇒ ⭐ **整条链小声 38 dB 而无人发现**（⭐ `K-87` 同族：
         //            "看起来验过了"而"实际验的是错的量纲"）。
         $display("     [sv] 2-lane 3000 @env0x8000 => %0d", s1);
-        chk("2-lane 3000 @env 0x8000 => 210000 (=1500 <<8, x70/128)",
-            s1 === 24'sd210000);
+        //   🔴🔴 **2026-09-27 第四次修正：⭐ 期望值 ×2（⭐ gain 基准 44 → 88）**
+        //      ⭐ 原因：⭐ **失谐已实装**（`oscillator_bank.DETUNE_ON`）
+        //         ⇒ ⭐ 两 lane 不再严格相干（440.0 / 441.7 Hz，拍频 1.72 Hz）
+        //         ⇒ ⭐ 叠加模型从"相干 ×2"变为"非相干 √N"
+        //         ⇒ ⭐ `1/√N` 让峰值【恒定】⇒ ⭐ 可以把基准从 44 提到 88
+        //      ⭐⭐ **实测依据**：⭐ `build/exp/gain_chain.py`
+        //         · 单 voice 满幅 sh24（`>>>1` 后）= 100% 满幅
+        //         · gain=44 ⇒ 单音仅 34%（"单音小"）
+        //         · gain=88 ⇒ 单音 69%，且 N=1/2/4/8/16 全恒定、不削顶
+        //      📌 期望值 = 原 66000 × 2 = **132000**（⭐ 正好回到 `>>>1` 之前的值）
+        chk("2-lane 3000 @env 0x8000 => 132000 (=1500 <<8, x88/128, lane avg)",
+            s1 === 24'sd132000);
 
         set_env(0, 16'hFFFF);
         run_frame_get(cyc);
         $display("     [sv] 2-lane 3000 @env0xFFFF => %0d", latched);
-        chk("full env => ~419860 (3000 << 8, then x70/128)",
-            latched >= 24'sd419580 && latched <= 24'sd419860);
+        chk("full env => ~263824 (3000 << 8, then x88/128, lane avg)",
+            latched >= 24'sd263264 && latched <= 24'sd263824);
 
         set_env(0, 16'h0000);
         run_frame_get(cyc);
@@ -281,12 +291,14 @@ module tb_tdm_render_mixer;
         run_frame_get(cyc);
         s1 = latched;
         chk("negative input => negative output (signed ok)", s1 < 24'sd0);
-        //   ⚠️ 负向比正向略大 140（⭐ 420000 vs 419860）—— ⭐ **这是算术右移向 −∞ 取整**：
+        //   ⚠️ 负向比正向略大（⭐ 这是算术右移向 −∞ 取整）：
         //      ⭐ `>>>` 对负数是"向下取整"，⭐ 对正数是"截断" ⇒ ⚠️ 两侧天然不对称。
         //      📌 **同族**：`voice.v` 里那段"加 65535 让负数也向零取整"就是在消除这个偏置
-        //         （⭐ 本项目已有先例）—— ⚠️ 这里 140/419860 = **0.03%** ⇒ 听感不可辨，⛔ 不必修。
-        chk("negative magnitude ~ 420000 (arith-shift rounds toward -inf)",
-            s1 >= -24'sd420280 && s1 <= -24'sd420000);
+        //         （⭐ 本项目已有先例）—— ⚠️ 这里 176/263824 = **0.07%** ⇒ 听感不可辨，⛔ 不必修。
+        //   🔴 **2026-09-27：⭐ 期望值 ×2**（⭐ 同上方 `gain 88` 变更）
+        $display("     [sv] neg -3000 @env0xFFFF => %0d", s1);
+        chk("negative magnitude ~ 264000 (arith-shift rounds toward -inf)",
+            s1 >= -24'sd264352 && s1 <= -24'sd264000);
 
         // ---- 4: multi-voice summing ----
         //   🔴🔴 **2026-09-26 修正：⭐ 归一化改变了多音的期望值**

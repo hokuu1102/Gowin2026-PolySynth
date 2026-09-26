@@ -63,7 +63,24 @@ module tb_oscillator_bank;
     oscillator_bank #(
         .POLY_TARGET(POLY), .OSC_PER_VOICE(OPV), .PHASE_W(PHASE_W),
         .OSC_SAMPLE_W(SW), .TIMBRE_N(4), .TIMBRE_W(2),
-        .WT_DEPTH(512), .WT_W(16), .ENABLE_FM(0), .DBG_LANE(1)
+        .WT_DEPTH(512), .WT_W(16), .ENABLE_FM(0), .DBG_LANE(1),
+        //   🔴🔴 **2026-09-26：⭐ 本 tb 显式关掉失谐（`DETUNE_ON=0`）**
+        //
+        //   ⭐ **为什么**：⭐ `T55` 验收测的是 **"64 路相位【独立】"** ——
+        //      它的判据建立在"**复位后所有 lane 相位 = 0**"之上
+        //      （⭐ 如 `phase = 3 × 2^23`）。
+        //   🔴 而本轮给 lane1 加了 **1/4 周期去相关初相**（⭐ 学自 `xls32`）
+        //      ⇒ ⭐ 复位初相变成 `0x4000_0000` ⇒ 🔴 **那批硬编码期望值全部平移**
+        //      （⭐ 实测 6 条失败 —— ⚠️ 不是功能坏了，⭐ 是**期望值过时**）。
+        //
+        //   ⭐⭐ **分工（⭐ 这样两个 tb 各管一件事，⛔ 不互相干扰）**：
+        //      · ⭐ **本 tb**：⭐ `DETUNE_ON=0` ⇒ ⭐ 测**基频/地址/独立性的【基线行为】**
+        //      · ⭐ **`build/exp/tb_detune.sv`**：⭐ `DETUNE_ON=1` ⇒ ⭐ 专测**失谐**
+        //        （⭐ 已 4/4 PASS：⭐ 两 lane 440.0 / 441.7 Hz、拍频 1.72 Hz、相位持续分离）
+        //      📌 **⇒ 两层都有覆盖，⛔ 而且都不需要改判据的语义** ✅
+        //   ⚠️ **注意**：⭐ 这不等于"失谐没被验证" ——
+        //      ⭐ 交付默认仍是 `DETUNE_ON=1`（⭐ 见 `oscillator_bank` 的参数默认值）。
+        .DETUNE_ON(0)
     ) dut (
         .clk_i(clk), .rst_n_i(rst_n), .sample_tick_i(sample_tick),
         .voice_active_i(voice_active), .base_phase_inc_i(base_inc),

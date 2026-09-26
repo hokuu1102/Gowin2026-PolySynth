@@ -64,7 +64,35 @@ module oscillator_bank #(
     //    A4 = 440 Hz ⇒ 440 × 2^32 / 48828.125 ≈ 38_700_000
     parameter integer VIB_REF_INC   = 38_700_000,
     // ⭐ 调试观测选哪个 lane（冻结表 §2.6：`phase_acc_dbg_o` 是"**选定 lane** 调试"）
-    parameter integer DBG_LANE      = 0
+    parameter integer DBG_LANE      = 0,
+    // ⭐⭐ **失谐量**（⭐ 2026-09-26 新增，⭐ 修"假 unison"）
+    //   · 0 => ⚠️ **不失谐**（⭐ 两个 lane 严格同相 —— 🔴 **旧的错误行为**）
+    //   · 1 => ⭐ **失谐**（⭐ **默认** —— 第二个 osc 的频率偏移 `DETUNE_SH` 位移）
+    //
+    //   🔴🔴 **为什么必须加**（⭐ 2026-09-26 上板 + 源码对照定位）：
+    //      ⚠️ 原来两个 lane 拿的是**同一个** `base_phase_inc_i`，
+    //         ⭐ 且复位后 `phase_q` **同为 0**
+    //         ⇒ 🔴 **两个 lane 永远同频同相** ⇒ ⭐ `lane0 + lane1 = 2 × lane0`
+    //      🔴 **后果**：⭐ **幅度严格 ×2（6 dB 白丢）**、⭐ **零音色收益**、
+    //         🔴 **且叠加行为不可控 ⇒ gain 没有唯一解**（⭐ 这是反复调 gain 失败的根因）。
+    //      📌 **注释一直声称"失谐叠加"** ⇒ 🔴 **该功能【从未实现】**。
+    //
+    //   ⭐⭐ **对照开源实现（⭐ 都是硬件验证过的）**：
+    //      · [xls32](https://github.com/kazunori279/xls32-fpga-synth) ⇒ ⭐ **"detuned dual"**
+    //      · [Noaidi](https://github.com/Thorwegian/noaidi-fpga-synth) ⇒ ⭐ **"8 detuned unison"**
+    //      ⇒ ⭐ **两者都靠失谐** ⇒ ⭐ **叠加是√N 而非 N** ⇒ ⭐ **幅度自然受控**。
+    //
+    //   ⭐ **实现手法（⭐ 零 DSP 开销）**：
+    //      ⭐ 第二个 osc 的增量 = `base_inc + (base_inc>>DETUNE_SH)`
+    //      📌 **用【移位加法】而⛔ 不用乘法器** —— ⚠️ 64 lane 各配一个乘法器
+    //         会吃掉 64 个 DSP（⭐ 60K 只有 118 个）⇒ 🔴 不可接受。
+    parameter integer DETUNE_ON     = 1,
+    //   ⭐ 失谐位移量：⭐ `8` ⇒ 偏移 `1/256 ≈ 0.391%` ⇒ ⭐ **约 6.7 cents**
+    //      📌 **6.7 cents 的依据**：⭐ 常见"温和 detune"区间（⭐ 5~15 cents）
+    //         ⭐ 太小（<3 cents）⇒ 拍频太慢（⭐ 十几秒才一拍）⇒ ⭐ 听不出厚度
+    //         ⚠️ 太大（>20 cents）⇒ ⭐ 听起来"走音"（⭐ 而不是"厚"）
+    //      ⚠️ 本项目 16 轴磁轴 ⇒ ⭐ 用户要"能听出和弦"，⭐ 6.7 cents 够厚且不走音
+    parameter integer DETUNE_SH     = 8
 ) (
     input  wire                                             clk_i,
     input  wire                                             rst_n_i,
@@ -117,6 +145,11 @@ module oscillator_bank #(
         for (g = 0; g < LANES; g = g + 1) begin : gen_lane
             // 该 lane 属于哪个 voice（lane = voice*OSC_PER_VOICE + osc）
             localparam integer VOICE_IDX = g / OSC_PER_VOICE;
+            //   ⭐ 本 lane 是 voice 内第几个 osc（⭐ 0 = 主、1 = 失谐副本）
+            //   📌 **为什么用 `localparam` 而⛔ 不直接写 `g % OSC_PER_VOICE`**：
+            //      ⭐ `g` 是 `genvar` ⇒ ⭐ 取模必须落在**编译期常量**里
+            //      （⭐ `K-91` 同族：⛔ 不对 `integer` 参数做运行期运算）
+            localparam integer OSC_IDX  = g % OSC_PER_VOICE;
 
             reg [PHASE_W-1:0] phase_q;
             reg [AW-1:0]      addr_q;
@@ -127,14 +160,57 @@ module oscillator_bank #(
                              ? test_lane_active_i[g]
                              : voice_active_i[VOICE_IDX];
 
+            //   ⭐⭐ **本 lane 的基频增量**（⭐ 在这里注入失谐）
+            wire [PHASE_W-1:0] base_inc =
+                base_phase_inc_i[VOICE_IDX*PHASE_W +: PHASE_W];
+
+            //   ⭐ 失谐偏移：⭐ `base_inc >> DETUNE_SH`（⭐ 纯移位，⛔ 无乘法器）
+            //      ⚠️ `DETUNE_ON == 0` 或 `OSC_IDX == 0`
+            //         ⇒ ⭐ **偏移为 0** ⇒ ⭐ 该 lane 用原频率
+            //      📌 **只有 OSC_IDX==1 才加偏移** ⇒ ⭐ 两个 lane 频率【不同】
+            //         ⇒ ⭐ **拍频** ⇒ ⭐ 叠加从"严格 ×2"变成**自然的非相干叠加** ✅
+            //   ⚠️ **`>>>` 还是 `>>`**：⭐ 此处 `base_inc` 是**无符号频率增量**
+            //      （⭐ 相位增量恒正）⇒ ⭐ 两者等价 ⇒ ⭐ 用 `>>` 更直观
+            wire [PHASE_W-1:0] detune_off =
+                ((DETUNE_ON != 0) && (OSC_IDX != 0))
+                ? (base_inc >> DETUNE_SH) : {PHASE_W{1'b0}};
+
             wire [PHASE_W-1:0] lane_inc = test_mode_i
                              ? test_phase_inc_i[g*PHASE_W +: PHASE_W]
-                             : (base_phase_inc_i[VOICE_IDX*PHASE_W +: PHASE_W]
-                                + vib_off);
+                             : (base_inc + detune_off + vib_off);
+
+            //   ⭐⭐ **去相关初相**（⭐ 2026-09-26 新增，⭐ 学自 `xls32` 源码）
+            //
+            //   ⭐ **`xls32` 的原话**（⭐ `core/synth.x` 的 `apply_on`）：
+            //      > *"a **DECORRELATED** start phase seeded from the LFSR (distinct per
+            //      >  stack index) so the copies **don't sum coherently at the attack**
+            //      > (**no N* spike -> headroom**) and thicken immediately."*
+            //   📌 它给每个 unison 副本一个 **LFSR 随机初相**：⭐ `phase: seed`
+            //
+            //   🔴 **为什么我们也需要**（⭐ 即使已经失谐）：
+            //      ⚠️ 失谐解决的是【稳态】（⭐ 拍频让两路慢慢错开）
+            //      🔴 但**起音那一瞬间**，两个 lane 的 `phase_q` **都从 0 开始**
+            //         ⇒ ⭐ **头几个周期仍严格同相** ⇒ 🔴 **起音有幅度尖峰**
+            //      ⭐ 给它一个 **1/4 周期初相** ⇒ ⭐ 起音时一个是 `sin`、一个是 `cos`
+            //         ⇒ ✅ **既不抵消、也不叠加**（⭐ 幅度平稳）
+            //
+            //   ⭐ **为什么用 1/4 周期而⛔ 不用 `xls32` 的 LFSR**：
+            //      · ⭐ `xls32` 有 **4 个 unison 副本** ⇒ ⚠️ 需要"各不相同"的随机相位
+            //      · ⭐ 我们**只有 1 个失谐副本**（⭐ `OSC_PER_VOICE=2`）
+            //        ⇒ ⭐ **两个固定位置（0 与 1/4 周期）就够** ⇒ ⛔ **不必加 LFSR**
+            //      📌 零额外逻辑（⭐ 只是一个常量），⛔ 不引新寄存器。
+            //   ⚠️ **为什么⛔ 不是 1/2 周期（180°）**：⭐ 那会让两路**反相**
+            //      ⇒ 🔴 **起音瞬间完全抵消**（⭐ 声音"先弱后强"，⭐ 更糟）。
+            //   📌 `PHASE_W=32` ⇒ 1/4 周期 = `32'h4000_0000`
+            wire [PHASE_W-1:0] phase_seed =
+                ((DETUNE_ON != 0) && (OSC_IDX != 0))
+                ? ({{(PHASE_W-2){1'b0}}, 2'b01} << (PHASE_W - 2))   // ⭐ 1/4 周期
+                : {PHASE_W{1'b0}};
 
             always @(posedge clk_i) begin
                 if (!rst_n_i) begin
-                    phase_q <= {PHASE_W{1'b0}};
+                    //   ⭐ 复位时**直接给去相关初相**（⭐ 不是全 0）
+                    phase_q <= phase_seed;
                     addr_q  <= {AW{1'b0}};
                 end else if (sample_tick_i) begin
                     // ⭐ 地址锁存用**本帧起始**的相位（DDS 标准做法），
