@@ -74,6 +74,7 @@ module seq_arb #(
     parameter integer PHASE_W = 32,
     parameter integer VEL_W   = 8,
     parameter integer KIND_W  = 2,
+    parameter integer TIMBRE_W = 2,
     // ⭐ FIFO 深度。⚠️ 必须 ≥ 3（⚠️ 否则"待发 + 同拍来 3 条"就装不下 ——
     //    ⭐ 那正是 `evt_merge` 第一版的 bug 模式）。⭐ 默认 6 留足余量。
     parameter integer DEPTH   = 6
@@ -87,6 +88,8 @@ module seq_arb #(
     input  wire [PHASE_W-1:0]    live_phase_inc_i,
     input  wire [VEL_W-1:0]      live_velocity_i,
     input  wire [KIND_W-1:0]     live_kind_i,
+    input  wire                  live_timbre_valid_i,
+    input  wire [TIMBRE_W-1:0]   live_timbre_i,
 
     // ── ⭐ 源 2：曲谱（`evt_uart_rx` → 串口灌入）────────────────────────────
     input  wire                  score_valid_i,
@@ -94,6 +97,8 @@ module seq_arb #(
     input  wire [PHASE_W-1:0]    score_phase_inc_i,
     input  wire [VEL_W-1:0]      score_velocity_i,
     input  wire [KIND_W-1:0]     score_kind_i,
+    input  wire                  score_timbre_valid_i,
+    input  wire [TIMBRE_W-1:0]   score_timbre_i,
 
     // ── ⭐ 源 3：演示（`DEMO_CHORD_ON` 自检和弦）—— ⭐ 最低优先 ─────────────
     input  wire                  demo_valid_i,
@@ -101,6 +106,8 @@ module seq_arb #(
     input  wire [PHASE_W-1:0]    demo_phase_inc_i,
     input  wire [VEL_W-1:0]      demo_velocity_i,
     input  wire [KIND_W-1:0]     demo_kind_i,
+    input  wire                  demo_timbre_valid_i,
+    input  wire [TIMBRE_W-1:0]   demo_timbre_i,
 
     // ── 仲裁后的唯一出口（→ `evt_merge` 的源 A）────────────────────────────
     output reg                   evt_valid_o,
@@ -108,6 +115,8 @@ module seq_arb #(
     output reg  [PHASE_W-1:0]    evt_phase_inc_o,
     output reg  [VEL_W-1:0]      evt_velocity_o,
     output reg  [KIND_W-1:0]     evt_kind_o,
+    output reg                   evt_timbre_valid_o,
+    output reg  [TIMBRE_W-1:0]   evt_timbre_o,
 
     // ── ⭐ 可观测性（`K-106` 纪律：容量有限/会失效的东西必须能看见）──────────
     output reg  [15:0]           collision_cnt_o,  // ⭐ 多源同拍相撞次数（饱和）
@@ -120,10 +129,11 @@ module seq_arb #(
 );
 
     // ── ⭐ 打包成一条记录（⚠️ 用一个向量，FIFO 索引就简单了）──────────────────
-    localparam integer ENT_W = AXIS_W + PHASE_W + VEL_W + KIND_W;
-    localparam integer AX_O  = PHASE_W + VEL_W + KIND_W;
-    localparam integer IN_O  = VEL_W + KIND_W;
-    localparam integer VE_O  = KIND_W;
+    localparam integer ENT_W = AXIS_W + PHASE_W + VEL_W + KIND_W + 1 + TIMBRE_W;
+    localparam integer AX_O  = PHASE_W + VEL_W + KIND_W + 1 + TIMBRE_W;
+    localparam integer IN_O  = VEL_W + KIND_W + 1 + TIMBRE_W;
+    localparam integer VE_O  = KIND_W + 1 + TIMBRE_W;
+    localparam integer TV_O  = TIMBRE_W;
 
     // ⭐⭐ 把整数参数先落到**定宽 localparam** 再参与运算
     //   🔴 **`K-91`：⛔ 绝不对 `integer` 参数做位选**（`DEPTH[15:0]` 这种）
@@ -145,8 +155,10 @@ module seq_arb #(
         input [PHASE_W-1:0] inc;
         input [VEL_W-1:0]   vl;
         input [KIND_W-1:0]  kd;
+        input               tv;
+        input [TIMBRE_W-1:0] tb;
         begin
-            pack_src = {src, ax, inc, vl, kd};
+            pack_src = {src, ax, inc, vl, kd, tv, tb};
         end
     endfunction
 
@@ -233,6 +245,8 @@ module seq_arb #(
             evt_phase_inc_o <= {PHASE_W{1'b0}};
             evt_velocity_o  <= {VEL_W{1'b0}};
             evt_kind_o      <= {KIND_W{1'b0}};
+            evt_timbre_valid_o <= 1'b0;
+            evt_timbre_o    <= {TIMBRE_W{1'b0}};
             cnt_q           <= 16'd0;
             head_q          <= 16'd0;
             tail_q          <= 16'd0;
@@ -254,7 +268,9 @@ module seq_arb #(
                 evt_axis_o      <= pop_data[AX_O +: AXIS_W];
                 evt_phase_inc_o <= pop_data[IN_O +: PHASE_W];
                 evt_velocity_o  <= pop_data[VE_O +: VEL_W];
-                evt_kind_o      <= pop_data[0 +: KIND_W];
+                evt_kind_o      <= pop_data[TV_O + 1 +: KIND_W];
+                evt_timbre_valid_o <= pop_data[TV_O +: 1];
+                evt_timbre_o    <= pop_data[0 +: TIMBRE_W];
                 head_q          <= (head_q == DEPTH_M1) ? 16'd0 : (head_q + 16'd1);
                 merged_cnt_o    <= (merged_cnt_o == 16'hFFFF) ? merged_cnt_o
                                                               : (merged_cnt_o + 16'd1);
@@ -280,35 +296,35 @@ module seq_arb #(
                         // ⭐ 三条全到（⚠️ 极罕见：演示只在"没别的"时才推 ⇒ 此路实际不可达，
                         //    ⭐ 但**保留** ⇒ ⭐ 不给"将来改让位规则"留坑）
                         if (live_first) begin
-                            mem[tail_q] <= pack_src(SRC_LIVE,  live_axis_i,  live_phase_inc_i,  live_velocity_i,  live_kind_i);
-                            mem[tail_1] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i);
-                            mem[tail_2] <= pack_src(SRC_DEMO,  demo_axis_i,  demo_phase_inc_i,  demo_velocity_i,  demo_kind_i);
+                            mem[tail_q] <= pack_src(SRC_LIVE,  live_axis_i,  live_phase_inc_i,  live_velocity_i,  live_kind_i,  live_timbre_valid_i,  live_timbre_i);
+                            mem[tail_1] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
+                            mem[tail_2] <= pack_src(SRC_DEMO,  demo_axis_i,  demo_phase_inc_i,  demo_velocity_i,  demo_kind_i,  demo_timbre_valid_i,  demo_timbre_i);
                         end else begin
-                            mem[tail_q] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i);
-                            mem[tail_1] <= pack_src(SRC_LIVE,  live_axis_i,  live_phase_inc_i,  live_velocity_i,  live_kind_i);
-                            mem[tail_2] <= pack_src(SRC_DEMO,  demo_axis_i,  demo_phase_inc_i,  demo_velocity_i,  demo_kind_i);
+                            mem[tail_q] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
+                            mem[tail_1] <= pack_src(SRC_LIVE,  live_axis_i,  live_phase_inc_i,  live_velocity_i,  live_kind_i,  live_timbre_valid_i,  live_timbre_i);
+                            mem[tail_2] <= pack_src(SRC_DEMO,  demo_axis_i,  demo_phase_inc_i,  demo_velocity_i,  demo_kind_i,  demo_timbre_valid_i,  demo_timbre_i);
                         end
                     end else if (push_live && push_score) begin
                         // ⭐ 手弹 + 曲谱同拍（⭐ **最要紧的一种**：⭐ 必须两条都发）
                         if (live_first) begin
-                            mem[tail_q] <= pack_src(SRC_LIVE,  live_axis_i,  live_phase_inc_i,  live_velocity_i,  live_kind_i);
-                            mem[tail_1] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i);
+                            mem[tail_q] <= pack_src(SRC_LIVE,  live_axis_i,  live_phase_inc_i,  live_velocity_i,  live_kind_i,  live_timbre_valid_i,  live_timbre_i);
+                            mem[tail_1] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
                         end else begin
-                            mem[tail_q] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i);
-                            mem[tail_1] <= pack_src(SRC_LIVE,  live_axis_i,  live_phase_inc_i,  live_velocity_i,  live_kind_i);
+                            mem[tail_q] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
+                            mem[tail_1] <= pack_src(SRC_LIVE,  live_axis_i,  live_phase_inc_i,  live_velocity_i,  live_kind_i,  live_timbre_valid_i,  live_timbre_i);
                         end
                     end else if (push_live && push_demo) begin
-                        mem[tail_q] <= pack_src(SRC_LIVE, live_axis_i, live_phase_inc_i, live_velocity_i, live_kind_i);
-                        mem[tail_1] <= pack_src(SRC_DEMO, demo_axis_i, demo_phase_inc_i, demo_velocity_i, demo_kind_i);
+                        mem[tail_q] <= pack_src(SRC_LIVE, live_axis_i, live_phase_inc_i, live_velocity_i, live_kind_i, live_timbre_valid_i, live_timbre_i);
+                        mem[tail_1] <= pack_src(SRC_DEMO, demo_axis_i, demo_phase_inc_i, demo_velocity_i, demo_kind_i, demo_timbre_valid_i, demo_timbre_i);
                     end else if (push_score && push_demo) begin
-                        mem[tail_q] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i);
-                        mem[tail_1] <= pack_src(SRC_DEMO,  demo_axis_i,  demo_phase_inc_i,  demo_velocity_i,  demo_kind_i);
+                        mem[tail_q] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
+                        mem[tail_1] <= pack_src(SRC_DEMO,  demo_axis_i,  demo_phase_inc_i,  demo_velocity_i,  demo_kind_i,  demo_timbre_valid_i,  demo_timbre_i);
                     end else if (push_live) begin
-                        mem[tail_q] <= pack_src(SRC_LIVE, live_axis_i, live_phase_inc_i, live_velocity_i, live_kind_i);
+                        mem[tail_q] <= pack_src(SRC_LIVE, live_axis_i, live_phase_inc_i, live_velocity_i, live_kind_i, live_timbre_valid_i, live_timbre_i);
                     end else if (push_score) begin
-                        mem[tail_q] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i);
+                        mem[tail_q] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
                     end else begin
-                        mem[tail_q] <= pack_src(SRC_DEMO, demo_axis_i, demo_phase_inc_i, demo_velocity_i, demo_kind_i);
+                        mem[tail_q] <= pack_src(SRC_DEMO, demo_axis_i, demo_phase_inc_i, demo_velocity_i, demo_kind_i, demo_timbre_valid_i, demo_timbre_i);
                     end
 
                     // ⭐ 推进 tail（按实际推入条数）

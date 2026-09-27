@@ -49,7 +49,8 @@ module tb_oscillator_bank;
     reg                    sample_tick;
     reg  [POLY-1:0]        voice_active;
     reg  [POLY*PHASE_W-1:0] base_inc;
-    reg  [1:0]             timbre_id;
+    reg  [POLY*2-1:0]      voice_timbre;
+    reg  [POLY*8-1:0]      voice_velocity;
     reg  signed [15:0]     vibrato_mod;
     reg                    test_mode;
     reg  [LANES-1:0]       test_lane_active;
@@ -63,7 +64,7 @@ module tb_oscillator_bank;
     oscillator_bank #(
         .POLY_TARGET(POLY), .OSC_PER_VOICE(OPV), .PHASE_W(PHASE_W),
         .OSC_SAMPLE_W(SW), .TIMBRE_N(4), .TIMBRE_W(2),
-        .WT_DEPTH(512), .WT_W(16), .ENABLE_FM(0), .DBG_LANE(1),
+        .WT_DEPTH(1024), .WT_W(16), .ENABLE_FM(0), .DBG_LANE(1),
         //   🔴🔴 **2026-09-26：⭐ 本 tb 显式关掉失谐（`DETUNE_ON=0`）**
         //
         //   ⭐ **为什么**：⭐ `T55` 验收测的是 **"64 路相位【独立】"** ——
@@ -84,7 +85,8 @@ module tb_oscillator_bank;
     ) dut (
         .clk_i(clk), .rst_n_i(rst_n), .sample_tick_i(sample_tick),
         .voice_active_i(voice_active), .base_phase_inc_i(base_inc),
-        .timbre_id_i(timbre_id), .vibrato_mod_i(vibrato_mod),
+        .voice_timbre_i(voice_timbre), .voice_velocity_i(voice_velocity),
+        .vibrato_mod_i(vibrato_mod),
         .test_mode_i(test_mode), .test_lane_active_i(test_lane_active),
         .test_phase_inc_i(test_phase_inc),
         .fm_cfg_valid_i(1'b0), .fm_ratio_i(16'd0), .fm_index_i(16'd0),
@@ -148,7 +150,8 @@ module tb_oscillator_bank;
         sample_tick      = 1'b0;
         voice_active     = {POLY{1'b0}};
         base_inc         = {(POLY*PHASE_W){1'b0}};
-        timbre_id        = 2'd0;
+        voice_timbre     = {(POLY*2){1'b0}};
+        voice_velocity   = {(POLY*8){1'b1}};
         vibrato_mod      = 16'sd0;
         test_mode        = 1'b0;
         test_lane_active = {LANES{1'b0}};
@@ -238,8 +241,8 @@ module tb_oscillator_bank;
 
         repeat (3) frame;
         // lane1 相位应为 3 × 2^23 = 0x0180_0000 ⇒ 高 9 位 = 3
-        chk("lane1 相位 = 3×2^23（地址=3）", phase_dbg === 32'h0180_0000);
-        chk("phase_acc_dbg_o 的高 9 位 = 3", phase_dbg[31:23] === 9'd3);
+        chk("lane1 相位 = 3×2^23（地址=6）", phase_dbg === 32'h0180_0000);
+        chk("phase_acc_dbg_o 的高 10 位 = 6", phase_dbg[31:22] === 10'd6);
 
         repeat (2) frame;
         chk("再走 2 帧 ⇒ 相位 = 5×2^23（地址=5）", phase_dbg === 32'h0280_0000);
@@ -281,10 +284,10 @@ module tb_oscillator_bank;
                 p0_before = dut.gen_lane[0].phase_q;      // tick 前的相位
                 tick;
                 repeat (LANES + 4) @(negedge clk);        // 等 TDM 跑完
-                if (dut.gen_lane[0].addr_q !== p0_before[31:23]) begin
+                if (dut.gen_lane[0].addr_q !== p0_before[31:22]) begin
                     errors = errors + 1;
                     $display("  FAIL: addr_q=%0d 但 tick 前相位 %08h 的高 9 位 = %0d（第 %0d 组, 第 %0d 次）",
-                             dut.gen_lane[0].addr_q, p0_before, p0_before[31:23], k, i);
+                             dut.gen_lane[0].addr_q, p0_before, p0_before[31:22], k, i);
                 end
             end
         end

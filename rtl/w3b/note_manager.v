@@ -211,6 +211,8 @@ module note_manager #(
     reg [PHASE_W-1:0]      fifo_inc [0:FIFO_DEPTH-1];
     reg [VEL_W-1:0]        fifo_vel [0:FIFO_DEPTH-1];
     reg [1:0]              fifo_knd [0:FIFO_DEPTH-1];
+    reg                    fifo_timbre_valid [0:FIFO_DEPTH-1];
+    reg [TIMBRE_W-1:0]     fifo_timbre [0:FIFO_DEPTH-1];
     reg [FW-1:0]           fifo_wr;
     reg [FW-1:0]           fifo_rd;
     reg [FW:0]             fifo_cnt;
@@ -246,12 +248,16 @@ module note_manager #(
     wire [PHASE_W-1:0] head_inc  = fifo_inc[fifo_rd];
     wire [VEL_W-1:0]   head_vel  = fifo_vel[fifo_rd];
     wire [1:0]         head_kind = fifo_knd[fifo_rd];
+    wire               head_timbre_valid = fifo_timbre_valid[fifo_rd];
+    wire [TIMBRE_W-1:0] head_timbre = fifo_timbre[fifo_rd];
 
     // ── 当前正在处理的事件（从队列头锁存）────────────────────────────────
     reg [AXIS_W-1:0]  cur_axis;
     reg [PHASE_W-1:0] cur_inc;
     reg [VEL_W-1:0]   cur_vel;
     reg [1:0]         cur_kind;
+    reg               cur_timbre_valid;
+    reg [TIMBRE_W-1:0] cur_timbre;
 
     // ── ⭐ 池掩码：由**锁存后的** `cur_axis` 决定（⛔ 不是活的 `note_axis_i`）──
     //    ⚠️ 必须用 `assign` + `generate`（`L67`：常量块在 `always @(*)` 里不执行）
@@ -320,7 +326,10 @@ module note_manager #(
 
     // ── 提交时用的字段（组合取自 best_idx）────────────────────────────────
     wire [VEL_W-1:0]    new_vel    = (cur_vel != {VEL_W{1'b0}}) ? cur_vel : DEFAULT_VEL_V;
-    wire [TIMBRE_W-1:0] new_timbre = evt_timbre_valid_i ? evt_timbre_i : default_timbre_i;
+    // Timbre is stored with the event.  Allocation may start dozens of clocks
+    // after note_valid_i, so sampling the live sideband here would assign a
+    // later event's timbre to the wrong voice.
+    wire [TIMBRE_W-1:0] new_timbre = cur_timbre_valid ? cur_timbre : default_timbre_i;
 
     reg                    alloc_valid_r;
     reg [IDX_W-1:0]        alloc_voice_r;
@@ -354,6 +363,8 @@ module note_manager #(
             cur_inc       <= {PHASE_W{1'b0}};
             cur_vel       <= {VEL_W{1'b0}};
             cur_kind      <= 2'd0;
+            cur_timbre_valid <= 1'b0;
+            cur_timbre    <= {TIMBRE_W{1'b0}};
             alloc_valid_r <= 1'b0;
             alloc_voice_r <= {IDX_W{1'b0}};
             // ⭐⭐ 溢出指示：硬复位清（⚠️ 上电后是干净的；上板运行中要靠 clr 输入清）
@@ -377,6 +388,8 @@ module note_manager #(
                 fifo_inc[fifo_wr] <= note_phase_inc_i;
                 fifo_vel[fifo_wr] <= note_velocity_i;
                 fifo_knd[fifo_wr] <= note_kind_i;
+                fifo_timbre_valid[fifo_wr] <= evt_timbre_valid_i;
+                fifo_timbre[fifo_wr] <= evt_timbre_i;
                 fifo_wr           <= fifo_wr + 1'b1;
             end
             if (fifo_pop) fifo_rd <= fifo_rd + 1'b1;
@@ -467,6 +480,8 @@ module note_manager #(
                         cur_inc  <= head_inc;
                         cur_vel  <= head_vel;
                         cur_kind <= head_kind;
+                        cur_timbre_valid <= head_timbre_valid;
+                        cur_timbre <= head_timbre;
                         state    <= ST_DECIDE;
                     end
                 end

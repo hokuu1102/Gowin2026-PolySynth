@@ -29,6 +29,7 @@ module tb_seq_arb;
     localparam integer PHASE_W = 32;
     localparam integer VEL_W   = 8;
     localparam integer KIND_W  = 2;
+    localparam integer TIMBRE_W = 2;
     localparam integer DEPTH   = 6;
     localparam integer T       = 20;
 
@@ -41,27 +42,36 @@ module tb_seq_arb;
     reg [PHASE_W-1:0] live_inc = 0, score_inc = 0, demo_inc = 0;
     reg [VEL_W-1:0]   live_vel = 0, score_vel = 0, demo_vel = 0;
     reg [KIND_W-1:0]  live_kd = 0, score_kd = 0, demo_kd = 0;
+    reg               live_tv = 0, score_tv = 0, demo_tv = 0;
+    reg [TIMBRE_W-1:0] live_tb = 0, score_tb = 0, demo_tb = 0;
 
     wire              evt_v;
     wire [AXIS_W-1:0] evt_ax;
     wire [PHASE_W-1:0] evt_inc;
     wire [VEL_W-1:0]  evt_vel;
     wire [KIND_W-1:0] evt_kd;
+    wire              evt_tv;
+    wire [TIMBRE_W-1:0] evt_tb;
     wire [15:0] coll_cnt, merged_cnt, drop_cnt, live_cnt, score_cnt, demo_cnt;
     wire        overflow;
 
     seq_arb #(
-        .AXIS_W(AXIS_W), .PHASE_W(PHASE_W), .VEL_W(VEL_W), .KIND_W(KIND_W), .DEPTH(DEPTH)
+        .AXIS_W(AXIS_W), .PHASE_W(PHASE_W), .VEL_W(VEL_W), .KIND_W(KIND_W),
+        .TIMBRE_W(TIMBRE_W), .DEPTH(DEPTH)
     ) dut (
         .clk_i(clk), .rst_n_i(rst_n),
         .live_valid_i(live_v),  .live_axis_i(live_ax),  .live_phase_inc_i(live_inc),
         .live_velocity_i(live_vel),  .live_kind_i(live_kd),
+        .live_timbre_valid_i(live_tv), .live_timbre_i(live_tb),
         .score_valid_i(score_v), .score_axis_i(score_ax), .score_phase_inc_i(score_inc),
         .score_velocity_i(score_vel), .score_kind_i(score_kd),
+        .score_timbre_valid_i(score_tv), .score_timbre_i(score_tb),
         .demo_valid_i(demo_v),  .demo_axis_i(demo_ax),  .demo_phase_inc_i(demo_inc),
         .demo_velocity_i(demo_vel),  .demo_kind_i(demo_kd),
+        .demo_timbre_valid_i(demo_tv), .demo_timbre_i(demo_tb),
         .evt_valid_o(evt_v), .evt_axis_o(evt_ax), .evt_phase_inc_o(evt_inc),
         .evt_velocity_o(evt_vel), .evt_kind_o(evt_kd),
+        .evt_timbre_valid_o(evt_tv), .evt_timbre_o(evt_tb),
         .collision_cnt_o(coll_cnt), .merged_cnt_o(merged_cnt), .drop_cnt_o(drop_cnt),
         .overflow_o(overflow),
         .live_cnt_o(live_cnt), .score_cnt_o(score_cnt), .demo_cnt_o(demo_cnt)
@@ -100,6 +110,8 @@ module tb_seq_arb;
         live_inc = 0; score_inc = 0; demo_inc = 0;
         live_vel = 0; score_vel = 0; demo_vel = 0;
         live_kd = 0; score_kd = 0; demo_kd = 0;
+        live_tv = 0; score_tv = 0; demo_tv = 0;
+        live_tb = 0; score_tb = 0; demo_tb = 0;
     end endtask
 
     task do_reset; begin

@@ -56,7 +56,7 @@ module oscillator_bank #(
     // ⭐ `K-86`：四大件（BASS/GUITAR/PIANO/PAD）+ Looper 一层一件乐器 ⇒ 需 ≥3 种
     parameter integer TIMBRE_N      = 4,
     parameter integer TIMBRE_W      = 2,
-    parameter integer WT_DEPTH      = 512,
+    parameter integer WT_DEPTH      = 1024,
     parameter integer WT_W          = 16,
     // ⚠️ FM **未实装**（`A2c`：先留接口、后加；且 FM **不计入吞吐量**）
     parameter integer ENABLE_FM     = 0,
@@ -99,7 +99,8 @@ module oscillator_bank #(
     input  wire                                             sample_tick_i,
     input  wire [POLY_TARGET-1:0]                           voice_active_i,
     input  wire [POLY_TARGET*PHASE_W-1:0]                   base_phase_inc_i,
-    input  wire [TIMBRE_W-1:0]                              timbre_id_i,
+    input  wire [POLY_TARGET*TIMBRE_W-1:0]                  voice_timbre_i,
+    input  wire [POLY_TARGET*8-1:0]                         voice_velocity_i,
     input  wire signed [15:0]                               vibrato_mod_i,
     input  wire                                             test_mode_i,
     input  wire [POLY_TARGET*OSC_PER_VOICE-1:0]             test_lane_active_i,
@@ -129,6 +130,8 @@ module oscillator_bank #(
     // ═══════════════════════════════════════════════════════════════════════
     wire [LANES*AW-1:0]      lane_addr;      // 本帧各 lane 的查表地址
     wire [LANES*PHASE_W-1:0] lane_phase;     // 供调试观测
+    wire [LANES*TIMBRE_W-1:0] lane_timbre;   // 起音锁存的每 voice 音色
+    wire [LANES*8-1:0]       lane_velocity;  // 每 voice 力度（soft/hard 插值）
 
     // ⭐ 颤音：**共享**一个乘法器算偏移（⛔ 不给每 lane 配乘法器 —— 那要 64 个 DSP）
     //    `vibrato_mod_i` 是 signed Q1.15 ∈ [-1, 1)
@@ -227,6 +230,9 @@ module oscillator_bank #(
 
             assign lane_addr[g*AW +: AW]       = addr_q;
             assign lane_phase[g*PHASE_W +: PHASE_W] = phase_q;
+            assign lane_timbre[g*TIMBRE_W +: TIMBRE_W] =
+                voice_timbre_i[VOICE_IDX*TIMBRE_W +: TIMBRE_W];
+            assign lane_velocity[g*8 +: 8] = voice_velocity_i[VOICE_IDX*8 +: 8];
         end
     endgenerate
 
@@ -263,20 +269,50 @@ module oscillator_bank #(
     // 只在 0..LANES-1 期间送地址（⛔ 避免越界读）
     wire          req_active = rendering && (cnt < LANES[LW:0]);
     wire [AW-1:0] rom_ad     = lane_addr[req_idx*AW +: AW];
+    wire [TIMBRE_W-1:0] rom_timbre = lane_timbre[req_idx*TIMBRE_W +: TIMBRE_W];
+    wire [7:0] req_velocity = lane_velocity[req_idx*8 +: 8];
 
     // ═══════════════════════════════════════════════════════════════════════
-    // ③ 1 个【共享】波表 pROM（512×16，Bypass = 1 级同步读）
-    //    ⚠️ 仿真用 `WAVETABLE_BEHAVIORAL` 的 `case` 常量表；
-    //       综合走 Gowin pROM（见 `wavetable_bank.v` 的 `ifdef`）
+    // ③ 1 个【共享】四音色波表（4 × soft/hard × 1024，1 级同步读）
+    //    表常量由 `tools/gen_t31b_wavetable.py` 生成并嵌入 RTL；
+    //    仿真和 Gowin 综合使用同一组样本，避免双实现漂移。
     // ═══════════════════════════════════════════════════════════════════════
-    wire signed [WT_W-1:0] rom_dout;
+    wire signed [WT_W-1:0] rom_soft;
+    wire signed [WT_W-1:0] rom_hard;
+    reg  [7:0] resp_velocity_q;
 
-    wavetable_bank u_wavetable_bank (
+    always @(posedge clk_i) begin
+        if (!rst_n_i)
+            resp_velocity_q <= 8'd0;
+        else if (req_active)
+            resp_velocity_q <= req_velocity;
+    end
+
+    // `velocity=0` picks soft exactly; `velocity=255` picks hard exactly.
+    // One TDM multiplier serves all 64 lanes, so this adds no per-voice DSP.
+    wire [8:0] mix_q = (resp_velocity_q == 8'hFF) ? 9'd256
+                                                      : {1'b0, resp_velocity_q};
+    wire signed [WT_W:0] blend_delta = {rom_hard[WT_W-1], rom_hard}
+                                     - {rom_soft[WT_W-1], rom_soft};
+    wire signed [WT_W+9:0] blend_product = blend_delta * $signed({1'b0, mix_q});
+    // The post-shift range is one signed sample delta (17 bits).  Slice it
+    // explicitly before the add so synthesis sees no lossy width conversion.
+    wire signed [WT_W:0] blend_scaled = blend_product[WT_W+8:8];
+    wire signed [WT_W:0] blend_sum = {rom_soft[WT_W-1], rom_soft}
+                                  + blend_scaled;
+    wire signed [WT_W-1:0] rom_dout = blend_sum[WT_W-1:0];
+
+    wavetable_bank #(
+        .TIMBRE_N(TIMBRE_N), .TIMBRE_W(TIMBRE_W),
+        .DEPTH(WT_DEPTH), .SAMPLE_W(WT_W)
+    ) u_wavetable_bank (
         .clk_i    (clk_i),
         .rst_n_i  (rst_n_i),
         .rd_en_i  (req_active),
+        .timbre_i (rom_timbre),
         .addr_i   (rom_ad),
-        .sample_o (rom_dout),
+        .sample_soft_o (rom_soft),
+        .sample_hard_o (rom_hard),
         .valid_o  ()
     );
 
@@ -304,15 +340,13 @@ module oscillator_bank #(
     // ═══════════════════════════════════════════════════════════════════════
     // ⑤ ⚠️ 未实装项的**显式说明**（⛔ 不要静默忽略输入 —— 那正是 `K-88` 的坑）
     // ═══════════════════════════════════════════════════════════════════════
-    //  · `timbre_id_i`：⭐ **已接收但当前无效果** —— 因为 `wavetable_bank`
-    //    目前**只挂了一块正弦 pROM**（`K-86` 已记）。⇒ ⭐ **四大件音色待 `T31b`
-    //    补波表数据**（soft/hard × 4 × 1024 点）后，本模块按 `timbre_id_i` 选表。
-    //    ⚠️ 另：`K-82` 要求 `timbre` 是**每 voice 属性**（起音锁存）——
-    //       当前端口是**单个全局值**；⭐ 待 `T31b` 落地时一并改成每 voice 总线
-    //       （⚠️ **接口级改动，改要通知全员**）。
+    //  · `voice_timbre_i`：`note_manager` 在 note_on 锁存的每 voice 音色；
+    //    `wavetable_bank` 以它选择 BASS/GUITAR/PIANO/PAD 的 soft/hard 表，
+    //    并按同一 voice 的力度做线性插值。后续全局音色变化不会改写在响 voice。
     //  · `fm_cfg_valid_i` / `fm_ratio_i` / `fm_index_i`：`ENABLE_FM=0` ⇒ **忽略**
     //    （`A2c`：FM 先留接口、后加，且**不计入吞吐量**）。
-    //  · `TIMBRE_N`：当前只用于参数校验，⛔ 不影响逻辑（只有一块表）。
+    //  · `TIMBRE_N`：当前固定为 4（BASS/GUITAR/PIANO/PAD）；表索引由
+    //    `voice_timbre_i` 提供，参数必须与 wavetable_bank 保持一致。
     localparam integer TIMBRE_OK = (TIMBRE_N >= 1) && (TIMBRE_W >= 1);
 
     // ⚠️ 参数自检（与 `clk_gen`/`tlc5916`/`top` 的 `PARAM_OK` 同一套路）：

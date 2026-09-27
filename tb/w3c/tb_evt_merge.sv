@@ -33,6 +33,7 @@ module tb_evt_merge;
     localparam integer PHASE_W = 32;
     localparam integer VEL_W   = 8;
     localparam integer KIND_W  = 2;
+    localparam integer TIMBRE_W = 2;
     localparam integer DEPTH   = 4;
     localparam integer MAXEV   = 64;
 
@@ -49,6 +50,8 @@ module tb_evt_merge;
     reg  [PHASE_W-1:0] a_inc   = 32'd0;
     reg  [VEL_W-1:0]   a_vel   = 8'd0;
     reg  [KIND_W-1:0]  a_kind  = 2'd0;
+    reg                a_tv    = 1'b0;
+    reg  [TIMBRE_W-1:0] a_tb   = 2'd0;
 
     // ── 源 B ──────────────────────────────────────────────────────────────
     reg                b_valid = 1'b0;
@@ -56,6 +59,8 @@ module tb_evt_merge;
     reg  [PHASE_W-1:0] b_inc   = 32'd0;
     reg  [VEL_W-1:0]   b_vel   = 8'd0;
     reg  [KIND_W-1:0]  b_kind  = 2'd0;
+    reg                b_tv    = 1'b0;
+    reg  [TIMBRE_W-1:0] b_tb   = 2'd0;
 
     // ── 合流输出 ──────────────────────────────────────────────────────────
     wire               m_valid;
@@ -63,20 +68,25 @@ module tb_evt_merge;
     wire [PHASE_W-1:0] m_inc;
     wire [VEL_W-1:0]   m_vel;
     wire [KIND_W-1:0]  m_kind;
+    wire               m_tv;
+    wire [TIMBRE_W-1:0] m_tb;
     wire [15:0]        collision_cnt, merged_cnt, drop_cnt;
     wire               overflow;
 
     evt_merge #(
         .AXIS_W(AXIS_W), .PHASE_W(PHASE_W), .VEL_W(VEL_W),
-        .KIND_W(KIND_W), .DEPTH(DEPTH)
+        .KIND_W(KIND_W), .TIMBRE_W(TIMBRE_W), .DEPTH(DEPTH)
     ) dut (
         .clk_i(clk), .rst_n_i(rst_n),
         .a_valid_i(a_valid), .a_axis_i(a_axis), .a_phase_inc_i(a_inc),
         .a_velocity_i(a_vel), .a_kind_i(a_kind),
+        .a_timbre_valid_i(a_tv), .a_timbre_i(a_tb),
         .b_valid_i(b_valid), .b_axis_i(b_axis), .b_phase_inc_i(b_inc),
         .b_velocity_i(b_vel), .b_kind_i(b_kind),
+        .b_timbre_valid_i(b_tv), .b_timbre_i(b_tb),
         .evt_valid_o(m_valid), .evt_axis_o(m_axis), .evt_phase_inc_o(m_inc),
         .evt_velocity_o(m_vel), .evt_kind_o(m_kind),
+        .evt_timbre_valid_o(m_tv), .evt_timbre_o(m_tb),
         .collision_cnt_o(collision_cnt), .merged_cnt_o(merged_cnt),
         .drop_cnt_o(drop_cnt), .overflow_o(overflow)
     );
