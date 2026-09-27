@@ -42,6 +42,7 @@ module tb_top_m0;
     wire HP_BCK_a, HP_WS_a, HP_DIN_a, PA_EN_n_a, hb_a;
     // ⭐⭐ 2026-09-25 新增：外置 DAC 通路（`PCM5102A`，⭐ 路线 A）的观测点
     wire I2S2_BCK_a, I2S2_LRCK_a, I2S2_DIN_a;
+    wire pluck_up_idle = 1'b0, pluck_down_idle = 1'b0;
     top #(
         .PA_ON_AFTER_RESET (0),
         // ⭐⭐ T57（2026-09-21）：本实例验的是 **M0 安全态 + 真静音**
@@ -58,6 +59,7 @@ module tb_top_m0;
         .PA_EN_n (PA_EN_n_a), .led_heartbeat (hb_a),
         // ⭐ 外置 DAC 通路（⭐ 2026-09-25）
         .I2S2_BCK (I2S2_BCK_a), .I2S2_LRCK (I2S2_LRCK_a), .I2S2_DIN (I2S2_DIN_a),
+        .pluck_up_i(pluck_up_idle), .pluck_down_i(pluck_down_idle),
         // ⭐ 2026-09-23：W3a 采集链新增的输入（⭐ 本 tb 不测采集 ⇒ 常量高 = 串口空闲/无 MISO 驱动）
         //   ⚠️ 2026-09-23 晚：端口已改成【预留 6 片】的向量 ⇒ ⭐ 给 6 位常量高
         .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n (),
@@ -88,6 +90,7 @@ module tb_top_m0;
         .PA_EN_n (PA_EN_n_d), .led_heartbeat (hb_d),
         // ⭐ 外置 DAC 通路（⭐ 2026-09-25）—— ⚠️ 本实例只查默认值，⭐ 这两路【空连接】
         .I2S2_BCK (), .I2S2_LRCK (), .I2S2_DIN (),
+        .pluck_up_i(pluck_up_idle), .pluck_down_i(pluck_down_idle),
         //   ⚠️ 2026-09-23 晚：端口改成【预留 6 片】的向量 ⇒ 给 6 位常量
         .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n (),
         //   ⭐ 2026-09-23 阶段C：新增的串口端口 ——
@@ -112,6 +115,7 @@ module tb_top_m0;
         .PA_EN_n (PA_EN_n_b), .led_heartbeat (hb_b),
         // ⭐ 外置 DAC 通路（⭐ 2026-09-25）—— ⚠️ 本实例只查功放时序，⭐ 空连接
         .I2S2_BCK (), .I2S2_LRCK (), .I2S2_DIN (),
+        .pluck_up_i(pluck_up_idle), .pluck_down_i(pluck_down_idle),
         //   ⚠️ 2026-09-23 晚：端口改成【预留 6 片】的向量 ⇒ 给 6 位常量
         .spi_miso (6'b111111), .spi_sclk (), .spi_mosi (), .spi_cs_n (),
         //   ⭐ 2026-09-23 阶段C：新增的串口端口 ——

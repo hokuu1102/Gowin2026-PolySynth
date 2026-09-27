@@ -214,6 +214,11 @@ module top #(
     output wire I2S2_LRCK,       // E22 · PMOD1_IO4 · 外置 DAC 帧时钟
     output wire I2S2_DIN,        // D22 · PMOD1_IO5 · 外置 DAC 串行数据
 
+    // ── T15 · 右手拨弦比较器（P4 的 LM393，开漏上拉后高有效）─────────────
+    //   PMOD1_IO6/7 是当前唯一冻结且未占用的一对相邻 3.3 V GPIO。
+    input  wire pluck_up_i,      // E21 · PMOD1_IO6 · TRIG_UP
+    input  wire pluck_down_i,    // D21 · PMOD1_IO7 · TRIG_DN
+
     // ── 板级活体见证 ────────────────────────────────────────────────
     output wire led_heartbeat,   // V13 · CFG_LED 绿路（SYS_ACT）
 
@@ -413,6 +418,47 @@ module top #(
         .rx_done_o (ur_done)
     );
 
+    // ── 串口屏控制面：模式默认指板，触摸控件 0 切到/离开键盘模式 ─────────
+    //   `uart_ui` 只消费 TJC 返回帧；演奏触发不经过 UART，因此 UI 的不确定
+    //   延迟不会进入拨弦→发声通路。当前 UART 物理口也可先接 USB-TTL 调试。
+    wire        ui_mode_piano;
+    wire [6:0]  ui_base_semi;
+    wire        ui_mode_commit, ui_base_commit;
+    wire        ui_fx_en;
+    wire [1:0]  ui_fx_sel;
+    wire [15:0] ui_frame_cnt, ui_resync_cnt, ui_err_cnt;
+    wire        ui_hb_ready;
+    wire        ui_tx_start;
+    wire [7:0]  ui_tx_data;
+
+    uart_ui #(
+        .CLK_HZ   (50_000_000),
+        .BAUD     (500_000),
+        .GAP_BYTES(16)
+    ) u_uart_ui (
+        .clk_i         (clk),
+        .rst_n_i       (rst_n_sync),
+        .rx_done_i     (ur_done),
+        .rx_data_i     (ur_data),
+        .tx_busy_i     (1'b1),       // 本版只接收屏的控制帧
+        .tx_done_i     (1'b0),
+        .tx_start_o    (ui_tx_start),
+        .tx_data_o     (ui_tx_data),
+        .mode_o        (ui_mode_piano),
+        .base_semi_o   (ui_base_semi),
+        .mode_commit_o (ui_mode_commit),
+        .base_commit_o (ui_base_commit),
+        .fx_en_o       (ui_fx_en),
+        .fx_sel_o      (ui_fx_sel),
+        .frame_cnt_o   (ui_frame_cnt),
+        .resync_cnt_o  (ui_resync_cnt),
+        .err_cnt_o     (ui_err_cnt),
+        .hb_ready_o    (ui_hb_ready)
+    );
+
+    // `uart_ui`: 0=指板、1=钢琴；`axis_map`/T15 控制器则相反。
+    wire play_fretboard_mode = ~ui_mode_piano;
+
     // ── ⭐ ② 控制命令解析（`'T'` / `'S'` / `'X'` / `'M'`）─────────────────
     //   🔴 **它自带 `0xA5` 帧边界跟踪** ⇒ ⭐ 帧内的 `T/S/X/M` 是**载荷**，⛔ 不当命令
     //      （⚠️ 否则**曲谱灌入会被误当标定命令** —— 灾难性）
@@ -509,6 +555,9 @@ module top #(
     //        · `g_silent` ⇒ ⭐ 驱动 0（⛔ 否则悬空成 `x`，⭐ 会误发垃圾字节）
     wire       tx_req;
     wire [7:0] tx_byte;
+    // LED 链在 generate 之外；由两个互斥分支之一显式驱动，不能直接引用
+    // `g_sound` 作用域内的 `bg_beat`。
+    wire       led_blink;
 
     // ═══════════════════════════════════════════════════════════════════════
     //   🔴🔴 **`uart_tx_fifo`：回传的发送队列**（⭐ 2026-09-24 新增，修 `K-126`）
@@ -591,6 +640,7 @@ module top #(
         //      ⇒ ⭐ 各自驱动同名信号 **⛔ 不会冲突** ✅
         assign tx_req  = 1'b0;
         assign tx_byte = 8'h00;
+        assign led_blink = 1'b0;
     end else begin : g_sound
         // ═══════════════════════════════════════════════════════════════════════
         //   ⭐⭐ `'P'` 诊断：⭐ 回传 `pos` 读数（⭐ 2026-09-24 新增）
@@ -753,6 +803,7 @@ module top #(
         wire        bg_transport;
         wire [15:0] bg_bar_cnt;
         wire        bg_wrap;
+        assign led_blink = bg_beat;
 
         beat_gen #(
             .PPQN          (960),
@@ -1698,82 +1749,82 @@ module top #(
         //      🔴 因为本块**引用了 `ee_valid`/`ee_kind`/`ee_axis`**
         //      ⇒ ⚠️ **Verilog 要求"先声明后使用"**（⭐ 否则 elaboration 报
         //         `Unable to bind wire/reg` —— ⭐ 这是我第一版犯的错）。
+        // ═══════════════════════════════════════════════════════════════════
+        // T15 · 两种演奏模式
+        //   键盘：轴越阈/松开直接变成 note_on/note_off。
+        //   指板：轴只选择音，UP/DOWN 比较器的边沿才产生 pluck；同拍 UP 优先。
+        //   选音、异步采样与模式语义在此合流，之后的音高映射只看统一事件流。
+        wire       pluck_valid;
+        wire       pluck_up;
+        wire       pm_valid;
+        wire [3:0] pm_axis;
+        wire [1:0] pm_kind;
+        wire [11:0] pm_depth;
+
+        async_pluck_capture #(
+            // 50 MHz 下 1_500_000 周期 = 30 ms；比较器迟滞负责阈值抖动，
+            // 此处只兜住摇杆回弹，不延迟首次拨弦。
+            .REFRACT_CYC(1_500_000)
+        ) u_async_pluck_capture (
+            .clk_i             (clk),
+            .rst_n_i           (rst_n_sync),
+            .pluck_up_async_i  (pluck_up_i),
+            .pluck_down_async_i(pluck_down_i),
+            .pluck_valid_o     (pluck_valid),
+            .pluck_up_o        (pluck_up)
+        );
+
+        play_mode_ctrl #(
+            .AXIS_W (4),
+            .DEPTH_W(12)
+        ) u_play_mode_ctrl (
+            .clk_i            (clk),
+            .rst_n_i          (rst_n_sync),
+            .fretboard_mode_i (play_fretboard_mode),
+            .axis_valid_i     (ee_valid),
+            .axis_i           (ee_axis),
+            .axis_kind_i      (ee_kind),
+            .axis_depth_i     (ee_depth),
+            .pluck_valid_i    (pluck_valid),
+            .pluck_up_i       (pluck_up),
+            .evt_valid_o      (pm_valid),
+            .evt_axis_o       (pm_axis),
+            .evt_kind_o       (pm_kind),
+            .evt_depth_o      (pm_depth)
+        );
+
+        // 音高映射流水寄存器。valid、axis、kind 与 phase_inc 必须同拍。
         reg [11:0] am_pos_in;
         reg [3:0]  am_axis_in;
+        reg [1:0]  am_kind_in;
         reg        am_vld_in;
-        reg        am_mode;            // ⭐ 0 = 键盘模式 · 1 = 指板模式
-
-        // ═══════════════════════════════════════════════════════════════════
-        // 🔴🔴 **2026-09-26 上板实测修复：⭐ `valid` 必须与【它携带的数据】同拍**
-        //
-        //   ⭐ **上板症状**（⭐ 用户实测，⭐ 三个症状同一根因）：
-        //      · ⭐ *"按下第二个键后，会**先触发一次第一个键的声音**，
-        //           再按一次第二个键，才会发出这个键的声音"*
-        //      · ⭐ *"多个键同时按的时候，**听不出来**，感觉有问题"*
-        //      · 🔴 *"同时按下很多键之后会**卡住**，声音一直响，
-        //           按哪个键哪个键就一直放对应的音高，**松手也不会静音**"*
-        //
-        //   🔴 **根因：⭐ `valid` 与 `phase_inc` 差了【一拍】**
-        //      ⭐ 原来的接法（⚠️ 错的）：
-        //      ```
-        //        w3a_evt_valid = ee_valid        // ⭐ 来自 event_extract，【当拍】
-        //        w3a_evt_inc   = am_inc          // ⭐ 来自 axis_map
-        //        am_vld_in     <= 1'b1           // ⚠️ 在 T0 打一拍
-        //        am_pos_in     <= as_pos[...]     // ⚠️ 也在 T0 打一拍
-        //      ```
-        //      ⭐ **时序推演**：
-        //      ```
-        //        T0: ee_valid=1 (axis=2)
-        //            ⇒ w3a_evt_valid=1 且 w3a_evt_axis=2  【当拍就进了 seq_arb】
-        //            🔴 但 am_inc 此刻还是【上一个键(axis=1)】的音高！
-        //               ⚠️ 因为 am_pos_in 在 T0 这一拍【才被赋上 axis=2 的位置】
-        //        T1: am_inc 才变成 axis=2 的音
-        //            ⚠️ 而 ee_valid 已经=0 ⇒ 事件早用【旧音高】发出去了
-        //      ```
-        //      ⇒ 🔴 **事件带着【上一个键的音高】发出** ⇒ ⭐ 症状 ①
-        //      ⇒ 🔴 **`axis` 与 `phase_inc` 不匹配** ⇒ ⭐ `note_manager` 把同一个
-        //         axis 映射到了错误的 voice ⇒ ⚠️ `note_off` 找不到那个 voice
-        //         ⇒ 🔴 **松手不静音** ⇒ ⭐ 症状 ②③
-        //
-        //   ⭐⭐ **修法：⭐ 把 `valid` 也延一拍，与 `am_inc` 对齐**
-        //      ⭐ 做法：⭐ 用 `am_vld_in`（⭐ 它本来就是"数据已就绪"的标志）⭐ 作为**事件 valid**。
-        //      📌 **这正是本项目的老纪律**（⭐ `metronome` 当年踩过同一个坑）：
-        //         ⭐ **"脉冲"与"它携带的数据"必须【同拍锁存】**（`80 号` / `TROUBLESHOOTING 77 号`）。
-        //      ⚠️ **代价**：⭐ 整条链**晚 1 拍 = 20 ns** ⇒ ⭐ 远小于一个音频帧 20.48 µs
-        //         ⇒ ⭐ **听感不可分辨**。
-        //
-        //   ⚠️ **`am_axis_in` 也要一起延** —— ⭐ 否则 axis 与 inc 又错开
-        //      （⭐ 下面用 `am_axis_out` 把 axis 跟随 `am_vld_in` 一起送出）。
-        // ═══════════════════════════════════════════════════════════════════════
-        reg        am_vld_out;         // ⭐ 与 am_inc/am_axis_out **同拍**的事件 valid
-        reg [3:0]  am_axis_out;        // ⭐ 与 am_inc 同拍的轴号
+        reg        am_mode;            // 0 = 键盘模式 · 1 = 指板模式
+        reg        am_vld_out;
+        reg [3:0]  am_axis_out;
+        reg [1:0]  am_kind_out;
 
         always @(posedge clk) begin
             if (!rst_n_sync) begin
                 am_pos_in   <= 12'd0;
                 am_axis_in  <= 4'd0;
+                am_kind_in  <= 2'd0;
                 am_vld_in   <= 1'b0;
-                am_mode     <= 1'b1;    // ⭐ **默认指板模式** —— ⚠️ 因为 `fb_inc` 已填**真实音高**，
-                                        //    而 `kb_inc` 还是**半音阶梯占位**（⭐ 见 `axis_map.v` TODO）
+                am_mode     <= 1'b1;
                 am_vld_out  <= 1'b0;
                 am_axis_out <= 4'd0;
+                am_kind_out <= 2'd0;
             end else begin
-                am_vld_in <= 1'b0;     // ⭐ 默认单周期
-                if (ee_valid && (ee_kind != 2'd1)) begin
-                    // ⭐ 收到 `note_on`/`pluck` ⇒ ⭐ **用该轴的位置查表**
-                    //   ⚠️ 用【索引】取 `as_pos`（⭐ 不做算术后拼接 —— `83 号` 教训）
-                    am_pos_in  <= as_pos[ee_axis*12 +: 12];
-                    am_axis_in <= ee_axis;
-                    am_mode    <= 1'b1;              // ⭐ 指板模式（真实音高）
+                am_vld_in <= 1'b0;
+                if (pm_valid) begin
+                    am_pos_in  <= as_pos[pm_axis*12 +: 12];
+                    am_axis_in <= pm_axis;
+                    am_kind_in <= pm_kind;
+                    am_mode    <= play_fretboard_mode;
                     am_vld_in  <= 1'b1;
                 end
-                //   ⭐⭐ `am_vld_out`/`am_axis_out` 跟随 `am_vld_in` 再延一拍
-                //      ⇒ ⭐ **与 `am_inc`（axis_map 的组合输出）严格同拍**
-                //      📌 `am_inc` 依赖 `am_pos_in`/`am_mode`/`am_axis_in`（⭐ 都在上拍锁存）
-                //         ⇒ ⭐ `am_axis_out` 必须用**同一个 `am_axis_in`**，
-                //            这样"valid / axis / inc"三者同源同拍。
                 am_vld_out  <= am_vld_in;
                 am_axis_out <= am_axis_in;
+                am_kind_out <= am_kind_in;
             end
         end
 
@@ -1865,20 +1916,11 @@ module top #(
         //   📌 **为什么不直接删演示和弦**：⭐ `R-16`/`K-69` 的教训 ——
         //      ⚠️ **"测试配置"和"交付默认值"要分开**，⛔ 不能为了接新功能而废掉验收手段。
         // ═══════════════════════════════════════════════════════════════════
-        //   🔴🔴 **2026-09-26 修正：⭐ 三者必须【同拍】**
-        //      ⚠️ 原来 `valid`/`axis` 直接来自 `event_extract`（⭐ 当拍），
-        //         🔴 而 `inc` 来自 `axis_map`（⭐ 晚一拍）⇒ ⭐ **音高错一轮**（⭐ 详见上方长注释）。
-        //      ⭐ 现在：⭐ **`valid`/`axis` 都用【延一拍】的版本与 `am_inc` 对齐**。
-        //      📌 **注意 `axis` 也要用 `am_axis_out`** —— ⚠️ 因为 `am_inc` 是由
-        //         `am_axis_in`（⭐ 上一拍锁存）算出来的 ⇒ ⭐ 三者同源同拍。
-        //      ⚠️ `kind` 仍用 `ee_kind`：⭐ 它是**当拍的单周期脉冲**，
-        //         与 `am_vld_out`（⭐ 同样延一拍）⭐ **相位一致**。
-        //      🔴 **`kind != note_off` 的过滤已在上方 `am_vld_in` 的产生处做过**
-        //         ⇒ ⭐ `am_vld_out=1` **本身就意味着"这是 note_on/pluck"**，
-        //         ⛔ 不需要再重复判一次（⚠️ 重复判反而会用到**错的** `ee_kind`）。
+        // `pm_*` 经一拍映射后，valid / axis / kind / phase_inc 仍严格同拍。
+        // 因此 note_off 不会再被伪装成 note_on，能可靠释放同轴 voice。
         wire        w3a_evt_valid = am_vld_out;
         wire [3:0]  w3a_evt_axis  = am_axis_out;
-        wire [1:0]  w3a_evt_kind  = 2'd0;      // ⭐ note_on（⭐ 见上行说明）
+        wire [1:0]  w3a_evt_kind  = am_kind_out;
         //   ⭐ 力度：⭐ 起音**先用默认 200**（⭐ 这就是"先触发后修正"）——
         //     ⚠️ `param_extract` 要**等越过深阈**才算得出力度
         //     ⇒ ⭐ 力度修正走 `note_manager.vel_upd_*`（⭐ 那是独立的通路）
@@ -2137,7 +2179,8 @@ module top #(
             .voice_timbre_o    (nm_timbre),
             .voice_age_o       (nm_age),
             .alloc_valid_o     (nm_alloc_valid),
-            .alloc_voice_o     (nm_alloc_voice)
+            .alloc_voice_o     (nm_alloc_voice),
+            .event_lost_clr_i  (1'b0)
         );
 
         // ⭐ 64 路独立振荡器（T55）—— ⭐ 评分主体：评委可数出 64 份相位寄存器
@@ -2603,7 +2646,7 @@ module top #(
         .guide_key_i     (16'd0),            // ⭐ 占位：待 play_seq（甲）
         .key_active_i    (16'd0),            // ⭐ 占位：待 event_extract.key_on（甲）
         .status_i        (8'd0),             // ⭐ 占位：待 UI 状态总线
-        .blink_i         (bg_beat),          // ⭐ 四分音符拍点 = 闪烁节拍
+        .blink_i         (led_blink),        // ⭐ 四分音符拍点 = 闪烁节拍
         .pattern_o       (led_pattern),
         .pattern_commit_o(led_pattern_commit)
     );
