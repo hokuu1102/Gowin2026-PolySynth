@@ -57,6 +57,7 @@ module evt_merge #(
     parameter integer PHASE_W = 32,
     parameter integer VEL_W   = 8,
     parameter integer KIND_W  = 2,
+    parameter integer TIMBRE_W = 2,
     // ⭐ FIFO 深度。⚠️ 必须 ≥ 2（⚠️ 否则"待发 1 条 + 同拍来 2 条"就装不下 —— 那正是第一版的 bug）
     parameter integer DEPTH   = 4
 ) (
@@ -69,6 +70,8 @@ module evt_merge #(
     input  wire [PHASE_W-1:0]    a_phase_inc_i,
     input  wire [VEL_W-1:0]      a_velocity_i,
     input  wire [KIND_W-1:0]     a_kind_i,
+    input  wire                  a_timbre_valid_i,
+    input  wire [TIMBRE_W-1:0]   a_timbre_i,
 
     // ── 源 B：节拍器 / 鼓机 ────────────────────────────────────────────────
     input  wire                  b_valid_i,
@@ -76,6 +79,8 @@ module evt_merge #(
     input  wire [PHASE_W-1:0]    b_phase_inc_i,
     input  wire [VEL_W-1:0]      b_velocity_i,
     input  wire [KIND_W-1:0]     b_kind_i,
+    input  wire                  b_timbre_valid_i,
+    input  wire [TIMBRE_W-1:0]   b_timbre_i,
 
     // ── 合流后的唯一事件口（→ `note_manager`）─────────────────────────────
     output reg                   evt_valid_o,
@@ -83,6 +88,8 @@ module evt_merge #(
     output reg  [PHASE_W-1:0]    evt_phase_inc_o,
     output reg  [VEL_W-1:0]      evt_velocity_o,
     output reg  [KIND_W-1:0]     evt_kind_o,
+    output reg                   evt_timbre_valid_o,
+    output reg  [TIMBRE_W-1:0]   evt_timbre_o,
 
     // ── ⭐ 可观测性（`K-106` 纪律：容量有限/会失效的东西必须能看见）──────────
     output reg  [15:0]           collision_cnt_o,  // ⭐ 同拍相撞次数（饱和）
@@ -92,10 +99,11 @@ module evt_merge #(
 );
 
     // ── ⭐ 打包成一条记录（⚠️ 用一个向量，FIFO 索引就简单了）──────────────────
-    localparam integer ENT_W = AXIS_W + PHASE_W + VEL_W + KIND_W;
-    localparam integer AX_O  = PHASE_W + VEL_W + KIND_W;
-    localparam integer IN_O  = VEL_W + KIND_W;
-    localparam integer VE_O  = KIND_W;
+    localparam integer ENT_W = AXIS_W + PHASE_W + VEL_W + KIND_W + 1 + TIMBRE_W;
+    localparam integer AX_O  = PHASE_W + VEL_W + KIND_W + 1 + TIMBRE_W;
+    localparam integer IN_O  = VEL_W + KIND_W + 1 + TIMBRE_W;
+    localparam integer VE_O  = KIND_W + 1 + TIMBRE_W;
+    localparam integer TV_O  = TIMBRE_W;
 
     // ⭐⭐ 把整数参数先落到**定宽 localparam** 再参与运算
     //   🔴 **`K-91`：⛔ 绝不对 `integer` 参数做位选**（`DEPTH[15:0]` 这种）。
@@ -111,8 +119,10 @@ module evt_merge #(
         input [PHASE_W-1:0] inc;
         input [VEL_W-1:0]   vl;
         input [KIND_W-1:0]  kd;
+        input               tv;
+        input [TIMBRE_W-1:0] tb;
         begin
-            pack_evt = {ax, inc, vl, kd};
+            pack_evt = {ax, inc, vl, kd, tv, tb};
         end
     endfunction
 
@@ -159,6 +169,8 @@ module evt_merge #(
             evt_phase_inc_o <= {PHASE_W{1'b0}};
             evt_velocity_o  <= {VEL_W{1'b0}};
             evt_kind_o      <= {KIND_W{1'b0}};
+            evt_timbre_valid_o <= 1'b0;
+            evt_timbre_o    <= {TIMBRE_W{1'b0}};
             cnt_q           <= 16'd0;
             head_q          <= 16'd0;
             tail_q          <= 16'd0;
@@ -177,7 +189,9 @@ module evt_merge #(
                 evt_axis_o      <= pop_data[AX_O +: AXIS_W];
                 evt_phase_inc_o <= pop_data[IN_O +: PHASE_W];
                 evt_velocity_o  <= pop_data[VE_O +: VEL_W];
-                evt_kind_o      <= pop_data[0 +: KIND_W];
+                evt_kind_o      <= pop_data[TV_O + 1 +: KIND_W];
+                evt_timbre_valid_o <= pop_data[TV_O +: 1];
+                evt_timbre_o    <= pop_data[0 +: TIMBRE_W];
                 head_q          <= (head_q + 16'd1 == DEPTH_C) ? 16'd0
                                                                    : head_q + 16'd1;
                 merged_cnt_o    <= (merged_cnt_o == 16'hFFFF) ? merged_cnt_o
@@ -192,25 +206,31 @@ module evt_merge #(
                     if (push_a && push_b) begin
                         if (push_a_first) begin
                             mem[tail_q] <= pack_evt(a_axis_i, a_phase_inc_i,
-                                                    a_velocity_i, a_kind_i);
+                                                    a_velocity_i, a_kind_i,
+                                                    a_timbre_valid_i, a_timbre_i);
                             mem[(tail_q + 16'd1 == DEPTH_C) ? 16'd0
                                                                 : tail_q + 16'd1]
                                 <= pack_evt(b_axis_i, b_phase_inc_i,
-                                            b_velocity_i, b_kind_i);
+                                            b_velocity_i, b_kind_i,
+                                            b_timbre_valid_i, b_timbre_i);
                         end else begin
                             mem[tail_q] <= pack_evt(b_axis_i, b_phase_inc_i,
-                                                    b_velocity_i, b_kind_i);
+                                                    b_velocity_i, b_kind_i,
+                                                    b_timbre_valid_i, b_timbre_i);
                             mem[(tail_q + 16'd1 == DEPTH_C) ? 16'd0
                                                                 : tail_q + 16'd1]
                                 <= pack_evt(a_axis_i, a_phase_inc_i,
-                                            a_velocity_i, a_kind_i);
+                                            a_velocity_i, a_kind_i,
+                                            a_timbre_valid_i, a_timbre_i);
                         end
                     end else if (push_a) begin
                         mem[tail_q] <= pack_evt(a_axis_i, a_phase_inc_i,
-                                                a_velocity_i, a_kind_i);
+                                                a_velocity_i, a_kind_i,
+                                                a_timbre_valid_i, a_timbre_i);
                     end else begin
                         mem[tail_q] <= pack_evt(b_axis_i, b_phase_inc_i,
-                                                b_velocity_i, b_kind_i);
+                                                b_velocity_i, b_kind_i,
+                                                b_timbre_valid_i, b_timbre_i);
                     end
 
                     // ⭐ 推进 tail（按实际推入条数）

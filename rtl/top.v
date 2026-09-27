@@ -1973,6 +1973,10 @@ module top #(
         wire [31:0] score_evt_inc  = {11'd0, eu_evt_data[43:23]};
         wire [7:0]  score_evt_vel  = eu_evt_data[18:11];
         wire [1:0]  score_evt_kind = eu_evt_data[10:9];
+        // T31b: bits [8:7] are the existing score-frame timbre field.
+        // Keep it as a sideband; the 64-bit UART transport and board I/O stay unchanged.
+        wire        score_evt_timbre_valid = eu_evt_valid;
+        wire [1:0]  score_evt_timbre = eu_evt_data[8:7];
         // ═══════════════════════════════════════════════════════════════════
         //   ⚠️ **旧的二选一写法（⭐ 保留痕迹，⭐ 已被 `seq_arb` 取代）**：
         //      wire src_a_valid = (SOURCE_A_SEL == 1) ? demo_note_valid : w3a_evt_valid;
@@ -1985,6 +1989,8 @@ module top #(
         wire [31:0] sa_inc;
         wire [7:0]  sa_vel;
         wire [1:0]  sa_kind;
+        wire        sa_timbre_valid;
+        wire [1:0]  sa_timbre;
         wire [15:0] sa_collision_cnt;
         wire [15:0] sa_merged_cnt;
         wire [15:0] sa_drop_cnt;
@@ -2008,24 +2014,32 @@ module top #(
             .live_phase_inc_i (w3a_evt_inc),
             .live_velocity_i  (w3a_evt_vel),
             .live_kind_i      (w3a_evt_kind),
+            .live_timbre_valid_i(1'b0),
+            .live_timbre_i    (2'd0),
             // ── 源 2：曲谱（⭐ `evt_uart_rx` —— 🔴 本次【首次】接通）────────
             .score_valid_i    (eu_evt_valid),
             .score_axis_i     (score_evt_axis),
             .score_phase_inc_i(score_evt_inc),
             .score_velocity_i (score_evt_vel),
             .score_kind_i     (score_evt_kind),
+            .score_timbre_valid_i(score_evt_timbre_valid),
+            .score_timbre_i   (score_evt_timbre),
             // ── 源 3：演示（⭐ 自检和弦）—— ⚠️ 自动让位 ───────────────────
             .demo_valid_i     (demo_note_valid),
             .demo_axis_i      (demo_note_axis),
             .demo_phase_inc_i (demo_note_inc),
             .demo_velocity_i  (demo_note_vel),
             .demo_kind_i      (demo_note_kind),
+            .demo_timbre_valid_i(1'b0),
+            .demo_timbre_i    (2'd0),
             // ── 仲裁出口 → `evt_merge` 源 A ────────────────────────────────
             .evt_valid_o      (sa_valid),
             .evt_axis_o       (sa_axis),
             .evt_phase_inc_o  (sa_inc),
             .evt_velocity_o   (sa_vel),
             .evt_kind_o       (sa_kind),
+            .evt_timbre_valid_o(sa_timbre_valid),
+            .evt_timbre_o     (sa_timbre),
             // ── ⭐ 可观测性（`K-106`：⛔ 不许静默失效）──────────────────────
             .collision_cnt_o  (sa_collision_cnt),
             .merged_cnt_o     (sa_merged_cnt),
@@ -2043,6 +2057,8 @@ module top #(
         wire [31:0] src_a_inc   = (SOURCE_A_SEL == 1) ? demo_note_inc   : sa_inc;
         wire [7:0]  src_a_vel   = (SOURCE_A_SEL == 1) ? demo_note_vel   : sa_vel;
         wire [1:0]  src_a_kind  = (SOURCE_A_SEL == 1) ? demo_note_kind  : sa_kind;
+        wire        src_a_timbre_valid = (SOURCE_A_SEL == 1) ? 1'b0 : sa_timbre_valid;
+        wire [1:0]  src_a_timbre = (SOURCE_A_SEL == 1) ? 2'd0 : sa_timbre;
 
         // ⭐⭐ 源 B 二选一（⭐ 节拍器 / 鼓机，⭐ `SEL_DRUM`，⭐ 默认节拍器）
         //   📌 用 `generate`+`localparam` 做**编译期选择** ⇒ ⚠️ 综合会把没选中的那路
@@ -2062,6 +2078,8 @@ module top #(
         wire [31:0] src_b_inc   = sel_drum ? drm_evt_inc   : met_evt_inc;
         wire [7:0]  src_b_vel   = sel_drum ? drm_evt_vel   : met_evt_vel;
         wire [1:0]  src_b_kind  = sel_drum ? drm_evt_kind  : met_evt_kind;
+        wire        src_b_timbre_valid = 1'b0;
+        wire [1:0]  src_b_timbre = 2'd0;
 
         // ⭐⭐ T36 / U-6：事件合流（手弹/曲谱 + 节拍器 → note_manager 的**唯一**事件口）
         //   🔴 **为什么必须加它**：`note_manager` 只有一个事件口，
@@ -2076,6 +2094,8 @@ module top #(
         wire [31:0] mg_evt_inc;
         wire [7:0]  mg_evt_vel;
         wire [1:0]  mg_evt_kind;
+        wire        mg_evt_timbre_valid;
+        wire [1:0]  mg_evt_timbre;
         wire [15:0] mg_collision_cnt;
         wire [15:0] mg_merged_cnt;
         wire [15:0] mg_drop_cnt;
@@ -2098,6 +2118,8 @@ module top #(
             .a_phase_inc_i    (src_a_inc),
             .a_velocity_i     (src_a_vel),
             .a_kind_i         (src_a_kind),
+            .a_timbre_valid_i (src_a_timbre_valid),
+            .a_timbre_i       (src_a_timbre),
             // ── ⭐⭐ 源 B：**节拍器 / 鼓机 二选一**（⭐ `SEL_DRUM`，⭐ 默认节拍器）──
             //   📌 两路都例化，⭐ 这里选谁进 `evt_merge`（⭐ 见上方 §源 B 二选一）
             .b_valid_i        (src_b_valid),
@@ -2105,12 +2127,16 @@ module top #(
             .b_phase_inc_i    (src_b_inc),
             .b_velocity_i     (src_b_vel),
             .b_kind_i         (src_b_kind),
+            .b_timbre_valid_i (src_b_timbre_valid),
+            .b_timbre_i       (src_b_timbre),
             // ── 合流输出 → `note_manager` ────────────────────────────────
             .evt_valid_o      (mg_evt_valid),
             .evt_axis_o       (mg_evt_axis),
             .evt_phase_inc_o  (mg_evt_inc),
             .evt_velocity_o   (mg_evt_vel),
             .evt_kind_o       (mg_evt_kind),
+            .evt_timbre_valid_o(mg_evt_timbre_valid),
+            .evt_timbre_o     (mg_evt_timbre),
             // ── 可观测性（⚠️ 未引到引脚，但综合时**不要**被优化掉：
             //    它们驱动的是寄存器 → 会保留；⭐ 上板可用调试核读）──────────
             .collision_cnt_o  (mg_collision_cnt),
@@ -2166,8 +2192,8 @@ module top #(
             .pitch_upd_axis_i  (pe_pitch_ax),
             .pitch_upd_value_i (pe_pitch),
             .default_timbre_i  (2'd0),
-            .evt_timbre_valid_i(1'b0),
-            .evt_timbre_i      (2'd0),
+            .evt_timbre_valid_i(mg_evt_timbre_valid),
+            .evt_timbre_i      (mg_evt_timbre),
             .env_active_i      (env_active),
             .env_level_i       (env_level),
             .voice_gate_o      (nm_gate),
@@ -2225,7 +2251,8 @@ module top #(
             .sample_tick_i      (tick_audio),
             .voice_active_i     (nm_active),
             .base_phase_inc_i   (nm_phase),
-            .timbre_id_i        (2'd0),
+            .voice_timbre_i     (nm_timbre),
+            .voice_velocity_i   (nm_vel),
             .vibrato_mod_i      (vibrato_mod),
             .test_mode_i        (tm_enable_r),
             .test_lane_active_i (tm_lane_active),

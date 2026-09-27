@@ -1,5 +1,9 @@
 `timescale 1ns/1ps
 
+/* T31b embeds the four generated tables in wavetable_bank, replacing the
+ * retired single-sine pROM branch documented below. */
+/*
+
 // T48 · wavetable_bank 的 pROM（综合）分支自检 tb。
 //
 // ⭐ 为什么需要这个独立的 tb：
@@ -154,5 +158,65 @@ module tb_wavetable_bank_prom;
     initial begin
         #100000;
         $fatal(1, "FAIL: tb_wavetable_bank_prom timeout");
+    end
+endmodule
+*/
+
+// Build without WAVETABLE_BEHAVIORAL as a synthesis-style regression.  T31b
+// has no external pROM/IP dependency: the generated ROM constants are shared
+// by simulation and the Gowin build.
+module tb_wavetable_bank_prom;
+    reg clk_i = 1'b0;
+    reg rst_n_i = 1'b0;
+    reg rd_en_i = 1'b0;
+    reg [1:0] timbre_i = 2'd0;
+    reg [9:0] addr_i = 10'd0;
+    wire signed [15:0] sample_soft_o;
+    wire signed [15:0] sample_hard_o;
+    wire valid_o;
+    integer errors = 0;
+
+    always #10 clk_i = ~clk_i;
+    wavetable_bank dut (
+        .clk_i(clk_i), .rst_n_i(rst_n_i), .rd_en_i(rd_en_i),
+        .timbre_i(timbre_i), .addr_i(addr_i),
+        .sample_soft_o(sample_soft_o), .sample_hard_o(sample_hard_o), .valid_o(valid_o)
+    );
+
+    task read_and_check;
+        input [1:0] t;
+        input [9:0] a;
+        input signed [15:0] want_soft;
+        input signed [15:0] want_hard;
+        begin
+            @(negedge clk_i);
+            timbre_i = t; addr_i = a; rd_en_i = 1'b1;
+            @(negedge clk_i);
+            if (valid_o !== 1'b1 || sample_soft_o !== want_soft || sample_hard_o !== want_hard) begin
+                $display("FAIL: [generated] t=%0d a=%0d expected %0d/%0d got v=%b %0d/%0d",
+                         t, a, want_soft, want_hard, valid_o, sample_soft_o, sample_hard_o);
+                errors = errors + 1;
+            end
+        end
+    endtask
+
+    initial begin
+        $dumpfile("build/sim/wavetable_prom/tb_wavetable_bank_prom.vcd");
+        $dumpvars(0, tb_wavetable_bank_prom);
+        repeat (3) @(negedge clk_i);
+        if (valid_o !== 1'b0 || sample_soft_o !== 16'sd0 || sample_hard_o !== 16'sd0)
+            $fatal(1, "FAIL: [generated] reset state is not zero");
+        rst_n_i = 1'b1;
+
+        read_and_check(2'd0, 10'd256, 16'sd16384, 16'sd32767);
+        read_and_check(2'd1, 10'd0,   16'sd0,    -16'sd32767);
+        read_and_check(2'd2, 10'd0,   16'sd0,     16'sd32766);
+        read_and_check(2'd3, 10'd0,   16'sd0,     16'sd0);
+
+        if (errors == 0)
+            $display("PASS: wavetable_bank generated-table build is deterministic");
+        else
+            $fatal(1, "FAIL: generated wavetable_bank found %0d error(s)", errors);
+        $finish;
     end
 endmodule
