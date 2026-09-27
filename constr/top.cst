@@ -61,6 +61,15 @@ IO_PORT "I2S2_LRCK" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
 IO_LOC  "I2S2_DIN"  D22;
 IO_PORT "I2S2_DIN"  IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
 
+//====== T15 · P4 右手拨弦比较器（LM393 双路开漏输出）======
+//   `TRIG_1` 的针序：`TRIG_UP / GND / TRIG_DN / GND`。
+//   板 A 已在两路输出各装 10 kΩ 到 3V3；越阈时输出释放为高，故 RTL 捕获上升沿。
+//   E21/D21 = PMOD1_IO6/IO7：已按本文件全部 IO_LOC 核对，未与外置 DAC 冲突。
+IO_LOC  "pluck_up_i"   E21;
+IO_PORT "pluck_up_i"   IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "pluck_down_i" D21;
+IO_PORT "pluck_down_i" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
 // ⭐⭐ 功放模式脚（🔴 **2026-09-22 换板后：脚 + 极性 + 电平 全变了**）。
 //
 //   🔴 **旧（`NEO Dock` / `NS4263`）**：`PA_EN_n = AB16`，**低有效**，
