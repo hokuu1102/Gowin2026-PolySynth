@@ -434,7 +434,16 @@ module top #(
     uart_ui #(
         .CLK_HZ   (50_000_000),
         .BAUD     (500_000),
-        .GAP_BYTES(16)
+        .GAP_BYTES(16),
+        //   ⭐⭐ **2026-09-27：⭐ 上电默认模式 = 钢琴（⭐ 交付/烧录用）**
+        //      · `1` ⇒ ⭐ **轴事件直接发声，⛔ 不需要拨弦** ⇒ ⭐ **上电即弹即响**
+        //      · 两种模式都保留 ⇒ ⭐ 串口屏仍可随时切到指板（⭐ 只改上电初值）
+        //      📌 链路：⭐ `play_fretboard_mode = ~ui_mode_piano`
+        //         ⇒ ⭐ 钢琴时 `= 0` ⇒ `play_mode_ctrl` 走 `if (!fretboard_mode_i)`
+        //         ⇒ ⭐ 轴事件直接产生 `evt_valid_o` ✅
+        //      🔴 **为什么必须改**：⭐ 原来硬编码默认指板 ⇒ ⚠️ 上板**按了没声音**
+        //         （⭐ 指板模式要等 P4 的 LM393 拨弦比较器，⭐ 不接就永远不触发）
+        .MODE_PIANO_DEFAULT(1)
     ) u_uart_ui (
         .clk_i         (clk),
         .rst_n_i       (rst_n_sync),

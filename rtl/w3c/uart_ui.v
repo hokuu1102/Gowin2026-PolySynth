@@ -49,7 +49,18 @@ module uart_ui #(
     //   1 Mbps = 1000000（默认，对齐 uart_rx 的 BAUD_DIV=50）
     parameter integer BAUD = 1000000,
     // ⭐ 空闲归位阈值（单位：字节时间）。> 1，取 16（对齐 evt_uart_rx 的 GAP_BYTES）
-    parameter integer GAP_BYTES = 16
+    parameter integer GAP_BYTES = 16,
+    // ⭐⭐ **2026-09-27 新增：⭐ 上电默认模式**
+    //   · 0 => ⭐ **指板模式**（轴事件只"选音"，⭐ 必须拨弦才发声）
+    //   · 1 => ⭐ **钢琴模式**（轴事件直接发声，**⛔ 不需要拨弦**）
+    //
+    //   ⭐ **为什么加这个参数**：⭐ 用户上板发现"按下没声音" ——
+    //      🔴 因为原来**硬编码默认指板**，而指板模式要等 **P4 的 LM393 拨弦比较器**
+    //         ⇒ ⚠️ **不接那个硬件就完全没声音**（⭐ 上板实测踩到）。
+    //   ⭐ **交付/烧录取值：1（钢琴）** —— ⭐ 上电即弹即响，⛔ 不依赖外接拨弦板。
+    //   📌 **两种模式都保留** —— 串口屏触摸控件仍可**随时切换**（⭐ `mode_o <= ~mode_o`），
+    //      ⚠️ 本参数只决定**上电初值**，⛔ 不锁死。
+    parameter integer MODE_PIANO_DEFAULT = 1
 ) (
     input  wire        clk_i,
     input  wire        rst_n_i,            // ⭐ 同步复位、低有效（约定 2）
@@ -147,7 +158,11 @@ module uart_ui #(
             body_len     <= 6'd0;
             body_q       <= 7'd0;
             val_q        <= 8'd0;
-            mode_o       <= 1'b0;          // ⭐ 默认指板
+            //   ⭐⭐ **2026-09-27：⭐ 上电默认模式改为【可配置】**
+            //      🔴 原来硬编码 `1'b0`（指板）⇒ ⚠️ 不接拨弦板就没声音
+            //      ⭐ 现在由 `MODE_PIANO_DEFAULT` 决定（⭐ 默认 1 = 钢琴）
+            //      📌 `mode_o` 语义：⭐ **0 = 指板 · 1 = 钢琴**（⭐ 见端口注释）
+            mode_o       <= (MODE_PIANO_DEFAULT != 0) ? 1'b1 : 1'b0;
             base_semi_o  <= 7'd0;          // ⭐ 默认 C4
             mode_commit_o<= 1'b0;
             base_commit_o<= 1'b0;
