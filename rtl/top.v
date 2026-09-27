@@ -426,6 +426,8 @@ module top #(
     wire        ui_mode_commit, ui_base_commit;
     wire        ui_fx_en;
     wire [1:0]  ui_fx_sel;
+    wire        ui_test_mode, ui_test_mode_commit;
+    wire [1:0]  ui_test_mode_n;
     wire [15:0] ui_frame_cnt, ui_resync_cnt, ui_err_cnt;
     wire        ui_hb_ready;
     wire        ui_tx_start;
@@ -459,6 +461,9 @@ module top #(
         .base_commit_o (ui_base_commit),
         .fx_en_o       (ui_fx_en),
         .fx_sel_o      (ui_fx_sel),
+        .test_mode_o   (ui_test_mode),
+        .test_mode_n_o (ui_test_mode_n),
+        .test_mode_commit_o(ui_test_mode_commit),
         .frame_cnt_o   (ui_frame_cnt),
         .resync_cnt_o  (ui_resync_cnt),
         .err_cnt_o     (ui_err_cnt),
@@ -696,9 +701,13 @@ module top #(
         wire [POLY_TARGET*16-1:0]      env_level;
         wire [POLY_TARGET-1:0]         env_active;
 
-        // ── ⭐ T43：实体 Test Mode（板载 USB-C UART 的 'M' 命令）─────────
+        // ── ⭐ T43：实体 Test Mode（板载 USB-C UART 的 'M' 命令 + 串口屏触摸）─
         //   顺序：关 → 4 → 8 → 16 → 32 → 关。状态放在顶层而不是
         //   `calib_cmd`，确保串口控制的状态与实际音频链使用的是同一个寄存器。
+        //   ⭐ 2026-09-27 丙：串口屏触摸控件 2（`ui_test_mode_commit`）与
+        //      'M' 命令（`cmd_test_mode_req`）**并联**，两个入口驱动同一状态机。
+        //      ⚠️ `ui_test_mode`/`ui_test_mode_n` 仅作可观测镜像（⛔ 非权威），
+        //         权威状态是本 `tm_enable_r`/`tm_n_code_r`（接 `test_mode_ctrl`）。
         reg                              tm_enable_r;
         reg [1:0]                        tm_n_code_r;
         wire [POLY_TARGET-1:0]           tm_gate;
@@ -711,7 +720,7 @@ module top #(
             if (!rst_n_sync) begin
                 tm_enable_r <= 1'b0;
                 tm_n_code_r <= 2'b00;
-            end else if (cmd_test_mode_req) begin
+            end else if (cmd_test_mode_req || ui_test_mode_commit) begin
                 if (!tm_enable_r) begin
                     tm_enable_r <= 1'b1;
                     tm_n_code_r <= 2'b00;  // 4 voices

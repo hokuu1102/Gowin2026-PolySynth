@@ -81,6 +81,14 @@ module uart_ui #(
     output reg         mode_commit_o,      // ⭐ 模式切换提交（单周期脉冲）
     output reg         base_commit_o,      // ⭐ 起始音提交（单周期脉冲）
 
+    // ── ⭐ A1 Test Mode 的「UI 开关」（⭐ 丙 · 2026-09-27）──────────────
+    //   ⭐ 触摸控件 2 = Test Mode 切档：关 → 4 → 8 → 16 → 32 → 关
+    //   📌 分档语义与乙的 `test_mode_ctrl.n_code_i` 一致（00=4 / 01=8 / 10=16 / 11=32）。
+    //      top.v 里与调试串口的 'M' 命令**并联**（或），两种入口都能切档。
+    output reg         test_mode_o,        // ⭐ Test Mode 使能（1 = 进入）
+    output reg  [1:0]  test_mode_n_o,      // ⭐ 分档（00/01/10/11 = 4/8/16/32）
+    output reg         test_mode_commit_o, // ⭐ 切档提交（单周期脉冲）
+
     // ── ⭐ 效果器「留位」（§四：只定义接口，⛔ 不实现本体）────────────────
     output reg         fx_en_o,            // ⭐ 效果器使能（留位，恒 0）
     output reg  [1:0]  fx_sel_o,           // ⭐ 效果器选择（留位，恒 0）
@@ -166,6 +174,9 @@ module uart_ui #(
             base_semi_o  <= 7'd0;          // ⭐ 默认 C4
             mode_commit_o<= 1'b0;
             base_commit_o<= 1'b0;
+            test_mode_o  <= 1'b0;          // ⭐ A1：上电默认关（⛔ 不打扰正常演奏）
+            test_mode_n_o<= 2'b00;         // ⭐ 关后首档 = 4 voices
+            test_mode_commit_o <= 1'b0;
             fx_en_o      <= 1'b0;          // ⭐ 留位，恒 0
             fx_sel_o     <= 2'd0;          // ⭐ 留位，恒 0
             frame_cnt_o  <= 16'd0;
@@ -178,6 +189,7 @@ module uart_ui #(
             // ⭐ 默认：脉冲类输出每拍清零 ⇒ 严格单周期
             mode_commit_o <= 1'b0;
             base_commit_o <= 1'b0;
+            test_mode_commit_o <= 1'b0;
             tx_start_o    <= 1'b0;
 
             if (rx_done_i) begin
@@ -215,10 +227,23 @@ module uart_ui #(
                                 case (retcode)
                                     RET_TOUCH: begin
                                         // ⭐ 触摸事件：body_q = 控件 ID
-                                        //   ⭐ 约定（见 tb）：控件 0 = 模式切换，控件 1 = 起始音
+                                        //   ⭐ 约定（见 tb）：控件 0 = 模式切换，控件 1 = 起始音，
+                                        //      控件 2 = Test Mode 切档（⭐ A1）
                                         if (body_q == 7'd0) begin
                                             mode_o        <= ~mode_o;    // ⭐ 翻转
                                             mode_commit_o <= 1'b1;
+                                        end else if (body_q == 7'd2) begin
+                                            // ⭐ A1：关 → 4 → 8 → 16 → 32 → 关
+                                            if (!test_mode_o) begin
+                                                test_mode_o  <= 1'b1;
+                                                test_mode_n_o<= 2'b00;  // 4 voices
+                                            end else if (test_mode_n_o == 2'b11) begin
+                                                test_mode_o  <= 1'b0;   // 32 → 关
+                                                test_mode_n_o<= 2'b00;
+                                            end else begin
+                                                test_mode_n_o <= test_mode_n_o + 2'b01;
+                                            end
+                                            test_mode_commit_o <= 1'b1;
                                         end
                                     end
                                     RET_NUM: begin

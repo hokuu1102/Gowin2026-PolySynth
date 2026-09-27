@@ -43,6 +43,9 @@ module tb_uart_ui;
     wire        base_commit;
     wire        fx_en;
     wire [1:0]  fx_sel;
+    wire        test_mode;
+    wire [1:0]  test_mode_n;
+    wire        test_mode_commit;
     wire [15:0] frame_cnt;
     wire [15:0] resync_cnt;
     wire [15:0] err_cnt;
@@ -66,7 +69,8 @@ module tb_uart_ui;
     uart_ui #(
         .CLK_HZ   (CLK_HZ),
         .BAUD     (BAUD),
-        .GAP_BYTES(16)
+        .GAP_BYTES(16),
+        .MODE_PIANO_DEFAULT(0)   // ⭐ tb 沿用「指板默认」语义（reset 检查 mode==0）
     ) dut (
         .clk_i        (clk),
         .rst_n_i      (rst_n),
@@ -82,6 +86,9 @@ module tb_uart_ui;
         .base_commit_o(base_commit),
         .fx_en_o      (fx_en),
         .fx_sel_o     (fx_sel),
+        .test_mode_o  (test_mode),
+        .test_mode_n_o(test_mode_n),
+        .test_mode_commit_o(test_mode_commit),
         .frame_cnt_o  (frame_cnt),
         .resync_cnt_o (resync_cnt),
         .err_cnt_o    (err_cnt),
@@ -162,6 +169,7 @@ module tb_uart_ui;
         chk("reset: hb_ready=0", hb_ready === 1'b0);
         chk("reset: 无 commit 脉冲", mode_commit === 1'b0 && base_commit === 1'b0);
         chk("reset: 效果器留位恒 0", fx_en === 1'b0 && fx_sel === 2'd0);
+        chk("reset: test_mode 默认关", test_mode === 1'b0 && test_mode_n === 2'd0);
 
         // ═══════════════════════════════════════════════════════════════════
         // ② 握手帧：0x88 + FF FF FF → hb_ready 置位
@@ -196,6 +204,32 @@ module tb_uart_ui;
         chk("base_commit 单周期脉冲", base_commit === 1'b1);
         @(negedge clk);
         chk("base_commit 仅 1 拍", base_commit === 1'b0);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ④b A1 Test Mode 切档：触摸控件 2 → 关→4→8→16→32→关 循环
+        // ═══════════════════════════════════════════════════════════════════
+        //   控件 2 = Test Mode 切档（A1 UI 开关）
+        feed_frame(8'h65, 8'h02, 8'h00);
+        chk("控件2 第1次 -> test_mode=1, n=00(4)", test_mode === 1'b1 && test_mode_n === 2'b00);
+        chk("test_mode_commit 单周期脉冲", test_mode_commit === 1'b1);
+        @(negedge clk);
+        chk("test_mode_commit 仅 1 拍", test_mode_commit === 1'b0);
+
+        feed_frame(8'h65, 8'h02, 8'h00);
+        @(negedge clk);
+        chk("控件2 第2次 -> n=01(8)", test_mode === 1'b1 && test_mode_n === 2'b01);
+
+        feed_frame(8'h65, 8'h02, 8'h00);
+        @(negedge clk);
+        chk("控件2 第3次 -> n=10(16)", test_mode === 1'b1 && test_mode_n === 2'b10);
+
+        feed_frame(8'h65, 8'h02, 8'h00);
+        @(negedge clk);
+        chk("控件2 第4次 -> n=11(32)", test_mode === 1'b1 && test_mode_n === 2'b11);
+
+        feed_frame(8'h65, 8'h02, 8'h00);
+        @(negedge clk);
+        chk("控件2 第5次 -> 32 回到关", test_mode === 1'b0 && test_mode_n === 2'b00);
 
         // ═══════════════════════════════════════════════════════════════════
         // ⑤ 结束符严格三连：两连 FF 不结束帧
@@ -235,7 +269,7 @@ module tb_uart_ui;
         // 汇总
         // ═══════════════════════════════════════════════════════════════════
         if (errors == 0) begin
-            $display("PASS: tb_uart_ui (%0d checks)", 20);
+            $display("PASS: tb_uart_ui (%0d checks)", 28);
         end else begin
             $display("FAIL: tb_uart_ui errors=%0d", errors);
         end

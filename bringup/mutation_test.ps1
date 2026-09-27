@@ -469,7 +469,11 @@ $mutations = @(
   @{ id = "M128"; file = "rtl\w3c\uart_ui.v"; find = "mode_o        <= ~mode_o;"; repl = "mode_o        <= 1'b0;"; why = "uart_ui: mode no longer toggles -> touch mode-switch silently dead. Must be caught." },
   @{ id = "M129"; file = "rtl\w3c\uart_ui.v"; find = "if (tail_cnt == 3'd2) begin"; repl = "if (tail_cnt == 3'd1) begin"; why = "uart_ui: frame ends on two 0xFF instead of three -> premature end of frame. Must be caught." },
   @{ id = "M130"; file = "rtl\w3c\uart_ui.v"; find = "base_semi_o  <= {1'b0, val_q[7:1]};"; repl = "base_semi_o  <= {1'b0, val_q[6:0]};"; why = "uart_ui: base-semi octave-rounding removed -> arbitrary semitone offset accepted. Must be caught." },
-  @{ id = "M131"; file = "rtl\w3c\uart_ui.v"; find = "if (rx_data_i == RET_BOOT) begin"; repl = "if (1'b0) begin"; why = "uart_ui: boot handshake dropped -> hb_ready never asserts. Must be caught." }
+  @{ id = "M131"; file = "rtl\w3c\uart_ui.v"; find = "if (rx_data_i == RET_BOOT) begin"; repl = "if (1'b0) begin"; why = "uart_ui: boot handshake dropped -> hb_ready never asserts. Must be caught." },
+  # ---- uart_ui test_mode switch (2026-09-27, c): A1 UI switch via touch control 2. M132~M134.
+  @{ id = "M132"; file = "rtl\w3c\uart_ui.v"; find = "if (!test_mode_o) begin"; repl = "if (1'b0) begin"; why = "uart_ui: test-mode never enters -> judge cannot start test mode from screen. Must be caught." },
+  @{ id = "M133"; file = "rtl\w3c\uart_ui.v"; find = "test_mode_n_o <= test_mode_n_o + 2'b01;"; repl = "test_mode_n_o <= test_mode_n_o;"; why = "uart_ui: test-mode n-code never advances -> stuck at 4 voices, cannot switch 8/16/32. Must be caught." },
+  @{ id = "M134"; file = "rtl\w3c\uart_ui.v"; find = "end else if (test_mode_n_o == 2'b11) begin"; repl = "end else if (1'b0) begin"; why = "uart_ui: test-mode wrap-to-off removed -> stuck at 32 voices forever. Must be caught." }
 
 )
 
