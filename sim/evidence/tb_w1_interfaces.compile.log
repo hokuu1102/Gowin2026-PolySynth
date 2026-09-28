@@ -15,5 +15,5 @@ her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_w1_interfaces.sv:62: warning: Instantiating module envelope_bank with da
 ngling input port 6 (retrig_reset_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:402: warning: @* is sensitive to all 16 words in array 
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:487: warning: @* is sensitive to all 16 words in array 
 'pc_l1'.

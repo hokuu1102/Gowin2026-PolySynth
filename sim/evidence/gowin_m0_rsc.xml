@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Module name="top" Register="284" Alu="99" Lut="520" T_Register="9310(284)" T_Alu="3877(99)" T_Lut="18801(520)" T_MULTALU27X18="7(0)" T_MULT12X12="6(0)" T_MULT27X36="5(0)" T_Bsram="8(0)">
+<Module name="top" Register="284" Alu="99" Lut="520" T_Register="9310(284)" T_Alu="3911(99)" T_Lut="18801(520)" T_MULTALU27X18="7(0)" T_MULT12X12="6(0)" T_MULT27X36="5(0)" T_Bsram="8(0)">
  <SubModule name="u_rst_sync" Register="2" T_Register="2(2)"/>
  <SubModule name="u_clk_gen" Register="13" Alu="9" Lut="9" T_Register="13(13)" T_Alu="9(9)" T_Lut="9(9)"/>
  <SubModule name="u_uart_rx" Register="33" Lut="63" T_Register="33(33)" T_Lut="63(63)"/>
@@ -67,7 +67,7 @@
  <SubModule name="g_sound.u_oscillator_bank" Register="3729" Alu="3062" Lut="3099" MULTALU27X18="1" T_Register="3729(3729)" T_Alu="3062(3062)" T_Lut="3099(3099)" T_MULTALU27X18="1(1)" T_Bsram="5(0)">
   <SubModule name="u_wavetable_bank" Bsram="5" T_Bsram="5(5)"/>
  </SubModule>
- <SubModule name="g_sound.u_tdm_render_mixer" Register="43" Alu="219" Lut="1495" MULTALU27X18="3" MULT27X36="5" Bsram="1" T_Register="43(43)" T_Alu="219(219)" T_Lut="1495(1495)" T_MULTALU27X18="3(3)" T_MULT27X36="5(5)" T_Bsram="1(1)"/>
+ <SubModule name="g_sound.u_tdm_render_mixer" Register="43" Alu="253" Lut="1495" MULTALU27X18="3" MULT27X36="5" Bsram="1" T_Register="43(43)" T_Alu="253(253)" T_Lut="1495(1495)" T_MULTALU27X18="3(3)" T_MULT27X36="5(5)" T_Bsram="1(1)"/>
  <SubModule name="g_sound.u_master_mix" Register="10" Lut="41" MULTALU27X18="1" T_Register="10(10)" T_Lut="41(41)" T_MULTALU27X18="1(1)"/>
  <SubModule name="u_i2s_tx" Register="24" Lut="19" T_Register="24(24)" T_Lut="19(19)"/>
  <SubModule name="u_i2s_tx_ext" Register="6" Lut="19" T_Register="6(6)" T_Lut="19(19)"/>

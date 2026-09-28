@@ -24,6 +24,22 @@
 //
 // ⚠️ **判据名必须纯 ASCII**（`chk()` 走位向量→字符串通路，见 `tb_vel_pos_follow.sv` 的说明）
 // ⚠️ **语法纪律**：Verilog-2001，⛔ 不用 SV 专有构造（`K-91`）
+//
+// ⭐⭐ **非空洞性（`C21`/`C83`：判据必须能失败）—— 2026-09-28 实测，3 个定点变异**
+//
+//   | 变异 | 预期 FAIL | 实测 |
+//   |---|---|---|
+//   | `VEL_DEADZONE` 16 → 15 | T3 | ✅ **T3 FAIL** |
+//   | `VEL_TRIG_TH` 64 → 63 | T5 | ✅ **T5 FAIL** |
+//   | `vu_axis_r <= vu_ax_r + 1` | T2c / T8 | ✅ **T2c / T8 FAIL** |
+//
+//   🔴🔴 **第 3 个变异第一次跑时【全过】—— 抓出了本 tb 自己的空洞判据**：
+//      ⚠️ 我原先把"轴号对齐"检查放在 `tick1` 的【第三个】negedge，
+//         而那时 `vu_valid_r` 已被下一个 posedge 清 0
+//         ⇒ `if (vu_vld && ...)` **永不成立** ⇒ ⭐ **判据是空洞的**。
+//      ✅ 修法：把检查移到 **`force tick_audio=0` 之后的第一个 negedge**
+//         （⭐ 那一刻 `vu_valid_r` 仍为高、`vu_axis_r` 仍是本 tick 锁存的轴）。
+//      📌 **教训**：⭐ **"判据全绿"必须先证明它【能红】** —— 否则它可能只是没被执行过。
 // ─────────────────────────────────────────────────────────────────────────────
 `timescale 1ns/1ps
 
@@ -172,14 +188,20 @@ module tb_vel_top_stream;
     task tick1;
         integer ax_before;
         begin
-            ax_before = vu_ax;                      // ⭐ 本 tick 要扫的轴
+            ax_before = vu_ax;                      // ⭐ 本 tick 要扫的轴（posedge P 之前的值）
             @(negedge clk); force u_top.tick_audio = 1'b1;
             @(negedge clk); force u_top.tick_audio = 1'b0;
-            @(negedge clk);
+            //  ⭐⭐ **必须在这里检查**（P 之后的第一个 negedge）：
+            //     · `vu_valid_r` ⭐ **仍为高**（它在 P 置起，要到【下一个】 posedge 才清）
+            //     · `vu_axis_r`  = `ax_before`（与 valid 同拍锁存）
+            //     · `vu_ax_r`    = `ax_before + 1`（P 已经 +1）
+            //  🔴 **踩过的坑**：原先把这两个检查放在【第三个】 negedge ——
+            //     那时 `vu_valid_r` 已被清 0 ⇒ `if (vu_vld && ...)` **永不成立**
+            //     ⇒ ⭐ **轴号判据是【空洞】的**（变异 `vu_axis_r <= vu_ax_r + 1` 竟然全过）。
+            //      📌 这就是"非空洞性测试"的价值（`C83` 探针假绿）。
             if (vu_ax !== ((ax_before + 1) % 8)) rot_bad = rot_bad + 1;
-            //  ⭐ 若这一 tick 产生了包，则 `vu_axis_r` 必须等于**本 tick 扫的轴**
-            //     （RTL 里 `vu_axis_r <= {1'b0, vu_ax_r}` 与 `vu_valid_r <= 1'b1` 同拍）
             if (vu_vld && (vu_axis !== ax_before)) axis_bad = axis_bad + 1;
+            @(negedge clk);
         end
     endtask
 

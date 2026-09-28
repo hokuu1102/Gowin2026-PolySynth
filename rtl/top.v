@@ -141,6 +141,18 @@ module top #(
     //      ⇒ ⭐ **必须能 A/B 对比才知道**（⭐ 主观听感⛔ 不能靠推理）。
     //   📌 **透传给 `oscillator_bank.DETUNE_ON`**（⭐ 见下方例化）。
     parameter integer DETUNE_ON         = 1,
+    // ⭐⭐ **2026-09-28 新增：⭐ 失谐深度 `DETUNE_SH`**（⭐ `Minimal-A` 的第 ① 项）
+    //   ⭐ 语义：⭐ 第二个 osc 的增量 = `base_inc + (base_inc >> DETUNE_SH)`
+    //      ⇒ ⭐ **越大 ⇒ 偏移越小 ⇒ 两 lane 的拍【越慢】**（`T ≈ 2^DETUNE_SH / f`）
+    //   ⭐ **改 8 → 9**：⭐ 拍周期 `T = 256/f` → **`512/f`**
+    //      ⇒ ⭐ 当前音域 **1.85 ~ 4.65 s**（原 0.92 ~ 2.33 s）
+    //      ⇒ ⭐ **3 秒的音符里不到一个完整周期** ⇒ 起伏不再是"一鼓一鼓"
+    //   ⚠️ **必须与 lane 加权【一起做】**（⭐ 见 `tdm_render_mixer` 的 `LANE_W0/W1`）：
+    //      · ⭐ 只变慢不变量 ⇒ 拍谷仍是 **−∞ dB**（声音仍会周期性**消失**）
+    //      · ⭐ 只变浅不变慢 ⇒ 起伏仍在，只是幅度小些
+    //   📌 **透传给 `oscillator_bank.DETUNE_SH`**（⭐ 见下方例化；⭐ 命名参数覆盖是合法用法 ⇒ 队友文件一字不改）
+    //   📌 依据：`files/20-代码/失谐拍频与长音起伏-方案分析-20260928.md` §15.1
+    parameter integer DETUNE_SH         = 9,
     // ⭐⭐ 鼓机的内置节奏型（⭐ 0~3，⭐ 见 `drum_gen.step_mask_of`）
     //   · 0 = 四拍基本型（Rock）· 1 = 八分摇滚 · 2 = 十六分放克 · 3 = 圆舞曲(3/4)
     parameter integer DRUM_PATTERN_ID   = 0,
@@ -1709,11 +1721,39 @@ module top #(
         //
         //   📌 **无新端口** —— `note_manager` 的 `vel_upd_*` 通路本来就是为此设计的。
         // ═══════════════════════════════════════════════════════════════════
-        localparam [11:0] VEL_TRIG_TH  = 12'd64;  // ⭐ 与 `event_extract.TRIG_TH` **同值**
-        localparam [11:0] VEL_DEADZONE = 12'd16;  // ⭐ 死区（码）
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ **2026-09-28 修「双源真相」：触发阈值只留【一份定义】**
+        //
+        //   🔴 **原缺陷**：`event_extract` 的 `.TRIG_TH(12'd64)`（下方例化处）与
+        //      这里的 `VEL_TRIG_TH = 12'd64` 是**两个各自独立的字面量**，
+        //      注释写着"与 event_extract.TRIG_TH 同值"—— ⚠️ 却**没有任何机制强制**。
+        //      ⇒ 🔴 将来只改一个 ⇒ **力度门控与触发窗口错位** ⇒
+        //         出现「按下了但力度不跟随」或「抬起后还在跟随」这类**诡异且难查**的现象。
+        //   ✅ **修法**：⭐ 只在这里定义一份，两处都**引用**它（⛔ 不再另写数字）。
+        //   📌 两者同属 `g_sound` 块 ⇒ 作用域允许这样引用。
+        // ═══════════════════════════════════════════════════════════════════
+        localparam [11:0] EVT_TRIG_TH = 12'd64;   // ⭐ 唯一定义（= `event_extract.TRIG_TH`）
+        localparam [11:0] EVT_REL_TH  = 12'd32;   // ⭐ 唯一定义（= `event_extract.REL_TH`）
 
-        reg  [2:0]  vu_ax_r;              // ⭐ 本拍要扫的轴（0→7 轮转）
-        reg  [11:0] vu_last [0:7];        // ⭐ 上次**发出**的 pos（死区判据）⇒ 8×12 = 96 FF
+        localparam [11:0] VEL_TRIG_TH  = EVT_TRIG_TH;  // ⭐ **派生**，⛔ 不另写数字
+        localparam [11:0] VEL_DEADZONE = 12'd16;       // ⭐ 死区（码）
+
+        // ⭐⭐ **本块只扫【前 `VEL_AXIS_N` 个轴】**（⭐ 已知限制，⛔ 不是 bug）
+        //   ⚠️ **为什么是 8**：⭐ 当前硬件 = **一块 8 轴左手板**（轴 0~7）；
+        //      轴 8~15 的第二片 ADC 未接（⭐ 上电 `'N'` 实测恒 0）。
+        //   🔴 **扩到 16 轴时会发生什么（必须知道）**：
+        //      轴 8~15 会变成「**起音有位置式力度、跟随却完全不动**」——
+        //      因为 `w3a_evt_vel` 用的是任意轴的 `am_pos_in`（起音通路**不受**本块限制），
+        //      而本块只扫 0~7 ⇒ ⭐ **半残且静默**（同族 `K-56`：全绿不证明任何事）。
+        //   ✅ **真要扩到 16 轴时改三处**：
+        //      ① `VEL_AXIS_N` 8 → 16   ② `VEL_AX_W` 3 → 4
+        //      ③ ⚠️ **并重新评估时序**（`vu_last` 多 96 FF + 选择逻辑变大）
+        //   📌 本块末尾的 `initial` 守卫会在仿真启动时**明确警告**轴数不匹配。
+        localparam integer VEL_AXIS_N = 8;   // ⭐ 本块扫的轴数（= 当前硬件的轴数）
+        localparam integer VEL_AX_W   = 3;   // ⭐ = $clog2(VEL_AXIS_N)
+
+        reg  [VEL_AX_W-1:0] vu_ax_r;              // ⭐ 本拍要扫的轴（0→7 轮转）
+        reg  [11:0] vu_last [0:VEL_AXIS_N-1];     // ⭐ 上次**发出**的 pos（死区判据）⇒ 8×12 = 96 FF
         reg         vu_valid_r;           // ⭐ 1 拍脉冲（见上方纪律）
         reg  [3:0]  vu_axis_r;            // ⭐ 轴号（4 位 —— 与 `note_manager` 接口一致）
         reg  [7:0]  vu_val_r;             // ⭐ 力度
@@ -1733,25 +1773,42 @@ module top #(
                 vu_valid_r <= 1'b0;
                 vu_axis_r  <= 4'd0;
                 vu_val_r   <= 8'd0;
-                for (vui = 0; vui < 8; vui = vui + 1)
+                for (vui = 0; vui < VEL_AXIS_N; vui = vui + 1)
                     vu_last[vui] <= 12'd0;
             end else begin
                 // ⭐ 默认清 0 ⇒ 下面置 1 时**恰好是 1 拍脉冲**
                 vu_valid_r <= 1'b0;
                 if (tick_audio) begin
-                    // ⭐ 3 位计数器**自然回绕** ⇒ 0→1→…→7→0，⭐ 就是"8 轴轮转"
-                    vu_ax_r <= vu_ax_r + 3'd1;
+                    // ⭐ 计数器**自然回绕** ⇒ 0→1→…→7→0，⭐ 就是"8 轴轮转"
+                    //   📌 用 `+ 1'b1`（⛔ 不写死 `3'd1`）⇒ ⭐ 改 `VEL_AX_W` 时不用跟着改
+                    vu_ax_r <= vu_ax_r + 1'b1;
                     //   ⭐⭐ 两个条件缺一不可：
                     //      · `vu_pos > VEL_TRIG_TH` ⇒ "**按下中**"（⭐ 抬起后自动失效）
                     //      · `vu_far`               ⇒ 变化超过死区（⭐ 防抖动/台阶声）
                     if ((vu_pos > VEL_TRIG_TH) && vu_far) begin
                         vu_valid_r       <= 1'b1;
-                        vu_axis_r        <= {1'b0, vu_ax_r};
+                        vu_axis_r        <= vu_ax_r;   // ⭐ 隐式零扩展到 4 位（⛔ 不写死位宽）
                         vu_val_r         <= vu_vel;
                         vu_last[vu_ax_r] <= vu_pos;
                     end
                 end
             end
+        end
+
+        // ⭐⭐ 参数守卫（与各模块的 `PARAM_OK` 同一套路）
+        //   🔴 **为什么必须有**：本块只扫 `VEL_AXIS_N` 个轴，而系统的真实轴数由
+        //      `event_extract` / `axis_snapshot` 的 `AXIS_N` 决定。
+        //      ⚠️ 两者**不一致时是【静默】的** —— 多出来的轴只有"起音力度"、⛔ 没有"跟随"
+        //      （⭐ 同族 `K-56`：全绿不证明任何事）。
+        //   ⇒ ⭐ 仿真启动时明确打印（⭐ 综合工具忽略 `initial` ⇒ 只是仿真侧防线）。
+        localparam integer SYS_AXIS_N = 16;   // ⚠️ 必须与 `event_extract`/`axis_snapshot` 的 `AXIS_N` 一致
+        initial begin
+            if (SYS_AXIS_N > VEL_AXIS_N)
+                $display("WARN [top] vu_* scans only %0d axes but the system has %0d => axes %0d..%0d get ATTACK velocity but NO follow (see the VEL_AXIS_N comment)",
+                         VEL_AXIS_N, SYS_AXIS_N, VEL_AXIS_N, SYS_AXIS_N-1);
+            if ((1 << VEL_AX_W) != VEL_AXIS_N)
+                $display("ERROR [top] VEL_AX_W=%0d does not match VEL_AXIS_N=%0d (must be $clog2)",
+                         VEL_AX_W, VEL_AXIS_N);
         end
 
         // ═══════════════════════════════════════════════════════════════════
@@ -1924,8 +1981,11 @@ module top #(
             //     · ⚠️ 风险：单次开机内若漂移 > 32 码 ⇒ 可能挂音（原值 80 码 ⇒ 容限缩到 40%）
             //  📌 **若将来启用 `span`**（行程归一化到 4095）⇒ ⭐ 这两个要**重算**：
             //     `TRIG = 0.086×4095 ≈ 352`、`REL = 0.043×4095 ≈ 176`。
-            .TRIG_TH   (12'd64),
-            .REL_TH    (12'd32),
+            //  ⭐⭐ 2026-09-28：⭐ 改为**引用唯一定义**（⛔ 不再另写 `12'd64`）
+            //     ⇒ ⭐ 与 `VEL_TRIG_TH` 由**同一个常量**派生 ⇒ 结构上不可能再错位。
+            //     定义处见上方 `EVT_TRIG_TH` / `EVT_REL_TH`。
+            .TRIG_TH   (EVT_TRIG_TH),
+            .REL_TH    (EVT_REL_TH),
             // ⚠️ Δ 阈值（滑音/双音用）：⭐ 目前保持默认 8
             //   （⭐ 依据：滑动时每帧行程变约 8 码 ⇒ 见设计草案 §2.2b）
             //   🔴 2026-09-25 更正 + **改值**（⭐ `K-128`）：
@@ -2567,7 +2627,13 @@ module top #(
             //         ⇒ ⭐ **用户主观听感需要能对比** ⇒ ⭐ 必须可切。
             //      ⭐ 默认 **1**（⭐ 开启，⭐ 与 `oscillator_bank` 的默认一致）。
             //      📌 关联：⭐ 若"太厚" ⇒ ⭐ 调 `oscillator_bank.DETUNE_SH`（⭐ 8→9/10 偏移更小）。
-            .DETUNE_ON     (DETUNE_ON)
+            .DETUNE_ON     (DETUNE_ON),
+            //   ⭐⭐ **2026-09-28 新增：⭐ 失谐深度透传**（⭐ `Minimal-A` 的第 ① 项）
+            //      ⭐ 默认 **9**（⭐ 原 `oscillator_bank` 内部默认是 8）
+            //      ⚠️ **代码实查**：⭐ 原来 `DETUNE_SH` **没有透传** ⇒ 从顶层调不了。
+            //      📌 **命名参数覆盖是合法用法** ⇒ ⭐ `oscillator_bank.v` **一字不改**
+            //         （⭐ 满足"只动不碰队友文件"的约束）。
+            .DETUNE_SH     (DETUNE_SH)
         ) u_oscillator_bank (
             .clk_i              (clk),
             .rst_n_i            (rst_n_sync),

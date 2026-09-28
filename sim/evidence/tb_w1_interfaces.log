@@ -1,4 +1,5 @@
-﻿PASS: W3b interfaces elaborate at 32x1 and Test Mode selects 32 voices
+﻿ERROR [tdm_render_mixer] LANE_W0/W1 = (16,0) but the shift/add identity implements (9,7) => THE PARAMETERS HAVE NO EFFECT, update the code (see the LANE_W0 comment)
+PASS: W3b interfaces elaborate at 32x1 and Test Mode selects 32 voices
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_w1_interfaces.sv:121: $finish called at 200000 (1ps)
 
 
