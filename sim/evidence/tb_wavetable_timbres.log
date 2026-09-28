@@ -1,4 +1,4 @@
 ﻿PASS: T31b four timbre wavetable public interface
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_wavetable_timbres.sv:79: $finish called at 180000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_wavetable_timbres.sv:108: $finish called at 260000 (1ps)
 
 

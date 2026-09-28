@@ -290,15 +290,15 @@ module tb_tdm_render_mixer;
         //         （同相/反相比值 = 1/8）**直接守住**；⛔ 本行只是量纲核对。
         //      ⚠️ **同相时（L0 = L1）电平【不变】** —— 因为 `w0 + w1 = 16 = 2^4`
         //         ⇒ ⭐ `gain = 88` 的标定前提**未被破坏**（⭐ 由 3b 的同相测量守着）。
-        chk("2-lane 1000/2000 @env 0x8000 => 126368 (weighted (9L0+7L1)>>4)",
-            s1 === 24'sd126368);
+        chk("2-lane 1000/2000 @env 0x8000 => 91904 (weighted (9L0+7L1)>>4, gain=64)",
+            s1 === 24'sd91904);
 
         set_env(0, 16'hFFFF);
         run_frame_get(cyc);
         $display("     [sv] 2-lane 1000/2000 @env0xFFFF => %0d", latched);
         //   ⭐ 派生值：旧 263824 ⇒ 新 252736（比值 0.958，同上）
-        chk("full env => 252736 (weighted lane sum, see the derivation above)",
-            latched === 24'sd252736);
+        chk("full env => 183808 (weighted lane sum, gain=64)",
+            latched === 24'sd183808);
 
         set_env(0, 16'h0000);
         run_frame_get(cyc);
@@ -353,8 +353,8 @@ module tb_tdm_render_mixer;
         //   🔴 **2026-09-28：⭐ 期望值随 lane 加权变化**（同上方推导）
         //      旧 264000 ⇒ 新 **253088**（比值 0.9586，与 `vs_c` 的 1437/1500 同源）
         $display("     [sv] neg 1000/2000 @env0xFFFF => %0d", s1);
-        chk("negative magnitude 253088 (weighted lane sum, arith-shift toward -inf)",
-            s1 >= -24'sd253264 && s1 <= -24'sd252928);
+        chk("negative magnitude 184064 (weighted lane sum, gain=64)",
+            s1 >= -24'sd184240 && s1 <= -24'sd183888);
 
         // ---- 4: multi-voice summing ----
         //   🔴🔴 **2026-09-26 修正：⭐ 归一化改变了多音的期望值**

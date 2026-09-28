@@ -27,6 +27,6 @@
   ok  : test_mode=1 overrides voice_active=0 (lane0 still advances)
   ok  : and a lane NOT selected stays frozen
 PASS: oscillator_bank acceptance (T55) - all judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_oscillator_bank.sv:402: $finish called at 78220000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_oscillator_bank.sv:402: $finish called at 78220000 (1ps)
 
 

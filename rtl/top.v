@@ -843,6 +843,7 @@ module top #(
         reg [31:0] demo_note_inc;
         reg [7:0]  demo_note_vel;
         reg [1:0]  demo_note_kind;
+        reg [1:0]  demo_timbre;  // 开机验收依次播放 BASS/GUITAR/PIANO/PAD
 
         envelope_bank #(
             .POLY_TARGET (POLY_TARGET),
@@ -858,6 +859,7 @@ module top #(
             .velocity_i    (tm_enable_r ? tm_vel  : nm_vel),
             //  ⭐ 重触发清零：Test Mode 不用（它自己控 gate），故只在普通通路生效。
             .retrig_reset_i(tm_enable_r ? {POLY_TARGET{1'b0}} : nm_retrig_reset),
+            .timbre_i      (nm_timbre),
             .env_level_o   (env_level),
             .env_active_o  (env_active)
         );
@@ -2385,8 +2387,8 @@ module top #(
             .demo_phase_inc_i (demo_note_inc),
             .demo_velocity_i  (demo_note_vel),
             .demo_kind_i      (demo_note_kind),
-            .demo_timbre_valid_i(1'b0),
-            .demo_timbre_i    (2'd0),
+            .demo_timbre_valid_i(1'b1),
+            .demo_timbre_i    (demo_timbre),
             // ── 仲裁出口 → `evt_merge` 源 A ────────────────────────────────
             .evt_valid_o      (sa_valid),
             .evt_axis_o       (sa_axis),
@@ -2412,8 +2414,8 @@ module top #(
         wire [31:0] src_a_inc   = (SOURCE_A_SEL == 1) ? demo_note_inc   : sa_inc;
         wire [7:0]  src_a_vel   = (SOURCE_A_SEL == 1) ? demo_note_vel   : sa_vel;
         wire [1:0]  src_a_kind  = (SOURCE_A_SEL == 1) ? demo_note_kind  : sa_kind;
-        wire        src_a_timbre_valid = (SOURCE_A_SEL == 1) ? 1'b0 : sa_timbre_valid;
-        wire [1:0]  src_a_timbre = (SOURCE_A_SEL == 1) ? 2'd0 : sa_timbre;
+        wire        src_a_timbre_valid = (SOURCE_A_SEL == 1) ? 1'b1 : sa_timbre_valid;
+        wire [1:0]  src_a_timbre = (SOURCE_A_SEL == 1) ? demo_timbre : sa_timbre;
 
         // ⭐⭐ 源 B 二选一（⭐ 节拍器 / 鼓机，⭐ `SEL_DRUM`，⭐ 默认节拍器）
         //   📌 用 `generate`+`localparam` 做**编译期选择** ⇒ ⚠️ 综合会把没选中的那路
@@ -2758,6 +2760,7 @@ module top #(
                 demo_note_inc   <= 32'd0;
                 demo_note_vel   <= 8'd0;
                 demo_note_kind  <= 2'd0;
+                demo_timbre     <= 2'd0;
             end else begin
                 demo_note_valid <= 1'b0;      // 单拍脉冲（冻结表 §〇 约定 4）
 
@@ -2848,9 +2851,18 @@ module top #(
                                 demo_note_valid <= 1'b1;
                                 demo_step       <= 3'd7;
                             end
-                            // ── ⭐ 收尾：⭐ `demo_fired` 自锁，⛔ 不再发任何音 ──
+                            // ── 收尾：先等 Release 到零，再切换到下一音色。
+                            //    不在波形中途换表，避免音色切换处产生不连续爆音。
                             3'd7: begin
-                                demo_fired <= 1'b1;
+                                if (|env_active) begin
+                                    demo_step <= 3'd7;
+                                end else if (demo_timbre < 2'd3) begin
+                                    demo_timbre <= demo_timbre + 1'b1;
+                                    demo_step   <= 3'd0;
+                                    demo_cnt    <= {DEMO_CW{1'b0}};
+                                end else begin
+                                    demo_fired <= 1'b1;
+                                end
                             end
                         endcase
                     end

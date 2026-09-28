@@ -1,0 +1,24 @@
+﻿iverilog.exe : C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\pos_probe.v:55: warning: times
+cale for pos_probe inherited from another file.
+At C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\sim\tb_all.ps1:123 char:18
++   $compileOut  = & $iverilog @compileArgs 2>&1
++                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\cyx\Do...m another file.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\play_seq.v:1: ...: The inherited timescale is
+ here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\span_probe.v:67: warning: timescale for span_
+probe inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is 
+here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uar
+t_tx_fifo inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is 
+here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v:1321: warning: Port 5 (ch_i) of pos_probe e
+xpects 4 bits, got 3.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v:1321:        : Padding 1 high bits of the p
+ort.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v:487: warning: @* is sensit
+ive to all 16 words in array 'pc_l1'.

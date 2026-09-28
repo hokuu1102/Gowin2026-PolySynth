@@ -1,5 +1,5 @@
 ﻿VCD info: dumpfile build/sim/wavetable_prom/tb_wavetable_bank_prom.vcd opened for output.
 PASS: wavetable_bank generated-table build is deterministic
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_wavetable_bank_prom.sv:220: $finish called at 220000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_wavetable_bank_prom.sv:220: $finish called at 220000 (1ps)
 
 

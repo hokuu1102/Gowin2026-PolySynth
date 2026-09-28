@@ -580,39 +580,39 @@ module tdm_render_mixer #(
         input [LW:0] n;
         begin
             case (n)
-                6'd0:  gain_sqrt_lut = 16'd88;    // ⭐ 无 voice（增益无意义，取安全值）
-                6'd1:  gain_sqrt_lut = 16'd88;    // 88/√1  = 88.0
-                6'd2:  gain_sqrt_lut = 16'd62;    // 88/√2  = 62.2
-                6'd3:  gain_sqrt_lut = 16'd51;    // 88/√3  = 50.8
-                6'd4:  gain_sqrt_lut = 16'd44;    // 88/√4  = 44.0
-                6'd5:  gain_sqrt_lut = 16'd39;    // 88/√5  = 39.4
-                6'd6:  gain_sqrt_lut = 16'd36;    // 88/√6  = 35.9
-                6'd7:  gain_sqrt_lut = 16'd33;    // 88/√7  = 33.3
-                6'd8:  gain_sqrt_lut = 16'd31;    // 88/√8  = 31.1
-                6'd9:  gain_sqrt_lut = 16'd29;    // 88/√9  = 29.3
-                6'd10: gain_sqrt_lut = 16'd28;    // 88/√10 = 27.8
-                6'd11: gain_sqrt_lut = 16'd27;    // 88/√11 = 26.5
-                6'd12: gain_sqrt_lut = 16'd25;    // 88/√12 = 25.4
-                6'd13: gain_sqrt_lut = 16'd24;    // 88/√13 = 24.4
-                6'd14: gain_sqrt_lut = 16'd24;    // 88/√14 = 23.5
-                6'd15: gain_sqrt_lut = 16'd23;    // 88/√15 = 22.7
-                6'd16: gain_sqrt_lut = 16'd22;    // 88/√16 = 22.0
-                6'd17: gain_sqrt_lut = 16'd21;    // 88/√17 = 21.3
-                6'd18: gain_sqrt_lut = 16'd21;    // 88/√18 = 20.7
-                6'd19: gain_sqrt_lut = 16'd20;    // 88/√19 = 20.2
-                6'd20: gain_sqrt_lut = 16'd20;    // 88/√20 = 19.7
-                6'd21: gain_sqrt_lut = 16'd19;    // 88/√21 = 19.2
-                6'd22: gain_sqrt_lut = 16'd19;    // 88/√22 = 18.8
-                6'd23: gain_sqrt_lut = 16'd18;    // 88/√23 = 18.3
-                6'd24: gain_sqrt_lut = 16'd18;    // 88/√24 = 18.0
-                6'd25: gain_sqrt_lut = 16'd18;    // 88/√25 = 17.6
-                6'd26: gain_sqrt_lut = 16'd17;    // 88/√26 = 17.3
-                6'd27: gain_sqrt_lut = 16'd17;    // 88/√27 = 16.9
-                6'd28: gain_sqrt_lut = 16'd17;    // 88/√28 = 16.6
-                6'd29: gain_sqrt_lut = 16'd16;    // 88/√29 = 16.3
-                6'd30: gain_sqrt_lut = 16'd16;    // 88/√30 = 16.1
-                6'd31: gain_sqrt_lut = 16'd16;    // 88/√31 = 15.8
-                default: gain_sqrt_lut = 16'd16;  // 88/√32 = 15.6
+                6'd0:  gain_sqrt_lut = 16'd64;    // ⭐ 无 voice（增益无意义，取安全值）
+                6'd1:  gain_sqrt_lut = 16'd64;    // 64/√1  = 64.0
+                6'd2:  gain_sqrt_lut = 16'd45;    // 64/√2  = 45.3
+                6'd3:  gain_sqrt_lut = 16'd37;    // 64/√3  = 37.0
+                6'd4:  gain_sqrt_lut = 16'd32;    // 64/√4  = 32.0
+                6'd5:  gain_sqrt_lut = 16'd29;    // 64/√5  = 28.6
+                6'd6:  gain_sqrt_lut = 16'd26;    // 64/√6  = 26.1
+                6'd7:  gain_sqrt_lut = 16'd24;    // 64/√7  = 24.2
+                6'd8:  gain_sqrt_lut = 16'd23;    // 64/√8  = 22.6
+                6'd9:  gain_sqrt_lut = 16'd21;    // 64/√9  = 21.3
+                6'd10: gain_sqrt_lut = 16'd20;    // 64/√10 = 20.2
+                6'd11: gain_sqrt_lut = 16'd19;    // 64/√11 = 19.3
+                6'd12: gain_sqrt_lut = 16'd18;    // 64/√12 = 18.5
+                6'd13: gain_sqrt_lut = 16'd18;    // 64/√13 = 17.8
+                6'd14: gain_sqrt_lut = 16'd17;    // 64/√14 = 17.1
+                6'd15: gain_sqrt_lut = 16'd17;    // 64/√15 = 16.5
+                6'd16: gain_sqrt_lut = 16'd16;    // 64/√16 = 16.0
+                6'd17: gain_sqrt_lut = 16'd16;    // 64/√17 = 15.5
+                6'd18: gain_sqrt_lut = 16'd15;    // 64/√18 = 15.1
+                6'd19: gain_sqrt_lut = 16'd15;    // 64/√19 = 14.7
+                6'd20: gain_sqrt_lut = 16'd14;    // 64/√20 = 14.3
+                6'd21: gain_sqrt_lut = 16'd14;    // 64/√21 = 14.0
+                6'd22: gain_sqrt_lut = 16'd14;    // 64/√22 = 13.6
+                6'd23: gain_sqrt_lut = 16'd13;    // 64/√23 = 13.3
+                6'd24: gain_sqrt_lut = 16'd13;    // 64/√24 = 13.1
+                6'd25: gain_sqrt_lut = 16'd13;    // 64/√25 = 12.8
+                6'd26: gain_sqrt_lut = 16'd13;    // 64/√26 = 12.6
+                6'd27: gain_sqrt_lut = 16'd12;    // 64/√27 = 12.3
+                6'd28: gain_sqrt_lut = 16'd12;    // 64/√28 = 12.1
+                6'd29: gain_sqrt_lut = 16'd12;    // 64/√29 = 11.9
+                6'd30: gain_sqrt_lut = 16'd12;    // 64/√30 = 11.7
+                6'd31: gain_sqrt_lut = 16'd11;    // 64/√31 = 11.5
+                default: gain_sqrt_lut = 16'd11;  // 64/√32 = 11.3
             endcase
         end
     endfunction

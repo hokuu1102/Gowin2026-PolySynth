@@ -188,12 +188,12 @@ module tb_wavetable_bank;
             $fatal(1, "FAIL: reset state is not zero");
         rst_n_i = 1'b1;
 
-        // 0=BASS sine/triangle; 1=GUITAR sine/saw; 2=PIANO sine/pulse; 3=PAD.
-        read_and_check(2'd0, 10'd0,   16'sd0,     16'sd0);
-        read_and_check(2'd0, 10'd256, 16'sd16384, 16'sd32767);
-        read_and_check(2'd1, 10'd0,   16'sd0,    -16'sd32767);
-        read_and_check(2'd2, 10'd0,   16'sd0,     16'sd32766);
-        read_and_check(2'd3, 10'd0,   16'sd0,     16'sd0);
+        // Each timbre has an independent CC0 AKWF soft/hard pair.
+        read_and_check(2'd0, 10'd0,   16'sd373,   16'sd226);
+        read_and_check(2'd0, 10'd256, 16'sd32490, 16'sd32280);
+        read_and_check(2'd1, 10'd0,   16'sd4848,  16'sd5588);
+        read_and_check(2'd2, 10'd0,   16'sd1123,  16'sd3176);
+        read_and_check(2'd3, 10'd0,   16'sd917,   16'sd906);
 
         held_soft = sample_soft_o; held_hard = sample_hard_o;
         @(negedge clk_i);

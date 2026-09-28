@@ -173,6 +173,7 @@ module note_manager #(
     localparam [2:0] ST_DECIDE = 3'd1;   // 已取出事件，判"同轴位重触发"还是"扫描分配"
     localparam [2:0] ST_SCAN   = 3'd2;   // 每拍考察一个 voice
     localparam [2:0] ST_COMMIT = 3'd3;   // 提交选中结果
+    localparam [2:0] ST_MATCH  = 3'd4;   // same_hit 结果寄存后一拍提交（切断关键路径）
 
     localparam integer SCAN_LAST = POLY_TARGET - 1;
     localparam integer SW = (POLY_TARGET <= 1) ? 1 : $clog2(POLY_TARGET);   // 扫描计数位宽
@@ -372,6 +373,8 @@ module note_manager #(
     reg [1:0]        best_cls;
     reg [ENV_W-1:0]  best_env;
     reg [AGE_W-1:0]  best_age;
+    reg              match_valid_r;
+    reg [IDX_W-1:0]  match_idx_r;
 
     // 当前扫描位的候选属性（组合，深度浅）
     wire [IDX_W-1:0]   cand_idx   = scan_cnt[IDX_W-1:0];
@@ -427,6 +430,8 @@ module note_manager #(
             best_cls      <= 2'd0;
             best_env      <= {ENV_W{1'b0}};
             best_age      <= {AGE_W{1'b0}};
+            match_valid_r <= 1'b0;
+            match_idx_r   <= {IDX_W{1'b0}};
             cur_axis      <= {AXIS_W{1'b0}};
             cur_inc       <= {PHASE_W{1'b0}};
             cur_vel       <= {VEL_W{1'b0}};
@@ -619,14 +624,26 @@ module note_manager #(
                                 retrig_low[i] <= 1'b0;
                             end
                         state <= ST_IDLE;
-                    end else if (same_valid) begin
+                    end else begin
+                        // Register the same-axis result before it drives the
+                        // dynamically indexed voice registers.  This preserves
+                        // the exact live-mask/same_hit semantics while cutting
+                        // the former env_level -> same_idx -> phase/timbre path.
+                        match_valid_r <= same_valid;
+                        match_idx_r   <= same_idx;
+                        state         <= ST_MATCH;
+                    end
+                end
+
+                ST_MATCH: begin
+                    if (match_valid_r) begin
                         // ⭐ 同轴位重触发优先（复用同一 voice，⛔ 不新占）
-                        gate_r[same_idx]     <= 1'b0;   // 压低（由 (f) 段保持到 sample_tick）
-                        retrig_low[same_idx] <= 1'b1;   // ⭐ 每 voice 一位（⛔ 不再用全局 retrig_idx）
-                        phase_r[same_idx]  <= cur_inc;
-                        vel_r[same_idx]    <= new_vel;
-                        timbre_r[same_idx] <= new_timbre;
-                        age_r[same_idx]    <= {AGE_W{1'b0}};
+                        gate_r[match_idx_r]     <= 1'b0;   // 压低（由 (f) 段保持到 sample_tick）
+                        retrig_low[match_idx_r] <= 1'b1;   // ⭐ 每 voice 一位（⛔ 不再用全局 retrig_idx）
+                        phase_r[match_idx_r]  <= cur_inc;
+                        vel_r[match_idx_r]    <= new_vel;
+                        timbre_r[match_idx_r] <= new_timbre;
+                        age_r[match_idx_r]    <= {AGE_W{1'b0}};
                         state              <= ST_IDLE;
                     end else begin
                         // ⭐ 启动扫描（⛔ 不能保证一定有空闲 voice，故要扫全部）

@@ -208,10 +208,10 @@ module tb_wavetable_bank_prom;
             $fatal(1, "FAIL: [generated] reset state is not zero");
         rst_n_i = 1'b1;
 
-        read_and_check(2'd0, 10'd256, 16'sd16384, 16'sd32767);
-        read_and_check(2'd1, 10'd0,   16'sd0,    -16'sd32767);
-        read_and_check(2'd2, 10'd0,   16'sd0,     16'sd32766);
-        read_and_check(2'd3, 10'd0,   16'sd0,     16'sd0);
+        read_and_check(2'd0, 10'd256, 16'sd32490, 16'sd32280);
+        read_and_check(2'd1, 10'd0,   16'sd4848,  16'sd5588);
+        read_and_check(2'd2, 10'd0,   16'sd1123,  16'sd3176);
+        read_and_check(2'd3, 10'd0,   16'sd917,   16'sd906);
 
         if (errors == 0)
             $display("PASS: wavetable_bank generated-table build is deterministic");

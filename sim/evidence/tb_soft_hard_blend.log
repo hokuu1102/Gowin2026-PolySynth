@@ -1,0 +1,4 @@
+﻿PASS: oscillator_bank soft/hard interpolation endpoints and midpoint
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_soft_hard_blend.sv:66: $finish called at 400000 (1ps)
+
+

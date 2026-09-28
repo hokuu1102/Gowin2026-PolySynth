@@ -84,6 +84,6 @@
   ok  : K-106: lost count SATURATED at 15 (did not wrap to 0)
   ok  : K-106: sticky is set under massive overflow too
 PASS: note_manager acceptance (T54) - all judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:830: $finish called at 291600000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_note_manager.sv:830: $finish called at 291600000 (1ps)
 
 
