@@ -178,9 +178,31 @@ module oscillator_bank #(
                 ((DETUNE_ON != 0) && (OSC_IDX != 0))
                 ? (base_inc >> DETUNE_SH) : {PHASE_W{1'b0}};
 
+            //  ⭐⭐ **2026-09-28 根因修复（B2 尖音候选）：混合符号求值 ⇒ `vib_off` 符号被丢**
+            //
+            //  🔴 **原写法**：`lane_inc = base_inc + detune_off + vib_off`
+            //     · `base_inc`  是 `wire [PHASE_W-1:0]`        ⇒ **无符号**
+            //     · `detune_off` 是 `wire [PHASE_W-1:0]`        ⇒ **无符号**
+            //     · `vib_off`   是 `wire signed [PHASE_W-1:0]`  ⇒ 有符号
+            //     ⭐ **Verilog 规则：表达式中只要有一个操作数无符号，整个表达式就按无符号求值**
+            //        ⇒ 🔴 **`vib_off` 的符号位被当成【幅值位】**
+            //        ⇒ 颤音**负半周**时 `base_inc + vib_off` 在 32 位里**回绕**
+            //           （例如 `vib_off = -1000` 被当成 `+4294966296`）
+            //        ⇒ 🔴 **相位累加器每拍跳一个巨大增量** ⇒ 相位随机化
+            //        ⇒ ⭐ **宽带噪声 / 孤立尖峰**（⭐ 与用户 DS0004 实测的孤立尖峰吻合）
+            //
+            //  ✅ **修法**：把两个无符号量**显式零扩展后转有符号**，让整条加法链
+            //     **全程按有符号**求值；最后截到 `PHASE_W` 位即为其**补码表示**
+            //     ⇒ ⭐ 相位累加器（无符号、故意回绕）拿到的仍是正确的增量。
+            //     📌 这样 `base_inc + vib_off < 0` 时**自然回绕成"反向增量"**，
+            //        而不是"巨大正增量" ⇒ ⭐ 颤音负半周**行为正确**。
+            wire signed [PHASE_W:0] lane_inc_s = $signed({1'b0, base_inc})
+                                               + $signed({1'b0, detune_off})
+                                               + $signed(vib_off);
+
             wire [PHASE_W-1:0] lane_inc = test_mode_i
                              ? test_phase_inc_i[g*PHASE_W +: PHASE_W]
-                             : (base_inc + detune_off + vib_off);
+                             : lane_inc_s[PHASE_W-1:0];
 
             //   ⭐⭐ **去相关初相**（⭐ 2026-09-26 新增，⭐ 学自 `xls32` 源码）
             //

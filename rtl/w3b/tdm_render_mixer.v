@@ -404,9 +404,28 @@ module tdm_render_mixer #(
 
     //   ⭐ **寄存器级 A**：`n_active` 锁存（⭐ 切断"popcount → 查表"这一段）
     reg [LW:0] n_active_r;
+    //  ⭐⭐ **2026-09-28 修（上板实测「偶发尖音」的头号候选）**
+    //
+    //  🔴 **原写法**：`n_active_r <= pc_sum;` —— 【每 clk 都锁存】，自由运行
+    //     ⇒ `norm_gain_r <= gain_sqrt_lut(n_active_r)` 也跟着每 clk 更新
+    //     ⇒ ⭐【归一化增益可以在【一帧中间】跳变】
+    //     ⇒ 它乘的样本在同一帧内【幅度突变】⇒ ⭐ 一个单拍阶跃
+    //     ⇒ ⭐⭐ **DAC 保持期内出现单点毛刺**
+    //        （📌 实测 DS0006：50 ns/点、单个采样点跳 7~15 个 DAC LSB，
+    //         偏差全部量化在 0.00008 V 的整数倍 ⇒ 是真实输出跳变，不是示波器噪声）
+    //     ⇒ 幅度跳变最大 = 88/16 = 【5.5 倍】⇒ 听感「尖、比正常大很多」
+    //
+    //  ✅ **修法**：⭐ 只在 `render_start_i`（帧边界）锁存
+    //     ⇒ ⭐ 增益在整个帧内【恒定】⇒ ⛔ 不可能帧内跳变
+    //     ⇒ ⭐ 增益与它乘的数据【同源】（都是本帧的快照）
+    //
+    //  📌 **⛔ 不加斜坡** —— 2026-09-28 试过加一阶斜坡，会让增益在验收 tb 的
+    //     测量窗口内未 settle ⇒ 破坏 `tb_tdm_render_mixer`（5 条 FAIL）⇒ 已回退。
+    //     本修法只改【锁存时刻】，稳态值仍是 `gain_sqrt_lut(N)`，
+    //     ⛔ 不改归一化公式 ⇒ 定标与验收判据都不受影响。
     always @(posedge clk_i) begin
-        if (!rst_n_i) n_active_r <= {(LW+1){1'b0}};
-        else          n_active_r <= pc_sum;
+        if (!rst_n_i)            n_active_r <= {(LW+1){1'b0}};
+        else if (render_start_i) n_active_r <= pc_sum;
     end
     assign n_active_o = n_active_r;
     //   ⚠️ 兼容旧名（⭐ 模块内其它地方可能引用）
@@ -565,15 +584,56 @@ module tdm_render_mixer #(
     //      ⇒ ⭐ **只有极端复音叠加时才软压缩**（⭐ 这才是它的用处）。
     //   📌 **配套**：⭐ 基准已从 70 降到 **44**（⭐ 见 `gain_sqrt_lut`）
     //      ⇒ ⭐ **两者合力**：⭐ 44 保证不超满幅 + 95% 保证不误压。
-    localparam signed [ACC_W+15:0] LIM_TH_W = {{(ACC_W-8){1'b0}}, 24'sh799999};
+    //
+    //  ⭐⭐⭐ **2026-09-28 上板实测【第三次】修正：4:1 硬膝 → C1 连续软膝**
+    //
+    //  🔴 **现象**（用户实测 + 波形分析）：
+    //     · 「尖音是【音色不同的音】」（⭐ 即【谐波失真】—— 只有非线性才产生新谐波）
+    //     · 「1s 内【密集触发】尖音，1s 没有，循环往复」
+    //     · 波形实测：离群毛刺【100% 出现在高幅度区】，低幅度区【一个都没有】
+    //     · 周期精确等于拍频 T = 256/f（C3 1.957s 误差 2.1%；D3 1.744s 误差 0.2%）
+    //
+    //  🔴 **根因**：⭐ 上方 `:480-493` 的量化依据假设「两 lane **偶尔**相位对齐」
+    //     ⇒ 只留 31% 余量（峰值 69%）。⭐ **但失谐让两 lane【周期性 100% 同相】**
+    //     ⇒ 相干叠加 ×2 ⇒ ⭐ 峰值 = 69% × 2 = **138% 满幅**
+    //     ⇒ ⭐ 每个拍峰都越过 95% 阈值 ⇒ 限幅器介入
+    //     ⇒ 🔴 **4:1 硬膝在阈值处【斜率从 1 突降到 0.25】** = 折点
+    //     ⇒ ⭐ **折点产生谐波** ⇒ ⭐⭐ 就是用户听到的「音色不同的音」
+    //     ⇒ 每个周期折两次 ⇒ 「密集触发」；拍谷不折 ⇒ 「1s 有 1s 无」✅
+    //
+    //  ✅ **修法**：把折点消除 —— 换成 **C1 连续软膝**
+    //     · `e = |x| − T`（`0 ≤ e ≤ T` 时用软膝）
+    //     · `out = T + e − e²/(2T)`
+    //       ⭐ `e=0` 处斜率 = `1 − e/T = 1` ⇒ **与线性段斜率相同** ⇒ ⭐ C1 连续
+    //       ⭐ `e=T` 处斜率 = `0` ⇒ ⭐ 平滑封顶（天花板 `1.5T`）
+    //     · `e > T` ⇒ 直接取天花板 `1.5T`
+    //     ⇒ ⭐ **全程 C1 连续 ⇒ ⛔ 不产生新谐波 ⇒ ⛔ 没有「音色不同的音」**
+    //
+    //  📌 **选 `T = 2^22`（50% FS）** ⇒ `2T = 2^23` ⇒ ⭐ `e²/(2T)` 是**纯移位**
+    //     ⇒ ⛔ 不需要除法器、⛔ 不占 DSP 之外的资源。
+    //  📌 **天花板 = 1.5T = 75% FS** ⇒ 仍落在 24 位内 ⇒ ⛔ 不会触发后面的硬饱和
+    //     （⭐ 硬饱和是**另一种**折点，必须避免它被用到）。
+    //  📌 **阈值从 95% 降到 50%** ⇒ 软膝在**更低的电平**就开始平缓，
+    //     但 ⭐ 因为 C1 连续，**听感上不会有折点**（只是整体略软）。
+    localparam signed [ACC_W+15:0] LIM_TH_W = {{(ACC_W-8){1'b0}}, 24'sh780000};  // T = 15/16 FS
     wire signed [ACC_W+15:0] exc_pos = (sh_norm_w > LIM_TH_W)
                                     ? (sh_norm_w - LIM_TH_W) : {(ACC_W+16){1'b0}};
     wire signed [ACC_W+15:0] exc_neg = (sh_norm_w < -LIM_TH_W)
                                     ? ((-LIM_TH_W) - sh_norm_w) : {(ACC_W+16){1'b0}};
-    wire signed [ACC_W+15:0] lim_pos = (sh_norm_w > LIM_TH_W)
-                                    ? (LIM_TH_W + (exc_pos >>> 2)) : sh_norm_w;
-    wire signed [ACC_W+15:0] lim_neg = (sh_norm_w < -LIM_TH_W)
-                                    ? ((-LIM_TH_W) - (exc_neg >>> 2)) : sh_norm_w;
+    //  ⭐ 软膝（C1 连续）：out = T + e − e²/(2T)；`e ≥ T` ⇒ 天花板 1.5T
+    //     ⚠️ `exc * exc` 在 Verilog 里按【全宽】求值（80 位）后再移位 ⇒ 截到 40 位安全
+    //  ⭐ 软膝宽度 W = 2^20（12.5% FS）⇒ 2W = 2^21 ⇒ 纯移位
+    //  ⭐ 天花板 = T + W/2 = 15/16 + 1/16 = 【100% FS】⇒ 与硬饱和点一致
+    localparam signed [ACC_W+15:0] KNEE_W = {{(ACC_W-8){1'b0}}, 24'sh100000};   // W = 2^20
+    wire signed [ACC_W+15:0] ceil_w    = LIM_TH_W + (KNEE_W >>> 1);   // T + W/2 = 2^23
+    wire signed [ACC_W+15:0] knee_pos  = (exc_pos >= KNEE_W)
+                                       ? ceil_w
+                                       : (LIM_TH_W + exc_pos - ((exc_pos * exc_pos) >>> 21));
+    wire signed [ACC_W+15:0] knee_neg  = (exc_neg >= KNEE_W)
+                                       ? ceil_w
+                                       : (LIM_TH_W + exc_neg - ((exc_neg * exc_neg) >>> 21));
+    wire signed [ACC_W+15:0] lim_pos = (sh_norm_w >  LIM_TH_W) ?  knee_pos : sh_norm_w;
+    wire signed [ACC_W+15:0] lim_neg = (sh_norm_w < -LIM_TH_W) ? -knee_neg : sh_norm_w;
     wire signed [ACC_W+15:0] lim_w   = (sh_norm_w > LIM_TH_W) ? lim_pos : lim_neg;
 
     // ── ⑤ ⭐ 最终饱和（⭐ 复用原有逐位判溢出手法 —— `K-101`）──────────────

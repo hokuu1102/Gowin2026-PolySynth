@@ -4,24 +4,30 @@
 == 2: one dry_valid per frame, fixed latency ==
   ok  : exactly 1 dry_valid pulse per frame
   ok  : latency identical across two frames (determinism)
-  ok  : latency is a fixed POLY_TARGET+3
+  ok  : latency is a fixed POLY_TARGET+6 (incl. 3-stage normalization pipe)
 == 3: single-voice mixing ==
-  ok  : 3000 x 0.5 = 1500 (matches hand calc)
-  ok  : full env => ~3000
+     [sv] 2-lane 3000 @env0x8000 => 132000
+  ok  : 2-lane 3000 @env 0x8000 => 132000 (=1500 <<8, x88/128, lane avg)
+     [sv] 2-lane 3000 @env0xFFFF => 263824
+  ok  : full env => ~263824 (3000 << 8, then x88/128, lane avg)
   ok  : zero env => 0 (silence)
   ok  : negative input => negative output (signed ok)
-  ok  : negative magnitude ~ 3000
-== 4: multi-voice summing ==
-  ok  : 2 voices => ~2x
-  ok  : 3 voices => ~3x
-  ok  : summing is linear (monotonic)
+     [sv] neg -3000 @env0xFFFF => -264000
+  ok  : negative magnitude ~ 264000 (arith-shift rounds toward -inf)
+== 4: multi-voice summing (with 1/sqrt(N) normalization) ==
+     [sum] 1v=87824  2v=123876  3v=152898
+  ok  : summing is monotonic (more voices => louder)
+  ok  : 2 voices => ~1.42x (sqrt(2) w/ fixed-point), NOT 2x  [power norm]
+  ok  : 3 voices => ~1.73x (sqrt(3) w/ fixed-point), NOT 3x  [power norm]
+  ok  : NORMALIZATION: 3 voices are NOT 3x (would clip)
+  ok  : NORMALIZATION: 3 voices stay WITHIN signed24 (no clipping)
 == 5: max input, no wrap ==
   ok  : max input stays POSITIVE (no wrap)
-  ok  : max input == 2097056 (exact: env 0xFFFF is 65535/65536)
-     [dbgMax] sSat=2097056 MAXTHEO=2097088 acc=137432662080 sh=2097056
+  ok  : max input SATURATES to signed24 MAX (not wrap)
+     [dbgMax] sSat=8388607 (鏈熸湜楗卞拰鍒?8388607) acc=68716331040 sh=1048528
   ok  : min input stays NEGATIVE (no wrap)
-     [dbgMin] sSat=-2097120 acc=-137436856320 sh=-2097120
-  ok  : min input == -2097120 (exact arithmetic-shift result)
+     [dbgMin] sSat=-8388608 (鏈熸湜楗卞拰鍒?-8388608) acc=-68718428160 sh=-1048560
+  ok  : min input SATURATES to signed24 MIN (not wrap)
 == 6: deadline_fault is sticky ==
   ok  : tight-deadline instance: fault set after one frame
   ok  : sticky: fault still 1 after several frames
@@ -30,6 +36,6 @@
   ok  : wide positive overflow clamps to signed24 MAX (no wrap)
   ok  : wide negative overflow clamps to signed24 MIN (no wrap)
 PASS: tdm_render_mixer acceptance (T56) - all judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_tdm_render_mixer.sv:317: $finish called at 17940000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_tdm_render_mixer.sv:418: $finish called at 18720000 (1ps)
 
 

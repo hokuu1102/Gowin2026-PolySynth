@@ -47,7 +47,9 @@ module tb_w1_interfaces;
     ) u_oscillator_bank (
         .clk_i(clk_i), .rst_n_i(rst_n_i), .sample_tick_i(sample_tick_i),
         .voice_active_i(voice_active_i), .base_phase_inc_i(base_phase_inc_i),
-        .timbre_id_i(2'b00), .vibrato_mod_i(16'sd0),
+        .voice_timbre_i({POLY_TARGET*2{1'b0}}),
+        .voice_velocity_i({POLY_TARGET*8{1'b0}}),
+        .vibrato_mod_i(16'sd0),
         .test_mode_i(test_mode_i), .test_lane_active_i(test_lane_active_i),
         .test_phase_inc_i(test_phase_inc_i), .fm_cfg_valid_i(1'b0),
         .fm_ratio_i(16'd0), .fm_index_i(16'd0),
@@ -69,6 +71,7 @@ module tb_w1_interfaces;
     ) u_tdm_render_mixer (
         .clk_i(clk_i), .rst_n_i(rst_n_i), .render_start_i(sample_tick_i),
         .osc_sample_bus_i(osc_sample_bus), .env_level_i(env_level),
+        .voice_active_i(voice_active_i),
         .dry_valid_o(dry_valid), .dry_sample_o(dry_sample),
         .deadline_fault_o(deadline_fault)
     );

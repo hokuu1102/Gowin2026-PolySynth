@@ -1,6 +1,8 @@
-FFT_EVIDENCE: mode=4 samples=8192 file=sim/evidence/test_mode_n4.csv
+﻿FFT_EVIDENCE: mode=4 samples=8192 file=sim/evidence/test_mode_n4.csv
 FFT_EVIDENCE: mode=8 samples=8192 file=sim/evidence/test_mode_n8.csv
 FFT_EVIDENCE: mode=16 samples=8192 file=sim/evidence/test_mode_n16.csv
 FFT_EVIDENCE: mode=32 samples=8192 file=sim/evidence/test_mode_n32.csv
 PASS: generated real Test Mode wavetable samples for FFT acceptance
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\w3b\tb_test_mode_fft.sv:130: $finish called at 43909360000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_test_mode_fft.sv:131: $finish called at 43909360000 (1ps)
+
+

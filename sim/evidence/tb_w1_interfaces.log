@@ -1,2 +1,4 @@
-PASS: W3b interfaces elaborate at 32x1 and Test Mode selects 32 voices
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\w3b\tb_w1_interfaces.sv:118: $finish called at 200000 (1ps)
+﻿PASS: W3b interfaces elaborate at 32x1 and Test Mode selects 32 voices
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_w1_interfaces.sv:121: $finish called at 200000 (1ps)
+
+

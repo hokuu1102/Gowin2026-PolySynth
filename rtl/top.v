@@ -477,6 +477,8 @@ module top #(
     //   🔴 **它自带 `0xA5` 帧边界跟踪** ⇒ ⭐ 帧内的 `T/S/X/M` 是**载荷**，⛔ 不当命令
     //      （⚠️ 否则**曲谱灌入会被误当标定命令** —— 灾难性）
     wire cmd_tare_req, cmd_span_req, cmd_abort_req, cmd_probe_req, cmd_vstat_req;
+    //   ⭐ 'N' 诊断：⭐ 回传 `calib` 后的 `pos`（⭐ 2026-09-27 新增）
+    wire cmd_posprobe_req;
     wire cmd_test_mode_req;
     wire [15:0] cmd_cnt, cmd_in_frame_cnt, cmd_resync_cnt, cmd_unknown_cnt;
     wire [3:0]  cmd_idx;
@@ -495,6 +497,7 @@ module top #(
         .abort_req_o    (cmd_abort_req),
         .probe_req_o    (cmd_probe_req),
         .vstat_req_o    (cmd_vstat_req),
+        .posprobe_req_o (cmd_posprobe_req),
         .test_mode_req_o(cmd_test_mode_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (cmd_in_frame_cnt),
@@ -677,6 +680,10 @@ module top #(
         // ── 出声链 ────────────────────────────────────────────────────────
         wire [POLY_TARGET-1:0]         nm_gate;
         wire [POLY_TARGET-1:0]         nm_active;
+        //  ⭐ 重触发/抢占时命令包络先归零（→ envelope_bank.retrig_reset_i）
+        //     ⚠️ 修的是"重触发时从残余电平重新 Attack ⇒ 幅度叠加成偶发尖音"，
+        //        详见 note_manager.v 的 voice_retrig_reset_o 注释。
+        wire [POLY_TARGET-1:0]         nm_retrig_reset;
         wire [POLY_TARGET*4-1:0]       nm_axis;
         wire [POLY_TARGET*32-1:0]      nm_phase;
         wire [POLY_TARGET*8-1:0]       nm_vel;
@@ -794,6 +801,8 @@ module top #(
             // notes cannot leak into the deterministic FFT acceptance signal.
             .gate_i        (tm_enable_r ? tm_gate : nm_gate),
             .velocity_i    (tm_enable_r ? tm_vel  : nm_vel),
+            //  ⭐ 重触发清零：Test Mode 不用（它自己控 gate），故只在普通通路生效。
+            .retrig_reset_i(tm_enable_r ? {POLY_TARGET{1'b0}} : nm_retrig_reset),
             .env_level_o   (env_level),
             .env_active_o  (env_active)
         );
@@ -1265,6 +1274,13 @@ module top #(
             .busy_o     (pp_busy)
         );
 
+        //   ⭐⭐ `'N'` 诊断（⭐ 回传 `calib` 后的 `pos`）—— ⚠️ 实例化在 `as_pos` 声明【之后】，
+        //      见下方 §`'N'` 诊断。⭐ 这里只声明线网（⛔ `as_pos` 此时还没声明）。
+        wire       np_push;
+        wire [7:0] np_data;
+        wire       np_busy;
+
+
         // ═══════════════════════════════════════════════════════════════════
         //   ⭐⭐ `'V'` 诊断：⭐ 回传 `calib_span` 的【内部状态】（⭐ 2026-09-24 新增）
         //
@@ -1533,8 +1549,10 @@ module top #(
         //      📌 **为什么要 or 而不是 mux**：⭐ 两者【不会同拍】（⭐ `'P'` 是独立命令，
         //         ⚠️ 而 `rep_req` 由 `calib_span` 事件驱动）⇒ ⭐ 直接 or 更简单
         //      🔴 **但字节要 mux**（⭐ 否则两个来源的数据会撞在一起）
-        assign tx_req  = rep_req | pp_push | vp_push;
-        assign tx_byte = vp_push ? vp_data : (pp_push ? pp_data : rep_byte);
+        assign tx_req  = rep_req | pp_push | vp_push | np_push;
+        //   ⭐ 'N'（`np_push`）优先级最高 —— 它也是独立命令，与其余不同拍。
+        assign tx_byte = np_push ? np_data
+                       : (vp_push ? vp_data : (pp_push ? pp_data : rep_byte));
 
 
         calib #(.NCH(8), .DW(12)) u_calib0 (
@@ -1608,6 +1626,64 @@ module top #(
             .pos_o         (as_pos),
             .delta_o       (as_delta),
             .axis_seen_o   (as_seen)
+        );
+
+        // ═══════════════════════════════════════════════════════════════════
+        //   ⭐⭐ `'N'` 诊断：⭐ 回传【`calib` 后的 `pos`】（⭐ 2026-09-27 新增）
+        //
+        //   🔴 **为什么必须再加一条**：
+        //      · ⭐ `'P'` 回的是 `af0_pol` —— ⭐ **极性校正后的【原始码】**
+        //      · 🔴 而 `event_extract` 判键用的是 **`pos`（`calib` 后的行程）**
+        //        `pos = (raw − zero) × gain >> 8`
+        //      ⇒ ⚠️ 从原始码**推断不出** `pos`（⭐ `zero` **只在上电 `tare` 时写一次**，
+        //         它是否有效、有没有漂移，**只能直接看 `pos`** —— 实测 `af0_pol`
+        //         静止值 ≈ 2150，⭐ 而它到底是"正常的原始码"还是"未标定的脏值"，
+        //         ⛔ 从 `'P'` 根本分不出来）。
+        //
+        //   ⭐ 三个待查症状全部卡在"看不到 `pos`"上：
+        //      ① **挂音** —— 松手后 `pos` 能否降到 `REL_TH`(80) 以下？
+        //      ② **周期性音量起伏** —— 按住时 `pos` 是否在有规律地变化？
+        //      ③ **`zero` 是否有效** —— 松手时 `pos` 应 ≈ 0，⭐ 而不是 ~2000
+        //
+        //   📌 **复用同一个 `pos_probe` 模块**（⭐ ⛔ 不改它的逻辑，只换输入源与前缀）
+        //      ⇒ 回包格式：`N<通道号><4位十进制>CRLF`（8 字节）
+        //      ⚠️ 前缀必须与 `'P'` 不同（⭐ 复用 `PREFIX` 参数改发 `'N'`），
+        //         ⛔ 否则 PC 侧分不清"这个数是谁"。
+        //   ⚠️ **输入取 `as_pos` 的【轴 0】** —— 与 `'P'` 的口径不同：
+        //      · `'P'` = 当前正在采样的通道的**原始码**（⭐ 逐通道轮转）
+        //      · `'N'` = **轴 0** 的**标定后行程**（⭐ 判键用的那个数）
+        //      📌 只看轴 0 够用：⭐ 三个症状都能在轴 0 上观察到，
+        //         且⛔ 不需要再加"选轴"的接口（⭐ 保持改动最小）。
+        //   ⚠️ **必须放在 `as_pos` 声明【之后】**（⭐ `L66`：声明先于使用）——
+        //      ⭐ 我第一版放在 `u_pos_probe` 旁边（⭐ 那里 `as_pos` 还没声明）。
+        //
+        //   🔴🔴 **2026-09-27 修正：⭐ 必须能【扫全部 16 轴】**
+        //      ⚠️ 我第一版把输入写死成 `as_pos[0 +: 12]`（轴 0），
+        //         理由是"三个症状都能在轴 0 观察到" —— 🔴 **这个假设是错的**：
+        //         上板实测"回音在响、而轴 0 的 `pos` 恒为 0"，⭐ 说明卡住的 voice
+        //         **不在轴 0** ⇒ ⚠️ 写死轴 0 等于**看不到出问题的地方**。
+        //      ✅ 改法：⭐ **每次收到 `'N'` 就切到【下一个轴】**（0→1→…→15→0）
+        //         ⇒ ⭐ 连发 16 次即可扫完全部轴 ⇒ **一眼看出哪个轴卡住**。
+        //      📌 回包里的【通道号】字段 = 当前轴号（⭐ 十六进制）⇒ ⛔ 不会分不清是谁。
+        reg [3:0] np_axis_r;
+        always @(posedge clk) begin
+            if (!rst_n_sync)           np_axis_r <= 4'd0;
+            else if (cmd_posprobe_req) np_axis_r <= np_axis_r + 4'd1;   // ⭐ 自动轮转
+        end
+
+        pos_probe #(.N_BYTES(8), .PREFIX(8'h4E)) u_pos_probe_cal (
+            .clk_i      (clk),
+            .rst_n_i    (rst_n_sync),
+            .probe_req_i(cmd_posprobe_req),
+            //   ⚠️ 用**当拍**的 `np_axis_r`（⭐ `pos_probe` 也是在 `probe_req_i`
+            //      那一拍锁存输入 ⇒ ⭐ 两者口径一致，⛔ 不会错开一个轴）
+            .pos_i      (as_pos[np_axis_r*12 +: 12]),   // ⭐ 轮转轴的标定后行程
+            .ch_i       (np_axis_r),                    // ⭐ "通道号"= 轴号(hex)
+            .push_o     (np_push),
+            .data_o     (np_data),
+            .ready_i    (txf_ready),
+            .idle_i     (txf_idle),
+            .busy_o     (np_busy)
         );
 
         // ── ⭐ ④ `axis_map`：轴位 → `phase_inc` ──────────────────────────
@@ -1820,6 +1896,9 @@ module top #(
         reg        am_vld_out;
         reg [3:0]  am_axis_out;
         reg [1:0]  am_kind_out;
+        //  ⭐⭐ 2026-09-28 新增：m_inc 是 axis_map 对【当前 am_axis_in】的组合输出（0 拍），
+        //  而 am_vld_out/am_axis_out 再延一拍 ⇒ 错一拍 ⇒ 同帧多键时前一条事件拿到后一条的音高。
+        reg [31:0] am_inc_out;
 
         always @(posedge clk) begin
             if (!rst_n_sync) begin
@@ -1831,6 +1910,7 @@ module top #(
                 am_vld_out  <= 1'b0;
                 am_axis_out <= 4'd0;
                 am_kind_out <= 2'd0;
+                am_inc_out  <= 32'd0;
             end else begin
                 am_vld_in <= 1'b0;
                 if (pm_valid) begin
@@ -1843,6 +1923,7 @@ module top #(
                 am_vld_out  <= am_vld_in;
                 am_axis_out <= am_axis_in;
                 am_kind_out <= am_kind_in;
+                am_inc_out  <= am_inc;   // ⭐ 打一拍，与 am_vld_out/am_axis_out 严格同拍
             end
         end
 
@@ -1943,7 +2024,7 @@ module top #(
         //     ⚠️ `param_extract` 要**等越过深阈**才算得出力度
         //     ⇒ ⭐ 力度修正走 `note_manager.vel_upd_*`（⭐ 那是独立的通路）
         wire [7:0]  w3a_evt_vel   = 8'd200;
-        wire [31:0] w3a_evt_inc   = am_inc;
+        wire [31:0] w3a_evt_inc   = am_inc_out;   // ⭐ 必须与 w3a_evt_valid(=am_vld_out) 同拍
 
         // ═══════════════════════════════════════════════════════════════════
         //   ⭐⭐ 源 A 三级仲裁（`seq_arb`，⭐ 2026-09-26 新增）
@@ -2017,6 +2098,15 @@ module top #(
         wire [15:0] sa_score_cnt;
         wire [15:0] sa_demo_cnt;
 
+        //  ⭐⭐ 曲谱 UART 通路开关（⭐ 2026-09-28 新增，⭐ **默认 0 = 禁用**）
+        //     🔴 原因：`evt_uart_rx`（帧头 `0xA5`）与串口屏/命令**共用同一条 UART**
+        //        ⇒ 其它两路的合法载荷里出现 `0xA5` 时会被误当事件包
+        //        ⇒ 🔴 **注入 axis=14/15 的伪 note_on** ⇒ **永久挂音**（⭐ 已仿真证明）
+        //     📌 详见 `seq_arb` 例化处 `score_valid_i` 的注释与
+        //        `tb/w3c/tb_evt_uart_rx_screen.sv`。
+        //     ⚠️ 要恢复曲谱功能 ⇒ 置 1 **且** 把曲谱源换到**独立 UART 线**。
+        localparam integer SCORE_UART_ENABLE = 0;
+
         seq_arb #(
             .AXIS_W  (4),
             .PHASE_W (32),
@@ -2034,8 +2124,33 @@ module top #(
             .live_kind_i      (w3a_evt_kind),
             .live_timbre_valid_i(1'b0),
             .live_timbre_i    (2'd0),
-            // ── 源 2：曲谱（⭐ `evt_uart_rx` —— 🔴 本次【首次】接通）────────
-            .score_valid_i    (eu_evt_valid),
+            // ── 源 2：曲谱（⭐ `evt_uart_rx`）────────────────────────────────
+            //   🔴🔴 **2026-09-28：⭐ 默认【禁用】—— 这是一条【已证明】的伪事件注入路径**
+            //
+            //   ⭐ 证据（仿真 `tb/w3c/tb_evt_uart_rx_screen.sv`，⛔ 不是推测）：
+            //      · `top.v` 把**同一个 UART 字节流**（`ur_done`/`ur_data`）分给三路：
+            //          `uart_ui`（串口屏）· `calib_cmd`（命令）· `evt_uart_rx`（曲谱事件）
+            //      · `evt_uart_rx` 的帧头是 **`0xA5`**（9 字节定长），
+            //        靠**字节计数 + 空闲间隔**维持同步
+            //      · 🔴 而**其它两路的合法载荷里都可能出现 `0xA5`**
+            //        （⭐ 串口屏 `0x71` 数值帧的 4 个数据字节、⭐ 命令流里的任意字节）
+            //      · ⭐ 实测：喂 **8 个屏幕数值帧**（数据含 `0xA5`）⇒
+            //        🔴 **产生了 8 条伪事件**，其中
+            //           `axis = 15`（⭐ **保留轴**）· `inc = 0x1FFFFF` · `kind = 0`（note_on）
+            //
+            //   🔴 **为什么这是"挂音"的直接原因**：
+            //      ⭐ 伪事件是 **axis 14/15**（保留轴）且 **只有 note_on、没有 note_off**，
+            //      而**键盘（axis 0~13）永远不可能产生 axis 14/15 的 `note_off`**
+            //      ⇒ ⭐ **那个 voice 的 `gate_r` 永久为 1，⛔ 任何按键都清不掉** ✅
+            //      📌 与用户实测完全吻合：「按同键不能清」「按所有键也不能清」
+            //         「持续几分钟」「断电才清」「~50% 概率」「按一阵后累积」
+            //
+            //   ⭐ **修法（最小变量）**：⭐ 把曲谱通路做成**编译期开关，默认 0**
+            //      · ⛔ 不动 `evt_uart_rx` 本身（它的 9 字节协议是对的）
+            //      · ⛔ 不动 `uart_ui` / `calib_cmd`（队友/命令通路）
+            //      · ⭐ 要恢复曲谱功能时：把本参数置 1 **且** 把曲谱源换到**独立 UART 线**
+            //        （⚠️ 与串口屏共用一条线时，⛔ 任何"帧头猜同步"都会互相误判）
+            .score_valid_i    (SCORE_UART_ENABLE ? eu_evt_valid : 1'b0),
             .score_axis_i     (score_evt_axis),
             .score_phase_inc_i(score_evt_inc),
             .score_velocity_i (score_evt_vel),
@@ -2202,8 +2317,21 @@ module top #(
             //   🔴 原来硬接 0（注释写着"要等 W3a 采集链落地"）⇒ ⭐ **现已落地**
             //   ⭐ 力度：⭐ `param_extract` 在**越过深阈后**才发 ⇒ ⭐ **后到、只改已在响的 voice**
             //      （⭐ 这就是"先触发后修正"：⭐ 起音不等力度 ⇒ 延迟与力度无关）
-            //   ⚠️ 音高：⭐ `param_extract` 本版**恒 0**（⭐ 属滑音，阶段 2）
-            .vel_upd_valid_i   (pe_vel_v),
+            //   🔴🔴 **2026-09-27 诊断：暂时【断开】力度修正**（⛔ 不是删除通路）
+            //
+            //      ⭐ 为什么断开（⭐ 上板实测）：
+            //         · ⭐ 用户反馈"**感受不到力度反馈**"
+            //         · 🔴 且报告"**按住不松手时音量反复变大变小**"
+            //      ⭐ 机理分析：`vel_upd` 只允许**调大**（`if value > vel_r[i]`），
+            //         而起音已用 `DEFAULT_VEL=200` ⇒ ⚠️ 慢按时 `vel_lut` 给 64（被 `>` 挡掉），
+            //         快按时给 255 ⇒ ⭐ **只有"快按"才生效**；
+            //         而 `peak_level`/`sustain_level` 都由 `velocity_i` 派生
+            //         ⇒ 🔴 改 `vel` 会让 ADSR 的 sustain 目标**跳变** ⇒ 音量起伏。
+            //      📌 本行先置 0 做**诊断**：⛔ 不断通路、⛔ 不删代码 ——
+            //         只要把它换回 `pe_vel_v` 即可恢复（⭐ 力度仍是评分点）。
+            //   TODO(力度反馈): 修好后恢复 `pe_vel_v`，并给 `param_extract` 加深阈迟滞
+            //                   （⭐ 现在 `pos` 在 `VEL_T2_EFF` 附近抖动 ⇒ 反复发 `vel_upd`）。
+            .vel_upd_valid_i   (1'b0),          // 🔴 诊断：暂时禁用（原为 pe_vel_v）
             .vel_upd_axis_i    (pe_vel_ax),
             .vel_upd_value_i   (pe_vel),
             .pitch_upd_valid_i (pe_pitch_v),
@@ -2222,6 +2350,7 @@ module top #(
             .voice_velocity_o  (nm_vel),
             .voice_timbre_o    (nm_timbre),
             .voice_age_o       (nm_age),
+            .voice_retrig_reset_o(nm_retrig_reset),
             .alloc_valid_o     (nm_alloc_valid),
             .alloc_voice_o     (nm_alloc_voice),
             .event_lost_clr_i  (1'b0)

@@ -16,6 +16,16 @@ module adsr #(
     input  wire                 sample_tick_i,
     input  wire                 gate_i,
     input  wire [VEL_W-1:0]     velocity_i,
+    //  Retrigger reset: a one-sample-tick pulse that forces the envelope back
+    //  to zero and re-enters ATTACK from scratch.
+    //
+    //  Why this exists: `note_manager` reacts to a same-axis re-press by
+    //  rewriting `phase_inc` and pulsing `gate` low then high. If the envelope
+    //  is still anywhere above zero when `gate` returns, the ADSR resumes from
+    //  the residual level, so the old tail and the new attack stack and the
+    //  output spikes far above full scale. Zeroing first makes the re-press a
+    //  clean restart and removes the dependency on the release time constant.
+    input  wire                 retrig_reset_i,
     output reg  [ENV_W-1:0]     env_level_o,
     output wire                 active_o
 );
@@ -49,7 +59,15 @@ module adsr #(
             releasing   <= 1'b0;
             env_level_o <= {ENV_W{1'b0}};
         end else if (sample_tick_i) begin
-            if (releasing) begin
+            if (retrig_reset_i) begin
+                //  Highest priority: a retrigger discards whatever the envelope
+                //  was doing, including a release in flight. The level must go
+                //  to zero BEFORE gate returns, otherwise the residual tail and
+                //  the new attack add up and the voice overshoots.
+                env_level_o <= {ENV_W{1'b0}};
+                releasing   <= 1'b0;
+                state       <= ST_ATTACK;
+            end else if (releasing) begin
                 if (gate_i) begin
                     releasing <= 1'b0;
                     state     <= ST_ATTACK;

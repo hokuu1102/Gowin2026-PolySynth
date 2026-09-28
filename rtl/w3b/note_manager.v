@@ -125,6 +125,16 @@ module note_manager #(
     output wire [POLY_TARGET*VEL_W-1:0]      voice_velocity_o,   // → envelope_bank
     output wire [POLY_TARGET*TIMBRE_W-1:0]   voice_timbre_o,     // → wavetable（`K-82`）
     output wire [POLY_TARGET*AGE_W-1:0]      voice_age_o,        // 抢占年龄（诊断）
+    //  ⭐ 重触发/抢占时命令该 voice 的包络【先归零】—— → envelope_bank.retrig_reset_i
+    //     ⚠️ 为什么必须归零（2026-09-27 上板实测）：
+    //        🔴 旧行为只把 `gate` 压低 **1 个 sample_tick（20.5 µs）** 就抬高，
+    //           而 ADSR 归零需要 `65535/RELEASE_STEP` 个采样拍 ⇒ **包络几乎没掉**。
+    //           `gate` 一回来 ADSR 直接回 `ST_ATTACK` 并从**残余电平**往 peak 爬
+    //           ⇒ ⭐ **旧音的尾巴 + 新的 Attack 叠加** ⇒ 🔴 **幅度冲到正常音的 ~11 倍**
+    //             （示波器实测 0.0138 V vs 正常 0.00125 V），听感 = **偶发刺耳尖音**。
+    //        ⭐ 归零后重触发 = **干净重启**，且**不再依赖 release 时间常数**
+    //           （⭐ 这正是"等待时间 < 时间常数"那条老坑在 RTL 侧的翻版）。
+    output wire [POLY_TARGET-1:0]            voice_retrig_reset_o,
     output wire                              alloc_valid_o,     // 分配发生（脉冲）
     output wire [IDX_W-1:0]                  alloc_voice_o,
 
@@ -177,9 +187,35 @@ module note_manager #(
     reg [AGE_W-1:0]        age_r    [0:POLY_TARGET-1];
 
     // ── 重触发保持（压低期间该 voice 的 gate 必须表现为 0）──────────────────
-    reg                    retrig_hold;
-    reg [IDX_W-1:0]        retrig_idx;
-    reg [1:0]              retrig_state;
+    //  ⭐⭐ **2026-09-28 根因修复（B3 挂音）：重触发压低改成【每 voice 一位的位图】**
+    //
+    //  🔴 **原缺陷**：用 `retrig_hold` + `retrig_idx` + `retrig_state` **单套全局寄存器**
+    //     描述一个**本质上是每 voice 一个**的操作 ⇒ 三条后果：
+    //
+    //   ① 🔴 **`note_off` 清不掉正在重触发的 voice**
+    //      `gate_mask[i] = gate_r[i] & ~hold_mask[i]`，而压低期间 `hold_mask[i]=1`
+    //      ⇒ `gate_mask[i]=0` ⇒ `ST_DECIDE` 的 off 分支**跳过该 voice**；
+    //      同时 (f) 段每拍把它抬回 1 ⇒ ⭐ **清了又被拉回** ⇒ **永久挂音**。
+    //      ⭐ 与用户实测吻合：「挂音的音高是我按过的键」「按同键/所有键都清不掉」
+    //         「⭐ 按了几次以后才会触发」（同轴快速连按才进 RT_LOW）
+    //
+    //   ② 🔴 **`retrig_idx` 被抢占 ⇒ 孤儿 voice**
+    //      两个轴在同一窗口内先后重触发时，后者覆盖 `retrig_idx`
+    //      ⇒ 前一个 voice 的 `retrig_hold` **永远没人清**
+    //      ⇒ 它的 `gate_mask` 永久为 0 ⇒ **既不能发声、也不能被分配**。
+    //
+    //   ③ 🔴 **`note_off` 与 (f) 撞在 `sample_tick` 那一拍**
+    //      off 分支把 `retrig_state` 推回 `RT_NONE`（于是 (f) 不再管它），
+    //      但**同一拍 (f) 刚把 `gate_r[retrig_idx] <= 1`** ⇒ `gate_r` **永久卡在 1**。
+    //
+    //  ✅ **修法（最稳健）**：⭐ **位图** —— 每个 voice 一位，
+    //     · ⛔ 不存在"被抢占"（① 的 ② 消失）
+    //     · ⭐ `note_off` 判据改用 `gate_r | retrig_low`，**并同时清位图**
+    //       ⇒ `(g)` 段在 `(f)` 之后 ⇒ ⭐ **`note_off` 无条件优先**（① 的 ①③ 消失）
+    //     · ⭐ 顺带去掉 32 个 5 位比较器 ⇒ **改善 Fmax**
+    //  📌 语义等价：原 `RT_LOW + RT_HIGH` 两步 = "压低到 `sample_tick` 后抬高"，
+    //     位图版本完全一致（`retrig_low[i]` 在 tick 时清 0 并同时 `gate_r[i] <= 1`）。
+    reg [POLY_TARGET-1:0]  retrig_low;
 
     // ── ⭐ 三个 mask（`assign` + `generate`，⛔ 不用 `always @(*)` —— `L67`）──
     //    ⭐ 语义：
@@ -193,7 +229,7 @@ module note_manager #(
     genvar mg;
     generate
         for (mg = 0; mg < POLY_TARGET; mg = mg + 1) begin : gen_mask
-            assign hold_mask[mg] = retrig_hold & (retrig_idx == mg);
+            assign hold_mask[mg] = retrig_low[mg];
             assign gate_mask[mg] = gate_r[mg] & ~hold_mask[mg];
             assign live_mask[mg] = gate_r[mg] | hold_mask[mg] | env_active_i[mg];
             assign free_mask[mg] = ~live_mask[mg];
@@ -279,7 +315,39 @@ module note_manager #(
     genvar sg;
     generate
         for (sg = 0; sg < POLY_TARGET; sg = sg + 1) begin : gen_same
-            assign same_hit[sg] = gate_mask[sg] && (axis_r[sg] == cur_axis);
+            //  ⭐⭐ **2026-09-28 根因修复（B2「偶发尖音」）**：
+            //     `same_hit` 判"同键还在响"必须用 **`live_mask`**（含 Release 尾巴），
+            //     ⛔ 不能用 `gate_mask`（那只是"对外门"）。
+            //
+            //  🔴 **原缺陷**：`same_hit = gate_mask & (axis_r==cur_axis)`，而
+            //     `gate_mask = gate_r & ~retrig_low` ⇒ ⭐ **松手后（`gate_r=0`）
+            //     尾巴还在响（`env_active_i=1`）时为 0** ⇒ `same_valid=0`
+            //     ⇒ ⭐ 走 `ST_SCAN` **另分配一个 voice**（同 `axis_r`、同 `phase_inc`）。
+            //
+            //  🔴 **后果（⭐ 与 DS0004 实测吻合，已量化）**：
+            //     · 旧尾巴（≤51200）+ 新起音峰（`velocity<<8 = 51200`）
+            //       = 102400 = ⭐ **8 × sustain(12800)**
+            //     · 再乘 `tdm_render_mixer` **无斜坡**的 `1/√N` 增益台阶
+            //       （n=2→62 而正常段 n=4→44 ⇒ ×1.41；n=8→31 ⇒ ×2.0）
+            //       ⇒ ⭐ **8 × 1.41 ≈ 11.3 倍** ⇒ 落进 DS0004 的 **10.6~11.1 倍**
+            //     · 两个 voice **同音高** ⇒ 基频一致 ✅
+            //     · 绝对值仅约满幅 1.4% ⇒ 限幅器不介入 ⇒ **无平顶** ✅
+            //     · 重按间隔落在 Release 窗口内的比例 ≈ 一半
+            //       （`REFRACT_N=60`=30 ms 又挡掉了更快的重按）⇒ ⭐ **~50%** ✅
+            //
+            //  📌 **为什么 B2-a（`retrig_reset` 电平化）没消除它**：
+            //     那条修的是【复用同一 voice】的重触发路径；⭐ 而走"**新分配**"这条路时
+            //     旧 voice 的尾巴**不会被清零**（`ST_COMMIT` 只对 `best_idx` 发 reset）
+            //     ⇒ 尖音从这条缝里活下来。
+            //
+            //  ✅ **修法**：改用 `live_mask` ⇒ "尾巴未结束的再按"也算同键还在响
+            //     ⇒ 走 `same_valid` ⇒ 拿到 `retrig_low` + `retrig_reset` ⇒ ⭐ **干净重启**。
+            //  📌 判据（Verilator 定向探针，红→绿）：
+            //     `note_on(A) → note_off(A) → 等 2 帧 → note_on(A)`
+            //     数"axis==A 且 live_mask==1"的 voice 个数
+            //     ⭐ 原始：**2**（DUPLICATE）⇒ 修复后：**1**（复用）
+            assign same_hit[sg] = (gate_r[sg] | retrig_low[sg] | env_active_i[sg])
+                                && (axis_r[sg] == cur_axis);
         end
     endgenerate
     wire same_valid = |same_hit;
@@ -333,6 +401,8 @@ module note_manager #(
 
     reg                    alloc_valid_r;
     reg [IDX_W-1:0]        alloc_voice_r;
+    //  ⭐ 重触发清零脉冲：**单周期**（每 clk 先清、由 (f)/(g) 两处按需置位）
+    reg  [POLY_TARGET-1:0] retrig_reset_r;
     integer i;
 
     always @(posedge clk_i) begin
@@ -349,9 +419,7 @@ module note_manager #(
             fifo_wr       <= {FW{1'b0}};
             fifo_rd       <= {FW{1'b0}};
             fifo_cnt      <= {(FW+1){1'b0}};
-            retrig_state  <= RT_NONE;
-            retrig_hold   <= 1'b0;
-            retrig_idx    <= {IDX_W{1'b0}};
+            retrig_low    <= {POLY_TARGET{1'b0}};
             state         <= ST_IDLE;
             scan_cnt      <= {SW{1'b0}};
             best_valid    <= 1'b0;
@@ -367,11 +435,32 @@ module note_manager #(
             cur_timbre    <= {TIMBRE_W{1'b0}};
             alloc_valid_r <= 1'b0;
             alloc_voice_r <= {IDX_W{1'b0}};
+            retrig_reset_r <= {POLY_TARGET{1'b0}};
             // ⭐⭐ 溢出指示：硬复位清（⚠️ 上电后是干净的；上板运行中要靠 clr 输入清）
             lost_cnt_r    <= {EVT_LOST_CNT_W{1'b0}};
             lost_sticky_r <= 1'b0;
         end else begin
             alloc_valid_r <= 1'b0;
+            //  ⭐⭐ **2026-09-28 修（B2「偶发尖音」的直接原因）**：
+            //     `retrig_reset` 从【单拍脉冲】改成【保持到 `sample_tick` 才清】。
+            //
+            //  🔴 **原缺陷**（⭐ 与本文件 :481 的电平写法**自相矛盾**）：
+            //     · ADSR 只在 `sample_tick_i` 那一拍采样 `retrig_reset_i`（`adsr.v:61-69`）
+            //     · 而 `ST_COMMIT` 只把 `retrig_reset_r[best_idx]` 拉高 **1 个 clk**
+            //     ⇒ ⭐ **命中率 = 1/1024 ≈ 0.1%** ⇒ 抢占路径的"包络清零"**几乎从不生效**
+            //     ⇒ 🔴 被抢占的 voice（正在 release、`env` 有残值）会从**残余电平**
+            //        重新 attack ⇒ 旧尾巴 + 新 attack 叠加
+            //        ⇒ ⭐ **~11 倍尖音**（⭐ 与用户 DS0004 实测的 10.6~11.1 倍吻合）
+            //     ⚠️ 同族窗口：`RT_LOW` 的**第一拍**若撞上 `sample_tick` 也会漏采。
+            //
+            //  ✅ **修法**：⭐ **只在 `sample_tick_i` 那一拍清** ⇒ 任何位置置的 1
+            //     都会**至少保持到下一个 tick** ⇒ ADSR **必然看见**。
+            //  📌 代价：最多保持 1 帧（20.48 µs）；⚠️ 但 ADSR 在第一个 tick 就消费并
+            //     由本行清零 ⇒ **不会重复触发**（ADSR 里 reset 是"立即归零 + 进 ATTACK"，
+            //     幂等）。
+            //  ⚠️ 本行必须写在 (f)/(g) 两处**置位之前** —— ⭐ Verilog 同块内**后写覆盖先写**，
+            //     置位才能赢。
+            if (sample_tick_i) retrig_reset_r <= {POLY_TARGET{1'b0}};
 
             // ── (a) 年龄：每采样拍 +1（饱和），⛔ 不溢出 ──────────────────
             if (sample_tick_i) begin
@@ -457,16 +546,26 @@ module note_manager #(
             // ═══════════════════════════════════════════════════════════════
             // ⭐⭐ (f) 重触发两步走（与状态无关，优先于扫描）
             // ═══════════════════════════════════════════════════════════════
-            if (retrig_state == RT_LOW) begin
-                gate_r[retrig_idx] <= 1'b0;
-                if (sample_tick_i) begin
-                    gate_r[retrig_idx] <= 1'b1;
-                    retrig_state       <= RT_HIGH;
-                    retrig_hold        <= 1'b0;
+            // ⭐⭐ (f) 重触发压低（⭐ 2026-09-28 改成【每 voice 位图】）
+            //   ⭐ 对**每一个**处于压低态的 voice 独立处理 ⇒ ⛔ 不存在"被抢占"
+            //   ⭐ `retrig_reset` 用【电平】保持到 `sample_tick` ⇒ ADSR 必然看见
+            //     （⛔ 若只发一拍脉冲，而 tick 恰好错开 ⇒ 清零丢失
+            //      ⇒ 又回到"从残余电平重新 Attack"的尖音 bug）
+            //   ⚠️ 本段在 `case` **之前**；`(g)` 的 `note_off` 在之后 ⇒
+            //      ⭐ **`note_off` 无条件优先**（这是防挂音的关键）
+            for (i = 0; i < POLY_TARGET; i = i + 1) begin
+                if (retrig_low[i]) begin
+                    gate_r[i]          <= 1'b0;
+                    //  ⭐⭐ 2026-09-28 修（复审实测 rst_ticks=2）：sample_tick 那一拍必须让 :463 的【清零】赢。
+                    //  🔴 原写法无条件置 1 ⇒ 后写覆盖先写 ⇒ 该位跨【两个】sample_tick
+                    //     ⇒ ADSR 连清两帧 ⇒ ⭐ 重触发起音多延迟一整帧（20.48 µs）。
+                    //  ✅ 加 !sample_tick_i ⇒ 高电平恰好跨【一个】tick 沿（语义与注释一致）。
+                    if (!sample_tick_i) retrig_reset_r[i] <= 1'b1;
+                    if (sample_tick_i) begin
+                        gate_r[i]     <= 1'b1;
+                        retrig_low[i] <= 1'b0;
+                    end
                 end
-            end else if (retrig_state == RT_HIGH) begin
-                gate_r[retrig_idx] <= 1'b1;
-                if (sample_tick_i) retrig_state <= RT_NONE;
             end
 
             // ═══════════════════════════════════════════════════════════════
@@ -492,19 +591,20 @@ module note_manager #(
                         //    ⚠️ 清"所有"而不是"一个" ⇒ ⭐ **防挂音**（`T38` 纪律）：
                         //       万一同轴位残留了第二个 voice，也不会永远响下去。
                         for (i = 0; i < POLY_TARGET; i = i + 1)
-                            if (gate_mask[i] && (axis_r[i] == cur_axis))
-                                gate_r[i] <= 1'b0;
-                        if ((retrig_state != RT_NONE) && (axis_r[retrig_idx] == cur_axis)) begin
-                            retrig_state <= RT_NONE;
-                            retrig_hold  <= 1'b0;
-                        end
+                            if ((gate_r[i] | retrig_low[i]) && (axis_r[i] == cur_axis)) begin
+                                gate_r[i]     <= 1'b0;
+                                //  ⭐⭐ **`note_off` 无条件优先**（2026-09-28 根因修复）：
+                                //     同时清掉"重触发压低"位 ⇒ (f) 段此后再不会把它抬回 1
+                                //     ⇒ ⛔ 彻底杜绝"清了又被拉回"的永久挂音。
+                                //  📌 原判据用 `gate_mask[i]`（= `gate_r & ~hold_mask`），
+                                //     压低期间恒为 0 ⇒ **跳过该 voice** ⇒ 挂音。
+                                retrig_low[i] <= 1'b0;
+                            end
                         state <= ST_IDLE;
                     end else if (same_valid) begin
                         // ⭐ 同轴位重触发优先（复用同一 voice，⛔ 不新占）
-                        gate_r[same_idx]   <= 1'b0;      // 压低（RT_LOW 期间继续压）
-                        retrig_state       <= RT_LOW;
-                        retrig_hold        <= 1'b1;
-                        retrig_idx         <= same_idx;
+                        gate_r[same_idx]     <= 1'b0;   // 压低（由 (f) 段保持到 sample_tick）
+                        retrig_low[same_idx] <= 1'b1;   // ⭐ 每 voice 一位（⛔ 不再用全局 retrig_idx）
                         phase_r[same_idx]  <= cur_inc;
                         vel_r[same_idx]    <= new_vel;
                         timbre_r[same_idx] <= new_timbre;
@@ -535,15 +635,39 @@ module note_manager #(
                 end
 
                 ST_COMMIT: begin
-                    // ⭐ 提交（此时 `best_*` 已稳定）
-                    gate_r[best_idx]   <= 1'b1;
-                    axis_r[best_idx]   <= cur_axis;
-                    phase_r[best_idx]  <= cur_inc;
-                    vel_r[best_idx]    <= new_vel;
-                    timbre_r[best_idx] <= new_timbre;
-                    age_r[best_idx]    <= {AGE_W{1'b0}};
-                    alloc_valid_r      <= 1'b1;
-                    alloc_voice_r      <= best_idx;
+                    //  ⭐⭐ **2026-09-28 修（P2-1）：`best_valid==0` 时⛔ 不提交**
+                    //
+                    //  🔴 **原写法**：无条件用 `best_idx` 提交。
+                    //     ⚠️ 若本轮扫描**一个候选都没有**（`best_valid` 始终 0 ——
+                    //     例如全部 voice 都在 `retrig_low`、或全在保留池之外），
+                    //     `best_idx` 就是**上一轮的残留值**
+                    //     ⇒ 🔴 会把音提交到一个**从未通过 `pool_mask` / `~cand_hold` 校验**
+                    //        的 voice —— 可能是节拍器的保留 voice，
+                    //        或**正在压低态**的 voice（`gate_r=1` 与 `retrig_low=1` 同时成立）
+                    //     ⇒ 破坏"压低中的 voice 不可被抢占"这条不变量。
+                    //  📌 **可达性**：`POLY_TARGET=32 / RESERVED_N=5` 下需要 **27 个 voice
+                    //     同时处于 `retrig_low`**（≤1 帧窗口内 27 次同轴重触发）⇒ 极低；
+                    //     ⚠️ 但在**小实例**（例如 tb 里 `POLY_TARGET=4, RESERVED_N=0`）
+                    //     只需 4 个 ⇒ ⭐ 结构上是破口。
+                    //  ✅ **修法**：加 `if (best_valid)` 守卫 ⇒ ⭐ 无候选时**什么都不做**
+                    //     （该事件被丢弃，但⛔ 不会污染无关 voice）。
+                    if (best_valid) begin
+                        // ⭐ 提交（此时 `best_*` 已稳定）
+                        gate_r[best_idx]   <= 1'b1;
+                        axis_r[best_idx]   <= cur_axis;
+                        phase_r[best_idx]  <= cur_inc;
+                        vel_r[best_idx]    <= new_vel;
+                        timbre_r[best_idx] <= new_timbre;
+                        age_r[best_idx]    <= {AGE_W{1'b0}};
+                        //  ⭐ 抢占也要清零包络 —— ⚠️ `best_idx` 可能是**正在 release、
+                        //     包络仍有残值**的 voice（`cand_rel` 类别就是它）⇒
+                        //     🔴 不清零就会把"别人的尾巴"和新音叠加 = 同一个尖音 bug。
+                        //  📌 与 `gate` 同拍：ADSR 里 `retrig_reset_i` 优先级**高于**
+                        //     `gate` 判定 ⇒ ⭐ 同拍不会既清零又按残余电平起振。
+                        retrig_reset_r[best_idx] <= 1'b1;
+                        alloc_valid_r      <= 1'b1;
+                        alloc_voice_r      <= best_idx;
+                    end
                     state              <= ST_IDLE;
                 end
 
@@ -567,6 +691,7 @@ module note_manager #(
     assign voice_gate_o      = gate_mask;
     assign voice_active_o    = live_mask;
     assign voice_releasing_o = live_mask & ~gate_mask;
+    assign voice_retrig_reset_o = retrig_reset_r;
     assign alloc_valid_o     = alloc_valid_r;
     assign alloc_voice_o     = alloc_voice_r;
 

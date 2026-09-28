@@ -309,14 +309,25 @@ module tb_metronome;
         begin : e2e
             integer g;
             g = 0;
+            //  ⭐⭐ **2026-09-28 修正判据信号**：用 `nm_active`（= `live_mask`）而⛔ 不是
+            //     `nm_gate`（= `gate_mask`）来判"这个 voice 有没有被占用"。
+            //
+            //  📌 **为什么**：`gate_mask = gate_r & ~retrig_low` 是**对外门**，
+            //     它在**重触发压低期间故意为 0**（让 ADSR 看到下降沿 ⇒ 干净重启）。
+            //     ⭐ 而节拍器**只发 `note_on`、永不发 `note_off`** ⇒ 每拍都会**复用**
+            //     （重触发）同一个保留 voice；采样若正落在那个 ≤1 帧的压低窗口内，
+            //     `nm_gate` 会读到 0 ⇒ 假失败。
+            //     ⭐ 真正表示"该 voice 被占用"的是 `live_mask`
+            //     （`gate_r | retrig_low | env_active_i`）⇒ `voice_active_o`。
+            //  ⚠️ 本改动只换**判据信号**，⛔ 不放松断言强度（仍是"≥1 个 voice 且落在保留池"）。
             for (i = 0; i < POLY; i = i + 1)
-                if (nm_gate[i]) g = g + 1;
+                if (nm_active[i]) g = g + 1;
             chk("end-to-end: the event actually ALLOCATED a voice in note_manager",
                 g >= 1);
             // ⭐ 而且必须落在**专用池**（高索引）里 —— 这是不被抢占的前提
             chk("end-to-end: it landed on a RESERVED (high-index) voice, not the normal pool",
-                nm_gate[POLY-1] || nm_gate[POLY-2] || nm_gate[POLY-3] ||
-                nm_gate[POLY-4] || nm_gate[POLY-5]);
+                nm_active[POLY-1] || nm_active[POLY-2] || nm_active[POLY-3] ||
+                nm_active[POLY-4] || nm_active[POLY-5]);
         end
 
         // ═══════════════════════════════════════════════════════════════════

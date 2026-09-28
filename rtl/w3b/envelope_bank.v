@@ -17,6 +17,10 @@ module envelope_bank #(
     input  wire                         sample_tick_i,
     input  wire [POLY_TARGET-1:0]       gate_i,
     input  wire [POLY_TARGET*VEL_W-1:0] velocity_i,
+    //  Per-voice retrigger reset: forces that voice's envelope to zero so a
+    //  re-press or a steal restarts from silence instead of stacking on the
+    //  tail of the previous note (see adsr.v for the full reasoning).
+    input  wire [POLY_TARGET-1:0]       retrig_reset_i,
     output wire [POLY_TARGET*ENV_W-1:0] env_level_o,
     output wire [POLY_TARGET-1:0]       env_active_o
 );
@@ -37,6 +41,7 @@ module envelope_bank #(
                 .sample_tick_i (sample_tick_i),
                 .gate_i        (gate_i[voice_id]),
                 .velocity_i    (velocity_i[voice_id*VEL_W +: VEL_W]),
+                .retrig_reset_i(retrig_reset_i[voice_id]),
                 .env_level_o   (env_level_o[voice_id*ENV_W +: ENV_W]),
                 .active_o      (env_active_o[voice_id])
             );

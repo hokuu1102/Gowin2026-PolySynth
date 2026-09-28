@@ -1,4 +1,4 @@
-  ok  : reset holds every output at zero
+﻿  ok  : reset holds every output at zero
   ok  : enable=0 bypasses every output
   ok  : active_n matches requested mode
   ok  : gate popcount matches active_n
@@ -23,4 +23,6 @@
   ok  : reset wins even while enable is high
   ok  : no output X/Z after reset
 PASS: test_mode_ctrl 4/8/16/32 contract
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\w3b\tb_test_mode_ctrl.sv:180: $finish called at 148000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_test_mode_ctrl.sv:180: $finish called at 148000 (1ps)
+
+

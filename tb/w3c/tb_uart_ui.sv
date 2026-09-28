@@ -66,11 +66,16 @@ module tb_uart_ui;
         end
     endtask
 
+    // ⭐ 复位默认模式：0 = 指板 · 1 = 钢琴。
+    //   📌 本 tb 用 **0 = 指板默认**（⭐ 与队友那侧的 tb 语义一致），
+    //      而【交付默认】是 `top.v` 里的 1（钢琴）—— ⭐ 二者互不影响。
+    localparam integer MODE_PIANO_DEFAULT = 0;
+
     uart_ui #(
-        .CLK_HZ   (CLK_HZ),
-        .BAUD     (BAUD),
-        .GAP_BYTES(16),
-        .MODE_PIANO_DEFAULT(0)   // ⭐ tb 沿用「指板默认」语义（reset 检查 mode==0）
+        .CLK_HZ            (CLK_HZ),
+        .BAUD              (BAUD),
+        .GAP_BYTES         (16),
+        .MODE_PIANO_DEFAULT(MODE_PIANO_DEFAULT)
     ) dut (
         .clk_i        (clk),
         .rst_n_i      (rst_n),
@@ -164,7 +169,12 @@ module tb_uart_ui;
         // ═══════════════════════════════════════════════════════════════════
         // ① 复位基线
         // ═══════════════════════════════════════════════════════════════════
-        chk("reset: mode=0 (指板默认)", mode === 1'b0);
+        //   ⭐ 复位默认模式由 `MODE_PIANO_DEFAULT` 决定（⛔ 不是写死的"指板"）：
+        //      0 = 指板 · 1 = 钢琴。top.v 目前传 1 ⇒ 默认钢琴。
+        //   📌 判据必须**跟随该参数**，⛔ 不能写死为 0 ——
+        //      否则一旦默认值变更就会假红（2026-09-27 实测 6 个 FAIL 就是这么来的）。
+        chk("reset: mode=MODE_PIANO_DEFAULT (0=指板/1=钢琴)",
+            mode === ((MODE_PIANO_DEFAULT != 0) ? 1'b1 : 1'b0));
         chk("reset: base_semi=0 (C4)", base_semi === 7'd0);
         chk("reset: hb_ready=0", hb_ready === 1'b0);
         chk("reset: 无 commit 脉冲", mode_commit === 1'b0 && base_commit === 1'b0);
@@ -178,22 +188,25 @@ module tb_uart_ui;
         @(negedge clk);
         chk("握手 0x88 -> hb_ready=1", hb_ready === 1'b1);
         chk("握手计入 frame_cnt", frame_cnt === 16'd1);
-        chk("握手不改 mode", mode === 1'b0);
+        chk("握手不改 mode", mode === ((MODE_PIANO_DEFAULT != 0) ? 1'b1 : 1'b0));
 
         // ═══════════════════════════════════════════════════════════════════
         // ③ 触摸帧：0x65 + 控件ID=0 + FF FF FF → 模式翻转 + mode_commit
         // ═══════════════════════════════════════════════════════════════════
         //   控件 0 = 模式切换（见 uart_ui 注释 + 决议清单 §B 第 7 项）
+        //   ⭐ 判据 = "翻转到【相反】值"（⛔ 不是写死 =1）
         feed_frame(8'h65, 8'h00, 8'h00);
-        chk("触摸控件0 -> mode 翻转 =1", mode === 1'b1);
+        chk("触摸控件0 -> mode 翻转 (=~默认)",
+            mode === ((MODE_PIANO_DEFAULT != 0) ? 1'b0 : 1'b1));
         chk("mode_commit 单周期脉冲", mode_commit === 1'b1);
         @(negedge clk);
         chk("mode_commit 仅 1 拍（下一拍回落）", mode_commit === 1'b0);
 
-        //   再点一次 → 翻回 0
+        //   再点一次 → 翻回默认
         feed_frame(8'h65, 8'h00, 8'h00);
         @(negedge clk);
-        chk("再次触摸 -> mode 翻回 =0", mode === 1'b0);
+        chk("再次触摸 -> mode 翻回 (=默认)",
+            mode === ((MODE_PIANO_DEFAULT != 0) ? 1'b1 : 1'b0));
 
         // ═══════════════════════════════════════════════════════════════════
         // ④ 数值帧：0x71 + 变量序=1 + 数值=0x18 + FF FF FF → 起始音落地
@@ -242,7 +255,8 @@ module tb_uart_ui;
         feed(8'hFF);        // ⭐ 只有两个 FF，帧未结束
         feed(8'h00);        // ⭐ 打断 FF 连续（当作数据）
         @(negedge clk);
-        chk("两连 FF 不结束帧（mode 未变）", mode === 1'b0);
+        chk("两连 FF 不结束帧（mode 未变）",
+            mode === ((MODE_PIANO_DEFAULT != 0) ? 1'b1 : 1'b0));
 
         //   现在补齐第 3 个 FF 之外的剩余：先归位，避免残留半帧影响后续
         silence(BYTE_CLK * 40);   // ⭐ 远大于 16 字节时间 ⇒ 归位
@@ -260,9 +274,10 @@ module tb_uart_ui;
         // ⑦ 完整回归：再走一遍握手+触摸+数值，确认状态机可复用
         // ═══════════════════════════════════════════════════════════════════
         feed_frame(8'h88, 8'h00, 8'h00);
-        feed_frame(8'h65, 8'h00, 8'h00);   // mode 0→1
+        feed_frame(8'h65, 8'h00, 8'h00);   // mode 翻转一次
         @(negedge clk);
-        chk("回归: 再握手+触摸 mode=1", mode === 1'b1);
+        chk("回归: 再握手+触摸 mode=~默认",
+            mode === ((MODE_PIANO_DEFAULT != 0) ? 1'b0 : 1'b1));
         chk("回归: frame_cnt 累计", frame_cnt >= 16'd4);
 
         // ═══════════════════════════════════════════════════════════════════

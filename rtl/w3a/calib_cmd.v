@@ -86,7 +86,18 @@ module calib_cmd #(
     // ⭐ T43：复用板载 USB-C 串口作为 Test Mode 的实体入口。
     // 只输出一次单拍请求；4/8/16/32/关的状态机属于 top.v，避免解析器
     // 自己保留另一份模式状态而与实际音频链失去一致。
-    parameter [7:0]   CMD_TEST_MODE = 8'h4D   // 'M'
+    parameter [7:0]   CMD_TEST_MODE = 8'h4D,  // 'M'
+    // ⭐⭐ 2026-09-27 新增 `'N'` —— ⭐ **诊断：回传【标定后的 `pos`】**
+    //   🔴 **为什么必须再加一条**（⭐ 上板实测）：
+    //      · ⭐ `'P'` 回的是 `af0_pol`（⭐ **极性校正后的【原始码】**）
+    //      · 🔴 而 `event_extract` 判键用的是 **`pos`（`calib` 后的行程）**
+    //      ⇒ ⚠️ 看原始码**推断不出** `pos`：`pos = (raw − zero) × gain >> 8`
+    //         ⭐ 而 `zero` **只在上电 `tare` 时写一次** ⇒ 🔴 基准漂移看不出来
+    //   ⭐ 三个待查症状都卡在"看不到 `pos`"上：
+    //      ① 挂音 —— 松手后 `pos` 能否降到 `REL_TH`(80) 以下？
+    //      ② 周期性音量起伏 —— 按住时 `pos` 是否周期性变化？
+    //      ③ `zero` 是否有效 —— 松手时 `pos` 应 ≈ 0（⭐ 而不是 ~2000）
+    parameter [7:0]   CMD_POSPROBE = 8'h4E   // 'N' ⭐ 诊断：回传 calib 后的 pos
 ) (
     input  wire        clk_i,
     input  wire        rst_n_i,        // ⭐ 同步复位、低有效
@@ -101,6 +112,7 @@ module calib_cmd #(
     output reg         abort_req_o,    // ⭐ 'X' ⇒ 取消
     output reg         probe_req_o,    // ⭐ 'P' ⇒ 诊断：⭐ 回传 pos 读数（⭐ 2026-09-24 新增）
     output reg         vstat_req_o,    // ⭐ 'V' ⇒ 诊断：⭐ 回传 span 状态（⭐ 2026-09-24 新增）
+    output reg         posprobe_req_o, // ⭐ 'N' ⇒ 诊断：⭐ 回传 calib 后的 pos（⭐ 2026-09-27 新增）
     output reg         test_mode_req_o,// ⭐ 'M' ⇒ Test Mode 下一档（帧外才有效）
 
     // ── ⭐ 可观测性（`K-106`：⛔ 不许静默失效）────────────────────────────
@@ -140,10 +152,12 @@ module calib_cmd #(
     wire byte_is_abort = (rx_data_i == CMD_ABORT);
     wire byte_is_probe = (rx_data_i == CMD_PROBE);   // ⭐ 'P' 诊断（⭐ 2026-09-24）
     wire byte_is_vstat = (rx_data_i == CMD_VSTAT);   // ⭐ 'V' 诊断（⭐ 2026-09-24）
+    wire byte_is_posprobe = (rx_data_i == CMD_POSPROBE); // ⭐ 'N' 诊断（⭐ 2026-09-27）
     wire byte_is_test_mode = (rx_data_i == CMD_TEST_MODE); // ⭐ 'M' Test Mode
     // ⭐ 任一命令字母
     wire byte_is_cmd   = byte_is_tare | byte_is_span | byte_is_abort |
-                         byte_is_probe | byte_is_vstat | byte_is_test_mode;
+                         byte_is_probe | byte_is_vstat | byte_is_posprobe |
+                         byte_is_test_mode;
 
     // ⭐ 只有在**帧外**（`idx_q == 0`）才认命令
     //   🔴 这是本模块的**安全核心** —— ⚠️ 帧内的字母是**载荷**，⛔ 绝不能当命令
@@ -180,6 +194,7 @@ module calib_cmd #(
             abort_req_o    <= 1'b0;
             probe_req_o    <= 1'b0;     // ⭐ 'P' 诊断（⭐ 2026-09-24）
             vstat_req_o    <= 1'b0;     // ⭐ 'V' 诊断（⭐ 2026-09-24）
+            posprobe_req_o <= 1'b0;     // ⭐ 'N' 诊断（⭐ 2026-09-27）
             test_mode_req_o<= 1'b0;     // ⭐ 'M' Test Mode
             cmd_cnt_o      <= 16'd0;
             in_frame_cnt_o <= 16'd0;
@@ -192,6 +207,7 @@ module calib_cmd #(
             abort_req_o <= 1'b0;
             probe_req_o <= 1'b0;        // ⭐ 'P' 诊断（⭐ 2026-09-24）
             vstat_req_o <= 1'b0;        // ⭐ 'V' 诊断（⭐ 2026-09-24）
+            posprobe_req_o <= 1'b0;     // ⭐ 'N' 诊断（⭐ 2026-09-27）
             test_mode_req_o <= 1'b0;    // ⭐ 'M' Test Mode
 
             if (rx_done_i) begin
@@ -210,6 +226,7 @@ module calib_cmd #(
                         if (byte_is_abort) abort_req_o <= 1'b1;
                         if (byte_is_probe) probe_req_o <= 1'b1;   // ⭐ 'P' 诊断
                         if (byte_is_vstat) vstat_req_o <= 1'b1;   // ⭐ 'V' 诊断
+                        if (byte_is_posprobe) posprobe_req_o <= 1'b1; // ⭐ 'N' 诊断
                         if (byte_is_test_mode) test_mode_req_o <= 1'b1;
                         cmd_cnt_o <= sat_inc16(cmd_cnt_o);
                         idx_q     <= 4'd0;      // ⭐ 命令不推进帧位置

@@ -1,6 +1,6 @@
 ﻿iverilog.exe : C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:55: warning: timescale for pos_probe inherited 
 from another file.
-At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:112 char:18
+At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:123 char:18
 +   $compileOut  = & $iverilog @compileArgs 2>&1
 +                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (C:\Users\hokuu\...m another file.:String) [], RemoteException
@@ -13,3 +13,6 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_pos_probe.sv:44: warning: Port 5 (ch_i) of module pos_probe expects 4 bi
+t(s), given 3.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_pos_probe.sv:44:        : Padding 1 high bits of the port.

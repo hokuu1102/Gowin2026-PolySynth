@@ -1,14 +1,16 @@
-﻿NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=4 BYTE_CLK=50 HEADER=a5 T=54 S=53 X=58)
+﻿NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=4 BYTE_CLK=50 HEADER=a5 T=54 S=53 X=58 M=4d)
 === tb_calib_cmd ===
   ok  : 'T' outside a frame raises tare_req
   ok  : 'T' does NOT raise span_req or abort_req
   ok  : 'S' outside a frame raises span_req
   ok  : 'X' outside a frame raises abort_req
-  ok  : cmd_cnt_o counted all three commands
+  ok  : 'M' outside a frame raises test_mode_req
+  ok  : cmd_cnt_o counted all four commands
   ok  : each command pulse is exactly ONE cycle wide
   ok  : payload full of T/S/X raises NO tare_req
   ok  : payload full of T/S/X raises NO span_req
   ok  : payload full of T/S/X raises NO abort_req
+  ok  : payload full of commands raises NO test_mode_req
   ok  : cmd_cnt_o did NOT count in-frame letters
   ok  : in_frame_cnt_o counted all 8 ignored payload letters
   ok  : idx_o returned to 0 after the frame completed
@@ -20,12 +22,12 @@
   ok  : idle gap forces a resync back to idx 0
   ok  : idle resync was counted (observable, not silent)
   ok  : after idle resync, a command works again ('X' fires)
-  ok  : consecutive T,S,X each fire exactly once
-  ok  : consecutive commands: cmd_cnt_o == 3
+  ok  : consecutive T,S,X,M each fire exactly once
+  ok  : consecutive commands: cmd_cnt_o == 4
   ok  : back-to-back frames with embedded T/S/X/HDR raise no commands
   ok  : back-to-back frames end with idx_o == 0
 
-PASS: calib_cmd parses T/S/X only at frame boundaries, ignores payload letters, counts what it drops, and self-heals after a half frame
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_cmd.sv:286: $finish called at 10930000 (1ps)
+PASS: calib_cmd parses T/S/X/M only at frame boundaries, ignores payload letters, counts what it drops, and self-heals after a half frame
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_cmd.sv:293: $finish called at 11010000 (1ps)
 
 

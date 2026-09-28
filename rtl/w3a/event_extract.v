@@ -198,7 +198,10 @@ module event_extract #(
     //   ⭐ ⚠️ **关键**：`evt_*` 现在由 **FIFO 出队**驱动（⛔ 不是循环直接赋）
     //      ⇒ ⭐ **同拍性由"出队那一拍同时锁存数据"保证**。
     integer pi;
+    reg q_push_now;
+
     always @(posedge clk) begin
+        q_push_now = 1'b0;
         if (!rst_n) begin
             for (ai = 0; ai < AXIS_N; ai = ai + 1) begin
                 key_on[ai] <= 1'b0;
@@ -304,7 +307,7 @@ module event_extract #(
                                 q_kind [q_wr] <= 2'd0;                              // note_on
                                 q_depth[q_wr] <= pos_i[scan_axis*POS_W +: POS_W];
                                 q_wr  <= q_wr + 1'b1;
-                                q_cnt <= q_cnt + 1'b1;
+                                q_push_now = 1'b1;   // ⭐ 只置标志（水位改由块末【单一写点】更新）
                             end else begin
                                 overflow_o_r <= 1'b1;                                // ⭐ sticky
                                 if (lost_cnt_r != 8'hFF) lost_cnt_r <= lost_cnt_r + 8'd1;
@@ -313,13 +316,24 @@ module event_extract #(
                     end
                 end else begin
                     if (pos_i[scan_axis*POS_W +: POS_W] < REL_TH) begin
-                        key_on[scan_axis] <= 1'b0;
+                        //  ⭐⭐ **2026-09-28 根因修复（A2）：状态清除与事件发布必须【原子】**
+                        //  🔴 原写法：**无条件**先清 `key_on[scan_axis]`，**再**尝试 push。
+                        //     若此刻 FIFO 满 ⇒ push 失败 ⇒ 🔴 **这条 `note_off` 永久丢失**
+                        //     —— ⭐ 因为 off 分支的进入条件就是 `key_on==1`，
+                        //        一旦清 0，**后续帧即使 `pos<REL_TH` 也再不会进入本分支**
+                        //        ⇒ ⭐ **该 `note_off` 永无第二次机会**（与 on 分支相反）。
+                        //     ⇒ 🔴 `note_manager` 只在收到 `KIND_OFF` 时清 gate
+                        //        ⇒ **该轴 voice 永久挂音**（⭐ 用户实测"几分钟不停"）。
+                        //  ✅ **修法**：与 on 分支**同构** —— ⭐ **只有推入成功才清状态**；
+                        //     推入失败则**保持 `key_on=1`** ⇒ ⭐ **下一帧自动重试**
+                        //     （帧率 2 kHz ⇒ 重试延迟 ≤500 µs，⛔ 不会丢音）。
                         if (q_cnt < FIFO_D[FW:0]) begin
                             q_axis [q_wr] <= scan_axis;
                             q_kind [q_wr] <= 2'd1;                                  // note_off
                             q_depth[q_wr] <= pos_i[scan_axis*POS_W +: POS_W];
                             q_wr  <= q_wr + 1'b1;
-                            q_cnt <= q_cnt + 1'b1;
+                            q_push_now = 1'b1;
+                            key_on[scan_axis] <= 1'b0;                              // ⭐ 与 push 原子
                         end else begin
                             overflow_o_r <= 1'b1;
                             if (lost_cnt_r != 8'hFF) lost_cnt_r <= lost_cnt_r + 8'd1;
@@ -346,8 +360,33 @@ module event_extract #(
                 evt_kind_o  <= q_kind [q_rd];
                 evt_depth_o <= q_depth[q_rd];
                 q_rd  <= q_rd + 1'b1;
-                q_cnt <= q_cnt - 1'b1;
             end
+
+            //  ═══════════════════════════════════════════════════════════════
+            //  ⭐⭐ **水位 `q_cnt` 的唯一写点**（2026-09-28 根因修复，⭐ 最稳健形式）
+            //
+            //  🔴 **原缺陷**：push 与 drain **两处各写一次** `q_cnt`，而在**同一个
+            //     `always` 块**里 ⭐ **后写覆盖先写** ⇒ 同拍既 push 又 pop 时
+            //     `q_cnt` **净减 1**（真实占用不变）⇒ ⭐ **水位永久性少计**（误差只增不减）。
+            //
+            //  🔴 **后果**（⭐ 与用户实测完全吻合）：
+            //     · **相邻轴同帧越阈** ⇒ 后一条**滞留 FIFO**，只在"下一次 push"时
+            //       才吐出 ⇒ `note_off` 被推迟到下次按键 ⇒ ⭐ **听感 = 挂音，
+            //       "再按一下就好"**
+            //     · 若滞留的是**本次演奏最后一条** ⇒ 🔴 **永久不发 ⇒ 永久挂音**
+            //     · 同帧 ≥8 轴越阈 ⇒ `q_wr` 追上 `q_rd` ⇒ **覆盖未读条目**
+            //       ⇒ 🔴 **永久静默丢失，且 `overflow_o`/`lost_cnt_r` 都不置位**
+            //       （⭐ `K-106`"溢出必须可见"被绕过）
+            //
+            //  ⭐ **修法（最稳健）**：⭐ **单一写点** —— push 只置标志，水位在块末
+            //     按 `+push −pop` **一次性算出** ⇒ ⭐ **结构上不可能再失步**。
+            //     （⛔ 不依赖"后写覆盖先写"的书写顺序，⛔ 不怕将来有人重排代码。）
+            //  📌 已实测：相邻轴 (1,2,3) 同帧越阈 ⇒ ⭐ **3 条事件全部正确发出**
+            //     （`tb/w3a/tb_ee_adj.sv`）；逐拍水位 `1→1→1→0` 与真实占用**恒等**。
+            //  ⚠️ 本行必须是本块中 `q_cnt` 的**唯一**赋值。
+            //  ═══════════════════════════════════════════════════════════════
+            q_cnt <= q_cnt + (q_push_now ? 1'b1 : 1'b0)
+                           - ((q_cnt != 0) ? 1'b1 : 1'b0);
 
             // ═══════════════════════════════════════════════════════════════
             // ⭐⭐ 阶段 2 预留：滑音 / 双音（🔴 **本版恒 0**）

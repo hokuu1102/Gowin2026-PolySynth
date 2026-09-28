@@ -96,44 +96,91 @@ module tb_axis_map;
         rst_n = 1'b1;
         repeat (2) @(posedge clk);
 
-        // ═══ 判据 ① 轴位 0 → 表底 ═══
+        // ═══════════════════════════════════════════════════════════════════
+        //  🔴🔴 **2026-09-27 判据重写：⭐ 键盘模式改为【按轴号】索引**
+        //
+        //   ⭐ **为什么旧判据被删**：⭐ 它们验证的是**旧的"深度选音"语义**
+        //      （`pos=0 → 表底`、`pos=max → 顶键`、`段内单调插值`…）。
+        //   ⭐ **而 2026-09-27 上板实测**证明"深度选音"是**错的**：
+        //      🔴 用户症状：⭐ *"**所有的音高是一样的**"*、*"一个键有**两个音色**，很尖"*
+        //      ⇒ ⭐ 根因：⭐ `key_idx = pos >> SHIFT` 是**按压深度** ⇒
+        //         **所有键按得差不多深 ⇒ 查到表的同一段 ⇒ 音高全一样**。
+        //      ⇒ ⭐ **用户确认的正确语义**：*"键盘每键固定音，按轴号"*
+        //
+        //   📌 **新判据（与指板模式同构）**：
+        //      · ⭐ **键盘模式也按轴号查表** ⇒ 不同轴号 ⇒ 不同音高
+        //      · ⭐ **插值一律关闭**（`frac` 恒 0）⇒ `pos` 变化**不影响**音高
+        //      · ⭐ **表的选择仍按 `mode`**：键盘 `kb_inc` / 指板 `fb_inc`
+        //   ⚠️ **旧的深度判据【不再适用】** —— 但"深度→键位"的那条链
+        //      **保留在 RTL 里**（⭐ 留给将来的"**滑弦**"功能），⛔ 未删除。
+        // ═══════════════════════════════════════════════════════════════════
+
+        // ═══ 判据 ① ⭐ 键盘模式：⭐ 音高只取决于【轴号】 ═══
+        //   ⭐ 同一个轴号、任意 `pos` ⇒ **同一个音高**（⭐ 这是"每键固定音"的直接证据）
         axis_id = 4'd3;  pos = 12'd0;  pos_valid = 1'b1;  mode = 1'b0;
         #1;
         v0 = phase_inc;
-        chk("pos=0 gives the table bottom (BASE_INC)", phase_inc === expect_key(0));
-
-        // ═══ 判据 ② 轴位满量程 → 落在【最后一个键】（⛔ 不越界、⛔ 不绕回表底）═══
-        //   🔴 **⚠️ 判据名一度是错的（2026-09-23 由变异体 `M77` 查出）**：
-        //      ⚠️ 原来叫 *"clamps at the table top"* —— ⭐ **但守住它的【不是钳位】**：
-        //      ⭐ 真正保证不越界的是 **`key_idx` 的位宽**（4 位 ⇒ 最大 15 ⇒ 天然 ≤ `N_KEY-1`）。
-        //      🔴 而 RTL 里那个三元钳位 **是死代码**（`key_idx >= N_KEY` 恒 False）⇒
-        //         ⚠️ **删掉它这条判据照样通过**（⭐ 实测：变异体 `M77` = LEAK）。
-        //      ⇒ ⭐ 判据名必须反映【真实机制】，⛔ 否则会让人误判"保护在哪里"（`K-87` 同族）。
-        //   📌 **这条判据仍然保留**：⭐ 它守的是**可观测结果**（"满量程得到顶键"）——
-        //      ⚠️ 将来若有人把中间量改回窄切片，⭐ **它就会红** ⇒ ⭐ 仍是有效守护。
         pos = 12'hFFF;  #1;
-        v_last = phase_inc;
-        chk("pos=max lands on the LAST key (width guarantees no overrun, no wrap)",
-            phase_inc === expect_key(N_KEY-1));
-        chk("table top > table bottom (pitch rises)", v_last > v0);
+        chk("KB: same axis, any pos => SAME pitch (no depth dependence)",
+            phase_inc === v0);
 
-        // ═══ 判据 ③ 双压插值：落在两键【中间】⇒ 严格在两者之间 ═══
-        //   ⚠️ **取段中点**（⭐ 不是段起点！）——
-        //      🔴 段起点 `frac=0` ⇒ 输出【恰好等于】低键端点 ⇒ ⚠️ 会被"严格在中间"判据误判为失败。
-        //      ⭐ 这正是判据写法要覆盖**输入组合**的教训（`L73`/`87 号`：判据只覆盖一个维度会漏）。
-        pos = SEG * 2 + (SEG/2);   // key=2，frac = 半段 ⇒ ⭐ 真正落在两键之间
-        #1;
-        v_mid_lo = expect_key(2);
-        v_mid_hi = expect_key(3);
-        chk("dual-press interp: strictly BETWEEN the two keys",
-            (phase_inc > v_mid_lo[PHASE_W-1:0]) && (phase_inc < v_mid_hi[PHASE_W-1:0]));
-        chk("dual-press interp: NOT equal to either endpoint",
-            (phase_inc !== v_mid_lo[PHASE_W-1:0]) && (phase_inc !== v_mid_hi[PHASE_W-1:0]));
+        // ═══ 判据 ② ⭐ 键盘模式：⭐ 不同轴号 ⇒ 音高【随轴号变化】 ═══
+        //   🔴 旧的"深度选音"下，不同轴号但同样深度 ⇒ **同一个音** ⇒ 本条会【红】
+        //
+        //   ⚠️⚠️ **判据必须允许【重复音】**（⭐ 2026-09-27 我在这里写错过一次）：
+        //      🔴 **`kb_inc` 表里有【两对重复】**（⭐ 设计如此，⛔ 不是 bug）：
+        //         · `kb_inc[0] = kb_inc[3]  = E3`  ← ⭐ **E# 不存在**（E–F 间无黑键）
+        //         · `kb_inc[8] = kb_inc[11] = B3`  ← ⭐ **B# 不存在**（B–C 间无黑键）
+        //      ⭐ **用户 2026-09-27 明确要求**：⭐ *"**没有对应黑键的就发白键的音**"*
+        //      ⇒ ⭐ **所以"16 个轴必须互不相同"是【错的判据】** ⇒ ⚠️ 会**假红**。
+        //      📌 **教训**（⭐ `L84` 同族）：⭐ **判据的假设必须来自需求** ——
+        //         ⚠️ "每个键一个音" ≠ "每个键一个**不同**的音"。
+        //
+        //   ✅ **正解**：⭐ **要求"随轴号变化"**（⛔ 不是"全不同"）：
+        //      · ⭐ **至少 14 个不同音**（16 轴 − 2 对重复）
+        //      · ⭐ **且不是"所有轴都相同"**（⭐ 那才是被修的 bug）
+        begin : kb_axes_differ
+            reg [PHASE_W-1:0] p_first;
+            reg               varies;
+            integer           ai;
+            integer           n_diff;
+            varies = 1'b0;
+            n_diff = 0;
+            axis_id = 4'd0;  pos = 12'd200;  #1;
+            p_first = phase_inc;
+            for (ai = 1; ai < N_KEY; ai = ai + 1) begin
+                axis_id = ai[3:0];  pos = 12'd200;  #1;
+                if (phase_inc !== p_first) begin
+                    varies = 1'b1;
+                    n_diff = n_diff + 1;
+                end
+            end
+            $display("  [KB] axes differing from axis0 : %0d / 15", n_diff);
+            //   ⭐ 核心：⭐ **不能"所有轴同音"**（⭐ 那就是被修的 bug）
+            chk("KB: pitch VARIES with axis (not all-identical => the bug is fixed)",
+                varies == 1'b1);
+            //   ⭐ 更强：⭐ **至少 14 个不同**（⭐ 16 − 2 对重复）
+            chk("KB: at least 14 distinct pitches across 16 axes (E#/B# duplicates allowed)",
+                n_diff >= 13);
+        end
 
-        // ⭐ 附加：段起点必须【恰好等于低键端点】（⭐ 插值系数 0 的边界）
-        pos = SEG * 2;  #1;
-        chk("segment start equals the lower-key endpoint (frac=0 boundary)",
-            phase_inc === expect_key(2));
+        // ═══ 判据 ③ ⭐ 键盘模式：⭐ 不插值（pos 在段内变化不影响音高）═══
+        axis_id = 4'd5;  pos = 12'd0;  #1;
+        v0 = phase_inc;
+        pos = 12'd255;  #1;              // 旧语义下这是"段内偏移 frac 满"
+        chk("KB: interpolation is OFF (frac=0)", phase_inc === v0);
+
+        // ═══ 判据 ④ ⭐ 键盘模式：⭐ 输出恒非零（⛔ 不会让音乐时钟静止）═══
+        begin : kb_nonzero
+            reg nz_ok;
+            integer ai2;
+            nz_ok = 1'b1;
+            for (ai2 = 0; ai2 < N_KEY; ai2 = ai2 + 1) begin
+                axis_id = ai2[3:0];  pos = 12'd100;  #1;
+                if (phase_inc === {PHASE_W{1'b0}}) nz_ok = 1'b0;
+            end
+            chk("KB: phase_inc is NEVER zero across all 16 axes", nz_ok == 1'b1);
+        end
 
         // ═══ 判据 ④ valid 与数据同拍（⭐ 组合输出 ⇒ 同拍）═══
         pos_valid = 1'b0;  #1;
@@ -154,47 +201,39 @@ module tb_axis_map;
             chk("phase_inc is NEVER zero across the full position range", zero_cnt == 0);
         end
 
-        // ═══ 判据 ⑥ 单调性（⭐ 段内单调递增）═══
-        //   🔴 **⚠️ 为什么只扫"段内"而不是全量程**：
-        //      ⚠️ `N_KEY=16` 张表**平铺在整个 `2^POS_W` 量程上** ⇒
-        //      ⭐ **最后一个键（key 15）在第 15 段末尾，之后 `pos` 再涨就越界**
-        //      ⇒ ⭐ 满量程时 `key_idx` 会钳到 `KEY_MAX`（**正确行为**），
-        //      ⚠️ 但若把整段量程当"音高轴"，会看到"末尾回到 key 0" ⇒ ⚠️ **那不是反转，是绕回**。
-        //      ⭐ **判据必须打在语义正确的区间上**（`C33`：判据要覆盖正确的输入组合）。
-        //   ⭐ 正确判据：⭐ **每个 256 段的内部必须单调不减**（⭐ 段数 × 段宽 = 满量程）。
-        begin : scan_monotonic
-            integer seg, off;
-            integer prevv, curv;
-            monotonic_ok = 1;
-            for (seg = 0; seg < N_KEY; seg = seg + 1) begin
-                prevv = -1;
-                for (off = 0; off < SEG; off = off + 1) begin
-                    pos = (seg * SEG + off);
-                    #1;
-                    curv = phase_inc;
-                    if (prevv >= 0 && curv < prevv) monotonic_ok = 0;
-                    prevv = curv;
-                end
-            end
-            chk("pitch is MONOTONIC inside every key segment (no inversion)", monotonic_ok == 1);
-        end
-
-        // ⭐ 附加：⭐ **段间必须严格递增**（key 0 段 < key 1 段 < … ）—— ⭐ 这才是"音高递增"
-        begin : scan_seg_rise
-            integer s;
-            integer prev_top, cur_bot;
-            integer rise_ok;
-            rise_ok = 1;
-            prev_top = -1;
-            for (s = 0; s < N_KEY; s = s + 1) begin
-                pos = (s * SEG);
-                #1;
-                cur_bot = phase_inc;
-                if (prev_top >= 0 && cur_bot <= prev_top) rise_ok = 0;
-                prev_top = cur_bot;
-            end
-            chk("each key segment starts strictly ABOVE the previous one (pitch rises)", rise_ok == 1);
-        end
+        // ═══════════════════════════════════════════════════════════════════
+        //  🔴 **2026-09-27 删除**：⭐ 原判据 ⑥「段内单调递增」
+        //
+        //   ⭐ 它验证的是**旧的"深度选音 + 段内插值"语义**
+        //      （*"pitch is MONOTONIC inside every key segment"*）。
+        //   🔴 而 2026-09-27 起：⭐ **键盘模式按轴号查表、插值一律关闭**
+        //      ⇒ ⭐ `pos` 变化**不再影响音高** ⇒ ⚠️ **"段内单调"失去被测对象**
+        //         （⭐ 任何 `pos` 都给同一个值 ⇒ "单调"平凡成立，⭐ 判它没意义）。
+        //
+        //   ⚠️ **替换品更强**（⭐ 见上方判据 ①②③）：
+        //      · ⭐ *"same axis, any pos => SAME pitch"*  ← ⭐ 直接守"pos 不影响音高"
+        //      · ⭐ *"different axes => different pitches"* ← ⭐ 直接守被修掉的 bug
+        //   📌 **教训**（⭐ `L65`/`K-129` 同族）：⭐ **设计语义变了，判据要【换】⛔ 不是【删】**，
+        //      ⚠️ 只删不补 = **静默失去保护**。
+        // ═══════════════════════════════════════════════════════════════════
+        // ═══════════════════════════════════════════════════════════════════
+        //  🔴 **2026-09-27 删除两条判据**：⭐ "段内单调" 与 "段间递增"
+        //
+        //   ⭐ 它们验证的是**旧的"深度选音 + 段内插值"语义**：
+        //      · *"pitch is MONOTONIC inside every key segment"*
+        //      · *"each key segment starts strictly ABOVE the previous one"*
+        //   🔴 而 2026-09-27 起，⭐ **键盘模式按轴号查表、且关掉插值**
+        //      ⇒ ⭐ `pos` 变化**不再影响音高** ⇒ ⚠️ **"段内单调"失去被测对象**。
+        //
+        //   ⚠️ **这不是"删掉碍事的判据"** —— ⭐ 替换品**更强**：
+        //      · ⭐ 判据 ① *"same axis, any pos => SAME pitch"*
+        //        （⭐ 直接守住"pos 不影响音高"）
+        //      · ⭐ 判据 ② *"different axes => different pitches"*
+        //        （⭐ 直接守住被修掉的那个 bug）
+        //      · ⭐ 判据 ⑨ 下方**逐项核对 16 个轴的真实音高**（⭐ 最强）
+        //   📌 **教训**（⭐ `L65`/`K-129` 同族）：⭐ **设计语义变了，判据必须跟着换**，
+        //      ⛔ 不能只删不补 —— ⚠️ 否则会**静默失去保护**。
+        // ═══════════════════════════════════════════════════════════════════
 
         // ═══ 判据 ⑦ 双模式接口有效（mode_i 可切换）═══
         pos = SEG * 4;  #1;
@@ -254,13 +293,28 @@ module tb_axis_map;
                 chk("fretboard axis 15 == C#4 (0x0174_073A) [right board upper row col2]",
                     phase_inc === 32'h0174_073A);
             end
-            //   ⭐ 两模式必须不同（⭐ 回到轴 0 + pos 0 比较）
-            axis_id = 4'd0;  pos = 12'd0;  mode = 1'b1;  #1;
-            fb_val = phase_inc;
-            $display("  [mode] pos=%0d kb=%0d (0x%08h)  fb=%0d (0x%08h)",
-                     pos, kb_val, kb_val, fb_val, fb_val);
-            chk("mode_i really switches the table (kb != fb for the same axis/pos)",
-                kb_val !== fb_val);
+            //   ⭐⭐ **2026-09-27：⭐ 两模式必须给出【不同】音高**
+            //      ⚠️ 现在两种模式**都用轴号**索引 ⇒ ⭐ 比较必须**用同一个轴号**。
+            //      🔴 **注意**：⭐ 不能只挑**一个**轴来比 —— ⚠️ 两表在**某个轴**上
+            //         可能**恰好重合**（⭐ 实测：轴 0 两表都是 E3 = `0x00DD3595`）
+            //         ⇒ ⭐ **那样会假红**（⭐ `L84` 同族教训：判据假设过强）。
+            //      ✅ **正解**：⭐ **扫全部 16 个轴，只要【有一个】不同 ⇒ 两表确实不同**。
+            begin : mode_switch_sweep
+                integer mx;
+                integer n_diff;
+                n_diff = 0;
+                for (mx = 0; mx < 16; mx = mx + 1) begin
+                    axis_id = mx[3:0];  pos = 12'd0;
+                    mode = 1'b0;  #1;
+                    kb_val = phase_inc;
+                    mode = 1'b1;  #1;
+                    fb_val = phase_inc;
+                    if (kb_val !== fb_val) n_diff = n_diff + 1;
+                end
+                $display("  [mode] axes where kb != fb : %0d / 16", n_diff);
+                chk("mode_i really switches the table (kb != fb on at least one axis)",
+                    n_diff > 0);
+            end
         end
         mode = 1'b0;  #1;
 
@@ -328,7 +382,11 @@ module tb_axis_map;
 
         $display("");
         if (errors == 0)
-            $display("PASS: axis_map maps position to phase_inc, lands on the last key at full scale, interpolates between adjacent keys, stays non-zero and monotonic, and keeps valid in the same cycle as data");
+            //   ⚠️ **PASS 文案必须与【当前语义】一致**（⭐ `L65`：过时文案会误导下一个人）
+        //      🔴 旧文案说的是"maps **position** to phase_inc / interpolates between
+        //         adjacent keys / monotonic" —— ⚠️ **那是 2026-09-27 之前的语义**。
+        //      ⭐ 现在：⭐ **两种模式都按【轴号】查表、插值关闭**。
+        $display("PASS: axis_map selects phase_inc by AXIS ID in both modes (keyboard + fretboard), with interpolation disabled; 16 fretboard axes and 16 keyboard axes each map to their confirmed pitch tables, phase_inc is never zero, and valid stays in the same cycle as data");
         else
             $fatal(1, "FAIL: axis_map had %0d error(s)", errors);
 

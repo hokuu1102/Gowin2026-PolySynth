@@ -102,6 +102,8 @@ module tb_note_manager;
 
     wire [POLY-1:0]         env_active;
     wire [POLY*ENV_W-1:0]   env_level;
+    //  ⭐ 重触发/抢占的包络清零脉冲（→ envelope_bank.retrig_reset_i）
+    wire [POLY-1:0]         voice_retrig_reset;
 
     note_manager #(
         .POLY_TARGET(POLY), .AXIS_W(AXIS_W), .PHASE_W(PHASE_W),
@@ -128,6 +130,7 @@ module tb_note_manager;
         .voice_releasing_o(voice_releasing), .voice_axis_o(voice_axis),
         .voice_phase_inc_o(voice_phase_inc), .voice_velocity_o(voice_velocity),
         .voice_timbre_o(voice_timbre), .voice_age_o(voice_age),
+        .voice_retrig_reset_o(voice_retrig_reset),
         .alloc_valid_o(alloc_valid), .alloc_voice_o(alloc_voice),
         // ⭐⭐ `K-106`：事件队列溢出可观测性
         .event_lost_o(event_lost), .event_lost_cnt_o(event_lost_cnt),
@@ -147,6 +150,7 @@ module tb_note_manager;
     ) u_env (
         .clk_i(clk), .rst_n_i(rst_n), .sample_tick_i(sample_tick),
         .gate_i(voice_gate), .velocity_i(voice_velocity),
+        .retrig_reset_i(voice_retrig_reset),
         .env_level_o(env_level), .env_active_o(env_active)
     );
 
@@ -181,6 +185,8 @@ module tb_note_manager;
         .voice_gate_o(b_gate), .voice_active_o(), .voice_releasing_o(),
         .voice_axis_o(b_axis_o), .voice_phase_inc_o(), .voice_velocity_o(),
         .voice_timbre_o(), .voice_age_o(b_age),
+        // ⭐ 新端口留空（本实例用桩包络，不验重触发清零）
+        .voice_retrig_reset_o(),
         .alloc_valid_o(b_alloc_valid), .alloc_voice_o(b_alloc_voice),
         // ⭐ `K-106`：本实例不验溢出 ⇒ 输出悬空、清输入接 0
         //    ⚠️ 这也顺带验证了"**老例化不接新端口仍然合法**"（新输入恒 0）
@@ -215,6 +221,8 @@ module tb_note_manager;
         .voice_gate_o(c_gate), .voice_active_o(), .voice_releasing_o(),
         .voice_axis_o(), .voice_phase_inc_o(), .voice_velocity_o(),
         .voice_timbre_o(), .voice_age_o(),
+        // ⭐ 新端口留空（本实例用桩包络，不验重触发清零）
+        .voice_retrig_reset_o(),
         .alloc_valid_o(), .alloc_voice_o(c_alloc_voice),
         // ⭐ `K-106`：本实例不验溢出 ⇒ 输出悬空、清输入接 0
         .event_lost_o(), .event_lost_cnt_o(), .event_lost_clr_i(1'b0)
@@ -359,6 +367,32 @@ module tb_note_manager;
     integer n;
     integer gate_count;
     reg [ENV_W-1:0] lvl_a;
+
+    // ⭐⭐ 重触发清零监视（判据 4b）——
+    //   ⭐ 判据写成【不变量】（⛔ 不是"抓某个波形"），
+    //      这样即使上板是**偶发**（⭐ 用户实测"不好复现"），只要发生就必被抓到。
+    //
+    //   🔴 盯的是：⭐ **包络在非零时被"重新起振"**。
+    //      判据 = 每个采样拍检查：⭐ 若某 voice 的 gate 在【上一拍还是低】的情况下
+    //      变为高，则它的包络在那一拍**必须已经是 0**（= 清零脉冲确实生效了）。
+    //      ⚠️ 老 bug 的表现正是"gate 抬高时包络还很高"（残余 6400 或更多）。
+    reg        watch_voice;
+    integer    watch_idx;
+    reg        watch_gate_d;
+    reg [ENV_W-1:0] watch_env_at_gate_rise;
+    reg        watch_bad_rise;          // 🔴 见到"带残余电平的 gate 上升沿" ⇒ 违规
+
+    always @(posedge clk) begin
+        watch_gate_d <= voice_gate[watch_idx];
+        if (watch_voice) begin
+            //  ⭐ gate 上升沿：包络必须为 0（清零脉冲已生效）
+            if (voice_gate[watch_idx] && !watch_gate_d) begin
+                watch_env_at_gate_rise <= env_of(watch_idx);
+                if (env_of(watch_idx) !== {ENV_W{1'b0}})
+                    watch_bad_rise = 1'b1;
+            end
+        end
+    end
     reg [AGE_W-1:0] age_a;
     reg [AGE_W-1:0] age_b;
 
@@ -477,11 +511,32 @@ module tb_note_manager;
         lvl_a = env_of(1);
         chk("长跑后包络落在 sustain 平台（6400）", lvl_a === 16'd6400);
 
+        // ⭐⭐ 重触发前先武装"清零监视"：⛔ 必须在 `press_a` **之前** 复位，
+        //     否则会漏掉重触发那一拍。
+        watch_voice    = 1;
+        watch_idx      = 1;
+        watch_bad_rise = 1'b0;
+
         press_a(4'd5, 32'h0033_0000, 8'd100);  // ⭐ 重触发
         run_ticks(15);
+        watch_voice = 0;
         chk("重触发后 gate 已抬回（voice1 在响）", voice_gate[1] === 1'b1);
         chk("重触发后电平显著高于 sustain => Attack 确实重起",
             env_of(1) > (lvl_a + 16'd2000));
+
+        // ═══════════════════════════════════════════════════════════════════
+        // 🔴🔴 判据 4b：⭐ **gate 重新抬高时包络必须已经在 0**（2026-09-27 新增）
+        //
+        //   ⚠️ 这条守的是**上板实测的"偶发刺耳尖音"**：
+        //      🔴 旧行为把 `gate` 压低仅 **1 个 sample_tick（20.5 µs）** 就抬高，
+        //         而 ADSR 归零需要 `65535/RELEASE_STEP` 个采样拍 ⇒ **包络几乎没掉**；
+        //         `gate` 一回来 ADSR 直接回 `ST_ATTACK` 并从**残余电平**往 peak 爬
+        //         ⇒ ⭐ 旧尾巴 + 新 Attack 叠加 ⇒ **幅度 ~11 倍**（示波器实测）。
+        //   ⭐ 判据写成【不变量】—— 每个 gate 上升沿都检查，⛔ 不依赖复现某个波形。
+        //   📌 与 `L55` 同一套写法：不变量 + 只盯"真正驱动行为的那一层"。
+        // ═══════════════════════════════════════════════════════════════════
+        chk("⭐ gate 重新抬高时包络为 0（⛔ 无残余电平起振）",
+            watch_bad_rise === 1'b0);
 
         run_ticks(60);
         chk("重触发后包络重新回到 sustain 平台", env_of(1) === 16'd6400);

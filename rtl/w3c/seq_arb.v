@@ -194,7 +194,15 @@ module seq_arb #(
     wire push_live  = live_valid_i;
     wire push_score = score_valid_i;
     //   ⭐ 演示：⭐ 只在"没有别的源"时才推（⭐ 让位）
-    wire push_demo  = demo_valid_i & ~others_going;
+    //  ⭐⭐ **2026-09-28 修（防挂音，P1-2）：`note_off` 绝不让位**
+    //  🔴 原写法 `demo_valid_i & ~others_going` 会把演示和弦的 3 个 `note_off`
+    //     在撞上手弹时【直接丢掉】—— ⛔ 不排队、⛔ 不计入任何计数器（违反 `K-106`）
+    //     ⇒ 对应 voice 的 `gate_r` 【永久为 1】⇒ 开机自检后留下常驻音。
+    //  ✅ `note_off` 是【释放】语义 ⇒ ⭐ 丢掉它只会造成【挂音】，⛔ 不会造成多音
+    //     ⇒ 允许它与手弹同拍推入（FIFO 深 6，实测占用 ≤2 ⇒ 有富余）。
+    //  📌 `note_on` 仍按原规则让位（⛔ 不改演示的让位语义）。
+    wire demo_is_off = (demo_kind_i == 2'd1);
+    wire push_demo  = demo_valid_i & (~others_going | demo_is_off);
 
     // ⭐ 轮转标志：0 ⇒ 手弹先；1 ⇒ 曲谱先（⭐ 只在**两者都发**时才有意义）
     reg  prio_score_r;

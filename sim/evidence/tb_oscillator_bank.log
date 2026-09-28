@@ -10,7 +10,7 @@
   ok  : test_mode: lan??lane1??????????
 == 鍒ゆ嵁 4: 鍦板潃 = 鐩镐綅楂?9 浣嶏紙DDS 姝ｇ‘鎬э級==
   ok  : lane??= 3?^??€=?
-  ok  : phase_acc_dbg_o ??9?= 3
+  ok  : phase_acc_dbg?珮 10?= 6
   ok  : ??????= 5?^??€=?
 == 鍒ゆ嵁 4b: 猸?鐪熸閫?ROM 鐨勫湴鍧€ = 鐩镐綅銆愰珮銆? 浣嶏紙K-98 琛ョ殑鐩插尯锛?=
   ok  : 掔瓑浜庛€屼笂涓€閲囨牱鏃跺埢鐩镐綅鐨勯珮 9 浣嶃€嶏紙20 娆￠€愪竴鏍稿锛孠-98锛?
@@ -27,6 +27,6 @@
   ok  : test_mode=1 overrides voice_active=0 (lane0 still advances)
   ok  : and a lane NOT selected stays frozen
 PASS: oscillator_bank acceptance (T55) - all judgements held
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-w1\tb\w3b\tb_oscillator_bank.sv:374: $finish called at 78220000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_oscillator_bank.sv:402: $finish called at 78220000 (1ps)
 
 

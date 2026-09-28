@@ -32,6 +32,7 @@
   ok  : ??????sustain ?紙640?
   ok  : ????gate ??坴oic???
   ok  : ???????簬 sustain => Attack ???
+  ok  : 瓙 ga???????????????
   ok  : ???????埌 sustai??
 == 鍒ゆ嵁 8: 涓撶敤 voice 姹狅紙鑺傛媿鍣ㄤ笉鍙備笌鏅€氭姠鍗狅紝T33b 鍦板熀锛?=
   ok  : ?€?????紙< 2?
@@ -83,6 +84,6 @@
   ok  : K-106: lost count SATURATED at 15 (did not wrap to 0)
   ok  : K-106: sticky is set under massive overflow too
 PASS: note_manager acceptance (T54) - all judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:775: $finish called at 291600000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:830: $finish called at 291600000 (1ps)
 
 

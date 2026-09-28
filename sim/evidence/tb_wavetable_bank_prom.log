@@ -1,5 +1,5 @@
 ﻿VCD info: dumpfile build/sim/wavetable_prom/tb_wavetable_bank_prom.vcd opened for output.
-PASS: wavetable_bank pROM path 512/512 samples matched with valid in lockstep
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_wavetable_bank_prom.sv:151: $finish called at 10420000 (1ps)
+PASS: wavetable_bank generated-table build is deterministic
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_wavetable_bank_prom.sv:220: $finish called at 220000 (1ps)
 
 

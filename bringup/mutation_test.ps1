@@ -243,7 +243,7 @@ $mutations = @(
   #              env_active_i stays high through the hold -> voice still busy.
   # The load-bearing line is the FSM statement that actually pulls the gate down;
   # without it the ADSR never sees a falling edge and never restarts Attack.
-  @{ id = "M23"; file = "rtl\w3b\note_manager.v"; find = "if (retrig_state == RT_LOW) begin"; repl = "if (1'b0 && retrig_state == RT_LOW) begin"; why = "T54 regression: retrigger never pulls the gate low -> ADSR never restarts Attack (must be caught)" },
+  @{ id = "M23"; file = "rtl\w3b\note_manager.v"; find = "if (retrig_low[i]) begin"; repl = "if (1'b0 && retrig_low[i]) begin"; why = "T54 regression: retrigger never pulls the gate low -> ADSR never restarts Attack (must be caught)" },
   # NOTE (2026-09-21, T66): anchor re-pointed.  The scan was rewritten from a
   # single-cycle priority loop into a pipelined scan, so the old anchor is gone.
   # The mutant keeps the same meaning: make the age comparison strict so that
@@ -366,8 +366,8 @@ $mutations = @(
   @{ id = "M33"; file = "rtl\w3b\tdm_render_mixer.v"; find = "if (cnt >= DEADLINE_C)"; repl = "if (cnt >= CNT_MAX_V)"; why = "T56 regression: deadline check never fires -> A6 (frame deadline) unguarded (must be caught)" },
   @{ id = "M34"; file = "rtl\w3b\tdm_render_mixer.v"; find = "if (cnt >= 1 && cnt <= CNT_LAST)"; repl = "if (1'b0)"; why = "T56 regression: accumulation disabled -> output always 0 -> silence (must be caught)" },
   @{ id = "M35"; file = "rtl\w3b\tdm_render_mixer.v"; find = "wire [LW-1:0] cnt_sel = (cnt[LW-1:0] > LAST_IDX) ? LAST_IDX : cnt[LW-1:0];"; repl = "wire [LW-1:0] cnt_sel = {LW{1'b0}};"; why = "T56 regression: every TDM slot reads voice 0 -> no summing (must be caught)" },
-  @{ id = "M36"; file = "rtl\w3b\tdm_render_mixer.v"; find = "wire over_pos = ~sh[ACC_W-1] && (|sh[ACC_W-2 : SAMPLE_W-1]);"; repl = "wire over_pos = 1'b0;"; why = "T56 regression: positive saturation removed -> overflow wraps to negative (must be caught)" },
-  @{ id = "M37"; file = "rtl\w3b\tdm_render_mixer.v"; find = "wire over_neg =  sh[ACC_W-1] && ~(&sh[ACC_W-2 : SAMPLE_W-1]);"; repl = "wire over_neg = 1'b0;"; why = "T56 regression: negative saturation removed -> overflow wraps positive (must be caught)" },
+  @{ id = "M36"; file = "rtl\w3b\tdm_render_mixer.v"; find = "wire over_pos = ~sh_final_w[ACC_W+15] && (|sh_final_w[ACC_W+14 : SAMPLE_W-1]);"; repl = "wire over_pos = 1'b0;"; why = "T56 regression: positive saturation removed -> overflow wraps to negative (must be caught)" },
+  @{ id = "M37"; file = "rtl\w3b\tdm_render_mixer.v"; find = "wire over_neg =  sh_final_w[ACC_W+15] && ~(&sh_final_w[ACC_W+14 : SAMPLE_W-1]);"; repl = "wire over_neg = 1'b0;"; why = "T56 regression: negative saturation removed -> overflow wraps positive (must be caught)" },
 
   # ---- T57: top.v sound chain.  This is the "board actually makes sound" step;
   #      before it, top.v drove sample_mono = 0 (silence) and every simulation

@@ -360,7 +360,15 @@ module tb_oscillator_bank;
 
         // ⭐ 未被 test_lane_active 选中的 lane 相位应保持（不再前进）
         //    ⚠️ 它们可能保留着之前的相位 ⇒ 只验"它们彼此相同"（都没动）
-        chk("未选中的 lane 相位不变（彼此仍相同）", samp(8) === samp(9));
+        //  ⭐⭐ **2026-09-28 修判据的【代理】（⛔ 不是放松强度）**：
+        //  🔴 原写法用 `samp(8) === samp(9)`（**样本相同**）当"相位没动"的**代理**。
+        //     ⚠️ 该代理在"同一个 voice 的两个 lane 故意用【不同 timbre】"
+        //        （`oscillator_bank` 修 B2 尖音的改动）之后**失效** ——
+        //        即使相位完全相同，两个 lane 的样本也会**不同**。
+        //  ✅ 改为**直接比相位** ⇒ ⭐ 判据的【意图】（未选中的 lane 不前进）
+        //     被更直接、更强地检验（⛔ 不再依赖"波形相同"这个额外前提）。
+        chk("未选中的 lane 相位不变（彼此仍相同）",
+            dut.gen_lane[8].phase_q === dut.gen_lane[9].phase_q);
 
         // ---- 8: test_mode must OVERRIDE voice_active (guards M32) ----
         // Make the two sources disagree: with test_mode=1 the lane must follow
