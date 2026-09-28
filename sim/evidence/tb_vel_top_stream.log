@@ -1,0 +1,27 @@
+﻿NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=48 VOTE_N=4 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 T=54 S=53 X=58 M=4d)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+VCD info: dumpfile build/sim/tb_vel_top_stream/tb_vel_top_stream.vcd opened for output.
+  ok  : T1: pos=0 (below VEL_TRIG_TH) => NO vel_upd packets
+  ok  : T2a: pos=300 => exactly ONE packet per axis (8 total)
+  ok  : T2b: every packet value == pos_to_vel(300)
+  ok  : T2c: every packet axis == vu_ax_r of that cycle
+  ok  : T3: deadzone -- delta=16 => NO packet (deadzone is 16)
+  ok  : T4a: delta=17 (just over deadzone) => packet per axis
+  ok  : T4b: value tracks pos=317
+  ok  : T5: pos=64 (NOT > VEL_TRIG_TH) => NO packet even though delta is huge
+  ok  : T6a: pos=65 (just over threshold) => packet per axis
+  ok  : T6b: value == pos_to_vel(65) == 80
+  ok  : T7a: vu_ax_r rotates 0->1->...->7->0 on EVERY tick_audio
+  ok  : T7b: vu_valid_r is exactly a ONE-cycle pulse (never 2 in a row)
+  ok  : T8: all packets had val/axis aligned with the SAME cycle (L70)
+PASS: vel_top_stream -- the top-level vu_* stream obeys its contract
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:283: $finish called at 3360000 (1ps)
+
+

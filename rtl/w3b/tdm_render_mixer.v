@@ -643,14 +643,43 @@ module tdm_render_mixer #(
     wire over_pos = ~sh_final_w[ACC_W+15] && (|sh_final_w[ACC_W+14 : SAMPLE_W-1]);
     wire over_neg =  sh_final_w[ACC_W+15] && ~(&sh_final_w[ACC_W+14 : SAMPLE_W-1]);
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ **2026-09-28 FMAX 修复：`samp_r` 从【组合】改成【真寄存器】**
+    //
+    //   🔴 **原缺陷（实测 `impl/pnr/Gowin2026.timing_paths`，⛔ 不是推理）**：
+    //      `samp_r` 原来写在 `always @(*)` 里 ⇒ ⭐ **它是组合输出** ⇒
+    //      `dry_sample_o` 组合穿到顶层 `top.v`，**中间没有任何寄存器**就进了
+    //      `master_mix` 的乘法 ⇒ 🔴 **一个 20 ns 周期里串了**：
+    //         归一化乘法 → 限幅（软膝）→ 饱和 → **主音量乘法** → `sample_r`
+    //      ⇒ 实测 `slack = 【0.002 ns】`（= **2 皮秒**）· **27 级逻辑**
+    //      ⇒ ⚠️ 温度/电压稍偏最坏角、或重新布局一次，就可能不满足时序。
+    //
+    //   ✅ **修法**：把它变成真寄存器 ⇒ ⭐ 切断"限幅/饱和 → 主音量乘法"这一段
+    //      · ⭐ **只加这一级** —— ⛔ 不动 `n_active_r` / `norm_gain_r` / `sh_norm_r`
+    //      · ⭐ **`valid_d` 必须同步 +1**（见下方）——
+    //        ⚠️ 这是流水线改造**最容易漏的一步**：数据多一级而 `valid` 少一级
+    //        ⇒ 🔴 下游拿到"上一拍的数据 + 本拍的 valid" ⇒ 相位错位。
+    //
+    //   ⭐⭐ **为什么改这里，而不是在 `top.v` 再加一个寄存器**：
+    //      `samp_r` 本来就**声明成 `reg`**、名字也是 reg、位置就在输出级 ⇒
+    //      ⭐ **把它变成真寄存器是它本来就该有的样子**；
+    //      在顶层另加一个反而是"绕过验收 tb"的补丁，而且会让本模块
+    //      **保持组合输出**（⛔ 不好的实践：模块输出应当寄存）。
+    //      📌 两者的**时序收益完全相同** —— 切点都在本模块的输出处。
+    //
+    //   ⚠️ **代价**：本模块延迟 +1 clk ⇒ 顶层出声链 +1 clk = **20 ns**
+    //      （⭐ 一帧 = 1024 clk ⇒ 只占 1/1024 帧 ⇒ 听感不可闻）
+    // ═══════════════════════════════════════════════════════════════════════
     reg signed [SAMPLE_W-1:0] samp_r;
-    always @(*) begin
-        if (over_pos)
-            samp_r = {1'b0, {(SAMPLE_W-1){1'b1}}};   // +最大（2^(W-1)-1）
+    always @(posedge clk_i) begin
+        if (!rst_n_i)
+            samp_r <= {SAMPLE_W{1'b0}};
+        else if (over_pos)
+            samp_r <= {1'b0, {(SAMPLE_W-1){1'b1}}};   // +最大（2^(W-1)-1）
         else if (over_neg)
-            samp_r = {1'b1, {(SAMPLE_W-1){1'b0}}};   // −最小（−2^(W-1)）
+            samp_r <= {1'b1, {(SAMPLE_W-1){1'b0}}};   // −最小（−2^(W-1)）
         else
-            samp_r = lim_w[SAMPLE_W-1:0];            // ⭐ 限幅后【才】截到 24 位
+            samp_r <= lim_w[SAMPLE_W-1:0];            // ⭐ 限幅后【才】截到 24 位
     end
 
     //   🔴🔴 **2026-09-26：⭐ `dry_valid_o` 必须跟着流水延时（⭐ 否则 valid 与数据错拍）**
@@ -666,13 +695,18 @@ module tdm_render_mixer #(
     //            🔴 但**听感是错的**（⭐ 音符起止全部错一帧）。
     //      📌 **纪律**（⭐ `TROUBLESHOOTING.md` 的"脉冲与其携带的数据必须同拍"）：
     //         ⭐ **加了几级数据寄存器，valid 就要跟着延几级**。
-    reg [2:0] valid_d;
+    //   ⭐⭐ **2026-09-28 FMAX 修复：深度 3 → 4**（⭐ 因为 `samp_r` 多了一级寄存器）
+    //      ⚠️ **纪律**：⭐ **加了几级数据寄存器，`valid` 就要跟着延几级** ——
+    //         它和 `samp_r` 是**一对**，改一个必须改另一个。
+    //      📌 **配套**：`tb_tdm_render_mixer.sv` 的判据名字 `POLY_TARGET+6` → `+7`
+    //         （⭐ 它的**断言是范围** `[POLY+3, POLY+8]` ⇒ ⛔ 判据本身不用改）。
+    reg [3:0] valid_d;
     always @(posedge clk_i) begin
-        if (!rst_n_i) valid_d <= 3'b000;
-        else          valid_d <= {valid_d[1:0], valid_r};
+        if (!rst_n_i) valid_d <= 4'b0000;
+        else          valid_d <= {valid_d[2:0], valid_r};
     end
     //   ⭐ 延时后的 valid = 数据出 `samp_r` 的那一拍
-    assign dry_valid_o      = valid_d[2];
+    assign dry_valid_o      = valid_d[3];
     assign dry_sample_o     = samp_r;
     assign deadline_fault_o = fault_r;
 

@@ -236,7 +236,14 @@ module tb_tdm_render_mixer;
         //         ⭐ 而"两帧完全一致"那条（上一行）才是真正的确定性判据。
         //      📌 **配套纪律**：⭐ **改了流水级数就要同步改这个数** ——
         //         ⚠️ 它和 RTL 里的 `valid_d` 深度是**一对**，改一个必须改另一个。
-        chk("latency is a fixed POLY_TARGET+6 (incl. 3-stage normalization pipe)",
+        //   🔴🔴 **2026-09-28 修正（FMAX 修复）：⭐ 延时从 `+6` 变成 `+7`**
+        //      ⭐ **原因**：⭐ `samp_r` 从 `always @(*)`（组合）改成**真寄存器**
+        //         ⇒ 数据路径 +1 拍 ⇒ RTL 里 `valid_d` 深度 3 → 4 ⇒ 延时 +1。
+        //      📌 ⭐ **本次⛔ 没有放松任何判据** —— ⭐ 断言本来就是**范围**
+        //         `[POLY+3, POLY+8]` ⇒ `+7` **天然通过**；
+        //         ⭐ 这里只改【名字里的数字】以保持文档真实
+        //         （⭐ 上一条"配套纪律"明确要求：改了流水级数就要同步改这个数）。
+        chk("latency is a fixed POLY_TARGET+7 (incl. 3-stage norm + registered output)",
             k >= POLY + 3 && k <= (POLY + 8));
 
         // ---- 3: correct mixing, single voice ----
