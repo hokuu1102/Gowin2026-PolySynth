@@ -457,8 +457,23 @@ module tb_note_manager;
         vel_upd_valid = 1'b1; vel_upd_axis = 4'd5; vel_upd_value = 8'd240;
         @(negedge clk);
         vel_upd_valid = 1'b0;
-        chk("vel_update 改到在响的 voice1", vel_of(1) === 8'd240);
-        chk("vel_update 不影响已释放的 voice0", vel_of(0) === 8'd200);
+        //  ⭐⭐ 2026-09-28 **契约变更**（⭐ 修"又响又尖"，⭐ 见 `K-154`）：
+        //     ⭐ 力度现在是【斜坡】—— 每音频采样拍最多变 **±8**（⭐ 满量程 0.65 ms）
+        //     📌 ⭐ **用户 2026-09-28 拍板选 ±8**（⭐ 折中：⭐ 削掉突变 + 延迟几乎无感）
+        //     ⇒ ⛔ **不再"一拍到位"**（⭐ 旧契约"立即 == 240"正是【被修掉的行为】）
+        //     ⭐ 新契约更强：⭐ **先过渡、再收敛到 240** ✅
+        //     ⚠️ **不要假设起始值**（⭐ 探针实测起始是 **77**，⛔ 不是 200）
+        run_ticks(1);       // ⭐ 至少一个采样拍才可能开始过渡
+        //  ⚠️ 2026-09-29: criterion NAMES must be ASCII-only.
+        //     vvp mangles non-ASCII $display output on this machine (measured:
+        //     the bytes get rewritten AND the FOLLOWING ASCII char is eaten),
+        //     so an automated verdict that matches the criterion name must not
+        //     rely on Chinese text.  The ASSERTIONS below are unchanged.
+        chk("vel_update takes effect (left the start point, ramping toward 240)",
+            (vel_of(1) > 8'd0) && (vel_of(1) < 8'd240));
+        run_ticks(40);      // ⭐ (240−77)/8 = 21 拍，⭐ 留 ~2× 余量
+        chk("vel_update converges to 240 (ramp completed)", vel_of(1) === 8'd240);
+        chk("vel_update leaves the released voice0 untouched", vel_of(0) === 8'd200);
 
         @(negedge clk);
         pitch_upd_valid = 1'b1; pitch_upd_axis = 4'd5; pitch_upd_value = 32'h00AB_CDEF;

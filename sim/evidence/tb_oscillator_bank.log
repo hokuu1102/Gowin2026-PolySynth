@@ -26,7 +26,9 @@
 == 8: test_mode overrides voice_active ==
   ok  : test_mode=1 overrides voice_active=0 (lane0 still advances)
   ok  : and a lane NOT selected stays frozen
+== 9: timbre must not depend on velocity ==
+  ok  : velocity 0 and 255 give BIT-IDENTICAL samples (timbre is velocity-free)
 PASS: oscillator_bank acceptance (T55) - all judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_oscillator_bank.sv:402: $finish called at 78220000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_oscillator_bank.sv:437: $finish called at 87540000 (1ps)
 
 

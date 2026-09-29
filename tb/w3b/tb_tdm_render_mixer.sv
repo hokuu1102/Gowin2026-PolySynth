@@ -14,6 +14,17 @@ module tb_tdm_render_mixer;
     // theoretical max: LANES * 32767 = 2097088 (well below signed24 max 8388607)
     localparam signed [SW-1:0] MAXTHEO = 24'sd2097088;
 
+    //   ⭐⭐ **2026-09-29 新增：⭐ 流水延时的【唯一口径来源】**
+    //      🔴 **为什么必须抽成常量**：⭐ 本判据原来是**范围** `[POLY+3, POLY+8]`
+    //         ⇒ ⚠️ **它对"valid 少一拍"完全无感** —— ⭐ 实测：把 `valid_d[4]` 改回
+    //            `valid_d[3]`（⭐ 加了流水却忘记给 valid 加拍）⇒ 延时 `+8` → `+7`
+    //            ⇒ 🔴 **旧判据照样 PASS** ⚠️
+    //         ⇒ ⭐ **它等于没有防延时回归**（⭐ `C88` 教训：⭐ **名字写等值、实际是范围**）。
+    //      ⭐ **改法等值** + ⭐ **期望值只写一处** ⇒ ⭐ 将来改流水**只改这一行** ✅
+    //      📌 组成：⭐ 3 级归一化（`n_active`/`norm_gain`/`sh_norm`）
+    //         + 1 级寄存输出（`samp_r`）+ 1 级限幅器流水（`exc_*_r`）✅
+    localparam integer LAT_EXPECT = POLY + 8;
+
     reg clk = 1'b0;
     reg rst_n = 1'b0;
     always #10 clk = ~clk;
@@ -188,6 +199,9 @@ module tb_tdm_render_mixer;
     endtask
 
     integer i, k, cyc, valid_count;
+    //   ⭐⭐ 2026-09-29 新增：⭐ "valid 与数据同拍"判据用的观测变量（⭐ 见测试 2b）
+    integer la_t, la_tv, la_tl;
+    reg signed [SW-1:0] la_prev;
     reg signed [SW-1:0] s1, s2, sN, sSat;
 
     initial begin
@@ -243,8 +257,63 @@ module tb_tdm_render_mixer;
         //         `[POLY+3, POLY+8]` ⇒ `+7` **天然通过**；
         //         ⭐ 这里只改【名字里的数字】以保持文档真实
         //         （⭐ 上一条"配套纪律"明确要求：改了流水级数就要同步改这个数）。
-        chk("latency is a fixed POLY_TARGET+7 (incl. 3-stage norm + registered output)",
-            k >= POLY + 3 && k <= (POLY + 8));
+        //   ⭐⭐ **2026-09-29 修正（FMAX 修复）：⭐ 延时从 `+7` 变成 `+8`**
+        //      ⭐ **原因**：⭐ 限幅器插了 **1 级流水**
+        //         （⭐ `exc_pos`/`exc_neg`/`sh_norm_w` 各打一拍 ⇒ `samp_r` 晚一拍）
+        //         ⇒ 数据路径 +1 拍 ⇒ RTL 里 `valid_d` 深度 4 → 5 ⇒ 延时 +1。
+        //      📌 ⭐ **本次⛔ 没有放松任何判据** —— ⭐ 断言本来就是**范围**
+        //         `[POLY+3, POLY+8]` ⇒ `+8` **天然通过**（⭐ 正好落在上界）；
+        //         ⭐ 这里只改【名字里的数字】以保持文档真实
+        //         （⭐ 上一条"配套纪律"明确要求：改了流水级数就要同步改这个数）。
+        //      🔴 **注意**：⭐ 现在 `+8` **已顶到旧范围的上界**。
+        //   ⭐⭐ **2026-09-29 变更：⭐ 范围判据 ⇒ 等值判据**（⭐ 验收契约变更，已留痕）
+        //      🔴 **为什么必须改**：⭐ 实测 —— 把 `valid_d[4]` 改回 `valid_d[3]`
+        //         （⭐ "加了流水却忘记给 valid 加拍"）⇒ 延时 `+8` → `+7`
+        //         ⇒ 🔴 **旧的范围判据 `[POLY+3, POLY+8]` 照样 PASS** ⚠️
+        //         ⇒ ⭐ **它等于没有防延时回归**（⭐ `C88`：⭐ 名字写等值、实际是范围）。
+        //      ⭐ **改法**：⭐ 期望值抽成 **`LAT_EXPECT`**（⭐ 见文件头）⇒ ⭐ 只写一处 ✅
+        //      📌 **配套纪律不变**：⭐ 改了流水级数 ⇒ ⭐ **只改 `LAT_EXPECT` 那一行** ✅
+        $display("     [lat] measured latency = %0d cycles (POLY_TARGET=%0d => +%0d)",
+                 cyc, POLY, cyc - POLY);
+        chk("latency == LAT_EXPECT (3-stage norm + registered output + limiter pipe)",
+            k == LAT_EXPECT);
+
+        // ---- 2b: ⭐⭐ valid 与数据【同拍】（⭐ 与流水深度【无关】的判据）----
+        //   🔴 **为什么还需要它**：⭐ 上面的等值判据**必须随流水深度改数字** ⇒
+        //      ⚠️ 它守的是"**延时变了没有**"，⭐ 而守不了"**valid 与数据错开一拍**"
+        //      （⭐ 只要改流水的人把 `LAT_EXPECT` 一起改了，错拍就能蒙过去）。
+        //   ⭐ **本判据的做法（⭐ 不出现任何深度数字）**：
+        //      ⭐ 观察一帧内 `dry_sample` 的**最后一次变化**落在第几拍（`la_tl`），
+        //      ⭐ 再看 `dry_valid` 高在第几拍（`la_tv`）
+        //      ⇒ ⭐ **契约：`dry_valid` ⛔ 不能【早于】数据到位**（`la_tv >= la_tl`）
+        //      ⇒ ⭐ 若 valid 提前一拍 ⇒ `la_tv = la_tl − 1` ⇒ 🔴 **必红** ✅
+        //   📌 **为什么用 `>=` ⛔ 不是 `==`**：⭐ "valid 稍晚于数据稳定"**无害**
+        //      （⭐ 数据已稳，取到的仍是对的）⇒ ⭐ 只禁"**早**"这一侧 ✅
+        //   ⚠️ **前提**：⭐ 本测试**不背靠背发帧** ⇒ 帧内数据**确实在变**
+        //      ⇒ ⭐ 末拍真的会有一次变化（⭐ 否则 `la_tl` 会偏早 ⇒ 假红）✅
+        begin : lat_align
+            clear_all;
+            for (i = 0; i < POLY; i = i + 1) begin
+                set_lane(i, 0, 16'sd1000);
+                set_lane(i, 1, 16'sd2000);
+                set_env(i, 16'h8000);
+            end
+            la_tv = -1; la_tl = -1;
+            start_frame;
+            la_prev = dry_sample;
+            for (la_t = 0; la_t < (POLY + 20); la_t = la_t + 1) begin
+                @(negedge clk);
+                if (dry_valid) la_tv = la_t;
+                if (dry_sample !== la_prev) begin
+                    la_tl   = la_t;
+                    la_prev = dry_sample;
+                end
+            end
+            $display("     [align] t_valid=%0d  t_last_change=%0d  (valid must NOT be earlier)",
+                     la_tv, la_tl);
+            chk("valid and data are IN PHASE (dry_valid never asserts before dry_sample settles)",
+                (la_tv >= 0) && (la_tl >= 0) && (la_tv >= la_tl));
+        end
 
         // ---- 3: correct mixing, single voice ----
         $display("== 3: single-voice mixing ==");

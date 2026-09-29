@@ -190,7 +190,9 @@ foreach ($tb in $tbs) {
     'tb_latency_m2',             # ⭐ 50 次延迟测量
     'tb_note_manager',           # ⭐ 含 FIFO 溢出突发用例
     'tb_i2s_tx_prbs',            # ⭐ 512 帧随机 + 位扫描
-    'tb_wavetable_bank_prom'     # ⭐ pROM 变体
+    'tb_wavetable_bank_prom',    # ⭐ pROM 变体
+    'tb_met_btn_top'             # ⭐ 2026-09-28 新增：S2/AB13 节拍器开关（⭐ 4 个 5 ms 去抖窗口）
+                                 #    ⇒ ⭐ 实测 **172 s**（⛔ 远超默认 120 s ⇒ ⭐ 必须在本表里）
     #   ⚠️ 注意：⭐ `tb_export_wav` **不在本表里** —— ⭐ 它【默认被跳过】（见下方 `$skipByDefault`）
   )
   # ═══════════════════════════════════════════════════════════════════════════
@@ -224,7 +226,20 @@ foreach ($tb in $tbs) {
   }
 
   #   ⚠️ `tb_export_wav` 需要**远超 300 s** 的预算 ⇒ 单独给 1800 s
+  #   ⚠️ `tb_met_btn_top` 实测 **172 s**，⚠️ 而全量回归时机器上**还并行跑着 PnR /
+  #      其它仿真** ⇒ ⭐ 给 **600 s**（3.5× 余量）⛔ 否则会**误报 TIMEOUT**（K-94 反面）
   $tbTimeoutSec = if ($name -eq 'tb_export_wav') { 1800 }
+                  elseif ($name -eq 'tb_met_btn_top') { 600 }
+                  #  ⭐⭐ 2026-09-29 新增：⭐ `tb_e2e_key_to_sound` 的注释实测值是 **~50 s**
+                  #     ⚠️ 但 2026-09-29 实测在【机器负载高】时它会跑到 **>300 s**
+                  #     ⇒ ⭐ 撞 300 s 预算 ⇒ 🔴 报 `TIMEOUT`（⭐ 而日志里其实已有 `PASS:` ✅）
+                  #     📌 ⭐ 与上面 `tb_met_btn_top` **同一先例**（⭐ 172 s 实测 ⇒ 给 600 s ✅）
+                  #     ⇒ ⭐ 给 **600 s**（⭐ 12× 余量）⛔ 否则会**误报 TIMEOUT**（⭐ 见 `K-161` / `K-94`）
+                  elseif ($name -eq 'tb_e2e_key_to_sound') { 600 }
+                  #  ⭐⭐ 2026-09-29 同日：⭐ `tb_top_sound` 的注释实测值是 **93 s**，
+                  #     ⚠️ 但同一轮回归里实测**已耗 CPU 155 s**（⭐ 机器负载 ✅）
+                  #     ⇒ ⭐ 300 s 的余量只剩 ~2× ⚠️ ⇒ ⭐ 与 `tb_e2e` / `tb_met_btn_top` **同一处置**：给 600 s ✅
+                  elseif ($name -eq 'tb_top_sound') { 600 }
                   elseif ($heavyTb -contains $name) { 300 }
                   else { $TimeoutSec }
 

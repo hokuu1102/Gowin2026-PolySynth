@@ -330,6 +330,10 @@ def build_events(tracks, division, tempos, transpose=0, overrides=None):
     stats = {
         "tracks": [], "drum_tracks": [], "empty_tracks": [], "notes": 0,
         "events": 0, "dropped_drum": 0, "dedup": 0, "cross_dedup": 0,
+        #  ⭐⭐ 2026-09-29 新增（`U-16b`）：⭐ 鼓事件的【本体】
+        #     ⚠️ 原来只有 `dropped_drum` 一个**计数** ⇒ ⭐ 数据被直接丢掉
+        #     ⇒ 🔴 **试听 WAV 里永远没有鼓**（⭐ 而实测一首曲子有 3~4 千个鼓事件）
+        "drum_events": [],
         "max_tick": 0, "min_midi": 999, "max_midi": -999,
         "per_track": [], "axis_overflow": 0, "tempos": tempos,
         "timbre_of_axis": [], "tempo_events": 0, "max_tick_inc": 0,
@@ -363,6 +367,23 @@ def build_events(tracks, division, tempos, transpose=0, overrides=None):
             drum, _r = classify(tr)
             if drum:
                 stats["dropped_drum"] += len(tr["events"])
+                #  ⭐⭐ 2026-09-29 新增（`U-16b`）：⭐ **把鼓事件收集起来**，
+                #     ⛔ 不再只是计数丢弃 —— 否则试听 WAV 里**永远没有鼓**。
+                #     ⭐ 落成 `events_drum.csv`（`tick,note,vel`）⇒
+                #     ⭐ `evt2wav.py --drums events_drum.csv` 就能把打击乐混回去 ✅
+                #     📌 ⚠️ 鼓**仍然不进** `events.hex` —— ⭐ 这是**有意为之**：
+                #        ⭐ 鼓音符的音高语义与键盘 voice 完全不同，⭐ 混进去会
+                #        **烧掉 voice**（⭐ 而 `drum_gen` 是独立音源）✅
+                nm_d = tr["name"] or ("track %d" % ti)
+                for d_tick, d_on, d_note, d_vel in tr["events"]:
+                    if not d_on:
+                        continue
+                    stats["drum_events"].append({
+                        "tick": int(round(d_tick * scale)),
+                        "note": int(d_note),
+                        "vel": int(d_vel),
+                        "track": nm_d,
+                    })
             continue
         nm = tr["name"] or ("track %d" % ti)
 
@@ -557,6 +578,19 @@ def write_csv(events, path):
                 e["timbre"]))
 
 
+def write_drum_csv(drum_events, path):
+    """⭐ 鼓事件落盘（⭐ 给 `evt2wav.py --drums` 用）—— `U-16b`。
+
+    ⚠️ **只用 `tick,note,vel` 三列** —— ⛔ 不带 track 名：
+    ⭐ 轨名里可能有**逗号 / 中文** ⇒ ⭐ 解析会变脆（⭐ 而这三列已经够渲染了）✅
+    """
+    with open(path, "w", encoding="utf-8", newline="") as f:
+        f.write("tick,note,vel\n")
+        for d in sorted(drum_events, key=lambda x: (x["tick"], x["note"])):
+            f.write("%d,%d,%d\n" % (d["tick"], d["note"], d["vel"]))
+    return len(drum_events)
+
+
 def write_report(stats, path, args):
     L = []
     L.append("mid2evt report")
@@ -685,13 +719,19 @@ def main(argv=None):
     write_hex(events, hex_path)
     write_csv(events, os.path.join(args.outdir, "events.csv"))
     write_report(stats, os.path.join(args.outdir, "report.txt"), args)
+    #  ⭐⭐ 2026-09-29（`U-16b`）：⭐ 鼓事件**另存一份** ⇒ ⭐ 试听时能把鼓混回去
+    n_drum = write_drum_csv(stats["drum_events"],
+                            os.path.join(args.outdir, "events_drum.csv"))
 
     # ⭐ 回读校验：证明写出去的 hex 能与 CSV / 内存事件解码一致。
     #   ⚠️ 不能省 —— tick 回绕正是因为"从来没人读回 hex"才隐藏了很久。
     n = verify_hex_roundtrip(events, hex_path)
 
     print("format=%d division=%d tracks=%d" % (fmt, division, len(tracks)))
-    print("wrote %s/events.hex  events.csv  report.txt" % args.outdir)
+    print("wrote %s/events.hex  events.csv  events_drum.csv  report.txt"
+          % args.outdir)
+    print("drums       : %d hit(s) -> events_drum.csv "
+          "(audition with: evt2wav.py ... --drums events_drum.csv)" % n_drum)
     print("notes=%d events=%d dedup=%d drums_excluded=%d tempo_records=%d"
           % (stats["notes"], stats["events"], stats["dedup"],
              stats["dropped_drum"], stats["tempo_events"]))

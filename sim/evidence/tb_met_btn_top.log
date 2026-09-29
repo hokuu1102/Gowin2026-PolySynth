@@ -1,0 +1,28 @@
+﻿NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=48 VOTE_N=4 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+WARN [top] vu_* scans only 8 axes but the system has 16 => axes 8..15 get ATTACK velocity but NO follow (see the VEL_AXIS_N comment)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=11 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+VCD info: dumpfile build/sim/tb_met_btn_top/tb_met_btn_top.vcd opened for output.
+  ok  : M1 reset_default_is_OFF (met_on_r===0)
+  ok  : M2 floating_input_Z_is_read_as_released (met_btn_s===1)
+  ok  : M3 floating_input_Z_keeps_metronome_OFF_for_over_5ms
+  ok  : M4 short_press_100k_cycles_is_filtered_out (no toggle, 0 events)
+  ok  : M5 long_press_turns_metronome_ON (met_on_r===1)
+  ok  : M5b exactly_ONE_key_down_event_per_press (K-01)
+  ok  : M6 release_does_NOT_change_state (still ON)
+  ok  : M6b release_produces_no_extra_key_down
+  ok  : M7 second_long_press_turns_metronome_OFF (met_on_r===0)
+  ok  : M7b exactly_TWO_key_down_events_after_two_presses
+  ok  : M8 gate_blocks_metronome_when_OFF (src_b_valid===0)
+  ok  : M9 gate_passes_metronome_when_ON (src_b_valid===1)
+  ok  : M10 gate_returns_to_blocked_after_release (src_b_valid===0)
+PASS: met_btn_top -- S2/AB13 metronome switch obeys its contract
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_btn_top.sv:204: $finish called at 26007205000 (1ps)
+
+

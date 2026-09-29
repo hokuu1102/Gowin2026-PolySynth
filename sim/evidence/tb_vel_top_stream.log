@@ -5,7 +5,7 @@ NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8
 NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
 NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
 WARN [top] vu_* scans only 8 axes but the system has 16 => axes 8..15 get ATTACK velocity but NO follow (see the VEL_AXIS_N comment)
-NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 T=54 S=53 X=58 M=4d)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=11 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
 VCD info: dumpfile build/sim/tb_vel_top_stream/tb_vel_top_stream.vcd opened for output.
@@ -22,7 +22,11 @@ VCD info: dumpfile build/sim/tb_vel_top_stream/tb_vel_top_stream.vcd opened for 
   ok  : T7a: vu_ax_r rotates 0->1->...->7->0 on EVERY tick_audio
   ok  : T7b: vu_valid_r is exactly a ONE-cycle pulse (never 2 in a row)
   ok  : T8: all packets had val/axis aligned with the SAME cycle (L70)
+== 9: the deadzone must still hold (top.v must be UNCHANGED by the fix) ==
+  ok  : T9a: with pos held steady, NO further packets (deadzone works)
+  ok  : T9b: a +16 step (not over the deadzone) still sends nothing
+  ok  : T9c: a +60 step DOES send (deadzone is not stuck shut)
 PASS: vel_top_stream -- the top-level vu_* stream obeys its contract
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:305: $finish called at 3360000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:337: $finish called at 8640000 (1ps)
 
 

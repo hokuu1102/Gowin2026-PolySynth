@@ -15,8 +15,9 @@
   ok  : ??槸 voice0
   ok  : voic???
 == 鍒ゆ嵁 2: 鏀寔'鏇存柊鍦ㄥ搷 voice'锛坴el_update / pitch_update锛?=
-  ok  : vel_updat???殑 voice1
-  ok  : vel_update ????殑 voice0
+  ok  : vel_update takes effect (left the start point, ramping toward 240)
+  ok  : vel_update converges to 240 (ramp completed)
+  ok  : vel_update leaves the released voice0 untouched
   ok  : pitch_updat???殑 voice1
   ok  : ???axis??????voice
 == 鍒ゆ嵁 6: 婊戦煶涓嶄骇鐢熼煶绗︼紙鍐荤粨琛ㄩ搧寰嬶級==
@@ -84,6 +85,6 @@
   ok  : K-106: lost count SATURATED at 15 (did not wrap to 0)
   ok  : K-106: sticky is set under massive overflow too
 PASS: note_manager acceptance (T54) - all judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:830: $finish called at 291600000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:845: $finish called at 295700000 (1ps)
 
 

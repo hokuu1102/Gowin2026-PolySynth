@@ -17,6 +17,15 @@ IO_PORT "clk"   IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
 IO_LOC  "rst_n" AA13;
 IO_PORT "rst_n" IO_TYPE=LVCMOS15 PULL_MODE=UP BANK_VCCIO=1.5;
 
+// ⭐⭐ 节拍器开关按键（S2，2026-09-28 新增 · 用户拍板）
+//   ⭐ AB13 = EX_KEY.1 / Key_in[1] / S2（Tang Console 60K 官方 .cst）
+//   🔴 **必须 LVCMOS15 + BANK_VCCIO=1.5** —— AB13 属 BANK9（与 rst_n/AA13 同 bank）
+//      ⚠️ 写 3.3 V 会与同 bank 冲突、并可能损伤 IO。
+//   ⭐ PULL_MODE=UP ⇒ 空闲 = 1、按下 = 0 ⇒ 与 rtl 的 ACTIVE_LOW=1 一致。
+//   ⚠️ 跨线冲突：ESP32 线原计划用 AB13 做"起播按键" ⇒ 已标注"暂时被节拍器占用"。
+IO_LOC  "met_btn_i" AB13;
+IO_PORT "met_btn_i" IO_TYPE=LVCMOS15 PULL_MODE=UP BANK_VCCIO=1.5;
+
 //====== AUDIO ======（板载 DAC = PT8211-S + 功放 NS4263，⛔ 不需要 MCLK）
 IO_LOC  "HP_BCK" Y17;
 IO_PORT "HP_BCK" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;

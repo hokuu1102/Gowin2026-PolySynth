@@ -173,6 +173,13 @@ module note_manager #(
     localparam [2:0] ST_DECIDE = 3'd1;   // 已取出事件，判"同轴位重触发"还是"扫描分配"
     localparam [2:0] ST_SCAN   = 3'd2;   // 每拍考察一个 voice
     localparam [2:0] ST_COMMIT = 3'd3;   // 提交选中结果
+    //  ⭐⭐ 2026-09-29 `N-1`（Fmax 修复）：⭐ **提交流水级**
+    //     🔴 **为什么加**：⭐ `ST_COMMIT` 原来**一个周期内**同时驱动 **7 个 32 路写译码**，
+    //        而 `best_idx` 来自 **32 路扫描比较树**（⭐ 组合）
+    //        ⇒ ⭐ **这就是 `note_manager` 那条关键路径**（⭐ 路径表里出现 **274** 次）✅
+    //     ✅ **修法**：⭐ `ST_COMMIT` 只**锁存**参数 ⇒ `ST_COMMIT2` 用**寄存器输出**去写 ✅
+    //     ⚠️ **代价**：⭐ 分配延迟 **+1 拍**（20 ns，⭐ 听感不可闻）· ⭐ **功能等价** ✅
+    localparam [2:0] ST_COMMIT2 = 3'd4;  // ⭐ 用寄存后的 `cmt_idx_r` 写译码器
 
     localparam integer SCAN_LAST = POLY_TARGET - 1;
     localparam integer SW = (POLY_TARGET <= 1) ? 1 : $clog2(POLY_TARGET);   // 扫描计数位宽
@@ -183,6 +190,12 @@ module note_manager #(
     reg [AXIS_W-1:0]       axis_r   [0:POLY_TARGET-1];
     reg [PHASE_W-1:0]      phase_r  [0:POLY_TARGET-1];
     reg [VEL_W-1:0]        vel_r    [0:POLY_TARGET-1];
+    //  ⭐⭐ 2026-09-28：**力度更新的挂起寄存器**（⭐ 修"又响又尖"，⭐ 见 `K-154`）
+    //   ⚠️ **必须在【模块级】** —— 🔴 Verilog-2001 要求"声明先于语句"，
+    //      ⛔ 不能写在 `always` 块中间（⭐ 第一版踩过：40+ 连锁语法错）
+    reg [AXIS_W-1:0]       vu_ax_pend_r;
+    reg [VEL_W-1:0]        vu_val_pend_r;
+    reg                    vu_pend_r;
     reg [TIMBRE_W-1:0]     timbre_r [0:POLY_TARGET-1];
     reg [AGE_W-1:0]        age_r    [0:POLY_TARGET-1];
 
@@ -401,6 +414,15 @@ module note_manager #(
 
     reg                    alloc_valid_r;
     reg [IDX_W-1:0]        alloc_voice_r;
+    //  ⭐⭐ 2026-09-29 `N-1`：⭐ **提交流水级的锁存寄存器**（⭐ 见 `ST_COMMIT2`）
+    //     📌 **为什么必须锁存**：⚠️ `best_idx` / `cur_*` / `new_*` 到 `ST_COMMIT2` 那一拍
+    //        **已经可能变了**（⭐ `ST_SCAN` 会改写 `best_*`）⇒ ⭐ 直接引用会**写错 voice** ✅
+    reg                    cmt_en_r;
+    reg [IDX_W-1:0]        cmt_idx_r;
+    reg [AXIS_W-1:0]       cmt_axis_r;
+    reg [PHASE_W-1:0]      cmt_inc_r;
+    reg [VEL_W-1:0]        cmt_vel_r;
+    reg [TIMBRE_W-1:0]     cmt_timbre_r;
     //  ⭐ 重触发清零脉冲：**单周期**（每 clk 先清、由 (f)/(g) 两处按需置位）
     reg  [POLY_TARGET-1:0] retrig_reset_r;
     integer i;
@@ -412,6 +434,10 @@ module note_manager #(
                 axis_r[i]   <= {AXIS_W{1'b0}};
                 phase_r[i]  <= {PHASE_W{1'b0}};
                 vel_r[i]    <= {VEL_W{1'b0}};
+                //  ⭐ 2026-09-28：力度挂起寄存器也要复位（⭐ 否则上电 `X` ⇒ 可能发假更新）
+                vu_ax_pend_r  <= {AXIS_W{1'b0}};
+                vu_val_pend_r <= {VEL_W{1'b0}};
+                vu_pend_r     <= 1'b0;
                 timbre_r[i] <= {TIMBRE_W{1'b0}};
                 age_r[i]    <= {AGE_W{1'b0}};
             end
@@ -435,6 +461,13 @@ module note_manager #(
             cur_timbre    <= {TIMBRE_W{1'b0}};
             alloc_valid_r <= 1'b0;
             alloc_voice_r <= {IDX_W{1'b0}};
+            // ⭐ 2026-09-29 `N-1`：提交流水级的锁存寄存器（⭐ 见 `ST_COMMIT2`）
+            cmt_en_r      <= 1'b0;
+            cmt_idx_r     <= {IDX_W{1'b0}};
+            cmt_axis_r    <= {AXIS_W{1'b0}};
+            cmt_inc_r     <= {PHASE_W{1'b0}};
+            cmt_vel_r     <= {VEL_W{1'b0}};
+            cmt_timbre_r  <= {TIMBRE_W{1'b0}};
             retrig_reset_r <= {POLY_TARGET{1'b0}};
             // ⭐⭐ 溢出指示：硬复位清（⚠️ 上电后是干净的；上板运行中要靠 clr 输入清）
             lost_cnt_r    <= {EVT_LOST_CNT_W{1'b0}};
@@ -547,10 +580,31 @@ module note_manager #(
             //  📌 **硬件友好性**：⭐ `adsr.v` 的 `ST_SUSTAIN` 本来就会【持续朝 `sustain_level`
             //     收敛】，而 `sustain_level` 是 `velocity_i` 的组合输出
             //     ⇒ ⭐ **改 `vel_r` ⇒ 音量【立刻跟随】**，⛔ 不需要改 `adsr.v`。
+            //  ⭐⭐ 2026-09-28：**力度变化率限幅**（⭐ 修"又响又尖"，⭐ 见 `K-154`）
+            //   🔴 原来：`vel_r[i] <= vel_upd_value_i;` ⇒ ⭐ 每 clk 可整值跳
+            //      ⇒ ⭐ 用力敲打时 `pos` 猛跳 ⇒ `vel_r` 一拍从 64 跳到 255
+            //      ⇒ ⭐ 包络电平瞬间跳满 ⇒ 🔴 瞬时超限幅器 ⇒ 削波 ⇒ 又响又尖
+            //   ✅ 修法：⭐ 挂在 `sample_tick_i`，⭐ 每音频采样拍最多变 **±8**
+            //      ⇒ ⭐ 满量程 255/8 = **32 拍 = 0.65 ms** 平滑滑行
+            //      📌 ⭐ **用户 2026-09-28 拍板选 ±8**（⭐ 折中：⭐ 既削掉突变，
+            //         又让力度跟随的延迟**几乎无感**）✅
+            //   ⚠️ **为什么要挂起**：⭐ `vel_upd_valid_i` 是 1 拍脉冲 ⇒ ⚠️ 直接
+            //      `& sample_tick_i` 会**丢掉绝大多数更新**（⭐ 两者不同拍）
+            //   ⭐ **目标锁存后【永不清零】** —— 到达目标时下面的 `else` 赋同值
+            //      ⇒ ⭐ **自然静止**（⭐ 无需任何"到达"判断）✅
             if (vel_upd_valid_i) begin
+                vu_ax_pend_r  <= vel_upd_axis_i;   // ⭐ 目标轴
+                vu_val_pend_r <= vel_upd_value_i;  // ⭐ 目标力度
+                vu_pend_r     <= 1'b1;             // ⭐ 有效（⛔ 永不清）
+            end
+
+            if (sample_tick_i && vu_pend_r) begin
                 for (i = 0; i < POLY_TARGET; i = i + 1)
-                    if (gate_mask[i] && (axis_r[i] == vel_upd_axis_i))
-                        vel_r[i] <= vel_upd_value_i;   // ⭐ 位置式：可增可减
+                    if (gate_mask[i] && (axis_r[i] == vu_ax_pend_r)) begin
+                        if      (vu_val_pend_r > vel_r[i] + 8'd8) vel_r[i] <= vel_r[i] + 8'd8;
+                        else if (vu_val_pend_r + 8'd8 < vel_r[i]) vel_r[i] <= vel_r[i] - 8'd8;
+                        else                                      vel_r[i] <= vu_val_pend_r;
+                    end
             end
 
             // ── (e) ⭐ 音高修正：更新**在响**（含 Release 尾巴）的同轴位 voice ──
@@ -671,22 +725,62 @@ module note_manager #(
                     //     （该事件被丢弃，但⛔ 不会污染无关 voice）。
                     if (best_valid) begin
                         // ⭐ 提交（此时 `best_*` 已稳定）
-                        gate_r[best_idx]   <= 1'b1;
-                        axis_r[best_idx]   <= cur_axis;
-                        phase_r[best_idx]  <= cur_inc;
-                        vel_r[best_idx]    <= new_vel;
-                        timbre_r[best_idx] <= new_timbre;
-                        age_r[best_idx]    <= {AGE_W{1'b0}};
+                        //  ⭐⭐ 2026-09-29 `N-1`：⭐ **这里【只锁存】，⛔ 不再直接写译码器**
+                        //     （⭐ 真正的写在 `ST_COMMIT2`，⭐ 用**寄存后**的 `cmt_idx_r`）
+                        cmt_en_r     <= 1'b1;
+                        cmt_idx_r    <= best_idx;
+                        cmt_axis_r   <= cur_axis;
+                        cmt_inc_r    <= cur_inc;
+                        cmt_vel_r    <= new_vel;
+                        cmt_timbre_r <= new_timbre;
                         //  ⭐ 抢占也要清零包络 —— ⚠️ `best_idx` 可能是**正在 release、
                         //     包络仍有残值**的 voice（`cand_rel` 类别就是它）⇒
                         //     🔴 不清零就会把"别人的尾巴"和新音叠加 = 同一个尖音 bug。
                         //  📌 与 `gate` 同拍：ADSR 里 `retrig_reset_i` 优先级**高于**
                         //     `gate` 判定 ⇒ ⭐ 同拍不会既清零又按残余电平起振。
-                        retrig_reset_r[best_idx] <= 1'b1;
-                        alloc_valid_r      <= 1'b1;
-                        alloc_voice_r      <= best_idx;
+                        //  ⭐ 2026-09-29 `N-1`：⭐ `retrig_reset_r` / `alloc_*` 的写入
+                        //     也一并搬到 `ST_COMMIT2`（⭐ 与 `gate` **同拍** ⇒
+                        //     ⚠️ 必须一起搬，⛔ 否则会破坏"同拍清零 + 起振"的约定）
+                    end else begin
+                        //  ⚠️ ⭐ 无候选 ⇒ **不提交** —— ⭐ 保住 `P2-1` 的守卫（⛔ 不污染无关 voice）
+                        cmt_en_r <= 1'b0;
                     end
-                    state              <= ST_IDLE;
+                    state              <= ST_COMMIT2;
+                end
+
+                //  ══════════════════════════════════════════════════════════════
+                //  ⭐⭐ 2026-09-29 `N-1`（Fmax 修复）：⭐ **提交流水级**
+                //
+                //  🔴 **原缺陷（⭐ 实测 `impl/pnr/Gowin2026.timing_paths`）**：
+                //     ⭐ `ST_COMMIT` 在**一个周期内**同时驱动 **7 个 32 路写译码**：
+                //        `gate_r[best_idx]` · `axis_r[best_idx]` · `phase_r[best_idx]`
+                //        · `vel_r[best_idx]` · `timbre_r[best_idx]` · `age_r[best_idx]`
+                //        · `retrig_reset_r[best_idx]`
+                //     ⚠️ 而 `best_idx` 来自 **32 路扫描比较树**（⭐ `ST_SCAN` 的组合输出）
+                //     ⇒ ⭐ **这就是那条关键路径**（⭐ `note_manager` 在路径表里出现 **274** 次，
+                //        是**唯一**的关键路径来源）✅
+                //
+                //  ✅ **修法**：⭐ **在"选完"与"写"之间插一级寄存器** ⇒
+                //     ⭐ 写译码器的输入变成**寄存器输出** ⇒ ⭐ **长路径被切断** ✅
+                //
+                //  ⚠️ **代价**：⭐ 分配延迟 **+1 拍**（⭐ 20 ns ⇒ 听感不可闻）
+                //  📌 ⭐ **功能等价**：⭐ 只是把**同一组写入**晚一拍做 ✅
+                //     ⭐ 且 `retrig_reset_r` 与 `gate_r` **仍在同一拍** ⇒ ⭐ 原约定不变 ✅
+                //  ⚠️ **`best_valid == 0` 的守卫仍然有效**（⭐ 通过 `cmt_en_r` 传递）✅
+                //  ══════════════════════════════════════════════════════════════
+                ST_COMMIT2: begin
+                    if (cmt_en_r) begin
+                        gate_r[cmt_idx_r]   <= 1'b1;
+                        axis_r[cmt_idx_r]   <= cmt_axis_r;
+                        phase_r[cmt_idx_r]  <= cmt_inc_r;
+                        vel_r[cmt_idx_r]    <= cmt_vel_r;
+                        timbre_r[cmt_idx_r] <= cmt_timbre_r;
+                        age_r[cmt_idx_r]    <= {AGE_W{1'b0}};
+                        retrig_reset_r[cmt_idx_r] <= 1'b1;
+                        alloc_valid_r      <= 1'b1;
+                        alloc_voice_r      <= cmt_idx_r;
+                    end
+                    state <= ST_IDLE;
                 end
 
                 default: state <= ST_IDLE;

@@ -114,6 +114,15 @@
         <File path="rtl/w3c/play_seq.v" type="file.verilog" enable="1"/>
         <!-- U-6: event merge (hand-play + metronome into note_manager's single port) -->
         <File path="rtl/w3c/evt_merge.v" type="file.verilog" enable="1"/>
+        <!-- 2026-09-29 new: event-domain LOOPER (T37 single-layer record+replay,
+             T39 "loop while you play").  Event domain only - it emits events,
+             never audio, so there is no new compliance surface.
+             top.v routes its replay into seq_arb's SCORE port (that port is
+             unused while SCORE_UART_ENABLE=0, the default), so neither
+             evt_merge.v nor seq_arb.v had to change.
+             Registered here because top.v instantiates it: the U-30 build
+             guard would exit 3 otherwise, and Gowin would silently omit it. -->
+        <File path="rtl/w3c/looper.v" type="file.verilog" enable="1"/>
         <!-- 2026-09-26 teammate (bing/LED chain): top.v instantiates these two,
              but they were committed WITHOUT being registered here.  The U-30
              build guard caught it: Gowin would have SILENTLY omitted the files

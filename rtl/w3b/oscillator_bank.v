@@ -58,6 +58,24 @@ module oscillator_bank #(
     parameter integer TIMBRE_W      = 2,
     parameter integer WT_DEPTH      = 1024,
     parameter integer WT_W          = 16,
+//  ⭐⭐ 2026-09-29 修 bug②：⭐ **力度是否参与音色（soft/hard 波表插值）**
+//
+//   ⭐ **0（默认）= 关** ⇒ ⭐ **波表固定用 `rom_soft`**（⭐ 音色**只由 `timbre` 决定**）✅
+//   ⭐ 1 = 旧行为（⭐ `velocity = 0` → soft · `velocity = 255` → hard ✅）
+//
+//   🔴 **为什么默认关（上板实测 + 用户裁定）**：
+//      ⭐ 位置式力度 `vel_upd` 把 `vel_r` 推到 **255** ⇒ ⭐ 按到底变成**纯三角波**
+//      ⇒ 🔴 用户听到"**音色不同的电子音**"（⭐ 幅度趋势不变、只是音色变了）✅
+//      ⭐ **实测谱形**（100 ms / 100 kHz 捕获，C3）：
+//         h1 = 0 dB · **h3 = −18.9 dB** · **h4 = −46.5 dB（深零点）** · h5 = −21.8 dB
+//         ⇒ ⭐ 三角波的 h3 理论值 = 1/9 = **−19.1 dB** ⇒ ⭐ **就是三角波** ✅
+//      ⭐ 用户裁定（2026-09-29）：⭐ **"不应该改变音色"** ✅ ⇒ ⭐ **固定 `rom_soft`** ✅
+//
+//   📌 **保留参数的两个理由**：⭐ ① 可回退 ✅ ② ⭐ **后续还会改波表**
+//      ⇒ ⭐ 改波表时**不用再动这一路** ✅
+//   ⭐ **副作用（好的）**：⭐ `VEL_TIMBRE_BLEND = 0` 是**编译期常量** ⇒
+//      ⭐ 混合乘法器被**综合器整块折叠掉** ⇒ ⭐ 省一个 TDM 乘法器 ✅
+parameter integer VEL_TIMBRE_BLEND = 0,
     // ⚠️ FM **未实装**（`A2c`：先留接口、后加；且 FM **不计入吞吐量**）
     parameter integer ENABLE_FM     = 0,
     // ⭐ 颤音参考相位增量（Q 单位：`f_out = inc × fs / 2^32`）
@@ -322,7 +340,20 @@ module oscillator_bank #(
     wire signed [WT_W:0] blend_scaled = blend_product[WT_W+8:8];
     wire signed [WT_W:0] blend_sum = {rom_soft[WT_W-1], rom_soft}
                                   + blend_scaled;
-    wire signed [WT_W-1:0] rom_dout = blend_sum[WT_W-1:0];
+    //  ⭐⭐ 2026-09-29 修 bug②：⭐ **力度→音色 的耦合【默认关闭】**
+    //   ⭐ `VEL_TIMBRE_BLEND = 0`（默认）⇒ ⭐ **固定 `rom_soft`**（⭐ 音色只由 `timbre` 决定）✅
+    //   ⚠️ `blend_*` 那几根线**仍然保留引用**（⭐ 免得 `iverilog -Wall` 报未使用 ✅）——
+    //      ⭐ 而 `VEL_TIMBRE_BLEND` 是**编译期常量** ⇒ ⭐ 综合器会把它们**整块折叠掉** ✅
+    //  ⚠️⚠️ 2026-09-29 上板实测修正：⭐ **固定用 `rom_hard`，⛔ 不是 `rom_soft`**
+    //   🔴 **为什么**（⭐ 实测表数据，⭐ 见下方"表峰值"注释）：
+    //      · ⭐ `rom_soft` 的 **4 个块完全相同**（⭐ 峰值 16384 · RMS 11574 ✅）
+    //        ⇒ 🔴 **`'I'` 切音色【听不出区别】**（⭐ 用户上板实测报告第 3 条 ✅）
+    //      · ⭐ `rom_soft` 峰值 **16384**，⭐ 而 `rom_hard` 峰值 **32767**
+    //        ⇒ 🔴 **固定 `rom_soft` 把音量砍了一半**（⭐ 用户报告第 4 条 ✅）
+    //      · ⭐ `rom_hard` 的 4 个块**互不相同**（⭐ RMS 18899 / 18899 / 32766 / 18422 ✅）
+    //        ⇒ ✅ **音色可切换** ＋ ✅ **满幅**
+    wire signed [WT_W-1:0] rom_dout = VEL_TIMBRE_BLEND ? blend_sum[WT_W-1:0]
+                                                      : rom_hard;
 
     wavetable_bank #(
         .TIMBRE_N(TIMBRE_N), .TIMBRE_W(TIMBRE_W),

@@ -97,7 +97,30 @@ module calib_cmd #(
     //      ① 挂音 —— 松手后 `pos` 能否降到 `REL_TH`(80) 以下？
     //      ② 周期性音量起伏 —— 按住时 `pos` 是否周期性变化？
     //      ③ `zero` 是否有效 —— 松手时 `pos` 应 ≈ 0（⭐ 而不是 ~2000）
-    parameter [7:0]   CMD_POSPROBE = 8'h4E   // 'N' ⭐ 诊断：回传 calib 后的 pos
+    parameter [7:0]   CMD_POSPROBE = 8'h4E,  // 'N' ⭐ 诊断：回传 calib 后的 pos
+    // ⭐⭐ 2026-09-29 新增：⭐ **looper 的三条命令**（⭐ `T37` / `T39`）
+    //
+    //   ⭐ **为什么用串口而不是按键**：
+    //      · ⭐ 串口通路**已经在跑**（⭐ 上位机 / ESP32 线都通了）⇒ ⭐ **零新增硬件**
+    //      · ⭐ ⛔ **不改任何已有模块的【行为】** —— ⭐ 只是**加**命令字母 ✅
+    //      · ⚠️ `met_btn_i`（`AB13`）**已给节拍器**，⭐ 而 `Y12` **被 ESP32 线预定** ⇒ ⛔ 不动按键
+    //      📌 这也是 `looper接口定义-20260924.md` §五 第 3 条**自己的建议** ✅
+    //
+    //   ⚠️ **已占用的字母**：⭐ `T`(54) `S`(53) `X`(58) `P`(50) `V`(56) `M`(4D) `N`(4E)
+    //      ＋ ⭐ 帧头 `0xA5` ⇒ ⭐ 新增的三个与之**互不相同**（⭐ 由下面的查重保证）✅
+    parameter [7:0]   CMD_LOOP_REC  = 8'h52,  // 'R' ⭐ looper：⭐ 录 / 停 **切换**
+    parameter [7:0]   CMD_LOOP_PLAY = 8'h4C,  // 'L' ⭐ looper：⭐ 播放 **切换**
+    parameter [7:0]   CMD_LOOP_CLR  = 8'h43,  // 'C' ⭐ looper：⭐ 清空该层
+    //  ⭐⭐ 2026-09-29 新增：⭐ **`'I'` 切换音色**（⭐ 用户需求："之后需要有 4 个音色可以切换" ✅）
+    //   ⭐ 语义：⭐ **每按一次循环下一档** `0→1→2→3→0`（⭐ 与 `'R'`/`'L'` 同一"切换"手法 ✅）
+    //   ⭐ 音色定义（⭐ `wavetable_bank.v:3` 原文）：
+    //      ⭐ `0=BASS triangle` · ⭐ `1=GUITAR saw` · ⭐ `2=PIANO zero-DC 25% pulse` · ⭐ `3=PAD`
+    //   📌 ⭐ **为什么用串口而不是物理按键**：⭐ 见本文件顶部"控制面"说明 ——
+    //      ⭐ `*_req_o` 都是**单周期脉冲** ⇒ ⭐ 以后接按键**只需产生同样的脉冲** ✅
+    //      ⇒ ⭐ **控制面与来源解耦**，⭐ 换来源**不用改 `calib_cmd` 的下游** ✅
+    //   ⚠️ 字母占用核对：⭐ 已用 `T S X P V M N R L C` ＋ 帧头 `A5`
+    //      ⇒ ⭐ `'I'` = `0x49` **未占用** ✅（⭐ `initial` 里的查重表会机械核对 ✅）
+    parameter [7:0]   CMD_TIMBRE   = 8'h49    // 'I' ⭐ 切音色（⭐ 0→1→2→3→0 循环）
 ) (
     input  wire        clk_i,
     input  wire        rst_n_i,        // ⭐ 同步复位、低有效
@@ -114,6 +137,12 @@ module calib_cmd #(
     output reg         vstat_req_o,    // ⭐ 'V' ⇒ 诊断：⭐ 回传 span 状态（⭐ 2026-09-24 新增）
     output reg         posprobe_req_o, // ⭐ 'N' ⇒ 诊断：⭐ 回传 calib 后的 pos（⭐ 2026-09-27 新增）
     output reg         test_mode_req_o,// ⭐ 'M' ⇒ Test Mode 下一档（帧外才有效）
+    // ⭐⭐ 2026-09-29 新增：⭐ looper 控制（⭐ 三条命令都是**单周期脉冲**）
+    //   ⚠️ 录/播是"**切换**"语义 ⇒ ⭐ `top.v` 用寄存器记住状态（⭐ 与 `met_on_r` 同一手法）
+    output reg         loop_rec_req_o, // ⭐ 'R' ⇒ looper 录/停切换
+    output reg         loop_play_req_o,// ⭐ 'L' ⇒ looper 播放切换
+    output reg         loop_clear_req_o,// ⭐ 'C' ⇒ looper 清空该层
+    output reg         timbre_req_o,    // ⭐ 'I' ⇒ 切音色（⭐ 0→1→2→3→0 循环，⭐ 2026-09-29 新增）
 
     // ── ⭐ 可观测性（`K-106`：⛔ 不许静默失效）────────────────────────────
     output reg  [15:0] cmd_cnt_o,      // ⭐ 已接受的命令数（饱和）
@@ -154,10 +183,18 @@ module calib_cmd #(
     wire byte_is_vstat = (rx_data_i == CMD_VSTAT);   // ⭐ 'V' 诊断（⭐ 2026-09-24）
     wire byte_is_posprobe = (rx_data_i == CMD_POSPROBE); // ⭐ 'N' 诊断（⭐ 2026-09-27）
     wire byte_is_test_mode = (rx_data_i == CMD_TEST_MODE); // ⭐ 'M' Test Mode
+    // ⭐ 2026-09-29：looper 三条（⭐ 'R' / 'L' / 'C'）
+    wire byte_is_loop_rec  = (rx_data_i == CMD_LOOP_REC);
+    wire byte_is_loop_play = (rx_data_i == CMD_LOOP_PLAY);
+    wire byte_is_loop_clr  = (rx_data_i == CMD_LOOP_CLR);
+    // ⭐ 2026-09-29：⭐ 切音色（⭐ 'I'）
+    wire byte_is_timbre    = (rx_data_i == CMD_TIMBRE);
     // ⭐ 任一命令字母
     wire byte_is_cmd   = byte_is_tare | byte_is_span | byte_is_abort |
                          byte_is_probe | byte_is_vstat | byte_is_posprobe |
-                         byte_is_test_mode;
+                         byte_is_test_mode |
+                         byte_is_loop_rec | byte_is_loop_play | byte_is_loop_clr |
+                         byte_is_timbre;
 
     // ⭐ 只有在**帧外**（`idx_q == 0`）才认命令
     //   🔴 这是本模块的**安全核心** —— ⚠️ 帧内的字母是**载荷**，⛔ 绝不能当命令
@@ -196,6 +233,10 @@ module calib_cmd #(
             vstat_req_o    <= 1'b0;     // ⭐ 'V' 诊断（⭐ 2026-09-24）
             posprobe_req_o <= 1'b0;     // ⭐ 'N' 诊断（⭐ 2026-09-27）
             test_mode_req_o<= 1'b0;     // ⭐ 'M' Test Mode
+            loop_rec_req_o <= 1'b0;     // ⭐ 'R' looper 录/停（⭐ 2026-09-29）
+            loop_play_req_o<= 1'b0;     // ⭐ 'L' looper 播放切换
+            loop_clear_req_o<= 1'b0;    // ⭐ 'C' looper 清空
+            timbre_req_o   <= 1'b0;     // ⭐ 'I' 切音色（⭐ 2026-09-29）
             cmd_cnt_o      <= 16'd0;
             in_frame_cnt_o <= 16'd0;
             resync_cnt_o   <= 16'd0;
@@ -209,6 +250,10 @@ module calib_cmd #(
             vstat_req_o <= 1'b0;        // ⭐ 'V' 诊断（⭐ 2026-09-24）
             posprobe_req_o <= 1'b0;     // ⭐ 'N' 诊断（⭐ 2026-09-27）
             test_mode_req_o <= 1'b0;    // ⭐ 'M' Test Mode
+            loop_rec_req_o  <= 1'b0;    // ⭐ 'R'（⭐ 2026-09-29）
+            loop_play_req_o <= 1'b0;    // ⭐ 'L'
+            loop_clear_req_o<= 1'b0;    // ⭐ 'C'
+            timbre_req_o    <= 1'b0;    // ⭐ 'I'（⭐ 2026-09-29）
 
             if (rx_done_i) begin
                 // ══ 收到一个字节 ═══════════════════════════════════════════
@@ -228,6 +273,12 @@ module calib_cmd #(
                         if (byte_is_vstat) vstat_req_o <= 1'b1;   // ⭐ 'V' 诊断
                         if (byte_is_posprobe) posprobe_req_o <= 1'b1; // ⭐ 'N' 诊断
                         if (byte_is_test_mode) test_mode_req_o <= 1'b1;
+                        // ⭐ 2026-09-29：looper 三条（⭐ 帧外 ⇒ 安全）
+                        if (byte_is_loop_rec)  loop_rec_req_o  <= 1'b1;
+                        if (byte_is_loop_play) loop_play_req_o <= 1'b1;
+                        if (byte_is_loop_clr)  loop_clear_req_o<= 1'b1;
+                        // ⭐ 2026-09-29：⭐ 切音色（⭐ 帧外 ⇒ 安全）
+                        if (byte_is_timbre)    timbre_req_o    <= 1'b1;
                         cmd_cnt_o <= sat_inc16(cmd_cnt_o);
                         idx_q     <= 4'd0;      // ⭐ 命令不推进帧位置
                     end else begin
@@ -272,36 +323,54 @@ module calib_cmd #(
     // Every recognised command must have its own byte.  Keep this complete:
     // a false PARAM_OK is build-visible, rather than merely a diagnostic that
     // can scroll out of a log.
-    localparam PARAM_OK = (GAP_BYTES > 1) && (BYTE_CLK_I > 0) &&
-                          (CMD_TARE  != CMD_SPAN)  && (CMD_TARE  != CMD_ABORT) &&
-                          (CMD_TARE  != CMD_PROBE) && (CMD_TARE  != CMD_VSTAT) &&
-                          (CMD_TARE  != CMD_TEST_MODE) &&
-                          (CMD_SPAN  != CMD_ABORT) && (CMD_SPAN  != CMD_PROBE) &&
-                          (CMD_SPAN  != CMD_VSTAT) && (CMD_SPAN  != CMD_TEST_MODE) &&
-                          (CMD_ABORT != CMD_PROBE) && (CMD_ABORT != CMD_VSTAT) &&
-                          (CMD_ABORT != CMD_TEST_MODE) &&
-                          (CMD_PROBE != CMD_VSTAT) && (CMD_PROBE != CMD_TEST_MODE) &&
-                          (CMD_VSTAT != CMD_TEST_MODE) &&
-                          (CMD_TARE  != HEADER) && (CMD_SPAN  != HEADER) &&
-                          (CMD_ABORT != HEADER) && (CMD_PROBE != HEADER) &&
-                          (CMD_VSTAT != HEADER) && (CMD_TEST_MODE != HEADER);
+    //  ⭐ 2026-09-29 重构：⭐ 命令字母从 **7 个**涨到 **10 个** ⇒
+    //     🔴 手写 C(10,2) = **45 个配对**既啰嗦、⭐ 又**极容易漏一个**
+    //     ⇒ ⭐ **改成【循环查重】**（⭐ 以后加第 11 个字母只需往 `cmd_tab` 里加一项）✅
+    localparam PARAM_OK = (GAP_BYTES > 1) && (BYTE_CLK_I > 0);
+
+    //  ⭐⭐ **全部命令字母**（⚠️ 加新命令时【必须】往这张表里加一项）
+    localparam integer N_CMD = 11;
+    reg [7:0] cmd_tab [0:N_CMD-1];
+    integer   ci, cj;
+    reg       letters_ok;
 
     initial begin
+        cmd_tab[0]  = CMD_TARE;
+        cmd_tab[1]  = CMD_SPAN;
+        cmd_tab[2]  = CMD_ABORT;
+        cmd_tab[3]  = CMD_PROBE;
+        cmd_tab[4]  = CMD_VSTAT;
+        cmd_tab[5]  = CMD_TEST_MODE;
+        cmd_tab[6]  = CMD_POSPROBE;
+        cmd_tab[7]  = CMD_LOOP_REC;
+        cmd_tab[8]  = CMD_LOOP_PLAY;
+        cmd_tab[9]  = CMD_LOOP_CLR;
+        cmd_tab[10] = CMD_TIMBRE;      // ⭐ 2026-09-29：⭐ 'I' 切音色
+
         if (GAP_BYTES <= 1)
             $display("ERROR [calib_cmd] GAP_BYTES = %0d <= 1 => intra-frame byte gaps would be mistaken for idle, so a half frame resyncs early and payload bytes get treated as commands. PARAM_OK=0.", GAP_BYTES);
         if (BYTE_CLK_I <= 0)
             $display("ERROR [calib_cmd] BYTE_CLK_I = %0d <= 0 (CLK_HZ=%0d BAUD=%0d) => the idle timer is meaningless. PARAM_OK=0.", BYTE_CLK_I, CLK_HZ, BAUD);
-        if ((CMD_TARE == CMD_SPAN) || (CMD_TARE == CMD_ABORT) || (CMD_SPAN == CMD_ABORT))
-            $display("ERROR [calib_cmd] duplicate command letters (T=%02h S=%02h X=%02h) => one command is silently shadowed and never fires. PARAM_OK=0.", CMD_TARE, CMD_SPAN, CMD_ABORT);
-        if ((CMD_TARE == HEADER) || (CMD_SPAN == HEADER) || (CMD_ABORT == HEADER))
-            $display("ERROR [calib_cmd] a command letter equals HEADER (%02h) => every event frame would be swallowed as a command. PARAM_OK=0.", HEADER);
-        if ((CMD_TEST_MODE == CMD_TARE) || (CMD_TEST_MODE == CMD_SPAN) ||
-            (CMD_TEST_MODE == CMD_ABORT) || (CMD_TEST_MODE == CMD_PROBE) ||
-            (CMD_TEST_MODE == CMD_VSTAT) || (CMD_TEST_MODE == HEADER))
-            $display("ERROR [calib_cmd] CMD_TEST_MODE=%02h conflicts with an existing command or HEADER => Test Mode command would be ambiguous. PARAM_OK=0.", CMD_TEST_MODE);
-        if (PARAM_OK)
-            $display("NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=%0d BAUD=%0d GAP_BYTES=%0d BYTE_CLK=%0d HEADER=%02h T=%02h S=%02h X=%02h M=%02h)",
-                     CLK_HZ, BAUD, GAP_BYTES, BYTE_CLK_I, HEADER, CMD_TARE, CMD_SPAN, CMD_ABORT, CMD_TEST_MODE);
+
+        letters_ok = 1'b1;
+        for (ci = 0; ci < N_CMD; ci = ci + 1) begin
+            if (cmd_tab[ci] == HEADER) begin
+                letters_ok = 1'b0;
+                $display("ERROR [calib_cmd] command letter %02h (index %0d) equals HEADER (%02h) => every event frame would be swallowed as a command. PARAM_OK=0.", cmd_tab[ci], ci, HEADER);
+            end
+            for (cj = ci + 1; cj < N_CMD; cj = cj + 1) begin
+                if (cmd_tab[ci] == cmd_tab[cj]) begin
+                    letters_ok = 1'b0;
+                    $display("ERROR [calib_cmd] duplicate command letters %02h at index %0d and %0d => one command is silently shadowed and never fires. PARAM_OK=0.", cmd_tab[ci], ci, cj);
+                end
+            end
+        end
+
+        if (PARAM_OK && letters_ok)
+            $display("NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=%0d BAUD=%0d GAP_BYTES=%0d BYTE_CLK=%0d HEADER=%02h N_CMD=%0d T=%02h S=%02h X=%02h M=%02h R=%02h L=%02h C=%02h I=%02h)",
+                     CLK_HZ, BAUD, GAP_BYTES, BYTE_CLK_I, HEADER, N_CMD,
+                     CMD_TARE, CMD_SPAN, CMD_ABORT, CMD_TEST_MODE,
+                     CMD_LOOP_REC, CMD_LOOP_PLAY, CMD_LOOP_CLR, CMD_TIMBRE);
     end
 
 endmodule

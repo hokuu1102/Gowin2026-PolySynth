@@ -4,7 +4,10 @@
 == 2: one dry_valid per frame, fixed latency ==
   ok  : exactly 1 dry_valid pulse per frame
   ok  : latency identical across two frames (determinism)
-  ok  : latency is a fixed POLY_TARGET+7 (incl. 3-stage norm + registered output)
+     [lat] measured latency = 40 cycles (POLY_TARGET=32 => +8)
+  ok  : latency == LAT_EXPECT (3-stage norm + registered output + limiter pipe)
+     [align] t_valid=39  t_last_change=35  (valid must NOT be earlier)
+  ok  : valid and data are IN PHASE (dry_valid never asserts before dry_sample settles)
 == 3: single-voice mixing ==
      [sv] 2-lane 3000 @env0x8000 => 126368
   ok  : 2-lane 1000/2000 @env 0x8000 => 126368 (weighted (9L0+7L1)>>4)
@@ -38,6 +41,6 @@
   ok  : wide positive overflow clamps to signed24 MAX (no wrap)
   ok  : wide negative overflow clamps to signed24 MIN (no wrap)
 PASS: tdm_render_mixer acceptance (T56) - all judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_tdm_render_mixer.sv:474: $finish called at 20620000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_tdm_render_mixer.sv:543: $finish called at 22000000 (1ps)
 
 

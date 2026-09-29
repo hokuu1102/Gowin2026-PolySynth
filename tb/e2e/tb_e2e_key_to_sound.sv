@@ -392,6 +392,34 @@ module tb_e2e_key_to_sound;
         $display("  [press] HP_DIN toggles = %0d", tg_press);
         chk("pressing (left board reads RAW_DOWN) => HP_DIN carries audio", tg_press > 0);
 
+        // ═══════════════════════════════════════════════════════════════════
+        //  ⭐⭐⭐ 2026-09-29 新增判据：**端到端 `vel_r` 必须跟随到 pos 对应的力度**
+        //   🔴 **上板症状（⭐ 用户原话）**：*"无论按下的行程多少，都是原始音量"* ✅
+        //   ⭐ **起音力度天然与行程无关**：⭐ 事件在 pos **刚过 `TRIG_TH=64`** 时触发
+        //      ⇒ ⭐ `pos_to_vel(≈64) ≈ 80`（⭐ 最小值 ✅）
+        //      ⇒ ⭐ **音量能否跟行程走，完全取决于 `vel_upd` 的【跟随】** ✅
+        //   🔴 **为什么以前没有判据**：⭐ `tb_vel_pos_follow` 只测 `note_manager`
+        //      （⭐ 绕过 `top` 的扫描器 ✅）· ⭐ `tb_vel_top_stream` 只查**发包**
+        //      （⭐ 没有真 voice ✅）⇒ ⭐ **整链从没被端到端查过** ✅
+        //   ⭐ **本判据**：⭐ 按下（⭐ `pos` 到 **744** ✅）⇒ ⭐ 跑够时间
+        //      ⇒ ⭐ **`max(vel_r)` 必须 ≥ `pos_to_vel(744) = 255`** ✅
+        //   ⭐ **非空洞性**：⭐ 把 `note_manager` 的跟随 ramp 去掉 ⇒ ⭐ **本判据必红** ✅
+        // ═══════════════════════════════════════════════════════════════════
+        begin : g_vel_follow
+            integer vi;
+            integer vmax;
+            vmax = 0;
+            for (vi = 0; vi < 32; vi = vi + 1)
+                if (u_top.g_sound.u_note_manager.vel_r[vi] > vmax)
+                    vmax = u_top.g_sound.u_note_manager.vel_r[vi];
+            $display("  [vel  ] pos[0]=%0d  max(vel_r)=%0d  (pos_to_vel(744)=%0d)",
+                     u_top.g_sound.as_pos[0 +: 12], vmax,
+                     ((12'd64 + ((12'd744 * 13'd263) >> 10)) > 13'd255)
+                        ? 13'd255 : (12'd64 + ((12'd744 * 13'd263) >> 10)));
+            chk("vel_r FOLLOWS pos end-to-end (press => vel reaches the pos-mapped value)",
+                vmax >= 8'd200);
+        end
+
         // ═══ 判据 ③ 松开 ⇒ 回到静音 ═══
         //   🔴 **⚠️ 等待时长必须够盖住 ADSR 的 release 段**（2026-09-23 算过）：
         //      ⭐ `adsr.v`：`RELEASE_STEP = 2`，⭐ 且**每个 `sample_tick` 才降一次**

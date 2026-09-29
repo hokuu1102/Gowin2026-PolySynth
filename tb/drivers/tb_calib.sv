@@ -69,21 +69,77 @@ module tb_calib;
     chk_xprop #(.W(DW), .NAME("out_val")) u_a8 (
         .clk(clk), .rst_n(rst_n), .sig(out_val), .err_cnt(a8_out));
 
+    // ⭐⭐ 2026-09-29 新增：**同一份激励喂给两个实例** ⇒ ⭐ **A/B 互为反例（自证非空洞）**
+    //   ⭐ `dut`      = `RAW_MEDIAN_EN = 0`（⭐ 默认 ⇒ ⭐ 与加滤波之前**逐位一致**）
+    //   ⭐ `dut_med`  = `RAW_MEDIAN_EN = 1`（⭐ 3 点中值）
+    //   ⇒ ⭐ **同一个孤立尖峰**：⭐ `dut` 必须**吃进去**（clamp 到 `MAX_TRAVEL`）、
+    //      ⭐ `dut_med` 必须**滤掉**（保持前值）
+    //   ⇒ ⭐ **两条判据互为反例** ⇒ ⭐ **不需要额外变异脚本就能证明判据能失败** ✅
+    wire          med_out_valid;
+    wire [2:0]    med_out_ch;
+    wire [DW-1:0] med_out_val;
+
+    calib #(
+        .NCH  (NCH),
+        .DW   (DW),
+        .GW   (16),
+        .FULL (FULL),
+        .MAX_TRAVEL    (1023),
+        .RAW_MEDIAN_EN (1),
+        .CW   (3)
+    ) dut_med (
+        .clk       (clk),
+        .rst_n     (rst_n),
+        .valid     (valid),
+        .ch        (ch),
+        .raw       (raw),
+        .tare      (tare),
+        .span      (span),
+        .cal_ch    (cal_ch),
+        .busy      (),
+        .err       (),
+        .out_valid (med_out_valid),
+        .out_ch    (med_out_ch),
+        .out_val   (med_out_val)
+    );
+
+    wire [31:0] a8_med;
+    chk_xprop #(.W(DW), .NAME("med_out_val")) u_a8m (
+        .clk(clk), .rst_n(rst_n), .sig(med_out_val), .err_cnt(a8_med));
+
     // ── 期望值计算（Q8.8 定点）──────────────────────────────────────────────
     // 期望 out = saturate( (raw - zero) * gain >> 8 )
+    //
+    //  ⭐⭐ 2026-09-28 **契约变更**（⭐ 修 `K-153`，⭐ 见 `calib.v` 的 `MAX_TRAVEL`）：
+    //     旧契约：`out = saturate( (raw − zero) * gain >> 8 )`
+    //     🔴 问题：⭐ `gain` 未标定（=1.0）时 `raw − zero` 可到 1925
+    //        ⇒ ⭐ 而 `pos` 只有 12 位 ⇒ 🔴 **上板实测 |Δpos| 冲到 2193**（满行程仅 744）
+    //     ⭐ 新契约：⭐ **先把 `raw − zero` 夹到 `min(MAX_TRAVEL, span)`**
+    //        ⇒ ⭐ 无论 `gain` 标定与否，`out` 都不可能超过该轴行程 ✅
+    localparam integer MAX_TRAVEL = 1023;   // ⚠️ 必须与 `calib.v` 的同名参数一致
+    //  ⭐ 当前轴的标定行程（⭐ 0 = 未标定）—— 用**全局量**，⛔ 不改各调用点的签名
+    reg [DW:0] g_span = {(DW+1){1'b0}};
+
     function automatic [DW-1:0] expected_out;
         input [DW-1:0] raw_v;
         input [DW:0]   zero_v;
         input [15:0]   gain_v;   // Q8.8
         reg [40:0] prod;
+        reg [DW:0] dcode;
+        reg [DW:0] dlim;
         begin
             if (raw_v <= zero_v[DW-1:0]) begin
-                expected_out = 0;
+                dcode = {(DW+1){1'b0}};
             end else begin
-                prod = (raw_v - zero_v[DW-1:0]) * gain_v;
-                prod = prod >> 8;
-                expected_out = (prod > FULL) ? DW'(FULL) : prod[DW-1:0];
+                dcode = raw_v - zero_v[DW-1:0];
             end
+            //  ⭐ 上界 = min(MAX_TRAVEL, span)（⭐ span=0 ⇒ 只用 MAX_TRAVEL）
+            dlim = ((g_span != {(DW+1){1'b0}}) && (g_span < MAX_TRAVEL[DW:0]))
+                 ? g_span : MAX_TRAVEL[DW:0];
+            if (dcode > dlim) dcode = dlim;
+            prod = dcode * gain_v;
+            prod = prod >> 8;
+            expected_out = (prod > FULL) ? DW'(FULL) : prod[DW-1:0];
         end
     endfunction
 
@@ -138,11 +194,16 @@ module tb_calib;
         rst_n = 1'b1;
         #100;
 
-        // ── ① 上电默认：直通（zero=0, gain=1.0）─────────────────────────────
-        feed(3'd0, 12'h800);   // 2048
+        // ── ① 上电默认：直通（zero=0, gain=1.0）⭐⭐ 但**受 `MAX_TRAVEL` 上界** ──
+        //   ⭐⭐ 2026-09-28 **契约变更**（⭐ 修 `K-153`）：
+        //      🔴 旧契约"原样直通"是**错的** —— ⭐ `raw=2048` 意味着**行程 2048**，
+        //         而磁轴**满行程只有 ~744** ⇒ ⭐ 那种值只可能来自**坏样本/越界**
+        //         ⇒ ⭐ 上板实测 `|Δpos|` 冲到 **2193**（⭐ 2.9 倍行程）⇒ 尖音/标定失败
+        //      ✅ 新契约：⭐ **`out = min(raw − zero, MAX_TRAVEL)`**（⭐ 未标定时用硬上界）
+        feed(3'd0, 12'h800);   // 2048 > MAX_TRAVEL(1023) ⇒ ⭐ 必须被夹
         #2;
-        check(out_ch == 3'd0 && out_val == 12'h800,
-              "default passthrough: out == raw (gain=1.0, zero=0)");
+        check(out_ch == 3'd0 && out_val == MAX_TRAVEL[11:0],
+              "default: out CLAMPED to MAX_TRAVEL when raw exceeds travel (K-153)");
 
         // ── ② tare：给 CH0 记零点 = 100 ──────────────────────────────────────
         feed(3'd0, 12'd100);   // 先让 raw=100 出现在输入端
@@ -199,8 +260,32 @@ module tb_calib;
         #2;
         check(out_val == 12'd0, "underflow: raw < zero -> out clamped to 0");
 
-        // ── ⑥ A8 ────────────────────────────────────────────────────────────
+        // ── ⑥ ⭐⭐ 2026-09-29 新增：`raw` 的 3 点中值滤波（`RAW_MEDIAN_EN`）────
+        //   ⭐ **用 CH2** —— ⭐ 它**没被前面的测试标定过** ⇒ `zero=0`、`gain=1.0`
+        //      ⇒ ⭐ `out = min(raw, MAX_TRAVEL)` ⇒ ⭐ 期望值可以手算 ✅
+        //   ⭐ **同一份激励喂给两个实例** ⇒ ⭐ **A/B 互为反例**（⭐ 见 `dut_med` 的注释）
+        feed(3'd2, 12'd100); #2;   // ⭐ 第 1 个样本（⭐ 历史为空 ⇒ 直通）
+        feed(3'd2, 12'd100); #2;
+        feed(3'd2, 12'd100); #2;   // ⭐ 历史已建立：`h1 = h2 = 100`
+        feed(3'd2, 12'd4000); #2;  // 🔴 **孤立尖峰**（⭐ 近 4 倍满行程）
+        check(med_out_val == 12'd100,
+              "median: an ISOLATED spike is REJECTED (median DUT keeps 100)");
+        //  ⚠️ **判据名必须 ≤ 128 字节** —— ⭐ `check` 的 `msg` 端口是 `[1023:0]`（= 128 字节），
+        //      ⭐ 而 Verilog 把短字符串**右对齐零填充** ⇒ ⭐ **超长时被截掉的是【开头】**！
+        //      📌 实测：133 字节的消息 ⇒ ⭐ 打印出来 `plain:` 没了（⭐ 只剩 `: the SAME ...`）
+        //      ⇒ ⭐ **这会让"按判据名匹配"的自动化（变异脚本）失配** ⚠️
+        check(out_val == MAX_TRAVEL[11:0],
+              "plain: the SAME spike is NOT rejected (clamps to MAX_TRAVEL) -- the counter-example that keeps the median check non-vacuous");
+
+        //  ⭐ **真实运动必须能通过**（⭐ 否则滤波器只是个"延迟机" —— ⭐ 那会让手感变差）
+        //      ⭐ 上一拍 `h1` 里还留着那个尖峰（4000），⭐ 但它在中值里是 **max** ⇒ ⭐ 被忽略 ✅
+        feed(3'd2, 12'd600); #2;
+        check(med_out_val == 12'd600,
+              "median: a GENUINE move still gets through (out -> 600, the spike does not linger)");
+
+        // ── ⑦ A8 ────────────────────────────────────────────────────────────
         check(a8_out == 0, "A8: no X/Z on out_val");
+        check(a8_med == 0, "A8: no X/Z on med_out_val");
 
         // ── 汇总 ─────────────────────────────────────────────────────────────
         if (fail_cnt == 0) begin

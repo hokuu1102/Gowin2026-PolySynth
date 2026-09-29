@@ -1,0 +1,53 @@
+﻿== 1: record ==
+  ok  : record: 8 played + 2 appended note_off = 10 events stored
+== 2: replay two loops ==
+  ok  : replay: exactly 20 events over two loops (10 per loop)
+  ok  : replay: all 10 event payloads come back EXACTLY as recorded
+  ok  : replay: offsets are exactly 2/3/5/5/6/7/9/9/11/11 as recorded
+  ok  : replay: loop 2 offsets are IDENTICAL to loop 1 (period is exact)
+     [dbg] got_n=20  n1=10  n2=10  loop_base=12
+     [dbg] ev[0] tb_tick=14 off=2 kind=0 ax=1
+     [dbg] ev[1] tb_tick=15 off=3 kind=1 ax=1
+     [dbg] ev[2] tb_tick=17 off=5 kind=0 ax=2
+     [dbg] ev[3] tb_tick=17 off=5 kind=0 ax=3
+     [dbg] ev[4] tb_tick=18 off=6 kind=1 ax=2
+     [dbg] ev[5] tb_tick=19 off=7 kind=1 ax=3
+     [dbg] ev[6] tb_tick=21 off=9 kind=0 ax=4
+     [dbg] ev[7] tb_tick=21 off=9 kind=0 ax=15
+     [dbg] ev[8] tb_tick=23 off=11 kind=1 ax=4
+     [dbg] ev[9] tb_tick=23 off=11 kind=1 ax=15
+     [dbg] ev[10] tb_tick=26 off=14 kind=0 ax=1
+     [dbg] ev[11] tb_tick=27 off=15 kind=1 ax=1
+     [dbg] ev[12] tb_tick=29 off=17 kind=0 ax=2
+     [dbg] ev[13] tb_tick=29 off=17 kind=0 ax=3
+     [dbg] ev[14] tb_tick=30 off=18 kind=1 ax=2
+     [dbg] ev[15] tb_tick=31 off=19 kind=1 ax=3
+     [dbg] ev[16] tb_tick=33 off=21 kind=0 ax=4
+     [dbg] ev[17] tb_tick=33 off=21 kind=0 ax=15
+     [dbg] ev[18] tb_tick=35 off=23 kind=1 ax=4
+     [dbg] ev[19] tb_tick=35 off=23 kind=1 ax=15
+  ok  : same-tick: both notes of the tick-5 chord are replayed
+  ok  : no-hang: the unclosed note_on on axis 4 got a note_off
+  ok  : no-hang BOUNDARY: axis 15 is closed too (scan reaches 4'hF)
+== 3: clear ==
+  ok  : clear: the layer reports 0 events
+  ok  : clear: nothing is replayed after clear
+== 4: overflow is visible ==
+  ok  : overflow: the layer stops storing at EVT_MAX (=4)
+  ok  : overflow: full_o is raised (not silent)
+  ok  : overflow: overflow_o is raised (sticky)
+  ok  : overflow: drop_cnt_o counts the dropped events
+== 5: clear during playback must close the sounding note ==
+  ok  : bug1 setup: 1 note_on + 1 appended note_off stored
+  ok  : bug1: clear during playback emits a note_off for the sounding axis
+  ok  : bug1: the layer is empty after the clear-out finishes
+== 6: rec_req during playback must close the sounding note ==
+  ok  : bug1b setup: 1 note_on + 1 appended note_off
+  ok  : bug1b: rec_req during playback emits a note_off for the sounding axis
+== 7: play_en falling must close the sounding note ==
+  ok  : bug1c: play_en falling emits a note_off for the sounding axis
+  ok  : A8: no X/Z on the replay outputs
+PASS: looper T37 record/replay, no-hang incl. axis 15, clear, same-tick, overflow
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:486: $finish called at 53520000 (1ps)
+
+

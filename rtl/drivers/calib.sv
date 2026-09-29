@@ -22,6 +22,34 @@ module calib #(
     parameter integer DW   = 12,          // ADC 位宽
     parameter integer GW   = 16,          // 增益位宽（Q8.8，1.0 = 16'h0100）
     parameter integer FULL = 4095,        // 满量程码
+    // ⭐⭐ 2026-09-28 新增：**单轴行程的硬上界**（⭐ 原始码单位）
+    //
+    //   🔴 **为什么必须有它**（⭐ 我第一版只夹 `span_r`，⭐ **那是错的**）：
+    //      ⭐ `span_r` **只在 span 标定【成功】时才写** ⇒ ⭐ 标定成功 ⟺ `gain` 已标定
+    //      ⇒ ⭐ 那时 `pos` 本来就被 `FULL` 夹住 ⇒ 🔴 **那个夹紧是空操作**。
+    //      🔴 而**【span 标定失败】时**（⭐ 用户的实际情形：`raw` 在跳 ⇒ 稳定判据永不满足）
+    //      ⇒ `span_r = 0` ⇒ ⭐ 夹紧**完全不生效** ⇒ ⚠️ `pos` 照样冲到 `FULL = 4095`。
+    //
+    //   ⭐ **本参数的语义**：⭐ **"一个磁轴按键，物理上最多能移动多少原始码"**
+    //      · ⭐ 用户板实测满行程 ≈ **744** ⇒ 取 **1023**（≈ 25% ADC 量程）留 37% 余量
+    //      · ⚠️ 换板/换磁铁后若行程更大 ⇒ ⭐ **只改这一个数**
+    //   ⭐ **效果**：⭐ 无论 `gain` 标定与否，⭐ `pos` 都 ≤ `MAX_TRAVEL`
+    //      ⇒ ⭐ 力度流/事件流**再也看不到物理上不可能的变化** ✅（⭐ 修 `K-153`）
+    parameter integer MAX_TRAVEL = 1023,
+    //  ⭐⭐ 2026-09-29 新增：`raw` 的【3 点中值滤波】开关（⭐ `K-153` 的**软件侧兜底**）
+    //
+    //   🔴 **为什么需要**：⭐ 上板实测 `raw` 偶发跳 **150~550**（⭐ 峰值 `|Δpos|` **2193**）
+    //      ⇒ ① ⭐ `calib_span` 的"稳定判据"（`STABLE_TOL=48`）**永不满足** ⇒ **标定必被拒**
+    //         ② ⭐ 力度流/事件流看到**物理上不可能**的变化
+    //
+    //   ⭐ **为什么是 3 点中值**：⭐ 它能滤掉**【孤立】坏样本**，⭐ 而**保留真实运动**
+    //      （⭐ 真实手指运动至少影响 **2 个连续**样本 ⇒ 中值取不到它）
+    //      ⚠️ 且它是**因果**的（窗口 = 本拍 ＋ 前 2 拍）⇒ ⭐ **不增加流水延迟** ✅
+    //
+    //   ⭐⭐ **默认 = 0（关）** ⇒ ⭐ **与旧行为【逐位一致】**，⛔ **不影响任何既有判据 / 手感**；
+    //      ⭐ 等上板用 `probe_q.py` 量清 `raw` 的**按通道 spread** 之后，
+    //      ⭐ 再决定要不要打开（⭐ 根因未定之前，⛔ 不擅自改用户能感觉到的行为）
+    parameter integer RAW_MEDIAN_EN = 0,
     parameter integer CW   = (NCH > 1) ? 3 : 1
 ) (
     input  wire             clk,
@@ -48,6 +76,82 @@ module calib #(
     // ── 标定参数存储 ────────────────────────────────────────────────────────
     reg [DW:0]   zero_r [0:NCH-1];      // 零点原始码（多 1 位存减法中间量）
     reg [GW-1:0] gain_r [0:NCH-1];      // Q8.8 增益
+    // ⭐⭐ 2026-09-28 新增：**该轴的标定行程码**（= 满行程时的 `raw − zero`）
+    //   🔴 **为什么必须存它**：⭐ `out_val` 原来只夹到 `FULL`（= 4095，**输出满量程**）
+    //      ⛔ **不是该轴的真实行程** ⇒ ⚠️ 一旦 `gain` 没标定（默认 256 = 1.0），
+    //      `pos` 就是**裸的 `raw − zero`** ⇒ 🔴 **能冲到 4095**
+    //      ⇒ ⭐ 上板实测 `|Δpos|` 峰值 **2193**（⭐ 而满行程只有 744，⭐ 2.9 倍）
+    //      ⇒ ⭐ 力度流/事件流看到**物理上不可能**的变化 ⇒ 见 `K-153`
+    //   ✅ 修法：⭐ **在乘法之前把 `raw − zero` 夹到 `span_r[ch]`** ⇒
+    //      ⭐ 无论 `gain` 标定与否，`pos` 都**不可能超过该轴的标定行程** ✅
+    reg [DW:0]   span_r [0:NCH-1];
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ 2026-09-29 新增：`raw` 的 3 点中值滤波（⭐ 见 `RAW_MEDIAN_EN` 的说明）
+    //
+    //   ⭐ **中值恒等式**：`median(a,b,c) = a + b + c − min − max`
+    //      ⇒ ⭐ **纯算术，⛔ 不需要排序网络**（⭐ 面积更小、深度更浅）✅
+    //   ⚠️ `a+b+c` 必须**先加宽**再减（⭐ 3×4095 = 12285 > 12 位 ⇒ 否则回绕）
+    //      📌 同族教训：⭐ `K-91`（位宽必须显式落定）、⭐ `K-34`（防截断）
+    //
+    //   ⭐ **为什么用 `generate` 而不是运行时常量**：⭐ `RAW_MEDIAN_EN = 0` 时
+    //      **整块逻辑（含 3×8×12 位历史寄存器）被【编译期删掉】** ⇒ ⭐ 零面积零时序代价 ✅
+    // ═══════════════════════════════════════════════════════════════════════
+    function [DW-1:0] med3;
+        input [DW-1:0] a;
+        input [DW-1:0] b;
+        input [DW-1:0] c;
+        reg [DW-1:0] lo;
+        reg [DW-1:0] hi;
+        reg [DW+1:0] sum;
+        begin
+            lo  = (a < b) ? a : b;   lo = (lo < c) ? lo : c;   // min
+            hi  = (a > b) ? a : b;   hi = (hi > c) ? hi : c;   // max
+            sum = {2'b0, a} + {2'b0, b} + {2'b0, c};
+            med3 = (sum - {2'b0, lo} - {2'b0, hi});
+        end
+    endfunction
+
+    //  ⭐ 滤波后（或直通）的采样 —— ⭐ 下游**一律**用它，⛔ 不再直接用 `raw`
+    wire [DW-1:0] raw_f;
+
+    generate
+        if (RAW_MEDIAN_EN != 0) begin : g_raw_median
+            reg [DW-1:0] raw_h1 [0:NCH-1];   // 前 1 拍
+            reg [DW-1:0] raw_h2 [0:NCH-1];   // 前 2 拍
+            reg          seen_r [0:NCH-1];   // ⭐ 该通道是否已收到过样本
+            integer      mi;
+
+            wire [DW-1:0] raw_med = med3(raw, raw_h1[ch], raw_h2[ch]);
+
+            //  ⭐ **上电第 1 个样本【直通】** —— ⚠️ 否则历史全 0 ⇒ `median(x,0,0) = 0`
+            //     ⇒ ⭐ **每次复位后该通道的第 1 个 `pos` 会假 0**（⭐ 1 个采样拍 = 500 µs）
+            assign raw_f = seen_r[ch] ? raw_med : raw;
+
+            always @(posedge clk or negedge rst_n) begin
+                if (!rst_n) begin
+                    for (mi = 0; mi < NCH; mi = mi + 1) begin
+                        raw_h1[mi] <= {DW{1'b0}};
+                        raw_h2[mi] <= {DW{1'b0}};
+                        seen_r[mi] <= 1'b0;
+                    end
+                end else if (valid) begin
+                    if (!seen_r[ch]) begin
+                        //  ⭐ 第 1 个样本：把 h1/h2 **都**设成它 ⇒ 第 2 个样本起中值就有意义
+                        raw_h1[ch] <= raw;
+                        raw_h2[ch] <= raw;
+                        seen_r[ch] <= 1'b1;
+                    end else begin
+                        raw_h2[ch] <= raw_h1[ch];
+                        raw_h1[ch] <= raw;
+                    end
+                end
+            end
+        end else begin : g_raw_plain
+            //  ⭐ 默认路径：⭐ **逐位直通** ⇒ ⭐ 与加滤波之前的行为**完全一致** ✅
+            assign raw_f = raw;
+        end
+    endgenerate
 
     // ── 除法器：gain = (FULL << 8) / (span_code - zero) ─────────────────────
     // 移位-减法：被除数 = FULL<<8（24 bit），除数 = den_r（≤ 4095）。
@@ -95,7 +199,7 @@ module calib #(
             div_ch <= {CW{1'b0}};
         end else if (!busy && span) begin
             div_ch <= cal_ch;
-            if (raw <= zero_r[cal_ch]) begin
+            if (raw_f <= zero_r[cal_ch]) begin
                 err  <= 1'b1;                            // 满量程码不大于零点 -> 拒绝
                 gain_r[cal_ch] <= (1 << 8);
             end else begin
@@ -103,7 +207,10 @@ module calib #(
                 busy  <= 1'b1;
                 cnt_r <= {IW{1'b0}};
                 rem_r <= 24'd0;
-                den_r <= raw - zero_r[cal_ch];
+                den_r <= raw_f - zero_r[cal_ch];
+                //  ⭐⭐ 2026-09-28：**同时记下该轴的标定行程码**（⭐ 供输出级夹紧用）
+                //     📌 与 `den_r` **同拍、同表达式** ⇒ ⭐ 两者必然一致（⭐ 单一来源）
+                span_r[cal_ch] <= raw_f - zero_r[cal_ch];
                 quo_r <= DIVIDEND;                        // 被除数 = FULL<<8
             end
         end else if (busy) begin
@@ -136,16 +243,32 @@ module calib #(
     reg [CW-1:0]  ch_r;
     reg           v_r;
 
+    //  ⭐⭐ 2026-09-28：**`pos` 的两级保护**（⭐ 见 `span_r` 的说明）
+    //   ① ⭐ **下溢守卫**：`raw <= zero` ⇒ 差值为 0（⭐ 原代码已有，⭐ 这里显式化）
+    //   ② ⭐⭐ **上溢夹紧**：⭐ 差值夹到**该轴标定行程** `span_r[ch]`
+    //      ⇒ ⭐ 无论 `gain` 标定与否，`pos` 都不可能超过该轴的真实行程 ✅
+    //      ⚠️ `span_r[ch] == 0`（⭐ 该轴从未标定过）⇒ ⭐ **不夹**（⭐ 保持旧行为，
+    //         ⛔ 否则"未标定"的轴会永远输出 0）
+    wire [DW:0] dcode  = (raw_f > zero_r[ch]) ? (raw_f - zero_r[ch]) : {(DW+1){1'b0}};
+    //  ⭐⭐ 上界 = `min(MAX_TRAVEL, span_r[ch])`（⭐ `span_r` 未标定 ⇒ 只用 `MAX_TRAVEL`）
+    //     ⭐ 这样**两种情形都安全**：⭐ 标定了 ⇒ 用真实行程；⭐ 没标定 ⇒ 用硬上界 ✅
+    localparam [DW:0] MAXT = MAX_TRAVEL;
+    wire [DW:0] dlim = ((span_r[ch] != {(DW+1){1'b0}}) && (span_r[ch] < MAXT))
+                     ? span_r[ch] : MAXT;
+    wire [DW:0] dclamp = (dcode > dlim) ? dlim : dcode;
+
     always @(posedge clk or negedge rst_n) begin
         if (!rst_n) begin
             v_r   <= 1'b0;
             ch_r  <= {CW{1'b0}};
             prod_r <= {PW{1'b0}};
         end else begin
-            if (tare) zero_r[cal_ch] <= raw;
+            if (tare) zero_r[cal_ch] <= raw_f;
             v_r   <= valid;
             ch_r  <= ch;
-            prod_r <= (raw > zero_r[ch]) ? ((raw - zero_r[ch]) * gain_r[ch]) : {PW{1'b0}};
+            //  ⭐⭐ 2026-09-28：⭐ 用**夹紧后**的差值 `dclamp`（⛔ 不是裸的 `raw - zero`）
+            //      ⇒ ⭐ `pos` 上界 = 该轴标定行程 ✅（⭐ 见 `span_r` 的说明 / `K-153`）
+            prod_r <= dclamp * gain_r[ch];
         end
     end
 
@@ -165,6 +288,9 @@ module calib #(
         for (gi = 0; gi < NCH; gi = gi + 1) begin
             zero_r[gi] = {DW+1{1'b0}};
             gain_r[gi] = (1 << 8);
+            //  ⭐⭐ 2026-09-28：⭐ 行程码初始为 0 ⇒ ⭐ **上电时"不夹"**
+            //     （⭐ 保持"未标定 ⇒ 旧行为"的语义，⛔ 不会一上电就把 pos 夹成 0）
+            span_r[gi] = {DW+1{1'b0}};
         end
     end
 

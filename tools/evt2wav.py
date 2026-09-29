@@ -21,10 +21,13 @@ WHAT IT IS NOT
     is to check PITCH and TIMING (did the de-duplication, the pairing and the
     tick conversion come out right), not timbre.
 
-    ⚠️ It also renders NO DRUMS.  mid2evt routes drum tracks into a separate
-       group and never writes them into events.hex, so this tool cannot see
-       them.  A melody-only audition is expected, NOT a bug -- but do not
-       judge the finished sound from it.
+    ⭐ DRUMS ARE OPT-IN (since 2026-09-29, U-16b).  mid2evt keeps drum tracks
+       OUT of events.hex on purpose -- drum notes have no keyboard pitch
+       semantics and would burn voices.  It now also writes them to
+       `events_drum.csv`; pass `--drums events_drum.csv` to mix simple
+       percussion into the render.  Without the flag the audition is
+       melody-only (that is expected, NOT a bug -- but do not judge the
+       finished sound from it).
 
 TEMPO IS REQUIRED -- IT WILL NOT GUESS
     The event stream does not carry the tempo map (see U-7), so this tool
@@ -52,6 +55,7 @@ import csv
 import io
 import math
 import os
+import random
 import struct
 import sys
 import wave
@@ -183,8 +187,88 @@ def build_tick_to_sec(tempos, division):
     return tick_to_sec
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  ⭐⭐ 2026-09-29 新增（`U-16b`）：⭐ 打击乐试听
+#
+#  ⚠️ **这不是 RTL 的模型** —— ⭐ 目的只是"**能听见鼓**"，
+#     ⭐ 好判断**编曲/节奏**对不对（⭐ 音色对不对要上板听 `drum_gen`）。
+#  ⭐ 音符映射用**通用 GM 打击乐编号**（⭐ MIDI 文件里本来就是这一套）✅
+# ═══════════════════════════════════════════════════════════════════════════
+DRUM_KICK = {35, 36}
+DRUM_SNARE = {38, 40}
+DRUM_HAT = {42, 44, 46}
+
+
+def read_drum_csv(path):
+    """⭐ 读 `mid2evt.py` 写的 `events_drum.csv`（⭐ `tick,note,vel`）。
+
+    ⚠️ **按"第一个字段能不能转成整数"过滤表头/注释** ——
+    ⛔ 不靠"第一行是表头"（⭐ 那样前面多一个空行就全错了）✅
+    """
+    hits = []
+    with open(path, "r", encoding="utf-8") as f:
+        for line in f:
+            p = line.strip().split(",")
+            if len(p) < 3:
+                continue
+            try:
+                tk, nt, vl = int(p[0]), int(p[1]), int(p[2])
+            except ValueError:
+                continue                      # ⭐ 表头 / 注释行
+            hits.append((tk, nt, vl))
+    return hits
+
+
+def _mix_drum(buf, n_total, s0, note, vel, gain):
+    """⭐ 一个很简的打击乐合成（⭐ 只为试听，⛔ 不是精确模型）。
+
+    ⚠️ 噪声用**固定种子**（⭐ 由音符号派生）⇒ ⭐ **同一份输入渲染结果可复现**
+    （⭐ 否则每次试听都不一样，⭐ 没法当证据）✅
+    """
+    amp = (vel / 255.0) * gain
+    if note in DRUM_KICK:
+        dur = int(0.18 * FS)
+        for i in range(dur):
+            t = s0 + i
+            if t >= n_total:
+                break
+            x = i / float(dur)
+            f = 110.0 + (45.0 - 110.0) * x        # ⭐ 音高下滑 = 底鼓的"砰"
+            buf[t] += amp * 1.2 * math.exp(-18.0 * x) * math.sin(2 * math.pi * f * i / FS)
+    elif note in DRUM_SNARE:
+        dur = int(0.20 * FS)
+        rnd = random.Random(1000 + note)
+        for i in range(dur):
+            t = s0 + i
+            if t >= n_total:
+                break
+            x = i / float(dur)
+            env = math.exp(-14.0 * x)
+            body = 0.35 * math.sin(2 * math.pi * 190.0 * i / FS)
+            buf[t] += amp * 0.7 * env * (rnd.uniform(-1.0, 1.0) + body)
+    elif note in DRUM_HAT:
+        dur = int(0.06 * FS)
+        rnd = random.Random(2000 + note)
+        for i in range(dur):
+            t = s0 + i
+            if t >= n_total:
+                break
+            x = i / float(dur)
+            buf[t] += amp * 0.35 * math.exp(-55.0 * x) * rnd.uniform(-1.0, 1.0)
+    else:
+        # ⭐ 其它（含 Clap / Tom 等）：⭐ 短噪声 + 一点体
+        dur = int(0.12 * FS)
+        rnd = random.Random(3000 + note)
+        for i in range(dur):
+            t = s0 + i
+            if t >= n_total:
+                break
+            x = i / float(dur)
+            buf[t] += amp * 0.5 * math.exp(-30.0 * x) * rnd.uniform(-1.0, 1.0)
+
+
 def render(events, tempos, division, max_seconds=None, gain=0.25,
-           tempos_on_ppqn_grid=False):
+           tempos_on_ppqn_grid=False, drum_hits=None):
     # pair on/off per (axis, midi), FIFO
     #
     # ⚠️ TWO THINGS MATTER HERE, both only visible when reading .hex:
@@ -253,6 +337,14 @@ def render(events, tempos, division, max_seconds=None, gain=0.25,
             s = math.sin(ph) + 0.35 * math.sin(2 * ph) + 0.18 * math.sin(3 * ph)
             buf[t] += amp * env * s / 1.53
 
+    #  ⭐⭐ 2026-09-29（`U-16b`）：⭐ 把鼓混进来 ——
+    #     ⚠️ **必须在软限幅【之前】**，⭐ 这样鼓和音符走**同一套归一化**
+    #     （⭐ 否则鼓要么盖住旋律、要么被压得听不见）✅
+    if drum_hits:
+        for d_tick, d_note, d_vel in drum_hits:
+            _mix_drum(buf, n_total, int(round(to_sec(d_tick) * FS)),
+                      d_note, d_vel, gain)
+
     # soft clip to avoid wrapping
     peak = max(1e-9, max(abs(v) for v in buf))
     scale = min(1.0, 0.95 / peak)
@@ -295,6 +387,9 @@ def main(argv=None):
                     help="allow the silent 120 BPM fallback (only for quick "
                          "smoke tests; the timeline will be wrong for any "
                          "score that is not in 120)")
+    ap.add_argument("--drums", default=None,
+                    help="drum CSV written by mid2evt.py (events_drum.csv) -- "
+                         "mixes simple percussion into the render (U-16b)")
     args = ap.parse_args(argv)
 
     events = read_events(args.csv)
@@ -344,8 +439,14 @@ def main(argv=None):
 
     print("tempo: %s -> %.2f BPM at the start"
           % (src, 60_000_000.0 / tempos[0][1]))
+    #  ⭐⭐ 2026-09-29（`U-16b`）：⭐ 鼓事件（⭐ 可选）
+    drum_hits = None
+    if args.drums:
+        drum_hits = read_drum_csv(args.drums)
+        print("drums: %d hit(s) from %s" % (len(drum_hits), args.drums))
+
     pcm = render(events, tempos, division, args.seconds,
-                 tempos_on_ppqn_grid=on_ppqn)
+                 tempos_on_ppqn_grid=on_ppqn, drum_hits=drum_hits)
 
     os.makedirs(os.path.dirname(os.path.abspath(args.wav)), exist_ok=True)
     w = wave.open(args.wav, "wb")

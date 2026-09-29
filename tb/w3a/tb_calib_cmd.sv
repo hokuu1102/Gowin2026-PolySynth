@@ -33,6 +33,12 @@ module tb_calib_cmd;
     localparam [7:0] S   = 8'h53;             // 'S'
     localparam [7:0] X   = 8'h58;             // 'X'
     localparam [7:0] M   = 8'h4D;             // 'M' Test Mode
+    // ⭐ 2026-09-29 新增：⭐ looper 三条（⭐ 必须与 `calib_cmd.v` 的新参数一致）
+    localparam [7:0] R   = 8'h52;             // 'R' looper 录/停切换
+    localparam [7:0] L   = 8'h4C;             // 'L' looper 播放切换
+    localparam [7:0] C   = 8'h43;             // 'C' looper 清空
+    // ⭐ 2026-09-29 新增：⭐ 切音色（⭐ 必须与 `calib_cmd.v` 的新参数一致）
+    localparam [7:0] I   = 8'h49;             // 'I' 切音色（⭐ 0→1→2→3→0）
 
     integer errors = 0;
 
@@ -56,6 +62,8 @@ module tb_calib_cmd;
     reg        rx_done;
     reg  [7:0] rx_data;
     wire       tare_req, span_req, abort_req, test_mode_req;
+    wire       loop_rec_req, loop_play_req, loop_clear_req;   // ⭐ 2026-09-29
+    wire       timbre_req;                                    // ⭐ 2026-09-29：'I' 切音色
     wire [15:0] cmd_cnt, in_frame_cnt, resync_cnt, unknown_cnt;
     wire [3:0]  idx_o;
 
@@ -77,6 +85,12 @@ module tb_calib_cmd;
         .span_req_o     (span_req),
         .abort_req_o    (abort_req),
         .test_mode_req_o(test_mode_req),
+        // ⭐ 2026-09-29：looper 三条
+        .loop_rec_req_o (loop_rec_req),
+        .loop_play_req_o(loop_play_req),
+        .loop_clear_req_o(loop_clear_req),
+        // ⭐ 2026-09-29：⭐ 切音色
+        .timbre_req_o   (timbre_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (in_frame_cnt),
         .resync_cnt_o   (resync_cnt),
@@ -88,12 +102,20 @@ module tb_calib_cmd;
     // ⭐ 监视器：记录每个脉冲【出现时的拍数】与【持续拍数】
     // ═══════════════════════════════════════════════════════════════════
     integer tare_seen, span_seen, abort_seen, test_mode_seen;
+    integer loop_rec_seen, loop_play_seen, loop_clear_seen;   // ⭐ 2026-09-29
+    integer timbre_seen;                                      // ⭐ 2026-09-29：'I' 切音色
+    integer loop_rec_cycles, loop_play_cycles, loop_clear_cycles;   // ⭐ 单周期证明
+    integer timbre_cycles;                                          // ⭐ 单周期证明
     integer tare_cycles, span_cycles, abort_cycles, test_mode_cycles; // ⭐ 累计高电平拍数
     integer last_tare_cycle, last_span_cycle, last_abort_cycle;
     integer cycle_cnt;
 
     initial begin
         tare_seen = 0; span_seen = 0; abort_seen = 0; test_mode_seen = 0;
+        loop_rec_seen = 0; loop_play_seen = 0; loop_clear_seen = 0;   // ⭐ 2026-09-29
+        timbre_seen = 0;                                              // ⭐ 2026-09-29
+        loop_rec_cycles = 0; loop_play_cycles = 0; loop_clear_cycles = 0;
+        timbre_cycles = 0;
         tare_cycles = 0; span_cycles = 0; abort_cycles = 0; test_mode_cycles = 0;
         last_tare_cycle = -1; last_span_cycle = -1; last_abort_cycle = -1;
         cycle_cnt = 0;
@@ -106,6 +128,12 @@ module tb_calib_cmd;
             if (span_req)  begin span_seen  = span_seen  + 1; span_cycles  = span_cycles  + 1; last_span_cycle  = cycle_cnt; end
             if (abort_req) begin abort_seen = abort_seen + 1; abort_cycles = abort_cycles + 1; last_abort_cycle = cycle_cnt; end
             if (test_mode_req) begin test_mode_seen = test_mode_seen + 1; test_mode_cycles = test_mode_cycles + 1; end
+            // ⭐ 2026-09-29：looper 三条
+            if (loop_rec_req)   begin loop_rec_seen   = loop_rec_seen   + 1; loop_rec_cycles   = loop_rec_cycles   + 1; end
+            if (loop_play_req)  begin loop_play_seen  = loop_play_seen  + 1; loop_play_cycles  = loop_play_cycles  + 1; end
+            if (loop_clear_req) begin loop_clear_seen = loop_clear_seen + 1; loop_clear_cycles = loop_clear_cycles + 1; end
+            // ⭐ 2026-09-29：⭐ 切音色
+            if (timbre_req)     begin timbre_seen     = timbre_seen     + 1; timbre_cycles     = timbre_cycles     + 1; end
         end
     end
 
@@ -162,6 +190,10 @@ module tb_calib_cmd;
             //      📌 这正是我第一版 tb 的错（⭐ 5 条假失败全部源于此）
             tare_seen  = 0; span_seen  = 0; abort_seen  = 0; test_mode_seen = 0;
             tare_cycles = 0; span_cycles = 0; abort_cycles = 0; test_mode_cycles = 0;
+            // ⭐ 2026-09-29：looper 三条也要清（⭐ 同一个坑）
+            loop_rec_seen = 0; loop_play_seen = 0; loop_clear_seen = 0;
+            loop_rec_cycles = 0; loop_play_cycles = 0; loop_clear_cycles = 0;
+            timbre_seen = 0; timbre_cycles = 0;   // ⭐ 2026-09-29：'I' 切音色（⭐ 同一个坑）
         end
     endtask
 
@@ -191,6 +223,32 @@ module tb_calib_cmd;
         chk("'M' outside a frame raises test_mode_req", test_mode_seen == 1);
         chk("cmd_cnt_o counted all four commands", cmd_cnt == 16'd4);
 
+        // ⭐⭐ 2026-09-29 新增：⭐ looper 三条命令（⭐ 'R' / 'L' / 'C'）
+        //   ⭐ 它们走**同一条**"帧外才认"的路径 ⇒ ⭐ 必须与 `T`/`S`/`X`/`M` 一样：
+        //      ⭐ 帧外认 · ⭐ 帧内不认 · ⭐ 单周期 · ⭐ 互不串扰
+        send_byte(R);
+        chk("'R' outside a frame raises loop_rec_req", loop_rec_seen == 1);
+        send_byte(L);
+        chk("'L' outside a frame raises loop_play_req", loop_play_seen == 1);
+        send_byte(C);
+        chk("'C' outside a frame raises loop_clear_req", loop_clear_seen == 1);
+        chk("looper letters do NOT cross-fire the older commands",
+            (tare_seen == 1) && (span_seen == 1) && (abort_seen == 1) && (test_mode_seen == 1));
+        chk("each looper command pulse is exactly ONE cycle wide",
+            loop_rec_cycles == 1 && loop_play_cycles == 1 && loop_clear_cycles == 1);
+        chk("cmd_cnt_o counted all SEVEN commands", cmd_cnt == 16'd7);
+
+        // ⭐⭐ 2026-09-29 新增：⭐ 切音色命令（⭐ 'I'）
+        //   ⭐ 它同样走"帧外才认"那条路 ⇒ ⭐ 判据口径与上面完全一致 ✅
+        send_byte(I);
+        chk("'I' outside a frame raises timbre_req", timbre_seen == 1);
+        chk("'I' does NOT cross-fire the older commands",
+            (tare_seen == 1) && (span_seen == 1) && (abort_seen == 1)
+            && (test_mode_seen == 1) && (loop_rec_seen == 1)
+            && (loop_play_seen == 1) && (loop_clear_seen == 1));
+        chk("'I' pulse is exactly ONE cycle wide", timbre_cycles == 1);
+        chk("cmd_cnt_o counted all EIGHT commands", cmd_cnt == 16'd8);
+
         // ───────────────────────────────────────────────────────────────
         // ⭐ 判据⑦：脉冲必须是【单周期】
         //   ⭐ 每个命令各出现 1 次 ⇒ ⭐ 高电平拍数也必须正好是 1
@@ -208,13 +266,19 @@ module tb_calib_cmd;
         do_reset();
         t0 = tare_seen; s0 = span_seen; a0 = abort_seen;
         ifc0 = in_frame_cnt;
-        //   ⭐ 载荷 = T S X T S X T S（⭐ 8 个全是命令字母！最坏情况）
-        send_frame(T, S, X, M, T, S, X, M);
+        //   ⭐ 载荷 = T S X M R L C T（⭐ 8 个**全是命令字母**！最坏情况）
+        //      ⭐ 2026-09-29：⭐ 把**新的 looper 字母也塞进去** ⇒ ⭐ 一起验帧边界
+        send_frame(T, S, X, M, R, L, C, I);
 
         chk("payload full of T/S/X raises NO tare_req",  tare_seen  == t0);
         chk("payload full of T/S/X raises NO span_req",  span_seen  == s0);
         chk("payload full of T/S/X raises NO abort_req", abort_seen == a0);
         chk("payload full of commands raises NO test_mode_req", test_mode_seen == 0);
+        // ⭐ 2026-09-29：⭐ 新字母在**帧内**同样⛔ 绝不许产生脉冲
+        chk("payload full of commands raises NO loop_rec_req",  loop_rec_seen  == 0);
+        chk("payload full of commands raises NO loop_play_req", loop_play_seen == 0);
+        chk("payload full of commands raises NO loop_clear_req", loop_clear_seen == 0);
+        chk("payload full of commands raises NO timbre_req", timbre_seen == 0);
         chk("cmd_cnt_o did NOT count in-frame letters", cmd_cnt == 16'd0);
         //   ⭐ 8 个载荷字节全是命令字母 ⇒ ⭐ 忽略计数应为 8
         chk("in_frame_cnt_o counted all 8 ignored payload letters",

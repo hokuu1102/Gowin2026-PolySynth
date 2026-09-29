@@ -705,21 +705,62 @@ module tdm_render_mixer #(
                                     ? (sh_norm_w - LIM_TH_W) : {(ACC_W+16){1'b0}};
     wire signed [ACC_W+15:0] exc_neg = (sh_norm_w < -LIM_TH_W)
                                     ? ((-LIM_TH_W) - sh_norm_w) : {(ACC_W+16){1'b0}};
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ **2026-09-29 FMAX 修复：在 `exc_*` 与 `knee` 之间插【1 级流水】**
+    //
+    //   🔴 **原缺陷（实测 `impl/pnr/Gowin2026.timing_paths`，⛔ 不是推理）**：
+    //      最差路径 `slack = 0.193 ns` 的**主体就在这一段**：
+    //          `mult_1010_s2`（= `sh_norm_r` 那级乘法器）
+    //            → `exc_neg_*`（⭐ 约 6 ns 的宽比较/减法链）
+    //            → `mult_15254`（⭐ `exc*exc`）
+    //            → `n2385_s`（= `lim_w`）→ `samp_r`
+    //      ⇒ ⭐ **整条链 = `sh_norm_w` → `exc` → `knee`（含乘法）→ `lim_w` → `samp_r`**
+    //
+    //   ✅ **修法**：把 `exc_pos`/`exc_neg`/`sh_norm_w` 各打一拍 ⇒ ⭐ **链一分为二**
+    //      · ⭐ 前段：`sh_norm_w` → `exc_*` → **`exc_*_r`**（⭐ 短）
+    //      · ⭐ 后段：`exc_*_r`/`sh_norm_w_r` → `knee`（乘法）→ `lim_w` → `samp_r`
+    //      ⚠️ **`sh_norm_w` 必须【一起打】** —— ⭐ `knee`/`lim` 还要用它做
+    //         "是否超阈值"的判断 ⇒ ⛔ 不一起打就会**用新 `exc` 配旧 `sh_norm`**
+    //         ⇒ 🔴 数值错位（⭐ `K-109` 同族：脉冲与其携带的数据必须同拍）。
+    //
+    //   ⚠️ **代价**：本模块延迟 +1 clk ⇒ ⭐ **`valid_d` 必须同步 +1**（见下方）
+    //      ⇒ ⭐ `tb_tdm_render_mixer` 的延时从 `POLY+7` 变成 `POLY+8`
+    //      （⭐ 它的断言是**范围** `[POLY+3, POLY+8]` ⇒ ⛔ 不用放松判据）。
+    //
+    //   📌 **为什么可以打拍**（⭐ 本项目先例）：⭐ 一帧 1024 拍、渲染只用 34 拍
+    //      ⇒ ⭐ **大量空闲拍** ⇒ ⭐ 与 `n_active`/`norm_gain`/`sh_norm` 三级流水
+    //      的理由**完全相同**（⭐ 见 `:620-654`）✅
+    // ═══════════════════════════════════════════════════════════════════════
+    reg signed [ACC_W+15:0] exc_pos_r, exc_neg_r, sh_norm_w_r;
+    always @(posedge clk_i) begin
+        if (!rst_n_i) begin
+            exc_pos_r   <= {(ACC_W+16){1'b0}};
+            exc_neg_r   <= {(ACC_W+16){1'b0}};
+            sh_norm_w_r <= {(ACC_W+16){1'b0}};
+        end else begin
+            exc_pos_r   <= exc_pos;
+            exc_neg_r   <= exc_neg;
+            sh_norm_w_r <= sh_norm_w;      // ⭐ `knee`/`lim` 还要用它 ⇒ 必须一起打
+        end
+    end
+
     //  ⭐ 软膝（C1 连续）：out = T + e − e²/(2T)；`e ≥ T` ⇒ 天花板 1.5T
     //     ⚠️ `exc * exc` 在 Verilog 里按【全宽】求值（80 位）后再移位 ⇒ 截到 40 位安全
     //  ⭐ 软膝宽度 W = 2^20（12.5% FS）⇒ 2W = 2^21 ⇒ 纯移位
     //  ⭐ 天花板 = T + W/2 = 15/16 + 1/16 = 【100% FS】⇒ 与硬饱和点一致
     localparam signed [ACC_W+15:0] KNEE_W = {{(ACC_W-8){1'b0}}, 24'sh100000};   // W = 2^20
     wire signed [ACC_W+15:0] ceil_w    = LIM_TH_W + (KNEE_W >>> 1);   // T + W/2 = 2^23
-    wire signed [ACC_W+15:0] knee_pos  = (exc_pos >= KNEE_W)
+    //  ⭐ 2026-09-29：⭐ 以下一律用**寄存后**的 `exc_*_r` / `sh_norm_w_r`（⭐ 流水级之后）
+    wire signed [ACC_W+15:0] knee_pos  = (exc_pos_r >= KNEE_W)
                                        ? ceil_w
-                                       : (LIM_TH_W + exc_pos - ((exc_pos * exc_pos) >>> 21));
-    wire signed [ACC_W+15:0] knee_neg  = (exc_neg >= KNEE_W)
+                                       : (LIM_TH_W + exc_pos_r - ((exc_pos_r * exc_pos_r) >>> 21));
+    wire signed [ACC_W+15:0] knee_neg  = (exc_neg_r >= KNEE_W)
                                        ? ceil_w
-                                       : (LIM_TH_W + exc_neg - ((exc_neg * exc_neg) >>> 21));
-    wire signed [ACC_W+15:0] lim_pos = (sh_norm_w >  LIM_TH_W) ?  knee_pos : sh_norm_w;
-    wire signed [ACC_W+15:0] lim_neg = (sh_norm_w < -LIM_TH_W) ? -knee_neg : sh_norm_w;
-    wire signed [ACC_W+15:0] lim_w   = (sh_norm_w > LIM_TH_W) ? lim_pos : lim_neg;
+                                       : (LIM_TH_W + exc_neg_r - ((exc_neg_r * exc_neg_r) >>> 21));
+    wire signed [ACC_W+15:0] lim_pos = (sh_norm_w_r >  LIM_TH_W) ?  knee_pos : sh_norm_w_r;
+    wire signed [ACC_W+15:0] lim_neg = (sh_norm_w_r < -LIM_TH_W) ? -knee_neg : sh_norm_w_r;
+    wire signed [ACC_W+15:0] lim_w   = (sh_norm_w_r > LIM_TH_W) ? lim_pos : lim_neg;
 
     // ── ⑤ ⭐ 最终饱和（⭐ 复用原有逐位判溢出手法 —— `K-101`）──────────────
     //   ⚠️ 走到这里时 `lim_w` **最多**只到 `LIM_TH + 溢出/4` ⇒ ⭐ 通常已落在 24 位内；
@@ -785,13 +826,19 @@ module tdm_render_mixer #(
     //         它和 `samp_r` 是**一对**，改一个必须改另一个。
     //      📌 **配套**：`tb_tdm_render_mixer.sv` 的判据名字 `POLY_TARGET+6` → `+7`
     //         （⭐ 它的**断言是范围** `[POLY+3, POLY+8]` ⇒ ⛔ 判据本身不用改）。
-    reg [3:0] valid_d;
+    //   ⭐⭐ **2026-09-29 FMAX 修复：深度 4 → 5**（⭐ 因为限幅器插了 1 级流水）
+    //      🔴 **本链原来只有 4 位** ⇒ ⭐ **`valid_d[4]` 会越界** ⇒ ⭐ **必须同时加宽**
+    //      （⭐ 这是同一个坑的**第三次**：⭐ `valid` 与数据是**一对**，改一个必须改另一个）✅
+    //      📌 **配套**：`tb_tdm_render_mixer.sv` 的判据名字 `POLY_TARGET+7` → `+8`
+    //         （⭐ 断言仍是**范围** `[POLY+3, POLY+8]` ⇒ ⭐ `+8` **天然通过**，
+    //            ⛔ **没有放松任何判据**）。
+    reg [4:0] valid_d;
     always @(posedge clk_i) begin
-        if (!rst_n_i) valid_d <= 4'b0000;
-        else          valid_d <= {valid_d[2:0], valid_r};
+        if (!rst_n_i) valid_d <= 5'b00000;
+        else          valid_d <= {valid_d[3:0], valid_r};
     end
     //   ⭐ 延时后的 valid = 数据出 `samp_r` 的那一拍
-    assign dry_valid_o      = valid_d[3];
+    assign dry_valid_o      = valid_d[4];
     assign dry_sample_o     = samp_r;
     assign deadline_fault_o = fault_r;
 

@@ -394,6 +394,41 @@ module tb_oscillator_bank;
                 dut.gen_lane[1].phase_q === 32'd0);
         end
 
+        // ---- 9: timbre must NOT depend on velocity (2026-09-29 bug fix) ----
+        //  On-board finding: the position-based velocity (vel_upd) pushes vel to
+        //  255, and the wavetable blend then slides soft -> hard, i.e. the TIMBRE
+        //  changes while you press (user heard a "different, electronic timbre").
+        //  The user ruled: velocity must not change the timbre.  So
+        //  VEL_TIMBRE_BLEND defaults to 0 and rom_dout is rom_soft.
+        //  Non-emptiness: set VEL_TIMBRE_BLEND back to 1 and this MUST go red.
+        $display("== 9: timbre must not depend on velocity ==");
+        begin
+            reg [SW-1:0] cap0 [0:1];
+            reg          same9;
+            integer      pass9;
+            same9 = 1'b1;
+            for (pass9 = 0; pass9 < 2; pass9 = pass9 + 1) begin
+                //  Reset so both passes start from the SAME phase - otherwise the
+                //  samples differ simply because the phase advanced.
+                rst_n = 1'b0; repeat (4) @(negedge clk); rst_n = 1'b1;
+                repeat (4) @(negedge clk);
+                test_mode        = 1'b0;
+                voice_active     = {POLY{1'b0}};
+                voice_active[0]  = 1'b1;
+                voice_timbre     = {(POLY*2){1'b0}};
+                voice_velocity   = {(POLY*8){1'b0}};
+                voice_velocity[0*8 +: 8] = (pass9 == 0) ? 8'd0 : 8'd255;
+                set_v_inc(0, INC_1STEP);
+                repeat (3) frame;
+                for (i = 0; i < 2; i = i + 1) begin
+                    if (pass9 == 0) cap0[i] = samp(i);
+                    else if (samp(i) !== cap0[i]) same9 = 1'b0;
+                end
+            end
+            chk("velocity 0 and 255 give BIT-IDENTICAL samples (timbre is velocity-free)",
+                same9 === 1'b1);
+        end
+
         if (errors == 0)
             $display("PASS: oscillator_bank acceptance (T55) - all judgements held");
         else

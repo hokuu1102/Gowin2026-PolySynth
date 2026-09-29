@@ -130,7 +130,39 @@ module top #(
     //      ⚠️ **调完记得改回 1** —— ⭐ 节拍器是**评分项**（⭐ 恢复时重跑 PnR）。
     //      📌 **建议**：⭐ 与 `RESERVED_N` 无关（⭐ 事件被挡 ⇒ 不占 voice）
     //         ⇒ ⭐ **⛔ 不用同步改任何别的地方** ✅
-    parameter integer METRONOME_ON      = 0,
+    //
+    //   🔴🔴 **2026-09-28 改动：`0` ⇒ `1`（⭐ 用户要求"把节拍器加回来"）**
+    //      ⭐ **为什么必须改成 1**：⭐ 本参数是**编译期总闸**，
+    //         ⚠️ 若仍为 0 ⇒ 🔴 **按键打开了 `met_on_r` 也照样没声**
+    //         （⭐ 因为 `src_b_valid` 被这里恒 0 挡住）。
+    //      ⭐ **改成 1 不会自己响**：⭐ 现在由**运行时信号 `met_on_r`** 再串一级
+    //         ⇒ ⭐ 上电默认关（`met_on_r` 复位 = 0）⇒ ⭐ **行为与改动前一致** ✅
+    //      📌 即：`METRONOME_ON` = **编译期总闸**；`met_on_r` = **运行时开关**。
+    parameter integer METRONOME_ON      = 1,
+    // ⭐⭐ **`|Δpos|` 诊断开关**（⭐ 2026-09-28 新增，⭐ **默认【关】**）
+    //
+    //   ⭐ **它做什么**：⭐ 在 FPGA 侧统计**全轴 `max|Δpos|` + 出峰轴号**，
+    //      通过 `'P'` 命令回一个 `Q<轴号><dpos>` 包（⭐ 见 `u_pos_probe_dpos`）。
+    //   🔴 **为什么要它**：⭐ 串口轮询只有 **~4 Hz/轴**（⭐ 实测 247 ms）
+    //      ⇒ ⛔ **看不到 20 ms 的按压瞬态** ⇒ ⭐ 只能在 FPGA 侧测。
+    //
+    //   ⚠️⚠️ **默认必须是 0**（⭐ 用户 2026-09-28 拍板："代码留着，但不要放进工程综合"）：
+    //      · ⭐ 它**每拍**跑 16 组比较器 ⇒ 🔴 **吃时序余量**（⭐ 实测 Fmax 52.576 → **50.578**，
+    //        余量 **5.2% → 1.2%**）
+    //      · ⭐ 它还会**拖慢所有顶层 tb 的仿真** ⇒ 🔴 `tb_e2e`/`tb_top_sound` **超时**
+    //      ⇒ ⭐ **它是【临时工具】，⛔ 不是交付内容** ⇒ ⭐ 默认关，⭐ 要用时临时改 1 再 PnR。
+    //
+    //   📌 **综合时怎么被去掉**：⭐ `DPOS_DIAG=0` 是**编译期常量** ⇒
+    //      ⭐ 仲裁器里那一项恒 0 ⇒ ⭐ `u_pos_probe_dpos` 的输出**无人使用**
+    //      ⇒ ⭐ 整块（含 16 组比较器 + 3 级寄存器）**被优化掉** ✅
+    //  ⚠️⚠️ **2026-09-29 实测教训：⭐ 这个位⛔ 不要为了"顺手"长期置 1** ——
+    //     ⭐ 置 1 会让那 **16 组峰值比较器**在**每一个顶层 tb** 里都真跑
+    //     ⇒ 🔴 **顶层仿真明显变慢** ⇒ ⭐ `tb_e2e_key_to_sound` **撑爆 300 s 超时预算**
+    //        （⭐ 日志里其实已有 `PASS:` ⇒ ⚠️ **是超时预算太紧，⛔ 不是功能失败**）✅
+    //  ⭐ **正确用法**：⭐ 默认 **0** ✅ ⇒ ⭐ **只在【要出诊断 bitstream 的那一次 PnR】前临时改成 1**，
+    //     ⭐ PnR 完**立刻改回 0** ✅
+    //  📌 见 `files/20-代码/已知问题与风险清单.md` 的 `K-161` ✅
+    parameter integer DPOS_DIAG        = 0,   // ⭐ 0 = 关（默认）· ⭐ 1 = 开（仅出诊断 bitstream 时临时用）
     // ⭐⭐ **失谐开关**（⭐ 2026-09-27 新增，⭐ 问 A/B 对比用）
     //   · 0 => ⚠️ **关闭失谐**（⭐ 两 lane 同频同相 ⇒ 相干 ×2 ⇒ 旧行为）
     //   · 1 => ⭐ **开启失谐**（⭐ **默认** ⇒ 440.0 / 441.7 Hz，拍频 1.72 Hz）
@@ -197,6 +229,17 @@ module top #(
 ) (
     input  wire clk,             // V22 · 50 MHz
     input  wire rst_n,           // AA13 · 低有效（同步复位）
+
+    // ── ⭐⭐ 节拍器开关按键（⭐ 2026-09-28 新增 · `S2` / `AB13`）───────────
+    //   ⭐ 用户拍板：**用 AB13 的 S2 做节拍器开关**（按一下开、再按一下关）。
+    //   🔴 **`AB13` 属 `BANK9` = 1.5 V**（与 `rst_n`/`AA13` **同 bank**）
+    //      ⇒ ⭐ `.cst` 必须写 `LVCMOS15` + `BANK_VCCIO=1.5`（⛔ 写 3.3 V 会冲突）。
+    //   ⚠️ **跨线冲突（已向用户报告）**：ESP32 线原计划把 `AB13` 当"起播按键"
+    //      ⇒ ⭐ 本轮**先给节拍器用**，那边文档已标注"暂时占用，后续可能改"。
+    //   ⭐ **Z-safe**：⭐ 本端口**未连接时是 `Z`**（仿真里现有 tb 都不接它）
+    //      ⇒ 见下方 `met_btn_s` 的写法，按【未按下】处理
+    //      ⇒ ⭐ **现有 tb 一个都不用改** ✅
+    input  wire met_btn_i,       // AB13 · S2 · 低有效（上拉 ⇒ 按下 = 0）
 
     // ── 音频（板载 DAC = `MAX98357A`，⛔ 不需要 MCLK）──────────────
     //   ⭐ 2026-09-22 换板 Tang Console 60K：`PT8211`+`NS4263` → `MAX98357A`
@@ -328,6 +371,109 @@ module top #(
         .rst_n_async (rst_n),
         .rst_n_sync  (rst_n_sync)
     );
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ 节拍器开关按键（⭐ 2026-09-28 新增 · `S2` / `AB13`）
+    //
+    //   ⭐ 需求（用户 2026-09-28 拍板）：⭐ 按一下 **开**、再按一下 **关**。
+    //
+    //   ⭐ 链路（⭐ 严格按 `debounce.sv:9-11` 与 `K-62` 的纪律）：
+    //      `met_btn_i`（板外异步）→ `sync_input`（打两拍）→ `debounce`（5 ms）
+    //      → `key_down[0]`（按下沿，单周期脉冲）→ 翻转触发器 `met_on_r`
+    //
+    //   🔴 **为什么必须先同步再去抖**：`debounce` 在**端口层面不例化** `sync_input`
+    //      （⭐ 它自己的注释就写明"由顶层负责同步"）⇒ ⚠️ 顺序反了会把亚稳态
+    //      直接喂进去抖计数器 ⇒ ⭐ 可能整拍采错、甚至多计一次按下。
+    //
+    //   ⭐⭐ **`met_btn_s` 的 Z-safe 处理（⭐ 关键，⛔ 否则要改 ~9 个 tb）**：
+    //      · 硬件：`PULL_MODE=UP` ⇒ 空闲 = 1、按下 = 0
+    //      · 仿真：**未连接 ⇒ `Z`** ⇒ ⭐ 这里按"未按下(1)"处理
+    //      ⇒ ⭐ `===` 能识别 `Z`/`X`（⛔ 普通 `==` 会得到 `x` 并传播）
+    //      ⇒ ⭐ 现有 9 个例化 `top` 的 tb **一个都不用改** ✅
+    //      📌 两边语义一致：**只有确确实实看到 `0` 才算按下**。
+    // ═══════════════════════════════════════════════════════════════════════
+    wire met_btn_s = (met_btn_i === 1'b0) ? 1'b0 : 1'b1;
+
+    wire met_btn_sync;
+    sync_input #(
+        .W         (1),
+        .STAGES    (2),
+        // ⭐ 复位期 = "未按下"（⭐ 与硬件上拉一致 ⇒ 上电默认节拍器【关】）
+        .RESET_VAL (1'b1)
+    ) u_met_btn_sync (
+        .clk      (clk),
+        .rst_n    (rst_n_sync),
+        .async_in (met_btn_s),
+        .sync_out (met_btn_sync)
+    );
+
+    wire met_btn_down;            // ⭐ 按下沿（单周期脉冲）
+    debounce #(
+        .NKEY       (1),
+        .CLK_HZ     (50_000_000),
+        .DB_MS      (5),          // ⭐ 5 ms @50 MHz = 250_000 拍
+        .ACTIVE_LOW (1)           // ⭐ 上拉 + 按下接地 ⇒ 低有效
+    ) u_met_btn_deb (
+        .clk        (clk),
+        .rst_n      (rst_n_sync),
+        .key_in     (met_btn_sync),
+        .key_level  (),
+        .key_down   (met_btn_down),
+        .key_up     (),
+        // ⚠️ **EC11 编码器本设计不用** ⇒ ⭐ **必须显式接常量**
+        //    （🔴 不能悬空：`enc_a/b/sw` 是输入，悬空 = `Z` ⇒ 内部 `X` 传播）
+        .enc_a      (1'b1),
+        .enc_b      (1'b1),
+        .enc_sw     (1'b1),
+        .enc_a_lvl  (),
+        .enc_b_lvl  (),
+        .enc_sw_lvl (),
+        .enc_sw_down(),
+        .enc_sw_up  (),
+        .enc_cw     (),
+        .enc_ccw    (),
+        .enc_state  (),
+        .enc_err    ()
+    );
+
+    // ⭐ 翻转触发器：按一下开、再按一下关
+    //   ⭐ 复位后默认【关】⇒ ⭐ 与"加节拍器之前"的行为完全一致（⛔ 不会自己响）
+    reg met_on_r;
+    always @(posedge clk) begin
+        if (!rst_n_sync) met_on_r <= 1'b0;
+        else if (met_btn_down) met_on_r <= ~met_on_r;
+    end
+
+    // ⭐⭐ 2026-09-28：**开节拍器的那一刻，把音乐位置复位**（⭐ 用户要求"从第一拍开始响"）
+    //
+    //   🔴 **问题（⭐ 用户上板实测）**：*"节拍器是从第二拍开始响的，希望最好从第一拍开始响"*
+    //   🔎 **根因**：⭐ `beat_gen` 是 **free-running**（`run_i = 1'b1`）
+    //      ⇒ ⭐ 你按 S2 时，`beat_gen` 的 `tick_cnt_q` 可能停在 **1/2/3** 任意位置
+    //      ⇒ ⭐ 下一个 tick **⛔ 不是 `bar_start`** ⇒ 🔴 **第一声是弱拍**。
+    //
+    //   ⭐ **修法**：⭐ 在 `met_on_r` 的**上升沿**给 `beat_gen.pos_reset_i` 发
+    //      **1 拍脉冲** ⇒ ⭐ 相位 + `tick_cnt_q` 归零
+    //      ⇒ ⭐ **下一个 tick 的 `tick_cnt_q == 0`** ⇒ `bar_start_o = 1`
+    //      ⇒ ⭐ **第一声就是强拍** ✅
+    //
+    //   🔴 **为什么必须是【脉冲】**：⭐ `pos_reset_i` 是**电平**有效
+    //      （`beat_gen.v:75`：*"高有效，电平 ⇒ 相位+tick_cnt 归零"*）
+    //      ⇒ ⚠️ 若常高 ⇒ 🔴 **相位永远停在 0，一个 tick 都不出**（⭐ 节拍器彻底不响）。
+    //
+    //   📌 **为什么不改成 `run_i = met_on_r`**（⭐ 看起来更直接）：
+    //      ⚠️ 那样 `beat_gen` 停走 ⇒ `bg_beat` 停 ⇒ 🔴 **心跳 LED 不闪**
+    //      （⭐ `led_blink = bg_beat`）⇒ ⭐ 上板会以为"板子死了"。
+    //      📌 这是本设计**早就写明的取舍**（见 `METRONOME_ON` 的注释）
+    //      ⇒ ⭐ 所以**只能复位相位，⛔ 不能停走**。
+    //
+    //   ⚠️ **代价**：⭐ 按下 S2 后**最多等一个拍周期**（120 BPM ⇒ 0.5 s）才响第一声
+    //      —— ⭐ 这是"**从强拍开始**"的必然代价（⛔ 不可能既立刻响、又保证是强拍）。
+    reg met_on_r_d;
+    always @(posedge clk) begin
+        if (!rst_n_sync) met_on_r_d <= 1'b0;
+        else             met_on_r_d <= met_on_r;
+    end
+    wire met_start = met_on_r & ~met_on_r_d;   // ⭐ 开机脉冲（1 拍）
 
     // ── 时基 ────────────────────────────────────────────────────────
     wire tick_audio, mclk_en, bclk_en, bclk_half_en, lrclk, frame_start;
@@ -495,6 +641,12 @@ module top #(
     wire [15:0] cmd_cnt, cmd_in_frame_cnt, cmd_resync_cnt, cmd_unknown_cnt;
     wire [3:0]  cmd_idx;
 
+    // ⭐ 2026-09-29：looper 的三条命令（⭐ `calib_cmd` 新增 `'R'`/`'L'`/`'C'`）
+    wire cmd_loop_rec_req;      // ⭐ 'R' ⇒ 录/停**切换**
+    wire cmd_loop_play_req;     // ⭐ 'L' ⇒ 播放**切换**
+    wire cmd_loop_clear_req;    // ⭐ 'C' ⇒ 清空该层
+    wire cmd_timbre_req;        // ⭐ 'I' ⇒ 切音色（⭐ 0→1→2→3→0，⭐ 2026-09-29 新增）
+
     calib_cmd #(
         .CLK_HZ   (50_000_000),
         .BAUD     (500_000),        // ⚠️ 与 `uart_rx.BAUD_DIV=100` 同一档
@@ -511,6 +663,12 @@ module top #(
         .vstat_req_o    (cmd_vstat_req),
         .posprobe_req_o (cmd_posprobe_req),
         .test_mode_req_o(cmd_test_mode_req),
+        // ⭐ 2026-09-29：looper 三条命令
+        .loop_rec_req_o (cmd_loop_rec_req),
+        .loop_play_req_o(cmd_loop_play_req),
+        .loop_clear_req_o(cmd_loop_clear_req),
+        // ⭐ 2026-09-29：⭐ 切音色（⭐ 'I'）
+        .timbre_req_o   (cmd_timbre_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (cmd_in_frame_cnt),
         .resync_cnt_o   (cmd_resync_cnt),
@@ -688,6 +846,23 @@ module top #(
             prod       = (p22 << 8) + (p22 << 3) - p22;     // ⭐ ×263（⛔ 无乘法器）
             v13        = 13'd64 + prod[21:10];              // ⭐ >>10 再 +64（⭐ 力度下限 64）
             pos_to_vel = (v13 > 13'd255) ? 8'd255 : v13[7:0];   // ⭐ 饱和到 255
+        end
+    endfunction
+
+    // ⭐⭐ 2026-09-28：**|Δpos| 绝对值**（⭐ `'Q'` 诊断用，⭐ 见 `u_pos_probe_dpos`）
+    //   🔴 **为什么用【模块级函数】**：⭐ `g_sound` 已经在 `generate` 块里
+    //      ⇒ ⛔ 不能再嵌 `generate`（⭐ 实测报 "generate/endgenerate regions
+    //      cannot nest"）⇒ ⭐ 用函数代替循环里的临时变量 ✅
+    //   ⭐ **用大减小**（⛔ 不用有符号减法 ⇒ ⚠️ 避免符号位/位宽陷阱）
+    //   ⭐ 返回 **12 位**：⭐ `|Δ| ≤ 4095` 本来就装得下（⭐ `pos` 是 12 位）
+    //      ⚠️ **⛔ 不要写成 13 位再位选** —— 🔴 Verilog-2001 **不允许对函数返回值
+    //         直接位选**（`func(...)[11:0]` 会报 syntax error，⭐ 已实测踩到）
+    //      ✅ 要加宽就在**调用处用拼接**：`{1'b0, dpos_abs_f(...)}`（⭐ 合法）
+    function [11:0] dpos_abs_f;
+        input [11:0] a;
+        input [11:0] b;
+        begin
+            dpos_abs_f = (a > b) ? (a - b) : (b - a);
         end
     endfunction
 
@@ -896,7 +1071,14 @@ module top #(
             .clk_i           (clk),
             .rst_n_i         (rst_n_sync),
             .run_i           (1'b1),            // free-running
-            .pos_reset_i     (1'b0),            // no transport seek
+            // ⭐⭐ 2026-09-28：**开节拍器时复位音乐位置** ⇒ ⭐ 第一声就是【强拍】
+            //    🔴 原来是 `1'b0`（"no transport seek"）⇒ ⚠️ 按 S2 时 `tick_cnt_q`
+            //       可能停在 1/2/3 ⇒ 🔴 **第一声是弱拍**（⭐ 用户上板实测反馈）
+            //    ⚠️ `met_start` 是 **1 拍脉冲**（⛔ 不能常高 —— `pos_reset_i` 是电平，
+            //       常高会让相位永远停在 0 ⇒ 节拍器彻底不响）
+            //    📌 `beat_gen` 仍 **free-running**（⛔ 没改成 `met_on_r`）
+            //       ⇒ ⭐ **心跳 LED 照常闪** ✅（见 `led_blink = bg_beat`）
+            .pos_reset_i     (met_start),
             .tick_inc_i      (TICK_INC_120BPM),
             .tick_o          (bg_tick),
             .tick_cnt_o      (bg_tick_cnt),
@@ -1604,10 +1786,28 @@ module top #(
         //      📌 **为什么要 or 而不是 mux**：⭐ 两者【不会同拍】（⭐ `'P'` 是独立命令，
         //         ⚠️ 而 `rep_req` 由 `calib_span` 事件驱动）⇒ ⭐ 直接 or 更简单
         //      🔴 **但字节要 mux**（⭐ 否则两个来源的数据会撞在一起）
-        assign tx_req  = rep_req | pp_push | vp_push | np_push;
+        //   ⭐⭐ **2026-09-28：加上 `'Q'` 诊断（`dp_push`/`dp_data`）**
+        //      ⚠️ **声明必须写在【本行之前】**（⭐ `L66`：声明先于使用）——
+        //         🔴 我第一版把 `dp_push` 声明写在 `u_pos_probe_dpos` 旁边
+        //         （⭐ `:2070`，⛔ 在仲裁器**之后**）⇒ ⭐ 这里引用不到
+        //      ⭐ 且 `dp_push` **⛔ 不会与 `pp_push` 同拍** ——
+        //         ⭐ 它的 `probe_req` 是 `'P'` 到达后**延时 400 µs** 才发的
+        //         （⭐ 见 `u_pos_probe_dpos` 上方的串行化说明）
+        wire       dp_push;
+        wire [7:0] dp_data;
+
+        //   ⭐⭐ **`DPOS_DIAG` 门控（⭐ 2026-09-28）**：
+        //      ⭐ `DPOS_DIAG = 0`（默认）⇒ ⭐ `dp_push` **恒 0**
+        //      ⇒ ⭐ `u_pos_probe_dpos` 的输出**无人使用** ⇒ 🔴 **整块被综合器扫掉**
+        //      ⇒ ⭐ **不占时序余量、也不拖慢仿真** ✅
+        //      📌 要用诊断时：⭐ 把 `DPOS_DIAG` 改成 1 ⇒ 重新 PnR ✅
+        assign tx_req  = rep_req | pp_push | vp_push | np_push
+                       | ((DPOS_DIAG != 0) ? dp_push : 1'b0);
         //   ⭐ 'N'（`np_push`）优先级最高 —— 它也是独立命令，与其余不同拍。
+        //   ⭐ 'Q'（`dp_push`）次高 —— 它与 `'P'` **故意错开 400 µs**，⛔ 不同拍。
         assign tx_byte = np_push ? np_data
-                       : (vp_push ? vp_data : (pp_push ? pp_data : rep_byte));
+                       : (((DPOS_DIAG != 0) && dp_push) ? dp_data
+                       : (vp_push ? vp_data : (pp_push ? pp_data : rep_byte)));
 
 
         calib #(.NCH(8), .DW(12)) u_calib0 (
@@ -1792,6 +1992,16 @@ module top #(
                         vu_last[vu_ax_r] <= vu_pos;
                     end
                 end
+
+                //  ⚠️ ⭐ 2026-09-29：**原"note_on 清 `vu_last`"的修法已【整体删除】**
+                //   🔴 **为什么删**：⭐ 上板 `Q_velrace` **完全没声音**（⭐ 自检和弦＋按键都没 ✅），
+                //      而它比【有声音的】`P_romhard` **只多了这一处改动** ✅
+                //   🔴 **疑因**：⭐ 那个写法对 `integer` 型 `localparam` 做了**位选**
+                //      （`VEL_AXIS_N[3:0]` / `VEL_AX_W-1:0` ✅）⇒ ⭐ **违反 `K-91`** ✅
+                //      ⚠️ 且 `vu_last[<表达式>]` 是**带变量索引的数组写** ——
+                //      ⭐ 索引一旦被综合成越界值 ⇒ 🔴 **可能踩坏相邻寄存器** ✅
+                //   ✅ **正解**：⭐ 修在**接收端**（⭐ `note_manager` 每轴记一个目标 ✅）
+                //      ⇒ ⭐ **丢一次更新也能自愈** ✅ ⇒ ⭐ 这里**一个字都不用改** ✅
             end
         end
 
@@ -1867,6 +2077,117 @@ module top #(
             .ready_i    (txf_ready),
             .idle_i     (txf_idle),
             .busy_o     (np_busy)
+        );
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ `'Q'` 诊断：**全轴 |Δpos| 峰值 + 出峰轴号**（⭐ 2026-09-28 新增）
+        //
+        //   🔴 **为什么要它**：⭐ 用户反馈"**非常用力地敲打磁轴**时偶发尖音"，
+        //      猜想是"**用力时霍尔变化快 / 不稳**"。
+        //      ⚠️ 但 `'P'`/`'N'` 的串口轮询**每个轴只有 ~4 Hz**
+        //      （⭐ 上板实测 **247 ms/轴**）⇒ 🔴 **根本看不到 20 ms 的按压瞬态**
+        //      ⇒ ⭐ **必须在 FPGA 侧测**（⭐ 这就是本模块存在的理由）。
+        //
+        //   ⭐ **量什么**：⭐ `max |as_pos[i] - as_pos_d[i]|`（⭐ 全 16 轴取最大）
+        //      · ⭐ 霍尔"干净" ⇒ 该值 ≈ **单帧真实位移**（几十 ~ 一两百）
+        //      · 🔴 霍尔"抖 / 跳" ⇒ 该值会**接近满行程（700+）**，⭐ 且轴号会跳
+        //   ⭐ **读走即清零** ⇒ ⭐ 每次发 `'P'` 就是一个**测量窗口**
+        //
+        //   ⚠️ **⛔ 不改协议、⛔ 不加命令**：⭐ 复用 `cmd_probe_req`（即 `'P'`）
+        //      ⇒ ⭐ 发一次 `'P'` 回**三个**包：
+        //         `P<ch><pos>`（原样）+ `N<ax><pos>`（原样）+ ⭐ **`Q<ax><dpos>`**
+        //      ⚠️ 前缀必须与 `'P'`/`'N'`/`'D'` 都不同 —— 🔴 `'D'` **已被占用**
+        //         （`'D'` = span 标定"16 轴全标完"）⇒ ⭐ 本诊断用 **`'Q'` (0x51)**。
+        //
+        //   ⚠️ **必须放在 `as_pos` 声明之后**（⭐ `L66`：声明先于使用）
+        // ═══════════════════════════════════════════════════════════════════
+        reg [11:0] as_pos_d [0:15];
+        reg [11:0] dpos_pk_r;
+        reg [3:0]  dpos_ax_r;
+        integer    dpi;
+        always @(posedge clk) begin
+            if (!rst_n_sync) begin
+                dpos_pk_r <= 12'd0;
+                dpos_ax_r <= 4'd0;
+                for (dpi = 0; dpi < 16; dpi = dpi + 1) as_pos_d[dpi] <= 12'd0;
+            end else begin
+                //  ⭐⭐ **`DPOS_DIAG` 门控**：⭐ `0` ⇒ 这是**编译期常量假** ⇒
+                //     ⭐ 综合器把整个 16 组比较器 + `as_pos_d` 全折掉 ✅
+                //     ⭐ 仿真器也不再跑这个循环 ⇒ ⛔ 不再拖慢顶层 tb ✅
+                if (DPOS_DIAG != 0) begin
+                for (dpi = 0; dpi < 16; dpi = dpi + 1) begin
+                    //  ⭐ 比较时用**拼接**把两侧都加宽到 13 位
+                    //     ⚠️ ⛔ 不能对函数返回值位选（⭐ Verilog-2001 限制）
+                    if ({1'b0, dpos_abs_f(as_pos[dpi*12 +: 12], as_pos_d[dpi])}
+                        > {1'b0, dpos_pk_r}) begin
+                        dpos_pk_r <= dpos_abs_f(as_pos[dpi*12 +: 12], as_pos_d[dpi]);
+                        dpos_ax_r <= dpi[3:0];
+                    end
+                    as_pos_d[dpi] <= as_pos[dpi*12 +: 12];
+                end
+                end
+                //  ⭐ **读走清零**（⭐ 写在**最后** ⇒ 同块后写覆盖先写 ⇒ 清零赢）
+                //     ⚠️ `pos_probe` 在 `probe_req_i` 那一拍锁存 `pos_i`
+                //        ⇒ ⭐ 它锁到的是**清零前**的值 ✅（⭐ 正是我们要的）
+                if (cmd_probe_req) begin
+                    dpos_pk_r <= 12'd0;
+                    dpos_ax_r <= 4'd0;
+                end
+            end
+        end
+
+        //  ⚠️ `dp_push`/`dp_data` **已在仲裁器之前声明**（⭐ `L66`：声明先于使用）
+        wire       dp_busy;
+
+        //  🔴🔴 **2026-09-28 修（⭐ 第一版有两个真 bug，⭐ 上板实测"只有 P 包、没有 Q 包"）**：
+        //
+        //  ① 🔴 **`push_o`/`data_o` 接到了【死线】上** —— ⛔ 没接进 UART 仲裁器
+        //     ⇒ ⭐ `Q` 包**永远发不出来**（⭐ 现象：串口只看到 `P`）
+        //     ✅ 修法：⭐ 把 `dp_push`/`dp_data` 加进 `tx_req`/`tx_byte` 的仲裁
+        //
+        //  ② 🔴 **两个 probe 会【同拍抢 FIFO】** —— ⭐ 它们都由 `cmd_probe_req` 触发，
+        //     各自要推 8 字节，⚠️ 而仲裁器**每拍只推 1 字节** ⇒ ⭐ 两个包**都会被踩坏**
+        //     ✅ 修法：⭐ **串行化** —— ⭐ `'P'` 到达时先把 `Q` 的载荷【锁存】，
+        //        等 ~400 µs（⭐ 8 字节 @500 kbaud = 160 µs，⭐ 留 2.5× 余量）
+        //        再让 `Q` 那个 probe 开始推 ⇒ ⛔ 两者绝不重叠
+        //
+        //  📌 **教训**：⭐ **新增一个"会往共享总线上推东西"的模块时，必须问两句**：
+        //     ① ⭐ **它的输出接上了吗？**（⛔ "我声明了线"不算接上）
+        //     ② ⭐ **它和已有模块会同时推吗？**（⭐ 共享资源必须串行化）
+        reg [11:0] dpos_hold_r;
+        reg [3:0]  dpos_axh_r;
+        reg [14:0] dp_wait_r;
+        always @(posedge clk) begin
+            if (!rst_n_sync) begin
+                dpos_hold_r <= 12'd0;
+                dpos_axh_r  <= 4'd0;
+                dp_wait_r   <= 15'd0;
+            end else begin
+                if (cmd_probe_req) begin
+                    //  ⭐ 锁存【清零前】的峰值（⭐ `dpos_pk_r` 在同一拍被清零）
+                    dpos_hold_r <= dpos_pk_r;
+                    dpos_axh_r  <= dpos_ax_r;
+                    dp_wait_r   <= 15'd20000;      // ⭐ 20000 拍 = 400 µs @50 MHz
+                end else if (dp_wait_r != 15'd0) begin
+                    dp_wait_r <= dp_wait_r - 15'd1;
+                end
+            end
+        end
+        //  ⭐ `DPOS_DIAG=0` ⇒ 恒 0 ⇒ ⭐ probe 的 FSM 永远停在 IDLE
+        //     ⇒ ⭐ 它的寄存器全变常量 ⇒ **被综合器扫掉** ✅
+        wire dp_req = (DPOS_DIAG != 0) && (dp_wait_r == 15'd1);
+
+        pos_probe #(.N_BYTES(8), .PREFIX(8'h51)) u_pos_probe_dpos (
+            .clk_i      (clk),
+            .rst_n_i    (rst_n_sync),
+            .probe_req_i(dp_req),
+            .pos_i      (dpos_hold_r),
+            .ch_i       (dpos_axh_r),     // ⭐ 回的是【出峰的轴号】，⛔ 不是 ADC 扫描通道
+            .push_o     (dp_push),
+            .data_o     (dp_data),
+            .ready_i    (txf_ready),
+            .idle_i     (txf_idle),
+            .busy_o     (dp_busy)
         );
 
         // ── ⭐ ④ `axis_map`：轴位 → `phase_inc` ──────────────────────────
@@ -2329,6 +2650,123 @@ module top #(
         //     ⚠️ 要恢复曲谱功能 ⇒ 置 1 **且** 把曲谱源换到**独立 UART 线**。
         localparam integer SCORE_UART_ENABLE = 0;
 
+        // ══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 2026-09-29 新增：⭐ 事件域 Looper（`T37` 单层录制+播放 · `T39` 边 loop 边弹）
+        //
+        //   ⭐ **接法（⭐ 本项目【风险最低】的一种）**：⭐ 重放接到 `seq_arb` 的
+        //      **`score` 口** —— ⭐ 那个口在 `SCORE_UART_ENABLE = 0`（⭐ **默认**）时
+        //      **本来就是空的**（⭐ 接常量 0）✅
+        //      ⇒ ⭐ **⛔ 不改 `evt_merge` / `seq_arb` 任何一行**（⭐ 两个都已验证过）
+        //      ⇒ ⭐ **⛔ 不给【手弹路径】加任何延迟**（⭐ 否则会踩既有 tb 的时序判据）✅
+        //
+        //   ⭐⭐ **顺带把 `T39`（边 loop 边弹）做出来了**：
+        //      ⭐ 手弹走 `live` 口、⭐ looper 走 `score` 口 ⇒ ⭐ **由 `seq_arb` 真仲裁**
+        //      （⚠️ ⛔ **不是**把两路直接"或"起来 —— 🔴 那会**同拍静默丢一条**，
+        //         ⭐ 正是 `evt_merge`/`seq_arb` 当初要修的那个 bug）
+        //
+        //   ⚠️ **与曲谱通路【互斥】**：⭐ 两者共用 `score` 口 ⇒
+        //      ⭐ `SCORE_UART_ENABLE = 1` 时 looper 的重放**没有出口**（⭐ 而且会被综合器扫掉）
+        //      ⭐ 这是**有意为之**：⚠️ 曲谱线与串口屏**共用同一条 UART** ⇒
+        //         ⭐ 同时开两路会互相误判（⭐ 见 `seq_arb` 例化处那段长注释）✅
+        //
+        //   ⭐ 控制：⭐ 串口命令 `'R'`（录/停**切换**）· `'L'`（播放**切换**）· `'C'`（清空）
+        //      ⚠️ 因为 `calib_cmd` 只吐**单周期脉冲**，⭐ 这里用寄存器记住"开/关"状态
+        //      （⭐ 与 `met_on_r` 同一手法）✅
+        //      📌 ⭐ `'C'` **同时把两个开关复位** —— ⚠️ 否则"录着的时候清空"会让
+        //         `loop_rec_on_r` **卡在 1** ⇒ 🔴 下一次 `'R'` 发的是"停"而不是"录"（⭐ 状态错位）
+        // ══════════════════════════════════════════════════════════════════
+        reg loop_rec_on_r;
+        reg loop_play_on_r;
+
+        //  ⭐⭐ 2026-09-29 新增：⭐ **当前音色**（⭐ 串口 `'I'` 每按一次循环下一档 ✅）
+        //   ⭐ 音色定义（⭐ `rtl/w3b/wavetable_bank.v:3` 原文）：
+        //      ⭐ `0=BASS triangle` · ⭐ `1=GUITAR saw` · ⭐ `2=PIANO zero-DC 25% pulse` · ⭐ `3=PAD`
+        //   🔴 **为什么加**：⭐ 原来 `note_manager.default_timbre_i` **写死 `2'd0`**
+        //      ⇒ ⭐ **手弹永远只有 0 号（BASS 三角波）** ⇒ 🔴 **"4 个音色可以切换"这个需求没满足** ✅
+        //      📌 ⭐ 而音色字段本来只有【曲谱帧 `[8:7]`】一个来源，⚠️ 而 `SCORE_UART_ENABLE = 0`
+        //         ⇒ ⭐ **那条路是禁用的** ⇒ ⭐ 音色**根本无法切换** ✅
+        //   ✅ **修法**：⭐ 用一个 2 位寄存器记住当前音色，⭐ `'I'` 每来一次就 `+1`
+        //      ⇒ ⭐ **2 位自然回绕** ⇒ ⭐ `0→1→2→3→0` ✅（⭐ 与 `'R'`/`'L'` 同属"切换"语义 ✅）
+        //   📌 ⭐ **为什么不接物理按键**：⭐ 见 `rtl/w3a/calib_cmd.v` 顶部的说明 ——
+        //      ⭐ `*_req` 全是**单周期脉冲** ⇒ ⭐ 以后接按键**只需产生同样的脉冲** ✅
+        //      ⇒ ⭐ **这个寄存器与来源无关**，⭐ 换来源**不用改这里** ✅
+        reg [1:0] timbre_sel_r;
+
+        always @(posedge clk) begin
+            if (!rst_n_sync)
+                timbre_sel_r <= 2'd0;
+            else if (cmd_timbre_req)
+                timbre_sel_r <= timbre_sel_r + 2'd1;
+        end
+
+        always @(posedge clk) begin
+            if (!rst_n_sync) begin
+                loop_rec_on_r  <= 1'b0;
+                loop_play_on_r <= 1'b0;
+            end else if (cmd_loop_clear_req) begin
+                loop_rec_on_r  <= 1'b0;
+                loop_play_on_r <= 1'b0;
+            end else begin
+                if (cmd_loop_rec_req)  loop_rec_on_r  <= ~loop_rec_on_r;
+                if (cmd_loop_play_req) loop_play_on_r <= ~loop_play_on_r;
+            end
+        end
+
+        wire        looper_play_valid;
+        wire [3:0]  looper_play_axis;
+        wire [31:0] looper_play_inc;
+        wire [7:0]  looper_play_vel;
+        wire [1:0]  looper_play_kind;
+        //  ⭐ 可观测（`K-106`：⛔ 不许静默失效）—— ⚠️ **暂未接上板观测口**
+        //     📌 待办：⭐ 接到串口回传（⭐ 与 `'P'`/`'N'` 诊断同一套路）⇒ 现在先留线，⛔ 不悬空
+        wire        looper_layer_state;
+        wire [15:0] looper_evt_cnt;
+        wire        looper_full;
+        wire [15:0] looper_drop_cnt;
+        wire        looper_overflow;
+
+        looper #(
+            .AXIS_W  (4),
+            .PHASE_W (32),
+            .VEL_W   (8),
+            .KIND_W  (2),
+            .TICK_W  (20),
+            .LAYERS  (1),        // ⚠️ 本版**单层**（⭐ `T40` 再扩）
+            .EVT_MAX (2048),
+            .CNT_W   (16)
+        ) u_looper (
+            .clk_i          (clk),
+            .rst_n_i        (rst_n_sync),
+            //  ⭐ 音乐时钟（⭐ 与 `drum_gen` **同一个源** ⇒ 天然对齐）
+            .tick_i         (bg_tick),
+            .tick_cnt_i     ({4'b0, bg_tick_cnt}),   // ⭐ 显式补零 ⇒ ⛔ 不留位宽警告
+            .bar_start_i    (bg_bar_start),
+            .transport_i    (bg_transport),
+            //  ⭐ 手弹事件【旁路监听】—— ⚠️ **只读**，⛔ looper 不许驱动这条流
+            .live_valid_i   (w3a_evt_valid),
+            .live_axis_i    (w3a_evt_axis),
+            .live_inc_i     (w3a_evt_inc),
+            .live_vel_i     (w3a_evt_vel),
+            .live_kind_i    (w3a_evt_kind),
+            //  ⭐ 重放（⭐ → `seq_arb.score`，⭐ 见下方 `score_*` 的 mux）
+            .play_valid_o   (looper_play_valid),
+            .play_axis_o    (looper_play_axis),
+            .play_inc_o     (looper_play_inc),
+            .play_vel_o     (looper_play_vel),
+            .play_kind_o    (looper_play_kind),
+            //  ⭐ 控制（⭐ 脉冲 / 电平）
+            .rec_req_i      (cmd_loop_rec_req & ~loop_rec_on_r),   // ⭐ 没在录 ⇒ 开录
+            .stop_req_i     (cmd_loop_rec_req &  loop_rec_on_r),   // ⭐ 正在录 ⇒ 停录
+            .play_en_i      (loop_play_on_r),
+            .clear_req_i    (cmd_loop_clear_req),
+            //  ⭐ 可观测
+            .layer_state_o  (looper_layer_state),
+            .evt_cnt_flat_o (looper_evt_cnt),
+            .full_o         (looper_full),
+            .drop_cnt_o     (looper_drop_cnt),
+            .overflow_o     (looper_overflow)
+        );
+
         seq_arb #(
             .AXIS_W  (4),
             .PHASE_W (32),
@@ -2372,13 +2810,17 @@ module top #(
             //      · ⛔ 不动 `uart_ui` / `calib_cmd`（队友/命令通路）
             //      · ⭐ 要恢复曲谱功能时：把本参数置 1 **且** 把曲谱源换到**独立 UART 线**
             //        （⚠️ 与串口屏共用一条线时，⛔ 任何"帧头猜同步"都会互相误判）
-            .score_valid_i    (SCORE_UART_ENABLE ? eu_evt_valid : 1'b0),
-            .score_axis_i     (score_evt_axis),
-            .score_phase_inc_i(score_evt_inc),
-            .score_velocity_i (score_evt_vel),
-            .score_kind_i     (score_evt_kind),
-            .score_timbre_valid_i(score_evt_timbre_valid),
-            .score_timbre_i   (score_evt_timbre),
+            //  ⭐⭐ 2026-09-29：⭐ 这个口现在**二选一** ——
+            //     · ⭐ `SCORE_UART_ENABLE = 1` ⇒ ⭐ 曲谱（`evt_uart_rx`）
+            //     · ⭐ `SCORE_UART_ENABLE = 0`（⭐ **默认**）⇒ ⭐ **looper 重放** ✅
+            //     ⚠️ 两者**不能同时**：⭐ 曲谱与串口屏**共用一条 UART**（⭐ 见上方长注释）✅
+            .score_valid_i    (SCORE_UART_ENABLE ? eu_evt_valid : looper_play_valid),
+            .score_axis_i     (SCORE_UART_ENABLE ? score_evt_axis : looper_play_axis),
+            .score_phase_inc_i(SCORE_UART_ENABLE ? score_evt_inc  : looper_play_inc),
+            .score_velocity_i (SCORE_UART_ENABLE ? score_evt_vel  : looper_play_vel),
+            .score_kind_i     (SCORE_UART_ENABLE ? score_evt_kind : looper_play_kind),
+            .score_timbre_valid_i(SCORE_UART_ENABLE ? score_evt_timbre_valid : 1'b0),
+            .score_timbre_i   (SCORE_UART_ENABLE ? score_evt_timbre : 2'd0),
             // ── 源 3：演示（⭐ 自检和弦）—— ⚠️ 自动让位 ───────────────────
             .demo_valid_i     (demo_note_valid),
             .demo_axis_i      (demo_note_axis),
@@ -2427,8 +2869,19 @@ module top #(
         //   ⚠️ **⚠️ 注意**：⭐ 本参数**同时管住鼓机**（⭐ 因为源 B 是二选一）
         //      ⇒ ⭐ `METRONOME_ON=0` 时**鼓机也不出声** —— ⭐ 语义上叫"源 B 静音"更准，
         //        ⭐ 但用户要的是"只听键盘"⇒ ⭐ 这正是想要的（⭐ 名字按用户的说法取）。
+        //
+        //   ⭐⭐ **2026-09-28：再串一级【运行时开关 `met_on_r`】**（⭐ `S2`/`AB13`）
+        //      ⇒ ⭐ **两级串联**：
+        //         · `METRONOME_ON`（⭐ 编译期总闸，⭐ 现为 1）
+        //         · `met_on_r`（⭐ 运行时，⭐ 按一下开 / 再按一下关，⭐ 复位 = 关）
+        //      📌 **为什么不在 `metronome` 内部拦**：⭐ 那里拦会停掉
+        //         `beat_cnt_o`/`accent_cnt_o`（⭐ 上板诊断要用）；⭐ 且源 B 是二选一，
+        //         在合流处拦**一处就够**（⭐ 鼓机也一并受控，⭐ 语义一致）。
+        //      ⚠️ **`met_on_r` 是寄存器**（⭐ 复位由 `rst_n_sync` 保证）
+        //         ⇒ ⛔ 不会像 `Z` 那样传播 `x`（⭐ 见上方 `met_btn_s` 的 Z-safe 处理）。
         wire        src_b_valid = (sel_drum ? drm_evt_valid : met_evt_valid)
-                                  & (METRONOME_ON != 0);
+                                  & (METRONOME_ON != 0)
+                                  & met_on_r;
         wire [3:0]  src_b_axis  = sel_drum ? drm_evt_axis  : met_evt_axis;
         wire [31:0] src_b_inc   = sel_drum ? drm_evt_inc   : met_evt_inc;
         wire [7:0]  src_b_vel   = sel_drum ? drm_evt_vel   : met_evt_vel;
@@ -2573,7 +3026,7 @@ module top #(
             .pitch_upd_valid_i (pe_pitch_v),
             .pitch_upd_axis_i  (pe_pitch_ax),
             .pitch_upd_value_i (pe_pitch),
-            .default_timbre_i  (2'd0),
+            .default_timbre_i  (timbre_sel_r),   // ⭐ 2026-09-29：由串口 'I' 切换（⭐ 原来写死 2'd0）
             .evt_timbre_valid_i(mg_evt_timbre_valid),
             .evt_timbre_i      (mg_evt_timbre),
             .env_active_i      (env_active),
@@ -2656,6 +3109,103 @@ module top #(
 
         // ⭐ TDM 混音 + 饱和（T56）—— ⭐ 全设计**只有 1 个 DSP**
         //    ⚠️ `render_start_i` 用 `ob_valid`（振荡器样本就绪）⇒ 天然串行、无竞争
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 打击乐包络（`perc_env_bank`）—— ⭐ 2026-09-28 接通（⭐ 修 `K-144`）
+        //
+        //   🔴 **为什么必须接通**：⭐ `perc_env_bank.v` 是专为打击乐建的
+        //      "**一击到底、衰到 0 自动结束**"包络，⭐ **但全工程从未例化**
+        //      （⭐ `K-144`：孤儿模块）⇒ 节拍器/鼓机一直走**普通 `adsr`**
+        //      ⇒ ⚠️ 衰到 sustain **就停住不再降**，而 `metronome.v` 的 `EVT_KIND`
+        //         是**常量 note_on、⛔ 永不发 `note_off`**
+        //      ⇒ 🔴 **voice 永久 held ⇒ 挂音**
+        //      （⭐ 用户 2026-09-28 上板实测原话："**开了节拍器之后会挂音**"）
+        //      📌 **为什么以前没暴露**：⭐ 因为 `METRONOME_ON=0`（⭐ 节拍器根本不响）
+        //         ⇒ ⭐ 本轮把它改成 1，这个**潜伏缺陷立刻变成可听 bug**。
+        //
+        //   ⭐ **修法（⭐ 最小改动，⛔ 不动任何已验证模块的行为）**：
+        //      ⭐ **只换【保留池 voice 的包络电平】** ——
+        //         `env_level`（来自 `envelope_bank` 的 ADSR）在**保留池那几路**
+        //         换成 `perc_env_bank` 的输出，⭐ 其余 `POLY_TARGET-RESERVED_N` 路
+        //         **逐位不变**。
+        //      ⇒ ⛔ `note_manager` / `oscillator_bank` / `tdm_render_mixer` /
+        //         `envelope_bank` / `adsr` / `metronome` 的**逻辑一行不改** ✅
+        //      ⇒ ⭐ 保留池 = 打击乐（节拍器 `axis 14` + 鼓机 `axis 15`）
+        //         ⇒ ⭐ **语义正好对上**。
+        //
+        //   ⭐ **为什么键盘音量不受影响**（⭐ 已核实，⛔ 不是猜）：
+        //      `tdm_render_mixer` 的归一化 `popcount` **本来就排除保留池**
+        //      （`.RESERVED_N` ⇒ `NORMAL_N`，⭐ 见 `tdm_render_mixer.v:449-476`：
+        //       *"🔴 根因：`voice_active_i` 包含保留池"*）
+        //      ⇒ ⭐ 节拍器响不响都**不改变 `1/√N`** ✅
+        //
+        //   ⚠️⚠️ **触发必须用【上升沿】**（⭐ 关键，⛔ 否则白改）：
+        //      `nm_gate` 是**电平**（没有 `note_off` ⇒ 一直为 1）
+        //      ⇒ ⛔ 若直接接 `trigger_i`，包络会**每拍都重新装载峰值**
+        //      ⇒ 🔴 **又变成挂音**。
+        //      ⭐ 而 `note_manager.voice_gate_o = gate_mask = gate_r & ~retrig_low`
+        //         ⇒ ⭐ **同轴重触发时它会【真的压低再抬起】**（`retrig_low`）
+        //         ⇒ ⭐ 上升沿检测**对"起音"和"重触发"都能触发** ✅
+        //
+        //   ⚠️ **`sample_tick_i` 接 `tick_audio`**（⭐ 冻结表 §〇 约定 1：时钟使能）
+        //      ⭐ `DECAY_STEP=67`（`perc_env_bank` 默认）⇒ 满力度(255)：
+        //         `65280/67 ≈ 975` 拍 ≈ **20 ms**
+        //      ⇒ ⭐ 强拍(120) ≈ **8.6 ms** · 弱拍(72) ≈ **5.2 ms**（⭐ 正是打击乐的量级）
+        // ═══════════════════════════════════════════════════════════════════
+        //  ⚠️ 下面这个 5 **必须**与 `u_note_manager` / `u_tdm_render_mixer` 的
+        //     `.RESERVED_N(5)` 一致（⭐ 三处同源；⚠️ 保留池 = **最高**那几路）
+        localparam integer PERC_N   = 5;
+        localparam integer RES_BASE = POLY_TARGET - PERC_N;
+
+        wire [PERC_N-1:0]    perc_trig;
+        wire [PERC_N*8-1:0]  perc_vel;
+        wire [PERC_N*16-1:0] perc_level;
+        wire [PERC_N-1:0]    perc_active;
+        wire [PERC_N-1:0]    perc_busy;
+        wire [PERC_N*16-1:0] perc_retrig_cnt;
+
+        //  ⭐ 上升沿检测：`nm_gate`（电平）⇒ 单周期脉冲
+        reg [PERC_N-1:0] nm_gate_d;
+        always @(posedge clk) begin
+            if (!rst_n_sync) nm_gate_d <= {PERC_N{1'b0}};
+            else             nm_gate_d <= nm_gate[POLY_TARGET-1:RES_BASE];
+        end
+        assign perc_trig = nm_gate[POLY_TARGET-1:RES_BASE] & ~nm_gate_d;
+
+        //  ⭐ 力度：⭐ 保留池那 5 路
+        //     ⚠️ **用纯位选，⛔ 不用 `generate` 循环** ——
+        //        🔴 `g_sound` **本身就在 `generate` 块里**（`generate`@694 → `endgenerate`@2861）
+        //        ⇒ ⛔ **generate/endgenerate 不能再嵌套**（iverilog 报
+        //          "generate/endgenerate regions cannot nest"）⭐ 已实测踩到。
+        //     ⭐ 宽度天然相等：`PERC_N*8` = `POLY_TARGET*8 - RES_BASE*8` ✅
+        assign perc_vel = nm_vel[POLY_TARGET*8-1 : RES_BASE*8];
+
+        perc_env_bank #(
+            .N_PERC     (PERC_N),
+            .ENV_W      (16),
+            .VEL_W      (8),
+            .DECAY_STEP (67)          // ⭐ 默认：满力度 ≈ 20 ms（见上）
+        ) u_perc_env_bank (
+            .clk_i         (clk),
+            .rst_n_i       (rst_n_sync),
+            .sample_tick_i (tick_audio),
+            .trigger_i     (perc_trig),
+            .velocity_i    (perc_vel),
+            .level_o       (perc_level),
+            .active_o      (perc_active),
+            .busy_o        (perc_busy),
+            .retrig_cnt_o  (perc_retrig_cnt)
+        );
+
+        //  ⭐⭐ 包络电平选择：⭐ 保留池 = 打击包络；⭐ 其余 = ADSR（**逐位不变**）
+        //     ⚠️ **⛔ 不用 `generate` 循环**（⭐ 同上：`g_sound` 已在 generate 块内）
+        //     ⭐ 两段**纯位选**就够，⭐ 且宽度天然相等（⭐ 无循环 ⇒ 综合器兼容性最好）
+        wire [POLY_TARGET*16-1:0] env_level_mix;
+        //  ① ⭐ 键盘那 `POLY_TARGET-RESERVED_N` = 27 路：⭐ 原样透传
+        //     ⇒ ⭐ **与改动前逐位一致** ⇒ 键盘音色/音量**零变化** ✅
+        assign env_level_mix[RES_BASE*16-1 : 0] = env_level[RES_BASE*16-1 : 0];
+        //  ② ⭐ 保留池 5 路：⭐ 换成"一击到底"的打击包络
+        assign env_level_mix[POLY_TARGET*16-1 : RES_BASE*16] = perc_level;
+
         tdm_render_mixer #(
             .POLY_TARGET         (POLY_TARGET),
             .OSC_PER_VOICE       (OSC_PER_VOICE),
@@ -2674,7 +3224,10 @@ module top #(
             .rst_n_i          (rst_n_sync),
             .render_start_i   (ob_valid),
             .osc_sample_bus_i (ob_samples),
-            .env_level_i      (env_level),
+            //   ⭐⭐ **2026-09-28：`env_level` ⇒ `env_level_mix`**（⭐ 修 `K-144`）
+            //      ⭐ 差别**只在保留池那 5 路**：⭐ 键盘那 27 路**逐位相同**
+            //      ⇒ ⭐ 键盘音色/音量**零变化**（⭐ 已核实见上方 `perc_env_bank` 段）
+            .env_level_i      (env_level_mix),
             //   🔴🔴🔴 **2026-09-26 上板实测【第六次】：⭐ 回退 `nm_gate` → `nm_active`**
             //
             //   ⭐⭐ **为什么回退（⭐ 本轮决定性证据）**：

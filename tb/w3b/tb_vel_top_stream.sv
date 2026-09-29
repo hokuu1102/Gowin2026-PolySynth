@@ -296,6 +296,38 @@ module tb_vel_top_stream;
         // ═════════════════════════════════════════════════════════════════
         chk("T8: all packets had val/axis aligned with the SAME cycle (L70)", (align_bad == 0) && (axis_bad == 0));
 
+        // ═════════════════════════════════════════════════════════════════
+        // ⑨ ⭐⭐ 2026-09-29：**死区必须仍然工作**（⭐ 防抖动/台阶声的契约 ✅）
+        //   🔴 **为什么单独查这一条**：⭐ 本轮我一度为了修"力度不跟随"，
+        //      把"note_on 时清死区参考"写进了 `top.v` ✅
+        //      ⇒ 🔴 **上板 `Q_velrace` 完全没声音**（⭐ 那一版比有声音的 `P_romhard`
+        //        只多了这一处 ✅）⇒ ⭐ **已整体回退** ✅
+        //   ✅ **正解改在接收端**（⭐ `note_manager` 每轴记一个目标 ✅）
+        //      ⇒ ⭐ **`top.v` 一个字都不用改** ⇒ ⭐ **死区行为【完全不变】** ✅
+        //   ⭐ **本判据 = 那条不变量的守卫**：⭐ pos 稳住不动 ⇒ ⭐ **必须一个包都不发** ✅
+        //   ⭐ **非空洞性**：⭐ 把 `vu_far` 改成恒真 ⇒ ⭐ **本判据必红** ✅
+        // ═════════════════════════════════════════════════════════════════
+        $display("== 9: the deadzone must still hold (top.v must be UNCHANGED by the fix) ==");
+        set_pos(12'd0);
+        run_ticks(16);                       // ⭐ 清干净：pos=0 ⇒ 不发包
+        set_pos(12'd700);
+        run_ticks(24);                       // ⭐ 首次跳变 ⇒ 每轴各发一次
+        run_ticks(16);
+        chk("T9a: with pos held steady, NO further packets (deadzone works)", pkt_cnt == 0);
+
+        set_pos(12'd716);                    // ⭐ +16 = 恰好【不超】死区（判据用严格大于）
+        run_ticks(16);
+        chk("T9b: a +16 step (not over the deadzone) still sends nothing", pkt_cnt == 0);
+
+        set_pos(12'd760);                    // ⭐ +60 ⇒ 明确超死区
+        run_ticks(16);
+        chk("T9c: a +60 step DOES send (deadzone is not stuck shut)", pkt_cnt >= 1);
+
+        //  ⚠️ ⭐ 注：⭐ 本 tb 只 force `as_pos`，⛔ **没有 ADC 帧** ⇒ ⭐ `ee_valid` 永不来
+        //     ⇒ 🔴 **永远没有 voice 被分配**（⭐ 实测 `max(vel_r)=0` ✅）
+        //     ⇒ ⭐ "端到端 `vel_r` 跟随"这条判据**放这里不可能通过** ✅
+        //     ⇒ ⭐ 已挪到 `tb/e2e/tb_e2e_key_to_sound.sv`（⭐ 那里有真按键 ✅）
+
         if (errors == 0)
             $display("PASS: vel_top_stream -- the top-level vu_* stream obeys its contract");
         else

@@ -1,4 +1,4 @@
-﻿iverilog.exe : C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:55: warning: timescale for pos_probe inherited 
+﻿iverilog.exe : C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited 
 from another file.
 At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:123 char:18
 +   $compileOut  = & $iverilog @compileArgs 2>&1
@@ -13,3 +13,9 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_m0.sv:56: warning: Instantiating module top with dangling input port
+ 3 (met_btn_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_m0.sv:87: warning: Instantiating module top with dangling input port
+ 3 (met_btn_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_m0.sv:112: warning: Instantiating module top with dangling input por
+t 3 (met_btn_i) floating.
