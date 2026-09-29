@@ -113,6 +113,8 @@ bringup/impl/
 bringup/jishi/impl/
 # W1-2 dedicated Dock wavetable-tone build output (project files stay tracked).
 bringup/wavetable_tone/impl/
+# H1 standalone HDMI/DVI reference build output.
+bringup/hdmi_ref_720p/impl/
 *.gprj.user
 *.fs
 *.binx
