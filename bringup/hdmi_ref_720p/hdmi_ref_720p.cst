@@ -1,0 +1,22 @@
+// H1: official Tang Mega 60K / Tang Console HDMI TX pins.
+
+IO_LOC  "clk" V22;
+IO_PORT "clk" IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+
+IO_LOC  "rst_n" AA13;
+IO_PORT "rst_n" IO_TYPE=LVCMOS15 PULL_MODE=UP BANK_VCCIO=1.5;
+
+IO_LOC  "tmds_d_p_0[0]" J14,H14;
+IO_PORT "tmds_d_p_0[0]" PULL_MODE=NONE DRIVE=3.5 BANK_VCCIO=3.3;
+
+IO_LOC  "tmds_d_p_0[1]" J15,H15;
+IO_PORT "tmds_d_p_0[1]" PULL_MODE=NONE DRIVE=3.5 BANK_VCCIO=3.3;
+
+IO_LOC  "tmds_d_p_0[2]" K17,J17;
+IO_PORT "tmds_d_p_0[2]" PULL_MODE=NONE DRIVE=3.5 BANK_VCCIO=3.3;
+
+IO_LOC  "tmds_clk_p_0" G15,G16;
+IO_PORT "tmds_clk_p_0" PULL_MODE=NONE DRIVE=3.5 BANK_VCCIO=3.3;
+
+IO_LOC  "hpd_en" K13;
+IO_PORT "hpd_en" PULL_MODE=UP DRIVE=12 BANK_VCCIO=3.3;
