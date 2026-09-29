@@ -5,31 +5,31 @@ NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8
 NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
 NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
 WARN [top] vu_* scans only 8 axes but the system has 16 => axes 8..15 get ATTACK velocity but NO follow (see the VEL_AXIS_N comment)
-NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=11 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=12 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
   [tare ] autotare finished (at_done=1) -- safe to test now
-  [demo0] all_quiet=0 nm_gate=0x00000007 demo_step=3 demo_fired=0 env[0]=52988
-  [demo1] all_quiet=0 nm_gate=0x00000007 demo_step=3 demo_fired=0 env[0]=52908
-  [demo2] all_quiet=0 nm_gate=0x00000007 demo_step=3 demo_fired=0 env[0]=52832
-  [demo3] all_quiet=1 nm_gate=0x00000000 demo_step=7 demo_fired=1 env[0]=52774
+  [demo0] all_quiet=0 nm_gate=0x00000007 demo_step=3 demo_fired=0 env[0]=51140
+  [demo1] all_quiet=0 nm_gate=0x00000007 demo_step=3 demo_fired=0 env[0]=51100
+  [demo2] all_quiet=0 nm_gate=0x00000007 demo_step=3 demo_fired=0 env[0]=51062
+  [demo3] all_quiet=1 nm_gate=0x00000000 demo_step=7 demo_fired=1 env[0]=50988
   [demo ] demo chord fully settled after 4 round(s) (~8 ms)
-  [idleb] pos[0]=0  nm_gate=0x00000000  normal_held=0  n_on=0  env[0]=52774
+  [idleb] pos[0]=0  nm_gate=0x00000000  normal_held=0  n_on=0  env[0]=50988
   ok  : no key pressed => W3a starts NO new note (n_on unchanged)
-  [idle ] HP_DIN toggles = 542  (threshold 800)
+  [idle ] HP_DIN toggles = 520  (threshold 800)
   ok  : no key pressed => HP_DIN is essentially quiet (demo tail allowed)
-  [press] HP_DIN toggles = 2883
+  [press] HP_DIN toggles = 2793
   ok  : pressing (left board reads RAW_DOWN) => HP_DIN carries audio
-  [vel  ] pos[0]=744  max(vel_r)=255  (pos_to_vel(744)=71)
+  [vel  ] pos[0]=744  max(vel_r)=247  (pos_to_vel(744)=71)
   ok  : vel_r FOLLOWS pos end-to-end (press => vel reaches the pos-mapped value)
-  [relA ] env_level[0] = 64328   HP_DIN toggles = 602
-  [relB ] env_level[0] = 63664   HP_DIN toggles = 390
+  [relA ] env_level[0] = 42519   HP_DIN toggles = 652
+  [relB ] env_level[0] = 40527   HP_DIN toggles = 416
   [evts ] total note_on=8  note_off=8
   [gate ] nm_gate[15:0] = 0000000000000000
   ok  : after note_off the envelope is DECAYING (release path works)
   [note ] release is ~0.45 s; this tb only waits 80 ms by design
   ok  : a note_off was produced by the release (distinguishes the two failure modes)
-  [right] HP_DIN toggles = 3364
+  [right] HP_DIN toggles = 3076
   ok  : pressing the right board => also sounds
   ok  : no X propagated on HP_DIN after reset release
   [pos  ] idle = 0   pressed = 744

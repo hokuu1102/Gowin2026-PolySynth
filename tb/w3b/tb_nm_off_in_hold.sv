@@ -109,6 +109,8 @@ module tb_nm_off_in_hold;
         .note_valid_i(note_valid), .note_axis_i(note_axis),
         .note_phase_inc_i(note_phase_inc), .note_velocity_i(note_velocity),
         .note_kind_i(note_kind),
+        // ⭐ A1：本 tb 只有**单一来源**（手弹/live = 0）⇒ 恒接 0（⭐ 行为与加此端口前一致）
+        .note_src_i(2'd0),
         .vel_upd_valid_i(1'b0), .vel_upd_axis_i({AXIS_W{1'b0}}),
         .vel_upd_value_i({VEL_W{1'b0}}),
         .pitch_upd_valid_i(1'b0), .pitch_upd_axis_i({AXIS_W{1'b0}}),

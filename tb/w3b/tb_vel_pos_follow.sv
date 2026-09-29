@@ -162,6 +162,8 @@ module tb_vel_pos_follow;
         .note_valid_i(note_valid), .note_axis_i(note_axis),
         .note_phase_inc_i(note_phase_inc), .note_velocity_i(note_velocity),
         .note_kind_i(note_kind),
+        // ⭐ A1：本 tb 只有**单一来源**（手弹/live = 0）⇒ 恒接 0（⭐ 行为与加此端口前一致）
+        .note_src_i(2'd0),
         .vel_upd_valid_i(vel_upd_valid), .vel_upd_axis_i(vel_upd_axis),
         .vel_upd_value_i(vel_upd_value),
         .pitch_upd_valid_i(1'b0), .pitch_upd_axis_i({AXIS_W{1'b0}}),
@@ -356,16 +358,34 @@ module tb_vel_pos_follow;
         run_ticks(4);
         chk("J6: vel_upd on ANOTHER axis must NOT change this voice", (vidx >= 0) && (vel_of(vidx) == held_vel));
 
-        //  ⚠️ ⭐ 2026-09-29：⭐ 原先这里有一组 **K0/K1** 判据（⭐ "每轴各记一个目标" ✅），
-        //     ⭐ 随 `note_manager` 的【每轴目标】重构一起加入 ✅
-        //  🔴 **已连同该重构一起【整体撤回】**（⭐ 见 `rtl/w3b/note_manager.v` 的说明 ✅）：
-        //     ⭐ 那个重构让 `tb_note_manager` 红了 4 条 ——
-        //     ⭐ 根因是 `vtgt_vld[]` **永不清** ⇒ ⭐ **上一次按键留下的旧目标会覆盖下一次起音**
-        //     （⭐ 实证：`tb_note_manager.sv:457` 发 axis5=240 ⇒ ⭐ 之后 `press_a(axis5, vel=100)`
-        //       ⭐ 本应停在 `env=6400`（⭐ =100×64 ✅），⭐ 却被拉向 240×64=15360 ⇒ 🔴 FAIL ✅）
-        //  ⭐ **结论**：⭐ "每轴目标"方向是对的 ✅，⛔ 但必须配 **`note_on` 清 + `note_off` 清** 的
-        //     ⭐ **生命周期管理** 才能用 ✅ ⇒ ⭐ 留到下一轮一起做 ✅
-        //  📌 **非空洞性记录保留**：⭐ 把目标改成"全局共享"⇒ ⭐ K1 必红（⭐ 已实测 ✅）
+        // ═════════════════════════════════════════════════════════════════
+        // ⑦ ⭐⭐ 2026-09-29 新增：**每个轴各记一个目标**（⭐ 交错更新不得互相覆盖 ✅）
+        //   🔴 **上板症状（⭐ 用户原话）**：*"在不同时间按下同样的深度，音量并不是
+        //      都是从最大开始的…力度反馈在最开始的时候，并没有实现音量的绝对化设定"* ✅
+        //   🔴 **根因**：⭐ `top.v` 的扫描器（⭐ 每 164 µs 轮一个轴 ✅）**先于**
+        //      `event_extract` 看到 `pos` 跳变 ⇒ ⭐ 那次 `vel_upd` 到达时
+        //      **还没有 voice**（⭐ `gate_mask[i]=0` ✅）⇒ 🔴 **被丢掉** ✅
+        //      而 `top.v` 的死区参考**已更新** ⇒ 🔴 **永不再发** ⇒ `vel` 卡在起音值 ✅
+        //   ⭐ **原实现（单寄存器）的第二个缺陷**：⭐ `vu_ax_pend_r`/`vu_val_pend_r`
+        //      只有**一份** ⇒ ⚠️ 别的轴一更新，⭐ 本轴的目标就**被覆盖** ✅
+        //   ✅ **本判据**：⭐ 交错发两个轴的目标（⭐ 本 voice 在轴 0 ✅）⇒
+        //      ⭐ **轴 0 的目标必须【独立保留】** ⇒ ⭐ `vel` 收敛到轴 0 的目标 ✅
+        //   ⭐ **非空洞性**：⭐ 换回单寄存器 ⇒ ⭐ 轴 0 的目标被轴 4 覆盖
+        //      ⇒ ⭐ `vel` 停在原值（≠ 轴 0 目标）⇒ 🔴 **本判据必红** ✅
+        // ═════════════════════════════════════════════════════════════════
+        $display("== K: per-axis targets must survive interleaved updates ==");
+        //  先推到 200（⭐ 与下面的 100 明确不同 ⇒ 判据非空洞 ✅）
+        pulse_velupd(4'd0, 8'd200);
+        run_ticks(40);
+        chk("K0: axis0 target 200 applied", (vidx >= 0) && (vel_of(vidx) == 8'd200));
+
+        //  交错：轴 0 要 100、紧接着轴 4 要 250
+        //  （⭐ 单寄存器实现下，轴 4 的更新会**覆盖**轴 0 的目标 ⇒ 轴 0 永远到不了 100 ✅）
+        pulse_velupd(4'd0, 8'd100);
+        pulse_velupd(4'd4, 8'd250);
+        run_ticks(40);
+        chk("K1: axis0 still reaches ITS OWN target 100 (not overwritten by axis4)",
+            (vidx >= 0) && (vel_of(vidx) == 8'd100));
 
         // ═════════════════════════════════════════════════════════════════
         // ④ ⭐ 松手 ⇒ `note_off` ⇒ release ⇒ 衰减到 0

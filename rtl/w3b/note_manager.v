@@ -98,6 +98,13 @@ module note_manager #(
     input  wire [PHASE_W-1:0]                note_phase_inc_i,
     input  wire [VEL_W-1:0]                  note_velocity_i,    // 0 ⇒ 用 DEFAULT_VEL
     input  wire [1:0]                        note_kind_i,        // 0=note_on 1=note_off 2=pluck
+    //  ⭐⭐ 2026-09-29（A1）：⭐ **事件来源标记**（⭐ `evt_merge.evt_src_o` 驱动）
+    //     ⭐ 编码：0=live 手弹 / 1=score 曲谱·looper 回放 / 2=demo 演示 / 3=源 B 节拍器·鼓机
+    //     ⭐ 用途：⭐ `note_off` **只清"同源"的 voice**（⭐ 见 `ST_DECIDE` 的 off 分支）
+    //     🔴 修的缺陷（上板实测）：⭐ looper 回放时按**同一个轴**的手弹键
+    //        ⇒ 回放的 `note_off` 把**手弹**的 voice 也清了 ⇒ ⭐ **手弹的音死掉且不再回来**。
+    //     ⚠️ 位宽写死 2（⭐ 与 `seq_arb`/`evt_merge` 的编码一致；⛔ 不加参数位选 —— `K-91`）
+    input  wire [1:0]                        note_src_i,
 
     input  wire                              vel_upd_valid_i,    // ⭐ 力度修正（后到）
     input  wire [AXIS_W-1:0]                 vel_upd_axis_i,
@@ -106,6 +113,19 @@ module note_manager #(
     input  wire                              pitch_upd_valid_i,  // ⭐ 音高修正（滑音持续移动）
     input  wire [AXIS_W-1:0]                 pitch_upd_axis_i,
     input  wire [PHASE_W-1:0]                pitch_upd_value_i,
+
+    //  ⭐⭐ 2026-09-29 新增：⭐ **参数更新通路的【来源标记】**
+    //     ⭐ 编码与 `note_src_i` **完全一致**：0=live 手弹 / 1=score 曲谱·looper 回放 / …
+    //  🔴 **为什么必须有**（⭐ 与 A1 的 `note_src_i` 是**同一缺陷类**）：
+    //     ⭐ (d) 力度跟随 与 (e) 音高修正 原来**只按 `axis` 匹配** ⇒
+    //     🔴 一旦 looper 回放也驱动这两条通路 ⇒ ⭐ 回放的更新会
+    //        **把同一轴上手弹的 voice 一起拖走**（⭐ 音量被别人的手势带着跑）✅
+    //  ⭐ 修法：⭐ **更新也带源** ⇒ 两个处理段都要求 `src_r[i] == 更新源` ✅
+    //  ⚠️ **老例化不接本端口 ⇒ `z`** ⇒ ⭐ 由下方 `vu_src_w`/`pu_src_w` 按
+    //     "**悬空 = 手弹(0)**"解码 ⇒ ⭐ **行为与加此端口前完全一致** ✅
+    //     （📌 与 `event_extract.enable_i` 的"悬空 = 使能"是**同一套向后兼容口径** ✅）
+    input  wire [1:0]                        vel_upd_src_i,
+    input  wire [1:0]                        pitch_upd_src_i,
 
     // ── 接口 ② · 参数通路（新起音的默认音色，`K-82`）──────────────────────
     input  wire [TIMBRE_W-1:0]               default_timbre_i,
@@ -163,6 +183,20 @@ module note_manager #(
                                             ? POLY_TARGET
                                             : POLY_TARGET - RESERVED_N;
 
+    //  ⭐⭐ 2026-09-29 新增：⭐ **更新源的"悬空 ⇒ 手弹(0)"解码**（⭐ 向后兼容的关键一步）
+    //   🔴 **为什么必须显式解码**：⭐ 老 tb（`tb_vel_pos_follow` / `tb_note_manager` …）
+    //      **不接**这两个新端口 ⇒ ⚠️ 悬空是 `z` ⇒ 🔴 直接拿去和 `src_r[i]` 比较会得到 `x`
+    //      ⇒ ⭐ **那些 tb 的"力度跟随"判据会假红** ✅
+    //   ⭐ 口径（⭐ 与 `event_extract.v` 的 `enable_i === 1'b0` **完全同构**）：
+    //      ⭐ **只有明确的 1/2/3 才当"非手弹"**，⭐ 其余（含 `x`/`z`）一律当**手弹(0)**
+    //      ⇒ ⭐ **新功能⛔ 不许让老用例失效** ✅
+    wire [1:0] vu_src_w = (vel_upd_src_i   === 2'd1) ? 2'd1 :
+                          (vel_upd_src_i   === 2'd2) ? 2'd2 :
+                          (vel_upd_src_i   === 2'd3) ? 2'd3 : 2'd0;
+    wire [1:0] pu_src_w = (pitch_upd_src_i === 2'd1) ? 2'd1 :
+                          (pitch_upd_src_i === 2'd2) ? 2'd2 :
+                          (pitch_upd_src_i === 2'd3) ? 2'd3 : 2'd0;
+
     // 重触发状态机编码
     localparam [1:0] RT_NONE = 2'd0;
     localparam [1:0] RT_LOW  = 2'd1;   // 已压低，等 sample_tick（让 ADSR 看见 0）
@@ -188,14 +222,48 @@ module note_manager #(
     // ── 每 voice 独立状态（⭐ 冻结表禁令 4：⛔ 不共用相位/包络）─────────────
     reg                    gate_r   [0:POLY_TARGET-1];
     reg [AXIS_W-1:0]       axis_r   [0:POLY_TARGET-1];
+    //  ⭐⭐ 2026-09-29（A1）：⭐ **每 voice 的来源标记**（⭐ 与 `axis_r` 同生共死）
+    //     ⭐ 语义：⭐ "这个 voice 是**谁**起音的" ⇒ `note_off` 只清**同源**的
+    //     ⚠️ 它**必须与 `axis_r` 在同一条写路径上更新**（⛔ 否则会留下"源不明"的 voice
+    //        ⇒ `note_off` 永远匹配不上 ⇒ 🔴 挂音，正是 `T38` 要防的失效模式）
+    reg [1:0]              src_r    [0:POLY_TARGET-1];
     reg [PHASE_W-1:0]      phase_r  [0:POLY_TARGET-1];
     reg [VEL_W-1:0]        vel_r    [0:POLY_TARGET-1];
     //  ⭐⭐ 2026-09-28：**力度更新的挂起寄存器**（⭐ 修"又响又尖"，⭐ 见 `K-154`）
     //   ⚠️ **必须在【模块级】** —— 🔴 Verilog-2001 要求"声明先于语句"，
     //      ⛔ 不能写在 `always` 块中间（⭐ 第一版踩过：40+ 连锁语法错）
-    reg [AXIS_W-1:0]       vu_ax_pend_r;
-    reg [VEL_W-1:0]        vu_val_pend_r;
-    reg                    vu_pend_r;
+    //  ⭐⭐ 2026-09-29 重构：⭐ **每个轴各记一个"目标力度"**（⭐ 取代原来的单寄存器 ✅）
+    //   🔴 **原缺陷（⭐ 上板实测"同深度不同时间音量不同"）**：
+    //      ⭐ 原来只有**一个** `vu_ax_pend_r`/`vu_val_pend_r` ✅ ⇒ ⚠️ 若 `top.v` 的扫描器
+    //      **先于** `event_extract` 看到 `pos` 跳变 ⇒ ⭐ 那次 `vel_upd` 到达时
+    //      **还没有 voice**（⭐ `gate_mask[i]=0` ✅）⇒ 🔴 **被丢掉** ✅
+    //      而 `top.v` 的死区参考**已经更新** ⇒ 🔴 **永不再发** ⇒ `vel` 卡在起音值 ✅
+    //   ✅ **本修法**：⭐ **目标按轴保存**（⛔ 不依赖"那一次有没有 voice" ✅）
+    //      ⇒ ⭐ 丢一次也无所谓 —— ⭐ 目标还在，⭐ 下一个 `sample_tick` 接着爬 ✅
+    //      ⇒ ⭐ **自愈** ✅ ⇒ ⭐ `top.v` **一个字都不用改** ✅
+    //   📌 **为什么在接收端修**（⭐ 而不是去 `top.v` 清死区参考 ✅）：
+    //      ⚠️ 上板 `Q_velrace` 完全没声音 —— ⭐ 那一版正是在 `top.v` 里写
+    //      `vu_last[<变量索引>]`（⭐ 且对 `integer` 型 `localparam` 位选 ⇒ 违反 `K-91` ✅）
+    //      ⇒ ⭐ **教训**：⭐ **"发端去重"和"收端记住目标"，⭐ 该修收端** ✅
+    //   ⚠️ **代价**：⭐ 16 轴 × (8 位目标 + 1 位有效) = **144 FF** ✅（⭐ 实测 +5 Reg ⇒ 综合器折掉大半 ✅）
+    reg [VEL_W-1:0]        vtgt_val [0:(1<<AXIS_W)-1];   // ⭐ 每轴的目标力度
+    reg                    vtgt_vld [0:(1<<AXIS_W)-1];   // ⭐ 该轴是否收到过目标（⛔ 永不清）
+    //  ⭐⭐ 2026-09-29 新增：⭐ **非手弹源（回放）的"每 voice 目标"**（⭐ 见 `(d)` 段）
+    //   🔴 **为什么不复用上面那套"每轴目标"**：
+    //      ⚠️ "每轴目标"**每轴只有一份** ⇒ ⭐ 回放与手弹在同一轴时会**互相覆盖**
+    //      ⇒ 🔴 两边的 voice **都被对方的手势拖走** ✅
+    //   ⭐ 而**回放的目标可以按 voice 存**（⭐ 手弹不行）：
+    //      · ⭐ 手弹的更新**可能早于 voice 出现**（⭐ `K-154`：`top.v` 的扫描器先看到
+    //        `pos` 跳变 ⇒ 那次更新到达时还没有 voice）⇒ ⭐ **必须按轴记住**才能自愈 ✅
+    //      · ⭐ 回放的更新由 `looper` **每个 tick 发一条**（⭐ 0.52 ms @120 BPM），
+    //        而 voice 在 `note_on` 重放后 **≤34 拍（0.68 µs）**就分配好了
+    //        ⇒ ⭐ **结构上不可能"更新早于 voice"** ⇒ ⭐ 按 voice 存**不会丢** ✅
+    //   📌 代价：⭐ 每 voice 8 位（32×8 = **256 FF**），⭐ ⛔ **不引入任何 mux**
+    //      （⚠️ 若改成"按 (源,轴) 索引"的 64 项目标表 ⇒ 🔴 每 voice 一个 64:1 mux
+    //        ⇒ ⭐ 约 **+6000 LUT**，⭐ 那才是真正贵的地方）✅
+    //   ⚠️ **必须在分配/重触发那一刻用"本次事件的力度"初始化** ——
+    //      ⭐ 否则会残留**上一个音**的目标 ⇒ 🔴 新音一响就被拉走 ✅
+    reg [VEL_W-1:0]        vtgt_rep [0:POLY_TARGET-1];
     reg [TIMBRE_W-1:0]     timbre_r [0:POLY_TARGET-1];
     reg [AGE_W-1:0]        age_r    [0:POLY_TARGET-1];
 
@@ -262,6 +330,10 @@ module note_manager #(
     reg [1:0]              fifo_knd [0:FIFO_DEPTH-1];
     reg                    fifo_timbre_valid [0:FIFO_DEPTH-1];
     reg [TIMBRE_W-1:0]     fifo_timbre [0:FIFO_DEPTH-1];
+    //  ⭐ A1：⭐ 来源标记**随事件一起排队**（⭐ 与 `fifo_timbre` 完全同样的手法）
+    //     ⚠️ 必须排队而⛔ 不能"取队列头时直接看活的 `note_src_i`" ——
+    //        ⭐ 队列里的每条事件是**不同拍**到达的，源也就可能不同。
+    reg [1:0]              fifo_src [0:FIFO_DEPTH-1];
     reg [FW-1:0]           fifo_wr;
     reg [FW-1:0]           fifo_rd;
     reg [FW:0]             fifo_cnt;
@@ -299,6 +371,7 @@ module note_manager #(
     wire [1:0]         head_kind = fifo_knd[fifo_rd];
     wire               head_timbre_valid = fifo_timbre_valid[fifo_rd];
     wire [TIMBRE_W-1:0] head_timbre = fifo_timbre[fifo_rd];
+    wire [1:0]         head_src    = fifo_src[fifo_rd];   // ⭐ A1：本条事件的来源
 
     // ── 当前正在处理的事件（从队列头锁存）────────────────────────────────
     reg [AXIS_W-1:0]  cur_axis;
@@ -307,6 +380,7 @@ module note_manager #(
     reg [1:0]         cur_kind;
     reg               cur_timbre_valid;
     reg [TIMBRE_W-1:0] cur_timbre;
+    reg [1:0]         cur_src;         // ⭐ A1：本条事件的来源（⭐ 与 `cur_kind` 同拍锁存）
 
     // ── ⭐ 池掩码：由**锁存后的** `cur_axis` 决定（⛔ 不是活的 `note_axis_i`）──
     //    ⚠️ 必须用 `assign` + `generate`（`L67`：常量块在 `always @(*)` 里不执行）
@@ -359,8 +433,37 @@ module note_manager #(
             //     `note_on(A) → note_off(A) → 等 2 帧 → note_on(A)`
             //     数"axis==A 且 live_mask==1"的 voice 个数
             //     ⭐ 原始：**2**（DUPLICATE）⇒ 修复后：**1**（复用）
+            //
+            //  ⭐⭐ **2026-09-29（A3'）⭐ voice 复用也必须【按来源】判定** ✅
+            //
+            //  🔴 **原缺陷（⭐ 用户上板实测，⭐ 与 A1 是同一个缺陷的【另一半】）**：
+            //     本行只比 `axis_r`、⛔ **不比 `src_r`** ⇒ ⭐ "**先按住**轴 X 的手弹键、
+            //     **再**开始 looper 回放"时，回放（`score`）在同轴的 `note_on`
+            //     **命中的正是手弹那个 voice** ⇒ 走下面 `ST_DECIDE` 的"同轴重触发"路径：
+            //        · 🔴 `retrig_reset` ⇒ **手弹的包络被清零**（⭐ 音被重启）
+            //        · 🔴 `src_r[same_idx] <= cur_src` ⇒ **该 voice 被改判成回放的**
+            //      ⇒ ⭐ 回放的 `note_off` 一到就把它清掉，而**手弹不会再发 `note_on`**
+            //        （⭐ 键一直按着）⇒ 🔴 **键还按着却永久静音** ✅
+            //      📌 **用户原话**：⭐ *"从回放一开始就没声了"*，⭐ 且**只在"先按住键、
+            //         再开始回放"时出现** —— ⭐ 与"先回放、后按键"的对比完全吻合：
+            //         后者 `same_hit` 命中的是**回放自己的** voice ⇒ 行为本来就对 ✅
+            //
+            //  ⚠️ **为什么 A1 单独不够**（⭐ 这一条是本行的存在理由）：
+            //     A1 只改了 `note_off`（⭐ "**清谁**"）⭐ 这一半；⚠️ 而 `src_r` 会被
+            //     重触发路径**就地改写** ⇒ ⭐ 手弹 voice 一被接管，A1 的隔离**同时失效**
+            //     （⭐ 它已经"不是手弹的"了）⇒ 🔴 必须把"**占谁**"这一半也按来源判定 ✅
+            //
+            //  ✅ **修法**：⭐ 加 `src_r[sg] == cur_src` ⇒ ⭐ 回放的 `note_on`
+            //     **绝不接管手弹的 voice**（⭐ 反向亦然）⇒ ⭐ **同轴两个 voice 并存** ✅
+            //  📌 **⛔ 不削弱任何纪律**：
+            //     · ⭐ 下面 `ST_DECIDE` 的 `note_off` 仍是"**清所有 `axis` 与 `src`
+            //       都匹配的 voice**"（⭐ `T38` 防挂音纪律，⛔ 一个字都不改）✅
+            //     · ⭐ `src_r` 与 `axis_r` 永远在**同一条写路径上同拍更新**
+            //       （`ST_COMMIT2` / 重触发各一处）⇒ ⭐ **不留"源不明"的 voice**
+            //       ⇒ ⭐ 任何 voice 都**清得掉** ⇒ ⛔ **不引入新的挂音** ✅
             assign same_hit[sg] = (gate_r[sg] | retrig_low[sg] | env_active_i[sg])
-                                && (axis_r[sg] == cur_axis);
+                                && (axis_r[sg] == cur_axis)
+                                && (src_r[sg]  == cur_src);
         end
     endgenerate
     wire same_valid = |same_hit;
@@ -378,6 +481,8 @@ module note_manager #(
     // ⭐⭐ 扫描用的**单 voice 候选**（每拍只算一个 ⇒ 深度 32:1 mux + 比较）
     //    类别：0 = 空闲（最优）＞ 1 = 已 Release 且电平最低 ＞ 2 = 年龄最老（真抢占）
     //    ⚠️ 重触发保持中的 voice **完全排除**（⛔ 不能被抢）
+    //    ⚠️ 2026-09-29（A3' 续）：**同轴但异源且仍按住**的 voice **也完全排除**
+    //       （⭐ 理由见下方 `cand_foreign`；⭐ 否则池满时回放会抢走手弹的音）✅
     // ═══════════════════════════════════════════════════════════════════════
     reg [SW-1:0]     scan_cnt;
     reg              best_valid;
@@ -392,12 +497,45 @@ module note_manager #(
     wire               cand_pool  = pool_mask[cand_idx];
     wire               cand_free  = free_mask[cand_idx];
     wire               cand_rel   = (~gate_mask[cand_idx]) & env_active_i[cand_idx];
+    //  ⭐⭐ **2026-09-29（A3' 续）⭐ 抢占候选也必须【按来源】排除** ✅
+    //
+    //  🔴 **为什么 `same_hit` 加来源判据还不够**（⭐ 这两条守的是**同一缺陷的两条路**）：
+    //     · ⭐ `same_hit` 管的是"**复用**"—— ⭐ "同轴已有 voice ⇒ 就用它" ✅
+    //     · ⭐ 而**池满**时新音走的是**抢占**这条路 ⇒ ⚠️ 原来的候选比较
+    //       （`cand_ok`/`cand_better`）**只看 空闲/已 Release/年龄，⛔ 完全不看来源**
+    //     ⇒ 🔴 池满时回放（`score`）会去抢**手弹那个"最老的" voice**，并在
+    //        `ST_COMMIT2` 里把它**改判**成自己的（`axis_r`/`src_r`/`vel_r` 全被覆盖）
+    //     ⇒ 🔴 **症状与 A3' 修的那个一模一样**：⭐ 键还按着，手弹的音却没了 ✅
+    //     📌 只是窗口从"**必然发生**"收窄到"**池真的满了**"—— ⚠️ 但**症状仍在**，
+    //        所以必须一起收掉（⭐ 这是 `K-56` 的纪律：⭐ **修一半等于没修**）✅
+    //
+    //  ✅ **修法**：⭐ 把"`axis_r == cur_axis` 且 `src_r != cur_src` 且**仍按住**
+    //     （`gate_mask`=1）"的 voice **从候选里排除** ⇒ ⭐ 池满时回放只能去抢
+    //     **别的** voice（⭐ 即"抢最老"的原有纪律照旧生效，只是**换了对象**）✅
+    //     ⚠️ 只排除 **`gate_mask`=1** 的（⭐ "仍按住"）：⭐ 已松手只剩 Release 尾巴的
+    //        异源同轴 voice **照样可以抢** —— ⭐ 它本来就是**最优牺牲品**（class 1）✅
+    //
+    //  📌 **为什么⛔ 不会退化成"丢音"**（⭐ 已算，⭐ 见报告）：
+    //     ⭐ 每个 `(axis, src)` 同时**最多只有 1 个在响**的 voice（⭐ 因为同源
+    //        `note_on` 一定被 `same_hit` 命中 ⇒ 走复用、⛔ 不会占第二个）✅
+    //     ⇒ ⭐ 同轴上"异源且按住"的 voice **最多 3 个**（⭐ 源共 4 种：0/1/2/3）✅
+    //     ⇒ ⭐ **普通池 27 个候选里最多排除 3 个** ⇒ `best_valid` 必然仍为 1 ✅
+    //     （⭐ 若真排空 ⇒ `best_valid`=0 ⇒ 事件被丢 —— ⭐ 那是 `P2-1` 的守卫，
+    //       ⚠️ 不是本行引入的；本行在**普通池**上结构性地排不空 ✅）
+    //  ⚠️ **已知边界（⭐ 未修，⭐ 实际不可达）**：⭐ **保留池只有 5 个**（`RESERVED_N=5`，
+    //     轴 14/15）⇒ ⚠️ 理论上"3 个异源按住 ＋ 2 个正在 `retrig_low`"会把候选排空
+    //     ⇒ 丢一个事件。⭐ 但轴 14/15 是节拍器/鼓机专用（源 3），⭐ 现实中不会同时
+    //     有 3 个异源在响 ⇒ ⭐ 判定为**不可达**，⛔ 不为它加复杂度（`K-91` 同族：
+    //     ⭐ 别为不可达的分支把主路径搞复杂）✅
+    wire               cand_foreign = (axis_r[cand_idx] == cur_axis)
+                                   && (src_r[cand_idx]  != cur_src)
+                                   && gate_mask[cand_idx];
     wire [1:0]         cand_cls   = cand_free ? 2'd0 : (cand_rel ? 2'd1 : 2'd2);
     wire [ENV_W-1:0]   cand_env   = env_level_i[cand_idx*ENV_W +: ENV_W];
     wire [AGE_W-1:0]   cand_age   = age_r[cand_idx];
 
     // ⭐ "更优"判据（⛔ 只用一级比较；升序扫描 + 严格优于 ⇒ 并列取最低索引）
-    wire cand_ok = cand_pool & ~cand_hold;
+    wire cand_ok = cand_pool & ~cand_hold & ~cand_foreign;
     wire cand_better =
             (~best_valid)
          || (cand_cls < best_cls)
@@ -423,6 +561,7 @@ module note_manager #(
     reg [PHASE_W-1:0]      cmt_inc_r;
     reg [VEL_W-1:0]        cmt_vel_r;
     reg [TIMBRE_W-1:0]     cmt_timbre_r;
+    reg [1:0]              cmt_src_r;   // ⭐ A1：来源标记也走提交流水级（⭐ 与 `axis_r` 同拍写）
     //  ⭐ 重触发清零脉冲：**单周期**（每 clk 先清、由 (f)/(g) 两处按需置位）
     reg  [POLY_TARGET-1:0] retrig_reset_r;
     integer i;
@@ -432,14 +571,20 @@ module note_manager #(
             for (i = 0; i < POLY_TARGET; i = i + 1) begin
                 gate_r[i]   <= 1'b0;
                 axis_r[i]   <= {AXIS_W{1'b0}};
+                src_r[i]    <= 2'd0;          // ⭐ A1：来源标记（⭐ 默认 0 = live）
                 phase_r[i]  <= {PHASE_W{1'b0}};
                 vel_r[i]    <= {VEL_W{1'b0}};
-                //  ⭐ 2026-09-28：力度挂起寄存器也要复位（⭐ 否则上电 `X` ⇒ 可能发假更新）
-                vu_ax_pend_r  <= {AXIS_W{1'b0}};
-                vu_val_pend_r <= {VEL_W{1'b0}};
-                vu_pend_r     <= 1'b0;
                 timbre_r[i] <= {TIMBRE_W{1'b0}};
                 age_r[i]    <= {AGE_W{1'b0}};
+                //  ⭐⭐ 2026-09-29：⭐ 非手弹源（回放）的每 voice 目标也要复位 ✅
+                vtgt_rep[i] <= {VEL_W{1'b0}};
+            end
+            //  ⭐ 2026-09-29：每轴目标力度也要复位（⭐ 否则上电 `X` ⇒ 可能发假更新 ✅）
+            //   📌 按**轴数**循环（⭐ ⛔ 不放在上面 `POLY_TARGET` 的循环里 ——
+            //      那两个数组的长度是**轴数**，⛔ 不是 voice 数 ✅）
+            for (i = 0; i < (1<<AXIS_W); i = i + 1) begin
+                vtgt_val[i] <= {VEL_W{1'b0}};
+                vtgt_vld[i] <= 1'b0;
             end
             for (i = 0; i < FIFO_DEPTH; i = i + 1) fifo_v[i] <= 1'b0;
             fifo_wr       <= {FW{1'b0}};
@@ -459,6 +604,7 @@ module note_manager #(
             cur_kind      <= 2'd0;
             cur_timbre_valid <= 1'b0;
             cur_timbre    <= {TIMBRE_W{1'b0}};
+            cur_src       <= 2'd0;            // ⭐ A1：来源标记也复位（⛔ 不留 X）
             alloc_valid_r <= 1'b0;
             alloc_voice_r <= {IDX_W{1'b0}};
             // ⭐ 2026-09-29 `N-1`：提交流水级的锁存寄存器（⭐ 见 `ST_COMMIT2`）
@@ -468,6 +614,7 @@ module note_manager #(
             cmt_inc_r     <= {PHASE_W{1'b0}};
             cmt_vel_r     <= {VEL_W{1'b0}};
             cmt_timbre_r  <= {TIMBRE_W{1'b0}};
+            cmt_src_r     <= 2'd0;            // ⭐ A1：来源标记（提交流水级）
             retrig_reset_r <= {POLY_TARGET{1'b0}};
             // ⭐⭐ 溢出指示：硬复位清（⚠️ 上电后是干净的；上板运行中要靠 clr 输入清）
             lost_cnt_r    <= {EVT_LOST_CNT_W{1'b0}};
@@ -512,6 +659,7 @@ module note_manager #(
                 fifo_knd[fifo_wr] <= note_kind_i;
                 fifo_timbre_valid[fifo_wr] <= evt_timbre_valid_i;
                 fifo_timbre[fifo_wr] <= evt_timbre_i;
+                fifo_src [fifo_wr] <= note_src_i;     // ⭐ A1：来源随事件排队
                 fifo_wr           <= fifo_wr + 1'b1;
             end
             if (fifo_pop) fifo_rd <= fifo_rd + 1'b1;
@@ -592,26 +740,62 @@ module note_manager #(
             //      `& sample_tick_i` 会**丢掉绝大多数更新**（⭐ 两者不同拍）
             //   ⭐ **目标锁存后【永不清零】** —— 到达目标时下面的 `else` 赋同值
             //      ⇒ ⭐ **自然静止**（⭐ 无需任何"到达"判断）✅
-            if (vel_upd_valid_i) begin
-                vu_ax_pend_r  <= vel_upd_axis_i;   // ⭐ 目标轴
-                vu_val_pend_r <= vel_upd_value_i;  // ⭐ 目标力度
-                vu_pend_r     <= 1'b1;             // ⭐ 有效（⛔ 永不清）
+            //   ⭐⭐ 2026-09-29：⭐ **改成【每轴一个目标】**（⭐ 见上方 `vtgt_*` 的说明 ✅）
+            //      ⭐ 好处：⭐ 即使某次 `vel_upd` 到达时**还没有 voice**（⭐ 被丢掉 ✅），
+            //      ⭐ **目标依然留在 `vtgt_val[axis]`** ⇒ ⭐ 该轴下一个 voice 一发声
+            //      ⭐ 就会朝它爬 ✅ ⇒ ⭐ **自愈** ✅
+            //  ⭐⭐ 2026-09-29：⭐ **改成【按源分开的两套目标】** ✅
+            //     · ⭐ **源 0（手弹）** ⇒ 走下面那套"**每轴**目标"（⭐ 语义与改动前**完全一致**）
+            //     · ⭐ **源 ≠ 0（回放等）** ⇒ 走"**每 voice**目标"（⭐ 见 `vtgt_rep` 的说明）
+            //   🔴 **为什么必须分开**：⭐ 混用一套 ⇒ ⚠️ 同轴时两路互相覆盖
+            //      ⇒ 🔴 **回放的插值会把在响的手弹 voice 拖走**（⭐ 用户会听到"音量乱跑"）✅
+            if (vel_upd_valid_i && (vu_src_w == 2'd0)) begin
+                vtgt_val[vel_upd_axis_i] <= vel_upd_value_i;   // ⭐ 该轴的目标力度
+                vtgt_vld[vel_upd_axis_i] <= 1'b1;              // ⭐ 有效（⛔ 永不清）
             end
 
-            if (sample_tick_i && vu_pend_r) begin
+            //  ⭐⭐ 非手弹源：⭐ **直接写同源 voice 的每 voice 目标**（⭐ 只动同源 ✅）
+            //   ⚠️ 仍然**每采样拍最多 ±8** 地爬（⭐ 见下方统一斜坡段）⇒
+            //      ⭐ `K-154`（⛔ 不许 `vel_r` 一拍整值跳）**照旧成立** ✅
+            if (vel_upd_valid_i && (vu_src_w != 2'd0)) begin
                 for (i = 0; i < POLY_TARGET; i = i + 1)
-                    if (gate_mask[i] && (axis_r[i] == vu_ax_pend_r)) begin
-                        if      (vu_val_pend_r > vel_r[i] + 8'd8) vel_r[i] <= vel_r[i] + 8'd8;
-                        else if (vu_val_pend_r + 8'd8 < vel_r[i]) vel_r[i] <= vel_r[i] - 8'd8;
-                        else                                      vel_r[i] <= vu_val_pend_r;
+                    if (gate_mask[i] && (axis_r[i] == vel_upd_axis_i)
+                                     && (src_r[i]  == vu_src_w))
+                        vtgt_rep[i] <= vel_upd_value_i;
+            end
+
+            //  ⭐ 每个 `sample_tick`：⭐ 所有"在响且该轴有目标"的 voice 各爬 ±8 ✅
+            //   📌 ⛔ **不再需要"本拍扫的是哪个轴"** —— ⭐ 每个 voice 查【自己那个轴】的目标 ✅
+            //      ⇒ ⭐ 跟随**不依赖 `vel_upd` 的到达节奏** ✅（⭐ 原来单寄存器时是依赖的 ✅）
+            //   ⭐⭐ 2026-09-29：⭐ **按源选目标**（⭐ 源 0 查每轴表、⭐ 其它源查每 voice 表）✅
+            if (sample_tick_i) begin
+                for (i = 0; i < POLY_TARGET; i = i + 1)
+                    if (gate_mask[i]) begin
+                        if (src_r[i] == 2'd0) begin
+                            //  ⭐ 手弹：⭐ 每轴目标（⭐ `vtgt_vld` 是"该轴收到过目标"）
+                            if (vtgt_vld[axis_r[i]]) begin
+                                if      (vtgt_val[axis_r[i]] > vel_r[i] + 8'd8) vel_r[i] <= vel_r[i] + 8'd8;
+                                else if (vtgt_val[axis_r[i]] + 8'd8 < vel_r[i]) vel_r[i] <= vel_r[i] - 8'd8;
+                                else                                            vel_r[i] <= vtgt_val[axis_r[i]];
+                            end
+                        end else begin
+                            //  ⭐ 非手弹（回放）：⭐ 每 voice 目标（⭐ 与手弹**同一套 ±8 斜坡** ✅）
+                            if      (vtgt_rep[i] > vel_r[i] + 8'd8) vel_r[i] <= vel_r[i] + 8'd8;
+                            else if (vtgt_rep[i] + 8'd8 < vel_r[i]) vel_r[i] <= vel_r[i] - 8'd8;
+                            else                                    vel_r[i] <= vtgt_rep[i];
+                        end
                     end
             end
 
             // ── (e) ⭐ 音高修正：更新**在响**（含 Release 尾巴）的同轴位 voice ──
             //    ⚠️ 只改 `phase_inc`，⛔ **绝不清相位** ⇒ 滑音不产生"咔"声
+            //    ⭐⭐ 2026-09-29：⭐ **再加一条"同源"判据**（⭐ 与 (d) 段同一纪律）✅
+            //      🔴 原来只按轴匹配 ⇒ ⭐ 回放的插值音高会把**手弹**同轴 voice 的音高
+            //         一起拖走（⭐ 听感：手弹的音自己滑走了）✅
             if (pitch_upd_valid_i) begin
                 for (i = 0; i < POLY_TARGET; i = i + 1)
-                    if (live_mask[i] && (axis_r[i] == pitch_upd_axis_i))
+                    if (live_mask[i] && (axis_r[i] == pitch_upd_axis_i)
+                                     && (src_r[i]  == pu_src_w))
                         phase_r[i] <= pitch_upd_value_i;
             end
 
@@ -653,6 +837,7 @@ module note_manager #(
                         cur_kind <= head_kind;
                         cur_timbre_valid <= head_timbre_valid;
                         cur_timbre <= head_timbre;
+                        cur_src  <= head_src;      // ⭐ A1：来源与其它 `head_*` 同拍锁存
                         state    <= ST_DECIDE;
                     end
                 end
@@ -662,8 +847,18 @@ module note_manager #(
                         // ⭐ `note_off`：清掉**所有**同轴位且 gate 高的 voice
                         //    ⚠️ 清"所有"而不是"一个" ⇒ ⭐ **防挂音**（`T38` 纪律）：
                         //       万一同轴位残留了第二个 voice，也不会永远响下去。
+                        //  ⭐⭐ 2026-09-29（A1）：⭐ **再加一条"同源"判据** ✅
+                        //    🔴 原判据只有 `axis_r[i] == cur_axis` ⇒ ⭐ looper 回放（`score`）
+                        //       的 `note_off` 会把**手弹**（`live`）在同一轴上的 voice 也清掉
+                        //       ⇒ ⭐ 上板现象（用户实测）：⭐ **回放时按同一个键
+                        //          ⇒ 手弹的音被回放的 `note_off` 杀掉，且它自己不再回来** ✅
+                        //    ✅ 现在：⭐ 只有 `src_r[i] == cur_src` 的 voice 才清 ⇒ **按源隔离** ✅
+                        //    📌 **仍然是"清所有匹配的 voice"**（⛔ 不是只清一个）——
+                        //       ⭐ 这是 `T38` 的**防挂音纪律**，⛔ 一个字都不改 ✅
                         for (i = 0; i < POLY_TARGET; i = i + 1)
-                            if ((gate_r[i] | retrig_low[i]) && (axis_r[i] == cur_axis)) begin
+                            if ((gate_r[i] | retrig_low[i])
+                                && (axis_r[i] == cur_axis)
+                                && (src_r[i]  == cur_src)) begin
                                 gate_r[i]     <= 1'b0;
                                 //  ⭐⭐ **`note_off` 无条件优先**（2026-09-28 根因修复）：
                                 //     同时清掉"重触发压低"位 ⇒ (f) 段此后再不会把它抬回 1
@@ -672,15 +867,56 @@ module note_manager #(
                                 //     压低期间恒为 0 ⇒ **跳过该 voice** ⇒ 挂音。
                                 retrig_low[i] <= 1'b0;
                             end
+                        //  ⭐⭐ 2026-09-29：⭐ **松手 ⇒ 清掉该轴的力度目标** ✅
+                        //   ⭐ 语义：⭐ 目标只在"按住期间"有效 ⇒ ⭐ 松手即冻结 ✅
+                        //   🔴 **为什么必须有**：⭐ 若目标永不清（⭐ 我第一版就是 ✅），
+                        //      ⚠️ **上一次按键留下的旧目标会覆盖下一次起音** ✅
+                        //      📌 实证：`tb_note_manager.sv:457` 发 axis5=240 ⇒
+                        //      ⭐ 之后 `press_a(axis5, vel=100)` ⭐ 本应停在 `env=6400`
+                        //      （⭐ =100×64 ✅），⭐ 却被拉向 240×64=15360 ⇒ 🔴 FAIL ✅
+                        //   ⭐ 放在循环**外面**（⭐ 与"有没有 voice"无关 ⇒ 语义更干净 ✅）
+                        //  ⭐⭐ 2026-09-29：⭐ **只有【手弹】的 `note_off` 才清手弹的每轴目标** ✅
+                        //    ⚠️ 否则回放的 `note_off` 会把**手弹**同轴的目标一起清掉
+                        //       ⇒ 🔴 手弹的音**力度被冻结**（⭐ 与 A1 修的 `note_off` 同一缺陷类）✅
+                        if (cur_src == 2'd0)
+                            vtgt_vld[cur_axis] <= 1'b0;
                         state <= ST_IDLE;
                     end else if (same_valid) begin
                         // ⭐ 同轴位重触发优先（复用同一 voice，⛔ 不新占）
                         gate_r[same_idx]     <= 1'b0;   // 压低（由 (f) 段保持到 sample_tick）
                         retrig_low[same_idx] <= 1'b1;   // ⭐ 每 voice 一位（⛔ 不再用全局 retrig_idx）
+                        //  ⭐⭐ 2026-09-29（A1）：⭐ **同轴重触发 ⇒ 这个 voice 换主人** ✅
+                        //   ⭐ 语义：⭐ 谁**最后**起音，voice 就归谁 ⇒ ⭐ 只有它的 `note_off` 清得掉 ✅
+                        //   🔴 **为什么这一条是必需的**（⛔ 不是可选优化）：
+                        //      若不更新 —— 回放（`score`）先在轴 X 起音、手弹（`live`）再按 X
+                        //      ⇒ ⭐ 复用同一个 voice（`src_r` 仍是 `score`）
+                        //      ⇒ 🔴 手弹**松手**那条 `note_off(live)` **匹配不上** ⇒
+                        //         ⭐ 手弹的音要一直响到回放自己发 `note_off` 为止 ⇒ **挂音** ✅
+                        //   📌 与 `note_off` 的 `T38` 纪律一致：⭐ **任何时刻都不留"清不掉"的 voice** ✅
+                        //  ⭐⭐ 2026-09-29（A3'）：⭐ **本行现在恒为"写回同一个值"** ✅
+                        //     ⚠️ 因为 `same_hit` 已经要求 `src_r[sg] == cur_src`（⭐ 见上）
+                        //     ⇒ ⭐ 走到这里时 `src_r[same_idx]` **必然已经等于** `cur_src` ✅
+                        //     ⇒ ⭐ 保留它（⛔ 不删）的理由有两条：
+                        //        · ⭐ **可读性**：⭐ "谁最后起音，voice 就归谁"这条语义
+                        //          在这里**显式成立**，⛔ 不依赖读者去反推 `same_hit` 的判据 ✅
+                        //        · ⭐ **抗漂移**：⚠️ 万一将来有人放宽 `same_hit`（⭐ 例如为了
+                        //          允许跨源复用），⭐ 本行会**立刻**恢复成真正的"改判"，
+                        //          而⛔ 不会静默留下"清不掉"的 voice ✅
+                        src_r[same_idx]      <= cur_src;
                         phase_r[same_idx]  <= cur_inc;
                         vel_r[same_idx]    <= new_vel;
                         timbre_r[same_idx] <= new_timbre;
                         age_r[same_idx]    <= {AGE_W{1'b0}};
+                        //  ⭐⭐ 2026-09-29：⭐ **重触发 ⇒ 也清该轴的旧目标** ✅
+                        //   ⭐ 语义：⭐ 重触发是"一次新的起音" ⇒ ⭐ 力度由**这次事件**决定
+                        //      ⇒ ⛔ 不能让上一次的目标继续把 `vel_r` 拉走 ✅
+                        //   📌 与 `ST_COMMIT2`（⭐ 新占 voice ✅）保持**同一条规则** ✅
+                        //  ⭐⭐ 2026-09-29：⭐ **非手弹事件⛔ 不清手弹的每轴目标**（⭐ 见 `(g)` 的 off 分支）
+                        if (cur_src == 2'd0)
+                            vtgt_vld[cur_axis] <= 1'b0;
+                        //  ⭐⭐ 2026-09-29：⭐ **重触发 ⇒ 每 voice 目标重置为【本次事件的力度】** ✅
+                        //    ⭐ 语义：⭐ 起音力度由**这次事件**决定 ⇒ ⛔ 不许残留上一个音的目标 ✅
+                        vtgt_rep[same_idx] <= new_vel;
                         state              <= ST_IDLE;
                     end else begin
                         // ⭐ 启动扫描（⛔ 不能保证一定有空闲 voice，故要扫全部）
@@ -733,6 +969,7 @@ module note_manager #(
                         cmt_inc_r    <= cur_inc;
                         cmt_vel_r    <= new_vel;
                         cmt_timbre_r <= new_timbre;
+                        cmt_src_r    <= cur_src;      // ⭐ A1：来源与 `cmt_axis_r` 同一拍锁存
                         //  ⭐ 抢占也要清零包络 —— ⚠️ `best_idx` 可能是**正在 release、
                         //     包络仍有残值**的 voice（`cand_rel` 类别就是它）⇒
                         //     🔴 不清零就会把"别人的尾巴"和新音叠加 = 同一个尖音 bug。
@@ -772,11 +1009,30 @@ module note_manager #(
                     if (cmt_en_r) begin
                         gate_r[cmt_idx_r]   <= 1'b1;
                         axis_r[cmt_idx_r]   <= cmt_axis_r;
+                        // ⭐ A1：来源标记与 `axis_r` **同一拍写同一个 voice**（⭐ 不可分离）
+                        src_r[cmt_idx_r]    <= cmt_src_r;
                         phase_r[cmt_idx_r]  <= cmt_inc_r;
                         vel_r[cmt_idx_r]    <= cmt_vel_r;
                         timbre_r[cmt_idx_r] <= cmt_timbre_r;
                         age_r[cmt_idx_r]    <= {AGE_W{1'b0}};
                         retrig_reset_r[cmt_idx_r] <= 1'b1;
+                        //  ⭐⭐ 2026-09-29：⭐ **新占 voice ⇒ 清掉该轴的旧目标** ✅
+                        //   ⭐ 语义：⭐ 起音力度 = **这次事件携带的值**（⭐ `cmt_vel_r` ✅）
+                        //      ⇒ ⛔ 旧目标不得把它拉走 ✅
+                        //   ⭐⭐ **与"每轴目标"配套的三条规则（缺一不可）**：
+                        //      · ⭐ `ST_COMMIT2`（⭐ 新占 ✅）⇒ 清 ✅
+                        //      · ⭐ 重触发（⭐ 同轴复用 ✅）⇒ 清 ✅
+                        //      · ⭐ `note_off`（⭐ 松手 ✅）⇒ 清 ✅
+                        //   📌 **为什么不能只靠"发端补发"**：⭐ 发端的 `vu_last` 是**去重参考** ✅
+                        //      ⇒ ⚠️ 若某次 `vel_upd` 在 voice 出现【之前】到达并被丢掉 ✅，
+                        //      ⭐ 收端**必须**能自愈 —— ⭐ 而"清旧目标 + 目标持续刷新"正是自愈 ✅
+                        //  ⭐⭐ 2026-09-29：⭐ **非手弹事件⛔ 不清手弹的每轴目标**（⭐ 同上）✅
+                        if (cmt_src_r == 2'd0)
+                            vtgt_vld[cmt_axis_r] <= 1'b0;
+                        //  ⭐⭐ 2026-09-29：⭐ **新占 voice ⇒ 每 voice 目标 = 本次事件的起音力度** ✅
+                        //    ⭐ 语义：⭐ 新音的第一个"目标"就是它的**起点** ⇒
+                        //       ⭐ 回放的插值从起点开始爬（⛔ 不会先被上一个音的残值拉走）✅
+                        vtgt_rep[cmt_idx_r] <= cmt_vel_r;
                         alloc_valid_r      <= 1'b1;
                         alloc_voice_r      <= cmt_idx_r;
                     end

@@ -72,6 +72,9 @@ module evt_merge #(
     input  wire [KIND_W-1:0]     a_kind_i,
     input  wire                  a_timbre_valid_i,
     input  wire [TIMBRE_W-1:0]   a_timbre_i,
+    //  ⭐⭐ 2026-09-29（A1）：⭐ 源 A 的**来源标记**（⭐ 由 `seq_arb.evt_src_o` 驱动）
+    //     ⚠️ 位宽写死 2（⭐ 与 `seq_arb` 的 `SRC_*` 编码一致：0=live / 1=score / 2=demo）
+    input  wire [1:0]            a_src_i,
 
     // ── 源 B：节拍器 / 鼓机 ────────────────────────────────────────────────
     input  wire                  b_valid_i,
@@ -81,6 +84,9 @@ module evt_merge #(
     input  wire [KIND_W-1:0]     b_kind_i,
     input  wire                  b_timbre_valid_i,
     input  wire [TIMBRE_W-1:0]   b_timbre_i,
+    //  ⭐⭐ 2026-09-29（A1）：⭐ 源 B 的**来源标记**（⭐ 由 `top.v` 给**常数** `2'd3`）
+    //     ⭐ 3 是 `seq_arb` 编码之外的**第 4 个值** ⇒ ⭐ 与手弹/回放/演示**必然不同源**
+    input  wire [1:0]            b_src_i,
 
     // ── 合流后的唯一事件口（→ `note_manager`）─────────────────────────────
     output reg                   evt_valid_o,
@@ -90,6 +96,9 @@ module evt_merge #(
     output reg  [KIND_W-1:0]     evt_kind_o,
     output reg                   evt_timbre_valid_o,
     output reg  [TIMBRE_W-1:0]   evt_timbre_o,
+    //  ⭐⭐ 2026-09-29（A1）：⭐ 合流后事件的**来源标记** —— ⭐ 时序 = `evt_valid_o`
+    //     ⭐ 一路穿过本模块的 FIFO（⭐ 与 `timbre` 字段**完全同样的手法**）
+    output reg  [1:0]            evt_src_o,
 
     // ── ⭐ 可观测性（`K-106` 纪律：容量有限/会失效的东西必须能看见）──────────
     output reg  [15:0]           collision_cnt_o,  // ⭐ 同拍相撞次数（饱和）
@@ -100,6 +109,11 @@ module evt_merge #(
 
     // ── ⭐ 打包成一条记录（⚠️ 用一个向量，FIFO 索引就简单了）──────────────────
     localparam integer ENT_W = AXIS_W + PHASE_W + VEL_W + KIND_W + 1 + TIMBRE_W;
+    //  ⭐⭐ 2026-09-29（A1）：⭐ **来源标记**（⭐ 与 `seq_arb` 同一手法）
+    //     ⚠️ 放在记录的**最高位** ⇒ ⭐ 原有字段偏移（`AX_O`/`IN_O`/`VE_O`/`TV_O`）
+    //        **一个都不用动** —— ⭐ 这正是"只加不改"的关键（⛔ 不碰已验证的位域）
+    localparam integer SRC_W  = 2;
+    localparam integer ENT2_W = SRC_W + ENT_W;
     localparam integer AX_O  = PHASE_W + VEL_W + KIND_W + 1 + TIMBRE_W;
     localparam integer IN_O  = VEL_W + KIND_W + 1 + TIMBRE_W;
     localparam integer VE_O  = KIND_W + 1 + TIMBRE_W;
@@ -114,7 +128,8 @@ module evt_merge #(
     localparam [15:0] DEPTH_C  = DEPTH;
     localparam [15:0] DEPTH_M1 = DEPTH_C - 16'd1;
 
-    function [ENT_W-1:0] pack_evt;
+    function [ENT2_W-1:0] pack_evt;
+        input [SRC_W-1:0]   src;
         input [AXIS_W-1:0]  ax;
         input [PHASE_W-1:0] inc;
         input [VEL_W-1:0]   vl;
@@ -122,14 +137,14 @@ module evt_merge #(
         input               tv;
         input [TIMBRE_W-1:0] tb;
         begin
-            pack_evt = {ax, inc, vl, kd, tv, tb};
+            pack_evt = {src, ax, inc, vl, kd, tv, tb};
         end
     endfunction
 
     // ── ⭐ FIFO 存储与指针 ─────────────────────────────────────────────────
     //   ⚠️ 用**环形缓冲**（⛔ 不是移位寄存器）：推入/弹出各只动一个指针，
     //      ⛔ 不搬数据 ⇒ 面积小、时序好（⚠️ 本项目 Fmax 余量薄）。
-    reg [ENT_W-1:0] mem [0:DEPTH-1];
+    reg [ENT2_W-1:0] mem [0:DEPTH-1];
     reg [15:0]      cnt_q;
     reg [15:0]      head_q;      // ⭐ 弹出位置
     reg [15:0]      tail_q;      // ⭐ 推入位置
@@ -139,7 +154,7 @@ module evt_merge #(
 
     // ── ⭐ 组合：本拍能不能弹 ───────────────────────────────────────────────
     wire          pop_now = (cnt_q != 16'd0);        // ⭐ 空队列不弹（⛔ 不吐垃圾）
-    wire [ENT_W-1:0] pop_data = mem[head_q];
+    wire [ENT2_W-1:0] pop_data = mem[head_q];
 
     // ── ⭐ 组合：本拍推几条（⭐ 冲突时按 prio_b_r 定【谁先】）────────────────
     //   ⚠️ 两条都要推时，**顺序**要定下来（FIFO 是保序的，先推的先出）
@@ -171,6 +186,7 @@ module evt_merge #(
             evt_kind_o      <= {KIND_W{1'b0}};
             evt_timbre_valid_o <= 1'b0;
             evt_timbre_o    <= {TIMBRE_W{1'b0}};
+            evt_src_o       <= {SRC_W{1'b0}};   // ⭐ A1：来源标记也复位（⛔ 不留 X）
             cnt_q           <= 16'd0;
             head_q          <= 16'd0;
             tail_q          <= 16'd0;
@@ -192,6 +208,8 @@ module evt_merge #(
                 evt_kind_o      <= pop_data[TV_O + 1 +: KIND_W];
                 evt_timbre_valid_o <= pop_data[TV_O +: 1];
                 evt_timbre_o    <= pop_data[0 +: TIMBRE_W];
+                // ⭐ A1：⭐ 来源标记与**本拍弹出的这条**同时输出（⭐ 时序 = `evt_valid_o`）
+                evt_src_o       <= pop_data[ENT_W +: SRC_W];
                 head_q          <= (head_q + 16'd1 == DEPTH_C) ? 16'd0
                                                                    : head_q + 16'd1;
                 merged_cnt_o    <= (merged_cnt_o == 16'hFFFF) ? merged_cnt_o
@@ -205,30 +223,30 @@ module evt_merge #(
                     // ⭐ 顺序由 prio_b_r 决定：先推的那条先出（FIFO 保序）
                     if (push_a && push_b) begin
                         if (push_a_first) begin
-                            mem[tail_q] <= pack_evt(a_axis_i, a_phase_inc_i,
+                            mem[tail_q] <= pack_evt(a_src_i, a_axis_i, a_phase_inc_i,
                                                     a_velocity_i, a_kind_i,
                                                     a_timbre_valid_i, a_timbre_i);
                             mem[(tail_q + 16'd1 == DEPTH_C) ? 16'd0
                                                                 : tail_q + 16'd1]
-                                <= pack_evt(b_axis_i, b_phase_inc_i,
+                                <= pack_evt(b_src_i, b_axis_i, b_phase_inc_i,
                                             b_velocity_i, b_kind_i,
                                             b_timbre_valid_i, b_timbre_i);
                         end else begin
-                            mem[tail_q] <= pack_evt(b_axis_i, b_phase_inc_i,
+                            mem[tail_q] <= pack_evt(b_src_i, b_axis_i, b_phase_inc_i,
                                                     b_velocity_i, b_kind_i,
                                                     b_timbre_valid_i, b_timbre_i);
                             mem[(tail_q + 16'd1 == DEPTH_C) ? 16'd0
                                                                 : tail_q + 16'd1]
-                                <= pack_evt(a_axis_i, a_phase_inc_i,
+                                <= pack_evt(a_src_i, a_axis_i, a_phase_inc_i,
                                             a_velocity_i, a_kind_i,
                                             a_timbre_valid_i, a_timbre_i);
                         end
                     end else if (push_a) begin
-                        mem[tail_q] <= pack_evt(a_axis_i, a_phase_inc_i,
+                        mem[tail_q] <= pack_evt(a_src_i, a_axis_i, a_phase_inc_i,
                                                 a_velocity_i, a_kind_i,
                                                 a_timbre_valid_i, a_timbre_i);
                     end else begin
-                        mem[tail_q] <= pack_evt(b_axis_i, b_phase_inc_i,
+                        mem[tail_q] <= pack_evt(b_src_i, b_axis_i, b_phase_inc_i,
                                                 b_velocity_i, b_kind_i,
                                                 b_timbre_valid_i, b_timbre_i);
                     end

@@ -81,9 +81,13 @@ module tb_evt_merge;
         .a_valid_i(a_valid), .a_axis_i(a_axis), .a_phase_inc_i(a_inc),
         .a_velocity_i(a_vel), .a_kind_i(a_kind),
         .a_timbre_valid_i(a_tv), .a_timbre_i(a_tb),
+        // ⭐ A1：来源标记（⭐ 本 tb 不验它 —— 它由 `tb_note_manager` 的判据覆盖）
+        //    ⚠️ 必须给**确定值**：留空 ⇒ `z` ⇒ 存进 FIFO 的是 `z`（⛔ 不是 0）
+        .a_src_i(2'd0),
         .b_valid_i(b_valid), .b_axis_i(b_axis), .b_phase_inc_i(b_inc),
         .b_velocity_i(b_vel), .b_kind_i(b_kind),
         .b_timbre_valid_i(b_tv), .b_timbre_i(b_tb),
+        .b_src_i(2'd3),
         .evt_valid_o(m_valid), .evt_axis_o(m_axis), .evt_phase_inc_o(m_inc),
         .evt_velocity_o(m_vel), .evt_kind_o(m_kind),
         .evt_timbre_valid_o(m_tv), .evt_timbre_o(m_tb),

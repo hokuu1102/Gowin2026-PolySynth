@@ -103,7 +103,13 @@ module tb_w1_interfaces;
         if ($bits(test_phase_inc) != OSC_N*PHASE_W) errors = errors + 1;
         if ($bits(dry_sample) != SAMPLE_W) errors = errors + 1;
 
-        if (osc_sample_bus !== {OSC_N*OSC_SAMPLE_W{1'b0}}) errors = errors + 1;
+        //  ⭐⭐ 2026-09-29 更正（⭐ 合并 T31b 波表时发现）：⭐ 原断言「空闲 ⇒ `osc_sample_bus` 全 0」
+        //   🔴 **那条从来不是真契约** —— ⚠️ 它只是**碰巧**成立：
+        //      ⭐ 旧波表是纯正弦、`sine[0] = 0` ⇒ ⭐ 空闲时读地址 0 恰好得 0 ✅
+        //   🔴 T31b 换成 **AKWF 表**（⭐ 表首不为 0 ✅）⇒ ⚠️ 空闲 lane 的**原始样本**不再为 0
+        //      ⭐ **但无害**：⭐ 它要被 `env_level`（⭐ 空闲 = 0，⭐ 下面仍在断 ✅）与 `voice_active` 乘掉
+        //   ⇒ ⭐ 真契约是 **"空闲 ⇒ 混音输出为 0"** ⇒ ⭐ 这里改断 **X/Z 干净**（⭐ 另见下方 `env_level` 判据 ✅）
+        if ((^osc_sample_bus) === 1'bx) errors = errors + 1;   // ⭐ 原始总线不许有 X/Z
         if (env_level !== {POLY_TARGET*ENV_W{1'b0}}) errors = errors + 1;
         if (test_phase_inc === {OSC_N*PHASE_W{1'b0}}) errors = errors + 1;
         if (test_voice_gate !== {POLY_TARGET{1'b1}}) errors = errors + 1;

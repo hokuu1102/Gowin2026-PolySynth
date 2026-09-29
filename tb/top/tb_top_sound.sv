@@ -89,7 +89,7 @@ module tb_top_sound;
         .OSC_PER_VOICE     (OPV),
         .HEARTBEAT_DIV     (100)
     ) u_top (
-        .clk (clk), .rst_n (rst_n),
+        .clk (clk), .rst_n (rst_n), .timbre_btn_i (1'b1),
         .HP_BCK (HP_BCK), .HP_WS (HP_WS), .HP_DIN (HP_DIN),
         .PA_EN_n (PA_EN_n), .led_heartbeat (led_hb),
         //   ⭐⭐ 2026-09-26：外置 DAC 三根线（⭐ 见上方说明）

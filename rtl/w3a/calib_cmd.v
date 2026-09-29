@@ -120,7 +120,11 @@ module calib_cmd #(
     //      ⇒ ⭐ **控制面与来源解耦**，⭐ 换来源**不用改 `calib_cmd` 的下游** ✅
     //   ⚠️ 字母占用核对：⭐ 已用 `T S X P V M N R L C` ＋ 帧头 `A5`
     //      ⇒ ⭐ `'I'` = `0x49` **未占用** ✅（⭐ `initial` 里的查重表会机械核对 ✅）
-    parameter [7:0]   CMD_TIMBRE   = 8'h49    // 'I' ⭐ 切音色（⭐ 0→1→2→3→0 循环）
+    parameter [7:0]   CMD_TIMBRE   = 8'h49,   // 'I' ⭐ 切音色（⭐ 0→1→2→3→0 循环）
+    //  ⭐⭐ 2026-09-29 合并（⭐ 用户裁定 = 方案 B）：⭐ **节拍器改走串口 `'B'`** ✅
+    //   ⭐ 因为 `AB13`/S2 让给了**音色切换按键**（⭐ 队友的 `timbre_btn_i` ✅）
+    //   ⭐ 语义与原来的物理按键**完全一致**：⭐ 发一次 **开**、再发一次 **关** ✅
+    parameter [7:0]   CMD_METRONOME = 8'h42    // 'B' ⭐ 节拍器 **开/关切换**
 ) (
     input  wire        clk_i,
     input  wire        rst_n_i,        // ⭐ 同步复位、低有效
@@ -143,6 +147,7 @@ module calib_cmd #(
     output reg         loop_play_req_o,// ⭐ 'L' ⇒ looper 播放切换
     output reg         loop_clear_req_o,// ⭐ 'C' ⇒ looper 清空该层
     output reg         timbre_req_o,    // ⭐ 'I' ⇒ 切音色（⭐ 0→1→2→3→0 循环，⭐ 2026-09-29 新增）
+    output reg         met_req_o,       // ⭐ 'B' ⇒ 节拍器开/关切换（⭐ 2026-09-29 新增，方案 B）
 
     // ── ⭐ 可观测性（`K-106`：⛔ 不许静默失效）────────────────────────────
     output reg  [15:0] cmd_cnt_o,      // ⭐ 已接受的命令数（饱和）
@@ -189,12 +194,14 @@ module calib_cmd #(
     wire byte_is_loop_clr  = (rx_data_i == CMD_LOOP_CLR);
     // ⭐ 2026-09-29：⭐ 切音色（⭐ 'I'）
     wire byte_is_timbre    = (rx_data_i == CMD_TIMBRE);
+    // ⭐⭐ 2026-09-29：⭐ 节拍器开/关（⭐ 'B'）—— 方案 B：⭐ `AB13`/S2 让给音色按键 ✅
+    wire byte_is_met       = (rx_data_i == CMD_METRONOME);
     // ⭐ 任一命令字母
     wire byte_is_cmd   = byte_is_tare | byte_is_span | byte_is_abort |
                          byte_is_probe | byte_is_vstat | byte_is_posprobe |
                          byte_is_test_mode |
                          byte_is_loop_rec | byte_is_loop_play | byte_is_loop_clr |
-                         byte_is_timbre;
+                         byte_is_timbre | byte_is_met;
 
     // ⭐ 只有在**帧外**（`idx_q == 0`）才认命令
     //   🔴 这是本模块的**安全核心** —— ⚠️ 帧内的字母是**载荷**，⛔ 绝不能当命令
@@ -237,6 +244,7 @@ module calib_cmd #(
             loop_play_req_o<= 1'b0;     // ⭐ 'L' looper 播放切换
             loop_clear_req_o<= 1'b0;    // ⭐ 'C' looper 清空
             timbre_req_o   <= 1'b0;     // ⭐ 'I' 切音色（⭐ 2026-09-29）
+            met_req_o      <= 1'b0;     // ⭐ 'B' 节拍器开/关（⭐ 2026-09-29）
             cmd_cnt_o      <= 16'd0;
             in_frame_cnt_o <= 16'd0;
             resync_cnt_o   <= 16'd0;
@@ -254,6 +262,7 @@ module calib_cmd #(
             loop_play_req_o <= 1'b0;    // ⭐ 'L'
             loop_clear_req_o<= 1'b0;    // ⭐ 'C'
             timbre_req_o    <= 1'b0;    // ⭐ 'I'（⭐ 2026-09-29）
+            met_req_o       <= 1'b0;    // ⭐ 'B'（⭐ 2026-09-29）
 
             if (rx_done_i) begin
                 // ══ 收到一个字节 ═══════════════════════════════════════════
@@ -279,6 +288,7 @@ module calib_cmd #(
                         if (byte_is_loop_clr)  loop_clear_req_o<= 1'b1;
                         // ⭐ 2026-09-29：⭐ 切音色（⭐ 帧外 ⇒ 安全）
                         if (byte_is_timbre)    timbre_req_o    <= 1'b1;
+                        if (byte_is_met)       met_req_o       <= 1'b1;   // ⭐ 'B'（⭐ 2026-09-29）
                         cmd_cnt_o <= sat_inc16(cmd_cnt_o);
                         idx_q     <= 4'd0;      // ⭐ 命令不推进帧位置
                     end else begin
@@ -329,7 +339,7 @@ module calib_cmd #(
     localparam PARAM_OK = (GAP_BYTES > 1) && (BYTE_CLK_I > 0);
 
     //  ⭐⭐ **全部命令字母**（⚠️ 加新命令时【必须】往这张表里加一项）
-    localparam integer N_CMD = 11;
+    localparam integer N_CMD = 12;
     reg [7:0] cmd_tab [0:N_CMD-1];
     integer   ci, cj;
     reg       letters_ok;
@@ -346,6 +356,7 @@ module calib_cmd #(
         cmd_tab[8]  = CMD_LOOP_PLAY;
         cmd_tab[9]  = CMD_LOOP_CLR;
         cmd_tab[10] = CMD_TIMBRE;      // ⭐ 2026-09-29：⭐ 'I' 切音色
+        cmd_tab[11] = CMD_METRONOME;   // ⭐ 2026-09-29：⭐ 'B' 节拍器开/关（⭐ 方案 B：S2 让给音色）
 
         if (GAP_BYTES <= 1)
             $display("ERROR [calib_cmd] GAP_BYTES = %0d <= 1 => intra-frame byte gaps would be mistaken for idle, so a half frame resyncs early and payload bytes get treated as commands. PARAM_OK=0.", GAP_BYTES);

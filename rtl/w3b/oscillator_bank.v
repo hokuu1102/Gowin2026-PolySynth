@@ -73,9 +73,15 @@ module oscillator_bank #(
 //
 //   📌 **保留参数的两个理由**：⭐ ① 可回退 ✅ ② ⭐ **后续还会改波表**
 //      ⇒ ⭐ 改波表时**不用再动这一路** ✅
-//   ⭐ **副作用（好的）**：⭐ `VEL_TIMBRE_BLEND = 0` 是**编译期常量** ⇒
-//      ⭐ 混合乘法器被**综合器整块折叠掉** ⇒ ⭐ 省一个 TDM 乘法器 ✅
-parameter integer VEL_TIMBRE_BLEND = 0,
+//   ⭐ **副作用（好的）**：⭐ `VELOCITY_BLEND_EN = 0` 是**编译期常量** ⇒
+//      ⭐ 力度插值那一路被**综合器整块折叠掉** ⇒ ⭐ 省一个 TDM 乘法器 ✅
+//  ⭐⭐ 2026-09-29 合并（⭐ 队友 `codex/t31b-final-6db-s2`）：⭐ **参数改名 + 语义更明确** ✅
+//   · ⭐ `VELOCITY_BLEND_EN`：⭐ 0 = **力度【不】改音色**（⭐ 默认 ✅）· 1 = 旧行为（⭐ 力度插值 soft/hard ✅）
+//   · ⭐ `FIXED_BLEND_Q`：⭐ 仅当上面为 0 时生效 —— ⭐ **Q0.8 固定音色**（⭐ 0 = soft · 256 = hard ✅）
+//   🔴 为什么默认固定：⭐ 满行程时旧的"力度→音色"会把波形推到 **200/256 的 hard 成分**
+//      ⇒ ⭐ 每个音色都变成粗糙持续音 ＋ ⭐ 和弦里谐波堆积（⭐ 不可用 ✅）
+parameter integer VELOCITY_BLEND_EN = 0,
+parameter integer FIXED_BLEND_Q     = 0,
     // ⚠️ FM **未实装**（`A2c`：先留接口、后加；且 FM **不计入吞吐量**）
     parameter integer ENABLE_FM     = 0,
     // ⭐ 颤音参考相位增量（Q 单位：`f_out = inc × fs / 2^32`）
@@ -175,11 +181,32 @@ parameter integer VEL_TIMBRE_BLEND = 0,
             reg [PHASE_W-1:0] phase_q;
             reg [AW-1:0]      addr_q;
 
-            // ⭐ 正式通路 vs Test Mode 覆盖（`T43` 用）
-            //    ⚠️ 用 `assign` 而非 `always @(*)`（`K-93`：常量块在仿真里不执行）
+            //   ⭐ 本 lane 是否"在响"（⭐ 含 Release 尾巴 ✅）
             wire lane_active = test_mode_i
                              ? test_lane_active_i[g]
                              : voice_active_i[VOICE_IDX];
+
+            //  ⭐⭐⭐⭐ 2026-09-29 **治本**：⭐ **起音时把相位复位到设计初相** ✅
+            //   🔴 **上板症状（⭐ 用户原话）**：*"无论按下的行程多少，都是原始音量"* ✅
+            //      ⭐ 且用户给出决定性观察：*"我快速地每次都按到底，用微分积分的思想来看，
+            //      就和长按的音量变化是一样的，还是失谐的正弦波的音量起伏"* ✅
+            //      ⇒ ⭐ **快速连按 = 对拍频包络做【采样】** ⇒ ⭐ **每次起音的音量 =
+            //        失谐两 lane 当时的相位关系**（⭐ 0.25× ~ 2.0× ✅）✅
+            //   🔴 **根因**：⭐ `phase_q` 只在 `rst_n_i` 时取 `phase_seed` ✅，
+            //      ⭐ 之后**永远累加** ⇒ ⚠️ 未激活时**保持上次的值**（⭐ 无 `else` ✅）
+            //      ⇒ 🔴 **第一个音之后，0°/90° 这个设计初相关系就【丢失】了** ✅
+            //      ⇒ 🔴 **每次起音的叠加幅度随机** ✅
+            //   ✅ **修法**：⭐ 取 `lane_active` 的**上升沿**（⭐ = `note_on` ✅）
+            //      ⇒ ⭐ `phase_q <= phase_seed`（⭐ 回到设计初相 ✅）
+            //   📌 **为什么这正是【设计者本来的意图】**：⭐ `phase_seed` 的注释原文 ——
+            //      *"给它一个 1/4 周期初相 ⇒ 起音时一个是 `sin`、一个是 `cos`
+            //      ⇒ ✅ 既不抵消、也不叠加（⭐ 幅度平稳）"* ✅
+            //      ⇒ ⭐ **它就是为"起音"设计的** ✅ ⛔ **却只接到了复位** ✅
+            //   ⚠️ **"清零会产生咔声"这条顾虑对 `note_on` 【不成立】**：
+            //      ⭐ 起音时包络从 **0** 起 ⇒ ⭐ **没有可听的不连续** ✅
+            //      （⭐ 该顾虑对"**在响时**改相位"成立 —— ⭐ 例如滑音 ✅ 见 `pitch_upd` ✅）
+            //   📌 **成本**：⭐ 每 lane 1 个 FF（⭐ 64 个 ✅）＋ ⭐ 一个 `phase_seed` 载入 ✅
+            reg               lane_active_d;   // ⭐ 上一采样拍是否在响（⭐ 用于取上升沿 ✅）
 
             //   ⭐⭐ **本 lane 的基频增量**（⭐ 在这里注入失谐）
             wire [PHASE_W-1:0] base_inc =
@@ -253,17 +280,30 @@ parameter integer VEL_TIMBRE_BLEND = 0,
             always @(posedge clk_i) begin
                 if (!rst_n_i) begin
                     //   ⭐ 复位时**直接给去相关初相**（⭐ 不是全 0）
-                    phase_q <= phase_seed;
-                    addr_q  <= {AW{1'b0}};
+                    phase_q       <= phase_seed;
+                    addr_q        <= {AW{1'b0}};
+                    lane_active_d <= 1'b0;
                 end else if (sample_tick_i) begin
                     // ⭐ 地址锁存用**本帧起始**的相位（DDS 标准做法），
                     //   然后相位再前进 ⇒ ⭐ 保证整帧 64 个样本来自**同一时刻**的相位
                     //   （对应接口表 "osc_sample_bus_i 稳定至本帧结束"）
-                    addr_q <= phase_q[ADDR_MSB:ADDR_LSB];
-                    // ⚠️ 只在 `lane_active` 时前进 ⇒ 未激活的 voice **保持相位**
-                    //    （⛔ 不清零：避免 note_on 瞬间的相位跳变产生"咔"声；
-                    //      真正的"起音相位"策略见 `K-95`）
-                    if (lane_active)
+                    addr_q        <= phase_q[ADDR_MSB:ADDR_LSB];
+                    lane_active_d <= lane_active;      // ⭐ 记一拍的"在响"
+                    // ⭐⭐⭐⭐ 2026-09-29 **治本**：⭐ 起音（上升沿）⇒ 复位到设计初相 ✅
+                    //   🔴 **原行为**：⭐ `if (lane_active) phase_q <= phase_q + inc;`
+                    //      —— ⭐ **无 `else`** ⇒ ⭐ 未激活时**保持相位** ✅
+                    //      ⇒ 🔴 起音相位 = **上次遗留的任意值** ⇒ ⭐ 叠加幅度随机 ✅
+                    //   ✅ **新行为**：⭐ 上升沿载入 `phase_seed`（⭐ lane0 = 0°、
+                    //      lane1 = 90° ✅）⇒ ⭐ **每个音都从同一个初相开始** ✅
+                    //      ⇒ ⭐ **同深度 ⇒ 同音量** ✅
+                    //   📌 载入那一拍**不累加**（⭐ 相位从种子起步 ✅）
+                    //   ⚠️ **只在【正式通路】做**（⭐ `!test_mode_i` ✅）——
+                    //      ⭐ `T43`/`T55` 的 test-mode 判据建立在"**test 覆盖下相位照常前进**"
+                    //      ⭐ 之上（⭐ 如 `test_mode=1 overrides voice_active=0` ✅）
+                    //      ⇒ ⭐ 若在那里也复位种子，⭐ 会打破它们 ✅（⭐ 实测 5 条红 ✅）
+                    if (!test_mode_i && lane_active && !lane_active_d)
+                        phase_q <= phase_seed;         // ⭐ 起音：回到设计初相
+                    else if (lane_active)
                         phase_q <= phase_q + lane_inc;
                 end
             end
@@ -319,6 +359,11 @@ parameter integer VEL_TIMBRE_BLEND = 0,
     // ═══════════════════════════════════════════════════════════════════════
     wire signed [WT_W-1:0] rom_soft;
     wire signed [WT_W-1:0] rom_hard;
+    //  ⭐⭐ 2026-09-29 追加：⭐ **Test Mode 专用的【纯正弦】表**（⭐ 与音色解耦 ✅）
+    //   ⭐ 由 `wavetable_bank` 的第 9 个 pROM `rom_test_sine_inst` 提供 ✅
+    //   📌 为什么要单独一张：⭐ 四音色（AKWF）**谐波丰富** ⇒ ⭐ 借它们做 Test Mode
+    //      ⇒ 🔴 谐波被 `peak_count` 数成谱峰 ⇒ 🔴 M4 判据（4/8/16/32）变红 ✅
+    wire signed [WT_W-1:0] rom_test;
     reg  [7:0] resp_velocity_q;
 
     always @(posedge clk_i) begin
@@ -328,10 +373,15 @@ parameter integer VEL_TIMBRE_BLEND = 0,
             resp_velocity_q <= req_velocity;
     end
 
-    // `velocity=0` picks soft exactly; `velocity=255` picks hard exactly.
-    // One TDM multiplier serves all 64 lanes, so this adds no per-voice DSP.
-    wire [8:0] mix_q = (resp_velocity_q == 8'hFF) ? 9'd256
-                                                      : {1'b0, resp_velocity_q};
+    //  ⭐⭐ 2026-09-29 合并（⭐ 队友版）：⭐ **默认【不】让力度改音色** ✅
+    //   · ⭐ `VELOCITY_BLEND_EN = 1` ⇒ ⭐ 旧行为：⭐ `velocity=0` 取 soft · `255` 取 hard
+    //   · ⭐ `VELOCITY_BLEND_EN = 0`（默认）⇒ ⭐ **固定 `FIXED_BLEND_Q`**（⭐ 0 = soft ✅）
+    //   📌 无论哪档，**只有一个 TDM 乘法器**服务 64 条 lane ⇒ ⛔ 无额外 DSP ✅
+    wire [8:0] velocity_mix_q = (resp_velocity_q == 8'hFF) ? 9'd256
+                                                           : {1'b0, resp_velocity_q};
+    localparam [8:0] FIXED_BLEND_Q_W = FIXED_BLEND_Q;
+    wire [8:0] mix_q = (VELOCITY_BLEND_EN != 0) ? velocity_mix_q
+                                                : FIXED_BLEND_Q_W;
     wire signed [WT_W:0] blend_delta = {rom_hard[WT_W-1], rom_hard}
                                      - {rom_soft[WT_W-1], rom_soft};
     wire signed [WT_W+9:0] blend_product = blend_delta * $signed({1'b0, mix_q});
@@ -341,19 +391,28 @@ parameter integer VEL_TIMBRE_BLEND = 0,
     wire signed [WT_W:0] blend_sum = {rom_soft[WT_W-1], rom_soft}
                                   + blend_scaled;
     //  ⭐⭐ 2026-09-29 修 bug②：⭐ **力度→音色 的耦合【默认关闭】**
-    //   ⭐ `VEL_TIMBRE_BLEND = 0`（默认）⇒ ⭐ **固定 `rom_soft`**（⭐ 音色只由 `timbre` 决定）✅
+    //   ⭐ `VEL_TIMBRE_BLEND = 0`（默认）⇒ ⭐ **固定 `rom_hard`**（⭐ 音色只由 `timbre` 决定）✅
     //   ⚠️ `blend_*` 那几根线**仍然保留引用**（⭐ 免得 `iverilog -Wall` 报未使用 ✅）——
     //      ⭐ 而 `VEL_TIMBRE_BLEND` 是**编译期常量** ⇒ ⭐ 综合器会把它们**整块折叠掉** ✅
     //  ⚠️⚠️ 2026-09-29 上板实测修正：⭐ **固定用 `rom_hard`，⛔ 不是 `rom_soft`**
-    //   🔴 **为什么**（⭐ 实测表数据，⭐ 见下方"表峰值"注释）：
-    //      · ⭐ `rom_soft` 的 **4 个块完全相同**（⭐ 峰值 16384 · RMS 11574 ✅）
-    //        ⇒ 🔴 **`'I'` 切音色【听不出区别】**（⭐ 用户上板实测报告第 3 条 ✅）
-    //      · ⭐ `rom_soft` 峰值 **16384**，⭐ 而 `rom_hard` 峰值 **32767**
-    //        ⇒ 🔴 **固定 `rom_soft` 把音量砍了一半**（⭐ 用户报告第 4 条 ✅）
-    //      · ⭐ `rom_hard` 的 4 个块**互不相同**（⭐ RMS 18899 / 18899 / 32766 / 18422 ✅）
-    //        ⇒ ✅ **音色可切换** ＋ ✅ **满幅**
-    wire signed [WT_W-1:0] rom_dout = VEL_TIMBRE_BLEND ? blend_sum[WT_W-1:0]
-                                                      : rom_hard;
+    //   🔴 **为什么**：
+    //      · ⭐ `rom_hard` 的 4 个块**互不相同**（⭐ 4 个音色可分辨 ✅）＋ ⭐ **满幅 32767** ✅
+    //        ⇒ 🔴 而 `rom_soft`（⭐ 旧表：⭐ 4 块相同、峰值 16384）**听不出音色切换** ＋ **音量砍半** ✅
+    //  ⭐⭐ 2026-09-29 深夜（⭐ T31b 波表合并后重写）：⭐ **Test Mode 用【专用纯正弦】表 `rom_test`** ✅
+    //   🔴 **为什么必须专用**：⭐ 四音色换成 **AKWF 表**（⭐ 谐波丰富 ✅）⇒ ⭐ 若 Test Mode 借它们
+    //      ⇒ 🔴 **谐波被 `peak_count` 数成谱峰** ⇒ 🔴 **M4 判据（谱峰数 = 4/8/16/32）变红** ✅
+    //      （⭐ 实测前科：⭐ 三角波 `rom_hard` 的 1/9·1/25·1/49 谐波 = −19.08/−27.96/−33.80 dB
+    //        ⇒ 🔴 全部高于 −40 dB 门限 ⇒ ⭐ 峰数被打成 **20/40/72/127** ✅ 见 `K-167` ✅）
+    //   ⭐ Test Mode 是**测量模式**（⭐ 证明 ≥32 复音，⛔ 不是演奏音色）
+    //      ⇒ ⭐ **与音色彻底解耦** ⇒ ⭐ 以后换任何波表都**不会再红** ✅
+    //   📌 **不变式（⭐ 合波表的人必读）**：⭐ `rom_test` 必须是**纯正弦**
+    //      ⇒ ⭐ 由 `tools/gen_t31b_wavetable.py` 的 `generate_test_sine()` 保证 ✅
+    //      ⇒ ⭐ 合完波表**必须重跑** `sim\test_mode_fft.ps1` ✅
+    //  ⭐⭐ 2026-09-29 合并：⭐ **演奏通路固定走 `blend_sum`**（⭐ 队友版 ✅）
+    //   ⭐ `FIXED_BLEND_Q = 0` ⇒ ⭐ `blend_sum = rom_soft` ⇒ ⭐ 用 **AKWF 的 soft 表**（⭐ 平滑档 ✅）
+    //   ⭐ Test Mode 仍走**专用纯正弦** `rom_test`（⭐ 我们的，⛔ 不借 AKWF ✅）
+    wire signed [WT_W-1:0] rom_dout = test_mode_i ? rom_test
+                                                  : blend_sum[WT_W-1:0];
 
     wavetable_bank #(
         .TIMBRE_N(TIMBRE_N), .TIMBRE_W(TIMBRE_W),
@@ -366,6 +425,7 @@ parameter integer VEL_TIMBRE_BLEND = 0,
         .addr_i   (rom_ad),
         .sample_soft_o (rom_soft),
         .sample_hard_o (rom_hard),
+        .sample_test_o (rom_test),
         .valid_o  ()
     );
 

@@ -225,7 +225,15 @@ module top #(
     // T18: P4 right-hand ADC is optional until its cable and MCP3208 are
     // physically installed. Keeping this 0 prevents an open MISO line from
     // being interpreted as full-depth vibrato on today's two-ADC setup.
-    parameter integer RIGHT_ADC_ENABLE       = 0
+    parameter integer RIGHT_ADC_ENABLE       = 0,
+    //  ⭐⭐ 2026-09-29 合并（⭐ 队友 `t31b-final-6db-s2`）：⭐ **满行程失真的二分诊断** ✅
+    //   ⭐ 打开后：⭐ 按键位置**只控 note on/off**，⭐ 每个键盘音用**固定力度**
+    //      ⇒ ⭐ 行程深度**无法**再影响音量 ⇒ ⭐ 用来二分"失真来自力度通路还是别处" ✅
+    parameter integer FIXED_VELOCITY_DIAG    = 0,
+    parameter [7:0]   FIXED_VELOCITY_VALUE   = 8'd96,
+
+    //  ⭐ 板载 S2 音色按键的**去抖时间**（⭐ 参数化 ⇒ ⭐ 仿真里能快速跑完整按键流程 ✅）
+    parameter integer TIMBRE_BTN_DB_MS        = 5
 ) (
     input  wire clk,             // V22 · 50 MHz
     input  wire rst_n,           // AA13 · 低有效（同步复位）
@@ -236,10 +244,11 @@ module top #(
     //      ⇒ ⭐ `.cst` 必须写 `LVCMOS15` + `BANK_VCCIO=1.5`（⛔ 写 3.3 V 会冲突）。
     //   ⚠️ **跨线冲突（已向用户报告）**：ESP32 线原计划把 `AB13` 当"起播按键"
     //      ⇒ ⭐ 本轮**先给节拍器用**，那边文档已标注"暂时占用，后续可能改"。
-    //   ⭐ **Z-safe**：⭐ 本端口**未连接时是 `Z`**（仿真里现有 tb 都不接它）
-    //      ⇒ 见下方 `met_btn_s` 的写法，按【未按下】处理
-    //      ⇒ ⭐ **现有 tb 一个都不用改** ✅
-    input  wire met_btn_i,       // AB13 · S2 · 低有效（上拉 ⇒ 按下 = 0）
+    //  ⭐⭐ 2026-09-29 合并（⭐ 用户裁定 = 方案 B）：⭐ **`AB13`/S2 改做【音色切换】按键** ✅
+    //   · ⭐ 节拍器**不再占用 S2** ⇒ ⭐ 改走**串口命令 `'B'`**（⭐ `CMD_METRONOME` ✅）
+    //   · ⭐ 本端口与串口 `'I'` **并存**：⭐ 两者都让 `timbre_sel_r` 循环 `0→1→2→3→0` ✅
+    //   · ⭐ **Z-safe**：⭐ 本端口**未连接时是 `Z`** ⇒ ⭐ 按"未按下"处理（⭐ 现有 tb 不用改 ✅）
+    input  wire timbre_btn_i,    // AB13 · S2 · 低有效（上拉 ⇒ 按下 = 0）
 
     // ── 音频（板载 DAC = `MAX98357A`，⛔ 不需要 MCLK）──────────────
     //   ⭐ 2026-09-22 换板 Tang Console 60K：`PT8211`+`NS4263` → `MAX98357A`
@@ -392,36 +401,66 @@ module top #(
     //      ⇒ ⭐ 现有 9 个例化 `top` 的 tb **一个都不用改** ✅
     //      📌 两边语义一致：**只有确确实实看到 `0` 才算按下**。
     // ═══════════════════════════════════════════════════════════════════════
-    wire met_btn_s = (met_btn_i === 1'b0) ? 1'b0 : 1'b1;
+    //  ⭐⭐ 2026-09-29 合并（⭐ 用户裁定 = 方案 B）：⭐ **节拍器不再用 S2 按键 ⇒ 改走串口命令 `'B'`** ✅
+    //   🔴 原链路（⭐ `met_btn_i` → `sync_input` → `debounce` → `key_down` → 翻转）
+    //      ⭐ 已**整体删除** ⇒ ⭐ 省一套同步 + 去抖逻辑 ✅
+    //   ⭐ 新链路：⭐ 串口 `'B'`（⭐ `calib_cmd.CMD_METRONOME` ✅）⇒ `cmd_met_req`（⭐ **单周期脉冲** ✅）
+    //      ⇒ ⭐ 翻转 `met_on_r`（⭐ 语义与原来**完全一致**：⭐ 一次开、再一次关 ✅）
+    //   📌 为什么：⭐ 用户裁定 —— ⭐ **`AB13`/S2 让给音色切换按键** ✅
+    //      （⭐ 节拍器改用串口 ⇒ ⭐ 上位机/串口屏都能开关它 ✅）
 
-    wire met_btn_sync;
+    //  ⭐⭐ 2026-09-29 合并（⭐ 方案 B）：⭐ **节拍器改走串口 `'B'`**（⭐ `AB13`/S2 让给音色按键 ✅）
+    //   ⚠️ **必须在【使用之前】声明** —— ⭐ `default_nettype none` 下不存在隐式网线 ✅
+    wire cmd_met_req;           // ⭐ 'B' ⇒ 节拍器 **开/关切换**
+
+    // ⭐ 翻转触发器：发一次 `'B'` 开、再发一次关
+    //   ⭐ 复位后默认【关】⇒ ⭐ 与"加节拍器之前"的行为完全一致（⛔ 不会自己响）
+    reg met_on_r;
+    always @(posedge clk) begin
+        if (!rst_n_sync) met_on_r <= 1'b0;
+        else if (cmd_met_req) met_on_r <= ~met_on_r;
+    end
+
+    //  ⭐⭐ 2026-09-29 合并（⭐ 队友版 + 方案 B）：⭐ **当前音色寄存器**
+    //   ⚠️ **必须声明在【模块层】** —— ⭐ 队友的 `tb\top\tb_top_timbre_button.sv` 用
+    //      ⭐ **`dut.timbre_sel_r`**（⭐ 模块层路径）观察它 ⇒ ⚠️ 放在 generate 里**绑不上**
+    //      （⭐ 实测：8 条 `Unable to bind wire/reg/memory` ✅）
+    //   ⭐ 驱动它的是 generate 里的 `'I'`/S2 逻辑（⭐ 模块层信号在 generate 内可读可写 ✅）
+    reg [1:0] timbre_sel_r;
+
+    //  ⭐ 串口 `'I'` 的音色脉冲（⭐ 提前声明 ⇒ ⭐ 下面的按键块要用它 ✅）
+    wire cmd_timbre_req;
+
+    //  ⭐⭐ 2026-09-29 合并（⭐ 队友版 + 方案 B）：⭐ **板载 S2 音色按键**
+    //   ⚠️ **必须放在【模块层】** —— ⭐ 队友的 `tb\top\tb_top_timbre_button.sv` 用
+    //      ⭐ **`dut.timbre_sel_r`** 观察它 ⇒ ⭐ 放 generate 里它**绑不上**（⭐ 实测 8 条 bind 错误 ✅）
+    //   ⭐ 异步机械按键 ⇒ ⭐ **先同步、再去抖、只认一次按下** ✅
+    //   ⭐ 与串口 `'I'` **并存**：⭐ 两者都循环 `0→1→2→3→0` ✅
+    wire timbre_btn_s = (timbre_btn_i === 1'b0) ? 1'b0 : 1'b1;   // ⭐ Z-safe
+    wire timbre_btn_sync;
+    wire timbre_btn_down;
     sync_input #(
         .W         (1),
         .STAGES    (2),
-        // ⭐ 复位期 = "未按下"（⭐ 与硬件上拉一致 ⇒ 上电默认节拍器【关】）
         .RESET_VAL (1'b1)
-    ) u_met_btn_sync (
+    ) u_timbre_btn_sync (
         .clk      (clk),
         .rst_n    (rst_n_sync),
-        .async_in (met_btn_s),
-        .sync_out (met_btn_sync)
+        .async_in (timbre_btn_s),
+        .sync_out (timbre_btn_sync)
     );
-
-    wire met_btn_down;            // ⭐ 按下沿（单周期脉冲）
     debounce #(
         .NKEY       (1),
         .CLK_HZ     (50_000_000),
-        .DB_MS      (5),          // ⭐ 5 ms @50 MHz = 250_000 拍
-        .ACTIVE_LOW (1)           // ⭐ 上拉 + 按下接地 ⇒ 低有效
-    ) u_met_btn_deb (
+        .DB_MS      (TIMBRE_BTN_DB_MS),
+        .ACTIVE_LOW (1)
+    ) u_timbre_btn_debounce (
         .clk        (clk),
         .rst_n      (rst_n_sync),
-        .key_in     (met_btn_sync),
+        .key_in     (timbre_btn_sync),
         .key_level  (),
-        .key_down   (met_btn_down),
+        .key_down   (timbre_btn_down),
         .key_up     (),
-        // ⚠️ **EC11 编码器本设计不用** ⇒ ⭐ **必须显式接常量**
-        //    （🔴 不能悬空：`enc_a/b/sw` 是输入，悬空 = `Z` ⇒ 内部 `X` 传播）
         .enc_a      (1'b1),
         .enc_b      (1'b1),
         .enc_sw     (1'b1),
@@ -435,13 +474,11 @@ module top #(
         .enc_state  (),
         .enc_err    ()
     );
-
-    // ⭐ 翻转触发器：按一下开、再按一下关
-    //   ⭐ 复位后默认【关】⇒ ⭐ 与"加节拍器之前"的行为完全一致（⛔ 不会自己响）
-    reg met_on_r;
     always @(posedge clk) begin
-        if (!rst_n_sync) met_on_r <= 1'b0;
-        else if (met_btn_down) met_on_r <= ~met_on_r;
+        if (rst_n_sync !== 1'b1)
+            timbre_sel_r <= 2'd0;                       // ⭐ 上电 = BASS
+        else if (cmd_timbre_req || timbre_btn_down)
+            timbre_sel_r <= timbre_sel_r + 2'd1;
     end
 
     // ⭐⭐ 2026-09-28：**开节拍器的那一刻，把音乐位置复位**（⭐ 用户要求"从第一拍开始响"）
@@ -645,7 +682,7 @@ module top #(
     wire cmd_loop_rec_req;      // ⭐ 'R' ⇒ 录/停**切换**
     wire cmd_loop_play_req;     // ⭐ 'L' ⇒ 播放**切换**
     wire cmd_loop_clear_req;    // ⭐ 'C' ⇒ 清空该层
-    wire cmd_timbre_req;        // ⭐ 'I' ⇒ 切音色（⭐ 0→1→2→3→0，⭐ 2026-09-29 新增）
+    //  ⭐ `cmd_timbre_req`（'I'）**已在上方模块层声明**（⭐ S2 按键块要用它 ✅）
 
     calib_cmd #(
         .CLK_HZ   (50_000_000),
@@ -669,6 +706,7 @@ module top #(
         .loop_clear_req_o(cmd_loop_clear_req),
         // ⭐ 2026-09-29：⭐ 切音色（⭐ 'I'）
         .timbre_req_o   (cmd_timbre_req),
+        .met_req_o      (cmd_met_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (cmd_in_frame_cnt),
         .resync_cnt_o   (cmd_resync_cnt),
@@ -845,7 +883,8 @@ module top #(
             p22        = {10'd0, p};                        // ⭐ 显式零扩展（见上方位宽纪律）
             prod       = (p22 << 8) + (p22 << 3) - p22;     // ⭐ ×263（⛔ 无乘法器）
             v13        = 13'd64 + prod[21:10];              // ⭐ >>10 再 +64（⭐ 力度下限 64）
-            pos_to_vel = (v13 > 13'd255) ? 8'd255 : v13[7:0];   // ⭐ 饱和到 255
+            pos_to_vel = (FIXED_VELOCITY_DIAG != 0) ? FIXED_VELOCITY_VALUE
+                       : (v13 > 13'd255) ? 8'd255 : v13[7:0];   // ⭐ 饱和到 255
         end
     endfunction
 
@@ -1031,6 +1070,9 @@ module top #(
             // notes cannot leak into the deterministic FFT acceptance signal.
             .gate_i        (tm_enable_r ? tm_gate : nm_gate),
             .velocity_i    (tm_enable_r ? tm_vel  : nm_vel),
+            //  ⭐⭐ 2026-09-29 合并：⭐ **把音色送进包络**（⭐ 队友 `adsr` 按音色取 A/D/R 步长 ✅）
+            //     ⭐ 逐 voice 取 2 bit（⭐ 与 `note_manager` 起音锁存的音色**同源** ✅）
+            .timbre_i      (nm_timbre),
             //  ⭐ 重触发清零：Test Mode 不用（它自己控 gate），故只在普通通路生效。
             .retrig_reset_i(tm_enable_r ? {POLY_TARGET{1'b0}} : nm_retrig_reset),
             .env_level_o   (env_level),
@@ -1936,7 +1978,10 @@ module top #(
         localparam [11:0] EVT_REL_TH  = 12'd32;   // ⭐ 唯一定义（= `event_extract.REL_TH`）
 
         localparam [11:0] VEL_TRIG_TH  = EVT_TRIG_TH;  // ⭐ **派生**，⛔ 不另写数字
-        localparam [11:0] VEL_DEADZONE = 12'd16;       // ⭐ 死区（码）
+        //  ⚠️ ⭐ 2026-09-29：⭐ **`VEL_DEADZONE` 已删除** ✅
+        //   ⭐ 原因：⭐ 死区判据（`vu_last[]`）整体删掉了 —— ⭐ 见下方 `vu_*` 的说明 ✅
+        //   📌 死区原本只为"防抖动/台阶声" ✅ ⇒ ⭐ 该职责已由 `note_manager` 的
+        //      **±8/采样拍斜坡** 承担（⭐ 功能重复 ⇒ 删掉不丢能力 ✅）
 
         // ⭐⭐ **本块只扫【前 `VEL_AXIS_N` 个轴】**（⭐ 已知限制，⛔ 不是 bug）
         //   ⚠️ **为什么是 8**：⭐ 当前硬件 = **一块 8 轴左手板**（轴 0~7）；
@@ -1953,7 +1998,21 @@ module top #(
         localparam integer VEL_AX_W   = 3;   // ⭐ = $clog2(VEL_AXIS_N)
 
         reg  [VEL_AX_W-1:0] vu_ax_r;              // ⭐ 本拍要扫的轴（0→7 轮转）
-        reg  [11:0] vu_last [0:VEL_AXIS_N-1];     // ⭐ 上次**发出**的 pos（死区判据）⇒ 8×12 = 96 FF
+        //  ⭐⭐ 2026-09-29 治本：⭐ **删掉了 `vu_last[]` 死区数组** ✅
+        //   🔴 **为什么删**（⭐ 用户上板症状："无论按下行程多少，音量都一样" ✅）：
+        //      · ⭐ 死区是"**变化超过 16 才发**" ⇒ ⚠️ 若某次 `vel_upd` 在 voice 出现
+        //        **之前**到达（⭐ `gate_mask=0` ⇒ 被丢掉 ✅），⭐ 而 `vu_last` **已更新**
+        //        ⇒ 🔴 `vu_far` 之后**恒假** ⇒ **永不再发** ⇒ `vel` 卡在起音值 ✅
+        //      · 🔴 它需要 **`vu_last[<变量索引>]`** 这种数组写 ⇒ ⚠️ 我上一版为它加的
+        //        "note_on 清参考值"里对 `integer` 型 `localparam` 做了位选（⭐ 违反 `K-91` ✅）
+        //        ⇒ 🔴 **上板 `Q_velrace` 完全静音** ✅
+        //   ✅ **为什么删了也没关系**：⭐ 死区原本只为"防抖动/台阶声" ✅
+        //      ⭐ 而 `note_manager` 的 **±8/采样拍斜坡** 已经在做这件事 ✅ ⇒ **功能重复** ✅
+        //   ✅ **删掉的三重收益**：⭐ ① 竞态消失（⭐ 按下就持续发 ✅）
+        //      ⭐ ② 不再有变量索引的数组写（⭐ 消掉静音风险 ✅）
+        //      ⭐ ③ 省 **96 FF**（⭐ 8×12 ✅）
+        //   📌 **发端节奏不再重要**：⭐ 收端（`note_manager`）已改成**每轴各记一个目标**，
+        //      ⭐ 每个 voice 查**自己那个轴**的目标 ⇒ ⭐ 与"本拍扫到谁"无关 ✅
         reg         vu_valid_r;           // ⭐ 1 拍脉冲（见上方纪律）
         reg  [3:0]  vu_axis_r;            // ⭐ 轴号（4 位 —— 与 `note_manager` 接口一致）
         reg  [7:0]  vu_val_r;             // ⭐ 力度
@@ -1961,11 +2020,6 @@ module top #(
         wire [11:0] vu_pos = as_pos[vu_ax_r*12 +: 12];
         //   ⭐⭐ 与**起音力度**用同一个函数 ⇒ ⛔ 公式只有一份（见 `pos_to_vel`）
         wire [7:0]  vu_vel = pos_to_vel(vu_pos);
-        //   ⭐ 死区：两侧都要判（⭐ 只在单侧加 16 会让"往回松"被漏掉）
-        wire        vu_far = (vu_pos >  vu_last[vu_ax_r] + VEL_DEADZONE)
-                          || (vu_pos + VEL_DEADZONE < vu_last[vu_ax_r]);
-
-        integer vui;                      // ⭐ 复位 `vu_last[]` 用
 
         always @(posedge clk) begin
             if (!rst_n_sync) begin
@@ -1973,8 +2027,6 @@ module top #(
                 vu_valid_r <= 1'b0;
                 vu_axis_r  <= 4'd0;
                 vu_val_r   <= 8'd0;
-                for (vui = 0; vui < VEL_AXIS_N; vui = vui + 1)
-                    vu_last[vui] <= 12'd0;
             end else begin
                 // ⭐ 默认清 0 ⇒ 下面置 1 时**恰好是 1 拍脉冲**
                 vu_valid_r <= 1'b0;
@@ -1982,26 +2034,15 @@ module top #(
                     // ⭐ 计数器**自然回绕** ⇒ 0→1→…→7→0，⭐ 就是"8 轴轮转"
                     //   📌 用 `+ 1'b1`（⛔ 不写死 `3'd1`）⇒ ⭐ 改 `VEL_AX_W` 时不用跟着改
                     vu_ax_r <= vu_ax_r + 1'b1;
-                    //   ⭐⭐ 两个条件缺一不可：
-                    //      · `vu_pos > VEL_TRIG_TH` ⇒ "**按下中**"（⭐ 抬起后自动失效）
-                    //      · `vu_far`               ⇒ 变化超过死区（⭐ 防抖动/台阶声）
-                    if ((vu_pos > VEL_TRIG_TH) && vu_far) begin
-                        vu_valid_r       <= 1'b1;
-                        vu_axis_r        <= vu_ax_r;   // ⭐ 隐式零扩展到 4 位（⛔ 不写死位宽）
-                        vu_val_r         <= vu_vel;
-                        vu_last[vu_ax_r] <= vu_pos;
+                    //   ⭐⭐ **唯一条件**：⭐ `vu_pos > VEL_TRIG_TH` ⇒ "**按下中**" ✅
+                    //      ⭐ 抬起后自动失效（⭐ 力度冻结 ✅）
+                    //   📌 **不再有 `vu_far`** ⇒ ⭐ 按住的每个轴每 164 µs 发一次 ✅
+                    if (vu_pos > VEL_TRIG_TH) begin
+                        vu_valid_r <= 1'b1;
+                        vu_axis_r  <= vu_ax_r;   // ⭐ 隐式零扩展到 4 位（⛔ 不写死位宽）
+                        vu_val_r   <= vu_vel;
                     end
                 end
-
-                //  ⚠️ ⭐ 2026-09-29：**原"note_on 清 `vu_last`"的修法已【整体删除】**
-                //   🔴 **为什么删**：⭐ 上板 `Q_velrace` **完全没声音**（⭐ 自检和弦＋按键都没 ✅），
-                //      而它比【有声音的】`P_romhard` **只多了这一处改动** ✅
-                //   🔴 **疑因**：⭐ 那个写法对 `integer` 型 `localparam` 做了**位选**
-                //      （`VEL_AXIS_N[3:0]` / `VEL_AX_W-1:0` ✅）⇒ ⭐ **违反 `K-91`** ✅
-                //      ⚠️ 且 `vu_last[<表达式>]` 是**带变量索引的数组写** ——
-                //      ⭐ 索引一旦被综合成越界值 ⇒ 🔴 **可能踩坏相邻寄存器** ✅
-                //   ✅ **正解**：⭐ 修在**接收端**（⭐ `note_manager` 每轴记一个目标 ✅）
-                //      ⇒ ⭐ **丢一次更新也能自愈** ✅ ⇒ ⭐ 这里**一个字都不用改** ✅
             end
         end
 
@@ -2633,6 +2674,10 @@ module top #(
         wire [1:0]  sa_kind;
         wire        sa_timbre_valid;
         wire [1:0]  sa_timbre;
+        //  ⭐⭐ 2026-09-29（A1）：⭐ `seq_arb` 导出的**来源标记**
+        //     ⭐ 编码 = `seq_arb` 的 `SRC_*`（0=live 手弹 / 1=score 曲谱·回放 / 2=demo 演示）
+        //     ⭐ 一路传下去：`seq_arb.evt_src_o → evt_merge.a_src_i → note_manager.note_src_i`
+        wire [1:0]  sa_src;
         wire [15:0] sa_collision_cnt;
         wire [15:0] sa_merged_cnt;
         wire [15:0] sa_drop_cnt;
@@ -2690,14 +2735,9 @@ module top #(
         //   📌 ⭐ **为什么不接物理按键**：⭐ 见 `rtl/w3a/calib_cmd.v` 顶部的说明 ——
         //      ⭐ `*_req` 全是**单周期脉冲** ⇒ ⭐ 以后接按键**只需产生同样的脉冲** ✅
         //      ⇒ ⭐ **这个寄存器与来源无关**，⭐ 换来源**不用改这里** ✅
-        reg [1:0] timbre_sel_r;
-
-        always @(posedge clk) begin
-            if (!rst_n_sync)
-                timbre_sel_r <= 2'd0;
-            else if (cmd_timbre_req)
-                timbre_sel_r <= timbre_sel_r + 2'd1;
-        end
+        //   📌 ⭐ **`timbre_sel_r` + S2 按键块都在【模块层】**（⭐ 见上方 `u_timbre_btn_sync`）——
+        //      ⚠️ 队友的 tb 用 `dut.timbre_sel_r` 观察它 ⇒ ⭐ 必须模块层可见 ✅
+        //      📌 本 generate 块**只读**它（⭐ `.default_timbre_i(timbre_sel_r)` 等 ✅）
 
         always @(posedge clk) begin
             if (!rst_n_sync) begin
@@ -2717,6 +2757,20 @@ module top #(
         wire [31:0] looper_play_inc;
         wire [7:0]  looper_play_vel;
         wire [1:0]  looper_play_kind;
+        //  ⭐⭐ 2026-09-29 新增（⭐ 用户需求）：⭐ 回放携带的【录制时音色】✅
+        //     ⇒ ⭐ 接到 `seq_arb.score_timbre_*`（⭐ 见下方 mux ✅）
+        wire [1:0]  looper_play_timbre;
+        wire        looper_play_timbre_valid;
+        //  ⭐⭐ 2026-09-29 新增（⭐ 用户需求）：⭐ **回放的【插值更新】**（⭐ 端点 → 线性插值）
+        //   ⭐ 语义：⭐ "该轴此刻的插值音高/力度" ⇒ ⭐ **或进** `note_manager` 的
+        //      `pitch_upd_*` / `vel_upd_*`（⭐ 与手弹那两路**共用通路** ✅）
+        //   🔴 修的缺陷（⭐ 用户上板报告）：⭐ *"loop 的声音比键盘小"*
+        //      ＋ *"loop 回放没有 release 尾音"* —— ⭐ 根因都是
+        //      **回放只带 `note_on` 那一个力度**（⭐ 而 `adsr` 的尾音长度 ∝ 力度）✅
+        wire        lp_upd_valid;
+        wire [3:0]  lp_upd_axis;
+        wire [31:0] lp_upd_inc;
+        wire [7:0]  lp_upd_vel;
         //  ⭐ 可观测（`K-106`：⛔ 不许静默失效）—— ⚠️ **暂未接上板观测口**
         //     📌 待办：⭐ 接到串口回传（⭐ 与 `'P'`/`'N'` 诊断同一套路）⇒ 现在先留线，⛔ 不悬空
         wire        looper_layer_state;
@@ -2730,6 +2784,8 @@ module top #(
             .PHASE_W (32),
             .VEL_W   (8),
             .KIND_W  (2),
+            //  ⭐⭐ 2026-09-29 新增：⭐ 音色字段（⭐ 与 `note_manager.TIMBRE_W` 一致 ✅）
+            .TIMBRE_W(2),
             .TICK_W  (20),
             .LAYERS  (1),        // ⚠️ 本版**单层**（⭐ `T40` 再扩）
             .EVT_MAX (2048),
@@ -2748,12 +2804,34 @@ module top #(
             .live_inc_i     (w3a_evt_inc),
             .live_vel_i     (w3a_evt_vel),
             .live_kind_i    (w3a_evt_kind),
+            //  ⭐⭐ 2026-09-29 新增：⭐ **录制时记下"当前手弹音色"**
+            //     ⇒ ⭐ 回放时用它，⛔ **不跟随**之后手弹切过的音色 ✅（⭐ 用户需求 ✅）
+            .live_timbre_i  (timbre_sel_r),
+            //  ⭐⭐ 2026-09-29 新增：⭐ **手弹位置式力度流**（⭐ 只读旁路监听）
+            //   🔴 **为什么 looper 要"看"这条流**：⭐ 回放要复现"轻→重"的手势
+            //      ⇒ ⭐ 必须知道**松手那一刻的力度** ✅
+            //      ⚠️ 而 `live_vel_i`（`note_off` 事件自带）**不是它**：
+            //         `w3a_evt_vel = (am_pos_in < VEL_TRIG_TH) ? VEL_DEFAULT : pos_to_vel(...)`
+            //         ⭐ 而 `note_off` 是**松手**产生的 ⇒ `pos` 已落阈下
+            //         ⇒ 🔴 **恒为 200**（⭐ 与"按住时有多重"无关）✅
+            //   ⭐ 本端口接的就是 `note_manager.vel_upd_*` 的**同一个源** ✅
+            //      ⇒ ⭐ 录到的端点与"手弹当时真正用的力度"**逐值一致** ✅
+            .live_vel_valid_i (vu_valid_r),
+            .live_vel_axis_i  (vu_axis_r),
+            .live_vel_value_i (vu_val_r),
             //  ⭐ 重放（⭐ → `seq_arb.score`，⭐ 见下方 `score_*` 的 mux）
             .play_valid_o   (looper_play_valid),
             .play_axis_o    (looper_play_axis),
             .play_inc_o     (looper_play_inc),
             .play_vel_o     (looper_play_vel),
             .play_kind_o    (looper_play_kind),
+            .play_timbre_o  (looper_play_timbre),
+            .play_timbre_valid_o(looper_play_timbre_valid),
+            //  ⭐⭐ 2026-09-29 新增：⭐ **回放插值更新**（⭐ → 下方 `note_manager` 的参数通路）
+            .play_upd_valid_o(lp_upd_valid),
+            .play_upd_axis_o (lp_upd_axis),
+            .play_upd_inc_o  (lp_upd_inc),
+            .play_upd_vel_o  (lp_upd_vel),
             //  ⭐ 控制（⭐ 脉冲 / 电平）
             .rec_req_i      (cmd_loop_rec_req & ~loop_rec_on_r),   // ⭐ 没在录 ⇒ 开录
             .stop_req_i     (cmd_loop_rec_req &  loop_rec_on_r),   // ⭐ 正在录 ⇒ 停录
@@ -2819,8 +2897,13 @@ module top #(
             .score_phase_inc_i(SCORE_UART_ENABLE ? score_evt_inc  : looper_play_inc),
             .score_velocity_i (SCORE_UART_ENABLE ? score_evt_vel  : looper_play_vel),
             .score_kind_i     (SCORE_UART_ENABLE ? score_evt_kind : looper_play_kind),
-            .score_timbre_valid_i(SCORE_UART_ENABLE ? score_evt_timbre_valid : 1'b0),
-            .score_timbre_i   (SCORE_UART_ENABLE ? score_evt_timbre : 2'd0),
+            //  ⭐⭐ 2026-09-29 新增（⭐ 用户需求）：⭐ **looper 重放要带【录制时的音色】**
+            //   🔴 原来这里写死 `1'b0` / `2'd0` ⇒ ⭐ `note_manager` 落到
+            //      `default_timbre_i = timbre_sel_r` ⇒ 🔴 **回放跟随现在手弹的音色** ✅
+            //   ✅ 现在：⭐ `SCORE_UART_ENABLE = 0`（⭐ **默认 · looper 档**）⇒
+            //      ⭐ 音色来自 **looper 的事件字**（⭐ 录制时存的 ✅）
+            .score_timbre_valid_i(SCORE_UART_ENABLE ? score_evt_timbre_valid : looper_play_timbre_valid),
+            .score_timbre_i   (SCORE_UART_ENABLE ? score_evt_timbre : looper_play_timbre),
             // ── 源 3：演示（⭐ 自检和弦）—— ⚠️ 自动让位 ───────────────────
             .demo_valid_i     (demo_note_valid),
             .demo_axis_i      (demo_note_axis),
@@ -2837,6 +2920,8 @@ module top #(
             .evt_kind_o       (sa_kind),
             .evt_timbre_valid_o(sa_timbre_valid),
             .evt_timbre_o     (sa_timbre),
+            // ⭐⭐ A1：⭐ 来源标记（⭐ 与 `evt_valid_o` 同时序）⇒ ⭐ 下游按源区分 `note_off`
+            .evt_src_o        (sa_src),
             // ── ⭐ 可观测性（`K-106`：⛔ 不许静默失效）──────────────────────
             .collision_cnt_o  (sa_collision_cnt),
             .merged_cnt_o     (sa_merged_cnt),
@@ -2856,6 +2941,11 @@ module top #(
         wire [1:0]  src_a_kind  = (SOURCE_A_SEL == 1) ? demo_note_kind  : sa_kind;
         wire        src_a_timbre_valid = (SOURCE_A_SEL == 1) ? 1'b0 : sa_timbre_valid;
         wire [1:0]  src_a_timbre = (SOURCE_A_SEL == 1) ? 2'd0 : sa_timbre;
+        //  ⭐⭐ 2026-09-29（A1）：⭐ **源 A 的来源标记**
+        //     ⚠️ 必须**跟着上面那个 mux 一起选** —— `SOURCE_A_SEL == 1` 时源 A 是
+        //        **演示和弦**（⭐ 它绕过 `seq_arb`）⇒ ⭐ 标记必须是 `SRC_DEMO = 2'd2`，
+        //        ⛔ 不能沿用 `sa_src`（⭐ 那一路此刻并没有在发事件 ⇒ 值是陈旧的）。
+        wire [1:0]  src_a_src = (SOURCE_A_SEL == 1) ? 2'd2 : sa_src;
 
         // ⭐⭐ 源 B 二选一（⭐ 节拍器 / 鼓机，⭐ `SEL_DRUM`，⭐ 默认节拍器）
         //   📌 用 `generate`+`localparam` 做**编译期选择** ⇒ ⚠️ 综合会把没选中的那路
@@ -2904,6 +2994,8 @@ module top #(
         wire [1:0]  mg_evt_kind;
         wire        mg_evt_timbre_valid;
         wire [1:0]  mg_evt_timbre;
+        //  ⭐⭐ A1：⭐ 合流后事件的**来源标记**（⭐ → `note_manager.note_src_i`）
+        wire [1:0]  mg_evt_src;
         wire [15:0] mg_collision_cnt;
         wire [15:0] mg_merged_cnt;
         wire [15:0] mg_drop_cnt;
@@ -2928,6 +3020,8 @@ module top #(
             .a_kind_i         (src_a_kind),
             .a_timbre_valid_i (src_a_timbre_valid),
             .a_timbre_i       (src_a_timbre),
+            // ⭐⭐ A1：⭐ 源 A 的来源标记（⭐ 手弹=0 / 回放=1 / 演示=2，⭐ 见 `src_a_src`）
+            .a_src_i          (src_a_src),
             // ── ⭐⭐ 源 B：**节拍器 / 鼓机 二选一**（⭐ `SEL_DRUM`，⭐ 默认节拍器）──
             //   📌 两路都例化，⭐ 这里选谁进 `evt_merge`（⭐ 见上方 §源 B 二选一）
             .b_valid_i        (src_b_valid),
@@ -2937,6 +3031,11 @@ module top #(
             .b_kind_i         (src_b_kind),
             .b_timbre_valid_i (src_b_timbre_valid),
             .b_timbre_i       (src_b_timbre),
+            // ⭐⭐ A1：⭐ 源 B（节拍器 / 鼓机）的来源标记 = **常数 `2'd3`**
+            //   ⭐ 为什么用 3：⭐ `seq_arb` 只用了 0/1/2 ⇒ ⭐ 3 是**空闲值**，
+            //      天然与手弹/回放/演示**不同源** ⇒ ⛔ 节拍器的 `note_off`
+            //      不会误杀手弹或回放的同轴 voice（⭐ 反之亦然）✅
+            .b_src_i          (2'd3),
             // ── 合流输出 → `note_manager` ────────────────────────────────
             .evt_valid_o      (mg_evt_valid),
             .evt_axis_o       (mg_evt_axis),
@@ -2945,6 +3044,8 @@ module top #(
             .evt_kind_o       (mg_evt_kind),
             .evt_timbre_valid_o(mg_evt_timbre_valid),
             .evt_timbre_o     (mg_evt_timbre),
+            // ⭐⭐ A1：⭐ 来源标记（⭐ 与 `evt_valid_o` 同时序，⭐ 已穿过 FIFO）
+            .evt_src_o        (mg_evt_src),
             // ── 可观测性（⚠️ 未引到引脚，但综合时**不要**被优化掉：
             //    它们驱动的是寄存器 → 会保留；⭐ 上板可用调试核读）──────────
             .collision_cnt_o  (mg_collision_cnt),
@@ -2988,6 +3089,12 @@ module top #(
             .note_phase_inc_i  (mg_evt_inc),
             .note_velocity_i   (mg_evt_vel),
             .note_kind_i       (mg_evt_kind),
+            // ⭐⭐ 2026-09-29（A1）：⭐ **事件来源标记**（⭐ 手弹 0 / 回放 1 / 演示 2 / 源 B 3）
+            //   🔴 修的缺陷：⭐ 原来 `note_off` 只按 `axis` 匹配 ⇒ ⭐ looper 回放时
+            //      按**同一个轴**的手弹键 ⇒ 回放的 `note_off` 把**手弹**的 voice 也清了
+            //      ⇒ ⭐ **手弹的音死掉且不再回来** ✅
+            //   ✅ 现在：⭐ `note_manager` 只清**同源**的 voice ⇒ ⭐ 两者互不误杀 ✅
+            .note_src_i        (mg_evt_src),
             // ⭐⭐ 力度修正通路 —— ⭐ **2026-09-28 改接【位置式力度流】**
             //
             //   ⭐ 三段历史（⭐ 都保留，⛔ 不删 —— 每一步都有依据）：
@@ -3020,12 +3127,23 @@ module top #(
             //      · ⭐ 将来若要恢复"敲击速度"式力度 ⇒ 把下行换回
             //        `pe_vel_v`/`pe_vel_ax`/`pe_vel` 即可（⭐ 但得先把"只允许调大"的语义定案）
             //      · 📌 综合会把**无人使用**的力度输出**剪掉**（⭐ 省 LUT），⛔ 不影响功能。
-            .vel_upd_valid_i   (vu_valid_r),    // ⭐ 位置式（每 tick 扫一个轴 · 1 拍脉冲）
-            .vel_upd_axis_i    (vu_axis_r),
-            .vel_upd_value_i   (vu_val_r),
-            .pitch_upd_valid_i (pe_pitch_v),
-            .pitch_upd_axis_i  (pe_pitch_ax),
-            .pitch_upd_value_i (pe_pitch),
+            .vel_upd_valid_i   (vu_valid_r | lp_upd_valid),
+            .vel_upd_axis_i    (vu_valid_r ? vu_axis_r : lp_upd_axis),
+            .vel_upd_value_i   (vu_valid_r ? vu_val_r  : lp_upd_vel),
+            //  ⭐⭐ 2026-09-29 新增：⭐ **更新通路的来源标记**（⭐ 0 = 手弹 · 1 = looper 回放）
+            //   🔴 **为什么必须有**：⭐ `note_manager` 的 (d)/(e) 段原来**只按轴匹配**
+            //      ⇒ 🔴 回放的插值更新会把**同一轴上手弹的 voice** 一起拖走
+            //      （⭐ 音量/音高被别人的手势带着跑）—— ⭐ 与 A1 修的 `note_off`
+            //      **是同一个缺陷类** ✅
+            //   ⭐ 接法：⭐ 手弹那拍给 0、⭐ looper 那拍给 1 ✅
+            //   📌 **两路结构上不会同拍**：⭐ `looper` 内部**主动避让**手弹流
+            //      （⭐ 见 `looper.v` 的 `live_busy`）⇒ ⚠️ 这里的 mux 只是**兜底**，
+            //      ⛔ 不承担"优先级仲裁"的语义 ✅
+            .vel_upd_src_i     (vu_valid_r ? 2'd0 : 2'd1),
+            .pitch_upd_valid_i (pe_pitch_v | lp_upd_valid),
+            .pitch_upd_axis_i  (pe_pitch_v ? pe_pitch_ax : lp_upd_axis),
+            .pitch_upd_value_i (pe_pitch_v ? pe_pitch    : lp_upd_inc),
+            .pitch_upd_src_i   (pe_pitch_v ? 2'd0 : 2'd1),
             .default_timbre_i  (timbre_sel_r),   // ⭐ 2026-09-29：由串口 'I' 切换（⭐ 原来写死 2'd0）
             .evt_timbre_valid_i(mg_evt_timbre_valid),
             .evt_timbre_i      (mg_evt_timbre),
@@ -3086,7 +3204,13 @@ module top #(
             //      ⚠️ **代码实查**：⭐ 原来 `DETUNE_SH` **没有透传** ⇒ 从顶层调不了。
             //      📌 **命名参数覆盖是合法用法** ⇒ ⭐ `oscillator_bank.v` **一字不改**
             //         （⭐ 满足"只动不碰队友文件"的约束）。
-            .DETUNE_SH     (DETUNE_SH)
+            .DETUNE_SH     (DETUNE_SH),
+            //  ⭐⭐ 2026-09-29 合并（⭐ 队友版）：⭐ **力度只管响度，⛔ 不改音色** ✅
+            //   ⭐ 固定取 **AKWF 的 soft 档**（⭐ `FIXED_BLEND_Q = 0` ✅）
+            //   🔴 为什么：⭐ 旧的"力度→音色"在满行程时把波形推到 hard 成分 ⇒
+            //      ⭐ 每个音色都变粗糙持续音 ＋ ⭐ 和弦里谐波堆积 ✅
+            .VELOCITY_BLEND_EN(0),
+            .FIXED_BLEND_Q (0)
         ) u_oscillator_bank (
             .clk_i              (clk),
             .rst_n_i            (rst_n_sync),
@@ -3218,7 +3342,11 @@ module top #(
             //      ⭐ 用途：⭐ **popcount 时排除保留池**（⭐ 节拍器/鼓机不该压低键盘音量）
             //      ⚠️ **必须与下面 `note_manager` 的 `RESERVED_N` 一致**（⭐ 两处都写 5）
             //      📌 语义：⭐ N 只数【演奏的 voice】⇒ ⭐ 音量不随节拍器跳动 ✅
-            .RESERVED_N          (5)
+            .RESERVED_N          (5),
+            //  ⭐⭐ 2026-09-29 合并（⭐ 队友版）：⭐ **限幅器前留 6 dB 裕量**（⭐ `1` = −6.02 dB ✅）
+            //   ⭐ 纯线性衰减：⭐ 保住 AKWF 样本 / 音色比 / 力度 / 失谐**全部不变** ✅
+            //   🔴 为什么需要：⭐ AKWF 表**满幅** ⇒ 复音叠加会频繁触发软膝限幅 ⇒ ⭐ 音质变糙 ✅
+            .OUTPUT_HEADROOM_SH  (1)
         ) u_tdm_render_mixer (
             .clk_i            (clk),
             .rst_n_i          (rst_n_sync),

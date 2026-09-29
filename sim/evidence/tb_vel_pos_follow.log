@@ -18,6 +18,9 @@ VCD info: dumpfile build/sim/tb_vel_pos_follow/tb_vel_pos_follow.vcd opened for 
   ok  : J3c: and it settled at the NEW sustain
   INFO: 鍖呯粶鐢靛钩  L1(pos=192)=7232  L2(pos=600)=13952  L3(pos=300)=9024
   ok  : J6: vel_upd on ANOTHER axis must NOT change this voice
+== K: per-axis targets must survive interleaved updates ==
+  ok  : K0: axis0 target 200 applied
+  ok  : K1: axis0 still reaches ITS OWN target 100 (not overwritten by axis4)
   ok  : J4a: note_off dropped the gate
   ok  : J4b: env started to DECAY (release path is live)
   ok  : J4c: env decayed all the way to 0
@@ -25,6 +28,6 @@ VCD info: dumpfile build/sim/tb_vel_pos_follow/tb_vel_pos_follow.vcd opened for 
   ok  : J5a: after note_off a vel_upd must NOT change vel (FROZEN)
   ok  : J5b: and env was not pushed back up (still 0)
 PASS: vel_pos_follow acceptance - volume follows position (up AND down), frozen on release
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:400: $finish called at 563840000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:420: $finish called at 666360000 (1ps)
 
 

@@ -454,6 +454,8 @@ module synth_check_top #(
         .note_phase_inc_i  (nm_note_phase_inc),
         .note_velocity_i   (nm_note_velocity),
         .note_kind_i       (nm_note_kind),
+        // ⭐ A1：来源标记（⭐ 综合只看结构；功能由 tb 覆盖）⇒ 给确定常数（⛔ 不留 z）
+        .note_src_i        (2'd0),
         .vel_upd_valid_i   (nm_vel_upd_valid),
         .vel_upd_axis_i    (nm_vel_upd_axis),
         .vel_upd_value_i   (nm_vel_upd_value),

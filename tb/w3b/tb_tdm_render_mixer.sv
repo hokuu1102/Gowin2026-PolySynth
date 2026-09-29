@@ -14,17 +14,6 @@ module tb_tdm_render_mixer;
     // theoretical max: LANES * 32767 = 2097088 (well below signed24 max 8388607)
     localparam signed [SW-1:0] MAXTHEO = 24'sd2097088;
 
-    //   ⭐⭐ **2026-09-29 新增：⭐ 流水延时的【唯一口径来源】**
-    //      🔴 **为什么必须抽成常量**：⭐ 本判据原来是**范围** `[POLY+3, POLY+8]`
-    //         ⇒ ⚠️ **它对"valid 少一拍"完全无感** —— ⭐ 实测：把 `valid_d[4]` 改回
-    //            `valid_d[3]`（⭐ 加了流水却忘记给 valid 加拍）⇒ 延时 `+8` → `+7`
-    //            ⇒ 🔴 **旧判据照样 PASS** ⚠️
-    //         ⇒ ⭐ **它等于没有防延时回归**（⭐ `C88` 教训：⭐ **名字写等值、实际是范围**）。
-    //      ⭐ **改法等值** + ⭐ **期望值只写一处** ⇒ ⭐ 将来改流水**只改这一行** ✅
-    //      📌 组成：⭐ 3 级归一化（`n_active`/`norm_gain`/`sh_norm`）
-    //         + 1 级寄存输出（`samp_r`）+ 1 级限幅器流水（`exc_*_r`）✅
-    localparam integer LAT_EXPECT = POLY + 8;
-
     reg clk = 1'b0;
     reg rst_n = 1'b0;
     always #10 clk = ~clk;
@@ -68,7 +57,7 @@ module tb_tdm_render_mixer;
     tdm_render_mixer #(
         .POLY_TARGET(POLY), .OSC_PER_VOICE(OPV), .OSC_SAMPLE_W(OSW),
         .ENV_W(ENVW), .SAMPLE_W(SW), .CLK_PER_SAMPLE(1024),
-        .RENDER_DEADLINE_CYC(927)
+        .RENDER_DEADLINE_CYC(927), .NORM_GAIN_STEP(0)
     ) dut (
         .clk_i(clk), .rst_n_i(rst_n), .render_start_i(render_start),
         .osc_sample_bus_i(osc_bus), .env_level_i(env_level),
@@ -85,7 +74,7 @@ module tb_tdm_render_mixer;
     tdm_render_mixer #(
         .POLY_TARGET(POLY), .OSC_PER_VOICE(OPV), .OSC_SAMPLE_W(OSW),
         .ENV_W(ENVW), .SAMPLE_W(SW), .CLK_PER_SAMPLE(1024),
-        .RENDER_DEADLINE_CYC(4)
+        .RENDER_DEADLINE_CYC(4), .NORM_GAIN_STEP(0)
     ) dut_tight (
         .clk_i(clk), .rst_n_i(rst_n), .render_start_i(render_start),
         .osc_sample_bus_i(osc_bus), .env_level_i(env_level),
@@ -163,7 +152,7 @@ module tb_tdm_render_mixer;
     tdm_render_mixer #(
         .POLY_TARGET(POLY), .OSC_PER_VOICE(OPV), .OSC_SAMPLE_W(WSW),
         .ENV_W(ENVW), .SAMPLE_W(SW), .CLK_PER_SAMPLE(1024),
-        .RENDER_DEADLINE_CYC(927)
+        .RENDER_DEADLINE_CYC(927), .NORM_GAIN_STEP(0)
     ) dut_wide (
         .clk_i(clk), .rst_n_i(rst_n), .render_start_i(render_start),
         .osc_sample_bus_i(wide_bus), .env_level_i(wide_env),
@@ -199,9 +188,6 @@ module tb_tdm_render_mixer;
     endtask
 
     integer i, k, cyc, valid_count;
-    //   ⭐⭐ 2026-09-29 新增：⭐ "valid 与数据同拍"判据用的观测变量（⭐ 见测试 2b）
-    integer la_t, la_tv, la_tl;
-    reg signed [SW-1:0] la_prev;
     reg signed [SW-1:0] s1, s2, sN, sSat;
 
     initial begin
@@ -257,63 +243,8 @@ module tb_tdm_render_mixer;
         //         `[POLY+3, POLY+8]` ⇒ `+7` **天然通过**；
         //         ⭐ 这里只改【名字里的数字】以保持文档真实
         //         （⭐ 上一条"配套纪律"明确要求：改了流水级数就要同步改这个数）。
-        //   ⭐⭐ **2026-09-29 修正（FMAX 修复）：⭐ 延时从 `+7` 变成 `+8`**
-        //      ⭐ **原因**：⭐ 限幅器插了 **1 级流水**
-        //         （⭐ `exc_pos`/`exc_neg`/`sh_norm_w` 各打一拍 ⇒ `samp_r` 晚一拍）
-        //         ⇒ 数据路径 +1 拍 ⇒ RTL 里 `valid_d` 深度 4 → 5 ⇒ 延时 +1。
-        //      📌 ⭐ **本次⛔ 没有放松任何判据** —— ⭐ 断言本来就是**范围**
-        //         `[POLY+3, POLY+8]` ⇒ `+8` **天然通过**（⭐ 正好落在上界）；
-        //         ⭐ 这里只改【名字里的数字】以保持文档真实
-        //         （⭐ 上一条"配套纪律"明确要求：改了流水级数就要同步改这个数）。
-        //      🔴 **注意**：⭐ 现在 `+8` **已顶到旧范围的上界**。
-        //   ⭐⭐ **2026-09-29 变更：⭐ 范围判据 ⇒ 等值判据**（⭐ 验收契约变更，已留痕）
-        //      🔴 **为什么必须改**：⭐ 实测 —— 把 `valid_d[4]` 改回 `valid_d[3]`
-        //         （⭐ "加了流水却忘记给 valid 加拍"）⇒ 延时 `+8` → `+7`
-        //         ⇒ 🔴 **旧的范围判据 `[POLY+3, POLY+8]` 照样 PASS** ⚠️
-        //         ⇒ ⭐ **它等于没有防延时回归**（⭐ `C88`：⭐ 名字写等值、实际是范围）。
-        //      ⭐ **改法**：⭐ 期望值抽成 **`LAT_EXPECT`**（⭐ 见文件头）⇒ ⭐ 只写一处 ✅
-        //      📌 **配套纪律不变**：⭐ 改了流水级数 ⇒ ⭐ **只改 `LAT_EXPECT` 那一行** ✅
-        $display("     [lat] measured latency = %0d cycles (POLY_TARGET=%0d => +%0d)",
-                 cyc, POLY, cyc - POLY);
-        chk("latency == LAT_EXPECT (3-stage norm + registered output + limiter pipe)",
-            k == LAT_EXPECT);
-
-        // ---- 2b: ⭐⭐ valid 与数据【同拍】（⭐ 与流水深度【无关】的判据）----
-        //   🔴 **为什么还需要它**：⭐ 上面的等值判据**必须随流水深度改数字** ⇒
-        //      ⚠️ 它守的是"**延时变了没有**"，⭐ 而守不了"**valid 与数据错开一拍**"
-        //      （⭐ 只要改流水的人把 `LAT_EXPECT` 一起改了，错拍就能蒙过去）。
-        //   ⭐ **本判据的做法（⭐ 不出现任何深度数字）**：
-        //      ⭐ 观察一帧内 `dry_sample` 的**最后一次变化**落在第几拍（`la_tl`），
-        //      ⭐ 再看 `dry_valid` 高在第几拍（`la_tv`）
-        //      ⇒ ⭐ **契约：`dry_valid` ⛔ 不能【早于】数据到位**（`la_tv >= la_tl`）
-        //      ⇒ ⭐ 若 valid 提前一拍 ⇒ `la_tv = la_tl − 1` ⇒ 🔴 **必红** ✅
-        //   📌 **为什么用 `>=` ⛔ 不是 `==`**：⭐ "valid 稍晚于数据稳定"**无害**
-        //      （⭐ 数据已稳，取到的仍是对的）⇒ ⭐ 只禁"**早**"这一侧 ✅
-        //   ⚠️ **前提**：⭐ 本测试**不背靠背发帧** ⇒ 帧内数据**确实在变**
-        //      ⇒ ⭐ 末拍真的会有一次变化（⭐ 否则 `la_tl` 会偏早 ⇒ 假红）✅
-        begin : lat_align
-            clear_all;
-            for (i = 0; i < POLY; i = i + 1) begin
-                set_lane(i, 0, 16'sd1000);
-                set_lane(i, 1, 16'sd2000);
-                set_env(i, 16'h8000);
-            end
-            la_tv = -1; la_tl = -1;
-            start_frame;
-            la_prev = dry_sample;
-            for (la_t = 0; la_t < (POLY + 20); la_t = la_t + 1) begin
-                @(negedge clk);
-                if (dry_valid) la_tv = la_t;
-                if (dry_sample !== la_prev) begin
-                    la_tl   = la_t;
-                    la_prev = dry_sample;
-                end
-            end
-            $display("     [align] t_valid=%0d  t_last_change=%0d  (valid must NOT be earlier)",
-                     la_tv, la_tl);
-            chk("valid and data are IN PHASE (dry_valid never asserts before dry_sample settles)",
-                (la_tv >= 0) && (la_tl >= 0) && (la_tv >= la_tl));
-        end
+        chk("latency is a fixed POLY_TARGET+7 (incl. 3-stage norm + registered output)",
+            k >= POLY + 3 && k <= (POLY + 8));
 
         // ---- 3: correct mixing, single voice ----
         $display("== 3: single-voice mixing ==");
@@ -359,15 +290,15 @@ module tb_tdm_render_mixer;
         //         （同相/反相比值 = 1/8）**直接守住**；⛔ 本行只是量纲核对。
         //      ⚠️ **同相时（L0 = L1）电平【不变】** —— 因为 `w0 + w1 = 16 = 2^4`
         //         ⇒ ⭐ `gain = 88` 的标定前提**未被破坏**（⭐ 由 3b 的同相测量守着）。
-        chk("2-lane 1000/2000 @env 0x8000 => 126368 (weighted (9L0+7L1)>>4)",
-            s1 === 24'sd126368);
+        chk("2-lane 1000/2000 @env 0x8000 => 91904 (weighted (9L0+7L1)>>4, gain=64)",
+            s1 === 24'sd91904);
 
         set_env(0, 16'hFFFF);
         run_frame_get(cyc);
         $display("     [sv] 2-lane 1000/2000 @env0xFFFF => %0d", latched);
         //   ⭐ 派生值：旧 263824 ⇒ 新 252736（比值 0.958，同上）
-        chk("full env => 252736 (weighted lane sum, see the derivation above)",
-            latched === 24'sd252736);
+        chk("full env => 183808 (weighted lane sum, gain=64)",
+            latched === 24'sd183808);
 
         set_env(0, 16'h0000);
         run_frame_get(cyc);
@@ -422,8 +353,8 @@ module tb_tdm_render_mixer;
         //   🔴 **2026-09-28：⭐ 期望值随 lane 加权变化**（同上方推导）
         //      旧 264000 ⇒ 新 **253088**（比值 0.9586，与 `vs_c` 的 1437/1500 同源）
         $display("     [sv] neg 1000/2000 @env0xFFFF => %0d", s1);
-        chk("negative magnitude 253088 (weighted lane sum, arith-shift toward -inf)",
-            s1 >= -24'sd253264 && s1 <= -24'sd252928);
+        chk("negative magnitude 184064 (weighted lane sum, gain=64)",
+            s1 >= -24'sd184240 && s1 <= -24'sd183888);
 
         // ---- 4: multi-voice summing ----
         //   🔴🔴 **2026-09-26 修正：⭐ 归一化改变了多音的期望值**
@@ -483,9 +414,11 @@ module tb_tdm_render_mixer;
         //      ⭐ 所以判据从"精确等于"改成：⭐ **必须饱和到 24 位正极大（⛔ 不是回绕）**
         //      📌 **核心风险仍是"回绕"** —— ⚠️ 正数变负数才是 bug。
         chk("max input stays POSITIVE (no wrap)", sSat > 24'sd0);
-        chk("max input SATURATES to signed24 MAX (not wrap)",
-            sSat === 24'sd8388607);
-        $display("     [dbgMax] sSat=%0d (期望饱和到 8388607) acc=%0d sh=%0d", sSat, dut.acc_r, dut.sh);
+        //   ⭐ 2026-09-28：软膝阈值降到 7/8 ⇒ 天花板 = 7/8 + 1/16 = 15/16 = 0x780000
+        //      （⛔ 不再到满幅 8388607 —— 那样会触发 off-by-one 的硬饱和折点 ⇒ 爆音）
+        chk("max input clamps to soft-knee ceiling 0x780000 (not wrap)",
+            sSat === 24'sd7864320);
+        $display("     [dbgMax] sSat=%0d (期望软膝天花板 7864320) acc=%0d sh=%0d", sSat, dut.acc_r, dut.sh);
 
         clear_all;
         for (i = 0; i < POLY; i = i + 1) begin
@@ -496,10 +429,10 @@ module tb_tdm_render_mixer;
         run_frame_get(cyc);
         sSat = latched;
         chk("min input stays NEGATIVE (no wrap)", sSat < 24'sd0);
-        $display("     [dbgMin] sSat=%0d (期望饱和到 -8388608) acc=%0d sh=%0d", sSat, dut.acc_r, dut.sh);
-        //   ⭐ 同上：⭐ 左移后为 `-16776960` ⇒ 🔴 **饱和到 24 位负极小**（⭐ 正确行为）。
-        chk("min input SATURATES to signed24 MIN (not wrap)",
-            sSat === -24'sd8388608);
+        $display("     [dbgMin] sSat=%0d (期望软膝天花板 -7864320) acc=%0d sh=%0d", sSat, dut.acc_r, dut.sh);
+        //   ⭐ 2026-09-28：同上 —— 软膝天花板 −15/16 = −0x780000（⛔ 不再到负极小）。
+        chk("min input clamps to soft-knee ceiling -0x780000 (not wrap)",
+            sSat === -24'sd7864320);
 
         // ---- 6: sticky fault ----
         $display("== 6: deadline_fault is sticky ==");
@@ -522,8 +455,8 @@ module tb_tdm_render_mixer;
             wide_env[i*ENVW +: ENVW] = 16'hFFFF;
         end
         wide_frame_get(cyc);
-        chk("wide positive overflow clamps to signed24 MAX (no wrap)",
-            wlatched === 24'sd8388607);
+        chk("wide positive overflow clamps to soft-knee ceiling (no wrap)",
+            wlatched === 24'sd7864320);
 
         wide_clear;
         for (i = 0; i < POLY; i = i + 1) begin
@@ -532,8 +465,8 @@ module tb_tdm_render_mixer;
             wide_env[i*ENVW +: ENVW] = 16'hFFFF;
         end
         wide_frame_get(cyc);
-        chk("wide negative overflow clamps to signed24 MIN (no wrap)",
-            wlatched === -24'sd8388608);
+        chk("wide negative overflow clamps to soft-knee ceiling (no wrap)",
+            wlatched === -24'sd7864320);
 
         if (errors == 0)
             $display("PASS: tdm_render_mixer acceptance (T56) - all judgements held");

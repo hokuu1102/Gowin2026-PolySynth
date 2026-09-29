@@ -13,3 +13,9 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiating module note_manager with d
+angling input port 16 (vel_upd_src_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiating module note_manager with d
+angling input port 17 (pitch_upd_src_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:189: warning: Instantiating module envelope_bank with 
+dangling input port 7 (timbre_i) floating.

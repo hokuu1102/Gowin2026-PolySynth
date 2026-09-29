@@ -15,6 +15,10 @@ module tb_wavetable_timbres;
     integer errors = 0;
     reg signed [15:0] held_soft;
     reg signed [15:0] held_hard;
+    reg signed [15:0] pad_soft_a;
+    reg signed [15:0] pad_hard_a;
+    reg signed [15:0] pad_soft_b;
+    reg signed [15:0] pad_hard_b;
 
     always #10 clk_i = ~clk_i;
 
@@ -45,21 +49,46 @@ module tb_wavetable_timbres;
         end
     endtask
 
+    task read_sample;
+        input [1:0] timbre;
+        input [9:0] address;
+        output signed [15:0] got_soft;
+        output signed [15:0] got_hard;
+        begin
+            timbre_i = timbre;
+            addr_i = address;
+            rd_en_i = 1'b1;
+            @(negedge clk_i);
+            got_soft = sample_soft_o;
+            got_hard = sample_hard_o;
+        end
+    endtask
+
     initial begin
         repeat (3) @(negedge clk_i);
         rst_n_i = 1'b1;
 
-        // Fixed IDs: 0=BASS triangle, 1=GUITAR saw, 2=PIANO 25% pulse,
-        // 3=PAD multi-harmonic.  Address 0 is deliberately chosen because
-        // every expected value is an independently specified waveform anchor.
-        expect_sample(2'd0, 10'd0, 16'sd0,      16'sd0);
-        expect_sample(2'd1, 10'd0, 16'sd0,     -16'sd32767);
-        expect_sample(2'd2, 10'd0, 16'sd0,      16'sd32766);
-        expect_sample(2'd3, 10'd0, 16'sd0,      16'sd0);
+        // Fixed IDs point at the CC0 AKWF sources documented in
+        // assets/third_party/akwf/SOURCES.md.  These are public ROM anchors,
+        // not an assertion about the generator's implementation.
+        expect_sample(2'd0, 10'd0,  16'sd373,  16'sd226);
+        expect_sample(2'd1, 10'd0,  16'sd4848, 16'sd5588);
+        expect_sample(2'd2, 10'd0,  16'sd1123, 16'sd3176);
+        expect_sample(2'd3, 10'd0,  16'sd917,  16'sd906);
 
-        // A quarter-cycle anchor proves that table selection is not merely
-        // an amplitude mute and that the BASS hard table is a triangle peak.
-        expect_sample(2'd0, 10'd256, 16'sd16384, 16'sd32767);
+        expect_sample(2'd0, 10'd256, 16'sd32490, 16'sd32280);
+        expect_sample(2'd1, 10'd512, -16'sd31041, -16'sd30638);
+        expect_sample(2'd2, 10'd768, 16'sd3217, 16'sd963);
+
+        // The chosen PAD source is a complete periodic capture, not an
+        // antisymmetric mathematical half copied into the other half.
+        read_sample(2'd3, 10'd128, pad_soft_a, pad_hard_a);
+        read_sample(2'd3, 10'd640, pad_soft_b, pad_hard_b);
+        if ((pad_soft_b === -pad_soft_a) || (pad_hard_b === -pad_hard_a)) begin
+            $display("FAIL: PAD source unexpectedly has half-wave antisymmetry soft=%0d/%0d hard=%0d/%0d",
+                     pad_soft_a, pad_soft_b, pad_hard_a, pad_hard_b);
+            errors = errors + 1;
+        end
 
         held_soft = sample_soft_o;
         held_hard = sample_hard_o;

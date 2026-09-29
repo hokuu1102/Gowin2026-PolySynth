@@ -29,7 +29,7 @@
 //
 //   | 变异 | 预期 FAIL | 实测 |
 //   |---|---|---|
-//   | `VEL_DEADZONE` 16 → 15 | T3 | ✅ **T3 FAIL** |
+//   | ⚠️ `VEL_DEADZONE` 16 → 15 | T3 | ⭐ **已废弃** —— 死区本身已删除（见 ⑨ 段） |
 //   | `VEL_TRIG_TH` 64 → 63 | T5 | ✅ **T5 FAIL** |
 //   | `vu_axis_r <= vu_ax_r + 1` | T2c / T8 | ✅ **T2c / T8 FAIL** |
 //
@@ -40,14 +40,18 @@
 //      ✅ 修法：把检查移到 **`force tick_audio=0` 之后的第一个 negedge**
 //         （⭐ 那一刻 `vu_valid_r` 仍为高、`vu_axis_r` 仍是本 tick 锁存的轴）。
 //      📌 **教训**：⭐ **"判据全绿"必须先证明它【能红】** —— 否则它可能只是没被执行过。
+//
+//   ⭐⭐ **2026-09-29 治本变更**：⭐ **`vu_last[]` 死区整体删除** ⇒
+//      · ⛔ `VEL_DEADZONE` 不再存在于 `top.v` ⇒ ⭐ 本 tb 的同名 localparam 也已删除 ✅
+//      · ⭐ 第 1 个变异（⭐ 死区 16→15 ✅）**随之作废** ⇒ ⭐ 换成"加回死区 ⇒ T3/T4 必红" ✅
+//      · ⭐ 新契约见 ⑨ 段：⭐ **按住的轴每个轮转周期都发** ✅
 // ─────────────────────────────────────────────────────────────────────────────
 `timescale 1ns/1ps
 
 module tb_vel_top_stream;
 
-    //  ⭐ 与被测同值（`top.v:1712-1713`）
+    //  ⭐ 与被测同值（`top.v:1938`）
     localparam integer VEL_TRIG_TH  = 64;
-    localparam integer VEL_DEADZONE = 16;
 
     //  ⭐ 判据名缓冲区：90 字节（纯 ASCII）⇒ ⛔ 不会截断
     localparam integer NAME_W = 8*90;
@@ -252,19 +256,23 @@ module tb_vel_top_stream;
         chk("T2c: every packet axis == vu_ax_r of that cycle", axis_bad == 0);
 
         // ═════════════════════════════════════════════════════════════════
-        // ③ ⭐ 死区：Δpos = 16 ⇒ ⛔ 一个包都不发
-        // ═════════════════════════════════════════════════════════════════
-        set_pos(12'd316);
-        run_ticks(8);
-        chk("T3: deadzone -- delta=16 => NO packet (deadzone is 16)", pkt_cnt == 0);
-
-        // ═════════════════════════════════════════════════════════════════
-        // ④ ⭐ 死区边界：Δpos = 17 ⇒ 每个轴都发
+        // ③④ ⭐⭐⭐ 2026-09-29 治本：**没有死区 ⇒ 小变化也照样发**
+        //   🔴 **旧契约（已废弃）**：⭐ `Δpos = 16` ⇒ ⛔ 不发；`Δpos = 17` ⇒ 发 ✅
+        //   ✅ **新契约**：⭐ 只要 `pos > VEL_TRIG_TH` ⇒ ⭐ **每个轮转周期都发** ✅
+        //   ⭐ **为什么改**：⭐ 旧死区是"力度不跟随"的根源（⭐ 发早了就被永久抑制 ✅）；
+        //      ⭐ 平滑职责已由 `note_manager` 的 ±8/采样拍斜坡承担 ✅
+        //   ⭐ **非空洞性**：⭐ 把 `vu_far` 死区加回来 ⇒ ⭐ **T3/T4 必红** ✅
         // ═════════════════════════════════════════════════════════════════
         align_bad = 0;
-        set_pos(12'd317);
+        set_pos(12'd316);                    // ⭐ Δpos = 16（旧死区刚好挡住的那个步长）
         run_ticks(8);
-        chk("T4a: delta=17 (just over deadzone) => packet per axis", pkt_cnt == 8);
+        chk("T3: delta=16 still sends (no deadzone) => packet per axis", pkt_cnt == 8);
+        chk("T3b: value tracks pos=316", align_bad == 0);
+
+        align_bad = 0;
+        set_pos(12'd317);                    // ⭐ Δpos = 1（比死区小得多）
+        run_ticks(8);
+        chk("T4a: delta=1 also sends => packet per axis", pkt_cnt == 8);
         chk("T4b: value tracks pos=317", align_bad == 0);
 
         // ═════════════════════════════════════════════════════════════════
@@ -297,31 +305,37 @@ module tb_vel_top_stream;
         chk("T8: all packets had val/axis aligned with the SAME cycle (L70)", (align_bad == 0) && (axis_bad == 0));
 
         // ═════════════════════════════════════════════════════════════════
-        // ⑨ ⭐⭐ 2026-09-29：**死区必须仍然工作**（⭐ 防抖动/台阶声的契约 ✅）
-        //   🔴 **为什么单独查这一条**：⭐ 本轮我一度为了修"力度不跟随"，
-        //      把"note_on 时清死区参考"写进了 `top.v` ✅
-        //      ⇒ 🔴 **上板 `Q_velrace` 完全没声音**（⭐ 那一版比有声音的 `P_romhard`
-        //        只多了这一处 ✅）⇒ ⭐ **已整体回退** ✅
-        //   ✅ **正解改在接收端**（⭐ `note_manager` 每轴记一个目标 ✅）
-        //      ⇒ ⭐ **`top.v` 一个字都不用改** ⇒ ⭐ **死区行为【完全不变】** ✅
-        //   ⭐ **本判据 = 那条不变量的守卫**：⭐ pos 稳住不动 ⇒ ⭐ **必须一个包都不发** ✅
-        //   ⭐ **非空洞性**：⭐ 把 `vu_far` 改成恒真 ⇒ ⭐ **本判据必红** ✅
+        // ⑨ ⭐⭐⭐ 2026-09-29 治本：**死区【已删除】⇒ 按住的轴必须【持续】发包**
+        //   🔴 **上板症状（⭐ 用户原话）**：*"无论按下的行程多少，都是原始音量"* ✅
+        //   🔴 **旧死区的病**：⭐ "变化超过 16 才发" ⇒ ⚠️ 若某次 `vel_upd` 在 voice
+        //      出现**之前**到达（⭐ 被丢掉 ✅），⭐ 而 `vu_last` **已更新** ⇒
+        //      🔴 `vu_far` **恒假** ⇒ **永不再发** ⇒ `vel` 卡在起音值 ✅
+        //   ✅ **治本**：⭐ **删掉 `vu_last[]` 死区**（⭐ 按下就发 ✅）⇒
+        //      ⭐ 收端（`note_manager`）每轴各记一个目标 ⇒ ⭐ 发端节奏不再重要 ✅
+        //      ⭐ 且"防抖动/台阶声"由 `note_manager` 的 **±8/采样拍斜坡** 负责（⭐ 功能重复 ✅）
+        //   ⭐ **本段判据（新契约）**：
+        //      · ⭐ `pos` 按住不动 ⇒ ⭐ **每个轮转周期都发**（⭐ 8 拍一轮 ✅）
+        //      · ⭐ `pos` 低于阈值（⭐ 抬起 ✅）⇒ ⭐ **一个都不发**
+        //      · ⭐ 每个包的值 == `pos_to_vel(当拍 pos)`（⭐ 由全局 `align_bad` 守 ✅）
+        //   ⭐ **非空洞性**：⭐ 把 `vu_far` 死区加回来 ⇒ ⭐ **T9a 必红**（⭐ 稳住后不再发 ✅）
         // ═════════════════════════════════════════════════════════════════
-        $display("== 9: the deadzone must still hold (top.v must be UNCHANGED by the fix) ==");
+        $display("== 9: no deadzone -- a held axis keeps sending ==");
         set_pos(12'd0);
         run_ticks(16);                       // ⭐ 清干净：pos=0 ⇒ 不发包
+        chk("T9a: pos below threshold => NO packets at all", pkt_cnt == 0);
+
         set_pos(12'd700);
-        run_ticks(24);                       // ⭐ 首次跳变 ⇒ 每轴各发一次
-        run_ticks(16);
-        chk("T9a: with pos held steady, NO further packets (deadzone works)", pkt_cnt == 0);
+        run_ticks(16);                       // ⭐ 按住 ⇒ 16 拍 = 2 个轮转周期
+        chk("T9b: pos held ABOVE threshold => keeps sending (>= 2 per 16 ticks)",
+            pkt_cnt >= 2);
 
-        set_pos(12'd716);                    // ⭐ +16 = 恰好【不超】死区（判据用严格大于）
-        run_ticks(16);
-        chk("T9b: a +16 step (not over the deadzone) still sends nothing", pkt_cnt == 0);
+        run_ticks(16);                       // ⭐ 再跑 16 拍 ⇒ 必须继续发
+        chk("T9c: still sending on the NEXT window (no deadzone latch-up)",
+            pkt_cnt >= 2);
 
-        set_pos(12'd760);                    // ⭐ +60 ⇒ 明确超死区
-        run_ticks(16);
-        chk("T9c: a +60 step DOES send (deadzone is not stuck shut)", pkt_cnt >= 1);
+        set_pos(12'd0);
+        run_ticks(16);                       // ⭐ 抬起 ⇒ 立刻停
+        chk("T9d: releasing (pos -> 0) stops the stream immediately", pkt_cnt == 0);
 
         //  ⚠️ ⭐ 注：⭐ 本 tb 只 force `as_pos`，⛔ **没有 ADC 帧** ⇒ ⭐ `ee_valid` 永不来
         //     ⇒ 🔴 **永远没有 voice 被分配**（⭐ 实测 `max(vel_r)=0` ✅）

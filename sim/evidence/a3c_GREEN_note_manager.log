@@ -1,0 +1,120 @@
+﻿WARNING [note_manager] FIFO_DEPTH=4 < 鏈€鍧忕獊鍙?18 (=16 杞?+1 鑺傛媿鍣?+1 榧撴満) => 浜嬩欢浼氭孩鍑轰涪寮冿紙猸?宸茬敱 event_lost_o 鎸囩ず锛屼絾浼氫涪闊筹級
+== 鍒ゆ嵁 1: 浜嬩欢 -> voice gate锛堝惈 DEFAULT_VEL / 闊宠壊閿佸瓨锛?=
+  ok  : ?悗 0 ?gate
+  ok  : note_?湁 1 ?gate
+  ok  : ???????紩 voice0
+  ok  : voice0 ?axis = 3
+  ok  : voice0 ?phase_in??
+  ok  : vel=???DEFAULT_VEL(200)
+  ok  : ????=??壊(1)
+  ok  : ???note_?湁 2 ?gate
+  ok  : ?????€?棽 voice1
+  ok  : v??0????77)
+  ok  : evt_timb?????圠oop???
+  ok  : note_off(axis3悗 ga???
+  ok  : ??槸 voice0
+  ok  : voic???
+== 鍒ゆ嵁 2: 鏀寔'鏇存柊鍦ㄥ搷 voice'锛坴el_update / pitch_update锛?=
+  ok  : vel_update takes effect (left the start point, ramping toward 240)
+  ok  : vel_update converges to 240 (ramp completed)
+  ok  : vel_update leaves the released voice0 untouched
+  ok  : pitch_updat???殑 voice1
+  ok  : ???axis??????voice
+== 鍒ゆ嵁 6: 婊戦煶涓嶄骇鐢熼煶绗︼紙鍐荤粨琛ㄩ搧寰嬶級==
+  ok  : ???gat????????
+  ok  : ???axis ???
+  ok  : ?????phase_inc
+== 鍒ゆ嵁 3: 鍚岃酱浣嶉噸瑙﹀彂澶嶇敤鍚屼竴 voice ==
+  ok  : ???gat??????voic?
+  ok  : ????湪 voice1
+  ok  : ?????phase_inc
+  ok  : ?????vel
+== 鍒ゆ嵁 4: 閲嶈Е鍙戠湡鐨勮 ADSR 閲嶈捣 Attack锛堟渶鏄撻潤榛樺け鏁堬級==
+  ok  : ??????sustain ?紙640?
+  ok  : ????gate ??坴oic???
+  ok  : ???????簬 sustain => Attack ???
+  ok  : 瓙 ga???????????????
+  ok  : ???????埌 sustai??
+== 鍒ゆ嵁 8: 涓撶敤 voice 姹狅紙鑺傛媿鍣ㄤ笉鍙備笌鏅€氭姠鍗狅紝T33b 鍦板熀锛?=
+  ok  : ?€?????紙< 2?
+  ok  : ????????= 2?
+  ok  : ??????????
+  ok  : ??敤 voice ???
+  ok  : ????gate ??????
+== 鍒ゆ嵁 5: 鎶㈠崰椤哄簭锛堝湪 POLY_TARGET=4 灏忓疄渚嬩笂楠岋級==
+  ok  : 4 ?????voice
+  ok  : ???voice0..3
+  ok  : axis ???
+  ok  : ????5??????????
+  ok  : ???????崰 voice0
+  ok  : ??????
+  ok  : ?????????坴oice?
+  ok  : ???????=姠 voice0
+  ok  : ???voice????????
+  ok  : voice1 ?€????
+  ok  : ???€????殑 voice1
+  ok  : voice0??????
+  ok  : voice2???
+  ok  : ?????X
+== 鍒ゆ嵁 7: POLY_TARGET 鍙傛暟鍖栵紙32 妗ｅ凡鍏ㄧ▼浣跨敤锛涘啀楠?16 杞村崰婊★級==
+  ok  : ????緥 0 ?gate
+  ok  : 1?????voice
+  ok  : ????殑 voice0..15
+  ok  : voice16..???圓XIS_W=4 ??1??
+  ok  : ???????=?彈 AXIS_W??潪 POLY_TARGE?
+== 9: mid-retrigger voice is not stealable ==
+  ok  : section 9: clean slate (0 gates)
+  ok  : section 9: axis 5 owns voice0
+  ok  : section 9: exactly 1 gate before the test
+  ok  : section 9: axis 5 still owns voice0 (hold kept it busy)
+  ok  : section 9: the other axis landed on a DIFFERENT voice
+  ok  : section 9: axis 5 was NOT stolen (still on voice0)
+  ok  : K-106: baseline - event_lost is 0 BEFORE any overflow
+  ok  : K-106: baseline - lost count is 0 BEFORE any overflow
+  ok  : K-106: event_lost asserts after overflowing the queue
+  ok  : K-106: lost count = 7 and 12 = 5 served + 7 lost (conservation holds)
+  ok  : K-106: the burst really did overflow (lost > 0)
+  ok  : K-106: the burst was not entirely lost (served > 0)
+  ok  : K-106: sticky stays set while later events are processed normally
+  ok  : K-106: lost count is unchanged by later normal events
+  ok  : K-106: the events that FIT were still allocated (axis 0 got a voice)
+  ok  : K-106: overflow did NOT wedge the FSM (some gate is active)
+  ok  : K-106: event_lost_clr_i clears the sticky flag
+  ok  : K-106: event_lost_clr_i clears the lost count
+  ok  : K-106: sticky can RE-ASSERT after being cleared (not a one-shot lockout)
+  ok  : K-106: lost count SATURATED at 15 (did not wrap to 0)
+  ok  : K-106: sticky is set under massive overflow too
+  ok  : A1 setup: live note_on on the test axis allocated a gated voice
+  ok  : A1: score note_off must NOT clear a live voice on the same axis
+  ok  : A1: live note_off still clears the live voice on the same axis
+  ok  : A2 setup: live note_on allocated a gated voice on axis 9
+  ok  : A2: a replayed (src=1) vel_upd must NOT move the live (src=0) voice
+  ok  : A2: the live (src=0) vel_upd still drives the live voice
+  ok  : A2 setup: replayed note_on allocated a gated voice on axis 10
+  ok  : A2: a replayed (src=1) vel_upd DOES drive its own (src=1) voice
+  ok  : A2: a live (src=0) vel_upd must NOT move the replayed (src=1) voice
+  INFO: release sample-ticks  live(240)=6  replayed(240)=6  start-only(80)=3
+  ok  : A2: the replayed note's release lasts EXACTLY as long as the live note's
+  ok  : A2: the END velocity really drives the tail (start-only is SHORTER)
+  ok  : A3 setup: live note_on on axis 6 allocated a gated voice
+  ok  : A3 setup: the live voice reached sustain before the replay
+  ok  : A3-A: replayed note_on must NOT take over the live voice
+  ok  : A3-A: live and replayed voices COEXIST on the same axis
+  ok  : A3-A: the live voice keeps its velocity (not retriggered)
+  ok  : A3-A: the live voice keeps its phase_inc (not retriggered)
+  ok  : A3-A: the live voice envelope was NOT reset
+  ok  : A3-B: replayed note_off leaves EXACTLY one voice on the axis
+  ok  : A3-B: the surviving voice is the live one (still gated)
+  ok  : A3-B: the replayed voice was the one cleared
+  ok  : A3-B: live note_off still clears the live voice (tag intact)
+  ok  : A3-C setup: live note_on on axis 6 allocated a gated voice
+  INFO: A3-C fills=31 alloc-ok=31 gated=32 free(live_mask=0)=0 / 32
+  ok  : A3-C setup: the voice pool is COMPLETELY full (no free voice left)
+  ok  : A3-C setup: the live voice is the OLDEST (age > 0, fills are age 0)
+  ok  : A3-C: the replayed note_on still allocated (via preemption)
+  ok  : A3-C: the preemption victim is NOT the live voice on that axis
+  ok  : A3-C: the live voice survives with its OWN velocity (not re-tagged)
+PASS: note_manager acceptance (T54) - all judgements held
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:1246: $finish called at 750420000 (1ps)
+
+

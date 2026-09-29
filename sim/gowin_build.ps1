@@ -18,7 +18,8 @@
 # NOTE: do NOT run this while the Gowin IDE has the same project open.
 
 param(
-  [string]$GwSh = "C:\Gowin\Gowin_V1.9.12.03_x64\IDE\bin\gw_sh.exe"
+  [string]$GwSh = "C:\Gowin\Gowin_V1.9.12.03_x64\IDE\bin\gw_sh.exe",
+  [int]$BuildTimeoutSec = 1200
 )
 
 $ErrorActionPreference = "Continue"
@@ -95,15 +96,14 @@ $trTimePre = if (Test-Path $trPathPre) { (Get-Item $trPathPre).LastWriteTime } e
 #
 #   ✅ 修法：⭐ 不用管道，改成【重定向到文件】+ ⭐ 【硬超时】。
 #      超时后强杀 gw_sh —— 此时产物通常已落盘，由下面的【新鲜度检查】裁决成败。
-$buildTimeoutSec = 1200        # ⭐ 20 min：正常构建 ~10 min ⇒ 留 2× 余量；卡死时最多损失 20 min
 $errLog = Join-Path $evDir "gowin_build.stderr.log"
 $gwProc = Start-Process -FilePath $GwSh -ArgumentList @("build_cli.tcl") `
                         -NoNewWindow -PassThru `
                         -RedirectStandardOutput $buildLog `
                         -RedirectStandardError  $errLog
-$gwFinished = $gwProc.WaitForExit($buildTimeoutSec * 1000)
+$gwFinished = $gwProc.WaitForExit($BuildTimeoutSec * 1000)
 if (-not $gwFinished) {
-  Write-Host "WARN: gw_sh exceeded ${buildTimeoutSec}s -- killing it (products may already be written)" -ForegroundColor Yellow
+  Write-Host "WARN: gw_sh exceeded ${BuildTimeoutSec}s -- killing it (products may already be written)" -ForegroundColor Yellow
   try { $gwProc.Kill() } catch {}
   $gwProc.WaitForExit(10000) | Out-Null
 }

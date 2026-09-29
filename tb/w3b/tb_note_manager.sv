@@ -71,14 +71,21 @@ module tb_note_manager;
     reg  [PHASE_W-1:0]     note_phase_inc;
     reg  [VEL_W-1:0]       note_velocity;
     reg  [1:0]             note_kind;
+    //  ⭐⭐ A1（2026-09-29）：⭐ 事件**来源标记**（⭐ 0=live 手弹 / 1=score 回放 / 2=demo）
+    //     ⭐ 只有本 tb 的**主实例**用它（⭐ 判据在文件尾 `a1_src_isolated_off`）
+    reg  [1:0]             note_src = 2'd0;
 
     reg                    vel_upd_valid;
     reg  [AXIS_W-1:0]      vel_upd_axis;
     reg  [VEL_W-1:0]       vel_upd_value;
+    //  ⭐⭐ A2（2026-09-29）：⭐ **参数更新通路的来源标记**（⭐ 0=手弹 / 1=回放）
+    //     ⚠️ **只有主实例用它**（⭐ 判据在文件尾 `a2_upd_src_isolated`）✅
+    reg  [1:0]             vel_upd_src = 2'd0;
 
     reg                    pitch_upd_valid;
     reg  [AXIS_W-1:0]      pitch_upd_axis;
     reg  [PHASE_W-1:0]     pitch_upd_value;
+    reg  [1:0]             pitch_upd_src = 2'd0;   // ⭐ A2
 
     reg  [TIMBRE_W-1:0]    default_timbre;
     reg                    evt_timbre_valid;
@@ -119,10 +126,15 @@ module tb_note_manager;
         .note_valid_i(note_valid), .note_axis_i(note_axis),
         .note_phase_inc_i(note_phase_inc), .note_velocity_i(note_velocity),
         .note_kind_i(note_kind),
+        // ⭐ A1：来源标记（⭐ 本实例的判据要**按源**区分 `note_off`）
+        .note_src_i(note_src),
         .vel_upd_valid_i(vel_upd_valid), .vel_upd_axis_i(vel_upd_axis),
         .vel_upd_value_i(vel_upd_value),
+        //  ⭐ A2：更新通路的来源标记（⭐ 判据要**按源**区分"这次更新是谁发的"）
+        .vel_upd_src_i(vel_upd_src),
         .pitch_upd_valid_i(pitch_upd_valid), .pitch_upd_axis_i(pitch_upd_axis),
         .pitch_upd_value_i(pitch_upd_value),
+        .pitch_upd_src_i(pitch_upd_src),
         .default_timbre_i(default_timbre), .evt_timbre_valid_i(evt_timbre_valid),
         .evt_timbre_i(evt_timbre),
         .env_active_i(env_active), .env_level_i(env_level),
@@ -177,6 +189,9 @@ module tb_note_manager;
         .note_valid_i(b_valid), .note_axis_i(b_axis),
         .note_phase_inc_i(32'h0001_0000), .note_velocity_i(8'd100),
         .note_kind_i(2'd0),
+        // ⭐ A1：本实例只有**单一来源**（手弹/live = 0）⇒ 恒接 0
+        //    ⚠️ 必须**显式**接：留空 ⇒ `z` ⇒ `src_r == cur_src` 比较变 `x` ⇒ 🔴 判据假红
+        .note_src_i(2'd0),
         .vel_upd_valid_i(1'b0), .vel_upd_axis_i({AXIS_W{1'b0}}), .vel_upd_value_i(8'd0),
         .pitch_upd_valid_i(1'b0), .pitch_upd_axis_i({AXIS_W{1'b0}}),
         .pitch_upd_value_i(32'd0),
@@ -213,6 +228,9 @@ module tb_note_manager;
         .note_valid_i(c_valid), .note_axis_i(c_axis),
         .note_phase_inc_i(32'h0001_0000), .note_velocity_i(8'd100),
         .note_kind_i(2'd0),
+        // ⭐ A1：本实例只有**单一来源**（手弹/live = 0）⇒ 恒接 0
+        //    ⚠️ 必须**显式**接：留空 ⇒ `z` ⇒ `src_r == cur_src` 比较变 `x` ⇒ 🔴 判据假红
+        .note_src_i(2'd0),
         .vel_upd_valid_i(1'b0), .vel_upd_axis_i({AXIS_W{1'b0}}), .vel_upd_value_i(8'd0),
         .pitch_upd_valid_i(1'b0), .pitch_upd_axis_i({AXIS_W{1'b0}}),
         .pitch_upd_value_i(32'd0),
@@ -345,6 +363,20 @@ module tb_note_manager;
         end
     endtask
 
+    //  ⭐⭐ A2（2026-09-29）新增：⭐ 一条**带来源**的 `vel_upd`（⭐ 1 拍脉冲）
+    task pulse_velupd_src;
+        input [AXIS_W-1:0] ax;
+        input [VEL_W-1:0]  v;
+        input [1:0]        s;
+        begin
+            @(negedge clk);
+            vel_upd_valid = 1'b1; vel_upd_axis = ax; vel_upd_value = v;
+            vel_upd_src   = s;
+            @(negedge clk);
+            vel_upd_valid = 1'b0;
+        end
+    endtask
+
     // 走 n 个采样拍
     //    ⚠️⚠️ `sample_tick_i` 必须**恰好高 1 个 clk**（它是"时钟使能"，不是电平）。
     //       我第一版写成"高 `CLK_PER_SAMPLE` 个 clk" ⇒ 每个 `run_ticks(1)`
@@ -359,6 +391,21 @@ module tb_note_manager;
                 @(negedge clk); sample_tick = 1'b1;   // ← 只高 1 拍
                 @(negedge clk); sample_tick = 1'b0;
                 repeat (3) @(negedge clk);
+            end
+        end
+    endtask
+
+    //  ⭐⭐ A2 新增：⭐ 数"松手后到包络归零"用了几个**采样拍**
+    //   ⚠️ 上限 64 拍 ⇒ ⛔ 绝不静默死循环（⭐ `K-106` 同族纪律）
+    //   ⚠️ **定义必须晚于 `run_ticks`**（⭐ 它要调用后者 ✅）
+    task rel_ticks;
+        input  integer v;
+        output integer k;
+        begin
+            k = 0;
+            while ((env_of(v) !== {ENV_W{1'b0}}) && (k < 64)) begin
+                run_ticks(1);
+                k = k + 1;
             end
         end
     endtask
@@ -835,6 +882,360 @@ module tb_note_manager;
                 end
                 chk("K-106: sticky is set under massive overflow too", event_lost === 1'b1);
             end
+        end
+
+        // ═════════════════════════════════════════════════════════════════════
+        // ⭐⭐ A1（2026-09-29）：⭐ `note_off` **按来源隔离** ✅
+        //   🔴 守的缺陷（用户上板实测）：⭐ looper 回放（`score`）时，按**同一个轴**
+        //      的手弹键 ⇒ 回放的 `note_off` 把**手弹**的 voice 也清了
+        //      ⇒ ⭐ **手弹的音死掉、而且它自己不再回来** ✅
+        //   ⭐ 判据（两条核心 + 一条非空洞性前置）：
+        //      · 前置：⭐ `live` 在轴 7 起音 ⇒ 必须**真的**分配到一个 gate=1 的 voice
+        //        （⛔ 否则后面两条就是**空洞**的 —— `K-56`/`C83` 纪律）
+        //      · ① ⭐ `score`(1) 的 `note_off` 打在同轴的 `live` voice 上 ⇒ ⛔ **不许清**
+        //      · ② ⭐ `live` (0) 的 `note_off` 打在同轴的 `live` voice 上 ⇒ ✅ **必须清**
+        //   📌 **非空洞性**（⭐ 做法与结果见报告）：⭐ 把 `rtl/w3b/note_manager.v` 的
+        //      off 分支改回只有 `axis_r[i] == cur_axis` ⇒ ⭐ **①必红**、前置与②仍绿 ✅
+        // ═════════════════════════════════════════════════════════════════════
+        begin : a1_src_isolated_off
+            integer         vi;
+            reg [IDX_W-1:0] v_ax7;
+            // ── 清场：所有轴松手 + 等包络落干净（⛔ 不让上一节的残留污染判据）──
+            note_src = 2'd0;
+            for (vi = 0; vi < 16; vi = vi + 1) release_a(vi[AXIS_W-1:0]);
+            run_ticks(400);
+            // ── 前置：以 `live`(0) 在轴 7 起音 ──────────────────────────────
+            note_src = 2'd0;
+            press_a(4'd7, 32'h0050_0000, 8'd100);
+            v_ax7 = saw_alloc_voice;
+            chk("A1 setup: live note_on on the test axis allocated a gated voice",
+                (saw_alloc === 1'b1) && (axis_of(v_ax7) === 4'd7)
+                && (voice_gate[v_ax7] === 1'b1));
+            // ── ① `score`(1) 的同轴 `note_off` ⇒ ⛔ **不许清** ──────────────
+            note_src = 2'd1;
+            release_a(4'd7);
+            chk("A1: score note_off must NOT clear a live voice on the same axis",
+                voice_gate[v_ax7] === 1'b1);
+            // ── ② `live`(0) 的同轴 `note_off` ⇒ ✅ **必须清** ───────────────
+            note_src = 2'd0;
+            release_a(4'd7);
+            chk("A1: live note_off still clears the live voice on the same axis",
+                voice_gate[v_ax7] === 1'b0);
+        end
+
+        // ═════════════════════════════════════════════════════════════════════
+        // ⭐⭐ A2（2026-09-29）：⭐ **参数更新通路【按来源隔离】** ✅
+        //   🔴 守的缺陷：⭐ `note_manager` 的 (d) 力度跟随 / (e) 音高修正 原来
+        //      **只按 `axis` 匹配** ⇒ ⚠️ 一旦 looper 回放也驱动这两条通路
+        //      ⇒ 🔴 回放的插值更新会把**同一轴上手弹的 voice 一起拖走**
+        //      （⭐ 听感：手弹的音量/音高被回放的手势带着跑）✅
+        //      📌 **与 A1 修的 `note_off` 是同一个缺陷类**（⭐ 都缺"来源"这一维）
+        //   ⭐ 判据（六条）：
+        //      · 前置：⭐ 手弹在轴 9 起音 ⇒ 必须**真的**有 gate=1 的 voice
+        //      · ① ⭐ `src=1`（回放）的 `vel_upd` 打在**只有手弹**的轴上 ⇒ ⛔ **不许动它**
+        //      · ② ⭐ `src=0`（手弹）的 `vel_upd` 打在同一轴 ⇒ ✅ **必须动它**
+        //      · ③ ⭐ 回放 voice（轴 10）**必须被自己的更新**驱动到目标 ✅
+        //      · ④ ⭐ 对称面：⭐ 手弹的更新打在**回放 voice** 的轴上 ⇒ ⛔ **不许动它**
+        //      · ⑤ ⭐⭐ **释放尾音等价**（⭐ 用户症状"回放没有 release 尾音"的直接判据）：
+        //          ⭐ "手弹驱动到 240" 与 "回放驱动到 240" 的**释放拍数必须相同**，
+        //          且**必须长于**"停在起点 80"的对照 ✅
+        //          🔴 **为什么这条最重要**：⭐ `adsr.v` 的 release 是**每采样拍固定步长**
+        //             ⇒ ⭐ **尾音长度 ∝ 松手时的包络电平 ∝ 力度** ✅
+        //             📌 所以"力度到没到终点"就是"尾音长不长" ✅
+        //   📌 **非空洞性**（⭐ 两次禁用实验，⭐ 输出见报告）：
+        //      · 去掉 (d) 段的两条 `vu_src_w` 条件（⭐ 恢复"只按轴"）⇒ ⭐ **①必红**
+        //      · 去掉 (d) 段"非手弹 ⇒ 写 `vtgt_rep`"那一支 ⇒ ⭐ **⑤必红**（⭐ 回放腿停在 80）
+        // ═════════════════════════════════════════════════════════════════════
+        begin : a2_upd_src_isolated
+            integer         vi;
+            integer         vl, vr, vlow, rl_live, rl_rep, rl_low;
+            reg [VEL_W-1:0] vhold;
+            // ── 清场：所有轴松手 + 等包络落干净 ────────────────────────────
+            note_src     = 2'd0;
+            vel_upd_src  = 2'd0;
+            pitch_upd_src= 2'd0;
+            for (vi = 0; vi < 16; vi = vi + 1) release_a(vi[AXIS_W-1:0]);
+            run_ticks(400);
+
+            // ── 前置：手弹（src=0）在轴 9 起音 ─────────────────────────────
+            note_src = 2'd0;
+            press_a(4'd9, 32'h0090_0000, 8'd100);
+            vl = saw_alloc_voice;
+            chk("A2 setup: live note_on allocated a gated voice on axis 9",
+                (saw_alloc === 1'b1) && (axis_of(vl) === 4'd9)
+                && (voice_gate[vl] === 1'b1));
+
+            // ── ① 回放源（src=1）的更新打在【只有手弹】的轴上 ⇒ ⛔ 不许动 ────
+            vhold = vel_of(vl);
+            pulse_velupd_src(4'd9, 8'd230, 2'd1);
+            run_ticks(40);
+            chk("A2: a replayed (src=1) vel_upd must NOT move the live (src=0) voice",
+                vel_of(vl) === vhold);
+
+            // ── ② 手弹源（src=0）的更新打在同一轴 ⇒ ✅ 必须动 ──────────────
+            pulse_velupd_src(4'd9, 8'd230, 2'd0);
+            run_ticks(40);
+            chk("A2: the live (src=0) vel_upd still drives the live voice",
+                vel_of(vl) === 8'd230);
+
+            // ── ③ 回放 voice（src=1，轴 10）必须被【自己的】更新驱动 ────────
+            note_src = 2'd1;
+            press_a(4'd10, 32'h00A0_0000, 8'd60);
+            vr = saw_alloc_voice;
+            chk("A2 setup: replayed note_on allocated a gated voice on axis 10",
+                (saw_alloc === 1'b1) && (axis_of(vr) === 4'd10)
+                && (voice_gate[vr] === 1'b1));
+            pulse_velupd_src(4'd10, 8'd220, 2'd1);
+            run_ticks(40);
+            chk("A2: a replayed (src=1) vel_upd DOES drive its own (src=1) voice",
+                vel_of(vr) === 8'd220);
+
+            // ── ④ 对称面：⭐ 手弹源（src=0）的更新打在【回放 voice】的轴 ⇒ ⛔ 不许动 ──
+            vhold = vel_of(vr);
+            pulse_velupd_src(4'd10, 8'd90, 2'd0);
+            run_ticks(40);
+            chk("A2: a live (src=0) vel_upd must NOT move the replayed (src=1) voice",
+                vel_of(vr) === vhold);
+
+            // ═════════════════════════════════════════════════════════════════
+            // ⑤ ⭐⭐ **释放尾音等价**（⭐ 用户症状"回放没有 release 尾音"的直接判据）
+            //   ⭐ 三条腿：⭐ ①手弹驱动到 240 · ②回放驱动到 240 · ③不给更新（停在 80）
+            //   ⭐ 判据：⭐ ①②**释放拍数相同**，⭐ 且**都长于**③ ✅
+            //   📌 **非空洞性**：⭐ 去掉"非手弹 ⇒ 写 `vtgt_rep`"那一支 ⇒ ⭐ ②停在 80
+            //      ⇒ ⭐ **②的释放拍数掉到 ③ 的水平 ⇒ 本判据必红** ✅
+            // ═════════════════════════════════════════════════════════════════
+            note_src      = 2'd0;
+            vel_upd_src   = 2'd0;
+            pitch_upd_src = 2'd0;
+            for (vi = 0; vi < 16; vi = vi + 1) release_a(vi[AXIS_W-1:0]);
+            run_ticks(400);
+
+            // 腿 A：手弹（src=0）驱动 80 → 240
+            note_src = 2'd0;
+            press_a(4'd11, 32'h00B0_0000, 8'd80);
+            vl = saw_alloc_voice;
+            pulse_velupd_src(4'd11, 8'd240, 2'd0);
+            run_ticks(220);                 // ⭐ 力度爬完 + 包络走到 sustain(240)
+            release_a(4'd11);
+            rel_ticks(vl, rl_live);
+
+            // 腿 B：回放（src=1）驱动 80 → 240（⭐ 与腿 A **逐参数相同**）
+            note_src = 2'd1;
+            press_a(4'd12, 32'h00C0_0000, 8'd80);
+            vr = saw_alloc_voice;
+            pulse_velupd_src(4'd12, 8'd240, 2'd1);
+            run_ticks(220);
+            release_a(4'd12);
+            rel_ticks(vr, rl_rep);
+
+            // 腿 C：⭐ **对照** —— 不给任何更新（⭐ 停在起点 80）
+            note_src = 2'd0;
+            press_a(4'd13, 32'h00D0_0000, 8'd80);
+            vlow = saw_alloc_voice;
+            run_ticks(220);
+            release_a(4'd13);
+            rel_ticks(vlow, rl_low);
+
+            $display("  INFO: release sample-ticks  live(240)=%0d  replayed(240)=%0d  start-only(80)=%0d",
+                     rl_live, rl_rep, rl_low);
+            chk("A2: the replayed note's release lasts EXACTLY as long as the live note's",
+                (rl_live > 0) && (rl_rep == rl_live));
+            chk("A2: the END velocity really drives the tail (start-only is SHORTER)",
+                rl_low < rl_live);
+        end
+
+        // ═════════════════════════════════════════════════════════════════════
+        // ⭐⭐ A3'（2026-09-29）：⭐ **voice 复用【按来源】判定** ✅
+        //   🔴 守的缺陷（⭐ 用户上板实测）：⭐ **先按住一个键、再开始回放** ⇒
+        //      ⭐ 回放（`score`）在同轴的 `note_on` **命中手弹那个 voice** ⇒
+        //      🔴 走"同轴重触发"路径：包络被清零 ＋ `src_r` 被改判成回放源
+        //      ⇒ ⭐ 回放的 `note_off` 一到就把手弹的音杀掉，而**手弹不会再发
+        //      `note_on`**（⭐ 键一直按着）⇒ 🔴 **键还按着却永久静音** ✅
+        //      📌 用户原话："从回放一开始就没声了"，⭐ 且**只在"先按键、后回放"时出现**
+        //   ⭐ 判据（A 组 = ⛔ 不许接管；B 组 = ⭐ 清的只能是回放自己的）：
+        //      · 前置：⭐ 手弹在轴 6 起音并**爬到 sustain**（⭐ 记下 `vel` / `env`）
+        //      · A① ⭐ 回放的 `note_on` 必须**分配到一个【新的】voice**（`alloc` 必须发生）
+        //      · A② ⭐ 同轴上必须**同时有两个** gate=1 的 voice（⭐ "并存"的直接判据）
+        //      · A③ ⭐ 手弹 voice 的 `vel` / `phase_inc` **一个都不许变**
+        //        （⭐ 重触发路径正是改写这两个 ⇒ ⭐ 它们是最灵敏的探针 ✅）
+        //      · A④ ⭐ 手弹 voice 的**包络不许被清零**（⭐ 重触发必发 `retrig_reset`）
+        //      · B① ⭐ 回放的 `note_off` 之后，同轴**恰好剩一个** gate=1 的 voice
+        //      · B② ⭐ 那个剩下的**就是手弹的**（⭐ `gate` 仍为 1 ✅）
+        //      · B③ ⭐ 手弹自己的 `note_off` **仍然清得掉它** —— ⭐ 这是
+        //        "`src_r` 没被回放改判"的**行为学证明**（⭐ `src_r` 不是输出端口）✅
+        //   📌 **非空洞性**（⭐ 两次跑的输出见报告）：⭐ 去掉 `same_hit` 的
+        //      `&& (src_r[sg] == cur_src)` ⇒ ⭐ **A①②③④ 全红** ✅
+        // ═════════════════════════════════════════════════════════════════════
+        begin : a3_src_aware_reuse
+            integer         vi;
+            integer         g6;
+            reg [IDX_W-1:0] v3l, v3r;
+            reg [VEL_W-1:0] v3l_vel;
+            reg [ENV_W-1:0] v3l_env;
+            // ── 清场：所有轴松手 + 等包络落干净（⛔ 不让上一节残留污染判据）──
+            note_src = 2'd0;
+            for (vi = 0; vi < 16; vi = vi + 1) release_a(vi[AXIS_W-1:0]);
+            run_ticks(400);
+
+            // ── 前置：手弹（src=0）在轴 6 起音，⭐ 并让它爬到 sustain ────────
+            note_src = 2'd0;
+            press_a(4'd6, 32'h0060_0000, 8'd100);
+            v3l = saw_alloc_voice;
+            chk("A3 setup: live note_on on axis 6 allocated a gated voice",
+                (saw_alloc === 1'b1) && (axis_of(v3l) === 4'd6)
+                && (voice_gate[v3l] === 1'b1));
+            run_ticks(200);                  // ⭐ attack(39 拍) + decay(6 拍) 早已走完
+            v3l_vel = vel_of(v3l);
+            v3l_env = env_of(v3l);
+            chk("A3 setup: the live voice reached sustain before the replay",
+                (v3l_vel === 8'd100) && (v3l_env !== {ENV_W{1'b0}}));
+
+            // ── A：回放（src=1）在【同一轴】起音 ⇒ ⛔ 不许接管手弹的 voice ──
+            //   ⚠️ 故意换一个**不同的** `vel` / `phase_inc` ⇒ ⭐ 一旦被接管，A③必红
+            note_src = 2'd1;
+            press_a(4'd6, 32'h00C0_0000, 8'd40);
+            v3r = saw_alloc_voice;
+            chk("A3-A: replayed note_on must NOT take over the live voice",
+                (saw_alloc === 1'b1) && (v3r !== v3l));
+            g6 = 0;
+            for (vi = 0; vi < POLY; vi = vi + 1)
+                if (voice_gate[vi] && (axis_of(vi) === 4'd6)) g6 = g6 + 1;
+            chk("A3-A: live and replayed voices COEXIST on the same axis", g6 === 2);
+            chk("A3-A: the live voice keeps its velocity (not retriggered)",
+                vel_of(v3l) === v3l_vel);
+            chk("A3-A: the live voice keeps its phase_inc (not retriggered)",
+                phase_of(v3l) === 32'h0060_0000);
+            run_ticks(3);
+            chk("A3-A: the live voice envelope was NOT reset",
+                env_of(v3l) > (v3l_env >> 1));
+
+            // ── B：回放的 `note_off` ⇒ ⭐ 只清回放那个 voice ────────────────
+            note_src = 2'd1;
+            release_a(4'd6);
+            g6 = 0;
+            for (vi = 0; vi < POLY; vi = vi + 1)
+                if (voice_gate[vi] && (axis_of(vi) === 4'd6)) g6 = g6 + 1;
+            chk("A3-B: replayed note_off leaves EXACTLY one voice on the axis",
+                g6 === 1);
+            chk("A3-B: the surviving voice is the live one (still gated)",
+                voice_gate[v3l] === 1'b1);
+            chk("A3-B: the replayed voice was the one cleared",
+                voice_gate[v3r] === 1'b0);
+            // ── B③：手弹自己的 `note_off` 仍然清得掉它 ─────────────────────
+            note_src = 2'd0;
+            release_a(4'd6);
+            chk("A3-B: live note_off still clears the live voice (tag intact)",
+                voice_gate[v3l] === 1'b0);
+        end
+
+        // ═════════════════════════════════════════════════════════════════════
+        // ⭐⭐ A3' 续（2026-09-29）：⭐ **池满时的【抢占】也不许抢"同轴但异源且仍按住"** ✅
+        //   🔴 守的缺陷：⭐ `same_hit` 的来源判据只挡住"**复用**"这条路；
+        //      ⚠️ 池满时新音走的是 `ST_SCAN` 的**抢占**路 ⇒ 🔴 候选比较
+        //      （`cand_ok`/`cand_better`）**只看 空闲/已 Release/年龄，⛔ 不看来源**
+        //      ⇒ ⭐ 手弹那个"最老的" voice 会被回放**抢走并在 `ST_COMMIT2` 里改判**
+        //      ⇒ 🔴 **症状与 A3' 修的那个一模一样**（⭐ 键还按着却静音）✅
+        //   ⭐ 判据（C 组）：
+        //      · 前置① ⭐ 池**真的**满了（⭐ 数 `gate=1` 的 voice 必须 == `POLY`）
+        //      · 前置② ⭐ 手弹那个 voice 必须是**最老的**（⭐ `age > 0`，而填充的全是 0）
+        //        —— ⚠️ 否则"抢最老的"本来就抢不到它 ⇒ **判据会空洞**（`C83` 纪律）
+        //      · C① ⭐ 回放的 `note_on` 必须**分配成功**（⭐ 池满 ⇒ 必然走抢占）
+        //      · C② ⭐ 抢占的牺牲品**不是**手弹那个 voice
+        //      · C③ ⭐ 手弹 voice 仍 gate=1、仍在轴 6、**力度仍是自己的 100**
+        //        （⭐ 被改判时 `vel_r` 会变成回放的 40 ⇒ 这条是最灵敏的探针 ✅）
+        //   📌 **非空洞性**（⭐ 变异点见报告）：⭐ 去掉 `& ~cand_foreign` ⇒ **C②③ 必红** ✅
+        //   ⚠️ 构造要点：⭐ 填充必须用 **(轴, 源) 各不相同**的 pair（⭐ 否则同源会走
+        //      "复用"而⛔ 不占新 voice）⇒ ⭐ 并**避开 (轴 6, 源 0)**（手弹自己）与
+        //      **(轴 6, 源 1)**（⭐ 回放要用的）—— ⚠️ 否则回放那条会命中已有 voice
+        //      ⇒ 变成重触发 ⇒ ⭐ 判据空洞 ✅
+        // ═════════════════════════════════════════════════════════════════════
+        begin : a3c_steal_avoid
+            integer         vi;
+            integer         f;
+            integer         gcnt;
+            integer         fcnt;
+            integer         fok;
+            //  ⚠️⚠️ `s3` **必须是 3 bit**：⭐ 清场要遍历 `s3 = 0..3`（4 个源）
+            //     ⇒ 🔴 若写成 `reg [1:0]`，则常量 `2'd4` 会被**截断成 0**
+            //     ⇒ 循环条件 `s3 < 2'd4` 恒为假 ⇒ 🔴 **整个清场循环一次都不执行**
+            //     （⭐ 第一版正是踩了这个：实测 `alloc-ok=30`（少 1 个）、
+            //      `gated=31` —— ⚠️ 因为 a2 留在轴 10/src1 的 voice **没被清掉**，
+            //      它占着池，还被填充用的 (轴10, src1) 命中 ⇒ 走了重触发 ✅）
+            reg [2:0]       s3;
+            reg [IDX_W-1:0] v3c;
+            // ── 清场：⭐ 所有轴 × **所有 4 个源**都松手 ⇒ ⛔ 不留上一节任何残留 ──
+            //   ⚠️ **为什么必须按【源】清**（⭐ A3' 的直接后果）：⭐ 同轴异源是**两个
+            //      独立 voice** ⇒ 🔴 只发 `src=0` 的 `note_off` **清不掉**上一节
+            //      留下的 `src=1/2/3` voice ⇒ ⚠️ 它会一直按住 ⇒ ⭐ 池里永远少一个空位
+            //      ⇒ 🔴 "铺满池"这条前置就**永远不成立**（⭐ 第一版正是踩了这个：
+            //        实测 `gated=31/32`，⭐ 因为 a2 留了一个 `src=1` 的 voice 没被清掉）✅
+            for (s3 = 3'd0; s3 < 3'd4; s3 = s3 + 3'd1) begin
+                note_src = s3[1:0];
+                for (vi = 0; vi < 16; vi = vi + 1) release_a(vi[AXIS_W-1:0]);
+            end
+            note_src = 2'd0;
+            run_ticks(400);
+
+            // ── 前置：手弹（src=0）在轴 6 起音 ⇒ ⭐ 再跑 20 个采样拍把它做成【最老】──
+            note_src = 2'd0;
+            press_a(4'd6, 32'h0060_0000, 8'd100);
+            v3c = saw_alloc_voice;
+            chk("A3-C setup: live note_on on axis 6 allocated a gated voice",
+                (saw_alloc === 1'b1) && (axis_of(v3c) === 4'd6)
+                && (voice_gate[v3c] === 1'b1));
+            run_ticks(20);          // ⭐ 手弹的 age 变 20；⭐ 后面填充的 age 全是 0
+
+            // ── 铺满池：⭐ 31 个 (轴, 源) 各不相同的 pair ⇒ ⛔ 不走同源重触发 ────
+            f = 0;
+            fok = 0;
+            for (vi = 0; (vi < 16) && (f < 31); vi = vi + 1)
+                for (s3 = 3'd0; (s3 < 3'd3) && (f < 31); s3 = s3 + 3'd1) begin
+                    if (!((vi == 6) && ((s3 == 3'd0) || (s3 == 3'd1)))) begin
+                        note_src = s3[1:0];
+                        press_a(vi[AXIS_W-1:0], 32'h0010_0000, 8'd60);
+                        if (saw_alloc === 1'b1) fok = fok + 1;
+                        f = f + 1;
+                    end
+                end
+            //  ⭐⭐ **前置判据必须是"没有空闲 voice"**（⭐ 即 `live_mask` 全 1），
+            //     ⛔ **不是"`gate=1` 的个数 == POLY"** —— ⚠️ 两者**不等价**：
+            //     ⭐ `gate_mask = gate_r & ~retrig_low` ⇒ ⭐ 一个正在**重触发压低**
+            //     窗口里的 voice **照样占着池**（`live_mask=1` ⇒ `free_mask=0`），
+            //     但 `gate=0` ⇒ ⚠️ 用 gate 数当判据会**假红**（⭐ 第一版实测 31/32）✅
+            //      📌 分配器真正看的是 `free_mask`（⭐ `cand_free`）⇒ ⭐ 判据要用同一个量 ✅
+            gcnt = 0;
+            fcnt = 0;
+            for (vi = 0; vi < POLY; vi = vi + 1) begin
+                if (voice_gate[vi])   gcnt = gcnt + 1;
+                if (voice_active[vi] === 1'b0) fcnt = fcnt + 1;
+            end
+            $display("  INFO: A3-C fills=%0d alloc-ok=%0d gated=%0d free(live_mask=0)=%0d / %0d",
+                     f, fok, gcnt, fcnt, POLY);
+            //  ⭐ 诊断：⭐ 找出"占着池但 `gate=0`"的 voice（⭐ 期望 0 个）
+            //     ⚠️ 这种 voice 是**合法的**（⭐ 正在 `retrig_low` 压低，或只剩 Release 尾巴）
+            //     ⇒ ⭐ 它**照样占池**（`free_mask=0`）⇒ ⭐ 打印出来便于日后定位 ✅
+            for (vi = 0; vi < POLY; vi = vi + 1)
+                if ((voice_active[vi] === 1'b1) && (voice_gate[vi] === 1'b0))
+                    $display("  INFO: A3-C busy-not-gated idx=%0d axis=%0d age=%0d env=%0d",
+                             vi, axis_of(vi), voice_age[vi*AGE_W +: AGE_W], env_of(vi));
+            chk("A3-C setup: the voice pool is COMPLETELY full (no free voice left)",
+                fcnt === 0);
+            chk("A3-C setup: the live voice is the OLDEST (age > 0, fills are age 0)",
+                voice_age[v3c*AGE_W +: AGE_W] > {AGE_W{1'b0}});
+
+            // ── C：池满时回放（src=1）在轴 6 起音 ⇒ ⛔ 不许抢走手弹的 voice ────
+            note_src = 2'd1;
+            press_a(4'd6, 32'h00C0_0000, 8'd40);
+            chk("A3-C: the replayed note_on still allocated (via preemption)",
+                (saw_alloc === 1'b1) && (axis_of(saw_alloc_voice) === 4'd6));
+            chk("A3-C: the preemption victim is NOT the live voice on that axis",
+                saw_alloc_voice !== v3c);
+            chk("A3-C: the live voice survives with its OWN velocity (not re-tagged)",
+                (voice_gate[v3c] === 1'b1) && (axis_of(v3c) === 4'd6)
+                && (vel_of(v3c) === 8'd100));
+            // ── 收尾：把手弹那条清掉（⭐ 本块是最后一个，但⛔ 不留半清状态）────
+            note_src = 2'd0;
+            release_a(4'd6);
         end
 
         if (errors == 0)

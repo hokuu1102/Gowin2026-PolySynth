@@ -99,6 +99,20 @@ python tools\peak_count.py <csv> --expect N
 ```
 ⚠️ **必须四档都跑**，⛔ **不能只跑一档**。
 
+> ⚠️⭐ **2026-09-29 深夜实测更正（⭐ 必读）** ✅
+>
+> ⭐ **推荐直接用现成脚本**（⭐ 它 = `csv_fft`（hann 窗 → 频谱）→ `peak_count --expect N --min-db -40` ✅）：
+> ```powershell
+> powershell -NoProfile -ExecutionPolicy Bypass -File sim\test_mode_fft.ps1
+> ```
+> 🔴 **⛔ 不要直接把样点 CSV 喂 `peak_count`**（⭐ 少了 `csv_fft` 那一步 ⇒ ⚠️ 结果不可比 ✅）
+>
+> 🔴🔴 **【不变式】Test Mode 必须走【纯正弦】表（`rom_soft`）** —— ⭐ 见 `rtl\w3b\oscillator_bank.v`：
+> `rom_dout = test_mode_i ? rom_soft : (…)` ✅
+> ⭐ **为什么**：⭐ 三角波（`rom_hard`）的奇次谐波 = **1/9 · 1/25 · 1/49 = −19.08 / −27.96 / −33.80 dB**
+> ⇒ 🔴 **高于 −40 dB 门限** ⇒ ⭐ **谐波被数成谱峰** ⇒ 🔴 **四档变 20 / 40 / 72 / 127** ✅（⭐ 实测 ✅）
+> ⇒ ⭐ **合 AKWF 四音色波表（`T31b` / `T44`）之后，⭐ 必须重跑本验收** ✅
+
 ### 4.2 ⭐ 其余判据
 
 | # | 判据 | 说明 |

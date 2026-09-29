@@ -88,6 +88,9 @@ module tb_metronome;
         .clk_i(clk), .rst_n_i(rst_n), .sample_tick_i(sample_tick),
         .note_valid_i(nm_valid), .note_axis_i(nm_axis), .note_phase_inc_i(nm_inc),
         .note_velocity_i(nm_vel), .note_kind_i(nm_kind),
+        // ⭐ A1：本 tb 只有**单一来源**（节拍器 = `top.v` 的源 B ⇒ 常数 3）
+        //    ⚠️ 恒接同一个常数 ⇒ 行为与加此端口前**逐位相同**（⭐ 单源时源过滤是恒真的）
+        .note_src_i(2'd3),
         .vel_upd_valid_i(1'b0), .vel_upd_axis_i(4'd0), .vel_upd_value_i(8'd0),
         .pitch_upd_valid_i(1'b0), .pitch_upd_axis_i(4'd0), .pitch_upd_value_i(32'd0),
         .default_timbre_i(2'd0), .evt_timbre_valid_i(1'b0), .evt_timbre_i(2'd0),

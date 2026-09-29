@@ -17,14 +17,17 @@ IO_PORT "clk"   IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
 IO_LOC  "rst_n" AA13;
 IO_PORT "rst_n" IO_TYPE=LVCMOS15 PULL_MODE=UP BANK_VCCIO=1.5;
 
-// ⭐⭐ 节拍器开关按键（S2，2026-09-28 新增 · 用户拍板）
+// ⭐⭐ 音色切换按键（S2，2026-09-29 合并 · 用户裁定方案 B）
 //   ⭐ AB13 = EX_KEY.1 / Key_in[1] / S2（Tang Console 60K 官方 .cst）
 //   🔴 **必须 LVCMOS15 + BANK_VCCIO=1.5** —— AB13 属 BANK9（与 rst_n/AA13 同 bank）
 //      ⚠️ 写 3.3 V 会与同 bank 冲突、并可能损伤 IO。
 //   ⭐ PULL_MODE=UP ⇒ 空闲 = 1、按下 = 0 ⇒ 与 rtl 的 ACTIVE_LOW=1 一致。
-//   ⚠️ 跨线冲突：ESP32 线原计划用 AB13 做"起播按键" ⇒ 已标注"暂时被节拍器占用"。
-IO_LOC  "met_btn_i" AB13;
-IO_PORT "met_btn_i" IO_TYPE=LVCMOS15 PULL_MODE=UP BANK_VCCIO=1.5;
+//   ⭐ 语义：⭐ 按一下 **循环 BASS → GUITAR → PIANO → PAD → BASS**（⭐ 只影响【新按下】的音 ✅）
+//   🔴 **原用途已让出**：⭐ 2026-09-28 它曾是**节拍器开关**（用户拍板）⇒
+//      ⭐ 2026-09-29 用户裁定改为**音色按键** ⇒ ⭐ 节拍器改走**串口命令 `'B'`** ✅
+//   ⚠️ 跨线冲突：ESP32 线原计划用 AB13 做"起播按键" ⇒ 仍标注"被占用"。
+IO_LOC  "timbre_btn_i" AB13;
+IO_PORT "timbre_btn_i" IO_TYPE=LVCMOS15 PULL_MODE=UP BANK_VCCIO=1.5;
 
 //====== AUDIO ======（板载 DAC = PT8211-S + 功放 NS4263，⛔ 不需要 MCLK）
 IO_LOC  "HP_BCK" Y17;

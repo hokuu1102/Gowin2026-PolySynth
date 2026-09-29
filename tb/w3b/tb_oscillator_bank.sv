@@ -60,6 +60,27 @@ module tb_oscillator_bank;
     wire                   osc_valid;
     wire [PHASE_W-1:0]     phase_dbg;
 
+    // ⭐ 2026-09-29 追加：⭐ **M4 前提监视器** —— ⭐ "Test Mode 必须走专用纯正弦表" 的【非空洞】判据 ✅
+    //   🔴 为什么需要监视器（⭐ 实测教训，⭐ 第一版判据踩到）：
+    //      ⭐ 只在【一个瞬间】比 `rom_dout === <纯正弦源>` ⇒ 🔴 **空洞** ——
+    //      ⭐ 若那一拍的地址恰好落在【两表取值相同】的点上（⭐ 如 `addr=0` 两表都是 0 ✅）
+    //      ⇒ 🔴 **把 mux 改成 `rom_hard` 也照样报 ok** ✅
+    //   ⇒ ⭐ 必须在【一段窗口】里同时要求：
+    //      ① ⭐ 至少一次 `rom_test !== rom_hard`（⭐ 证明两表**真的不同** ⇒ 判据非空洞 ✅）
+    //      ② ⭐ 每一次 `rom_dout === rom_test` ✅
+    //   📌 2026-09-29 深夜：⭐ 纯正弦源从 `rom_soft` 改成**专用的 `rom_test`** ✅
+    //      （⭐ 四音色换成谐波丰富的 AKWF 表 ⇒ ⭐ ⛔ 不能再借 `rom_soft` ✅）
+    integer tm_win_diff = 0;   // ⭐ 窗口内 `rom_test !== rom_hard` 的拍数（⭐ 非空洞性的证据）
+    integer tm_win_bad  = 0;   // ⭐ 窗口内 `rom_dout !== rom_test` 的拍数（⭐ 必须为 0）
+    reg     tm_mon_en   = 1'b0;
+
+    always @(negedge clk) begin
+        if (tm_mon_en) begin
+            if (dut.rom_test !== dut.rom_hard) tm_win_diff = tm_win_diff + 1;
+            if (dut.rom_dout !== dut.rom_test) tm_win_bad  = tm_win_bad + 1;
+        end
+    end
+
     // ⭐ `DBG_LANE=1` ⇒ 观测 voice0 的第二个振荡器（验证"同 voice 内两 lane 独立"）
     oscillator_bank #(
         .POLY_TARGET(POLY), .OSC_PER_VOICE(OPV), .PHASE_W(PHASE_W),
@@ -392,6 +413,20 @@ module tb_oscillator_bank;
                 a8 === (4 * 32'h0080_0000));
             chk("and a lane NOT selected stays frozen",
                 dut.gen_lane[1].phase_q === 32'd0);
+            //  ⭐ 2026-09-29 追加：⭐ **Test Mode 必须取【专用纯正弦】表** —— ⭐ M4 谱峰判据的硬前提 ✅
+            //   🔴 非空洞性（⭐ 第一版踩过）：⭐ 只在【一个瞬间】比 `rom_dout === <纯正弦源>`
+            //      ⇒ 🔴 **空洞**（⭐ 实测：把 mux 改成 `rom_hard` 仍报 ok ✅）
+            //      ⭐ 因为那一拍的地址落在【两表取值相同】的点上 ✅
+            //   ⇒ ⭐ 改成【窗口】判据：⭐ ① 至少一次 `rom_test !== rom_hard` ＋ ⭐ ② 每次 `rom_dout === rom_test` ✅
+            tm_win_diff = 0;
+            tm_win_bad  = 0;
+            tm_mon_en   = 1'b1;
+            repeat (4) frame;
+            tm_mon_en   = 1'b0;
+            chk("test_mode=1 keeps rom_dout on the dedicated clean sine table (rom_test)",
+                tm_win_bad === 0);
+            chk("and that check is NON-VACUOUS (rom_test != rom_hard was observed)",
+                tm_win_diff > 0);
         end
 
         // ---- 9: timbre must NOT depend on velocity (2026-09-29 bug fix) ----
@@ -427,6 +462,47 @@ module tb_oscillator_bank;
             end
             chk("velocity 0 and 255 give BIT-IDENTICAL samples (timbre is velocity-free)",
                 same9 === 1'b1);
+        end
+
+        // ═════════════════════════════════════════════════════════════════
+        // ⑩ ⭐⭐⭐⭐ 2026-09-29 **治本判据**：⭐ **同深度两次起音 ⇒ 逐位相同的样本**
+        //   🔴 **上板症状（⭐ 用户原话）**：*"无论按下的行程多少，都是原始音量"* ✅
+        //      ⭐ 决定性观察：*"我快速地每次都按到底，用微分积分的思想来看，
+        //      就和长按的音量变化是一样的，还是失谐的正弦波的音量起伏"* ✅
+        //      ⇒ ⭐ **快速连按 = 对拍频包络采样** ⇒ ⭐ 起音幅度 = 两 lane 当时的相位关系 ✅
+        //   🔴 **根因**：⭐ `phase_q` 只在 `rst_n_i` 取 `phase_seed` ✅ ⇒
+        //      ⭐ 之后**永远累加**、⭐ 未激活时**保持** ⇒ 🔴 **0°/90° 初相丢失** ✅
+        //   🔴 **为什么以前的判据抓不到**：⭐ 判据⑨（上面那条 ✅）**先 `rst_n` 对齐相位** ✅
+        //      ⇒ ⭐ **恰好绕过了本 bug** ✅ 📌 这正是"判据要能失败"的反面教材 ✅
+        //   ⭐ **本判据**：⭐ ⛔ **不复位** ✅ ⇒ ⭐ 静默若干帧让相位漂走 ✅ ⇒
+        //      ⭐ 再起音 ⇒ ⭐ **两次起音的头两个样本必须逐位相同** ✅
+        //   ⭐ **非空洞性**：⭐ 去掉"上升沿载入 `phase_seed`"⇒ ⭐ **本判据必红** ✅
+        // ═════════════════════════════════════════════════════════════════
+        $display("== 10: two attacks at the same depth must be BIT-IDENTICAL (NO reset) ==");
+        begin : g_attack_seed
+            integer p10;
+            reg [SW-1:0] cap10 [0:1];
+            reg same10;
+            same10 = 1'b1;
+            test_mode        = 1'b0;
+            voice_timbre     = {(POLY*2){1'b0}};
+            voice_velocity   = {(POLY*8){1'b0}};
+            set_v_inc(0, INC_1STEP);
+            for (p10 = 0; p10 < 2; p10 = p10 + 1) begin
+                //  ⭐ 先静默 5 帧 ⇒ 若起音不复位相位，相位会漂到别处 ✅
+                voice_active = {POLY{1'b0}};
+                repeat (5) frame;
+                //  ⭐ 起音（⭐ 0 → 1 的上升沿 ✅）
+                voice_active    = {POLY{1'b0}};
+                voice_active[0] = 1'b1;
+                repeat (3) frame;
+                for (i = 0; i < 2; i = i + 1) begin
+                    if (p10 == 0)      cap10[i] = samp(i);
+                    else if (samp(i) !== cap10[i]) same10 = 1'b0;
+                end
+            end
+            chk("two attacks at the same depth are BIT-IDENTICAL (phase returns to the seed)",
+                same10 === 1'b1);
         end
 
         if (errors == 0)

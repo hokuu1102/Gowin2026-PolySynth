@@ -13,3 +13,9 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:140: warning: Instantiating module looper with dangling input 
+port 13 (live_vel_valid_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:140: warning: Instantiating module looper with dangling input 
+port 14 (live_vel_axis_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:140: warning: Instantiating module looper with dangling input 
+port 15 (live_vel_value_i) floating.

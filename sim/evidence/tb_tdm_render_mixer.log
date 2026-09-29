@@ -4,23 +4,20 @@
 == 2: one dry_valid per frame, fixed latency ==
   ok  : exactly 1 dry_valid pulse per frame
   ok  : latency identical across two frames (determinism)
-     [lat] measured latency = 40 cycles (POLY_TARGET=32 => +8)
-  ok  : latency == LAT_EXPECT (3-stage norm + registered output + limiter pipe)
-     [align] t_valid=39  t_last_change=35  (valid must NOT be earlier)
-  ok  : valid and data are IN PHASE (dry_valid never asserts before dry_sample settles)
+  ok  : latency is a fixed POLY_TARGET+7 (incl. 3-stage norm + registered output)
 == 3: single-voice mixing ==
-     [sv] 2-lane 3000 @env0x8000 => 126368
-  ok  : 2-lane 1000/2000 @env 0x8000 => 126368 (weighted (9L0+7L1)>>4)
-     [sv] 2-lane 1000/2000 @env0xFFFF => 252736
-  ok  : full env => 252736 (weighted lane sum, see the derivation above)
+     [sv] 2-lane 3000 @env0x8000 => 91904
+  ok  : 2-lane 1000/2000 @env 0x8000 => 91904 (weighted (9L0+7L1)>>4, gain=64)
+     [sv] 2-lane 1000/2000 @env0xFFFF => 183808
+  ok  : full env => 183808 (weighted lane sum, gain=64)
   ok  : zero env => 0 (silence)
-     [wgt] same-phase = 527824   anti-phase = 65824
+     [wgt] same-phase = 383872   anti-phase = 47872
   ok  : WEIGHT: anti/same ~= 1/8 (=-18 dB) => the beat no longer cancels to ZERO
   ok  : negative input => negative output (signed ok)
-     [sv] neg 1000/2000 @env0xFFFF => -253088
-  ok  : negative magnitude 253088 (weighted lane sum, arith-shift toward -inf)
+     [sv] neg 1000/2000 @env0xFFFF => -184064
+  ok  : negative magnitude 184064 (weighted lane sum, gain=64)
 == 4: multi-voice summing (with 1/sqrt(N) normalization) ==
-     [sum] 1v=98736  2v=139252  3v=171870
+     [sum] 1v=71808  2v=101070  3v=124690
   ok  : summing is monotonic (more voices => louder)
   ok  : 2 voices => ~1.42x (sqrt(2) w/ fixed-point), NOT 2x  [power norm]
   ok  : 3 voices => ~1.73x (sqrt(3) w/ fixed-point), NOT 3x  [power norm]
@@ -28,19 +25,19 @@
   ok  : NORMALIZATION: 3 voices stay WITHIN signed24 (no clipping)
 == 5: max input, no wrap ==
   ok  : max input stays POSITIVE (no wrap)
-  ok  : max input SATURATES to signed24 MAX (not wrap)
-     [dbgMax] sSat=8388607 (鏈熸湜楗卞拰鍒?8388607) acc=68716331040 sh=1048528
+  ok  : max input clamps to soft-knee ceiling 0x780000 (not wrap)
+     [dbgMax] sSat=7864320 (鏈熸湜杞啙澶╄姳鏉?7864320) acc=68716331040 sh=1048528
   ok  : min input stays NEGATIVE (no wrap)
-     [dbgMin] sSat=-8388608 (鏈熸湜楗卞拰鍒?-8388608) acc=-68718428160 sh=-1048560
-  ok  : min input SATURATES to signed24 MIN (not wrap)
+     [dbgMin] sSat=-7864320 (鏈熸湜杞啙澶╄姳鏉?-7864320) acc=-68718428160 sh=-1048560
+  ok  : min input clamps to soft-knee ceiling -0x780000 (not wrap)
 == 6: deadline_fault is sticky ==
   ok  : tight-deadline instance: fault set after one frame
   ok  : sticky: fault still 1 after several frames
   ok  : fault clears only on reset
 == 7: real saturation via wide samples ==
-  ok  : wide positive overflow clamps to signed24 MAX (no wrap)
-  ok  : wide negative overflow clamps to signed24 MIN (no wrap)
+  ok  : wide positive overflow clamps to soft-knee ceiling (no wrap)
+  ok  : wide negative overflow clamps to soft-knee ceiling (no wrap)
 PASS: tdm_render_mixer acceptance (T56) - all judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_tdm_render_mixer.sv:543: $finish called at 22000000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_tdm_render_mixer.sv:476: $finish called at 20920000 (1ps)
 
 

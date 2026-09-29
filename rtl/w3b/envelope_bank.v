@@ -21,6 +21,7 @@ module envelope_bank #(
     //  re-press or a steal restarts from silence instead of stacking on the
     //  tail of the previous note (see adsr.v for the full reasoning).
     input  wire [POLY_TARGET-1:0]       retrig_reset_i,
+    input  wire [POLY_TARGET*2-1:0]     timbre_i,
     output wire [POLY_TARGET*ENV_W-1:0] env_level_o,
     output wire [POLY_TARGET-1:0]       env_active_o
 );
@@ -42,6 +43,7 @@ module envelope_bank #(
                 .gate_i        (gate_i[voice_id]),
                 .velocity_i    (velocity_i[voice_id*VEL_W +: VEL_W]),
                 .retrig_reset_i(retrig_reset_i[voice_id]),
+                .timbre_i      (timbre_i[voice_id*2 +: 2]),
                 .env_level_o   (env_level_o[voice_id*ENV_W +: ENV_W]),
                 .active_o      (env_active_o[voice_id])
             );

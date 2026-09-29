@@ -117,6 +117,13 @@ module seq_arb #(
     output reg  [KIND_W-1:0]     evt_kind_o,
     output reg                   evt_timbre_valid_o,
     output reg  [TIMBRE_W-1:0]   evt_timbre_o,
+    //  ⭐⭐ 2026-09-29（A1）：⭐ **事件来源标记** —— ⭐ 与 `evt_valid_o` **同时序**
+    //     ⭐ 编码 = 内部 `SRC_*`（⭐ 0=live 手弹 / 1=score 曲谱·回放 / 2=demo 演示）
+    //     ⚠️ 位宽**写死 2** —— `NW` 是模块体内的 `localparam`，⭐ ANSI 端口表在它之前
+    //        ⇒ ⛔ 不能引用（`K-91` 同族纪律：⛔ 不对参数做位选）
+    //     ⭐ 用途：⭐ 下游 `note_manager` 据此**按源**区分 `note_off`
+    //        ⇒ ⭐ 回放（`score`）的 `note_off` ⛔ 不再误杀手弹（`live`）的同轴 voice
+    output reg  [1:0]            evt_src_o,
 
     // ── ⭐ 可观测性（`K-106` 纪律：容量有限/会失效的东西必须能看见）──────────
     output reg  [15:0]           collision_cnt_o,  // ⭐ 多源同拍相撞次数（饱和）
@@ -255,6 +262,7 @@ module seq_arb #(
             evt_kind_o      <= {KIND_W{1'b0}};
             evt_timbre_valid_o <= 1'b0;
             evt_timbre_o    <= {TIMBRE_W{1'b0}};
+            evt_src_o       <= 2'd0;          // ⭐ A1：来源标记也复位（⛔ 不留 X）
             cnt_q           <= 16'd0;
             head_q          <= 16'd0;
             tail_q          <= 16'd0;
@@ -279,6 +287,8 @@ module seq_arb #(
                 evt_kind_o      <= pop_data[TV_O + 1 +: KIND_W];
                 evt_timbre_valid_o <= pop_data[TV_O +: 1];
                 evt_timbre_o    <= pop_data[0 +: TIMBRE_W];
+                // ⭐ A1：⭐ 来源标记与**本拍弹出的这条**同时输出（⭐ 时序 = `evt_valid_o`）
+                evt_src_o       <= pop_src;
                 head_q          <= (head_q == DEPTH_M1) ? 16'd0 : (head_q + 16'd1);
                 merged_cnt_o    <= (merged_cnt_o == 16'hFFFF) ? merged_cnt_o
                                                               : (merged_cnt_o + 16'd1);

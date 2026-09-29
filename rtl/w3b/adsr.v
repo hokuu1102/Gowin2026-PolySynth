@@ -26,6 +26,10 @@ module adsr #(
     //  output spikes far above full scale. Zeroing first makes the re-press a
     //  clean restart and removes the dependency on the release time constant.
     input  wire                 retrig_reset_i,
+    // Timbre is latched per voice by note_manager.  It selects only the
+    // existing ADSR recipe; retrigger reset remains the highest-priority
+    // control so a release tail can never stack with a new attack.
+    input  wire [1:0]           timbre_i,
     output reg  [ENV_W-1:0]     env_level_o,
     output wire                 active_o
 );
@@ -35,10 +39,65 @@ module adsr #(
     localparam [1:0] ST_DECAY   = 2'd2;
     localparam [1:0] ST_SUSTAIN = 2'd3;
 
-    localparam [ENV_W:0] ATTACK_STEP_U  = ATTACK_STEP;
-    localparam [ENV_W:0] DECAY_STEP_U   = DECAY_STEP;
-    localparam [ENV_W:0] RELEASE_STEP_U = RELEASE_STEP;
-    localparam [7:0]     SUSTAIN_Q8_U   = SUSTAIN_Q8;
+    // Four T31b recipes from files/20-代码/音色设计.md.  Unknown/unconnected
+    // timbre inputs retain the historical parameterized behavior so existing
+    // wrappers and focused legacy tests remain valid.
+    function [ENV_W:0] attack_for_timbre;
+        input [1:0] timbre;
+        begin
+            case (timbre)
+                2'd0: attack_for_timbre = 17'd448; // BASS:   ~3 ms
+                2'd1: attack_for_timbre = 17'd672; // GUITAR: ~2 ms
+                2'd2: attack_for_timbre = 17'd672; // PIANO:  ~2 ms
+                2'd3: attack_for_timbre = 17'd45;  // PAD:   ~30 ms
+                default: attack_for_timbre = ATTACK_STEP;
+            endcase
+        end
+    endfunction
+
+    function [ENV_W:0] decay_for_timbre;
+        input [1:0] timbre;
+        begin
+            case (timbre)
+                2'd0: decay_for_timbre = 17'd2;
+                2'd1: decay_for_timbre = 17'd2;
+                2'd2: decay_for_timbre = 17'd1;
+                2'd3: decay_for_timbre = 17'd1;
+                default: decay_for_timbre = DECAY_STEP;
+            endcase
+        end
+    endfunction
+
+    function [7:0] sustain_for_timbre;
+        input [1:0] timbre;
+        begin
+            case (timbre)
+                2'd0: sustain_for_timbre = 8'd179; // BASS:   0.70
+                2'd1: sustain_for_timbre = 8'd77;  // GUITAR: 0.30
+                2'd2: sustain_for_timbre = 8'd102; // PIANO:  0.40
+                2'd3: sustain_for_timbre = 8'd230; // PAD:    0.90
+                default: sustain_for_timbre = SUSTAIN_Q8;
+            endcase
+        end
+    endfunction
+
+    function [ENV_W:0] release_for_timbre;
+        input [1:0] timbre;
+        begin
+            case (timbre)
+                2'd0: release_for_timbre = 17'd6;
+                2'd1: release_for_timbre = 17'd1;
+                2'd2: release_for_timbre = 17'd1;
+                2'd3: release_for_timbre = 17'd1;
+                default: release_for_timbre = RELEASE_STEP;
+            endcase
+        end
+    endfunction
+
+    wire [ENV_W:0] attack_step_u  = attack_for_timbre(timbre_i);
+    wire [ENV_W:0] decay_step_u   = decay_for_timbre(timbre_i);
+    wire [7:0]     sustain_q8_u   = sustain_for_timbre(timbre_i);
+    wire [ENV_W:0] release_step_u = release_for_timbre(timbre_i);
 
     // Release is represented by a flag so all four named ADSR phases remain
     // visible while keeping the externally observable interface minimal.
@@ -48,7 +107,7 @@ module adsr #(
     // Default 8-to-16 mapping is velocity << 8: monotonic, multiplier-free,
     // and leaves one byte of headroom at velocity 255.
     wire [ENV_W-1:0] peak_level = {velocity_i, {(ENV_W-VEL_W){1'b0}}};
-    wire [ENV_W+7:0] sustain_product = peak_level * SUSTAIN_Q8_U;
+    wire [ENV_W+7:0] sustain_product = peak_level * sustain_q8_u;
     wire [ENV_W-1:0] sustain_level = sustain_product >> 8;
 
     assign active_o = (state != ST_IDLE) || releasing || (env_level_o != {ENV_W{1'b0}});
@@ -71,12 +130,12 @@ module adsr #(
                 if (gate_i) begin
                     releasing <= 1'b0;
                     state     <= ST_ATTACK;
-                end else if ({1'b0, env_level_o} <= RELEASE_STEP_U) begin
+                end else if ({1'b0, env_level_o} <= release_step_u) begin
                     env_level_o <= {ENV_W{1'b0}};
                     releasing   <= 1'b0;
                     state       <= ST_IDLE;
                 end else begin
-                    env_level_o <= env_level_o - RELEASE_STEP_U[ENV_W-1:0];
+                    env_level_o <= env_level_o - release_step_u[ENV_W-1:0];
                 end
             end else if (!gate_i && state != ST_IDLE) begin
                 releasing <= 1'b1;
@@ -92,11 +151,11 @@ module adsr #(
                         if (env_level_o >= peak_level) begin
                             env_level_o <= peak_level;
                             state       <= ST_DECAY;
-                        end else if ({1'b0, env_level_o} + ATTACK_STEP_U >= {1'b0, peak_level}) begin
+                        end else if ({1'b0, env_level_o} + attack_step_u >= {1'b0, peak_level}) begin
                             env_level_o <= peak_level;
                             state       <= ST_DECAY;
                         end else begin
-                            env_level_o <= env_level_o + ATTACK_STEP_U[ENV_W-1:0];
+                            env_level_o <= env_level_o + attack_step_u[ENV_W-1:0];
                         end
                     end
 
@@ -104,26 +163,26 @@ module adsr #(
                         if (env_level_o <= sustain_level) begin
                             env_level_o <= sustain_level;
                             state       <= ST_SUSTAIN;
-                        end else if ({1'b0, env_level_o} <= {1'b0, sustain_level} + DECAY_STEP_U) begin
+                        end else if ({1'b0, env_level_o} <= {1'b0, sustain_level} + decay_step_u) begin
                             env_level_o <= sustain_level;
                             state       <= ST_SUSTAIN;
                         end else begin
-                            env_level_o <= env_level_o - DECAY_STEP_U[ENV_W-1:0];
+                            env_level_o <= env_level_o - decay_step_u[ENV_W-1:0];
                         end
                     end
 
                     ST_SUSTAIN: begin
                         // Smooth a late velocity correction instead of jumping.
                         if (env_level_o < sustain_level) begin
-                            if ({1'b0, env_level_o} + ATTACK_STEP_U >= {1'b0, sustain_level})
+                            if ({1'b0, env_level_o} + attack_step_u >= {1'b0, sustain_level})
                                 env_level_o <= sustain_level;
                             else
-                                env_level_o <= env_level_o + ATTACK_STEP_U[ENV_W-1:0];
+                                env_level_o <= env_level_o + attack_step_u[ENV_W-1:0];
                         end else if (env_level_o > sustain_level) begin
-                            if ({1'b0, env_level_o} <= {1'b0, sustain_level} + DECAY_STEP_U)
+                            if ({1'b0, env_level_o} <= {1'b0, sustain_level} + decay_step_u)
                                 env_level_o <= sustain_level;
                             else
-                                env_level_o <= env_level_o - DECAY_STEP_U[ENV_W-1:0];
+                                env_level_o <= env_level_o - decay_step_u[ENV_W-1:0];
                         end
                     end
 

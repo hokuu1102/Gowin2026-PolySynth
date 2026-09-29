@@ -55,7 +55,16 @@ module tdm_render_mixer #(
     //   ⭐⭐ **2026-09-26 新增：⭐ 保留池大小**（⭐ 必须与 `note_manager.RESERVED_N` 一致）
     //      ⭐ 用途：⭐ **popcount 时排除保留池** —— ⚠️ 见下方那段长注释
     //         （⭐ 节拍器恒占 1 个保留 voice ⇒ 不排除的话**键盘音量被白降 29%**）
-    parameter integer RESERVED_N          = 0
+    parameter integer RESERVED_N          = 0,
+    // Per-audio-frame de-zipper for the polyphony normalization gain.
+    // 1 changes Q8.7 gain by at most 1/128 per sample (~0.4 ms for 1->2
+    // voices).  0 keeps the legacy immediate update for arithmetic-only TBs.
+    parameter integer NORM_GAIN_STEP      = 1,
+    // Extra pre-limiter headroom for full-scale custom wavetables.  This is a
+    // linear attenuation only: it preserves the AKWF samples, timbre ratios,
+    // velocity response and detune behaviour.  Production uses 1 (-6.02 dB);
+    // arithmetic unit tests may retain 0 for their historical exact values.
+    parameter integer OUTPUT_HEADROOM_SH  = 0
 ) (
     input  wire                                             clk_i,
     input  wire                                             rst_n_i,
@@ -504,10 +513,12 @@ module tdm_render_mixer #(
     //     ⇒ ⭐ 增益在整个帧内【恒定】⇒ ⛔ 不可能帧内跳变
     //     ⇒ ⭐ 增益与它乘的数据【同源】（都是本帧的快照）
     //
-    //  📌 **⛔ 不加斜坡** —— 2026-09-28 试过加一阶斜坡，会让增益在验收 tb 的
-    //     测量窗口内未 settle ⇒ 破坏 `tb_tdm_render_mixer`（5 条 FAIL）⇒ 已回退。
-    //     本修法只改【锁存时刻】，稳态值仍是 `gain_sqrt_lut(N)`，
-    //     ⛔ 不改归一化公式 ⇒ 定标与验收判据都不受影响。
+    //  ⭐ 2026-09-29：帧边界锁存只能消除【帧内】跳变，仍会把 1->2 voice
+    //     的 gain 从 64 一拍跳到 45，使已在 sustain 的声音瞬降约 30%。
+    //     因此下方 `norm_gain_r` 在每个音频帧最多走 `NORM_GAIN_STEP`，
+    //     默认 1 时约 0.39 ms 完成 64->45，消除可闻的控制量阶跃。
+    //     旧实验所谓“斜坡破坏 tb”只是算术测试未等待 settle；现在该测试用
+    //     `NORM_GAIN_STEP=0` 明确选择立即模式，硬件默认仍使用 de-zipper。
     always @(posedge clk_i) begin
         if (!rst_n_i)            n_active_r <= {(LW+1){1'b0}};
         else if (render_start_i) n_active_r <= pc_sum;
@@ -580,39 +591,39 @@ module tdm_render_mixer #(
         input [LW:0] n;
         begin
             case (n)
-                6'd0:  gain_sqrt_lut = 16'd88;    // ⭐ 无 voice（增益无意义，取安全值）
-                6'd1:  gain_sqrt_lut = 16'd88;    // 88/√1  = 88.0
-                6'd2:  gain_sqrt_lut = 16'd62;    // 88/√2  = 62.2
-                6'd3:  gain_sqrt_lut = 16'd51;    // 88/√3  = 50.8
-                6'd4:  gain_sqrt_lut = 16'd44;    // 88/√4  = 44.0
-                6'd5:  gain_sqrt_lut = 16'd39;    // 88/√5  = 39.4
-                6'd6:  gain_sqrt_lut = 16'd36;    // 88/√6  = 35.9
-                6'd7:  gain_sqrt_lut = 16'd33;    // 88/√7  = 33.3
-                6'd8:  gain_sqrt_lut = 16'd31;    // 88/√8  = 31.1
-                6'd9:  gain_sqrt_lut = 16'd29;    // 88/√9  = 29.3
-                6'd10: gain_sqrt_lut = 16'd28;    // 88/√10 = 27.8
-                6'd11: gain_sqrt_lut = 16'd27;    // 88/√11 = 26.5
-                6'd12: gain_sqrt_lut = 16'd25;    // 88/√12 = 25.4
-                6'd13: gain_sqrt_lut = 16'd24;    // 88/√13 = 24.4
-                6'd14: gain_sqrt_lut = 16'd24;    // 88/√14 = 23.5
-                6'd15: gain_sqrt_lut = 16'd23;    // 88/√15 = 22.7
-                6'd16: gain_sqrt_lut = 16'd22;    // 88/√16 = 22.0
-                6'd17: gain_sqrt_lut = 16'd21;    // 88/√17 = 21.3
-                6'd18: gain_sqrt_lut = 16'd21;    // 88/√18 = 20.7
-                6'd19: gain_sqrt_lut = 16'd20;    // 88/√19 = 20.2
-                6'd20: gain_sqrt_lut = 16'd20;    // 88/√20 = 19.7
-                6'd21: gain_sqrt_lut = 16'd19;    // 88/√21 = 19.2
-                6'd22: gain_sqrt_lut = 16'd19;    // 88/√22 = 18.8
-                6'd23: gain_sqrt_lut = 16'd18;    // 88/√23 = 18.3
-                6'd24: gain_sqrt_lut = 16'd18;    // 88/√24 = 18.0
-                6'd25: gain_sqrt_lut = 16'd18;    // 88/√25 = 17.6
-                6'd26: gain_sqrt_lut = 16'd17;    // 88/√26 = 17.3
-                6'd27: gain_sqrt_lut = 16'd17;    // 88/√27 = 16.9
-                6'd28: gain_sqrt_lut = 16'd17;    // 88/√28 = 16.6
-                6'd29: gain_sqrt_lut = 16'd16;    // 88/√29 = 16.3
-                6'd30: gain_sqrt_lut = 16'd16;    // 88/√30 = 16.1
-                6'd31: gain_sqrt_lut = 16'd16;    // 88/√31 = 15.8
-                default: gain_sqrt_lut = 16'd16;  // 88/√32 = 15.6
+                6'd0:  gain_sqrt_lut = 16'd64;    // ⭐ 无 voice（增益无意义，取安全值）
+                6'd1:  gain_sqrt_lut = 16'd64;    // 64/√1  = 64.0
+                6'd2:  gain_sqrt_lut = 16'd45;    // 64/√2  = 45.3
+                6'd3:  gain_sqrt_lut = 16'd37;    // 64/√3  = 37.0
+                6'd4:  gain_sqrt_lut = 16'd32;    // 64/√4  = 32.0
+                6'd5:  gain_sqrt_lut = 16'd29;    // 64/√5  = 28.6
+                6'd6:  gain_sqrt_lut = 16'd26;    // 64/√6  = 26.1
+                6'd7:  gain_sqrt_lut = 16'd24;    // 64/√7  = 24.2
+                6'd8:  gain_sqrt_lut = 16'd23;    // 64/√8  = 22.6
+                6'd9:  gain_sqrt_lut = 16'd21;    // 64/√9  = 21.3
+                6'd10: gain_sqrt_lut = 16'd20;    // 64/√10 = 20.2
+                6'd11: gain_sqrt_lut = 16'd19;    // 64/√11 = 19.3
+                6'd12: gain_sqrt_lut = 16'd18;    // 64/√12 = 18.5
+                6'd13: gain_sqrt_lut = 16'd18;    // 64/√13 = 17.8
+                6'd14: gain_sqrt_lut = 16'd17;    // 64/√14 = 17.1
+                6'd15: gain_sqrt_lut = 16'd17;    // 64/√15 = 16.5
+                6'd16: gain_sqrt_lut = 16'd16;    // 64/√16 = 16.0
+                6'd17: gain_sqrt_lut = 16'd16;    // 64/√17 = 15.5
+                6'd18: gain_sqrt_lut = 16'd15;    // 64/√18 = 15.1
+                6'd19: gain_sqrt_lut = 16'd15;    // 64/√19 = 14.7
+                6'd20: gain_sqrt_lut = 16'd14;    // 64/√20 = 14.3
+                6'd21: gain_sqrt_lut = 16'd14;    // 64/√21 = 14.0
+                6'd22: gain_sqrt_lut = 16'd14;    // 64/√22 = 13.6
+                6'd23: gain_sqrt_lut = 16'd13;    // 64/√23 = 13.3
+                6'd24: gain_sqrt_lut = 16'd13;    // 64/√24 = 13.1
+                6'd25: gain_sqrt_lut = 16'd13;    // 64/√25 = 12.8
+                6'd26: gain_sqrt_lut = 16'd13;    // 64/√26 = 12.6
+                6'd27: gain_sqrt_lut = 16'd12;    // 64/√27 = 12.3
+                6'd28: gain_sqrt_lut = 16'd12;    // 64/√28 = 12.1
+                6'd29: gain_sqrt_lut = 16'd12;    // 64/√29 = 11.9
+                6'd30: gain_sqrt_lut = 16'd12;    // 64/√30 = 11.7
+                6'd31: gain_sqrt_lut = 16'd11;    // 64/√31 = 11.5
+                default: gain_sqrt_lut = 16'd11;  // 64/√32 = 11.3
             endcase
         end
     endfunction
@@ -621,9 +632,25 @@ module tdm_render_mixer #(
     //      📌 查表本身是 LUT（⭐ 浅），⚠️ 但因为它**跟在 popcount 后面**，
     //         🔴 不切的话会和乘法器+R 连成一条长路。
     reg [15:0] norm_gain_r;
+    wire [15:0] norm_gain_target = gain_sqrt_lut(n_active_r);
+    localparam [15:0] NORM_GAIN_STEP_W = NORM_GAIN_STEP;
     always @(posedge clk_i) begin
-        if (!rst_n_i) norm_gain_r <= 16'd128;
-        else          norm_gain_r <= gain_sqrt_lut(n_active_r);
+        if (!rst_n_i) begin
+            // N=0 and N=1 both use 64, so reset cannot create an initial
+            // over-gain transient while the pipeline fills.
+            norm_gain_r <= 16'd64;
+        end else if (NORM_GAIN_STEP == 0) begin
+            // Legacy/immediate mode is used by arithmetic unit tests.  Keep
+            // updating between frames so n_active_r has time to propagate.
+            norm_gain_r <= norm_gain_target;
+        end else if (render_start_i) begin
+            if (norm_gain_target > norm_gain_r)
+                norm_gain_r <= ((norm_gain_target - norm_gain_r) > NORM_GAIN_STEP_W)
+                             ? (norm_gain_r + NORM_GAIN_STEP_W) : norm_gain_target;
+            else if (norm_gain_target < norm_gain_r)
+                norm_gain_r <= ((norm_gain_r - norm_gain_target) > NORM_GAIN_STEP_W)
+                             ? (norm_gain_r - NORM_GAIN_STEP_W) : norm_gain_target;
+        end
     end
     wire [15:0] norm_gain = norm_gain_r;
 
@@ -650,7 +677,8 @@ module tdm_render_mixer #(
         if (!rst_n_i)
             sh_norm_r <= {(ACC_W+16){1'b0}};
         else
-            sh_norm_r <= (sh24 * $signed({1'b0, norm_gain_r})) >>> 7;
+            sh_norm_r <= (sh24 * $signed({1'b0, norm_gain_r}))
+                         >>> (7 + OUTPUT_HEADROOM_SH);
     end
     wire signed [ACC_W+15:0] sh_norm_w = sh_norm_r;
 
@@ -700,67 +728,57 @@ module tdm_render_mixer #(
     //     （⭐ 硬饱和是**另一种**折点，必须避免它被用到）。
     //  📌 **阈值从 95% 降到 50%** ⇒ 软膝在**更低的电平**就开始平缓，
     //     但 ⭐ 因为 C1 连续，**听感上不会有折点**（只是整体略软）。
-    localparam signed [ACC_W+15:0] LIM_TH_W = {{(ACC_W-8){1'b0}}, 24'sh780000};  // T = 15/16 FS
+    //  🔴🔴 2026-09-28 上板实测【第四次】修正：阈值 15/16 → 7/8（93.75% → 87.5%）
+    //     ⭐ 现象：多音起音瞬态（几个 note_on 叠加 + gain 归一化还延迟 1 帧）
+    //       冲到 117%~149% 满幅，而旧阈值 93.75% 的天花板 = 100% ⇒ 压完仍贴满幅
+    //       ⇒ 听感"爆"。把 T 降到 7/8 ⇒ 天花板 = T + W/2 = 87.5% + 6.25% = 93.75%
+    //       ⇒ 瞬态被压到 93% 附近（C1 连续、无谐波、不爆）。
+    //     ⭐ 正常演奏（单音 49.6% / 双键 70% / demo 和弦 67.7%）都 < 87.5% ⇒ 不碰软膝。
+    localparam signed [ACC_W+15:0] LIM_TH_W = {{(ACC_W-8){1'b0}}, 24'sh700000};  // T = 7/8 FS
     wire signed [ACC_W+15:0] exc_pos = (sh_norm_w > LIM_TH_W)
                                     ? (sh_norm_w - LIM_TH_W) : {(ACC_W+16){1'b0}};
     wire signed [ACC_W+15:0] exc_neg = (sh_norm_w < -LIM_TH_W)
                                     ? ((-LIM_TH_W) - sh_norm_w) : {(ACC_W+16){1'b0}};
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // ⭐⭐ **2026-09-29 FMAX 修复：在 `exc_*` 与 `knee` 之间插【1 级流水】**
-    //
-    //   🔴 **原缺陷（实测 `impl/pnr/Gowin2026.timing_paths`，⛔ 不是推理）**：
-    //      最差路径 `slack = 0.193 ns` 的**主体就在这一段**：
-    //          `mult_1010_s2`（= `sh_norm_r` 那级乘法器）
-    //            → `exc_neg_*`（⭐ 约 6 ns 的宽比较/减法链）
-    //            → `mult_15254`（⭐ `exc*exc`）
-    //            → `n2385_s`（= `lim_w`）→ `samp_r`
-    //      ⇒ ⭐ **整条链 = `sh_norm_w` → `exc` → `knee`（含乘法）→ `lim_w` → `samp_r`**
-    //
-    //   ✅ **修法**：把 `exc_pos`/`exc_neg`/`sh_norm_w` 各打一拍 ⇒ ⭐ **链一分为二**
-    //      · ⭐ 前段：`sh_norm_w` → `exc_*` → **`exc_*_r`**（⭐ 短）
-    //      · ⭐ 后段：`exc_*_r`/`sh_norm_w_r` → `knee`（乘法）→ `lim_w` → `samp_r`
-    //      ⚠️ **`sh_norm_w` 必须【一起打】** —— ⭐ `knee`/`lim` 还要用它做
-    //         "是否超阈值"的判断 ⇒ ⛔ 不一起打就会**用新 `exc` 配旧 `sh_norm`**
-    //         ⇒ 🔴 数值错位（⭐ `K-109` 同族：脉冲与其携带的数据必须同拍）。
-    //
-    //   ⚠️ **代价**：本模块延迟 +1 clk ⇒ ⭐ **`valid_d` 必须同步 +1**（见下方）
-    //      ⇒ ⭐ `tb_tdm_render_mixer` 的延时从 `POLY+7` 变成 `POLY+8`
-    //      （⭐ 它的断言是**范围** `[POLY+3, POLY+8]` ⇒ ⛔ 不用放松判据）。
-    //
-    //   📌 **为什么可以打拍**（⭐ 本项目先例）：⭐ 一帧 1024 拍、渲染只用 34 拍
-    //      ⇒ ⭐ **大量空闲拍** ⇒ ⭐ 与 `n_active`/`norm_gain`/`sh_norm` 三级流水
-    //      的理由**完全相同**（⭐ 见 `:620-654`）✅
-    // ═══════════════════════════════════════════════════════════════════════
-    reg signed [ACC_W+15:0] exc_pos_r, exc_neg_r, sh_norm_w_r;
+    // Register the expensive square separately from the knee/mux/saturation
+    // network.  Without this cut Gowin placed the whole chain in one cycle
+    // (26.13 ns in the detune-off diagnostic build, 25 setup violations).
+    // Keep the excess and original sample beside the squared terms so every
+    // value consumed below belongs to the same audio frame.
+    reg signed [ACC_W+15:0] exc_pos_d;
+    reg signed [ACC_W+15:0] exc_neg_d;
+    reg signed [ACC_W+15:0] sh_norm_d;
+    reg signed [ACC_W+15:0] exc_pos_sq_d;
+    reg signed [ACC_W+15:0] exc_neg_sq_d;
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
-            exc_pos_r   <= {(ACC_W+16){1'b0}};
-            exc_neg_r   <= {(ACC_W+16){1'b0}};
-            sh_norm_w_r <= {(ACC_W+16){1'b0}};
+            exc_pos_d    <= {(ACC_W+16){1'b0}};
+            exc_neg_d    <= {(ACC_W+16){1'b0}};
+            sh_norm_d    <= {(ACC_W+16){1'b0}};
+            exc_pos_sq_d <= {(ACC_W+16){1'b0}};
+            exc_neg_sq_d <= {(ACC_W+16){1'b0}};
         end else begin
-            exc_pos_r   <= exc_pos;
-            exc_neg_r   <= exc_neg;
-            sh_norm_w_r <= sh_norm_w;      // ⭐ `knee`/`lim` 还要用它 ⇒ 必须一起打
+            exc_pos_d    <= exc_pos;
+            exc_neg_d    <= exc_neg;
+            sh_norm_d    <= sh_norm_w;
+            exc_pos_sq_d <= (exc_pos * exc_pos) >>> 21;
+            exc_neg_sq_d <= (exc_neg * exc_neg) >>> 21;
         end
     end
-
     //  ⭐ 软膝（C1 连续）：out = T + e − e²/(2T)；`e ≥ T` ⇒ 天花板 1.5T
     //     ⚠️ `exc * exc` 在 Verilog 里按【全宽】求值（80 位）后再移位 ⇒ 截到 40 位安全
     //  ⭐ 软膝宽度 W = 2^20（12.5% FS）⇒ 2W = 2^21 ⇒ 纯移位
     //  ⭐ 天花板 = T + W/2 = 15/16 + 1/16 = 【100% FS】⇒ 与硬饱和点一致
     localparam signed [ACC_W+15:0] KNEE_W = {{(ACC_W-8){1'b0}}, 24'sh100000};   // W = 2^20
     wire signed [ACC_W+15:0] ceil_w    = LIM_TH_W + (KNEE_W >>> 1);   // T + W/2 = 2^23
-    //  ⭐ 2026-09-29：⭐ 以下一律用**寄存后**的 `exc_*_r` / `sh_norm_w_r`（⭐ 流水级之后）
-    wire signed [ACC_W+15:0] knee_pos  = (exc_pos_r >= KNEE_W)
+    wire signed [ACC_W+15:0] knee_pos  = (exc_pos_d >= KNEE_W)
                                        ? ceil_w
-                                       : (LIM_TH_W + exc_pos_r - ((exc_pos_r * exc_pos_r) >>> 21));
-    wire signed [ACC_W+15:0] knee_neg  = (exc_neg_r >= KNEE_W)
+                                       : (LIM_TH_W + exc_pos_d - exc_pos_sq_d);
+    wire signed [ACC_W+15:0] knee_neg  = (exc_neg_d >= KNEE_W)
                                        ? ceil_w
-                                       : (LIM_TH_W + exc_neg_r - ((exc_neg_r * exc_neg_r) >>> 21));
-    wire signed [ACC_W+15:0] lim_pos = (sh_norm_w_r >  LIM_TH_W) ?  knee_pos : sh_norm_w_r;
-    wire signed [ACC_W+15:0] lim_neg = (sh_norm_w_r < -LIM_TH_W) ? -knee_neg : sh_norm_w_r;
-    wire signed [ACC_W+15:0] lim_w   = (sh_norm_w_r > LIM_TH_W) ? lim_pos : lim_neg;
+                                       : (LIM_TH_W + exc_neg_d - exc_neg_sq_d);
+    wire signed [ACC_W+15:0] lim_pos = (sh_norm_d >  LIM_TH_W) ?  knee_pos : sh_norm_d;
+    wire signed [ACC_W+15:0] lim_neg = (sh_norm_d < -LIM_TH_W) ? -knee_neg : sh_norm_d;
+    wire signed [ACC_W+15:0] lim_w   = (sh_norm_d > LIM_TH_W) ? lim_pos : lim_neg;
 
     // ── ⑤ ⭐ 最终饱和（⭐ 复用原有逐位判溢出手法 —— `K-101`）──────────────
     //   ⚠️ 走到这里时 `lim_w` **最多**只到 `LIM_TH + 溢出/4` ⇒ ⭐ 通常已落在 24 位内；
@@ -826,12 +844,7 @@ module tdm_render_mixer #(
     //         它和 `samp_r` 是**一对**，改一个必须改另一个。
     //      📌 **配套**：`tb_tdm_render_mixer.sv` 的判据名字 `POLY_TARGET+6` → `+7`
     //         （⭐ 它的**断言是范围** `[POLY+3, POLY+8]` ⇒ ⛔ 判据本身不用改）。
-    //   ⭐⭐ **2026-09-29 FMAX 修复：深度 4 → 5**（⭐ 因为限幅器插了 1 级流水）
-    //      🔴 **本链原来只有 4 位** ⇒ ⭐ **`valid_d[4]` 会越界** ⇒ ⭐ **必须同时加宽**
-    //      （⭐ 这是同一个坑的**第三次**：⭐ `valid` 与数据是**一对**，改一个必须改另一个）✅
-    //      📌 **配套**：`tb_tdm_render_mixer.sv` 的判据名字 `POLY_TARGET+7` → `+8`
-    //         （⭐ 断言仍是**范围** `[POLY+3, POLY+8]` ⇒ ⭐ `+8` **天然通过**，
-    //            ⛔ **没有放松任何判据**）。
+    //   2026-09-29: the registered soft-knee square adds one more data stage.
     reg [4:0] valid_d;
     always @(posedge clk_i) begin
         if (!rst_n_i) valid_d <= 5'b00000;
@@ -857,6 +870,9 @@ module tdm_render_mixer #(
         if (CNT_TOTAL > CLK_PER_SAMPLE)
             $display("ERROR [tdm_render_mixer] POLY_TARGET+2=%0d > CLK_PER_SAMPLE=%0d => 帧内跑不完（会周期性错帧）",
                      CNT_TOTAL, CLK_PER_SAMPLE);
+        if ((OUTPUT_HEADROOM_SH < 0) || (OUTPUT_HEADROOM_SH > 3))
+            $display("ERROR [tdm_render_mixer] OUTPUT_HEADROOM_SH=%0d outside 0..3",
+                     OUTPUT_HEADROOM_SH);
     end
 
 endmodule

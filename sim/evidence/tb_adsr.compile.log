@@ -15,3 +15,5 @@ her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_adsr.sv:24: warning: Instantiating module adsr with dangling input port 
 6 (retrig_reset_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_adsr.sv:24: warning: Instantiating module adsr with dangling input port 
+7 (timbre_i) floating.

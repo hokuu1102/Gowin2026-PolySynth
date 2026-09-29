@@ -26,9 +26,13 @@
 == 8: test_mode overrides voice_active ==
   ok  : test_mode=1 overrides voice_active=0 (lane0 still advances)
   ok  : and a lane NOT selected stays frozen
+  ok  : test_mode=1 keeps rom_dout on the dedicated clean sine table (rom_test)
+  ok  : and that check is NON-VACUOUS (rom_test != rom_hard was observed)
 == 9: timbre must not depend on velocity ==
   ok  : velocity 0 and 255 give BIT-IDENTICAL samples (timbre is velocity-free)
+== 10: two attacks at the same depth must be BIT-IDENTICAL (NO reset) ==
+  ok  : two attacks at the same depth are BIT-IDENTICAL (phase returns to the seed)
 PASS: oscillator_bank acceptance (T55) - all judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_oscillator_bank.sv:437: $finish called at 87540000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_oscillator_bank.sv:513: $finish called at 117540000 (1ps)
 
 
