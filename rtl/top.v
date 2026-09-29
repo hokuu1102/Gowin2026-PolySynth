@@ -97,7 +97,7 @@ module top #(
     //   ⚠️ **为什么是编译期参数而⛔ 不是运行时切换**：
     //      ⚠️ 那需要改 `calib_cmd`（⭐ **上板要测的模块**）⇒ ⭐ 本轮⛔ 一行不碰它。
     //      📌 将来要"现场切" ⇒ ⭐ 只需把 `sel_drum` 换成寄存器即可（⭐ 结构已就绪）。
-    parameter integer SEL_DRUM          = 0,
+    parameter integer SEL_DRUM          = 1,
     // ⭐⭐ **静音节拍器**（⭐ 2026-09-26 新增 · 用户上板实测后要求）
     //   · 0 => 🔇 **节拍器【完全不出声】**（⭐ 只听键盘）
     //   · 1 => ⭐ **正常**（⭐ **默认** —— 交付行为不变）
@@ -187,7 +187,36 @@ module top #(
     parameter integer DETUNE_SH         = 9,
     // ⭐⭐ 鼓机的内置节奏型（⭐ 0~3，⭐ 见 `drum_gen.step_mask_of`）
     //   · 0 = 四拍基本型（Rock）· 1 = 八分摇滚 · 2 = 十六分放克 · 3 = 圆舞曲(3/4)
+    //   ⭐⭐ **2026-09-29：⭐ 它从【编译期参数】降级为【上电默认值】** ✅
+    //      ⭐ 真正生效的选择现在是**运行时寄存器 `drum_pattern_r`**
+    //         （⭐ 串口 `'D'` ⇒ 循环 `0→1→2→3→0`，⭐ 见下方 §节奏型寄存器）
+    //      ⇒ ⭐ 本参数**只决定复位后的初值**（⭐ 默认 0 ⇒ ⭐ 上电行为与改动前逐位一致 ✅）
+    //      📌 **为什么必须改成运行时**：⭐ 用户上板要求"鼓机节奏型要能**现场切**"——
+    //         ⚠️ 编译期参数意味着"换一个节奏型就得重新 PnR + 烧写"（⭐ 一次 ~10 分钟）
+    //         ⇒ ⭐ 上板试听 4 个型**根本没法比**（⭐ 这正是用户提这个需求的原因）。
     parameter integer DRUM_PATTERN_ID   = 0,
+
+    // ⭐⭐ **鼓机 / 节拍器的固定音色**（⭐ 2026-09-29 新增 · 修"鼓跟着键盘音色变"的 bug）
+    //
+    //   🔴 **问题（⭐ 用户上板实测）**：⭐ 换键盘音色（⭐ 串口 `'I'` / S2 按键）时
+    //      **鼓的声音也跟着变** ⇒ ⭐ 鼓机和键盘**听起来像同一件乐器**。
+    //   🔎 **根因**：⭐ 源 B（节拍器/鼓机）原来把 `timbre_valid` **恒接 `1'b0`**
+    //      ⇒ ⭐ `note_manager` 走
+    //         `new_timbre = cur_timbre_valid ? cur_timbre : default_timbre_i`
+    //         （⭐ `note_manager.v:426`）的**兜底分支**
+    //      ⇒ ⭐ 拿到的是 `default_timbre_i = timbre_sel_r`（⭐ **键盘当前音色**，⭐ `top.v:3081`）
+    //      ⇒ 🔴 **鼓的音色 = 键盘的音色** —— ⛔ 完全不是我们要的（鼓必须有自己的音色）。
+    //
+    //   ⭐ **修法**：⭐ 给源 B 一个**自己的、固定的**音色 ⇒ ⭐ 与键盘**彻底解耦**
+    //      （⭐ 键盘怎么切都⛔ 不影响鼓）。
+    //   ⭐ 取值 **2 = PIANO**（⭐ `wavetable_bank.v:3`：`0=BASS 1=GUITAR 2=PIANO 3=PAD`）：
+    //      ⭐ PIANO 是 **zero-DC 25% 脉冲** ⇒ ⭐ 谐波最丰富、**起音最"脆"**
+    //      ⇒ ⭐ 最接近打击乐（⭐ 而 BASS/GUITAR/PAD 都是**持续音**音色，⭐ 敲下去像"按了个和弦"）。
+    //   📌 **为什么做成参数**：⭐ 鼓的音色是**主观听感**（⭐ 必须能 A/B 对比，⛔ 不能靠推理）——
+    //      ⭐ 上板改一个数字重烧即可重听（⭐ 与 `DETUNE_ON` / `METRONOME_ON` 同一手法 ✅）。
+    //   ⚠️ **它同时管住节拍器**（⭐ 源 B 是二选一）⇒ ⭐ 语义上叫"源 B 音色"更准
+    //      —— ⭐ 节拍器本来就是"打击乐式的拍子声"，⭐ 同样**不该跟着键盘走** ✅
+    parameter [1:0] DRUM_TIMBRE = 2'd2,
     // ⭐⭐ 上电自动零点标定的**等待时间**（clk 数；默认 10M ≈ **200 ms** @50 MHz）
     //   ⭐ `calib_autotare` 用它决定"等多久才开始标定"。
     //   ⚠️ **太短 ⇒ 霍尔供电/LDO 还没稳 ⇒ 🔴 零点记错**（⚠️ 而且**不可察觉**：
@@ -481,6 +510,39 @@ module top #(
             timbre_sel_r <= timbre_sel_r + 2'd1;
     end
 
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-09-29：⭐ **鼓机节奏型寄存器**（⭐ 串口 `'D'` ⇒ 循环 `0→1→2→3→0`）
+    //
+    //  🔴 **为什么要有它**（⭐ 用户上板要求）：⭐ "鼓机的节奏型要能**现场切**"。
+    //     ⚠️ 原来 `DRUM_PATTERN_ID` 是**编译期参数** ⇒ ⭐ 想听下一个型就得
+    //        **重新 PnR + 烧写**（⭐ 一次 ~10 分钟）⇒ 🔴 **4 个型根本没法 A/B 对比**。
+    //
+    //  ⭐ **语义**：⭐ 与 `timbre_sel_r`（`'I'` 切音色）/ `met_on_r`（`'B'` 开关）
+    //     **完全同一手法**：⭐ `calib_cmd` 出**单周期脉冲** ⇒ ⭐ 这里**加一**（⭐ 2 位自然回绕）。
+    //  ⭐ **复位值 = `DRUM_PATTERN_ID`**（⭐ 上电默认型）⇒ ⭐ 不改 `'D'` 时
+    //     **行为与改动前逐位一致** ✅（⭐ 这条是本轮"只加不改"的关键）。
+    //
+    //  ⚠️ **为什么必须声明在【模块层】**（⭐ 而不是 generate 里的 `g_sound`）：
+    //     ⭐ 与 `timbre_sel_r` **同一个理由** —— ⭐ 队友/本轮的 tb 要能用
+    //     **`dut.drum_pattern_r`**（⭐ 模块层路径）观察它；
+    //     ⚠️ 放 generate 里**绑不上**（⭐ 实测过 8 条 `Unable to bind` ✅）。
+    //     📌 `calib_cmd`/`drum_gen` 都在 `g_sound` 里 ⇒ ⭐ 模块层信号**在里面可读可写** ✅
+    //  ⚠️ **`g_silent` 档不例化 `calib_cmd`** ⇒ ⭐ 那里 `cmd_drum_pattern_req` 悬空（`z`）
+    //     ⇒ ⭐ `if (z)` 在仿真里**为假** ⇒ ⭐ **不会误加** ✅
+    //     （⭐ 与 `met_on_r`/`cmd_met_req` 完全同一个既有模式，⛔ 不是新风险）
+    // ═══════════════════════════════════════════════════════════════════════
+    //   ⚠️ **必须在【使用之前】声明** —— ⭐ `default_nettype none` 下不存在隐式网线 ✅
+    wire cmd_drum_pattern_req;      // ⭐ 'D' ⇒ 鼓机节奏型 **切下一个**
+
+    //   ⭐ `integer` 参数⛔ 不做位选（`K-91`）⇒ ⭐ 先【赋值】给定宽 localparam（自动截断）✅
+    localparam [1:0] DRUM_PATTERN_INIT = DRUM_PATTERN_ID;
+
+    reg [1:0] drum_pattern_r;
+    always @(posedge clk) begin
+        if (!rst_n_sync) drum_pattern_r <= DRUM_PATTERN_INIT;
+        else if (cmd_drum_pattern_req) drum_pattern_r <= drum_pattern_r + 2'd1;
+    end
+
     // ⭐⭐ 2026-09-28：**开节拍器的那一刻，把音乐位置复位**（⭐ 用户要求"从第一拍开始响"）
     //
     //   🔴 **问题（⭐ 用户上板实测）**：*"节拍器是从第二拍开始响的，希望最好从第一拍开始响"*
@@ -707,6 +769,8 @@ module top #(
         // ⭐ 2026-09-29：⭐ 切音色（⭐ 'I'）
         .timbre_req_o   (cmd_timbre_req),
         .met_req_o      (cmd_met_req),
+        // ⭐ 2026-09-29：⭐ 鼓机节奏型切下一个（⭐ 'D'，⭐ 2026-09-29 新增）
+        .drum_pattern_req_o(cmd_drum_pattern_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (cmd_in_frame_cnt),
         .resync_cnt_o   (cmd_resync_cnt),
@@ -1211,13 +1275,19 @@ module top #(
             .AXIS_ID        (15),
             .N_DRUM         (4),
             .STEPS          (16),
-            .PATTERN_ID     (DRUM_PATTERN_ID),
             // ⭐ 16 分音符 = PPQN(960) / 4 = 240 tick
             .TICKS_PER_STEP (240),
             .RESERVED_N     (5)
         ) u_drum_gen (
             .clk_i          (clk),
             .rst_n_i        (rst_n_sync),
+            // ⭐⭐ 2026-09-29：⭐ 节奏型改成**运行时输入**（⭐ 串口 `'D'` 切）
+            //   ⚠️ 原来是**参数** `.PATTERN_ID(DRUM_PATTERN_ID)`（⭐ 编译期常量）
+            //      ⇒ 🔴 换型要重新 PnR（⭐ 见上方 §节奏型寄存器）
+            //   📌 `DRUM_PATTERN_ID` 现在**只当复位初值**（⭐ 见 `DRUM_PATTERN_INIT`）✅
+            //   🔴 **它现在是【端口】而⛔ 不是参数**（⭐ 所以必须写在**这里**，
+            //      ⚠️ 写进上面的 `#(...)` 会报 `parameter pattern_id_i not found` —— 已实测）✅
+            .pattern_id_i   (drum_pattern_r),
             //   ⭐ 与节拍器**同一个 `beat_gen`** ⇒ ⭐ 天然同拍（⛔ 不自己再分频）
             .tick_i         (bg_tick),
             .tick_cnt_i     (bg_tick_cnt),
@@ -2976,8 +3046,18 @@ module top #(
         wire [31:0] src_b_inc   = sel_drum ? drm_evt_inc   : met_evt_inc;
         wire [7:0]  src_b_vel   = sel_drum ? drm_evt_vel   : met_evt_vel;
         wire [1:0]  src_b_kind  = sel_drum ? drm_evt_kind  : met_evt_kind;
-        wire        src_b_timbre_valid = 1'b0;
-        wire [1:0]  src_b_timbre = 2'd0;
+        //   ⭐⭐ **2026-09-29：⭐ 源 B 用【自己的固定音色】`DRUM_TIMBRE`** ✅
+        //      🔴 **改之前**：⭐ 这里恒 `1'b0` ⇒ ⭐ `note_manager` 走兜底
+        //         `default_timbre_i`（⭐ = `timbre_sel_r` = **键盘当前音色**）
+        //         ⇒ 🔴 **换键盘音色 ⇒ 鼓的音色跟着变**（⭐ 用户上板实测的 bug）
+        //      ⭐ **改之后**：⭐ `valid = 1` + ⭐ 固定值 ⇒ ⭐ 鼓**永远用 `DRUM_TIMBRE`**
+        //         ⇒ ⭐ 与键盘**彻底解耦**（⭐ 判据见 `tb_top_drum_timbre.sv`）。
+        //      📌 **为什么是"喂 valid + 固定值"而⛔ 不是"在 `note_manager` 里判轴号"**：
+        //         ⚠️ 那样要改**队友的 `note_manager`**（⭐ 而它是**冻结的事件格式消费者**）
+        //         ⇒ ⭐ 本做法**只动 `top.v` 的接线** ⇒ ⭐ 零接口风险 ✅
+        //         （⭐ 且 `evt_merge` 本来就为"每源带自己的音色"预留了这条 sideband ✅）
+        wire        src_b_timbre_valid = 1'b1;
+        wire [1:0]  src_b_timbre = DRUM_TIMBRE;
 
         // ⭐⭐ T36 / U-6：事件合流（手弹/曲谱 + 节拍器 → note_manager 的**唯一**事件口）
         //   🔴 **为什么必须加它**：`note_manager` 只有一个事件口，
