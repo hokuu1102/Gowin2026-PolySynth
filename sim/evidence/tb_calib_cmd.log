@@ -1,4 +1,4 @@
-﻿NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=4 BYTE_CLK=50 HEADER=a5 N_CMD=12 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49)
+﻿NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=4 BYTE_CLK=50 HEADER=a5 N_CMD=13 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44)
 === tb_calib_cmd ===
   ok  : 'T' outside a frame raises tare_req
   ok  : 'T' does NOT raise span_req or abort_req
@@ -16,6 +16,10 @@
   ok  : 'I' does NOT cross-fire the older commands
   ok  : 'I' pulse is exactly ONE cycle wide
   ok  : cmd_cnt_o counted all EIGHT commands
+  ok  : 'D' outside a frame raises drum_pattern_req
+  ok  : 'D' does NOT cross-fire the older commands
+  ok  : 'D' pulse is exactly ONE cycle wide
+  ok  : cmd_cnt_o counted all NINE commands
   ok  : each command pulse is exactly ONE cycle wide
   ok  : payload full of T/S/X raises NO tare_req
   ok  : payload full of T/S/X raises NO span_req
@@ -28,6 +32,10 @@
   ok  : cmd_cnt_o did NOT count in-frame letters
   ok  : in_frame_cnt_o counted all 8 ignored payload letters
   ok  : idx_o returned to 0 after the frame completed
+  ok  : payload of eight 'D' letters raises NO drum_pattern_req
+  ok  : payload of eight 'D' letters raises NO other command pulses
+  ok  : cmd_cnt_o did NOT count the in-frame 'D' letters
+  ok  : in_frame_cnt_o counted all 8 in-frame 'D' letters
   ok  : 0xA5 header itself raises no command
   ok  : non-command bytes outside a frame raise no pulses
   ok  : non-command bytes are counted in unknown_cnt_o
@@ -42,6 +50,6 @@
   ok  : back-to-back frames end with idx_o == 0
 
 PASS: calib_cmd parses T/S/X/M only at frame boundaries, ignores payload letters, counts what it drops, and self-heals after a half frame
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_cmd.sv:357: $finish called at 11170000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_cmd.sv:402: $finish called at 11690000 (1ps)
 
 

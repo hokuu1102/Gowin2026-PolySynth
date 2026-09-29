@@ -21,6 +21,6 @@ VCD info: dumpfile build/sim/tb_drum_timbre_top/tb_drum_timbre_top.vcd opened fo
   ok  : T4b the drum voice timbre is DRUM_TIMBRE(2), NOT the keyboard's 3
   ok  : T5 after the keyboard timbre changed, the drum timbre is STILL 2
 PASS: drum_timbre_top -- the drum machine keeps its own timbre when the keyboard timbre changes
-C:\Users\hokuu\Desktop\FPGA\FPGA2026-drum\tb\w3c\tb_drum_timbre_top.sv:262: $finish called at 85330000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_timbre_top.sv:272: $finish called at 85330000 (1ps)
 
 

@@ -74,7 +74,17 @@ module tb_drum_timbre_top;
     wire spi_sclk, spi_mosi, miso_l, miso_r;
     wire [5:0] spi_cs_n;
 
+    //  ⭐⭐ 2026-09-30：⭐ **显式选定"源 B = 鼓机"**（⭐ 本 tb 的被测对象）
+    //     🔴 **为什么必须写这一行**：⭐ 本 tb 验的是**鼓机**（`AXIS_ID=15`）的
+    //        音色与合流路径 ⇒ ⚠️ 而 `top.SEL_DRUM` 的**主树默认档 = 0（节拍器）**
+    //        （⭐ 2026-09-30 裁定：默认档必须与 5 份文档 ＋ `上板操作手册` 的
+    //         "四条铁律"一致；⭐ 鼓机要验就**另编 `SEL_DRUM=1` 的 `.fs`**）
+    //        ⇒ 🔴 若沿用默认值，源 B 选的是节拍器 ⇒ `drm_evt_valid` **到不了**
+    //           `evt_merge` 出口 ⇒ T1~T5 **全红**（⭐ 而鼓机本身是好的 ✅）。
+    //     📌 **纪律**：⭐ 凡"验某一路"的 tb **必须显式声明自己需要的档**，
+    //        ⛔ 不依赖顶层默认值（⭐ 本 tb 原来就是靠默认值才促成那次默认档改动 ✅）
     top #(
+        .SEL_DRUM              (1),
         .AUTOTARE_DELAY_CLK    (100_000),
         .SPAN_WAIT_TIMEOUT_CLK (50_000),
         .SPAN_STABLE_NEED      (4),
