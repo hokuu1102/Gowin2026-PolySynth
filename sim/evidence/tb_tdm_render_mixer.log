@@ -38,6 +38,6 @@
   ok  : wide positive overflow clamps to soft-knee ceiling (no wrap)
   ok  : wide negative overflow clamps to soft-knee ceiling (no wrap)
 PASS: tdm_render_mixer acceptance (T56) - all judgements held
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_tdm_render_mixer.sv:476: $finish called at 20620000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_tdm_render_mixer.sv:476: $finish called at 20920000 (1ps)
 
 

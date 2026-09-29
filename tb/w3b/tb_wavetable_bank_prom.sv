@@ -166,6 +166,12 @@ endmodule
 // has no external pROM/IP dependency: the generated ROM constants are shared
 // by simulation and the Gowin build.
 module tb_wavetable_bank_prom;
+`ifdef GOWIN_PRIM_SIM
+    // Gowin's official primitive library resolves the global reset through
+    // the hierarchical singleton name GSR.GSRO.  The normal lightweight
+    // test double does not need it.
+    GSR GSR (.GSRI(1'b1));
+`endif
     reg clk_i = 1'b0;
     reg rst_n_i = 1'b0;
     reg rd_en_i = 1'b0;

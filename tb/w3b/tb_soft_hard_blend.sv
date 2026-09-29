@@ -22,7 +22,8 @@ module tb_soft_hard_blend;
 
     oscillator_bank #(
         .POLY_TARGET(1), .OSC_PER_VOICE(1),
-        .WT_DEPTH(1024), .DETUNE_ON(0)
+        .WT_DEPTH(1024), .DETUNE_ON(0),
+        .VELOCITY_BLEND_EN(1)
     ) dut (
         .clk_i(clk), .rst_n_i(rst_n), .sample_tick_i(sample_tick),
         .voice_active_i(voice_active), .base_phase_inc_i(phase_inc),

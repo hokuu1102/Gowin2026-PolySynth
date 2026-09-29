@@ -19,7 +19,7 @@ AKWF_DIR = REPO_ROOT / "assets" / "third_party" / "akwf"
 AKWF_SOURCES = (
     "AKWF_dbass_0050_256.h",   # BASS
     "AKWF_eguitar_0015_256.h", # GUITAR
-    "AKWF_clavinet_0005_256.h",  # PIANO (clavinet: 与 GUITAR 的拨弦区分开)
+    "AKWF_clavinet_0005_256.h",  # PIANO
     "AKWF_eorgan_0020_256.h",  # PAD
 )
 
@@ -48,8 +48,6 @@ def normalize_zero_dc(samples, amplitude):
         raise ValueError("cannot normalise a silent source")
     result = [int(round(amplitude * value / peak)) for value in centered]
     correction = sum(result)
-    # Rounding can leave a few LSB of DC.  Correct from the tail so source
-    # anchors at the beginning/quarters remain stable and no click is added.
     index = len(result) - 1
     while correction:
         step = -1 if correction > 0 else 1
@@ -91,8 +89,6 @@ def generate_tables():
         source = read_akwf_source(filename)
         soft = upsample_periodic(normalize_zero_dc(smooth_periodic(source), AMPLITUDE))
         hard = upsample_periodic(normalize_zero_dc(source, AMPLITUDE))
-        # Upsampling has its own rounding, so make each final hardware table
-        # exactly zero-DC before it is embedded in the ROM.
         tables.append((normalize_zero_dc(soft, AMPLITUDE),
                        normalize_zero_dc(hard, AMPLITUDE)))
     return tables
@@ -119,7 +115,10 @@ def render_prom_instance(kind, timbre, samples):
         "        .RESET(~rst_n_i),",
         "        .AD({addr_i[9:0], 4'b0000})",
         "    );",
-        f"    defparam {stem}.READ_MODE = 1'b1;",
+        # Gowin pROM bypass mode still has the BRAM's synchronous read
+        # register (one clock).  Pipeline mode adds a second clock, which
+        # would misalign ROM data from oscillator_bank's one-clock TDM tags.
+        f"    defparam {stem}.READ_MODE = 1'b0;",
         f"    defparam {stem}.BIT_WIDTH = 16;",
         f'    defparam {stem}.RESET_MODE = "SYNC";',
     ]
@@ -179,10 +178,11 @@ module wavetable_bank #(
         endcase
     end
 
-    // READ_MODE=1 (Register) gives 1-clock read latency, matching
-    // oscillator_bank's "ROM data returns 1 beat after the address" contract.
-    // READ_MODE=0 (By-pass) returns data in the SAME beat and shifts every
-    // TDM lane by one -> inter-lane data scramble -> transient spikes.
+    // Gowin's official gw5a primitive model defines READ_MODE=0 (bypass) as
+    // the BRAM read register: data returns one clock after the address.  Mode
+    // 1 adds the output pipeline register and therefore takes two clocks.
+    // oscillator_bank's TDM response tags are delayed by one clock, so mode 0
+    // is required; mode 1 pairs each response with the following lane.
     // timbre_q is the matching
     // one-clock response tag; selecting with the live request timbre would
     // pair every ROM response with the following TDM lane.

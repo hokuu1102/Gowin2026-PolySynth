@@ -110,6 +110,7 @@ module tb_e2e_key_to_sound;
     ) u_top (
         .clk           (clk),
         .rst_n         (rst_n),
+        .timbre_btn_i  (1'b1),
         .HP_BCK        (HP_BCK),
         .HP_WS         (HP_WS),
         .HP_DIN        (HP_DIN),

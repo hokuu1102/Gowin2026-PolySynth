@@ -44,7 +44,7 @@ module wavetable_bank #(
         .RESET(~rst_n_i),
         .AD({addr_i[9:0], 4'b0000})
     );
-    defparam rom_soft_t0_inst.READ_MODE = 1'b1;
+    defparam rom_soft_t0_inst.READ_MODE = 1'b0;
     defparam rom_soft_t0_inst.BIT_WIDTH = 16;
     defparam rom_soft_t0_inst.RESET_MODE = "SYNC";
     defparam rom_soft_t0_inst.INIT_RAM_00 = 256'h100E0EFA0DE60CD30BCE0ACA09C608C107CE06DC05E904F60416033602550175;
@@ -119,7 +119,7 @@ module wavetable_bank #(
         .RESET(~rst_n_i),
         .AD({addr_i[9:0], 4'b0000})
     );
-    defparam rom_hard_t0_inst.READ_MODE = 1'b1;
+    defparam rom_hard_t0_inst.READ_MODE = 1'b0;
     defparam rom_hard_t0_inst.BIT_WIDTH = 16;
     defparam rom_hard_t0_inst.RESET_MODE = "SYNC";
     defparam rom_hard_t0_inst.INIT_RAM_00 = 256'h0EB50D800C4C0B170A21092A0834073E067105A404D8040B0341027601AC00E2;
@@ -194,7 +194,7 @@ module wavetable_bank #(
         .RESET(~rst_n_i),
         .AD({addr_i[9:0], 4'b0000})
     );
-    defparam rom_soft_t1_inst.READ_MODE = 1'b1;
+    defparam rom_soft_t1_inst.READ_MODE = 1'b0;
     defparam rom_soft_t1_inst.BIT_WIDTH = 16;
     defparam rom_soft_t1_inst.RESET_MODE = "SYNC";
     defparam rom_soft_t1_inst.INIT_RAM_00 = 256'h6B5067FC64A861545C45573652264D17466C3FC13916326B2A8C22AE1ACF12F0;
@@ -269,7 +269,7 @@ module wavetable_bank #(
         .RESET(~rst_n_i),
         .AD({addr_i[9:0], 4'b0000})
     );
-    defparam rom_hard_t1_inst.READ_MODE = 1'b1;
+    defparam rom_hard_t1_inst.READ_MODE = 1'b0;
     defparam rom_hard_t1_inst.BIT_WIDTH = 16;
     defparam rom_hard_t1_inst.RESET_MODE = "SYNC";
     defparam rom_hard_t1_inst.INIT_RAM_00 = 256'h79657968796A796D79FC7A8A7B187BA771ED68325E7854BE45043549258E15D4;
@@ -344,7 +344,7 @@ module wavetable_bank #(
         .RESET(~rst_n_i),
         .AD({addr_i[9:0], 4'b0000})
     );
-    defparam rom_soft_t2_inst.READ_MODE = 1'b1;
+    defparam rom_soft_t2_inst.READ_MODE = 1'b0;
     defparam rom_soft_t2_inst.BIT_WIDTH = 16;
     defparam rom_soft_t2_inst.RESET_MODE = "SYNC";
     defparam rom_soft_t2_inst.INIT_RAM_00 = 256'h34B9334E31E330782DE22B4D28B8262222691EB01AF8173F12880DD1091A0463;
@@ -419,7 +419,7 @@ module wavetable_bank #(
         .RESET(~rst_n_i),
         .AD({addr_i[9:0], 4'b0000})
     );
-    defparam rom_hard_t2_inst.READ_MODE = 1'b1;
+    defparam rom_hard_t2_inst.READ_MODE = 1'b0;
     defparam rom_hard_t2_inst.BIT_WIDTH = 16;
     defparam rom_hard_t2_inst.RESET_MODE = "SYNC";
     defparam rom_hard_t2_inst.INIT_RAM_00 = 256'h3C1A3B503A8539BA375C34FF32A230442C8028BB24F621321C0016CD119A0C68;
@@ -494,7 +494,7 @@ module wavetable_bank #(
         .RESET(~rst_n_i),
         .AD({addr_i[9:0], 4'b0000})
     );
-    defparam rom_soft_t3_inst.READ_MODE = 1'b1;
+    defparam rom_soft_t3_inst.READ_MODE = 1'b0;
     defparam rom_soft_t3_inst.BIT_WIDTH = 16;
     defparam rom_soft_t3_inst.RESET_MODE = "SYNC";
     defparam rom_soft_t3_inst.INIT_RAM_00 = 256'h240821FB1FEE1DE21BBF199C17781555132110EE0EBA0C860A4A080E05D10395;
@@ -569,7 +569,7 @@ module wavetable_bank #(
         .RESET(~rst_n_i),
         .AD({addr_i[9:0], 4'b0000})
     );
-    defparam rom_hard_t3_inst.READ_MODE = 1'b1;
+    defparam rom_hard_t3_inst.READ_MODE = 1'b0;
     defparam rom_hard_t3_inst.BIT_WIDTH = 16;
     defparam rom_hard_t3_inst.RESET_MODE = "SYNC";
     defparam rom_hard_t3_inst.INIT_RAM_00 = 256'h2514230C21031EFA1CCB1A9C186C163D13F711B10F6B0D250ABE085805F1038A;
@@ -649,10 +649,11 @@ module wavetable_bank #(
         endcase
     end
 
-    // READ_MODE=1 (Register) gives 1-clock read latency, matching
-    // oscillator_bank's "ROM data returns 1 beat after the address" contract.
-    // READ_MODE=0 (By-pass) returns data in the SAME beat and shifts every
-    // TDM lane by one -> inter-lane data scramble -> transient spikes.
+    // Gowin's official gw5a primitive model defines READ_MODE=0 (bypass) as
+    // the BRAM read register: data returns one clock after the address.  Mode
+    // 1 adds the output pipeline register and therefore takes two clocks.
+    // oscillator_bank's TDM response tags are delayed by one clock, so mode 0
+    // is required; mode 1 pairs each response with the following lane.
     // timbre_q is the matching
     // one-clock response tag; selecting with the live request timbre would
     // pair every ROM response with the following TDM lane.

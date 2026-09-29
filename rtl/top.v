@@ -193,10 +193,20 @@ module top #(
     // T18: P4 right-hand ADC is optional until its cable and MCP3208 are
     // physically installed. Keeping this 0 prevents an open MISO line from
     // being interpreted as full-depth vibrato on today's two-ADC setup.
-    parameter integer RIGHT_ADC_ENABLE       = 0
+    parameter integer RIGHT_ADC_ENABLE       = 0,
+    // Diagnostic bisection for the full-travel distortion.  When enabled,
+    // key position still controls note on/off, but every keyboard note uses a
+    // fixed velocity so travel depth cannot change audio amplitude.
+    parameter integer FIXED_VELOCITY_DIAG    = 0,
+    parameter [7:0]   FIXED_VELOCITY_VALUE   = 8'd96,
+
+    // On-board S2 timbre selector debounce time.  Kept as a parameter so the
+    // physical-button integration can be exercised quickly in simulation.
+    parameter integer TIMBRE_BTN_DB_MS        = 5
 ) (
     input  wire clk,             // V22 · 50 MHz
     input  wire rst_n,           // AA13 · 低有效（同步复位）
+    input  wire timbre_btn_i,    // AB13 · S2，低有效；每次按下循环一个音色
 
     // ── 音频（板载 DAC = `MAX98357A`，⛔ 不需要 MCLK）──────────────
     //   ⭐ 2026-09-22 换板 Tang Console 60K：`PT8211`+`NS4263` → `MAX98357A`
@@ -328,6 +338,60 @@ module top #(
         .rst_n_async (rst_n),
         .rst_n_sync  (rst_n_sync)
     );
+
+    // ── S2 音色选择：BASS → GUITAR → PIANO → PAD → BASS ─────────────
+    // S2 is asynchronous and mechanical: synchronize first, then require a
+    // stable level before accepting exactly one press event.  timbre_sel_r is
+    // only the default for a *new* note.  note_manager copies it into the
+    // allocated voice's timbre register, so held/releasing voices retain the
+    // timbre they started with and never switch wavetable mid-note.
+    wire timbre_btn_sync;
+    wire timbre_btn_down;
+    reg  [1:0] timbre_sel_r;
+
+    sync_input #(
+        .W         (1),
+        .STAGES    (2),
+        .RESET_VAL (1'b1)
+    ) u_timbre_btn_sync (
+        .clk      (clk),
+        .rst_n    (rst_n_sync),
+        .async_in (timbre_btn_i),
+        .sync_out (timbre_btn_sync)
+    );
+
+    debounce #(
+        .NKEY       (1),
+        .CLK_HZ     (50_000_000),
+        .DB_MS      (TIMBRE_BTN_DB_MS),
+        .ACTIVE_LOW (1)
+    ) u_timbre_btn_debounce (
+        .clk         (clk),
+        .rst_n       (rst_n_sync),
+        .key_in      (timbre_btn_sync),
+        .key_level   (),
+        .key_down    (timbre_btn_down),
+        .key_up      (),
+        .enc_a       (1'b1),
+        .enc_b       (1'b1),
+        .enc_sw      (1'b1),
+        .enc_a_lvl   (),
+        .enc_b_lvl   (),
+        .enc_sw_lvl  (),
+        .enc_sw_down (),
+        .enc_sw_up   (),
+        .enc_cw      (),
+        .enc_ccw     (),
+        .enc_state   (),
+        .enc_err     ()
+    );
+
+    always @(posedge clk) begin
+        if (!rst_n_sync)
+            timbre_sel_r <= 2'd0; // power-up timbre: BASS
+        else if (timbre_btn_down)
+            timbre_sel_r <= timbre_sel_r + 2'd1;
+    end
 
     // ── 时基 ────────────────────────────────────────────────────────
     wire tick_audio, mclk_en, bclk_en, bclk_half_en, lrclk, frame_start;
@@ -692,7 +756,8 @@ module top #(
             //       （原始 AKWF 高频）⇒ 听感"爆"，而 49.8% < 软膝阈值 ⇒ 软膝救不了。
             //     · 降到 200 ⇒ peak_level=51200=78% ⇒ 单音 38.9% 且 78% hard（更柔和），
             //       与 demo 自检（velocity=200）同一口径。
-            pos_to_vel = (v13 > 13'd200) ? 8'd200 : v13[7:0];   // ⭐ 饱和到 200
+            pos_to_vel = (FIXED_VELOCITY_DIAG != 0) ? FIXED_VELOCITY_VALUE
+                       : (v13 > 13'd200) ? 8'd200 : v13[7:0];   // ⭐ 饱和到 200
         end
     endfunction
 
@@ -2580,7 +2645,7 @@ module top #(
             .pitch_upd_valid_i (pe_pitch_v),
             .pitch_upd_axis_i  (pe_pitch_ax),
             .pitch_upd_value_i (pe_pitch),
-            .default_timbre_i  (2'd0),
+            .default_timbre_i  (timbre_sel_r),
             .evt_timbre_valid_i(mg_evt_timbre_valid),
             .evt_timbre_i      (mg_evt_timbre),
             .env_active_i      (env_active),
@@ -2640,7 +2705,11 @@ module top #(
             //      ⚠️ **代码实查**：⭐ 原来 `DETUNE_SH` **没有透传** ⇒ 从顶层调不了。
             //      📌 **命名参数覆盖是合法用法** ⇒ ⭐ `oscillator_bank.v` **一字不改**
             //         （⭐ 满足"只动不碰队友文件"的约束）。
-            .DETUNE_SH     (DETUNE_SH)
+            .DETUNE_SH     (DETUNE_SH),
+            // Velocity controls envelope loudness only.  Keep our selected
+            // AKWF tone colour fixed at the smoothed table.
+            .VELOCITY_BLEND_EN(0),
+            .FIXED_BLEND_Q (0)
         ) u_oscillator_bank (
             .clk_i              (clk),
             .rst_n_i            (rst_n_sync),
@@ -2675,7 +2744,8 @@ module top #(
             //      ⭐ 用途：⭐ **popcount 时排除保留池**（⭐ 节拍器/鼓机不该压低键盘音量）
             //      ⚠️ **必须与下面 `note_manager` 的 `RESERVED_N` 一致**（⭐ 两处都写 5）
             //      📌 语义：⭐ N 只数【演奏的 voice】⇒ ⭐ 音量不随节拍器跳动 ✅
-            .RESERVED_N          (5)
+            .RESERVED_N          (5),
+            .OUTPUT_HEADROOM_SH  (1)
         ) u_tdm_render_mixer (
             .clk_i            (clk),
             .rst_n_i          (rst_n_sync),

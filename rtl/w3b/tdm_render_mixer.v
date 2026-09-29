@@ -59,7 +59,12 @@ module tdm_render_mixer #(
     // Per-audio-frame de-zipper for the polyphony normalization gain.
     // 1 changes Q8.7 gain by at most 1/128 per sample (~0.4 ms for 1->2
     // voices).  0 keeps the legacy immediate update for arithmetic-only TBs.
-    parameter integer NORM_GAIN_STEP      = 1
+    parameter integer NORM_GAIN_STEP      = 1,
+    // Extra pre-limiter headroom for full-scale custom wavetables.  This is a
+    // linear attenuation only: it preserves the AKWF samples, timbre ratios,
+    // velocity response and detune behaviour.  Production uses 1 (-6.02 dB);
+    // arithmetic unit tests may retain 0 for their historical exact values.
+    parameter integer OUTPUT_HEADROOM_SH  = 0
 ) (
     input  wire                                             clk_i,
     input  wire                                             rst_n_i,
@@ -672,7 +677,8 @@ module tdm_render_mixer #(
         if (!rst_n_i)
             sh_norm_r <= {(ACC_W+16){1'b0}};
         else
-            sh_norm_r <= (sh24 * $signed({1'b0, norm_gain_r})) >>> 7;
+            sh_norm_r <= (sh24 * $signed({1'b0, norm_gain_r}))
+                         >>> (7 + OUTPUT_HEADROOM_SH);
     end
     wire signed [ACC_W+15:0] sh_norm_w = sh_norm_r;
 
@@ -733,21 +739,46 @@ module tdm_render_mixer #(
                                     ? (sh_norm_w - LIM_TH_W) : {(ACC_W+16){1'b0}};
     wire signed [ACC_W+15:0] exc_neg = (sh_norm_w < -LIM_TH_W)
                                     ? ((-LIM_TH_W) - sh_norm_w) : {(ACC_W+16){1'b0}};
+    // Register the expensive square separately from the knee/mux/saturation
+    // network.  Without this cut Gowin placed the whole chain in one cycle
+    // (26.13 ns in the detune-off diagnostic build, 25 setup violations).
+    // Keep the excess and original sample beside the squared terms so every
+    // value consumed below belongs to the same audio frame.
+    reg signed [ACC_W+15:0] exc_pos_d;
+    reg signed [ACC_W+15:0] exc_neg_d;
+    reg signed [ACC_W+15:0] sh_norm_d;
+    reg signed [ACC_W+15:0] exc_pos_sq_d;
+    reg signed [ACC_W+15:0] exc_neg_sq_d;
+    always @(posedge clk_i) begin
+        if (!rst_n_i) begin
+            exc_pos_d    <= {(ACC_W+16){1'b0}};
+            exc_neg_d    <= {(ACC_W+16){1'b0}};
+            sh_norm_d    <= {(ACC_W+16){1'b0}};
+            exc_pos_sq_d <= {(ACC_W+16){1'b0}};
+            exc_neg_sq_d <= {(ACC_W+16){1'b0}};
+        end else begin
+            exc_pos_d    <= exc_pos;
+            exc_neg_d    <= exc_neg;
+            sh_norm_d    <= sh_norm_w;
+            exc_pos_sq_d <= (exc_pos * exc_pos) >>> 21;
+            exc_neg_sq_d <= (exc_neg * exc_neg) >>> 21;
+        end
+    end
     //  ⭐ 软膝（C1 连续）：out = T + e − e²/(2T)；`e ≥ T` ⇒ 天花板 1.5T
     //     ⚠️ `exc * exc` 在 Verilog 里按【全宽】求值（80 位）后再移位 ⇒ 截到 40 位安全
     //  ⭐ 软膝宽度 W = 2^20（12.5% FS）⇒ 2W = 2^21 ⇒ 纯移位
     //  ⭐ 天花板 = T + W/2 = 15/16 + 1/16 = 【100% FS】⇒ 与硬饱和点一致
     localparam signed [ACC_W+15:0] KNEE_W = {{(ACC_W-8){1'b0}}, 24'sh100000};   // W = 2^20
     wire signed [ACC_W+15:0] ceil_w    = LIM_TH_W + (KNEE_W >>> 1);   // T + W/2 = 2^23
-    wire signed [ACC_W+15:0] knee_pos  = (exc_pos >= KNEE_W)
+    wire signed [ACC_W+15:0] knee_pos  = (exc_pos_d >= KNEE_W)
                                        ? ceil_w
-                                       : (LIM_TH_W + exc_pos - ((exc_pos * exc_pos) >>> 21));
-    wire signed [ACC_W+15:0] knee_neg  = (exc_neg >= KNEE_W)
+                                       : (LIM_TH_W + exc_pos_d - exc_pos_sq_d);
+    wire signed [ACC_W+15:0] knee_neg  = (exc_neg_d >= KNEE_W)
                                        ? ceil_w
-                                       : (LIM_TH_W + exc_neg - ((exc_neg * exc_neg) >>> 21));
-    wire signed [ACC_W+15:0] lim_pos = (sh_norm_w >  LIM_TH_W) ?  knee_pos : sh_norm_w;
-    wire signed [ACC_W+15:0] lim_neg = (sh_norm_w < -LIM_TH_W) ? -knee_neg : sh_norm_w;
-    wire signed [ACC_W+15:0] lim_w   = (sh_norm_w > LIM_TH_W) ? lim_pos : lim_neg;
+                                       : (LIM_TH_W + exc_neg_d - exc_neg_sq_d);
+    wire signed [ACC_W+15:0] lim_pos = (sh_norm_d >  LIM_TH_W) ?  knee_pos : sh_norm_d;
+    wire signed [ACC_W+15:0] lim_neg = (sh_norm_d < -LIM_TH_W) ? -knee_neg : sh_norm_d;
+    wire signed [ACC_W+15:0] lim_w   = (sh_norm_d > LIM_TH_W) ? lim_pos : lim_neg;
 
     // ── ⑤ ⭐ 最终饱和（⭐ 复用原有逐位判溢出手法 —— `K-101`）──────────────
     //   ⚠️ 走到这里时 `lim_w` **最多**只到 `LIM_TH + 溢出/4` ⇒ ⭐ 通常已落在 24 位内；
@@ -813,13 +844,14 @@ module tdm_render_mixer #(
     //         它和 `samp_r` 是**一对**，改一个必须改另一个。
     //      📌 **配套**：`tb_tdm_render_mixer.sv` 的判据名字 `POLY_TARGET+6` → `+7`
     //         （⭐ 它的**断言是范围** `[POLY+3, POLY+8]` ⇒ ⛔ 判据本身不用改）。
-    reg [3:0] valid_d;
+    //   2026-09-29: the registered soft-knee square adds one more data stage.
+    reg [4:0] valid_d;
     always @(posedge clk_i) begin
-        if (!rst_n_i) valid_d <= 4'b0000;
-        else          valid_d <= {valid_d[2:0], valid_r};
+        if (!rst_n_i) valid_d <= 5'b00000;
+        else          valid_d <= {valid_d[3:0], valid_r};
     end
     //   ⭐ 延时后的 valid = 数据出 `samp_r` 的那一拍
-    assign dry_valid_o      = valid_d[3];
+    assign dry_valid_o      = valid_d[4];
     assign dry_sample_o     = samp_r;
     assign deadline_fault_o = fault_r;
 
@@ -838,6 +870,9 @@ module tdm_render_mixer #(
         if (CNT_TOTAL > CLK_PER_SAMPLE)
             $display("ERROR [tdm_render_mixer] POLY_TARGET+2=%0d > CLK_PER_SAMPLE=%0d => 帧内跑不完（会周期性错帧）",
                      CNT_TOTAL, CLK_PER_SAMPLE);
+        if ((OUTPUT_HEADROOM_SH < 0) || (OUTPUT_HEADROOM_SH > 3))
+            $display("ERROR [tdm_render_mixer] OUTPUT_HEADROOM_SH=%0d outside 0..3",
+                     OUTPUT_HEADROOM_SH);
     end
 
 endmodule

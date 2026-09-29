@@ -92,7 +92,15 @@ module oscillator_bank #(
     //         ⭐ 太小（<3 cents）⇒ 拍频太慢（⭐ 十几秒才一拍）⇒ ⭐ 听不出厚度
     //         ⚠️ 太大（>20 cents）⇒ ⭐ 听起来"走音"（⭐ 而不是"厚"）
     //      ⚠️ 本项目 16 轴磁轴 ⇒ ⭐ 用户要"能听出和弦"，⭐ 6.7 cents 够厚且不走音
-    parameter integer DETUNE_SH     = 8
+    parameter integer DETUNE_SH     = 8,
+    // Performance velocity belongs to the envelope by default.  Driving the
+    // soft/hard wavetable blend from the same value made a fully pressed key
+    // select 200/256 hard content, producing a sustained coarse tone on every
+    // timbre and an unusable harmonic pile-up in chords.  Keep the old blend
+    // path available for explicit synthesis experiments and arithmetic TBs.
+    parameter integer VELOCITY_BLEND_EN = 0,
+    // Q0.8 fixed tone colour used when VELOCITY_BLEND_EN=0: 0=soft, 256=hard.
+    parameter integer FIXED_BLEND_Q     = 0
 ) (
     input  wire                                             clk_i,
     input  wire                                             rst_n_i,
@@ -310,13 +318,15 @@ module oscillator_bank #(
             resp_velocity_q <= req_velocity;
     end
 
-    // `velocity=0` picks soft exactly; `velocity=255` picks hard exactly.
-    // This coefficient must follow the current TDM response lane.  A single
-    // frame-rate ramp register here would leak one lane's velocity into every
-    // other lane; onset smoothing belongs in the frame-rate gain path instead.
-    // One TDM multiplier serves all 64 lanes, so this adds no per-voice DSP.
-    wire [8:0] mix_q = (resp_velocity_q == 8'hFF) ? 9'd256
-                                                  : {1'b0, resp_velocity_q};
+    // Optional legacy articulation mode: velocity=0 picks soft and 255 picks
+    // hard.  Normal performance mode uses a fixed coefficient so pressing
+    // harder changes loudness only (through envelope_bank), not waveform.
+    // When enabled, the coefficient must follow the current TDM response lane.
+    wire [8:0] velocity_mix_q = (resp_velocity_q == 8'hFF) ? 9'd256
+                                                           : {1'b0, resp_velocity_q};
+    localparam [8:0] FIXED_BLEND_Q_W = FIXED_BLEND_Q;
+    wire [8:0] mix_q = (VELOCITY_BLEND_EN != 0) ? velocity_mix_q
+                                                : FIXED_BLEND_Q_W;
     wire signed [WT_W:0] blend_delta = {rom_hard[WT_W-1], rom_hard}
                                      - {rom_soft[WT_W-1], rom_soft};
     wire signed [WT_W+9:0] blend_product = blend_delta * $signed({1'b0, mix_q});
@@ -366,8 +376,8 @@ module oscillator_bank #(
     // ⑤ ⚠️ 未实装项的**显式说明**（⛔ 不要静默忽略输入 —— 那正是 `K-88` 的坑）
     // ═══════════════════════════════════════════════════════════════════════
     //  · `voice_timbre_i`：`note_manager` 在 note_on 锁存的每 voice 音色；
-    //    `wavetable_bank` 以它选择 BASS/GUITAR/PIANO/PAD 的 soft/hard 表，
-    //    并按同一 voice 的力度做线性插值。后续全局音色变化不会改写在响 voice。
+    //    `wavetable_bank` 以它选择 BASS/GUITAR/PIANO/PAD。正常演奏固定取 soft；
+    //    只有显式打开 VELOCITY_BLEND_EN 时才按同一 voice 的力度插值 soft/hard。
     //  · `fm_cfg_valid_i` / `fm_ratio_i` / `fm_index_i`：`ENABLE_FM=0` ⇒ **忽略**
     //    （`A2c`：FM 先留接口、后加，且**不计入吞吐量**）。
     //  · `TIMBRE_N`：当前固定为 4（BASS/GUITAR/PIANO/PAD）；表索引由
@@ -383,6 +393,12 @@ module oscillator_bank #(
                      LANES);
         if (!TIMBRE_OK)
             $display("ERROR [oscillator_bank] TIMBRE_N=%0d / TIMBRE_W=%0d 非法", TIMBRE_N, TIMBRE_W);
+        if ((VELOCITY_BLEND_EN != 0) && (VELOCITY_BLEND_EN != 1))
+            $display("ERROR [oscillator_bank] VELOCITY_BLEND_EN=%0d must be 0 or 1",
+                     VELOCITY_BLEND_EN);
+        if ((FIXED_BLEND_Q < 0) || (FIXED_BLEND_Q > 256))
+            $display("ERROR [oscillator_bank] FIXED_BLEND_Q=%0d outside Q0.8 range 0..256",
+                     FIXED_BLEND_Q);
         if (ENABLE_FM != 0)
             $display("WARNING [oscillator_bank] ENABLE_FM=%0d 但 FM **尚未实装**（A2c：先留接口、后加）",
                      ENABLE_FM);

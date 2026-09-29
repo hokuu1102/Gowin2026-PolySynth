@@ -72,7 +72,7 @@ module pROM #(
     parameter [255:0] INIT_RAM_3E = 256'd0,
     parameter [255:0] INIT_RAM_3F = 256'd0
 ) (
-    output reg [31:0] DO,
+    output wire [31:0] DO,
     input wire CLK,
     input wire OCE,
     input wire CE,
@@ -80,6 +80,8 @@ module pROM #(
     input wire [13:0] AD
 );
     reg [15:0] memory [0:1023];
+    reg [31:0] bp_reg;
+    reg [31:0] pl_reg;
     integer init_index;
 
     task load_block;
@@ -93,7 +95,8 @@ module pROM #(
     endtask
 
     initial begin
-        DO = 32'd0;
+        bp_reg = 32'd0;
+        pl_reg = 32'd0;
         for (init_index = 0; init_index < 1024; init_index = init_index + 1)
             memory[init_index] = 16'd0;
         load_block(0, INIT_RAM_00);
@@ -162,12 +165,24 @@ module pROM #(
         load_block(1008, INIT_RAM_3F);
     end
 
+    // Match Gowin's official gw5a primitive model:
+    //   READ_MODE=0 (bypass)   -> the BRAM read register, one clock latency.
+    //   READ_MODE=1 (pipeline) -> one extra output register, two clocks.
+    // The old test double ignored READ_MODE and always modeled one clock,
+    // which hid a real TDM lane/data misalignment from simulation.
+    assign DO = (READ_MODE == 1'b0) ? bp_reg : pl_reg;
+
     // BIT_WIDTH=16 uses AD[13:4] as the word address in Gowin's primitive.
     always @(posedge CLK) begin
-        if (RESET)
-            DO <= 32'd0;
-        else if (CE && OCE)
-            DO <= {16'd0, memory[AD[13:4]]};
+        if (RESET) begin
+            bp_reg <= 32'd0;
+            pl_reg <= 32'd0;
+        end else begin
+            if (OCE)
+                pl_reg <= bp_reg;
+            if (CE)
+                bp_reg <= {16'd0, memory[AD[13:4]]};
+        end
     end
 endmodule
 

@@ -54,7 +54,7 @@ module tb_top_m0;
         .SAMPLE_W          (24),
         .DATA_BITS         (16)
     ) u_top_safe (
-        .clk (clk), .rst_n (rst_n),
+        .clk (clk), .rst_n (rst_n), .timbre_btn_i (1'b1),
         .HP_BCK (HP_BCK_a), .HP_WS (HP_WS_a), .HP_DIN (HP_DIN_a),
         .PA_EN_n (PA_EN_n_a), .led_heartbeat (hb_a),
         // ⭐ 外置 DAC 通路（⭐ 2026-09-25）
@@ -85,7 +85,7 @@ module tb_top_m0;
         //    ⇒ 关掉自检音既省仿真时间、也避免 3 份合成链同时跑
         .DEMO_CHORD_ON (0)
     ) u_top_default (
-        .clk (clk), .rst_n (rst_n),
+        .clk (clk), .rst_n (rst_n), .timbre_btn_i (1'b1),
         .HP_BCK (HP_BCK_d), .HP_WS (HP_WS_d), .HP_DIN (HP_DIN_d),
         .PA_EN_n (PA_EN_n_d), .led_heartbeat (hb_d),
         // ⭐ 外置 DAC 通路（⭐ 2026-09-25）—— ⚠️ 本实例只查默认值，⭐ 这两路【空连接】
@@ -110,7 +110,7 @@ module tb_top_m0;
         .SAMPLE_W          (24),
         .DATA_BITS         (16)
     ) u_top_on (
-        .clk (clk), .rst_n (rst_n),
+        .clk (clk), .rst_n (rst_n), .timbre_btn_i (1'b1),
         .HP_BCK (HP_BCK_b), .HP_WS (HP_WS_b), .HP_DIN (HP_DIN_b),
         .PA_EN_n (PA_EN_n_b), .led_heartbeat (hb_b),
         // ⭐ 外置 DAC 通路（⭐ 2026-09-25）—— ⚠️ 本实例只查功放时序，⭐ 空连接

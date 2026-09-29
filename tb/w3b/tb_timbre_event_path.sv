@@ -21,6 +21,12 @@ module tb_timbre_event_path;
     reg [KIND_W-1:0] score_kind = 2'd0;
     reg score_timbre_valid = 1'b0;
     reg [TIMBRE_W-1:0] score_timbre = 2'd0;
+    reg live_valid = 1'b0;
+    reg [AXIS_W-1:0] live_axis = 4'd0;
+    reg [PHASE_W-1:0] live_inc = 32'd0;
+    reg [VEL_W-1:0] live_vel = 8'd0;
+    reg [KIND_W-1:0] live_kind = 2'd0;
+    reg [TIMBRE_W-1:0] default_timbre = 2'd0;
 
     wire sa_valid;
     wire [AXIS_W-1:0] sa_axis;
@@ -35,9 +41,9 @@ module tb_timbre_event_path;
         .KIND_W(KIND_W), .TIMBRE_W(TIMBRE_W), .DEPTH(6)
     ) u_seq_arb (
         .clk_i(clk), .rst_n_i(rst_n),
-        .live_valid_i(1'b0), .live_axis_i({AXIS_W{1'b0}}),
-        .live_phase_inc_i({PHASE_W{1'b0}}), .live_velocity_i({VEL_W{1'b0}}),
-        .live_kind_i({KIND_W{1'b0}}), .live_timbre_valid_i(1'b0),
+        .live_valid_i(live_valid), .live_axis_i(live_axis),
+        .live_phase_inc_i(live_inc), .live_velocity_i(live_vel),
+        .live_kind_i(live_kind), .live_timbre_valid_i(1'b0),
         .live_timbre_i({TIMBRE_W{1'b0}}),
         .score_valid_i(score_valid), .score_axis_i(score_axis),
         .score_phase_inc_i(score_inc), .score_velocity_i(score_vel),
@@ -93,7 +99,7 @@ module tb_timbre_event_path;
         .vel_upd_valid_i(1'b0), .vel_upd_axis_i({AXIS_W{1'b0}}),
         .vel_upd_value_i({VEL_W{1'b0}}), .pitch_upd_valid_i(1'b0),
         .pitch_upd_axis_i({AXIS_W{1'b0}}), .pitch_upd_value_i({PHASE_W{1'b0}}),
-        .default_timbre_i(2'd0), .evt_timbre_valid_i(mg_timbre_valid),
+        .default_timbre_i(default_timbre), .evt_timbre_valid_i(mg_timbre_valid),
         .evt_timbre_i(mg_timbre), .env_active_i({POLY{1'b0}}),
         .env_level_i({(POLY*16){1'b0}}), .voice_gate_o(voice_gate),
         .voice_active_o(), .voice_releasing_o(), .voice_axis_o(),
@@ -127,12 +133,36 @@ module tb_timbre_event_path;
         end else
             $display("  ok  : score PIANO timbre survives arb/merge/FIFO into voice0");
 
+        // Changing the selector must not rewrite a voice that is already on.
+        default_timbre = 2'd1; // GUITAR
         repeat (4) @(negedge clk);
         if (voice_timbre[1:0] !== 2'd2) begin
-            $display("FAIL: a locked voice changed timbre after event completion");
+            $display("FAIL: a held voice followed the new default timbre");
             errors = errors + 1;
         end else
-            $display("  ok  : existing voice timbre remains locked");
+            $display("  ok  : existing voice keeps its original PIANO timbre");
+
+        // A later manual note has no explicit event timbre, so it must snapshot
+        // the new default into the newly allocated voice.
+        live_valid = 1'b1;
+        live_axis = 4'd7;
+        live_inc = 32'h0012_0000;
+        live_vel = 8'd180;
+        live_kind = 2'd0;
+        @(negedge clk);
+        live_valid = 1'b0;
+
+        repeat (32) @(negedge clk);
+        if (voice_gate[0] !== 1'b1 || voice_timbre[1:0] !== 2'd2) begin
+            $display("FAIL: first voice changed when a new note was allocated");
+            errors = errors + 1;
+        end
+        if (voice_gate[1] !== 1'b1 || voice_timbre[3:2] !== 2'd1) begin
+            $display("FAIL: new voice did not snapshot GUITAR (gate=%b timbre=%d)",
+                     voice_gate[1], voice_timbre[3:2]);
+            errors = errors + 1;
+        end else
+            $display("  ok  : new voice snapshots GUITAR while held voice stays PIANO");
 
         if (errors == 0)
             $display("PASS: T31b timbre event path");

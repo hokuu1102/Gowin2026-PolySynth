@@ -16,7 +16,7 @@ module tb_vibrato_top;
         .DEMO_NOTE_DELAY(1_000_000), .DEMO_HOLD_CYC(1_000_000),
         .AUTOTARE_DELAY_CLK(10), .SPAN_WAIT_TIMEOUT_CLK(1000), .HEARTBEAT_DIV(100)
     ) dut (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .timbre_btn_i(1'b1),
         .HP_BCK(HP_BCK), .HP_WS(HP_WS), .HP_DIN(HP_DIN), .PA_EN_n(PA_EN_n),
         .I2S2_BCK(I2S2_BCK), .I2S2_LRCK(I2S2_LRCK), .I2S2_DIN(I2S2_DIN),
         .led_heartbeat(led_heartbeat), .spi_miso(6'b111111), .spi_sclk(),
@@ -30,7 +30,7 @@ module tb_vibrato_top;
         .DEMO_NOTE_DELAY(1_000_000), .DEMO_HOLD_CYC(1_000_000),
         .AUTOTARE_DELAY_CLK(10), .SPAN_WAIT_TIMEOUT_CLK(1000), .HEARTBEAT_DIV(100)
     ) dut_no_right (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .timbre_btn_i(1'b1),
         .HP_BCK(), .HP_WS(), .HP_DIN(), .PA_EN_n(), .I2S2_BCK(), .I2S2_LRCK(), .I2S2_DIN(),
         .led_heartbeat(), .spi_miso(6'b111111), .spi_sclk(), .spi_mosi(), .spi_cs_n(),
         .led_sdi(), .led_clk(), .led_le(), .led_oe_n(), .uart_rx(uart_rx), .uart_tx()

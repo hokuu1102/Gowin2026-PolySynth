@@ -10,9 +10,9 @@ Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-
 Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\adsr.v'
 Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\envelope_bank.v'
 Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v'
-WARN  (EX3801) : Parameter 'LANE_WS' becomes localparam in 'tdm_render_mixer' with formal parameter declaration list("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v":194)
-WARN  (EX3801) : Parameter 'LANE_W0' becomes localparam in 'tdm_render_mixer' with formal parameter declaration list("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v":195)
-WARN  (EX3801) : Parameter 'LANE_W1' becomes localparam in 'tdm_render_mixer' with formal parameter declaration list("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v":196)
+WARN  (EX3801) : Parameter 'LANE_WS' becomes localparam in 'tdm_render_mixer' with formal parameter declaration list("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v":199)
+WARN  (EX3801) : Parameter 'LANE_W0' becomes localparam in 'tdm_render_mixer' with formal parameter declaration list("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v":200)
+WARN  (EX3801) : Parameter 'LANE_W1' becomes localparam in 'tdm_render_mixer' with formal parameter declaration list("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v":201)
 Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\test_mode_ctrl.v'
 Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\vibrato_lfo.v'
 Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\wavetable_bank.v'
@@ -56,10 +56,12 @@ Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-
 Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\drivers\mcp3208_driver.sv'
 Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\drivers\mcp3208_scanner.sv'
 Compiling module 'top'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":36)
-Extracting RAM for identifier 'vu_last'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":1763)
-WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":1815)
-WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":3032)
+Extracting RAM for identifier 'vu_last'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":1828)
+WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":1880)
+WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":3102)
 Compiling module 'rst_sync'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\rst_sync.v":27)
+Compiling module 'sync_input(RESET_VAL=1'b1)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\sync_input.v":31)
+Compiling module 'debounce(NKEY=1)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\drivers\debounce.sv":24)
 Compiling module 'clk_gen'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\clk_gen.v":25)
 Compiling module 'uart_rx(BAUD_DIV=100)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_rx.v":81)
 Compiling module 'uart_ui(BAUD=500000)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_ui.v":46)
@@ -84,7 +86,7 @@ Compiling module 'right_analog_ctrl'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2
 Compiling module 'calib_autotare'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\calib_autotare.v":38)
 WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\calib_autotare.v":183)
 Compiling module 'pos_probe'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\pos_probe.v":55)
-WARN  (EX3670) : Actual bit length 3 differs from formal bit length 4 for port 'ch_i'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":1331)
+WARN  (EX3670) : Actual bit length 3 differs from formal bit length 4 for port 'ch_i'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":1396)
 Compiling module 'span_probe'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\span_probe.v":67)
 Compiling module 'calib_span(STABLE_NEED=8,STABLE_TOL=12'b000000110000,VOTE_N=8,VOTE_TOL=12'b000001100000)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\calib_span.v":46)
 WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\calib_span.v":624)
@@ -128,9 +130,9 @@ Extracting RAM for identifier 'fifo_timbre_valid'("C:\Users\cyx\Documents\ChatGP
 Extracting RAM for identifier 'fifo_timbre'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\note_manager.v":252)
 Compiling module 'vibrato_lfo'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\vibrato_lfo.v":16)
 Compiling module 'oscillator_bank(DETUNE_SH=9)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\oscillator_bank.v":51)
-WARN  (EX3791) : Expression size 33 truncated to fit in target size 32("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\oscillator_bank.v":144)
+WARN  (EX3791) : Expression size 33 truncated to fit in target size 32("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\oscillator_bank.v":152)
 Compiling module 'wavetable_bank'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\wavetable_bank.v":7)
-Compiling module 'tdm_render_mixer(RESERVED_N=5)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v":46)
+Compiling module 'tdm_render_mixer(RESERVED_N=5,OUTPUT_HEADROOM_SH=1)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v":46)
 Compiling module 'master_mix'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\master_mix.v":39)
 Compiling module 'i2s_tx'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\i2s_tx.v":71)
 Compiling module 'i2s_tx(MSB_DELAY=0)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\i2s_tx.v":71)
@@ -139,7 +141,7 @@ Compiling module 'tlc5916_bank'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-P
 Compiling module 'tlc5916_driver'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\drivers\tlc5916_driver.sv":37)
 NOTE  (EX0101) : Current top module is "top"
 [5%] Running netlist conversion ...
-WARN  (CV0020) : Input spi_miso[5:2] is unused("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":259)
+WARN  (CV0020) : Input spi_miso[5:2] is unused("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":269)
 Running device independent optimization ...
 [10%] Optimizing Phase 0 completed
 [15%] Optimizing Phase 1 completed
@@ -155,14 +157,14 @@ Running technical mapping ...
 [75%] Tech-Mapping Phase 2 completed
 [80%] Tech-Mapping Phase 3 completed
 [90%] Tech-Mapping Phase 4 completed
-WARN  (NL0002) : The module "beat_gen" instantiated to "g_sound.u_beat_gen" is swept in optimizing("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":915)
-WARN  (NL0002) : The module "drum_gen" instantiated to "g_sound.u_drum_gen" is swept in optimizing("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":1019)
-WARN  (NL0002) : The module "metronome" instantiated to "g_sound.u_metronome" is swept in optimizing("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":951)
-WARN  (NL0002) : The module "param_extract" instantiated to "g_sound.u_param_extract" is swept in optimizing("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":2198)
-WARN  (NL0002) : The module "right_analog_ctrl" instantiated to "g_sound.u_right_analog_ctrl" is swept in optimizing("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":1106)
-WARN  (NL0002) : The module "test_mode_ctrl" instantiated to "g_sound.u_test_mode_ctrl" is swept in optimizing("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":819)
-WARN  (NL0002) : The module "vibrato_lfo" instantiated to "g_sound.u_vibrato_lfo" is swept in optimizing("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":2619)
-WARN  (NL0002) : The module "led_data" instantiated to "u_led_data" is swept in optimizing("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":3085)
+WARN  (NL0002) : The module "beat_gen" instantiated to "g_sound.u_beat_gen" is swept in optimizing("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":980)
+WARN  (NL0002) : The module "drum_gen" instantiated to "g_sound.u_drum_gen" is swept in optimizing("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":1084)
+WARN  (NL0002) : The module "metronome" instantiated to "g_sound.u_metronome" is swept in optimizing("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":1016)
+WARN  (NL0002) : The module "param_extract" instantiated to "g_sound.u_param_extract" is swept in optimizing("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":2263)
+WARN  (NL0002) : The module "right_analog_ctrl" instantiated to "g_sound.u_right_analog_ctrl" is swept in optimizing("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":1171)
+WARN  (NL0002) : The module "test_mode_ctrl" instantiated to "g_sound.u_test_mode_ctrl" is swept in optimizing("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":884)
+WARN  (NL0002) : The module "vibrato_lfo" instantiated to "g_sound.u_vibrato_lfo" is swept in optimizing("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":2684)
+WARN  (NL0002) : The module "led_data" instantiated to "u_led_data" is swept in optimizing("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":3155)
 [95%] Generate netlist file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\impl\gwsynthesis\Gowin2026.vg" completed
 [100%] Generate report file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\impl\gwsynthesis\Gowin2026_syn.rpt.html" completed
 GowinSynthesis finish
@@ -194,5 +196,5 @@ Generate file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main
 Generate file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\impl\pnr\Gowin2026.rpt.html" completed
 Generate file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\impl\pnr\Gowin2026.rpt.txt" completed
 Generate file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\impl\pnr\Gowin2026.tr.html" completed
-Tue Sep 29 13:43:38 2026
+Tue Sep 29 17:32:06 2026
 

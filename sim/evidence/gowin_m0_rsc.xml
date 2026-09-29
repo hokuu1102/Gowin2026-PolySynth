@@ -1,46 +1,48 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Module name="top" Register="286" Alu="98" Lut="818" T_Register="9375(286)" T_Alu="8415(98)" T_Lut="17970(818)" T_MULTALU27X18="39(0)" T_MULT12X12="6(0)" T_MULT27X36="5(0)" T_Bsram="10(0)">
+<Module name="top" Register="288" Alu="99" Lut="790" T_Register="9513(288)" T_Alu="8376(99)" T_Lut="17799(790)" T_MULTALU27X18="38(0)" T_MULT12X12="6(0)" T_MULT27X36="5(0)" T_Bsram="10(0)">
  <SubModule name="u_rst_sync" Register="2" T_Register="2(2)"/>
+ <SubModule name="u_timbre_btn_sync" Register="2" T_Register="2(2)"/>
+ <SubModule name="u_timbre_btn_debounce" Register="20" Lut="36" T_Register="20(20)" T_Lut="36(36)"/>
  <SubModule name="u_clk_gen" Register="13" Alu="9" Lut="9" T_Register="13(13)" T_Alu="9(9)" T_Lut="9(9)"/>
- <SubModule name="u_uart_rx" Register="33" Lut="59" T_Register="33(33)" T_Lut="59(59)"/>
+ <SubModule name="u_uart_rx" Register="33" Lut="62" T_Register="33(33)" T_Lut="62(62)"/>
  <SubModule name="u_uart_ui" Register="47" Alu="19" Lut="50" T_Register="47(47)" T_Alu="19(19)" T_Lut="50(50)"/>
  <SubModule name="u_calib_cmd" Register="31" Alu="19" Lut="32" T_Register="31(31)" T_Alu="19(19)" T_Lut="32(32)"/>
  <SubModule name="u_evt_uart_rx" Lut="2" T_Lut="2(2)"/>
- <SubModule name="u_tx_fifo" Register="77" Lut="63" T_Register="77(77)" T_Lut="63(63)"/>
+ <SubModule name="u_tx_fifo" Register="77" Lut="64" T_Register="77(77)" T_Lut="64(64)"/>
  <SubModule name="u_uart_tx" Register="30" Lut="52" T_Register="30(30)" T_Lut="52(52)"/>
- <SubModule name="g_sound.u_envelope_bank" T_Register="608(0)" T_Alu="4474(0)" T_Lut="5924(0)" T_MULTALU27X18="32(0)">
-  <SubModule name="g_voice_envelope[0].u_adsr" Register="19" Alu="140" Lut="184" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="184(184)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[1].u_adsr" Register="19" Alu="140" Lut="184" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="184(184)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[2].u_adsr" Register="19" Alu="140" Lut="184" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="184(184)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[3].u_adsr" Register="19" Alu="140" Lut="184" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="184(184)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[4].u_adsr" Register="19" Alu="139" Lut="201" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="201(201)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[5].u_adsr" Register="19" Alu="139" Lut="201" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="201(201)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[6].u_adsr" Register="19" Alu="139" Lut="201" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="201(201)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[7].u_adsr" Register="19" Alu="139" Lut="201" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="201(201)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[8].u_adsr" Register="19" Alu="140" Lut="176" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="176(176)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[9].u_adsr" Register="19" Alu="139" Lut="191" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="191(191)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[10].u_adsr" Register="19" Alu="140" Lut="177" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="177(177)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[11].u_adsr" Register="19" Alu="140" Lut="176" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="176(176)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[12].u_adsr" Register="19" Alu="140" Lut="176" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="176(176)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[13].u_adsr" Register="19" Alu="140" Lut="176" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="176(176)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[14].u_adsr" Register="19" Alu="140" Lut="176" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="176(176)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[15].u_adsr" Register="19" Alu="140" Lut="176" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="176(176)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[16].u_adsr" Register="19" Alu="140" Lut="184" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="184(184)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[17].u_adsr" Register="19" Alu="140" Lut="185" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="185(185)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[18].u_adsr" Register="19" Alu="140" Lut="184" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="184(184)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[19].u_adsr" Register="19" Alu="139" Lut="200" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="200(200)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[20].u_adsr" Register="19" Alu="140" Lut="180" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="180(180)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[21].u_adsr" Register="19" Alu="140" Lut="180" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="180(180)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[22].u_adsr" Register="19" Alu="140" Lut="180" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="180(180)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[23].u_adsr" Register="19" Alu="140" Lut="180" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="180(180)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[24].u_adsr" Register="19" Alu="140" Lut="180" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="180(180)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[25].u_adsr" Register="19" Alu="140" Lut="180" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="180(180)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[26].u_adsr" Register="19" Alu="140" Lut="180" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="180(180)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[27].u_adsr" Register="19" Alu="140" Lut="180" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="180(180)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[28].u_adsr" Register="19" Alu="140" Lut="192" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="192(192)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[29].u_adsr" Register="19" Alu="140" Lut="192" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="192(192)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[30].u_adsr" Register="19" Alu="140" Lut="192" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="192(192)" T_MULTALU27X18="1(1)"/>
-  <SubModule name="g_voice_envelope[31].u_adsr" Register="19" Alu="140" Lut="191" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="191(191)" T_MULTALU27X18="1(1)"/>
+ <SubModule name="g_sound.u_envelope_bank" T_Register="608(0)" T_Alu="4452(0)" T_Lut="5965(0)" T_MULTALU27X18="32(0)">
+  <SubModule name="g_voice_envelope[0].u_adsr" Register="19" Alu="140" Lut="172" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="172(172)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[1].u_adsr" Register="19" Alu="140" Lut="172" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="172(172)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[2].u_adsr" Register="19" Alu="140" Lut="173" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="173(173)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[3].u_adsr" Register="19" Alu="140" Lut="173" MULTALU27X18="1" T_Register="19(19)" T_Alu="140(140)" T_Lut="173(173)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[4].u_adsr" Register="19" Alu="139" Lut="188" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="188(188)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[5].u_adsr" Register="19" Alu="139" Lut="187" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="187(187)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[6].u_adsr" Register="19" Alu="139" Lut="187" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="187(187)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[7].u_adsr" Register="19" Alu="139" Lut="187" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="187(187)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[8].u_adsr" Register="19" Alu="139" Lut="178" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="178(178)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[9].u_adsr" Register="19" Alu="139" Lut="178" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="178(178)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[10].u_adsr" Register="19" Alu="139" Lut="178" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="178(178)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[11].u_adsr" Register="19" Alu="139" Lut="178" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="178(178)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[12].u_adsr" Register="19" Alu="139" Lut="178" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="178(178)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[13].u_adsr" Register="19" Alu="139" Lut="178" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="178(178)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[14].u_adsr" Register="19" Alu="139" Lut="180" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="180(180)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[15].u_adsr" Register="19" Alu="139" Lut="180" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="180(180)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[16].u_adsr" Register="19" Alu="139" Lut="192" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="192(192)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[17].u_adsr" Register="19" Alu="139" Lut="202" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="202(202)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[18].u_adsr" Register="19" Alu="139" Lut="202" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="202(202)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[19].u_adsr" Register="19" Alu="139" Lut="184" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="184(184)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[20].u_adsr" Register="19" Alu="139" Lut="191" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="191(191)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[21].u_adsr" Register="19" Alu="139" Lut="194" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="194(194)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[22].u_adsr" Register="19" Alu="139" Lut="194" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="194(194)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[23].u_adsr" Register="19" Alu="139" Lut="194" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="194(194)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[24].u_adsr" Register="19" Alu="139" Lut="196" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="196(196)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[25].u_adsr" Register="19" Alu="139" Lut="196" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="196(196)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[26].u_adsr" Register="19" Alu="139" Lut="195" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="195(195)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[27].u_adsr" Register="19" Alu="139" Lut="201" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="201(201)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[28].u_adsr" Register="19" Alu="139" Lut="195" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="195(195)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[29].u_adsr" Register="19" Alu="139" Lut="192" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="192(192)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[30].u_adsr" Register="19" Alu="139" Lut="190" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="190(190)" T_MULTALU27X18="1(1)"/>
+  <SubModule name="g_voice_envelope[31].u_adsr" Register="19" Alu="139" Lut="180" MULTALU27X18="1" T_Register="19(19)" T_Alu="139(139)" T_Lut="180(180)" T_MULTALU27X18="1(1)"/>
  </SubModule>
  <SubModule name="g_sound.u_adc_farm" Register="14" Lut="2" T_Register="106(14)" T_Lut="100(2)">
   <SubModule name="gen_miso_sync[0].u_sync" Register="2" T_Register="2(2)"/>
@@ -50,28 +52,28 @@
   </SubModule>
  </SubModule>
  <SubModule name="g_sound.u_autotare" Register="33" Alu="26" Lut="22" T_Register="33(33)" T_Alu="26(26)" T_Lut="22(22)"/>
- <SubModule name="g_sound.u_pos_probe" Register="46" Alu="36" Lut="123" MULT12X12="3" T_Register="46(46)" T_Alu="36(36)" T_Lut="123(123)" T_MULT12X12="3(3)"/>
- <SubModule name="g_sound.u_span_probe" Register="25" Lut="39" T_Register="25(25)" T_Lut="39(39)"/>
- <SubModule name="g_sound.u_calib_span" Register="102" Alu="39" Lut="254" T_Register="102(102)" T_Alu="39(39)" T_Lut="254(254)"/>
- <SubModule name="g_sound.u_calib0" Register="416" Alu="62" Lut="448" MULTALU27X18="1" T_Register="416(416)" T_Alu="62(62)" T_Lut="448(448)" T_MULTALU27X18="1(1)"/>
- <SubModule name="g_sound.u_calib1" Register="219" Alu="62" Lut="248" MULTALU27X18="1" T_Register="219(219)" T_Alu="62(62)" T_Lut="248(248)" T_MULTALU27X18="1(1)"/>
+ <SubModule name="g_sound.u_pos_probe" Register="46" Alu="36" Lut="122" MULT12X12="3" T_Register="46(46)" T_Alu="36(36)" T_Lut="122(122)" T_MULT12X12="3(3)"/>
+ <SubModule name="g_sound.u_span_probe" Register="25" Lut="40" T_Register="25(25)" T_Lut="40(40)"/>
+ <SubModule name="g_sound.u_calib_span" Register="102" Alu="39" Lut="245" T_Register="102(102)" T_Alu="39(39)" T_Lut="245(245)"/>
+ <SubModule name="g_sound.u_calib0" Register="416" Alu="62" Lut="447" MULTALU27X18="1" T_Register="416(416)" T_Alu="62(62)" T_Lut="447(447)" T_MULTALU27X18="1(1)"/>
+ <SubModule name="g_sound.u_calib1" Register="219" Alu="62" Lut="242" MULTALU27X18="1" T_Register="219(219)" T_Alu="62(62)" T_Lut="242(242)" T_MULTALU27X18="1(1)"/>
  <SubModule name="g_sound.u_axis_snapshot" Register="193" Lut="8" T_Register="193(193)" T_Lut="8(8)"/>
- <SubModule name="g_sound.u_pos_probe_cal" Register="46" Alu="36" Lut="268" MULT12X12="3" T_Register="46(46)" T_Alu="36(36)" T_Lut="268(268)" T_MULT12X12="3(3)"/>
- <SubModule name="g_sound.u_event_extract" Register="310" Lut="753" T_Register="310(310)" T_Lut="753(753)"/>
- <SubModule name="g_sound.u_async_pluck_capture" Register="39" Lut="69" T_Register="39(39)" T_Lut="69(69)"/>
+ <SubModule name="g_sound.u_pos_probe_cal" Register="46" Alu="36" Lut="269" MULT12X12="3" T_Register="46(46)" T_Alu="36(36)" T_Lut="269(269)" T_MULT12X12="3(3)"/>
+ <SubModule name="g_sound.u_event_extract" Register="310" Lut="766" T_Register="310(310)" T_Lut="766(766)"/>
+ <SubModule name="g_sound.u_async_pluck_capture" Register="39" Lut="57" T_Register="39(39)" T_Lut="57(57)"/>
  <SubModule name="g_sound.u_play_mode_ctrl" Register="17" Alu="7" Lut="17" T_Register="17(17)" T_Alu="7(7)" T_Lut="17(17)"/>
- <SubModule name="g_sound.u_axis_map" Lut="66" T_Lut="66(66)"/>
- <SubModule name="g_sound.u_seq_arb" Register="436" Alu="32" Lut="719" T_Register="436(436)" T_Alu="32(32)" T_Lut="719(719)"/>
- <SubModule name="g_sound.u_evt_merge" Register="250" Lut="163" T_Register="250(250)" T_Lut="163(163)"/>
- <SubModule name="g_sound.u_note_manager" Register="2150" Alu="142" Lut="2833" Bsram="2" T_Register="2150(2150)" T_Alu="142(142)" T_Lut="2833(2833)" T_Bsram="2(2)"/>
- <SubModule name="g_sound.u_oscillator_bank" Register="3729" Alu="3062" Lut="3034" MULTALU27X18="1" T_Register="3731(3729)" T_Alu="3062(3062)" T_Lut="3098(3034)" T_MULTALU27X18="1(1)" T_Bsram="8(0)">
-  <SubModule name="u_wavetable_bank" Register="2" Lut="64" Bsram="8" T_Register="2(2)" T_Lut="64(64)" T_Bsram="8(8)"/>
+ <SubModule name="g_sound.u_axis_map" Lut="64" T_Lut="64(64)"/>
+ <SubModule name="g_sound.u_seq_arb" Register="436" Alu="32" Lut="738" T_Register="436(436)" T_Alu="32(32)" T_Lut="738(738)"/>
+ <SubModule name="g_sound.u_evt_merge" Register="250" Lut="166" T_Register="250(250)" T_Lut="166(166)"/>
+ <SubModule name="g_sound.u_note_manager" Register="2150" Alu="142" Lut="2838" Bsram="2" T_Register="2150(2150)" T_Alu="142(142)" T_Lut="2838(2838)" T_Bsram="2(2)"/>
+ <SubModule name="g_sound.u_oscillator_bank" Register="3721" Alu="3046" Lut="2805" T_Register="3723(3721)" T_Alu="3046(3046)" T_Lut="2837(2805)" T_Bsram="8(0)">
+  <SubModule name="u_wavetable_bank" Register="2" Lut="32" Bsram="8" T_Register="2(2)" T_Lut="32(32)" T_Bsram="8(8)"/>
  </SubModule>
- <SubModule name="g_sound.u_tdm_render_mixer" Register="58" Alu="284" Lut="1567" MULTALU27X18="3" MULT27X36="5" T_Register="58(58)" T_Alu="284(284)" T_Lut="1567(1567)" T_MULTALU27X18="3(3)" T_MULT27X36="5(5)"/>
- <SubModule name="g_sound.u_master_mix" Register="10" Lut="42" MULTALU27X18="1" T_Register="10(10)" T_Lut="42(42)" T_MULTALU27X18="1(1)"/>
- <SubModule name="u_i2s_tx" Register="24" Lut="17" T_Register="24(24)" T_Lut="17(17)"/>
- <SubModule name="u_i2s_tx_ext" Register="6" Lut="17" T_Register="6(6)" T_Lut="17(17)"/>
- <SubModule name="u_led_bank" Register="5" Lut="13" T_Register="31(5)" T_Alu="8(0)" T_Lut="90(13)">
-  <SubModule name="u_driver" Register="26" Alu="8" Lut="77" T_Register="26(26)" T_Alu="8(8)" T_Lut="77(77)"/>
+ <SubModule name="g_sound.u_tdm_render_mixer" Register="180" Alu="282" Lut="1592" MULTALU27X18="3" MULT27X36="5" T_Register="180(180)" T_Alu="282(282)" T_Lut="1592(1592)" T_MULTALU27X18="3(3)" T_MULT27X36="5(5)"/>
+ <SubModule name="g_sound.u_master_mix" Register="10" Lut="41" MULTALU27X18="1" T_Register="10(10)" T_Lut="41(41)" T_MULTALU27X18="1(1)"/>
+ <SubModule name="u_i2s_tx" Register="24" Lut="19" T_Register="24(24)" T_Lut="19(19)"/>
+ <SubModule name="u_i2s_tx_ext" Register="6" Lut="19" T_Register="6(6)" T_Lut="19(19)"/>
+ <SubModule name="u_led_bank" Register="5" Lut="13" T_Register="31(5)" T_Alu="8(0)" T_Lut="88(13)">
+  <SubModule name="u_driver" Register="26" Alu="8" Lut="75" T_Register="26(26)" T_Alu="8(8)" T_Lut="75(75)"/>
  </SubModule>
 </Module>

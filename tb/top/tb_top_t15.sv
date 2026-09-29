@@ -22,7 +22,7 @@ module tb_top_t15;
         .DEMO_NOTE_DELAY(1_000_000), // keep the demonstration source inactive
         .DEMO_HOLD_CYC(1_000_000)
     ) dut (
-        .clk(clk), .rst_n(rst_n),
+        .clk(clk), .rst_n(rst_n), .timbre_btn_i(1'b1),
         .HP_BCK(HP_BCK), .HP_WS(HP_WS), .HP_DIN(HP_DIN), .PA_EN_n(PA_EN_n),
         .I2S2_BCK(I2S2_BCK), .I2S2_LRCK(I2S2_LRCK), .I2S2_DIN(I2S2_DIN),
         .pluck_up_i(pluck_up), .pluck_down_i(pluck_down),
