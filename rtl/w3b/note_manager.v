@@ -144,6 +144,16 @@ module note_manager #(
     output wire [POLY_TARGET*PHASE_W-1:0]    voice_phase_inc_o,  // → oscillator_bank
     output wire [POLY_TARGET*VEL_W-1:0]      voice_velocity_o,   // → envelope_bank
     output wire [POLY_TARGET*TIMBRE_W-1:0]   voice_timbre_o,     // → wavetable（`K-82`）
+    //  ⭐⭐ 2026-09-29 新增（⭐ 鼓机噪声波表 · 阶段 2a）：⭐ **每 voice 的"是鼓吗"**
+    //     ⭐ 语义：⭐ `axis_r[i] >= RESERVED_AXIS`（⭐ 保留轴位 = 节拍器 14 / 鼓机 15）
+    //     ⭐ 去向：⭐ `oscillator_bank.voice_drum_i` ⇒ ⭐ 这些 voice 改读**噪声表**
+    //     🔴 **为什么"按轴位"判而⛔ 不是"按池编号"判**：
+    //        ⭐ 池编号（`pg >= NORMAL_N`）只是**分配时的选择规则**，⭐ 而
+    //           `axis_r[i]` 是**这个 voice 现在到底在为谁发声**（⭐ 它随重触发更新 ✅）
+    //        ⇒ ⭐ 用轴位判 = "**声音的归属**"；⚠️ 用池编号判 = "**它当初从哪来**"
+    //        （⭐ 若一个普通 voice 被鼓机抢占/重触发，两者会**不一致** ✅）
+    //     ⭐ 纯组合、⛔ 不加任何寄存器、⛔ 不改任何已有输出 ⇒ **完全 additive** ✅
+    output wire [POLY_TARGET-1:0]            voice_drum_o,
     output wire [POLY_TARGET*AGE_W-1:0]      voice_age_o,        // 抢占年龄（诊断）
     //  ⭐ 重触发/抢占时命令该 voice 的包络【先归零】—— → envelope_bank.retrig_reset_i
     //     ⚠️ 为什么必须归零（2026-09-27 上板实测）：
@@ -1072,6 +1082,13 @@ module note_manager #(
             assign voice_phase_inc_o[g*PHASE_W +: PHASE_W] = phase_r[g];
             assign voice_velocity_o[g*VEL_W +: VEL_W]      = vel_r[g];
             assign voice_timbre_o[g*TIMBRE_W +: TIMBRE_W]  = timbre_r[g];
+            //  ⭐⭐ 2026-09-29 新增：⭐ **保留轴位 ⇒ 打击乐 voice ⇒ 走噪声表** ✅
+            //   ⭐ 为什么不新建一套"是不是打击乐"的状态：⭐ `axis_r` **已经是**那个状态
+            //      （⭐ 它在分配/重触发时与 `gate_r`/`phase_r`/`vel_r` **同拍写入** ✅）
+            //      ⇒ ⭐ 再存一份 = **两处真相** ⇒ 🔴 迟早不一致（⭐ `K-106` 家族教训）
+            //   📌 代价：⭐ 每 voice 1 个比较器（⭐ `AXIS_W=4` ⇒ 4 位比较，⭐ 综合器折叠成
+            //      极小的 LUT）＋ ⭐ **零寄存器** ✅
+            assign voice_drum_o[g] = (axis_r[g] >= RESERVED_AXIS);
             assign voice_age_o[g*AGE_W +: AGE_W]           = age_r[g];
         end
     endgenerate

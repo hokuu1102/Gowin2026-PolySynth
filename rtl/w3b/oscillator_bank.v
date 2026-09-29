@@ -140,6 +140,20 @@ parameter integer FIXED_BLEND_Q     = 0,
     input  wire [POLY_TARGET*PHASE_W-1:0]                   base_phase_inc_i,
     input  wire [POLY_TARGET*TIMBRE_W-1:0]                  voice_timbre_i,
     input  wire [POLY_TARGET*8-1:0]                         voice_velocity_i,
+    //  ⭐⭐ 2026-09-29 新增（⭐ 鼓机噪声波表 · 阶段 2a）：⭐ **"本 voice 是鼓吗"**
+    //     ⭐ 语义：⭐ `note_manager.voice_drum_o` —— ⭐ 由 `axis_r[i] >= RESERVED_AXIS`
+    //        推出（⭐ 保留轴位 = 节拍器 14 / 鼓机 15 ✅）
+    //     ⭐ 用途：⭐ 这些 voice **改选第 10 张 pROM（宽带噪声表）**，⛔ 不用乐音表。
+    //
+    //   🔴 **为什么必须按 voice 送一个【独立标志】，而⛔ 不去加宽 `TIMBRE_W`（2→3）**：
+    //      ⚠️ `TIMBRE_W` 是**冻结的 64 bit 事件格式**的一部分（⭐ `note_manager`
+    //         / `evt_merge` / `looper` / 串口 `'I'` 全都在传它）⇒
+    //         🔴 改它 = **整条事件通路返工** ＋ ⭐ 破坏所有已交付 tb 的位宽假设。
+    //      ⭐ 而"是不是鼓"**本来就与音色无关**（⭐ 鼓靠**噪声**区分，⛔ 不靠音色号）
+    //         ⇒ ⭐ 单开一根标志线是**最小且语义正确**的做法 ✅
+    //   📌 位宽 = `POLY_TARGET`（⭐ 每 voice 1 位，⛔ 不是每 lane）——
+    //      ⭐ 同一 voice 的两个失谐 lane **共用**这个标志（⭐ 两路都该是噪声 ✅）
+    input  wire [POLY_TARGET-1:0]                           voice_drum_i,
     input  wire signed [15:0]                               vibrato_mod_i,
     input  wire                                             test_mode_i,
     input  wire [POLY_TARGET*OSC_PER_VOICE-1:0]             test_lane_active_i,
@@ -171,6 +185,12 @@ parameter integer FIXED_BLEND_Q     = 0,
     wire [LANES*PHASE_W-1:0] lane_phase;     // 供调试观测
     wire [LANES*TIMBRE_W-1:0] lane_timbre;   // 起音锁存的每 voice 音色
     wire [LANES*8-1:0]       lane_velocity;  // 每 voice 力度（soft/hard 插值）
+    //  ⭐⭐ 2026-09-29 新增：⭐ **每 lane 的"是鼓吗"**（⭐ 由每 voice 的标志展开到 lane）
+    //   ⚠️ 为什么要**展开成 per-lane**（⭐ 而不是直接用 `voice_drum_i[req_idx/OSC_PER_VOICE]`）：
+    //      ⭐ ① TDM 的 `req_idx` 是**运行期**索引，⭐ 用它去除法/乘法求 voice 号
+    //            ⇒ ⚠️ 给 `oscillator_bank` 的关键路径**加一级除法器**（🔴 不可接受）；
+    //      ⭐ ② 展平成 `LANES` 位后，⭐ 取值只是**一次线选**（⭐ 零逻辑）✅
+    wire [LANES-1:0]         lane_drum;
 
     // ⭐ 颤音：**共享**一个乘法器算偏移（⛔ 不给每 lane 配乘法器 —— 那要 64 个 DSP）
     //    `vibrato_mod_i` 是 signed Q1.15 ∈ [-1, 1)
@@ -381,6 +401,16 @@ parameter integer FIXED_BLEND_Q     = 0,
             assign lane_timbre[g*TIMBRE_W +: TIMBRE_W] =
                 voice_timbre_i[VOICE_IDX*TIMBRE_W +: TIMBRE_W];
             assign lane_velocity[g*8 +: 8] = voice_velocity_i[VOICE_IDX*8 +: 8];
+            //  ⭐⭐ 2026-09-29 新增：⭐ **本 lane 是否走噪声表**（⭐ 鼓机专用 ✅）
+            //   🔴🔴 **为什么必须用 `=== 1'b1` 而⛔ 不能直接引用 `voice_drum_i[VOICE_IDX]`**：
+            //      ⭐ 本端口是**后加的** ⇒ ⚠️ 老 tb（`tb_oscillator_bank` /
+            //         `tb_soft_hard_blend` / `tb_velocity_*` …）**不接它** ⇒ 悬空 = `z`
+            //      ⇒ 🔴 若直接拿 `z` 当三目选择端 ⇒ `rom_dout` 变成 `x`
+            //         ⇒ 🔴 **所有老用例集体假红**（⭐ 与 `note_manager` 的
+            //         `vel_upd_src_i` 悬空问题是**同一类**，⭐ 见那里的"悬空 = 手弹"口径 ✅）。
+            //   ⭐ 口径：⭐ **只有明确的 1 才当"鼓"**，⭐ 其余（含 `x`/`z`）一律当**非鼓**
+            //      ⇒ ⭐ **行为与加此端口前完全一致**（⭐ 全部走乐音表 ✅）
+            assign lane_drum[g] = (voice_drum_i[VOICE_IDX] === 1'b1);
         end
     endgenerate
 
@@ -419,6 +449,8 @@ parameter integer FIXED_BLEND_Q     = 0,
     wire [AW-1:0] rom_ad     = lane_addr[req_idx*AW +: AW];
     wire [TIMBRE_W-1:0] rom_timbre = lane_timbre[req_idx*TIMBRE_W +: TIMBRE_W];
     wire [7:0] req_velocity = lane_velocity[req_idx*8 +: 8];
+    //  ⭐⭐ 2026-09-29 新增：⭐ **本次 TDM 请求落在的 lane 是不是鼓**（⭐ 与地址同拍送 ✅）
+    wire       req_drum     = lane_drum[req_idx];
 
     // ═══════════════════════════════════════════════════════════════════════
     // ③ 1 个【共享】四音色波表（4 × soft/hard × 1024，1 级同步读）
@@ -432,6 +464,15 @@ parameter integer FIXED_BLEND_Q     = 0,
     //   📌 为什么要单独一张：⭐ 四音色（AKWF）**谐波丰富** ⇒ ⭐ 借它们做 Test Mode
     //      ⇒ 🔴 谐波被 `peak_count` 数成谱峰 ⇒ 🔴 M4 判据（4/8/16/32）变红 ✅
     wire signed [WT_W-1:0] rom_test;
+    //  ⭐⭐ 2026-09-29 新增：⭐ **鼓机专用的【宽带噪声表】**（⭐ 第 10 个 pROM ✅）
+    //   ⭐ 由 `wavetable_bank` 的 `rom_noise_inst` 提供（⭐ 与其余 9 张表**同源同拍**）✅
+    //   📌 为什么鼓要噪声：⭐ `drum_gen` 的 4 件乐器**共用同一个 `AXIS_ID`**，
+    //      ⭐ 原来只靠 `PHASE_INC`（音高）区分 ⇒ 🔴 全部是**同一张乐音表**的音高变体
+    //      ⇒ 🔴 听感 = "**音高不同的节拍器嘀嗒**"（⭐ 用户反馈的原始问题）✅
+    //   ⭐ 本表由 `tools/gen_t31b_wavetable.py` 的 `generate_noise_table()` 生成：
+    //      ⭐ **整数谐波 × 随机相位 × 等幅** ⇒ ⭐ 平坦谱（宽带）＋ **天然周期安全**
+    //      （⭐ 环绕处不存在离群台阶）＋ ⭐ **天然零直流** ✅
+    wire signed [WT_W-1:0] rom_noise;
     reg  [7:0] resp_velocity_q;
 
     always @(posedge clk_i) begin
@@ -439,6 +480,23 @@ parameter integer FIXED_BLEND_Q     = 0,
             resp_velocity_q <= 8'd0;
         else if (req_active)
             resp_velocity_q <= req_velocity;
+    end
+
+    //  ⭐⭐ 2026-09-29 新增：⭐ **"本次请求是鼓吗"的 1 拍响应标签**（⭐ 与 ROM 数据同步 ✅）
+    //   🔴 **为什么必须寄存一拍**（⭐ 这是本模块最容易写错的地方）：
+    //      ⭐ pROM 的 `READ_MODE = 1'b0` ⇒ 数据**比地址晚 1 拍**回来（⭐ 见
+    //         `wavetable_bank` 的注释与 `K-167` 前科）⇒ ⚠️ 若用**当前**的 `req_drum`
+    //         去选表 ⇒ 🔴 选中的是**下一条 lane 的归属** ⇒ ⭐ **车道错位**
+    //         （⭐ 与当年 `READ_MODE=1` 的坑**完全同型**：⭐ 数据与标签必须同拍 ✅）
+    //   📌 写法与 `resp_velocity_q` **逐字同构**（⭐ 同一个 `req_active` 使能、
+    //      ⭐ 同一个时钟沿）⇒ ⭐ 两者天然对齐 ✅
+    reg resp_drum_q;
+
+    always @(posedge clk_i) begin
+        if (!rst_n_i)
+            resp_drum_q <= 1'b0;
+        else if (req_active)
+            resp_drum_q <= req_drum;
     end
 
     //  ⭐⭐ 2026-09-29 合并（⭐ 队友版）：⭐ **默认【不】让力度改音色** ✅
@@ -479,8 +537,20 @@ parameter integer FIXED_BLEND_Q     = 0,
     //  ⭐⭐ 2026-09-29 合并：⭐ **演奏通路固定走 `blend_sum`**（⭐ 队友版 ✅）
     //   ⭐ `FIXED_BLEND_Q = 0` ⇒ ⭐ `blend_sum = rom_soft` ⇒ ⭐ 用 **AKWF 的 soft 表**（⭐ 平滑档 ✅）
     //   ⭐ Test Mode 仍走**专用纯正弦** `rom_test`（⭐ 我们的，⛔ 不借 AKWF ✅）
+    //  ⭐⭐ 2026-09-29 新增（⭐ 鼓机噪声波表 · 阶段 2a）：⭐ **鼓 voice 改选噪声表** ✅
+    //   ⭐ 优先级：⭐ `test_mode_i`（⭐ 测量模式，⭐ 必须纯正弦）> `resp_drum_q`（⭐ 鼓）> 乐音表 ✅
+    //   ⭐ 为什么鼓排在 test 之后：⭐ Test Mode 的 M4 判据（谱峰数 4/8/16/32）建立在
+    //      "**所有 lane 都是纯正弦**"之上 ⇒ ⭐ 若鼓 voice 在 test 下仍取噪声
+    //      ⇒ 🔴 **谐波被 `peak_count` 数成谱峰** ⇒ 🔴 判据变红 ✅（⭐ 同 `rom_test` 的理由）
+    //   ⭐ 为什么鼓排在乐音表之前：⭐ 这正是本阶段的**全部目的** ——
+    //      ⭐ 让 hi-hat / snare / clap 不再是"音高不同的嘀嗒" ✅
+    //   📌 **代价**：⭐ 一个 2:1 mux（16 位）＋ ⭐ **总共 1 个 FF** 的响应标签
+    //      （⭐ `resp_drum_q` —— ⚠️ TDM 是**串行**的 ⇒ ⭐ 标签只需**一份**，
+    //       ⛔ 不是每 lane 一份；⭐ 与 `resp_velocity_q` 完全同构 ✅）
+    //      ⇒ ⭐ **零 DSP、零额外 pROM 读口**（⭐ 噪声表与乐音表**共用同一个地址** ✅）
     wire signed [WT_W-1:0] rom_dout = test_mode_i ? rom_test
-                                                  : blend_sum[WT_W-1:0];
+                                                  : (resp_drum_q ? rom_noise
+                                                                 : blend_sum[WT_W-1:0]);
 
     wavetable_bank #(
         .TIMBRE_N(TIMBRE_N), .TIMBRE_W(TIMBRE_W),
@@ -494,6 +564,8 @@ parameter integer FIXED_BLEND_Q     = 0,
         .sample_soft_o (rom_soft),
         .sample_hard_o (rom_hard),
         .sample_test_o (rom_test),
+        //  ⭐⭐ 2026-09-29 新增：⭐ **第 10 张表 = 鼓机专用宽带噪声** ✅
+        .sample_noise_o (rom_noise),
         .valid_o  ()
     );
 

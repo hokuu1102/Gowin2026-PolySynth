@@ -1021,6 +1021,14 @@ module top #(
         wire [POLY_TARGET*32-1:0]      nm_phase;
         wire [POLY_TARGET*8-1:0]       nm_vel;
         wire [POLY_TARGET*2-1:0]       nm_timbre;
+        //  ⭐⭐ 2026-09-29 新增（⭐ 鼓机噪声波表 · 阶段 2a）：⭐ **每 voice 的"是鼓吗"**
+        //     ⭐ 来源：⭐ `note_manager.voice_drum_o`（⭐ = `axis_r[i] >= RESERVED_AXIS` ✅）
+        //     ⭐ 去向：⭐ `oscillator_bank.voice_drum_i` ⇒ ⭐ 保留轴位（节拍器 14 /
+        //       鼓机 15）的 voice **改读第 10 张表（宽带噪声）** ✅
+        //     🔴 为什么必须由 `top` 直连：⭐ 这条标志是**跨模块**的
+        //        （⭐ `note_manager` 知道"谁在发声"，⭐ `oscillator_bank` 才知道"该读哪张表"）
+        //        ⇒ ⭐ `top` 是唯一的连接点 ✅
+        wire [POLY_TARGET-1:0]         nm_drum;
         wire [POLY_TARGET*16-1:0]      nm_age;
         wire                           nm_alloc_valid;
         wire [4:0]                     nm_alloc_voice;
@@ -3236,6 +3244,8 @@ module top #(
             .voice_phase_inc_o (nm_phase),
             .voice_velocity_o  (nm_vel),
             .voice_timbre_o    (nm_timbre),
+            //  ⭐⭐ 2026-09-29 新增：⭐ **每 voice 的"是鼓吗"** ⇒ 噪声表选择（⭐ 见上方声明）✅
+            .voice_drum_o      (nm_drum),
             .voice_age_o       (nm_age),
             .voice_retrig_reset_o(nm_retrig_reset),
             .alloc_valid_o     (nm_alloc_valid),
@@ -3310,6 +3320,14 @@ module top #(
             .voice_phase_rst_i  (nm_retrig_reset),
             .base_phase_inc_i   (nm_phase),
             .voice_timbre_i     (nm_timbre),
+            //  ⭐⭐ 2026-09-29 新增（⭐ 鼓机噪声波表 · 阶段 2a）：⭐ **鼓 voice 走噪声表** ✅
+            //   ⭐ 语义：⭐ `axis_r[i] >= RESERVED_AXIS` ⇒ ⭐ 打击乐 ⇒ ⭐ 读噪声表
+            //   ⚠️ **副作用（⭐ 必须知道）**：⭐ 保留轴位有**两个**（⭐ 14 = 节拍器、
+            //      15 = 鼓机）⇒ ⭐ **节拍器的"嘀嗒"也会变成噪声** ✅
+            //      📌 这是本阶段判据（⭐ `axis_r[i] >= RESERVED_AXIS`）的**直接推论**，
+            //         ⭐ 且听感上"节拍器 = 噪声 click"通常**更接近真实节拍器** ⇒
+            //         ⭐ 暂按现状保留，⛔ 不为此再引入第三条标志线（⭐ 保持最小改动 ✅）
+            .voice_drum_i       (nm_drum),
             .voice_velocity_i   (nm_vel),
             .vibrato_mod_i      (vibrato_mod),
             .test_mode_i        (tm_enable_r),
