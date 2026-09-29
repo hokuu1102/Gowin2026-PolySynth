@@ -62,8 +62,14 @@
      [dbg] ep_valid=1 ep_vel=240 ep_tick=186 ep_inc=66660006
      [dbg] ramp_mask=0000000000000000 ramp_go=0 ramp_sc=0 ramp_vel6=96 rend6=186
      [dbg] ep0v=1 ep0vel=240 ep0tick=186 on_addr6=0 on_open=0
+== 9: stale on_open_r must not corrupt another note's endpoint ==
+  ok  : stale_on_open setup: clear during record empties the layer
+  ok  : stale_on_open setup: the second take stored 3 events
+  ok  : stale_on_open: replay ramps the NEW note's axis (1) and nothing else
+  ok  : stale_on_open: the replayed endpoint stays its OWN (160) -- not 240
+     [dbg] upd_n=15 last=160 ep0v=1 ep0vel=160 ep0tick=32 on_open0=0
   ok  : A8: no X/Z on the replay outputs
 PASS: looper T37 record/replay, no-hang incl. axis 15, clear, same-tick, overflow
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:714: $finish called at 158520000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:790: $finish called at 181880000 (1ps)
 
 

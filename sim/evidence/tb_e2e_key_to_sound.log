@@ -18,18 +18,18 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
   ok  : no key pressed => W3a starts NO new note (n_on unchanged)
   [idle ] HP_DIN toggles = 520  (threshold 800)
   ok  : no key pressed => HP_DIN is essentially quiet (demo tail allowed)
-  [press] HP_DIN toggles = 2793
+  [press] HP_DIN toggles = 2911
   ok  : pressing (left board reads RAW_DOWN) => HP_DIN carries audio
   [vel  ] pos[0]=744  max(vel_r)=247  (pos_to_vel(744)=71)
   ok  : vel_r FOLLOWS pos end-to-end (press => vel reaches the pos-mapped value)
-  [relA ] env_level[0] = 42519   HP_DIN toggles = 652
-  [relB ] env_level[0] = 40527   HP_DIN toggles = 416
+  [relA ] env_level[0] = 47826   HP_DIN toggles = 726
+  [relB ] env_level[0] = 45834   HP_DIN toggles = 562
   [evts ] total note_on=8  note_off=8
   [gate ] nm_gate[15:0] = 0000000000000000
   ok  : after note_off the envelope is DECAYING (release path works)
   [note ] release is ~0.45 s; this tb only waits 80 ms by design
   ok  : a note_off was produced by the release (distinguishes the two failure modes)
-  [right] HP_DIN toggles = 3076
+  [right] HP_DIN toggles = 2928
   ok  : pressing the right board => also sounds
   ok  : no X propagated on HP_DIN after reset release
   [pos  ] idle = 0   pressed = 744

@@ -114,7 +114,12 @@
   ok  : A3-C: the replayed note_on still allocated (via preemption)
   ok  : A3-C: the preemption victim is NOT the live voice on that axis
   ok  : A3-C: the live voice survives with its OWN velocity (not re-tagged)
+  ok  : K-169 setup: voice live in release tail (gate=0, active=1)
+  ok  : K-169 setup: phase != seed before re-press (non-vacuous)
+  ok  : K-169 setup: the fresh voice is voice0 (probe lane matches)
+  INFO: K-169 phase before re-press = 40505000, after = 40000000
+  ok  : K-169: re-press in release tail reloads the phase seed
 PASS: note_manager acceptance (T54) - all judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:1246: $finish called at 750420000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:1374: $finish called at 888240000 (1ps)
 
 
