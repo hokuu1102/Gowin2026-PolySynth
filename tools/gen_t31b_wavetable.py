@@ -119,7 +119,7 @@ def render_prom_instance(kind, timbre, samples):
         "        .RESET(~rst_n_i),",
         "        .AD({addr_i[9:0], 4'b0000})",
         "    );",
-        f"    defparam {stem}.READ_MODE = 1'b0;",
+        f"    defparam {stem}.READ_MODE = 1'b1;",
         f"    defparam {stem}.BIT_WIDTH = 16;",
         f'    defparam {stem}.RESET_MODE = "SYNC";',
     ]
@@ -179,7 +179,11 @@ module wavetable_bank #(
         endcase
     end
 
-    // READ_MODE=0 already registers each word.  timbre_q is the matching
+    // READ_MODE=1 (Register) gives 1-clock read latency, matching
+    // oscillator_bank's "ROM data returns 1 beat after the address" contract.
+    // READ_MODE=0 (By-pass) returns data in the SAME beat and shifts every
+    // TDM lane by one -> inter-lane data scramble -> transient spikes.
+    // timbre_q is the matching
     // one-clock response tag; selecting with the live request timbre would
     // pair every ROM response with the following TDM lane.
     assign sample_soft_o = rom_soft_sel;

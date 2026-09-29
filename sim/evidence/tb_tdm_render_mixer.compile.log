@@ -1,6 +1,6 @@
 ﻿iverilog.exe : C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\pos_probe.v:55: warning: times
 cale for pos_probe inherited from another file.
-所在位置 C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\sim\tb_all.ps1:123 字符: 18
+At C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\sim\tb_all.ps1:123 char:18
 +   $compileOut  = & $iverilog @compileArgs 2>&1
 +                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (C:\Users\cyx\Do...m another file.:String) [], RemoteException
@@ -16,9 +16,9 @@ C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_t
 t_tx_fifo inherited from another file.
 C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is 
 here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v:487: warning: @* is sensit
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v:491: warning: @* is sensit
 ive to all 16 words in array 'pc_l1'.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v:487: warning: @* is sensit
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v:491: warning: @* is sensit
 ive to all 16 words in array 'pc_l1'.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v:487: warning: @* is sensit
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v:491: warning: @* is sensit
 ive to all 16 words in array 'pc_l1'.

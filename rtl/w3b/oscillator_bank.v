@@ -311,9 +311,12 @@ module oscillator_bank #(
     end
 
     // `velocity=0` picks soft exactly; `velocity=255` picks hard exactly.
+    // This coefficient must follow the current TDM response lane.  A single
+    // frame-rate ramp register here would leak one lane's velocity into every
+    // other lane; onset smoothing belongs in the frame-rate gain path instead.
     // One TDM multiplier serves all 64 lanes, so this adds no per-voice DSP.
     wire [8:0] mix_q = (resp_velocity_q == 8'hFF) ? 9'd256
-                                                      : {1'b0, resp_velocity_q};
+                                                  : {1'b0, resp_velocity_q};
     wire signed [WT_W:0] blend_delta = {rom_hard[WT_W-1], rom_hard}
                                      - {rom_soft[WT_W-1], rom_soft};
     wire signed [WT_W+9:0] blend_product = blend_delta * $signed({1'b0, mix_q});

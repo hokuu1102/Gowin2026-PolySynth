@@ -2,6 +2,6 @@
   ok  : score PIANO timbre survives arb/merge/FIFO into voice0
   ok  : existing voice timbre remains locked
 PASS: T31b timbre event path
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_timbre_event_path.sv:141: $finish called at 840000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_timbre_event_path.sv:141: $finish called at 840000 (1ps)
 
 

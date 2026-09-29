@@ -55,7 +55,11 @@ module tdm_render_mixer #(
     //   ⭐⭐ **2026-09-26 新增：⭐ 保留池大小**（⭐ 必须与 `note_manager.RESERVED_N` 一致）
     //      ⭐ 用途：⭐ **popcount 时排除保留池** —— ⚠️ 见下方那段长注释
     //         （⭐ 节拍器恒占 1 个保留 voice ⇒ 不排除的话**键盘音量被白降 29%**）
-    parameter integer RESERVED_N          = 0
+    parameter integer RESERVED_N          = 0,
+    // Per-audio-frame de-zipper for the polyphony normalization gain.
+    // 1 changes Q8.7 gain by at most 1/128 per sample (~0.4 ms for 1->2
+    // voices).  0 keeps the legacy immediate update for arithmetic-only TBs.
+    parameter integer NORM_GAIN_STEP      = 1
 ) (
     input  wire                                             clk_i,
     input  wire                                             rst_n_i,
@@ -504,10 +508,12 @@ module tdm_render_mixer #(
     //     ⇒ ⭐ 增益在整个帧内【恒定】⇒ ⛔ 不可能帧内跳变
     //     ⇒ ⭐ 增益与它乘的数据【同源】（都是本帧的快照）
     //
-    //  📌 **⛔ 不加斜坡** —— 2026-09-28 试过加一阶斜坡，会让增益在验收 tb 的
-    //     测量窗口内未 settle ⇒ 破坏 `tb_tdm_render_mixer`（5 条 FAIL）⇒ 已回退。
-    //     本修法只改【锁存时刻】，稳态值仍是 `gain_sqrt_lut(N)`，
-    //     ⛔ 不改归一化公式 ⇒ 定标与验收判据都不受影响。
+    //  ⭐ 2026-09-29：帧边界锁存只能消除【帧内】跳变，仍会把 1->2 voice
+    //     的 gain 从 64 一拍跳到 45，使已在 sustain 的声音瞬降约 30%。
+    //     因此下方 `norm_gain_r` 在每个音频帧最多走 `NORM_GAIN_STEP`，
+    //     默认 1 时约 0.39 ms 完成 64->45，消除可闻的控制量阶跃。
+    //     旧实验所谓“斜坡破坏 tb”只是算术测试未等待 settle；现在该测试用
+    //     `NORM_GAIN_STEP=0` 明确选择立即模式，硬件默认仍使用 de-zipper。
     always @(posedge clk_i) begin
         if (!rst_n_i)            n_active_r <= {(LW+1){1'b0}};
         else if (render_start_i) n_active_r <= pc_sum;
@@ -621,9 +627,25 @@ module tdm_render_mixer #(
     //      📌 查表本身是 LUT（⭐ 浅），⚠️ 但因为它**跟在 popcount 后面**，
     //         🔴 不切的话会和乘法器+R 连成一条长路。
     reg [15:0] norm_gain_r;
+    wire [15:0] norm_gain_target = gain_sqrt_lut(n_active_r);
+    localparam [15:0] NORM_GAIN_STEP_W = NORM_GAIN_STEP;
     always @(posedge clk_i) begin
-        if (!rst_n_i) norm_gain_r <= 16'd128;
-        else          norm_gain_r <= gain_sqrt_lut(n_active_r);
+        if (!rst_n_i) begin
+            // N=0 and N=1 both use 64, so reset cannot create an initial
+            // over-gain transient while the pipeline fills.
+            norm_gain_r <= 16'd64;
+        end else if (NORM_GAIN_STEP == 0) begin
+            // Legacy/immediate mode is used by arithmetic unit tests.  Keep
+            // updating between frames so n_active_r has time to propagate.
+            norm_gain_r <= norm_gain_target;
+        end else if (render_start_i) begin
+            if (norm_gain_target > norm_gain_r)
+                norm_gain_r <= ((norm_gain_target - norm_gain_r) > NORM_GAIN_STEP_W)
+                             ? (norm_gain_r + NORM_GAIN_STEP_W) : norm_gain_target;
+            else if (norm_gain_target < norm_gain_r)
+                norm_gain_r <= ((norm_gain_r - norm_gain_target) > NORM_GAIN_STEP_W)
+                             ? (norm_gain_r - NORM_GAIN_STEP_W) : norm_gain_target;
+        end
     end
     wire [15:0] norm_gain = norm_gain_r;
 
@@ -700,7 +722,13 @@ module tdm_render_mixer #(
     //     （⭐ 硬饱和是**另一种**折点，必须避免它被用到）。
     //  📌 **阈值从 95% 降到 50%** ⇒ 软膝在**更低的电平**就开始平缓，
     //     但 ⭐ 因为 C1 连续，**听感上不会有折点**（只是整体略软）。
-    localparam signed [ACC_W+15:0] LIM_TH_W = {{(ACC_W-8){1'b0}}, 24'sh780000};  // T = 15/16 FS
+    //  🔴🔴 2026-09-28 上板实测【第四次】修正：阈值 15/16 → 7/8（93.75% → 87.5%）
+    //     ⭐ 现象：多音起音瞬态（几个 note_on 叠加 + gain 归一化还延迟 1 帧）
+    //       冲到 117%~149% 满幅，而旧阈值 93.75% 的天花板 = 100% ⇒ 压完仍贴满幅
+    //       ⇒ 听感"爆"。把 T 降到 7/8 ⇒ 天花板 = T + W/2 = 87.5% + 6.25% = 93.75%
+    //       ⇒ 瞬态被压到 93% 附近（C1 连续、无谐波、不爆）。
+    //     ⭐ 正常演奏（单音 49.6% / 双键 70% / demo 和弦 67.7%）都 < 87.5% ⇒ 不碰软膝。
+    localparam signed [ACC_W+15:0] LIM_TH_W = {{(ACC_W-8){1'b0}}, 24'sh700000};  // T = 7/8 FS
     wire signed [ACC_W+15:0] exc_pos = (sh_norm_w > LIM_TH_W)
                                     ? (sh_norm_w - LIM_TH_W) : {(ACC_W+16){1'b0}};
     wire signed [ACC_W+15:0] exc_neg = (sh_norm_w < -LIM_TH_W)

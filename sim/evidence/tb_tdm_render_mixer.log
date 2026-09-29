@@ -25,19 +25,19 @@
   ok  : NORMALIZATION: 3 voices stay WITHIN signed24 (no clipping)
 == 5: max input, no wrap ==
   ok  : max input stays POSITIVE (no wrap)
-  ok  : max input SATURATES to signed24 MAX (not wrap)
-     [dbgMax] sSat=8388607 (鏈熸湜楗卞拰鍒?8388607) acc=68716331040 sh=1048528
+  ok  : max input clamps to soft-knee ceiling 0x780000 (not wrap)
+     [dbgMax] sSat=7864320 (鏈熸湜杞啙澶╄姳鏉?7864320) acc=68716331040 sh=1048528
   ok  : min input stays NEGATIVE (no wrap)
-     [dbgMin] sSat=-8388608 (鏈熸湜楗卞拰鍒?-8388608) acc=-68718428160 sh=-1048560
-  ok  : min input SATURATES to signed24 MIN (not wrap)
+     [dbgMin] sSat=-7864320 (鏈熸湜杞啙澶╄姳鏉?-7864320) acc=-68718428160 sh=-1048560
+  ok  : min input clamps to soft-knee ceiling -0x780000 (not wrap)
 == 6: deadline_fault is sticky ==
   ok  : tight-deadline instance: fault set after one frame
   ok  : sticky: fault still 1 after several frames
   ok  : fault clears only on reset
 == 7: real saturation via wide samples ==
-  ok  : wide positive overflow clamps to signed24 MAX (no wrap)
-  ok  : wide negative overflow clamps to signed24 MIN (no wrap)
+  ok  : wide positive overflow clamps to soft-knee ceiling (no wrap)
+  ok  : wide negative overflow clamps to soft-knee ceiling (no wrap)
 PASS: tdm_render_mixer acceptance (T56) - all judgements held
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_tdm_render_mixer.sv:474: $finish called at 20620000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_tdm_render_mixer.sv:476: $finish called at 20620000 (1ps)
 
 

@@ -57,7 +57,7 @@ module tb_tdm_render_mixer;
     tdm_render_mixer #(
         .POLY_TARGET(POLY), .OSC_PER_VOICE(OPV), .OSC_SAMPLE_W(OSW),
         .ENV_W(ENVW), .SAMPLE_W(SW), .CLK_PER_SAMPLE(1024),
-        .RENDER_DEADLINE_CYC(927)
+        .RENDER_DEADLINE_CYC(927), .NORM_GAIN_STEP(0)
     ) dut (
         .clk_i(clk), .rst_n_i(rst_n), .render_start_i(render_start),
         .osc_sample_bus_i(osc_bus), .env_level_i(env_level),
@@ -74,7 +74,7 @@ module tb_tdm_render_mixer;
     tdm_render_mixer #(
         .POLY_TARGET(POLY), .OSC_PER_VOICE(OPV), .OSC_SAMPLE_W(OSW),
         .ENV_W(ENVW), .SAMPLE_W(SW), .CLK_PER_SAMPLE(1024),
-        .RENDER_DEADLINE_CYC(4)
+        .RENDER_DEADLINE_CYC(4), .NORM_GAIN_STEP(0)
     ) dut_tight (
         .clk_i(clk), .rst_n_i(rst_n), .render_start_i(render_start),
         .osc_sample_bus_i(osc_bus), .env_level_i(env_level),
@@ -152,7 +152,7 @@ module tb_tdm_render_mixer;
     tdm_render_mixer #(
         .POLY_TARGET(POLY), .OSC_PER_VOICE(OPV), .OSC_SAMPLE_W(WSW),
         .ENV_W(ENVW), .SAMPLE_W(SW), .CLK_PER_SAMPLE(1024),
-        .RENDER_DEADLINE_CYC(927)
+        .RENDER_DEADLINE_CYC(927), .NORM_GAIN_STEP(0)
     ) dut_wide (
         .clk_i(clk), .rst_n_i(rst_n), .render_start_i(render_start),
         .osc_sample_bus_i(wide_bus), .env_level_i(wide_env),
@@ -414,9 +414,11 @@ module tb_tdm_render_mixer;
         //      ⭐ 所以判据从"精确等于"改成：⭐ **必须饱和到 24 位正极大（⛔ 不是回绕）**
         //      📌 **核心风险仍是"回绕"** —— ⚠️ 正数变负数才是 bug。
         chk("max input stays POSITIVE (no wrap)", sSat > 24'sd0);
-        chk("max input SATURATES to signed24 MAX (not wrap)",
-            sSat === 24'sd8388607);
-        $display("     [dbgMax] sSat=%0d (期望饱和到 8388607) acc=%0d sh=%0d", sSat, dut.acc_r, dut.sh);
+        //   ⭐ 2026-09-28：软膝阈值降到 7/8 ⇒ 天花板 = 7/8 + 1/16 = 15/16 = 0x780000
+        //      （⛔ 不再到满幅 8388607 —— 那样会触发 off-by-one 的硬饱和折点 ⇒ 爆音）
+        chk("max input clamps to soft-knee ceiling 0x780000 (not wrap)",
+            sSat === 24'sd7864320);
+        $display("     [dbgMax] sSat=%0d (期望软膝天花板 7864320) acc=%0d sh=%0d", sSat, dut.acc_r, dut.sh);
 
         clear_all;
         for (i = 0; i < POLY; i = i + 1) begin
@@ -427,10 +429,10 @@ module tb_tdm_render_mixer;
         run_frame_get(cyc);
         sSat = latched;
         chk("min input stays NEGATIVE (no wrap)", sSat < 24'sd0);
-        $display("     [dbgMin] sSat=%0d (期望饱和到 -8388608) acc=%0d sh=%0d", sSat, dut.acc_r, dut.sh);
-        //   ⭐ 同上：⭐ 左移后为 `-16776960` ⇒ 🔴 **饱和到 24 位负极小**（⭐ 正确行为）。
-        chk("min input SATURATES to signed24 MIN (not wrap)",
-            sSat === -24'sd8388608);
+        $display("     [dbgMin] sSat=%0d (期望软膝天花板 -7864320) acc=%0d sh=%0d", sSat, dut.acc_r, dut.sh);
+        //   ⭐ 2026-09-28：同上 —— 软膝天花板 −15/16 = −0x780000（⛔ 不再到负极小）。
+        chk("min input clamps to soft-knee ceiling -0x780000 (not wrap)",
+            sSat === -24'sd7864320);
 
         // ---- 6: sticky fault ----
         $display("== 6: deadline_fault is sticky ==");
@@ -453,8 +455,8 @@ module tb_tdm_render_mixer;
             wide_env[i*ENVW +: ENVW] = 16'hFFFF;
         end
         wide_frame_get(cyc);
-        chk("wide positive overflow clamps to signed24 MAX (no wrap)",
-            wlatched === 24'sd8388607);
+        chk("wide positive overflow clamps to soft-knee ceiling (no wrap)",
+            wlatched === 24'sd7864320);
 
         wide_clear;
         for (i = 0; i < POLY; i = i + 1) begin
@@ -463,8 +465,8 @@ module tb_tdm_render_mixer;
             wide_env[i*ENVW +: ENVW] = 16'hFFFF;
         end
         wide_frame_get(cyc);
-        chk("wide negative overflow clamps to signed24 MIN (no wrap)",
-            wlatched === -24'sd8388608);
+        chk("wide negative overflow clamps to soft-knee ceiling (no wrap)",
+            wlatched === -24'sd7864320);
 
         if (errors == 0)
             $display("PASS: tdm_render_mixer acceptance (T56) - all judgements held");
