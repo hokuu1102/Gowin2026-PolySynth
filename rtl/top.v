@@ -3216,6 +3216,18 @@ module top #(
             .rst_n_i            (rst_n_sync),
             .sample_tick_i      (tick_audio),
             .voice_active_i     (nm_active),
+            //  ⭐⭐ K-169（2026-09-30）：⭐ **起音相位复位改挂 note_on 事件边沿** ✅
+            //     ⭐ 源 = `note_manager.voice_retrig_reset_o`（⭐ 与 `envelope_bank`
+            //        的 `retrig_reset_i` 是**同一个信号** ⇒ ⭐ "包络清零"与
+            //        "相位复位"从此由**同一个事件、同一拍**驱动 ✅）
+            //     🔴 **原来为什么不行**：⭐ `oscillator_bank` 靠 `nm_active`
+            //        （⭐ = `live_mask`，**电平派生**）的**上升沿**自己判起音
+            //        ⇒ ⭐ 上一个音**还在 Release 尾巴里**时重按同一轴
+            //        ⇒ `nm_active` **恒为 1** ⇒ 🔴 **没有上升沿** ⇒ ⭐ 相位复位被跳过
+            //        ⇒ 🔴 起音幅度随机（⭐ `K-169`）✅
+            //     📌 `test_mode_i` 那一拍由 `oscillator_bank` 内部自行屏蔽
+            //        （⭐ 与 `envelope_bank` 处的 `tm_enable_r ? 0 : ...` 等价）✅
+            .voice_phase_rst_i  (nm_retrig_reset),
             .base_phase_inc_i   (nm_phase),
             .voice_timbre_i     (nm_timbre),
             .voice_velocity_i   (nm_vel),

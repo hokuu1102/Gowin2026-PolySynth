@@ -122,6 +122,21 @@ parameter integer FIXED_BLEND_Q     = 0,
     input  wire                                             rst_n_i,
     input  wire                                             sample_tick_i,
     input  wire [POLY_TARGET-1:0]                           voice_active_i,
+    //  ⭐⭐⭐⭐ K-169（2026-09-30）新增：⭐ **每 voice 的"起音事件"相位复位** ✅
+    //     ⭐ 源 = `note_manager.voice_retrig_reset_o`（⭐ 见 `top.v` 的例化 ✅）。
+    //     ⭐ 语义 = **这个 voice 刚刚发生了一次 note_on**：
+    //        · ⭐ `ST_COMMIT2`（⭐ 提交/抢占 ⇒ "新占 voice" ✅）置位
+    //        · ⭐ `(f)` 段（⭐ 同轴重触发**复用**同一 voice ✅）置位
+    //     ⚠️ **是"保持到 `sample_tick_i` 的电平"而⛔ 不是 1 拍脉冲** ——
+    //        ⭐ 本模块相位只在 `sample_tick_i` 更新 ⇒ ⭐ 电平才能保证**必然被看见**
+    //        （📌 与 `envelope_bank.retrig_reset_i` 是**同一个信号、同一条理由** ✅）
+    //     🔴 **为什么必须新增它、而⛔ 不能用 `voice_active_i` 的上升沿**：
+    //        ⭐ 详见下方 lane 生成块里的长注释（⭐ 一句话：⭐ `voice_active_i`
+    //        是**电平派生**的，⭐ Release 尾巴里重按时**根本没有上升沿** ✅）
+    //     ⚠️ **老例化不接本端口 ⇒ `z`** ⇒ ⭐ 由下方 `=== 1'b1` 解码为 **0**
+    //        ⇒ ⭐ **行为与加本端口之前完全一致** ✅（⭐ 与 `note_manager` 的
+    //        `vel_upd_src_i`"悬空 ⇒ 手弹(0)"是**同一套向后兼容口径** ✅）
+    input  wire [POLY_TARGET-1:0]                           voice_phase_rst_i,
     input  wire [POLY_TARGET*PHASE_W-1:0]                   base_phase_inc_i,
     input  wire [POLY_TARGET*TIMBRE_W-1:0]                  voice_timbre_i,
     input  wire [POLY_TARGET*8-1:0]                         voice_velocity_i,
@@ -185,6 +200,15 @@ parameter integer FIXED_BLEND_Q     = 0,
             wire lane_active = test_mode_i
                              ? test_lane_active_i[g]
                              : voice_active_i[VOICE_IDX];
+
+            //  ⭐⭐ K-169（2026-09-30）：⭐ **本 lane 的"起音事件"相位复位** ✅
+            //     ⭐ 直接来自 `voice_phase_rst_i`（⭐ = `note_manager` 的每 voice
+            //        note_on 事件 ✅），⛔ **不再从 `lane_active` 的电平边沿反推** ✅
+            //     ⚠️ `=== 1'b1`（⛔ 不是 `if (voice_phase_rst_i[...])`）是**必需的**：
+            //        ⭐ 老例化**不接**本端口 ⇒ 该位是 `z` ⇒ ⚠️ 用普通 `if` 会得到 `x`
+            //        ⇒ 🔴 判据真假不定（⭐ 这正是 `note_manager.v` 里
+            //        `vu_src_w`/`pu_src_w` 当初必须显式解码的**同一个坑** ✅）
+            wire phase_rst_lane = (voice_phase_rst_i[VOICE_IDX] === 1'b1);
 
             //  ⭐⭐⭐⭐ 2026-09-29 **治本**：⭐ **起音时把相位复位到设计初相** ✅
             //   🔴 **上板症状（⭐ 用户原话）**：*"无论按下的行程多少，都是原始音量"* ✅
@@ -301,7 +325,51 @@ parameter integer FIXED_BLEND_Q     = 0,
                     //      ⭐ `T43`/`T55` 的 test-mode 判据建立在"**test 覆盖下相位照常前进**"
                     //      ⭐ 之上（⭐ 如 `test_mode=1 overrides voice_active=0` ✅）
                     //      ⇒ ⭐ 若在那里也复位种子，⭐ 会打破它们 ✅（⭐ 实测 5 条红 ✅）
-                    if (!test_mode_i && lane_active && !lane_active_d)
+                    //  ═══════════════════════════════════════════════════════
+                    //  ⭐⭐⭐⭐ K-169（2026-09-30）：⭐ **相位复位改挂 note_on 事件边沿** ✅
+                    //
+                    //  🔴 **上板症状**（⭐ 用户原话）：*"按下满行程的键，**不同时间按下**，
+                    //     音量不同"* ⇒ ⭐ 快速连按时**起音幅度忽大忽小** ✅
+                    //
+                    //  🔴 **根因 = 挂错了边沿**：⭐ 上一版把"起音复位"挂在 `lane_active`
+                    //     （⭐ = `voice_active_i` = `note_manager.live_mask` ✅）的
+                    //     **上升沿** 上，⚠️ 而 `lane_active` 是**电平派生**的：
+                    //        ⭐ `live_mask = gate_r | retrig_low | env_active_i`
+                    //        ⇒ ⭐ 上一个音**还在 Release 尾巴里**（`env_active_i=1` ✅）
+                    //          时再按**同一个轴** ⇒ ⭐ `live_mask` **恒为 1**
+                    //        ⇒ 🔴 **上升沿【根本不存在】** ⇒ ⭐ 复位被跳过 ✅
+                    //     ⇒ 🔴 新音从上一次的**残留相位**起振 ⇒ ⭐ 两个失谐 lane 的
+                    //        设计初相关系（0° / 90°）丢失 ⇒ ⭐ **叠加幅度随机**
+                    //        （⭐ 0.25× ~ 2.0×）⇒ ⭐ 与"同深度不同时间音量不同"**完全吻合** ✅
+                    //
+                    //  📌 **这是"偶发尖音"家族的另一个缺口**（⭐ 不是同一个 bug）：
+                    //     ⭐ `tb/w3b/tb_retrig_reset_span.sv:303-317` 已经证明
+                    //     "**松手后仍在 Release 里再按**"这条路**确实发出了**清零脉冲
+                    //     （⭐ `retrig_reset_r` ⇒ ⭐ 包络那一路拿到了 ✅）
+                    //     —— ⚠️ **只有振荡器这一路没拿到**，⭐ 因为它盯的是**电平边沿** ✅
+                    //
+                    //  ✅ **修法**：⭐ 复位改挂 `phase_rst_lane`
+                    //     （⭐ = `voice_phase_rst_i` = `note_manager.voice_retrig_reset_o`）
+                    //     —— ⭐ 它**就是**每 voice 的 `note_on` **事件**：
+                    //        · ⭐ `ST_COMMIT2`（⭐ 提交/抢占 ⇒ 新占 voice ✅）置位
+                    //        · ⭐ `(f)` 段（⭐ 同轴重触发复用 ✅）置位
+                    //     ⇒ ⭐ **两条起音路径都覆盖**，⭐ 与"包络清零"**同源同拍** ✅
+                    //     ⇒ ⛔ 不再依赖任何**电平**的边沿 ✅
+                    //
+                    //  ⭐ **为什么保留旧的上升沿判据（`||` 而不是替换）**：
+                    //     ⚠️ 老例化（`tb_oscillator_bank` / `tb_top_*` / `bringup/*`）
+                    //     **不接** `voice_phase_rst_i` ⇒ `z` ⇒ ⭐ 解码为 0
+                    //     ⇒ ⭐ **只有旧判据生效** ⇒ ⭐ **那些验收判据一条都不动** ✅
+                    //     （📌 实证：`tb_oscillator_bank` 的"两次起音逐位相同"正是
+                    //      靠这条电平判据 —— ⛔ 直接删掉它会踩验收契约 ✅）
+                    //     ⭐ 且新判据在"新占 voice"时与旧判据**同拍**（都是
+                    //     `sample_tick_i` 那一拍）⇒ ⭐ 不会重复载入 ✅
+                    //     📌 语义上：⭐ **事件边沿是权威触发**，⭐ 电平边沿是**向后兼容兜底** ✅
+                    //
+                    //  📌 **代价**：⭐ 每 lane 1 个 2 输入 OR ＋ 1 个 1 位比较 ⇒ 可忽略 ✅
+                    //  ═══════════════════════════════════════════════════════
+                    if (!test_mode_i && (phase_rst_lane
+                                         || (lane_active && !lane_active_d)))
                         phase_q <= phase_seed;         // ⭐ 起音：回到设计初相
                     else if (lane_active)
                         phase_q <= phase_q + lane_inc;

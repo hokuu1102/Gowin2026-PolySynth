@@ -167,6 +167,57 @@ module tb_note_manager;
     );
 
     // ═════════════════════════════════════════════════════════════════════════
+    // ⭐⭐ K-169（2026-09-30）：⭐ **振荡器相位复位判据专用实例** ✅
+    //
+    //   🔴 **为什么必须把 `oscillator_bank` 接进来**：
+    //      ⭐ `K-169` 的失效**不发生在 `note_manager` 内部** ——
+    //      ⭐ `note_manager` 的 `retrig_reset_r` **本来就发了**
+    //         （⭐ `tb/w3b/tb_retrig_reset_span.sv:303-317` 已经证明"Release 尾巴里
+    //          重按"这条路**确实产生了清零脉冲** ✅）
+    //      🔴 是 **`oscillator_bank` 盯着 `voice_active`（= `live_mask`，**电平派生**）
+    //         的上升沿** ⇒ ⭐ Release 尾巴里重按时**看不到边沿** ⇒ 复位被跳过 ✅
+    //      ⇒ ⭐ **判据必须落在【相位寄存器】上** ⇒ ⭐ 必须把振荡器接进来 ✅
+    //      📌 这正是 `C83`（探针假绿）的反面用法：⭐ **判据要盯真正失效的那个寄存器** ✅
+    //
+    //   ⚠️ **参数选择（⭐ 都是为了让判据"锐利"）**：
+    //      · ⭐ `DBG_LANE=1` = **voice0 的第 2 个 lane**（⭐ `OSC_PER_VOICE=2`）
+    //      · ⭐ `DETUNE_ON=1` ⇒ ⭐ 该 lane 的 `phase_seed = 1/4 周期`
+    //        = `32'h4000_0000` ⇒ ⭐ **种子是个独特值**
+    //        ⛔ 不会和"相位恰好为 0"混淆 ⇒ ⭐ 判据更锐利 ✅
+    //      · ⭐ `DETUNE_SH=8` 显式写死（⛔ 不依赖默认值 —— `top.v` 就把它改成了 9）
+    //      · ⚠️ `test_mode_i=0` 是**必需的**：⭐ 复位在 test 覆盖下**故意不做** ✅
+    //   ⚠️ 本实例**只驱动观测线**，⛔ 不影响 DUT A/B/C 的任何输入 ✅
+    // ═════════════════════════════════════════════════════════════════════════
+    wire [POLY*2*16-1:0]   ob_samples;
+    wire                   ob_valid;
+    wire [PHASE_W-1:0]     ob_phase_dbg;
+
+    oscillator_bank #(
+        .POLY_TARGET(POLY), .OSC_PER_VOICE(2), .PHASE_W(PHASE_W),
+        .OSC_SAMPLE_W(16), .TIMBRE_N(4), .TIMBRE_W(TIMBRE_W),
+        .WT_DEPTH(1024), .WT_W(16),
+        .VELOCITY_BLEND_EN(0), .FIXED_BLEND_Q(0),
+        .ENABLE_FM(0), .DBG_LANE(1),
+        .DETUNE_ON(1), .DETUNE_SH(8)
+    ) u_osc_k169 (
+        .clk_i(clk), .rst_n_i(rst_n), .sample_tick_i(sample_tick),
+        .voice_active_i(voice_active),
+        .base_phase_inc_i(voice_phase_inc),
+        .voice_timbre_i(voice_timbre),
+        .voice_velocity_i(voice_velocity),
+        .vibrato_mod_i(16'sd0),
+        .test_mode_i(1'b0),
+        .test_lane_active_i({(POLY*2){1'b0}}),
+        .test_phase_inc_i({(POLY*2*PHASE_W){1'b0}}),
+        .fm_cfg_valid_i(1'b0), .fm_ratio_i(16'd0), .fm_index_i(16'd0),
+        .osc_sample_bus_o(ob_samples), .osc_valid_o(ob_valid),
+        .phase_acc_dbg_o(ob_phase_dbg),
+        //  ⭐ K-169 的**关键连线**：⭐ 起音相位复位 = **note_on 事件边沿**
+        //     （⭐ ⛔ 不再是"`voice_active` 的上升沿" ✅）
+        .voice_phase_rst_i(voice_retrig_reset)
+    );
+
+    // ═════════════════════════════════════════════════════════════════════════
     // DUT B · 小实例（POLY_TARGET=4）—— ⭐ **抢占判据在这里验**
     // ═════════════════════════════════════════════════════════════════════════
     localparam integer SP = 4;
@@ -1236,6 +1287,83 @@ module tb_note_manager;
             // ── 收尾：把手弹那条清掉（⭐ 本块是最后一个，但⛔ 不留半清状态）────
             note_src = 2'd0;
             release_a(4'd6);
+        end
+
+        // ═════════════════════════════════════════════════════════════════════
+        // ⭐⭐ K-169（2026-09-30）：⭐ **"旧音还在 Release 尾巴里时重按" ⇒ 相位必须复位** ✅
+        //
+        //  🔴 **守的缺陷**：⭐ 起音相位复位挂在 `voice_active`（= `live_mask`）的
+        //     **上升沿** ⇒ ⚠️ `live_mask = gate_r | retrig_low | env_active_i`
+        //     是**电平派生**的 ⇒ ⭐ 上一个音**还没释放完**时重按同一个轴
+        //     ⇒ ⭐ `live_mask` **恒为 1** ⇒ 🔴 **上升沿不存在** ⇒ ⭐ 复位被跳过
+        //     ⇒ 🔴 新音从残留相位起振 ⇒ ⭐ 两个失谐 lane 的 0°/90° 初相丢失
+        //     ⇒ 🔴 起音幅度随机（⭐ 用户原话：*"不同时间按下，音量不同"* ✅）
+        //
+        //  ⭐ **判据（4 条，⭐ 全是可失败的具体数值）**：
+        //     · 前置① ⭐ 重按之前该 voice 确实"**gate 已落但还在响**"（= Release 尾巴 ✅）
+        //        —— ⚠️ 否则"重按"会走**新分配**那条路（⭐ 有上升沿）⇒ **判据空洞** ✅
+        //     · 前置② ⭐ 重按之前相位**不等于**种子（⭐ 证明"确实需要一次复位" ✅）
+        //        —— ⭐ **非空洞性的核心**：⭐ 若相位本来就等于种子，
+        //           那"重按后等于种子"**什么都没证明**（`C83`）✅
+        //     · 前置③ ⭐ 新起音确实落在 **voice0**（⭐ 观测 lane = voice0 的 lane1 ✅）
+        //        —— ⚠️ 否则**看错了寄存器**，判据会静默失去意义 ✅
+        //     · ① ⭐ 重按之后**相位必须回到种子** `32'h4000_0000` ✅
+        //
+        //  📌 **非空洞性（红→绿，⭐ 见报告）**：
+        //     ⭐ 把 `oscillator_bank` 的判据改回【只看 `lane_active` 上升沿】
+        //     （⭐ 即改动前的旧边沿检测）⇒ ⭐ **第 ① 条必红**
+        //     （⭐ 实测相位停在 `0x4066_0000` 而⛔ 不是种子）✅
+        //     ⭐ 恢复"事件边沿 || 电平边沿"⇒ ⭐ **全绿** ✅
+        // ═════════════════════════════════════════════════════════════════════
+        begin : k169_phase_reset_on_repress
+            reg [2:0]         s4;
+            reg [IDX_W-1:0]   v169;
+            reg [PHASE_W-1:0] ph_pre;
+            integer           vi4;
+            // ── 清场：⭐ 所有轴 × **所有 4 个源**都松手（⭐ 与 A3-C 同一手法）────
+            //   ⚠️ **必须按【源】清**：⭐ 同轴异源是**独立 voice** ⇒ 🔴 只发 `src=0`
+            //      清不掉上一节（A3-C）留下的 `src=1/2/3` voice ⇒ ⭐ 池里仍有占用
+            //      ⇒ ⭐ 新音可能被分到**非 voice0** ⇒ 🔴 前置③ 会假红 ✅
+            for (s4 = 3'd0; s4 < 3'd4; s4 = s4 + 3'd1) begin
+                note_src = s4[1:0];
+                for (vi4 = 0; vi4 < 16; vi4 = vi4 + 1) release_a(vi4[AXIS_W-1:0]);
+            end
+            note_src = 2'd0;
+            run_ticks(400);      // ⭐ 让所有 Release 尾巴归零（`env_active` 全 0）
+
+            // ── 起音（轴 2）⇒ ⭐ 跑 5 个采样拍让相位【离开种子】────────────────
+            //   ⚠️ `press_a` 里的 `settle` **不产生 `sample_tick`** ⇒ ⭐ 这 5 拍
+            //      就是**精确的** 5 个采样步（⭐ 与 `run_ticks` 的语义一致 ✅）
+            press_a(4'd2, 32'h0010_0000, 8'd100);
+            v169 = saw_alloc_voice;
+            run_ticks(5);
+
+            // ── 松手 ⇒ ⭐ 进 Release 尾巴（⭐ 但**还没释放完**）────────────────
+            //   ⭐ `release_a` 也不产生 tick ⇒ ⭐ `run_ticks(1)` 只走 **1 个**
+            //      释放步 ⇒ ⭐ 包络残值 3345-3200 = 145 > 0 ⇒ `live_mask` 仍为 1 ✅
+            release_a(4'd2);
+            run_ticks(1);
+
+            chk("K-169 setup: voice live in release tail (gate=0, active=1)",
+                (voice_gate[v169] === 1'b0) && (voice_active[v169] === 1'b1));
+            ph_pre = ob_phase_dbg;
+            chk("K-169 setup: phase != seed before re-press (non-vacuous)",
+                ph_pre !== 32'h4000_0000);
+            chk("K-169 setup: the fresh voice is voice0 (probe lane matches)",
+                v169 === {IDX_W{1'b0}});
+
+            // ── 重按**同一个轴** ⇒ ⭐ 走"同轴重触发复用"⇒ ⭐ 没有 `live_mask` 上升沿
+            press_a(4'd2, 32'h0010_0000, 8'd100);
+            run_ticks(1);        // ⭐ 相位复位就在这一拍生效
+            $display("  INFO: K-169 phase before re-press = %08x, after = %08x",
+                     ph_pre, ob_phase_dbg);
+            chk("K-169: re-press in release tail reloads the phase seed",
+                ob_phase_dbg === 32'h4000_0000);
+
+            // ── 收尾：⭐ 松手并等尾巴归零（⛔ 不留半清状态）──────────────────
+            note_src = 2'd0;
+            release_a(4'd2);
+            run_ticks(400);
         end
 
         if (errors == 0)
