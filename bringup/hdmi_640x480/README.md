@@ -53,7 +53,28 @@ The default Gowin build produced a `.fs` and reported **0 setup and 0 hold viola
 
 Set the ten H/V timing parameters on `hdmi_top`; the derived totals can keep their defaults. `video_timing` and `color_bars` use those parameters, including eight bars scaled by `H_ACTIVE/8`. The full-frame testbench is fixed to 640x480: update its H/V constants, coordinate widths, and `bar()` thresholds when verifying another mode. Choose a pixel/serial clock pair at 1:5, update the PLL settings in `rtl/hdmi_clk.v`, and update both generated-clock ratios in `constr/hdmi_640x480.sdc`. The project name and build artifacts still say 640x480. For 1920x1200 at 154 MHz, the serializer clock must be 770 MHz and each TMDS lane carries 1.54 Gb/s; the existing 25/125 and 25.2/126 MHz modes cannot provide this. Recheck PLL VCO/output limits, IO/OSER10 rate, and post-route timing for that mode. The saved 176.035 MHz pixel-clock Fmax is for the 640x480 implementation only.
 
-The board has not been tested with a display. The OSER10 bit ordering, clock lane phase, PLL jitter, hot-plug behaviour, and display compatibility remain unverified on hardware. This project does not claim H2 on-board acceptance yet.
+## On-board verification (2026-09-30)
+
+**H2 acceptance criterion met.** `bitstreams/J_TOKENFIX_led.fs` (SHA-256
+`BA11B010D97C63579F861B633D8AE2D361E810BDEB97622B6F646EC62D88EA3E`) was programmed with SRAM Program onto the Tang Console 60K
+(GW5AT-LV60PG484AC1/I0) and the eight colour bars appeared on the attached HDMI
+display. The V13 heartbeat LED blinked at ~1 Hz, confirming the 50 MHz input
+clock and PLL lock.
+
+Established on hardware by that run: the TMDS pin assignment (from Sipeed's
+NEO_DOCK.cst, independently confirmed against nand2mario/tangcore
+`src/boards/console.cst`), the LVDS25 output path (TLVDS_OBUF + pair syntax),
+the OSER10 bit order and clock lane, and that this display accepts 640x480@60
+with a 25.000 MHz pixel clock (0.70 % off VESA DMT).
+
+Still unverified on hardware: PLL jitter margin, cable-length tolerance, other
+displays, and 1920x1200 (H4).
+
+> ⚠️ Getting here required fixing a real bug: the TMDS control codes for
+> `(c0,c1) = (1,0)` and `(0,1)` were swapped, and the testbench reference
+> table and decoder had copied the same wrong table, so round-trip simulation
+> passed while the emitted control codes were wrong. See the control-token
+> correction note above and `SPEC.md` section 4.
 
 ## Liveness LED
 
