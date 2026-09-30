@@ -116,7 +116,74 @@ parameter integer FIXED_BLEND_Q     = 0,
     //         ⭐ 太小（<3 cents）⇒ 拍频太慢（⭐ 十几秒才一拍）⇒ ⭐ 听不出厚度
     //         ⚠️ 太大（>20 cents）⇒ ⭐ 听起来"走音"（⭐ 而不是"厚"）
     //      ⚠️ 本项目 16 轴磁轴 ⇒ ⭐ 用户要"能听出和弦"，⭐ 6.7 cents 够厚且不走音
-    parameter integer DETUNE_SH     = 8
+    parameter integer DETUNE_SH     = 8,
+// ═════════════════════════════════════════════════════════════════════════════
+//  ⭐⭐ 2026-09-30 新增（鼓机音高包络 · 阶段 2b）：⭐ **鼓 voice 的向下扫频** ✅
+//
+//  🔴 **为什么必须加**（⭐ 用户原始反馈："鼓机听起来像**音高不同的节拍器**"）：
+//     · ⭐ 阶段 2a 已经把鼓 voice 切到**宽带噪声表** ⇒ ⭐ 不再是"纯音嘀嗒" ✅
+//     · 🔴 但 4 件乐器**仍然共用一个 `AXIS_ID`**、⭐ 事件里**没有乐器号** ⇒
+//        ⭐ 每件鼓的**音高是恒定的** ⇒ 🔴 底鼓听起来是"**一声低频噪声**"，
+//        ⛔ 不是"咚" ✅
+//     · ⭐ **真实底鼓** = 低频正弦 ＋ ⭐ **快速下滑的音高包络**
+//        （⭐ ~100 Hz → ~50 Hz / **50~80 ms** ✅）＋ ⭐ 击槌的"咔"（click ✅）
+//        ⭐ 嗵鼓同理（⭐ 滑得浅一些 ⇒ ⭐ 保留音高感 ✅）
+//     📌 本阶段**只做音高包络**（⭐ click 见下方 `DRUM_CLICK_*` 的说明 —— **未实装** ✅）
+//
+//  ⭐ **做法**：⭐ 给鼓 lane 的**相位增量**加一个**按采样拍指数衰减**的偏移
+//     ⇒ ⭐ 起音那一瞬间**瞬时频率最高** ⇒ ⭐ 之后指数回落
+//     ⇒ ⭐ 稳态**精确等于** `PHASE_INC`（⭐ 偏移衰减到 0 ✅）
+//
+//  🔴 **时序纪律（⭐ 本设计刚在 43.66 MHz 上挂掉，⭐ 队友在修）**：
+//     · ⛔ **无乘法器**、⛔ **无除法器**、⛔ **无 DSP**（⭐ 只移位 ＋ 加法 ✅）
+//     · ⛔ **不给相位通路加长组合链** —— ⭐ 偏移来自**寄存器** `sweep_q`
+//        ⇒ ⭐ 相位通路只多 **1 级 32 位加法器**（⭐ 见报告 ✅）
+//     · ⭐ 衰减是**自反馈寄存器**（⭐ 与相位通路**并行**，⛔ 不在关键路径上 ✅）
+//
+//  📌 **`DRUM_PITCH_ENV_EN = 0` 是编译期常量** ⇒ ⭐ 综合器把整块扫频逻辑
+//     **折叠掉**（⭐ 与 `VELOCITY_BLEND_EN = 0` 同一套路 ✅）
+//     ⇒ ⭐ 它同时是**非空洞性**开关：⭐ 置 0 跑 `tb_drum_pitch_env` ⇒ **判据必红** ✅
+// ═════════════════════════════════════════════════════════════════════════════
+    //  ⭐ 总开关：⭐ 1 = 开（⭐ 默认 ✅）· ⭐ 0 = 关（⭐ 非空洞性用 ✅）
+    parameter integer DRUM_PITCH_ENV_EN = 1,
+    //  ⭐ **衰减时间常数**：⭐ `τ = 2^DRUM_SWEEP_SH` 个采样拍
+    //     ⭐ `10` ⇒ τ = 1024 拍 · ⭐ @48.828 kHz = **21 ms**
+    //     ⇒ ⭐ 3τ ≈ 63 ms 落到 **5%** ⇒ ⭐ 正好落在"**50~80 ms 扫完**"区间 ✅
+    //     📌 **口径**：⭐ 每拍 `sweep <= sweep - (sweep >> SH) - 1`（⭐ 指数 ✅）
+    parameter integer DRUM_SWEEP_SH     = 10,
+    //  ⭐ **偏移定标**：⭐ `sweep_off = sweep_q << DRUM_SWEEP_LSB_SH`
+    //     ⭐ `8` ⇒ ⭐ `sweep_q` **只要 16 位**（⭐ 省 1024 个 FF —— 64 lane ✅）
+    //     ⚠️ 代价：⭐ 扫频**最低分辨** = 256（⭐ 对 `INC_KICK` 是 **0.004%** ⇒ 可忽略 ✅）
+    parameter integer DRUM_SWEEP_LSB_SH = 8,
+    //  ⭐ **每件鼓的扫频深度**：⭐ `深度 = base_inc >> SH`（⭐ SH 越大越浅 ✅）
+    //     · ⭐ **底鼓** `SH = 0` ⇒ ⭐ 深度 = **100% 标称** ⇒ ⭐ 起音 **2× 频率**
+    //       （⭐ ≈146 Hz → 73 Hz ⇒ ⭐ 与"~100→50 Hz"的**比例**一致 ✅）
+    //     · ⭐ **嗵鼓** `SH = 2` ⇒ ⭐ 深度 = **25%** ⇒ ⭐ 起音 **1.25×**
+    //       （⭐ 只"轻轻一滑" ⇒ ⭐ **保留音高感** —— ⭐ 那正是嗵鼓存在的意义 ✅）
+    //     · ⭐ **军鼓 / 踩镲**：⭐ **深度 0（不扫）** ✅
+    //       ⭐ 理由：⭐ 它们靠**噪声的宽带**辨识（⛔ 不靠音高）；⭐ 扫频只会让它"糊"；
+    //          ⭐ 军鼓的"啪"来自**包络**（`perc_env_bank`）⛔ 不是音高 ✅
+    parameter integer DRUM_KICK_SWEEP_SH = 0,
+    parameter integer DRUM_TOM_SWEEP_SH  = 2,
+    //  ⭐ **"这是哪件鼓"的判据 = 用 `base_inc` 就地分档** ✅
+    //     ⚠️ **为什么⛔ 不加一根"乐器号"总线**：⭐ 4 件乐器**共用 `AXIS_ID`**、
+    //        ⭐ 事件格式里**没有乐器字段**（⭐ 它本来就是靠 `PHASE_INC` 区分 ✅）
+    //        ⇒ ⭐ 想加就得改**冻结的 64 bit 事件格式** ⇒ 🔴 整条通路返工 ✅
+    //        ⇒ ⭐ **音高本身就是乐器身份** ⇒ ⭐ 就地分档是**最小改动** ✅
+    //     ⭐ 分档点（⭐ 相位增量 · ⭐ `inc = f × 2^32 / 48828.125 = f × 87961`）：
+    //        · ⭐ `6_442_451` ≈ 73 Hz（底鼓）· ⭐ `12_884_902` ≈ 146 Hz（嗵鼓）
+    //        · ⭐ `17_179_869` ≈ 195 Hz（军鼓）· ⭐ `171_798_691` ≈ 1953 Hz（踩镲）
+    //     ⇒ ⭐ 两道门限取在**两两之间**（⭐ 离两边都 ≥ 30% 余量 ⇒ ⭐ 不怕微调音高 ✅）
+    parameter integer DRUM_KICK_MAX     = 10_000_000,   // ⭐ ≈114 Hz（底鼓 / 嗵鼓 之间）
+    parameter integer DRUM_TOM_MAX      = 15_000_000,   // ⭐ ≈171 Hz（嗵鼓 / 军鼓 之间）
+    //  ⭐ **click（击槌的"咔"）—— ⚠️ 本阶段【未实装】**
+    //     ⭐ 留参数是为了**口径显式**（⭐ `K-106`：⛔ 不许静默失效 ✅）：
+    //     🔴 为什么不做：⭐ click 要"起音几个采样拍**额外加高频**"
+    //        ⇒ ⚠️ 要么**再选一张表**（⭐ 改 TDM 的选表 mux ＋ 标签 ✅），
+    //        ⚠️ 要么**在样本上加脉冲**（⭐ 动 `tdm_render_mixer` 的饱和口径 ✅）
+    //        ⇒ 🔴 **两者都会碰刚挂掉的那条时序路径** ⇒ ⭐ 本阶段**只做音高包络**，
+    //        ⭐ 把时序余量留给队友 ✅（⭐ 见报告"未做项" ✅）
+    parameter integer DRUM_CLICK_EN     = 0
 ) (
     input  wire                                             clk_i,
     input  wire                                             rst_n_i,
@@ -174,6 +241,15 @@ parameter integer FIXED_BLEND_Q     = 0,
     //    ⇒ 相位累加器取**高 AW 位**（MSB 对齐：DDS 的标准做法）
     localparam integer ADDR_MSB = PHASE_W - 1;
     localparam integer ADDR_LSB = PHASE_W - AW;
+
+    // ⭐⭐ 2026-09-30 新增（阶段 2b）：⭐ **扫频计数器宽度 ＋ 分档门限的定宽常量** ✅
+    //   ⭐ `16` 位 × ⭐ `<< 8` ⇒ ⭐ 偏移上限 = `65535 × 256 ≈ 16.7 M`
+    //      ⇒ ⭐ 够表达"底鼓深度 = `INC_KICK`(6.44 M)"✅（⭐ 余量 2.6× ✅）
+    //   ⚠️ `DRUM_KICK_MAX` / `DRUM_TOM_MAX` 是 `integer` 参数
+    //      ⇒ 🔴 **必须先落定宽 `localparam` 再比较**（⭐ `K-91`：⛔ 不对 integer 做位选 ✅）
+    localparam integer DRUM_SWEEP_W = 16;
+    localparam [PHASE_W-1:0] DRUM_KICK_MAX_C = DRUM_KICK_MAX;
+    localparam [PHASE_W-1:0] DRUM_TOM_MAX_C  = DRUM_TOM_MAX;
 
     // ═══════════════════════════════════════════════════════════════════════
     // ① ⭐⭐ 64 个【独立】相位累加器 + 本帧地址锁存（generate 展开）
@@ -289,9 +365,64 @@ parameter integer FIXED_BLEND_Q     = 0,
                                                + $signed({1'b0, detune_off})
                                                + $signed(vib_off);
 
+            //  ═══════════════════════════════════════════════════════════
+            //  ⭐⭐⭐⭐ 2026-09-30 新增（阶段 2b）：⭐ **鼓 lane 的向下扫频** ✅
+            //    ⭐ 目的：⭐ 让底鼓/嗵鼓起音时**瞬时频率高于标称**、⭐ 然后**指数回落**
+            //       ⇒ ⭐ 稳态**精确**回到 `PHASE_INC`（⭐ 偏移衰减到 0 ✅）
+            //    📌 参数语义与"为什么用音高分档"见模块头的长注释（⛔ 此处不重复 ✅）
+            //  ═══════════════════════════════════════════════════════════
+            //   ⭐ **本 lane 是不是底鼓 / 嗵鼓**（⭐ 两级比较器，⭐ 纯组合、⭐ 无乘法 ✅）
+            //     🔴 **必须与 `lane_drum` 相与** —— ⚠️ 否则一个"低音区"的**乐音** voice
+            //        （⭐ 如 BASS 的低八度）也会被扫频 ⇒ 🔴 低音会"滑音" ✅
+            //     ⚠️ 用 `base_inc`（⭐ 标称增量）而⛔ **不是** `lane_inc`：
+            //        ⭐ 后者含失谐/颤音/本扫频偏移 ⇒ 🔴 会**自反馈**（⭐ 越扫越偏 ✅）
+            wire is_kick_drum = lane_drum[g] && (base_inc <  DRUM_KICK_MAX_C);
+            wire is_tom_drum  = lane_drum[g] && (base_inc >= DRUM_KICK_MAX_C)
+                                             && (base_inc <  DRUM_TOM_MAX_C);
+
+            //   ⭐ **本档的扫频深度**（⭐ `base_inc >> (LSB_SH + 本档 SH)` ⇒ ⭐ 纯连线 ✅）
+            //     ⚠️ 赋给 16 位 ⇒ **高 16 位被截掉** ⇒ ⭐ 深度必须 < 65536
+            //        （⭐ 底鼓 `6_442_451 >> 8  = 25165` ✅ · ⭐ 嗵鼓 `12_884_902 >> 10 = 12582` ✅）
+            //        ⇒ ⭐ 模块末尾有**显式参数自检**（⭐ `K-106`：⛔ 不许静默截断 ✅）
+            wire [DRUM_SWEEP_W-1:0] sweep_kick =
+                base_inc >> (DRUM_SWEEP_LSB_SH + DRUM_KICK_SWEEP_SH);
+            wire [DRUM_SWEEP_W-1:0] sweep_tom  =
+                base_inc >> (DRUM_SWEEP_LSB_SH + DRUM_TOM_SWEEP_SH);
+            //   ⭐ **装载值**：⭐ 非鼓 / 非底鼓嗵鼓 / 总开关关 ⇒ ⭐ **0（不扫）** ✅
+            wire [DRUM_SWEEP_W-1:0] sweep_load =
+                (DRUM_PITCH_ENV_EN == 0) ? {DRUM_SWEEP_W{1'b0}}
+              : is_kick_drum             ? sweep_kick
+              : is_tom_drum              ? sweep_tom
+              :                            {DRUM_SWEEP_W{1'b0}};
+
+            //   ⭐ **扫频计数器**（⭐ 唯一新增的寄存器 —— ⭐ 每 lane `DRUM_SWEEP_W` 位 ✅）
+            reg  [DRUM_SWEEP_W-1:0] sweep_q;
+
+            //   ⭐ 当前**额外增量**（⭐ 左移定标 ⇒ ⭐ 纯连线、⛔ 无乘法器 ✅）
+            wire [PHASE_W-1:0] sweep_off =
+                {{(PHASE_W-DRUM_SWEEP_W){1'b0}}, sweep_q} << DRUM_SWEEP_LSB_SH;
+
+            //   ⭐⭐ **衰减**：⭐ `sweep <= sweep - (sweep >> SH) - 1`（⭐ 每采样拍一次 ✅）
+            //     · ⭐ `- (sweep>>SH)` ⇒ ⭐ **指数**衰减，⭐ 时间常数 ≈ `2^SH` 拍 ✅
+            //        （⭐ 听感上"**先快后慢**"—— ⭐ 正是真实鼓的音高包络形状 ✅）
+            //     · ⭐ `- 1`           ⇒ ⭐ **保证有限拍内精确到 0** ✅
+            //        （⚠️ 只减 `sweep>>SH` 的话，`sweep < 2^SH` 之后**永远差一点**
+            //         ⇒ 🔴 稳态频率被抬高 `sweep_q` 那一档 ⇒ 🔴 永远**settle 不到标称** ✅）
+            //     📌 只有 `sweep_q != 0` 才衰减 —— ⚠️ 否则 `0 - 1` 会**回绕成全 1**
+            //        ⇒ 🔴 稳态被加上一个**巨大**偏移 ✅（⭐ 这正是"没有 else 的保持"要防的 ✅）
+            wire [DRUM_SWEEP_W-1:0] sweep_dec =
+                sweep_q - (sweep_q >> DRUM_SWEEP_SH) - 1'b1;
+
+            //   ⭐⭐ 把扫频偏移**加到相位增量**上（⭐ 只在**正式通路** ✅）
+            //     ⭐ `test_mode_i` 仍直接走 `test_phase_inc_i` ⇒ ⭐ **test-mode 一个 bit 不变** ✅
+            //        （⭐ `T43`/`T55`/`M4` 的判据建立在"test 覆盖下相位照常前进"之上 ✅）
+            //     📌 **代价（⭐ 时序）**：⭐ 相位通路上多 **1 级 32 位加法器**
+            //        （⭐ `sweep_off` 来自**寄存器** ⇒ ⛔ 不产生新的长组合链 ✅）
+            wire [PHASE_W-1:0] lane_inc_sweep = lane_inc_s[PHASE_W-1:0] + sweep_off;
+
             wire [PHASE_W-1:0] lane_inc = test_mode_i
                              ? test_phase_inc_i[g*PHASE_W +: PHASE_W]
-                             : lane_inc_s[PHASE_W-1:0];
+                             : lane_inc_sweep;
 
             //   ⭐⭐ **去相关初相**（⭐ 2026-09-26 新增，⭐ 学自 `xls32` 源码）
             //
@@ -327,6 +458,7 @@ parameter integer FIXED_BLEND_Q     = 0,
                     phase_q       <= phase_seed;
                     addr_q        <= {AW{1'b0}};
                     lane_active_d <= 1'b0;
+                    sweep_q       <= {DRUM_SWEEP_W{1'b0}};   // ⭐ 阶段 2b：复位 ⇒ 无扫频
                 end else if (sample_tick_i) begin
                     // ⭐ 地址锁存用**本帧起始**的相位（DDS 标准做法），
                     //   然后相位再前进 ⇒ ⭐ 保证整帧 64 个样本来自**同一时刻**的相位
@@ -389,10 +521,26 @@ parameter integer FIXED_BLEND_Q     = 0,
                     //  📌 **代价**：⭐ 每 lane 1 个 2 输入 OR ＋ 1 个 1 位比较 ⇒ 可忽略 ✅
                     //  ═══════════════════════════════════════════════════════
                     if (!test_mode_i && (phase_rst_lane
-                                         || (lane_active && !lane_active_d)))
+                                         || (lane_active && !lane_active_d))) begin
                         phase_q <= phase_seed;         // ⭐ 起音：回到设计初相
-                    else if (lane_active)
-                        phase_q <= phase_q + lane_inc;
+                        //  ⭐⭐ 阶段 2b：⭐ **起音 ⇒ 装载本档的扫频深度** ✅
+                        //     🔴 **为什么必须挂在【同一个条件】上**：⭐ 扫频是"**起音事件**"
+                        //        的包络 ⇒ ⭐ 与相位复位**同源同拍**才不会错位 ✅
+                        //        （⭐ `voice_phase_rst_i` 那条新路径 / ⭐ `lane_active`
+                        //         上升沿那条兼容路径 **两条都覆盖** ✅）
+                        //     ⭐ 非鼓 / ⭐ 军鼓踩镲 / ⭐ 总开关关 ⇒ ⭐ `sweep_load = 0`
+                        //        ⇒ ⭐ **行为与加本功能之前完全一致** ✅
+                        sweep_q <= sweep_load;
+                    end else begin
+                        if (lane_active)
+                            phase_q <= phase_q + lane_inc;
+                        //  ⭐⭐ 阶段 2b：⭐ **扫频衰减**（⭐ 每采样拍一次 ✅）
+                        //     📌 **与 `lane_active` 无关** —— ⭐ 扫频是"**时间**包络"，
+                        //        ⛔ 不是"相位"包络；⭐ 且非鼓 lane 的 `sweep_q` 恒为 0 ✅
+                        //        ⇒ ⭐ 少一级门控（⭐ 省逻辑、⭐ 且语义更直白 ✅）
+                        if (sweep_q != {DRUM_SWEEP_W{1'b0}})
+                            sweep_q <= sweep_dec;
+                    end
                 end
             end
 
@@ -614,6 +762,21 @@ parameter integer FIXED_BLEND_Q     = 0,
         if (ENABLE_FM != 0)
             $display("WARNING [oscillator_bank] ENABLE_FM=%0d 但 FM **尚未实装**（A2c：先留接口、后加）",
                      ENABLE_FM);
+        //  ⭐⭐ 2026-09-30 新增（阶段 2b）：⭐ **扫频深度的【截断】自检** ✅
+        //   🔴 为什么必须有（⭐ `K-106`：⛔ 不许静默失效 ✅）：
+        //      ⭐ `sweep_q` 只有 `DRUM_SWEEP_W`(16) 位，⭐ 而装载值是
+        //      `base_inc >> (LSB_SH + SH)` ⇒ ⚠️ 若有人把 `DRUM_SWEEP_LSB_SH`
+        //      调小（⭐ 例如 0）、⭐ 或把 `DRUM_KICK_MAX` 调大 ⇒
+        //      🔴 **高位移出被静默截断** ⇒ ⭐ 扫频深度**比参数说的小**，⭐ 且**毫无报错** ✅
+        //   ⭐ 判据：⭐ 门限上界对应的深度必须**装得进** `DRUM_SWEEP_W` 位 ✅
+        if ((DRUM_PITCH_ENV_EN != 0)
+            && (((DRUM_KICK_MAX - 1) >> (DRUM_SWEEP_LSB_SH + DRUM_KICK_SWEEP_SH))
+                >= (1 << DRUM_SWEEP_W)))
+            $display("ERROR [oscillator_bank] 扫频深度被截断：DRUM_KICK_MAX=%0d >> (%0d+%0d) 超过 %0d 位",
+                     DRUM_KICK_MAX, DRUM_SWEEP_LSB_SH, DRUM_KICK_SWEEP_SH, DRUM_SWEEP_W);
+        if ((DRUM_PITCH_ENV_EN != 0) && (DRUM_CLICK_EN != 0))
+            $display("WARNING [oscillator_bank] DRUM_CLICK_EN=%0d 但 **click 尚未实装**（阶段 2b 只做音高包络）",
+                     DRUM_CLICK_EN);
     end
 
 endmodule
