@@ -21,9 +21,11 @@
  *   FPGA 侧 rtl/w3c/evt_uart_rx.v:203 的空闲归位【只在帧中途】触发：
  *       idle_expired && (idx_q != 4'd0)
  *   ⇒ 帧间可任意停顿；🔴 只有一帧【内部】被打断才截帧。
- *   1 Mbps 下门限 = 16 字节时间 = 160 µs。
+ *   ⚠️ 门限随波特率【同比】变化（`GAP_BYTES = 16`，`evt_uart_rx.v:86`）：
+ *      · **500 kbps（⭐ 当前档）** ⇒ 1 字节 = 20 µs ⇒ 门限 = **320 µs**
+ *      · （⭐ 对照 1 Mbps：160 µs —— ⚠️ 已不用该档）
  *   ⚠️ 而 BLE 的数据是**按 ATT 包投递**的：一个 9 字节帧可能被切成两个包
- *      ⇒ 中间隔一个连接间隔（7.5~30 ms）⇒ 🔴 远超 160 µs ⇒ 必然截帧。
+ *      ⇒ 中间隔一个连接间隔（7.5~30 ms）⇒ 🔴 远超门限 ⇒ 必然截帧。
  *   ⇒ ⭐ 9N 对齐把"写进 UART 的永远凑成完整帧"这件事保证住。
  * ============================================================================
  */
@@ -67,6 +69,10 @@ static volatile uint32_t s_ble_rx_bytes   = 0;
 static volatile uint32_t s_ble_rx_dropped = 0;
 static volatile uint32_t s_uart_tx_bytes  = 0;
 static volatile uint32_t s_uart_rx_bytes  = 0;
+/* ⭐ 2026-09-30：识别到的起播触发字符数（'S'/'X'/'R'）。
+ * 🔴 用途：把"发了 S 没反应"一刀切成三段（⭐ 见 status 打印处的注释）：
+ *    · `u_rx` 不动 ⇒ 物理层；`u_rx` 动而 `trig=0` ⇒ 字符没认出；`trig>0` ⇒ 看起播逻辑。 */
+static volatile uint32_t s_trig_cnt       = 0;
 static volatile uint32_t s_ble_tx_bytes   = 0;
 static volatile uint32_t s_ble_tx_failed  = 0;
 
@@ -544,7 +550,59 @@ static void task_drain(void *arg)
 }
 
 /* ===========================================================================
- * 任务 2：UART -> BLE（反向通路）
+ * ⭐ 起播触发（2026-09-30 新增）
+ * ===========================================================================
+ * 🔴 为什么需要它：`pool_start()` 原本【零调用】⇒ `s_running` 恒 false
+ *    ⇒ **`GPIO17` 永远不发数据**（`sent=` 恒 0）。
+ *
+ * ⚠️ 起播归属是一个【尚未裁定】的架构问题（方案③ vs 模式B 互斥）——
+ *    ⭐ 详见 `files/20-代码/矛盾裁定单-方案3与模式B-20260930.md`。
+ *    ⚠️ 本节**不预设裁定结果**，只让"能起播"这件事可测。
+ *
+ * ⭐ 三种触发（编译期由 `BLE_START_TRIGGER` 选，见 `ble_config.h` §9c）：
+ *    · SERIAL —— 从 UART1 RX 收单字符（⭐ 默认，⛔ 无需接线）
+ *                ⚠️ 解析点在 `task_uart_to_ble()` 里（⭐ 那个任务已持有读口）
+ *    · GPIO   —— 板载 BOOT 键（`GPIO0`），⭐ 见 `task_start_trigger()`
+ *    · NONE   —— 关闭
+ * =========================================================================== */
+
+/* ⭐ 统一的"起播/停/清"动作（⚠️ 触发源共用，逻辑只写一份） */
+static void start_action_play(void)
+{
+    size_t n = pool_frames();
+    if (n == 0) {
+        /* ⚠️ 池空时起播没意义 —— `pool_start()` 会 `pool_peek_word(0)`，
+         *    池空时返回 0 ⇒ `s_t0_tick = 0` ⇒ ⚠️ 不崩但无意义。 */
+        ESP_LOGW(TAG, "START ignored: pool is EMPTY (feed frames first)");
+        return;
+    }
+    if (pool_is_running()) {
+        ESP_LOGW(TAG, "START ignored: already running (sent=%lu)",
+                 (unsigned long)pool_frames_sent());
+        return;
+    }
+    ESP_LOGW(TAG, ">>> START requested (pool=%u frames) <<<", (unsigned)n);
+    pool_mark_done();     /* ⭐ 先"封口"：此后池只出不进（⭐ 并做 mismatch 校验） */
+    pool_start();         /* ⭐ 真正开闸 */
+    hmi_set_state(HMI_ST_PLAYING);
+}
+
+static void start_action_stop(void)
+{
+    ESP_LOGW(TAG, ">>> STOP requested <<<");
+    pool_stop();
+    hmi_set_state(HMI_ST_READY);
+}
+
+static void start_action_reset(void)
+{
+    ESP_LOGW(TAG, ">>> RESET requested (clear pool) <<<");
+    pool_reset();
+    hmi_set_state(HMI_ST_IDLE);
+}
+
+/* ===========================================================================
+ * 任务 2：UART -> BLE（反向通路）+ ⭐ 起播触发（SERIAL 模式）
  * =========================================================================== */
 static void task_uart_to_ble(void *arg)
 {
@@ -557,6 +615,29 @@ static void task_uart_to_ble(void *arg)
             continue;
         }
         s_uart_rx_bytes += n;
+
+        /* ⭐⭐ 2026-09-30：起播触发（⭐ SERIAL 模式）就在这里处理。
+         * 🔴 **为什么放在这个任务里而不是单开一个任务**：
+         *    ⚠️ `uart_read_bytes` 【同一个 UART 只能有一个读者】——
+         *    开两个任务会【互相偷字节】（⭐ 各拿到一部分，两边都残缺）。
+         *    ⭐ 本任务本来就持有这个读口 ⇒ 顺手解析，⛔ 不增加并发风险。
+         * ⚠️ 触发字符是【裸 ASCII】（`S`/`X`/`R`），
+         *    ⛔ 不是 9 字节帧 ⇒ 与下面的 notify 通路不冲突。 */
+#if BLE_START_TRIGGER == BLE_START_TRIG_SERIAL
+        for (int i = 0; i < n; i++) {
+            uint8_t c = buf[i];
+            if (c == 'S' || c == 's') {
+                s_trig_cnt++;
+                start_action_play();
+            } else if (c == 'X' || c == 'x') {
+                s_trig_cnt++;
+                start_action_stop();
+            } else if (c == 'R' || c == 'r') {
+                s_trig_cnt++;
+                start_action_reset();
+            }
+        }
+#endif
 
         if (!s_connected || s_handle_noti == 0) {
             continue;
@@ -598,7 +679,18 @@ static void task_status(void *arg)
         ESP_LOGI(TAG,
                  "ble_rx=%lu | pool=%u/%u (%s) sent=%lu | ovf=%lu late=%lu | "
                  "total=%lu tf=%lu rst=%lu unk=%lu | "
-                 "exp=%lu mismatch=%lu clamp=%lu | mtu=%u | %s",
+                 "exp=%lu mismatch=%lu clamp=%lu | "
+                 /* ⭐ 2026-09-30：把 UART1【接收】字节数与触发字符计数打出来。
+                  * 🔴 为什么需要它：起播触发（SERIAL 模式）走的是 UART1 RX
+                  *    ⇒ ⚠️ 若"发了 S 却没反应"，光看 `sent=` 分不清是
+                  *      【线没接上/波特率不对】还是【固件逻辑没触发】。
+                  *    ⭐ 有了 `u_rx=`（收到的总字节）和 `trig=`（识别到的触发）
+                  *      就能一刀切开：
+                  *        · `u_rx` 不动 ⇒ 🔴 物理层（接线/波特率/共地）
+                  *        · `u_rx` 动了但 `trig=0` ⇒ 🔴 引脚对但字符没认出
+                  *        · `trig>0` 而 `sent=0` ⇒ 🔴 是起播逻辑的问题
+                  * ⚠️ 之前只有模式 A 打 `uart_rx=`（见下方 #else），模式 B 缺。 */
+                 "u_rx=%lu trig=%lu | mtu=%u | %s",
                  (unsigned long)rx,
                  (unsigned)ps.frames, (unsigned)ps.capacity_frames,
                  ps.in_psram ? "PSRAM" : "DRAM",
@@ -612,6 +704,8 @@ static void task_status(void *arg)
                  (unsigned long)ps.expected_frames,    /* ⭐ 应到帧数 */
                  (unsigned long)ps.total_mismatch,     /* 🔴 实收≠应到（应恒为 0） */
                  (unsigned long)ps.tick_clamped_cnt,   /* ⚠️ tick 限流截断次数 */
+                 (unsigned long)s_uart_rx_bytes,       /* ⭐ UART1 收到的总字节 */
+                 (unsigned long)s_trig_cnt,            /* ⭐ 识别到的触发字符数 */
                  (unsigned)s_mtu,
                  s_connected ? "CONN" : "----");
 #else
@@ -631,6 +725,52 @@ static void task_status(void *arg)
 #endif
     }
 }
+
+/* ===========================================================================
+ * 起播触发的 GPIO 变体（⭐ 仅 `BLE_START_TRIGGER == GPIO` 时编译）
+ * ===========================================================================
+ * ⚠️ 用板载 BOOT 键（`GPIO0`，低有效）。
+ * ⭐ 轮询 + 消抖（⛔ 不用中断，⭐ 省事且够用）。
+ * ⚠️ `BLE_BTN_POLL_MS` / `BLE_BTN_DEBOUNCE_MS` 都 ≥ 10 ms，
+ *    ⛔ 不会被 `pdMS_TO_TICKS` 塌成 0（⭐ 见 ble_config.h §9b 的教训）。
+ * =========================================================================== */
+#if BLE_START_TRIGGER == BLE_START_TRIG_GPIO
+void task_start_trigger(void *arg)
+{
+    (void)arg;
+    int stable = 1;
+    int low_ms = 0;
+
+    ESP_LOGI(TAG, "start trigger = GPIO%d (BOOT button, active low)",
+             BLE_BTN_GPIO);
+
+    gpio_config_t io = {
+        .pin_bit_mask = (1ULL << BLE_BTN_GPIO),
+        .mode         = GPIO_MODE_INPUT,
+        .pull_up_en   = GPIO_PULLUP_ENABLE,     /* ⭐ 板载键低有效 */
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type    = GPIO_INTR_DISABLE,      /* ⭐ 轮询，⛔ 不用中断 */
+    };
+    ESP_ERROR_CHECK(gpio_config(&io));
+
+    for (;;) {
+        int now = gpio_get_level(BLE_BTN_GPIO);
+        if (now == 0) {
+            if (low_ms < BLE_BTN_DEBOUNCE_MS) {
+                low_ms += BLE_BTN_POLL_MS;
+            } else if (stable == 1) {
+                stable = 0;                     /* ⭐ 消抖后确认"按下"边沿 */
+                ESP_LOGI(TAG, "button pressed");
+                start_action_play();
+            }
+        } else {
+            low_ms = 0;
+            stable = 1;
+        }
+        vTaskDelay(BLE_DELAY_TICKS_AT_LEAST_1(BLE_BTN_POLL_MS));
+    }
+}
+#endif /* BLE_START_TRIGGER == BLE_START_TRIG_GPIO */
 
 /* ===========================================================================
  * 入口
@@ -699,6 +839,20 @@ void app_main(void)
     pool_reset();
     xTaskCreate(task_pool_pump, "pump", 4096, NULL, BLE_TASK_PRIO_DRAIN, NULL);
     ESP_LOGW(TAG, "MODE B (pool): feed whole score first.");
+
+    /* ⭐ 起播触发（2026-09-30 新增）
+     * ⚠️ 只有 GPIO 模式需要独立任务 ——
+     *    SERIAL 模式的解析点在 `task_uart_to_ble()` 里
+     *    （⭐ 那个任务已持有 UART 读口；🔴 开两个读者会【互相偷字节】）。 */
+#if BLE_START_TRIGGER == BLE_START_TRIG_GPIO
+    xTaskCreate(task_start_trigger, "start", 3072, NULL, BLE_TASK_PRIO_STATUS, NULL);
+    ESP_LOGW(TAG, "START trigger = GPIO%d (BOOT button): press to start", BLE_BTN_GPIO);
+#elif BLE_START_TRIGGER == BLE_START_TRIG_SERIAL
+    ESP_LOGW(TAG, "START trigger = SERIAL: send 'S' to UART%d RX (GPIO%d) to start",
+             BLE_UART_PORT, BLE_PIN_UART_RX);
+#else
+    ESP_LOGW(TAG, "START trigger = NONE: pool_start() will never be called");
+#endif
 #endif
     ESP_LOGI(TAG, "ready. scan for \"%s\" from phone/PC.", BLE_DEV_NAME);
 }

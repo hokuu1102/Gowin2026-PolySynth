@@ -45,6 +45,20 @@ import struct
 import sys
 import time
 
+# --- 控制台 UTF-8（⚠️ 中文 Windows 默认 GBK，会炸）----------------------------
+# 🔴 实测于 2026-09-30：控制台代码页 936 时，本脚本第一个 print（含 ⛔/⭐ 等
+#    非 GBK 字符）就抛 UnicodeEncodeError 直接退出：
+#        UnicodeEncodeError: 'gbk' codec can't encode character '\u26d4'
+#    ⇒ ⭐ 与 send_frames.py 同一处理：启动即把 stdout/stderr 重配成 UTF-8。
+#    ⚠️ 这样就【不需要】外部再设 PYTHONIOENCODING。
+for _n in ("stdout", "stderr"):
+    _s = getattr(sys, _n, None)
+    if _s is not None and hasattr(_s, "reconfigure"):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
 # ---- 与夹具/固件一致的常量 --------------------------------------------------
 FRAME_BYTES   = 9
 HDR_EVENT     = 0xA5
@@ -82,14 +96,57 @@ def fake_song(n_events: int) -> bytes:
         kind   [10:9]    2 bit
         timbre [8]       1 bit
         rsvd   [7:0]     8 bit（必须 0）
+
+    ⛔⛔ 本函数【只发 note_on / note_off，绝不发 kind==2 (TEMPO)】⛔⛔
+    ==================================================================
+    🔴 2026-09-30 上机实测（ESP32 硬件）确认的缺陷根因：
+
+      旧实现 `kind = i % 4` ⇒ 200 个事件里有 50 个 kind==2。
+      但冻结契约里 kind 的语义是：
+          kind == 0  → note_on
+          kind == 1  → note_off
+          kind == 2  → TEMPO CHANGE（⭐ 此时 inc 被重新解释成新的 tick_inc！）
+          kind == 3  → undefined / 未使用
+
+      固件读到 kind==2 时会做两件事：
+        ① s_tick_inc = inc         ← 把 inc 当成 tempo 的 tick_inc
+        ② 重新锚定时间基准 s_t0_tick = tick; s_t0_us = now
+
+      ⚠️ 后果：假曲谱的 inc 只是随便给的一个"相位增量"（~100000），
+         被当成 tick_inc 后，每一次 tempo 事件都会把固件的
+         【~10 秒 lead ticks 预热】重新计时 ⇒ 喂帧节奏被反复打断。
+         实测固件日志：
+             pool: tempo @tick=1222 -> tick_inc=53900 (time base re-anchored)
+         结果：固件只喂出 3 帧就停了，⛔ 根本发不满 200 帧 ⇒
+              【喂帧节奏 / 时序测试无法通过】。
+         （帧完整性测试不受影响：9N 对齐、帧头 0xA5 都还是对的，
+           所以这个 bug 只在 pace/timing 测试上暴露。）
+
+    ⇒ ⭐ 因此假曲谱必须是【语义合法、单调递增、⛔ 无任何 tempo 事件的音符序列】。
+      ⛔ 请勿"好心"把 kind==2 加回来当"更丰富的测试"——
+      它会在硬件上破坏喂帧时序，让 timing 测试永远过不了。
+
+    本实现的取值约定：
+      · tick : 1000 + i*37   —— ⭐ 严格单调递增（测试流程文档依赖首帧 tick==1000）
+      · inc  : 常量 BLE_POOL_DEFAULT_TICK_INC —— ⭐ 音符帧的 inc 是【振荡器相位增量
+               （即音高）】，本来就该是常数；⛔ 逐事件乱变是没有意义的
+      · kind : 偶数 → note_on(0)，奇数 → note_off(1)，⭐ 成对出现
+      · axis / vel / timbre 照旧变化（⭐ 无害，用来锻炼各个位域）
+      · rsvd : 恒为 0（契约要求）
     """
+    # 固件 ble_pool / 合成器在 120 BPM 下的默认相位增量。
+    # ⚠️ 音符帧的 inc 表示音高（相位增量），⭐ 必须是常数，⛔ 不能逐事件变化。
+    NOTE_INC = 164927          # = 固件 BLE_POOL_DEFAULT_TICK_INC @120BPM
+
     out = bytearray()
     for i in range(n_events):
-        tick = 1000 + i * 37
-        inc  = 100000 + (i % 50) * 1300
+        tick = 1000 + i * 37                  # ⭐ 严格单调递增
+        inc  = NOTE_INC                       # ⭐ 常数（音高），⛔ 不随 i 变化
         axis = i % 16
         vel  = 60 + (i % 60)
-        kind = i % 4
+        # ⭐ 只允许 0/1：偶数 = note_on，奇数 = note_off。
+        # ⛔ 绝不产生 2 (TEMPO) 或 3 (undefined)。
+        kind = i % 2
         timb = i % 2
         word = ((tick & 0xFFFFF) << 44) | \
                ((inc & 0x3FFFFF) << 22) | \
