@@ -76,6 +76,12 @@ static volatile uint32_t s_uart_rx_bytes  = 0;
 static volatile uint32_t s_trig_cnt       = 0;
 static volatile uint32_t s_ble_tx_bytes   = 0;
 static volatile uint32_t s_ble_tx_failed  = 0;
+/* ⭐⭐ 2026-09-30（B 子集）：CMD 口（`0xABF3`）的命令计数
+ * ⚠️ 分开记"认得"与"不认得" —— ⭐ 这样"发了没反应"能一刀切开：
+ *    · `cmd_ok` 涨 ⇒ ⭐ 命令认得，去看它干了什么
+ *    · `cmd_unk` 涨 ⇒ 🔴 **命令格式对不上**（⭐ 不是"没生效"） */
+static volatile uint32_t s_cmd_ok        = 0;
+static volatile uint32_t s_cmd_unknown   = 0;
 
 /* ---- ⭐ 帧头分类相关（⭐ 详见下面 frame_filter 的说明）--------------------
  * ⚠️ 必须定义在这里：⭐ gatts 回调（数据入口）就要读 s_song_total，
@@ -254,6 +260,75 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event,
     }
 }
 
+/* ⭐⭐ 2026-09-30 夜：CMD 要用到起播/停止动作，而它们定义在【下方】（L732+）
+ * ⇒ ⭐ 必须先【前置声明】，⛔ 否则编译报 implicit declaration。 */
+static void start_action_play(void);
+static void start_action_stop(void);
+
+#if BLE_LED_ENABLE
+/* ===========================================================================
+ * ⭐⭐ 2026-09-30 夜：BLE 连接指示灯（⭐ 用户 Q4 裁定）
+ * ===========================================================================
+ * ⭐ 用途：⭐ **不接串口屏也能一眼看出蓝牙连上没有**（⭐ 屏要 5V + 接线，灯不用）。
+ * ⚠️ 用【普通 GPIO】驱动外部 LED，⛔ 不用板载 RGB（`38/48`，⭐ 见 ble_config 的说明）。
+ */
+static void led_init(void)
+{
+    gpio_config_t io = {
+        .pin_bit_mask = (1ULL << BLE_LED_GPIO),
+        .mode         = GPIO_MODE_OUTPUT,
+        .pull_up_en   = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_DISABLE,
+        .intr_type    = GPIO_INTR_DISABLE,
+    };
+    esp_err_t err = gpio_config(&io);
+    if (err != ESP_OK) {
+        ESP_LOGE(TAG, "led: gpio_config failed: %s", esp_err_to_name(err));
+        return;
+    }
+    /* ⚠️ 上电先灭 —— ⭐ 明确初始状态，⛔ 不靠默认电平 */
+    gpio_set_level(BLE_LED_GPIO, BLE_LED_ACTIVE_HIGH ? 0 : 1);
+    ESP_LOGI(TAG, "led: GPIO%d ready (%s active)",
+             BLE_LED_GPIO, BLE_LED_ACTIVE_HIGH ? "high" : "low");
+}
+
+static void led_set(bool on)
+{
+    int lvl = on ? (BLE_LED_ACTIVE_HIGH ? 1 : 0) : (BLE_LED_ACTIVE_HIGH ? 0 : 1);
+    gpio_set_level(BLE_LED_GPIO, lvl);
+}
+#endif /* BLE_LED_ENABLE */
+
+/* ===========================================================================
+ * ⭐⭐ 2026-09-30（B 子集）：CMD 命令 —— 上报状态
+ * ===========================================================================
+ * ⭐ 语义：把当前状态**序列化成一行文本**，放进 `0xABF4`(STAT)。
+ * 🔴 **STAT 是只读属性、⛔ 不能 notify** ⇒ 这只是"更新内容"，
+ *    ⭐ **必须客户端主动读**才拿得到（⭐ 见 `gatt_svc.c` 的 `gatt_set_stat`）。
+ *    ⇒ ⚠️ 所以这里**同时打日志** —— 否则分不清
+ *      "命令没生效" 与 "生效了但客户端没读"。
+ */
+static void cmd_report_status(void)
+{
+    char line[64];
+    pool_stats_t ps;
+    up_ring_stats_t us;
+    pool_stats(&ps);
+    up_ring_stats(&us);
+
+    int n = snprintf(line, sizeof(line),
+                     "pool=%u/%u sent=%lu ovf=%lu|ring=%lu u_drop=%lu/%lu\n",
+                     (unsigned)ps.frames, (unsigned)ps.capacity_frames,
+                     (unsigned long)ps.sent_frames,
+                     (unsigned long)ps.overflow_frames,
+                     (unsigned long)us.level,
+                     (unsigned long)us.drop_ev, (unsigned long)us.drop);
+    if (n > 0) {
+        gatt_set_stat((const uint8_t *)line, (size_t)n);
+        ESP_LOGW(TAG, "STAT updated: %s", line);
+    }
+}
+
 /* ===========================================================================
  * GATT 事件 —— ⭐ 全工程【唯一】的 gatts 回调
  * ===========================================================================
@@ -345,6 +420,15 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
         s_connected = true;
         ESP_LOGI(TAG, "BLE CONNECTED conn_id=%d", s_conn_id);
         hmi_set_bt_connected(true);
+#if BLE_LED_ENABLE
+        /* ⭐⭐ 2026-09-30 夜：连上就点亮（⭐ 用户 Q4「让灯亮一下」）
+         * ⚠️ 注意：⭐ 这里只是"物理连接"，⚠️ **还未订阅**（CCCD）。
+         *    🔴 所以【放水】绝不能在这里开始 —— ⭐ 那会发进虚空
+         *    （⭐ 实测：连上后 700ms 内环被排空，PC 侧 0 个包）。
+         *    ⭐ 灯的语义是"连上了"，⭐ 放水的语义是"订阅了"，
+         *    ⚠️ **两者刻意分开**（⭐ 灯早就亮，不代表数据能发）。 */
+        led_set(true);
+#endif
 
         /* ⭐ 立刻请求大 MTU（⚠️ 默认 23 ⇒ 有效载荷仅 20 字节，整曲要 5200+ 包） */
         esp_ble_gatt_set_local_mtu(BLE_PREFERRED_MTU);
@@ -352,6 +436,9 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
 
     case ESP_GATTS_DISCONNECT_EVT:
         s_connected = false;
+#if BLE_LED_ENABLE
+        led_set(false);                   /* ⭐ 断开 ⇒ 灭 */
+#endif
         /* ⭐⭐ 2026-09-30：订阅状态**随连接失效** ⇒ ⭐ 必须清掉
          *    ⚠️ 否则重连后、客户端**还没订阅**时，固件会以为"可以发了"
          *    ⇒ 🔴 又把数据发进虚空（⭐ 这正是本次要修的缺陷）。
@@ -369,6 +456,7 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
         s_mtu = param->mtu.mtu;
         ESP_LOGI(TAG, "MTU negotiated = %d (payload %d)", s_mtu, s_mtu - 3);
         break;
+
 
     /*
      * ⭐ 收到对端写数据 —— 这是"数据入口"
@@ -401,7 +489,74 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
             break;
         }
 
-        if (h == s_handle_recv || h == s_handle_cmd) {
+        /* ⭐⭐ 2026-09-30（B 子集）：**`0xABF3`(CMD) 单独解析** —— ⛔ 不再当曲谱数据
+         * -----------------------------------------------------------------
+         * 🔴 **原来这里是个真缺陷**：判据写成
+         *      `if (h == s_handle_recv || h == s_handle_cmd)`
+         *    ⇒ ⚠️ 往 CMD 口写的东西**被当成曲谱数据塞进缓冲**
+         *    ⇒ 🔴 **CMD 口等于废的**（⭐ 写了什么后果都不可控）。
+         *
+         * ⭐ 本步只实现【与架构无关】的两个命令（⭐ 见下）：
+         *      `0x01` = 清池（`pool_reset`）      —— ✅ 无争议
+         *      `0x02` = 上报状态（写 `0xABF4`）   —— ✅ 无争议
+         * ⛔ **刻意不做**：起播 / 停止 / 清环
+         *    ⇒ ⚠️ 因为"起播归谁管"**尚未裁定**（方案③ vs 模式B 互斥）
+         *    ⇒ ⭐ 见 `files/20-代码/矛盾裁定单-方案3与模式B-20260930.md`
+         *    ⛔ **不要顺手加** —— 那会与未定的架构冲突。 */
+        if (h == s_handle_cmd) {
+            for (uint16_t i = 0; i < len; i++) {
+                uint8_t c = val[i];
+                switch (c) {
+                case 0x01:                       /* ⭐ 清池 */
+                    ESP_LOGW(TAG, "CMD 0x01: pool reset");
+                    pool_reset();
+                    s_cmd_ok++;
+                    break;
+                case 0x02:                       /* ⭐ 上报状态（写 0xABF4） */
+                    ESP_LOGW(TAG, "CMD 0x02: status report requested");
+                    cmd_report_status();
+                    s_cmd_ok++;
+                    break;
+                /* ⭐⭐ 2026-09-30 夜新增（⭐ 用户 Q1 裁定后【不再被阻塞】）
+                 * -----------------------------------------------------------------
+                 * 🔴 **为什么原来不做**：⚠️ "起播归谁管"当时**未裁定**
+                 *    （方案③ vs 模式B 互斥）⇒ ⭐ 怕与未定的架构冲突。
+                 * ✅ **现已拍板**：⭐ **走模式 B，起播键在 ESP32**
+                 *    ⇒ 📌 出处 `files/20-代码/用户裁定结果-20260930.md` §〇
+                 *
+                 * ⭐ 语义：
+                 *    `0x03` ⇒ ⭐ **起播**（= 串口 `S` 的等价物）
+                 *    `0x04` ⇒ ⭐ **停止**（= 串口 `X`）
+                 * ⚠️ 复用 `start_action_play/stop/reset` ——
+                 *    ⭐ 它们**已带判据**（池空则拒绝、已在跑则忽略），
+                 *    ⛔ 不另写一套，避免两条路径行为不一致。 */
+                case 0x03:                       /* ⭐ 起播 */
+                    ESP_LOGW(TAG, "CMD 0x03: START (play)");
+                    start_action_play();
+                    s_cmd_ok++;
+                    break;
+                case 0x04:                       /* ⭐ 停止 */
+                    ESP_LOGW(TAG, "CMD 0x04: STOP");
+                    start_action_stop();
+                    s_cmd_ok++;
+                    break;
+                default:
+                    /* ⚠️ 未知命令【计数 + 报出来】，⛔ 不静默吞掉
+                     *    （⭐ 静默吞会让人误以为"命令生效了但没反应"） */
+                    s_cmd_unknown++;
+                    ESP_LOGW(TAG, "CMD 0x%02X: UNKNOWN (ignored, cnt=%lu)",
+                             c, (unsigned long)s_cmd_unknown);
+                    break;
+                }
+            }
+            if (param->write.need_rsp) {
+                esp_ble_gatts_send_response(gatts_if, param->write.conn_id,
+                                            param->write.trans_id, ESP_GATT_OK, NULL);
+            }
+            break;                              /* ⛔ 绝不继续往下当曲谱数据 */
+        }
+
+        if (h == s_handle_recv) {
             s_ble_rx_bytes += len;
             hmi_set_state(HMI_ST_LOADING);
 
@@ -436,7 +591,28 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
         esp_gatt_rsp_t rsp;
         memset(&rsp, 0, sizeof(rsp));
         rsp.attr_value.handle = param->read.handle;
-        rsp.attr_value.len    = 0;
+        /* ⭐⭐ 2026-09-30（B 子集）：**STAT(`0xABF4`) 要回【真实内容】**
+         * -----------------------------------------------------------------
+         * 🔴 原来这里【无条件**回 0 长度**】⇒ ⚠️ 任何特征读回来都是空串。
+         *    对 `0xABF2`/`0xABF1` 无所谓（⭐ 那俩是 notify / write 口），
+         *    ⚠️ 但 `0xABF4`(STAT) **是【靠读】取状态的** ⇒ 🔴 读不到就白做。
+         * ⭐ 配套改动：`gatt_svc.c` 里 STAT 的响应方式由 `AUTO_RSP`
+         *    改为 **`RSP_BY_APP`** ⇒ ⭐ 长度由这里说了算。
+         * ⚠️ 必须 `esp_ble_gatts_send_response(...)` 回，⛔ 不能只 set 不回。 */
+        if (param->read.handle == s_handle_stat) {
+            const uint8_t *st = NULL;
+            size_t stn = gatt_get_stat(&st);
+            if (st != NULL && stn > 0) {
+                if (stn > sizeof(rsp.attr_value.value)) {
+                    stn = sizeof(rsp.attr_value.value);   /* ⚠️ 不能超出响应缓冲 */
+                }
+                memcpy(rsp.attr_value.value, st, stn);
+                rsp.attr_value.len = (uint16_t)stn;
+            }
+            ESP_LOGI(TAG, "READ 0xABF4 -> %u bytes", (unsigned)rsp.attr_value.len);
+        } else {
+            rsp.attr_value.len = 0;
+        }
         esp_ble_gatts_send_response(gatts_if, param->read.conn_id,
                                     param->read.trans_id, ESP_GATT_OK, &rsp);
         break;
@@ -827,7 +1003,7 @@ static void task_status(void *arg)
         up_ring_stats(&us);
         ESP_LOGI(TAG,
                  "u_in=%lu u_out=%lu | ring=%lu/%lu(%s) hwm=%lu | "
-                 "u_drop=%lu/%lu full=%lu | fail=%lu | %s",
+                 "u_drop=%lu/%lu full=%lu | fail=%lu | cmd=%lu/%lu | %s",
                  (unsigned long)us.in, (unsigned long)us.out,
                  (unsigned long)us.level, (unsigned long)us.cap,
                  us.in_psram ? "PSRAM" : "DRAM",
@@ -835,7 +1011,8 @@ static void task_status(void *arg)
                  (unsigned long)us.drop_ev, (unsigned long)us.drop,
                  (unsigned long)us.full_hits,
                  (unsigned long)s_ble_tx_failed,
-                 /* ⭐ 订阅状态：⚠️ 未订阅时【不放水】⇒ 环只涨不发（⭐ 蓄水） */
+                 /* ⭐ CMD 计数：`认得/不认得`（⭐ 见 s_cmd_ok 的声明处说明） */
+                 (unsigned long)s_cmd_ok, (unsigned long)s_cmd_unknown,
                  s_noti_enabled ? "SUB" : "nosub");
 #else
         ESP_LOGI(TAG,
@@ -917,6 +1094,12 @@ void app_main(void)
     ESP_LOGI(TAG, "uart=%d baud=%d tx=GPIO%d rx=GPIO%d frame=%dB name=%s",
              BLE_UART_PORT, BLE_BAUD, BLE_PIN_UART_TX, BLE_PIN_UART_RX,
              FRAME_BYTES, BLE_DEV_NAME);
+
+#if BLE_LED_ENABLE
+    /* ⭐ 连接指示灯（⭐ 尽早初始化 —— ⚠️ 放在 NVS/蓝牙之前，
+     *    这样"灯没亮"能立刻区分成"固件没跑起来"而不是"蓝牙没连上"） */
+    led_init();
+#endif
 
     /* NVS（蓝牙栈要求） */
     esp_err_t err = nvs_flash_init();

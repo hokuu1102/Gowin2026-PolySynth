@@ -26,6 +26,20 @@
 # ---- 目标芯片（⭐ ESP32-S3，⛔ 不是初代 ESP32）------------------------------
 CONFIG_IDF_TARGET="esp32s3"
 
+# ---- ⭐ 2026-09-30：flash 容量 2MB → 16MB（⭐ 实机核实）---------------------
+# 🔴 为什么改：**实机 flash 是 16 MB，而映像头原来只写 2 MB**
+#    ⭐ 实测依据（`python -m esptool --port COM29 flash_id`）：
+#         Chip is ESP32-S3 (QFN56) (revision v0.2)
+#         Manufacturer: 46   Device: 4018
+#         🔴 **Detected flash size: 16MB**
+#    ⚠️ 不改的后果：**当前不阻塞**（app 仅 0.79 MB），
+#       🔴 但将来放**曲谱 / 字库**时会**白浪费 14 MB**。
+# ⚠️ 注意：本项只影响【映像头声明的容量】与【esptool 烧录参数】，
+#    ⛔ **不改分区表**（⭐ 仍是 `partitions_singleapp.csv`）。
+#    ⭐ 判据：构建日志里的 `--flash_size` 应从 **2MB** 变成 **16MB**。
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="16MB"
+
 # ---- ⭐ 蓝牙总开关（🔴 不开的话下面全是废话）--------------------------------
 CONFIG_BT_ENABLED=y
 CONFIG_BT_BLUEDROID_ENABLED=y

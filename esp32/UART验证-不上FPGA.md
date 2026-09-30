@@ -129,7 +129,7 @@ python read_log.py --port COM29 --seconds 20 --reset
 
 ```
 I uarttest: === ESP32-S3 UART1 TX self-test ===
-I uarttest: uart=1 baud=1000000 tx=GPIO17 rx=GPIO18
+I uarttest: uart=1 baud=500000 tx=GPIO17 rx=GPIO18     ← 🔴🔴 2026-09-30 更正：原为 1000000
 I uarttest: burst = 36 frames = 324 bytes, every 1000 ms, 3 bursts
 I uarttest: UART ready. sending in 2 s ...
 I uarttest: burst 1/3: wrote 324 bytes (36 frames), seq up to 35
@@ -144,7 +144,7 @@ I uarttest: === test done: 108 frames (972 bytes) sent ===
 
 ```powershell
 cd C:\Users\hokuu\Desktop\FPGA\FPGA2026-esp32\esp32\tools
-python uart_rx_check.py --port COM27 --baud 1000000 --seconds 15 --dump 8
+python uart_rx_check.py --port COM27 --baud 500000 --seconds 15 --dump 8
 ```
 
 ⚠️ **`COM27` 换成你 USB-TTL 的口**。
@@ -171,12 +171,13 @@ python uart_rx_check.py --port COM27 --baud 1000000 --seconds 15 --dump 8
 | **1** | 🔴 **ESP32 到底发了没** | ⭐ 看窗口 A 的 `burst N/3: wrote 324`。⚠️ 没这行 ⇒ 固件没跑起来/没烧进去 |
 | **2** | 🔴 **TX/RX 接反了没** | ⭐ ESP32 `GPIO17` → USB-TTL **RX**（⚠️ 交叉） |
 | **3** | 🔴 **共地了没** | ⭐ GND 对 GND，⚠️ 万用表量一下通断 |
-| **4** | ⚠️ **USB-TTL 撑不到 1 Mbps** | ⭐ 把 `uart_test_main.c` 的 `TEST_BAUD` 改 **115200**，⚠️ **两端都改**，重烧重测 |
+| **4** | ⚠️ **USB-TTL 撑不到目标档位** | ⭐ 把 `uart_test_main.c` 的 `TEST_BAUD` 改 **115200**（⚠️ 现值 `500000`），⚠️ **两端都改**，重烧重测 |
 | **5** | ⚠️ **口选错了** | ⭐ `COM29` 是 ESP32，⛔ 不是 USB-TTL |
 | **6** | ⚠️ **口被别的程序占着** | 🔴 关掉串口助手 / 别同时开 monitor |
 
 > ⭐ **判据 4 的依据**：⭐ 见上机指南 §5.2 ——
-> 🔴 **"有些 USB-TTL 撑不到 1 Mbps"**（经验 `FPGA问题排查手册 27`）。
+> 🔴 **"有些 USB-TTL 撑不到高档位"**（经验 `FPGA问题排查手册 27`）——
+> ⚠️ **2026-09-30 更正**：⭐ 现在只要 **500 k**（`TEST_BAUD 500000`），⭐ 比 1 Mbps 宽松一倍。
 
 ---
 
@@ -186,7 +187,7 @@ python uart_rx_check.py --port COM27 --baud 1000000 --seconds 15 --dump 8
 |---|---|
 | ESP32 的 **UART1 外设**配置正确 | 🔴 **水池（pool）逻辑正确** |
 | **`GPIO17` 引脚**能真的输出 | 🔴 **放水节奏（tick 限流）正确** |
-| **1 Mbps** 下字节能正确收发 | 🔴 **FPGA 会正确解析**（⚠️ 时钟/采样要 FPGA 侧验） |
+| **500 kbps** 下字节能正确收发 | 🔴 **FPGA 会正确解析**（⚠️ 时钟/采样要 FPGA 侧验） |
 | **9N 对齐**在物理层没被破坏 | 🔴 **`play_seq` 会出声**（⚠️ `top.v` 里仍未例化） |
 
 ⚠️ **特别注意**：本固件**绕过了** `pool_feed` → `frame_filter` → `pool_pump`
@@ -199,9 +200,9 @@ python uart_rx_check.py --port COM27 --baud 1000000 --seconds 15 --dump 8
 | # | 事项 |
 |---|---|
 | **1** | 🔴 **`pool_start()` 必须被接上** —— ⚠️ 否则正式固件永远不放水（⭐ 见 §〇） |
-| **2** | 🔴 **`0xABF3`(CMD) 需要命令解析** —— 否则"起播命令"会被当曲谱数据吃掉 |
+| **2** | ✅ **`0xABF3`(CMD) 命令解析 —— 【已完成】**（🔴🔴 **2026-09-30 更正**：⚠️ 原文写"需要命令解析"⇒ ⭐ **已实现**：`0x01` 清池 · `0x02` 状态上报；⚠️ **故意不做 start/stop**） |
 | **3** | ⚠️ `pool_mark_done()` 未接 ⇒ 🔴 **`mismatch` 校验【从未被激活】**<br>⇒ ⚠️ 日志里 `mismatch=0` **不等于"校验通过"**，而是"压根没跑" |
-| **4** | ⚠️ `BLE_TX_GAP_MS=2` 在 `task_uart_to_ble`（`ble_main.c:577`）—— 🔴 **同类延时陷阱**（`HZ=100` ⇒ 塌成 0）<br>⚠️ 本测试**不触发**它（反向通路要 BLE 已连 + UART 有数据） |
+| **4** | ✅ **`BLE_TX_GAP_MS=2` 延时陷阱 —— 【已修】**（🔴🔴 **2026-09-30 更正**：⚠️ 原文写它在 `task_uart_to_ble`（`ble_main.c:577`）**未加保护**⇒ ⭐ **已修**：⭐ 它在 `HZ=100` 下确实塌成 `vTaskDelay(0)`，⭐ 是反向通路三条缺陷之一） |
 
 ---
 

@@ -85,6 +85,9 @@ static uint8_t s_val_recv[512];
 static uint8_t s_val_noti[512];
 static uint8_t s_val_cmd[64];
 static uint8_t s_val_stat[64];
+/* ⭐ 已写入 STAT 的字节数（⚠️ 属性表的 max_length 是 64） */
+static size_t  s_stat_len = 0;
+
 
 /* ---------------------------------------------------------------------------
  * 属性表
@@ -155,7 +158,14 @@ static const esp_gatts_attr_db_t s_db[IDX_NUM] = {
           (uint8_t *)&s_prop_noti }
     },
     [IDX_CHAR_STAT_VAL] = {
-        { ESP_GATT_AUTO_RSP },
+        /* 🔴🔴 2026-09-30 修复：原来用 `ESP_GATT_AUTO_RSP` + **`length = 0`**
+         *    ⇒ ⚠️ 自动响应回的是【声明长度】= **0** ⇒ 🔴 **读回来永远是空串**
+         *      （⭐ 实测：`read_gatt_char(0xABF4)` 得到 `b''`，⚠️ 而固件
+         *        明明已经 `STAT updated: pool=...` 写进去了 —— ⚠️ 两头都对不上）。
+         * ⭐ 正解：改成 **`ESP_GATT_RSP_BY_APP`** ⇒ ⭐ 由【我们】在 READ_EVT 里
+         *    决定长度（⭐ 即 `s_stat_len` 那个"实际写入了多少"）。
+         *    ⚠️ 代价：READ_EVT 里必须**自己回响应**（⭐ 否则对端等超时）。 */
+        { ESP_GATT_RSP_BY_APP },
         { ESP_UUID_LEN_16, (uint8_t *)&s_uuid_stat,
           ESP_GATT_PERM_READ, sizeof(s_val_stat), 0, s_val_stat }
     },
@@ -182,6 +192,48 @@ int gatt_idx_stat(void)  { return IDX_CHAR_STAT_VAL; }
  * "对端到底订阅了没有"（🔴 那是能否发 notify 的**真正前提**，⛔ 不是"已连接"）。 */
 int gatt_idx_noti_cccd(void) { return IDX_CHAR_NOTI_CFG; }
 int gatt_idx_stat_cccd(void) { return IDX_CHAR_STAT_CFG; }
+
+/* ⭐⭐ 2026-09-30（B 子集）：往 0xABF4(STAT) 里放内容
+ * ---------------------------------------------------------------------------
+ * ⚠️ 注意 STAT 是 **只读 + 自动响应**（`ESP_GATT_PERM_READ` + `ESP_GATT_AUTO_RSP`，
+ *    见 `s_db[IDX_CHAR_STAT_VAL]`）⇒ ⭐ **固件【不能 notify】它，
+ *    客户端只能【主动读】**。
+ * ⇒ ⭐ 所以"上报状态"= **先把内容写进 `s_val_stat`，等客户端来读**。
+ *    ⚠️ 若客户端不读，那这次调用只更新了内容（⭐ 不是"发失败了"）。 */
+void gatt_set_stat(const uint8_t *data, size_t n)
+{
+    if (data == NULL || n == 0) {
+        return;
+    }
+    if (n > sizeof(s_val_stat)) {
+        n = sizeof(s_val_stat);          /* ⚠️ 截断到属性表声明的长度 */
+    }
+    size_t cur = s_stat_len;
+    if (cur > sizeof(s_val_stat)) {
+        cur = sizeof(s_val_stat);
+    }
+    /* ⭐ 追加（⭐ 让多次上报能累积；⚠️ 满了就从头覆盖） */
+    if (cur + n > sizeof(s_val_stat)) {
+        cur = 0;
+    }
+    memcpy(s_val_stat + cur, data, n);
+    s_stat_len = cur + n;
+}
+
+/* ⭐⭐ 2026-09-30：把 STAT 的**内容指针 + 实际长度**交出去
+ * ---------------------------------------------------------------------------
+ * 🔴 为什么需要它：STAT 改成了 `ESP_GATT_RSP_BY_APP` ⇒ ⭐ 长度必须由
+ *    `ble_main.c` 的 READ_EVT **自己填**。⚠️ 而 `s_val_stat`/`s_stat_len`
+ *    是本文件的 static ⇒ ⭐ 必须通过函数暴露，⛔ 不能让调用方猜格式。
+ * ⭐ 返回：实际长度；`*out` 指向内容（⚠️ 只读，⛔ 不要改）。 */
+size_t gatt_get_stat(const uint8_t **out)
+{
+    if (out != NULL) {
+        *out = s_val_stat;
+    }
+    /* ⚠️ 夹一下：防止越界（⭐ 属性表声明的 max_length 就是 sizeof(s_val_stat)） */
+    return (s_stat_len <= sizeof(s_val_stat)) ? s_stat_len : sizeof(s_val_stat);
+}
 
 void gatt_log_layout(int svc, int recv, int noti, int cmd, int stat)
 {
