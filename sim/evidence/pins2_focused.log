@@ -1,0 +1,604 @@
+﻿===== FILTER tb_adc_farm =====
+RTL 52 个 · 模型 5 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_adc_farm ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\drivers\tb_adc_farm.sv:52: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\drivers\tb_adc_farm.sv:52: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\drivers\tb_adc_farm.sv:52: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\drivers\tb_adc_farm.sv:52: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\drivers\tb_adc_farm.sv:54: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\drivers\tb_adc_farm.sv:54: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\drivers\tb_adc_farm.sv:54: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\drivers\tb_adc_farm.sv:54: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\drivers\tb_adc_farm.sv:56: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\drivers\tb_adc_farm.sv:56: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\drivers\tb_adc_farm.sv:56: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\drivers\tb_adc_farm.sv:56: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+=== 运行 tb_adc_farm ===
+    VCD info: dumpfile build/sim/adc_farm/tb_adc_farm.vcd opened for output.
+PASS: 2 frames, 16 sample_valid, 24 samples total, frame period=500000 ns, fanout clean
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\drivers\tb_adc_farm.sv:176: $finish called at 696541000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）
+exit=0
+===== FILTER tb_top_sound =====
+RTL 52 个 · 模型 5 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_top_sound ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\top.v:1749: warning: Port 5 (ch_i) of module pos_probe expects 4 bit(s), given 3.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\top.v:1749:        : Padding 1 high bits of the port.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3b\tdm_render_mixer.v:496: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_sound.sv:91: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_sound.sv:91: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_sound.sv:91: warning: Instantiating module top with dangling input port 27 (rb_key1_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_sound.sv:91: warning: Instantiating module top with dangling input port 28 (rb_key2_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_sound.sv:91: warning: Instantiating module top with dangling input port 29 (rb_key3_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_sound.sv:91: warning: Instantiating module top with dangling input port 30 (rb_key4_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_sound.sv:91: warning: Instantiating module top with dangling input port 31 (rb_enc_a_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_sound.sv:91: warning: Instantiating module top with dangling input port 32 (rb_enc_b_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_sound.sv:91: warning: Instantiating module top with dangling input port 33 (rb_enc_sw_i) floating.
+=== 运行 tb_top_sound ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=48 VOTE_N=4 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+WARN [top] vu_* scans only 8 axes but the system has 16 => axes 8..15 get ATTACK velocity but NO follow (see the VEL_AXIS_N comment)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=15 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+
+==================== top / T57 鍑哄０閾鹃獙鏀?====================
+  閲囬泦鏍风偣鏁?     : 2048
+  閲囬泦鏈?clk 鎬绘暟 : 2096286
+  HP_DIN 涓?1 鎷嶆暟 : 535536
+  HP_DIN 缈昏浆娆℃暟  : 28486
+  mixer 杈撳嚭 fault : 0
+============================================================
+== 1: HP_DIN 纭疄鍦ㄥ姩锛堜笉鍐嶆槸鎭?0锛?=
+  ok  : HP_DIN has both 1s and 0s (audio present, not silence)
+  ok  : HP_DIN toggles many times (real serial data)
+== 2: mixer 杈撳嚭闈為浂涓旈潪甯搁噺锛堢湡娉㈠舰锛屼笉鏄洿娴侊級==
+     闈為浂鏍风偣 2048 / 2048锛屼笌棣栨牱鐐逛笉鍚?2047 涓?
+  ok  : mixer output is mostly non-zero (sound, not silence)
+  ok  : mixer output varies (AC waveform, not DC)
+== 3: 涓変釜闊崇湡鐨勫湪锛圓4 / C#5 / E5锛?=
+     A4  440.0 Hz 鑳介噺 2.451e+17
+     C#5 554.4 Hz 鑳介噺 2.251e+17
+     E5  659.3 Hz 鑳介噺 2.515e+17
+     鍙傝€?500/610/720 Hz 鑳介噺 1.999e+15 / 8.011e+14 / 3.506e+15
+  ok  : A4 tone present (energy >> off-tone reference)
+  ok  : C#5 tone present (energy >> off-tone reference)
+  ok  : E5 tone present (energy >> off-tone reference)
+== 4: deadline_fault 鎭?0锛圓6锛?=
+  ok  : deadline_fault stays 0 (frame deadline met)
+== 5: 澶栫疆 DAC 閭ｄ竴璺湡鐨勬湁闊抽 ==
+     I2S2_BCK 缈昏浆=262800 路 I2S2_LRCK 缈昏浆=4108 路 I2S2_DIN 缈昏浆=28492
+     鏉胯浇 HP_DIN 缈昏浆=28492 路 涓よ矾閫愭媿涓嶄竴鑷?455840 鎷?
+  ok  : I2S2_BCK toggles (external DAC has a bit clock)
+  ok  : I2S2_LRCK toggles (external DAC has a frame clock)
+  ok  : I2S2_DIN is LIVE (external DAC receives real audio, not DC)
+  ok  : I2S2_DIN toggles as much as HP_DIN (+/-1, same source & rate)
+  ok  : I2S2_DIN carries BOTH 1s and 0s (real audio, not DC silence)
+  ok  : I2S2_DIN 1s and 0s are both substantial (not a stuck level)
+     鈩癸笍 澶栫疆/鏉胯浇鏁版嵁涓嶅悓鐨勬媿鏁?= 455840锛堚瓙 涓よ矾鏍煎紡涓嶅悓锛屽睘棰勬湡锛?
+PASS: top sound chain (T57) - HP_DIN is live and the mixer emits a varying waveform
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_sound.sv:365: $finish called at 42048000000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）
+exit=0
+===== FILTER tb_e2e_key_to_sound =====
+RTL 52 个 · 模型 5 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_e2e_key_to_sound ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\top.v:1749: warning: Port 5 (ch_i) of module pos_probe expects 4 bit(s), given 3.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\top.v:1749:        : Padding 1 high bits of the port.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3b\tdm_render_mixer.v:496: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\e2e\tb_e2e_key_to_sound.sv:110: warning: Instantiating module top with dangling input port 3 (timbre_btn_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\e2e\tb_e2e_key_to_sound.sv:110: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\e2e\tb_e2e_key_to_sound.sv:110: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\e2e\tb_e2e_key_to_sound.sv:110: warning: Instantiating module top with dangling input port 27 (rb_key1_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\e2e\tb_e2e_key_to_sound.sv:110: warning: Instantiating module top with dangling input port 28 (rb_key2_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\e2e\tb_e2e_key_to_sound.sv:110: warning: Instantiating module top with dangling input port 29 (rb_key3_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\e2e\tb_e2e_key_to_sound.sv:110: warning: Instantiating module top with dangling input port 30 (rb_key4_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\e2e\tb_e2e_key_to_sound.sv:110: warning: Instantiating module top with dangling input port 31 (rb_enc_a_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\e2e\tb_e2e_key_to_sound.sv:110: warning: Instantiating module top with dangling input port 32 (rb_enc_b_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\e2e\tb_e2e_key_to_sound.sv:110: warning: Instantiating module top with dangling input port 33 (rb_enc_sw_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\e2e\tb_e2e_key_to_sound.sv:139: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\e2e\tb_e2e_key_to_sound.sv:139: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\e2e\tb_e2e_key_to_sound.sv:148: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\e2e\tb_e2e_key_to_sound.sv:148: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+=== 运行 tb_e2e_key_to_sound ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=48 VOTE_N=4 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+WARN [top] vu_* scans only 8 axes but the system has 16 => axes 8..15 get ATTACK velocity but NO follow (see the VEL_AXIS_N comment)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=15 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+  [tare ] autotare finished (at_done=1) -- safe to test now
+  [demo0] all_quiet=0 nm_gate=0x00000007 demo_step=3 demo_fired=0 env[0]=51140
+  [demo1] all_quiet=0 nm_gate=0x00000007 demo_step=3 demo_fired=0 env[0]=51100
+  [demo2] all_quiet=0 nm_gate=0x00000007 demo_step=3 demo_fired=0 env[0]=51062
+  [demo3] all_quiet=1 nm_gate=0x00000000 demo_step=7 demo_fired=1 env[0]=50988
+  [demo ] demo chord fully settled after 4 round(s) (~8 ms)
+  [idleb] pos[0]=0  nm_gate=0x00000000  normal_held=0  n_on=0  env[0]=50988
+  ok  : no key pressed => W3a starts NO new note (n_on unchanged)
+  [idle ] HP_DIN toggles = 520  (threshold 800)
+  ok  : no key pressed => HP_DIN is essentially quiet (demo tail allowed)
+  [press] HP_DIN toggles = 2911
+  ok  : pressing (left board reads RAW_DOWN) => HP_DIN carries audio
+  [vel  ] pos[0]=744  max(vel_r)=247  (pos_to_vel(744)=71)
+  ok  : vel_r FOLLOWS pos end-to-end (press => vel reaches the pos-mapped value)
+  [relA ] env_level[0] = 47826   HP_DIN toggles = 726
+  [relB ] env_level[0] = 45834   HP_DIN toggles = 562
+  [evts ] total note_on=8  note_off=8
+  [gate ] nm_gate[15:0] = 0000000000000000
+  ok  : after note_off the envelope is DECAYING (release path works)
+  [note ] release is ~0.45 s; this tb only waits 80 ms by design
+  ok  : a note_off was produced by the release (distinguishes the two failure modes)
+  [right] HP_DIN toggles = 2676
+  ok  : pressing the right board => also sounds
+  ok  : no X propagated on HP_DIN after reset release
+  [pos  ] idle = 0   pressed = 744
+  [chain] af_data[11:0]=0x4d9  af0_pol=2854  cal0_val=747  at_done=1
+  ok  : with the key released, pos is BELOW REL_TH (reads as 'not pressed')
+  ok  : with the key pressed, pos is ABOVE TRIG_TH (reads as 'pressed')
+  ok  : pos actually DIFFERS between released and pressed (chain can discriminate)
+
+PASS: end-to-end key-to-sound -- with the MCP3208 slave injecting real hall codes, a key press makes HP_DIN carry audio and release returns to silence
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\e2e\tb_e2e_key_to_sound.sv:566: $finish called at 42601190000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）
+exit=0
+===== FILTER tb_vibrato_top =====
+RTL 52 个 · 模型 5 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_vibrato_top ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\top.v:1749: warning: Port 5 (ch_i) of module pos_probe expects 4 bit(s), given 3.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\top.v:1749:        : Padding 1 high bits of the port.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3b\tdm_render_mixer.v:496: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:18: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:18: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:18: warning: Instantiating module top with dangling input port 27 (rb_key1_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:18: warning: Instantiating module top with dangling input port 28 (rb_key2_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:18: warning: Instantiating module top with dangling input port 29 (rb_key3_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:18: warning: Instantiating module top with dangling input port 30 (rb_key4_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:18: warning: Instantiating module top with dangling input port 31 (rb_enc_a_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:18: warning: Instantiating module top with dangling input port 32 (rb_enc_b_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:18: warning: Instantiating module top with dangling input port 33 (rb_enc_sw_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\top.v:1749: warning: Port 5 (ch_i) of module pos_probe expects 4 bit(s), given 3.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\top.v:1749:        : Padding 1 high bits of the port.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3b\tdm_render_mixer.v:496: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:32: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:32: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:32: warning: Instantiating module top with dangling input port 27 (rb_key1_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:32: warning: Instantiating module top with dangling input port 28 (rb_key2_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:32: warning: Instantiating module top with dangling input port 29 (rb_key3_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:32: warning: Instantiating module top with dangling input port 30 (rb_key4_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:32: warning: Instantiating module top with dangling input port 31 (rb_enc_a_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:32: warning: Instantiating module top with dangling input port 32 (rb_enc_b_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:32: warning: Instantiating module top with dangling input port 33 (rb_enc_sw_i) floating.
+=== 运行 tb_vibrato_top ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=1000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+WARN [top] vu_* scans only 8 axes but the system has 16 => axes 8..15 get ATTACK velocity but NO follow (see the VEL_AXIS_N comment)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=15 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=1000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+WARN [top] vu_* scans only 8 axes but the system has 16 => axes 8..15 get ATTACK velocity but NO follow (see the VEL_AXIS_N comment)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=15 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+  ok  : optional right ADC is instantiated as ADC #2
+  ok  : P4 chip-select is actively scanned
+  ok  : P4 CH1 reaches master mix as Q1.15 unity
+  ok  : P4-disabled configuration retains unity master gain
+  ok  : CH2 high control enables the LFO through hysteresis
+  ok  : LFO output reaches the real oscillator bank
+PASS: T18 P4 ADC -> LFO -> oscillator integration
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3b\tb_vibrato_top.sv:55: $finish called at 700110000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）
+exit=0
+===== FILTER tb_async_pluck_capture =====
+RTL 52 个 · 模型 5 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_async_pluck_capture ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_async_pluck_capture ===
+      ok  : UP edge produces exactly one pluck
+  ok  : UP edge is labelled UP
+  ok  : refractory suppresses a second immediate edge
+  ok  : edge is accepted again after refractory
+  ok  : DOWN edge is labelled DOWN
+  ok  : simultaneous UP and DOWN create one event
+  ok  : simultaneous UP and DOWN chooses UP
+PASS: async pluck capture synchronizes edges, prioritizes UP, and applies refractory
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3a\tb_async_pluck_capture.sv:89: $finish called at 980000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）
+exit=0
+===== FILTER tb_right_analog_ctrl =====
+RTL 52 个 · 模型 5 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_right_analog_ctrl ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_right_analog_ctrl ===
+      ok  : reset/default P4-disabled policy is unity gain
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 logarithmic gain LUT is monotonic
+  ok  : CH1 minimum maps to hard mute
+  ok  : CH1 midpoint uses logarithmic attenuation
+  ok  : CH1 maximum maps to Q1.15 unity
+  ok  : CH2 captures vibrato depth
+  ok  : CH3 captures rate and commits coherent controls
+  ok  : disabled right ADC keeps unity and forces safe vibrato controls
+PASS: right analog control maps CH1 volume and snapshots CH2/CH3 coherently
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\w3a\tb_right_analog_ctrl.sv:52: $finish called at 2020000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）
+exit=0
+===== FILTER tb_top_m0 =====
+RTL 52 个 · 模型 5 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_top_m0 ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:56: warning: Instantiating module top with dangling input port 27 (rb_key1_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:56: warning: Instantiating module top with dangling input port 28 (rb_key2_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:56: warning: Instantiating module top with dangling input port 29 (rb_key3_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:56: warning: Instantiating module top with dangling input port 30 (rb_key4_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:56: warning: Instantiating module top with dangling input port 31 (rb_enc_a_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:56: warning: Instantiating module top with dangling input port 32 (rb_enc_b_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:56: warning: Instantiating module top with dangling input port 33 (rb_enc_sw_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:87: warning: Instantiating module top with dangling input port 27 (rb_key1_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:87: warning: Instantiating module top with dangling input port 28 (rb_key2_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:87: warning: Instantiating module top with dangling input port 29 (rb_key3_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:87: warning: Instantiating module top with dangling input port 30 (rb_key4_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:87: warning: Instantiating module top with dangling input port 31 (rb_enc_a_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:87: warning: Instantiating module top with dangling input port 32 (rb_enc_b_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:87: warning: Instantiating module top with dangling input port 33 (rb_enc_sw_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:112: warning: Instantiating module top with dangling input port 27 (rb_key1_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:112: warning: Instantiating module top with dangling input port 28 (rb_key2_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:112: warning: Instantiating module top with dangling input port 29 (rb_key3_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:112: warning: Instantiating module top with dangling input port 30 (rb_key4_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:112: warning: Instantiating module top with dangling input port 31 (rb_enc_a_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:112: warning: Instantiating module top with dangling input port 32 (rb_enc_b_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:112: warning: Instantiating module top with dangling input port 33 (rb_enc_sw_i) floating.
+=== 运行 tb_top_m0 ===
+    NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=15 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=15 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=15 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+VCD info: dumpfile build/sim/tb_top_m0/tb_top_m0.vcd opened for output.
+
+==================== top / M0 椤跺眰楠屾敹 ====================
+  A 鏃跺熀    : HP_BCK 鍛ㄦ湡 min=16 max=16 clk锛堟湡鏈?16锛壜?涓婂崌娌?4097 涓?
+              HP_WS  鍛ㄦ湡 min=1024 max=1024 clk锛堟湡鏈?1024锛壜?涓婂崌娌?64 涓?
+  B fallback: PA_EN_n NOT-low 0 cyc (expect 0) * trans 0 (expect 0) * rst-bad 0
+  C Console : PA_EN_n high 65536 of 65536 cyc (expect all) * trans 0 * falling 0 (both expect 0)
+  D 蹇冭烦    : 缈昏浆 127 娆?路 闂撮殧 min=512 max=512 clk锛堟湡鏈?512锛?
+  G rst_sync: 杈撳叆閲婃斁鎷?9 路 鍚屾杈撳嚭閲婃斁鎷?11 路 寤惰繜 2 鎷嶏紙鏈熸湜鎭板ソ 2锛?
+  E 闈欓煶    : HP_DIN 涓?1 鐨勬媿鏁?0锛堟湡鏈?0锛?
+  F A8      : bck=0 ws=0 din=0 pa=0 hb=0 pa(寤舵椂)=0
+  J 澶栫疆DAC : I2S2_BCK 鍛ㄦ湡 min=16 max=16 路 I2S2_LRCK 鍛ㄦ湡 min=1024 max=1024
+              涓庢澘杞介€愭媿姣斿: 65536 鎷嶄腑鏈?0 鎷嶄笉涓€鑷达紙鏈熸湜 0锛?
+              涓婂崌娌?bck2=4097 lrck2=64 路 A8 bck2=0 lrck2=0 din2=0
+  璇佹嵁      : sim/evidence/top_m0_pa_trace.csv锛堝簲鍙湁琛ㄥご锛? 娉㈠舰 build/sim/tb_top_m0/
+==========================================================
+  ok : A 路 HP_BCK 鍛ㄦ湡鎭板ソ 16 clk锛?.125 MHz锛?
+  ok : A 路 HP_WS 鍛ㄦ湡鎭板ソ 1024 clk锛?8.828125 kHz锛?
+  ok : B * NEO-Dock fallback (PA_ON_AFTER_RESET=0) -- PA_EN_n low throughout, 0 transitions
+  ok : C * Console delivery -- PA_EN_n high for all 65536 cycles, 0 edges (SD_MODE=Left => SOUNDS)
+  ok : D 路 蹇冭烦 LED 娲荤潃涓斿崐鍛ㄦ湡鎭板ソ 512 clk锛?27 娆＄炕杞級
+  ok : E 路 闈欓煶鏄湡闈欓煶 鈥斺€?HP_DIN 鍏ㄧ▼涓?0
+  ok : F 路 A8 鏃?X/Z 浼犳挱锛? 涓《灞傝緭鍑?+ 寤舵椂瀹炰緥锛?
+  ok : G 路 rst_sync 鎶婂浣嶉噴鏀惧欢鍚?*鎭板ソ 2 鎷?*锛堝紓姝ヨ緭鍏?鈫?鍚屾閲婃斁锛?
+  H SD_MODE : PA_EN_n falling edges A=0 (fallback, low) B=0 (Console, high)
+  ok : H * zero falling edges -- Console SD_MODE never leaves Left (would be Shutdown)
+  I default : bare instantiation PA_ON_AFTER_RESET = 1 (1 = Console sounds; 0 = Shutdown)
+  ok : I * delivery default correct -- bare instantiation drives SD_MODE high => board sounds
+  ok : I * explicit PA_ON_AFTER_RESET=0 gives a static-low output (NEO-Dock fallback intact)
+  ok : J 路 I2S2_BCK 鍛ㄦ湡鎭板ソ 16 clk锛?.125 MHz锛屼笌鏉胯浇鍚屾。锛?
+  ok : J 路 I2S2_LRCK 鍛ㄦ湡鎭板ソ 1024 clk锛?8.828125 kHz锛?
+  ok : J * 澶栫疆涓庢澘杞姐€愰€愭媿瀹屽叏涓€鑷淬€戯紙65536 鎷嶅叏绛夛級-- 涓よ矾鍚屾簮鍚屾锛屾棤鐩镐綅婕傜Щ
+  J 娲诲姩閲? : 澶栫疆 bck=8193 lrck=127 din=0 锝?鏉胯浇 bck=8193 ws=127 din=0
+  ok : J ** 澶栫疆涓庢澘杞界殑銆愭椿鍔ㄩ噺鐩哥О銆戯紙猸?鏃堕挓绾块兘鍦ㄥ姩锛涙湰妗ｄ袱璺?DIN 鍚屼负闈欓煶锛?
+  ok : J 路 A8 澶栫疆涓夋牴绾垮浣嶅悗鏃?X/Z
+
+PASS: M0 top-level acceptance (timebase + SD_MODE polarity + silence-clean + heartbeat + no X + external DAC)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_m0.sv:539: $finish called at 1310971000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）
+exit=0
+===== FILTER tb_top_t15 =====
+RTL 52 个 · 模型 5 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_top_t15 ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\top.v:1749: warning: Port 5 (ch_i) of module pos_probe expects 4 bit(s), given 3.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\top.v:1749:        : Padding 1 high bits of the port.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3b\tdm_render_mixer.v:496: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_t15.sv:24: warning: Instantiating module top with dangling input port 27 (rb_key1_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_t15.sv:24: warning: Instantiating module top with dangling input port 28 (rb_key2_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_t15.sv:24: warning: Instantiating module top with dangling input port 29 (rb_key3_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_t15.sv:24: warning: Instantiating module top with dangling input port 30 (rb_key4_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_t15.sv:24: warning: Instantiating module top with dangling input port 31 (rb_enc_a_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_t15.sv:24: warning: Instantiating module top with dangling input port 32 (rb_enc_b_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_t15.sv:24: warning: Instantiating module top with dangling input port 33 (rb_enc_sw_i) floating.
+=== 运行 tb_top_t15 ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+WARN [top] vu_* scans only 8 axes but the system has 16 => axes 8..15 get ATTACK velocity but NO follow (see the VEL_AXIS_N comment)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=15 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+  ok  : top keyboard mode forwards axis ON/OFF
+  ok  : top fretboard selection is silent
+  ok  : top DOWN comparator edge plucks selected axis
+PASS: T15 top-level keyboard/fretboard integration
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_t15.sv:106: $finish called at 451000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）
+exit=0
+===== FILTER tb_top_timbre_button =====
+RTL 52 个 · 模型 5 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_top_timbre_button ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_timbre_button.sv:26: warning: Instantiating module top with dangling input port 27 (rb_key1_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_timbre_button.sv:26: warning: Instantiating module top with dangling input port 28 (rb_key2_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_timbre_button.sv:26: warning: Instantiating module top with dangling input port 29 (rb_key3_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_timbre_button.sv:26: warning: Instantiating module top with dangling input port 30 (rb_key4_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_timbre_button.sv:26: warning: Instantiating module top with dangling input port 31 (rb_enc_a_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_timbre_button.sv:26: warning: Instantiating module top with dangling input port 32 (rb_enc_b_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_timbre_button.sv:26: warning: Instantiating module top with dangling input port 33 (rb_enc_sw_i) floating.
+=== 运行 tb_top_timbre_button ===
+    NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=15 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+PASS: S2 cycles BASS -> GUITAR -> PIANO -> PAD -> BASS once per press
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\tb\top\tb_top_timbre_button.sv:82: $finish called at 8018630000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）
+exit=0
+===== FILTER tb_tlc5916_bank =====
+RTL 52 个 · 模型 5 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_tlc5916_bank ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_tlc5916_bank ===
+    VCD info: dumpfile build/sim/tb_tlc5916_bank/tb_tlc5916_bank.vcd opened for output.
+  ok  : reset: OE all high (all blanked)
+  ok  : reset: SDI/CLK/LE all 0
+  ok  : reset: busy 0
+  ok  : CH0 -> OUT7
+  ok  : CH1 -> OUT6
+  ok  : CH2 -> OUT4
+  ok  : CH3 -> OUT5
+  ok  : CH4 -> OUT3
+  ok  : CH5 -> OUT2
+  ok  : CH6 -> OUT1
+  ok  : CH7 -> OUT0
+  ok  : CH2 is NOT bit-reversed (would be OUT5=8'b00100000)
+  ok  : after 3-chip write: OE all high (back to IDLE)
+  ok  : after 3-chip write: busy 0
+  ok  : global_blank: OE stays all high during write
+PASS: tlc5916_bank (CH->OUT full-table remap / 3-chip seq / per-board OE / global blank)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）
+exit=0
+===== FILTER tb_led_data =====
+RTL 52 个 · 模型 5 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_led_data ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026-pins2\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_led_data ===
+    VCD info: dumpfile build/sim/tb_led_data/tb_led_data.vcd opened for output.
+  ok  : baseline: pattern all 0 right after reset
+  ok  : baseline: commit is 0 (no spurious commit)
+  ok  : key light: active keys 0,1 are ON (steady)
+  ok  : key light: other keys stay OFF
+  ok  : key light: active keys stay ON even when blink is high (no flicker)
+  ok  : blink: guided key 2 is OFF when blink low
+  ok  : blink: guided key 2 is ON when blink high
+  ok  : blink: guided key 2 is OFF again when blink low
+  ok  : priority: active key 2 stays ON (not blinking) even with blink low
+  ok  : status: upper 8 bits pass through unchanged
+  ok  : commit: no change => commit stays 0
+  ok  : commit: pulses for exactly the change cycle (1st cycle high)
+  ok  : commit: returns to 0 the very next cycle (single-cycle pulse)
+  ok  : commit: blink toggle does NOT trigger commit when only active keys lit
+PASS: led_data (steady active / blinking guide / priority / status passthrough / single-cycle commit)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）
+exit=0
+DONE

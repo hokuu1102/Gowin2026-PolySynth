@@ -35,11 +35,15 @@
 module tb_met_start_top;
 
     localparam integer NAME_W  = 8*90;
-    localparam integer V_ACC   = 120;      // ⭐ = metronome.VEL_ACCENT
-    localparam integer V_NRM   = 72;       // ⭐ = metronome.VEL_NORMAL
+    //  ⭐⭐ 2026-09-30：⭐ `120/72` ⇒ **`180/108`**（⭐ 用户："节拍器的声音有一点太小了"）
+    //     ⚠️ **必须与 `rtl/w3c/metronome.v` 的 `VEL_ACCENT`/`VEL_NORMAL` 逐字一致** ——
+    //        ⭐ 本 tb 判的就是"**回放出来的力度 = 那两个参数**"（⭐ 模式判据 T5）✅
+    //     📌 比例仍是 **5:3**（⭐ 强拍更响），⭐ 所以判据的**语义一字未改** ✅
+    localparam integer V_ACC   = 180;      // ⭐ = metronome.VEL_ACCENT
+    localparam integer V_NRM   = 108;      // ⭐ = metronome.VEL_NORMAL
     //  ⚠️ **`integer` 参数【不做位选】**（`K-91`）⇒ ⭐ 另给 8 位常量供比较用
-    localparam [7:0]   V_ACC8  = 8'd120;
-    localparam [7:0]   V_NRM8  = 8'd72;
+    localparam [7:0]   V_ACC8  = 8'd180;
+    localparam [7:0]   V_NRM8  = 8'd108;
     localparam integer BEAT_GAP = 3000;    // ⚠️ > 2 个 sample_tick(1024) ⇒ 让重触发走完
 
     reg clk   = 1'b0;
@@ -68,7 +72,22 @@ module tb_met_start_top;
     wire spi_sclk, spi_mosi, miso_l, miso_r;
     wire [5:0] spi_cs_n;
 
+    //  ⭐⭐ 2026-09-30：⭐ **显式选定"源 B = 节拍器"**（⭐ 本 tb 的被测对象）
+    //     🔴 **为什么必须显式写**（⭐ 本次回归唯一红的根因，⭐ 已实测定位）：
+    //        `top.SEL_DRUM` 的默认值曾被鼓机工作改成 **1 = 鼓机**（⭐ 出鼓机诊断档
+    //        `.fs` 用的，⭐ cherry-pick 时没改回）⇒ ⚠️ 源 B（节拍器/鼓机）是
+    //        **二选一** ⇒ 🔴 **节拍器的 8 个事件根本到不了 `note_manager`**
+    //        （⭐ 实测：`evt_merge` 出口只有 `axis=15` 的鼓机事件）⇒ 🔴 T6 只能看到
+    //        鼓机在**小节头**砸的那 2 下 ⇒ ⭐ 现象 = "**只有强拍触发 `perc_env_bank`**"
+    //        （⭐ 看起来像 `note_manager`/`perc_env_bank` 坏了，⚠️ 其实不是 ✅）。
+    //     ✅ **已裁定（2026-09-30）**：⭐ 主树默认档 = **0（节拍器）**；⭐ 验鼓机
+    //        另编 `SEL_DRUM=1` 的 `.fs`（⭐ 见 `top.v` 参数处注释）✅
+    //     📌 **本行保留的理由（⛔ 不是多余）**：⭐ 本 tb 的被测对象是**节拍器**，
+    //        ⭐ "**自己需要哪一路就显式声明哪一路**" 是纪律 —— ⚠️ 依赖顶层默认值
+    //        一旦默认值变动，tb 就测了**别的**源，⭐ 而判据是**红的**，
+    //        看起来像被测模块坏了（⭐ 本次白查一轮的教训 ✅）
     top #(
+        .SEL_DRUM              (0),
         .AUTOTARE_DELAY_CLK    (100_000),
         .SPAN_WAIT_TIMEOUT_CLK (50_000),
         .SPAN_STABLE_NEED      (4),
@@ -204,7 +223,7 @@ module tb_met_start_top;
         end
         chk("T4 exactly ONE metronome event per emulated beat (8 events)",
             vcnt == 8);
-        chk("T5 velocity pattern is accent-weak-weak-weak (120,72,72,72 x2)",
+        chk("T5 velocity pattern is accent-weak-weak-weak (180,108,108,108 x2)",
             (vpat[0] === V_ACC8) && (vpat[1] === V_NRM8) &&
             (vpat[2] === V_NRM8) && (vpat[3] === V_NRM8) &&
             (vpat[4] === V_ACC8) && (vpat[5] === V_NRM8) &&

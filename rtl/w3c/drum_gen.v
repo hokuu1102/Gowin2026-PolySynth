@@ -1,6 +1,6 @@
 `timescale 1ns/1ps
 // ─────────────────────────────────────────────────────────────────────────────
-// drum_gen.v · 纯合成鼓机（Kick / Snare / Hi-hat / Clap）
+// drum_gen.v · 纯合成鼓机（Kick / Snare / Hi-hat / Tom）
 //   —— W3c（⭐ `T34` / `U-8`，⭐ 2026-09-26 实现）
 //
 // ── ⭐⭐ 一句话 ───────────────────────────────────────────────────────────────
@@ -16,6 +16,13 @@
 //   ③ ⭐ **节奏型是"结构"不是"采样"** —— ⭐ `case` 常量表里存的是
 //      **{on, velocity}**（⭐ 16 步 × 4 乐器 × 5 bit ≈ 0.32 kbit ⇒ 可忽略）
 //      ⚠️ **它不含任何波形样本** ⇒ ⭐ **不构成 PCM**
+//
+// ── ⭐⭐ 2026-09-29：⭐ 第 4 件乐器从 **Clap（拍手）** 改成 **Tom（嗵鼓）** ─────────
+//   ⭐ **为什么改**（⭐ 用户裁定）：⭐ 鼓机分类定为 **大鼓(Kick) · 小鼓(Snare) ·
+//      嗵鼓(Tom) · 镲(Cymbal)** —— ⚠️ **Clap 属 GM 的"音效类"**，⭐ 曲谱里基本不出现
+//      ⇒ ⭐ 留着它**占一个乐器位却没人用** ✅
+//   📌 **位宽⛔ 不变**：⭐ 仍是 4 bit 掩码，⭐ **只改第 3 位（`bit3`）的语义**
+//      ⇒ ⭐ `step_mask_of` 的返回格式、`pop4`、`pending_q` **一行都不用改** ✅
 //
 // ── ⭐ 对标模板：`metronome.v`（⭐ 接口几乎照抄）──────────────────────────────
 //   ⭐ 两者架构完全同类：⭐ 收 `beat_gen` 的节拍 ⇒ ⭐ 吐事件 ⇒ ⭐ 进专用池。
@@ -58,9 +65,19 @@ module drum_gen #(
     parameter integer PHASE_W     = 32,
     parameter integer VEL_W       = 8,
     parameter integer AXIS_ID     = 15,     // ⭐ 4'hF（⭐ 与节拍器的 14 分开）
-    parameter integer N_DRUM      = 4,      // ⭐ Kick / Snare / HiHat / Clap
+    parameter integer N_DRUM      = 4,      // ⭐ Kick / Snare / HiHat / Tom
     parameter integer STEPS       = 16,     // ⭐ 16 分音符为一步
-    parameter integer PATTERN_ID  = 0,      // ⭐ 默认节奏型（0~3）
+    // ⭐⭐ 2026-09-29：⭐ **节奏型从【编译期参数】改成【运行时输入端口】** ✅
+    //   🔴 **为什么必须改**（⭐ 用户上板要求）：⭐ "鼓机节奏型要能**现场切**" ——
+    //      ⚠️ 编译期参数意味着"换一个节奏型 = 重新 PnR + 烧写"（⭐ 一次 ~10 分钟）
+    //      ⇒ ⭐ 上板试听 4 个型**根本没法比**。
+    //   ⭐ 现在由 `top.v` 的寄存器 `drum_pattern_r` 驱动（⭐ 串口 `'D'` 循环 `0→1→2→3→0`）。
+    //   ⚠️ **原来是 `parameter integer PATTERN_ID = 0`**（⭐ 已删除）——
+    //      📌 **⛔ 不保留"同名参数"**：⭐ 那会变成"设了没反应"的**静默失效**
+    //         （⭐ `K-106` 纪律：会失效的东西⛔ 不许静默）。
+    //   📌 **代价（⭐ 已评估，可忽略）**：⭐ 查表从"常量折叠"变成**真 mux** ——
+    //      ⚠️ 但 `step_mask_of` 只有 **6 个输入位**（`pid[1:0]` + `st[3:0]`）
+    //      ⇒ ⭐ 综合出来是**几个 LUT**（⛔ 不是 64 项大表）✅
     // ⭐⭐ 16 分音符 = PPQN/4 = 240 tick（⭐ `beat_gen` 的 PPQN = 960）
     parameter integer TICKS_PER_STEP = 240,
     // ⭐ 专用 voice 数（⭐ 只为 `cfg_warn` 自检 —— ⚠️ 真正生效的是 `note_manager` 那个）
@@ -69,6 +86,12 @@ module drum_gen #(
 ) (
     input  wire                  clk_i,
     input  wire                  rst_n_i,
+
+    // ⭐⭐ 节奏型选择（⭐ 2026-09-29：⭐ 运行时，⭐ 由 `top.v` 的 `drum_pattern_r` 驱动）
+    //   ⭐ 语义：⭐ 0~3 四选一（⭐ 见 `step_mask_of`）—— ⚠️ 只有低 2 位有意义
+    //   ⭐ **随时可切**：⭐ 切换**立刻**生效（⭐ 下一步装载新表）⇒ ⭐ 不用等小节边界
+    //      （⭐ 上板"边听边切"就是靠这个 ✅）
+    input  wire [1:0]            pattern_id_i,
 
     // ── 来自 `beat_gen`（⭐ 实测它有这些输出，⛔ 一个都不用新增）─────────────
     input  wire                  tick_i,        // ⭐ PPQN tick 脉冲
@@ -106,13 +129,27 @@ module drum_gen #(
     localparam [31:0] INC_KICK  = 32'd6_442_451;    // ⭐ ≈ 75 Hz（低频"咚"）
     localparam [31:0] INC_SNARE = 32'd17_179_869;   // ⭐ ≈ 200 Hz（中频"啪"）
     localparam [31:0] INC_HIHAT = 32'd171_798_691;  // ⭐ ≈ 2000 Hz（高频"嘶"）
-    localparam [31:0] INC_CLAP  = 32'd85_899_345;   // ⭐ ≈ 1000 Hz（中高频"哒"）
+    // ⭐⭐ 2026-09-29：⭐ `INC_CLAP`（≈1000 Hz）⇒ **`INC_TOM`（≈150 Hz）** ✅
+    //   ⭐ **为什么是 150 Hz**（⭐ 用户要求"介于底鼓 75 Hz 与军鼓 200 Hz 之间"）：
+    //      ⭐ 嗵鼓的听感特征就是"**有音高的鼓**" —— ⚠️ 1000 Hz 那一档
+    //      （⭐ 原 Clap）**在鼓组里听着像"敲铁皮"**，⭐ 而 150 Hz
+    //      ⇒ ⭐ 与 75 Hz 底鼓、200 Hz 军鼓**构成"低-中-中高"三档音高**
+    //      ⇒ ⭐ 加花时能听出**音高走向**（⭐ 这才是 Tom 存在的意义）✅
+    //   📌 算式（⭐ 与上面三件同一口径）：⭐ `inc = f × 2^32 / 50e6`
+    //      ⇒ ⭐ 150 × 85.89934592 = **12884.90** ⇒ ⭐ 取整 `12884_902`
+    localparam [31:0] INC_TOM   = 32'd12_884_902;   // ⭐ ≈ 150 Hz（中低频"嗵"）
 
     // ⭐ 每件乐器的默认力度（⭐ 让鼓组听起来平衡）
     localparam [7:0] VEL_KICK  = 8'd230;
     localparam [7:0] VEL_SNARE = 8'd200;
     localparam [7:0] VEL_HIHAT = 8'd140;
-    localparam [7:0] VEL_CLAP  = 8'd180;
+    // ⭐⭐ 2026-09-29：⭐ `VEL_CLAP`(180) ⇒ **`VEL_TOM`(190)** ✅
+    //   ⭐ **为什么是 190**（⭐ 用户给的是"≈190"）：
+    //      ⭐ 嗵鼓是**加花乐器** —— ⚠️ 太轻（< HiHat 140 附近）就"听不见加花"，
+    //      ⚠️ 太重（≥ 底鼓 230）又会**盖住正拍的重音**（⭐ 那正是本轮的另一个 bug：
+    //      "第一拍太轻"）⇒ ⭐ 取 **190**：⭐ **比军鼓(200)略轻、比镲(140)明显重**
+    //      ⇒ ⭐ "听得到、但⛔ 不抢拍" ✅
+    localparam [7:0] VEL_TOM   = 8'd190;
 
     function [PHASE_W-1:0] inc_of;
         input [2:0] d;
@@ -121,7 +158,7 @@ module drum_gen #(
                 3'd0: inc_of = INC_KICK;
                 3'd1: inc_of = INC_SNARE;
                 3'd2: inc_of = INC_HIHAT;
-                default: inc_of = INC_CLAP;
+                default: inc_of = INC_TOM;
             endcase
         end
     endfunction
@@ -133,7 +170,7 @@ module drum_gen #(
                 3'd0: vel_of = VEL_KICK;
                 3'd1: vel_of = VEL_SNARE;
                 3'd2: vel_of = VEL_HIHAT;
-                default: vel_of = VEL_CLAP;
+                default: vel_of = VEL_TOM;
             endcase
         end
     endfunction
@@ -149,23 +186,38 @@ module drum_gen #(
     //      📌 用掩码而⛔ 不是"每件乐器一个 16 位向量" ⇒ ⭐ **查表一次就拿到"这一步敲哪几个"**
     //         ⇒ ⭐ 天然支持"一步多乐器"（⭐ 见文件头的关键点）。
     //
-    //   ⭐ 位序：⭐ `step_masks[step]` 的 bit0=Kick · bit1=Snare · bit2=HiHat · bit3=Clap
+    //   ⭐ 位序：⭐ `step_masks[step]` 的 bit0=Kick · bit1=Snare · bit2=HiHat · bit3=Tom
+    //      ⚠️ **bit3 原来是 Clap**（⭐ 2026-09-29 改成语义 = **Tom**，⭐ 见文件头）
+    //      ⇒ ⭐ **掩码值一个都不用改**（⭐ 只是"第 4 件乐器"换了身份）✅
     function [15:0] step_mask_of;
         input [2:0]  pid;
         input [3:0]  st;
         reg   [15:0] m;
         begin
             case (pid)
-                // ⭐ 型 0：**四拍基本型（Rock）**
-                //    Kick 在 1、3 拍（step 0/8）· Snare 在 2、4 拍（step 4/12）
-                //    HiHat 每 8 分（偶数 step）
+                // ⭐⭐ **2026-09-30：⭐ 4 个节奏型【全部】换成用户给的表**（⭐ 逐格照抄）✅
+                //   ⭐ 命名：⭐ `DRUM_0 = BASIC` · `DRUM_1 = HOUSE` · `DRUM_2 = ROCK`
+                //            · `DRUM_3 = DANCE_FILL`
+                //   ⭐ 背景：⭐ 用户上板反馈"原来的**塞得太满**、4 个型里**只有第一个能听**"
+                //      ⇒ ⭐ 现在以"**能听出来是什么节奏、换 BPM 也不散**"为第一目标。
+                //   ⚠️ 用户特别强调：⭐ **嗵鼓⛔ 不能落在每一拍上**
+                //      （⭐ 否则嗵鼓会被听成"**第二个军鼓**"）——
+                //      ⭐ 本表里嗵鼓只出现在 **step 8 / 14 / 15 / 16**（⭐ 1 基）✅
+                //   📌 **锁死判据**：⭐ `tb/w3c/tb_drum_gen.sv` 的 ⑯
+                //      （⭐ 4 个型 × 16 步 **位精确**比对用户表）✅
+                // ⭐ 型 0：**BASIC**（⭐ 默认型）—— ⭐ 用户表：
+                //    Kick 在 1/5/9/13 · Snare 在 5/13 · 镲在每个奇数步（1/3/…/15）
+                //    ⛔ 本型**没有嗵鼓**（⭐ 用户表就是空的）
+                //    ⚠️ step 5 / 13（1 基）上是 **Kick + Snare + 镲【三件同拍】**
+                //       ⇒ ⭐ 用户表照抄；⚠️ 三件**共用 `AXIS_ID=15`** 的"抢 voice"
+                //          问题（⭐ 见文件头）**本轮⛔ 未改**，⭐ 如实记录
                 3'd0: begin
                     case (st)
                         4'd0:  m = 4'b0101;   // Kick + HiHat
                         4'd1:  m = 4'b0000;
                         4'd2:  m = 4'b0100;   // HiHat
                         4'd3:  m = 4'b0000;
-                        4'd4:  m = 4'b0010;   // Snare
+                        4'd4:  m = 4'b0111;   // Kick + Snare + HiHat
                         4'd5:  m = 4'b0000;
                         4'd6:  m = 4'b0100;   // HiHat
                         4'd7:  m = 4'b0000;
@@ -173,51 +225,86 @@ module drum_gen #(
                         4'd9:  m = 4'b0000;
                         4'd10: m = 4'b0100;   // HiHat
                         4'd11: m = 4'b0000;
-                        4'd12: m = 4'b0010;   // Snare
+                        4'd12: m = 4'b0111;   // Kick + Snare + HiHat
                         4'd13: m = 4'b0000;
                         4'd14: m = 4'b0100;   // HiHat
+                        4'd15: m = 4'b0000;
                         default: m = 4'b0000;
                     endcase
                 end
-                // ⭐ 型 1：**八分摇滚**（HiHat 更密 + Kick 加花）
+                // ⭐ 型 1：**HOUSE** —— ⭐ 用户表：
+                //    Kick 在 1/5/9/13 · Snare 在 5/13 · 嗵鼓在 **8/16** · 镲在 **3/7/11/15**
+                //    ⭐ 镲落在**后半拍**（⭐ 与型 0 的"每个奇数步"不同）⇒ ⭐ 律动更"推"
+                //    ⭐ 嗵鼓 2 下（⭐ step 8/16）⇒ ⭐ ⛔ 不落在每一拍上 ✅
                 3'd1: begin
                     case (st)
-                        4'd0:  m = 4'b0101;   // Kick + HiHat
+                        4'd0:  m = 4'b0001;   // Kick
+                        4'd1:  m = 4'b0000;
                         4'd2:  m = 4'b0100;   // HiHat
-                        4'd3:  m = 4'b0001;   // Kick（切分）
-                        4'd4:  m = 4'b0110;   // Snare + HiHat  <== ⭐ 一步两件
+                        4'd3:  m = 4'b0000;
+                        4'd4:  m = 4'b0011;   // Kick + Snare
+                        4'd5:  m = 4'b0000;
                         4'd6:  m = 4'b0100;   // HiHat
-                        4'd8:  m = 4'b0101;   // Kick + HiHat
+                        4'd7:  m = 4'b1000;   // Tom
+                        4'd8:  m = 4'b0001;   // Kick
+                        4'd9:  m = 4'b0000;
                         4'd10: m = 4'b0100;   // HiHat
-                        4'd11: m = 4'b1001;   // Kick + Clap
-                        4'd12: m = 4'b0110;   // Snare + HiHat  <== ⭐ 一步两件
+                        4'd11: m = 4'b0000;
+                        4'd12: m = 4'b0011;   // Kick + Snare
+                        4'd13: m = 4'b0000;
                         4'd14: m = 4'b0100;   // HiHat
+                        4'd15: m = 4'b1000;   // Tom
                         default: m = 4'b0000;
                     endcase
                 end
-                // ⚠️ 型 2：**十六分放克**（HiHat 每 16 分 + Kick 切分）
+                // ⚠️ 型 2：**ROCK** —— ⭐ 用户表：
+                //    Kick 在 **1/7/9/15** · Snare 在 5/13 · 镲在每个奇数步
+                //    ⭐ 嗵鼓只有 **step 14**（1 基）一下 ⇒ ⭐ 它是"进副歌前的一击"
                 3'd2: begin
-                    if (st[0] == 1'b0) begin
-                        // ⭐ 偶数步：HiHat 恒有；特殊步再加 Kick/Snare
-                        case (st)
-                            4'd0:  m = 4'b0101;   // Kick + HiHat
-                            4'd4:  m = 4'b0110;   // Snare + HiHat
-                            4'd6:  m = 4'b0101;   // Kick + HiHat
-                            4'd10: m = 4'b1001;   // Kick + Clap
-                            4'd12: m = 4'b0110;   // Snare + HiHat
-                            default: m = 4'b0100; // 仅 HiHat
-                        endcase
-                    end else begin
-                        m = 4'b0100;          // ⭐ 奇数步：仅 HiHat（16 分密度）
-                    end
+                    case (st)
+                        4'd0:  m = 4'b0101;   // Kick + HiHat
+                        4'd1:  m = 4'b0000;
+                        4'd2:  m = 4'b0100;   // HiHat
+                        4'd3:  m = 4'b0000;
+                        4'd4:  m = 4'b0110;   // Snare + HiHat
+                        4'd5:  m = 4'b0000;
+                        4'd6:  m = 4'b0101;   // Kick + HiHat
+                        4'd7:  m = 4'b0000;
+                        4'd8:  m = 4'b0101;   // Kick + HiHat
+                        4'd9:  m = 4'b0000;
+                        4'd10: m = 4'b0100;   // HiHat
+                        4'd11: m = 4'b0000;
+                        4'd12: m = 4'b0110;   // Snare + HiHat
+                        4'd13: m = 4'b1000;   // Tom
+                        4'd14: m = 4'b0101;   // Kick + HiHat
+                        4'd15: m = 4'b0000;
+                        default: m = 4'b0000;
+                    endcase
                 end
-                // ⚠️ 型 3：**圆舞曲（3/4）** —— ⭐ 只有 12 步有效，其余留空
+                // ⚠️ 型 3：**DANCE_FILL** —— ⭐ 用户表：
+                //    Kick 在 **1/5/8/9/13** · Snare 在 5/13
+                //    · 镲在每个奇数步 **+ step 16** · 嗵鼓 **5 下**（8/11/14/15/16）
+                //    ⇒ ⭐ 本型是**加花型**，⚠️ 但嗵鼓仍⛔ **不落在每一拍上**
+                //       （⭐ 用户特别强调：⭐ 否则会被听成"第二个军鼓"）✅
                 3'd3: begin
                     case (st)
-                        4'd0:  m = 4'b0101;   // Kick + HiHat（第 1 拍）
-                        4'd4:  m = 4'b0110;   // Snare + HiHat（第 2 拍）
-                        4'd8:  m = 4'b0110;   // Snare + HiHat（第 3 拍）
-                        default: m = 4'b0000; // ⭐ 12~15 留空（3/4 拍）
+                        4'd0:  m = 4'b0101;   // Kick + HiHat
+                        4'd1:  m = 4'b0000;
+                        4'd2:  m = 4'b0100;   // HiHat
+                        4'd3:  m = 4'b0000;
+                        4'd4:  m = 4'b0111;   // Kick + Snare + HiHat
+                        4'd5:  m = 4'b0000;
+                        4'd6:  m = 4'b0100;   // HiHat
+                        4'd7:  m = 4'b1001;   // Kick + Tom
+                        4'd8:  m = 4'b0101;   // Kick + HiHat
+                        4'd9:  m = 4'b0000;
+                        4'd10: m = 4'b1100;   // Tom + HiHat
+                        4'd11: m = 4'b0000;
+                        4'd12: m = 4'b0111;   // Kick + Snare + HiHat
+                        4'd13: m = 4'b1000;   // Tom
+                        4'd14: m = 4'b1100;   // Tom + HiHat
+                        4'd15: m = 4'b1100;   // Tom + HiHat（⭐ step 16）
+                        default: m = 4'b0000;
                     endcase
                 end
                 default: m = 4'b0000;         // ⛔ 全 0 = 静音（安全态）
@@ -251,7 +338,12 @@ module drum_gen #(
 
     // ── ⭐⭐ 待发列表（⭐ 关键点：一步可能多件乐器，必须逐个发）────────────────
     reg  [3:0]  pending_q;                  // ⭐ one-hot：本步还要发哪几件
-    wire [3:0]  this_mask   = step_mask_of(PATTERN_ID[2:0], step_q);
+    //   ⭐⭐ 节奏型选择：⭐ **运行时输入**（⭐ 2026-09-29 起，⭐ 原来是编译期参数）
+    //      ⚠️ `step_mask_of` 的 `pid` 是 **3 位**（⭐ 表里有 4 个型 + default）
+    //      ⇒ ⭐ 必须**显式补 0 扩展到 3 位**（⛔ 不能把 2 位直接接上去 ——
+    //         ⚠️ 那样高位是 `x`/未定义 ⇒ 🔴 `case` 落进 `default` ⇒ **整曲静音**）
+    wire [2:0]  pat_sel     = {1'b0, pattern_id_i};
+    wire [3:0]  this_mask   = step_mask_of(pat_sel, step_q);
     wire        has_pending = (pending_q != 4'd0);
     //   ⭐ 本拍要发哪一件（⭐ 最低位的那个 ⇒ 逐个发，⭐ 天然公平）
     wire [1:0]  drum_idx    = pending_q[0] ? 2'd0
@@ -265,8 +357,8 @@ module drum_gen #(
 
     // ⭐⭐ 本步的掩码（⭐ 先落 `wire` 再选位 —— 🔴 ⛔ 不能对函数返回值直接位选）
     //   `mask_next` = 下一拍的掩码（⭐ 用于"推进时装载新的一步"）
-    wire [3:0]  mask_step0 = step_mask_of(PATTERN_ID[2:0], 4'd0);
-    wire [3:0]  mask_next  = step_mask_of(PATTERN_ID[2:0],
+    wire [3:0]  mask_step0 = step_mask_of(pat_sel, 4'd0);
+    wire [3:0]  mask_next  = step_mask_of(pat_sel,
                                           (step_q == STEPS_C - 4'd1)
                                             ? 4'd0 : (step_q + 4'd1));
 

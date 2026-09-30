@@ -702,6 +702,82 @@ module tb_looper;
                  dut.ep_mem[0][dut.O_EPT +: 20], dut.on_addr_r[6], dut.on_open_r[6]);
 
         // ══════════════════════════════════════════════════════════════════
+        // ══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 判据 ⑮（⭐ 2026-09-29）：⭐ **`on_open_r` 泄漏 ⇒ 别音的终点被静默改写**
+        //   🔴 **缺陷**：⭐ 录制中按 `clear` 走的是 `br_clear_w` 那条（⭐ `br_leave_w`
+        //      要求 `state == ST_HOLD`）⇒ ⭐ 直接回 `ST_IDLE`，⭐ `on_open_r[a]` **不清**
+        //      ⇒ ⭐ 下一遍录制里松开那个"老键"时，⭐ 这条**没有前置 `note_on`** 的
+        //      `note_off` 会命中 `ep_w_off_w` ⇒ ⭐ 把终点写到**上一遍录音的旧地址** ✅
+        //   ⭐ **本判据场景**：
+        //     · 第 1 遍：`note_on` ax0（⭐ 事件 0）⇒ ⭐ `on_addr_r[0]=0`、`on_open_r[0]=1`
+        //     · ⭐ **录制中直接 `clear`**（⭐ 老键【不松】）
+        //     · 第 2 遍：`note_on` ax1（⭐ 又是事件 0）＋ `note_off` ax1（⭐ 事件 1）
+        //       ⇒ ⭐ **`ep_mem[0]` = ax1 自己的终点**（⭐ tick 32、力度 160）
+        //     · ⭐ 这时才**松开老键 ax0**（⭐ 事件 2）⇒ 🔴 老代码把 ax0 的终点
+        //       （⭐ 力度 240）**写进 `ep_mem[0]`** ⇒ ⭐ ax1 的终点被改写 ✅
+        //     · 停录 ⇒ 回放：⭐ ax1 的插值**必须爬到 160**（⭐ 老代码爬到 240 ⇒ 必红）✅
+        //   ⭐ **非空洞性**：⭐ 把 `looper.v` 里 `ST_REC` 两个入口的
+        //      `on_open_r <= 16'd0;` 删掉 ⇒ ⭐ **本判据必红** ✅
+        //      📌 RED / GREEN 两份输出见报告（⛔ 不删，⭐ 本项目 `C83` 纪律）
+        // ══════════════════════════════════════════════════════════════════
+        $display("== 9: stale on_open_r must not corrupt another note's endpoint ==");
+        pulse_clr;
+        repeat (4) @(negedge clk);
+        live_timbre_i = 2'd0;
+
+        // ① 第 1 遍：按住 ax0 不放（⭐ 制造"未闭合的 note_on"）
+        pulse_rec;
+        idle_ticks(2);
+        live_evt(KIND_ON, 4'd0, 32'hA0A0_0000, 8'd100);      // ⭐ 事件 0
+        idle_ticks(2);
+
+        // ② ⭐ **录制中直接 clear**（⭐ 老键不松 ⇒ ⭐ 这里正是泄漏点）
+        pulse_clr;
+        repeat (4) @(negedge clk);
+        chk(evt_cnt_flat_o == 16'd0,
+            "stale_on_open setup: clear during record empties the layer");
+
+        // ③ 第 2 遍：⭐ 事件 0/1 = ax1 的起音/终点 ⇒ ⭐ `ep_mem[0]` 属于 ax1
+        pulse_rec;
+        idle_ticks(2);
+        live_evt(KIND_ON,  4'd1, 32'h1111_0001, 8'd100);      // ⭐ 事件 0（⭐ tick 2）
+        idle_ticks(30);
+        live_vel_upd(4'd1, 8'd160);                           // ⭐ ax1 的终点力度 = 160
+        live_evt(KIND_OFF, 4'd1, 32'h1111_0001, 8'd100);      // ⭐ 事件 1（⭐ tick 32）
+        idle_ticks(2);
+
+        // ④ ⭐ 现在才松开【老键 ax0】⇒ 🔴 老代码在这里把 ax0 的终点写进 `ep_mem[0]`
+        live_vel_upd(4'd0, 8'd240);                           // ⭐ 老键的终点力度 = 240
+        live_evt(KIND_OFF, 4'd0, 32'hA0A0_0000, 8'd240);      // ⭐ 事件 2（⭐ tick 34）
+        idle_ticks(2);
+        pulse_stop;                                           // ⭐ `loop_len = 36`
+        repeat (40) @(negedge clk);
+        chk(evt_cnt_flat_o == 16'd3,
+            "stale_on_open setup: the second take stored 3 events");
+
+        // ⑤ 回放第一圈：⭐ ax1 的插值终点必须是【它自己的 160】，⛔ 不是 ax0 的 240
+        upd_n = 0;
+        upd_en = 1'b1;
+        got_n = 0;
+        transport_i = 1'b1; play_en_i = 1'b1;
+        repeat (2) @(negedge clk);
+        idle_ticks(34);               // ⭐ 第一圈（`loop_len = 36`）—— ⛔ 不跨回绕点
+        upd_en = 1'b0;
+        idle_ticks(10);               // ⭐ 走过回绕点（⭐ 第二圈的值不参与判据）
+        play_en_i = 1'b0; transport_i = 1'b0;
+        repeat (4) @(negedge clk);
+
+        upd_ax_ok = (upd_n > 0);
+        for (i = 0; i < upd_n; i = i + 1)
+            if (upd_ax[i] !== 4'd1) upd_ax_ok = 0;
+        chk(upd_ax_ok,
+            "stale_on_open: replay ramps the NEW note's axis (1) and nothing else");
+        chk((upd_n > 0) && (upd_vel[upd_n-1] == 8'd160),
+            "stale_on_open: the replayed endpoint stays its OWN (160) -- not 240");
+        $display("     [dbg] upd_n=%0d last=%0d ep0v=%b ep0vel=%0d ep0tick=%0d on_open0=%b",
+                 upd_n, (upd_n > 0) ? upd_vel[upd_n-1] : 8'd0,
+                 dut.ep_mem[0][dut.O_EPV], dut.ep_mem[0][dut.O_EPVE +: 8],
+                 dut.ep_mem[0][dut.O_EPT +: 20], dut.on_open_r[0]);
         // ⭐ 判据 ⑨：A8
         // ══════════════════════════════════════════════════════════════════
         chk((a8_axis == 0) && (a8_inc == 0) && (a8_vel == 0) && (a8_kind == 0) && (a8_tbr == 0),

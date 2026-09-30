@@ -118,12 +118,26 @@ module seq_arb #(
     output reg                   evt_timbre_valid_o,
     output reg  [TIMBRE_W-1:0]   evt_timbre_o,
     //  ⭐⭐ 2026-09-29（A1）：⭐ **事件来源标记** —— ⭐ 与 `evt_valid_o` **同时序**
-    //     ⭐ 编码 = 内部 `SRC_*`（⭐ 0=live 手弹 / 1=score 曲谱·回放 / 2=demo 演示）
-    //     ⚠️ 位宽**写死 2** —— `NW` 是模块体内的 `localparam`，⭐ ANSI 端口表在它之前
+    //     ⭐ 编码 = 内部 `SRC_*`（⭐ 0=live 手弹 / 1=score 曲谱 / 2=demo 演示）
+    //     ⚠️ 位宽**写死 3** —— `NW` 是模块体内的 `localparam`，⭐ ANSI 端口表在它之前
     //        ⇒ ⛔ 不能引用（`K-91` 同族纪律：⛔ 不对参数做位选）
     //     ⭐ 用途：⭐ 下游 `note_manager` 据此**按源**区分 `note_off`
-    //        ⇒ ⭐ 回放（`score`）的 `note_off` ⛔ 不再误杀手弹（`live`）的同轴 voice
-    output reg  [1:0]            evt_src_o,
+    //        ⇒ ⭐ 曲谱（`score`）的 `note_off` ⛔ 不再误杀手弹（`live`）的同轴 voice
+    //  ⭐⭐ 2026-09-30：⭐ **2 位加宽到 3 位**（⭐ 用户需求：曲谱 UART 与 looper **同时可用**）
+    //   🔴 **为什么必须加宽**（⭐ 这是本模块唯一为它做的改动）：
+    //      ⭐ 原来 2 位 = **4 个值全部用满**（0=live · 1=score · 2=demo · 3=源 B 节拍器/鼓机）
+    //      ⇒ ⚠️ looper 要**独立**成一路（⭐ 见 `evt_merge` 的第三个输入）就**没有空闲编码**了
+    //      🔴 **⛔ 不许复用已有编码**：⭐ 复用它 ⇒ 曲谱的 `note_off` 会把
+    //         **同轴 looper 的 voice** 一起清掉（⭐ 正是 A1 修掉的那个缺陷）
+    //   ⭐ **新的编码表（3 位，用 5 个值）**：
+    //      · `3'd0` = live   手弹（W3a 采集链）
+    //      · `3'd1` = score  曲谱（`evt_uart_rx` 串口灌入）
+    //      · `3'd2` = demo   自检和弦
+    //      · `3'd3` = 源 B   节拍器 / 鼓机（⭐ 由 `top.v` 给常数，⛔ 不经过本模块）
+    //      · `3'd4` = looper 回放（⭐ 新增，⭐ 在 `evt_merge` 的**第三个输入**上打标）
+    //   📌 **本模块的仲裁语义一个字都没改** —— ⭐ 仍然只仲裁 live/score/demo 三路，
+    //      ⭐ 只是把随事件走的**标签加宽**（⭐ 加宽对仲裁本身是**透明的**）✅
+    output reg  [2:0]            evt_src_o,
 
     // ── ⭐ 可观测性（`K-106` 纪律：容量有限/会失效的东西必须能看见）──────────
     output reg  [15:0]           collision_cnt_o,  // ⭐ 多源同拍相撞次数（饱和）
@@ -148,10 +162,15 @@ module seq_arb #(
     localparam [15:0] DEPTH_M1 = DEPTH_C - 16'd1;
 
     // ⭐⭐ 记录字段宽度（⭐ `evt_merge` 的同样手法）
-    localparam integer NW = 2;        // ⭐ 源编号宽度（3 个源 ⇒ 2 bit）
-    localparam [NW-1:0] SRC_LIVE  = 2'd0;
-    localparam [NW-1:0] SRC_SCORE = 2'd1;
-    localparam [NW-1:0] SRC_DEMO  = 2'd2;
+    //   ⭐⭐ 2026-09-30：⭐ **2 → 3 位** —— ⭐ 理由见端口表 `evt_src_o` 那段长注释
+    //     （⭐ 简言之：⭐ 2 位的 4 个值**已经用满**，而 looper 要**独立**成第 5 个源 ✅）
+    //   ⚠️ **本模块只用到其中 3 个值**（live/score/demo）——
+    //      ⭐ `3'd3`（节拍器·鼓机）与 `3'd4`（looper）由 `top.v` / `evt_merge` 打标，
+    //      ⭐ 它们**⛔ 不经过本模块**（⭐ 所以本模块的仲裁逻辑⛔ 一行都不用改）✅
+    localparam integer NW = 3;        // ⭐ 源编号宽度（5 个源 ⇒ 3 bit）
+    localparam [NW-1:0] SRC_LIVE  = 3'd0;
+    localparam [NW-1:0] SRC_SCORE = 3'd1;
+    localparam [NW-1:0] SRC_DEMO  = 3'd2;
 
     // ⭐ 事件记录 = {源编号, 轴, 相位增量, 力度, 类型}
     //   📌 ⭐ **把源编号也存进去** ⇒ ⭐ 弹出时才能知道"这条是谁的" ⇒ ⭐ 好统计
@@ -262,7 +281,7 @@ module seq_arb #(
             evt_kind_o      <= {KIND_W{1'b0}};
             evt_timbre_valid_o <= 1'b0;
             evt_timbre_o    <= {TIMBRE_W{1'b0}};
-            evt_src_o       <= 2'd0;          // ⭐ A1：来源标记也复位（⛔ 不留 X）
+            evt_src_o       <= 3'd0;          // ⭐ A1：来源标记也复位（⛔ 不留 X）
             cnt_q           <= 16'd0;
             head_q          <= 16'd0;
             tail_q          <= 16'd0;

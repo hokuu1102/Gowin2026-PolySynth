@@ -13,3 +13,7 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_soft_hard_blend.sv:27: warning: Instantiating module oscillator_bank wit
+h dangling input port 5 (voice_phase_rst_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_soft_hard_blend.sv:27: warning: Instantiating module oscillator_bank wit
+h dangling input port 9 (voice_drum_i) floating.

@@ -112,6 +112,72 @@ def generate_test_sine():
     return normalize_zero_dc(samples, AMPLITUDE)
 
 
+#  ⭐⭐ 噪声表的固定种子（⭐ 2026-09-29 新增，⭐ 鼓机专用）
+#   ⭐ 为什么必须固定：⭐ 表内容要**可复现** —— ⛔ 否则每次重生成都改 RTL，
+#      ⇒ ⭐ `git diff` 全是噪声（字面意义），⭐ 且"仿真表 == 上板表"这条不变式失效。
+NOISE_SEED = 0x5EED2026
+
+
+def _xorshift32(state):
+    """Deterministic 32-bit xorshift PRNG (⭐ 固定种子 ⇒ 表内容逐字节可复现)."""
+    state ^= (state << 13) & 0xFFFFFFFF
+    state ^= state >> 17
+    state ^= (state << 5) & 0xFFFFFFFF
+    return state & 0xFFFFFFFF
+
+
+def generate_noise_table():
+    """Single-cycle PSEUDO-RANDOM (broadband) table for the drum voices.
+
+    ⭐⭐ 为什么鼓机需要它（⭐ 本表存在的唯一理由）：
+       ⭐ 鼓机（`rtl/w3c/drum_gen.v`）的 4 件乐器**共用同一个 `AXIS_ID`**，
+          只靠 `PHASE_INC`（音高）区分 ⇒ 🔴 全部走**同一张谐波丰富的乐音表**
+          ⇒ ⭐ 听感是"**音高不同的节拍器嘀嗒**"，⛔ 不是鼓。
+       ⭐ 真实鼓（hi-hat / snare / clap）的能量主体是**噪声** ⇒
+          最省的第一步就是给它们一张**宽带噪声表**（⛔ 不加任何新音频通路）。
+
+    ⭐⭐ 为什么用【频域合成】而⛔ 不是"时域直接填随机数"：
+       ⭐ 表是**单周期循环**的（1024 点，环路频率由 `PHASE_INC` 决定）⇒
+          ⚠️ 时域直接填随机数 ⇒ 🔴 **环绕处（`s[1023] → s[0]`）大概率是一个大台阶**
+          ⇒ 🔴 该台阶的能量**摊到所有谐波**（含低频）⇒ ⭐ 每圈一次的"咔哒"嗡声。
+       ⭐ 本表取 **1..512 号整数谐波 × 随机相位 × 等幅** ⇒
+          ① ⭐ **天然周期安全**：⭐ 每一项都是**整周期**的 ⇒
+             ⭐ 环绕处与表内任意处**同分布**（⭐ 不存在"离群台阶"）
+          ② ⭐ **天然零直流**（⭐ 不含 0 号谐波）
+          ③ ⭐ **等幅 ⇒ 平坦谱 ⇒ 宽带**（⭐ 时域近似高斯白噪声，
+             ⭐ 相邻样本相关系数 ≈ `-2/512 ≈ 0`）
+    """
+    state = NOISE_SEED
+    phases = []
+    for _ in range(DEPTH // 2):
+        state = _xorshift32(state)
+        phases.append(2.0 * math.pi * state / 4294967296.0)
+    samples = []
+    for index in range(DEPTH):
+        total = 0.0
+        for harmonic in range(1, DEPTH // 2 + 1):
+            total += math.sin(2.0 * math.pi * harmonic * index / DEPTH
+                              + phases[harmonic - 1])
+        samples.append(int(round(total)))
+    return normalize_zero_dc(samples, AMPLITUDE)
+
+
+def zero_crossings(samples):
+    """Sign changes around the cyclic table (⭐ 宽带性的时域判据)."""
+    return sum(1 for index in range(len(samples))
+               if (samples[index] < 0) != (samples[(index + 1) % len(samples)] < 0))
+
+
+def validate_noise_periodic(name, samples):
+    """⭐ 周期性安全：环绕处的一阶差分⛔ 不得大于表内最大的一阶差分。"""
+    steps = [abs(samples[index + 1] - samples[index])
+             for index in range(len(samples) - 1)]
+    wrap = abs(samples[0] - samples[-1])
+    if wrap > max(steps):
+        raise ValueError(f"{name}: wrap step {wrap} exceeds the largest interior step {max(steps)}")
+    return wrap, max(steps)
+
+
 def validate_table(name, samples):
     if len(samples) != DEPTH:
         raise ValueError(f"{name}: wrong depth")
@@ -152,7 +218,7 @@ def render_prom_instance(stem, samples):
     return "\n".join(lines)
 
 
-def render_rtl(tables, test_sine):
+def render_rtl(tables, test_sine, noise):
     wire_lines = []
     instance_blocks = []
     for timbre, (soft, hard) in enumerate(tables):
@@ -165,16 +231,28 @@ def render_rtl(tables, test_sine):
     wire_lines.extend((f"    wire [15:0] {test_stem}_do;",
                        f"    wire [15:0] {test_stem}_dout_w;"))
     instance_blocks.append(render_prom_instance(test_stem, test_sine))
+    #  ⭐⭐ 第 10 个 pROM：⭐ **鼓机专用的宽带噪声表**（⭐ 2026-09-29 新增）
+    #   ⭐ 与 `rom_test_sine_inst` 同一套路：⭐ **与 4 个乐音音色【解耦】** ——
+    #      ⭐ 以后换任何乐音表都**不会**连带改掉鼓的音色 ✅
+    noise_stem = "rom_noise_inst"
+    wire_lines.extend((f"    wire [15:0] {noise_stem}_do;",
+                       f"    wire [15:0] {noise_stem}_dout_w;"))
+    instance_blocks.append(render_prom_instance(noise_stem, noise))
 
     return f'''`timescale 1ns/1ps
 // T31b generated ROM: 4 timbres x 1024 points x soft/hard, all embedded.
 // IDs: 0=BASS, 1=GUITAR, 2=PIANO, 3=PAD; CC0 AKWF source tables.
-// Nine explicit Gowin pROMs avoid inferred-register expansion and preserve
+// Ten explicit Gowin pROMs avoid inferred-register expansion and preserve
 // the one-clock read contract consumed by oscillator_bank's TDM pipeline.
 // The ninth ROM (`rom_test_sine_inst`) is a PURE SINE used only by Test Mode:
 // the four AKWF timbres are harmonically rich, and Test Mode's M4 acceptance
 // counts spectral peaks (exactly 4/8/16/32, tools/peak_count.py), so it must
 // never borrow a rich table.
+// The tenth ROM (`rom_noise_inst`) is a single-cycle PSEUDO-RANDOM broadband
+// table used only by the drum voices: the drum machine separates its four
+// instruments by pitch alone, so without a noise source every hit is a pitched
+// tick.  It is synthesised from integer harmonics with random phases, which
+// makes it exactly periodic (no wrap step) and DC-free by construction.
 `default_nettype none
 module wavetable_bank #(
     parameter integer TIMBRE_N = 4,
@@ -190,6 +268,7 @@ module wavetable_bank #(
     output wire signed [SAMPLE_W-1:0] sample_soft_o,
     output wire signed [SAMPLE_W-1:0] sample_hard_o,
     output wire signed [SAMPLE_W-1:0] sample_test_o,
+    output wire signed [SAMPLE_W-1:0] sample_noise_o,
     output reg valid_o
 );
 {chr(10).join(wire_lines)}
@@ -219,6 +298,13 @@ module wavetable_bank #(
     assign sample_hard_o = rom_hard_sel;
     // Timbre-independent PURE sine: Test Mode's measurement source.
     assign sample_test_o = rom_test_sine_inst_do;
+    //  ⭐⭐ Timbre-independent PSEUDO-RANDOM table: the **drum voices' noise source**.
+    //   ⭐ 谁用它：⭐ `oscillator_bank` 对"保留轴位 voice"（`axis_r[i] >= RESERVED_AXIS`）
+    //      **改选本表**（⭐ 见 `oscillator_bank.voice_drum_i`）✅
+    //   ⭐ 为什么放这里而⛔ 不放 oscillator_bank：⭐ 与其余 9 张表**同源同拍** ——
+    //      共用同一个 `clk_i` / `rd_en_i` / `addr_i` ⇒ ⭐ **1 拍读延迟自动对齐**，
+    //      ⛔ 不需要在 `oscillator_bank` 里再加任何时序假设 ✅
+    assign sample_noise_o = rom_noise_inst_do;
 
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
@@ -241,7 +327,7 @@ endmodule
 '''
 
 
-def render_metadata(tables, test_sine):
+def render_metadata(tables, test_sine, noise):
     lines = ["generator=tools/gen_t31b_wavetable.py",
              "format=gowin_prom_init_parameters",
              f"depth_per_table={DEPTH}",
@@ -251,8 +337,13 @@ def render_metadata(tables, test_sine):
              "resampling=offline_periodic_linear_256_to_1024",
              "velocity_mapping=soft_hard_linear_interpolation_in_oscillator_bank",
              "test_mode_source=rom_test_sine_inst (dedicated PURE sine, timbre-independent)",
+             "drum_source=rom_noise_inst (dedicated single-cycle pseudo-random table, drum voices only)",
+             f"noise_seed=0x{NOISE_SEED:08X}",
+             "noise_generation=integer_harmonics_1_to_512_equal_amplitude_random_phase_then_normalize",
              f"test_sine.sum={sum(test_sine)}",
-             f"test_sine.min={min(test_sine)}", f"test_sine.max={max(test_sine)}"]
+             f"test_sine.min={min(test_sine)}", f"test_sine.max={max(test_sine)}",
+             f"noise.sum={sum(noise)}",
+             f"noise.min={min(noise)}", f"noise.max={max(noise)}"]
     for name, filename, (soft, hard) in zip(TIMBRES, AKWF_SOURCES, tables):
         lines.extend((f"{name}.source={filename}",
                       f"{name}.soft.sum={sum(soft)}", f"{name}.hard.sum={sum(hard)}",
@@ -271,12 +362,20 @@ def write_if_changed(path, content):
 def main():
     tables = generate_tables()
     test_sine = generate_test_sine()
+    noise = generate_noise_table()
     for name, (soft, hard) in zip(TIMBRES, tables):
         validate_table(f"{name}.soft", soft)
         validate_table(f"{name}.hard", hard)
     validate_table("TEST_SINE", test_sine)
-    for path, content in ((RTL_PATH, render_rtl(tables, test_sine)),
-                          (METADATA_PATH, render_metadata(tables, test_sine))):
+    validate_table("NOISE", noise)
+    wrap_step, max_step = validate_noise_periodic("NOISE", noise)
+    #  ⭐ 统计量打印（⭐ 验收 tb 的门限就从这里取 ⇒ ⛔ 不用手算）
+    print(f"NOISE  len={len(noise)} sum={sum(noise)} "
+          f"min={min(noise)} max={max(noise)} "
+          f"zcr={zero_crossings(noise)} (sine zcr={zero_crossings(test_sine)}) "
+          f"wrap_step={wrap_step} max_interior_step={max_step}")
+    for path, content in ((RTL_PATH, render_rtl(tables, test_sine, noise)),
+                          (METADATA_PATH, render_metadata(tables, test_sine, noise))):
         state = "written" if write_if_changed(path, content) else "unchanged"
         print(f"{state}: {path.relative_to(REPO_ROOT)}")
     print("PASS: generated T31b embedded four-timbre soft/hard wavetable bank")

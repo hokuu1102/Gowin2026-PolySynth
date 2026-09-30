@@ -4,8 +4,7 @@ NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
 NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
 NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
 NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
-WARN [top] vu_* scans only 8 axes but the system has 16 => axes 8..15 get ATTACK velocity but NO follow (see the VEL_AXIS_N comment)
-NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=12 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=15 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
 VCD info: dumpfile build/sim/tb_met_start_top/tb_met_start_top.vcd opened for output.
@@ -23,9 +22,9 @@ VCD info: dumpfile build/sim/tb_met_start_top/tb_met_start_top.vcd opened for ou
   info: beat 6 (bar=0)  vcnt=7  tcnt=7  triggers_this_beat=1
   info: beat 7 (bar=0)  vcnt=8  tcnt=8  triggers_this_beat=1
   ok  : T4 exactly ONE metronome event per emulated beat (8 events)
-  ok  : T5 velocity pattern is accent-weak-weak-weak (120,72,72,72 x2)
+  ok  : T5 velocity pattern is accent-weak-weak-weak (180,108,108,108 x2)
   ok  : T6 EVERY beat really fired the perc envelope (8 triggers for 8 events)
 PASS: met_start_top -- metronome starts on the DOWNBEAT and every beat fires
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:227: $finish called at 545530000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:246: $finish called at 545530000 (1ps)
 
 

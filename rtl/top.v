@@ -97,6 +97,20 @@ module top #(
     //   ⚠️ **为什么是编译期参数而⛔ 不是运行时切换**：
     //      ⚠️ 那需要改 `calib_cmd`（⭐ **上板要测的模块**）⇒ ⭐ 本轮⛔ 一行不碰它。
     //      📌 将来要"现场切" ⇒ ⭐ 只需把 `sel_drum` 换成寄存器即可（⭐ 结构已就绪）。
+    //   ⭐⭐ **2026-09-30：默认档【回到 0 = 节拍器】** ✅
+    //      🔴 **事故经过**：⭐ 鼓机 worktree 里为了**出鼓机诊断档的 `.fs`** 把它设成 1
+    //         （⭐ 那份 `.fs` 就是用来听鼓机的 ✅），⚠️ 但 cherry-pick 进主树时
+    //         **没有改回 0** ⇒ ⭐ 主树默认档一度变成**鼓机**
+    //         ⇒ 🔴 **默认档下节拍器不出声**（⭐ 源 B 是二选一）⇒
+    //         ⭐ `tb_met_start_top` 的 T6（"**每一拍都真的起音**"）因此变红 ✅
+    //      ✅ **裁定（⭐ 2026-09-30 主线程）**：⭐ **主树默认档 = 0（节拍器）** ——
+    //         ⭐ 与 5 份文档 ＋ `bringup\16-上板操作手册` 的"四条铁律"一致 ✅
+    //      ⭐ **要验鼓机** ⇒ ⭐ **另编一份 `SEL_DRUM = 1` 的 `.fs`**（⭐ 第三周计划原排法）
+    //         ⇒ ⛔ **不要靠改这里的默认值来出鼓机档** ✅
+    //      📌 **纪律（⭐ 本次踩到的坑）**：⭐ 凡"验某一路"的 tb **必须显式声明
+    //         自己需要的档**（⭐ `.SEL_DRUM(0)` / `.SEL_DRUM(1)`），
+    //         ⛔ 不依赖顶层默认值 —— ⚠️ 默认值一变，tb 就测了**别的**源，
+    //         而判据是**红的**，看起来像被测模块坏了（⭐ 白查半天 ✅）
     parameter integer SEL_DRUM          = 0,
     // ⭐⭐ **静音节拍器**（⭐ 2026-09-26 新增 · 用户上板实测后要求）
     //   · 0 => 🔇 **节拍器【完全不出声】**（⭐ 只听键盘）
@@ -187,7 +201,36 @@ module top #(
     parameter integer DETUNE_SH         = 9,
     // ⭐⭐ 鼓机的内置节奏型（⭐ 0~3，⭐ 见 `drum_gen.step_mask_of`）
     //   · 0 = 四拍基本型（Rock）· 1 = 八分摇滚 · 2 = 十六分放克 · 3 = 圆舞曲(3/4)
+    //   ⭐⭐ **2026-09-29：⭐ 它从【编译期参数】降级为【上电默认值】** ✅
+    //      ⭐ 真正生效的选择现在是**运行时寄存器 `drum_pattern_r`**
+    //         （⭐ 串口 `'D'` ⇒ 循环 `0→1→2→3→0`，⭐ 见下方 §节奏型寄存器）
+    //      ⇒ ⭐ 本参数**只决定复位后的初值**（⭐ 默认 0 ⇒ ⭐ 上电行为与改动前逐位一致 ✅）
+    //      📌 **为什么必须改成运行时**：⭐ 用户上板要求"鼓机节奏型要能**现场切**"——
+    //         ⚠️ 编译期参数意味着"换一个节奏型就得重新 PnR + 烧写"（⭐ 一次 ~10 分钟）
+    //         ⇒ ⭐ 上板试听 4 个型**根本没法比**（⭐ 这正是用户提这个需求的原因）。
     parameter integer DRUM_PATTERN_ID   = 0,
+
+    // ⭐⭐ **鼓机 / 节拍器的固定音色**（⭐ 2026-09-29 新增 · 修"鼓跟着键盘音色变"的 bug）
+    //
+    //   🔴 **问题（⭐ 用户上板实测）**：⭐ 换键盘音色（⭐ 串口 `'I'` / S2 按键）时
+    //      **鼓的声音也跟着变** ⇒ ⭐ 鼓机和键盘**听起来像同一件乐器**。
+    //   🔎 **根因**：⭐ 源 B（节拍器/鼓机）原来把 `timbre_valid` **恒接 `1'b0`**
+    //      ⇒ ⭐ `note_manager` 走
+    //         `new_timbre = cur_timbre_valid ? cur_timbre : default_timbre_i`
+    //         （⭐ `note_manager.v:426`）的**兜底分支**
+    //      ⇒ ⭐ 拿到的是 `default_timbre_i = timbre_sel_r`（⭐ **键盘当前音色**，⭐ `top.v:3081`）
+    //      ⇒ 🔴 **鼓的音色 = 键盘的音色** —— ⛔ 完全不是我们要的（鼓必须有自己的音色）。
+    //
+    //   ⭐ **修法**：⭐ 给源 B 一个**自己的、固定的**音色 ⇒ ⭐ 与键盘**彻底解耦**
+    //      （⭐ 键盘怎么切都⛔ 不影响鼓）。
+    //   ⭐ 取值 **2 = PIANO**（⭐ `wavetable_bank.v:3`：`0=BASS 1=GUITAR 2=PIANO 3=PAD`）：
+    //      ⭐ PIANO 是 **zero-DC 25% 脉冲** ⇒ ⭐ 谐波最丰富、**起音最"脆"**
+    //      ⇒ ⭐ 最接近打击乐（⭐ 而 BASS/GUITAR/PAD 都是**持续音**音色，⭐ 敲下去像"按了个和弦"）。
+    //   📌 **为什么做成参数**：⭐ 鼓的音色是**主观听感**（⭐ 必须能 A/B 对比，⛔ 不能靠推理）——
+    //      ⭐ 上板改一个数字重烧即可重听（⭐ 与 `DETUNE_ON` / `METRONOME_ON` 同一手法 ✅）。
+    //   ⚠️ **它同时管住节拍器**（⭐ 源 B 是二选一）⇒ ⭐ 语义上叫"源 B 音色"更准
+    //      —— ⭐ 节拍器本来就是"打击乐式的拍子声"，⭐ 同样**不该跟着键盘走** ✅
+    parameter [1:0] DRUM_TIMBRE = 2'd2,
     // ⭐⭐ 上电自动零点标定的**等待时间**（clk 数；默认 10M ≈ **200 ms** @50 MHz）
     //   ⭐ `calib_autotare` 用它决定"等多久才开始标定"。
     //   ⚠️ **太短 ⇒ 霍尔供电/LDO 还没稳 ⇒ 🔴 零点记错**（⚠️ 而且**不可察觉**：
@@ -481,6 +524,39 @@ module top #(
             timbre_sel_r <= timbre_sel_r + 2'd1;
     end
 
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-09-29：⭐ **鼓机节奏型寄存器**（⭐ 串口 `'D'` ⇒ 循环 `0→1→2→3→0`）
+    //
+    //  🔴 **为什么要有它**（⭐ 用户上板要求）：⭐ "鼓机的节奏型要能**现场切**"。
+    //     ⚠️ 原来 `DRUM_PATTERN_ID` 是**编译期参数** ⇒ ⭐ 想听下一个型就得
+    //        **重新 PnR + 烧写**（⭐ 一次 ~10 分钟）⇒ 🔴 **4 个型根本没法 A/B 对比**。
+    //
+    //  ⭐ **语义**：⭐ 与 `timbre_sel_r`（`'I'` 切音色）/ `met_on_r`（`'B'` 开关）
+    //     **完全同一手法**：⭐ `calib_cmd` 出**单周期脉冲** ⇒ ⭐ 这里**加一**（⭐ 2 位自然回绕）。
+    //  ⭐ **复位值 = `DRUM_PATTERN_ID`**（⭐ 上电默认型）⇒ ⭐ 不改 `'D'` 时
+    //     **行为与改动前逐位一致** ✅（⭐ 这条是本轮"只加不改"的关键）。
+    //
+    //  ⚠️ **为什么必须声明在【模块层】**（⭐ 而不是 generate 里的 `g_sound`）：
+    //     ⭐ 与 `timbre_sel_r` **同一个理由** —— ⭐ 队友/本轮的 tb 要能用
+    //     **`dut.drum_pattern_r`**（⭐ 模块层路径）观察它；
+    //     ⚠️ 放 generate 里**绑不上**（⭐ 实测过 8 条 `Unable to bind` ✅）。
+    //     📌 `calib_cmd`/`drum_gen` 都在 `g_sound` 里 ⇒ ⭐ 模块层信号**在里面可读可写** ✅
+    //  ⚠️ **`g_silent` 档不例化 `calib_cmd`** ⇒ ⭐ 那里 `cmd_drum_pattern_req` 悬空（`z`）
+    //     ⇒ ⭐ `if (z)` 在仿真里**为假** ⇒ ⭐ **不会误加** ✅
+    //     （⭐ 与 `met_on_r`/`cmd_met_req` 完全同一个既有模式，⛔ 不是新风险）
+    // ═══════════════════════════════════════════════════════════════════════
+    //   ⚠️ **必须在【使用之前】声明** —— ⭐ `default_nettype none` 下不存在隐式网线 ✅
+    wire cmd_drum_pattern_req;      // ⭐ 'D' ⇒ 鼓机节奏型 **切下一个**
+
+    //   ⭐ `integer` 参数⛔ 不做位选（`K-91`）⇒ ⭐ 先【赋值】给定宽 localparam（自动截断）✅
+    localparam [1:0] DRUM_PATTERN_INIT = DRUM_PATTERN_ID;
+
+    reg [1:0] drum_pattern_r;
+    always @(posedge clk) begin
+        if (!rst_n_sync) drum_pattern_r <= DRUM_PATTERN_INIT;
+        else if (cmd_drum_pattern_req) drum_pattern_r <= drum_pattern_r + 2'd1;
+    end
+
     // ⭐⭐ 2026-09-28：**开节拍器的那一刻，把音乐位置复位**（⭐ 用户要求"从第一拍开始响"）
     //
     //   🔴 **问题（⭐ 用户上板实测）**：*"节拍器是从第二拍开始响的，希望最好从第一拍开始响"*
@@ -707,6 +783,8 @@ module top #(
         // ⭐ 2026-09-29：⭐ 切音色（⭐ 'I'）
         .timbre_req_o   (cmd_timbre_req),
         .met_req_o      (cmd_met_req),
+        // ⭐ 2026-09-29：⭐ 鼓机节奏型切下一个（⭐ 'D'，⭐ 2026-09-29 新增）
+        .drum_pattern_req_o(cmd_drum_pattern_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (cmd_in_frame_cnt),
         .resync_cnt_o   (cmd_resync_cnt),
@@ -957,6 +1035,14 @@ module top #(
         wire [POLY_TARGET*32-1:0]      nm_phase;
         wire [POLY_TARGET*8-1:0]       nm_vel;
         wire [POLY_TARGET*2-1:0]       nm_timbre;
+        //  ⭐⭐ 2026-09-29 新增（⭐ 鼓机噪声波表 · 阶段 2a）：⭐ **每 voice 的"是鼓吗"**
+        //     ⭐ 来源：⭐ `note_manager.voice_drum_o`（⭐ = `axis_r[i] >= RESERVED_AXIS` ✅）
+        //     ⭐ 去向：⭐ `oscillator_bank.voice_drum_i` ⇒ ⭐ 保留轴位（节拍器 14 /
+        //       鼓机 15）的 voice **改读第 10 张表（宽带噪声）** ✅
+        //     🔴 为什么必须由 `top` 直连：⭐ 这条标志是**跨模块**的
+        //        （⭐ `note_manager` 知道"谁在发声"，⭐ `oscillator_bank` 才知道"该读哪张表"）
+        //        ⇒ ⭐ `top` 是唯一的连接点 ✅
+        wire [POLY_TARGET-1:0]         nm_drum;
         wire [POLY_TARGET*16-1:0]      nm_age;
         wire                           nm_alloc_valid;
         wire [4:0]                     nm_alloc_voice;
@@ -1211,13 +1297,19 @@ module top #(
             .AXIS_ID        (15),
             .N_DRUM         (4),
             .STEPS          (16),
-            .PATTERN_ID     (DRUM_PATTERN_ID),
             // ⭐ 16 分音符 = PPQN(960) / 4 = 240 tick
             .TICKS_PER_STEP (240),
             .RESERVED_N     (5)
         ) u_drum_gen (
             .clk_i          (clk),
             .rst_n_i        (rst_n_sync),
+            // ⭐⭐ 2026-09-29：⭐ 节奏型改成**运行时输入**（⭐ 串口 `'D'` 切）
+            //   ⚠️ 原来是**参数** `.PATTERN_ID(DRUM_PATTERN_ID)`（⭐ 编译期常量）
+            //      ⇒ 🔴 换型要重新 PnR（⭐ 见上方 §节奏型寄存器）
+            //   📌 `DRUM_PATTERN_ID` 现在**只当复位初值**（⭐ 见 `DRUM_PATTERN_INIT`）✅
+            //   🔴 **它现在是【端口】而⛔ 不是参数**（⭐ 所以必须写在**这里**，
+            //      ⚠️ 写进上面的 `#(...)` 会报 `parameter pattern_id_i not found` —— 已实测）✅
+            .pattern_id_i   (drum_pattern_r),
             //   ⭐ 与节拍器**同一个 `beat_gen`** ⇒ ⭐ 天然同拍（⛔ 不自己再分频）
             .tick_i         (bg_tick),
             .tick_cnt_i     (bg_tick_cnt),
@@ -1935,9 +2027,13 @@ module top #(
         //        **抬起的时候不再改变力度**，如果松手就自然衰减」
         //
         //   ⭐ **三条语义分别由什么保证**（⭐ 逐条对应，⛔ 不是"看起来对"）：
-        //     ① ⭐ **实时跟随** —— 每 `tick_audio` 扫**一个**轴（8 轴轮转）
+        //     ① ⭐ **实时跟随** —— 每 `tick_audio` 扫**一个**轴（⭐ **16 轴轮转**）
         //        · `tick_audio` 周期 = 1024 clk @50 MHz = **20.48 µs**
-        //        · 8 轴轮转 ⇒ ⭐ 每轴 **163.84 µs** ⇒ 响应 ~164 µs（⭐ 听得出的"实时"）
+        //        · 16 轴轮转 ⇒ ⭐ 每轴 **327.68 µs** ⇒ 响应 ~328 µs
+        //          ⚠️ **2026-09-30 从 8 轴扩到 16 轴 ⇒ 单轴刷新率【减半】**（164 → 328 µs）
+        //             🔴 **这是扩容的固有代价**（⭐ 想保住 164 µs 就得"每拍扫 2 个轴"，
+        //             ⚠️ 那要多一份 `pos_to_vel` + 选择器 ⇒ ⭐ 与"浅逻辑"相悖 ⇒ ⛔ 不做）。
+        //             📌 328 µs 仍是 ~3 kHz 的刷新 ⇒ ⭐ 听感上依然是"实时跟随" ✅
         //     ② ⭐ **只在按下时改变** —— 判据 `vu_pos > VEL_TRIG_TH`（= `TRIG_TH` = 64）
         //        · ⭐ 抬起后 `pos` 掉到 `REL_TH`(32) 以下 ⇒ 条件不成立 ⇒ ⭐ **力度冻结** ✅
         //        · ⭐ `note_manager` 那边还有第二道保险：`gate_mask`
@@ -1983,21 +2079,26 @@ module top #(
         //   📌 死区原本只为"防抖动/台阶声" ✅ ⇒ ⭐ 该职责已由 `note_manager` 的
         //      **±8/采样拍斜坡** 承担（⭐ 功能重复 ⇒ 删掉不丢能力 ✅）
 
-        // ⭐⭐ **本块只扫【前 `VEL_AXIS_N` 个轴】**（⭐ 已知限制，⛔ 不是 bug）
-        //   ⚠️ **为什么是 8**：⭐ 当前硬件 = **一块 8 轴左手板**（轴 0~7）；
-        //      轴 8~15 的第二片 ADC 未接（⭐ 上电 `'N'` 实测恒 0）。
-        //   🔴 **扩到 16 轴时会发生什么（必须知道）**：
-        //      轴 8~15 会变成「**起音有位置式力度、跟随却完全不动**」——
-        //      因为 `w3a_evt_vel` 用的是任意轴的 `am_pos_in`（起音通路**不受**本块限制），
-        //      而本块只扫 0~7 ⇒ ⭐ **半残且静默**（同族 `K-56`：全绿不证明任何事）。
-        //   ✅ **真要扩到 16 轴时改三处**：
-        //      ① `VEL_AXIS_N` 8 → 16   ② `VEL_AX_W` 3 → 4
-        //      ③ ⚠️ **并重新评估时序**（`vu_last` 多 96 FF + 选择逻辑变大）
-        //   📌 本块末尾的 `initial` 守卫会在仿真启动时**明确警告**轴数不匹配。
-        localparam integer VEL_AXIS_N = 8;   // ⭐ 本块扫的轴数（= 当前硬件的轴数）
-        localparam integer VEL_AX_W   = 3;   // ⭐ = $clog2(VEL_AXIS_N)
+        // ⭐⭐ **本块扫【全部 `VEL_AXIS_N` 个轴】**（⭐ 2026-09-30：8 → **16** ✅）
+        //   ⭐ **为什么现在是 16**：⭐ 左手板有**两块**（⭐ 各 1 片 `MCP3208`，
+        //      `ADC_N = 2`）⇒ 轴 0~7 = 板 1 · 轴 8~15 = 板 2
+        //      ⇒ 🔴 **两块板必须【配置一致】** —— ⚠️ 否则板 2 的键
+        //         「**起音有位置式力度、跟随却完全不动**」（⭐ 因为 `w3a_evt_vel`
+        //         用的是任意轴的 `am_pos_in`，⭐ 起音通路**不受**本块限制）
+        //         ⇒ ⭐ **半残且静默**（同族 `K-56`：全绿不证明任何事）✅
+        //   ⚠️ **本次扩容的代价（⭐ 时序敏感：Fmax 余量只有 +0.18%）**：
+        //      ① `vu_ax_r` 3 → 4 位 ⇒ ⭐ **+1 FF**（⭐ 本块**没有其它新增寄存器**）
+        //      ② `as_pos[vu_ax_r*12 +: 12]` 从 **8 选 1** 变 **16 选 1**
+        //         （⭐ 12 位宽 ⇒ 综合器用 `4:1` 原语拼 ⇒ ⭐ **16 选 1 与 8 选 1 同为两级**，
+        //          ⭐ 组合深度**基本不变**，⭐ 只多几个 LUT ✅）
+        //         ⚠️ **确切的门级/时序数字以 PnR 报告为准**（⭐ 本处只是量级判断）
+        //      📌 **`vu_last[]` 死区数组早已删掉**（⭐ 见下）⇒ 🔴 **不再有那 96 FF**
+        //         ⇒ ⭐ 本次的实际代价**远小于** 2026-09-30 注释里预估的那一版 ✅
+        //   📌 本块末尾的 `initial` 守卫会在仿真启动时**核对**轴数（⭐ 不匹配就报）。
+        localparam integer VEL_AXIS_N = 16;  // ⭐ 本块扫的轴数（= 系统的真实轴数）
+        localparam integer VEL_AX_W   = 4;   // ⭐ = $clog2(VEL_AXIS_N)
 
-        reg  [VEL_AX_W-1:0] vu_ax_r;              // ⭐ 本拍要扫的轴（0→7 轮转）
+        reg  [VEL_AX_W-1:0] vu_ax_r;              // ⭐ 本拍要扫的轴（0→15 轮转）
         //  ⭐⭐ 2026-09-29 治本：⭐ **删掉了 `vu_last[]` 死区数组** ✅
         //   🔴 **为什么删**（⭐ 用户上板症状："无论按下行程多少，音量都一样" ✅）：
         //      · ⭐ 死区是"**变化超过 16 才发**" ⇒ ⚠️ 若某次 `vel_upd` 在 voice 出现
@@ -2023,7 +2124,7 @@ module top #(
 
         always @(posedge clk) begin
             if (!rst_n_sync) begin
-                vu_ax_r    <= 3'd0;
+                vu_ax_r    <= {VEL_AX_W{1'b0}};
                 vu_valid_r <= 1'b0;
                 vu_axis_r  <= 4'd0;
                 vu_val_r   <= 8'd0;
@@ -2031,12 +2132,12 @@ module top #(
                 // ⭐ 默认清 0 ⇒ 下面置 1 时**恰好是 1 拍脉冲**
                 vu_valid_r <= 1'b0;
                 if (tick_audio) begin
-                    // ⭐ 计数器**自然回绕** ⇒ 0→1→…→7→0，⭐ 就是"8 轴轮转"
-                    //   📌 用 `+ 1'b1`（⛔ 不写死 `3'd1`）⇒ ⭐ 改 `VEL_AX_W` 时不用跟着改
+                    // ⭐ 计数器**自然回绕** ⇒ 0→1→…→15→0，⭐ 就是"16 轴轮转"
+                    //   📌 用 `+ 1'b1`（⛔ 不写死 `4'd1`）⇒ ⭐ 改 `VEL_AX_W` 时不用跟着改
                     vu_ax_r <= vu_ax_r + 1'b1;
                     //   ⭐⭐ **唯一条件**：⭐ `vu_pos > VEL_TRIG_TH` ⇒ "**按下中**" ✅
                     //      ⭐ 抬起后自动失效（⭐ 力度冻结 ✅）
-                    //   📌 **不再有 `vu_far`** ⇒ ⭐ 按住的每个轴每 164 µs 发一次 ✅
+                    //   📌 **不再有 `vu_far`** ⇒ ⭐ 按住的每个轴每 328 µs 发一次 ✅
                     if (vu_pos > VEL_TRIG_TH) begin
                         vu_valid_r <= 1'b1;
                         vu_axis_r  <= vu_ax_r;   // ⭐ 隐式零扩展到 4 位（⛔ 不写死位宽）
@@ -2047,16 +2148,25 @@ module top #(
         end
 
         // ⭐⭐ 参数守卫（与各模块的 `PARAM_OK` 同一套路）
-        //   🔴 **为什么必须有**：本块只扫 `VEL_AXIS_N` 个轴，而系统的真实轴数由
+        //   🔴 **为什么必须有**：本块扫 `VEL_AXIS_N` 个轴，而系统的真实轴数由
         //      `event_extract` / `axis_snapshot` 的 `AXIS_N` 决定。
-        //      ⚠️ 两者**不一致时是【静默】的** —— 多出来的轴只有"起音力度"、⛔ 没有"跟随"
+        //      ⚠️ 两者**不一致时是【静默】的** —— 少扫的轴只有"起音力度"、⛔ 没有"跟随"
         //      （⭐ 同族 `K-56`：全绿不证明任何事）。
+        //   ⭐ **2026-09-30：判据从"允许只扫一部分"改成"必须扫满"** ✅
+        //      🔴 因为左手板有**两块** ⇒ ⭐ **两块必须配置一致** ⇒
+        //         ⭐ `VEL_AXIS_N != SYS_AXIS_N` **本身就是缺陷**（⭐ 不再是"已知限制"）✅
         //   ⇒ ⭐ 仿真启动时明确打印（⭐ 综合工具忽略 `initial` ⇒ 只是仿真侧防线）。
         localparam integer SYS_AXIS_N = 16;   // ⚠️ 必须与 `event_extract`/`axis_snapshot` 的 `AXIS_N` 一致
         initial begin
-            if (SYS_AXIS_N > VEL_AXIS_N)
-                $display("WARN [top] vu_* scans only %0d axes but the system has %0d => axes %0d..%0d get ATTACK velocity but NO follow (see the VEL_AXIS_N comment)",
-                         VEL_AXIS_N, SYS_AXIS_N, VEL_AXIS_N, SYS_AXIS_N-1);
+            if (VEL_AXIS_N != SYS_AXIS_N)
+                $display("ERROR [top] VEL_AXIS_N=%0d != SYS_AXIS_N=%0d => %0d axis/axes get ATTACK velocity but NO follow (two identical left-hand boards require VEL_AXIS_N == AXIS_N; see the VEL_AXIS_N comment)",
+                         VEL_AXIS_N, SYS_AXIS_N,
+                         (VEL_AXIS_N < SYS_AXIS_N) ? (SYS_AXIS_N - VEL_AXIS_N) : 0);
+            //   🔴 `VEL_AXIS_N > SYS_AXIS_N` 更糟：⭐ `as_pos` 只声明了 `SYS_AXIS_N*12` 位
+            //      ⇒ ⭐ 选择器会**越界索引**（⭐ 综合/仿真行为都不可靠）
+            if (VEL_AXIS_N > SYS_AXIS_N)
+                $display("ERROR [top] VEL_AXIS_N=%0d exceeds SYS_AXIS_N=%0d => as_pos index OUT OF RANGE",
+                         VEL_AXIS_N, SYS_AXIS_N);
             if ((1 << VEL_AX_W) != VEL_AXIS_N)
                 $display("ERROR [top] VEL_AX_W=%0d does not match VEL_AXIS_N=%0d (must be $clog2)",
                          VEL_AX_W, VEL_AXIS_N);
@@ -2675,9 +2785,10 @@ module top #(
         wire        sa_timbre_valid;
         wire [1:0]  sa_timbre;
         //  ⭐⭐ 2026-09-29（A1）：⭐ `seq_arb` 导出的**来源标记**
-        //     ⭐ 编码 = `seq_arb` 的 `SRC_*`（0=live 手弹 / 1=score 曲谱·回放 / 2=demo 演示）
+        //     ⭐ 编码 = `seq_arb` 的 `SRC_*`（0=live 手弹 / 1=score 曲谱 / 2=demo 演示）
         //     ⭐ 一路传下去：`seq_arb.evt_src_o → evt_merge.a_src_i → note_manager.note_src_i`
-        wire [1:0]  sa_src;
+        //  ⭐⭐ 2026-09-30：⭐ **位宽 2 → 3**（⭐ 编码表见 `seq_arb.evt_src_o` 的注释）
+        wire [2:0]  sa_src;
         wire [15:0] sa_collision_cnt;
         wire [15:0] sa_merged_cnt;
         wire [15:0] sa_drop_cnt;
@@ -2686,33 +2797,61 @@ module top #(
         wire [15:0] sa_score_cnt;
         wire [15:0] sa_demo_cnt;
 
-        //  ⭐⭐ 曲谱 UART 通路开关（⭐ 2026-09-28 新增，⭐ **默认 0 = 禁用**）
-        //     🔴 原因：`evt_uart_rx`（帧头 `0xA5`）与串口屏/命令**共用同一条 UART**
+        //  ⭐⭐ 曲谱 UART 通路开关（⭐ 2026-09-28 新增）
+        //     🔴 **原风险（⭐ 仍然存在，⛔ 没有被本改动消除）**：
+        //        `evt_uart_rx`（帧头 `0xA5`）与串口屏/命令**共用同一条 UART**
         //        ⇒ 其它两路的合法载荷里出现 `0xA5` 时会被误当事件包
         //        ⇒ 🔴 **注入 axis=14/15 的伪 note_on** ⇒ **永久挂音**（⭐ 已仿真证明）
         //     📌 详见 `seq_arb` 例化处 `score_valid_i` 的注释与
         //        `tb/w3c/tb_evt_uart_rx_screen.sv`。
-        //     ⚠️ 要恢复曲谱功能 ⇒ 置 1 **且** 把曲谱源换到**独立 UART 线**。
-        localparam integer SCORE_UART_ENABLE = 0;
+        //
+        //  ⭐⭐ **2026-09-30：默认由 `0` 改成 `1`**（⭐ 用户需求：曲谱与 looper **同时可用**）
+        //     🔴 **为什么能改默认**：⭐ 原来 looper 与曲谱**抢同一个 `score` 口**
+        //        ⇒ ⭐ 只能二选一；⭐ 现在 looper 有**自己的通路**（⭐ `evt_merge` 源 C，
+        //        ⭐ 见下方 §事件域 Looper）⇒ ⭐ 这个开关**只再管"曲谱 UART 开不开"** ✅
+        //     ⭐ **两档的语义（⭐ 清楚且互不干扰）**：
+        //        · ⭐ `1`（⭐ **新默认**）⇒ ⭐ **曲谱 UART + looper 都可用**（⭐ 用户要的"两个都要"）
+        //        · ⭐ `0`                ⇒ ⭐ **只关曲谱 UART**（⭐ 那一路接常量 0）
+        //                                   ⭐ **looper 照常可用**（⭐ 通路与它无关）
+        //          📌 用途：⭐ 若上板发现"串口屏/命令流被误当曲谱帧"（⭐ 见上方的 0xA5 风险）
+        //             ⇒ ⭐ **把它置 0 即可**，⛔ **不会连带关掉 looper** ✅
+        //     ⚠️ **遗留风险（⭐ 必须上板验证）**：⭐ 默认档下曲谱 UART 是**开着的**，
+        //        而它与串口屏**共用一条线** ⇒ ⭐ 伪事件注入的**理论通路仍然存在**
+        //        （⭐ 与 `SCORE_UART_ENABLE = 1` 在旧版里的含义完全相同）。
+        //        ⇒ ⭐ 上板时要**专门试**"串口屏数值帧里带 0xA5"这一情形（⭐ 见
+        //           `tb/w3c/tb_evt_uart_rx_screen.sv` 的用例）✅
+        localparam integer SCORE_UART_ENABLE = 1;
 
         // ══════════════════════════════════════════════════════════════════
         // ⭐⭐ 2026-09-29 新增：⭐ 事件域 Looper（`T37` 单层录制+播放 · `T39` 边 loop 边弹）
         //
-        //   ⭐ **接法（⭐ 本项目【风险最低】的一种）**：⭐ 重放接到 `seq_arb` 的
-        //      **`score` 口** —— ⭐ 那个口在 `SCORE_UART_ENABLE = 0`（⭐ **默认**）时
-        //      **本来就是空的**（⭐ 接常量 0）✅
-        //      ⇒ ⭐ **⛔ 不改 `evt_merge` / `seq_arb` 任何一行**（⭐ 两个都已验证过）
-        //      ⇒ ⭐ **⛔ 不给【手弹路径】加任何延迟**（⭐ 否则会踩既有 tb 的时序判据）✅
+        //  ⭐⭐ **2026-09-30：接法改了 —— 重放走 `evt_merge` 的【源 C】** ✅
+        //   🔴 **为什么改**（⭐ 用户需求：⭐ **曲谱 UART 与 looper 要【同时】可用**）：
+        //      ⚠️ 原接法是"looper 与曲谱 UART **抢 `seq_arb` 的 `score` 口**"
+        //         （⭐ `SCORE_UART_ENABLE` 编译期二选一）
+        //      ⇒ 🔴 **两者结构上不可能同时出声** —— ⭐ 用户实测"灌曲谱没声音"正是它 ✅
+        //   ⭐ **新接法**：⭐ 曲谱 UART 仍走 `seq_arb.score`（⭐ 源 A 的一路），
+        //      ⭐ looper 重放改走 **`evt_merge` 的第三个输入 `c_*`** ⇒ ⭐ **互不相干** ✅
+        //
+        //   ⭐⭐ **为什么必须"另开一个口"而⛔ 不是"复用某个空闲编码"**：
+        //      ⭐ `evt_merge` 的 A/B 两个口**都已经有主** ——
+        //         · A = `seq_arb` 的输出（手弹 / 曲谱 / 演示）
+        //         · B = 节拍器 / 鼓机（⭐ `SEL_DRUM` 二选一）
+        //      ⇒ ⚠️ 让 looper 挤进任一口 ⇒ 🔴 **它和那个口的源就不能并存** ✅
+        //      🔴 **而且不许"共用一个源标签"**：⭐ `note_manager` 的 `note_off`
+        //         是按 **(轴, 源)** 匹配的 ⇒ ⭐ 标签一旦相同，
+        //         🔴 **曲谱的 `note_off` 会清掉同轴 looper 的 voice**（⭐ 反之亦然）✅
+        //      ⇒ ⭐ **给 looper 一个自己的标签 `3'd4`**（⭐ 源标记 2 → 3 位，⭐ 5 个值够用）
+        //         ⭐ 见 `seq_arb.evt_src_o` 的编码表 ✅
         //
         //   ⭐⭐ **顺带把 `T39`（边 loop 边弹）做出来了**：
-        //      ⭐ 手弹走 `live` 口、⭐ looper 走 `score` 口 ⇒ ⭐ **由 `seq_arb` 真仲裁**
+        //      ⭐ 手弹走源 A、⭐ looper 走源 C ⇒ ⭐ **由 `evt_merge` 真仲裁**
         //      （⚠️ ⛔ **不是**把两路直接"或"起来 —— 🔴 那会**同拍静默丢一条**，
         //         ⭐ 正是 `evt_merge`/`seq_arb` 当初要修的那个 bug）
         //
-        //   ⚠️ **与曲谱通路【互斥】**：⭐ 两者共用 `score` 口 ⇒
-        //      ⭐ `SCORE_UART_ENABLE = 1` 时 looper 的重放**没有出口**（⭐ 而且会被综合器扫掉）
-        //      ⭐ 这是**有意为之**：⚠️ 曲谱线与串口屏**共用同一条 UART** ⇒
-        //         ⭐ 同时开两路会互相误判（⭐ 见 `seq_arb` 例化处那段长注释）✅
+        //   ⭐ **与曲谱通路【完全解耦】**（⭐ 本改动的主要收益）：
+        //      · ⭐ `SCORE_UART_ENABLE = 1`（⭐ **新默认**）⇒ ⭐ 曲谱 + looper **同时可用** ✅
+        //      · ⭐ `SCORE_UART_ENABLE = 0`                ⇒ ⭐ 只关曲谱，⭐ **looper 照常** ✅
         //
         //   ⭐ 控制：⭐ 串口命令 `'R'`（录/停**切换**）· `'L'`（播放**切换**）· `'C'`（清空）
         //      ⚠️ 因为 `calib_cmd` 只吐**单周期脉冲**，⭐ 这里用寄存器记住"开/关"状态
@@ -2819,7 +2958,8 @@ module top #(
             .live_vel_valid_i (vu_valid_r),
             .live_vel_axis_i  (vu_axis_r),
             .live_vel_value_i (vu_val_r),
-            //  ⭐ 重放（⭐ → `seq_arb.score`，⭐ 见下方 `score_*` 的 mux）
+            //  ⭐ 重放（⭐ → `evt_merge` 的**源 C**，⭐ 见下方 `u_evt_merge` 的 `.c_*`）
+            //  ⭐⭐ 2026-09-30：⭐ **不再接 `seq_arb.score`**（⭐ 那条口还给曲谱 UART）✅
             .play_valid_o   (looper_play_valid),
             .play_axis_o    (looper_play_axis),
             .play_inc_o     (looper_play_inc),
@@ -2888,22 +3028,24 @@ module top #(
             //      · ⛔ 不动 `uart_ui` / `calib_cmd`（队友/命令通路）
             //      · ⭐ 要恢复曲谱功能时：把本参数置 1 **且** 把曲谱源换到**独立 UART 线**
             //        （⚠️ 与串口屏共用一条线时，⛔ 任何"帧头猜同步"都会互相误判）
-            //  ⭐⭐ 2026-09-29：⭐ 这个口现在**二选一** ——
-            //     · ⭐ `SCORE_UART_ENABLE = 1` ⇒ ⭐ 曲谱（`evt_uart_rx`）
-            //     · ⭐ `SCORE_UART_ENABLE = 0`（⭐ **默认**）⇒ ⭐ **looper 重放** ✅
-            //     ⚠️ 两者**不能同时**：⭐ 曲谱与串口屏**共用一条 UART**（⭐ 见上方长注释）✅
-            .score_valid_i    (SCORE_UART_ENABLE ? eu_evt_valid : looper_play_valid),
-            .score_axis_i     (SCORE_UART_ENABLE ? score_evt_axis : looper_play_axis),
-            .score_phase_inc_i(SCORE_UART_ENABLE ? score_evt_inc  : looper_play_inc),
-            .score_velocity_i (SCORE_UART_ENABLE ? score_evt_vel  : looper_play_vel),
-            .score_kind_i     (SCORE_UART_ENABLE ? score_evt_kind : looper_play_kind),
-            //  ⭐⭐ 2026-09-29 新增（⭐ 用户需求）：⭐ **looper 重放要带【录制时的音色】**
-            //   🔴 原来这里写死 `1'b0` / `2'd0` ⇒ ⭐ `note_manager` 落到
-            //      `default_timbre_i = timbre_sel_r` ⇒ 🔴 **回放跟随现在手弹的音色** ✅
-            //   ✅ 现在：⭐ `SCORE_UART_ENABLE = 0`（⭐ **默认 · looper 档**）⇒
-            //      ⭐ 音色来自 **looper 的事件字**（⭐ 录制时存的 ✅）
-            .score_timbre_valid_i(SCORE_UART_ENABLE ? score_evt_timbre_valid : looper_play_timbre_valid),
-            .score_timbre_i   (SCORE_UART_ENABLE ? score_evt_timbre : looper_play_timbre),
+            //  ⭐⭐ 2026-09-30：⭐ **本口现在【只归曲谱 UART】**
+            //     🔴 **改之前**：⭐ 这里是个"`SCORE_UART_ENABLE` 二选一"的 mux
+            //        （⭐ `1` ⇒ 曲谱、⭐ `0` ⇒ looper）⇒ 🔴 **两者不能并存** ✅
+            //     ✅ **改之后**：⭐ looper 搬到 `evt_merge` 的源 C（⭐ 见上方 §事件域 Looper）
+            //        ⇒ ⭐ 本口**只剩曲谱一个来源** ⇒ ⭐ mux **整个删掉** ✅
+            //     ⭐ `SCORE_UART_ENABLE = 0` 时接**常量 0**（⭐ 即"这条通路关闭"，
+            //        ⚠️ 与 2026-09-28 那版"禁用曲谱"的语义**逐位一致**）✅
+            .score_valid_i    (SCORE_UART_ENABLE ? eu_evt_valid : 1'b0),
+            .score_axis_i     (SCORE_UART_ENABLE ? score_evt_axis : 4'd0),
+            .score_phase_inc_i(SCORE_UART_ENABLE ? score_evt_inc  : 32'd0),
+            .score_velocity_i (SCORE_UART_ENABLE ? score_evt_vel  : 8'd0),
+            .score_kind_i     (SCORE_UART_ENABLE ? score_evt_kind : 2'd0),
+            //  ⭐⭐ 2026-09-29 新增（⭐ 用户需求）：⭐ **音色 sideband**
+            //   ✅ 现在：⭐ 曲谱帧 `[8:7]` 的音色**照常**随事件走（⭐ 它本来就是这个用途）✅
+            //   📌 looper 的音色**不再经过本口** —— ⭐ 它随源 C 走
+            //      （⭐ `evt_merge.c_timbre_i` ⇒ `note_manager.evt_timbre_i`）✅
+            .score_timbre_valid_i(SCORE_UART_ENABLE ? score_evt_timbre_valid : 1'b0),
+            .score_timbre_i   (SCORE_UART_ENABLE ? score_evt_timbre : 2'd0),
             // ── 源 3：演示（⭐ 自检和弦）—— ⚠️ 自动让位 ───────────────────
             .demo_valid_i     (demo_note_valid),
             .demo_axis_i      (demo_note_axis),
@@ -2943,9 +3085,10 @@ module top #(
         wire [1:0]  src_a_timbre = (SOURCE_A_SEL == 1) ? 2'd0 : sa_timbre;
         //  ⭐⭐ 2026-09-29（A1）：⭐ **源 A 的来源标记**
         //     ⚠️ 必须**跟着上面那个 mux 一起选** —— `SOURCE_A_SEL == 1` 时源 A 是
-        //        **演示和弦**（⭐ 它绕过 `seq_arb`）⇒ ⭐ 标记必须是 `SRC_DEMO = 2'd2`，
+        //        **演示和弦**（⭐ 它绕过 `seq_arb`）⇒ ⭐ 标记必须是 `SRC_DEMO = 3'd2`，
         //        ⛔ 不能沿用 `sa_src`（⭐ 那一路此刻并没有在发事件 ⇒ 值是陈旧的）。
-        wire [1:0]  src_a_src = (SOURCE_A_SEL == 1) ? 2'd2 : sa_src;
+        //  ⭐⭐ 2026-09-30：⭐ **位宽 2 → 3**（⭐ 与 `evt_merge.a_src_i` 一致）✅
+        wire [2:0]  src_a_src = (SOURCE_A_SEL == 1) ? 3'd2 : sa_src;
 
         // ⭐⭐ 源 B 二选一（⭐ 节拍器 / 鼓机，⭐ `SEL_DRUM`，⭐ 默认节拍器）
         //   📌 用 `generate`+`localparam` 做**编译期选择** ⇒ ⚠️ 综合会把没选中的那路
@@ -2976,8 +3119,18 @@ module top #(
         wire [31:0] src_b_inc   = sel_drum ? drm_evt_inc   : met_evt_inc;
         wire [7:0]  src_b_vel   = sel_drum ? drm_evt_vel   : met_evt_vel;
         wire [1:0]  src_b_kind  = sel_drum ? drm_evt_kind  : met_evt_kind;
-        wire        src_b_timbre_valid = 1'b0;
-        wire [1:0]  src_b_timbre = 2'd0;
+        //   ⭐⭐ **2026-09-29：⭐ 源 B 用【自己的固定音色】`DRUM_TIMBRE`** ✅
+        //      🔴 **改之前**：⭐ 这里恒 `1'b0` ⇒ ⭐ `note_manager` 走兜底
+        //         `default_timbre_i`（⭐ = `timbre_sel_r` = **键盘当前音色**）
+        //         ⇒ 🔴 **换键盘音色 ⇒ 鼓的音色跟着变**（⭐ 用户上板实测的 bug）
+        //      ⭐ **改之后**：⭐ `valid = 1` + ⭐ 固定值 ⇒ ⭐ 鼓**永远用 `DRUM_TIMBRE`**
+        //         ⇒ ⭐ 与键盘**彻底解耦**（⭐ 判据见 `tb_top_drum_timbre.sv`）。
+        //      📌 **为什么是"喂 valid + 固定值"而⛔ 不是"在 `note_manager` 里判轴号"**：
+        //         ⚠️ 那样要改**队友的 `note_manager`**（⭐ 而它是**冻结的事件格式消费者**）
+        //         ⇒ ⭐ 本做法**只动 `top.v` 的接线** ⇒ ⭐ 零接口风险 ✅
+        //         （⭐ 且 `evt_merge` 本来就为"每源带自己的音色"预留了这条 sideband ✅）
+        wire        src_b_timbre_valid = 1'b1;
+        wire [1:0]  src_b_timbre = DRUM_TIMBRE;
 
         // ⭐⭐ T36 / U-6：事件合流（手弹/曲谱 + 节拍器 → note_manager 的**唯一**事件口）
         //   🔴 **为什么必须加它**：`note_manager` 只有一个事件口，
@@ -2995,18 +3148,27 @@ module top #(
         wire        mg_evt_timbre_valid;
         wire [1:0]  mg_evt_timbre;
         //  ⭐⭐ A1：⭐ 合流后事件的**来源标记**（⭐ → `note_manager.note_src_i`）
-        wire [1:0]  mg_evt_src;
+        //  ⭐⭐ 2026-09-30：⭐ **位宽 2 → 3**（⭐ 5 个源：0/1/2/3/4）✅
+        wire [2:0]  mg_evt_src;
         wire [15:0] mg_collision_cnt;
         wire [15:0] mg_merged_cnt;
         wire [15:0] mg_drop_cnt;
         wire        mg_overflow;
 
+        //  ⭐⭐ 2026-09-30：⭐ **深度 4 → 6** —— ⭐ 因为**源从 2 个变成 3 个**（⭐ 多了源 C）
+        //     🔴 **为什么**：⭐ 深度要按"**最坏在飞条数**"算（⭐ `evt_merge` 第一版的教训）——
+        //        ⭐ 3 个源同拍各来 1 条 ⇒ ⭐ 需要 **≥ 3 槽**；⭐ 再留余量 ⇒ ⭐ 取 6
+        //        （⭐ 与 `seq_arb` 的 3 源档取 6 是**同一个口径** ✅）
+        //     ⚠️ **代价**：⭐ 每条记录 3+4+32+8+2+1+2 = **52 位** ⇒ 多 2 槽 = **+104 FF**
+        //        （⭐ 相对本器件 60780 个 DFF 可忽略 ✅）
+        //     📌 而**实际速率**远低于"每拍 3 条"：⭐ A ≤ 1/tick、⭐ C ≤ 1/tick、
+        //        ⭐ B ≤ 1/960 tick ⇒ ⭐ 溢出实际不会发生（⭐ 真发生也有 `mg_overflow` 指示）✅
         evt_merge #(
             .AXIS_W  (4),
             .PHASE_W (32),
             .VEL_W   (8),
             .KIND_W  (2),
-            .DEPTH   (4)              // ⭐ 深度 4：两源各 ≤1 条/拍，足够吸收突发
+            .DEPTH   (6)
         ) u_evt_merge (
             .clk_i            (clk),
             .rst_n_i          (rst_n_sync),
@@ -3031,11 +3193,27 @@ module top #(
             .b_kind_i         (src_b_kind),
             .b_timbre_valid_i (src_b_timbre_valid),
             .b_timbre_i       (src_b_timbre),
-            // ⭐⭐ A1：⭐ 源 B（节拍器 / 鼓机）的来源标记 = **常数 `2'd3`**
+            // ⭐⭐ A1：⭐ 源 B（节拍器 / 鼓机）的来源标记 = **常数 `3'd3`**
             //   ⭐ 为什么用 3：⭐ `seq_arb` 只用了 0/1/2 ⇒ ⭐ 3 是**空闲值**，
-            //      天然与手弹/回放/演示**不同源** ⇒ ⛔ 节拍器的 `note_off`
-            //      不会误杀手弹或回放的同轴 voice（⭐ 反之亦然）✅
-            .b_src_i          (2'd3),
+            //      天然与手弹/曲谱/演示**不同源** ⇒ ⛔ 节拍器的 `note_off`
+            //      不会误杀手弹或曲谱的同轴 voice（⭐ 反之亦然）✅
+            //   ⭐⭐ 2026-09-30：⭐ **值不变（仍是 3），只把位宽补到 3 位** ✅
+            .b_src_i          (3'd3),
+            // ── ⭐⭐ 源 C：**looper 回放**（⭐ 2026-09-30 新增，⭐ 用户需求）──────────
+            //   🔴 **为什么新开一口**：⭐ 见上方 §事件域 Looper ——
+            //      ⭐ A/B 两口都已占满，⭐ 而 looper 必须与**曲谱**并存 ⇒ ⭐ 只能新开 ✅
+            //   ⭐ **来源标记 = 常数 `3'd4`**（⭐ 5 个源里唯一留给它的值）
+            //      ⇒ ⭐ `note_manager` 按 (轴, 源) 隔离 ⇒ ⭐ 曲谱的 `note_off`
+            //         ⛔ **不会清掉同轴 looper 的 voice**（⭐ 反之亦然）✅
+            //   ⭐ 音色：⭐ 用 looper **录制时存下的**那个（⭐ `looper_play_timbre` ✅）
+            .c_valid_i        (looper_play_valid),
+            .c_axis_i         (looper_play_axis),
+            .c_phase_inc_i    (looper_play_inc),
+            .c_velocity_i     (looper_play_vel),
+            .c_kind_i         (looper_play_kind),
+            .c_timbre_valid_i (looper_play_timbre_valid),
+            .c_timbre_i       (looper_play_timbre),
+            .c_src_i          (3'd4),
             // ── 合流输出 → `note_manager` ────────────────────────────────
             .evt_valid_o      (mg_evt_valid),
             .evt_axis_o       (mg_evt_axis),
@@ -3130,20 +3308,28 @@ module top #(
             .vel_upd_valid_i   (vu_valid_r | lp_upd_valid),
             .vel_upd_axis_i    (vu_valid_r ? vu_axis_r : lp_upd_axis),
             .vel_upd_value_i   (vu_valid_r ? vu_val_r  : lp_upd_vel),
-            //  ⭐⭐ 2026-09-29 新增：⭐ **更新通路的来源标记**（⭐ 0 = 手弹 · 1 = looper 回放）
+            //  ⭐⭐ 2026-09-29 新增：⭐ **更新通路的来源标记**（⭐ 0 = 手弹 · 4 = looper 回放）
             //   🔴 **为什么必须有**：⭐ `note_manager` 的 (d)/(e) 段原来**只按轴匹配**
             //      ⇒ 🔴 回放的插值更新会把**同一轴上手弹的 voice** 一起拖走
             //      （⭐ 音量/音高被别人的手势带着跑）—— ⭐ 与 A1 修的 `note_off`
             //      **是同一个缺陷类** ✅
-            //   ⭐ 接法：⭐ 手弹那拍给 0、⭐ looper 那拍给 1 ✅
+            //   ⭐ 接法：⭐ 手弹那拍给 0、⭐ looper 那拍给 **4** ✅
+            //   🔴🔴 **2026-09-30：⭐ 这里的 looper 标签【必须跟着事件标签一起改成 4】**
+            //      ⚠️ **不能漏**：⭐ 事件标签（源 C）已经是 `3'd4` ⇒ ⭐ 而 `note_manager`
+            //         的 (d)/(e) 段是**按 `src_r[i] == 更新源` 匹配**的
+            //      ⇒ 🔴 若这里仍写 `3'd1`，⭐ looper 的插值更新会去改**曲谱**的 voice
+            //         （⭐ 而 looper 自己的 voice **一个都收不到**）
+            //      ⇒ 🔴 **症状**：⭐ loop 回放**又变回"只有起音力度"**
+            //         （⭐ 即用户报过的"loop 的声音比键盘小 / 没有 release 尾音"）✅
+            //      📌 **一句话**：⭐ **"事件源标签"与"更新源标签"必须成对** ✅
             //   📌 **两路结构上不会同拍**：⭐ `looper` 内部**主动避让**手弹流
             //      （⭐ 见 `looper.v` 的 `live_busy`）⇒ ⚠️ 这里的 mux 只是**兜底**，
             //      ⛔ 不承担"优先级仲裁"的语义 ✅
-            .vel_upd_src_i     (vu_valid_r ? 2'd0 : 2'd1),
+            .vel_upd_src_i     (vu_valid_r ? 3'd0 : 3'd4),
             .pitch_upd_valid_i (pe_pitch_v | lp_upd_valid),
             .pitch_upd_axis_i  (pe_pitch_v ? pe_pitch_ax : lp_upd_axis),
             .pitch_upd_value_i (pe_pitch_v ? pe_pitch    : lp_upd_inc),
-            .pitch_upd_src_i   (pe_pitch_v ? 2'd0 : 2'd1),
+            .pitch_upd_src_i   (pe_pitch_v ? 3'd0 : 3'd4),
             .default_timbre_i  (timbre_sel_r),   // ⭐ 2026-09-29：由串口 'I' 切换（⭐ 原来写死 2'd0）
             .evt_timbre_valid_i(mg_evt_timbre_valid),
             .evt_timbre_i      (mg_evt_timbre),
@@ -3156,6 +3342,8 @@ module top #(
             .voice_phase_inc_o (nm_phase),
             .voice_velocity_o  (nm_vel),
             .voice_timbre_o    (nm_timbre),
+            //  ⭐⭐ 2026-09-29 新增：⭐ **每 voice 的"是鼓吗"** ⇒ 噪声表选择（⭐ 见上方声明）✅
+            .voice_drum_o      (nm_drum),
             .voice_age_o       (nm_age),
             .voice_retrig_reset_o(nm_retrig_reset),
             .alloc_valid_o     (nm_alloc_valid),
@@ -3216,8 +3404,28 @@ module top #(
             .rst_n_i            (rst_n_sync),
             .sample_tick_i      (tick_audio),
             .voice_active_i     (nm_active),
+            //  ⭐⭐ K-169（2026-09-30）：⭐ **起音相位复位改挂 note_on 事件边沿** ✅
+            //     ⭐ 源 = `note_manager.voice_retrig_reset_o`（⭐ 与 `envelope_bank`
+            //        的 `retrig_reset_i` 是**同一个信号** ⇒ ⭐ "包络清零"与
+            //        "相位复位"从此由**同一个事件、同一拍**驱动 ✅）
+            //     🔴 **原来为什么不行**：⭐ `oscillator_bank` 靠 `nm_active`
+            //        （⭐ = `live_mask`，**电平派生**）的**上升沿**自己判起音
+            //        ⇒ ⭐ 上一个音**还在 Release 尾巴里**时重按同一轴
+            //        ⇒ `nm_active` **恒为 1** ⇒ 🔴 **没有上升沿** ⇒ ⭐ 相位复位被跳过
+            //        ⇒ 🔴 起音幅度随机（⭐ `K-169`）✅
+            //     📌 `test_mode_i` 那一拍由 `oscillator_bank` 内部自行屏蔽
+            //        （⭐ 与 `envelope_bank` 处的 `tm_enable_r ? 0 : ...` 等价）✅
+            .voice_phase_rst_i  (nm_retrig_reset),
             .base_phase_inc_i   (nm_phase),
             .voice_timbre_i     (nm_timbre),
+            //  ⭐⭐ 2026-09-29 新增（⭐ 鼓机噪声波表 · 阶段 2a）：⭐ **鼓 voice 走噪声表** ✅
+            //   ⭐ 语义：⭐ `axis_r[i] >= RESERVED_AXIS` ⇒ ⭐ 打击乐 ⇒ ⭐ 读噪声表
+            //   ⚠️ **副作用（⭐ 必须知道）**：⭐ 保留轴位有**两个**（⭐ 14 = 节拍器、
+            //      15 = 鼓机）⇒ ⭐ **节拍器的"嘀嗒"也会变成噪声** ✅
+            //      📌 这是本阶段判据（⭐ `axis_r[i] >= RESERVED_AXIS`）的**直接推论**，
+            //         ⭐ 且听感上"节拍器 = 噪声 click"通常**更接近真实节拍器** ⇒
+            //         ⭐ 暂按现状保留，⛔ 不为此再引入第三条标志线（⭐ 保持最小改动 ✅）
+            .voice_drum_i       (nm_drum),
             .voice_velocity_i   (nm_vel),
             .vibrato_mod_i      (vibrato_mod),
             .test_mode_i        (tm_enable_r),
@@ -3273,7 +3481,11 @@ module top #(
         //   ⚠️ **`sample_tick_i` 接 `tick_audio`**（⭐ 冻结表 §〇 约定 1：时钟使能）
         //      ⭐ `DECAY_STEP=67`（`perc_env_bank` 默认）⇒ 满力度(255)：
         //         `65280/67 ≈ 975` 拍 ≈ **20 ms**
-        //      ⇒ ⭐ 强拍(120) ≈ **8.6 ms** · 弱拍(72) ≈ **5.2 ms**（⭐ 正是打击乐的量级）
+        //      ⇒ ⭐ 强拍(180) ≈ **14.1 ms** · 弱拍(108) ≈ **8.5 ms**（⭐ 打击乐的量级）
+        //      📌 **2026-09-30 同步更新**：⭐ 节拍器力度 `120/72 ⇒ 180/108`
+        //         （⭐ 用户："节拍器的声音有一点太小了"）⇒ ⭐ 两个时长**跟着变长**
+        //         （⭐ 衰减时长 ∝ 峰值 —— ⭐ 见 `perc_env_bank.v:58-64`）✅
+        //         ⚠️ 改力度**必须同时改本注释**（⭐ 本项目"注释↔代码不一致"是复发缺陷）✅
         // ═══════════════════════════════════════════════════════════════════
         //  ⚠️ 下面这个 5 **必须**与 `u_note_manager` / `u_tdm_render_mixer` 的
         //     `.RESERVED_N(5)` 一致（⭐ 三处同源；⚠️ 保留池 = **最高**那几路）

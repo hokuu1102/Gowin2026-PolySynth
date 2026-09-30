@@ -24,7 +24,10 @@
 //        —— ⭐ 上游 §2 明确写这是 looper **最容易犯的错**）
 //     ✅ 可观测：`evt_cnt` / `full` / `drop_cnt` / `overflow`（⭐ `K-106`：⛔ 不许静默失效）
 //     ⛔ **不做**（⭐ 留给后续）：多层（`T40`）· 与手弹叠加（`T39`，要扩 `evt_merge`）
-//        · 对齐小节（`T41`）· `note_manager` 的 voice 预留
+//        · `note_manager` 的 voice 预留
+//     ✅ **2026-09-30 起：⭐ 对齐小节（`T41`）已实现** —— ⭐ 见下方 §小节对齐 ✅
+//        （🔴 修的正是用户上板报告的"**回放过几次之后会逐渐延后**"—— ⭐ 根因就是
+//         `loop_len` 不是整数小节 ⇒ ⭐ 每绕一圈相位偏一点 ⇒ **误差逐圈累加**）✅
 //
 //  ⚠️ **不集成进 `top.v`**（⭐ 本文件先独立 tb 验证 —— ⭐ 本项目既有做法：
 //     ⭐ `evt_merge`/`seq_arb`/`drum_gen` 都是"先独立验、再集成"）✅
@@ -213,6 +216,11 @@ module looper #(
     localparam [1:0] LEAVE_HOLD = 2'd0; // ⭐ 只是停播 ⇒ 补完回 `ST_HOLD`（⭐ 保留录音）
     localparam [1:0] LEAVE_IDLE = 2'd1; // ⭐ 清空   ⇒ 补完清干净 ⇒ `ST_IDLE`
     localparam [1:0] LEAVE_REC  = 2'd2; // ⭐ 重录   ⇒ 补完开始录 ⇒ `ST_REC`
+    //  ⭐⭐ 2026-09-30（`T41` 小节对齐）：⭐ **"已请求起录、⭐ 正在等小节起点"**
+    //   🔴 **为什么需要它**：⭐ 见下方 §小节对齐 的大段说明 ——
+    //      ⭐ 若按下 `R` 就立刻起录 ⇒ `loop_len` 不是整数小节 ⇒ **与鼓机越跑越偏** ✅
+    //   ⭐ `3'd5` 是本 FSM 的**第 6 个状态**（⭐ 原用 0~4 ⇒ 3 位够用，⛔ 不用加宽）✅
+    localparam [2:0] ST_RECPEND = 3'd5; // ⭐ 待起录（⭐ 等 `bar_start_i`）
 
     reg [2:0]       state;
     //  ⭐⭐ 2026-09-29 修 bug①：⭐ **"loop 现在有哪些轴在响"**
@@ -237,6 +245,71 @@ module looper #(
     reg [15:0]       close_mask_r;          // ⭐ 停录时**还没收到 `note_off`** 的轴（⭐ 补发用）
     reg [3:0]        close_scan_r;          // ⭐ 补发扫描位（⭐ 一次补一个轴）
 
+    // ══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-09-30：⭐ **小节对齐（`T41`）** —— ⭐ 修用户上板报告的"回放越跑越偏"
+    //
+    //  🔴 **用户原话**：*"回放的节拍会对不上，回放过几次之后会逐渐延后。比如第一次
+    //     响在第一拍，后面就会延后到第二拍，第三遍开始第一次响"* ✅
+    //
+    //  🔴 **根因（⭐ 设计文档【早就写明】，⭐ 只是没实现 —— ⛔ 不是新发现）**：
+    //     `files/20-代码/Looper详细设计.md` §4.4（标题就叫"**决定"能不能用"**"）原文：
+    //       · *"随便一个时刻按下 `rec_start` ⇒ loop 长度不是整数小节
+    //          ⇒ **与鼓机越跑越偏**"* ✅
+    //       · *"`rec_start` 不立即生效，而是等下一个 `bar_start`（对齐）；
+    //          `rec_stop` 同理**量化到最近的整小节**"* ✅
+    //     ⚠️ 而本模块原来：⭐ `rec_req` / `stop_req` / `play_en` **全部立即生效**，
+    //        ⭐ `loop_len_r <= rec_tick_r`（⭐ 按下停录那一刻的**原始** tick 计数）
+    //        ⇒ ⭐ **每绕一圈相位偏 `loop_len mod TICKS_PER_BAR` 个 tick**
+    //        ⇒ 🔴 **误差逐圈累加**（⭐ 正是用户听到的"逐渐延后"）✅
+    //     📌 本文件头部原来就写着"⛔ 不做（留给后续）… 对齐小节（`T41`）" ✅
+    //
+    //  ⭐ **修法（⭐ 三条，⭐ 与 §4.4 逐条对应）**：
+    //     ① **起录对齐**：⭐ `rec_req` 只置"待起录"（`ST_RECPEND`）⇒ 等 `bar_start_i` 才真进 `ST_REC`
+    //     ② **停录量化**：⭐ `loop_len` 量化到**最近的整小节**（⭐ 用 `tick_cnt_i` 判前后半小节）
+    //     ③ **起播对齐**：⭐ `play_en` 先只置"对齐标志"（`play_aligned_r`）⇒ 等 `bar_start_i` 才真走 tick
+    //        （⭐ 否则 loop 的 `tick 0` 落在小节中间 ⇒ 即使长度对了，⭐ **内容也整体偏一个固定相位**）✅
+    //
+    //  ⚠️ **向后兼容（⭐ 与 `live_vel_valid_i` 的"悬空 = 无更新"同一套口径）**：
+    //     ⭐ **没见过 `bar_start_i` ⇒ `grid_ok_r = 0` ⇒ 三条全部【旁路】**，
+    //        ⭐ 行为与改动前**逐位相同** ✅
+    //     📌 依据（⭐ 实测 grep，⛔ 不是推测）：⭐ `tb_looper` / `tb_score_looper_coexist`
+    //        这两个**唯一**实例化 `looper` 的 tb **都不驱动 `bar_start_i`**（⭐ 恒 0）✅
+    // ══════════════════════════════════════════════════════════════════════
+    reg [TICK_W-1:0] bar_len_r;       // ⭐ 一小节的 tick 数（⭐ 由相邻两个 `bar_start` 量出来）
+    reg [TICK_W-1:0] bar_cnt_r;       // ⭐ 量尺：⭐ 距上一个 `bar_start` 的 tick 数
+    reg              bar_seen_r;      // ⭐ 已见过 ≥1 个 `bar_start`
+    reg              grid_ok_r;       // ⭐ 小节网格可用（⭐ 第 2 个 `bar_start` 起才置 1）
+    reg [TICK_W-1:0] rec_bar_tick_r;  // ⭐ ② 本遍录制中**最近一个小节起点**处的 tick 数
+    reg [CNT_W-1:0]  rec_bar_cnt_r;   // ⭐ ② 同上，但记的是**事件条数**（⭐ 舍去半小节时一起退）
+    reg              rec_aligned_r;   // ⭐ 本遍录制**是不是从小节起点起录的**（⭐ 否则不量化）
+    reg              play_aligned_r;  // ⭐ ③ 起播已对齐小节（⭐ 0 = 已请求、还在等小节线）
+
+    //  ── ⭐ 小节网格量尺（⭐ 只在 transport 走着时量）─────────────────────────
+    //   ⭐ `bar_start_i` 那一拍**就是**本小节第 1 个 tick —— 依据（⭐ 代码，⛔ 不是推测）：
+    //      · `beat_gen.v:212-220`：⭐ `tick_q` 与 `bar_start_q` 在**同一个 `if (do_tick)` 里**置位
+    //        ⇒ ⭐ 两个脉冲**同拍** ✅
+    //      · `beat_gen.v:166`：⭐ `at_bar_start = (tick_cnt_q == 16'd0)` ⇒ 小节起点 = 编号 0 那一拍 ✅
+    //   ⇒ ⭐ 数到下一个 `bar_start` 时 `bar_cnt_r` 恰好 = **一小节的 tick 数** ✅
+    always @(posedge clk_i or negedge rst_n_i) begin
+        if (!rst_n_i) begin
+            bar_len_r  <= {TICK_W{1'b0}};
+            bar_cnt_r  <= {TICK_W{1'b0}};
+            bar_seen_r <= 1'b0;
+            grid_ok_r  <= 1'b0;
+        end else if (tick_i && transport_i) begin
+            if (bar_start_i) begin
+                //  ⚠️ **第 1 个 `bar_start`** 量到的是"从复位/上次停止到这一刻" ⇒ **不可信**
+                //     ⇒ ⭐ 只记数、⛔ 不置 `grid_ok`（⭐ 第 2 个起 `bar_len_r` 才是真值 ✅）
+                bar_len_r  <= bar_cnt_r;
+                bar_cnt_r  <= {{(TICK_W-1){1'b0}}, 1'b1};   // ⭐ 本拍 = 新小节第 1 个 tick
+                grid_ok_r  <= bar_seen_r;
+                bar_seen_r <= 1'b1;
+            end else begin
+                bar_cnt_r  <= bar_cnt_r + 1'b1;
+            end
+        end
+    end
+
     // ⭐ 事件类型编码（⭐ 与 `note_manager.note_kind_i` 一致）
     //   ⚠️ **必须在下面 `rec_inc_w` 之前声明** —— ⭐ 它要按 `KIND_OFF` 判端点 ✅
     localparam [KIND_W-1:0] KIND_ON  = {KIND_W{1'b0}};   // 0 = note_on
@@ -245,12 +318,44 @@ module looper #(
     // ══════════════════════════════════════════════════════════════════════
     //  ⭐⭐ 2026-09-29 新增：⭐ **端点跟踪 / 插值**（⭐ 用户需求：复现"轻→重"手势）
     // ══════════════════════════════════════════════════════════════════════
-    //  ── ① 录制侧：⭐ 每轴"最后已知的实时值"（⭐ 取【松手那一刻】的端点）────────
+    //  ── ① 录制侧：⭐ 每轴"**本音期间的最大力度**"（⭐ 端点 = **峰值**，⛔ 不是末值）──
     //   🔴 **为什么不能直接用 `live_inc_i`/`live_vel_i`**：⭐ 见端口区注释 ——
     //      ⭐ `note_off` 自带的 `vel` **恒为 `VEL_DEFAULT(200)`** ✅
     //   ⚠️ 音高由 `note_on` 维护即可（⭐ `axis_map` 已改成"按轴号查表"✅）
+    //
+    //  ⭐⭐ **2026-09-30 改动：端点语义 "松手那一刻的末值" ⇒ "本音期间的峰值"** ✅
+    //   🔴 **实测到的分歧（⭐ `tb/w3c/tb_looper_tail.sv`，⭐ 4 种行程，⭐ 见报告）**：
+    //      同一段行程下，手弹与回放的 **`vel_r@off` 逐值相同**（⭐ 力度通路没问题），
+    //      🔴 但 **`note_off` 那一刻的包络电平差 30%~63%**：
+    //        · ⭐ 普通按：⭐ 手弹 `env@off=34343` · ⭐ 回放 `24137`（⭐ 70%）
+    //        · ⭐ 重按  ：⭐ 手弹 `59939` · ⭐ 回放 `36570`（⭐ 61%）
+    //        · ⭐ 重按+慢松：⭐ 手弹 `59838` · ⭐ 回放 `22155`（⭐ 37%）
+    //      ⇒ ⭐ **尾音时长 = `env@off` / `release_step`** ⇒ 🔴 **回放尾音按比例变短**
+    //         （⭐ 正是用户报的"回放没有 release 尾音"）✅
+    //
+    //   ⭐ **根因（⭐ 结构性，⛔ 不是时序巧合）**：
+    //      · ⭐ 手弹时 `note_manager` 的 `vel_r` 是**跟着位置走的**（⭐ ±8/采样拍）
+    //        ⇒ ⭐ 一段"**先按重、再松手**"的行程里，`vel_r` **中途冲到峰值**（如 255）
+    //        ⇒ ⭐ `adsr` 的 `peak_level = vel<<8` 冲到 65280、
+    //           `sustain_level = peak×230/256` 冲到 58650
+    //        ⇒ ⭐ 而 `adsr` 的 **decay 是每采样拍 1**（⭐ `adsr.v:65`）⇒ ⭐ **一个 50 ms 的音根本降不下来**
+    //        ⇒ ⭐ **`note_off` 那一刻包络仍挂在 ~60k** ⇒ 🔴 **release 从高处起步 ⇒ 尾音长** ✅
+    //      · 🔴 而 looper **只记两个端点**（`note_on` 起点 ＋ 松手末值），⭐ 中间**线性插值**
+    //        ⇒ ⭐ 回放的 `vel_r` **永远爬不到那个中途峰值**（⭐ 末值往往只有 159/95）
+    //        ⇒ ⭐ 包络峰值低 ⇒ `sustain_level` 低 ⇒ 🔴 **release 从低处起步 ⇒ 尾音短** ✅
+    //      📌 **与"极轻按键"无关**（⭐ 已实测否证）：⭐ 轻按（⭐ 峰值 70）时两边**完全相等**
+    //         —— ⭐ 因为那种行程**本来就没有中途峰值** ✅
+    //
+    //   ✅ **修法（⭐ 最小、⭐ 只改"端点取哪个值"）**：⭐ **记【峰值】而不是【末值】** ✅
+    //      · ⭐ 起音 ⇒ 峰值 := 起音力度 · ⭐ 其后每次 `vel_upd` ⇒ `peak := max(peak, 新值)`
+    //      · ⭐ 松手 ⇒ 用峰值当 `note_off` 的 `vel`（⭐ 也就是插值终点 `ep_vel`）✅
+    //      ⇒ ⭐ 回放的 `vel_r` 会**一路爬到峰值** ⇒ ⭐ 包络峰值与手弹**同一个量级**
+    //        ⇒ ⭐ `env@off` 与尾音时长**对齐** ✅
+    //      📌 **单调手势下两者逐值相同**（⭐ "轻→重"：⭐ 峰值 == 末值）⇒
+    //         ⭐ `tb_looper` 的端点判据（⭐ 240 / 160）**一字不改、照样绿** ✅
+    //      ⚠️ **只多一个 16×8 位数组的 `max` 比较**（⭐ ⛔ 不扩事件字、⛔ 不加端口）✅
     reg [PHASE_W-1:0] last_inc_r [0:15];
-    reg [VEL_W-1:0]   last_vel_r [0:15];
+    reg [VEL_W-1:0]   vel_max_r [0:15];
     //  ── ② 每轴"当前未闭合的 `note_on`"的存储地址（⭐ 终点**写回**的目标）──────
     //   ⭐ 语义：⭐ `on_open_r[a]=1` ⇒ "轴 a 的 `note_on` 已落盘、⭐ 还没收到 `note_off`"
     //   ⚠️ **必须有 `on_open_r`**：⭐ `close_mask_r` 在"录满丢事件"时**也会置位**
@@ -270,12 +375,13 @@ module looper #(
     reg [3:0]         ramp_sc;            // ⭐ 引擎的轴扫描位（⭐ 一拍一个轴）
     reg               ramp_go;            // ⭐ 本轮要扫一遍（⭐ 每 tick 置一次）
 
-    //  ── ⭐ 落盘时用的 inc/vel（⭐ `note_off` 换成"最后已知值" = 端点）──────────
+    //  ── ⭐ 落盘时用的 inc/vel（⭐ `note_off` 换成"**本音峰值力度**" = 端点）──────
     //   ⚠️ **必须在【模块级】声明** —— 🔴 Verilog-2001 要求"声明先于语句"，
     //      ⛔ 不能写在 `always` 块中间（⭐ 本项目已踩过：40+ 连锁语法错 ✅）
+    //   📌 `vel` 取**峰值**（⛔ 不是末值）—— ⭐ 理由见 `vel_max_r` 那段长注释 ✅
     wire [PHASE_W-1:0] rec_inc_w = (live_kind_i == KIND_OFF) ? last_inc_r[live_axis_i]
                                                              : live_inc_i;
-    wire [VEL_W-1:0]   rec_vel_w = (live_kind_i == KIND_OFF) ? last_vel_r[live_axis_i]
+    wire [VEL_W-1:0]   rec_vel_w = (live_kind_i == KIND_OFF) ? vel_max_r[live_axis_i]
                                                              : live_vel_i;
     //  ── ⭐ 停录补发那条 `note_off` 落在**循环的最后一个可播 tick**（`loop_len-1`）──
     //   ⚠️ 与既有 `ST_CLOSE` 的算式**逐字一致**（⭐ 那里原来写的是内联表达式）
@@ -300,59 +406,144 @@ module looper #(
     //         `[|diff|/ticks_left, 2|diff|/ticks_left]` ⇒ ⭐ **最迟也在跨度内到达** ✅
     //      📌 极端情形也自洽：⭐ `ticks_left = 1` ⇒ `f = 0` ⇒ ⭐ 步长 = 整段差
     //         ⇒ **最后一拍一步到位**（⭐ 绝不"到不了"）✅
-    function integer flog2;
+    //  ⭐⭐ 2026-09-30：⭐ **改成"先分段、段内二分"**（⭐ 与原 `for` 循环**逐值等价**）
+    //   🔴 **为什么改**：⭐ 原来的 `for` 循环（⭐ `if (v >= (1<<k)) flog2 = k`）
+    //      被综合成 **`TICK_W`(20) 级串联的优先链** ⇒ ⭐ 它就是关键路径里
+    //      那串 `u_looper/n232_s4x` 节点（⭐ 见 `impl/pnr/Gowin2026.timing_paths`）✅
+    //   ⭐ 新结构：⭐ 5 个 4 bit 段 OR **并行**求"最高非零段"，⭐ 再在段内二分最高位
+    //      ⇒ ⭐ 深度 ≈ 6 级（⭐ 结果**逐值相同**：⭐ `v=0 ⇒ 0`）✅
+    //   ⚠️ 下标按 `TICK_W = 20` 写死（⭐ 本工程 `top.v` 与 `tb_looper` 都用默认 20；
+    //      ⭐ 与上方 `PARAM_OK` 自检同一条纪律 —— ⭐ 改 `TICK_W` 必须同步改这里）✅
+    function [4:0] flog2;
         input [TICK_W-1:0] v;
-        integer k;
+        reg s4, s3, s2, s1, s0;
+        reg [1:0] e4, e3, e2, e1, e0;
         begin
-            flog2 = 0;
-            for (k = 0; k < TICK_W; k = k + 1)
-                if (v >= (1 << k)) flog2 = k;
+            s4 = |v[19:16]; s3 = |v[15:12]; s2 = |v[11:8];
+            s1 = |v[7:4];   s0 = |v[3:0];
+            e4 = v[19] ? 2'd3 : v[18] ? 2'd2 : v[17] ? 2'd1 : 2'd0;
+            e3 = v[15] ? 2'd3 : v[14] ? 2'd2 : v[13] ? 2'd1 : 2'd0;
+            e2 = v[11] ? 2'd3 : v[10] ? 2'd2 : v[9]  ? 2'd1 : 2'd0;
+            e1 = v[7]  ? 2'd3 : v[6]  ? 2'd2 : v[5]  ? 2'd1 : 2'd0;
+            e0 = v[3]  ? 2'd3 : v[2]  ? 2'd2 : v[1]  ? 2'd1 : 2'd0;
+            flog2 = (s4 ? 5'd16 : s3 ? 5'd12 : s2 ? 5'd8 : s1 ? 5'd4 : 5'd0)
+                  + {3'd0, (s4 ? e4 : s3 ? e3 : s2 ? e2 : s1 ? e1 : e0)};
         end
     endfunction
 
-    //  ── ⭐ 引擎当前轴的"下一步值"（⭐ 组合；⭐ 到终点【吸附】⛔ 不冲过）──────────
+    // ══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-09-30：⭐ **插值步长引擎改为【三级流水】**（⭐ 收敛时序）
+    //
+    //  🔴 **问题（⭐ PnR 实测原文，⛔ 不是推测）** ——
+    //     `impl/pnr/Gowin2026_tr_content.html`（⭐ 同一份也抄进
+    //     `sim/evidence/gowin_m0_timing.txt`）报：
+    //       · `Numbers of Setup Violated Endpoints | 1702`
+    //       · `Actual Fmax = 43.659 MHz`（⭐ 约束 50 MHz）、`Logic Level = 38`
+    //       · 最差路径（⭐ `Path Slacks Table` 第 1 行原文）：
+    //           `From g_sound.u_looper/ramp_sc_0_s1/Q
+    //            To   g_sound.u_looper/play_upd_inc_o_27_s0/D
+    //            Path Slack -2.905  Data Delay 22.852`
+    //     ⇒ ⭐ **38 级组合逻辑**（⭐ 历史最好 12 级 ⇒ `55.349 MHz`，⭐ 见
+    //        `git show 7863b40:sim/evidence/gowin_m0_timing.txt`）✅
+    //
+    //  ⭐ **根因**：⭐ 整条链挤在**一拍**里 ——
+    //     `取操作数 → f = flog2(left) → 2^f → +2^f-1 → >>f → max(1)
+    //      → ± step → 与终点比较 → 吸附`
+    //     ⭐ 其中 `flog2` 是 20 级串联优先链，⭐ 另有**两个变长移位器** ✅
+    //
+    //  ⭐ **修法**：⭐ 在三个天然断点插寄存器 ⇒ ⭐ 组合深度各约 1/3：
+    //     · ⭐ 阶段 A：⭐ 取操作数 + `left` + `f` + `2^f` + `|diff|` + 方向
+    //     · ⭐ 阶段 B：⭐ `+2^f-1` → `>>f` → `max(1)`  ⇒ `sinc` / `svel`
+    //     · ⭐ 阶段 C：⭐ `cur ± step` → 与终点比较 → **吸附** → 输出 + 写回
+    //
+    //  ⭐ **每级 ns 预算（⭐ 50 MHz ⇒ 20 ns/拍）**：
+    //     ⭐ `impl/pnr/Gowin2026.timing_paths` 的节点到达时间把原路径切成
+    //        `3.571→9.800`（**6.2 ns**：⭐ 取数 + `flog2` + `2^f`）
+    //        `9.800→17.416`（**7.6 ns**：⭐ 变长右移 + `max(1)`）
+    //        `17.416→22.838`（**5.4 ns**：⭐ 加减 + 与终点比较 + 吸附）
+    //     ⇒ ⭐ 每级再加 `Tco+时钟网 ≈ 3.6 ns` 与 `布线+建立 ≈ 3.6 ns`
+    //        ⇒ ⭐ `13.4 / 14.8 / 12.6 ns` ⇒ ⭐ **三级都进 20 ns** ✅
+    //     📌 不拆时 `6.2+7.6+5.4 = 19.2 ns` 逻辑 + `3.6+3.6` 固定开销
+    //        = `26.4 ns` ⇒ ⭐ 正是实测 `22.852 ns` 的量级 ✅
+    //
+    //  ⭐ **吞吐【不变】**（⭐ 关键）：⭐ 阶段 A **每拍推进一个轴**
+    //     （⭐ `ramp_sc` 每拍 +1）⇒ ⭐ 仍 **16 拍扫完 16 轴**，
+    //     ⭐ 与原实现**逐拍相同** ⇒ ⭐ 插值更新频率**不变** ✅
+    //     （⭐ 所以 `tb_looper` 的 `upd_n` / `distinct` 判据不受影响）
+    //  ⭐ **行为【不变】**：
+    //     · ⭐ 阶段 A 读的操作数与**原实现同一拍**读的是同一批寄存器值 ✅
+    //     · ⭐ 写回晚 2 拍 ⇒ ⚠️ 必须挡掉"这 2 拍里事件装载分支写过同一个轴"
+    //       ⇒ ⭐ `pa_hit` / `pb_hit`（⭐ 原实现靠"事件分支在 `always` 里更靠后"
+    //          取胜；⭐ 现在跨拍了，⭐ 必须显式挡）✅
+    //     · ⭐ `play_upd_*` 晚 2 拍 ⇒ ⭐ 仍在**同一个 tick 内**
+    //       （⭐ tick ≥ 12 拍，⭐ 硬件上 ~26000 拍）✅
+    // ══════════════════════════════════════════════════════════════════════
+
+    //  ── ⭐ 阶段 A（组合）：⭐ 取操作数 + `f` + `2^f` ────────────────────────────
     wire [PHASE_W-1:0] ramp_inc_c = ramp_inc[ramp_sc];
     wire [VEL_W-1:0]   ramp_vel_c = ramp_vel[ramp_sc];
     wire [PHASE_W-1:0] rtgt_inc_c = rtgt_inc[ramp_sc];
     wire [VEL_W-1:0]   rtgt_vel_c = rtgt_vel[ramp_sc];
-    //  ⭐ 还剩几个 tick 走到终点（⭐ `0` ⇒ 本拍就收工，⭐ 见引擎的吸附分支）
-    wire [TICK_W-1:0]  ramp_left  = (rend_tick[ramp_sc] > play_tick_r)
-                                  ? (rend_tick[ramp_sc] - play_tick_r)
+    wire [TICK_W-1:0]  rend_tick_c= rend_tick[ramp_sc];
+    //  ⭐ 还剩几个 tick 走到终点（⭐ `0` ⇒ 本拍就收工，⭐ 见阶段 C 的吸附分支）
+    wire [TICK_W-1:0]  ramp_left  = (rend_tick_c > play_tick_r)
+                                  ? (rend_tick_c - play_tick_r)
                                   : {TICK_W{1'b0}};
+    wire [4:0]         ramp_f     = flog2(ramp_left);       // ⭐ f = floor(log2(left))
+    wire [TICK_W-1:0]  ramp_pw    = {{(TICK_W-5){1'b0}}, 5'd1} << ramp_f;   // ⭐ 2^f
     //  ⭐ 差值（⭐ 用【幅度】而不是有符号数 ⇒ ⭐ 加减方向由"谁大"决定，⛔ 不碰符号位 ✅）
-    wire [PHASE_W-1:0] ramp_dinc  = (rtgt_inc_c > ramp_inc_c) ? (rtgt_inc_c - ramp_inc_c)
-                                                             : (ramp_inc_c - rtgt_inc_c);
-    wire [VEL_W-1:0]   ramp_dvel  = (rtgt_vel_c > ramp_vel_c) ? (rtgt_vel_c - ramp_vel_c)
-                                                             : (ramp_vel_c - rtgt_vel_c);
-    //  ⭐ `ceil(|diff| / 2^f)`，⭐ 且 `|diff| != 0` 时**至少走 1 格**
+    wire               ramp_up    = (rtgt_inc_c > ramp_inc_c);
+    wire               ramp_dn    = (rtgt_inc_c < ramp_inc_c);
+    wire [PHASE_W:0]   ramp_dinc  = ramp_up ? ({1'b0, rtgt_inc_c} - {1'b0, ramp_inc_c})
+                                            : ({1'b0, ramp_inc_c} - {1'b0, rtgt_inc_c});
+    wire               vel_up     = (rtgt_vel_c > ramp_vel_c);
+    wire               vel_dn     = (rtgt_vel_c < ramp_vel_c);
+    wire [VEL_W:0]     ramp_dvel  = vel_up ? ({1'b0, rtgt_vel_c} - {1'b0, ramp_vel_c})
+                                           : ({1'b0, ramp_vel_c} - {1'b0, rtgt_vel_c});
+    //  ⭐ 本轴该不该吐（⭐ 用**本拍**的 `ramp_mask`，⭐ 与原实现一致）
+    wire               ramp_msk_c = ramp_mask[ramp_sc];
+    //  ⭐ 走到终点 tick ⇒ ⭐ 本轮收工（⭐ 用**本拍**的 `play_tick_r` / `rend_tick`）
+    wire               ramp_snap_c= (play_tick_r >= rend_tick_c);
+
+    //  ── ⭐ 流水线寄存器（⭐ 后缀 `a` = 阶段 A→B、`b` = 阶段 B→C）──────────────
+    reg [3:0]         pa_ax;
+    reg [PHASE_W-1:0] pa_inc, pa_tgt;
+    reg [VEL_W-1:0]   pa_vel, pa_tv;
+    reg [PHASE_W:0]   pa_dinc;
+    reg [VEL_W:0]     pa_dvel;
+    reg [TICK_W-1:0]  pa_pw;
+    reg [4:0]         pa_f;
+    reg               pa_up, pa_dn, pa_vup, pa_dvn;
+    reg               pa_msk, pa_snap, pa_hit, pa_last, pa_v;
+    reg [3:0]         pb_ax;
+    reg [PHASE_W-1:0] pb_inc, pb_tgt, pb_sinc;
+    reg [VEL_W-1:0]   pb_vel, pb_tv, pb_svel;
+    reg               pb_up, pb_dn, pb_vup, pb_dvn;
+    reg               pb_msk, pb_snap, pb_hit, pb_last, pb_v;
+
+    //  ── ⭐ 阶段 B（组合）：⭐ `ceil(|diff| / 2^f)`，⭐ `|diff| != 0` 时至少走 1 格 ──
     //     ⚠️ 中间量多一位（`+2^f-1` 可能进位）⇒ ⭐ `PHASE_W+1` / `VEL_W+1` ✅
-    wire [PHASE_W:0]   ramp_qinc  = ({1'b0, ramp_dinc}
-                                     + ((1 << flog2(ramp_left)) - 1)) >> flog2(ramp_left);
-    wire [VEL_W:0]     ramp_qvel  = ({1'b0, ramp_dvel}
-                                     + ((1 << flog2(ramp_left)) - 1)) >> flog2(ramp_left);
-    wire [PHASE_W-1:0] ramp_sinc  = (ramp_dinc == {PHASE_W{1'b0}}) ? {PHASE_W{1'b0}}
-                                  : ((ramp_qinc[PHASE_W-1:0] == {PHASE_W{1'b0}})
-                                        ? {{(PHASE_W-1){1'b0}}, 1'b1} : ramp_qinc[PHASE_W-1:0]);
-    wire [VEL_W-1:0]   ramp_svel  = (ramp_dvel == {VEL_W{1'b0}}) ? {VEL_W{1'b0}}
-                                  : ((ramp_qvel[VEL_W-1:0] == {VEL_W{1'b0}})
-                                        ? {{(VEL_W-1){1'b0}}, 1'b1} : ramp_qvel[VEL_W-1:0]);
-    //  ⚠️ `step <= |diff|` ⇒ ⭐ `cur ± step` **不会越过终点、也不会溢出**（⭐ 无符号安全 ✅）
-    wire [PHASE_W-1:0] inc_nxt_w =
-          (rtgt_inc_c > ramp_inc_c)
-              ? ((ramp_inc_c + ramp_sinc >= rtgt_inc_c)
-                     ? rtgt_inc_c : (ramp_inc_c + ramp_sinc))
-        : (rtgt_inc_c < ramp_inc_c)
-              ? ((ramp_inc_c - ramp_sinc <= rtgt_inc_c)
-                     ? rtgt_inc_c : (ramp_inc_c - ramp_sinc))
-        : ramp_inc_c;
-    wire [VEL_W-1:0]   vel_nxt_w =
-          (rtgt_vel_c > ramp_vel_c)
-              ? ((ramp_vel_c + ramp_svel >= rtgt_vel_c)
-                     ? rtgt_vel_c : (ramp_vel_c + ramp_svel))
-        : (rtgt_vel_c < ramp_vel_c)
-              ? ((ramp_vel_c - ramp_svel <= rtgt_vel_c)
-                     ? rtgt_vel_c : (ramp_vel_c - ramp_svel))
-        : ramp_vel_c;
+    wire [PHASE_W:0]   pb_qinc  = (pa_dinc + pa_pw - 1'b1) >> pa_f;
+    wire [VEL_W:0]     pb_qvel  = (pa_dvel + pa_pw - 1'b1) >> pa_f;
+    wire [PHASE_W-1:0] pb_sinc_w = (pa_dinc[PHASE_W-1:0] == {PHASE_W{1'b0}})
+                                 ? {PHASE_W{1'b0}}
+                                 : ((pb_qinc[PHASE_W-1:0] == {PHASE_W{1'b0}})
+                                       ? {{(PHASE_W-1){1'b0}}, 1'b1} : pb_qinc[PHASE_W-1:0]);
+    wire [VEL_W-1:0]   pb_svel_w = (pa_dvel[VEL_W-1:0] == {VEL_W{1'b0}})
+                                 ? {VEL_W{1'b0}}
+                                 : ((pb_qvel[VEL_W-1:0] == {VEL_W{1'b0}})
+                                       ? {{(VEL_W-1){1'b0}}, 1'b1} : pb_qvel[VEL_W-1:0]);
+
+    //  ── ⭐ 阶段 C（组合）：⭐ `cur ± step` ⇒ 到终点【吸附】⛔ 不冲过 ─────────────
+    //     ⚠️ `step <= |diff|` ⇒ ⭐ `cur ± step` **不会越过终点、也不会溢出**（⭐ 无符号安全 ✅）
+    wire [PHASE_W-1:0] pc_inc_w =
+          pb_up ? ((pb_inc + pb_sinc >= pb_tgt) ? pb_tgt : (pb_inc + pb_sinc))
+        : pb_dn ? ((pb_inc - pb_sinc <= pb_tgt) ? pb_tgt : (pb_inc - pb_sinc))
+        :         pb_inc;
+    wire [VEL_W-1:0]   pc_vel_w =
+          pb_vup ? ((pb_vel + pb_svel >= pb_tv) ? pb_tv : (pb_vel + pb_svel))
+        : pb_dvn ? ((pb_vel - pb_svel <= pb_tv) ? pb_tv : (pb_vel - pb_svel))
+        :          pb_vel;
 
     // ⭐ 事件类型编码（⭐ 与 `note_manager.note_kind_i` 一致）
     //   ⚠️ **已在文件上方（`close_scan_r` 之后）声明** —— ⭐ 那里是 `rec_inc_w` 的需要 ✅
@@ -441,10 +632,51 @@ module looper #(
     wire br_leave_w = ((clear_req_i[0]) || (rec_req_i[0] && (state != ST_REC)))
                       && (state == ST_HOLD) && (play_active_r != 16'd0);
     wire br_clear_w = ~br_leave_w && clear_req_i[0];
-    wire br_rec_w   = ~br_leave_w && ~br_clear_w && rec_req_i[0] && (state != ST_REC);
-    wire br_recst_w = ~br_leave_w && ~br_clear_w && ~br_rec_w && (state == ST_REC);
-    wire br_close_w = ~br_leave_w && ~br_clear_w && ~br_rec_w && ~br_recst_w
-                      && (state == ST_CLOSE);
+    //  ⭐⭐ 2026-09-30（`T41` ①）：⭐ **"待起录"等到小节起点 ⇒ 真起录**
+    //   ⚠️ 排在 `br_rec_w` **之前** ⇒ ⭐ 同一个 `bar_start` 拍上不会再被 `rec_req` 抢走 ✅
+    wire br_recpend_w = ~br_leave_w && ~br_clear_w && (state == ST_RECPEND)
+                        && bar_start_i && transport_i;
+    //  ⭐⭐ 2026-09-30（`T41` ①）：⭐ **"待起录"期间再按一次 `R` ⇒ 取消** ✅
+    //   🔴 **为什么必须处理**（⭐ 有代码依据）：⭐ `top.v:2959` 的
+    //      `stop_req_i = cmd_loop_rec_req & loop_rec_on_r`
+    //      ⇒ ⚠️ 用户在"待起录"窗口里再按一次 `R` ⇒ 到这里的**是 `stop_req`** ✅
+    //      🔴 若不处理 ⇒ `top.v` 的 `loop_rec_on_r` 与 looper 的实际状态**反相**
+    //         ⇒ ⭐ 之后每一次 `R` 都发**错的命令**（⭐ 想停发 `rec_req`、想录发 `stop_req`）
+    //         ⇒ 🔴 用户看到的是"**按 R 没反应 / 要按两下**"（⭐ 与 `T41` 无关的新毛病）✅
+    //   ⭐ 语义：⭐ 取消 ⇒ 有旧录音就回 `ST_HOLD`（⛔ 不清），⭐ 否则回 `ST_IDLE` ✅
+    wire br_reccancel_w = ~br_leave_w && ~br_clear_w && ~br_recpend_w
+                          && (state == ST_RECPEND) && stop_req_i[0];
+    wire br_rec_w   = ~br_leave_w && ~br_clear_w && ~br_recpend_w && ~br_reccancel_w
+                      && rec_req_i[0] && (state != ST_REC) && (state != ST_RECPEND);
+    wire br_recst_w = ~br_leave_w && ~br_clear_w && ~br_recpend_w && ~br_reccancel_w
+                      && ~br_rec_w && (state == ST_REC);
+    wire br_close_w = ~br_leave_w && ~br_clear_w && ~br_recpend_w && ~br_reccancel_w
+                      && ~br_rec_w && ~br_recst_w && (state == ST_CLOSE);
+
+    //  ── ⭐⭐ 2026-09-30：⭐ **停录量化（`T41` ②）** 的判据 ────────────────────────
+    //   ⭐ `tick_cnt_i` = 小节内 tick 编号（⭐ `beat_gen` 契约，⭐ `:166`/`:220`）
+    //      ⇒ ⭐ 它 **< 半小节** ⇒ 离"上一小节线"更近 ⇒ **舍去**（⭐ 这就是"量化到最近"）
+    //      ⇒ ⭐ 否则            ⇒ 离"下一小节线"更近 ⇒ **补足**到下一小节 ✅
+    //   ⚠️ `rec_aligned_r` 这道门**不能省**：⭐ 只有"**从小节起点起录**"的那一遍，
+    //      `rec_bar_tick_r` 才真的是"整数个小节的 tick 数"（⭐ 见起录两处的赋值）✅
+    //   ⚠️ `transport_i` 这道门也不能省：⭐ transport 停了 ⇒ `tick_cnt_i` **冻住**
+    //      ⇒ ⭐ 拿它判前后半小节就是**拿陈旧值做决定** ✅
+    wire [TICK_W-1:0] bar_half_w  = {1'b0, bar_len_r[TICK_W-1:1]};   // ⭐ 半小节 = 右移一位
+    wire              quant_ok_w  = rec_aligned_r && grid_ok_r && transport_i;
+    //  ⭐⭐ 2026-09-30（`T41` ①）：⭐ **起录要不要"等小节"**
+    //   ⭐ 网格可用 ＋ transport 走着 ＋ **现在不是小节起点** ⇒ ⭐ 等（⭐ 进 `ST_RECPEND`）
+    //   ⚠️ 若 `rec_req` **正好踩在 `bar_start_i` 上** ⇒ ⭐ 立刻起录（⭐ 它本来就是对齐的），
+    //      ⛔ 不必白等一整小节（⭐ 那是 2 秒的"按了没反应"）✅
+    //   ⚠️ 网格不可用 / transport 停着 ⇒ ⭐ 立刻起录（⭐ 与改动前逐位相同）✅
+    wire              rec_align_w = grid_ok_r && transport_i && ~bar_start_i;
+    //  ⚠️ `rec_bar_tick_r == 0` ⇒ ⭐ 连一整小节都没录满 ⇒ ⚠️ 舍去会得到**零长度 loop**
+    //     ⇒ ⭐ 强制"补足到 1 小节"（⭐ `K-106`：⛔ 不许静默产出非法长度）✅
+    wire              quant_up_w  = (tick_cnt_i >= bar_half_w)
+                                    || (rec_bar_tick_r == {TICK_W{1'b0}});
+    wire [TICK_W-1:0] quant_len_w = quant_ok_w
+                                  ? (quant_up_w ? (rec_bar_tick_r + bar_len_r) : rec_bar_tick_r)
+                                  : rec_tick_r;                   // ⭐ 网格不可用 ⇒ 与改动前逐位相同
+    wire              quant_drop_w= quant_ok_w && ~quant_up_w;    // ⭐ 舍去 ⇒ 事件计数也要退
 
     //  ── ⭐ 三个写入点（⭐ 条件与原实现逐条相同）────────────────────────────────
     //   ① 录制中收到 `note_off` ⇒ 把**终点**写回【那个 `note_on` 的地址】✅
@@ -467,7 +699,7 @@ module looper #(
                              :              cnt_r;
     wire [EP_W-1:0]  ep_wd_w = ep_w_cls_w
                              ? {1'b1, close_tick_w,
-                                last_vel_r[close_scan_r], last_inc_r[close_scan_r]}
+                                vel_max_r[close_scan_r], last_inc_r[close_scan_r]}
                              : ep_w_off_w
                              ? {1'b1, rec_tick_r, rec_vel_w, rec_inc_w}
                              : {EP_W{1'b0}};
@@ -505,12 +737,56 @@ module looper #(
     wire rd_drained = ~e_more_this_tick;
 
     //  ⭐ 重放**什么时候真的在跑**
-    wire playing = (state == ST_HOLD) && play_en_i[0] && transport_i && (cnt_r != {CNT_W{1'b0}});
+    //
+    //  ⭐⭐ 2026-09-30（`T41` ③）：⭐ **`play_aligned_r` 这道门 = "起播对齐小节"** ✅
+    //   🔴 **为什么必须对齐**：⭐ `play_tick_r` 从 0 起算 ⇒ ⭐ 若在**小节中间**起播，
+    //      loop 的 `tick 0` 就落在小节中间 ⇒ 🔴 **即使 `loop_len` 是整数小节，
+    //      整个 loop 的内容也【整体偏一个固定相位】⇒ 与节拍器/鼓机永远错拍** ✅
+    //   ⭐ 语义：⭐ `play_aligned_r = 0` ⇒ "**已请求起播、但还没等到小节线**" ⇒ ⛔ 先不走 tick
+    //   ⚠️ **⛔ 不能写成"`play_en` 上升沿置 pending、`bar_start` 清 pending"** ——
+    //      🔴 **实测踩过（第一版）**：⭐ 那样 `playing` 在"`play_en` 刚拉高"那一拍
+    //      还是真（⭐ `pending` 尚未置位）⇒ ⭐ **本拍就把 `tick 0` 的事件吐了出去**
+    //      ⇒ 🔴 **相位仍然是"按下的那一刻"**（⭐ 实测：相位 = 91，⭐ 恰好等于按下的
+    //      小节内编号 ⇒ 判据红 ✅）⇒ ⭐ **必须用"对齐标志"而不是"pending 标志"**：
+    //      · ⭐ **没在播（`~play_want_w`）⇒ 清 0**（⭐ 下次起播重新等小节）
+    //      · ⭐ **小节线到 ⇒ 置 1**（⭐ 寄存 ⇒ `playing` **下一拍**才为真 ✅）
+    //   ⚠️ **关键细节（⛔ 不许"同拍放行"）**：⭐ `bar_start_i` 那一拍只置标志，
+    //      ⇒ ⭐ **本拍的 `tick_i` 不被消费** ⇒ ⭐ `play_tick_r` 停在 0 **整整一个 tick 槽**
+    //      ⇒ ⭐ `tick 0` 的事件就落在【本小节第一个 tick 槽】里 ✅
+    //      （⚠️ 若同拍放行 ⇒ `tick 0` 的**第二条**（和弦）会被跳过 —— ⭐ 那是另一种丢音）✅
+    //   ⚠️ `grid_ok_r = 0`（⭐ 老 tb / 没接 `bar_start`）⇒ ⭐ `~grid_ok_r` 那一项
+    //      让 `playing` 退回**改动前的表达式** ⇒ ⭐ 逐位不变 ✅
+    wire play_want_w = (state == ST_HOLD) && play_en_i[0] && transport_i
+                       && (cnt_r != {CNT_W{1'b0}});
+    wire playing = play_want_w && (play_aligned_r || ~grid_ok_r);
 
     //  ⭐ 循环回绕：走到 `loop_len_r` 就回 0
     wire [TICK_W-1:0] play_tick_nxt = (play_tick_r + 1'b1 >= loop_len_r)
                                     ? {TICK_W{1'b0}} : (play_tick_r + 1'b1);
     wire wrap_now = (play_tick_r + 1'b1 >= loop_len_r);
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-09-30：⭐ **插值流水线的【写回挡板】与【推进条件】**
+    //
+    //  🔴 **为什么需要 `evt_*_hit`**：
+    //     原实现里"事件装载分支"（⭐ `if (e_ready)` 那一支，⭐ 在 `always` 里
+    //     **更靠后**）与插值引擎**同拍**写 `ramp_inc` / `ramp_vel` / `ramp_mask`
+    //     ⇒ ⭐ 同一个轴时**事件分支赢**（⭐ 后写覆盖先写）✅
+    //     ⚠️ 现在写回晚了 **2 拍** ⇒ 🔴 若不挡，插值引擎会把事件刚装载的
+    //     **起点值**覆盖成"按旧终点算出来的值" ⇒ ⭐ **起点丢失**（⭐ 静默错数据）✅
+    //     ⇒ ⭐ 用 `pa_hit` / `pb_hit` 把"这 2 拍里被事件装载过的轴"记下来 ✅
+    //     📌 写回**那一拍**不需要挡：⭐ 事件分支仍在 `always` 里更靠后 ⇒ 它照样赢 ✅
+    //
+    //  🔴 **为什么 `eng_en_w` 要带 `~pa_last & ~pb_last`**：
+    //     ⭐ 轴 15 进流水线后要**停扫 2 拍**（⭐ 让 15 走完 B/C 两级收尾）
+    //     ⇒ ⭐ 每轮**恰好扫 0..15**（⭐ 与原实现"扫到 `4'hF` 就停"一致）✅
+    //     ⚠️ 否则会多扫 1~2 个轴（⭐ 轴号已回绕到 0/1）⇒ ⭐ 相位漂移 ✅
+    // ══════════════════════════════════════════════════════════════════════
+    wire evt_wr_w   = playing && e_ready;      // ⭐ 本拍事件装载分支**会写** ramp_inc/vel/mask
+    wire evt_hitA_w = evt_wr_w && (e_axis == ramp_sc);   // ⭐ 命中"阶段 A 这一拍"的轴
+    wire evt_hitB_w = evt_wr_w && (e_axis == pa_ax);     // ⭐ 命中"阶段 B 这一拍"的轴
+    //  ⭐ 阶段 A 的推进条件（⭐ `playing` 已由外层分支保证，⭐ 这里再写一次便于阅读）
+    wire eng_en_w   = playing && ramp_go && ~live_busy && ~pa_last && ~pb_last;
 
     //  ⭐ 停录时还有哪些轴**没收到 `note_off`**（⭐ 从 `live_*` 维护）
     integer ai;
@@ -539,6 +815,14 @@ module looper #(
             full_r       <= 1'b0;
             close_mask_r <= 16'd0;
             close_scan_r <= 4'd0;
+            //  ⭐⭐ 2026-09-30（`T41`）：⭐ 小节对齐的 4 个状态位一起复位 ✅
+            //   ⚠️ `bar_len_r` / `bar_cnt_r` / `bar_seen_r` / `grid_ok_r`
+            //      **不在这里** —— ⭐ 它们有自己的 `always` 块（⭐ 同 `e_word_r` 的纪律：
+            //      ⛔ 两个块同时驱动 = 多驱动 ⇒ 综合报 `EX2000` ⇒ **模块变黑盒**）✅
+            rec_bar_tick_r <= {TICK_W{1'b0}};
+            rec_bar_cnt_r  <= {CNT_W{1'b0}};
+            rec_aligned_r  <= 1'b0;
+            play_aligned_r <= 1'b0;
             play_valid_o <= 1'b0;
             play_axis_o  <= {AXIS_W{1'b0}};
             play_inc_o   <= {PHASE_W{1'b0}};
@@ -559,10 +843,16 @@ module looper #(
             ramp_mask    <= 16'd0;
             ramp_sc      <= 4'd0;
             ramp_go      <= 1'b0;
+            //  ⭐⭐ 2026-09-30：⭐ 插值流水线的**有效位 / 挡板位**一起复位
+            //     ⚠️ 只复位这 6 个就够 —— ⭐ 其余流水寄存器被 `pa_v`/`pb_v` 挡着，
+            //        ⭐ 复位后 `pb_v = 0` ⇒ ⛔ 不会把 `x` 传到 `ramp_inc` / 输出 ✅
+            pa_v    <= 1'b0;  pb_v    <= 1'b0;
+            pa_hit  <= 1'b0;  pb_hit  <= 1'b0;
+            pa_last <= 1'b0;  pb_last <= 1'b0;
             on_open_r    <= 16'd0;
             for (ai = 0; ai < 16; ai = ai + 1) begin
                 last_inc_r[ai] <= {PHASE_W{1'b0}};
-                last_vel_r[ai] <= {VEL_W{1'b0}};
+                vel_max_r[ai] <= {VEL_W{1'b0}};
                 on_addr_r [ai] <= {CNT_W{1'b0}};
                 ramp_inc  [ai] <= {PHASE_W{1'b0}};
                 ramp_vel  [ai] <= {VEL_W{1'b0}};
@@ -577,6 +867,21 @@ module looper #(
             //  ⭐⭐ 2026-09-29 新增：⭐ `play_timbre_valid_o` **必须与 `play_valid_o` 同拍** ✅
             //     ⇒ ⭐ 下游才会把"这条事件"和"它的音色"配成一对 ✅
             play_timbre_valid_o <= 1'b0;
+
+            // ══════════════════════════════════════════════════════════════
+            //  ⭐⭐ 2026-09-30（`T41` ③）：⭐ **"起播已对齐小节"标志**
+            //   ⭐ 置位：⭐ 小节线到（⭐ 寄存 ⇒ `playing` 下一拍才为真 ⇒
+            //      ⭐ 本拍的 `tick_i` 不被消费 ⇒ `play_tick_r` 停在 0 一个整槽 ✅）
+            //   ⭐ 清零：⭐ **没在播就清**（⭐ 下次起播重新等小节）——
+            //      ⚠️ 这一条顺带覆盖"**transport 停了又开**"（⭐ 那条也会把
+            //      `play_tick_r` 归零 ⇒ ⭐ 同样必须重新对齐）✅
+            //   ⚠️ `grid_ok_r = 0`（⭐ 老 tb / 没接 `bar_start`）⇒ ⭐ `playing` 里
+            //      有 `|| ~grid_ok_r` ⇒ ⭐ 本标志**不起作用** ⇒ 行为逐位不变 ✅
+            // ══════════════════════════════════════════════════════════════
+            if (~play_want_w)
+                play_aligned_r <= 1'b0;              // ⭐ 没在播 ⇒ 下次重新对齐
+            else if (bar_start_i)
+                play_aligned_r <= 1'b1;              // ⭐ 小节线到 ⇒ 放行（⭐ 下一拍才走 tick）
 
             // ══════════════════════════════════════════════════════════════
             //  ⭐⭐ 2026-09-29 新增：⭐ **回放插值引擎**（⭐ 每 tick 扫一轮 16 轴，⭐ 一拍一个轴）
@@ -600,25 +905,71 @@ module looper #(
                 ramp_mask <= 16'd0;
                 ramp_go   <= 1'b0;
                 ramp_sc   <= 4'd0;
-            end else if (ramp_go && ~live_busy) begin
-                if (ramp_mask[ramp_sc]) begin
-                    //  ⭐ 吐**本拍的新值**（⭐ 寄存器与输出同拍 ⇒ ⭐ 下游看到的就是本模块状态 ✅）
-                    play_upd_valid_o  <= 1'b1;
-                    play_upd_axis_o   <= ramp_sc;
-                    play_upd_inc_o    <= inc_nxt_w;
-                    play_upd_vel_o    <= vel_nxt_w;
-                    ramp_inc[ramp_sc] <= inc_nxt_w;
-                    ramp_vel[ramp_sc] <= vel_nxt_w;
-                    //  ⭐ 走到终点 tick ⇒ ⭐ 本轮插值收工
-                    //     （⚠️ 另有兜底：⭐ 回放到该轴的 `note_off` 时**无条件清零** ✅）
-                    if (play_tick_r >= rend_tick[ramp_sc])
-                        ramp_mask[ramp_sc] <= 1'b0;
+                //  ⭐ 流水线一起清（⭐ 与"不留残余"同一条纪律；⭐ 复位分支同式）✅
+                pa_v <= 1'b0;  pb_v <= 1'b0;
+                pa_hit <= 1'b0; pb_hit <= 1'b0;
+                pa_last <= 1'b0; pb_last <= 1'b0;
+            end else begin
+                // ── ⭐⭐ 阶段 C：⭐ 收尾（⭐ 写回 + 输出 + 收工判定）───────────────
+                //   ⚠️ 写回晚 2 拍 ⇒ ⭐ 用 `pb_*`（⭐ 见文件上方三级的说明）✅
+                if (pb_v) begin
+                    //  ⚠️ `pb_hit` ⇒ 本轴在这 2 拍里被事件装载分支重新写过
+                    //     ⇒ ⭐ 写回让位（⭐ 与原实现"事件分支优先"逐位等价）✅
+                    //  ⚠️ `pb_msk` ⇒ 原实现**整段都在 `if (ramp_mask[ramp_sc])` 里**
+                    //     ⇒ ⭐ 本轴没在插值时**既不写回、也不清掩码**（⭐ 必须照抄，
+                    //        ⛔ 否则"掩码已清的轴"会被引擎继续往旧终点推 ⇒ **静默漂移**）✅
+                    if (!pb_hit && pb_msk) begin
+                        ramp_inc[pb_ax] <= pc_inc_w;
+                        ramp_vel[pb_ax] <= pc_vel_w;
+                        //  ⭐ 走到终点 tick ⇒ ⭐ 本轮插值收工
+                        //     （⚠️ 另有兜底：⭐ 回放到该轴的 `note_off` 时**无条件清零** ✅）
+                        if (pb_snap)
+                            ramp_mask[pb_ax] <= 1'b0;
+                    end
+                    //  ⭐ 吐**本拍的新值**（⭐ 寄存器与输出同拍 ⇒ 下游看到的就是本模块状态 ✅）
+                    //     ⚠️ 输出**不受 `pb_hit` 影响** —— ⭐ 原实现里事件分支不碰 `play_upd_*` ✅
+                    play_upd_valid_o <= pb_msk;
+                    play_upd_axis_o  <= pb_ax;
+                    play_upd_inc_o   <= pc_inc_w;
+                    play_upd_vel_o   <= pc_vel_w;
+                    //  ⭐ 轴 15 收尾 ⇒ ⭐ 本轮扫完：⭐ 指针归零 + 停扫
+                    //     （⭐ 与原实现"扫到 `4'hF` 就 `ramp_sc <= 0; ramp_go <= 0`"同义）✅
+                    if (pb_last) begin
+                        ramp_sc <= 4'd0;
+                        ramp_go <= 1'b0;
+                    end
                 end
-                if (ramp_sc == 4'hF) begin
-                    ramp_sc <= 4'd0;
-                    ramp_go <= 1'b0;
-                end else begin
+
+                // ── ⭐⭐ 阶段 B：⭐ `+2^f-1` / `>>f` / `max(1)`（⭐ 每拍无条件推进）──
+                pb_ax   <= pa_ax;    pb_inc  <= pa_inc;   pb_tgt  <= pa_tgt;
+                pb_vel  <= pa_vel;   pb_tv   <= pa_tv;
+                pb_up   <= pa_up;    pb_dn   <= pa_dn;
+                pb_vup  <= pa_vup;   pb_dvn  <= pa_dvn;
+                pb_sinc <= pb_sinc_w; pb_svel <= pb_svel_w;
+                pb_msk  <= pa_msk;   pb_snap <= pa_snap;
+                //  ⭐ 累积"这 2 拍里事件分支命中过本轴"（⭐ 写回挡板）✅
+                pb_hit  <= pa_hit | evt_hitB_w;
+                pb_last <= pa_last;  pb_v    <= pa_v;
+
+                // ── ⭐⭐ 阶段 A：⭐ 取操作数 + `f` / `2^f`（⭐ 每拍推进一个轴）────
+                if (eng_en_w) begin
+                    pa_ax   <= ramp_sc;
+                    pa_inc  <= ramp_inc_c;  pa_tgt  <= rtgt_inc_c;
+                    pa_vel  <= ramp_vel_c;  pa_tv   <= rtgt_vel_c;
+                    pa_dinc <= ramp_dinc;   pa_dvel <= ramp_dvel;
+                    pa_pw   <= ramp_pw;     pa_f    <= ramp_f;
+                    pa_up   <= ramp_up;     pa_dn   <= ramp_dn;
+                    pa_vup  <= vel_up;      pa_dvn  <= vel_dn;
+                    pa_msk  <= ramp_msk_c;  pa_snap <= ramp_snap_c;
+                    pa_hit  <= evt_hitA_w;
+                    pa_last <= (ramp_sc == 4'hF);
+                    pa_v    <= 1'b1;
+                    //  ⭐ 每拍推进一个轴 ⇒ ⭐ 仍 16 拍扫完 16 轴（⭐ 吞吐不变）✅
                     ramp_sc <= ramp_sc + 4'd1;
+                end else begin
+                    pa_v    <= 1'b0;
+                    pa_hit  <= 1'b0;
+                    pa_last <= 1'b0;
                 end
             end
 
@@ -664,8 +1015,52 @@ module looper #(
                 rd_adv_r     <= 1'b0;
                 close_mask_r <= 16'd0;
                 play_active_r<= 16'd0;
+                //  ⭐⭐ 2026-09-30（`T41`）：⭐ 清空 ⇒ **"起播对齐"标志也一起清**
+                //     🔴 否则：⭐ 清空后 `play_en` 还开着 ⇒ ⚠️ 若不清，⭐ 下一次
+                //        **录完**回到 `ST_HOLD` 时会带着一个**陈旧的"已对齐"**直接起播
+                //        （⭐ 而那时 `play_tick_r` 刚归零 ⇒ 🔴 又落在小节中间）✅
+                //     ⭐ 顺带：⭐ "待起录"（`ST_RECPEND`）也被本分支带走（⭐ `state <= ST_IDLE`）✅
+                play_aligned_r <= 1'b0;
+            end else if (br_recpend_w) begin
+                //  ══════════════════════════════════════════════════════════
+                //  ⭐⭐ 2026-09-30（`T41` ①）：⭐ **待起录 ⇒ 小节起点到 ⇒ 真起录**
+                //   ⭐ 语义与下面的 `br_rec_w` 立刻起录那条**逐条相同** ——
+                //      ⚠️ 只有"**什么时候**"不同（⭐ 这里等到了 `bar_start_i`）✅
+                //   ⭐ `rec_aligned_r <= 1`：⭐ 本遍**确实是**从小节起点起录的
+                //      ⇒ ⭐ 停录时才允许量化（⭐ 见 `quant_ok_w`）✅
+                //  ══════════════════════════════════════════════════════════
+                state          <= ST_REC;
+                cnt_r          <= {CNT_W{1'b0}};
+                rec_tick_r     <= {TICK_W{1'b0}};
+                rd_ptr_r       <= {CNT_W{1'b0}};
+                play_tick_r    <= {TICK_W{1'b0}};
+                full_r         <= 1'b0;
+                close_mask_r   <= 16'd0;
+                close_scan_r   <= 4'd0;
+                on_open_r      <= 16'd0;
+                rec_bar_tick_r <= {TICK_W{1'b0}};
+                rec_bar_cnt_r  <= {CNT_W{1'b0}};
+                rec_aligned_r  <= 1'b1;
+                play_aligned_r <= 1'b0;   // ⭐ 起录 ⇒ 旧的"已对齐"作废（⭐ 录完自然会重新等）
+            end else if (br_reccancel_w) begin
+                //  ⭐⭐ 2026-09-30（`T41` ①）：⭐ **取消"待起录"**（⭐ 理由见 `br_reccancel_w`）
+                //   ⚠️ ⛔ **不清 `cnt_r`**：⭐ 上一遍录音还在 ⇒ ⭐ 回 `ST_HOLD` 继续可播 ✅
+                state <= (cnt_r != {CNT_W{1'b0}}) ? ST_HOLD : ST_IDLE;
             end else if (br_rec_w) begin
+                if (rec_align_w) begin
+                    //  ⭐⭐ 2026-09-30（`T41` ①）：⭐ **网格可用 ⇒ 先"待起录"**
+                    //   🔴 **为什么**：⭐ 此刻起录 ⇒ `rec_tick_r = 0` 落在小节中间
+                    //      ⇒ ⭐ `loop_len` 永远不是整数小节 ⇒ 🔴 **与鼓机越跑越偏** ✅
+                    //   ⭐ 只置状态，⛔ **不清 `cnt_r`** —— ⚠️ 上一条录音要留到
+                    //      `bar_start` 那一刻才清（⭐ 否则这半个小节里 `cnt_r = 0`
+                    //      而 `mem` 还在 ⇒ ⭐ 状态与内容**不一致**）✅
+                    state <= ST_RECPEND;
+                end else begin
                 //  ⭐ 开始录制：⭐ 从**此刻**起算 tick（⭐ 与 `beat_gen` 的 tick 对齐）
+                //  ⚠️ 走到这里只有两种情形（⭐ `rec_align_w` 为假）：
+                //     · ⭐ **网格未知**（`grid_ok_r = 0`：⭐ 老 tb / 没接 `bar_start`）
+                //     · ⭐ **transport 停着**（⭐ 没有 `bar_start` 可等 ⇒ 等了也没意义）
+                //     ⇒ ⭐ 两种情况都**退回改动前的行为**（⭐ 立即起录、不量化）✅
                 state        <= ST_REC;
                 cnt_r        <= {CNT_W{1'b0}};
                 rec_tick_r   <= {TICK_W{1'b0}};
@@ -674,16 +1069,80 @@ module looper #(
                 full_r       <= 1'b0;
                 close_mask_r <= 16'd0;
                 close_scan_r <= 4'd0;
+                rec_bar_tick_r <= {TICK_W{1'b0}};
+                rec_bar_cnt_r  <= {CNT_W{1'b0}};
+                //  ⭐ 只有"踩着 `bar_start` 立刻起录"才算对齐（⭐ `rec_align_w` 已排除
+                //     网格不可用/transport 停 ⇒ 这里 `bar_start_i` 必为真 ✅）
+                rec_aligned_r  <= grid_ok_r && transport_i;
+                play_aligned_r <= 1'b0;
+                //  ⭐⭐ 2026-09-29 修 bug②：⭐ **`on_open_r` 泄漏**（⭐ 录制中 `clear` 之后）✅
+                //   🔴 **缺陷**：⭐ 录制中按 `clear` ⇒ `br_leave_w` 为假（⭐ 它要求
+                //      `state == ST_HOLD`）⇒ ⭐ 走 `br_clear_w` 那条 ⇒ 直接回 `ST_IDLE`，
+                //      ⚠️ **既不补发 `note_off`、也不清 `on_open_r`** ✅
+                //   🔴 **后果（⭐ 静默）**：⭐ 那个还按着的音的 `on_addr_r`（⭐ **上一遍
+                //      录音的地址**）留到下一遍录音 ⇒ ⭐ 下一次录制期间再松开那个老键
+                //      ⇒ ⭐ 这条**没有前置 `note_on`** 的 `note_off` 却因 `on_open_r[a]=1`
+                //      而命中 `ep_w_off_w` ⇒ 🔴 **把终点写到旧地址** ✅
+                //      ⚠️ 若该地址在新录音里已经是**别的音**的 `note_on`（⭐ 且它自己的
+                //      `note_off` 已经写过终点）⇒ 🔴 **那个音的终点被改写** ⇒ ⭐ 回放时
+                //      它的跨度/力度**全错**，⭐ 而且**没有任何报错** ✅
+                //   ✅ **为什么清在【起录】而不是【`clear` 那一条】**：⭐ `on_open_r` 的
+                //      语义是"**本遍录音里**尚未闭合的 `note_on`" ⇒ ⭐ 它的生命周期
+                //      **就是一遍录音** ⇒ ⭐ 在**唯一的入口**清零 ⇒ ⭐ 以后再加"放弃录制"
+                //      的路径（⭐ 不止 `clear` 这一条）**都不会漏** ✅
+                //      📌 与上方"离开回放只有【一个】判定点"同一条纪律 ✅
+                on_open_r    <= 16'd0;
+                end     // ⭐ 关闭"网格不可用 ⇒ 立刻起录"那条（⭐ `rec_align_w` 为假）
             end else if (br_recst_w) begin
                 // ── 录制中 ────────────────────────────────────────────────
                 if (stop_req_i[0]) begin
-                    //  ⭐ 停录：⭐ 记下循环长度 ⇒ ⭐ 进入 `ST_CLOSE` **补发未闭合的 `note_off`**
-                    loop_len_r   <= rec_tick_r;
+                    // ══════════════════════════════════════════════════════
+                    //  ⭐⭐ 2026-09-30（`T41` ②）：⭐ **停录 ⇒ 量化到最近的整小节**
+                    //
+                    //  🔴 **改动前**：⭐ `loop_len_r <= rec_tick_r`（⭐ 原始计数）
+                    //     ⇒ ⭐ 只要按停的时刻不在小节线上 ⇒ `loop_len mod TICKS_PER_BAR != 0`
+                    //     ⇒ 🔴 **每绕一圈相位偏一点、误差逐圈累加**（⭐ 用户听到的"逐渐延后"）✅
+                    //
+                    //  ⭐ **改动后**：⭐ `loop_len` = **整数个小节**（⭐ `quant_len_w`）✅
+                    //
+                    //  🔴 **`quant_drop_w`（舍去半小节）时为什么必须退 `cnt_r`**：
+                    //     ⭐ 被舍掉的那半小节里的事件 tick 都 **>= `loop_len`**
+                    //     ⇒ ⭐ 重放的 `play_tick_r` 只走 `0..loop_len-1` ⇒ **永远匹配不上**
+                    //     ⇒ 🔴 读指针**卡在它们上面** ⇒ ⚠️ 而补发的那条 `note_off`
+                    //        落在它们**之后**（⭐ 存 `mem` 的顺序）⇒ 🔴 **永远读不到**
+                    //     ⇒ ⭐ **跨圈按住的音会挂住**（⭐ 正是本文件反复强调要防的那个缺陷）✅
+                    //     ⭐ 退回 `rec_bar_cnt_r`（⭐ 小节起点那一刻的条数）⇒
+                    //        ⭐ 舍掉的事件**整条消失** ⇒ `mem` 重新变成**按 tick 有序** ✅
+                    //  ⚠️ **补足**（`quant_up_w`）时**不退** —— ⭐ 那时所有事件的 tick
+                    //     都 `< loop_len`（⭐ 天然有序、全都可播）⇒ ⛔ 不许丢用户弹的东西 ✅
+                    //     📌 代价：⭐ 补足的那一小节里是**静音尾巴**（⭐ 最多半小节），
+                    //        且停录时**还按着**的音会拖到补足小节末尾才收到补发的 `note_off`
+                    //        （⭐ 因为 `close_tick_w = loop_len-1`，⛔ 不能改小 ——
+                    //         ⚠️ 改小就跑到"停录槽里那些事件"之前了 ⇒ 顺序又乱）✅
+                    // ══════════════════════════════════════════════════════
+                    loop_len_r   <= quant_len_w;
+                    if (quant_drop_w)
+                        cnt_r    <= rec_bar_cnt_r;
                     state        <= ST_CLOSE;
                     close_scan_r <= 4'd0;
                 end else begin
                     if (tick_i)
                         rec_tick_r <= rec_tick_r + 1'b1;
+
+                    //  ⭐⭐ 2026-09-30（`T41` ②）：⭐ **每个小节起点记两个"整小节锚点"**
+                    //   · ⭐ `rec_bar_tick_r` = 那一刻的 tick 数 ⇒ ⭐ 停录量化用它当"整数小节"那一档
+                    //   · ⭐ `rec_bar_cnt_r`  = 那一刻的事件条数 ⇒ ⭐ 舍去半小节时一起退 ✅
+                    //   ⚠️ **`bar_start_i` 与 `tick_i` 同拍**（⭐ `beat_gen.v:212-220`：
+                    //      `bar_start_q` 只在 `if (do_tick)` 里置位）⇒ ⭐ 这一刻 `rec_tick_r`
+                    //      正要 +1 ⇒ ⭐ **"已录满的整小节 tick 数" = 它 + 1** ✅
+                    //   ⚠️ 与 `bar_start` **同拍落盘**的那一条事件**不计入** `rec_bar_cnt_r`
+                    //      （⭐ 非阻塞赋值读的是旧值）⇒ ⚠️ 概率 ≈ 1/26000（⭐ 一个 tick 槽
+                    //      里只可能有一条）⇒ ⭐ 最坏只是"补一条没有前置 `note_on` 的
+                    //      `note_off`"（⭐ 下游无害），⛔ **不挂音** ✅
+                    if (bar_start_i) begin
+                        rec_bar_tick_r <= rec_tick_r + 1'b1;
+                        rec_bar_cnt_r  <= cnt_r;
+                    end
 
                     //  ⭐⭐ 2026-09-29 新增：⭐ **跟住"手弹位置式力度"**（⭐ 端点来源 ✅）
                     //   🔴 **为什么必须跟**：⭐ `note_off` 自带的是**松手那一刻**的力度
@@ -691,19 +1150,27 @@ module looper #(
                     //      "**按住期间最重到了多少**" ✅
                     //   ⚠️ `=== 1'b1` ⇒ ⭐ **悬空（`x`）视为"没有更新"** ⇒
                     //      ⭐ 老 tb 不接该端口时行为与改动前完全一致 ✅
+                    //  ⭐⭐ **2026-09-30：⭐ 取【峰值】而不是【末值】** ✅
+                    //   🔴 **为什么**：⭐ `adsr` 的包络电平在 `note_off` 那一刻
+                    //      **取决于本音期间的【峰值力度】**（⭐ 见上方 `vel_max_r` 的长注释）——
+                    //      ⭐ 手弹时 `vel_r` 中途冲到峰值，⭐ 而 `adsr` 的 decay 只有 1/采样拍
+                    //      ⇒ ⭐ 短音**降不下来** ⇒ ⭐ 松手时电平仍高 ⇒ ⭐ 尾音长 ✅
+                    //   ⚠️ 取末值 ⇒ 🔴 回放永远爬不到那个峰值 ⇒ 尾音按比例短 ✅
+                    //   📌 **单调手势下 `max` == 末值** ⇒ ⭐ 与旧行为**逐值相同** ✅
                     if (live_vel_valid_i === 1'b1)
-                        last_vel_r[live_vel_axis_i] <= live_vel_value_i;
+                        if (live_vel_value_i > vel_max_r[live_vel_axis_i])
+                            vel_max_r[live_vel_axis_i] <= live_vel_value_i;
 
                     if (live_valid_i) begin
                         if (cnt_r < EVT_MAX_V) begin
-                            //  ⭐⭐ 端点取值：⭐ `note_off` 换成"**最后已知值**"（⭐ = 端点）
-                            //     ⇒ ⭐ `note_off` 的 `inc`/`vel` 从此**就是终点** ✅
+                            //  ⭐⭐ 端点取值：⭐ `note_off` 换成"**本音期间的峰值力度**"
+                            //     （⭐ = 端点）⇒ ⭐ `note_off` 的 `inc`/`vel` 从此**就是终点** ✅
                             //     （⭐ 语义变更依据：本次设计 —— ⭐ `kind` 区分起点/终点 ✅）
                             mem[cnt_r] <= {live_timbre_i, rec_tick_r, live_kind_i, live_axis_i,
                                            rec_inc_w, rec_vel_w};
                             //  ⭐⭐ **端点侧表**（⭐ 见 `ep_mem` 的说明）：
                             //     · ⭐ 起音 ⇒ 该地址先写"无效"（⭐ 兜底，防陈旧数据 ✅）
-                            //        ＋ ⭐ 记下它的地址、⭐ 刷新"最后已知值" ✅
+                            //        ＋ ⭐ 记下它的地址、⭐ 刷新"**本音峰值**" ✅
                             //     · ⭐ 松手 ⇒ **把终点写回【那个 `note_on` 的地址】** ✅
                             //   ⚠️ **这里 ⛔ 不再直接写 `ep_mem`** —— 🔴 三个写地址表达式
                             //      会让 Gowin **推不出 BSRAM**（⭐ 见上方写口那段的实测）
@@ -714,7 +1181,9 @@ module looper #(
                                 on_addr_r[live_axis_i]   <= cnt_r;
                                 on_open_r[live_axis_i]   <= 1'b1;
                                 last_inc_r[live_axis_i]  <= live_inc_i;
-                                last_vel_r[live_axis_i]  <= live_vel_i;
+                                //  ⭐ 新音 ⇒ 峰值**从它自己的起音力度重新起算**
+                                //     （⭐ ⛔ 不许残留上一个音的峰值 —— 否则新音一响就被拉高 ✅）
+                                vel_max_r[live_axis_i]   <= live_vel_i;
                             end
                             cnt_r <= cnt_r + 1'b1;
                         end else begin
@@ -752,7 +1221,7 @@ module looper #(
                         mem[cnt_r] <= {{TIMBRE_W{1'b0}}, close_tick_w,
                                        KIND_OFF, close_scan_r[AXIS_W-1:0],
                                        last_inc_r[close_scan_r],
-                                       last_vel_r[close_scan_r]};
+                                       vel_max_r[close_scan_r]};
                         //  ⭐⭐ **补发的 `note_off` 也是该音的终点** ⇒ ⭐ 端点侧表同样要写 ✅
                         //   ⚠️ **写入由【独立写口】完成**（⭐ 见上方写口那段的实测）——
                         //      🔴 写地址表达式超过 2 个 ⇒ Gowin 推不出 BSRAM ✅
@@ -806,6 +1275,15 @@ module looper #(
                     end else if (leave_to_r == LEAVE_REC) begin
                         //  ⭐⭐ 重录（⭐ 回放中按了 `R`）⇒ ⭐ 补发完再开始录 ✅
                         //     📌 与"直接 `rec_req` 进 `ST_REC`"那段**完全一致** ✅
+                        //  ⭐⭐ 2026-09-30（`T41` ①）：⭐ **这条路径也要对齐小节**
+                        //   🔴 **为什么**：⭐ 这是 `ST_REC` 的**第二个入口** ——
+                        //      ⚠️ 只改 `br_rec_w` 那一处 ⇒ 🔴 "**回放中按 `R` 重录**"
+                        //      这条仍然在小节中间起录 ⇒ ⭐ 照样越跑越偏 ✅
+                        //      （📌 与 `on_open_r` 那次"两个入口都要改"是**同一个教训**）✅
+                        if (rec_align_w) begin
+                            //  ⭐ 网格可用 ⇒ 先"待起录"（⭐ ⛔ 不清 `cnt_r`：⭐ 理由同 `br_rec_w`）
+                            state <= ST_RECPEND;
+                        end else begin
                         state        <= ST_REC;
                         cnt_r        <= {CNT_W{1'b0}};
                         rec_tick_r   <= {TICK_W{1'b0}};
@@ -813,6 +1291,16 @@ module looper #(
                         play_tick_r  <= {TICK_W{1'b0}};
                         full_r       <= 1'b0;
                         close_scan_r <= 4'd0;
+                        rec_bar_tick_r <= {TICK_W{1'b0}};
+                        rec_bar_cnt_r  <= {CNT_W{1'b0}};
+                        rec_aligned_r  <= grid_ok_r && transport_i;
+                        play_aligned_r <= 1'b0;
+                        //  ⭐⭐ 2026-09-29 修 bug②：⭐ **起录必须清 `on_open_r`** ✅
+                        //   ⚠️ `ST_REC` 有【两个】入口（⭐ 这里是"回放中按 `R`"那条）
+                        //      ⇒ ⭐ 两处都要清，⭐ 否则这条路径仍然会漏 ✅
+                        //      （⭐ 完整理由见上方 `br_rec_w` 那段）✅
+                        on_open_r    <= 16'd0;
+                        end
                     end else begin
                         //  ⭐ 只是停播 ⇒ ⭐ 保留录音，⭐ 回到 HOLD（⭐ 下次 `L` 从头播）
                         state        <= ST_HOLD;
@@ -925,7 +1413,10 @@ module looper #(
     // ── 观测输出 ────────────────────────────────────────────────────────────
     //  ⚠️ `evt_cnt_flat_o` 每层 16 bit ⇒ ⭐ 本版 `LAYERS=1`、`CNT_W=16` ⇒ ⭐ 恰好对齐
     //     （⭐ 由上面的 `PARAM_OK` 自检保证；⛔ 不用 `{{0{...}}}` 那种零宽复制 —— 非法）
-    assign layer_state_o  = {(state == ST_REC) || playing};
+    //  ⭐⭐ 2026-09-30（`T41`）：⭐ **"待起录"也算"该层活着"** ——
+    //     🔴 `K-106` 纪律：⭐ 任何"用户已经按了、但还没生效"的中间态都必须**可观测**
+    //     （⭐ 否则"按了 R 没反应"看起来就像**死机**，⭐ 而上板时它是**等小节**）✅
+    assign layer_state_o  = {(state == ST_REC) || (state == ST_RECPEND) || playing};
     assign evt_cnt_flat_o = cnt_r;
     assign full_o         = {full_r};
     assign drop_cnt_o     = drop_r;

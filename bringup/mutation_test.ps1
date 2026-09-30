@@ -257,11 +257,27 @@ $mutations = @(
   # envelope_bank attached, so the age-based class is rarely reached.  Target the
   # scan's selection condition instead: if "better" is never true, no candidate
   # is ever chosen -> the note is silently dropped (the original M24 intent).
-  @{ id = "M24"; file = "rtl\w3b\note_manager.v"; find = "wire cand_ok = cand_pool & ~cand_hold;"; repl = "wire cand_ok = 1'b0;"; why = "T54 regression: no candidate ever selected -> note silently dropped (must be caught)" },
-  @{ id = "M25"; file = "rtl\w3b\note_manager.v"; find = "if (live_mask[i] && (axis_r[i] == pitch_upd_axis_i))"; repl = "if (1'b0 && (axis_r[i] == pitch_upd_axis_i))"; why = "T54 regression: pitch_update ignored -> glissando does not track (must be caught)" },
-  @{ id = "M26"; file = "rtl\w3b\note_manager.v"; find = "if (gate_mask[i] && (axis_r[i] == vel_upd_axis_i))"; repl = "if (1'b0 && (axis_r[i] == vel_upd_axis_i))"; why = "T54 regression: vel_update ignored -> dual-threshold velocity correction lost (must be caught)" },
+# NOTE (2026-09-29, K-87/K-120): re-pointed AGAIN.  The 2026-09-29 A3' change
+#   added "& ~cand_foreign" to cand_ok, so the old two-term anchor is gone.
+#   The mutant keeps its original meaning ("no candidate is ever selected").
+  @{ id = "M24"; file = "rtl\w3b\note_manager.v"; find = "wire cand_ok = cand_pool & ~cand_hold & ~cand_foreign;"; repl = "wire cand_ok = 1'b0;"; why = "T54 regression: no candidate ever selected -> note silently dropped (must be caught)" },
+  # NOTE (2026-09-29, K-87/K-120): M25/M26/M27 anchors re-pointed AGAIN.  The
+  #   2026-09-29 A3' change (source isolation) added a second condition line
+  #   "&& (src_r[i] == ..._src_w)" under each of these three ifs, so the old
+  #   single-line anchors (which ended in "))") no longer exist.  New anchors stop
+  #   before the closing paren and mutate only the AXIS test; the src test is left
+  #   intact so the mutant still targets the axis-matching feature and nothing else.
+  #   All three anchors were byte-verified against the current RTL (Contains == 1,
+  #   zero non-ASCII bytes) before being written here.
+  @{ id = "M25"; file = "rtl\w3b\note_manager.v"; find = "if (live_mask[i] && (axis_r[i] == pitch_upd_axis_i)"; repl = "if (1'b0 && (axis_r[i] == pitch_upd_axis_i)"; why = "T54 regression: pitch_update ignored -> glissando does not track (must be caught)" },
+  @{ id = "M26"; file = "rtl\w3b\note_manager.v"; find = "if (gate_mask[i] && (axis_r[i] == vel_upd_axis_i)"; repl = "if (1'b0 && (axis_r[i] == vel_upd_axis_i)"; why = "T54 regression: vel_update ignored -> dual-threshold velocity correction lost (must be caught)" },
   # NOTE (2026-09-21, T66): anchor re-pointed to the pipelined same-axis detect.
-  @{ id = "M27"; file = "rtl\w3b\note_manager.v"; find = "assign same_hit[sg] = gate_mask[sg] && (axis_r[sg] == cur_axis);"; repl = "assign same_hit[sg] = 1'b0;"; why = "T54 regression: same-axis retrigger detection removed -> a repeated key eats a second voice (must be caught)" },
+  # NOTE (2026-09-29, K-87/K-120): re-pointed once more -- same_hit is now a
+  #   three-term expression (gate|retrig|env) & axis & src, so the old one-line
+  #   "assign same_hit[sg] = ..." text is gone.  The mutant keeps the original
+  #   meaning (same-axis retrigger detection never fires) by making the axis term
+  #   a self-contradiction, leaving the src term untouched.
+  @{ id = "M27"; file = "rtl\w3b\note_manager.v"; find = "&& (axis_r[sg] == cur_axis)"; repl = "&& (axis_r[sg] != axis_r[sg])"; why = "T54 regression: same-axis retrigger detection removed -> a repeated key eats a second voice (must be caught)" },
   @{ id = "M28"; file = "rtl\w3b\note_manager.v"; find = "assign pool_mask[pg] = 1'b1;"; repl = "assign pool_mask[pg] = 1'b0;"; why = "T54 regression: pool mask stuck at 0 -> no voice can ever be allocated (must be caught)" },
 
   # ---- K-106 (2026-09-21): event-queue overflow observability.  Before this
@@ -345,8 +361,15 @@ $mutations = @(
   # [31:23], i.e. EXACTLY the original expression.  The mutant was semantically
   # identical, so nothing could ever catch it (C23: first ask whether the mutant
   # actually violates the spec).  Replaced with a genuine off-by-one bit window.
-  @{ id = "M29"; file = "rtl\w3b\oscillator_bank.v"; find = "addr_q <= phase_q[ADDR_MSB:ADDR_LSB];"; repl = "addr_q <= phase_q[ADDR_MSB-1:ADDR_LSB-1];"; why = "T55 regression: table address takes a shifted phase window -> wrong DDS mapping (must be caught)" },
-  @{ id = "M30"; file = "rtl\w3b\oscillator_bank.v"; find = "if (lane_active)"; repl = "if (1'b1)"; why = "T55 regression: phase advances even when the voice is inactive -> idle voices drift (must be caught)" },
+# NOTE (2026-09-29, K-87/K-120): M29 re-pointed -- the anchor had ONE space
+#   where the RTL has alignment spaces ("addr_q        <=").
+  @{ id = "M29"; file = "rtl\w3b\oscillator_bank.v"; find = "addr_q        <= phase_q[ADDR_MSB:ADDR_LSB];"; repl = "addr_q        <= phase_q[ADDR_MSB-1:ADDR_LSB-1];"; why = "T55 regression: table address takes a shifted phase window -> wrong DDS mapping (must be caught)" },
+# NOTE (2026-09-29, K-87/K-120): M30 re-pointed -- the bare "if (lane_active)"
+#   matched TWICE (a comment at oscillator_bank.v:293 and the real
+#   "else if (lane_active)" at :306), so the literal replace also rewrote the
+#   comment.  Anchoring on the full "else if" keeps the SAME semantic effect
+#   (phase advances even when inactive) and leaves the comment alone.
+  @{ id = "M30"; file = "rtl\w3b\oscillator_bank.v"; find = "else if (lane_active)"; repl = "else if (1'b1)"; why = "T55 regression: phase advances even when the voice is inactive -> idle voices drift (must be caught)" },
   @{ id = "M31"; file = "rtl\w3b\oscillator_bank.v"; find = "sample_bus_r[(cnt-1)*OSC_SAMPLE_W +: OSC_SAMPLE_W] <= rom_dout;"; repl = "sample_bus_r[(cnt-1)*OSC_SAMPLE_W +: OSC_SAMPLE_W] <= {OSC_SAMPLE_W{1'b0}};"; why = "T55 regression: TDM capture disabled -> every lane reads 0 -> silence (must be caught)" },
   # NOTE (2026-09-21): the original anchor was a PREFIX of a multi-line ternary,
   # so the replacement left a dangling "? test_lane_active_i[g] : ...;" -> syntax
@@ -455,7 +478,11 @@ $mutations = @(
   #   NOTE: keep every comment ABOVE an array element ASCII-only (see C72).
   # ===========================================================================
   @{ id = "M118"; file = "rtl\w3c\seq_arb.v"; find = "wire others_going = live_valid_i | score_valid_i;"; repl = "wire others_going = 1'b0;"; why = "seq_arb: 'others are going' is forced low -> the demo chord never yields, so the power-on self-test chord keeps stealing voices from real playing. Must be caught by the demo-yield judgement." },
-  @{ id = "M119"; file = "rtl\w3c\seq_arb.v"; find = "wire push_demo  = demo_valid_i & ~others_going;"; repl = "wire push_demo  = demo_valid_i;"; why = "seq_arb: the demo chord no longer yields -> the power-on self-test chord competes with real playing and can steal its voices. Must be caught by the demo-yield judgement." },
+# NOTE (2026-09-29, K-87/K-120): M119 re-pointed -- seq_arb now lets a demo
+#   note_off through the yield gate ("| demo_is_off", the P1-2 hang fix), so
+#   the old two-term anchor is gone.  The mutant still means "the demo chord
+#   no longer yields at all".
+  @{ id = "M119"; file = "rtl\w3c\seq_arb.v"; find = "wire push_demo  = demo_valid_i & (~others_going | demo_is_off);"; repl = "wire push_demo  = demo_valid_i;"; why = "seq_arb: the demo chord no longer yields -> the power-on self-test chord competes with real playing and can steal its voices. Must be caught by the demo-yield judgement." },
   @{ id = "M120"; file = "rtl\w3c\seq_arb.v"; find = "end else if (push_live && push_score) begin"; repl = "end else if (push_live && 1'b0) begin"; why = "seq_arb: the live+score same-cycle case is skipped -> when the player presses a key on the same cycle as a score event, one of the two is LOST. Exactly the U-6 failure mode. Must be caught." },
   @{ id = "M121"; file = "rtl\w3c\seq_arb.v"; find = "wire [NW-1:0] pop_src = pop_data[ENT_W +: NW];"; repl = "wire [NW-1:0] pop_src = 2'd3;"; why = "seq_arb: the popped source tag is hardwired to an invalid id -> the per-source counters (live/score/demo) all mis-attribute, so the observability that tells you WHO is flooding the arbiter becomes a lie (K-106). Must be caught." },
   @{ id = "M122"; file = "rtl\w3c\drum_gen.v"; find = "wire        has_pending = (pending_q != 4'd0);"; repl = "wire        has_pending = 1'b0;"; why = "drum_gen: the pending list is never considered non-empty -> the drum machine silently emits NOTHING at all, while the step counter keeps running and the report stays green. Must be caught." },
@@ -473,7 +500,20 @@ $mutations = @(
   # ---- uart_ui test_mode switch (2026-09-27, c): A1 UI switch via touch control 2. M132~M134.
   @{ id = "M132"; file = "rtl\w3c\uart_ui.v"; find = "if (!test_mode_o) begin"; repl = "if (1'b0) begin"; why = "uart_ui: test-mode never enters -> judge cannot start test mode from screen. Must be caught." },
   @{ id = "M133"; file = "rtl\w3c\uart_ui.v"; find = "test_mode_n_o <= test_mode_n_o + 2'b01;"; repl = "test_mode_n_o <= test_mode_n_o;"; why = "uart_ui: test-mode n-code never advances -> stuck at 4 voices, cannot switch 8/16/32. Must be caught." },
-  @{ id = "M134"; file = "rtl\w3c\uart_ui.v"; find = "end else if (test_mode_n_o == 2'b11) begin"; repl = "end else if (1'b0) begin"; why = "uart_ui: test-mode wrap-to-off removed -> stuck at 32 voices forever. Must be caught." }
+  @{ id = "M134"; file = "rtl\w3c\uart_ui.v"; find = "end else if (test_mode_n_o == 2'b11) begin"; repl = "end else if (1'b0) begin"; why = "uart_ui: test-mode wrap-to-off removed -> stuck at 32 voices forever. Must be caught." },
+  # ---- note_manager A3' source isolation (2026-09-29, c): M135~M136.
+  #   A3' made voice reuse/preemption source-aware: same_hit now also requires
+  #   src_r[sg] == cur_src, and the candidate mask excludes cand_foreign so a
+  #   pool-full allocation cannot steal a voice that belongs to another source.
+  #   These two mutants guard that the NEW criteria are load-bearing, not decoration:
+  #     M135 drops the src term from same_hit   -> proves the criterion is non-vacuous.
+  #     M136 drops ~cand_foreign from cand_ok   -> proves the pool-full steal path is
+  #                                                still blocked (the exact A3' defect).
+  #   Both anchors were byte-verified against the current RTL (Contains == 1, zero
+  #   non-ASCII bytes) before being written here.
+  #   NOTE: keep every comment ABOVE an array element ASCII-only (see C72).
+  @{ id = "M135"; file = "rtl\w3b\note_manager.v"; find = "(src_r[sg]  == cur_src);"; repl = "1'b1;"; why = "A3' non-vacuity: the source term is dropped from same_hit -> a replay note_on can take over a hand-played voice again, so the A3' isolation criterion is not actually being exercised. Must be caught." },
+  @{ id = "M136"; file = "rtl\w3b\note_manager.v"; find = "wire cand_ok = cand_pool & ~cand_hold & ~cand_foreign;"; repl = "wire cand_ok = cand_pool & ~cand_hold;"; why = "A3': the foreign-source guard is dropped from the candidate mask -> when the pool is full a replay voice is stolen from another source again (the exact defect A3' fixed). Must be caught." }
 
 )
 

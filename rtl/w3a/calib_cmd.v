@@ -124,7 +124,19 @@ module calib_cmd #(
     //  ⭐⭐ 2026-09-29 合并（⭐ 用户裁定 = 方案 B）：⭐ **节拍器改走串口 `'B'`** ✅
     //   ⭐ 因为 `AB13`/S2 让给了**音色切换按键**（⭐ 队友的 `timbre_btn_i` ✅）
     //   ⭐ 语义与原来的物理按键**完全一致**：⭐ 发一次 **开**、再发一次 **关** ✅
-    parameter [7:0]   CMD_METRONOME = 8'h42    // 'B' ⭐ 节拍器 **开/关切换**
+    parameter [7:0]   CMD_METRONOME = 8'h42,   // 'B' ⭐ 节拍器 **开/关切换**
+    //  ⭐⭐ 2026-09-29 新增：⭐ **`'D'` 切鼓机节奏型**（⭐ 用户需求："鼓机节奏型要能现场切" ✅）
+    //   ⭐ 语义：⭐ **每按一次循环下一档** `0→1→2→3→0`（⭐ 与 `'I'`/`'R'`/`'L'` 同一"切换"手法 ✅）
+    //   ⭐ 节奏型定义（⭐ `drum_gen.v:step_mask_of` 原文）：
+    //      ⭐ `0=Rock 四拍基本型` · ⭐ `1=八分摇滚` · ⭐ `2=十六分放克` · ⭐ `3=圆舞曲(3/4)`
+    //   🔴 **为什么必须走串口**：⚠️ 它原来是**编译期参数 `DRUM_PATTERN_ID`**
+    //      ⇒ ⭐ 换一个型要**重新 PnR + 烧写**（⭐ ~10 分钟）⇒ 🔴 **4 个型没法 A/B 对比**
+    //      📌 而串口通路**已经在跑** ⇒ ⭐ **零新增硬件**（⭐ 与 `'I'`/`'B'` 同一理由 ✅）
+    //   ⚠️ 字母占用核对：⭐ 已用 `T S X P V M N R L C I B` ＋ 帧头 `A5`
+    //      ⇒ ⭐ `'D'` = `0x44` **未占用** ✅（⭐ `initial` 里的查重表会机械核对 ✅）
+    //      📌 ⚠️ **注意**：⭐ `top.v` 的**回包**里 `0x44` 是"span 全部完成"的 `'D'`
+    //         —— ⚠️ 那是 **TX 方向**，⭐ 与 **RX 方向**的命令**互不相干**（⛔ 不冲突）✅
+    parameter [7:0]   CMD_DRUM_PATTERN = 8'h44   // 'D' ⭐ 鼓机节奏型 **切下一个**
 ) (
     input  wire        clk_i,
     input  wire        rst_n_i,        // ⭐ 同步复位、低有效
@@ -148,6 +160,9 @@ module calib_cmd #(
     output reg         loop_clear_req_o,// ⭐ 'C' ⇒ looper 清空该层
     output reg         timbre_req_o,    // ⭐ 'I' ⇒ 切音色（⭐ 0→1→2→3→0 循环，⭐ 2026-09-29 新增）
     output reg         met_req_o,       // ⭐ 'B' ⇒ 节拍器开/关切换（⭐ 2026-09-29 新增，方案 B）
+    // ⭐⭐ 2026-09-29 新增：⭐ 鼓机节奏型切换（⭐ 'D' ⇒ 单周期脉冲）
+    //   ⚠️ 与 `timbre_req_o`/`met_req_o` **同构**：⭐ "切换"语义 ⇒ ⭐ `top.v` 用寄存器记状态
+    output reg         drum_pattern_req_o, // ⭐ 'D' ⇒ 鼓机节奏型 0→1→2→3→0（⭐ 2026-09-29 新增）
 
     // ── ⭐ 可观测性（`K-106`：⛔ 不许静默失效）────────────────────────────
     output reg  [15:0] cmd_cnt_o,      // ⭐ 已接受的命令数（饱和）
@@ -196,12 +211,14 @@ module calib_cmd #(
     wire byte_is_timbre    = (rx_data_i == CMD_TIMBRE);
     // ⭐⭐ 2026-09-29：⭐ 节拍器开/关（⭐ 'B'）—— 方案 B：⭐ `AB13`/S2 让给音色按键 ✅
     wire byte_is_met       = (rx_data_i == CMD_METRONOME);
+    // ⭐⭐ 2026-09-29：⭐ 鼓机节奏型（⭐ 'D'）
+    wire byte_is_drum_pat  = (rx_data_i == CMD_DRUM_PATTERN);
     // ⭐ 任一命令字母
     wire byte_is_cmd   = byte_is_tare | byte_is_span | byte_is_abort |
                          byte_is_probe | byte_is_vstat | byte_is_posprobe |
                          byte_is_test_mode |
                          byte_is_loop_rec | byte_is_loop_play | byte_is_loop_clr |
-                         byte_is_timbre | byte_is_met;
+                         byte_is_timbre | byte_is_met | byte_is_drum_pat;
 
     // ⭐ 只有在**帧外**（`idx_q == 0`）才认命令
     //   🔴 这是本模块的**安全核心** —— ⚠️ 帧内的字母是**载荷**，⛔ 绝不能当命令
@@ -245,6 +262,7 @@ module calib_cmd #(
             loop_clear_req_o<= 1'b0;    // ⭐ 'C' looper 清空
             timbre_req_o   <= 1'b0;     // ⭐ 'I' 切音色（⭐ 2026-09-29）
             met_req_o      <= 1'b0;     // ⭐ 'B' 节拍器开/关（⭐ 2026-09-29）
+            drum_pattern_req_o <= 1'b0; // ⭐ 'D' 鼓机节奏型（⭐ 2026-09-29）
             cmd_cnt_o      <= 16'd0;
             in_frame_cnt_o <= 16'd0;
             resync_cnt_o   <= 16'd0;
@@ -263,6 +281,7 @@ module calib_cmd #(
             loop_clear_req_o<= 1'b0;    // ⭐ 'C'
             timbre_req_o    <= 1'b0;    // ⭐ 'I'（⭐ 2026-09-29）
             met_req_o       <= 1'b0;    // ⭐ 'B'（⭐ 2026-09-29）
+            drum_pattern_req_o <= 1'b0; // ⭐ 'D'（⭐ 2026-09-29）
 
             if (rx_done_i) begin
                 // ══ 收到一个字节 ═══════════════════════════════════════════
@@ -289,6 +308,8 @@ module calib_cmd #(
                         // ⭐ 2026-09-29：⭐ 切音色（⭐ 帧外 ⇒ 安全）
                         if (byte_is_timbre)    timbre_req_o    <= 1'b1;
                         if (byte_is_met)       met_req_o       <= 1'b1;   // ⭐ 'B'（⭐ 2026-09-29）
+                        // ⭐ 2026-09-29：⭐ 鼓机节奏型（⭐ 帧外 ⇒ 安全）
+                        if (byte_is_drum_pat)  drum_pattern_req_o <= 1'b1;
                         cmd_cnt_o <= sat_inc16(cmd_cnt_o);
                         idx_q     <= 4'd0;      // ⭐ 命令不推进帧位置
                     end else begin
@@ -339,7 +360,10 @@ module calib_cmd #(
     localparam PARAM_OK = (GAP_BYTES > 1) && (BYTE_CLK_I > 0);
 
     //  ⭐⭐ **全部命令字母**（⚠️ 加新命令时【必须】往这张表里加一项）
-    localparam integer N_CMD = 12;
+    //   ⭐ 2026-09-29：⭐ **12 ⇒ 13**（⭐ 新增 `'D'` 鼓机节奏型）
+    //      📌 ⚠️ **忘了加这里 = 查重漏掉新字母** ⇒ 🔴 将来撞字母时**静默遮蔽**
+    //         （⭐ 所以本表是"加新命令时的**必改项**"，⭐ 见上方注释 ✅）
+    localparam integer N_CMD = 13;
     reg [7:0] cmd_tab [0:N_CMD-1];
     integer   ci, cj;
     reg       letters_ok;
@@ -357,6 +381,7 @@ module calib_cmd #(
         cmd_tab[9]  = CMD_LOOP_CLR;
         cmd_tab[10] = CMD_TIMBRE;      // ⭐ 2026-09-29：⭐ 'I' 切音色
         cmd_tab[11] = CMD_METRONOME;   // ⭐ 2026-09-29：⭐ 'B' 节拍器开/关（⭐ 方案 B：S2 让给音色）
+        cmd_tab[12] = CMD_DRUM_PATTERN; // ⭐ 2026-09-29：⭐ 'D' 鼓机节奏型切下一个
 
         if (GAP_BYTES <= 1)
             $display("ERROR [calib_cmd] GAP_BYTES = %0d <= 1 => intra-frame byte gaps would be mistaken for idle, so a half frame resyncs early and payload bytes get treated as commands. PARAM_OK=0.", GAP_BYTES);
@@ -378,10 +403,11 @@ module calib_cmd #(
         end
 
         if (PARAM_OK && letters_ok)
-            $display("NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=%0d BAUD=%0d GAP_BYTES=%0d BYTE_CLK=%0d HEADER=%02h N_CMD=%0d T=%02h S=%02h X=%02h M=%02h R=%02h L=%02h C=%02h I=%02h)",
+            $display("NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=%0d BAUD=%0d GAP_BYTES=%0d BYTE_CLK=%0d HEADER=%02h N_CMD=%0d T=%02h S=%02h X=%02h M=%02h R=%02h L=%02h C=%02h I=%02h D=%02h)",
                      CLK_HZ, BAUD, GAP_BYTES, BYTE_CLK_I, HEADER, N_CMD,
                      CMD_TARE, CMD_SPAN, CMD_ABORT, CMD_TEST_MODE,
-                     CMD_LOOP_REC, CMD_LOOP_PLAY, CMD_LOOP_CLR, CMD_TIMBRE);
+                     CMD_LOOP_REC, CMD_LOOP_PLAY, CMD_LOOP_CLR, CMD_TIMBRE,
+                     CMD_DRUM_PATTERN);
     end
 
 endmodule

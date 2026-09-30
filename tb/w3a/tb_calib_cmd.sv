@@ -39,6 +39,8 @@ module tb_calib_cmd;
     localparam [7:0] C   = 8'h43;             // 'C' looper 清空
     // ⭐ 2026-09-29 新增：⭐ 切音色（⭐ 必须与 `calib_cmd.v` 的新参数一致）
     localparam [7:0] I   = 8'h49;             // 'I' 切音色（⭐ 0→1→2→3→0）
+    // ⭐ 2026-09-29 新增：⭐ 鼓机节奏型（⭐ 必须与 `calib_cmd.v` 的新参数一致）
+    localparam [7:0] D   = 8'h44;             // 'D' 鼓机节奏型（⭐ 0→1→2→3→0）
 
     integer errors = 0;
 
@@ -64,6 +66,7 @@ module tb_calib_cmd;
     wire       tare_req, span_req, abort_req, test_mode_req;
     wire       loop_rec_req, loop_play_req, loop_clear_req;   // ⭐ 2026-09-29
     wire       timbre_req;                                    // ⭐ 2026-09-29：'I' 切音色
+    wire       drum_pattern_req;                              // ⭐ 2026-09-29：'D' 鼓机节奏型
     wire [15:0] cmd_cnt, in_frame_cnt, resync_cnt, unknown_cnt;
     wire [3:0]  idx_o;
 
@@ -91,6 +94,8 @@ module tb_calib_cmd;
         .loop_clear_req_o(loop_clear_req),
         // ⭐ 2026-09-29：⭐ 切音色
         .timbre_req_o   (timbre_req),
+        // ⭐ 2026-09-29：⭐ 鼓机节奏型（⭐ 'D'）
+        .drum_pattern_req_o(drum_pattern_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (in_frame_cnt),
         .resync_cnt_o   (resync_cnt),
@@ -104,8 +109,10 @@ module tb_calib_cmd;
     integer tare_seen, span_seen, abort_seen, test_mode_seen;
     integer loop_rec_seen, loop_play_seen, loop_clear_seen;   // ⭐ 2026-09-29
     integer timbre_seen;                                      // ⭐ 2026-09-29：'I' 切音色
+    integer drum_pat_seen;                                    // ⭐ 2026-09-29：'D' 鼓机节奏型
     integer loop_rec_cycles, loop_play_cycles, loop_clear_cycles;   // ⭐ 单周期证明
     integer timbre_cycles;                                          // ⭐ 单周期证明
+    integer drum_pat_cycles;                                        // ⭐ 单周期证明
     integer tare_cycles, span_cycles, abort_cycles, test_mode_cycles; // ⭐ 累计高电平拍数
     integer last_tare_cycle, last_span_cycle, last_abort_cycle;
     integer cycle_cnt;
@@ -114,8 +121,10 @@ module tb_calib_cmd;
         tare_seen = 0; span_seen = 0; abort_seen = 0; test_mode_seen = 0;
         loop_rec_seen = 0; loop_play_seen = 0; loop_clear_seen = 0;   // ⭐ 2026-09-29
         timbre_seen = 0;                                              // ⭐ 2026-09-29
+        drum_pat_seen = 0;                                            // ⭐ 2026-09-29
         loop_rec_cycles = 0; loop_play_cycles = 0; loop_clear_cycles = 0;
         timbre_cycles = 0;
+        drum_pat_cycles = 0;
         tare_cycles = 0; span_cycles = 0; abort_cycles = 0; test_mode_cycles = 0;
         last_tare_cycle = -1; last_span_cycle = -1; last_abort_cycle = -1;
         cycle_cnt = 0;
@@ -134,6 +143,8 @@ module tb_calib_cmd;
             if (loop_clear_req) begin loop_clear_seen = loop_clear_seen + 1; loop_clear_cycles = loop_clear_cycles + 1; end
             // ⭐ 2026-09-29：⭐ 切音色
             if (timbre_req)     begin timbre_seen     = timbre_seen     + 1; timbre_cycles     = timbre_cycles     + 1; end
+            // ⭐ 2026-09-29：⭐ 鼓机节奏型
+            if (drum_pattern_req) begin drum_pat_seen = drum_pat_seen + 1; drum_pat_cycles = drum_pat_cycles + 1; end
         end
     end
 
@@ -194,6 +205,7 @@ module tb_calib_cmd;
             loop_rec_seen = 0; loop_play_seen = 0; loop_clear_seen = 0;
             loop_rec_cycles = 0; loop_play_cycles = 0; loop_clear_cycles = 0;
             timbre_seen = 0; timbre_cycles = 0;   // ⭐ 2026-09-29：'I' 切音色（⭐ 同一个坑）
+            drum_pat_seen = 0; drum_pat_cycles = 0; // ⭐ 2026-09-29：'D' 鼓机节奏型（⭐ 同一个坑）
         end
     endtask
 
@@ -249,6 +261,21 @@ module tb_calib_cmd;
         chk("'I' pulse is exactly ONE cycle wide", timbre_cycles == 1);
         chk("cmd_cnt_o counted all EIGHT commands", cmd_cnt == 16'd8);
 
+        // ⭐⭐ 2026-09-29 新增：⭐ 鼓机节奏型命令（⭐ 'D'）
+        //   ⭐ 判据口径与上面 `'I'` **完全一致**（⭐ 同一条"帧外才认"的路径）：
+        //      ⭐ ① 帧外认 ✅ · ⭐ ② ⛔ 不串扰别的命令 ✅ · ⭐ ③ 脉冲**恰好一拍宽** ✅
+        //      ⭐ ④ 帧内（载荷里）⛔ 绝不认（⭐ 见下方 payload 段）✅
+        //   📌 **判据名纯 ASCII、<= 128 字节**（⭐ 本机 `vvp` 会把非 ASCII 打乱）✅
+        send_byte(D);
+        chk("'D' outside a frame raises drum_pattern_req", drum_pat_seen == 1);
+        chk("'D' does NOT cross-fire the older commands",
+            (tare_seen == 1) && (span_seen == 1) && (abort_seen == 1)
+            && (test_mode_seen == 1) && (loop_rec_seen == 1)
+            && (loop_play_seen == 1) && (loop_clear_seen == 1)
+            && (timbre_seen == 1));
+        chk("'D' pulse is exactly ONE cycle wide", drum_pat_cycles == 1);
+        chk("cmd_cnt_o counted all NINE commands", cmd_cnt == 16'd9);
+
         // ───────────────────────────────────────────────────────────────
         // ⭐ 判据⑦：脉冲必须是【单周期】
         //   ⭐ 每个命令各出现 1 次 ⇒ ⭐ 高电平拍数也必须正好是 1
@@ -284,6 +311,24 @@ module tb_calib_cmd;
         chk("in_frame_cnt_o counted all 8 ignored payload letters",
             (in_frame_cnt - ifc0) == 16'd8);
         chk("idx_o returned to 0 after the frame completed", idx_o === 4'd0);
+
+        // ⭐⭐ 2026-09-29 新增：⭐ **`'D'` 在【载荷里】⛔ 绝不许被认出来** ✅
+        //   ⭐ 为什么要单开一帧（⭐ 而不是塞进上面那帧）：
+        //      ⚠️ 上面那帧的判据写死了"**8 个**载荷字节全是命令字母"
+        //      ⇒ ⭐ 动它会**同时改掉已有判据的口径**（⛔ 违反"只加不改"）
+        //   ⭐ 本帧构造：⭐ `0xA5` + 8 字节载荷，⭐ **8 个全是 `'D'`**（⭐ 最坏情况）
+        //      ⇒ ⭐ 必须**一个脉冲都不出**、⭐ 但 ⭐ `in_frame_cnt_o` **+8**（⭐ 边界跟踪在干活）
+        do_reset();
+        ifc0 = in_frame_cnt;
+        send_frame(D, D, D, D, D, D, D, D);
+        chk("payload of eight 'D' letters raises NO drum_pattern_req", drum_pat_seen == 0);
+        chk("payload of eight 'D' letters raises NO other command pulses",
+            (tare_seen == 0) && (span_seen == 0) && (abort_seen == 0)
+            && (test_mode_seen == 0) && (loop_rec_seen == 0)
+            && (loop_play_seen == 0) && (loop_clear_seen == 0) && (timbre_seen == 0));
+        chk("cmd_cnt_o did NOT count the in-frame 'D' letters", cmd_cnt == 16'd0);
+        chk("in_frame_cnt_o counted all 8 in-frame 'D' letters",
+            (in_frame_cnt - ifc0) == 16'd8);
 
         // ───────────────────────────────────────────────────────────────
         // ⭐ 判据⑧：`0xA5` 帧头本身 ⛔ 不当命令

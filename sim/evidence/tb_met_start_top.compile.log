@@ -13,22 +13,22 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1543: warning: Port 5 (ch_i) of module pos_probe expects 4 bit(s), given
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1711: warning: Port 5 (ch_i) of module pos_probe expects 4 bit(s), given
  3.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1543:        : Padding 1 high bits of the port.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1711:        : Padding 1 high bits of the port.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:496: warning: @* is sensitive to all 16 words in array 
 'pc_l1'.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:76: warning: Instantiating module top with dangling inp
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:95: warning: Instantiating module top with dangling inp
 ut port 3 (timbre_btn_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:76: warning: Instantiating module top with dangling inp
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:95: warning: Instantiating module top with dangling inp
 ut port 11 (pluck_up_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:76: warning: Instantiating module top with dangling inp
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:95: warning: Instantiating module top with dangling inp
 ut port 12 (pluck_down_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:94: warning: Instantiating module mcp3208_model with da
-ngling input port 7 (ch_mask_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:94: warning: Instantiating module mcp3208_model with da
-ngling input port 8 (ch_val_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:98: warning: Instantiating module mcp3208_model with da
-ngling input port 7 (ch_mask_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:98: warning: Instantiating module mcp3208_model with da
-ngling input port 8 (ch_val_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:113: warning: Instantiating module mcp3208_model with d
+angling input port 7 (ch_mask_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:113: warning: Instantiating module mcp3208_model with d
+angling input port 8 (ch_val_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:117: warning: Instantiating module mcp3208_model with d
+angling input port 7 (ch_mask_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:117: warning: Instantiating module mcp3208_model with d
+angling input port 8 (ch_val_i) floating.

@@ -37,7 +37,8 @@ module tb_timbre_event_path;
     wire [TIMBRE_W-1:0] sa_timbre;
     // ⭐ A1：⭐ 来源标记（⭐ 本 tb 是 `seq_arb → evt_merge → note_manager` 的**全链**验证
     //    ⇒ 这一路也**真接**，⛔ 不是留空 —— 留空会得到 `z` ⇒ 比较变 `x`）
-    wire [1:0] sa_src;
+    // ⭐⭐ 2026-09-30：⭐ **位宽 2 → 3**（⭐ 与三处端口同步，⛔ 否则最高位被截掉）✅
+    wire [2:0] sa_src;
 
     seq_arb #(
         .AXIS_W(AXIS_W), .PHASE_W(PHASE_W), .VEL_W(VEL_W),
@@ -71,7 +72,7 @@ module tb_timbre_event_path;
     wire [KIND_W-1:0] mg_kind;
     wire mg_timbre_valid;
     wire [TIMBRE_W-1:0] mg_timbre;
-    wire [1:0] mg_src;      // ⭐ A1：合流后的来源标记
+    wire [2:0] mg_src;      // ⭐ A1：合流后的来源标记
 
     evt_merge #(
         .AXIS_W(AXIS_W), .PHASE_W(PHASE_W), .VEL_W(VEL_W),
@@ -86,7 +87,15 @@ module tb_timbre_event_path;
         .b_phase_inc_i({PHASE_W{1'b0}}), .b_velocity_i({VEL_W{1'b0}}),
         .b_kind_i({KIND_W{1'b0}}), .b_timbre_valid_i(1'b0),
         .b_timbre_i({TIMBRE_W{1'b0}}),
-        .b_src_i(2'd3),        // ⭐ A1：源 B 未使用 ⇒ 给个**确定**的常数（⛔ 不留 z）
+        .b_src_i(3'd3),        // ⭐ A1：源 B 未使用 ⇒ 给个**确定**的常数（⛔ 不留 z）
+        // ⭐⭐ 2026-09-30：⭐ **源 C（looper 回放）本 tb 不用** ⇒ 显式接 0
+        //    ⚠️ 留空是 `z` ⇒ ⭐ `evt_merge` 里已用 `=== 1'b1` 兜住（⭐ 不会传播 x），
+        //       ⭐ 但这里**显式接 0** 更清楚（⭐ 也顺手验了"新端口接常量 0 = 不参与"）✅
+        .c_valid_i(1'b0), .c_axis_i({AXIS_W{1'b0}}),
+        .c_phase_inc_i({PHASE_W{1'b0}}), .c_velocity_i({VEL_W{1'b0}}),
+        .c_kind_i({KIND_W{1'b0}}), .c_timbre_valid_i(1'b0),
+        .c_timbre_i({TIMBRE_W{1'b0}}),
+        .c_src_i(3'd4),
         .evt_valid_o(mg_valid), .evt_axis_o(mg_axis), .evt_phase_inc_o(mg_inc),
         .evt_velocity_o(mg_vel), .evt_kind_o(mg_kind),
         .evt_timbre_valid_o(mg_timbre_valid), .evt_timbre_o(mg_timbre),
