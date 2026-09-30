@@ -158,7 +158,14 @@ for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
         $tl = Get-Content $timingTxt -Encoding UTF8
         $setup = (($tl | Select-String 'Numbers of Setup Violated Endpoints' -Context 0,1).Context.PostContext -join '').Trim()
         $hold  = (($tl | Select-String 'Numbers of Hold Violated Endpoints'  -Context 0,1).Context.PostContext -join '').Trim()
-        $fmax  = (($tl | Select-String 'Actual Fmax' -Context 0,1).Context.PostContext -join '').Trim()
+        # The Gowin timing text puts the LABEL row first and the VALUES several rows
+        # later (Actual Fmax | Logic Level | Entity | 50.000(MHz) | 52.575(MHz) | 2 |),
+        # so reading the line right after "Actual Fmax" yields "Logic Level", not a number.
+        # Take the LAST "NNN.NNN(MHz)" that appears AFTER the "Actual Fmax" label.
+        $idx = ($tl | Select-String 'Actual Fmax' | Select-Object -First 1).LineNumber
+        $tail = if ($idx) { $tl[($idx)..([Math]::Min($tl.Count-1, $idx+12))] } else { @() }
+        $m = @($tail | Select-String -Pattern '([0-9]+\.[0-9]+)\(MHz\)' -AllMatches)
+        if ($m.Count -gt 0) { $fmax = $m[-1].Matches[0].Groups[1].Value + ' MHz' } else { $fmax = '?' }
     }
     $fmaxVal = 0.0
     if ($fmax -match '([0-9]+\.[0-9]+)') { $fmaxVal = [double]$Matches[1] }
