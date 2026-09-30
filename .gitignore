@@ -115,6 +115,9 @@ bringup/jishi/impl/
 bringup/wavetable_tone/impl/
 # H1 standalone HDMI/DVI reference build output.
 bringup/hdmi_ref_720p/impl/
+# H2 standalone 640x480 HDMI/DVI bring-up build output (project files stay tracked).
+bringup/hdmi_640x480/impl/
+bringup/hdmi_640x480/build/
 *.gprj.user
 *.fs
 *.binx
