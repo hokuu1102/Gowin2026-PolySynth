@@ -87,8 +87,8 @@ module tb_hdmi_640x480;
                 @(posedge clk); #1;
                 if (!okr || !okg || !okb) fail("TMDS_SYMBOL_VALID");
                 // Output-observable DC balance, ACTIVE pixels only.
-                // Control tokens are fixed by the DVI spec and are not
-                // disparity-balanced, and the encoder resets its disparity
+                // Control tokens are checked separately and the encoder resets
+                // its disparity
                 // during blanking, so the accumulator restarts at each active
                 // region. This reads only emitted symbols, never the DUT's
                 // internal disparity register, so a broken disparity update
@@ -96,9 +96,9 @@ module tb_hdmi_640x480;
                 if (dr && !prev_dd) begin bal_r = 0; bal_g = 0; bal_b = 0; end
                 prev_dd = dr;
                 if (dr) begin
-                    bal_r = bal_r + (ones10(sr) - 5);
-                    bal_g = bal_g + (ones10(sg) - 5);
-                    bal_b = bal_b + (ones10(sb) - 5);
+                    bal_r = bal_r + (2*ones10(sr) - 10);
+                    bal_g = bal_g + (2*ones10(sg) - 10);
+                    bal_b = bal_b + (2*ones10(sb) - 10);
                     if (bal_r > 8 || bal_r < -8 || bal_g > 8 || bal_g < -8 ||
                         bal_b > 8 || bal_b < -8) fail("TMDS_DC_BALANCE");
                 end
