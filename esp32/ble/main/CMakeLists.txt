@@ -1,7 +1,7 @@
-idf_component_register(SRCS "ble_main.c" "gatt_svc.c" "pool.c" "hmi.c" "up_ring.c"
+idf_component_register(SRCS "ble_main.c" "gatt_svc.c" "pool.c" "hmi.c" "up_ring.c" "ws2812.c"
                        INCLUDE_DIRS "."
                        REQUIRES bt nvs_flash esp_timer
-                       PRIV_REQUIRES esp_driver_uart esp_driver_gpio)
+                       PRIV_REQUIRES esp_driver_uart esp_driver_gpio esp_driver_rmt)
 
 # ----------------------------------------------------------------------------
 # Build-time switches, forwarded to the C compiler.

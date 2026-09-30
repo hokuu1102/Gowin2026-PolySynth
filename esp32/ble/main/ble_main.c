@@ -60,6 +60,7 @@
 #include "pool.h"
 #include "hmi.h"
 #include "up_ring.h"
+#include "ws2812.h"
 
 static const char *TAG = "blebridge";
 
@@ -265,15 +266,34 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event,
 static void start_action_play(void);
 static void start_action_stop(void);
 
-#if BLE_LED_ENABLE
+#if WS2812_ENABLE || WS2812_CLEAR_ON_BOOT || BLE_LED_ENABLE
 /* ===========================================================================
- * ⭐⭐ 2026-09-30 夜：BLE 连接指示灯（⭐ 用户 Q4 裁定）
+ * ⭐⭐ 2026-09-30 夜：连接指示灯（⭐ 用户 Q4 裁定）
+ *        2026-10-01：⭐ 默认【关闭】+ ⭐ 开机【清锁存】（⭐ 用户："安全第一"）
  * ===========================================================================
  * ⭐ 用途：⭐ **不接串口屏也能一眼看出蓝牙连上没有**（⭐ 屏要 5V + 接线，灯不用）。
- * ⚠️ 用【普通 GPIO】驱动外部 LED，⛔ 不用板载 RGB（`38/48`，⭐ 见 ble_config 的说明）。
+ *
+ * ⭐ 两种灯的【统一入口】`ind_*` —— ⛔ 调用点不关心用的是哪种：
+ *    · ⭐ `WS2812_ENABLE`  ⇒ **板载** WS2812（⭐ `GPIO48`，⚠️ 需短接 R17 跳线）
+ *    · ⚠️ `BLE_LED_ENABLE` ⇒ **外接**普通 LED（⭐ 要接线）
+ *   ⭐ **两者可同时开**（⚠️ 通常只用一个）。见 `ble_config.h` §12。
+ *
+ * 🔴🔴 **`WS2812_CLEAR_ON_BOOT` 必须也在守卫里**（⭐ 2026-10-01 修的）：
+ *    ⚠️ 原来写的是 `#if WS2812_ENABLE` ⇒ 🔴 **关掉指示灯时，"清锁存"整段不编译**
+ *    ⇒ ⚠️ 而 WS2812 是【锁存】的 ⇒ 🔴 **灯会永远停在旧颜色上，清不掉**。
+ *    ⭐ 正确守卫：`WS2812_ENABLE || WS2812_CLEAR_ON_BOOT`。
  */
-static void led_init(void)
+static void ind_init(void)
 {
+#if WS2812_ENABLE || WS2812_CLEAR_ON_BOOT
+    /* ⭐ 无条件调 —— `ws2812_init()` 内部【自己会先发一帧全 0】（⭐ 清锁存），
+     *    ⚠️ 这一步在 `WS2812_ENABLE=0` 时**恰恰是最需要的**。 */
+    ws2812_init();
+#endif
+#if WS2812_ENABLE
+    ws2812_set_connected(false);          /* ⚠️ 上电先灭（⭐ 指示灯开着时才需要） */
+#endif
+#if BLE_LED_ENABLE
     gpio_config_t io = {
         .pin_bit_mask = (1ULL << BLE_LED_GPIO),
         .mode         = GPIO_MODE_OUTPUT,
@@ -281,23 +301,28 @@ static void led_init(void)
         .pull_down_en = GPIO_PULLDOWN_DISABLE,
         .intr_type    = GPIO_INTR_DISABLE,
     };
-    esp_err_t err = gpio_config(&io);
-    if (err != ESP_OK) {
-        ESP_LOGE(TAG, "led: gpio_config failed: %s", esp_err_to_name(err));
-        return;
+    if (gpio_config(&io) == ESP_OK) {
+        gpio_set_level(BLE_LED_GPIO, BLE_LED_ACTIVE_HIGH ? 0 : 1);
+        ESP_LOGI(TAG, "led: GPIO%d ready (%s active)",
+                 BLE_LED_GPIO, BLE_LED_ACTIVE_HIGH ? "high" : "low");
+    } else {
+        ESP_LOGE(TAG, "led: gpio_config failed");
     }
-    /* ⚠️ 上电先灭 —— ⭐ 明确初始状态，⛔ 不靠默认电平 */
-    gpio_set_level(BLE_LED_GPIO, BLE_LED_ACTIVE_HIGH ? 0 : 1);
-    ESP_LOGI(TAG, "led: GPIO%d ready (%s active)",
-             BLE_LED_GPIO, BLE_LED_ACTIVE_HIGH ? "high" : "low");
+#endif
 }
 
-static void led_set(bool on)
+static void ind_set(bool connected)
 {
-    int lvl = on ? (BLE_LED_ACTIVE_HIGH ? 1 : 0) : (BLE_LED_ACTIVE_HIGH ? 0 : 1);
-    gpio_set_level(BLE_LED_GPIO, lvl);
+#if WS2812_ENABLE
+    ws2812_set_connected(connected);
+#endif
+#if WS2812_ENABLE || WS2812_CLEAR_ON_BOOT || BLE_LED_ENABLE
+    gpio_set_level(BLE_LED_GPIO,
+                   connected ? (BLE_LED_ACTIVE_HIGH ? 1 : 0)
+                             : (BLE_LED_ACTIVE_HIGH ? 0 : 1));
+#endif
 }
-#endif /* BLE_LED_ENABLE */
+#endif /* WS2812_ENABLE || BLE_LED_ENABLE */
 
 /* ===========================================================================
  * ⭐⭐ 2026-09-30（B 子集）：CMD 命令 —— 上报状态
@@ -420,14 +445,14 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
         s_connected = true;
         ESP_LOGI(TAG, "BLE CONNECTED conn_id=%d", s_conn_id);
         hmi_set_bt_connected(true);
-#if BLE_LED_ENABLE
+#if WS2812_ENABLE || WS2812_CLEAR_ON_BOOT || BLE_LED_ENABLE
         /* ⭐⭐ 2026-09-30 夜：连上就点亮（⭐ 用户 Q4「让灯亮一下」）
          * ⚠️ 注意：⭐ 这里只是"物理连接"，⚠️ **还未订阅**（CCCD）。
          *    🔴 所以【放水】绝不能在这里开始 —— ⭐ 那会发进虚空
          *    （⭐ 实测：连上后 700ms 内环被排空，PC 侧 0 个包）。
          *    ⭐ 灯的语义是"连上了"，⭐ 放水的语义是"订阅了"，
          *    ⚠️ **两者刻意分开**（⭐ 灯早就亮，不代表数据能发）。 */
-        led_set(true);
+        ind_set(true);
 #endif
 
         /* ⭐ 立刻请求大 MTU（⚠️ 默认 23 ⇒ 有效载荷仅 20 字节，整曲要 5200+ 包） */
@@ -436,8 +461,8 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
 
     case ESP_GATTS_DISCONNECT_EVT:
         s_connected = false;
-#if BLE_LED_ENABLE
-        led_set(false);                   /* ⭐ 断开 ⇒ 灭 */
+#if WS2812_ENABLE || WS2812_CLEAR_ON_BOOT || BLE_LED_ENABLE
+        ind_set(false);                   /* ⭐ 断开 ⇒ 灭 */
 #endif
         /* ⭐⭐ 2026-09-30：订阅状态**随连接失效** ⇒ ⭐ 必须清掉
          *    ⚠️ 否则重连后、客户端**还没订阅**时，固件会以为"可以发了"
@@ -1095,10 +1120,10 @@ void app_main(void)
              BLE_UART_PORT, BLE_BAUD, BLE_PIN_UART_TX, BLE_PIN_UART_RX,
              FRAME_BYTES, BLE_DEV_NAME);
 
-#if BLE_LED_ENABLE
+#if WS2812_ENABLE || WS2812_CLEAR_ON_BOOT || BLE_LED_ENABLE
     /* ⭐ 连接指示灯（⭐ 尽早初始化 —— ⚠️ 放在 NVS/蓝牙之前，
      *    这样"灯没亮"能立刻区分成"固件没跑起来"而不是"蓝牙没连上"） */
-    led_init();
+    ind_init();
 #endif
 
     /* NVS（蓝牙栈要求） */
