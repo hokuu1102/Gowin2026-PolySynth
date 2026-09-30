@@ -1,0 +1,79 @@
+
+########## GROUP note_manager ##########
+=== mutation testing: 12 mutant(s)  [selected: -File note_manager -TbFilter note_manager, of 135]
+    scoped developer run: each mutant runs benches matching 'note_manager' (not release evidence)
+  [M23] RED  (caught)  T54 regression: retrigger never pulls the gate low -> ADSR never restarts Attack (must be caught)
+  [M24] RED  (caught)  T54 regression: no candidate ever selected -> note silently dropped (must be caught)
+  [M25] RED  (caught)  T54 regression: pitch_update ignored -> glissando does not track (must be caught)
+  [M26] RED  (caught)  T54 regression: vel_update ignored -> dual-threshold velocity correction lost (must be caught)
+  [M27] RED  (caught)  T54 regression: same-axis retrigger detection removed -> a repeated key eats a second voice (must be caught)
+  [M28] RED  (caught)  T54 regression: pool mask stuck at 0 -> no voice can ever be allocated (must be caught)
+  [M45] RED  (caught)  K-106 regression: overflow detection disabled -> drops become SILENT again (must be caught)
+  [M46] RED  (caught)  K-106 regression: lost-event counter never increments -> count lies that nothing was lost (must be caught)
+  [M47] RED  (caught)  K-106 regression: sticky flag never sets -> overflow invisible on the board (must be caught)
+  [M48] RED  (caught)  K-106 regression: saturation removed -> count WRAPS (256 losses would read as 0, another silent failure) (must be caught)
+  [M135] RED  (caught)  A3' non-vacuity: the source term is dropped from same_hit -> a replay note_on can take over a hand-played voice again, so the A3' isolation criterion is not actually being exercised. Must be caught.
+  [M136] RED  (caught)  A3': the foreign-source guard is dropped from the candidate mask -> when the pool is full a replay voice is stolen from another source again (the exact defect A3' fixed). Must be caught.
+
+================ mutation testing summary ================
+  M23   caught    T54 regression: retrigger never pulls the gate low -> ADSR never restarts Attack (must be caught)
+  M24   caught    T54 regression: no candidate ever selected -> note silently dropped (must be caught)
+  M25   caught    T54 regression: pitch_update ignored -> glissando does not track (must be caught)
+  M26   caught    T54 regression: vel_update ignored -> dual-threshold velocity correction lost (must be caught)
+  M27   caught    T54 regression: same-axis retrigger detection removed -> a repeated key eats a second voice (must be caught)
+  M28   caught    T54 regression: pool mask stuck at 0 -> no voice can ever be allocated (must be caught)
+  M45   caught    K-106 regression: overflow detection disabled -> drops become SILENT again (must be caught)
+  M46   caught    K-106 regression: lost-event counter never increments -> count lies that nothing was lost (must be caught)
+  M47   caught    K-106 regression: sticky flag never sets -> overflow invisible on the board (must be caught)
+  M48   caught    K-106 regression: saturation removed -> count WRAPS (256 losses would read as 0, another silent failure) (must be caught)
+  M135  caught    A3' non-vacuity: the source term is dropped from same_hit -> a replay note_on can take over a hand-played voice again, so the A3' isolation criterion is not actually being exercised. Must be caught.
+  M136  caught    A3': the foreign-source guard is dropped from the candidate mask -> when the pool is full a replay voice is stolen from another source again (the exact defect A3' fixed). Must be caught.
+==========================================================
+
+=== regenerating sim/evidence from the restored (clean) RTL ===
+OK: sim/evidence regenerated from clean code
+PASS: every injected defect was caught by the regression suite
+
+########## GROUP note_manager exit=0 ##########
+
+########## GROUP oscillator_bank ##########
+=== mutation testing: 4 mutant(s)  [selected: -File oscillator_bank -TbFilter oscillator_bank, of 135]
+    scoped developer run: each mutant runs benches matching 'oscillator_bank' (not release evidence)
+  [M29] RED  (caught)  T55 regression: table address takes a shifted phase window -> wrong DDS mapping (must be caught)
+  [M30] RED  (caught)  T55 regression: phase advances even when the voice is inactive -> idle voices drift (must be caught)
+  [M31] RED  (caught)  T55 regression: TDM capture disabled -> every lane reads 0 -> silence (must be caught)
+  [M32] RED  (caught)  T55 regression: test_mode override ignored -> T43 N-tone demo breaks (must be caught)
+
+================ mutation testing summary ================
+  M29   caught    T55 regression: table address takes a shifted phase window -> wrong DDS mapping (must be caught)
+  M30   caught    T55 regression: phase advances even when the voice is inactive -> idle voices drift (must be caught)
+  M31   caught    T55 regression: TDM capture disabled -> every lane reads 0 -> silence (must be caught)
+  M32   caught    T55 regression: test_mode override ignored -> T43 N-tone demo breaks (must be caught)
+==========================================================
+
+=== regenerating sim/evidence from the restored (clean) RTL ===
+OK: sim/evidence regenerated from clean code
+PASS: every injected defect was caught by the regression suite
+
+########## GROUP oscillator_bank exit=0 ##########
+
+########## GROUP seq_arb ##########
+=== mutation testing: 4 mutant(s)  [selected: -File seq_arb -TbFilter seq_arb, of 135]
+    scoped developer run: each mutant runs benches matching 'seq_arb' (not release evidence)
+  [M118] RED  (caught)  seq_arb: 'others are going' is forced low -> the demo chord never yields, so the power-on self-test chord keeps stealing voices from real playing. Must be caught by the demo-yield judgement.
+  [M119] RED  (caught)  seq_arb: the demo chord no longer yields -> the power-on self-test chord competes with real playing and can steal its voices. Must be caught by the demo-yield judgement.
+  [M120] RED  (caught)  seq_arb: the live+score same-cycle case is skipped -> when the player presses a key on the same cycle as a score event, one of the two is LOST. Exactly the U-6 failure mode. Must be caught.
+  [M121] RED  (caught)  seq_arb: the popped source tag is hardwired to an invalid id -> the per-source counters (live/score/demo) all mis-attribute, so the observability that tells you WHO is flooding the arbiter becomes a lie (K-106). Must be caught.
+
+================ mutation testing summary ================
+  M118  caught    seq_arb: 'others are going' is forced low -> the demo chord never yields, so the power-on self-test chord keeps stealing voices from real playing. Must be caught by the demo-yield judgement.
+  M119  caught    seq_arb: the demo chord no longer yields -> the power-on self-test chord competes with real playing and can steal its voices. Must be caught by the demo-yield judgement.
+  M120  caught    seq_arb: the live+score same-cycle case is skipped -> when the player presses a key on the same cycle as a score event, one of the two is LOST. Exactly the U-6 failure mode. Must be caught.
+  M121  caught    seq_arb: the popped source tag is hardwired to an invalid id -> the per-source counters (live/score/demo) all mis-attribute, so the observability that tells you WHO is flooding the arbiter becomes a lie (K-106). Must be caught.
+==========================================================
+
+=== regenerating sim/evidence from the restored (clean) RTL ===
+OK: sim/evidence regenerated from clean code
+PASS: every injected defect was caught by the regression suite
+
+########## GROUP seq_arb exit=0 ##########

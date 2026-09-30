@@ -2152,9 +2152,13 @@ module top #(
         //        **抬起的时候不再改变力度**，如果松手就自然衰减」
         //
         //   ⭐ **三条语义分别由什么保证**（⭐ 逐条对应，⛔ 不是"看起来对"）：
-        //     ① ⭐ **实时跟随** —— 每 `tick_audio` 扫**一个**轴（8 轴轮转）
+        //     ① ⭐ **实时跟随** —— 每 `tick_audio` 扫**一个**轴（⭐ **16 轴轮转**）
         //        · `tick_audio` 周期 = 1024 clk @50 MHz = **20.48 µs**
-        //        · 8 轴轮转 ⇒ ⭐ 每轴 **163.84 µs** ⇒ 响应 ~164 µs（⭐ 听得出的"实时"）
+        //        · 16 轴轮转 ⇒ ⭐ 每轴 **327.68 µs** ⇒ 响应 ~328 µs
+        //          ⚠️ **2026-09-30 从 8 轴扩到 16 轴 ⇒ 单轴刷新率【减半】**（164 → 328 µs）
+        //             🔴 **这是扩容的固有代价**（⭐ 想保住 164 µs 就得"每拍扫 2 个轴"，
+        //             ⚠️ 那要多一份 `pos_to_vel` + 选择器 ⇒ ⭐ 与"浅逻辑"相悖 ⇒ ⛔ 不做）。
+        //             📌 328 µs 仍是 ~3 kHz 的刷新 ⇒ ⭐ 听感上依然是"实时跟随" ✅
         //     ② ⭐ **只在按下时改变** —— 判据 `vu_pos > VEL_TRIG_TH`（= `TRIG_TH` = 64）
         //        · ⭐ 抬起后 `pos` 掉到 `REL_TH`(32) 以下 ⇒ 条件不成立 ⇒ ⭐ **力度冻结** ✅
         //        · ⭐ `note_manager` 那边还有第二道保险：`gate_mask`
@@ -2200,21 +2204,26 @@ module top #(
         //   📌 死区原本只为"防抖动/台阶声" ✅ ⇒ ⭐ 该职责已由 `note_manager` 的
         //      **±8/采样拍斜坡** 承担（⭐ 功能重复 ⇒ 删掉不丢能力 ✅）
 
-        // ⭐⭐ **本块只扫【前 `VEL_AXIS_N` 个轴】**（⭐ 已知限制，⛔ 不是 bug）
-        //   ⚠️ **为什么是 8**：⭐ 当前硬件 = **一块 8 轴左手板**（轴 0~7）；
-        //      轴 8~15 的第二片 ADC 未接（⭐ 上电 `'N'` 实测恒 0）。
-        //   🔴 **扩到 16 轴时会发生什么（必须知道）**：
-        //      轴 8~15 会变成「**起音有位置式力度、跟随却完全不动**」——
-        //      因为 `w3a_evt_vel` 用的是任意轴的 `am_pos_in`（起音通路**不受**本块限制），
-        //      而本块只扫 0~7 ⇒ ⭐ **半残且静默**（同族 `K-56`：全绿不证明任何事）。
-        //   ✅ **真要扩到 16 轴时改三处**：
-        //      ① `VEL_AXIS_N` 8 → 16   ② `VEL_AX_W` 3 → 4
-        //      ③ ⚠️ **并重新评估时序**（`vu_last` 多 96 FF + 选择逻辑变大）
-        //   📌 本块末尾的 `initial` 守卫会在仿真启动时**明确警告**轴数不匹配。
-        localparam integer VEL_AXIS_N = 8;   // ⭐ 本块扫的轴数（= 当前硬件的轴数）
-        localparam integer VEL_AX_W   = 3;   // ⭐ = $clog2(VEL_AXIS_N)
+        // ⭐⭐ **本块扫【全部 `VEL_AXIS_N` 个轴】**（⭐ 2026-09-30：8 → **16** ✅）
+        //   ⭐ **为什么现在是 16**：⭐ 左手板有**两块**（⭐ 各 1 片 `MCP3208`，
+        //      `ADC_N = 2`）⇒ 轴 0~7 = 板 1 · 轴 8~15 = 板 2
+        //      ⇒ 🔴 **两块板必须【配置一致】** —— ⚠️ 否则板 2 的键
+        //         「**起音有位置式力度、跟随却完全不动**」（⭐ 因为 `w3a_evt_vel`
+        //         用的是任意轴的 `am_pos_in`，⭐ 起音通路**不受**本块限制）
+        //         ⇒ ⭐ **半残且静默**（同族 `K-56`：全绿不证明任何事）✅
+        //   ⚠️ **本次扩容的代价（⭐ 时序敏感：Fmax 余量只有 +0.18%）**：
+        //      ① `vu_ax_r` 3 → 4 位 ⇒ ⭐ **+1 FF**（⭐ 本块**没有其它新增寄存器**）
+        //      ② `as_pos[vu_ax_r*12 +: 12]` 从 **8 选 1** 变 **16 选 1**
+        //         （⭐ 12 位宽 ⇒ 综合器用 `4:1` 原语拼 ⇒ ⭐ **16 选 1 与 8 选 1 同为两级**，
+        //          ⭐ 组合深度**基本不变**，⭐ 只多几个 LUT ✅）
+        //         ⚠️ **确切的门级/时序数字以 PnR 报告为准**（⭐ 本处只是量级判断）
+        //      📌 **`vu_last[]` 死区数组早已删掉**（⭐ 见下）⇒ 🔴 **不再有那 96 FF**
+        //         ⇒ ⭐ 本次的实际代价**远小于** 2026-09-30 注释里预估的那一版 ✅
+        //   📌 本块末尾的 `initial` 守卫会在仿真启动时**核对**轴数（⭐ 不匹配就报）。
+        localparam integer VEL_AXIS_N = 16;  // ⭐ 本块扫的轴数（= 系统的真实轴数）
+        localparam integer VEL_AX_W   = 4;   // ⭐ = $clog2(VEL_AXIS_N)
 
-        reg  [VEL_AX_W-1:0] vu_ax_r;              // ⭐ 本拍要扫的轴（0→7 轮转）
+        reg  [VEL_AX_W-1:0] vu_ax_r;              // ⭐ 本拍要扫的轴（0→15 轮转）
         //  ⭐⭐ 2026-09-29 治本：⭐ **删掉了 `vu_last[]` 死区数组** ✅
         //   🔴 **为什么删**（⭐ 用户上板症状："无论按下行程多少，音量都一样" ✅）：
         //      · ⭐ 死区是"**变化超过 16 才发**" ⇒ ⚠️ 若某次 `vel_upd` 在 voice 出现
@@ -2240,7 +2249,7 @@ module top #(
 
         always @(posedge clk) begin
             if (!rst_n_sync) begin
-                vu_ax_r    <= 3'd0;
+                vu_ax_r    <= {VEL_AX_W{1'b0}};
                 vu_valid_r <= 1'b0;
                 vu_axis_r  <= 4'd0;
                 vu_val_r   <= 8'd0;
@@ -2248,12 +2257,12 @@ module top #(
                 // ⭐ 默认清 0 ⇒ 下面置 1 时**恰好是 1 拍脉冲**
                 vu_valid_r <= 1'b0;
                 if (tick_audio) begin
-                    // ⭐ 计数器**自然回绕** ⇒ 0→1→…→7→0，⭐ 就是"8 轴轮转"
-                    //   📌 用 `+ 1'b1`（⛔ 不写死 `3'd1`）⇒ ⭐ 改 `VEL_AX_W` 时不用跟着改
+                    // ⭐ 计数器**自然回绕** ⇒ 0→1→…→15→0，⭐ 就是"16 轴轮转"
+                    //   📌 用 `+ 1'b1`（⛔ 不写死 `4'd1`）⇒ ⭐ 改 `VEL_AX_W` 时不用跟着改
                     vu_ax_r <= vu_ax_r + 1'b1;
                     //   ⭐⭐ **唯一条件**：⭐ `vu_pos > VEL_TRIG_TH` ⇒ "**按下中**" ✅
                     //      ⭐ 抬起后自动失效（⭐ 力度冻结 ✅）
-                    //   📌 **不再有 `vu_far`** ⇒ ⭐ 按住的每个轴每 164 µs 发一次 ✅
+                    //   📌 **不再有 `vu_far`** ⇒ ⭐ 按住的每个轴每 328 µs 发一次 ✅
                     if (vu_pos > VEL_TRIG_TH) begin
                         vu_valid_r <= 1'b1;
                         vu_axis_r  <= vu_ax_r;   // ⭐ 隐式零扩展到 4 位（⛔ 不写死位宽）
@@ -2264,16 +2273,25 @@ module top #(
         end
 
         // ⭐⭐ 参数守卫（与各模块的 `PARAM_OK` 同一套路）
-        //   🔴 **为什么必须有**：本块只扫 `VEL_AXIS_N` 个轴，而系统的真实轴数由
+        //   🔴 **为什么必须有**：本块扫 `VEL_AXIS_N` 个轴，而系统的真实轴数由
         //      `event_extract` / `axis_snapshot` 的 `AXIS_N` 决定。
-        //      ⚠️ 两者**不一致时是【静默】的** —— 多出来的轴只有"起音力度"、⛔ 没有"跟随"
+        //      ⚠️ 两者**不一致时是【静默】的** —— 少扫的轴只有"起音力度"、⛔ 没有"跟随"
         //      （⭐ 同族 `K-56`：全绿不证明任何事）。
+        //   ⭐ **2026-09-30：判据从"允许只扫一部分"改成"必须扫满"** ✅
+        //      🔴 因为左手板有**两块** ⇒ ⭐ **两块必须配置一致** ⇒
+        //         ⭐ `VEL_AXIS_N != SYS_AXIS_N` **本身就是缺陷**（⭐ 不再是"已知限制"）✅
         //   ⇒ ⭐ 仿真启动时明确打印（⭐ 综合工具忽略 `initial` ⇒ 只是仿真侧防线）。
         localparam integer SYS_AXIS_N = 16;   // ⚠️ 必须与 `event_extract`/`axis_snapshot` 的 `AXIS_N` 一致
         initial begin
-            if (SYS_AXIS_N > VEL_AXIS_N)
-                $display("WARN [top] vu_* scans only %0d axes but the system has %0d => axes %0d..%0d get ATTACK velocity but NO follow (see the VEL_AXIS_N comment)",
-                         VEL_AXIS_N, SYS_AXIS_N, VEL_AXIS_N, SYS_AXIS_N-1);
+            if (VEL_AXIS_N != SYS_AXIS_N)
+                $display("ERROR [top] VEL_AXIS_N=%0d != SYS_AXIS_N=%0d => %0d axis/axes get ATTACK velocity but NO follow (two identical left-hand boards require VEL_AXIS_N == AXIS_N; see the VEL_AXIS_N comment)",
+                         VEL_AXIS_N, SYS_AXIS_N,
+                         (VEL_AXIS_N < SYS_AXIS_N) ? (SYS_AXIS_N - VEL_AXIS_N) : 0);
+            //   🔴 `VEL_AXIS_N > SYS_AXIS_N` 更糟：⭐ `as_pos` 只声明了 `SYS_AXIS_N*12` 位
+            //      ⇒ ⭐ 选择器会**越界索引**（⭐ 综合/仿真行为都不可靠）
+            if (VEL_AXIS_N > SYS_AXIS_N)
+                $display("ERROR [top] VEL_AXIS_N=%0d exceeds SYS_AXIS_N=%0d => as_pos index OUT OF RANGE",
+                         VEL_AXIS_N, SYS_AXIS_N);
             if ((1 << VEL_AX_W) != VEL_AXIS_N)
                 $display("ERROR [top] VEL_AX_W=%0d does not match VEL_AXIS_N=%0d (must be $clog2)",
                          VEL_AX_W, VEL_AXIS_N);
@@ -3588,7 +3606,11 @@ module top #(
         //   ⚠️ **`sample_tick_i` 接 `tick_audio`**（⭐ 冻结表 §〇 约定 1：时钟使能）
         //      ⭐ `DECAY_STEP=67`（`perc_env_bank` 默认）⇒ 满力度(255)：
         //         `65280/67 ≈ 975` 拍 ≈ **20 ms**
-        //      ⇒ ⭐ 强拍(120) ≈ **8.6 ms** · 弱拍(72) ≈ **5.2 ms**（⭐ 正是打击乐的量级）
+        //      ⇒ ⭐ 强拍(180) ≈ **14.1 ms** · 弱拍(108) ≈ **8.5 ms**（⭐ 打击乐的量级）
+        //      📌 **2026-09-30 同步更新**：⭐ 节拍器力度 `120/72 ⇒ 180/108`
+        //         （⭐ 用户："节拍器的声音有一点太小了"）⇒ ⭐ 两个时长**跟着变长**
+        //         （⭐ 衰减时长 ∝ 峰值 —— ⭐ 见 `perc_env_bank.v:58-64`）✅
+        //         ⚠️ 改力度**必须同时改本注释**（⭐ 本项目"注释↔代码不一致"是复发缺陷）✅
         // ═══════════════════════════════════════════════════════════════════
         //  ⚠️ 下面这个 5 **必须**与 `u_note_manager` / `u_tdm_render_mixer` 的
         //     `.RESERVED_N(5)` 一致（⭐ 三处同源；⚠️ 保留池 = **最高**那几路）

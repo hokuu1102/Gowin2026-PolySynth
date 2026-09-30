@@ -1,0 +1,63 @@
+﻿== PAD tail: LIVE vs REPLAY over 4 gestures ==
+     [prog] A start ax=0 P=70 R=2 H=100 F=2 s=37
+     [prog] A note_on seen s=134 pos0=70
+     [prog] A note_off seen s=2667
+     [prog] A release window done s=4667
+     [prog] A waveform done s=4667
+     [prog] B start s=4887 cnt=2 loop_len=186 ep_vel=81
+     [prog] B replay note_on seen s=4967
+     [prog] B replay note_off seen s=7500
+  [LIGHT  P70 ] ax=0 P=70 R=2 H=100 F=2 | pos@trig->vel_on=81 off_evt_vel=200
+     LIVE  vel@off=81 env@off=18666 tbr=3 rel=18666 smp | dur=2533 smp
+     REC   ep_vel=81
+     REPLAY vel@off=81 env@off=18666 tbr=3 rel=18666 smp | dur=2533 smp | upd_n=0 last=0
+     DELTA vel=0 env=0 rel=0
+     [prog] A start ax=1 P=300 R=2 H=100 F=2 s=9531
+     [prog] A note_on seen s=9603 pos0=150
+     [prog] A note_off seen s=12161
+     [prog] A release window done s=14161
+     [prog] A waveform done s=14161
+     [prog] B start s=14381 cnt=2 loop_len=186 ep_vel=102
+     [prog] B replay note_on seen s=14442
+     [prog] B replay note_off seen s=17000
+  [NORMAL P300] ax=1 P=300 R=2 H=100 F=2 | pos@trig->vel_on=102 off_evt_vel=200
+     LIVE  vel@off=102 env@off=34343 tbr=3 rel=34343 smp | dur=2558 smp
+     REC   ep_vel=102
+     REPLAY vel@off=102 env@off=24137 tbr=3 rel=24137 smp | dur=2558 smp | upd_n=0 last=0
+     DELTA vel=0 env=-10206 rel=-10206
+     [prog] A start ax=2 P=744 R=4 H=100 F=2 s=19031
+     [prog] A note_on seen s=19103 pos0=186
+     [prog] A note_off seen s=21711
+     [prog] A release window done s=23711
+     [prog] A waveform done s=23711
+     [prog] B start s=23931 cnt=2 loop_len=188 ep_vel=159
+     [prog] B replay note_on seen s=23992
+     [prog] B replay note_off seen s=26600
+  [HARD   P744] ax=2 P=744 R=4 H=100 F=2 | pos@trig->vel_on=111 off_evt_vel=200
+     LIVE  vel@off=159 env@off=59939 tbr=3 rel=59939 smp | dur=2608 smp
+     REC   ep_vel=159
+     REPLAY vel@off=159 env@off=36570 tbr=3 rel=36588 smp | dur=2608 smp | upd_n=105 last=159
+     DELTA vel=0 env=-23369 rel=-23351
+     [prog] A start ax=3 P=744 R=4 H=100 F=6 s=28631
+     [prog] A note_on seen s=28703 pos0=186
+     [prog] A note_off seen s=31411
+     [prog] A release window done s=33411
+     [prog] A waveform done s=33411
+     [prog] B start s=33631 cnt=2 loop_len=192 ep_vel=95
+     [prog] B replay note_on seen s=33692
+     [prog] B replay note_off seen s=36400
+  [HARD slow-rel] ax=3 P=744 R=4 H=100 F=6 | pos@trig->vel_on=111 off_evt_vel=200
+     LIVE  vel@off=95 env@off=59838 tbr=3 rel=59838 smp | dur=2708 smp
+     REC   ep_vel=95
+     REPLAY vel@off=95 env@off=22155 tbr=3 rel=22155 smp | dur=2708 smp | upd_n=109 last=95
+     DELTA vel=0 env=-37683 rel=-37683
+== verdict ==
+     [dbg] worst env%=37  worst rel%=37
+  ok  : tail: replay vel at note_off equals live vel at note_off (all gestures)
+  FAIL: tail: replayed env level at note_off is within 10 percent of the live one
+  FAIL: tail: replayed release duration is within 10 percent of the live one
+  FAIL: tail: every gesture matched between live and replay
+FAIL: looper tail -- 3 check(s) failed
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-tailfix\tb\w3c\tb_looper_tail.sv:598: $finish called at 1536170000 (1ps)
+
+

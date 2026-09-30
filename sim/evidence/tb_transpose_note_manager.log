@@ -1,0 +1,37 @@
+﻿WARNING [note_manager] FIFO_DEPTH=8 < 鏈€鍧忕獊鍙?18 (=16 杞?+1 鑺傛媿鍣?+1 榧撴満) => 浜嬩欢浼氭孩鍑轰涪寮冿紙猸?宸茬敱 event_lost_o 鎸囩ず锛屼絾浼氫涪闊筹級
+== T0: identity when transpose is off ==
+  ok  : T0: trans=0 base=0 -> phase_inc is bit-exact identity
+  ok  : T0: the note landed on voice0 (measurement is unambiguous)
+  ok  : T0: clear_all left exactly ONE gated voice (the note just played)
+== T1: base-note commit scales by exactly one octave ==
+  ok  : T1: base_commit(12) -> phase_inc == 2*INC EXACTLY (one octave)
+  ok  : T1: non-vacuous - the octave really changed the increment
+  ok  : T1b: base_commit(24) -> phase_inc == 4*INC EXACTLY (two octaves)
+  ok  : T1c: base_commit(0) -> back to the original increment (bit-exact)
+== T2: +1 semitone scales by 2^(1/12) ==
+  note: +1 semitone measured=1110912 exact=1110927.5736 abs_err=15.5736 rel_err=1.402e-05
+  ok  : T2: +1 semitone within 5e-5 relative (0.087 cent)
+  ok  : T2: +1 semitone within the quantization bound INC/2^15 + 1 = 17
+  ok  : T2: non-vacuous - +1 semitone strictly RAISES the increment
+== T3: a REPLAYED note (src=1) follows the same transpose ==
+  ok  : T3: a replayed (src=1) note is transposed by +1 semitone too
+  ok  : T3: non-vacuous - the replayed note is NOT at the untransposed pitch
+== T4: -1 then +1 returns to the original ==
+  ok  : T4: non-vacuous - -1 semitone strictly LOWERS the increment
+  ok  : T4: non-vacuous - +1 semitone strictly RAISES the increment
+  note: m_dn*m_up=1099500711936 inc^2=1099511627776 rel_err=9.928e-06
+  ok  : T4: (-1) x (+1) returns to inc^2 within 5e-5 relative
+  ok  : T4: back at 0 semitones the increment is bit-exact the original
+== T5: +12 semitones is exactly x2 (the table must be 17 bit) ==
+  ok  : T5: +12 semitones -> phase_inc == 2*INC EXACTLY
+== T6/T7: out-of-range clamp and overflow saturation ==
+  ok  : T6: out-of-range +15 is clamped to +12 (no out-of-table lookup)
+  ok  : T7: overflow saturates to all-ones instead of wrapping
+== T8: a pitch update (pitch_upd) also follows the transpose ==
+  ok  : T8: pitch_upd 2*INC is transposed to 64*34716 (not the raw 2*INC)
+  ok  : T8: non-vacuous - the RAW (untransposed) 2*INC was NOT written
+ALL PASS (tb_transpose_note_manager)
+RESULT: 0 error(s)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_transpose_note_manager.sv:429: $finish called at 188140000 (1ps)
+
+
