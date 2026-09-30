@@ -54,3 +54,13 @@ The default Gowin build produced a `.fs` and reported **0 setup and 0 hold viola
 Set the ten H/V timing parameters on `hdmi_top`; the derived totals can keep their defaults. `video_timing` and `color_bars` use those parameters, including eight bars scaled by `H_ACTIVE/8`. The full-frame testbench is fixed to 640x480: update its H/V constants, coordinate widths, and `bar()` thresholds when verifying another mode. Choose a pixel/serial clock pair at 1:5, update the PLL settings in `rtl/hdmi_clk.v`, and update both generated-clock ratios in `constr/hdmi_640x480.sdc`. The project name and build artifacts still say 640x480. For 1920x1200 at 154 MHz, the serializer clock must be 770 MHz and each TMDS lane carries 1.54 Gb/s; the existing 25/125 and 25.2/126 MHz modes cannot provide this. Recheck PLL VCO/output limits, IO/OSER10 rate, and post-route timing for that mode. The saved 176.035 MHz pixel-clock Fmax is for the 640x480 implementation only.
 
 The board has not been tested with a display. The OSER10 bit ordering, clock lane phase, PLL jitter, hot-plug behaviour, and display compatibility remain unverified on hardware. This project does not claim H2 on-board acceptance yet.
+
+## Liveness LED
+
+led_hb drives the Console CFG_LED green channel (SYS_ACT, ball V13) - the same ball the main project uses for led_heartbeat. It runs in the 50 MHz input clock domain and is deliberately **not** gated by st_n, so it proves "bitstream configured and input clock alive" even with a stuck reset key. The blink rate also reports PLL lock:
+
+- **~1 Hz** (0.5 s on / 0.5 s off): running, PLL locked
+- **~5 Hz** (0.1 s on / 0.1 s off): running, PLL NOT locked
+- **dark**: not configured, or no 50 MHz input clock
+
+This exists because the first on-board attempt produced a completely black screen, which cannot distinguish "not programmed", "programmed but PLL unlocked", and "PLL locked but TMDS or display problem".

@@ -8,7 +8,8 @@ module hdmi_top #(
     input wire clk, rst_n,
     output wire [2:0] tmds_d_p_0, tmds_d_n_0,
     output wire tmds_clk_p_0, tmds_clk_n_0,
-    output wire hpd_en
+    output wire hpd_en,
+    output wire led_hb
 );
     localparam integer HB = $clog2(H_TOTAL), VB = $clog2(V_TOTAL);
     wire pixel_clk, serial_clk, lock;
@@ -44,4 +45,20 @@ module hdmi_top #(
         .rst(!rst_n), .blue(blue), .green(green), .red(red),
         .tmds_d_p_0(tmds_d_p_0), .tmds_d_n_0(tmds_d_n_0),
         .tmds_clk_p_0(tmds_clk_p_0), .tmds_clk_n_0(tmds_clk_n_0));
+
+    // ── Liveness witness on the Console CFG_LED green channel (V13) ─────────
+    // Deliberately free-running in the 50 MHz input domain and NOT gated by
+    // rst_n, so it proves "bitstream configured + 50 MHz clock alive" even if
+    // the reset key is stuck. The blink rate also reports PLL lock:
+    //   ~1 Hz (0.5 s on / 0.5 s off) = running AND PLL locked
+    //   ~5 Hz (0.1 s on / 0.1 s off) = running but PLL NOT locked
+    //   dark                          = not configured, or no 50 MHz clock
+    reg [24:0] hb_cnt;
+    reg        hb_slow, hb_fast;
+    always @(posedge clk) begin
+        hb_cnt <= (hb_cnt == 25'd24_999_999) ? 25'd0 : hb_cnt + 25'd1;
+        if (hb_cnt == 25'd24_999_999) hb_slow <= ~hb_slow;
+        if (hb_cnt == 25'd4_999_999)  hb_fast <= ~hb_fast;
+    end
+    assign led_hb = lock ? hb_slow : hb_fast;
 endmodule
