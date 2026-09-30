@@ -1,4 +1,4 @@
-idf_component_register(SRCS "ble_main.c" "gatt_svc.c" "pool.c" "hmi.c"
+idf_component_register(SRCS "ble_main.c" "gatt_svc.c" "pool.c" "hmi.c" "up_ring.c"
                        INCLUDE_DIRS "."
                        REQUIRES bt nvs_flash esp_timer
                        PRIV_REQUIRES esp_driver_uart esp_driver_gpio)

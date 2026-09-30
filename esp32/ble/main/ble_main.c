@@ -59,6 +59,7 @@
 #include "gatt_svc.h"
 #include "pool.h"
 #include "hmi.h"
+#include "up_ring.h"
 
 static const char *TAG = "blebridge";
 
@@ -111,6 +112,14 @@ static uint16_t s_handle_recv = 0;   /* 对端写这里 */
 static uint16_t s_handle_noti = 0;   /* 我们 notify 这里 */
 static uint16_t s_handle_cmd  = 0;
 static uint16_t s_handle_stat = 0;
+/* ⭐⭐ 2026-09-30：0xABF2 的 CCCD 句柄 + "对端是否已使能通知" 标志
+ * 🔴 为什么需要：⭐ 客户端**必须写 CCCD=0x0001** 才收得到 notify。
+ *    ⚠️ 原来固件只看 `s_connected` ⇒ 🔴 **连接一建立就放水**，
+ *      而那一刻客户端**还没订阅** ⇒ ⭐ 数据**全丢**（⚠️ 且 `fail=0`，看不出来）。
+ *    ⭐ 实测铁证（2026-09-30）：连上后 700 ms 内 `u_out` 从 4000→4500
+ *      （环排空了），⚠️ 而 PC 侧 **0 个包**。 */
+static uint16_t s_handle_noti_cccd = 0;
+static volatile bool s_noti_enabled = false;   /* ⭐ 对端已订阅 0xABF2 */
 
 /* ===========================================================================
  * 环形缓冲（只搬运，⛔ 不解析）
@@ -321,6 +330,8 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
         s_handle_noti = param->add_attr_tab.handles[gatt_idx_noti()];
         s_handle_cmd  = param->add_attr_tab.handles[gatt_idx_cmd()];
         s_handle_stat = param->add_attr_tab.handles[gatt_idx_stat()];
+        /* ⭐ 记下 CCCD 的句柄 —— ⭐ 下方 WRITE_EVT 靠它识别"对端订阅了" */
+        s_handle_noti_cccd = param->add_attr_tab.handles[gatt_idx_noti_cccd()];
 
         gatt_log_layout(param->add_attr_tab.handles[0], s_handle_recv,
                         s_handle_noti, s_handle_cmd, s_handle_stat);
@@ -341,6 +352,11 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
 
     case ESP_GATTS_DISCONNECT_EVT:
         s_connected = false;
+        /* ⭐⭐ 2026-09-30：订阅状态**随连接失效** ⇒ ⭐ 必须清掉
+         *    ⚠️ 否则重连后、客户端**还没订阅**时，固件会以为"可以发了"
+         *    ⇒ 🔴 又把数据发进虚空（⭐ 这正是本次要修的缺陷）。
+         * ⭐ 清掉 ⇒ 回到**蓄水**态，⭐ 等新对端订阅后再放水。 */
+        s_noti_enabled = false;
         ESP_LOGW(TAG, "BLE DISCONNECTED, reason=0x%02X", param->disconnect.reason);
         /* ⭐ 屏上：蓝牙断开 + 状态字切"断链"
          *    ⚠️ 这正是模式 B 的核心卖点，⭐ 必须让人【看得见】 */
@@ -363,6 +379,27 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
         uint16_t h = param->write.handle;
         uint16_t len = param->write.len;
         const uint8_t *val = param->write.value;
+
+        /* ⭐⭐ 2026-09-30：**先识别 CCCD 写入** —— 这是"对端已就绪"的唯一可靠信号
+         * -----------------------------------------------------------------
+         * 🔴 为什么必须在这里判：⭐ 0xABF2 的 CCCD 写 `0x0001` 才代表
+         *    客户端**真的开了通知**。⚠️ 在此之前任何 notify 都是**发进虚空**
+         *    （⭐ 实测：连上后 700 ms 内环被排空，⚠️ 而 PC 收到 **0 个包**，
+         *      且 `fail=0` ⇒ 🔴 完全看不出来）。
+         * ⭐ 语义：⭐ **蓄水 → （对端订阅）→ 放水** ——
+         *    ⚠️ 触发点是【订阅】，⛔ 不是【连接】。 */
+        if (h == s_handle_noti_cccd && len >= 2) {
+            uint16_t cccd = (uint16_t)(val[0] | (val[1] << 8));
+            s_noti_enabled = (cccd & 0x0001) != 0;
+            ESP_LOGW(TAG, "CCCD 0xABF2 = 0x%04X -> notifications %s",
+                     (unsigned)cccd, s_noti_enabled ? "ENABLED" : "disabled");
+            /* ⚠️ CCCD 写也要回响应（⭐ 它是 Write Request） */
+            if (param->write.need_rsp) {
+                esp_ble_gatts_send_response(gatts_if, param->write.conn_id,
+                                            param->write.trans_id, ESP_GATT_OK, NULL);
+            }
+            break;
+        }
 
         if (h == s_handle_recv || h == s_handle_cmd) {
             s_ble_rx_bytes += len;
@@ -611,9 +648,7 @@ static void task_uart_to_ble(void *arg)
 
     for (;;) {
         int n = uart_read_bytes(BLE_UART_PORT, buf, sizeof(buf), pdMS_TO_TICKS(20));
-        if (n <= 0) {
-            continue;
-        }
+        if (n > 0) {
         s_uart_rx_bytes += n;
 
         /* ⭐⭐ 2026-09-30：起播触发（⭐ SERIAL 模式）就在这里处理。
@@ -639,25 +674,96 @@ static void task_uart_to_ble(void *arg)
         }
 #endif
 
-        if (!s_connected || s_handle_noti == 0) {
-            continue;
-        }
+        /* ⭐⭐ 2026-09-30（A 步）：先【无条件入环】
+         * -----------------------------------------------------------------
+         * 🔴 **入环必须在"是否已连接"判断【之前】** —— 这是本次修复的关键：
+         *    ① ⭐ **尽快把 UART 驱动缓冲搬空**（⭐ 那只有 1026 B，见
+         *       `ble_config.h:117`）⇒ ⚠️ 只要它被及时搬空，
+         *       **就不再因为驱动缓冲溢出而丢字节**（⭐ 那是原来 389 字节的死因）。
+         *    ② ⭐ 环是"收到多少"的**唯一账本**（`u_in`）——
+         *       ⚠️ 若只在已连接时才入环，未连接期间的字节**凭空消失**
+         *          ⇒ 🔴 又变成静默丢，⭐ 那就白做了。
+         *    ③ ⚠️ 未连接期间环会积压 ⇒ ⭐ 满了就丢最旧 + **记账**
+         *       （⭐ `u_drop` 会涨 ⇒ **看得见**，⛔ 不是无声无息）。
+         * 📌 实测（2026-09-30）：环 32 KB 在 PSRAM；⭐ 512 B/次读取
+         *    ⇒ ⭐ 正常情况下**一次 push 就装得下**。
+         * ⚠️ 生产者与消费者是**同一个任务**（⭐ 硬约束：同一个 UART 只能有一个读者）
+         *    ⇒ ⭐ 不引入并发竞争，但环本身仍做了临界区保护（⭐ 以防将来拆分）。 */
+        up_ring_push(buf, (size_t)n);
+        }   /* ⭐ 收尾：`n > 0` 分支到此为止 */
+
+        /* ⭐⭐ 2026-09-30（A 步 · 关键修正）：**放水必须独立于"有没有新数据"**
+         * -----------------------------------------------------------------
+         * 🔴 **踩过的坑**：初版把"从环取出来发 notify"写在 `if (n > 0)` 里面
+         *    ⇒ ⚠️ **只有收到新 UART 字节时才放水**。
+         *    ⭐ 实测症状：蓄水 2000 字节后**接上蓝牙，`u_out` 仍是 0**
+         *      —— 🔴 因为连接建立后**没有新字节进来** ⇒ 循环走不到放水那段 ⇒
+         *      ⚠️ **存下来的东西永远发不出去**。
+         * ⭐ 正解：**放水放在循环体里、与 `n` 无关**（⭐ 见下方），
+         *    这样"连接一建立、环里还有存货"就能立刻开始放。 */
+        if (s_connected && s_handle_noti != 0 && s_noti_enabled) {
+
         /* ⚠️ notify 单包不能超过 MTU-3 */
         size_t maxseg = (s_mtu > 3) ? (size_t)(s_mtu - 3) : 20;
         size_t off = 0;
-        while (off < (size_t)n) {
-            size_t seg = ((size_t)n - off > maxseg) ? maxseg : ((size_t)n - off);
-            esp_err_t err = esp_ble_gatts_send_indicate(
-                ESP_GATT_IF_NONE, s_conn_id, s_handle_noti, seg, buf + off, false);
-            if (err != ESP_OK) {
-                s_ble_tx_failed++;
-                break;
+        /* ⭐ 从环里取（⭐ 而不是直接用 `buf`）—— 这样"发出去的"与"收到的"
+         *    走的是同一条账：`u_in` 入、`u_out` 出。 */
+        size_t pending = (size_t)up_ring_level();
+        while (off < pending) {
+            size_t want = pending - off;
+            uint8_t tmp[512];
+            if (want > sizeof(tmp)) {
+                want = sizeof(tmp);
             }
-            s_ble_tx_bytes += seg;
-            off += seg;
-            vTaskDelay(pdMS_TO_TICKS(BLE_TX_GAP_MS));
-        }
-    }
+            size_t got = up_ring_pop(tmp, want);
+            if (got == 0) {
+                break;                          /* ⭐ 环空了 */
+            }
+            size_t seg_off = 0;
+            while (seg_off < got) {
+                size_t seg = ((got - seg_off > maxseg) ? maxseg : (got - seg_off));
+                esp_err_t err = esp_ble_gatts_send_indicate(
+                    /* 🔴🔴 2026-09-30 修复：这里原来传的是 `ESP_GATT_IF_NONE`（= 0xFF）。
+                     *    ⚠️ 症状：蓝牙**已连接**、`s_handle_noti` 也非 0、字节也确实到了
+                     *      `GPIO18`（`u_rx` 在涨），但 🔴 **上位机一个 notify 都收不到**。
+                     *    ⭐ 日志铁证（ESP-IDF 蓝牙栈自己打的）：
+                     *        E BT_APPL: Unknown connection ID: 255 fail sending notification
+                     *    ⇒ 🔴 `ESP_GATT_IF_NONE` 就是 0xFF ⇒ 被当成 conn_id=255 ⇒ 必然失败。
+                     *    ⭐ 正解：第一个参数要传【GATTS 接口】（`s_gatts_if`，
+                     *      在 `ESP_GATTS_REG_EVT` 里由 `param->reg.gatts_if` 给出，见 L261），
+                     *      ⛔ 不是 `ESP_GATT_IF_NONE`。
+                     *    ⚠️ 注意与 `s_conn_id` 的区别：那是**连接** id，这是**接口** id，两个都要对。
+                     *    📌 同一个错误在 `esp_ble_gatts_send_response` 的调用里【没有】——
+                     *      那两处（L392/L403）用的是正确的 `gatts_if`。 */
+                    s_gatts_if, s_conn_id, s_handle_noti, seg, tmp + seg_off, false);
+                if (err != ESP_OK) {
+                    s_ble_tx_failed++;
+                    break;
+                }
+                s_ble_tx_bytes += seg;
+                seg_off += seg;
+                /* ⭐ 段间隔（⭐ 让蓝牙栈喘口气，⛔ 不要一口气塞满）
+                 * 🔴🔴 2026-09-30 修复：**同类延时陷阱** —— 必须走 `AT_LEAST_1`。
+                 *    · `BLE_TX_GAP_MS = 2`，⚠️ 而 `CONFIG_FREERTOS_HZ = 100`
+                 *      ⇒ `pdMS_TO_TICKS(2)` = `2*100/1000` = 🔴 **0**
+                 *      ⇒ `vTaskDelay(0)` **几乎不让出 CPU** ⇒ 本任务（优先级 8）
+                 *        会贴近忙等 ⇒ ⚠️ 饿死低优先级任务 / 看门狗风险。
+                 *    ⭐ 与 `task_drain` / `task_pool_pump` 那两处**同源**
+                 *      （⭐ 见 `ble_config.h` §9b 与上机实测 `a310700`）。
+                 *    ⚠️ **为什么本轮才修**：这条反向通路**一直没跑通**
+                 *      （⭐ 刚修掉 `gatts_if` 的 bug，见上方注释）⇒
+                 *      🔴 **这个延时从未被真正执行过** ⇒ 缺陷一直潜伏。
+                 *    ⭐ 语义不变（"想等就得让出 CPU"），只是把 <1 tick 抬到 1 tick。 */
+                vTaskDelay(BLE_DELAY_TICKS_AT_LEAST_1(BLE_TX_GAP_MS));
+            }
+            off += got;
+            if (s_ble_tx_failed != 0) {
+                break;                          /* ⚠️ 发失败了，本轮不再硬塞 */
+            }
+        }   /* while (off < pending) */
+    }       /* if (s_connected && s_handle_noti != 0) —— 放水，
+             *   ⭐ 注意它【不在】`if (n > 0)` 里面（⭐ 见上方修正说明） */
+    }       /* for (;;) */
 }
 
 /* ===========================================================================
@@ -708,6 +814,29 @@ static void task_status(void *arg)
                  (unsigned long)s_trig_cnt,            /* ⭐ 识别到的触发字符数 */
                  (unsigned)s_mtu,
                  s_connected ? "CONN" : "----");
+        /* ⭐⭐ 2026-09-30（A 步）：上行环单独一行 —— ⚠️ 上面那行已经很长了
+         * 🔴 为什么必须打这几个数：这是本模块【唯一】的验收手段。
+         *    ⭐ 判读表（⭐ 详见 files/20-代码/上行通路缓冲设计-20260930.md §六）：
+         *      · ⭐ `u_in` = 2000（灌 2000 字节）⇒ ✅ 环生效
+         *        🔴 若 `u_in` 只有 1611 ⇒ ⭐ **缓冲没生效**（⭐ 反向判据）
+         *      · 🔴 `u_drop`/`u_drop_ev` **必须 0/0** ⇒ 非 0 说明环满
+         *      · ⭐ `hwm` 应 ≤ 灌入量 ⇒ ⚠️ 恒 0 说明环【根本没被用上】
+         *      · ⚠️ `level` 稳态应贴近 0 ⇒ 持续增长 = BLE 侧发不动
+         *      · ⚠️ `u_rx - u_in` 若不为 0 ⇒ 🔴 读口逻辑有问题（⭐ 正常恒等） */
+        up_ring_stats_t us;
+        up_ring_stats(&us);
+        ESP_LOGI(TAG,
+                 "u_in=%lu u_out=%lu | ring=%lu/%lu(%s) hwm=%lu | "
+                 "u_drop=%lu/%lu full=%lu | fail=%lu | %s",
+                 (unsigned long)us.in, (unsigned long)us.out,
+                 (unsigned long)us.level, (unsigned long)us.cap,
+                 us.in_psram ? "PSRAM" : "DRAM",
+                 (unsigned long)us.hwm,
+                 (unsigned long)us.drop_ev, (unsigned long)us.drop,
+                 (unsigned long)us.full_hits,
+                 (unsigned long)s_ble_tx_failed,
+                 /* ⭐ 订阅状态：⚠️ 未订阅时【不放水】⇒ 环只涨不发（⭐ 蓄水） */
+                 s_noti_enabled ? "SUB" : "nosub");
 #else
         ESP_LOGI(TAG,
                  "ble_rx=%lu uart_tx=%lu | d_rx=%lu | uart_rx=%lu ble_tx=%lu | "
@@ -834,6 +963,14 @@ void app_main(void)
     xTaskCreate(task_drain,        "drain", 4096, NULL, BLE_TASK_PRIO_DRAIN, NULL);
     xTaskCreate(task_uart_to_ble,  "u2ble", 4096, NULL, BLE_TASK_PRIO_UART_RX, NULL);
     xTaskCreate(task_status,       "stat",  3072, NULL, BLE_TASK_PRIO_STATUS, NULL);
+
+    /* ⭐⭐ 2026-09-30（A 步）：上行环形缓冲初始化
+     * 🔴 为什么需要它：反向通路原来**无缓冲** ⇒ 实测灌 2000 字节只收到 1611
+     *    （🔴 丢 389 且**无任何报错**）。
+     * ⚠️ 分配失败**不 abort** —— ⭐ 退化为原来的"直通 + 慢"行为，
+     *    ⭐ 但那时 `u_in` 会停在 0、`u_drop` 也不动 ⇒ ⚠️ 一眼能看出没生效。
+     * ⭐ 必须在 `task_uart_to_ble` 启动**之前**初始化（⭐ 否则会 push 到空环）。 */
+    up_ring_init();
 
 #if BLE_MODE == BLE_MODE_B_POOL
     pool_reset();

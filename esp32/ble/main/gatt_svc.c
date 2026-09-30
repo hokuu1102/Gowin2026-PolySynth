@@ -178,6 +178,11 @@ int gatt_idx_noti(void)  { return IDX_CHAR_NOTI_VAL; }
 int gatt_idx_cmd(void)   { return IDX_CHAR_CMD_VAL;  }
 int gatt_idx_stat(void)  { return IDX_CHAR_STAT_VAL; }
 
+/* ⭐⭐ 2026-09-30：CCCD（通知使能）句柄索引 —— ⭐ ble_main.c 用它判断
+ * "对端到底订阅了没有"（🔴 那是能否发 notify 的**真正前提**，⛔ 不是"已连接"）。 */
+int gatt_idx_noti_cccd(void) { return IDX_CHAR_NOTI_CFG; }
+int gatt_idx_stat_cccd(void) { return IDX_CHAR_STAT_CFG; }
+
 void gatt_log_layout(int svc, int recv, int noti, int cmd, int stat)
 {
     ESP_LOGI(TAG, "attr table created OK");
