@@ -1,4 +1,4 @@
 ﻿PASS: wavetable_bank emits the selected CC0 AKWF four-timbre set
-C:\Users\hokuu\Desktop\FPGA\FPGA2026-noise\tb\w3b\tb_akwf_wavetables.sv:69: $finish called at 380000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_akwf_wavetables.sv:69: $finish called at 380000 (1ps)
 
 

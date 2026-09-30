@@ -300,59 +300,144 @@ module looper #(
     //         `[|diff|/ticks_left, 2|diff|/ticks_left]` ⇒ ⭐ **最迟也在跨度内到达** ✅
     //      📌 极端情形也自洽：⭐ `ticks_left = 1` ⇒ `f = 0` ⇒ ⭐ 步长 = 整段差
     //         ⇒ **最后一拍一步到位**（⭐ 绝不"到不了"）✅
-    function integer flog2;
+    //  ⭐⭐ 2026-09-30：⭐ **改成"先分段、段内二分"**（⭐ 与原 `for` 循环**逐值等价**）
+    //   🔴 **为什么改**：⭐ 原来的 `for` 循环（⭐ `if (v >= (1<<k)) flog2 = k`）
+    //      被综合成 **`TICK_W`(20) 级串联的优先链** ⇒ ⭐ 它就是关键路径里
+    //      那串 `u_looper/n232_s4x` 节点（⭐ 见 `impl/pnr/Gowin2026.timing_paths`）✅
+    //   ⭐ 新结构：⭐ 5 个 4 bit 段 OR **并行**求"最高非零段"，⭐ 再在段内二分最高位
+    //      ⇒ ⭐ 深度 ≈ 6 级（⭐ 结果**逐值相同**：⭐ `v=0 ⇒ 0`）✅
+    //   ⚠️ 下标按 `TICK_W = 20` 写死（⭐ 本工程 `top.v` 与 `tb_looper` 都用默认 20；
+    //      ⭐ 与上方 `PARAM_OK` 自检同一条纪律 —— ⭐ 改 `TICK_W` 必须同步改这里）✅
+    function [4:0] flog2;
         input [TICK_W-1:0] v;
-        integer k;
+        reg s4, s3, s2, s1, s0;
+        reg [1:0] e4, e3, e2, e1, e0;
         begin
-            flog2 = 0;
-            for (k = 0; k < TICK_W; k = k + 1)
-                if (v >= (1 << k)) flog2 = k;
+            s4 = |v[19:16]; s3 = |v[15:12]; s2 = |v[11:8];
+            s1 = |v[7:4];   s0 = |v[3:0];
+            e4 = v[19] ? 2'd3 : v[18] ? 2'd2 : v[17] ? 2'd1 : 2'd0;
+            e3 = v[15] ? 2'd3 : v[14] ? 2'd2 : v[13] ? 2'd1 : 2'd0;
+            e2 = v[11] ? 2'd3 : v[10] ? 2'd2 : v[9]  ? 2'd1 : 2'd0;
+            e1 = v[7]  ? 2'd3 : v[6]  ? 2'd2 : v[5]  ? 2'd1 : 2'd0;
+            e0 = v[3]  ? 2'd3 : v[2]  ? 2'd2 : v[1]  ? 2'd1 : 2'd0;
+            flog2 = (s4 ? 5'd16 : s3 ? 5'd12 : s2 ? 5'd8 : s1 ? 5'd4 : 5'd0)
+                  + {3'd0, (s4 ? e4 : s3 ? e3 : s2 ? e2 : s1 ? e1 : e0)};
         end
     endfunction
 
-    //  ── ⭐ 引擎当前轴的"下一步值"（⭐ 组合；⭐ 到终点【吸附】⛔ 不冲过）──────────
+    // ══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-09-30：⭐ **插值步长引擎改为【三级流水】**（⭐ 收敛时序）
+    //
+    //  🔴 **问题（⭐ PnR 实测原文，⛔ 不是推测）** ——
+    //     `impl/pnr/Gowin2026_tr_content.html`（⭐ 同一份也抄进
+    //     `sim/evidence/gowin_m0_timing.txt`）报：
+    //       · `Numbers of Setup Violated Endpoints | 1702`
+    //       · `Actual Fmax = 43.659 MHz`（⭐ 约束 50 MHz）、`Logic Level = 38`
+    //       · 最差路径（⭐ `Path Slacks Table` 第 1 行原文）：
+    //           `From g_sound.u_looper/ramp_sc_0_s1/Q
+    //            To   g_sound.u_looper/play_upd_inc_o_27_s0/D
+    //            Path Slack -2.905  Data Delay 22.852`
+    //     ⇒ ⭐ **38 级组合逻辑**（⭐ 历史最好 12 级 ⇒ `55.349 MHz`，⭐ 见
+    //        `git show 7863b40:sim/evidence/gowin_m0_timing.txt`）✅
+    //
+    //  ⭐ **根因**：⭐ 整条链挤在**一拍**里 ——
+    //     `取操作数 → f = flog2(left) → 2^f → +2^f-1 → >>f → max(1)
+    //      → ± step → 与终点比较 → 吸附`
+    //     ⭐ 其中 `flog2` 是 20 级串联优先链，⭐ 另有**两个变长移位器** ✅
+    //
+    //  ⭐ **修法**：⭐ 在三个天然断点插寄存器 ⇒ ⭐ 组合深度各约 1/3：
+    //     · ⭐ 阶段 A：⭐ 取操作数 + `left` + `f` + `2^f` + `|diff|` + 方向
+    //     · ⭐ 阶段 B：⭐ `+2^f-1` → `>>f` → `max(1)`  ⇒ `sinc` / `svel`
+    //     · ⭐ 阶段 C：⭐ `cur ± step` → 与终点比较 → **吸附** → 输出 + 写回
+    //
+    //  ⭐ **每级 ns 预算（⭐ 50 MHz ⇒ 20 ns/拍）**：
+    //     ⭐ `impl/pnr/Gowin2026.timing_paths` 的节点到达时间把原路径切成
+    //        `3.571→9.800`（**6.2 ns**：⭐ 取数 + `flog2` + `2^f`）
+    //        `9.800→17.416`（**7.6 ns**：⭐ 变长右移 + `max(1)`）
+    //        `17.416→22.838`（**5.4 ns**：⭐ 加减 + 与终点比较 + 吸附）
+    //     ⇒ ⭐ 每级再加 `Tco+时钟网 ≈ 3.6 ns` 与 `布线+建立 ≈ 3.6 ns`
+    //        ⇒ ⭐ `13.4 / 14.8 / 12.6 ns` ⇒ ⭐ **三级都进 20 ns** ✅
+    //     📌 不拆时 `6.2+7.6+5.4 = 19.2 ns` 逻辑 + `3.6+3.6` 固定开销
+    //        = `26.4 ns` ⇒ ⭐ 正是实测 `22.852 ns` 的量级 ✅
+    //
+    //  ⭐ **吞吐【不变】**（⭐ 关键）：⭐ 阶段 A **每拍推进一个轴**
+    //     （⭐ `ramp_sc` 每拍 +1）⇒ ⭐ 仍 **16 拍扫完 16 轴**，
+    //     ⭐ 与原实现**逐拍相同** ⇒ ⭐ 插值更新频率**不变** ✅
+    //     （⭐ 所以 `tb_looper` 的 `upd_n` / `distinct` 判据不受影响）
+    //  ⭐ **行为【不变】**：
+    //     · ⭐ 阶段 A 读的操作数与**原实现同一拍**读的是同一批寄存器值 ✅
+    //     · ⭐ 写回晚 2 拍 ⇒ ⚠️ 必须挡掉"这 2 拍里事件装载分支写过同一个轴"
+    //       ⇒ ⭐ `pa_hit` / `pb_hit`（⭐ 原实现靠"事件分支在 `always` 里更靠后"
+    //          取胜；⭐ 现在跨拍了，⭐ 必须显式挡）✅
+    //     · ⭐ `play_upd_*` 晚 2 拍 ⇒ ⭐ 仍在**同一个 tick 内**
+    //       （⭐ tick ≥ 12 拍，⭐ 硬件上 ~26000 拍）✅
+    // ══════════════════════════════════════════════════════════════════════
+
+    //  ── ⭐ 阶段 A（组合）：⭐ 取操作数 + `f` + `2^f` ────────────────────────────
     wire [PHASE_W-1:0] ramp_inc_c = ramp_inc[ramp_sc];
     wire [VEL_W-1:0]   ramp_vel_c = ramp_vel[ramp_sc];
     wire [PHASE_W-1:0] rtgt_inc_c = rtgt_inc[ramp_sc];
     wire [VEL_W-1:0]   rtgt_vel_c = rtgt_vel[ramp_sc];
-    //  ⭐ 还剩几个 tick 走到终点（⭐ `0` ⇒ 本拍就收工，⭐ 见引擎的吸附分支）
-    wire [TICK_W-1:0]  ramp_left  = (rend_tick[ramp_sc] > play_tick_r)
-                                  ? (rend_tick[ramp_sc] - play_tick_r)
+    wire [TICK_W-1:0]  rend_tick_c= rend_tick[ramp_sc];
+    //  ⭐ 还剩几个 tick 走到终点（⭐ `0` ⇒ 本拍就收工，⭐ 见阶段 C 的吸附分支）
+    wire [TICK_W-1:0]  ramp_left  = (rend_tick_c > play_tick_r)
+                                  ? (rend_tick_c - play_tick_r)
                                   : {TICK_W{1'b0}};
+    wire [4:0]         ramp_f     = flog2(ramp_left);       // ⭐ f = floor(log2(left))
+    wire [TICK_W-1:0]  ramp_pw    = {{(TICK_W-5){1'b0}}, 5'd1} << ramp_f;   // ⭐ 2^f
     //  ⭐ 差值（⭐ 用【幅度】而不是有符号数 ⇒ ⭐ 加减方向由"谁大"决定，⛔ 不碰符号位 ✅）
-    wire [PHASE_W-1:0] ramp_dinc  = (rtgt_inc_c > ramp_inc_c) ? (rtgt_inc_c - ramp_inc_c)
-                                                             : (ramp_inc_c - rtgt_inc_c);
-    wire [VEL_W-1:0]   ramp_dvel  = (rtgt_vel_c > ramp_vel_c) ? (rtgt_vel_c - ramp_vel_c)
-                                                             : (ramp_vel_c - rtgt_vel_c);
-    //  ⭐ `ceil(|diff| / 2^f)`，⭐ 且 `|diff| != 0` 时**至少走 1 格**
+    wire               ramp_up    = (rtgt_inc_c > ramp_inc_c);
+    wire               ramp_dn    = (rtgt_inc_c < ramp_inc_c);
+    wire [PHASE_W:0]   ramp_dinc  = ramp_up ? ({1'b0, rtgt_inc_c} - {1'b0, ramp_inc_c})
+                                            : ({1'b0, ramp_inc_c} - {1'b0, rtgt_inc_c});
+    wire               vel_up     = (rtgt_vel_c > ramp_vel_c);
+    wire               vel_dn     = (rtgt_vel_c < ramp_vel_c);
+    wire [VEL_W:0]     ramp_dvel  = vel_up ? ({1'b0, rtgt_vel_c} - {1'b0, ramp_vel_c})
+                                           : ({1'b0, ramp_vel_c} - {1'b0, rtgt_vel_c});
+    //  ⭐ 本轴该不该吐（⭐ 用**本拍**的 `ramp_mask`，⭐ 与原实现一致）
+    wire               ramp_msk_c = ramp_mask[ramp_sc];
+    //  ⭐ 走到终点 tick ⇒ ⭐ 本轮收工（⭐ 用**本拍**的 `play_tick_r` / `rend_tick`）
+    wire               ramp_snap_c= (play_tick_r >= rend_tick_c);
+
+    //  ── ⭐ 流水线寄存器（⭐ 后缀 `a` = 阶段 A→B、`b` = 阶段 B→C）──────────────
+    reg [3:0]         pa_ax;
+    reg [PHASE_W-1:0] pa_inc, pa_tgt;
+    reg [VEL_W-1:0]   pa_vel, pa_tv;
+    reg [PHASE_W:0]   pa_dinc;
+    reg [VEL_W:0]     pa_dvel;
+    reg [TICK_W-1:0]  pa_pw;
+    reg [4:0]         pa_f;
+    reg               pa_up, pa_dn, pa_vup, pa_dvn;
+    reg               pa_msk, pa_snap, pa_hit, pa_last, pa_v;
+    reg [3:0]         pb_ax;
+    reg [PHASE_W-1:0] pb_inc, pb_tgt, pb_sinc;
+    reg [VEL_W-1:0]   pb_vel, pb_tv, pb_svel;
+    reg               pb_up, pb_dn, pb_vup, pb_dvn;
+    reg               pb_msk, pb_snap, pb_hit, pb_last, pb_v;
+
+    //  ── ⭐ 阶段 B（组合）：⭐ `ceil(|diff| / 2^f)`，⭐ `|diff| != 0` 时至少走 1 格 ──
     //     ⚠️ 中间量多一位（`+2^f-1` 可能进位）⇒ ⭐ `PHASE_W+1` / `VEL_W+1` ✅
-    wire [PHASE_W:0]   ramp_qinc  = ({1'b0, ramp_dinc}
-                                     + ((1 << flog2(ramp_left)) - 1)) >> flog2(ramp_left);
-    wire [VEL_W:0]     ramp_qvel  = ({1'b0, ramp_dvel}
-                                     + ((1 << flog2(ramp_left)) - 1)) >> flog2(ramp_left);
-    wire [PHASE_W-1:0] ramp_sinc  = (ramp_dinc == {PHASE_W{1'b0}}) ? {PHASE_W{1'b0}}
-                                  : ((ramp_qinc[PHASE_W-1:0] == {PHASE_W{1'b0}})
-                                        ? {{(PHASE_W-1){1'b0}}, 1'b1} : ramp_qinc[PHASE_W-1:0]);
-    wire [VEL_W-1:0]   ramp_svel  = (ramp_dvel == {VEL_W{1'b0}}) ? {VEL_W{1'b0}}
-                                  : ((ramp_qvel[VEL_W-1:0] == {VEL_W{1'b0}})
-                                        ? {{(VEL_W-1){1'b0}}, 1'b1} : ramp_qvel[VEL_W-1:0]);
-    //  ⚠️ `step <= |diff|` ⇒ ⭐ `cur ± step` **不会越过终点、也不会溢出**（⭐ 无符号安全 ✅）
-    wire [PHASE_W-1:0] inc_nxt_w =
-          (rtgt_inc_c > ramp_inc_c)
-              ? ((ramp_inc_c + ramp_sinc >= rtgt_inc_c)
-                     ? rtgt_inc_c : (ramp_inc_c + ramp_sinc))
-        : (rtgt_inc_c < ramp_inc_c)
-              ? ((ramp_inc_c - ramp_sinc <= rtgt_inc_c)
-                     ? rtgt_inc_c : (ramp_inc_c - ramp_sinc))
-        : ramp_inc_c;
-    wire [VEL_W-1:0]   vel_nxt_w =
-          (rtgt_vel_c > ramp_vel_c)
-              ? ((ramp_vel_c + ramp_svel >= rtgt_vel_c)
-                     ? rtgt_vel_c : (ramp_vel_c + ramp_svel))
-        : (rtgt_vel_c < ramp_vel_c)
-              ? ((ramp_vel_c - ramp_svel <= rtgt_vel_c)
-                     ? rtgt_vel_c : (ramp_vel_c - ramp_svel))
-        : ramp_vel_c;
+    wire [PHASE_W:0]   pb_qinc  = (pa_dinc + pa_pw - 1'b1) >> pa_f;
+    wire [VEL_W:0]     pb_qvel  = (pa_dvel + pa_pw - 1'b1) >> pa_f;
+    wire [PHASE_W-1:0] pb_sinc_w = (pa_dinc[PHASE_W-1:0] == {PHASE_W{1'b0}})
+                                 ? {PHASE_W{1'b0}}
+                                 : ((pb_qinc[PHASE_W-1:0] == {PHASE_W{1'b0}})
+                                       ? {{(PHASE_W-1){1'b0}}, 1'b1} : pb_qinc[PHASE_W-1:0]);
+    wire [VEL_W-1:0]   pb_svel_w = (pa_dvel[VEL_W-1:0] == {VEL_W{1'b0}})
+                                 ? {VEL_W{1'b0}}
+                                 : ((pb_qvel[VEL_W-1:0] == {VEL_W{1'b0}})
+                                       ? {{(VEL_W-1){1'b0}}, 1'b1} : pb_qvel[VEL_W-1:0]);
+
+    //  ── ⭐ 阶段 C（组合）：⭐ `cur ± step` ⇒ 到终点【吸附】⛔ 不冲过 ─────────────
+    //     ⚠️ `step <= |diff|` ⇒ ⭐ `cur ± step` **不会越过终点、也不会溢出**（⭐ 无符号安全 ✅）
+    wire [PHASE_W-1:0] pc_inc_w =
+          pb_up ? ((pb_inc + pb_sinc >= pb_tgt) ? pb_tgt : (pb_inc + pb_sinc))
+        : pb_dn ? ((pb_inc - pb_sinc <= pb_tgt) ? pb_tgt : (pb_inc - pb_sinc))
+        :         pb_inc;
+    wire [VEL_W-1:0]   pc_vel_w =
+          pb_vup ? ((pb_vel + pb_svel >= pb_tv) ? pb_tv : (pb_vel + pb_svel))
+        : pb_dvn ? ((pb_vel - pb_svel <= pb_tv) ? pb_tv : (pb_vel - pb_svel))
+        :          pb_vel;
 
     // ⭐ 事件类型编码（⭐ 与 `note_manager.note_kind_i` 一致）
     //   ⚠️ **已在文件上方（`close_scan_r` 之后）声明** —— ⭐ 那里是 `rec_inc_w` 的需要 ✅
@@ -512,6 +597,29 @@ module looper #(
                                     ? {TICK_W{1'b0}} : (play_tick_r + 1'b1);
     wire wrap_now = (play_tick_r + 1'b1 >= loop_len_r);
 
+    // ══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-09-30：⭐ **插值流水线的【写回挡板】与【推进条件】**
+    //
+    //  🔴 **为什么需要 `evt_*_hit`**：
+    //     原实现里"事件装载分支"（⭐ `if (e_ready)` 那一支，⭐ 在 `always` 里
+    //     **更靠后**）与插值引擎**同拍**写 `ramp_inc` / `ramp_vel` / `ramp_mask`
+    //     ⇒ ⭐ 同一个轴时**事件分支赢**（⭐ 后写覆盖先写）✅
+    //     ⚠️ 现在写回晚了 **2 拍** ⇒ 🔴 若不挡，插值引擎会把事件刚装载的
+    //     **起点值**覆盖成"按旧终点算出来的值" ⇒ ⭐ **起点丢失**（⭐ 静默错数据）✅
+    //     ⇒ ⭐ 用 `pa_hit` / `pb_hit` 把"这 2 拍里被事件装载过的轴"记下来 ✅
+    //     📌 写回**那一拍**不需要挡：⭐ 事件分支仍在 `always` 里更靠后 ⇒ 它照样赢 ✅
+    //
+    //  🔴 **为什么 `eng_en_w` 要带 `~pa_last & ~pb_last`**：
+    //     ⭐ 轴 15 进流水线后要**停扫 2 拍**（⭐ 让 15 走完 B/C 两级收尾）
+    //     ⇒ ⭐ 每轮**恰好扫 0..15**（⭐ 与原实现"扫到 `4'hF` 就停"一致）✅
+    //     ⚠️ 否则会多扫 1~2 个轴（⭐ 轴号已回绕到 0/1）⇒ ⭐ 相位漂移 ✅
+    // ══════════════════════════════════════════════════════════════════════
+    wire evt_wr_w   = playing && e_ready;      // ⭐ 本拍事件装载分支**会写** ramp_inc/vel/mask
+    wire evt_hitA_w = evt_wr_w && (e_axis == ramp_sc);   // ⭐ 命中"阶段 A 这一拍"的轴
+    wire evt_hitB_w = evt_wr_w && (e_axis == pa_ax);     // ⭐ 命中"阶段 B 这一拍"的轴
+    //  ⭐ 阶段 A 的推进条件（⭐ `playing` 已由外层分支保证，⭐ 这里再写一次便于阅读）
+    wire eng_en_w   = playing && ramp_go && ~live_busy && ~pa_last && ~pb_last;
+
     //  ⭐ 停录时还有哪些轴**没收到 `note_off`**（⭐ 从 `live_*` 维护）
     integer ai;
     always @(posedge clk_i or negedge rst_n_i) begin
@@ -559,6 +667,12 @@ module looper #(
             ramp_mask    <= 16'd0;
             ramp_sc      <= 4'd0;
             ramp_go      <= 1'b0;
+            //  ⭐⭐ 2026-09-30：⭐ 插值流水线的**有效位 / 挡板位**一起复位
+            //     ⚠️ 只复位这 6 个就够 —— ⭐ 其余流水寄存器被 `pa_v`/`pb_v` 挡着，
+            //        ⭐ 复位后 `pb_v = 0` ⇒ ⛔ 不会把 `x` 传到 `ramp_inc` / 输出 ✅
+            pa_v    <= 1'b0;  pb_v    <= 1'b0;
+            pa_hit  <= 1'b0;  pb_hit  <= 1'b0;
+            pa_last <= 1'b0;  pb_last <= 1'b0;
             on_open_r    <= 16'd0;
             for (ai = 0; ai < 16; ai = ai + 1) begin
                 last_inc_r[ai] <= {PHASE_W{1'b0}};
@@ -600,25 +714,71 @@ module looper #(
                 ramp_mask <= 16'd0;
                 ramp_go   <= 1'b0;
                 ramp_sc   <= 4'd0;
-            end else if (ramp_go && ~live_busy) begin
-                if (ramp_mask[ramp_sc]) begin
-                    //  ⭐ 吐**本拍的新值**（⭐ 寄存器与输出同拍 ⇒ ⭐ 下游看到的就是本模块状态 ✅）
-                    play_upd_valid_o  <= 1'b1;
-                    play_upd_axis_o   <= ramp_sc;
-                    play_upd_inc_o    <= inc_nxt_w;
-                    play_upd_vel_o    <= vel_nxt_w;
-                    ramp_inc[ramp_sc] <= inc_nxt_w;
-                    ramp_vel[ramp_sc] <= vel_nxt_w;
-                    //  ⭐ 走到终点 tick ⇒ ⭐ 本轮插值收工
-                    //     （⚠️ 另有兜底：⭐ 回放到该轴的 `note_off` 时**无条件清零** ✅）
-                    if (play_tick_r >= rend_tick[ramp_sc])
-                        ramp_mask[ramp_sc] <= 1'b0;
+                //  ⭐ 流水线一起清（⭐ 与"不留残余"同一条纪律；⭐ 复位分支同式）✅
+                pa_v <= 1'b0;  pb_v <= 1'b0;
+                pa_hit <= 1'b0; pb_hit <= 1'b0;
+                pa_last <= 1'b0; pb_last <= 1'b0;
+            end else begin
+                // ── ⭐⭐ 阶段 C：⭐ 收尾（⭐ 写回 + 输出 + 收工判定）───────────────
+                //   ⚠️ 写回晚 2 拍 ⇒ ⭐ 用 `pb_*`（⭐ 见文件上方三级的说明）✅
+                if (pb_v) begin
+                    //  ⚠️ `pb_hit` ⇒ 本轴在这 2 拍里被事件装载分支重新写过
+                    //     ⇒ ⭐ 写回让位（⭐ 与原实现"事件分支优先"逐位等价）✅
+                    //  ⚠️ `pb_msk` ⇒ 原实现**整段都在 `if (ramp_mask[ramp_sc])` 里**
+                    //     ⇒ ⭐ 本轴没在插值时**既不写回、也不清掩码**（⭐ 必须照抄，
+                    //        ⛔ 否则"掩码已清的轴"会被引擎继续往旧终点推 ⇒ **静默漂移**）✅
+                    if (!pb_hit && pb_msk) begin
+                        ramp_inc[pb_ax] <= pc_inc_w;
+                        ramp_vel[pb_ax] <= pc_vel_w;
+                        //  ⭐ 走到终点 tick ⇒ ⭐ 本轮插值收工
+                        //     （⚠️ 另有兜底：⭐ 回放到该轴的 `note_off` 时**无条件清零** ✅）
+                        if (pb_snap)
+                            ramp_mask[pb_ax] <= 1'b0;
+                    end
+                    //  ⭐ 吐**本拍的新值**（⭐ 寄存器与输出同拍 ⇒ 下游看到的就是本模块状态 ✅）
+                    //     ⚠️ 输出**不受 `pb_hit` 影响** —— ⭐ 原实现里事件分支不碰 `play_upd_*` ✅
+                    play_upd_valid_o <= pb_msk;
+                    play_upd_axis_o  <= pb_ax;
+                    play_upd_inc_o   <= pc_inc_w;
+                    play_upd_vel_o   <= pc_vel_w;
+                    //  ⭐ 轴 15 收尾 ⇒ ⭐ 本轮扫完：⭐ 指针归零 + 停扫
+                    //     （⭐ 与原实现"扫到 `4'hF` 就 `ramp_sc <= 0; ramp_go <= 0`"同义）✅
+                    if (pb_last) begin
+                        ramp_sc <= 4'd0;
+                        ramp_go <= 1'b0;
+                    end
                 end
-                if (ramp_sc == 4'hF) begin
-                    ramp_sc <= 4'd0;
-                    ramp_go <= 1'b0;
-                end else begin
+
+                // ── ⭐⭐ 阶段 B：⭐ `+2^f-1` / `>>f` / `max(1)`（⭐ 每拍无条件推进）──
+                pb_ax   <= pa_ax;    pb_inc  <= pa_inc;   pb_tgt  <= pa_tgt;
+                pb_vel  <= pa_vel;   pb_tv   <= pa_tv;
+                pb_up   <= pa_up;    pb_dn   <= pa_dn;
+                pb_vup  <= pa_vup;   pb_dvn  <= pa_dvn;
+                pb_sinc <= pb_sinc_w; pb_svel <= pb_svel_w;
+                pb_msk  <= pa_msk;   pb_snap <= pa_snap;
+                //  ⭐ 累积"这 2 拍里事件分支命中过本轴"（⭐ 写回挡板）✅
+                pb_hit  <= pa_hit | evt_hitB_w;
+                pb_last <= pa_last;  pb_v    <= pa_v;
+
+                // ── ⭐⭐ 阶段 A：⭐ 取操作数 + `f` / `2^f`（⭐ 每拍推进一个轴）────
+                if (eng_en_w) begin
+                    pa_ax   <= ramp_sc;
+                    pa_inc  <= ramp_inc_c;  pa_tgt  <= rtgt_inc_c;
+                    pa_vel  <= ramp_vel_c;  pa_tv   <= rtgt_vel_c;
+                    pa_dinc <= ramp_dinc;   pa_dvel <= ramp_dvel;
+                    pa_pw   <= ramp_pw;     pa_f    <= ramp_f;
+                    pa_up   <= ramp_up;     pa_dn   <= ramp_dn;
+                    pa_vup  <= vel_up;      pa_dvn  <= vel_dn;
+                    pa_msk  <= ramp_msk_c;  pa_snap <= ramp_snap_c;
+                    pa_hit  <= evt_hitA_w;
+                    pa_last <= (ramp_sc == 4'hF);
+                    pa_v    <= 1'b1;
+                    //  ⭐ 每拍推进一个轴 ⇒ ⭐ 仍 16 拍扫完 16 轴（⭐ 吞吐不变）✅
                     ramp_sc <= ramp_sc + 4'd1;
+                end else begin
+                    pa_v    <= 1'b0;
+                    pa_hit  <= 1'b0;
+                    pa_last <= 1'b0;
                 end
             end
 

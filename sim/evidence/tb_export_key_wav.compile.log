@@ -21,9 +21,9 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_export_key_wav.sv:45: warning: In
 angling input port 7 (ch_mask_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_export_key_wav.sv:45: warning: Instantiating module mcp3208_model with d
 angling input port 8 (ch_val_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1543: warning: Port 5 (ch_i) of module pos_probe expects 4 bit(s), given
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1635: warning: Port 5 (ch_i) of module pos_probe expects 4 bit(s), given
  3.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1543:        : Padding 1 high bits of the port.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1635:        : Padding 1 high bits of the port.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:496: warning: @* is sensitive to all 16 words in array 
 'pc_l1'.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_export_key_wav.sv:62: warning: Instantiating module top with dangling in
