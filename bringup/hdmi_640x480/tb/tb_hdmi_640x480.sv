@@ -57,8 +57,8 @@ module tb_hdmi_640x480;
         begin
             case ({v,h})
                 2'b00: token=10'b1101010100;
-                2'b01: token=10'b0101010100;
-                2'b10: token=10'b0010101011;
+                2'b01: token=10'b0010101011;
+                2'b10: token=10'b0101010100;
                 2'b11: token=10'b1010101011;
             endcase
         end

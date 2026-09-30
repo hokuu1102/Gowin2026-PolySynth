@@ -36,8 +36,8 @@ module tmds_encoder (
         if (!de) begin
             case ({c1,c0})
                 2'b00: next_symbol = 10'b1101010100;
-                2'b01: next_symbol = 10'b0101010100;
-                2'b10: next_symbol = 10'b0010101011;
+                2'b01: next_symbol = 10'b0010101011;
+                2'b10: next_symbol = 10'b0101010100;
                 2'b11: next_symbol = 10'b1010101011;
             endcase
         end else if ((disparity == 0) || (ones_qm == 4)) begin

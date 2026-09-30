@@ -64,3 +64,6 @@ led_hb drives the Console CFG_LED green channel (SYS_ACT, ball V13) - the same b
 - **dark**: not configured, or no 50 MHz input clock
 
 This exists because the first on-board attempt produced a completely black screen, which cannot distinguish "not programmed", "programmed but PLL unlocked", and "PLL locked but TMDS or display problem".
+### Control-token correction (2026-09-30)
+
+The TMDS control codes for `(c0,c1) = (1,0)` and `(0,1)` were **swapped** in `rtl/tmds_encoder.v`, and the same wrong table had been copied into the testbench `token()` reference and into `tb/tmds_decoder.sv`. Encode/decode round-trips therefore passed while the emitted control codes were wrong - which is why the board showed a live ~1 Hz heartbeat and a locked PLL but a completely black screen. All three tables are now corrected against `nand2mario/tangcore` `src/hdmi2/tmds_channel.sv` (hdl-util/HDMI), an implementation that runs on this exact board. Mutation `TOKEN_CTL10` now re-injects that exact historical bug. Electrical configuration was returned to the combination proven on-board by the official-IP control builds (TLVDS_OBUF + pair syntax -> LVDS25); the ELVDS_OBUF + pair-syntax attempt was measured black, matching a third-party report that ELVDS plus the pair syntax on TRUELVDS-capable pins configures true differential, which is invalid at 3.3 V.

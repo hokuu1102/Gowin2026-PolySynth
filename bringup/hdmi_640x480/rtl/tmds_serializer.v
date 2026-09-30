@@ -1,10 +1,4 @@
 // Gowin primitive boundary: bit zero is transmitted first.
-//
-// Output buffers are ELVDS_OBUF (emulated 3.3 V differential), which pairs with
-// IO_TYPE=LVCMOS33D in the constraint - the combination nand2mario/tangcore
-// uses on Tang Console. TLVDS_OBUF would force LVDS25 (1.2 V common mode),
-// which does not match a TMDS sink terminated into 50 ohm to 3.3 V.
-// OSER10's Q must drive an I/O buffer directly (CK0021: it cannot drive a LUT).
 module tmds_serializer (
     input wire pixel_clk,
     input wire serial_clk,
@@ -33,8 +27,8 @@ module tmds_serializer (
             .PCLK(pixel_clk), .FCLK(serial_clk), .RESET(rst)
         );
         if (j < 3) begin : data_pair
-            ELVDS_OBUF u_diff (.I(serial[j]), .O(tmds_d_p_0[j]), .OB(tmds_d_n_0[j]));
+            TLVDS_OBUF u_diff (.I(serial[j]), .O(tmds_d_p_0[j]), .OB(tmds_d_n_0[j]));
         end
     end endgenerate
-    ELVDS_OBUF u_clock_pair (.I(serial[3]), .O(tmds_clk_p_0), .OB(tmds_clk_n_0));
+    TLVDS_OBUF u_clock_pair (.I(serial[3]), .O(tmds_clk_p_0), .OB(tmds_clk_n_0));
 endmodule

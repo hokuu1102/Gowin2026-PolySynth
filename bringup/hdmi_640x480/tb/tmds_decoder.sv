@@ -13,8 +13,8 @@ module tmds_decoder (
         de = 0; c0 = 0; c1 = 0; data = 0; valid = 1;
         case (symbol)
             10'b1101010100: begin c0=0; c1=0; end
-            10'b0010101011: begin c0=0; c1=1; end
-            10'b0101010100: begin c0=1; c1=0; end
+            10'b0010101011: begin c0=1; c1=0; end
+            10'b0101010100: begin c0=0; c1=1; end
             10'b1010101011: begin c0=1; c1=1; end
             default: begin
                 de = 1;

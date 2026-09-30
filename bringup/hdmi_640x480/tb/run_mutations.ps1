@@ -7,7 +7,7 @@ $cases = @(
     @('H_TOTAL_799', 'rtl/video_timing.v', 'parameter integer H_TOTAL = H_ACTIVE + H_FP + H_SYNC + H_BP,', 'parameter integer H_TOTAL = 799,'),
     @('COLOR_SWAP', 'rtl/color_bars.v', '24''hffffff', '24''hffff00'),
     @('HSYNC_INVERT', 'rtl/video_timing.v', 'assign hsync = !(', 'assign hsync = ('),
-    @('TOKEN_CTL10', 'rtl/tmds_encoder.v', '2''b10: next_symbol = 10''b0010101011;', '2''b10: next_symbol = 10''b0101010100;'),
+    @('TOKEN_CTL10', 'rtl/tmds_encoder.v', '2''b10: next_symbol = 10''b0101010100;', '2''b10: next_symbol = 10''b0010101011;'),
     @('TOKEN_CTL00', 'rtl/tmds_encoder.v', '2''b00: next_symbol = 10''b1101010100;', '2''b00: next_symbol = 10''b1010101011;'),
     @('DISPARITY_ZERO', 'rtl/tmds_encoder.v', 'disparity <= next_disparity;', 'disparity <= 6''sd0;')
 )
