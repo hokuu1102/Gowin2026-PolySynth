@@ -1,7 +1,17 @@
 `timescale 1ns/1ps
 // ─────────────────────────────────────────────────────────────────────────────
-// evt_merge.v · 事件合流（手弹/曲谱 + 节拍器/鼓机 → note_manager 的唯一事件口）
+// evt_merge.v · 事件合流（手弹/曲谱/演示 + 节拍器/鼓机 + looper → note_manager 的唯一事件口）
 //   —— W3c（`T36` / `U-6`）
+//
+// ── ⭐⭐ 2026-09-30：⭐ **第三个输入 C = looper 回放**（⭐ 用户需求）──────────────
+//   🔴 **为什么加**：⭐ 原来 `top.v` 让 looper 与曲谱 UART **编译期二选一**
+//      （⭐ 共用 `seq_arb` 的 `score` 口）⇒ 🔴 **两者不能同时出声**。
+//      用户要求**两个都要** ⇒ ⭐ 必须给 looper 一条**自己的**通路。
+//   ⭐ **做法**：⭐ 新增源 C（⭐ 只加输入，⛔ 不动 A/B 的语义）＋
+//      ⭐ 来源标记 **2 → 3 位**（⭐ 5 个值：0=live / 1=score / 2=demo /
+//        3=节拍器·鼓机 / 4=looper）⇒ ⭐ 下游 `note_manager` **按 (轴, 源) 隔离** ✅
+//   📌 **为什么⛔ 不复用源 B 的空闲编码**：⭐ 源 B 是节拍器/鼓机，⭐ 它**一直在发**
+//      ⇒ 🔴 复用 ⇒ 节拍器的 `note_off` 清掉**同轴 looper 的 voice**（⭐ 不许静默串源）✅
 //
 // ── 🔴 它修的是【真缺陷】，⛔ 不是新功能 ─────────────────────────────────────
 //   `note_manager` **只有一个事件口**（`note_valid_i` + 4 个字段）。
@@ -25,12 +35,17 @@
 //        （在飞 = 队列里已有的 + 本拍新到的）。
 //
 //   ⭐ 现在：**环形 FIFO，深度 `DEPTH`（默认 4）**
-//      · 每拍**最多推入 2 条**（A、B 各一条）、**弹出 1 条**
+//      · 每拍**最多推入 3 条**（A、B、C 各一条）、**弹出 1 条**
+//        ⚠️ **2026-09-30**：⭐ 原来是 2 条 —— ⭐ 加了源 C（looper）⇒ ⭐ 上限变 3 条
 //      · ⭐ **弹出优先于推入**（先腾位置），`cnt_next = cnt + push - pop`
 //      · ⚠️ 队列空时**不弹**（避免吐出垃圾）⇒ 代价是**首次入队晚 1 拍**（20 ns）
+//   📌 **深度 4 够不够（⭐ 算过）**：⭐ 要求 `DEPTH ≥ 3`（⭐ "队列空 + 同拍来 3 条"）
+//      ⇒ ⭐ 4 满足；⚠️ 而**任何有限深度**在"队列已满 + 同拍来 3 条"时都会溢出
+//      ⇒ ⭐ 由 `overflow_o` / `drop_cnt_o` **看见**（⭐ 见下方"诚实的边界"）✅
+//      📌 而**实际速率**远低于此：⭐ A ≤ 1/tick、B ≤ 1/960 tick、C ≤ 1/tick ✅
 //
 // ── ⭐⭐ 关于"能不能保证【永不】丢"（⚠️ 诚实的边界）──────────────────────────
-//   ⚠️ **2 个源各以 1 条/拍持续输入 = 2 条/拍，而出口只有 1 条/拍** ⇒
+//   ⚠️ **3 个源各以 1 条/拍持续输入 = 3 条/拍，而出口只有 1 条/拍** ⇒
 //      ⭐ **任何有限深度都会溢出**（这是信息论的，⛔ 不是实现问题）。
 //   ⇒ ⭐ 本模块的承诺是**两级的**：
 //      ① ⭐ **在实际源速率下【不丢】**：节拍器 **1 条/960 tick**、
@@ -64,7 +79,7 @@ module evt_merge #(
     input  wire                  clk_i,
     input  wire                  rst_n_i,
 
-    // ── 源 A：手弹 / 曲谱（`play_seq` 的输出，或 live 事件）────────────────
+    // ── 源 A：手弹 / 曲谱 / 演示（`seq_arb` 三级仲裁的输出）────────────────
     input  wire                  a_valid_i,
     input  wire [AXIS_W-1:0]     a_axis_i,
     input  wire [PHASE_W-1:0]    a_phase_inc_i,
@@ -73,8 +88,9 @@ module evt_merge #(
     input  wire                  a_timbre_valid_i,
     input  wire [TIMBRE_W-1:0]   a_timbre_i,
     //  ⭐⭐ 2026-09-29（A1）：⭐ 源 A 的**来源标记**（⭐ 由 `seq_arb.evt_src_o` 驱动）
-    //     ⚠️ 位宽写死 2（⭐ 与 `seq_arb` 的 `SRC_*` 编码一致：0=live / 1=score / 2=demo）
-    input  wire [1:0]            a_src_i,
+    //  ⭐⭐ 2026-09-30：⭐ **位宽 2 → 3**（⭐ 编码表见 `seq_arb` 的 `evt_src_o` 注释）
+    //     ⭐ 本模块只**透传**它（⭐ 存进 FIFO、随事件弹出）⇒ ⛔ 不解释、⛔ 不比较 ✅
+    input  wire [2:0]            a_src_i,
 
     // ── 源 B：节拍器 / 鼓机 ────────────────────────────────────────────────
     input  wire                  b_valid_i,
@@ -84,9 +100,39 @@ module evt_merge #(
     input  wire [KIND_W-1:0]     b_kind_i,
     input  wire                  b_timbre_valid_i,
     input  wire [TIMBRE_W-1:0]   b_timbre_i,
-    //  ⭐⭐ 2026-09-29（A1）：⭐ 源 B 的**来源标记**（⭐ 由 `top.v` 给**常数** `2'd3`）
-    //     ⭐ 3 是 `seq_arb` 编码之外的**第 4 个值** ⇒ ⭐ 与手弹/回放/演示**必然不同源**
-    input  wire [1:0]            b_src_i,
+    //  ⭐⭐ 2026-09-29（A1）：⭐ 源 B 的**来源标记**（⭐ 由 `top.v` 给**常数** `3'd3`）
+    //     ⭐ 3 是 `seq_arb` 编码（0/1/2）之外的**第 4 个值** ⇒ ⭐ 与手弹/曲谱/演示**必然不同源**
+    input  wire [2:0]            b_src_i,
+
+    // ── ⭐⭐ 2026-09-30 新增：源 C —— **looper 回放**（⭐ 用户需求：曲谱与 looper 同时可用）──
+    //  🔴 **为什么必须有【第三个】输入**（⭐ 这是本任务的核心决定，⭐ 有代码依据）：
+    //     ⭐ 原来 `top.v` 让 looper 与曲谱 UART **共用 `seq_arb` 的 `score` 口**
+    //        （⭐ 编译期二选一）⇒ 🔴 **两者不可能同时出声** ✅
+    //     ⚠️ 而 **A/B 两个口都已经有主**：⭐ A = 手弹/曲谱/演示、⭐ B = 节拍器/鼓机
+    //        ⇒ ⭐ **要让 looper 与曲谱并存，只能新开一个口** ✅
+    //     📌 **⛔ 不能"复用源 B 的空闲编码"**：⭐ 源 B 是节拍器/鼓机，⭐ 它**一直在发**
+    //        （⭐ 节拍器每拍一个 click）⇒ 🔴 复用它 ⇒ 节拍器的 `note_off`
+    //        会把**同轴 looper 的 voice** 清掉（⭐ 与 A1 修掉的那个缺陷同类）✅
+    //
+    //  ⭐ **C 的仲裁语义（⭐ 有意做得最保守）**：
+    //     · ⭐ **A/B 之间的轮转【一个字都不改】**（⭐ `prio_b_r` 仍然只由 A、B 驱动）
+    //     · ⭐ C **永远排在 A/B 之后**（⭐ 即"占用最后一槽"）
+    //     ⚠️ **为什么"最低优先"在这里是安全的**：⭐ C 的来源是 looper 的**回放**
+    //        ⇒ ⭐ 它的速率上限是 **1 条/PPQN tick**（⭐ 而 1 tick ≈ 2.6 万拍），
+    //        ⭐ 与 A/B 的实际速率**差 4 个数量级** ⇒ ⭐ **结构上不可能被饿死** ✅
+    //        （📌 与 `seq_arb` 里"演示让位"那条**不同**：⭐ 那里演示是**自检**、
+    //           ⭐ 抢了真演奏就失去意义；⭐ 而 looper 是**用户内容**，
+    //           ⭐ 所以这里**不丢弃、只排队** —— 宁可晚 1 拍也⛔ 不丢 ✅）
+    //     📌 溢出仍然**必须可见**（⭐ `overflow_o` + `drop_cnt_o`，⭐ `K-106`）✅
+    input  wire                  c_valid_i,
+    input  wire [AXIS_W-1:0]     c_axis_i,
+    input  wire [PHASE_W-1:0]    c_phase_inc_i,
+    input  wire [VEL_W-1:0]      c_velocity_i,
+    input  wire [KIND_W-1:0]     c_kind_i,
+    input  wire                  c_timbre_valid_i,
+    input  wire [TIMBRE_W-1:0]   c_timbre_i,
+    //  ⭐ 源 C 的**来源标记** = `3'd4`（looper 回放，⭐ 由 `top.v` 给常数）
+    input  wire [2:0]            c_src_i,
 
     // ── 合流后的唯一事件口（→ `note_manager`）─────────────────────────────
     output reg                   evt_valid_o,
@@ -98,7 +144,9 @@ module evt_merge #(
     output reg  [TIMBRE_W-1:0]   evt_timbre_o,
     //  ⭐⭐ 2026-09-29（A1）：⭐ 合流后事件的**来源标记** —— ⭐ 时序 = `evt_valid_o`
     //     ⭐ 一路穿过本模块的 FIFO（⭐ 与 `timbre` 字段**完全同样的手法**）
-    output reg  [1:0]            evt_src_o,
+    //  ⭐⭐ 2026-09-30：⭐ **位宽 2 → 3** —— ⭐ 3 个输入源共 5 个不同标签
+    //     （0=live · 1=score · 2=demo · 3=节拍器/鼓机 · 4=looper）
+    output reg  [2:0]            evt_src_o,
 
     // ── ⭐ 可观测性（`K-106` 纪律：容量有限/会失效的东西必须能看见）──────────
     output reg  [15:0]           collision_cnt_o,  // ⭐ 同拍相撞次数（饱和）
@@ -112,7 +160,9 @@ module evt_merge #(
     //  ⭐⭐ 2026-09-29（A1）：⭐ **来源标记**（⭐ 与 `seq_arb` 同一手法）
     //     ⚠️ 放在记录的**最高位** ⇒ ⭐ 原有字段偏移（`AX_O`/`IN_O`/`VE_O`/`TV_O`）
     //        **一个都不用动** —— ⭐ 这正是"只加不改"的关键（⛔ 不碰已验证的位域）
-    localparam integer SRC_W  = 2;
+    //  ⭐⭐ 2026-09-30：⭐ **2 → 3 位**（⭐ 见 `evt_src_o` 的编码表）
+    //     ⭐ 加宽是**纯粹的位宽变化**：⭐ 偏移公式（`ENT_W +: SRC_W`）本身不用改 ✅
+    localparam integer SRC_W  = 3;
     localparam integer ENT2_W = SRC_W + ENT_W;
     localparam integer AX_O  = PHASE_W + VEL_W + KIND_W + 1 + TIMBRE_W;
     localparam integer IN_O  = VEL_W + KIND_W + 1 + TIMBRE_W;
@@ -161,6 +211,14 @@ module evt_merge #(
     wire push_a_first = ~prio_b_r;
     wire push_a = a_valid_i;
     wire push_b = b_valid_i;
+    //  ⭐⭐ 2026-09-30：⭐ **源 C（looper 回放）的 valid**
+    //   ⚠️ **用 `=== 1'b1` 判定**（⛔ 不是直接取用）—— ⭐ 这是**向后兼容**的关键一步：
+    //      ⭐ 已有的 tb（`tb_evt_merge` / `tb_timbre_event_path` …）**不认识新端口**
+    //      ⇒ ⚠️ 它们不接 `c_valid_i` ⇒ 悬空是 `z` ⇒ 🔴 若直接取用，`push_n` 会变成 `x`
+    //         ⇒ ⭐ **那些 tb 会莫名其妙地全红**（⭐ 与 `looper.v` 的 `live_busy`
+    //            "悬空 = 没有"是**同一套向后兼容口径** ✅）
+    //   📌 语义：⭐ **只有明确的 1 才算"本拍有 C 事件"**，⭐ 其余（含 `x`/`z`）一律当**没有** ✅
+    wire push_c = (c_valid_i === 1'b1);
     // 🔴🔴 **必须显式写位宽** —— 这是本模块最隐蔽的一个 bug（2026-09-22 实测踩到）：
     //    `wire push_n = ...` **不写位宽 ⇒ 隐含 1 bit**！
     //    ⭐ 于是 `1 + 1 = 2` 被**截断成 `1'b0`** ⇒ 🔴 **"两路同拍相撞"这一种情况
@@ -169,7 +227,39 @@ module evt_merge #(
     //       （⚠️ `collision_cnt_o` 还照常计数，因为那条路径不经过 `push_n`）
     //       ⇒ 看起来像"相撞被吞了"，⛔ 其实是**位宽截断**。
     //    📌 **教训**：⛔ 别依赖隐式位宽 —— ⭐ `wire` 不写宽度就是 1 位。
-    wire [15:0] push_n = (push_a ? 16'd1 : 16'd0) + (push_b ? 16'd1 : 16'd0);
+    //  ⭐⭐ 2026-09-30：⭐ 加到**三路**（A/B/C）—— ⚠️ 位宽纪律**照旧**（⭐ 仍是 16 位）✅
+    wire [15:0] push_n = (push_a ? 16'd1 : 16'd0)
+                       + (push_b ? 16'd1 : 16'd0)
+                       + (push_c ? 16'd1 : 16'd0);
+
+    //  ── ⭐⭐ 三个源各自写进哪个槽（⭐ 2026-09-30 新增的"紧凑写入"手法）──────────
+    //   ⭐ **语义与改动前【逐位等价】**（⭐ 只推 A/B 时）：
+    //      · ⭐ A、B 谁在 0 号槽由 `prio_b_r` 决定 ⇒ ⭐ **轮转一个字都没改** ✅
+    //      · ⭐ C **永远排在 A/B 之后** ⇒ ⭐ 它是"最后一槽"（⭐ 理由见端口区注释）✅
+    //   📌 **为什么用"偏移"而不是"再加一层 if/else 链"**：
+    //      ⚠️ 原写法是"两两组合各写一遍"（⭐ 4 个分支 × 2 次写 = 8 条写语句）
+    //      ⇒ 🔴 加到三路就是 **8 个分支 × 3 次写 = 24 条**，⭐ 既难读又容易漏一种组合
+    //         （⚠️ `evt_merge` 第一版正是"漏了组合"才丢事件 ✅）
+    //      ⇒ ⭐ 改成"**先算槽位、再各写一条**" ⇒ ⭐ 3 条写语句覆盖**全部 8 种组合**，
+    //         ⭐ 且**结构上不可能漏**（⭐ 每个源一条独立的 `if`）✅
+    wire [15:0] off_a = push_b ? (push_a_first ? 16'd0 : 16'd1) : 16'd0;
+    wire [15:0] off_b = push_a ? (push_a_first ? 16'd1 : 16'd0) : 16'd0;
+    wire [15:0] off_c = (push_a ? 16'd1 : 16'd0) + (push_b ? 16'd1 : 16'd0);
+
+    //  ⭐ 槽位回绕（⭐ 与 `seq_arb.tail_plus` 同一手法：⛔ 不用取模，⭐ 逐个减）
+    //   ⚠️ `n` 最大 **2**（⭐ C 的偏移最大 = A+B 都在 = 2）、⭐ `DEPTH ≥ 3`
+    //      ⇒ ⭐ **最多减两次**就够（⭐ 下面写了两次，⭐ 与 `seq_arb` 的写法一致）✅
+    function [15:0] tail_off;
+        input [15:0] t;
+        input [15:0] n;
+        reg   [15:0] r;
+        begin
+            r = t + n;
+            if (r >= DEPTH_C) r = r - DEPTH_C;
+            if (r >= DEPTH_C) r = r - DEPTH_C;
+            tail_off = r;
+        end
+    endfunction
 
     // ⭐ 本拍净变化（⚠️ 弹出优先 ⇒ 先腾位再推，能多接一条）
     wire [15:0] cnt_after_pop  = pop_now ? (cnt_q - 16'd1) : cnt_q;
@@ -217,41 +307,38 @@ module evt_merge #(
             end
 
             // ══ ② 推入（⚠️ 只有装得下才推；⛔ 装不下要【看得见】）════════════
-            //   ⚠️ 索引用"本拍 tail + 偏移"，⭐ 两条同时推时偏移 0/1
+            //   ⚠️ 索引用"本拍 tail + 偏移"，⭐ 三条同时推时偏移 0/1/2
+            //  ⭐⭐ 2026-09-30：⭐ **改成"紧凑写入"**（⭐ 每个源一条独立 `if`）
+            //     · ⭐ 槽位 = `tail_off(tail_q, off_x)`（⭐ 见上方 `off_a/off_b/off_c`）
+            //     · ⭐ **A/B 的先后仍由 `prio_b_r` 决定**（⭐ 轮转语义不变 ✅）
+            //     · ⭐ C 固定占最后一槽（⭐ 理由见端口区 ✅）
+            //   📌 **时序影响**：⭐ 槽位地址多了一级 3 输入加法（⭐ `off_c`），
+            //      ⚠️ 但它是**纯组合的浅逻辑**（⭐ 3 位宽，⭐ 而 `mem` 只有 4 深）
+            //      ⇒ ⭐ 实测由 PnR 报（⭐ 本任务**不跑 PnR**，⭐ 见报告）✅
             if (push_n != 16'd0) begin
                 if (!will_overflow) begin
-                    // ⭐ 顺序由 prio_b_r 决定：先推的那条先出（FIFO 保序）
-                    if (push_a && push_b) begin
-                        if (push_a_first) begin
-                            mem[tail_q] <= pack_evt(a_src_i, a_axis_i, a_phase_inc_i,
-                                                    a_velocity_i, a_kind_i,
-                                                    a_timbre_valid_i, a_timbre_i);
-                            mem[(tail_q + 16'd1 == DEPTH_C) ? 16'd0
-                                                                : tail_q + 16'd1]
-                                <= pack_evt(b_src_i, b_axis_i, b_phase_inc_i,
-                                            b_velocity_i, b_kind_i,
-                                            b_timbre_valid_i, b_timbre_i);
-                        end else begin
-                            mem[tail_q] <= pack_evt(b_src_i, b_axis_i, b_phase_inc_i,
-                                                    b_velocity_i, b_kind_i,
-                                                    b_timbre_valid_i, b_timbre_i);
-                            mem[(tail_q + 16'd1 == DEPTH_C) ? 16'd0
-                                                                : tail_q + 16'd1]
-                                <= pack_evt(a_src_i, a_axis_i, a_phase_inc_i,
-                                            a_velocity_i, a_kind_i,
-                                            a_timbre_valid_i, a_timbre_i);
-                        end
-                    end else if (push_a) begin
-                        mem[tail_q] <= pack_evt(a_src_i, a_axis_i, a_phase_inc_i,
-                                                a_velocity_i, a_kind_i,
-                                                a_timbre_valid_i, a_timbre_i);
-                    end else begin
-                        mem[tail_q] <= pack_evt(b_src_i, b_axis_i, b_phase_inc_i,
-                                                b_velocity_i, b_kind_i,
-                                                b_timbre_valid_i, b_timbre_i);
-                    end
+                    // ⭐ 源 A（⭐ 手弹 / 曲谱 / 演示，⭐ 由 `seq_arb` 打标）
+                    if (push_a)
+                        mem[tail_off(tail_q, off_a)]
+                            <= pack_evt(a_src_i, a_axis_i, a_phase_inc_i,
+                                        a_velocity_i, a_kind_i,
+                                        a_timbre_valid_i, a_timbre_i);
+                    // ⭐ 源 B（⭐ 节拍器 / 鼓机）
+                    if (push_b)
+                        mem[tail_off(tail_q, off_b)]
+                            <= pack_evt(b_src_i, b_axis_i, b_phase_inc_i,
+                                        b_velocity_i, b_kind_i,
+                                        b_timbre_valid_i, b_timbre_i);
+                    // ⭐⭐ 源 C（⭐ looper 回放 —— ⭐ 2026-09-30 新增）
+                    if (push_c)
+                        mem[tail_off(tail_q, off_c)]
+                            <= pack_evt(c_src_i, c_axis_i, c_phase_inc_i,
+                                        c_velocity_i, c_kind_i,
+                                        c_timbre_valid_i, c_timbre_i);
 
                     // ⭐ 推进 tail（按实际推入条数）
+                    //   ⚠️ `push_n` 最大 **3**、⭐ `DEPTH ≥ 3` ⇒ ⭐ 最多减一次就够
+                    //      （⭐ `tail_q + 3 ≤ DEPTH + 2 < 2*DEPTH` ✅）
                     tail_q <= (tail_q + push_n >= DEPTH_C)
                               ? (tail_q + push_n - DEPTH_C) : (tail_q + push_n);
                     cnt_q  <= cnt_next;
@@ -275,11 +362,17 @@ module evt_merge #(
             end
 
             // ══ ③ 统计与优先级翻转 ══════════════════════════════════════════
-            if (a_valid_i && b_valid_i) begin
+            //  ⭐⭐ 2026-09-30：⭐ **"相撞"扩到三路**（⭐ 任两路同拍即为相撞）
+            //   📌 **判据不变**：⭐ 原来的 A/B 相撞**照样计数** ⇒ ⭐ 老 tb 的判据不受影响 ✅
+            //   ⚠️ 注意：⭐ 只统计**真正参与推入**的（⭐ C 用 `push_c`，
+            //      而 `push_c` 已经把"悬空"排除掉了 ✅）
+            if ((push_a && push_b) || (push_a && push_c) || (push_b && push_c)) begin
                 collision_cnt_o <= (collision_cnt_o == 16'hFFFF) ? collision_cnt_o
                                                                  : collision_cnt_o + 16'd1;
             end
-            // ⭐ 只有**真的在两条之间做过取舍**才翻面（⚠️ 单条来时翻面没有意义）
+            // ⭐ 只有**真的在 A/B 两条之间做过取舍**才翻面（⚠️ 单条来时翻面没有意义）
+            //   📌 ⭐ **C 不参与轮转**（⭐ 它固定占最后一槽 ⇒ 翻面与否都改变不了它的位置）
+            //      ⇒ ⭐ 保持"只有 A、B 都到才翻面"⇒ ⭐ **与改动前逐位一致** ✅
             if (a_valid_i && b_valid_i) begin
                 prio_b_r <= ~prio_b_r;
             end

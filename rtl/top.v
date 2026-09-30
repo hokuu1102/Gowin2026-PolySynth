@@ -2767,9 +2767,10 @@ module top #(
         wire        sa_timbre_valid;
         wire [1:0]  sa_timbre;
         //  ⭐⭐ 2026-09-29（A1）：⭐ `seq_arb` 导出的**来源标记**
-        //     ⭐ 编码 = `seq_arb` 的 `SRC_*`（0=live 手弹 / 1=score 曲谱·回放 / 2=demo 演示）
+        //     ⭐ 编码 = `seq_arb` 的 `SRC_*`（0=live 手弹 / 1=score 曲谱 / 2=demo 演示）
         //     ⭐ 一路传下去：`seq_arb.evt_src_o → evt_merge.a_src_i → note_manager.note_src_i`
-        wire [1:0]  sa_src;
+        //  ⭐⭐ 2026-09-30：⭐ **位宽 2 → 3**（⭐ 编码表见 `seq_arb.evt_src_o` 的注释）
+        wire [2:0]  sa_src;
         wire [15:0] sa_collision_cnt;
         wire [15:0] sa_merged_cnt;
         wire [15:0] sa_drop_cnt;
@@ -2778,33 +2779,61 @@ module top #(
         wire [15:0] sa_score_cnt;
         wire [15:0] sa_demo_cnt;
 
-        //  ⭐⭐ 曲谱 UART 通路开关（⭐ 2026-09-28 新增，⭐ **默认 0 = 禁用**）
-        //     🔴 原因：`evt_uart_rx`（帧头 `0xA5`）与串口屏/命令**共用同一条 UART**
+        //  ⭐⭐ 曲谱 UART 通路开关（⭐ 2026-09-28 新增）
+        //     🔴 **原风险（⭐ 仍然存在，⛔ 没有被本改动消除）**：
+        //        `evt_uart_rx`（帧头 `0xA5`）与串口屏/命令**共用同一条 UART**
         //        ⇒ 其它两路的合法载荷里出现 `0xA5` 时会被误当事件包
         //        ⇒ 🔴 **注入 axis=14/15 的伪 note_on** ⇒ **永久挂音**（⭐ 已仿真证明）
         //     📌 详见 `seq_arb` 例化处 `score_valid_i` 的注释与
         //        `tb/w3c/tb_evt_uart_rx_screen.sv`。
-        //     ⚠️ 要恢复曲谱功能 ⇒ 置 1 **且** 把曲谱源换到**独立 UART 线**。
-        localparam integer SCORE_UART_ENABLE = 0;
+        //
+        //  ⭐⭐ **2026-09-30：默认由 `0` 改成 `1`**（⭐ 用户需求：曲谱与 looper **同时可用**）
+        //     🔴 **为什么能改默认**：⭐ 原来 looper 与曲谱**抢同一个 `score` 口**
+        //        ⇒ ⭐ 只能二选一；⭐ 现在 looper 有**自己的通路**（⭐ `evt_merge` 源 C，
+        //        ⭐ 见下方 §事件域 Looper）⇒ ⭐ 这个开关**只再管"曲谱 UART 开不开"** ✅
+        //     ⭐ **两档的语义（⭐ 清楚且互不干扰）**：
+        //        · ⭐ `1`（⭐ **新默认**）⇒ ⭐ **曲谱 UART + looper 都可用**（⭐ 用户要的"两个都要"）
+        //        · ⭐ `0`                ⇒ ⭐ **只关曲谱 UART**（⭐ 那一路接常量 0）
+        //                                   ⭐ **looper 照常可用**（⭐ 通路与它无关）
+        //          📌 用途：⭐ 若上板发现"串口屏/命令流被误当曲谱帧"（⭐ 见上方的 0xA5 风险）
+        //             ⇒ ⭐ **把它置 0 即可**，⛔ **不会连带关掉 looper** ✅
+        //     ⚠️ **遗留风险（⭐ 必须上板验证）**：⭐ 默认档下曲谱 UART 是**开着的**，
+        //        而它与串口屏**共用一条线** ⇒ ⭐ 伪事件注入的**理论通路仍然存在**
+        //        （⭐ 与 `SCORE_UART_ENABLE = 1` 在旧版里的含义完全相同）。
+        //        ⇒ ⭐ 上板时要**专门试**"串口屏数值帧里带 0xA5"这一情形（⭐ 见
+        //           `tb/w3c/tb_evt_uart_rx_screen.sv` 的用例）✅
+        localparam integer SCORE_UART_ENABLE = 1;
 
         // ══════════════════════════════════════════════════════════════════
         // ⭐⭐ 2026-09-29 新增：⭐ 事件域 Looper（`T37` 单层录制+播放 · `T39` 边 loop 边弹）
         //
-        //   ⭐ **接法（⭐ 本项目【风险最低】的一种）**：⭐ 重放接到 `seq_arb` 的
-        //      **`score` 口** —— ⭐ 那个口在 `SCORE_UART_ENABLE = 0`（⭐ **默认**）时
-        //      **本来就是空的**（⭐ 接常量 0）✅
-        //      ⇒ ⭐ **⛔ 不改 `evt_merge` / `seq_arb` 任何一行**（⭐ 两个都已验证过）
-        //      ⇒ ⭐ **⛔ 不给【手弹路径】加任何延迟**（⭐ 否则会踩既有 tb 的时序判据）✅
+        //  ⭐⭐ **2026-09-30：接法改了 —— 重放走 `evt_merge` 的【源 C】** ✅
+        //   🔴 **为什么改**（⭐ 用户需求：⭐ **曲谱 UART 与 looper 要【同时】可用**）：
+        //      ⚠️ 原接法是"looper 与曲谱 UART **抢 `seq_arb` 的 `score` 口**"
+        //         （⭐ `SCORE_UART_ENABLE` 编译期二选一）
+        //      ⇒ 🔴 **两者结构上不可能同时出声** —— ⭐ 用户实测"灌曲谱没声音"正是它 ✅
+        //   ⭐ **新接法**：⭐ 曲谱 UART 仍走 `seq_arb.score`（⭐ 源 A 的一路），
+        //      ⭐ looper 重放改走 **`evt_merge` 的第三个输入 `c_*`** ⇒ ⭐ **互不相干** ✅
+        //
+        //   ⭐⭐ **为什么必须"另开一个口"而⛔ 不是"复用某个空闲编码"**：
+        //      ⭐ `evt_merge` 的 A/B 两个口**都已经有主** ——
+        //         · A = `seq_arb` 的输出（手弹 / 曲谱 / 演示）
+        //         · B = 节拍器 / 鼓机（⭐ `SEL_DRUM` 二选一）
+        //      ⇒ ⚠️ 让 looper 挤进任一口 ⇒ 🔴 **它和那个口的源就不能并存** ✅
+        //      🔴 **而且不许"共用一个源标签"**：⭐ `note_manager` 的 `note_off`
+        //         是按 **(轴, 源)** 匹配的 ⇒ ⭐ 标签一旦相同，
+        //         🔴 **曲谱的 `note_off` 会清掉同轴 looper 的 voice**（⭐ 反之亦然）✅
+        //      ⇒ ⭐ **给 looper 一个自己的标签 `3'd4`**（⭐ 源标记 2 → 3 位，⭐ 5 个值够用）
+        //         ⭐ 见 `seq_arb.evt_src_o` 的编码表 ✅
         //
         //   ⭐⭐ **顺带把 `T39`（边 loop 边弹）做出来了**：
-        //      ⭐ 手弹走 `live` 口、⭐ looper 走 `score` 口 ⇒ ⭐ **由 `seq_arb` 真仲裁**
+        //      ⭐ 手弹走源 A、⭐ looper 走源 C ⇒ ⭐ **由 `evt_merge` 真仲裁**
         //      （⚠️ ⛔ **不是**把两路直接"或"起来 —— 🔴 那会**同拍静默丢一条**，
         //         ⭐ 正是 `evt_merge`/`seq_arb` 当初要修的那个 bug）
         //
-        //   ⚠️ **与曲谱通路【互斥】**：⭐ 两者共用 `score` 口 ⇒
-        //      ⭐ `SCORE_UART_ENABLE = 1` 时 looper 的重放**没有出口**（⭐ 而且会被综合器扫掉）
-        //      ⭐ 这是**有意为之**：⚠️ 曲谱线与串口屏**共用同一条 UART** ⇒
-        //         ⭐ 同时开两路会互相误判（⭐ 见 `seq_arb` 例化处那段长注释）✅
+        //   ⭐ **与曲谱通路【完全解耦】**（⭐ 本改动的主要收益）：
+        //      · ⭐ `SCORE_UART_ENABLE = 1`（⭐ **新默认**）⇒ ⭐ 曲谱 + looper **同时可用** ✅
+        //      · ⭐ `SCORE_UART_ENABLE = 0`                ⇒ ⭐ 只关曲谱，⭐ **looper 照常** ✅
         //
         //   ⭐ 控制：⭐ 串口命令 `'R'`（录/停**切换**）· `'L'`（播放**切换**）· `'C'`（清空）
         //      ⚠️ 因为 `calib_cmd` 只吐**单周期脉冲**，⭐ 这里用寄存器记住"开/关"状态
@@ -2911,7 +2940,8 @@ module top #(
             .live_vel_valid_i (vu_valid_r),
             .live_vel_axis_i  (vu_axis_r),
             .live_vel_value_i (vu_val_r),
-            //  ⭐ 重放（⭐ → `seq_arb.score`，⭐ 见下方 `score_*` 的 mux）
+            //  ⭐ 重放（⭐ → `evt_merge` 的**源 C**，⭐ 见下方 `u_evt_merge` 的 `.c_*`）
+            //  ⭐⭐ 2026-09-30：⭐ **不再接 `seq_arb.score`**（⭐ 那条口还给曲谱 UART）✅
             .play_valid_o   (looper_play_valid),
             .play_axis_o    (looper_play_axis),
             .play_inc_o     (looper_play_inc),
@@ -2980,22 +3010,24 @@ module top #(
             //      · ⛔ 不动 `uart_ui` / `calib_cmd`（队友/命令通路）
             //      · ⭐ 要恢复曲谱功能时：把本参数置 1 **且** 把曲谱源换到**独立 UART 线**
             //        （⚠️ 与串口屏共用一条线时，⛔ 任何"帧头猜同步"都会互相误判）
-            //  ⭐⭐ 2026-09-29：⭐ 这个口现在**二选一** ——
-            //     · ⭐ `SCORE_UART_ENABLE = 1` ⇒ ⭐ 曲谱（`evt_uart_rx`）
-            //     · ⭐ `SCORE_UART_ENABLE = 0`（⭐ **默认**）⇒ ⭐ **looper 重放** ✅
-            //     ⚠️ 两者**不能同时**：⭐ 曲谱与串口屏**共用一条 UART**（⭐ 见上方长注释）✅
-            .score_valid_i    (SCORE_UART_ENABLE ? eu_evt_valid : looper_play_valid),
-            .score_axis_i     (SCORE_UART_ENABLE ? score_evt_axis : looper_play_axis),
-            .score_phase_inc_i(SCORE_UART_ENABLE ? score_evt_inc  : looper_play_inc),
-            .score_velocity_i (SCORE_UART_ENABLE ? score_evt_vel  : looper_play_vel),
-            .score_kind_i     (SCORE_UART_ENABLE ? score_evt_kind : looper_play_kind),
-            //  ⭐⭐ 2026-09-29 新增（⭐ 用户需求）：⭐ **looper 重放要带【录制时的音色】**
-            //   🔴 原来这里写死 `1'b0` / `2'd0` ⇒ ⭐ `note_manager` 落到
-            //      `default_timbre_i = timbre_sel_r` ⇒ 🔴 **回放跟随现在手弹的音色** ✅
-            //   ✅ 现在：⭐ `SCORE_UART_ENABLE = 0`（⭐ **默认 · looper 档**）⇒
-            //      ⭐ 音色来自 **looper 的事件字**（⭐ 录制时存的 ✅）
-            .score_timbre_valid_i(SCORE_UART_ENABLE ? score_evt_timbre_valid : looper_play_timbre_valid),
-            .score_timbre_i   (SCORE_UART_ENABLE ? score_evt_timbre : looper_play_timbre),
+            //  ⭐⭐ 2026-09-30：⭐ **本口现在【只归曲谱 UART】**
+            //     🔴 **改之前**：⭐ 这里是个"`SCORE_UART_ENABLE` 二选一"的 mux
+            //        （⭐ `1` ⇒ 曲谱、⭐ `0` ⇒ looper）⇒ 🔴 **两者不能并存** ✅
+            //     ✅ **改之后**：⭐ looper 搬到 `evt_merge` 的源 C（⭐ 见上方 §事件域 Looper）
+            //        ⇒ ⭐ 本口**只剩曲谱一个来源** ⇒ ⭐ mux **整个删掉** ✅
+            //     ⭐ `SCORE_UART_ENABLE = 0` 时接**常量 0**（⭐ 即"这条通路关闭"，
+            //        ⚠️ 与 2026-09-28 那版"禁用曲谱"的语义**逐位一致**）✅
+            .score_valid_i    (SCORE_UART_ENABLE ? eu_evt_valid : 1'b0),
+            .score_axis_i     (SCORE_UART_ENABLE ? score_evt_axis : 4'd0),
+            .score_phase_inc_i(SCORE_UART_ENABLE ? score_evt_inc  : 32'd0),
+            .score_velocity_i (SCORE_UART_ENABLE ? score_evt_vel  : 8'd0),
+            .score_kind_i     (SCORE_UART_ENABLE ? score_evt_kind : 2'd0),
+            //  ⭐⭐ 2026-09-29 新增（⭐ 用户需求）：⭐ **音色 sideband**
+            //   ✅ 现在：⭐ 曲谱帧 `[8:7]` 的音色**照常**随事件走（⭐ 它本来就是这个用途）✅
+            //   📌 looper 的音色**不再经过本口** —— ⭐ 它随源 C 走
+            //      （⭐ `evt_merge.c_timbre_i` ⇒ `note_manager.evt_timbre_i`）✅
+            .score_timbre_valid_i(SCORE_UART_ENABLE ? score_evt_timbre_valid : 1'b0),
+            .score_timbre_i   (SCORE_UART_ENABLE ? score_evt_timbre : 2'd0),
             // ── 源 3：演示（⭐ 自检和弦）—— ⚠️ 自动让位 ───────────────────
             .demo_valid_i     (demo_note_valid),
             .demo_axis_i      (demo_note_axis),
@@ -3035,9 +3067,10 @@ module top #(
         wire [1:0]  src_a_timbre = (SOURCE_A_SEL == 1) ? 2'd0 : sa_timbre;
         //  ⭐⭐ 2026-09-29（A1）：⭐ **源 A 的来源标记**
         //     ⚠️ 必须**跟着上面那个 mux 一起选** —— `SOURCE_A_SEL == 1` 时源 A 是
-        //        **演示和弦**（⭐ 它绕过 `seq_arb`）⇒ ⭐ 标记必须是 `SRC_DEMO = 2'd2`，
+        //        **演示和弦**（⭐ 它绕过 `seq_arb`）⇒ ⭐ 标记必须是 `SRC_DEMO = 3'd2`，
         //        ⛔ 不能沿用 `sa_src`（⭐ 那一路此刻并没有在发事件 ⇒ 值是陈旧的）。
-        wire [1:0]  src_a_src = (SOURCE_A_SEL == 1) ? 2'd2 : sa_src;
+        //  ⭐⭐ 2026-09-30：⭐ **位宽 2 → 3**（⭐ 与 `evt_merge.a_src_i` 一致）✅
+        wire [2:0]  src_a_src = (SOURCE_A_SEL == 1) ? 3'd2 : sa_src;
 
         // ⭐⭐ 源 B 二选一（⭐ 节拍器 / 鼓机，⭐ `SEL_DRUM`，⭐ 默认节拍器）
         //   📌 用 `generate`+`localparam` 做**编译期选择** ⇒ ⚠️ 综合会把没选中的那路
@@ -3097,18 +3130,27 @@ module top #(
         wire        mg_evt_timbre_valid;
         wire [1:0]  mg_evt_timbre;
         //  ⭐⭐ A1：⭐ 合流后事件的**来源标记**（⭐ → `note_manager.note_src_i`）
-        wire [1:0]  mg_evt_src;
+        //  ⭐⭐ 2026-09-30：⭐ **位宽 2 → 3**（⭐ 5 个源：0/1/2/3/4）✅
+        wire [2:0]  mg_evt_src;
         wire [15:0] mg_collision_cnt;
         wire [15:0] mg_merged_cnt;
         wire [15:0] mg_drop_cnt;
         wire        mg_overflow;
 
+        //  ⭐⭐ 2026-09-30：⭐ **深度 4 → 6** —— ⭐ 因为**源从 2 个变成 3 个**（⭐ 多了源 C）
+        //     🔴 **为什么**：⭐ 深度要按"**最坏在飞条数**"算（⭐ `evt_merge` 第一版的教训）——
+        //        ⭐ 3 个源同拍各来 1 条 ⇒ ⭐ 需要 **≥ 3 槽**；⭐ 再留余量 ⇒ ⭐ 取 6
+        //        （⭐ 与 `seq_arb` 的 3 源档取 6 是**同一个口径** ✅）
+        //     ⚠️ **代价**：⭐ 每条记录 3+4+32+8+2+1+2 = **52 位** ⇒ 多 2 槽 = **+104 FF**
+        //        （⭐ 相对本器件 60780 个 DFF 可忽略 ✅）
+        //     📌 而**实际速率**远低于"每拍 3 条"：⭐ A ≤ 1/tick、⭐ C ≤ 1/tick、
+        //        ⭐ B ≤ 1/960 tick ⇒ ⭐ 溢出实际不会发生（⭐ 真发生也有 `mg_overflow` 指示）✅
         evt_merge #(
             .AXIS_W  (4),
             .PHASE_W (32),
             .VEL_W   (8),
             .KIND_W  (2),
-            .DEPTH   (4)              // ⭐ 深度 4：两源各 ≤1 条/拍，足够吸收突发
+            .DEPTH   (6)
         ) u_evt_merge (
             .clk_i            (clk),
             .rst_n_i          (rst_n_sync),
@@ -3133,11 +3175,27 @@ module top #(
             .b_kind_i         (src_b_kind),
             .b_timbre_valid_i (src_b_timbre_valid),
             .b_timbre_i       (src_b_timbre),
-            // ⭐⭐ A1：⭐ 源 B（节拍器 / 鼓机）的来源标记 = **常数 `2'd3`**
+            // ⭐⭐ A1：⭐ 源 B（节拍器 / 鼓机）的来源标记 = **常数 `3'd3`**
             //   ⭐ 为什么用 3：⭐ `seq_arb` 只用了 0/1/2 ⇒ ⭐ 3 是**空闲值**，
-            //      天然与手弹/回放/演示**不同源** ⇒ ⛔ 节拍器的 `note_off`
-            //      不会误杀手弹或回放的同轴 voice（⭐ 反之亦然）✅
-            .b_src_i          (2'd3),
+            //      天然与手弹/曲谱/演示**不同源** ⇒ ⛔ 节拍器的 `note_off`
+            //      不会误杀手弹或曲谱的同轴 voice（⭐ 反之亦然）✅
+            //   ⭐⭐ 2026-09-30：⭐ **值不变（仍是 3），只把位宽补到 3 位** ✅
+            .b_src_i          (3'd3),
+            // ── ⭐⭐ 源 C：**looper 回放**（⭐ 2026-09-30 新增，⭐ 用户需求）──────────
+            //   🔴 **为什么新开一口**：⭐ 见上方 §事件域 Looper ——
+            //      ⭐ A/B 两口都已占满，⭐ 而 looper 必须与**曲谱**并存 ⇒ ⭐ 只能新开 ✅
+            //   ⭐ **来源标记 = 常数 `3'd4`**（⭐ 5 个源里唯一留给它的值）
+            //      ⇒ ⭐ `note_manager` 按 (轴, 源) 隔离 ⇒ ⭐ 曲谱的 `note_off`
+            //         ⛔ **不会清掉同轴 looper 的 voice**（⭐ 反之亦然）✅
+            //   ⭐ 音色：⭐ 用 looper **录制时存下的**那个（⭐ `looper_play_timbre` ✅）
+            .c_valid_i        (looper_play_valid),
+            .c_axis_i         (looper_play_axis),
+            .c_phase_inc_i    (looper_play_inc),
+            .c_velocity_i     (looper_play_vel),
+            .c_kind_i         (looper_play_kind),
+            .c_timbre_valid_i (looper_play_timbre_valid),
+            .c_timbre_i       (looper_play_timbre),
+            .c_src_i          (3'd4),
             // ── 合流输出 → `note_manager` ────────────────────────────────
             .evt_valid_o      (mg_evt_valid),
             .evt_axis_o       (mg_evt_axis),
@@ -3232,20 +3290,28 @@ module top #(
             .vel_upd_valid_i   (vu_valid_r | lp_upd_valid),
             .vel_upd_axis_i    (vu_valid_r ? vu_axis_r : lp_upd_axis),
             .vel_upd_value_i   (vu_valid_r ? vu_val_r  : lp_upd_vel),
-            //  ⭐⭐ 2026-09-29 新增：⭐ **更新通路的来源标记**（⭐ 0 = 手弹 · 1 = looper 回放）
+            //  ⭐⭐ 2026-09-29 新增：⭐ **更新通路的来源标记**（⭐ 0 = 手弹 · 4 = looper 回放）
             //   🔴 **为什么必须有**：⭐ `note_manager` 的 (d)/(e) 段原来**只按轴匹配**
             //      ⇒ 🔴 回放的插值更新会把**同一轴上手弹的 voice** 一起拖走
             //      （⭐ 音量/音高被别人的手势带着跑）—— ⭐ 与 A1 修的 `note_off`
             //      **是同一个缺陷类** ✅
-            //   ⭐ 接法：⭐ 手弹那拍给 0、⭐ looper 那拍给 1 ✅
+            //   ⭐ 接法：⭐ 手弹那拍给 0、⭐ looper 那拍给 **4** ✅
+            //   🔴🔴 **2026-09-30：⭐ 这里的 looper 标签【必须跟着事件标签一起改成 4】**
+            //      ⚠️ **不能漏**：⭐ 事件标签（源 C）已经是 `3'd4` ⇒ ⭐ 而 `note_manager`
+            //         的 (d)/(e) 段是**按 `src_r[i] == 更新源` 匹配**的
+            //      ⇒ 🔴 若这里仍写 `3'd1`，⭐ looper 的插值更新会去改**曲谱**的 voice
+            //         （⭐ 而 looper 自己的 voice **一个都收不到**）
+            //      ⇒ 🔴 **症状**：⭐ loop 回放**又变回"只有起音力度"**
+            //         （⭐ 即用户报过的"loop 的声音比键盘小 / 没有 release 尾音"）✅
+            //      📌 **一句话**：⭐ **"事件源标签"与"更新源标签"必须成对** ✅
             //   📌 **两路结构上不会同拍**：⭐ `looper` 内部**主动避让**手弹流
             //      （⭐ 见 `looper.v` 的 `live_busy`）⇒ ⚠️ 这里的 mux 只是**兜底**，
             //      ⛔ 不承担"优先级仲裁"的语义 ✅
-            .vel_upd_src_i     (vu_valid_r ? 2'd0 : 2'd1),
+            .vel_upd_src_i     (vu_valid_r ? 3'd0 : 3'd4),
             .pitch_upd_valid_i (pe_pitch_v | lp_upd_valid),
             .pitch_upd_axis_i  (pe_pitch_v ? pe_pitch_ax : lp_upd_axis),
             .pitch_upd_value_i (pe_pitch_v ? pe_pitch    : lp_upd_inc),
-            .pitch_upd_src_i   (pe_pitch_v ? 2'd0 : 2'd1),
+            .pitch_upd_src_i   (pe_pitch_v ? 3'd0 : 3'd4),
             .default_timbre_i  (timbre_sel_r),   // ⭐ 2026-09-29：由串口 'I' 切换（⭐ 原来写死 2'd0）
             .evt_timbre_valid_i(mg_evt_timbre_valid),
             .evt_timbre_i      (mg_evt_timbre),

@@ -71,21 +71,23 @@ module tb_note_manager;
     reg  [PHASE_W-1:0]     note_phase_inc;
     reg  [VEL_W-1:0]       note_velocity;
     reg  [1:0]             note_kind;
-    //  ⭐⭐ A1（2026-09-29）：⭐ 事件**来源标记**（⭐ 0=live 手弹 / 1=score 回放 / 2=demo）
+    //  ⭐⭐ A1（2026-09-29）：⭐ 事件**来源标记**（⭐ 0=live 手弹 / 1=score 曲谱 / 2=demo / 3=源B）
     //     ⭐ 只有本 tb 的**主实例**用它（⭐ 判据在文件尾 `a1_src_isolated_off`）
-    reg  [1:0]             note_src = 2'd0;
+    //  ⭐⭐ 2026-09-30：⭐ **位宽 2 → 3**（⭐ 与 `note_manager.note_src_i` 同步；
+    //     本 tb 只用到 0/1 两个值 ⇒ ⭐ 行为不变 ✅）
+    reg  [2:0]             note_src = 3'd0;
 
     reg                    vel_upd_valid;
     reg  [AXIS_W-1:0]      vel_upd_axis;
     reg  [VEL_W-1:0]       vel_upd_value;
-    //  ⭐⭐ A2（2026-09-29）：⭐ **参数更新通路的来源标记**（⭐ 0=手弹 / 1=回放）
+    //  ⭐⭐ A2（2026-09-29）：⭐ **参数更新通路的来源标记**（⭐ 0=手弹 / 1=曲谱）
     //     ⚠️ **只有主实例用它**（⭐ 判据在文件尾 `a2_upd_src_isolated`）✅
-    reg  [1:0]             vel_upd_src = 2'd0;
+    reg  [2:0]             vel_upd_src = 3'd0;
 
     reg                    pitch_upd_valid;
     reg  [AXIS_W-1:0]      pitch_upd_axis;
     reg  [PHASE_W-1:0]     pitch_upd_value;
-    reg  [1:0]             pitch_upd_src = 2'd0;   // ⭐ A2
+    reg  [2:0]             pitch_upd_src = 3'd0;   // ⭐ A2
 
     reg  [TIMBRE_W-1:0]    default_timbre;
     reg                    evt_timbre_valid;
@@ -242,7 +244,7 @@ module tb_note_manager;
         .note_kind_i(2'd0),
         // ⭐ A1：本实例只有**单一来源**（手弹/live = 0）⇒ 恒接 0
         //    ⚠️ 必须**显式**接：留空 ⇒ `z` ⇒ `src_r == cur_src` 比较变 `x` ⇒ 🔴 判据假红
-        .note_src_i(2'd0),
+        .note_src_i(3'd0),
         .vel_upd_valid_i(1'b0), .vel_upd_axis_i({AXIS_W{1'b0}}), .vel_upd_value_i(8'd0),
         .pitch_upd_valid_i(1'b0), .pitch_upd_axis_i({AXIS_W{1'b0}}),
         .pitch_upd_value_i(32'd0),
@@ -281,7 +283,7 @@ module tb_note_manager;
         .note_kind_i(2'd0),
         // ⭐ A1：本实例只有**单一来源**（手弹/live = 0）⇒ 恒接 0
         //    ⚠️ 必须**显式**接：留空 ⇒ `z` ⇒ `src_r == cur_src` 比较变 `x` ⇒ 🔴 判据假红
-        .note_src_i(2'd0),
+        .note_src_i(3'd0),
         .vel_upd_valid_i(1'b0), .vel_upd_axis_i({AXIS_W{1'b0}}), .vel_upd_value_i(8'd0),
         .pitch_upd_valid_i(1'b0), .pitch_upd_axis_i({AXIS_W{1'b0}}),
         .pitch_upd_value_i(32'd0),

@@ -90,7 +90,8 @@ module tb_metronome;
         .note_velocity_i(nm_vel), .note_kind_i(nm_kind),
         // ⭐ A1：本 tb 只有**单一来源**（节拍器 = `top.v` 的源 B ⇒ 常数 3）
         //    ⚠️ 恒接同一个常数 ⇒ 行为与加此端口前**逐位相同**（⭐ 单源时源过滤是恒真的）
-        .note_src_i(2'd3),
+        // ⭐⭐ 2026-09-30：⭐ 位宽 2 → 3（⭐ 值不变，⭐ 仍是源 B 的 3）✅
+        .note_src_i(3'd3),
         .vel_upd_valid_i(1'b0), .vel_upd_axis_i(4'd0), .vel_upd_value_i(8'd0),
         .pitch_upd_valid_i(1'b0), .pitch_upd_axis_i(4'd0), .pitch_upd_value_i(32'd0),
         .default_timbre_i(2'd0), .evt_timbre_valid_i(1'b0), .evt_timbre_i(2'd0),
