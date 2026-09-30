@@ -18,6 +18,6 @@
       => decoded inc  = 0x1fffff
       => decoded kind = 0 (0=on 1=off)
 ==============================================================
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_screen.sv:170: $finish called at 381760000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\w3c\tb_evt_uart_rx_screen.sv:170: $finish called at 381760000 (1ps)
 
 

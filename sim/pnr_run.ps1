@@ -156,8 +156,14 @@ for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
     $setup = '?'; $hold = '?'; $fmax = '?'
     if (Test-Path $timingTxt) {
         $tl = Get-Content $timingTxt -Encoding UTF8
-        $setup = (($tl | Select-String 'Numbers of Setup Violated Endpoints' -Context 0,1).Context.PostContext -join '').Trim()
-        $hold  = (($tl | Select-String 'Numbers of Hold Violated Endpoints'  -Context 0,1).Context.PostContext -join '').Trim()
+        # NOTE 2026-09-30: Gowin prints the table column separator '|' on its own line,
+        # so the line AFTER the label is e.g. "0 |".  Trim() alone leaves "0 |", and the
+        # ($setup -eq '0') test further down then fails for EVERY build -- a perfect report
+        # was being reported as FAILED (observed: 0/0 + Fmax 53.821 MHz => "FAIL").
+        # Keep digits only.  If the label/value is missing the result is "" and the verdict
+        # still fails -- i.e. the safe direction is preserved.
+        $setup = ((($tl | Select-String 'Numbers of Setup Violated Endpoints' -Context 0,1).Context.PostContext -join '') -replace '[^0-9]', '')
+        $hold  = ((($tl | Select-String 'Numbers of Hold Violated Endpoints'  -Context 0,1).Context.PostContext -join '') -replace '[^0-9]', '')
         # The Gowin timing text puts the LABEL row first and the VALUES several rows
         # later (Actual Fmax | Logic Level | Entity | 50.000(MHz) | 52.575(MHz) | 2 |),
         # so reading the line right after "Actual Fmax" yields "Logic Level", not a number.

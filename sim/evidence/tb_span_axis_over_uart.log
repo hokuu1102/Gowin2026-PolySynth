@@ -56,6 +56,6 @@ ok  : 銆愯酱鍙风粡 UART 鐪熺殑鍙戝嚭鍘讳簡銆?
 ok  : 鏈?7 娆℃嫆缁濄€? 娆¤酱鍙?鈬?猸?閲嶈瘯鏃惰酱鍙枫€愮‘瀹為噸鍙戙€?
 ==================================================
 PASS: 杞村彿纭疄缁?UART 鍙戝嚭锛屼笖閲嶈瘯鏃朵細閲嶅彂锛圞-132 宸蹭慨锛?
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_axis_over_uart.sv:289: $finish called at 8024380000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\w3a\tb_span_axis_over_uart.sv:289: $finish called at 8024380000 (1ps)
 
 

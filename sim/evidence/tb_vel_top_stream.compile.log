@@ -1,37 +1,40 @@
-﻿iverilog.exe : C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited 
-from another file.
-At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:123 char:18
+﻿iverilog.exe : C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe in
+herited from another file.
+At C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\sim\tb_all.ps1:123 char:18
 +   $compileOut  = & $iverilog @compileArgs 2>&1
 +                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (C:\Users\hokuu\...m another file.:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
  
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from another 
-file.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
-her file.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1635: warning: Port 5 (ch_i) of module pos_probe expects 4 bit(s), given
- 3.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1635:        : Padding 1 high bits of the port.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:496: warning: @* is sensitive to all 16 words in array 
-'pc_l1'.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:90: warning: Instantiating module top with dangling in
-put port 3 (timbre_btn_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:90: warning: Instantiating module top with dangling in
-put port 11 (pluck_up_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:90: warning: Instantiating module top with dangling in
-put port 12 (pluck_down_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:110: warning: Instantiating module mcp3208_model with 
-dangling input port 7 (ch_mask_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:110: warning: Instantiating module mcp3208_model with 
-dangling input port 8 (ch_val_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:114: warning: Instantiating module mcp3208_model with 
-dangling input port 7 (ch_mask_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:114: warning: Instantiating module mcp3208_model with 
-dangling input port 8 (ch_val_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:184: vvp.tgt sorry: procedural continuous assignments 
-are not yet fully supported. The RHS of this assignment will only be evaluated once, at the time the assignment stateme
-nt is executed.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from 
+another file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited f
+rom another file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\rtl\top.v:1726: warning: Port 5 (ch_i) of module pos_probe expects 4 bit(s
+), given 3.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\rtl\top.v:1726:        : Padding 1 high bits of the port.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\rtl\w3b\tdm_render_mixer.v:496: warning: @* is sensitive to all 16 words i
+n array 'pc_l1'.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\w3b\tb_vel_top_stream.sv:101: warning: Instantiating module top with da
+ngling input port 3 (timbre_btn_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\w3b\tb_vel_top_stream.sv:101: warning: Instantiating module top with da
+ngling input port 11 (pluck_up_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\w3b\tb_vel_top_stream.sv:101: warning: Instantiating module top with da
+ngling input port 12 (pluck_down_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\w3b\tb_vel_top_stream.sv:121: warning: Instantiating module mcp3208_mod
+el with dangling input port 7 (ch_mask_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\w3b\tb_vel_top_stream.sv:121: warning: Instantiating module mcp3208_mod
+el with dangling input port 8 (ch_val_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\w3b\tb_vel_top_stream.sv:125: warning: Instantiating module mcp3208_mod
+el with dangling input port 7 (ch_mask_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\w3b\tb_vel_top_stream.sv:125: warning: Instantiating module mcp3208_mod
+el with dangling input port 8 (ch_val_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\w3b\tb_vel_top_stream.sv:200: vvp.tgt sorry: procedural continuous assi
+gnments are not yet fully supported. The RHS of this assignment will only be evaluated once, at the time the assignment
+ statement is executed.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\w3b\tb_vel_top_stream.sv:210: vvp.tgt sorry: procedural continuous assi
+gnments are not yet fully supported. The RHS of this assignment will only be evaluated once, at the time the assignment
+ statement is executed.

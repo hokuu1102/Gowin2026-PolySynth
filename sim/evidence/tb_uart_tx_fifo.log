@@ -31,6 +31,6 @@
   ok  : A8: ovf / drop_cnt 鏃?X/Z
 
 PASS: uart_tx_fifo queues bytes (never drops while busy), surfaces overflow, and clears on demand
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_uart_tx_fifo.sv:235: $finish called at 6710000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\w3c\tb_uart_tx_fifo.sv:235: $finish called at 6710000 (1ps)
 
 

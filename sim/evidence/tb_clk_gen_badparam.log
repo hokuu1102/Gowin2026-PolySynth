@@ -11,6 +11,6 @@ VCD info: dumpfile build/sim/tb_clk_gen_badparam/tb_clk_gen_badparam.vcd opened 
   ok : 鍚堟硶鍙傛暟涓?bclk_en 娆℃暟姝ｅ父锛?56 鈮?256锛?
 
 PASS: clk_gen 鍙傛暟鑷鎸夐鏈熷伐浣滐紙闈炴硶鍙傛暟浼氬憡璀︼紱鍚堟硶鍙傛暟鏃犲憡璀︼紱涓よ€呴兘涓嶅崱姝伙級
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\clk_gen\tb_clk_gen_badparam.sv:104: $finish called at 82091000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\clk_gen\tb_clk_gen_badparam.sv:104: $finish called at 82091000 (1ps)
 
 

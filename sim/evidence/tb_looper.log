@@ -70,6 +70,6 @@
      [dbg] upd_n=15 last=160 ep0v=1 ep0vel=160 ep0tick=32 on_open0=0
   ok  : A8: no X/Z on the replay outputs
 PASS: looper T37 record/replay, no-hang incl. axis 15, clear, same-tick, overflow
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:790: $finish called at 181880000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\w3c\tb_looper.sv:790: $finish called at 181880000 (1ps)
 
 

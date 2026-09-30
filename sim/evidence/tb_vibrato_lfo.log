@@ -11,6 +11,6 @@
   ok  : triangle negative three-quarter-cycle
   ok  : triangle returns to zero continuously
 PASS: vibrato LFO hysteresis, slew and phase continuity
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vibrato_lfo.sv:100: $finish called at 350000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\w3b\tb_vibrato_lfo.sv:100: $finish called at 350000 (1ps)
 
 

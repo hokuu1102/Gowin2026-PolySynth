@@ -13,6 +13,6 @@
   ok : A8 no X/Z
 
 PASS: i2s_tx round-trips the full 24-bit value range, every single-bit pattern, and the truncation edge cases
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_i2s_tx_prbs.sv:197: $finish called at 11878651000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\w3c\tb_i2s_tx_prbs.sv:197: $finish called at 11878651000 (1ps)
 
 

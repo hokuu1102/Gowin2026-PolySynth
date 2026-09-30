@@ -21,6 +21,6 @@
 == 姹囨€?==
   ok  : all three retriggers really produced a reset pulse (1/1/1, not vacuous)
 PASS: retrig_reset single-tick span (P0-4) - all judgements held (rst_ticks = 1/1/1)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_retrig_reset_span.sv:335: $finish called at 28880000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\w3b\tb_retrig_reset_span.sv:335: $finish called at 28880000 (1ps)
 
 

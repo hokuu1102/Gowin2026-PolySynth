@@ -19,6 +19,6 @@
   ok : A8 鏃?X/Z 浼犳挱锛圚P_DIN/HP_BCK/HP_WS/鏍风偣锛?
 
 PASS: M2 鏁板瓧绔欢杩熶笂鐣屼笌鎶栧姩鍧囪揪鏍囷紙50 娆★紝鏋佸樊 < 0.1 ms锛?
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\latency\tb_latency_m2.sv:194: $finish called at 2820771000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\latency\tb_latency_m2.sv:194: $finish called at 2820771000 (1ps)
 
 

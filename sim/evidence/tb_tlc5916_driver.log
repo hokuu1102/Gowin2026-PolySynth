@@ -33,6 +33,6 @@ PASS: A8 鏃?X/Z 浼犳挱
   ok : K-66 鎭㈠搴忓垪鍙戜簡 12 涓?CLK 鍛ㄦ湡锛堚墺5锛岀 4 涓部鑳介噰鍒?LE锛?
   ok : K-66 鎭㈠搴忓垪**姣忔澶嶄綅鍚庢伆濂借窇涓€娆?*锛堟湰 tb 鏈?2 娆″浣嶉噴鏀?鈬?2 娆★級
 PASS: all TLC5916 tests completed successfully
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_tlc5916_driver.sv:495: $finish called at 137520000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026-deliver\tb\drivers\tb_tlc5916_driver.sv:495: $finish called at 137520000 (1ps)
 
 
