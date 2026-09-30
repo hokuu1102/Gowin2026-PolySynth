@@ -12,7 +12,8 @@ module hdmi_ref_top (
     output wire       tmds_clk_p_0,
     output wire [2:0] tmds_d_n_0,
     output wire [2:0] tmds_d_p_0,
-    output wire       hpd_en
+    output wire       hpd_en,
+    output wire       led_hb
 );
 
     wire serial_clk;
@@ -81,5 +82,18 @@ module hdmi_ref_top (
         .O_tmds_data_p (tmds_d_p_0),
         .O_tmds_data_n (tmds_d_n_0)
     );
+
+    // Liveness witness on the Console CFG_LED green channel (V13), same code as
+    // our own design: free-running in the 50 MHz domain, not gated by rst_n.
+    //   ~1 Hz = running AND PLL locked   ~5 Hz = running, PLL NOT locked
+    //   dark  = not configured, or no 50 MHz input clock
+    reg [24:0] hb_cnt;
+    reg        hb_slow, hb_fast;
+    always @(posedge clk) begin
+        hb_cnt <= (hb_cnt == 25'd24_999_999) ? 25'd0 : hb_cnt + 25'd1;
+        if (hb_cnt == 25'd24_999_999) hb_slow <= ~hb_slow;
+        if (hb_cnt == 25'd4_999_999)  hb_fast <= ~hb_fast;
+    end
+    assign led_hb = pll_lock ? hb_slow : hb_fast;
 
 endmodule
