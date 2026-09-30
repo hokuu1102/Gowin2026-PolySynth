@@ -1430,6 +1430,48 @@ module top #(
         wire        cal0_busy, cal0_err;
         wire        cal1_busy, cal1_err;
 
+        //   ⭐⭐ 2026-09-30：⭐ 修「`cal1_err` / `cal1_busy` 盲区」
+        //
+        //   🔴 **病灶**：⭐ 上面这两个 `wire` 从 2026-09-23 起就**只接出、⛔ 从未被读** ——
+        //      `u_calib_span` 的 `.cal_busy_i` / `.cal_err_i` **只接了片 0**
+        //      ⇒ ⭐ **片 1（左手板 2）的 span 失败【完全不可见】** ⚠️
+        //
+        //   🔴 **后果（⭐ 就是"板 2 比板 1 小声"的机制）**：
+        //      ⭐ `calib_span.span_o` 是**两片同拍广播**（`span_o <= {N_ADC{1'b1}}`），
+        //         且 `cal_ch_mux` **两片共用** ⇒ ⭐ 标"轴 8"时片 1 的 ch0 也同时被标。
+        //      ⭐ 若只按板 1 ⇒ 片 1 那一路 `raw <= zero` ⇒ ⭐ 片 1 走 `err` 分支
+        //         ⇒ 🔴 它的增益被写成 1.0（⭐ 未归一化），
+        //         ⚠️ **而回包仍然是 `.`** ⇒ ⭐ **看似成功、实际没归一化** ✅
+        //      ⇒ ⭐ 板 2 的 `pos` 一直按"裸行程"走 ⇒ ⭐ **比板 1 小声** ✅
+        //
+        //   ✅ **修法**：⭐ **两片都成功才算成功、任一片失败都算失败** ✅
+        //      ⭐ 即 `cal1_err` 也纳入失败判据、`cal1_busy` 也纳入成功条件。
+        //   ⚠️ **代价（⭐ 必须知道）**：⭐ 片 1 未接时它的 `raw` 恒为 4095（MISO 被上拉）
+        //      ⇒ ⭐ `err` 恒高 ⇒ ⭐ **`'S'` 会一直回 `!`** ⇒ ⚠️ 单板现场请按下方
+        //      `cal_err_any` / `cal_busy_all` 两行的注释改成"只看片 0"再重编译。
+        //   ⭐ 开关（⭐ 1 = 两片都必须成功 · 0 = 只看片 0）：
+        //      ⭐ 当前 = 【1】双板现场 ⇒ 两片都必须成功 ✅
+        //      ⚠️ 单板现场（⭐ 片 1 未接 ⇒ 它的 `err` 恒高 ⇒ `'S'` 会一直回 `!`）
+        //         ⇒ ⭐ 把下面两行改成 `= cal0_err;` / `= cal0_busy;` 后重编译即可 ✅
+        //   ⭐⭐ 2026-09-30（紧急修复）：⭐ **开关落成 `localparam`**，⛔ 不再靠"手改逻辑行"
+        //     ⚠️ 上一版把它写成"把这两行改成 `cal0_err`/`cal0_busy` 再重编译"
+        //        ⇒ ⚠️ 现场容易改错、且**不可追溯**（⭐ 改了哪版说不清）✅
+        //     ⭐ 语义（⭐ 已核到代码级）：
+        //       · ⭐ `calib_span.S_NEXT` **先判 `cal_err_i`、后判 `cal_busy_i`**
+        //         （⭐ `:551` 与 `:576`）⇒ ⭐ **"任一片失败 ⇒ 拒绝"这条与 `&`/`|` 无关** ✅
+        //       · ⭐ 而"通过"这条路**只在两片都成功时**才需要 ⇒
+        //         ⭐ 两片都成功 ⇒ 两片 `busy` **同拍为 1**（⭐ 两片锁步）⇒ `&` 与 `|` **等价** ✅
+        //       ⇒ ⭐ 所以 `&` **不会**堵住通过路径 ✅
+        //       ⇒ ⭐ 而 `|` 反而会在"片 0 成功、片 1 既没 `busy` 也没 `err`"时
+        //         **把一次可疑的标定误判成通过** ⚠️（⭐ 那就又回到"静默失败"了）
+        //       ⇒ ⭐⭐ **结论：保留 `&`** —— ⭐ 它是最保守、也是唯一不会静默放行坏片的选择 ✅
+        //     ⭐ 开关（⭐ 1 = 两片都必须成功【⭐ 双板现场 · 默认】· 0 = 只看片 0【⭐ 单板现场】）：
+        //       ⚠️ 单板现场（⭐ 片 1 未接 ⇒ 它的 `raw` 恒 4095 ⇒ `err` 恒高 ⇒ `'S'` 会一直回 `!`）
+        //          ⇒ ⭐ 把下面这一行改成 `= 0` 再重编译即可 ✅（⛔ 不用动逻辑行）
+        localparam integer SPAN_CHECK_BOTH = 1;
+        wire cal_err_any  = (SPAN_CHECK_BOTH != 0) ? (cal0_err  | cal1_err ) : cal0_err;
+        wire cal_busy_all = (SPAN_CHECK_BOTH != 0) ? (cal0_busy & cal1_busy) : cal0_busy;
+
         // ═══════════════════════════════════════════════════════════════════
         // ⭐⭐ 上电自动零点标定（⭐ `calib_autotare`，2026-09-23 接入）
         //
@@ -1531,24 +1573,53 @@ module top #(
         wire [2:0] sp_ch;
         wire       sp_busy, sp_done, sp_need_press, sp_reject;
         wire [3:0] sp_cur_axis, sp_done_cnt;
+        // ⭐⭐ 2026-09-30 新增：`calib_autotare` 的"跳过/失败"指示
+        //   🔴 **必须在 `u_autotare` 之前声明**（⭐ 同 `sp_*` 的理由：
+        //      ⚠️ 否则 iverilog 只报 `implicit definition` warning
+        //      ⇒ 🔴 **隐式建成 1 位 wire**，`at_skip` 会被静默截断）
+        wire [7:0] at_skip;
+        wire       at_fail;
     // ⭐⭐ 2026-09-24 新增：⭐ span 的内部状态（⭐ 供 `'P'` 诊断回传）
     wire [2:0] sp_state;
     wire [3:0] sp_rej_cnt;
-        //   ⭐ `'S'` 的门控（⭐ 与 `at_busy` 做互锁）—— ⚠️ 同样必须先声明
-        wire       sp_start_gated = cmd_span_req & ~at_busy;
-        wire       sp_start_rejected = cmd_span_req & at_busy;
+    // ⭐⭐ 2026-09-30 新增：⭐ `calib_span` 的**拒绝原因码**（⭐ 上板诊断用）
+    //   ⭐ 见 `calib_span.v` 的 `RJ_*` 与端口 `rej_why_o`
+    wire [2:0] sp_rej_why;
+        //   ⭐ `'S'` 的门控（⭐ 与 autotare 做互锁）—— ⚠️ 同样必须先声明
+        //   ⭐⭐ 2026-09-30 修：⛔ 原来用 `~at_busy` —— 而 `at_busy` 只在 `ST_SWEEP` 为高
+        //      ⇒ ⚠️ 复位后 200 ms 的 `ST_WAIT` 期间发 `'S'` 【不被拒】
+        //      ⇒ 🔴 autotare 随后进 `ST_SWEEP`，它的 `tare` 会把【正在被 span 标的那个轴】
+        //         的 `zero_r` 写成按下值 ⇒ 破坏零点 ⇒ `raw <= zero` ⇒ err ⇒ 全拒
+        //      ⇒ ⭐ 改用【现成的 `at_done`】（⭐ `state == ST_DONE`）
+        //         ⇒ ⭐ 只有标定【全部完成后】才放行；⭐ `'T'` 重标期间 `at_done` 落 0 ⇒ 自动再互锁 ✅
+        //      📌 与 handoff §6.2 的"200 ms 内发 'S' 会被忽略、回 '!'"一致 ✅
+        wire       sp_start_gated = cmd_span_req & at_done;
+        wire       sp_start_rejected = cmd_span_req & ~at_done;
 
         calib_autotare #(
             .NCH      (8),
             .N_ADC    (2),
             //   ⚠️ 可调：`AUTOTARE_DELAY_CLK` ⭐ 默认 10M 拍 ≈ 200 ms @50 MHz
             //     ⚠️ 提成参数是为了**让 tb 能改小**（⭐ 否则仿真要跑 10M 拍）
-            .DELAY_CLK(AUTOTARE_DELAY_CLK)
+            .DELAY_CLK(AUTOTARE_DELAY_CLK),
+            //   ⭐⭐ 2026-09-30 新增：「静止才捕获」守卫的参数
+            //     ⭐ 判静止用【逐通道 `raw` 帧间差】（⛔ 不用 `pos` —— 那是自指）
+            //     ⭐ 超时按 `clk` 计（⛔ 不用帧计数 —— ADC 停流时永不到期）
+            .STILL_EN     (1),
+            .DW           (12),
+            .STILL_TOL    (8),         // ⭐ 帧间 `raw` 变化 ≤ 8 码算"没动"
+            .STILL_FRAMES (4),         // ⭐ 连续 4 帧静止才允许捕获（4 帧 ≈ 2 ms）
+            .WAIT_MS      (1000),      // ⭐ 单通道最长等待 1 s ⇒ 到期跳过该轴
+            .CLK_HZ       (50_000_000)
         ) u_autotare (
             .clk           (clk),
             .rst_n         (rst_n_sync),
             .sample_valid_i(af_sample_valid),
             .sample_ch_i   (af_sample_ch),
+            //   ⭐⭐ 判"静止"用的原始码：⭐ 取【片 0】的原始码
+            //      （⭐ `af_data` 声明在 `:1351`，⭐ **早于本例化** ⇒ 可用 ✅）
+            //   ⚠️ 极性反相是**镜像** ⇒ `|Δraw|` **极性无关** ⇒ ⭐ 用反相前的码等价 ✅
+            .sample_data_i (af_data[0*12 +: 12]),
             // ⭐⭐ `retrig_i`：⭐ 接 `'T'` 命令（⭐ 2026-09-23 阶段C 接通）
             //   🔴 **互锁（⭐ 与 `'S'` 对称）**：⭐ `span` 忙时**忽略 `'T'`**
             //      ⚠️ 否则 `tare` 与本轴的 `span` 同拍 ⇒ 🔴 **增益算错**（⭐ 见 `cal_ch_mux`）
@@ -1556,6 +1627,10 @@ module top #(
             .retrig_i      (cmd_tare_req & ~sp_busy),
             .tare_o        (at_tare),
             .cal_ch_o      (at_ch),
+            //   ⭐⭐ 2026-09-30：⭐ 超时被跳过的轴（⭐ 1 = 本轴从未成功标定）
+            //      ⚠️ 必须有可观测指示 —— ⛔ 否则"跳过"是静默的
+            .skip_mask_o   (at_skip),
+            .fail_o        (at_fail),
             .busy_o        (at_busy),
             .done_o        (at_done)
         );
@@ -1624,6 +1699,16 @@ module top #(
         // ⭐ 两片的原始码，各做一次极性校正（⭐ 在 `calib` 之前）
         wire [11:0] af0_pol = axis_polarity(af_data[0*12 +: 12]);
         wire [11:0] af1_pol = axis_polarity(af_data[1*12 +: 12]);
+    // ⭐⭐ 2026-09-30 修 K-127：⭐ `calib_span.raw_i` 原来**恒接片 0** ⇒
+    //   🔴 **轴 8~15（板 2）的"按稳"门控看的是【板 1】的读数**
+    //   ⇒ ⚠️ 板 2 的 span 标定**不可靠**（⭐ 这正是"用 `'S'` 对齐两块板"的硬前置）。
+    //   ⭐ 修法：⭐ 用**当前要标的轴** `sp_cur_axis[3]` 选片
+    //      （⭐ bit3 = 片号：轴 0~7 = 片 0、轴 8~15 = 片 1）。
+    //   ⚠️ `sp_cur_axis` 是 `calib_span` 的**寄存器输出**（`output reg cur_axis_o`）
+    //      ⇒ ⭐ 它比内部 `cur_axis` 晚 1 拍，⭐ 但**同一帧内**就追上了
+    //      （⭐ 帧 = 500 µs = 25000 拍）⇒ ⭐ **不会影响"连续 N 帧静止"的判定**
+    //      ⇒ ⛔ **不构成组合环**（⭐ 这是本项目实测过的坑：见 `sp_busy_r` 的说明）。
+    wire [11:0] sp_raw_sel = sp_cur_axis[3] ? af1_pol : af0_pol;
 
         // ═══════════════════════════════════════════════════════════════════════
         wire       pp_push;
@@ -1765,14 +1850,15 @@ module top #(
             //   ⭐ 与 `u_autotare` **同一路**（⭐ 都用 `adc_farm` 的采样握手）
             .sample_valid_i(af_sample_valid),
             .sample_ch_i   (af_sample_ch),
-            //   ⭐⭐ **必须用 `af0_pol`**（⭐ 反相后、`calib` 前）—— 见上方关键点 ①
-            .raw_i         (af0_pol),
+            //   ⭐⭐ **必须用 `af0_pol`/`af1_pol`**（⭐ 反相后、`calib` 前）—— 见上方关键点 ①
+            //   ⭐⭐ 2026-09-30 修 K-127：⭐ 改为**按当前轴选片**（⛔ 原来恒接 `af0_pol`）
+            .raw_i         (sp_raw_sel),
             .span_o        (sp_span),
             .cal_ch_o      (sp_ch),
             //   ⭐ `calib` 的反馈（⭐ 修"静默卡死"缺陷时新增的连接）
             //      ⚠️ 接入前这两个是【空连接】⇒ 标定失败**无法感知**
-            .cal_busy_i    (cal0_busy),
-            .cal_err_i     (cal0_err),
+            .cal_busy_i    (cal_busy_all),  // ⭐ 2026-09-30：两片都成功才算成功
+            .cal_err_i     (cal_err_any),   // ⭐ 2026-09-30：任一片失败都算失败
             .busy_o        (sp_busy),
             .done_o        (sp_done),
             .cur_axis_o    (sp_cur_axis),
@@ -1781,7 +1867,9 @@ module top #(
             .done_cnt_o    (sp_done_cnt),
             //   ⭐ 2026-09-24 诊断输出（⭐ 让 `'P'` 能回传"卡在哪一步"）
             .state_o       (sp_state),
-            .rej_cnt_o     (sp_rej_cnt)
+            .rej_cnt_o     (sp_rej_cnt),
+            //   ⭐⭐ 2026-09-30：⭐ 拒绝原因码（⭐ 上板诊断用 —— ⛔ 原来只能看到 `!`）
+            .rej_why_o     (sp_rej_why)
         );
 
         //   ⭐⭐ **`cal_ch` 仲裁** —— 🔴 **2026-09-24 移到下方**（⭐ 见 `sp_busy_r` 附近）
@@ -1900,11 +1988,48 @@ module top #(
                                 : (tm_n_code_r == 2'b01) ? 8'h41
                                 : (tm_n_code_r == 2'b10) ? 8'h42
                                                          : 8'h30;
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 2026-09-30：**拒绝原因回包**（⭐ 上板诊断）
+        //
+        //   🔴 **为什么需要**：⭐ `'!'` 有【6 个来源】（⭐ 见 `calib_span.rej_why_o`）
+        //      ⇒ ⚠️ 上板只看到 `!` 时**分不清**"没按稳"还是"片报 err"
+        //      ⇒ 🔴 而两者**修法完全不同**（⭐ 前者教用户、后者查硬件）⇒ 必须能分辨。
+        //
+        //   ⭐ 编码（⭐ 每个来源一个字节）：
+        //     · ⭐ `'!'` 0x21 —— R1 稳定判据超时（⭐ `span` 未发 · 最常见）
+        //     · ⭐ `'o'` 0x6F —— R2 投票收帧超时（⭐ `span` 未发）
+        //     · ⭐ `'w'` 0x77 —— R3 离散度超限（⭐ `span` 未发 · 手还在动）
+        //     · ⭐ `'b'` 0x62 —— R4 等帧超时（⭐ `span` 未发）
+        //     · ⭐ `'?'` 0x3F —— R6 `span` 已发但 `calib` 无响应（⭐ 接线 / `busy` 问题）
+        //     · ⭐ `'0'`/`'1'`/`'2'` —— R5 ⭐ **`span` 已发 ＋ 片报 err**
+        //        ⚠️ `'0'`/`'1'`/`'2'` 与**轴号字符同形** ⇒ ⭐ 读日志时按位置区分
+        //           （⭐ 拒绝字节总是紧跟在一个轴号之后）
+        //
+        //   ⭐ 取片号的时机（⭐ 已论证，⛔ 不是"拿当下的粘滞值"）：
+        //      ⭐ `calib.err` **只在 `span` 尝试或复位时**被写（⭐ `calib.sv:270/281`）
+        //      ⇒ ⭐ 从发脉冲到本条拒绝之间**没有第二次写** ⇒ ⭐ 这一拍的
+        //         `cal0_err`/`cal1_err` **就是本轴本次尝试的结果** ✅
+        //      ⚠️ 所以**不需要**给 `calib_span` 加逐片输入（⭐ 少一个端口 = 少一处风险）
+        //      📌 R6 时它们可能是**上一轴的残值** ⇒ ⭐ 所以 R6 **一律回 `'?'`**，
+        //         ⛔ 不报片号（⭐ 避免给出错误的片号）
+        // ═══════════════════════════════════════════════════════════════════
+        wire [1:0] cal_err_chip = {cal1_err, cal0_err};
+        wire [7:0] rej_why_byte = (sp_rej_why == 3'd5)                              // R5：span 已发 + 片 err
+                                ? ((cal_err_chip == 2'b01) ? 8'h30                  // '0' 片 0
+                                 : (cal_err_chip == 2'b10) ? 8'h31                  // '1' 片 1
+                                 : (cal_err_chip == 2'b11) ? 8'h32                  // '2' 两片
+                                 :                            8'h3F)                // '?' 片号未知
+                                : (sp_rej_why == 3'd6) ? 8'h3F                      // '?' R6 已发但无响应
+                                : (sp_rej_why == 3'd3) ? 8'h77                      // 'w' R3 离散度
+                                : (sp_rej_why == 3'd2) ? 8'h6F                      // 'o' R2 投票超时
+                                : (sp_rej_why == 3'd4) ? 8'h62                      // 'b' R4 等帧超时
+                                :                        8'h21;                     // '!' R1 稳定判据超时
+
         wire       rep_req  = ev_need   | ev_reject | ev_axis_ok | ev_done
                             | cmd_tare_req | cmd_span_req | cmd_abort_req | cmd_test_mode_req
                             | sp_start_rejected | (at_done & ~at_done_r);
         wire [7:0] rep_byte = ev_need          ? axis_char        // ⭐ ① 轴号（⭐ 最要紧）
-                            : ev_reject        ? 8'h21            // '!' 🔴 被拒
+                            : ev_reject        ? rej_why_byte     // 🔴 被拒（⭐ 带原因码，见上）
                             : ev_axis_ok       ? 8'h2E            // '.' ⭐ 本轴通过
                             : ev_done          ? 8'h44            // 'D' ⭐ 全部完成
                             : sp_start_rejected? 8'h21            // '!' 🔴 'S' 被拒（正忙）

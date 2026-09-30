@@ -37,18 +37,29 @@ module tb_calib_autotare;
     wire [2:0]       cal_ch;
     wire             busy, done;
 
+    // ⭐⭐ 2026-09-30：`calib_autotare` 新增三个端口
+    //   ⚠️ `STILL_EN(0)` ⇒ ⭐ **关闭"静止才捕获"守卫** ⇒ ⭐ **本 tb 的期望值完全不变**
+    //      （⭐ 本 tb 的激励是"每帧一个样本"，⛔ 不满足"连续 N 帧静止"的新判据；
+    //        ⭐ 新守卫的判据由**新增的 tb** 守 —— ⭐ 见回报里的"你要我跑什么"）
+    wire [NCH-1:0] at_skip;
+    wire           at_fail;
+
     calib_autotare #(
         .NCH      (NCH),
         .N_ADC    (N_ADC),
-        .DELAY_CLK(DELAY)
+        .DELAY_CLK(DELAY),
+        .STILL_EN (0)
     ) dut (
         .clk           (clk),
         .rst_n         (rst_n),
         .sample_valid_i(sample_valid),
         .sample_ch_i   (sample_ch),
+        .sample_data_i (12'h000),
         .retrig_i      (retrig),
         .tare_o        (tare),
         .cal_ch_o      (cal_ch),
+        .skip_mask_o   (at_skip),
+        .fail_o        (at_fail),
         .busy_o        (busy),
         .done_o        (done)
     );

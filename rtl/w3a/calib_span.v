@@ -143,7 +143,11 @@ module calib_span #(
     //      ⚠️ 而 8 个状态里任何一个超时都会回 `!` ⇒ ⭐ 必须能区分
     //   📌 编码同 `S_*` 的 localparam（⭐ 0=IDLE · 1=PROMPT · 2=SETTLE · …）
     output wire [2:0]       state_o,        // ⭐ 当前状态（⭐ 组合）
-    output wire [3:0]       rej_cnt_o       // ⭐ 已拒绝次数（⭐ 组合）
+    output wire [3:0]       rej_cnt_o,      // ⭐ 已拒绝次数（⭐ 组合）
+    // ⭐⭐ 2026-09-30 新增：⭐ **上一次拒绝的原因码**（⭐ 见上方 `RJ_*`）
+    //   ⭐ 它是**寄存器**（⭐ 只在拒绝那一拍更新）⇒ ⭐ 拒绝之后一直保持
+    //      ⇒ ⭐ 顶层可以在 `ev_reject` 那一拍取到**本条拒绝**的原因 ✅
+    output reg  [2:0]       rej_why_o       // ⭐ 0=none 1=settle 2=vote_to 3=spread 4=busy_to 5=cal_err 6=silent
 );
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -157,6 +161,31 @@ module calib_span #(
     localparam [2:0] S_WAITBUSY= 3'd5;   // ⭐ 等除法器
     localparam [2:0] S_NEXT    = 3'd6;   // ⭐ 下一轴 / 收尾
     localparam [2:0] S_DONE    = 3'd7;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ 2026-09-30：**拒绝原因码**（⭐ 上板诊断用）
+    //
+    //   🔴 **为什么必须在【本模块】里记**：
+    //      ⭐ 本模块有 **6 条**拒绝出边（⭐ 见下），⛔ 而它们**都只回一个 `'!'`**
+    //      ⇒ ⚠️ 上板看到 `!` 时**根本分不出是哪一条** ⚠️
+    //      ⇒ 🔴 而"没按稳"与"片报 err"是**完全不同的修法**（⭐ 前者教用户、
+    //         后者查硬件）⇒ ⭐ 必须能分辨。
+    //
+    //   ⛔ **为什么不能靠 `state_o` 反推**：⭐ 每条拒绝出边都写 `state <= S_PROMPT`
+    //      （⭐ 或 `S_DONE`）—— ⚠️ 非阻塞赋值 ⇒ ⭐ 在 `reject_o` 为高的那一拍，
+    //      `state_o` **已经是 `S_PROMPT`/`S_DONE`** ⇒ 🔴 **拒绝发生的状态被丢掉了**。
+    //      ⇒ ⭐ 所以只能**显式记一个原因码**。
+    //
+    //   📌 它是**纯诊断**：⭐ 不参与任何判决逻辑 ⇒ ⛔ 改动零风险 ✅
+    //      ⭐ 且**只在本 `always` 块里被赋值**（⭐ Gowin 单驱动硬要求 `EX2000`）
+    // ═══════════════════════════════════════════════════════════════════════
+    localparam [2:0] RJ_NONE    = 3'd0;  // ⭐ 本次扫描还没拒绝过
+    localparam [2:0] RJ_SETTLE  = 3'd1;  // R1 `S_SETTLE` 超时（⭐ 键没按稳 / 帧不来）
+    localparam [2:0] RJ_VOTE_TO = 3'd2;  // R2 `S_VOTE` 超时（⭐ 投票帧不来）
+    localparam [2:0] RJ_SPREAD  = 3'd3;  // R3 离散度 `>VOTE_TOL`（⭐ 手还在动）
+    localparam [2:0] RJ_BUSY_TO = 3'd4;  // R4 `S_WAITBUSY` 超时（⭐ 帧不来）
+    localparam [2:0] RJ_CAL_ERR = 3'd5;  // R5 `cal_err_i`（⭐ ⭐ **`span` 已发**）
+    localparam [2:0] RJ_SILENT  = 3'd6;  // R6 `span` 已发但无 `busy` 无 `err`
 
     reg [2:0]  state;
     reg [3:0]  cur_axis;        // ⭐ 0 .. AXIS_TOTAL-1
@@ -198,6 +227,15 @@ module calib_span #(
     //         "还没开始" 与 "直接 err 了" ⇒ ⭐ 必须主动记录已发。
     //      ⭐ 它在 `S_WAITBUSY` 发出 `span` 的那拍置起、⭐ 进 `S_PROMPT` 时清掉。
     reg           span_sent_r;
+    //   ⭐⭐ 2026-09-30：`span_sent_r2` = `span_sent_r` **无条件打一拍**
+    //      🔴 **为什么必须再加这一级**：⭐ `calib` 是在**收到 `span` 的【下一拍】**
+    //         才更新 `err`（⭐ `err` 是寄存器）⇒ ⚠️ 发脉冲那拍之后**第 1 个 `S_NEXT` 拍**
+    //         看到的仍是**上一轴残留的 `err`** ⇒ 🔴 上一轴失败时本轴**第一次必被误判 `!`**。
+    //      ⭐ 加一级之后：⭐ 脉冲拍 N 置 `span_sent_r`；`calib` 在 N+1 采样并更新 `err`；
+    //         `span_sent_r2` 从 N+1 起有效 ⇒ ⭐ **从 N+2 起"`err` 与标志同属本轴"** ✅
+    //      📌 它**只在本 `always` 块里被赋值**（⭐ Gowin 单驱动硬要求：`EX2000`）✅
+    //      📌 清除**不需要额外写**：⭐ `span_sent_r` 一清，`span_sent_r2` 下一拍自动跟 0 ✅
+    reg           span_sent_r2;
     //   ⭐⭐ `prompt_phase`（⭐ 2026-09-25 新增，⭐ 修 `K-132`）：
     //      ⭐ `S_PROMPT` 需要**停留 2 拍**才能造出干净的 `need_press_o` 上升沿
     //        · 第 1 拍：`need_press_o <= 0`（⭐ 强制拉低）
@@ -223,6 +261,8 @@ module calib_span #(
             cur_axis_o  <= 4'd0;
             need_press_o<= 1'b0;
             reject_o    <= 1'b0;
+            // ⭐ 2026-09-30：原因码复位（⭐ 它本身是 `output reg`，⭐ 直接用，⛔ 不另建内部量）
+            rej_why_o   <= RJ_NONE;
             done_cnt_o  <= 4'd0;
             prev_val    <= 12'd0;
             vmin        <= 12'hFFF;
@@ -234,6 +274,7 @@ module calib_span #(
             // ⭐ 2026-09-23：兜底计数器 + 已发标记
             wait_clk_cnt<= {WCW{1'b0}};
             span_sent_r <= 1'b0;
+            span_sent_r2<= 1'b0;
             // ⭐ 2026-09-25：`S_PROMPT` 的两拍标记（⭐ 见 `K-132`）
             prompt_phase<= 1'b0;
         end else begin
@@ -242,6 +283,10 @@ module calib_span #(
             //      ⭐ abort 走这条路 ⇒ `span_o` 回到 0、⛔ 不会漏出半个脉冲。
             span_o   <= {N_ADC{1'b0}};
             reject_o <= 1'b0;
+            // ⭐⭐ 2026-09-30：`span_sent_r2` **无条件**跟随 `span_sent_r`（⭐ 打一拍）
+            //   ⚠️ 放在 `abort_i` 判断**之前** ⇒ abort 那一拍它还会保持 1，
+            //      ⭐ 但 abort 把 `state` 打回 `S_IDLE` ⇒ `S_NEXT` 不参与判决 ⇒ ⭐ 无害 ✅
+            span_sent_r2 <= span_sent_r;
 
             // ═══════════════════════════════════════════════════════════════
             // ⭐⭐ `abort_i` 总闸（⭐ 2026-09-23 新增）—— ⭐ **优先于一切状态**
@@ -359,6 +404,7 @@ module calib_span #(
 
                     if (wait_clk_cnt >= WAIT_TIMEOUT_CLK[WCW-1:0]) begin
                         reject_o   <= 1'b1;
+                        rej_why_o  <= RJ_SETTLE;      // ⭐ R1：稳定判据超时（⭐ span 未发）
                         reject_cnt <= reject_cnt + 4'd1;
                         if (reject_cnt >= REJECT_MAX[3:0]) begin
                             state  <= S_DONE;
@@ -391,6 +437,7 @@ module calib_span #(
 
                     if (wait_clk_cnt >= WAIT_TIMEOUT_CLK[WCW-1:0]) begin
                         reject_o   <= 1'b1;
+                        rej_why_o  <= RJ_VOTE_TO;     // ⭐ R2：投票收帧超时（⭐ span 未发）
                         reject_cnt <= reject_cnt + 4'd1;
                         if (reject_cnt >= REJECT_MAX[3:0]) begin
                             state  <= S_DONE;
@@ -416,6 +463,7 @@ module calib_span #(
                     //      ⇒ ⭐ **拒绝这组样本并重来**，⛔ 绝不静默采用。
                     if ((vmax - vmin) > VOTE_TOL) begin
                         reject_o   <= 1'b1;
+                        rej_why_o  <= RJ_SPREAD;      // ⭐ R3：离散度超限（⭐ span 未发）
                         reject_cnt <= reject_cnt + 4'd1;
                         if (reject_cnt >= REJECT_MAX[3:0]) begin
                             // ⚠️ 反复不稳 ⇒ 放弃整个标定（⭐ 让用户重来）
@@ -475,6 +523,7 @@ module calib_span #(
                     if (wait_clk_cnt >= WAIT_TIMEOUT_CLK[WCW-1:0]) begin
                         // ⭐ 超时 ⇒ 按"拒绝"处理（⛔ 不静默卡死）
                         reject_o   <= 1'b1;
+                        rej_why_o  <= RJ_BUSY_TO;     // ⭐ R4：等帧超时（⭐ span 未发）
                         reject_cnt <= reject_cnt + 4'd1;
                         if (reject_cnt >= REJECT_MAX[3:0]) begin
                             state  <= S_DONE;
@@ -532,8 +581,11 @@ module calib_span #(
                     //   ⭐ 优先判 `err`（⭐ 它比 `busy` 先有效，且二者互斥）
                     //      ⚠️ 只在"本轴确实发过 `span`"之后才判 ——
                     //         ⭐ 否则会把**上一轴残留的 `err`** 当成本轴的错误。
-                    if (cal_err_i && span_sent_r) begin
+                    //   ⭐⭐ 2026-09-30：⭐ 判据用 `span_sent_r2`（⭐ 打过一拍）——
+                    //      ⚠️ 用 `span_sent_r` 会读到**上一轴残留的 `err`**（⭐ 见它的声明）
+                    if (cal_err_i && span_sent_r2) begin
                         reject_o   <= 1'b1;
+                        rej_why_o  <= RJ_CAL_ERR;     // ⭐ R5：⭐ span【已发】＋ 片报 err
                         reject_cnt <= reject_cnt + 4'd1;
                         if (reject_cnt >= REJECT_MAX[3:0]) begin
                             state  <= S_DONE;
@@ -573,6 +625,7 @@ module calib_span #(
                     //      ⇒ 🔴 **必须报出来，⛔ 不许静默卡死**
                     else if (span_sent_r && (wait_clk_cnt >= WAIT_TIMEOUT_CLK)) begin
                         reject_o   <= 1'b1;
+                        rej_why_o  <= RJ_SILENT;      // ⭐ R6：⭐ span【已发】但无 busy 无 err
                         reject_cnt <= reject_cnt + 4'd1;
                         if (reject_cnt >= REJECT_MAX[3:0]) begin
                             state  <= S_DONE;

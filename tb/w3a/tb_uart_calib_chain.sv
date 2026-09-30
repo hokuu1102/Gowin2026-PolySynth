@@ -197,18 +197,27 @@ module tb_uart_calib_chain;
     //   ⭐ 互锁：⭐ `span` 忙时忽略 `'T'`（⭐ 与 `top.v` 对称）
     wire at_retrig = cmd_tare & ~sp_busy;
 
+    // ⭐⭐ 2026-09-30：`calib_autotare` 新增三个端口
+    //   ⚠️ `STILL_EN(0)` ⇒ ⭐ **关闭"静止才捕获"守卫** ⇒ ⭐ **本 tb 的期望值完全不变**
+    wire [7:0] at_skip;
+    wire       at_fail;
+
     calib_autotare #(
         .NCH      (8),
         .N_ADC    (2),
-        .DELAY_CLK(200)
+        .DELAY_CLK(200),
+        .STILL_EN (0)
     ) u_autotare (
         .clk           (clk),
         .rst_n         (rst_n),
         .sample_valid_i(samp_valid),
         .sample_ch_i   (samp_ch),
+        .sample_data_i (12'h000),
         .retrig_i      (at_retrig),
         .tare_o        (at_tare),
         .cal_ch_o      (at_ch),
+        .skip_mask_o   (at_skip),
+        .fail_o        (at_fail),
         .busy_o        (at_busy_w),
         .done_o        (at_done)
     );
