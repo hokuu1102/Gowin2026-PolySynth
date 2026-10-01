@@ -1,0 +1,106 @@
+=== h4: timing report rendered cell text (unaltered values) ===
+Timing Messages
+Report Title | Timing Analysis Report
+Design File | X:\impl\gwsynthesis\hdmi_h4.vg
+Physical Constraints File | X:\constr\hdmi_640x480.cst
+Timing Constraint File | X:\constr\hdmi_h4.sdc
+Tool Version | V1.9.12.03 (64-bit)
+Part Number | GW5AT-LV60PG484AC1/I0
+Device | GW5AT-60
+Device Version | B
+Created Time | Thu Oct  1 14:38:50 2026
+Legal Announcement | Copyright (C)2014-2026 Gowin Semiconductor Corporation. All rights reserved.
+Timing Summaries
+STA Tool Run Summary:
+Setup Delay Model | Slow 0.93V 0C C1/I0
+Hold Delay Model | Fast 0.975V 85C C1/I0
+Numbers of Paths Analyzed | 387
+Numbers of Endpoints Analyzed | 291
+Numbers of Falling Endpoints | 0
+Numbers of Setup Violated Endpoints | 0
+Numbers of Hold Violated Endpoints | 0
+Clock Summary:
+NO. | Clock Name | Type | Period | Frequency(MHz) | Rise | Fall | Source | Master | Objects
+1 | clk | Base | 20.000 | 50.000 | 0.000 | 10.000 |  |  | clk
+2 | serial_clk | Generated | 1.301 | 768.750 | 0.000 | 0.650 | clk | clk | u_h4/u_clk/u_pll/CLKOUT0
+3 | pixel_clk | Generated | 6.504 | 153.750 | 0.000 | 3.252 | clk | clk | u_h4/u_clk/u_pll/CLKOUT1
+Max Frequency Summary:
+NO. | Clock Name | Constraint | Actual Fmax | Logic Level | Entity
+1 | clk | 50.000(MHz) | 261.130(MHz) | 5 | TOP
+2 | pixel_clk | 153.750(MHz) | 166.880(MHz) | 10 | TOP
+No timing paths to get frequency of serial_clk!
+Total Negative Slack Summary:
+Clock Name | Analysis Type | Endpoints TNS | Number of Endpoints
+clk | Setup | 0.000 | 0
+clk | Hold | 0.000 | 0
+serial_clk | Setup | 0.000 | 0
+serial_clk | Hold | 0.000 | 0
+pixel_clk | Setup | 0.000 | 0
+pixel_clk | Hold | 0.000 | 0
+PA1019 occurrences in build.log: 0
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 6("X:\rtl\tmds_encoder.v":45)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 6("X:\rtl\tmds_encoder.v":46)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 6("X:\rtl\tmds_encoder.v":50)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 6("X:\rtl\tmds_encoder.v":53)
+WARN  (PR1014) : Generic routing resource will be used to clock signal 'clk_d' by the specified constraint. And then it may lead to the excessive delay or skew
+PLL parameters from synthesized netlist:
+defparam u_pll.FBDIV_SEL=1;
+defparam u_pll.FCLKIN="50";
+defparam u_pll.IDIV_SEL=1;
+defparam u_pll.MDIV_FRAC_SEL=3;
+defparam u_pll.MDIV_SEL=15;
+defparam u_pll.ODIV0_SEL=1;
+defparam u_pll.ODIV1_SEL=5;
+=== baseline_after: timing report rendered cell text (unaltered values) ===
+Timing Messages
+Report Title | Timing Analysis Report
+Design File | X:\impl\gwsynthesis\hdmi_640x480.vg
+Physical Constraints File | X:\constr\hdmi_640x480.cst
+Timing Constraint File | X:\constr\hdmi_640x480.sdc
+Tool Version | V1.9.12.03 (64-bit)
+Part Number | GW5AT-LV60PG484AC1/I0
+Device | GW5AT-60
+Device Version | B
+Created Time | Thu Oct  1 14:40:25 2026
+Legal Announcement | Copyright (C)2014-2026 Gowin Semiconductor Corporation. All rights reserved.
+Timing Summaries
+STA Tool Run Summary:
+Setup Delay Model | Slow 0.93V 0C C1/I0
+Hold Delay Model | Fast 0.975V 85C C1/I0
+Numbers of Paths Analyzed | 373
+Numbers of Endpoints Analyzed | 282
+Numbers of Falling Endpoints | 0
+Numbers of Setup Violated Endpoints | 0
+Numbers of Hold Violated Endpoints | 0
+Clock Summary:
+NO. | Clock Name | Type | Period | Frequency(MHz) | Rise | Fall | Source | Master | Objects
+1 | clk | Base | 20.000 | 50.000 | 0.000 | 10.000 |  |  | clk
+2 | serial_clk | Generated | 8.000 | 125.000 | 0.000 | 4.000 | clk | clk | u_clk/u_pll/CLKOUT0
+3 | pixel_clk | Generated | 40.000 | 25.000 | 0.000 | 20.000 | clk | clk | u_clk/u_pll/CLKOUT1
+Max Frequency Summary:
+NO. | Clock Name | Constraint | Actual Fmax | Logic Level | Entity
+1 | clk | 50.000(MHz) | 241.381(MHz) | 5 | TOP
+2 | pixel_clk | 25.000(MHz) | 167.005(MHz) | 9 | TOP
+No timing paths to get frequency of serial_clk!
+Total Negative Slack Summary:
+Clock Name | Analysis Type | Endpoints TNS | Number of Endpoints
+clk | Setup | 0.000 | 0
+clk | Hold | 0.000 | 0
+serial_clk | Setup | 0.000 | 0
+serial_clk | Hold | 0.000 | 0
+pixel_clk | Setup | 0.000 | 0
+pixel_clk | Hold | 0.000 | 0
+PA1019 occurrences in build.log: 0
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 6("X:\rtl\tmds_encoder.v":45)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 6("X:\rtl\tmds_encoder.v":46)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 6("X:\rtl\tmds_encoder.v":50)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 6("X:\rtl\tmds_encoder.v":53)
+WARN  (PR1014) : Generic routing resource will be used to clock signal 'clk_d' by the specified constraint. And then it may lead to the excessive delay or skew
+PLL parameters from synthesized netlist:
+defparam u_pll.FBDIV_SEL=1;
+defparam u_pll.FCLKIN="50";
+defparam u_pll.IDIV_SEL=1;
+defparam u_pll.MDIV_FRAC_SEL=0;
+defparam u_pll.MDIV_SEL=20;
+defparam u_pll.ODIV0_SEL=8;
+defparam u_pll.ODIV1_SEL=40;
