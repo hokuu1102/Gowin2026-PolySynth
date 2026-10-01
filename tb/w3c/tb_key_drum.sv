@@ -270,14 +270,18 @@ module tb_key_drum;
         //      🔴 **底鼓/嗵鼓填错档 ⇒ 扫频深度跟着错** ⇒ ⭐ 听感直接变另一样 ⚠️
         //   📌 **拉开判据**：⭐ 军鼓 ≥ 2× 嗵鼓 · ⭐ 踩镲 ≥ 2× 军鼓（⭐ 原来军鼓只有嗵鼓的 1.33× ⚠️）
         chk("T8a: kick is in the kick bucket (< 10M)",        REF_KICK  <  32'd10_000_000);
-        chk("T8b: tom is in the tom bucket (10M .. 15M)",
-            (REF_TOM >= 32'd10_000_000) && (REF_TOM < 32'd15_000_000));
+        chk("T8b: tom is in the tom bucket (10M .. 20M)",
+            (REF_TOM >= 32'd10_000_000) && (REF_TOM < 32'd20_000_000));
         chk("T8c: snare is above the tom bucket (>= 15M)",    REF_SNARE >= 32'd15_000_000);
         chk("T8d: hihat is above the tom bucket (>= 15M)",    REF_HIHAT >= 32'd15_000_000);
         chk("T8e: snare >= 2x tom  (spread for distinguishability)",
             REF_SNARE >= (REF_TOM << 1));
         chk("T8f: hihat >= 2x snare (spread for distinguishability)",
             REF_HIHAT >= (REF_SNARE << 1));
+        // ⭐⭐ T8g：⭐ 用户上板反馈"通鼓和底鼓还差一点点区分度" ⇒ ⭐ **拉开到 ≥ 3×**
+        //    ⚠️ 这是**第二次拉开**的能红判据（⭐ 第一次是 2.29×，⭐ 现在是 3.33×）✅
+        chk("T8g: tom >= 3x kick (second pass -- the user asked for more separation)",
+            REF_TOM >= (REF_KICK * 3));
 
         // ══ T7 ⭐⭐ **打鼓模式下的力度下限**（⭐ 用户上板："声音也有点小"）═══════
         //   🔴 **根因**：⭐ 原来直接用**键盘力度**当鼓的力度 ⇒ ⚠️ 轻敲就轻

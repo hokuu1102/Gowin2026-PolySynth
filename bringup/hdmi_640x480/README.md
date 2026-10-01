@@ -1,4 +1,4 @@
-# DVI colour bars: 640x480 (H2/H3) and 1920x1200 (H4)
+# 640x480 DVI colour bars (H2/H3)
 
 This project generates 640x480 eight-colour bars for the Tang Console 60K HDMI TX connector. It is DVI video only: no HDMI audio, data islands, EDID, or hot-plug negotiation. The source of requirements is `SPEC.md`.
 
@@ -10,9 +10,6 @@ This project generates 640x480 eight-colour bars for the Tang Console 60K HDMI T
 - `rtl/tmds_serializer.v`: four Gowin OSER10 serializers and TLVDS_OBUF pairs (three data plus forwarded clock).
 - `rtl/hdmi_clk.v`: replaceable clock-source boundary. The default uses a PLL to make 25/125 MHz. `USE_252=1` selects a proposed 25.2/126 MHz PLL configuration.
 - `rtl/hdmi_top.v`: reset, colour, encoder, and output connections. H/V active, porch, sync, and total are parameters. `H_TOTAL` and `V_TOTAL` default to sums of the other parameters; change them together when selecting another mode.
-- `rtl/hdmi_h4.v` and `rtl/hdmi_clk_h4.v`: independent H4 top (1920x1200@60, positive sync) and its 153.75/768.75 MHz PLL. H4 modifies no default 640x480 source file.
-- `constr/hdmi_h4.sdc`, `hdmi_h4.gprj`: H4 timing constraints and project.
-- `tb/tb_hdmi_modes.sv`: full-frame check of both modes (640x480 negative sync, 1920x1200 positive sync).
 - `tb/`: pure RTL decoder, full-frame and exhaustive-value self-check, and mutation checks. The testbench does not instantiate Gowin primitives.
 - `constr/`, `.gprj`, and build script: pin, timing, and Gowin build files.
 
@@ -27,7 +24,6 @@ iverilog -g2012 -s tb_hdmi_640x480 -o tb/sim.vvp rtl/video_timing.v rtl/color_ba
 vvp tb/sim.vvp
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tb\run_mutations.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\build_hdmi_640x480.ps1
-powershell -NoProfile -ExecutionPolicy Bypass -File .\build_hdmi_640x480.ps1 -Mode H4
 ```
 
 Pass `-GwSh <path>` to the last command if Gowin is installed elsewhere. The build script uses a temporary drive alias when the work directory contains non-ASCII characters; Gowin 1.9.12.03 could open the `.gprj` but failed to open the generated `.prj` through the Chinese path. All generated files stay in this work directory. To use `USE_252=1`, also change the two generated-clock ratios in the SDC from 20/8 and 20/40 to 63/25 and 63/125, respectively.
@@ -80,26 +76,6 @@ displays, and 1920x1200 (H4).
 > passed while the emitted control codes were wrong. See the control-token
 > correction note above and `SPEC.md` section 4.
 
-## H4 on-board verification (2026-10-01)
-
-`K_h4_1920x1200_led.fs` (SHA-256 `973F6B25CB6C75F3C5DC7DD249336C117B2A2A48F6763E7A61D2D4C89E1D051B`)
-was programmed with SRAM Program and the eight colour bars appeared **clean and
-stable** at 1920x1200 (16:10), 153.75 MHz pixel clock, 768.75 MHz OSER10 FCLK and
-1.5375 Gb/s per lane. The V13 heartbeat blinked at ~1 Hz.
-
-That one run settled this project's biggest unknown: the OSER10 serialiser **does**
-work at 768.75 MHz FCLK on this part, and the board-level TMDS path **does** carry a
-153.75 MHz pixel clock - 2.07x the 74.25 MHz pixel clock of the Console's own
-1080P30/720P60 demo designs. The device's published ratings (Gowin DS981-1.1.3E:
-OSER10 10:1 max serial output 2000 Mb/s, LVDS TX 2.0 Gb/s) leave about 23 % margin,
-but the timing report has **no computable Fmax for the serial domain**
-(`No timing paths to get frequency of serial_clk!`), so static timing cannot prove
-that rate - only the board run can.
-
-H4 lives in its own top level and changes **no** default 640x480 source file; the
-default build still reproduces the on-board-verified J bitstream byte-for-byte apart
-from the 14-byte build timestamp in the file header. Full numbers, datasheet
-citations and remaining caveats: `H4-验证记录-20261001.md` and `evidence-h4/`.
 ## Liveness LED
 
 led_hb drives the Console CFG_LED green channel (SYS_ACT, ball V13) - the same ball the main project uses for led_heartbeat. It runs in the 50 MHz input clock domain and is deliberately **not** gated by st_n, so it proves "bitstream configured and input clock alive" even with a stuck reset key. The blink rate also reports PLL lock:

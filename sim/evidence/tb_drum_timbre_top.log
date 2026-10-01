@@ -9,7 +9,7 @@ NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
 VCD info: dumpfile build/sim/tb_drum_timbre_top/tb_drum_timbre_top.vcd opened for output.
   ok  : T0 precondition: keyboard timbre forced to PAD(3)
-  info: drum events=2 (kick=1 hihat=1)  first_inc=005f92c6
+  info: drum events=2 (kick=1 hihat=1)  first_inc=0051eb85
   info: merged axis-15 events=2  timbre_valid_bad=0  timbre_bad=0
   ok  : T1 drum machine emitted Kick+HiHat at the bar start
   ok  : T2 every merged drum event carries timbre_valid=1 (non-vacuous)
