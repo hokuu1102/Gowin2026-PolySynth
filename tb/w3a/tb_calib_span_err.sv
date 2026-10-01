@@ -187,7 +187,12 @@ module tb_calib_span_err;
 
     task chk;
         input        cond;
-        input [255:0] msg;
+        //   ⭐⭐ 2026-09-30 修（⭐ tb 自身缺陷）：⭐ 原来是 `[255:0]` = **32 字符** ——
+        //      🔴 Verilog 里字符串进向量**只保留【末尾】32 个字符** ⇒
+        //         ⚠️ 长消息**从头被静默截断**（⭐ 日志里 `FAIL: he FSM really entered the sweep)`）
+        //         ⇒ 🔴 **看不出是哪一条判据失败**（⭐ 排查时误导过一次）
+        //      ⭐ 加宽到 128 字符（⭐ 本文件最长消息 ≈ 78 字符）✅
+        input [1023:0] msg;
         begin
             checks = checks + 1;
             if (cond) begin
@@ -213,6 +218,33 @@ module tb_calib_span_err;
                 @(negedge clk);
                 sample_valid = 1'b0;
                 @(posedge clk);
+            end
+        end
+    endtask
+
+    // ⭐⭐ 2026-09-30 新增（⭐ 修判据① 的**空洞化**）：⭐ 扫一帧，⭐ 且**每一拍都盯 `span_o`**
+    //
+    //   🔴 **为什么需要它**：⭐ `span_o` 是**单拍脉冲**（⭐ `calib_span.v:284` 默认拉低），
+    //      而它**在第 11~12 帧就发了**（⭐ 16 帧预算内）⇒
+    //      ⚠️ 原写法"⭐ 灌完 16 帧、⭐ 再空轮询 400 拍盯 `span_o`" ⇒ 🔴 **脉冲早过去了**
+    //      ⇒ ⭐ `force_err_mode` **永不置位** ⇒ 🔴 判据① 变成**空洞**（⭐ 测不到 `err` 路径）
+    //   ⭐ 做法：⭐ 与 `scan_frame_stable` 完全同拍，⭐ 只在两个 `posedge` 处补一句检查
+    //      （⭐ 记录的仍是"上一拍拉高的 `span_o`"⇒ 与原轮询**同一拍**，⭐ 语义不变 ✅）
+    task scan_frame_watch_span;
+        input [11:0] base;
+        integer c;
+        begin
+            for (c = 0; c < NCH; c = c + 1) begin
+                @(negedge clk);
+                sample_ch    = c[2:0];
+                raw_in       = base;
+                sample_valid = 1'b1;
+                @(posedge clk);
+                if (span_o[0]) force_err_mode = 1'b1;   // ⭐ 同拍拉高（⭐ 组合 ⇒ N+1 拍可见）
+                @(negedge clk);
+                sample_valid = 1'b0;
+                @(posedge clk);
+                if (span_o[0]) force_err_mode = 1'b1;   // ⭐ 同上（⭐ 覆盖另一相）
             end
         end
     endtask
@@ -296,7 +328,7 @@ module tb_calib_span_err;
     // ═══════════════════════════════════════════════════════════════════════
     // ⭐⭐ 主流程
     // ═══════════════════════════════════════════════════════════════════════
-    integer r1, r2, r3, s1;
+    integer r1, r2, r3, s1, w1;
 
     initial begin
         $display("=== tb_calib_span_err （阶段 3 三条判据） ===");
@@ -319,37 +351,52 @@ module tb_calib_span_err;
         // ═══════════════════════════════════════════════════════════════════
         $display("--- 判据①：cal_err_i 置起 ⇒ 必须 reject ---");
         span_total = 0; reject_total = 0;
-        start_i = 1'b1;  @(posedge clk);  start_i = 1'b0;
+        //   ⭐⭐ 2026-09-30 修（⭐ **tb 自身的时序错**，⛔ 不是 RTL 错）：
+        //      🔴 原写法 `start_i = 1'b1;  @(posedge clk);  start_i = 1'b0;` ——
+        //         ⭐ 置起与清除落在**同一个时钟窗口**（两条语句都在 `posedge` 上执行）
+        //         ⇒ 🔴 DUT 在 `calib_span.v:339` 的 `if (start_i)` **永远读不到 1**
+        //         ⇒ ⭐ 状态机**停在 `S_IDLE`** ⇒ 🔴 一个 `span`/`reject` 都不发
+        //         （⭐ 实测：`state_o` 连续 6 拍恒 0；⭐ 连带 A0/A1/A2/C1/C2 全假红）
+        //      ⭐ 正解：⭐ 照抄兄弟 tb `tb_calib_span.sv:297-298` ⇒ **negedge 置 / negedge 清**
+        //         （⭐ 这样 `start_i` 整整保持一个时钟周期，⭐ DUT 必然采到）
+        @(negedge clk);  start_i = 1'b1;
+        @(posedge clk);  @(negedge clk);  start_i = 1'b0;
+        //   ⭐ `need_press_o` 要到 `S_PROMPT` 的**第 2 拍**才起（⭐ `calib_span.v:364-370`）
+        //      ⇒ ⭐ 必须先给几拍（⭐ 同 `tb_calib_span.sv:299`），⛔ 不能 0 拍就查
+        repeat (4) @(posedge clk);
         chk(need_press_o === 1'b1, "A0 start_i raises need_press (the FSM really entered the sweep)");
 
         //   ⭐ 稳定帧：⭐ 轴 0 的通道是 ch0 ⇒ ⭐ 全通道同值即可（⭐ 每帧 ch0 都会被看到）
         //   ⚠️ 轴 0 的零点为 0 ⇒ ⭐ `raw=500 > 0` ⇒ ⭐ 真 `calib` 会**成功** ⇒
         //      所以必须在 `span` 脉冲【之后】再人工把 `err` 拉高（⭐ 模拟片 1 失败）
-        for (r1 = 0; r1 < STABLE_NEED + 4; r1 = r1 + 1) scan_frame_stable(12'd500);
-        for (r1 = 0; r1 < VOTE_N + 4;     r1 = r1 + 1) scan_frame_stable(12'd500);
-
-        //   ⭐ 等 `span` 真的发出来（⭐ 证明走到了 S_FIRE ✅ 非空洞）
-        //   ⚠️ **时序关键**：⭐ `cal_err_i` 必须在 `span` 脉冲那一拍就拉高 ——
-        //      `span_o` 在 N 拍拉高 ⇒ `span_sent_r` 在 N 拍置位、`span_sent_r2` 在 N+1 拍置位
-        //      ⇒ `S_NEXT` 在 **N+1** 拍判 `cal_err_i && span_sent_r2`
-        //      ⇒ ⭐ 所以 N 拍拉高 `err`（组合）⇒ ⭐ N+1 拍它已经是 1 ✅
-        //      🔴 若等到脉冲之后再拉，⭐ 状态机可能已经走过 `S_NEXT` ⇒ ⭐ 判据空洞 ⚠️
+        //      ⚠️ **时序关键**：⭐ `span_o` 在 N 拍拉高 ⇒ `span_sent_r` 在 N 拍置位、
+        //         `span_sent_r2` 在 N+1 拍置位 ⇒ `S_NEXT` 在 **N+1** 拍判
+        //         `cal_err_i && span_sent_r2` ⇒ ⭐ 所以 N 拍（⭐ 或 N+1 拍）拉高 `err` 即可
+        //         （⭐ `force_err_mode` 是组合 ⇒ 当拍就可见）✅
+        //   ⭐⭐ 2026-09-30 修（⭐ 又两处 tb 自身的时序错）：
+        //      ① 🔴 `s1`/`r1` 原来在灌完 16 帧【之后】才取 ⇒ ⚠️ 而 `span_o` 早在第 11~12 帧
+        //         就发了、`reject_o` 紧随其后 ⇒ ⭐ 基线把**已发生的事件算进去了**
+        //         ⇒ 🔴 `span_total > s1` / `reject_total > r1` **恒假**（假红）
+        //      ② 🔴 `span_o` 是**单拍脉冲**，⭐ 而原来只在"灌完帧之后"的空轮询里盯它
+        //         ⇒ ⭐ 脉冲早过去了 ⇒ `force_err_mode` **永不置位** ⇒ 🔴 判据空洞
+        //      ⭐ 正解：⭐ 基线在**灌帧之前**取 ＋ ⭐ **边灌帧边盯**（⭐ `scan_frame_watch_span`）
         s1 = span_total;
         r1 = reject_total;
-        begin : poll_fire
-            integer kk;
-            for (kk = 0; kk < 400; kk = kk + 1) begin
-                @(posedge clk);
-                if (span_o[0]) begin
-                    force_err_mode = 1'b1;   // ⭐ 同拍拉高（⭐ 组合 ⇒ N+1 拍可见）
-                    kk = 400;                // ⭐ 跳出
-                end
-            end
-        end
-        chk(span_total > s1, "A1 the FSM really reached S_FIRE (span_o pulsed) -- non-vacuous");
+        for (w1 = 0; w1 < STABLE_NEED + 4; w1 = w1 + 1) scan_frame_watch_span(12'd500);
+        for (w1 = 0; w1 < VOTE_N + 4;     w1 = w1 + 1) scan_frame_watch_span(12'd500);
 
-        r1 = reject_total;
-        wait_reject_pulse(200);
+        //   ⭐ 兜底：⭐ **只有**在"拒绝尚未发生"时才补等 ——
+        //      🔴 原来无条件 `wait_reject_pulse(200)`：⭐ 脉冲若已过去，它**必然超时**
+        //         ⇒ ⚠️ 反而**多报一条错**（⭐ 且与下面 `reject_total > r1` **重复计错**）
+        //
+        //   ✅ **2026-09-30 上级裁定：⭐ 保留这个"条件兜底"形态**（⛔ 不要改回无条件）——
+        //      📌 理由①：真正的判据是下一行的 `reject_total > r1`，而它的采样窗口
+        //         **比原来更宽**（从【灌帧之前】起算）⇒ ⭐ 这是**扩大窗口**，⛔ 不是缩小判据
+        //      📌 理由②：原写法在"脉冲已过去"时**必然**误报超时 ⇒ ⭐ 那 2 条假红就是它造的
+        //      ⚠️ 唯一不再单独断言的是"拒绝必须落在灌帧后 200 拍内" ——
+        //         ⭐ 那从来不是需求（`span`/`at_done` 的时序与"帧预算"本来无关）
+        if (reject_total == r1) wait_reject_pulse(200);
+        chk(span_total > s1, "A1 the FSM really reached S_FIRE (span_o pulsed) -- non-vacuous");
         chk(reject_total > r1, "A2 cal_err_i asserted after the pulse => the axis IS rejected (reject_o pulsed)");
         force_err_mode = 1'b0;
 
@@ -372,13 +419,19 @@ module tb_calib_span_err;
         tare_chain = 1'b1;
         @(negedge clk);    tare_chain = 1'b0;
 
-        start_i = 1'b1;  @(posedge clk);  start_i = 1'b0;
+        //   ⭐⭐ 2026-09-30 修：⭐ `start_i` 与判据① 同因 ⇒ 同样改成 negedge 置/清
+        //      （🔴 原 `start_i=1; @(posedge clk); start_i=0;` ⇒ DUT **读不到 1**）
+        @(negedge clk);  start_i = 1'b1;
+        @(posedge clk);  @(negedge clk);  start_i = 1'b0;
         //   ① 轴 0 第一次：⭐ `raw=50 <= zero=200` ⇒ ⭐ 真 `calib` 走 **err 分支**
         //      ⇒ ⭐ `err=1`（⭐ 且 busy 不拉）⇒ ⭐ `calib_span` 必须**拒绝** ✅
+        //   ⭐⭐ 2026-09-30 修：⭐ 基线必须在**灌帧之前**取 ——
+        //      🔴 原写法灌完 16 帧才 `r1 = reject_total;`，⭐ 而拒绝在第 12 帧就发生了
+        //         ⇒ ⭐ `reject_total > r1` **恒假**（假红）
+        r1 = reject_total;
         for (r2 = 0; r2 < STABLE_NEED + 4; r2 = r2 + 1) scan_frame_stable(12'd50);
         for (r2 = 0; r2 < VOTE_N + 4;     r2 = r2 + 1) scan_frame_stable(12'd50);
-        r1 = reject_total;
-        wait_reject_pulse(400);
+        if (reject_total == r1) wait_reject_pulse(400);   // ⭐ 仅在"尚未拒绝"时兜底等
         chk(reject_total > r1, "C1 axis-0 attempt#1 (raw 50 <= zero 200) IS rejected -- precondition");
 
         //   ② 轴 0 重试：⭐ `raw=500 > zero=200` ⇒ ⭐ 真 `calib` **成功**

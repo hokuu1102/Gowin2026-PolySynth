@@ -79,7 +79,21 @@ module calib_autotare #(
     // ⭐⭐ 2026-09-30 新增：**该通道当前的原始码**（⭐ 用于判"静止"）
     //   ⚠️ 必须与 `sample_valid_i` / `sample_ch_i` **同一路、同一拍**
     //      （⭐ 即"极性校正后、`calib` 前"那一路）
-    input  wire [DW-1:0]    sample_data_i,
+    //
+    // ⭐⭐ 2026-09-30 夜（`N13`）：**入口从"一片"改成"N_ADC 片打包"** ——
+    //   🔴 **为什么必须改**：⭐ 原写法由 `top.v` 只接片 0（`af_data[0*12 +: 12]`），
+    //      而 `tare_o` 是 `{N_ADC{1'b1}}` ⇒ ⭐ **两片【同拍锁步】一起发** ⚠️
+    //      ⇒ ⭐ 守卫只按【片 0】判静止，而 `tare` 会打到【两片】
+    //      ⇒ 🔴 **板 2 的键"按住不动"、板 1 静止 ⇒ 守卫放行 ⇒
+    //         板 2 把【按下位】记成零点 ⇒ 那个键永远触发不了**（⭐ 用户实测现象）
+    //   ✅ **改法**：⭐ 入口宽度改成 `N_ADC*DW`（⭐ `adc_farm` 本来就同拍给齐所有片
+    //      —— ⭐ 见 `adc_farm.sv:37` 的注释与 `:156-163` 的实现）
+    //      ⇒ ⭐ 判静止时要求 **【每一片】的 |Δ| 都 ≤ `STILL_TOL`** ✅
+    //   ⚠️ **宽度 = `N_ADC*DW`** ⇒ ⭐ `N_ADC=1` 的 tb **端口宽度【不变】**（⭐ 零改动）
+    //      ⚠️ 但 `N_ADC>1` 的 tb 若仍只接 12 位 ⇒ Verilog 会**静默补零**（⚠️ 这是个坑）
+    //      ⇒ ⭐ 只有 `STILL_EN=0`（守卫关闭）时无害 —— ⭐ 现有两个这样的 tb 都是 `STILL_EN(0)` ✅
+    //      📌 若不接满宽度且 `STILL_EN=1` ⇒ 🔴 片 1 恒被读成 0 ⇒ **所有轴都不静止** ⇒ 全部超时
+    input  wire [N_ADC*DW-1:0] sample_data_i,
 
     // ⭐⭐ `retrig_i`（⭐ 2026-09-23 深夜新增 · 用户拍板"'T' 复用 calib_autotare"）
     //   🔴 **它解决什么**：⭐ 本模块原本**只在上电跑一次**（`ST_WAIT → ST_SWEEP
@@ -158,23 +172,34 @@ module calib_autotare #(
     localparam [WCW-1:0] WAIT_N      = WAIT_CLK;
     localparam [DW-1:0]  STILL_TOL_V = STILL_TOL;
 
-    reg [DW-1:0]  last_raw  [0:NCH-1];   // ⭐ 该通道上一帧的原始码
+    reg [DW-1:0]  last_raw  [0:NCH-1][0:N_ADC-1];  // ⭐ 该通道【每片】上一帧的原始码
     reg [SCW-1:0] still_cnt [0:NCH-1];   // ⭐ 该通道已连续静止的帧数
     reg           seen_r    [0:NCH-1];   // ⭐ 该通道是否已收到过样本
     reg [WCW-1:0] wait_cnt;              // ⭐ 本通道已等待的时钟数（⭐ 每 clk 递增）
-    reg [DW-1:0]  dlt_r;                 // ⭐ 本拍算出的帧间差（⭐ 阻塞赋值临时量）
+    reg [DW-1:0]  dlt_r;                 // ⭐ 本拍算出的帧间差 = **所有片的【最大】值**
     reg           still_r;               // ⭐ 本拍该通道是否"静止"
     reg           enough_r;              // ⭐ 本拍静止帧数是否已达 `STILL_N`
-    integer       k;                     // ⭐ for 循环变量
+    integer       k;                     // ⭐ for 循环变量（通道）
+    integer       g;                     // ⭐ for 循环变量（片，⭐ 2026-09-30 夜新增）
 
     assign busy_o = (state == ST_SWEEP);
     assign done_o = (state == ST_DONE);
 
     always @(posedge clk) begin
         // ⭐⭐ 组合临时量（⭐ 阻塞赋值 ⇒ 本拍立即可用；⛔ 不引入额外流水级）
-        dlt_r    = (sample_data_i > last_raw[sample_ch_i])
-                 ? (sample_data_i - last_raw[sample_ch_i])
-                 : (last_raw[sample_ch_i] - sample_data_i);
+        //   ⭐⭐ 2026-09-30 夜（`N13`）：⭐ `dlt_r` = **【所有片】里最大的帧间差**
+        //      ⇒ ⭐ **任一在动 ⇒ 就不算静止** ⇒ ⭐ 与 `tare_o`（打到所有片）语义对齐 ✅
+        //   ⚠️ 以 `DW` 位宽做差（⭐ 两值都是 `DW` 位 ⇒ 差也是 `DW` 位，⛔ 不溢出）
+        dlt_r = {DW{1'b0}};
+        for (g = 0; g < N_ADC; g = g + 1) begin
+            if (sample_data_i[g*DW +: DW] > last_raw[sample_ch_i][g]) begin
+                if ((sample_data_i[g*DW +: DW] - last_raw[sample_ch_i][g]) > dlt_r)
+                    dlt_r = sample_data_i[g*DW +: DW] - last_raw[sample_ch_i][g];
+            end else begin
+                if ((last_raw[sample_ch_i][g] - sample_data_i[g*DW +: DW]) > dlt_r)
+                    dlt_r = last_raw[sample_ch_i][g] - sample_data_i[g*DW +: DW];
+            end
+        end
         still_r  = seen_r[sample_ch_i] && (dlt_r <= STILL_TOL_V);
         enough_r = still_r && ((still_cnt[sample_ch_i] >= STILL_N)
                             || ((still_cnt[sample_ch_i] + 1'b1) >= STILL_N));
@@ -189,9 +214,10 @@ module calib_autotare #(
             skip_mask_o <= {NCH{1'b0}};
             fail_o      <= 1'b0;
             for (k = 0; k < NCH; k = k + 1) begin
-                last_raw[k]  <= {DW{1'b0}};
                 still_cnt[k] <= {SCW{1'b0}};
                 seen_r[k]    <= 1'b0;
+                for (g = 0; g < N_ADC; g = g + 1)
+                    last_raw[k][g] <= {DW{1'b0}};
             end
         end else begin
             // ⭐ `tare` 默认低（⭐ 它**只能是单周期脉冲** —— 见下）
@@ -201,7 +227,10 @@ module calib_autotare #(
             //   ⚠️ 必须在 `case` **之前**（⭐ 否则 `ST_SWEEP` 里的 `enough_r`
             //      用的是上一拍的 `still_cnt`）
             if (sample_valid_i) begin
-                last_raw[sample_ch_i]  <= sample_data_i;
+                // ⭐⭐ 2026-09-30 夜（`N13`）：⭐ 记录【每一片】的原始码 ——
+                //    ⭐ 这样 `dlt_r` 才能取"所有片的最大帧间差" ✅
+                for (g = 0; g < N_ADC; g = g + 1)
+                    last_raw[sample_ch_i][g] <= sample_data_i[g*DW +: DW];
                 still_cnt[sample_ch_i] <= still_r
                     ? ((still_cnt[sample_ch_i] >= STILL_N) ? STILL_N
                                                            : (still_cnt[sample_ch_i] + 1'b1))

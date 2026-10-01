@@ -134,6 +134,21 @@ module adc_farm #(
     //    （片 0 的数据由 scanner 自己给出，不需要影子）
     reg [23:0] miso_shift [1:N_ADC-1];
 
+    // ⭐⭐ 2026-10-01：⭐ **给片 1..N-1 加一份"不清零的影子"（保持寄存器）** ⚠️
+    //   🔴 **原缺陷**：⭐ `sample_data_packed[g*12 +: 12]` 直接取 `miso_shift[g][11:0]`（⭐ 组合），
+    //      ⚠️ 而 `miso_shift[g]` **每次 `cs_fall` 都被清零**（⭐ 见上方）
+    //      ⇒ 🔴 片 1..N-1 的数据**只在"最后一个 SCLK 上升沿 → 下一次 `cs_fall`"这 ~1 µs 内有效**
+    //         （⭐ 一个通道事务 24.5 µs · ⭐ 一帧 500 µs ⇒ ⭐ 有效占空比 ≈ **0.2%** ⚠️）
+    //      ⇒ 🔴 而片 0 走 `mcp3208_scanner.sample_data`（⭐ **寄存器，会保持** ✅）
+    //      ⇒ ⭐ **两片行为不一致** ⇒ ⚠️ 任何"不在 `sample_valid` 那一拍读"的消费者
+    //         （⭐ 例如 `'P'` 诊断探针 ⚠️）**都会读到 0** ✅
+    //   ✅ **修法**：⭐ 加一份 `shadow_hold` —— ⭐ **移位行为与 `miso_shift` 逐位相同**，
+    //      ⭐ **只是⛔ 不响应 `cs_fall` 清零** ⇒ ⭐ 帧间**保持上一次完整值** ✅
+    //   📌 **代价**：⭐ `(N_ADC-1) × 24` 个触发器（⭐ `N_ADC=2` ⇒ ⭐ **24 个** ✅ 可忽略）
+    //   📌 **实时通路不受影响**：⭐ 在 `sample_valid` 那一拍，⭐ `shadow_hold` 与 `miso_shift`
+    //      **内容相同**（⭐ 因为影子早于 `done` 数个 `HALF_DIV` 拍就已收满 ✅）⇒ ⭐ 时序不变 ✅
+    reg [23:0] shadow_hold [1:N_ADC-1];
+
     integer gi;
     always @(posedge clk) begin
         if (!rst_n) begin
@@ -149,6 +164,18 @@ module adc_farm #(
         end
     end
 
+    // ⭐ 保持副本：⭐ 与上面**同拍、同式**移位，⭐ ⛔ **但不清零** ⇒ ⭐ 帧间保持 ✅
+    integer gh;
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            for (gh = 1; gh < N_ADC; gh = gh + 1)
+                shadow_hold[gh] <= 24'd0;
+        end else if (cs_active && sclk_rise) begin
+            for (gh = 1; gh < N_ADC; gh = gh + 1)
+                shadow_hold[gh] <= {shadow_hold[gh][22:0], miso_sync[gh]};
+        end
+    end
+
     // ── 样本汇总：片 0 透传 scanner，片 1..N-1 用影子移位 ──────────────────
     // ⚠️ 时序：scanner 的 sample_valid/sample_data/sample_ch 在 driver done 后同拍输出，
     //   而影子反串行器在最后一个 SCLK 上升沿就已收满 24 位（早于 done 数个 HALF_DIV 拍），
@@ -160,7 +187,8 @@ module adc_farm #(
     assign sample_data_packed[11:0] = s0_data;
     generate
         for (g = 1; g < N_ADC; g = g + 1) begin : gen_pack
-            assign sample_data_packed[g*12 +: 12] = miso_shift[g][11:0];
+            // ⭐ 2026-10-01：⭐ 由 `miso_shift[g][11:0]`（⭐ ~1 µs 有效）改 `shadow_hold[g][11:0]`（⭐ 保持）✅
+            assign sample_data_packed[g*12 +: 12] = shadow_hold[g][11:0];
         end
     endgenerate
 

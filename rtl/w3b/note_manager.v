@@ -220,6 +220,12 @@ module note_manager #(
     localparam [1:0]        KIND_PLUCK  = 2'd2;
 
     localparam [AXIS_W-1:0] RESERVED_AXIS = RESERVED_AXIS_BASE;
+    //  ⭐⭐ 2026-10-01 修B：⭐ **"辅助源"＝源 B（节拍器 / 鼓机）** —— ⭐ 池与鼓标志都按它判 ✅
+    //   ⭐ 编码与 `top.v` 一致：⭐ `0`=live · `1/2`=score/demo · ⭐ **`3`=源 B（本常量）** · `4`=looper
+    //      （⭐ 见 `top.v`：`.b_src_i(3'd3)` · `.c_src_i(3'd4)` ✅）
+    //   ⚠️ **为什么⛔ 不写 `src != 0`**：⭐ 那样会把 **looper（4）** 也判成鼓
+    //      ⇒ 🔴 **回放会全走噪声表**（⭐ 实测源 C = `3'd4` ⚠️）✅
+    localparam [2:0] SRC_AUX = 3'd3;
     localparam [VEL_W-1:0]  DEFAULT_VEL_V = DEFAULT_VEL;
     localparam integer      NORMAL_N      = (RESERVED_N > POLY_TARGET)
                                             ? POLY_TARGET
@@ -244,6 +250,18 @@ module note_manager #(
                           (pitch_upd_src_i === 3'd2) ? 3'd2 :
                           (pitch_upd_src_i === 3'd3) ? 3'd3 :
                           (pitch_upd_src_i === 3'd4) ? 3'd4 : 3'd0;
+
+    //  ⭐⭐ 2026-10-01 修B（⭐ 章程 `§26.3-c`）：⭐ **`note_src_i` 也必须 Z-safe 解码** ⚠️
+    //   🔴 **为什么必须**：⭐ 它进 `fifo_src` 排队 ⇒ ⭐ 若【悬空】（`z`）⇒ ⭐ `fifo_src` = `zzz`
+    //      ⇒ ⭐ `cur_src` = `zzz` ⇒ ⭐ **`pool_mask` 变成 32 位全 `x`**
+    //      ⇒ 🔴 **静默丢掉每一个事件** ✅（⭐ 章程实测旧回退版：⭐ **6/6 全丢** ⚠️）
+    //   ⭐ **手法与上面 `vu_src_w`/`pu_src_w` 完全一致**：⭐ 未用编码 / 悬空 ⇒ ⭐ 当**手弹(0)** ✅
+    //   📌 **收益**：⭐ 新 tb `tb_pool_by_src` 的 c1/c3/c4 三条由**红转绿** ✅
+    //   📌 **真实设计里 `note_src_i` 是接上的**（⭐ `top.v` 的 `mg_evt_src`）⇒ ⭐ 本条是**防御层** ✅
+    wire [2:0] ns_src_w = (note_src_i === 3'd1) ? 3'd1 :
+                          (note_src_i === 3'd2) ? 3'd2 :
+                          (note_src_i === 3'd3) ? 3'd3 :
+                          (note_src_i === 3'd4) ? 3'd4 : 3'd0;
 
     //  ═══════════════════════════════════════════════════════════════════════
     //  ⭐⭐ 2026-09-30（时序，待上板验证）：⭐ **`env_level_i` / `env_active_i` 在模块入口打一拍**
@@ -495,7 +513,14 @@ module note_manager #(
             if (RESERVED_N == 0)
                 assign pool_mask[pg] = 1'b1;
             else
-                assign pool_mask[pg] = (cur_axis >= RESERVED_AXIS)
+                // ⭐⭐ 2026-10-01 修B：⭐ **进不进保留池由【来源】定，⛔ 不再由轴号定** ✅
+                //   🔴 **原缺陷**：⭐ 按 `cur_axis >= 14` 选池 ⇒ ⭐ **物理键 14/15（G#3/A#3）
+                //      被送进只有 `RESERVED_N=5` 个 voice 的保留池** ⇒ 🔴 **那两个键不响** ✅
+                //   ⭐ **为什么按来源才对**：⭐ 保留池的本意是"**给节拍器/鼓机专用**"（⭐ `T33b`），
+                //      那是【来源】属性（⭐ `SRC_AUX`），⛔ **不是【轴号】属性** ✅
+                //      ⇒ ⭐ 现场手弹（`src == 0`）**无论按哪个键**都该进普通池 ✅
+                //   ⚠️ 用 `cur_src`（⭐ 锁存后的）⛔ 不用活的 `note_src_i`（⭐ 与 `cur_axis` 同纪律）
+                assign pool_mask[pg] = (cur_src == SRC_AUX)
                                        ? (pg >= NORMAL_N)
                                        : (pg < NORMAL_N);
         end
@@ -774,7 +799,9 @@ module note_manager #(
                 fifo_knd[fifo_wr] <= note_kind_i;
                 fifo_timbre_valid[fifo_wr] <= evt_timbre_valid_i;
                 fifo_timbre[fifo_wr] <= evt_timbre_i;
-                fifo_src [fifo_wr] <= note_src_i;     // ⭐ A1：来源随事件排队
+                fifo_src [fifo_wr] <= ns_src_w;      // ⭐ A1：来源随事件排队
+                                                     //   ⭐ 2026-10-01：⭐ 改走 `ns_src_w`（⭐ Z-safe ✅）
+                                                     //   🔴 原来直接写 `note_src_i` ⇒ ⚠️ 悬空时会全丢事件 ✅
                 fifo_wr           <= fifo_wr + 1'b1;
             end
             if (fifo_pop) fifo_rd <= fifo_rd + 1'b1;
@@ -1210,7 +1237,13 @@ module note_manager #(
             //      ⇒ ⭐ 再存一份 = **两处真相** ⇒ 🔴 迟早不一致（⭐ `K-106` 家族教训）
             //   📌 代价：⭐ 每 voice 1 个比较器（⭐ `AXIS_W=4` ⇒ 4 位比较，⭐ 综合器折叠成
             //      极小的 LUT）＋ ⭐ **零寄存器** ✅
-            assign voice_drum_o[g] = (axis_r[g] >= RESERVED_AXIS);
+            //  ⭐⭐ 2026-10-01 修B：⭐ **打击乐标志改按【来源】**（⭐ 与 `pool_mask` 同一判据）✅
+            //   ⚠️ **上面那段"保留轴位 ⇒ 打击乐"的说明已被本行取代** —— ⭐ 它描述的是【旧规则】：
+            //      🔴 `axis_r[g] >= 14` ⇒ ⭐ **物理键 14/15 被标成"鼓 voice"** ⇒ 音色被换成噪声表
+            //      ⇒ ⭐ 就算出声也是错的音 ✅
+            //   ⭐ **§26.3-e「同源派生」**：⭐ `pool_mask` 与 `voice_drum_o` **必须由同一个信号导出**
+            //      ⇒ ⭐ 两者都用 `src == SRC_AUX` ⇒ ⭐ **结构上不可能再不一致** ✅
+            assign voice_drum_o[g] = (src_r[g] == SRC_AUX);
             assign voice_age_o[g*AGE_W +: AGE_W]           = age_r[g];
         end
     endgenerate

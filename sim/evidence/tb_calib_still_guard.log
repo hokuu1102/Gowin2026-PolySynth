@@ -1,0 +1,29 @@
+﻿NOTE [calib_autotare] PARAM_OK=1 (NCH=4 N_ADC=1 DELAY_CLK=8 STILL_EN=1 STILL_TOL=8 STILL_FRAMES=4 WAIT_MS=100000 CLK_HZ=1000)
+NOTE [calib_autotare] PARAM_OK=1 (NCH=4 N_ADC=1 DELAY_CLK=8 STILL_EN=1 STILL_TOL=8 STILL_FRAMES=4 WAIT_MS=5 CLK_HZ=1000)
+NOTE [calib_autotare] PARAM_OK=1 (NCH=1 N_ADC=2 DELAY_CLK=8 STILL_EN=1 STILL_TOL=8 STILL_FRAMES=4 WAIT_MS=100000 CLK_HZ=1000)
+=== tb_calib_still_guard : the 5 same-class criteria for fix A ===
+ok  : C1 the axis whose raw CHANGES every frame is NEVER captured (still-guard works)
+ok  : 1 the FSM is BLOCKED on the changing axis, so the later axes are not reached either (cur_ch only advances on capture or timeout)
+ok  : C1 no axis was timed out (WAIT_CLK is far away => the guard, not the timeout, did the work)
+ok  : C1b round 1 finished => done_o asserted (all axes captured)
+ok  : C1n NON-VACUOUS: with ALL axes steady, the steady axes really WERE captured (the guard is not rejecting everything)
+ok  : p1 moving every frame => that axis must NOT be captured (this is the fix for board-2 axes whose held keys were recorded as zero)
+ok  : N13 no timeout happened (WAIT_CLK is far away => the GUARD did the blocking, not the timeout)
+ok  : UOUS: with BOTH chips steady the axis IS captured (the guard is not rejecting everything just because it now looks at two chips)
+ok  : N13 and the single-axis sweep finished => done_o asserted
+ok  : C1b after 'T' the CHANGING axis is still NOT captured (retrig re-runs the same guard)
+ok  : C1c the FSM really entered ST_SWEEP (precondition: the criterion is not vacuous)
+ok  : C1c with the ADC STOPPED the per-axis timeout still expires (clk-based, not frame-based)
+ok  : C1c and it expires WITHOUT emitting any tare (a skipped axis is not silently calibrated)
+ok  : C1c the skip is made observable (fail_o asserted, not silent)
+ok  : C2 cold start: an UN-calibrated axis uses the default zero (out = raw, no offset)
+ok  : C2 after tare the offset IS applied (out = raw - zero = 400) -- the water-mark can be raised
+ok  : C2 LOGIC RESET == COLD START: the water-mark bitmaps are cleared by reset
+ok  : C2b precondition: after tare(zero=777) the offset IS applied (500 < 777 => underflow => 0)
+ok  : C2b an UN-calibrated channel IGNORES the stale array content (water-mark gates the read)
+==================================================================
+tb_calib_still_guard: pass=19 fail=0
+PASS: still-guard / clk-timeout / 'T'-guard / water-mark / no-direct-read
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_still_guard.sv:524: $finish called at 5282000 (1ps)
+
+

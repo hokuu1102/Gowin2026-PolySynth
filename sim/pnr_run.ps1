@@ -27,7 +27,7 @@
 #
 # USAGE (from the repository root)
 #   powershell -NoProfile -ExecutionPolicy Bypass -File sim\pnr_run.ps1
-#   powershell -NoProfile -ExecutionPolicy Bypass -File sim\pnr_run.ps1 -MinFmax 52.5
+#   powershell -NoProfile -ExecutionPolicy Bypass -File sim\pnr_run.ps1 -MinFmax 51.5
 #   powershell -NoProfile -ExecutionPolicy Bypass -File sim\pnr_run.ps1 -MaxAttempts 1 -NoClean
 #
 # NOTE: pure ASCII on purpose (a .ps1 with non-ASCII bytes needs a UTF-8 BOM;
@@ -38,7 +38,11 @@ param(
     [string]$ProjectDir   = (Get-Location).Path,
     [int]   $TimeoutSec   = 1800,     # per attempt; clean runs take ~12 min
     [int]   $MaxAttempts  = 3,
-    [double]$MinFmax      = 52.5,     # MHz; below this the margin is <5%
+    [double]$MinFmax      = 51.5,     # MHz; margin gate = 3% (LOWERED from 5% on 2026-10-01 by user ruling:
+                                      #   the 5% figure's evidence basis was retracted -- the board anomaly
+                                      #   that motivated it turned out to be a CODE bug, not a timing issue.
+                                      #   At 3% a build needs Fmax >= 51.5 MHz; 2% (51.0) was judged too tight
+                                      #   to absorb temperature/voltage drift.)
     [switch]$NoClean,                 # skip the impl/pnr wipe (for comparison)
     [switch]$SkipRegression           # do not run the full regression afterwards
 )
@@ -156,14 +160,28 @@ for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
     $setup = '?'; $hold = '?'; $fmax = '?'
     if (Test-Path $timingTxt) {
         $tl = Get-Content $timingTxt -Encoding UTF8
-        $setup = (($tl | Select-String 'Numbers of Setup Violated Endpoints' -Context 0,1).Context.PostContext -join '').Trim()
-        $hold  = (($tl | Select-String 'Numbers of Hold Violated Endpoints'  -Context 0,1).Context.PostContext -join '').Trim()
+        # NOTE 2026-09-30: Gowin prints the table column separator '|' on its own line,
+        # so the line AFTER the label is e.g. "0 |".  Trim() alone leaves "0 |", and the
+        # ($setup -eq '0') test further down then fails for EVERY build -- a perfect report
+        # was being reported as FAILED (observed: 0/0 + Fmax 53.821 MHz => "FAIL").
+        # Keep digits only.  If the label/value is missing the result is "" and the verdict
+        # still fails -- i.e. the safe direction is preserved.
+        $setup = ((($tl | Select-String 'Numbers of Setup Violated Endpoints' -Context 0,1).Context.PostContext -join '') -replace '[^0-9]', '')
+        $hold  = ((($tl | Select-String 'Numbers of Hold Violated Endpoints'  -Context 0,1).Context.PostContext -join '') -replace '[^0-9]', '')
         # The Gowin timing text puts the LABEL row first and the VALUES several rows
         # later (Actual Fmax | Logic Level | Entity | 50.000(MHz) | 52.575(MHz) | 2 |),
         # so reading the line right after "Actual Fmax" yields "Logic Level", not a number.
         # Take the LAST "NNN.NNN(MHz)" that appears AFTER the "Actual Fmax" label.
+        #
+        # NOTE 2026-09-30 (second pass): this used to be a FIXED 12-line window
+        # ($idx..$idx+12).  That is the same class of bug as the setup/hold one fixed
+        # earlier tonight -- a positional assumption about a tool-generated report.
+        # Scan from the label to EOF instead: position-independent and it survives the
+        # report growing.  The Max Frequency Summary is the LAST section of this file,
+        # and within its row the constraint (50.000) comes BEFORE the actual Fmax, so the
+        # LAST match in the range is the Actual Fmax.
         $idx = ($tl | Select-String 'Actual Fmax' | Select-Object -First 1).LineNumber
-        $tail = if ($idx) { $tl[($idx)..([Math]::Min($tl.Count-1, $idx+12))] } else { @() }
+        $tail = if ($idx) { $tl[($idx - 1)..($tl.Count - 1)] } else { @() }
         $m = @($tail | Select-String -Pattern '([0-9]+\.[0-9]+)\(MHz\)' -AllMatches)
         if ($m.Count -gt 0) { $fmax = $m[-1].Matches[0].Groups[1].Value + ' MHz' } else { $fmax = '?' }
     }

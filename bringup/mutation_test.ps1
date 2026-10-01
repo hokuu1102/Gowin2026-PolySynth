@@ -1,4 +1,4 @@
-﻿# mutation_test.ps1 -- MUTATION TESTING: inject a known defect, require the suite to catch it.
+# mutation_test.ps1 -- MUTATION TESTING: inject a known defect, require the suite to catch it.
 #
 # Usage (from the repository root):
 #   powershell -NoProfile -ExecutionPolicy Bypass -File bringup\mutation_test.ps1
@@ -592,9 +592,9 @@ foreach ($m in $mutations) {
   [System.IO.File]::WriteAllText($path, $mut)
 
   if ($TbFilter -ne "") {
-    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all.ps1") -Filter $TbFilter 2>&1
+    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all_par.ps1") -Filter $TbFilter 2>&1
   } else {
-    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all.ps1") 2>&1
+    $out = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all_par.ps1") 2>&1
   }
   $exit = $LASTEXITCODE
 
@@ -673,9 +673,9 @@ Write-Host ""
 Write-Host "=== regenerating sim/evidence from the restored (clean) RTL ===" -ForegroundColor Cyan
 # NOTE: assign to a variable so a non-zero child exit does not abort our flow.
 if ($TbFilter -ne "") {
-  $cleanOut = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all.ps1") -Filter $TbFilter 2>&1
+  $cleanOut = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all_par.ps1") -Filter $TbFilter 2>&1
 } else {
-  $cleanOut = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all.ps1") 2>&1
+  $cleanOut = & powershell -NoProfile -ExecutionPolicy Bypass -File (Join-Path $root "sim\tb_all_par.ps1") 2>&1
 }
 $cleanExit = $LASTEXITCODE
 if ($cleanExit -ne 0) {

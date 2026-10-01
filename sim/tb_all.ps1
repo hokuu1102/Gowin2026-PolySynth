@@ -240,6 +240,13 @@ foreach ($tb in $tbs) {
                   #     ⚠️ 但同一轮回归里实测**已耗 CPU 155 s**（⭐ 机器负载 ✅）
                   #     ⇒ ⭐ 300 s 的余量只剩 ~2× ⚠️ ⇒ ⭐ 与 `tb_e2e` / `tb_met_btn_top` **同一处置**：给 600 s ✅
                   elseif ($name -eq 'tb_top_sound') { 600 }
+                  #  ⭐⭐ 2026-10-01 新增：⭐ `tb_demo_stall_diag`（⭐ 诊断型，⭐ 打印量大）
+                  #     ⚠️ 实测：⭐ 它**已经打出 `PASS:`**（⭐ 结构上 `:701-704` 打印判决
+                  #        ⇒ `:706 #1000` ⇒ `:707 $finish` ✅ ⭐ 不是挂死），⚠️ 但 120 s 不够
+                  #     🔴 症状与上面三条**完全同一类**：⭐ 撞预算 ⇒ 报 `TIMEOUT`
+                  #        （⭐ 而日志里已有 `PASS:` ✅）⇒ ⭐ 这是 `K-94` 的**反面误报** ⚠️
+                  #     ⇒ ⭐ 给 **600 s**（⭐ 5× 余量）⛔ 否则机器负载高时必误报
+                  elseif ($name -eq 'tb_demo_stall_diag') { 600 }
                   elseif ($heavyTb -contains $name) { 300 }
                   else { $TimeoutSec }
 

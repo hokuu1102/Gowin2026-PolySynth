@@ -40,10 +40,28 @@ create_clock -name clk_sys -period 20 -waveform {0 10} [get_ports {clk}]
 #    只有**确实不要求时序**的路径才配 `false_path`，且必须**写清理由**（上面每条都写了）。
 # ─────────────────────────────────────────────────────────────────────────────
 
-# 音频三线 → DAC（保守预算；真实余量由 tb_i2s_tx_timing 实测为 160 ns）
-set_output_delay -clock clk_sys -max 10.0 [get_ports {HP_BCK}]
-set_output_delay -clock clk_sys -max 10.0 [get_ports {HP_WS}]
-set_output_delay -clock clk_sys -max 10.0 [get_ports {HP_DIN}]
+# 音频三线 → DAC（真实建立/保持余量由 tb_i2s_tx_timing 实测为 160 ns）
+#
+# 🔴🔴 2026-10-01 更正（⭐ 实测发现原值把设计卡死）：
+#   ⚠️ **原文的推理是【反的】** —— 原文写"半周期 160 ns ⇒ 给保守的 10 ns ⇒ 远小于 160 ns
+#      不会误报"。🔴 **但 `set_output_delay -max D` 的含义是**：
+#          "**外部器件**需要数据在【`clk_sys` 沿】之前 **D** ns 稳定"
+#      ⇒ ⭐ **留给 FPGA 内部的时间 = 周期 − D = 20 − 10 = 【10 ns】** ⚠️
+#      ⇒ 🔴 **D 越大越紧、D 越小越松** —— ⭐ 与原文的直觉**正好相反** ✅
+#   📌 **实测证据**（⭐ 2026-10-01 的 PnR）：
+#      · ⭐ 唯一一条 setup 违例就是 `u_i2s_tx/HP_BCK_s1 → HP_BCK_obuf`
+#      · ⭐ `required = 10.000 ns`（⭐ 正是 `20 − 10` ✅）· ⭐ `data = 11.827 ns` ⇒ ⭐ slack **−1.827** ❌
+#      · ⭐ `Fmax` 掉到 **45.815 MHz** ⇒ ⭐ **PnR FAIL**（⭐ 门槛 51.5）✅
+#      · ⚠️ 而同一份 RTL 在别的布局下 `Fmax` 是 52.0~55.7 ⇒ ⭐ **这条约束让结果对布局极度敏感** ✅
+#   ⭐ **量纲错在哪**：⭐ BCK 实际周期 **320 ns**（⭐ 3.125 MHz），⭐ 拿它的半周期去论证一个
+#      **相对 `clk_sys`** 的约束 ⇒ 🔴 **两者不是同一个参考系** ✅
+#   ⭐ **真正的建立/保持要求是 `BCK → DIN`**（⭐ 同域内）—— ⭐ 它**已由 `tb_i2s_tx_timing`
+#      实测为 160 ns 余量** ✅ ⇒ ⭐ 工具侧只需一个**能挂住这条路径**的预算即可 ✅
+#   ✅ **取值**：⭐ `-max 2.0` ⇒ ⭐ 内部预算 = **18 ns**（⭐ 仍比 11.8 ns 的实测路径紧 ⇒ ⭐ **检查没丢** ✅）
+#      ⚠️ **⛔ 不是 `false_path`** —— ⭐ 那会**完全放弃**这条路径的工具侧检查 ✅
+set_output_delay -clock clk_sys -max 2.0 [get_ports {HP_BCK}]
+set_output_delay -clock clk_sys -max 2.0 [get_ports {HP_WS}]
+set_output_delay -clock clk_sys -max 2.0 [get_ports {HP_DIN}]
 
 # 直流/人眼观测脚：无时序要求（⭐ 理由见上）
 set_false_path -to [get_ports {PA_EN_n}]

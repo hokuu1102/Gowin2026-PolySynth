@@ -1,9 +1,9 @@
 ﻿=== tb_drum_gen锛堢函鍚堟垚榧撴満锛?==
-猸?鍙傛暟锛欰XIS_ID=15 路 PATTERN_ID=0(Rock) 路 TICKS_PER_STEP=8
+猸?鍙傛暟锛欰XIS_ID=15 路 PATTERN_ID=0(BASIC) 路 TICKS_PER_STEP=8
   ok  : 鈶?transport=0 鈬?鉀?涓€涓簨浠堕兘娌″彂锛堝仠灏辩湡鍋滐級
-  --- 涓€灏忚妭锛圧ock / 鍨?0锛変簨浠剁粺璁?---
-      Kick=2  Snare=2  HiHat=6  Tom=1  鎬?11
-  ok  : 鈶?涓€灏忚妭鎭板ソ 11 涓簨浠讹紙Kick2/Snare2/HiHat6/Tom1锛夆€斺€?涓庡父閲忚〃鍚诲悎
+  --- 涓€灏忚妭锛圔ASIC / 鍨?0锛変簨浠剁粺璁?---
+      Kick=4  Snare=2  HiHat=8  Tom=0  鎬?14
+  ok  : 鈶?涓€灏忚妭鎭板ソ 14 涓簨浠讹紙Kick4/Snare2/HiHat8/Tom0锛夆€斺€?涓庣敤鎴疯〃(BASIC)鍚诲悎
   ok  : 鈶⑩瓙 涓€'姝?澶氫箰鍣ㄣ€愭病琚悶銆戔€斺€?step0 鐨?Kick+HiHat 閮藉彂鍑烘潵浜?
   ok  : 鈶?鍏ㄩ儴浜嬩欢 axis = 15锛?= 14 涓撶敤姹狅級鉀?涓嶆姠婕斿鐨?voice
   ok  : 鈶?涓嶇矘婊?鈥斺€?valid 杩炵画楂樻椂鏁版嵁姣忔媿閮藉湪鍙?
@@ -20,13 +20,87 @@
   ok  : 鈶?4 涓?bar_start 鐨?step_cnt 鍏ㄦ槸 0 鈬?16 姝ヨ〃鐨?step 0 钀藉湪姝ｆ媿
   ok  : 鈶?姝ｆ媿绗竴涓簨浠?= Kick銆佺浜屼釜 = HiHat锛? step 0 鎺╃爜 0101锛?
   --- 鈶?鍒囧埌鍨?1 鍚庣殑涓€灏忚妭 ---
-      Kick=4  Snare=2  HiHat=8  Tom=2  鎬?16锛圱om 鍔涘害寮傚父 0 涓級
-  ok  : 鈶?杩愯鏃跺垏鍨嬬珛鍒荤敓鏁堬紙鍨?1 = Kick4/Snare2/HiHat8/Tom2锛屽姏搴?190锛?
+      Kick=4  Snare=2  HiHat=4  Tom=2  鎬?12锛圱om 鍔涘害寮傚父 0 涓級
+  ok  : 鈶?杩愯鏃跺垏鍨嬬珛鍒荤敓鏁堬紙鍨?1 = Kick4/Snare2/HiHat4/Tom2 = 12锛屽姏搴?190锛?
+  --- (16) 4 pattern tables, bit-exact vs the user tables ---
+      mask format: %b = bit3..bit0 = Tom,Cym,Snare,Kick
+      pattern 0 (BASIC):
+        step 01 : expected=0101  observed=0101  ok
+        step 02 : expected=0000  observed=0000  ok
+        step 03 : expected=0100  observed=0100  ok
+        step 04 : expected=0000  observed=0000  ok
+        step 05 : expected=0111  observed=0111  ok
+        step 06 : expected=0000  observed=0000  ok
+        step 07 : expected=0100  observed=0100  ok
+        step 08 : expected=0000  observed=0000  ok
+        step 09 : expected=0101  observed=0101  ok
+        step 10 : expected=0000  observed=0000  ok
+        step 11 : expected=0100  observed=0100  ok
+        step 12 : expected=0000  observed=0000  ok
+        step 13 : expected=0111  observed=0111  ok
+        step 14 : expected=0000  observed=0000  ok
+        step 15 : expected=0100  observed=0100  ok
+        step 16 : expected=0000  observed=0000  ok
+  ok  : drum_pat0_basic_16step_mask_table_bitexact
+      pattern 1 (HOUSE):
+        step 01 : expected=0001  observed=0001  ok
+        step 02 : expected=0000  observed=0000  ok
+        step 03 : expected=0100  observed=0100  ok
+        step 04 : expected=0000  observed=0000  ok
+        step 05 : expected=0011  observed=0011  ok
+        step 06 : expected=0000  observed=0000  ok
+        step 07 : expected=0100  observed=0100  ok
+        step 08 : expected=1000  observed=1000  ok
+        step 09 : expected=0001  observed=0001  ok
+        step 10 : expected=0000  observed=0000  ok
+        step 11 : expected=0100  observed=0100  ok
+        step 12 : expected=0000  observed=0000  ok
+        step 13 : expected=0011  observed=0011  ok
+        step 14 : expected=0000  observed=0000  ok
+        step 15 : expected=0100  observed=0100  ok
+        step 16 : expected=1000  observed=1000  ok
+  ok  : drum_pat1_house_16step_mask_table_bitexact
+      pattern 2 (ROCK):
+        step 01 : expected=0101  observed=0101  ok
+        step 02 : expected=0000  observed=0000  ok
+        step 03 : expected=0100  observed=0100  ok
+        step 04 : expected=0000  observed=0000  ok
+        step 05 : expected=0110  observed=0110  ok
+        step 06 : expected=0000  observed=0000  ok
+        step 07 : expected=0101  observed=0101  ok
+        step 08 : expected=0000  observed=0000  ok
+        step 09 : expected=0101  observed=0101  ok
+        step 10 : expected=0000  observed=0000  ok
+        step 11 : expected=0100  observed=0100  ok
+        step 12 : expected=0000  observed=0000  ok
+        step 13 : expected=0110  observed=0110  ok
+        step 14 : expected=1000  observed=1000  ok
+        step 15 : expected=0101  observed=0101  ok
+        step 16 : expected=0000  observed=0000  ok
+  ok  : drum_pat2_rock_16step_mask_table_bitexact
+      pattern 3 (DANCE_FILL):
+        step 01 : expected=0101  observed=0101  ok
+        step 02 : expected=0000  observed=0000  ok
+        step 03 : expected=0100  observed=0100  ok
+        step 04 : expected=0000  observed=0000  ok
+        step 05 : expected=0111  observed=0111  ok
+        step 06 : expected=0000  observed=0000  ok
+        step 07 : expected=0100  observed=0100  ok
+        step 08 : expected=1001  observed=1001  ok
+        step 09 : expected=0101  observed=0101  ok
+        step 10 : expected=0000  observed=0000  ok
+        step 11 : expected=1100  observed=1100  ok
+        step 12 : expected=0000  observed=0000  ok
+        step 13 : expected=0111  observed=0111  ok
+        step 14 : expected=1000  observed=1000  ok
+        step 15 : expected=1100  observed=1100  ok
+        step 16 : expected=1100  observed=1100  ok
+  ok  : drum_pat3_dance_fill_16step_mask_table_bitexact
   ok  : 鈶?cfg_warn_o = 0锛堝弬鏁颁竴鑷达細AXIS_ID=15 >= 14, STEPS=16锛?
   ok  : 鈶?A8 鏃?X/Z 浼犳挱
   ok  : 鈶 transport 鎷変綆鍚?鈬?绔嬪埢鍋滃彂锛堚洈 涓嶅悙娈嬩綑锛?
 --------------------------------------------------
-PASS: drum_gen 涓€姝ュ涔愬櫒涓嶄涪銆?6姝?1灏忚妭銆佹鎷嶇浉浣?step0=Kick+HiHat)銆佷笓鐢ㄦ睜銆佷笉绮樻粸銆乼ransport 闂ㄦ帶銆佽繍琛屾椂鍒囧瀷+鍡甸紦銆佹棤 X/Z
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_gen.sv:558: $finish called at 87740000 (1ps)
+PASS: drum_gen 涓€姝ュ涔愬櫒涓嶄涪銆?6姝?1灏忚妭銆佹鎷嶇浉浣?step0=Kick+HiHat)銆佷笓鐢ㄦ睜銆佷笉绮樻粸銆乼ransport 闂ㄦ帶銆佽繍琛屾椂鍒囧瀷+鍡甸紦銆佹棤 X/Z銆? 涓妭濂忓瀷浣嶇簿纭鐢ㄦ埛琛?
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_gen.sv:728: $finish called at 132860000 (1ps)
 
 

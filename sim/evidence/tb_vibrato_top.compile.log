@@ -1,6 +1,6 @@
 ﻿iverilog.exe : C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited 
 from another file.
-At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:123 char:18
+所在位置 C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:123 字符: 18
 +   $compileOut  = & $iverilog @compileArgs 2>&1
 +                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (C:\Users\hokuu\...m another file.:String) [], RemoteException
@@ -13,18 +13,15 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1635: warning: Port 5 (ch_i) of module pos_probe expects 4 bit(s), given
- 3.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1635:        : Padding 1 high bits of the port.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1662: warning: Port 5 (sample_data_i) of module calib_autotare expects 2
+4 bit(s), given 36.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1662:        : Pruning 12 high bits of the expression.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:496: warning: @* is sensitive to all 16 words in array 
 'pc_l1'.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vibrato_top.sv:18: warning: Instantiating module top with dangling input
  port 11 (pluck_up_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vibrato_top.sv:18: warning: Instantiating module top with dangling input
  port 12 (pluck_down_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1635: warning: Port 5 (ch_i) of module pos_probe expects 4 bit(s), given
- 3.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1635:        : Padding 1 high bits of the port.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:496: warning: @* is sensitive to all 16 words in array 
 'pc_l1'.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vibrato_top.sv:32: warning: Instantiating module top with dangling input

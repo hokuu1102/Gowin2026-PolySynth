@@ -1,0 +1,17 @@
+﻿iverilog.exe : C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited 
+from another file.
+所在位置 C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:123 字符: 18
++   $compileOut  = & $iverilog @compileArgs 2>&1
++                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\hokuu\...m another file.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from another 
+file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
+her file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:496: warning: @* is sensitive to all 16 words in array 
+'pc_l1'.

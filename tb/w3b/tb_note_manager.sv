@@ -268,6 +268,10 @@ module tb_note_manager;
     localparam integer RNORM = POLY - RSV_N;      // 28
 
     reg  [AXIS_W-1:0]  c_axis;
+    //  ⭐⭐ 2026-10-01 修B：⭐ **本实例的来源（可变）** —— ⭐ 因为【池改由来源选】了 ✅
+    //   🔴 **改前**：⭐ `.note_src_i` **硬接 `3'd0`**，⭐ 而池按**轴号**选 ⇒ ⭐ 用轴 14/15 就能命中保留池
+    //   ⭐ **改后**：⭐ 池按**来源**选（⭐ `src == SRC_AUX`，⭐ 即源 B = 3）⇒ ⭐ 本实例必须能**切来源** ✅
+    reg  [2:0]         c_src;
     reg                c_valid;
     wire [POLY-1:0]    c_gate;
     wire [IDX_W-1:0]   c_alloc_voice;
@@ -281,9 +285,9 @@ module tb_note_manager;
         .note_valid_i(c_valid), .note_axis_i(c_axis),
         .note_phase_inc_i(32'h0001_0000), .note_velocity_i(8'd100),
         .note_kind_i(2'd0),
-        // ⭐ A1：本实例只有**单一来源**（手弹/live = 0）⇒ 恒接 0
+        // ⭐ A1：本实例的**来源**（⭐ 2026-10-01 修B 后改为**可变** —— 因为池按来源选 ✅）
         //    ⚠️ 必须**显式**接：留空 ⇒ `z` ⇒ `src_r == cur_src` 比较变 `x` ⇒ 🔴 判据假红
-        .note_src_i(3'd0),
+        .note_src_i(c_src),
         .vel_upd_valid_i(1'b0), .vel_upd_axis_i({AXIS_W{1'b0}}), .vel_upd_value_i(8'd0),
         .pitch_upd_valid_i(1'b0), .pitch_upd_axis_i({AXIS_W{1'b0}}),
         .pitch_upd_value_i(32'd0),
@@ -516,6 +520,7 @@ module tb_note_manager;
         b_axis           = {AXIS_W{1'b0}};
         c_valid          = 1'b0;
         c_axis           = {AXIS_W{1'b0}};
+        c_src            = 3'd0;          // ⭐ 2026-10-01 修B：⭐ 复位默认 = 手弹（live）✅
 
         repeat (4) @(negedge clk);
         rst_n = 1'b1;
@@ -659,12 +664,24 @@ module tb_note_manager;
         // ═══════════════════════════════════════════════════════════════════
         $display("== 判据 8: 专用 voice 池（节拍器不参与普通抢占，T33b 地基）==");
         // ═══════════════════════════════════════════════════════════════════
-        press_c(4'd0);                          // 普通轴位
-        chk("普通轴位落在普通池（< 28）", c_alloc_voice < RNORM);
-        press_c(4'd14);                         // ⭐ 专用轴位（节拍器）
-        chk("专用轴位落在专用池（>= 28）", c_alloc_voice >= RNORM);
-        press_c(4'd15);                         // ⭐ 专用轴位（鼓机）
-        chk("第二个专用轴位也落在专用池", c_alloc_voice >= RNORM);
+        //   ⭐⭐ 2026-10-01 修B：⭐ **池改由【来源】选**（⛔ 不再按轴号）⇒ 本节激励与判据同步 ✅
+        //   🔴 **旧判据**：⭐ 用轴 14/15 去命中保留池 —— ⚠️ 那正是**被修掉的行为**
+        //      （⭐ 它是"物理键 14/15 不响"的根因 ⚠️）
+        //   ✅ **新判据（两条，⭐ 缺一不可）**：
+        //      ① ⭐ **手弹（`src=0`）无论哪个轴都进普通池** —— ⭐ 这就是"键 14/15 出声"的**正面判据** ✅
+        //      ② ⭐ **源 B（`src=3`）无论哪个轴都进保留池** —— ⭐ 节拍器/鼓机照旧 ✅（非空洞性）
+        c_src = 3'd0;
+        press_c(4'd0);                          // ⭐ 手弹，轴 0
+        chk("手弹（src=0）轴 0 落在普通池（< 28）", c_alloc_voice < RNORM);
+        c_src = 3'd0;
+        press_c(4'd14);                         // ⭐ **修B 的正面判据**：手弹的轴 14（G#3）
+        chk("⭐ 修B：手弹（src=0）的轴 14 落在【普通池】—— 键 14/15 出声的判据", c_alloc_voice < RNORM);
+        c_src = 3'd3;                           // ⭐ 源 B（节拍器/鼓机）
+        press_c(4'd14);                         // ⭐ 源 B 即使轴号是 14，也进保留池 ✅
+        chk("源 B（src=3）落在专用池（>= 28）", c_alloc_voice >= RNORM);
+        c_src = 3'd3;
+        press_c(4'd15);
+        chk("第二个源 B 事件也落在专用池", c_alloc_voice >= RNORM);
         chk("两个专用 voice 互不相同", c_gate[28] === 1'b1 && c_gate[29] === 1'b1);
         chk("普通轴位 gate 也在（互不干扰）", c_gate[0] === 1'b1);
 

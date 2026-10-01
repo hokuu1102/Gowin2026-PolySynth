@@ -115,6 +115,45 @@ module tb_calib_still_guard;
     );
 
     // ═══════════════════════════════════════════════════════════════════════
+    // DUT D · `calib_autotare`（⭐ 判据 `N13`：⭐ `N_ADC=2` ⇒ 静止判定必须覆盖【两片】）
+    //   ⭐ `NCH=1`（⭐ 只看一根轴 —— 场景最干净）
+    //   ⭐ `WAIT_MS=100000` + `CLK_HZ=1000` ⇒ `WAIT_CLK = 100000` 拍（⭐ 超时足够远，
+    //      ⭐ 保证判据 N13 的红/绿都是【守卫】决定的，⛔ 不是超时）
+    //   ⚠️ `sample_data_i` 宽度 = `N_ADC*DW` = **24 位**（⭐ 片0 = [11:0]，片1 = [23:12]）
+    // ═══════════════════════════════════════════════════════════════════════
+    reg         rst_n_d = 1'b0;
+    reg         sv_d    = 1'b0;
+    reg  [2:0]  sch_d   = 3'd0;
+    reg  [23:0] sd_d    = 24'd0;
+    wire [1:0]  tare_d;
+    wire [2:0]  cch_d;
+    wire [0:0]  skip_d;
+    wire        fail_d;
+    wire        busy_d;
+    wire        done_d;
+
+    calib_autotare #(
+        .NCH(1), .N_ADC(2), .DELAY_CLK(8),
+        .STILL_EN(1), .DW(12), .STILL_TOL(8), .STILL_FRAMES(4),
+        .WAIT_MS(100000), .CLK_HZ(1000)
+    ) u_at_both (
+        .clk(clk), .rst_n(rst_n_d),
+        .sample_valid_i(sv_d), .sample_ch_i(sch_d), .sample_data_i(sd_d),
+        .retrig_i(1'b0),
+        .tare_o(tare_d), .cal_ch_o(cch_d),
+        .skip_mask_o(skip_d), .fail_o(fail_d),
+        .busy_o(busy_d), .done_o(done_d)
+    );
+
+    //   ⭐ `tare` 记录器（⭐ 单驱动：⭐ 复位时清，⭐ 见 tare 则置 1）
+    //      ⚠️ 这里用 `always` 内部复位（⛔ 不用 `initial`），⭐ 避免同一 reg 两个过程驱动
+    reg hit_d;
+    always @(posedge clk) begin
+        if (!rst_n_d)     hit_d <= 1'b0;
+        else if (|tare_d) hit_d <= 1'b1;
+    end
+
+    // ═══════════════════════════════════════════════════════════════════════
     // DUT C · `calib`（⭐ 判据 2 / 2b：标定值水位闸）
     // ═══════════════════════════════════════════════════════════════════════
     reg         rst_n_c = 1'b0;
@@ -164,6 +203,21 @@ module tb_calib_still_guard;
             sv_b  = 1'b1;  sch_b = ch_v;  sd_b = raw_v;
             @(negedge clk);
             sv_b  = 1'b0;
+        end
+    endtask
+
+    //   ⭐⭐ 给 DUT D 送【一个采样脉冲】—— ⭐ **两片同时在同拍给值**
+    //      （⭐ 这就是 `adc_farm` 的真实行为：⭐ 所有片同一拍 `sample_valid`，
+    //        ⭐ 见 `adc_farm.sv:37` 的注释与 `:156-163` 的实现）
+    task automatic pulse_d;
+        input [2:0]  ch_v;
+        input [11:0] raw0_v;
+        input [11:0] raw1_v;
+        begin
+            @(negedge clk);
+            sv_d  = 1'b1;  sch_d = ch_v;  sd_d = {raw1_v, raw0_v};
+            @(negedge clk);
+            sv_d  = 1'b0;
         end
     endtask
 
@@ -277,12 +331,63 @@ module tb_calib_still_guard;
             pulse_a(3'd2, 12'd800);  pulse_a(3'd3, 12'd800);
         end
         check(done_a == 1'b1, "C1b round 1 finished => done_o asserted (all axes captured)");
+        //   ⭐⭐ 2026-09-30 修（⭐ **tb 自身的采样竞态**，⛔ 不是 RTL 错）：
+        //      🔴 `tare_o`/`cal_ch_o` 是**寄存器单拍脉冲**（⭐ `calib_autotare.v:251-252`），
+        //         而上面 `:189-199` 的记录器在 `posedge` 采样 ⇒ ⭐ 采到的是**上一拍**的值
+        //         ⇒ ⭐ 记录**晚一个 `posedge`**。
+        //      🔴 而本循环一旦 `done_a == 1`（⭐ 恰好由【最后那次捕获】置起，⭐ 见
+        //         `calib_autotare.v:256-258`）就**立刻**退出；退出点正是那次捕获 `posedge`
+        //         之后的那个 `negedge` ⇒ ⭐ **最后一根轴（`ch3`）的 `hit` 还没来得及记上**
+        //         ⇒ 🔴 下面 `C1n` 假红（⭐ 探针实测：⭐ 再等 **1 拍** `hit_a3` 就是 1）
+        //      ⭐ 修法：⭐ 补 2 拍（⭐ 1 拍已够，⭐ 留 1 拍余量）——
+        //         ⚠️ **判据语义完全不变**：⭐ 仍然要求"静止的三根轴真的被捕获"✅
+        repeat (2) @(posedge clk);
         //   ⭐⭐ 2026-09-30 新增（⭐ 从判据 1 移过来）：⭐ **非空洞性** ——
         //      ⭐ 守卫若"把所有轴都拒绝"，⭐ `done_a` 也可能因为【超时】而为 1 ⚠️
         //      ⇒ ⭐ 必须显式断言：⭐ **静止的那三根轴【确实被捕获了】** ✅
         //      ⭐ 本阶段所有通道都是恒定码 ⇒ ⭐ `cur_ch` 能一路推进到 3 ✅
         check(hit_a1 == 1'b1 && hit_a2 == 1'b1 && hit_a3 == 1'b1,
               "C1n NON-VACUOUS: with ALL axes steady, the steady axes really WERE captured (the guard is not rejecting everything)");
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 判据 `N13`（⭐ 2026-09-30 夜）：⭐ **静止判定必须覆盖【所有片】**
+        // ═══════════════════════════════════════════════════════════════════
+        //   🔴 **它防什么**：⭐ `tare_o` 是 `{N_ADC{1'b1}}`（⭐ `calib_autotare.v:251`）
+        //      ⇒ ⭐ **两片【同拍锁步】一起发** ⚠️
+        //      而修前 `top.v:1628` **只把【片 0】的 `raw` 给守卫** ⚠️
+        //      ⇒ 🔴 **板2 的键"按住不动"对守卫【完全不可见】**
+        //      ⇒ 🔴 板2 把【按下位】记成零点 ⇒ ⭐ **那个键永远触发不了**
+        //      （⭐ 这正是用户实测的"板2 某几个键不响"）
+        //   ⭐ **做法（两段，⭐ 缺一段就是空洞判据）**：
+        //      ② 片0 恒定（静止）＋ 片1 **每帧变化** ⇒ ⭐ **期望【不发 `tare`】**
+        //      ③ 非空洞性：⭐ 两片都恒定 ⇒ ⭐ **期望【发 `tare`】**
+        //   ⚠️ **修前**：② 会**发出 `tare`**（⭐ 因为只看片0）⇒ 🔴 红 ⇒ ⭐ 判据能红 ✅
+        // ═══════════════════════════════════════════════════════════════════
+        //   ⭐ 复位 DUT D 并走过 `DELAY_CLK=8` ⇒ 进 `ST_SWEEP`
+        @(negedge clk);  rst_n_d = 1'b0;
+        repeat (4) @(posedge clk);
+        @(negedge clk);  rst_n_d = 1'b1;
+        repeat (12) @(posedge clk);
+
+        //   ② 片0 恒定 800、片1 在 1000/1800 之间跳（⭐ 差 800 ≫ STILL_TOL=8）
+        for (i = 0; i < 20; i = i + 1) begin
+            pulse_d(3'd0, 12'd800, (i % 2) ? 12'd1800 : 12'd1000);
+        end
+        repeat (4) @(posedge clk);
+        check(hit_d == 1'b0,
+              "N13 the still-guard must look at ALL chips: chip1 moving every frame => that axis must NOT be captured (this is the fix for board-2 axes whose held keys were recorded as zero)");
+        check(skip_d == 1'b0,
+              "N13 no timeout happened (WAIT_CLK is far away => the GUARD did the blocking, not the timeout)");
+
+        //   ③ 非空洞性：⭐ 两片都恒定 ⇒ ⭐ 必须真的捕获（⭐ 否则"守卫永远拒绝"也能过 ②）
+        for (i = 0; i < 20 && done_d == 1'b0; i = i + 1) begin
+            pulse_d(3'd0, 12'd800, 12'd1200);
+        end
+        repeat (2) @(posedge clk);
+        check(hit_d == 1'b1,
+              "N13 NON-VACUOUS: with BOTH chips steady the axis IS captured (the guard is not rejecting everything just because it now looks at two chips)");
+        check(done_d == 1'b1,
+              "N13 and the single-axis sweep finished => done_o asserted");
 
         //   ② ch0 改成【变化】⇒ 重标
         hit_a0 = 1'b0;
