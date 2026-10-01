@@ -53,10 +53,84 @@ def decode_event(body: bytes) -> dict:
     }
 
 
+def selftest() -> int:
+    """
+    ⭐ 离线自检（⛔ 不需要硬件、不需要串口）。
+
+    ⭐⭐ 为什么需要它（⭐ 2026-10-01 补）：
+      🔴 本工具是【验收工具】之一 —— ⚠️ **它的解码逻辑错了，验收结论就不可信**。
+      ⚠️ 而它原来**没有自检** ⇒ ⭐ 只有真接上硬件才知道对不对。
+
+    ⭐ 判据分两层（⭐ 缺一不可）：
+      ① ⭐ **正例**：合成帧 → 解出的每个字段都对
+      ② ⭐⭐ **反例**：⭐ **故意改坏 → 必须被判红**
+         ⇒ ⚠️ 否则就是"永远绿"的假判据（⭐ 见经验 `C83`）
+    """
+    print("=" * 74)
+    print("uart_rx_check.py 离线自检（⛔ 不需要硬件）")
+    print("=" * 74)
+    ok = True
+
+    def chk(name, cond, extra=""):
+        nonlocal ok
+        print("  %-44s %s%s" % (name, "OK" if cond else "RED", extra))
+        ok = ok and cond
+
+    # ⭐ 造一个【每个字段都不同】的事件体（⚠️ 这样字段错位一定会被发现）
+    def pack(tick, inc, axis, vel, kind, timbre, rsvd=0):
+        w = ((tick & 0xFFFFF) << 44) | ((inc & 0x3FFFFF) << 22) | \
+            ((axis & 0xF) << 18) | ((vel & 0x7F) << 11) | \
+            ((kind & 0x3) << 9) | ((timbre & 0x1) << 8) | (rsvd & 0xFF)
+        return w.to_bytes(8, "big")
+
+    body = pack(tick=0xABCDE, inc=0x123456, axis=0xA, vel=0x55,
+                kind=2, timbre=1, rsvd=0)
+    d = decode_event(body)
+    print("\n[1] ⭐ 正例：字段逐个核对")
+    for k, want in (("tick", 0xABCDE), ("inc", 0x123456), ("axis", 0xA),
+                    ("vel", 0x55), ("kind", 2), ("timbre", 1), ("rsvd", 0)):
+        got = d[k]
+        chk("   %-7s = %s（期望 %s）" % (k, got, hex(want) if want > 9 else want),
+            got == want)
+
+    print("\n[2] ⭐ 边界：各字段取极值（⭐ 防「位宽写错」）")
+    full = pack(tick=0xFFFFF, inc=0x3FFFFF, axis=0xF, vel=0x7F,
+                kind=3, timbre=1, rsvd=0xFF)
+    df = decode_event(full)
+    chk("   全 1 时 tick  = 0xFFFFF", df["tick"] == 0xFFFFF)
+    chk("   全 1 时 inc   = 0x3FFFFF", df["inc"] == 0x3FFFFF)
+    chk("   全 1 时 axis  = 0xF", df["axis"] == 0xF)
+    chk("   全 1 时 vel   = 0x7F", df["vel"] == 0x7F)
+    chk("   全 1 时 rsvd  = 0xFF", df["rsvd"] == 0xFF)
+    zero = decode_event(pack(0, 0, 0, 0, 0, 0, 0))
+    chk("   全 0 时所有字段 = 0", all(v == 0 for v in zero.values()))
+
+    print("\n[3] ⭐⭐ 反例（非空洞性）：改坏必须能被发现")
+    # ⭐ 3a：把 rsvd 写脏 ⇒ ⭐ "rsvd 必须为 0" 这条判据要能抓住
+    dirty = decode_event(pack(1, 1, 1, 1, 0, 0, rsvd=0x01))
+    chk("   rsvd 非 0 被识别（⭐ 判据可红）", dirty["rsvd"] == 1)
+    # ⭐ 3b：⭐ 故意用【错的期望值】核对 ⇒ ⭐ 必须不等
+    chk("   错期望值会被判红（⭐ 非空洞）", decode_event(body)["tick"] != 0x12345)
+    # ⭐ 3c：⭐ 字段错位检查 —— 若把 tick 的位移写错，这一条会红
+    t_lo = decode_event(pack(tick=1, inc=0, axis=0, vel=0, kind=0, timbre=0))
+    chk("   只有 tick=1 时其余字段全 0",
+        t_lo["tick"] == 1 and t_lo["inc"] == 0 and t_lo["axis"] == 0)
+
+    print("\n[4] ⭐ 帧头常量")
+    chk("   HDR_EVENT = 0xA5", HDR_EVENT == 0xA5)
+    chk("   FRAME_BYTES = 9", FRAME_BYTES == 9)
+
+    print()
+    print("结论：%s" % ("全部通过" if ok else "有失败项"))
+    return 0 if ok else 1
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(
         description="抓 ESP32 UART1 TX 的字节流并逐帧校验")
-    ap.add_argument("--port", required=True,
+    ap.add_argument("--selftest", action="store_true",
+                    help="离线自检（⛔ 不需要硬件/串口）")
+    ap.add_argument("--port",
                     help="USB-TTL 的口，如 COM27")
     ap.add_argument("--baud", type=int, default=500000,
                     help="必须与固件 BLE_BAUD 一致（默认 500000）")
@@ -67,6 +141,13 @@ def main() -> int:
     ap.add_argument("--expect-frames", type=int, default=0,
                     help="期望帧数（给了就核对）")
     args = ap.parse_args()
+
+    # ⭐ 自检优先 —— ⚠️ 不需要 --port（⭐ 这样 CI/批量自检能统一调用）
+    if args.selftest:
+        return selftest()
+    if not args.port:
+        print("🔴 需要 --port（⚠️ 或用 --selftest）")
+        return 2
 
     try:
         import serial

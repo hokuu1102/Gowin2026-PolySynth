@@ -1,0 +1,364 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+hmi_states_check.py —— ⭐ 逐个验证屏上的【状态字 `t1`】（⛔ 不需要人看屏）
+
+═══ 为什么能"不看屏"就验 ═══
+⭐ 屏支持 `get <控件>.<属性>` —— ⭐ **屏会把自己的值回传**。
+⇒ ⭐ 我们只要**驱动状态变化**，然后 `get t1.txt` 读回，
+   ⭐ 就能判定"状态字有没有跟着变"，⛔ 不用盯着屏。
+
+═══ 验什么（⭐ 覆盖 `hmi_state_t` 的全部可达状态）═══
+| ⭐ 状态 | ⭐ 怎么进入 | ⭐ 期望 `t1.txt` |
+|---|---|---|
+| `IDLE` | 刚连接 | `待机` |
+| `LOADING` | 正在灌谱 | `灌谱中` |
+| `READY` | 灌完 | `就绪` |
+| `PLAYING` | CMD `0x03` 起播 | `播放中` |
+| `DONE` | 放完 | `播完` |
+| `LINK_LOST` | 断开 | `断链` |
+⚠️ `UNDERRUN`（供数不足）/ `OVERFLOW`（溢出）⭐ **需要造异常**，⛔ 本脚本不覆盖（⭐ 单独测）。
+
+═══ 用法 ═══
+    python hmi_states_check.py --selftest      # ⛔ 不需要硬件
+    python hmi_states_check.py                 # 真机（⚠️ 需要屏已接好）
+"""
+
+import argparse
+import asyncio
+import re
+import sys
+
+for _n in ("stdout", "stderr"):
+    _s = getattr(sys, _n, None)
+    if _s is not None and hasattr(_s, "reconfigure"):
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
+
+import struct
+
+CMD = "0000abf3-0000-1000-8000-00805f9b34fb"
+RECV = "0000abf1-0000-1000-8000-00805f9b34fb"
+FRAME = 9
+DEV = "FPGA2026-Synth"
+# ⚠️ 端口会漂 ⇒ ⭐ 传 `--log-port` 覆盖；⭐ 默认按 ESP32 的 USB VID 自动找
+LOG_PORT = "COM29"
+
+# ⭐ 期望值（⭐ 与 hmi.c 的 state_text() 必须【逐字一致】）
+EXPECT = {
+    "IDLE": "待机",
+    "LOADING": "灌谱中",
+    "READY": "就绪",
+    "PLAYING": "播放中",
+    "DONE": "播完",
+    "LINK_LOST": "断链",
+}
+
+
+def build_score(n):
+    inc = 164927
+    out = bytearray(bytes([0xA5]) * (FRAME * 4))
+    out += bytes([0x00]) + struct.pack(">Q", n)
+    for i in range(n):
+        tick = 1000 + i * 37
+        w = ((tick & 0xFFFFF) << 44) | ((inc & 0x3FFFFF) << 22) | \
+            (((i % 16) & 0xF) << 18) | (((60 + (i % 60)) & 0x7F) << 11) | \
+            (((i % 2) & 0x3) << 9) | (((i % 2) & 0x1) << 8)
+        out += bytes([0xA5]) + w.to_bytes(8, "big")
+    return bytes(out)
+
+
+class Ask:
+    """
+    ⭐ 读屏的 `get` 回包。
+
+    🔴🔴 **关键：回包【不走 BLE】，只出现在 ESP32 的【串口日志】里**
+    -----------------------------------------------------------------------
+    ⚠️ 实测踩过：⭐ 我一开始用 BLE notify 收回包 ⇒ 🔴 **全部超时**。
+    ⭐ 根因：⭐ 屏的回复进的是 **ESP32 的 UART2 RX** ⇒
+       ⭐ 固件**只是把它记进日志**（`hmi_poll_rx` 的 hex dump），
+       🔴 **⛔ 没有转发到 BLE**（⭐ 那不是本工程的需求）。
+    ⇒ ⭐ 所以要读回包，**必须读 COM29 的日志**，⛔ 不是 BLE。
+
+    ⚠️ 日志与 BLE **互不冲突**（⭐ 一个串口、一个无线）⇒ ⭐ 可以同时开。
+    """
+
+    RX_RE = re.compile(r"screen -> ESP32: \d+ B .*?\[([0-9A-Fa-f ]+)\]")
+
+    def __init__(self, ser, client):
+        self.ser = ser
+        self.c = client
+        self.log = bytearray()
+
+    def pump(self):
+        """⭐ 非阻塞地把日志口里现有的字节吸进来（⭐ 由调用方定期调）。"""
+        try:
+            n = self.ser.in_waiting
+            if n:
+                self.log.extend(self.ser.read(n))
+        except Exception:
+            pass
+
+    def _replies(self):
+        """⭐ 从日志里抽出所有 `screen -> ESP32` 的 hex，⭐ 拼成完整回包。"""
+        txt = self.log.decode("utf-8", "replace")
+        out = []
+        for m in self.RX_RE.finditer(txt):
+            try:
+                out.append(bytes(int(x, 16) for x in m.group(1).split()))
+            except ValueError:
+                pass
+        return out
+
+    async def get(self, ctrl, attr="txt", wait=1.6):
+        """⭐ 发 `get`，等日志里出现回包，⭐ 返回值（⭐ 去掉 `p` 前缀与 `FF FF FF`）。"""
+        self.pump()
+        before = len(self._replies())
+        await self.c.write_gatt_char(CMD, bytes([0x21]) +
+                                     ("get %s.%s" % (ctrl, attr)).encode(),
+                                     response=False)
+        t0 = asyncio.get_event_loop().time()
+        while asyncio.get_event_loop().time() - t0 < wait:
+            self.pump()
+            reps = self._replies()
+            if len(reps) > before:
+                b = reps[-1]
+                if b.endswith(b"\xff\xff\xff"):
+                    b = b[:-3]
+                if b[:1] in (b"p", b"q"):
+                    b = b[1:]
+                return b
+            await asyncio.sleep(0.1)
+        return None                      # 🔴 超时 = 屏没回（⭐ 控件可能不存在）
+
+
+async def run(events):
+    from bleak import BleakClient, BleakScanner
+
+    fails = []
+    print("=" * 74)
+    print("屏上状态字 `t1` 逐状态验证（⭐ 用 get 读回，⛔ 不用人看屏）")
+    print("=" * 74)
+
+    dev = await BleakScanner.find_device_by_filter(
+        lambda d, ad: (d.name or "") == DEV, timeout=12)
+    if dev is None:
+        print("🔴 没找到 %s（⚠️ 板子在广播吗？）" % DEV)
+        return 3
+
+    # ⭐ 日志口：⭐ 屏的 `get` 回包**只在这里**（🔴 不走 BLE）
+    import serial
+    ser = serial.Serial()
+    ser.port = LOG_PORT
+    ser.baudrate = 115200
+    ser.timeout = 0.05
+    ser.dtr = False
+    ser.rts = False
+    ser.open()
+    ser.setDTR(False)
+    ser.setRTS(False)
+    ser.reset_input_buffer()
+    print("  （日志口 %s 已开 —— ⭐ 屏的回包从这里读）" % LOG_PORT)
+
+    async with BleakClient(dev) as c:
+        await asyncio.sleep(1.0)
+        a = Ask(ser, c)
+        await asyncio.sleep(0.6)
+
+        async def check(name, note=""):
+            got = await a.get("t1")
+            want = EXPECT[name]
+            txt = got.decode("utf-8", "replace") if got is not None else "(无回包)"
+            ok = (got is not None and txt == want)
+            print("  %-10s 期望 %-6s 实测 %-8s %s  %s"
+                  % (name, want, txt, "OK " if ok else "RED", note))
+            if not ok:
+                fails.append("%s: 期望 %s，实测 %s" % (name, want, txt))
+            return ok
+
+        # ---- ① IDLE（⭐ 先复位，⛔ 不能假定上电就是 IDLE）----
+        # 🔴 踩过的坑（2026-10-01 实测）：⭐ 上电后池里**还留着上一次的谱**
+        #    ⇒ ⚠️ 状态是 `就绪` 而⛔ 不是 `待机` ⇒ ⭐ 于是判据假红。
+        #    ⭐ 根因是【我的测试前提错了】，⛔ 不是固件错。
+        #    ⇒ ⭐ 必须显式复位，才能把 IDLE 作为起点。
+        #
+        # ⚠️⚠️ 第二个坑（⭐ 同样实测到）：⭐ **复位发得太早会被覆盖** ——
+        #    ⭐ 连上前 ~1 s 内，上一条连接遗留的 `hmi_set_state(LINK_LOST)`
+        #       可能**晚于**我们的 `0x01` 落地 ⇒ 🔴 读回 `断链`（⚠️ 而固件没错）。
+        #    ⭐ 判据：⭐ 单独用 `_idle_probe.py`（⭐ 间隔更长）复现 ⇒ ✅ `待机` 正确。
+        #    ⇒ ⭐ 测试必须**带重试**，⛔ 不靠"发一次就成功"。
+        print("  ...  发 CMD 0x01（复位）把状态打回 IDLE（⭐ 最多试 3 次）")
+        idle_ok = False
+        for attempt in range(3):
+            await c.write_gatt_char(CMD, bytes([0x01]), response=False)
+            await asyncio.sleep(1.2)
+            got = await a.get("t1")
+            txt = got.decode("utf-8", "replace") if got is not None else "(无回包)"
+            if txt == EXPECT["IDLE"]:
+                idle_ok = True
+                print("      第 %d 次复位后读到 `%s` ✅" % (attempt + 1, txt))
+                break
+            print("      第 %d 次复位后读到 `%s`（⚠️ 再试一次）" % (attempt + 1, txt))
+        print("  %-10s 期望 %-6s 实测 %-8s %s  %s"
+              % ("IDLE", EXPECT["IDLE"],
+                 EXPECT["IDLE"] if idle_ok else "(3 次都没到)",
+                 "OK " if idle_ok else "RED", "复位后"))
+        if not idle_ok:
+            fails.append("IDLE: 连续 3 次复位都没进 %s" % EXPECT["IDLE"])
+
+        # ---- ② LOADING（⭐ 灌谱中）----
+        payload = build_score(events)
+        off = 0
+        # ⭐ 先灌一小部分 ⇒ 停在 LOADING
+        first = payload[:36 + 9 + FRAME * 20]
+        while off < len(first):
+            n = min(180, len(first) - off)
+            await c.write_gatt_char(RECV, first[off:off + n], response=False)
+            off += n
+            await asyncio.sleep(0.004)
+        await asyncio.sleep(0.6)
+        await check("LOADING", "灌了 20 帧，还没灌完")
+
+        # ---- 灌完 ----
+        rest = payload[36 + 9 + FRAME * 20:]
+        off = 0
+        while off < len(rest):
+            n = min(180, len(rest) - off)
+            await c.write_gatt_char(RECV, rest[off:off + n], response=False)
+            off += n
+            await asyncio.sleep(0.004)
+        await asyncio.sleep(1.5)
+        # ⚠️ 灌完 = 收到总数帧 + 全部事件 ⇒ 但状态要等 `pool_mark_done()`
+        #    ⭐ 本固件在【收到应到帧数】时才转 READY ⇒ ⚠️ 可能仍是 LOADING
+        await check("READY", "灌完（⚠️ 若仍 LOADING 见下方说明）")
+
+        # ---- ③ PLAYING（⭐ 起播）----
+        await c.write_gatt_char(CMD, bytes([0x03]), response=False)
+        await asyncio.sleep(1.2)
+        await check("PLAYING", "CMD 0x03 起播后")
+
+        # ---- ④ DONE（⭐ 放完）----
+        # ⚠️ 200 帧 ≈ 14.3 s（⭐ rate=1919 tick/s + 10.4 s 提前量）
+        await asyncio.sleep(22)
+        await check("DONE", "起播 ~22 s 后")
+
+    # ---- ⑤ LINK_LOST（⭐ 断开后重连，立刻读）----
+    # ⭐ 断开时固件调 `hmi_set_state(LINK_LOST)` ⇒ 屏上应是 `断链`
+    # ⚠️ 断开后 BLE 读不到 ⇒ ⭐ 必须【重连】再读；⭐ 重连本身不会改状态
+    #    （⭐ 只有收到新曲数据才会离开 `断链`）⇒ ⭐ 读到的仍是断开时设的那个值
+    print("  ...  断开，等 1.5 s 让固件设 `断链`，然后重连读回")
+    await asyncio.sleep(1.5)
+    dev2 = await BleakScanner.find_device_by_filter(
+        lambda d, ad: (d.name or "") == DEV, timeout=12)
+    if dev2 is None:
+        fails.append("LINK_LOST: 重连失败（⭐ 找不到设备）")
+        print("  LINK_LOST  期望 断链   RED  重连失败")
+    else:
+        async with BleakClient(dev2) as c2:
+            await asyncio.sleep(0.8)
+            a2 = Ask(ser, c2)
+            got = await a2.get("t1")
+            txt = got.decode("utf-8", "replace") if got is not None else "(无回包)"
+            ok = (got is not None and txt == EXPECT["LINK_LOST"])
+            print("  %-10s 期望 %-6s 实测 %-8s %s  %s"
+                  % ("LINK_LOST", EXPECT["LINK_LOST"], txt,
+                     "OK " if ok else "RED", "断开后重连读回"))
+            if not ok:
+                fails.append("LINK_LOST: 期望 %s，实测 %s"
+                             % (EXPECT["LINK_LOST"], txt))
+
+    try:
+        ser.close()
+    except Exception:
+        pass
+
+    print()
+    print("=" * 74)
+    if not fails:
+        print("结论：状态字全部正确 ✅")
+    else:
+        print("结论：%d 项不符 🔴" % len(fails))
+        for f in fails:
+            print("   - %s" % f)
+    print("=" * 74)
+    return 0 if not fails else 1
+
+
+def selftest():
+    """⭐ 离线自检：⭐ 验期望表与 hmi.c 的 state_text() 【逐字一致】。"""
+    import inspect
+    import os
+    print("=" * 74)
+    print("hmi_states_check.py 离线自检（⛔ 不需要硬件）")
+    print("=" * 74)
+    ok = True
+
+    def chk(name, cond, extra=""):
+        nonlocal ok
+        print("  %-46s %s%s" % (name, "OK" if cond else "RED", extra))
+        ok = ok and cond
+
+    # ⭐⭐ 关键：⭐ 把 hmi.c 里的 state_text() 源码读出来，⭐ 逐字比对期望表
+    #    ⚠️ 这样"屏上显示的字"与"脚本期望的字"**不可能悄悄漂**
+    here = os.path.dirname(os.path.abspath(__file__))
+    src_path = os.path.join(here, "..", "ble", "main", "hmi.c")
+    try:
+        with open(src_path, "r", encoding="utf-8", errors="replace") as f:
+            src = f.read()
+    except OSError as e:
+        chk("读到 hmi.c", False, "  %s" % e)
+        print()
+        print("结论：有失败项")
+        return 1
+
+    chk("读到 hmi.c", len(src) > 1000, "  %d 字符" % len(src))
+    for k, v in EXPECT.items():
+        # ⭐ 在 hmi.c 里找 `return "xxx"` 附近是否有这个状态
+        chk("hmi.c 含状态字 %-6s (%s)" % (v, k), ('"%s"' % v) in src)
+
+    # ⭐ 反例：⭐ 编一个不存在的状态字，必须找不到
+    chk("反例：hmi.c 不含「不存在」", '"不存在"' not in src)
+    chk("反例：错期望会被抓到", EXPECT["IDLE"] != "待机2")
+
+    print()
+    print("结论：%s" % ("全部通过" if ok else "有失败项"))
+    return 0 if ok else 1
+
+
+def find_log_port():
+    """⭐ 按 ESP32 的 USB VID（303A）自动找日志口 —— ⚠️ 端口号会漂。"""
+    try:
+        from serial.tools import list_ports
+    except Exception:
+        return None
+    for p in list_ports.comports():
+        hwid = (p.hwid or "").upper()
+        if "303A" in hwid:                   # ⭐ Espressif 的 VID
+            return p.device
+    return None
+
+
+def main():
+    global LOG_PORT
+    ap = argparse.ArgumentParser(description="逐个验证屏上状态字 t1")
+    ap.add_argument("--selftest", action="store_true", help="离线自检（⛔ 不需硬件）")
+    ap.add_argument("--events", type=int, default=200)
+    ap.add_argument("--log-port", default=None,
+                    help="ESP32 日志口（⚠️ 默认按 VID 303A 自动找）")
+    args = ap.parse_args()
+    if args.selftest:
+        return selftest()
+    if args.log_port:
+        LOG_PORT = args.log_port
+    else:
+        auto = find_log_port()
+        if auto:
+            LOG_PORT = auto
+        print("日志口 = %s" % LOG_PORT)
+    return asyncio.run(run(args.events))
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -126,6 +126,17 @@ static uint32_t  s_tick_inc = BLE_POOL_DEFAULT_TICK_INC;
 static uint32_t  s_t0_tick = 0;
 static int64_t   s_t0_us   = 0;
 static bool      s_running = false;
+/* ⭐⭐ "这一曲【自然放完】了"—— 一次性标志，⭐ 由消费方取走（take）
+ * ---------------------------------------------------------------------------
+ * 🔴 为什么需要它（2026-10-01 新增）：
+ *    ⚠️ 实测发现：⭐ 池**自然放完**后 `s_running` 仍是 `true`
+ *       （⛔ 只有 `pool_stop()` / `pool_reset()` 才清它）
+ *    ⇒ 🔴 **没有任何地方能发现"放完了"** ⇒ ⭐ 屏上 `播完` 永远显示不出来（死代码）。
+ *    ⚠️ 附带后果：⭐ 放完后再按 START 会被 "already running" 拒掉。
+ * ⭐ 修法（改【上游源头】）：⭐ 在 `pool_pump()` 里【已经知道放完】的那个判据点上
+ *    （原来只打遥测日志）⭐ **同时**清 `s_running` ＋ 置本标志。
+ * ⚠️ volatile：⭐ 跨任务（pump 任务写，drain 任务读）。 */
+static volatile bool s_finished = false;
 
 static SemaphoreHandle_t s_lock = NULL;
 
@@ -364,6 +375,8 @@ void pool_reset(void)
 
     /* ⭐ 允许下一曲再打一次收尾遥测（见 pool_pump 末尾的 "feed done"） */
     s_feed_done_logged = false;
+    /* ⭐ 清掉上一曲遗留的"自然放完"事件 ⇒ ⚠️ 否则新曲一开就误报 `播完` */
+    s_finished = false;
 }
 
 /*
@@ -454,9 +467,26 @@ void pool_start(void)
 
     /* ⭐ 允许本曲再打一次收尾遥测（见 pool_pump 末尾的 "feed done"） */
     s_feed_done_logged = false;
+    /* ⭐ 起播前清掉旧的"自然放完"事件（⚠️ 重播同一首时，上一轮的完成事件必须清掉） */
+    s_finished = false;
 }
 
 bool pool_is_running(void) { return s_running; }
+
+/* ⭐⭐ 取走"自然放完"事件（⭐ 取走即清零 ⇒ ⭐ 一次性，⛔ 不会重复上报）
+ * ---------------------------------------------------------------------------
+ * ⚠️ 为什么要 take 语义（⛔ 不是"读一个 bool"）：
+ *    ⭐ 消费方（`task_drain`）是【轮询】的 ⇒ ⚠️ 若只读不清，
+ *       它会**每一轮都上报一次** ⇒ ⭐ 屏上状态被反复重设（⚠️ 且遥测刷屏）。
+ *    ⭐ take 语义让"事件"只被消费一次，⭐ 与"电平"区分开。 */
+bool pool_take_finished(void)
+{
+    if (!s_finished) {
+        return false;
+    }
+    s_finished = false;
+    return true;
+}
 
 /* ⭐ 停止放水（2026-09-30 新增）
  * ⚠️ 语义说清：⛔ 不"暂停/续播" —— `pool_start()` 会把 `s_play_idx` 重置到 0
@@ -709,6 +739,17 @@ emit:
      *       明显 <1920 ⇒ 放慢了（⚠️ 会 evt_underrun）。 */
     if (!s_feed_done_logged && s_frames > 0 && (s_play_idx >= s_frames)) {
         s_feed_done_logged = true;
+
+        /* ⭐⭐ 【上游源头】就在这里：⭐ 此刻"这一曲放完了"是【确定的】
+         * -----------------------------------------------------------------
+         * ⚠️ 原来这里【只打日志】⇒ 🔴 `s_running` 一直挂着 `true`
+         *    ⇒ ⭐ ① 屏上 `播完` 不可达（死代码）
+         *       ⭐ ② 放完后再按 START 会被 "already running" 拒掉
+         * ⭐ 所以必须【在这里】把状态收干净，⛔ 不是在别处打补丁。 */
+        xSemaphoreTake(s_lock, portMAX_DELAY);
+        s_running  = false;      /* ⭐ 真的停了 ⇒ `pool_is_running()` 不再说谎 */
+        s_finished = true;       /* ⭐ 通知消费方"自然放完"（⭐ 与 STOP 区分开） */
+        xSemaphoreGive(s_lock);
 
         int64_t  done_us  = esp_timer_get_time();
         int64_t  elapsed  = done_us - s_t0_us;

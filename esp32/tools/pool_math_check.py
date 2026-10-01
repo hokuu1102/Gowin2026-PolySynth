@@ -113,6 +113,19 @@ def tick_inc_for(bpm):
 
 
 def main():
+    # ⭐ 2026-10-01：加 `--selftest` —— ⚠️ **只为【接口一致】**
+    # ------------------------------------------------------------------------
+    # ⭐ 本工具**本来就是纯离线校验**（⭐ 不碰串口、⛔ 不需要硬件）
+    #    ⇒ ⭐ `--selftest` 与【无参运行】**完全等价**。
+    # ⚠️ 那为什么还要加：⭐ 让【批量自检】能用**统一的方式**调用所有工具
+    #    （⭐ 否则每个工具的参数都不一样，⚠️ 扫描脚本要写特例）。
+    import argparse
+    ap = argparse.ArgumentParser(
+        description="水池 tick<->us 换算的离线校验（⭐ 纯离线，⛔ 不需硬件）")
+    ap.add_argument("--selftest", action="store_true",
+                    help="离线自检（⭐ 与无参运行等价 —— 本工具本来就是离线校验）")
+    ap.parse_args()
+
     print("=" * 80)
     print("水池 tick<->us 换算 · 离线校验（增量式）")
     print("=" * 80)

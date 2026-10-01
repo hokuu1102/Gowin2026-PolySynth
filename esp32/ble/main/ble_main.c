@@ -68,6 +68,15 @@ static const char *TAG = "blebridge";
  * 可观测计数（K-106：容量有限/会出错的东西必须看得见）
  * =========================================================================== */
 static volatile uint32_t s_ble_rx_bytes   = 0;
+/* ⭐⭐ 2026-10-01（实测修 bug）：**本曲**已收事件数 —— ⭐ 屏上 `t2` / 进度条用
+ * ---------------------------------------------------------------------------
+ * 🔴 **为什么不能直接用 `s_ble_rx_bytes / FRAME_BYTES`**：
+ *    ⚠️ 那个是**自开机累计**（⛔ 从不复位），⭐ 而总数 `s_song_total` 是**本曲**的
+ *    ⇒ 🔴 **分子累计、分母本曲** ⇒ 灌两次 200 帧就显示 `410/200`、百分比 `205%`
+ *    （⭐ 实测：用户接上屏后第一次看到的就是这个）。
+ * ⭐ 本计数在【复位标记】处清零（⭐ 那就是"新曲子开始"的信号）。
+ */
+static volatile uint32_t s_song_events_rx = 0;
 static volatile uint32_t s_ble_rx_dropped = 0;
 static volatile uint32_t s_uart_tx_bytes  = 0;
 static volatile uint32_t s_uart_rx_bytes  = 0;
@@ -265,6 +274,23 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event,
  * ⇒ ⭐ 必须先【前置声明】，⛔ 否则编译报 implicit declaration。 */
 static void start_action_play(void);
 static void start_action_stop(void);
+/* ⭐⭐ 2026-10-01 补：**原来这里漏了 `reset` 的前向声明** —— 🔴 那正是缺陷的源头
+ * ---------------------------------------------------------------------------
+ * 🔴 症状（实测）：⭐ 发 CMD `0x01`（复位）后，⭐ 屏上状态字**仍是 `断链`**，
+ *    ⛔ 永远进不了 `待机`（⭐ `HMI_ST_IDLE` 成了死代码）。
+ * ⭐ 根因链（⭐ 一路追到【第一因】）：
+ *    ① ⚠️ 本处**只有 `play` / `stop` 的前向声明**，⛔ 没有 `reset`
+ *    ② ⇒ ⭐ 于是 `case 0x01` 里**写不出** `start_action_reset()`（⭐ 未声明）
+ *    ③ ⇒ ⚠️ 只能退而直接调 `pool_reset()`
+ *    ④ ⇒ 🔴 **绕过了 wrapper** ⇒ `hmi_set_state(HMI_ST_IDLE)` 永不执行
+ *    ⚠️ 而 662 行的注释写的恰恰是「**复用 `start_action_play/stop/reset`**」
+ *       —— 🔴 **注释与代码相反**（⭐ 0.11 第 4 类检查要抓的正是这个）。
+ * ⭐ 修法（改【上游源头】，⛔ 不是在下游打补丁）：
+ *    ⭐ **补上缺失的声明** ⇒ 绕过的**理由**自然消失 ⇒
+ *    ⭐ `case 0x01` 就能和 `0x03`/`0x04` 走同一条路。
+ * 📌 教训：⭐ **"为什么这里没走公共封装"往往不是疏忽，而是【调不到】**
+ *    ⇒ ⭐ 追根因时要问「⭐ **他为什么没这么写？**」（⭐ 而不是"他忘了"）。 */
+static void start_action_reset(void);
 
 #if WS2812_ENABLE || WS2812_CLEAR_ON_BOOT || BLE_LED_ENABLE
 /* ===========================================================================
@@ -335,22 +361,120 @@ static void ind_set(bool connected)
  */
 static void cmd_report_status(void)
 {
-    char line[64];
+    /* ⭐⭐ 2026-10-01（任务 2）：从"一行短文本"扩展成**六组完整状态**
+     * -----------------------------------------------------------------------
+     * 🔴 为什么扩：⚠️ 原来只有 `pool/sent/ovf/ring/u_drop` 几项
+     *    ⇒ 🔴 **上位机看不到**：CMD 计数、环的 hwm/full、BLE 的 fail、
+     *      MTU、订阅状态、帧统计、UART 触发计数… ⚠️ 只能盯串口日志。
+     *
+     * ⭐ 格式选择：⭐ **`key=value` 多行**（⭐ 既好读，⭐ 又好用正则解析）
+     *    ⚠️ 不用二进制 —— 🔴 二进制在"人看一眼"时完全没用，
+     *       而 ⭐ **排查现场最常见的就是"人看一眼"**。
+     *
+     * ⚠️ 容量：⭐ `s_val_stat` 是 **320 B**（⭐ 见 `gatt_svc.c`）
+     *    ⇒ ⭐ 下面这段约 264 字符 ⇒ ✅ 装得下。
+     * 🔴🔴 **但本地的 `buf` 必须【跟着一起扩】**（⭐ 2026-10-01 踩过）：
+     *    ⚠️ 原来这里写的是 `char buf[256]`，⭐ 而 `s_val_stat` 已扩到 320
+     *    ⇒ 🔴 **`snprintf` 在 256 处截断** ⇒ ⚠️ 最后一组 `cmd=` 只剩 `cmd=` + 垃圾
+     *    （⭐ 实测原始字节：`...unk=0\ncmd=\x00\x00\x00\x00\x00\x1cG\x00\x00`）
+     *    ⭐ **判据**：`stat_read.py` 的"八组齐全"检查**抓到了它**（⭐ 报"缺 cmd.ok/unk"）。
+     *
+     * 🔴🔴 **还有一个更危险的坑（⭐ 同一处，已修）**：
+     *    ⚠️ **`snprintf` 的返回值是"【本该】写多少"**，⛔ **不是"实际写了多少"**
+     *    ⇒ 原来写 `int n = snprintf(buf, sizeof(buf), ...); gatt_set_stat(buf, n);`
+     *    ⇒ 🔴 截断时 `n = 264 > sizeof(buf) = 256`
+     *    ⇒ 🔴 **从 256 字节的栈缓冲里读越界 8 字节**（⭐ 内存安全问题，⚠️ 而且不报错）
+     *    ⇒ ⭐ **正解：用返回值之前先夹到 `sizeof(buf)`**（⭐ 见下面 `if (n > (int)sizeof(buf))`）。
+     */
+    char buf[320];
     pool_stats_t ps;
     up_ring_stats_t us;
     pool_stats(&ps);
     up_ring_stats(&us);
 
-    int n = snprintf(line, sizeof(line),
-                     "pool=%u/%u sent=%lu ovf=%lu|ring=%lu u_drop=%lu/%lu\n",
-                     (unsigned)ps.frames, (unsigned)ps.capacity_frames,
-                     (unsigned long)ps.sent_frames,
-                     (unsigned long)ps.overflow_frames,
-                     (unsigned long)us.level,
-                     (unsigned long)us.drop_ev, (unsigned long)us.drop);
+    /* ⭐⭐ 2026-10-01（C115 的第二层修法）：让【陈旧】变得可检测
+     * -----------------------------------------------------------------------
+     * 🔴 问题：⭐ `0xABF4` 是**请求时生成的快照** ⇒ ⚠️ 客户端**不请求就直读**
+     *    会拿到**上一次**的内容，⚠️ 而**没有任何"这是旧的"标记**
+     *    ⇒ 🔴 与真实状态**无法区分**（⭐ 实测：⭐ 池里明明有 200 帧，
+     *       不请求直读却得到 `pool=0 sent=0` —— ⚠️ 而 0 看起来完全合理）。
+     *
+     * ⭐ 修法两层（⭐ 第一层在 PC 侧：读前先请求）：
+     *    ① ⭐ `req=`  = **这是第几次快照**（⭐ 单调递增）
+     *    ② ⭐ `up=`   = **生成快照时的开机毫秒数**
+     *    ⇒ ⭐ 客户端**连读两次**：
+     *        · `req` **没变** ⇒ 🔴 **数据是旧的**（⭐ 上次的）
+     *        · `up` 与当前时间差太大 ⇒ 🔴 **快照很老**
+     *    ⭐ 这就把"静默陈旧"变成了"**可判定的陈旧**" ✅
+     * ⚠️ 同族经验：`C115`（⭐ 请求时才生成的快照接口）。 */
+    static uint32_t s_stat_req = 0;
+    s_stat_req++;
+    int64_t up_ms = esp_timer_get_time() / 1000;
+
+    /* ⭐ 屏→ESP32 诊断（⭐ 见 hmi.h） */
+    uint32_t hmi_rx_b = 0, hmi_rx_t = 0;
+    uint8_t  hmi_rx_last = 0;
+    hmi_rx_stats(&hmi_rx_b, &hmi_rx_t, &hmi_rx_last);
+
+    int n = snprintf(buf, sizeof(buf),
+        "V1 mode=%s req=%lu up=%lldms\n"
+        /* ⭐ 池：⭐ 已收/容量、已发、溢出、落后、应到/不符、限流截断、是否在跑 */
+        "pool=%u/%u sent=%lu ovf=%lu late=%lu exp=%lu mm=%lu clamp=%lu run=%d\n"
+        /* ⭐ 上行环：⭐ 水位/容量、入/出、丢弃次数/字节、满次数、高水位、落哪 */
+        "ring=%lu/%u in=%lu out=%lu drop=%lu/%lu full=%lu hwm=%lu %s\n"
+        /* ⭐ BLE：⭐ 收/发字节、失败、MTU、连接、订阅 */
+        "ble=rx%lu tx%lu fail=%lu mtu=%u conn=%d sub=%d\n"
+        /* ⭐ UART：⭐ 收字节、触发字符计数 */
+        "uart=rx%lu trig=%lu\n"
+        /* ⭐⭐ 2026-10-01：屏 → ESP32 方向（⭐ 诊断"屏有界面但数字不变"）
+         *    ⭐ 判读：`hmi.rx` 涨 ⇒ 屏→ESP32 通 ⇒ 🔴 问题在反方向（ESP32→屏） */
+        "hmi=rx%lu touch=%lu tx=%lu last=0x%02X\n"
+        /* ⭐ 帧统计：⭐ 总数帧、曲谱总事件、复位帧、未知帧头 */
+        "frame=total=%lu tf=%lu rst=%lu unk=%lu\n"
+        /* ⭐ CMD：⭐ 认得 / 不认得 */
+        "cmd=ok%lu unk%lu\n",
+        /* ---- 参数（⭐ 顺序必须与上面的格式串【严格一致】）---- */
+#if BLE_MODE == BLE_MODE_B_POOL
+        "B",
+#else
+        "A",
+#endif
+        /* ⭐ C115 第二层：⭐ 快照序号 + 生成时刻（⭐ 让陈旧可判定） */
+        (unsigned long)s_stat_req, (long long)up_ms,
+        (unsigned)ps.frames, (unsigned)ps.capacity_frames,
+        (unsigned long)ps.sent_frames,
+        (unsigned long)ps.overflow_frames,
+        (unsigned long)ps.late_ticks_max,
+        (unsigned long)ps.expected_frames,
+        (unsigned long)ps.total_mismatch,
+        (unsigned long)ps.tick_clamped_cnt,
+        (int)ps.running,
+        (unsigned long)us.level, (unsigned)us.cap,
+        (unsigned long)us.in, (unsigned long)us.out,
+        (unsigned long)us.drop_ev, (unsigned long)us.drop,
+        (unsigned long)us.full_hits, (unsigned long)us.hwm,
+        us.in_psram ? "PSRAM" : "DRAM",
+        (unsigned long)s_ble_rx_bytes, (unsigned long)s_ble_tx_bytes,
+        (unsigned long)s_ble_tx_failed, (unsigned)s_mtu,
+        (int)s_connected, (int)s_noti_enabled,
+        (unsigned long)s_uart_rx_bytes, (unsigned long)s_trig_cnt,
+        /* ⭐ 屏→ESP32 诊断（⭐ 见 hmi.h 的说明） */
+        (unsigned long)hmi_rx_b, (unsigned long)hmi_rx_t, (unsigned long)hmi_tx_cmds(), (unsigned)hmi_rx_last,
+        (unsigned long)s_total_frames_rx, (unsigned long)s_song_total,
+        (unsigned long)s_reset_frames_rx, (unsigned long)s_unknown_frames,
+        (unsigned long)s_cmd_ok, (unsigned long)s_cmd_unknown);
+
     if (n > 0) {
-        gatt_set_stat((const uint8_t *)line, (size_t)n);
-        ESP_LOGW(TAG, "STAT updated: %s", line);
+        /* 🔴🔴 必须夹住！⭐ `snprintf` 返回"本该写多少"，⚠️ 截断时会 > 缓冲大小
+         *    ⇒ 不夹就**读越界**（⭐ 见上面注释里记的那个坑）。 */
+        if (n > (int)sizeof(buf)) {
+            ESP_LOGW(TAG, "STAT truncated: want %d, have %u", n, (unsigned)sizeof(buf));
+            n = (int)sizeof(buf);
+        }
+        gatt_set_stat((const uint8_t *)buf, (size_t)n);
+        /* ⚠️ 日志里**也打一份** —— ⭐ 否则分不清
+         *    "命令没生效" 与 "生效了但客户端没读"（⭐ STAT 是只读的，⛔ 不会主动推） */
+        ESP_LOGW(TAG, "STAT updated (%d B):\n%s", n, buf);
     }
 }
 
@@ -534,7 +658,16 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
                 switch (c) {
                 case 0x01:                       /* ⭐ 清池 */
                     ESP_LOGW(TAG, "CMD 0x01: pool reset");
-                    pool_reset();
+                    /* ⭐⭐ 2026-10-01 修：⭐ 改走 `start_action_reset()`（⭐ 与 0x03/0x04 一致）
+                     * -----------------------------------------------------------------
+                     * 🔴 原来这里直接调 `pool_reset()` ⇒ ⚠️ **绕过了 wrapper**
+                     *    ⇒ 🔴 `hmi_set_state(HMI_ST_IDLE)` 永不执行
+                     *    ⇒ ⭐ 屏上状态字**永远进不了 `待机`**（⭐ 实测坐实）。
+                     * ⚠️ 为什么原来会绕过：⭐ 见上方 `start_action_reset` 的前向声明处
+                     *    —— 🔴 **它当时根本没被声明，所以调不到**。
+                     * ⭐ wrapper 里做的是「`pool_reset()` ＋ 推屏状态」——
+                     *    ⭐ 两件事必须**一起**发生，⛔ 不能只做一半。 */
+                    start_action_reset();
                     s_cmd_ok++;
                     break;
                 case 0x02:                       /* ⭐ 上报状态（写 0xABF4） */
@@ -565,6 +698,74 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
                     start_action_stop();
                     s_cmd_ok++;
                     break;
+                /* ⭐⭐ 2026-10-01：CMD `0x20` = **探针**（⭐ 排查"屏上某栏不更新"）
+                 * -----------------------------------------------------------------
+                 * 🔴 症状（实测）：⭐ `t2`/`j0`/`n0` 都生效，⚠️ 但 `t3` 不生效
+                 *    ⇒ ⚠️ 无法区分：① 屏上【没有】这个控件（⭐ 名字不对）
+                 *                  ② 有控件但属性名/命令写错
+                 * ⭐ 修法：⭐ **用 TJC 的 `get` 让屏【自己回答】** ——
+                 *    · ⭐ 控件存在 ⇒ 屏回它的值（⭐ 会出现在 `hmi_poll_rx` 的日志里）
+                 *    · 🔴 控件不存在 ⇒ **屏【不回复】**（⭐ 静默）
+                 *    ⇒ ⭐ **"回没回"就是判据**，⛔ 不用猜。
+                 * ⚠️ 同时问 `t2`（⭐ 已知能用的）当**对照组** ——
+                 *    ⭐ 它一定回，⭐ 这样能证明"`get` 这条路本身是通的"。 */
+                case 0x20:                       /* ⭐ 探针：问屏要几个控件的值 */
+                    ESP_LOGW(TAG, "CMD 0x20: HMI probe (get)");
+                    hmi_send_cmd("get t2.txt");  /* ⭐ 对照组：已知能用 */
+                    hmi_send_cmd("get t3.txt");  /* 🔴 嫌疑：不生效 */
+                    hmi_send_cmd("get t1.txt");  /* ⭐ 状态字 */
+                    hmi_send_cmd("get g0.txt");  /* ⭐ 曲谱名 */
+                    s_cmd_ok++;
+                    break;
+                /* ⭐⭐ CMD `0x21` = **直接给屏发一条原样命令**（⭐ 台面调测用）
+                 *    ⚠️ 格式：`0x21` + ASCII 命令正文（⛔ 不用带 `FF FF FF`，固件补）
+                 *    ⭐ 用途：⭐ 试"控件名/属性名/颜色值"到底哪个才对 ——
+                 *       ⛔ 否则每试一次都要重新烧固件。 */
+                case 0x21: {
+                    char raw[BLE_HMI_CMD_MAX];
+                    size_t rn = (len > (uint16_t)(i + 1)) ? (size_t)(len - i - 1) : 0;
+                    if (rn >= sizeof(raw)) {
+                        rn = sizeof(raw) - 1;
+                    }
+                    if (rn > 0) {
+                        memcpy(raw, val + i + 1, rn);
+                        raw[rn] = '\0';
+                        ESP_LOGW(TAG, "CMD 0x21: raw HMI -> \"%s\"", raw);
+                        hmi_send_cmd(raw);
+                        s_cmd_ok++;
+                    } else {
+                        ESP_LOGW(TAG, "CMD 0x21: empty payload, ignored");
+                    }
+                    i = len;                     /* ⚠️ 正文已消费完 ⇒ 结束本批 */
+                    break;
+                }
+                /* ⭐⭐ CMD `0x22` = **设置曲谱名**（⭐ 2026-10-01 新增，⭐ 用户裁定）
+                 * -----------------------------------------------------------------
+                 * 🔴 为什么需要它：⭐ 实测发现 `hmi_set_song()` **全工程零调用**
+                 *    ⇒ ⭐ `s_c.song` 永远是初值 `----` ⇒ 🔴 **屏上曲名永远是 `----`**
+                 *    ⚠️ 而 9 字节事件帧里**没有曲名字段**（⭐ `tick/inc/axis/vel/
+                 *       kind/timbre` 已占满）⇒ ⭐ 曲名**只能由 PC 另外下发**。
+                 * ⭐ 格式：`0x22` + UTF-8 曲名（⛔ 不需要结束符，长度由 BLE 写决定）
+                 *    · ⭐ 空 payload ⇒ ⭐ 回落成 `----`（⭐ 见 `hmi_set_song`）
+                 *    · ⭐ 屏上的 `g0` 是**滚动文本** ⇒ 长名字靠它滚
+                 * ⚠️ 净化（⭐ 去双引号/控制字符）在 `hmi_set_song()` 里做 ——
+                 *    ⭐ 那是**源头**，⛔ 不在这里做（⭐ 否则别的调用方又会漏）。 */
+                case 0x22: {
+                    char nm[BLE_HMI_CMD_MAX];
+                    size_t nn = (len > (uint16_t)(i + 1)) ? (size_t)(len - i - 1) : 0;
+                    if (nn >= sizeof(nm)) {
+                        nn = sizeof(nm) - 1;
+                    }
+                    if (nn > 0) {
+                        memcpy(nm, val + i + 1, nn);
+                    }
+                    nm[nn] = '\0';
+                    ESP_LOGW(TAG, "CMD 0x22: song name -> \"%s\"", nm);
+                    hmi_set_song(nm);            /* ⭐ 净化 + 置 dirty，由 hmi_task 下发 */
+                    s_cmd_ok++;
+                    i = len;                     /* ⚠️ 正文已消费完 ⇒ 结束本批 */
+                    break;
+                }
                 default:
                     /* ⚠️ 未知命令【计数 + 报出来】，⛔ 不静默吞掉
                      *    （⭐ 静默吞会让人误以为"命令生效了但没反应"） */
@@ -601,7 +802,7 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
              * ⭐ 现在：总数由【总数帧】提供（帧头 0x00），存在 s_song_total 里。
              *    ⚠️ 还没收到总数帧时 s_song_total == 0 ⇒ ⭐ 显示层会退化成
              *       "只显示已收数"，⛔ 不会除零（见 hmi.c 的 total>0 判断）。 */
-            hmi_set_events((uint32_t)(s_ble_rx_bytes / FRAME_BYTES), s_song_total);
+            hmi_set_events(s_song_events_rx, s_song_total);   /* ⭐ 本曲计数，⛔ 不是累计 */
         }
 
         /* ⚠️ Write Request 需要回响应，否则对端会等超时 */
@@ -699,7 +900,7 @@ static void frame_parse_total(const uint8_t *p)
     ESP_LOGI(TAG, "SONG TOTAL = %lu events", (unsigned long)s_song_total);
 
     /* ⭐ 屏上：立刻把总数告诉显示层（⚠️ 否则进度条永远是 0） */
-    hmi_set_events((uint32_t)(s_ble_rx_bytes / FRAME_BYTES), s_song_total);
+    hmi_set_events(s_song_events_rx, s_song_total);   /* ⭐ 本曲计数，⛔ 不是累计 */
 
 #if BLE_MODE == BLE_MODE_B_POOL
     /* ⭐⭐ 模式 B：把"应该收多少帧"告诉水池
@@ -724,6 +925,15 @@ static size_t frame_filter(uint8_t *chunk, size_t n)
         if (p[0] == FRAME_HDR_EVENT) {
             if (frame_is_all_a5(p)) {
                 s_reset_frames_rx++;          /* ⭐ 复位标记 ⇒ 丢弃 */
+                /* ⭐⭐ 2026-10-01（实测修 bug）：复位标记 = 【新曲子开始】
+                 *    ⇒ ⭐ 必须把【本曲已收事件数】清零。
+                 * 🔴 不这么做的话，屏上的事件计数会**跨曲累加** ——
+                 *    实测症状：灌两次 200 帧 ⇒ 屏上显示 `410/200`、
+                 *    百分比 `205%`（⭐ 因为 `410*100/200`）。
+                 * ⚠️ 根因：原来用的是 `s_ble_rx_bytes`（⭐ **自开机累计**，
+                 *    ⛔ 从不复位）⇒ ⚠️ 而总数 `s_song_total` 是**本曲**的
+                 *    ⇒ 🔴 **分子是累计、分母是本曲** ⇒ 越灌越离谱。 */
+                s_song_events_rx = 0;
                 continue;
             }
             /* ⭐ 事件帧 ⇒ 保留（⚠️ 原地压缩） */
@@ -731,6 +941,7 @@ static size_t frame_filter(uint8_t *chunk, size_t n)
                 memmove(chunk + out, p, FRAME_BYTES);
             }
             out += FRAME_BYTES;
+            s_song_events_rx++;               /* ⭐ 本曲已收事件数 +1（⭐ 屏上 t2 用） */
         } else if (p[0] == FRAME_HDR_TOTAL) {
             frame_parse_total(p);             /* ⭐ 总数帧 ⇒ 自己留下 */
         } else {
@@ -738,6 +949,36 @@ static size_t frame_filter(uint8_t *chunk, size_t n)
             ESP_LOGW(TAG, "unknown frame hdr 0x%02X, dropped (total=%lu)",
                      p[0], (unsigned long)s_unknown_frames);
         }
+    }
+    /* ⭐⭐ 2026-10-01（实测修 bug）：**在这里**刷新屏上计数，⛔ 不在 BLE 回调里
+     * -----------------------------------------------------------------------
+     * 🔴 症状：灌 200 帧，⭐ 屏上停在 **`195/200`**（⚠️ 差几个，⛔ 不归位）。
+     * ⭐ 根因：`hmi_set_events()` 原来在【BLE 写回调】里调 ——
+     *    ⚠️ 而 `s_song_events_rx` 是在**这里**（`frame_filter`）才累加的，
+     *    ⭐ 而 `frame_filter` 由 `task_drain` 在**之后**才跑
+     *    ⇒ 🔴 **回调里读到的是【上一轮排空后】的旧值** ⇒ ⚠️ 显示**永久落后一拍**。
+     * ⭐ 正解：⭐ **在计数【真正变化】的地方刷新**（⭐ 谁改谁负责）。
+     *    ⚠️ 这也顺带修掉"最后一拍永远追不上" ——
+     *       因为回调只在**还有新数据时**才触发，⭐ 而最后一拍之后就没有新数据了。 */
+    if (out > 0) {
+        hmi_set_events(s_song_events_rx, s_song_total);
+    }
+    /* ⭐⭐ 【灌完】→ 屏上显示 `就绪`（⭐ 用户裁定 A：灌完就进就绪）
+     * -----------------------------------------------------------------------
+     * 🔴 症状（2026-10-01 实测）：⭐ 灌完 200 帧，⭐ 屏上仍是 `灌谱中`。
+     * ⭐ 根因：⭐ `HMI_ST_READY` **只有一个 set 点** —— 在【按 STOP】的处理里
+     *    ⇒ ⚠️ 而 `hmi.h` 的注释写的是「就绪 —— 灌完，等上板按键起播」
+     *    ⇒ 🔴 **注释与代码不一致**（⭐ 见 0.11 第 4 类检查）。
+     * ⭐ 正解（改【上游源头】）：⭐ "灌完"的判据就在**这里** ——
+     *    ⭐ `s_song_total` 是总数帧给的应到数，`s_song_events_rx` 是实到数
+     *    ⇒ ⭐ **实到 == 应到（且应到 > 0）就是灌完**，⛔ 不用另设标志。
+     * ⚠️ 只在 `LOADING` 时改：⛔ 不覆盖 `PLAYING` / `DONE` / `断链`
+     *    （⭐ 否则重播中途收到重发的帧会把状态打回去）。 */
+    if (s_song_total > 0 && s_song_events_rx >= s_song_total
+        && hmi_get_state() == HMI_ST_LOADING) {
+        ESP_LOGW(TAG, ">>> FEED COMPLETE (%lu/%lu) — ready to start <<<",
+                 (unsigned long)s_song_events_rx, (unsigned long)s_song_total);
+        hmi_set_state(HMI_ST_READY);
     }
     return out;
 }
@@ -759,6 +1000,20 @@ static void task_drain(void *arg)
             );
 
     for (;;) {
+#if BLE_MODE == BLE_MODE_B_POOL
+        /* ⭐⭐ 【自然放完】→ 屏上显示 `播完`
+         * -----------------------------------------------------------------
+         * ⭐ 判据来自 `pool_take_finished()` —— ⭐ 那是**池自己**在
+         *    "游标追上了池内帧数"那个确定点上置的（见 pool.c 的 pool_pump）。
+         * ⚠️ 必须用 take 语义：⭐ 本任务是【轮询】的，
+         *    若只读不清 ⇒ ⚠️ 每轮都重设一次状态（遥测刷屏）。
+         * ⭐ 放在循环【最前】：⛔ 不依赖"有没有新数据"，
+         *    ⚠️ 放完那一刻往往已经没有新数据了。 */
+        if (pool_take_finished()) {
+            ESP_LOGW(TAG, ">>> PLAYBACK FINISHED (pool drained) <<<");
+            hmi_set_state(HMI_ST_DONE);
+        }
+#endif
         size_t n = ble_buf_take_aligned(chunk, sizeof(chunk));
         if (n == 0) {
             /* 🔴 必须【至少 1 tick】—— ⚠️ `pdMS_TO_TICKS(1)` 在 100 Hz 下 = 0
@@ -1181,7 +1436,16 @@ void app_main(void)
     up_ring_init();
 
 #if BLE_MODE == BLE_MODE_B_POOL
-    pool_reset();
+    /* ⭐ 开机初始化：⭐ 这里【允许】直接调 `pool_reset()`
+     * -----------------------------------------------------------------
+     * ⚠️ 理由：⭐ 此刻**屏还没初始化**（`hmi_init()` 在任务里才跑），
+     *    而 `hmi_set_state()` 只是写结构体字段 ⇒ ⭐ 调了也是空转，
+     *    ⚠️ 反而容易让人误以为"状态已经推给屏了"。
+     * ⭐ 屏上状态本来就从 `HMI_ST_IDLE` 起（见 `hmi.c` 的 `hmi_init`）⇒
+     *    ⭐ **不需要**在这里再推一次。
+     * 📌 `ALLOW-DIRECT-POOL-CALL` 是给 `wrappers_check.py` 的**显式豁免标记**
+     *    —— ⭐ 让"唯一一处例外"在代码里**看得见**，⛔ 不是靠记性。 */
+    pool_reset();   /* ALLOW-DIRECT-POOL-CALL: 开机初始化，屏尚未就绪 */
     xTaskCreate(task_pool_pump, "pump", 4096, NULL, BLE_TASK_PRIO_DRAIN, NULL);
     ESP_LOGW(TAG, "MODE B (pool): feed whole score first.");
 

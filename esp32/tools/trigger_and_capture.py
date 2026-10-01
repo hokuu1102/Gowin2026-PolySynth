@@ -323,10 +323,135 @@ def decode_frame(buf):
     }
 
 
+def selftest() -> int:
+    """
+    ⭐ 离线自检（⛔ 不需要硬件、不需要串口）。
+
+    ⭐⭐ 为什么需要它（⭐ 2026-10-01 补）：
+      🔴 本工具是【验收工具】—— ⚠️ 它算出来的 pace 直接进验收报告
+      ⇒ ⚠️ 它的解码/统计错了，结论就不可信。
+
+    ⚠️ 本自检【只测纯函数】（bits / decode_frame / stats）——
+       真正的抓包 + 触发需要真实串口和 ESP32，⛔ 这里不碰（也没法碰）。
+
+    ⭐ 判据两层：① ⭐ 正例（字段/统计都对）② ⭐⭐ 反例（改坏必须判红）
+    """
+    print("=" * 74)
+    print("trigger_and_capture.py 离线自检（⛔ 不需要硬件）")
+    print("=" * 74)
+    ok = True
+
+    def chk(name, cond, extra=""):
+        nonlocal ok
+        print("  %-46s %s%s" % (name, "OK" if cond else "RED", extra))
+        ok = ok and cond
+
+    # ---- ① bits() ----
+    print("\n[1] bits() 取位（⭐ 与 verilog 的 [msb:lsb] 同义，含两端）")
+    chk("   bits(0b1011, 3, 0) = 0b1011", bits(0b1011, 3, 0) == 0b1011)
+    chk("   bits(0b1011, 2, 1) = 0b01", bits(0b1011, 2, 1) == 0b01)
+    chk("   bits(0xFFFFFFFF, 7, 0) = 0xFF", bits(0xFFFFFFFF, 7, 0) == 0xFF)
+
+    # ---- ② decode_frame：⭐ 造一个【每个字段都不同】的合成帧 ----
+    print("\n[2] ⭐ decode_frame：合成 9 字节帧，字段逐个核对")
+    tick, inc, axis, vel, kind, timbre, rsvd = (0xABCDE, 0x123456, 0xA, 0x55, 2, 1, 0)
+    body = ((tick << 44) | (inc << 22) | (axis << 18) | (vel << 11) |
+            (kind << 9) | (timbre << 8) | rsvd)
+    buf = bytes([HDR_EVENT]) + body.to_bytes(8, "big")
+    chk("   帧长 = FRAME_BYTES = 9", len(buf) == FRAME_BYTES == 9)
+    d = decode_frame(buf)
+    for k, want in (("tick", tick), ("inc", inc), ("axis", axis), ("vel", vel),
+                    ("kind", kind), ("timbre", timbre), ("rsvd", rsvd)):
+        chk("   %-7s = %s（期望 %s）" % (k, d[k], hex(want)), d[k] == want)
+
+    # ---- ③ ⚠️ tick 位宽守卫 ----
+    print("\n[3] ⚠️ tick 位宽守卫（⭐ 钉住一个'看起来像 bug 但不是'的地方）")
+    full = bytes([HDR_EVENT]) + b"\xff" * 8
+    df = decode_frame(full)
+    chk("   全 1 帧 tick = 0xFFFFF（⭐ 20 位，⛔ 不是 21 位）", df["tick"] == 0xFFFFF,
+        "  实测 0x%X" % df["tick"])
+    chk("   全 1 帧 inc = 0x3FFFFF（⭐ 22 位）", df["inc"] == 0x3FFFFF)
+    chk("   全 1 帧 axis = 0xF / vel = 0x7F", df["axis"] == 0xF and df["vel"] == 0x7F)
+    chk("   全 1 帧 rsvd = 0xFF", df["rsvd"] == 0xFF)
+    # ⚠️ 说明：B_TICK_MSB 写的是 64（⚠️ 对 64 位字来说【越界】，看着像 bug），
+    #    ⭐ 但 bits() 算的是 (w >> 44) & ((1 << (msb-44+1)) - 1)，而 64 位字
+    #    右移 44 位【天然只剩 20 位】⇒ msb 取 63 / 64 / 65 时掩码多出来的位
+    #    【永远为 0】⇒ ✅ 结果与 verilog 的 [63:44] 完全一致
+    #    ⇒ ⭐ 这个常量【有误导性但无害】。
+    #    ⚠️ 所以本自检【故意不把常量钉成 64】—— 63 才是严格正确的写法、行为完全
+    #       等价，钉死常量只会制造假警报（⭐ 判据要抓真错，⛔ 不抓等价的写法）。
+    #       下面这条用【非退化的 body】（⛔ 不是全 1）比对：⭐ 它容忍 63/64/65，
+    #       但 LSB 一错就红。
+    chk("   ⚠️ B_TICK_MSB 越界但无害（⭐ 与 63 等价 ⇒ ⛔ 不是 bug，别去'修'）",
+        bits(body, B_TICK_MSB, B_TICK_LSB) == bits(body, 63, 44))
+    chk("   与 uart_rx_check 的 (w>>44)&0xFFFFF 一致",
+        df["tick"] == ((int.from_bytes(b"\xff" * 8, "big") >> 44) & 0xFFFFF))
+    chk("   全 0 帧所有字段 = 0",
+        all(v == 0 for v in decode_frame(bytes([HDR_EVENT]) + b"\x00" * 8).values()))
+
+    # ---- ④ stats() ----
+    print("\n[4] stats() 分位数（⭐ 与 pool_pace_check 同口径）")
+    chk("   空表 -> None", stats([]) is None)
+    chk("   单元素 -> 五元组全等", stats([7]) == (7, 7, 7, 7, 7))
+    s = stats(list(range(1, 101)))                  # ⭐ 1..100
+    # ⚠️ 防崩：⭐ 若 stats 被改坏成"非空也返回 None"，下面每条 s[i] 的比较
+    #    （含 49 <= None、None <= None）都会抛 TypeError ⇒
+    #    ⚠️ 那【不是判红，是崩溃】。⇒ ⭐ 用 NaN 当"毒值"兜住：
+    #    NaN 与任何数比较都是 False ⇒ ⭐ 每条判据都会老实报 RED，⛔ 不会崩。
+    chk("   非空表返回五元组（⭐ 不是 None）",
+        isinstance(s, tuple) and len(s) == 5, "  实测 %r" % (s,))
+    if not (isinstance(s, tuple) and len(s) == 5):
+        s = (float("nan"),) * 5
+    chk("   1..100: min = 1 且 max = 100", s[0] == 1 and s[4] == 100)
+    chk("   1..100: p50 在 50 附近", 49 <= s[1] <= 51, "  实测 %s" % s[1])
+    chk("   1..100: p90 在 90 附近", 89 <= s[2] <= 91, "  实测 %s" % s[2])
+    chk("   1..100: p99 在 99 附近", 98 <= s[3] <= 100, "  实测 %s" % s[3])
+    chk("   ⭐ 单调不减 min<=p50<=p90<=p99<=max",
+        s[0] <= s[1] <= s[2] <= s[3] <= s[4])
+
+    # ---- ⑤ ⭐⭐ 反例（非空洞性）：⭐ 改坏必须能被发现 ----
+    print("\n[5] ⭐⭐ 反例：改坏必须能被发现（⭐ 判据必须能失败）")
+    # ⭐ 5a：翻 kind 最低位 ⇒ ⭐ 解码必须跟着变（⭐ 说明它真在读那几位）
+    b2 = bytearray(buf)
+    w2 = int.from_bytes(bytes(b2[1:9]), "big") ^ (1 << 9)
+    b2[1:9] = w2.to_bytes(8, "big")
+    chk("   翻 kind 位后 kind 变化", decode_frame(bytes(b2))["kind"] != kind)
+    # ⭐ 5b：翻 tick 最低位 ⇒ ⭐ tick 必须跟着变（⭐ 说明它真在读 [63:44]）
+    b3 = bytearray(buf)
+    w3 = int.from_bytes(bytes(b3[1:9]), "big") ^ (1 << 44)
+    b3[1:9] = w3.to_bytes(8, "big")
+    chk("   翻 tick 位后 tick 变化", decode_frame(bytes(b3))["tick"] != tick)
+    # ⭐ 5c：⭐ 故意用【错的期望值】核对 ⇒ ⭐ 必须不等（⭐ 见经验 C83）
+    chk("   错期望值会被判红（⭐ 非空洞）", d["tick"] != 0x12345)
+    chk("   错期望值会被判红（inc，⭐ 非空洞）", d["inc"] != 0x654321)
+    # ⭐ 5d：stats 对【倒序】输入必须给出同样的分位数（⭐ 它内部要排序）
+    chk("   倒序输入的分位数与正序一致（⭐ 证明它排序）",
+        stats(list(range(100, 0, -1))) == s)
+
+    # ---- ⑥ 固件契约常量 ----
+    print("\n[6] 固件契约常量")
+    chk("   HDR_EVENT = 0xA5", HDR_EVENT == 0xA5)
+    chk("   TRIGGER_CHARS = ('S','X','R')", TRIGGER_CHARS == ("S", "X", "R"))
+    chk("   pace 判据 = ±10%（0.90 ~ 1.10）", (PACE_LO, PACE_HI) == (0.90, 1.10))
+
+    # ---- ⑦ ⚠️ 本自检【不覆盖】的部分（⭐ 老实说清楚，⛔ 不假装覆盖了）----
+    print("\n[7] ⚠️ 本自检【不覆盖】的部分")
+    print("   ⛔ open_no_reset() / capture_with_trigger() —— 需要真实串口 + ESP32")
+    print("   ⛔ main() 里的 _stamp_at() 分块查戳（二分）—— ⚠️ 它是 main() 的")
+    print("      【内嵌闭包】，拿不到引用 ⇒ 本自检【无法直接测它】。")
+    print("      ⚠️ 本文件 500k 下 read(1) 丢整条流的教训（见文件头）也只能实机复验。")
+
+    print()
+    print("结论：%s" % ("全部通过" if ok else "有失败项"))
+    return 0 if ok else 1
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(
         description="⭐ 单进程：向 ESP32 发触发字符(S/X/R) 并同时抓放水帧流，验音乐节奏")
-    ap.add_argument("--port", required=True, help="USB-TTL 口，如 COM31")
+    ap.add_argument("--selftest", action="store_true",
+                    help="离线自检（⛔ 不需要硬件/串口）")
+    ap.add_argument("--port", help="USB-TTL 口，如 COM31")
     ap.add_argument("--baud", type=int, default=500000,
                     help="必须与固件 / FPGA 侧一致（默认 500000）")
     ap.add_argument("--seconds", type=float, default=45.0,
@@ -342,6 +467,13 @@ def main(argv=None):
     ap.add_argument("--save", default="", help="原始字节另存到该路径")
     ap.add_argument("--dump", type=int, default=8, help="详细打印前 N 帧（默认 8）")
     args = ap.parse_args(argv)
+
+    # ⭐ 自检优先 —— ⚠️ 不需要 --port（⭐ 便于批量自检统一调用）
+    if args.selftest:
+        return selftest()
+    if not args.port:
+        print("🔴 需要 --port（⚠️ 或用 --selftest）")
+        return 2
 
     # 懒加载 pyserial ------------------------------------------------------
     try:

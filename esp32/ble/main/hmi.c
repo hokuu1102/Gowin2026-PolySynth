@@ -80,6 +80,88 @@ typedef struct {
 
 static hmi_cache_t s_c;
 
+/* ===========================================================================
+ * ⭐⭐ 2026-10-01：屏 → ESP32 方向的【诊断计数】（⭐ 用户实测：屏有界面但数字不变）
+ * ===========================================================================
+ * 🔴 **为什么需要它**：⭐ 症状是"屏有界面（⭐ 说明屏有电、工程已下载），
+ *    ⚠️ 但固件发的命令【不生效】" ⇒ 🔴 **无法区分**下面两种原因：
+ *      · ⚠️ ESP32 **没发出去**（⭐ 或发错脚）
+ *      · 🔴 **接线没通**（⭐ 最常见：`TX/RX` 没交叉）
+ *    ⇒ ⭐ 所以必须有一个**独立于"发送"的判据**。
+ *
+ * ⭐ 本计数就是那个判据：⭐ **只要屏发过任何字节，这里就会涨**。
+ *    · ⭐ **涨了** ⇒ 屏→ESP32 通路**通** ⇒ 🔴 问题在**反方向**（ESP32→屏）
+ *    · 🔴 **一直 0** ⇒ 屏根本没送出来 ⇒ ⚠️ 查 `屏 TX → GPIO5` / 共地
+ *
+ * ⭐ 顺带**实装触摸事件**（⭐ `hmi.c:127` 的注释早就提到 `0x65`，⚠️ 但一直没有解析器）：
+ *    TJC 触摸事件格式 = `0x65 <页> <控件> <事件> 0xFF 0xFF 0xFF`
+ *    ⇒ ⭐ 数它有几个，⭐ 就能知道"屏上的按键按下去有没有到 ESP32"。
+ */
+static volatile uint32_t s_rx_bytes  = 0;   /* ⭐ 从屏收到的总字节 */
+static volatile uint32_t s_rx_touch  = 0;   /* ⭐ 收到的触摸事件数（0x65） */
+static volatile uint8_t  s_rx_last   = 0;   /* ⭐ 最后一个字节（⭐ 便于看是什么） */
+static volatile uint32_t s_tx_cmds   = 0;   /* ⭐ 发给屏的命令条数（⭐ 发送侧的本地证据） */
+
+void hmi_rx_stats(uint32_t *bytes, uint32_t *touch, uint8_t *last)
+{
+    if (bytes) { *bytes = s_rx_bytes; }
+    if (touch) { *touch = s_rx_touch; }
+    if (last)  { *last  = s_rx_last; }
+}
+
+uint32_t hmi_tx_cmds(void)
+{
+    return s_tx_cmds;
+}
+
+/* ⭐ 非阻塞收：⭐ 由 `hmi_task` 每轮调用（⛔ 不另开任务 —— ⚠️ 一个 UART 只能有一个读者） */
+void hmi_poll_rx(void)
+{
+    if (!s_ready) {
+        return;
+    }
+    /* ⚠️⚠️ 这个缓冲只有 32 B ⇒ ⭐ **一条长回复会被拆成多行日志**
+     * -----------------------------------------------------------------
+     * 🔴 实测踩过（2026-10-01）：⭐ 用 CMD `0x22` 设了个 60 字符的曲名，
+     *    再 `get g0.txt` 读回 ⇒ ⚠️ 日志里只看到 **31** 个字符
+     *    ⇒ 🔴 **我差点判定"固件把名字截断了"**（⭐ 固件其实没错）。
+     * ⭐ 真因：⭐ `get` 的回复（⭐ `p` + 39 字符 + `FF FF FF`）**长于 32 B**
+     *    ⇒ ⭐ 被拆成 2 段、⭐ 打成了**两行**日志。
+     * ⭐ 判据（⭐ 读日志的人必须知道）：⭐ **回复以 `FF FF FF` 结束** ——
+     *    ⚠️ 没看到结束符就说明**还没读完**，⭐ 要把后续行**拼起来**。
+     * ⚠️ 当前固件**只把收到的字节计数+打日志，⛔ 不解析**
+     *    ⇒ ⭐ 32 B 够用，⛔ **不是 bug**。
+     * 🔴 **但这是个陷阱**：⭐ 将来若要让固件**解析**回复
+     *    （⭐ 例如自己读回 `g0.txt` 做校验），⭐ 32 B 会**静默截断**
+     *    ⇒ ⚠️ 那时必须**先把缓冲放大**，⛔ 不能直接用。
+     * 📌 同族：`C139`（⭐ "显示没变"≠"值没设"）—— ⭐ 都是**测量层**的误判。 */
+    uint8_t buf[32];
+    int n = uart_read_bytes(BLE_HMI_UART_PORT, buf, sizeof(buf), 0);  /* ⚠️ 0 = 不等待 */
+    if (n <= 0) {
+        return;
+    }
+    for (int i = 0; i < n; i++) {
+        s_rx_last = buf[i];
+        if (buf[i] == 0x65) {          /* ⭐ TJC 触摸事件头 */
+            s_rx_touch++;
+        }
+    }
+    s_rx_bytes += (uint32_t)n;
+    /* ⚠️ 只在收到东西时打日志 —— ⭐ 否则每秒刷屏，把有用的信息淹掉
+     * ⭐⭐ 2026-10-01：**同时打 hex** —— 🔴 否则只能看到"收了多少字节"，
+     *    ⚠️ 而 `get` 的答复内容正是排查"控件名对不对"的**唯一证据**
+     *    （⭐ 实测：屏回了 32 B，⚠️ 但不 dump 就不知道回的是什么）。 */
+    {
+        char hex[3 * sizeof(buf) + 1];
+        size_t o = 0;
+        for (int i = 0; i < n && o + 3 < sizeof(hex); i++) {
+            o += (size_t)snprintf(hex + o, sizeof(hex) - o, "%02X ", buf[i]);
+        }
+        ESP_LOGI(TAG, "screen -> ESP32: %d B (total=%lu touch=%lu) [%s]",
+                 n, (unsigned long)s_rx_bytes, (unsigned long)s_rx_touch, hex);
+    }
+}
+
 /* ---------------------------------------------------------------------------
  * 底层发送
  * --------------------------------------------------------------------------- */
@@ -97,6 +179,18 @@ esp_err_t hmi_send_cmd(const char *cmd)
     if (cmd == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
+    /* ⭐⭐ 2026-10-01：**发出去的每条命令都记账 + 打日志**
+     * -----------------------------------------------------------------------
+     * 🔴 为什么必须加：⭐ 实测"屏有界面但数字不变"时，⚠️ **完全无法确认
+     *    ESP32 到底发没发** —— ⭐ 发送路径原来**一个字节都不打日志**
+     *    ⇒ 🔴 只能靠"屏上变没变"这一个**远端**证据，⚠️ 而它分不清
+     *      "没发" / "发错脚" / "屏没收到" / "屏收到但控件名不对"。
+     * ⭐ 现在：⭐ **发送侧有本地证据**（`hmi.tx` 计数 + 每条的原文）
+     *    ⇒ ⭐ 与屏上的现象对照，**一眼定位是哪一段断了**。 */
+    s_tx_cmds++;
+    ESP_LOGI(TAG, "screen <- ESP32: \"%s\" (tx=%lu)", cmd,
+             (unsigned long)s_tx_cmds);
+
     /* ⭐ 命令 + 0xFF 0xFF 0xFF 一次写出去（⛔ 不要分两次 write，
      *    ⚠️ 否则中间若被别的任务插入写操作，屏会把两条命令粘在一起） */
     uint8_t buf[BLE_HMI_CMD_MAX + sizeof(HMI_TAIL)];
@@ -223,8 +317,34 @@ bool hmi_ready(void) { return s_ready; }
 void hmi_set_song(const char *name)
 {
     const char *p = (name && *name) ? name : "----";
-    if (strncmp(s_c.song, p, sizeof(s_c.song)) != 0) {
-        snprintf(s_c.song, sizeof(s_c.song), "%s", p);
+    char clean[sizeof(s_c.song)];
+    size_t k = 0;
+
+    /* ⭐⭐ 净化（⭐ 必须在【源头】做，⛔ 不是在拼命令的地方）
+     * -----------------------------------------------------------------
+     * 🔴 为什么必须净化：⭐ 曲名最终会拼成 `g0.txt="<名字>"` ——
+     *    ⚠️ 若名字里含【双引号】⇒ 🔴 **TJC 命令被截断/错位**
+     *    （⭐ 例如名字 `a"b` ⇒ 发出 `g0.txt="a"b"` ⇒ ⭐ 屏收到的字符串是 `a`，
+     *      ⚠️ 而多出来的 `b"` 会被当成**下一条命令的开头** ⇒ 🔴 后面全乱）。
+     * ⚠️ 控制字符（⭐ < 0x20，⭐ 尤其 `FF`）同理 ——
+     *    ⭐ TJC 用 `FF FF FF` 当**结束符** ⇒ 🔴 名字里混进 `FF` 会**提前结束**。
+     * ⭐ 所以：⭐ **丢掉**双引号、反斜杠、`0x7F` 与控制字符；
+     *    ⭐ 其余（⭐ 含 UTF-8 多字节，⭐ 其字节都 ≥ 0x80）原样保留。
+     * 📌 放在这里 ⇒ ⭐ **任何调用方都自动受保护**（⭐ 不是每个调用点各写一遍）。 */
+    for (const unsigned char *q = (const unsigned char *)p;
+         *q && k + 1 < sizeof(clean); q++) {
+        if (*q == '"' || *q == '\\' || *q == 0x7F || *q < 0x20) {
+            continue;
+        }
+        clean[k++] = (char)*q;
+    }
+    clean[k] = '\0';
+    if (k == 0) {
+        snprintf(clean, sizeof(clean), "%s", "----");
+    }
+
+    if (strncmp(s_c.song, clean, sizeof(s_c.song)) != 0) {
+        snprintf(s_c.song, sizeof(s_c.song), "%s", clean);
         s_c.dirty = true;
     }
 }
@@ -250,6 +370,17 @@ void hmi_set_state(hmi_state_t st)
         s_c.state = st;
         s_c.dirty = true;
     }
+}
+
+/* ⭐ 读当前状态 —— ⭐ 供"只在某状态下才迁移"的判断用
+ * ⚠️ 本文件**没有锁**（⭐ 全文件都是无锁风格，见 grep 无 Semaphore/Mutex）
+ *    ⇒ ⭐ 这里也保持一致：⭐ 单个 enum 字段的读在 ESP32 上是【单字原子】的，
+ *       ⚠️ 不引入锁（⛔ 只给一个 getter 加锁，反而与 setter 不对称）。
+ * ⚠️ 语义提醒：⭐ 读到的值**可能立刻过期**（另一个任务下一秒就改）
+ *    ⇒ ⭐ 只可用于"决定要不要迁移"，⛔ 不可用于任何需要精确同步的场合。 */
+hmi_state_t hmi_get_state(void)
+{
+    return s_c.state;
 }
 
 void hmi_set_bt_connected(bool connected)
@@ -308,6 +439,11 @@ void hmi_task(void *arg)
 
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(BLE_HMI_REFRESH_MS));
+
+        /* ⭐⭐ 2026-10-01：每轮先收屏的字节（⭐ 诊断 + 触摸事件）
+         *    ⚠️ 放在 `dirty` 判断【之前】—— ⭐ 收数据与"要不要刷新"无关，
+         *       ⚠️ 否则 dirty 为假时永远不收 ⇒ 🔴 诊断永远看不到东西 */
+        hmi_poll_rx();
 
         if (!s_ready || !s_c.dirty) {
             continue;

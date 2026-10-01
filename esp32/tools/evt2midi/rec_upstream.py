@@ -102,15 +102,102 @@ async def run(out_path, seconds, do_start, scan_to, hex_path):
     return 0
 
 
-def main():
+def build_parser():
+    """
+    ⭐ 单独把 parser 建出来 —— ⚠️ 这样自检可以**只验参数面**，
+    ⛔ **不必真的跑 `main()`**（🔴 那会真的连 BLE 录 30 秒 —— 我第一版就这么错的）。
+    """
     ap = argparse.ArgumentParser(description="录制 ESP32 上行字节流（原样落盘）")
-    ap.add_argument("--out", required=True, help="输出原始字节文件，如 rec.bin")
+    ap.add_argument("--selftest", action="store_true",
+                    help="离线自检（⚠️ 结构性 —— ⛔ 不需硬件）")
+    ap.add_argument("--out", help="输出原始字节文件，如 rec.bin")
     ap.add_argument("--seconds", type=float, default=30.0)
     ap.add_argument("--start", action="store_true",
                     help="录之前发 CMD 0x03 起播（⚠️ 需要 ESP32 已灌好曲谱）")
     ap.add_argument("--hex", dest="hex_path", default="", help="另存可读 hex 转储")
     ap.add_argument("--scan-timeout", type=float, default=12.0)
+    return ap
+
+
+def selftest():
+    """
+    ⭐ 离线自检（⛔ 不需要硬件、不需要 BLE）。
+
+    ⚠️ **诚实说明：这是【结构性】自检，⛔ 不是行为性的。**
+       🔴 本工具是**纯 I/O** —— ⭐ 它只做"连 BLE、收字节、落盘"，
+          ⚠️ **没有可离线测的纯逻辑**（⭐ 与 `read_log.py` 同类）。
+
+    🔴🔴 **我第一版写错了三处（⭐ 记下来，都是"判据不能失败"的坑）**：
+      ① ⚠️ 自检里**真的调了 `main()`** ⇒ 🔴 **实际连 BLE 录了 30 秒**
+         ⇒ ⭐ 自检**绝不该做真 I/O**（⭐ 修法：抽出 `build_parser()`，只验参数面）
+      ② 🔴 **自指陷阱**：⭐ 我的检查**标签里就含**被 grep 的字面串
+         （如标签里写 `parse_stream`）⇒ ⚠️ 断言**恒为 False**
+         ⇒ ⭐ 修法：**只检查 selftest 之前的那段源码**
+      ③ ⚠️ `--out` 改成可选后，⭐ 原来"必填"的断言就不成立了
+         ⇒ ⭐ 修法：改为断言"**没给 --out 时 main 会拒绝**"这个行为
+    """
+    import inspect
+    print("=" * 74)
+    print("rec_upstream.py 离线自检（⛔ 不需要硬件）")
+    print("=" * 74)
+    print("⚠️ 本自检是【结构性】的 —— ⚠️ 本工具是纯 I/O，没有离线可测的纯逻辑")
+    print()
+    ok = True
+
+    def chk(name, cond, extra=""):
+        nonlocal ok
+        print("  %-46s %s%s" % (name, "OK" if cond else "RED", extra))
+        ok = ok and cond
+
+    # ---- ① 参数面（⭐ 用真实 parser，⚠️ 但⛔ 不跑 main()）----
+    p = build_parser()
+    opts = {a.dest: a for a in p._actions}
+    for name in ("out", "seconds", "start", "hex_path", "scan_timeout",
+                 "selftest"):
+        chk("① 有 --%s" % name.replace("_", "-"), name in opts)
+    chk("① --seconds 默认 30.0",
+        opts.get("seconds") is not None and opts["seconds"].default == 30.0)
+    chk("① --start 默认关（⚠️ 起播是副作用，⛔ 不该默认做）",
+        opts.get("start") is not None and opts["start"].default is False)
+    chk("① --selftest 默认关",
+        opts.get("selftest") is not None and opts["selftest"].default is False)
+    # ⭐ 行为判据：⭐ 只给 --selftest、不给 --out ⇒ ⭐ 应该跑自检而不是去连 BLE
+    ns = p.parse_args(["--selftest"])
+    chk("① `--selftest` 单独可用（⛔ 不需要 --out）", ns.selftest is True)
+    ns2 = p.parse_args(["--out", "x.bin"])
+    chk("① 给了 --out 时 selftest 为假（⭐ 走真录制）", ns2.selftest is False)
+    # ⭐⭐ 反例：这些选项【不该】存在
+    for bad in ("outt", "no_such_opt", "seconds2"):
+        chk("① 反例：⛔ 没有 --%s" % bad.replace("_", "-"), bad not in opts)
+
+    # ---- ② ⭐⭐ 设计约束：录制【不解析】----
+    # 🔴 关键：⭐ 只取 `selftest` **之前**的源码 ——
+    #    ⚠️ 否则我的**检查标签自己**就含那些字面串 ⇒ 🔴 断言恒 False（自指陷阱）
+    full = inspect.getsource(sys.modules[__name__])
+    body = full.split("def selftest")[0]
+    chk("② 取到了 selftest 之前的源码", len(body) > 500, "  %d 字符" % len(body))
+    for bad in ("parse_stream", "frame_checksum", "decode_frame", "inc_to_hz"):
+        chk("② 源码里⛔ 没有 %s（⭐ 录制不解析）" % bad, bad not in body)
+    chk("② 确实以二进制写文件（⭐ 原样落盘）", 'open(out_path, "wb")' in body)
+    # ⭐ 反例：⭐ 用一个【确定存在】的串验证"grep 本身有效"（⭐ 否则上面的 not in 可能恒真）
+    chk("② 非空洞：grep 确实能命中（⭐ 用已知存在的串验证）",
+        "def run(" in body)
+
+    print()
+    print("结论：%s" % ("全部通过" if ok else "有失败项"))
+    print("⚠️ 未覆盖（⭐ 需要硬件/BLE）：run() 的连接、订阅、落盘")
+    return 0 if ok else 1
+
+
+def main():
+    ap = build_parser()
     args = ap.parse_args()
+
+    if args.selftest:
+        return selftest()
+    if not args.out:
+        print("🔴 需要 --out（⚠️ 或用 --selftest）")
+        return 2
 
     return asyncio.run(run(args.out, args.seconds, args.start,
                            args.scan_timeout, args.hex_path))

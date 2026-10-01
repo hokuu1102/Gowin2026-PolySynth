@@ -59,7 +59,6 @@ for _n in ("stdout", "stderr"):
 # ============================================================================
 # ⭐⭐ 常量 —— ⚠️ 全部来自项目已核实的事实，⛔ 不要凭感觉改
 # ============================================================================
-FRAME_HDR = 0xA5              # ⭐ 二进制帧头（⭐ 与下行同构）
 CLK_HZ = 50_000_000.0         # ⭐ FPGA 系统时钟（⚠️ 不是音频帧率！见下）
 TWO32 = 4294967296.0          # ⭐ 2³²
 PPQN = 960                    # ⭐ MIDI 每四分音符的 tick 数（⭐ 与项目一致）
@@ -72,43 +71,26 @@ DEFAULT_BPM = 120.0
 FS_AUDIO_HZ = 50_000_000.0 / 1024.0     # ⚠️ 48.828 kHz，⭐ 仅作参考/限幅用
 
 # ============================================================================
-# ⭐⭐ 帧布局（⚠️ **草案** —— 改格式只动这里）
+# ⭐⭐ 帧格式：**全部从 `frame_format.py` 导入**（⭐ 任务 4）
 # ============================================================================
-# ⭐ 依据：`FPGA2026-deliver/files/20-代码/FPGA侧回应-ESP32回函-20261001.md` §三
+# 🔴 为什么抽出去：⚠️ **上行格式尚未冻结** ⇒ 一定会改
+#    ⇒ ⭐ 把"会变的帧结构"集中到【一个文件】⇒ ⭐ 改版只动那一处
+#    ⇒ ⛔ 本文件不再重复定义任何帧常量（⭐ 否则两处会漂）
 #
-#   [0] 0xA5   帧头
-#   [1] 类型   0x01=note_on 0x02=note_off 0x03=calib 0x04=looper 0x10=表同步
-#   [2] seq    8 位序号（⭐ 丢帧可见 —— ⚠️ 只用于【短窗口】检测，见下方说明）
-#   [3..6] tick  32 位自由运行计数器（⭐ 大端；⭐ Δt 取模 2³²）
-#   [7] axis   轴号 0..15
-#   [8..11] phase_inc 32 位（⭐ 大端；⭐ FPGA 直接给增量，⛔ 不给音名）
-#   [12] vel   8 位（0..255）
-#   [13] 校验  8 位
-#
-# ⚠️ **`seq` 只有 8 位** ⇒ 我算过：⭐ 750 事件/s（16 轴全按下）时 **0.34 秒就回绕**
-#    ⇒ ⭐ **只能当"短窗口丢帧检测"用**，⛔ 别当全曲唯一编号。
-FRAME_LEN = 14
-T_NOTE_ON = 0x01
-T_NOTE_OFF = 0x02
-T_CALIB = 0x03
-T_LOOPER = 0x04
-T_TABLESYNC = 0x10
+# ⚠️ 本文件只保留【音频换算】（`inc → Hz → 音符号`）——
+#    ⭐ 那属于**物理**，⭐ 与**协议**的变化原因不同 ⇒ ⚠️ 混在一起会互相干扰。
+from frame_format import (          # noqa: E402
+    FRAME_HDR, FRAME_LEN_DEFAULT, FRAME_LEN_BY_TYPE, FRAME_TYPE_NAMES,
+    OFF_AXIS, OFF_INC, OFF_SEQ, OFF_TICK, OFF_VEL, LEN_INC, LEN_TICK,
+    T_CALIB, T_LOOPER, T_NOTE_OFF, T_NOTE_ON, T_TABLESYNC,
+    TABLESYNC_DATA_OFF, TABLESYNC_ITEM_BYTES, TABLESYNC_ITEMS,
+    TABLESYNC_TABLE_FB, TABLESYNC_TABLE_KB, TABLESYNC_TABLE_NAMES,
+    build_frame as _mk_frame,        # ⭐ 造帧（⭐ 测试用）
+    frame_checksum, frame_len_for, is_ascii_byte, parse_frame,
+)
 
-FRAME_TYPE_NAMES = {
-    T_NOTE_ON: "note_on",
-    T_NOTE_OFF: "note_off",
-    T_CALIB: "calib",
-    T_LOOPER: "looper",
-    T_TABLESYNC: "tablesync",
-}
-
-
-def frame_checksum(b):
-    """⭐ 帧校验（⭐ 草案建议 XOR）—— ⚠️ 若 FPGA 侧改用累加和，改这一处即可。"""
-    c = 0
-    for x in b[:13]:
-        c ^= x
-    return c & 0xFF
+# ⚠️ 兼容旧名：⭐ 本文件与 `_e2e_check.py` 里用的是 `FRAME_LEN`
+FRAME_LEN = FRAME_LEN_DEFAULT
 
 
 # ============================================================================
@@ -168,6 +150,7 @@ class ParseStats:
         self.orphan_off = 0        # ⚠️ 没 on 就 off
         self.notes_open_at_end = 0
         self.bad_type = 0
+        self.table_frames = 0      # ⭐ 收到的表同步帧数（⭐ 任务 3）
 
 
 def _try_resync(data, start, limit=FRAME_LEN * 4):
@@ -194,16 +177,21 @@ def _try_resync(data, start, limit=FRAME_LEN * 4):
     return None
 
 
-def parse_stream(data, stats=None):
+def parse_stream(data, stats=None, tables=None):
     """
-    ⭐ 状态机解析 + ⭐ **校验驱动的重同步**。
+    ⭐ 状态机解析 + ⭐ **校验驱动的重同步** + ⭐ **按类型定帧长**。
 
     ⚠️ 为什么不能"平时就扫 `0xA5`"：⭐ 见文件头纪律① ——
     ⭐ 实测证明载荷里的 `0xA5` 不会让**定长**解析失步，
     🔴 **真正的问题是【坏帧】伪装成好数据** ⇒ ⭐ 必须靠**校验**识别。
+
+    ⭐ `tables`：⭐ 若给了 dict，⭐ 表同步帧（`0x10`）会**存进去**
+    （⭐ 键 = 表号 0=kb / 1=fb，⭐ 值 = 16 个 32 位增量）。
     """
     if stats is None:
         stats = ParseStats()
+    if tables is None:
+        tables = {}
     evs = []
     i = 0
     n = len(data)
@@ -215,12 +203,18 @@ def parse_stream(data, stats=None):
 
         # ---- ⭐ 二进制帧 ----
         if b == FRAME_HDR:
-            if i + FRAME_LEN > n:
+            # ⚠️ 先看**类型字节**才能定长度 ⇒ 至少要 2 字节
+            if i + 2 > n:
+                stats.frames_bad_csum += 1
+                break
+            ftype_peek = data[i + 1]
+            flen = frame_len_for(ftype_peek)
+            if i + flen > n:
                 # ⚠️ 尾部残帧（⭐ 录制被截断）⇒ ⭐ 计数后结束，⛔ 不硬猜
                 stats.frames_bad_csum += 1
                 break
-            f = data[i:i + FRAME_LEN]
-            if frame_checksum(f) != f[13]:
+            f = data[i:i + flen]
+            if frame_checksum(f) != f[flen - 1]:
                 stats.frames_bad_csum += 1
                 # ⭐⭐ 校验不过 ⇒ **先尝试重同步**（⭐ 这是有校验才有的能力）
                 nxt = _try_resync(data, i + 1)
@@ -231,15 +225,31 @@ def parse_stream(data, stats=None):
                     last_seq = None
                     continue
                 # ⚠️ 找不到可信帧 ⇒ 整帧跳过（⭐ 保守，⛔ 不逐字节瞎猜）
-                i += FRAME_LEN
+                i += flen
                 continue
 
-            ftype = f[1]
-            seq = f[2]
-            tick = int.from_bytes(f[3:7], "big")
-            axis = f[7]
-            inc = int.from_bytes(f[8:12], "big")
-            vel = f[12]
+            # ⭐⭐ 2026-10-01（任务 4）：字段解码**统一走 `frame_format.parse_frame`**
+            #    ⚠️ 原来这里【内联】按固定偏移取字节 ⇒ 🔴 与 `frame_format` **两处会漂**：
+            #       ⭐ 格式一改（如加字段/改偏移），⚠️ 改了 `frame_format` 却漏了这里
+            #       ⇒ 🔴 **静默读出垃圾**（⭐ 最难查的一类）。
+            #    ⭐ 现在只有【一个解码器】⇒ ⭐ 格式冻结时改一处即可。
+            fd = parse_frame(f)
+            ftype = fd["type"]
+
+            # ---- ⭐ 表同步帧：⭐ 布局与音符帧不同 ⇒ **先处理并 continue** ----
+            if ftype == T_TABLESYNC:
+                tables[fd["table"]] = fd["items"]
+                stats.table_frames += 1
+                evs.append(Event("tablesync", seq=fd["table"], t_raw=fd["items"]))
+                stats.frames_ok += 1
+                i += flen
+                continue
+
+            seq = fd["seq"]
+            tick = fd["tick"]
+            axis = fd["axis"]
+            inc = fd["inc"]
+            vel = fd["vel"]
 
             # ⭐ 序号连续性（⭐ 只用于短窗口丢帧检测）
             if last_seq is not None:
@@ -265,14 +275,13 @@ def parse_stream(data, stats=None):
                 evs.append(Event("calib", tick, axis, inc, vel, seq))
             elif ftype == T_LOOPER:
                 evs.append(Event("looper", tick, axis, inc, vel, seq))
-            elif ftype == T_TABLESYNC:
-                evs.append(Event("tablesync", tick, axis, inc, vel, seq))
             else:
+                # ⚠️ 未知类型（⭐ 含表同步 —— ⚠️ 但那已在上面 continue 掉了）
                 stats.bad_type += 1
                 evs.append(Event("unknown_type", tick, axis, inc, vel, seq))
 
             stats.frames_ok += 1
-            i += FRAME_LEN
+            i += flen                       # ⚠️ 用**本帧的实际长度**（⛔ 不是常量）
             continue
 
         # ---- ⭐ ASCII 事件流（⭐ 全部 ≤ 0x7F）----
@@ -298,7 +307,7 @@ def note_from_axis_inc(axis, inc):
     return hz_to_note(inc_to_hz(inc))
 
 
-def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None):
+def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None, tables=None):
     """
     ⭐ 生成标准 MIDI（Format 0，单轨）。
 
@@ -311,6 +320,25 @@ def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None):
     """
     tps = PPQN * bpm / 60.0          # ⭐ 每秒多少个 MIDI tick（120BPM/960PPQN ⇒ 1920）
     ticks_per_sec_fpga = CLK_HZ      # ⭐ FPGA tick 就是 50 MHz 计数
+
+    # ⭐⭐ 任务 3：把【表同步】收到的表转成 `axis → 音符号` 的回退映射
+    # -----------------------------------------------------------------------
+    # ⭐ 为什么要它：⭐ 帧里的 `phase_inc` 是**实际频率**（⭐ 权威）；
+    #    ⚠️ 但若某帧的 `inc = 0`（⭐ 没有音高信息）⇒ ⭐ 就用表里的**标称值**兜底。
+    # ⚠️ 注意：⭐ 表给的是 `phase_inc`（⭐ 不是音符号）⇒ ⭐ 要**再反算一次**。
+    #    ⭐ 优先用 `kb`（键盘模式）—— ⚠️ 因为帧里的 `axis` 是物理键号，
+    #    ⭐ 与键盘模式表同源。
+    tbl_axis_map = None
+    if tables:
+        src = tables.get(TABLESYNC_TABLE_KB) or tables.get(TABLESYNC_TABLE_FB)
+        if src:
+            tbl_axis_map = {}
+            for ax, inc_v in enumerate(src):
+                n = hz_to_note(inc_to_hz(inc_v))
+                if n is not None:
+                    tbl_axis_map[ax] = n
+    # ⚠️ 显式传入的 `axis_map` 优先级**高于**表（⭐ 便于人工覆盖）
+    eff_map = axis_map if axis_map is not None else tbl_axis_map
 
     # ⭐ 排序：⭐ 按 FPGA tick 的**相对顺序**（⚠️ 不能直接按数值排 —— 会回绕）
     #    ⇒ ⭐ 保持【文件顺序】作为时间序（⭐ 录制本身就是按时间来的）
@@ -350,8 +378,8 @@ def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None):
 
         if e.kind in ("note_on", "note_off"):
             note = note_from_axis_inc(e.axis, e.inc)
-            if note is None and axis_map is not None and e.axis in axis_map:
-                note = axis_map[e.axis]
+            if note is None and eff_map is not None and e.axis in eff_map:
+                note = eff_map[e.axis]
             if note is None:
                 skipped_no_pitch += 1
                 continue
@@ -390,17 +418,11 @@ def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None):
 # ============================================================================
 # ⭐ 自检（⛔ 不需要硬件）—— ⚠️ 必须【非空洞】：故意造坏数据要能被发现
 # ============================================================================
-def _mk_frame(ftype, seq, tick, axis, inc, vel):
-    b = bytearray(FRAME_LEN)
-    b[0] = FRAME_HDR
-    b[1] = ftype
-    b[2] = seq & 0xFF
-    b[3:7] = tick.to_bytes(4, "big")
-    b[7] = axis & 0xFF
-    b[8:12] = inc.to_bytes(4, "big")
-    b[12] = vel & 0xFF
-    b[13] = frame_checksum(b)
-    return bytes(b)
+# ⭐⭐ 2026-10-01（任务 4）：本地 `_mk_frame` **已删除** ——
+#    ⚠️ 它原来与 `frame_format.build_frame` **重复实现**（⭐ 两处会漂）。
+#    ⇒ ⭐ 现在统一用 `frame_format.build_frame`（⭐ 上面 import 时已别名成 `_mk_frame`）。
+#    📌 这也顺带修了一个隐患：⭐ 本地那份**只支持 14 B 帧**，
+#       ⚠️ 造不出 68 B 表帧 ⇒ 表同步那段自检**根本没法写**。
 
 
 def selftest():
@@ -491,7 +513,36 @@ def selftest():
         st5.frames_ok == 2 and st5.ascii_events == 2,
         "  frames=%d ascii=%d unk=%d" % (st5.frames_ok, st5.ascii_events, st5.unknown_hi))
 
-    # ---- ⑨ 端到端：造一段两音，写 MIDI，验证结构 ----
+    # ---- ⑧b ⭐⭐ 任务 3：表同步帧（68 B）必须**按类型定长**解析 ----
+    # 🔴 为什么这是关键：⚠️ 若一律按 14 B 吃字节，
+    #    ⭐ 一个 68 B 表帧会被切成 4 个假帧 + 4 个残留 ⇒ 🔴 整条流从此错位。
+    print("\n[8b] ⭐⭐ 表同步帧（0x10，68 B）")
+    tbl_vals = [inc440 + i for i in range(TABLESYNC_ITEMS)]
+    tframe = bytearray(68)
+    tframe[0] = FRAME_HDR
+    tframe[1] = T_TABLESYNC
+    tframe[2] = TABLESYNC_TABLE_KB
+    for k, v in enumerate(tbl_vals):
+        o = TABLESYNC_DATA_OFF + k * TABLESYNC_ITEM_BYTES
+        tframe[o:o + 4] = (v & 0xFFFFFFFF).to_bytes(4, "big")
+    tframe[67] = frame_checksum(bytes(tframe))
+    tables = {}
+    # ⭐ 表帧后面接一个**已知 tick** 的帧 ⇒ ⭐ 用它证明"表帧后没错位"
+    after = _mk_frame(T_NOTE_ON, 7, 0x0000B000, 5, inc440, 150)
+    evs_t, st_t = parse_stream(bytes(tframe) + after, tables=tables)
+    chk("⑧b 表帧被识别（⛔ 不是 4 个假帧）", st_t.table_frames == 1,
+        "  table_frames=%d ok=%d bad=%d" % (st_t.table_frames, st_t.frames_ok,
+                                            st_t.frames_bad_csum))
+    chk("⑧b 表内容逐项正确",
+        tables.get(TABLESYNC_TABLE_KB) == tbl_vals,
+        "  前 3 项=%s" % (tables.get(TABLESYNC_TABLE_KB, [])[:3]))
+    chk("⑧b 表帧后【下一帧仍能正确解析】（⭐ 证明没错位）",
+        st_t.frames_ok == 2 and any(e.tick == 0x0000B000 for e in evs_t),
+        "  ok=%d ticks=%s" % (st_t.frames_ok,
+                              [e.tick for e in evs_t if e.tick is not None]))
+    # ⭐⭐ 非空洞性：⭐ 若按 14 B 硬吃，68 B 会被切成 4 个假帧 ⇒ 这一条能抓住
+    chk("⑧b 非空洞：68 ≠ 14×4（⭐ 长度必须按类型取）", 68 != 14 * 4)
+
     seq = bytearray()
     seq += _mk_frame(T_NOTE_ON, 0, 1000, 0, inc440, 200)
     seq += _mk_frame(T_NOTE_OFF, 1, 1000 + 50000, 0, inc440, 200)
@@ -540,17 +591,28 @@ def main():
         data = f.read()
     print("输入 %s：%d 字节" % (args.inp, len(data)))
 
-    evs, st = parse_stream(data)
+    # ⭐ 任务 3：表同步帧解析后存这里（⭐ 键 = 表号）
+    tables = {}
+    evs, st = parse_stream(data, tables=tables)
     print()
     print("解析结果：")
     print("  二进制帧 ok        = %d" % st.frames_ok)
     print("  🔴 坏校验帧        = %d" % st.frames_bad_csum)
+    print("  ⭐ 重同步成功      = %d" % st.resyncs)
     print("  ⚠️ 未知高位字节    = %d  (⛔ 正常应为 0)" % st.unknown_hi)
     print("  ASCII 事件         = %d" % st.ascii_events)
     print("  note_on / off      = %d / %d" % (st.notes_on, st.notes_off))
     print("  ⭐ tick 回绕次数   = %d" % st.tick_wraps)
     print("  序号缺口 / 回绕    = %d / %d" % (st.seq_gaps, st.seq_wraps))
     print("  未知类型           = %d" % st.bad_type)
+    # ⭐ 任务 3：表同步
+    print("  ⭐ 表同步帧        = %d" % st.table_frames)
+    for tid, vals in sorted(tables.items()):
+        name = {TABLESYNC_TABLE_KB: "kb(键盘)", TABLESYNC_TABLE_FB: "fb(指板)"}.get(
+            tid, "表%d" % tid)
+        print("     %-12s %d 项，首项 inc=%d (%.1f Hz)"
+              % (name, len(vals), vals[0] if vals else 0,
+                 inc_to_hz(vals[0]) if vals else 0.0))
 
     if args.dump:
         print()
@@ -564,7 +626,7 @@ def main():
         print("RED: 需要 --out（⚠️ 或用 --dump）")
         return 2
 
-    midi, skipped, n = build_midi(evs, st, bpm=args.bpm)
+    midi, skipped, n = build_midi(evs, st, bpm=args.bpm, tables=tables)
     with open(args.out, "wb") as f:
         f.write(midi)
 
