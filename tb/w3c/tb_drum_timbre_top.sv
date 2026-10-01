@@ -45,7 +45,7 @@ module tb_drum_timbre_top;
     localparam [1:0] DRUM_T = 2'd2;      // ⭐ `top.DRUM_TIMBRE`（PIANO = 25% 脉冲）
     localparam [1:0] KEYB_T = 2'd3;      // ⭐ 本 tb 把键盘音色**强制成 PAD**（⭐ 与鼓不同）
     // ⭐ 鼓的"身份"（⭐ `drum_gen.v` 的 `INC_KICK` / `INC_HIHAT`）
-    localparam [31:0] INC_KICK  = 32'd6_442_451;
+    localparam [31:0] INC_KICK  = 32'd6_263_494;
     localparam [31:0] INC_HIHAT = 32'd171_798_691;
 
     reg clk   = 1'b0;

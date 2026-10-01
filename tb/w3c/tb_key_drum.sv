@@ -1,0 +1,346 @@
+`timescale 1ns/1ps
+`default_nettype none
+
+// ═══════════════════════════════════════════════════════════════════════════
+// tb_key_drum -- ⭐ 键盘打鼓模式（⭐ 串口 `'K'`）· 2026-10-01
+//
+//   ⭐ **被测行为**：⭐ 打开后磁轴键盘当鼓垫 —— 按键 ⇒
+//      ① `src_a_src` 变 `SRC_AUX(3)`（⭐ ⇒ 进保留池 + 走 perc 包络）
+//      ② `src_a_inc` 换成 4 件乐器之一的**鼓频率**
+//      ③ `src_a_timbre` 换成**固定的** `DRUM_TIMBRE`（⭐ 与键盘当前音色解耦）
+//      ⇒ ⭐ 关闭后**一切恢复原样**（⭐ 正常发音高）
+//
+//   ⭐⭐ **判据（6 条）**
+//      T1 ⭐ 默认（关）⇒ 按键**原样通过**（`inc` 不被改、`src` 仍是手弹 0）
+//      T2 ⭐ 打鼓（开）⇒ `src_a_src == 3`（⭐ **"进鼓池"的充要条件**）
+//      T3 ⭐⭐ **4 件乐器逐件比对** —— `src_a_inc` 必须**等于 `drum_gen` 里那一件的常量**
+//            （⭐ 轴 0~3⇒嗵鼓 · 4~7⇒底鼓 · 8~11⇒军鼓 · 12~15⇒踩镲）
+//            🔴 **本 tb 最要紧的一条**：⭐ "是不是鼓、是哪件鼓"靠 **`phase_inc` 频率范围**判
+//               （`oscillator_bank.v:379-381`）⇒ ⭐ `top.v` 那 4 个常量是**有意重复**的
+//               ⇒ 🔴 **抄错一个数就静默变乐器** ⇒ ⭐ 本判据拿 `u_drum_gen.INC_*` 当**单一来源**
+//      T4 ⭐ 打鼓 ⇒ `timbre_valid == 1` 且 `timbre == DRUM_TIMBRE`（⭐ 解耦）
+//      T5 ⭐ 串口 `'K'` ⇒ ① 回 `'k'` ② `key_drum_r` **翻转**（⭐ 再发一次 ⇒ 翻回）
+//      T6 ⭐ 关闭后**恢复**（⭐ 回到 T1 的行为）
+//
+//   ⚠️⚠️ **两条实测踩到的坑（⭐ 写在这里防复发）**
+//      ① ⭐ **`force` 必须"持续到检查之后"** —— 🔴 我第一版把 `release` 写在 `chk` **之前**，
+//         ⇒ ⭐ 检查时 `src_a_inc` 已经回到驱动器值 ⇒ 🔴 **T1b/T3b/c/d 假红**
+//         （⭐ 现象：⭐ T3a 过、T3b/c/d 全红 ⇒ ⚠️ 看起来像 mux 错，⭐ 其实是 tb 的时序）
+//         ⇒ ⭐ 现在拆成 `key_begin`（force + 稳定）/ `chk` / `key_end`（release）✅
+//      ② ⭐ **端口位宽要照抄现有 tb**：⭐ `spi_cs_n` 是 **6 位**、`miso_l/r` 各 **1 位**
+//         （⭐ 我第一版写成 `[3:0]` 与 `[7:0]` ⇒ ⚠️ 编译告警 + 位选越界 ✅）
+// ═══════════════════════════════════════════════════════════════════════════
+
+module tb_key_drum;
+
+    localparam integer NAME_W = 8*72;
+
+    // ── ⭐ 时钟 / 复位 ───────────────────────────────────────────────────
+    reg clk   = 1'b0;
+    reg rst_n = 1'b0;
+    always #10 clk = ~clk;          // ⭐ 50 MHz
+
+    // ── ⭐ 串口（⭐ 500 kbaud ⇒ 100 clk/bit）─────────────────────────────
+    localparam integer CLK_HZ      = 50_000_000;
+    localparam integer BAUD        = 500_000;
+    localparam integer CLK_PER_BIT = CLK_HZ / BAUD;      // = 100
+
+    reg  uart_rx_line = 1'b1;       // ⭐ 空闲高
+    wire uart_tx_line;
+
+    // ── ⭐ DUT（⭐ 端口声明照抄 `tb_met_start_top.sv:74-112`）──────────────
+    wire        HP_BCK, HP_WS, HP_DIN, PA_EN_n, led_hb;
+    wire        spi_sclk, spi_mosi, miso_l, miso_r;
+    wire [5:0]  spi_cs_n;
+
+    top #(
+        .SEL_DRUM (0)               // ⭐ 源 B = 节拍器（⭐ 本 tb 不测源 B）
+    ) u_top (
+        .clk           (clk),
+        .rst_n         (rst_n),
+        .HP_BCK        (HP_BCK),
+        .HP_WS         (HP_WS),
+        .HP_DIN        (HP_DIN),
+        .PA_EN_n       (PA_EN_n),
+        .led_heartbeat (led_hb),
+        .spi_sclk      (spi_sclk),
+        .spi_mosi      (spi_mosi),
+        .spi_miso      ({4'b1111, miso_r, miso_l}),
+        .spi_cs_n      (spi_cs_n),
+        .uart_rx       (uart_rx_line),
+        .uart_tx       (uart_tx_line)
+    );
+    assign spi_cs_n[5:2] = 4'b1111;
+
+    // ── ⭐ 观察点 ────────────────────────────────────────────────────────
+    wire        kd_mode  = u_top.key_drum_r;
+    wire [31:0] sa_inc_o = u_top.g_sound.src_a_inc;
+    wire [2:0]  sa_src_o = u_top.g_sound.src_a_src;
+    wire        sa_tv_o  = u_top.g_sound.src_a_timbre_valid;
+    wire [1:0]  sa_t_o   = u_top.g_sound.src_a_timbre;
+    wire [7:0]  sa_vel_o = u_top.g_sound.src_a_vel;      // ⭐ T7：力度下限判据用
+
+    //   ⭐⭐ **单一来源**：⭐ 直接引用 `drum_gen` 的常量（⛔ 不在这里抄一遍）
+    //      ⚠️ 用 `wire` 而⛔ 不是 `localparam` —— ⭐ 层次引用**不能出现在常量表达式里** ✅
+    wire [31:0] REF_KICK   = u_top.g_sound.u_drum_gen.INC_KICK;
+    wire [31:0] REF_SNARE  = u_top.g_sound.u_drum_gen.INC_SNARE;
+    wire [31:0] REF_HIHAT  = u_top.g_sound.u_drum_gen.INC_HIHAT;
+    wire [31:0] REF_TOM    = u_top.g_sound.u_drum_gen.INC_TOM;
+    wire [1:0]  REF_TIMBRE = u_top.DRUM_TIMBRE;
+
+    // ⚠️ **`tx_cyc` 必须声明在【task 之前】** —— ⭐ `L66`：声明先于使用
+    //    （⭐ 我第一版放在监视器那段（⭐ 在 task 之后）⇒ 🔴 `Unable to bind wire/reg` ✅）
+    reg [31:0] tx_cyc = 32'd0;
+    always @(posedge clk) tx_cyc <= tx_cyc + 32'd1;
+
+    integer errors = 0;
+    integer checks = 0;
+
+    task chk;
+        input [NAME_W-1:0] name;
+        input              cond;
+        begin
+            checks = checks + 1;
+            if (!cond) begin
+                errors = errors + 1;
+                $display("  FAIL: %0s", name);
+            end
+        end
+    endtask
+
+    // ══ ⭐ 后台常驻接收进程 ══════════════════════════════════════════════
+    //   🔴🔴 **为什么必须"常驻"而不是"要用时再收"**（⭐ 2026-10-01 实测踩到）：
+    //      ⭐ FPGA 收到命令字节后**立刻**回包 ⇒ ⭐ 而我的 `uart_send` 还要再等
+    //      **一整个停止位**（100 拍）才返回 ⇒ 🔴 **回包的起始位落在 `uart_send` 期间**
+    //      ⇒ ⭐ 等我进 `uart_recv` 时，⭐ 线路**已经是低**（⭐ 起始位中途）
+    //      ⇒ 🔴 我的边沿检测**立刻"成功"**（⭐ `waited 0`）⇒ ⭐ 采样整体**晚 1 bit**
+    //      ⇒ ⭐ 实测：⭐ `0x6B` 被读成 **`0xB5`**（⭐ 正好 = 丢掉 bit0 + 补停止位）
+    //      📌 **判据**：⭐ 后台进程从复位就开始跑 ⇒ ⭐ 字节边界**永远对齐** ✅
+    //   ⚠️ 用 `while (... !== 1'b1)` 而不是 `=== 1'b0` —— ⭐ 复位期线路是 `x`，
+    //      用 `===` 会**永远等不到**（⭐ `x !== 1'b0` ✅）
+    reg [7:0] rx_q [0:15];
+    integer   rx_cnt = 0;
+    integer   ri;
+    reg [7:0] rx_tmp;
+
+    initial begin : uart_rx_bg
+        rx_cnt = 0;
+        forever begin
+            while (uart_tx_line !== 1'b1) @(posedge clk);   // ⭐ 等空闲高
+            while (uart_tx_line !== 1'b0) @(posedge clk);   // ⭐ 等起始位
+            repeat (CLK_PER_BIT + CLK_PER_BIT/2) @(posedge clk);  // ⭐ 到 D0 中心
+            for (ri = 0; ri < 8; ri = ri + 1) begin
+                rx_tmp[ri] = uart_tx_line;
+                repeat (CLK_PER_BIT) @(posedge clk);
+            end
+            if (rx_cnt < 16) begin
+                rx_q[rx_cnt] = rx_tmp;
+                rx_cnt = rx_cnt + 1;
+            end
+        end
+    end
+
+    // ══ ⭐ 串口发送一个字节（⭐ 8N1，⭐ LSB 先）══════════════════════════
+    task uart_send;
+        input [7:0] b;
+        integer i;
+        begin
+            uart_rx_line = 1'b0;                       // ⭐ start
+            repeat (CLK_PER_BIT) @(posedge clk);
+            for (i = 0; i < 8; i = i + 1) begin
+                uart_rx_line = b[i];                   // ⭐ LSB 先
+                repeat (CLK_PER_BIT) @(posedge clk);
+            end
+            uart_rx_line = 1'b1;                       // ⭐ stop
+            repeat (CLK_PER_BIT) @(posedge clk);
+        end
+    endtask
+
+    // ══ ⭐ 取第 `idx` 个已收到的字节（⭐ 等它到，⭐ 超时 ⇒ got=0）══════════
+    task uart_take;
+        input  integer idx;
+        output [7:0]   b;
+        output         got;
+        integer n;
+        begin
+            b = 8'h00; got = 1'b0;
+            n = 0;
+            while ((rx_cnt <= idx) && (n < 30000)) begin
+                @(posedge clk); n = n + 1;
+            end
+            if (rx_cnt > idx) begin
+                b = rx_q[idx];
+                got = 1'b1;
+            end
+        end
+    endtask
+
+    // ══ ⭐ 按键：⭐ begin（force + 稳定）→ chk → end（release）════════════
+    //   ⚠️⚠️ **必须拆开** —— ⭐ `force` 要**持续到检查之后**（⭐ 见文件头「坑 ①」）
+    task key_begin;
+        input [3:0]  ax;
+        input [31:0] inc;
+        input [1:0]  kind;
+        begin
+            @(posedge clk); #5;                        // ⭐ `U74`：force 离开时钟沿
+            force u_top.g_sound.sa_valid        = 1'b1;
+            force u_top.g_sound.sa_axis         = ax;
+            force u_top.g_sound.sa_inc          = inc;
+            force u_top.g_sound.sa_vel          = 8'd200;
+            force u_top.g_sound.sa_kind         = kind;
+            force u_top.g_sound.sa_src          = 3'd0;    // ⭐ 手弹
+            force u_top.g_sound.sa_timbre_valid = 1'b0;
+            force u_top.g_sound.sa_timbre       = 2'd0;
+            #1;                                        // ⭐ 组合逻辑稳定
+        end
+    endtask
+
+    task key_end;
+        begin
+            release u_top.g_sound.sa_valid;
+            release u_top.g_sound.sa_axis;
+            release u_top.g_sound.sa_inc;
+            release u_top.g_sound.sa_vel;
+            release u_top.g_sound.sa_kind;
+            release u_top.g_sound.sa_src;
+            release u_top.g_sound.sa_timbre_valid;
+            release u_top.g_sound.sa_timbre;
+            @(posedge clk);
+        end
+    endtask
+
+    // ══ ⭐ 主流程 ═══════════════════════════════════════════════════════
+    localparam [31:0] KEY_INC = 32'h00BA_039D;   // ⭐ 任意"键盘表值"
+
+    integer   ax;
+    reg [7:0] rb;
+    reg       rgot;
+
+    initial begin
+        $display("=== tb_key_drum: keyboard-as-drums ===");
+
+        // ── ⭐ 复位 ─────────────────────────────────────────────────────
+        rst_n = 1'b0;
+        repeat (20) @(posedge clk);
+        rst_n = 1'b1;
+        repeat (50) @(posedge clk);
+
+        // ══ T1 ⭐ 默认（关）⇒ 按键原样通过 ═════════════════════════════
+        chk("T1a: key_drum_r resets to 0 (mode OFF)", kd_mode === 1'b0);
+        key_begin(4'd5, KEY_INC, 2'd0);
+        chk("T1b: mode OFF => phase_inc passes through", sa_inc_o === KEY_INC);
+        chk("T1c: mode OFF => src stays LIVE(0)",        sa_src_o === 3'd0);
+        key_end();
+
+        // ══ T5 ⭐ 串口 'K' ⇒ 回 'k' ＋ 翻转 ════════════════════════════
+        //   ⭐ 用后台进程收到的**第 0 个**字节（⭐ 见上方"为什么必须常驻"）✅
+        uart_send(8'h4B);                       // ⭐ 'K'
+        uart_take(0, rb, rgot);
+        $display("  INFO: byte[0] = 0x%02X (got=%0d)", rb, rgot);
+        chk("T5a: 'K' produces a reply byte", rgot === 1'b1);
+        chk("T5b: the reply is 'k' (0x6B)",   rb   === 8'h6B);
+        repeat (20) @(posedge clk);
+        chk("T5c: 'K' toggles key_drum_r ON", kd_mode === 1'b1);
+
+        // ══ T2/T3/T4 ⭐ 打鼓模式 ═══════════════════════════════════════
+        //   ⭐ 轴 → 乐器（⭐ 依据 `files/10-硬件/鼓垫.drawio.svg`）：
+        //      轴 0~3 ⇒ 嗵鼓 · 4~7 ⇒ 底鼓 · 8~11 ⇒ 军鼓 · 12~15 ⇒ 踩镲
+        for (ax = 0; ax < 16; ax = ax + 1) begin
+            key_begin(ax[3:0], KEY_INC, 2'd0);
+            // ⭐ T2：⭐ 一律进鼓池
+            chk("T2: mode ON => src == SRC_AUX(3)", sa_src_o === 3'd3);
+            // ⭐ T3：⭐ 逐件比对（⭐ 拿 drum_gen 的常量当单一来源）
+            case (ax[3:2])
+                2'd0: chk("T3a: axis 0-3   => TOM inc",   sa_inc_o === REF_TOM);
+                2'd1: chk("T3b: axis 4-7   => KICK inc",  sa_inc_o === REF_KICK);
+                2'd2: chk("T3c: axis 8-11  => SNARE inc", sa_inc_o === REF_SNARE);
+                2'd3: chk("T3d: axis 12-15 => HIHAT inc", sa_inc_o === REF_HIHAT);
+            endcase
+            // ⭐ T4：⭐ 固定音色（⭐ 与键盘当前音色解耦）
+            chk("T4a: mode ON => timbre_valid == 1",   sa_tv_o === 1'b1);
+            chk("T4b: mode ON => timbre == DRUM_TIMBRE", sa_t_o === REF_TIMBRE);
+            key_end();
+        end
+
+        // ══ T8 ⭐⭐ **4 件乐器的音高必须【落在正确分档】且【彼此拉开】** ═══════
+        //   🔴 **为什么需要**（⭐ 用户上板："4 个鼓听不太出来区分度"）：
+        //      ⭐ 鼓一律取**噪声表**（`oscillator_bank.v:699-701`）⇒ ⭐ 音色与乐器无关 ⚠️
+        //      ⇒ ⭐ 4 件的区别**只剩【噪声播放速率】＋【扫频】** ⇒ ⭐ **音高必须拉开** ✅
+        //   ⚠️ **分档边界**（`oscillator_bank.v:379-381`）：⭐ `<10M` 底鼓 · `10M~15M` 嗵鼓 · `≥15M` 其他
+        //      🔴 **底鼓/嗵鼓填错档 ⇒ 扫频深度跟着错** ⇒ ⭐ 听感直接变另一样 ⚠️
+        //   📌 **拉开判据**：⭐ 军鼓 ≥ 2× 嗵鼓 · ⭐ 踩镲 ≥ 2× 军鼓（⭐ 原来军鼓只有嗵鼓的 1.33× ⚠️）
+        chk("T8a: kick is in the kick bucket (< 10M)",        REF_KICK  <  32'd10_000_000);
+        chk("T8b: tom is in the tom bucket (10M .. 15M)",
+            (REF_TOM >= 32'd10_000_000) && (REF_TOM < 32'd15_000_000));
+        chk("T8c: snare is above the tom bucket (>= 15M)",    REF_SNARE >= 32'd15_000_000);
+        chk("T8d: hihat is above the tom bucket (>= 15M)",    REF_HIHAT >= 32'd15_000_000);
+        chk("T8e: snare >= 2x tom  (spread for distinguishability)",
+            REF_SNARE >= (REF_TOM << 1));
+        chk("T8f: hihat >= 2x snare (spread for distinguishability)",
+            REF_HIHAT >= (REF_SNARE << 1));
+
+        // ══ T7 ⭐⭐ **打鼓模式下的力度下限**（⭐ 用户上板："声音也有点小"）═══════
+        //   🔴 **根因**：⭐ 原来直接用**键盘力度**当鼓的力度 ⇒ ⚠️ 轻敲就轻
+        //      ⭐ 而**鼓机**每件有固定力度（⭐ `drum_gen` 的 `VEL_*`）⇒ ⭐ 所以鼓机听着更"实" ✅
+        //   ⭐ **策略**：⭐ `vel = max(键盘力度, 本件基础力度)`
+        //      ⭐ 轴 5 ⇒ `axis[3:2] = 2'd1` ⇒ ⭐ **底鼓** ⇒ ⭐ 基础力度 **230** ✅
+        key_begin(4'd5, KEY_INC, 2'd0);
+        force u_top.g_sound.sa_vel = 8'd10;          // ⭐ 极轻敲
+        #1;
+        chk("T7a: a light tap is raised to the drum base velocity (230)",
+            sa_vel_o === 8'd230);
+        force u_top.g_sound.sa_vel = 8'd255;         // ⭐ 重敲
+        #1;
+        chk("T7b: a harder press passes through unchanged (255)",
+            sa_vel_o === 8'd255);
+        key_end();
+
+        // ══ T5' ⭐ 再发一次 'K' ⇒ 翻回 ═════════════════════════════════
+        uart_send(8'h4B);
+        uart_take(1, rb, rgot);
+        chk("T5d: second 'K' also replies",  rgot === 1'b1);
+        chk("T5e: second reply is 'k'",      rb   === 8'h6B);
+        repeat (20) @(posedge clk);
+        chk("T5f: second 'K' toggles back to OFF", kd_mode === 1'b0);
+
+        // ══ T6 ⭐ 关闭后恢复 ════════════════════════════════════════════
+        key_begin(4'd5, KEY_INC, 2'd0);
+        chk("T6a: after OFF => phase_inc restored", sa_inc_o === KEY_INC);
+        chk("T6b: after OFF => src restored to LIVE(0)", sa_src_o === 3'd0);
+        force u_top.g_sound.sa_vel = 8'd10;          // ⭐ 极轻敲
+        #1;
+        chk("T6c: after OFF => velocity passes through unchanged (no floor)",
+            sa_vel_o === 8'd10);
+        key_end();
+
+        // ── ⭐ 汇总 ─────────────────────────────────────────────────────
+        if (errors == 0)
+            $display("PASS: key_drum -- keyboard-as-drums maps 4 instruments by axis[3:2] and stays decoupled");
+        else
+            $display("FAIL: key_drum -- %0d of %0d checks failed", errors, checks);
+        $display("INFO: checks=%0d errors=%0d", checks, errors);
+        $finish;
+    end
+
+    // ⭐ 超时兜底（⭐ 见 `C84`：⛔ 不靠"没输出"判卡死）
+    initial begin
+        #2_000_000;
+        $display("FAIL: key_drum -- TIMEOUT");
+        $finish;
+    end
+
+endmodule
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐ 变异记录（⭐ 非空洞性 —— ⛔ 没做过的不要写）
+//
+//   | ⭐ 变异 | ⭐ 改法 | ⭐ 期望 |
+//   |---|---|---|
+//   | M1 | `top.v` 三处 `key_drum_r ? ... :` 全改成恒选原值 | 🔴 T2/T3/T4 **FAIL** |
+//   | M2 | `key_drum_inc` 的 4 个常量任意**互换两个** | 🔴 T3 **FAIL**（⭐ 逐件比对抓到） |
+//   | M3 | `src_a_src` 的 `3'd3` 改成 `3'd0` | 🔴 T2 **FAIL** |
+//   | M4 | `src_a_timbre` 的 `DRUM_TIMBRE` 改成 `2'd0` | 🔴 T4b **FAIL** |
+//   | M5 | `calib_cmd.v` 的 `byte_is_keydrum` 去掉 | 🔴 T5a/T5c **FAIL** |
+//   | M6 | 回复字节 `8'h6B` 改成别的 | 🔴 T5b **FAIL** |
+//   ⚠️ **M1 是"功能有没有接线"的总闸**，⭐ M2 是"常量抄没抄错"的**唯一**判据 ✅
+// ═══════════════════════════════════════════════════════════════════════════

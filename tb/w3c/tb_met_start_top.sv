@@ -35,15 +35,18 @@
 module tb_met_start_top;
 
     localparam integer NAME_W  = 8*90;
-    //  ⭐⭐ 2026-09-30：⭐ `120/72` ⇒ **`180/108`**（⭐ 用户："节拍器的声音有一点太小了"）
-    //     ⚠️ **必须与 `rtl/w3c/metronome.v` 的 `VEL_ACCENT`/`VEL_NORMAL` 逐字一致** ——
-    //        ⭐ 本 tb 判的就是"**回放出来的力度 = 那两个参数**"（⭐ 模式判据 T5）✅
-    //     📌 比例仍是 **5:3**（⭐ 强拍更响），⭐ 所以判据的**语义一字未改** ✅
-    localparam integer V_ACC   = 180;      // ⭐ = metronome.VEL_ACCENT
-    localparam integer V_NRM   = 108;      // ⭐ = metronome.VEL_NORMAL
+    //  ⭐⭐ 2026-10-01：⭐ `180/108` ⇒ **`220/132`**（⭐ 用户："背景的节拍器稍微大声一点"）
+    //     ⚠️ **必须与 `rtl/top.v` 里 `u_metronome` 实例化处覆盖的 `.VEL_ACCENT`/`.VEL_NORMAL` 逐字一致** ——
+    //        ⭐ 本 tb 判的就是"**回放出来的力度 = 那两个值**"（⭐ 模式判据 T5）✅
+    //        ⭐ 而它**同时**是本轮"参数覆盖真的生效了"的**唯一判据**
+    //           （⭐ 若覆盖被静默忽略 ⇒ 本 tb **变红** ✅ —— ⭐ 这就是"能红"）
+    //     📌 比例仍是 **5:3**（⭐ `220/132 = 5/3`）⇒ ⭐ 判据的**语义一字未改** ✅
+    //     📌 上界依据（⭐ 见 `top.v` 的覆盖处）：⭐ `220` 是"保持 5:3 且不越软膝(93.75% FS)"的上限 ✅
+    localparam integer V_ACC   = 220;      // ⭐ = top.v 覆盖的 metronome.VEL_ACCENT
+    localparam integer V_NRM   = 132;      // ⭐ = top.v 覆盖的 metronome.VEL_NORMAL
     //  ⚠️ **`integer` 参数【不做位选】**（`K-91`）⇒ ⭐ 另给 8 位常量供比较用
-    localparam [7:0]   V_ACC8  = 8'd180;
-    localparam [7:0]   V_NRM8  = 8'd108;
+    localparam [7:0]   V_ACC8  = 8'd220;
+    localparam [7:0]   V_NRM8  = 8'd132;
     localparam integer BEAT_GAP = 3000;    // ⚠️ > 2 个 sample_tick(1024) ⇒ 让重触发走完
 
     reg clk   = 1'b0;

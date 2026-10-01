@@ -13,10 +13,10 @@
   ok  : 鈶?transport 鎷変綆 鈬掋€愬綋鎷嶅嵆鍋溿€戔洈 涓嶅悙娈嬩綑锛?0 鎷嶅唴 0 涓簨浠讹級
   ok  : 鈶?灏忚妭瀵归綈 鈥斺€?3 涓皬鑺傝捣鐐?step_cnt 閮芥槸 0锛堚洈 涓嶆紓绉伙級
   --- 鈶懎 灏忚妭鐩镐綅瀹炴祴锛堝瀷 0锛屽浣嶅悗杩炶窇 4 灏忚妭锛?--
-      bar 0: step_at_bar_start=0  first_evt=00624dd3  second_evt=0a3d70a3
-      bar 1: step_at_bar_start=0  first_evt=00624dd3  second_evt=0a3d70a3
-      bar 2: step_at_bar_start=0  first_evt=00624dd3  second_evt=0a3d70a3
-      bar 3: step_at_bar_start=0  first_evt=00624dd3  second_evt=0a3d70a3
+      bar 0: step_at_bar_start=0  first_evt=005f92c6  second_evt=0a3d70a3
+      bar 1: step_at_bar_start=0  first_evt=005f92c6  second_evt=0a3d70a3
+      bar 2: step_at_bar_start=0  first_evt=005f92c6  second_evt=0a3d70a3
+      bar 3: step_at_bar_start=0  first_evt=005f92c6  second_evt=0a3d70a3
   ok  : 鈶?4 涓?bar_start 鐨?step_cnt 鍏ㄦ槸 0 鈬?16 姝ヨ〃鐨?step 0 钀藉湪姝ｆ媿
   ok  : 鈶?姝ｆ媿绗竴涓簨浠?= Kick銆佺浜屼釜 = HiHat锛? step 0 鎺╃爜 0101锛?
   --- 鈶?鍒囧埌鍨?1 鍚庣殑涓€灏忚妭 ---

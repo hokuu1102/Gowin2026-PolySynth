@@ -553,6 +553,8 @@ module top #(
     // ═══════════════════════════════════════════════════════════════════════
     //   ⚠️ **必须在【使用之前】声明** —— ⭐ `default_nettype none` 下不存在隐式网线 ✅
     wire cmd_drum_pattern_req;      // ⭐ 'D' ⇒ 鼓机节奏型 **切下一个**
+    // ⭐⭐ 2026-10-01：⭐ **键盘打鼓模式**（⭐ 'K'）—— ⚠️ 同上，必须在使用前声明 ✅
+    wire cmd_keydrum_req;           // ⭐ 'K' ⇒ 键盘打鼓 **开/关切换**
 
     //   ⭐ `integer` 参数⛔ 不做位选（`K-91`）⇒ ⭐ 先【赋值】给定宽 localparam（自动截断）✅
     localparam [1:0] DRUM_PATTERN_INIT = DRUM_PATTERN_ID;
@@ -561,6 +563,18 @@ module top #(
     always @(posedge clk) begin
         if (!rst_n_sync) drum_pattern_r <= DRUM_PATTERN_INIT;
         else if (cmd_drum_pattern_req) drum_pattern_r <= drum_pattern_r + 2'd1;
+    end
+
+    // ⭐⭐ 2026-10-01：⭐ **键盘打鼓模式开关**（⭐ `'K'` 串口命令，⭐ 与 `met_on_r` 同构）
+    //   ⭐ **语义**：⭐ `1` = 键盘当鼓垫（⭐ 见下方 `src_a_*` 的覆盖）；
+    //      `0` = 正常发音高（⭐ **默认**）✅
+    //   📌 **为什么用寄存器而不是编译期参数**：⭐ 上板要"边听边切"——
+    //      ⚠️ 编译期参数意味着换一次要重新 PnR（⭐ 一次 ~10 分钟）✅
+    //   ⚠️ **复位 = 关**（⭐ 与 `met_on_r` 同一安全取向：⭐ 上电先不改变键盘语义）✅
+    reg key_drum_r;
+    always @(posedge clk) begin
+        if (!rst_n_sync)           key_drum_r <= 1'b0;
+        else if (cmd_keydrum_req)  key_drum_r <= ~key_drum_r;
     end
 
     // ⭐⭐ 2026-09-28：**开节拍器的那一刻，把音乐位置复位**（⭐ 用户要求"从第一拍开始响"）
@@ -791,6 +805,8 @@ module top #(
         .met_req_o      (cmd_met_req),
         // ⭐ 2026-09-29：⭐ 鼓机节奏型切下一个（⭐ 'D'，⭐ 2026-09-29 新增）
         .drum_pattern_req_o(cmd_drum_pattern_req),
+        // ⭐⭐ 2026-10-01：⭐ 键盘打鼓模式（⭐ 'K'）
+        .keydrum_req_o  (cmd_keydrum_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (cmd_in_frame_cnt),
         .resync_cnt_o   (cmd_resync_cnt),
@@ -1265,7 +1281,20 @@ wire       fault_any_w;
             .PHASE_W    (32),
             .VEL_W      (8),
             .AXIS_ID    (14),
-            .RESERVED_N (5)
+            .RESERVED_N (5),
+            //  ⭐⭐ 2026-10-01：⭐ **节拍器抬 +1.75 dB**（⭐ 用户："背景的节拍器稍微大声一点"）
+            //   ⭐ 原值 `180 / 108`（⭐ 模块默认，⭐ 保持不动）⇒ ⭐ 这里覆盖成 `220 / 132`
+            //   ⭐ **为什么是 220 而⛔ 不是更高**（⭐ 余量算式，⭐ 与 `metronome.v:150-163` 同一口径）：
+            //      ⭐ 软膝 `T = 15/16 FS = 93.75%`、天花板 `100% FS`（⭐ `tdm_render_mixer.v`）
+            //      ⭐ 最坏"节拍器强拍 + 键盘打满 255"：⭐ `(V + 255) × 256 × 2^-1`
+            //         · `V=180` ⇒ **85.0% FS** ✅（⭐ 原值）
+            //         · `V=220` ⇒ **92.7% FS** ⚠️（⭐ 距软膝仅 1%）
+            //         · `V=230` ⇒ 🔴 **≈99% FS** ⇒ **基本顶到天花板** ⛔ 不可取
+            //      ⇒ ⭐ **220 是"保持 5:3 且不越膝"的上限** ✅
+            //   📌 比例仍是 **5:3**（⭐ `220/132 = 5/3`）⇒ ⭐ 强拍:弱拍 的语义**一字未改** ✅
+            //   ⚠️ **连带**：⭐ `tb/w3c/tb_met_start_top.sv:42-46` 的镜像**必须同步**（⭐ 已同步）✅
+            .VEL_ACCENT (8'd220),
+            .VEL_NORMAL (8'd132)
         ) u_metronome (
             .clk_i          (clk),
             .rst_n_i        (rst_n_sync),
@@ -1328,7 +1357,23 @@ wire       fault_any_w;
             .STEPS          (16),
             // ⭐ 16 分音符 = PPQN(960) / 4 = 240 tick
             .TICKS_PER_STEP (240),
-            .RESERVED_N     (5)
+            .RESERVED_N     (5),
+            //  ⭐⭐ 2026-10-01：⭐ **鼓机抬偏轻的那几件**（⭐ 用户："背景的鼓机稍微大声一点"）
+            //   ⭐ 原值（⭐ 模块默认，⭐ 保持不动）：`KICK 230 / SNARE 200 / HIHAT 140 / TOM 190`
+            //   ⭐ 覆盖后：⭐ `SNARE 235` · ⭐ `HIHAT 175` · ⭐ `TOM 220`（⭐ `KICK` **不覆盖**）
+            //   🔴 **底鼓为什么【故意不抬】**（⭐ 这是算过的，⛔ 不是省事）：
+            //      ⭐ 最坏"底鼓 + 键盘打满 255"：⭐ `(230+255) × 256 × 2^-1 = `**`94.7% FS`**
+            //         ⇒ ⚠️ **已经越过了软膝 93.75%**（⭐ 本项目接受的取舍 ——
+            //            `tb_velocity_headroom` 的判据**故意只判 `vel <= 200`**，⭐ 即 >200 的演奏峰值豁免）
+            //      ⇒ ⭐ 再抬底鼓**只会让它更顶限幅器**（⚠️ `L83` 的教训：软限幅一直工作 = 听感"破"）
+            //      ⇒ ⭐ **"背景更响"的收益应该做在【偏轻的那几件】上** ✅
+            //   📌 顺序仍保持 **底鼓 > 军鼓 > 嗵鼓 > 踩镲**（⭐ `230 > 235`? ⚠️ 见下）
+            //   ⚠️ **注意**：⭐ 抬完之后 **军鼓(235) 略高于 底鼓(230)** —— ⭐ 这是**有意**的：
+            //      ⭐ 底鼓是低频、⭐ 听感响度本来就高；⭐ 军鼓偏中频、⭐ 抬到 235 才"打得出来" ✅
+            //      📌 若上板觉得军鼓抢拍 ⇒ ⭐ **只改这一个数**（⭐ 保持 ⛔ 不动别的）✅
+            .VEL_SNARE      (8'd235),
+            .VEL_HIHAT      (8'd175),
+            .VEL_TOM        (8'd220)
         ) u_drum_gen (
             .clk_i          (clk),
             .rst_n_i        (rst_n_sync),
@@ -2099,7 +2144,8 @@ wire       fault_any_w;
 
         wire       rep_req  = ev_need   | ev_reject | ev_axis_ok | ev_done
                             | cmd_tare_req | cmd_span_req | cmd_abort_req | cmd_test_mode_req
-                            | sp_start_rejected | (at_done & ~at_done_r);
+                            | sp_start_rejected | (at_done & ~at_done_r)
+                            | cmd_keydrum_req;   // ⭐ 'K' 键盘打鼓切换（⭐ 2026-10-01）
         wire [7:0] rep_byte = ev_need          ? axis_char        // ⭐ ① 轴号（⭐ 最要紧）
                             : ev_reject        ? rej_why_byte     // 🔴 被拒（⭐ 带原因码，见上）
                             : ev_axis_ok       ? 8'h2E            // '.' ⭐ 本轴通过
@@ -2109,6 +2155,7 @@ wire       fault_any_w;
                             : cmd_tare_req     ? 8'h74            // 't' ⭐ 受理 tare
                             : cmd_span_req     ? 8'h73            // 's' ⭐ 受理 span
                             : cmd_test_mode_req? tm_reply_byte    // M: 4/8/A/B/0
+                            : cmd_keydrum_req  ? 8'h6B            // 'k' ⭐ 受理键盘打鼓切换
                             :                    8'h78;           // 'x' ⭐ 受理取消
 
         //   ⭐ 单拍请求 ⇒ 交给 `uart_tx`（⭐ 它忙时自动忽略 ⇒ ⚠️ 见上方"代价"）
@@ -3384,17 +3431,78 @@ wire       fault_any_w;
         //   ⚠️ 它**绕过** `seq_arb`（⭐ 直接拿演示和弦）⇒ ⭐ 行为与改动前【完全一致】。
         wire        src_a_valid = (SOURCE_A_SEL == 1) ? demo_note_valid : sa_valid;
         wire [3:0]  src_a_axis  = (SOURCE_A_SEL == 1) ? demo_note_axis  : sa_axis;
-        wire [31:0] src_a_inc   = (SOURCE_A_SEL == 1) ? demo_note_inc   : sa_inc;
-        wire [7:0]  src_a_vel   = (SOURCE_A_SEL == 1) ? demo_note_vel   : sa_vel;
+        // ⭐⭐ 2026-10-01：⭐ **键盘打鼓模式**（⭐ `key_drum_r`，⭐ 串口 `'K'` 切换）
+        //   ⭐ **布局依据**：⭐ `files/10-硬件/鼓垫.drawio.svg`（⭐ 用户提供的鼓垫图）
+        //      ⭐ 16 键 = **2 板 × 8 通道**，⭐ 每板 2 行 × 4 列 ⇒ ⭐ **4 件乐器各占一个 2×2 块** ✅
+        //      ⭐ 轴号 = 片号×8 + 通道（⭐ 见 `axis_map.v:55`）⇒ ⭐ **板1 = 轴 0-7 · 板2 = 轴 8-15** ✅
+        //      ⭐ 图上 CH 排布：⭐ **左两列 = CH4~CH7 · 右两列 = CH0~CH3** ✅
+        //   ⇒ ⭐ **映射恰好是 `axis[3:2]` 两位切片**（⭐ 零逻辑 ✅）：
+        //      | ⭐ `axis[3:2]` | ⭐ 轴号 | ⭐ 位置 | ⭐ 乐器 | ⭐ `phase_inc` |
+        //      |---|---|---|---|---|
+        //      | `2'd0` | 0~3   | 板1 右两列 | ⭐ **嗵鼓** | `12_884_902`（≈150 Hz）|
+        //      | `2'd1` | 4~7   | 板1 左两列 | ⭐ **底鼓** | `6_442_451`（≈75 Hz）|
+        //      | `2'd2` | 8~11  | 板2 右两列 | ⭐ **军鼓** | `17_179_869`（≈200 Hz）|
+        //      | `2'd3` | 12~15 | 板2 左两列 | ⭐ **踩镲** | `171_798_691`（≈2000 Hz）|
+        //   📌 **分配理由（⭐ 用户要求"按【使用频率】均衡"）**：⭐ 使用频率排名
+        //      = 踩镲 > 军鼓 > 底鼓 > 嗵鼓 ⇒ ⭐ 右手（板2）拿第 **1、3**；⭐ 左手（板1）拿第 **2、4**
+        //      ⇒ ⭐ **每只手都有一件高频使用 + 一件低频使用** ✅
+        //   ⚠️🔴 **这 4 个常量必须与 `rtl/w3c/drum_gen.v` 的 `INC_*` 逐字一致** ——
+        //      ⭐ 因为"**是不是鼓、是哪件鼓**"是靠 **`phase_inc` 的频率范围**判的
+        //      （⭐ `oscillator_bank.v:379-381`：`<10M` 底鼓 · `10M~15M` 嗵鼓 · `≥15M` 军鼓/踩镲）
+        //      ⇒ 🔴 **抄错一个数就静默变成另一件乐器** ⚠️
+        //      ⇒ ⭐ **判据**：⭐ `tb/w3c/tb_key_drum.sv` 直接拿 `drum_gen` 的**实际输出**逐件比对 ✅
+        //   📌 **本处是【有意重复】的常量** —— ⚠️ 单一来源修法（⭐ 把 `INC_*` 提成形参）留待后续；
+        //      ⭐ 本轮用"**能红的判据**"守住一致性（⭐ 比静默重复安全）✅
+        //   ⭐ **新值（⭐ 2026-10-01 拉开，⭐ 相邻音程 14.3 / 19 / 32 个半音）**：
+        //      ⚠️🔴 **必须与 `rtl/w3c/drum_gen.v` 的 `INC_*` 逐字一致**（⭐ 否则鼓机与键盘鼓不同音）
+        //      ⭐ 判据：⭐ `tb_key_drum.sv` 直接拿 `u_drum_gen.INC_*` 当**单一来源**比对 ✅
+        wire [1:0]  key_drum_sel = src_a_axis[3:2];
+        wire [31:0] key_drum_inc = (key_drum_sel == 2'd0) ? 32'd14_316_558    // ⭐ 嗵鼓 ≈160 Hz
+                                 : (key_drum_sel == 2'd1) ? 32'd6_263_494     // ⭐ 底鼓 ≈70 Hz
+                                 : (key_drum_sel == 2'd2) ? 32'd42_949_673    // ⭐ 军鼓 ≈480 Hz
+                                 :                          32'd171_798_691;  // ⭐ 踩镲 ≈1920 Hz
+        //   ⭐⭐ 2026-10-01：⭐ **每件乐器的【基础力度】**（⭐ 用户裁定："各自基础力度 ＋ 键盘只往上加"）
+        //      🔴 **为什么需要**（⭐ 用户上板："声音也有点小"）：
+        //         ⭐ 原来直接拿**键盘力度**当鼓的力度 ⇒ ⚠️ 轻敲就轻
+        //         ⭐ 而**鼓机**每件有固定力度（⭐ `drum_gen.v` 的 `VEL_*`）⇒ ⭐ 所以鼓机听着更"实" ✅
+        //      ⭐ **策略**：⭐ `vel = max(键盘力度, 本件基础力度)` ——
+        //         ⇒ ⭐ ① 轻敲也够响 ② ⭐ 重敲能到 255 ③ ⭐ **力度跟随保留** ✅
+        //      📌 取值依据：⭐ 参照鼓机的 `VEL_*`（⭐ 底鼓 230 / 军鼓 200 / 嗵鼓 190 / 踩镲 140）
+        //         ⚠️ 其中**踩镲 140 明显偏轻** ⇒ ⭐ 抬到 **175** ✅（⭐ 用户："背景要更响" ✅）
+        wire [7:0]  key_drum_base_vel = (key_drum_sel == 2'd0) ? 8'd200    // ⭐ 嗵鼓
+                                      : (key_drum_sel == 2'd1) ? 8'd230    // ⭐ 底鼓（⭐ 最重）
+                                      : (key_drum_sel == 2'd2) ? 8'd210    // ⭐ 军鼓
+                                      :                          8'd175;   // ⭐ 踩镲（⭐ 原 140 ⇒ 抬高）
+
+        wire [31:0] src_a_inc   = key_drum_r ? key_drum_inc
+                                             : ((SOURCE_A_SEL == 1) ? demo_note_inc : sa_inc);
+        //  ⭐⭐ 2026-10-01：⭐ **打鼓模式下的力度下限**（⭐ 见上方 `key_drum_base_vel` 的说明）
+        //     ⭐ `max(键盘力度, 本件基础力度)` —— ⭐ 保留力度跟随，⭐ 但轻敲也够响 ✅
+        wire [7:0]  src_a_vel_raw = (SOURCE_A_SEL == 1) ? demo_note_vel : sa_vel;
+        wire [7:0]  src_a_vel   = (key_drum_r && (src_a_vel_raw < key_drum_base_vel))
+                                ? key_drum_base_vel : src_a_vel_raw;
         wire [1:0]  src_a_kind  = (SOURCE_A_SEL == 1) ? demo_note_kind  : sa_kind;
-        wire        src_a_timbre_valid = (SOURCE_A_SEL == 1) ? 1'b0 : sa_timbre_valid;
-        wire [1:0]  src_a_timbre = (SOURCE_A_SEL == 1) ? 2'd0 : sa_timbre;
+        //  ⭐⭐ 2026-10-01：⭐ 打鼓模式下用**固定的** `DRUM_TIMBRE`（⭐ 与源 B 同一手法）
+        //     ⇒ ⭐ 鼓的音色与"键盘当前音色"**彻底解耦** ✅（⭐ 判据见 `tb_key_drum.sv`）
+        wire        src_a_timbre_valid = key_drum_r ? 1'b1
+                                       : ((SOURCE_A_SEL == 1) ? 1'b0 : sa_timbre_valid);
+        wire [1:0]  src_a_timbre = key_drum_r ? DRUM_TIMBRE
+                                 : ((SOURCE_A_SEL == 1) ? 2'd0 : sa_timbre);
         //  ⭐⭐ 2026-09-29（A1）：⭐ **源 A 的来源标记**
         //     ⚠️ 必须**跟着上面那个 mux 一起选** —— `SOURCE_A_SEL == 1` 时源 A 是
         //        **演示和弦**（⭐ 它绕过 `seq_arb`）⇒ ⭐ 标记必须是 `SRC_DEMO = 3'd2`，
         //        ⛔ 不能沿用 `sa_src`（⭐ 那一路此刻并没有在发事件 ⇒ 值是陈旧的）。
         //  ⭐⭐ 2026-09-30：⭐ **位宽 2 → 3**（⭐ 与 `evt_merge.a_src_i` 一致）✅
-        wire [2:0]  src_a_src = (SOURCE_A_SEL == 1) ? 3'd2 : sa_src;
+        //  ⭐⭐ 2026-10-01：⭐ **打鼓模式下把来源标成 `SRC_AUX(3)`** ——
+        //     ⭐ 这一条是**整个功能的关键**：⭐ `note_manager` 靠 `cur_src == SRC_AUX`
+        //        决定"**进保留池** + **走 perc 包络**"（⭐ 见 `top.v` 的 `env_level_mix` 与
+        //        `perc_trig`）⇒ ⭐ 标上它就**自动变成鼓**，⛔ 不用改 `note_manager` 一行 ✅
+        //     ⚠️ **代价（⭐ 已评估）**：⭐ 鼓垫与"源 B（节拍器/鼓机）"**共用保留池**
+        //        （⭐ `RESERVED_N = 5`）⇒ ⚠️ 两者同时响时抢 5 个 voice；
+        //        ⭐ 且**手敲 + 鼓机同时**最多 5 音（⭐ 超了按池内分配策略丢）
+        //        📌 缓解：⭐ 手敲鼓时用 `'B'` 关掉源 B ✅
+        wire [2:0]  src_a_src = key_drum_r ? 3'd3
+                              : ((SOURCE_A_SEL == 1) ? 3'd2 : sa_src);
 
         // ⭐⭐ 源 B 二选一（⭐ 节拍器 / 鼓机，⭐ `SEL_DRUM`，⭐ 默认节拍器）
         //   📌 用 `generate`+`localparam` 做**编译期选择** ⇒ ⚠️ 综合会把没选中的那路

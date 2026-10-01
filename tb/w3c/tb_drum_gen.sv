@@ -82,11 +82,11 @@ module tb_drum_gen;
 
     // ⭐ 鼓的"身份"：⭐ 用 phase_inc 分辨是哪一件（⭐ 与 DUT 的常量一致）
     //   ⭐⭐ 2026-09-29：⭐ 第 4 件从 **Clap(≈1000 Hz)** 改成 **Tom(≈150 Hz)** ✅
-    //      ⭐ `inc = 150 × 2^32 / 50e6 = 12884.90` ⇒ ⭐ `12884_902`（⭐ 与 RTL 一致）
-    localparam [31:0] INC_KICK  = 32'd6_442_451;
-    localparam [31:0] INC_SNARE = 32'd17_179_869;
+    //      ⭐ `inc = 150 × 2^32 / 50e6 = 12884.90` ⇒ ⭐ `14_316_558`（⭐ 与 RTL 一致）
+    localparam [31:0] INC_KICK  = 32'd6_263_494;
+    localparam [31:0] INC_SNARE = 32'd42_949_673;
     localparam [31:0] INC_HIHAT = 32'd171_798_691;
-    localparam [31:0] INC_TOM   = 32'd12_884_902;
+    localparam [31:0] INC_TOM   = 32'd14_316_558;
     // ⭐ 力度常量（⭐ 用来判"第 4 件乐器真的是 Tom"—— 光看 `inc` 不够，
     //    ⚠️ 万一将来有人把 Tom 的力度写成 Clap 的 180，⭐ 这里能抓到）
     localparam [7:0]  VEL_TOM   = 8'd190;

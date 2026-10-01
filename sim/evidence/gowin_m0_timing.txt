@@ -10,7 +10,7 @@ Fast 0.975V 85C C2/I1 |
 Numbers of Paths Analyzed |
 48802 |
 Numbers of Endpoints Analyzed |
-49982 |
+49991 |
 Numbers of Falling Endpoints |
 0 |
 Numbers of Setup Violated Endpoints |
@@ -54,6 +54,6 @@ Entity |
 1 |
 clk_sys |
 50.000(MHz) |
-57.114(MHz) |
-18 |
+63.672(MHz) |
+17 |
 TOP |

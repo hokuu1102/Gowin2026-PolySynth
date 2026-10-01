@@ -190,7 +190,7 @@ module tb_wavetable_bank;
     localparam integer OB_POLY  = 2;
     localparam integer OB_OPV   = 1;
     localparam integer OB_LANES = OB_POLY * OB_OPV;
-    localparam [31:0]  INC_HIHAT = 32'd171_798_691;   // ⭐ ≈ 1953 Hz（⭐ 同 `drum_gen`）
+    localparam [31:0]  INC_HIHAT = 32'd171_798_691;   // ⭐ ≈ 1920 Hz（⭐ 同 `drum_gen`）
     localparam integer CAP_N    = 512;                // ⭐ 每个窗口的捕获点数
 
     reg                    ob_tick = 1'b0;

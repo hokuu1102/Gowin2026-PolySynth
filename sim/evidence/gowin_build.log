@@ -57,8 +57,8 @@ Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\tlc5916
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\mcp3208_driver.sv'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\mcp3208_scanner.sv'
 Compiling module 'top'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":36)
-Extracting RAM for identifier 'as_pos_d'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":2553)
-WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":4214)
+Extracting RAM for identifier 'as_pos_d'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":2600)
+WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":4322)
 Compiling module 'rst_sync'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\rst_sync.v":27)
 Compiling module 'sync_input(RESET_VAL=1'b1)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\sync_input.v":31)
 Compiling module 'debounce(NKEY=1)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\debounce.sv":24)
@@ -66,8 +66,8 @@ Compiling module 'clk_gen'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\clk_gen.v":
 Compiling module 'uart_rx(BAUD_DIV=100)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_rx.v":81)
 Compiling module 'uart_ui(BAUD=500000)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_ui.v":46)
 Compiling module 'calib_cmd(BAUD=500000)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\calib_cmd.v":65)
-Extracting RAM for identifier 'cmd_tab'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\calib_cmd.v":367)
-WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\calib_cmd.v":410)
+Extracting RAM for identifier 'cmd_tab'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\calib_cmd.v":388)
+WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\calib_cmd.v":432)
 Compiling module 'evt_uart_rx(BAUD=500000)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_uart_rx.v":70)
 Compiling module 'uart_tx_fifo'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v":54)
 Extracting RAM for identifier 'mem'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v":89)
@@ -77,8 +77,8 @@ Compiling module 'test_mode_ctrl'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\
 Compiling module 'envelope_bank'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\envelope_bank.v":6)
 Compiling module 'adsr'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\adsr.v":6)
 Compiling module 'beat_gen'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\beat_gen.v":59)
-Compiling module 'metronome'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\metronome.v":43)
-Compiling module 'drum_gen'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\drum_gen.v":63)
+Compiling module 'metronome(VEL_ACCENT=8'd220,VEL_NORMAL=8'd132)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\metronome.v":43)
+Compiling module 'drum_gen(VEL_SNARE=8'd235,VEL_HIHAT=8'd175,VEL_TOM=8'd220)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\drum_gen.v":63)
 Compiling module 'adc_farm(N_ADC=2)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\adc_farm.sv":47)
 Compiling module 'sync_input(RESET_VAL=1'b0)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\sync_input.v":31)
 Compiling module 'mcp3208_scanner'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\mcp3208_scanner.sv":3)
@@ -173,13 +173,13 @@ Running technical mapping ...
 [75%] Tech-Mapping Phase 2 completed
 [80%] Tech-Mapping Phase 3 completed
 [90%] Tech-Mapping Phase 4 completed
-WARN  (NL0002) : The module "metronome" instantiated to "g_sound.u_metronome" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":1283)
-WARN  (NL0002) : The module "param_extract" instantiated to "g_sound.u_param_extract" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":2969)
-WARN  (NL0002) : The module "pos_probe" instantiated to "g_sound.u_pos_probe_dpos" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":2640)
-WARN  (NL0002) : The module "right_analog_ctrl" instantiated to "g_sound.u_right_analog_ctrl" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":1456)
-WARN  (NL0002) : The module "test_mode_ctrl" instantiated to "g_sound.u_test_mode_ctrl" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":1143)
-WARN  (NL0002) : The module "vibrato_lfo" instantiated to "g_sound.u_vibrato_lfo" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":3677)
-WARN  (NL0002) : The module "led_data" instantiated to "u_led_data" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":4296)
+WARN  (NL0002) : The module "metronome" instantiated to "g_sound.u_metronome" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":1312)
+WARN  (NL0002) : The module "param_extract" instantiated to "g_sound.u_param_extract" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":3016)
+WARN  (NL0002) : The module "pos_probe" instantiated to "g_sound.u_pos_probe_dpos" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":2687)
+WARN  (NL0002) : The module "right_analog_ctrl" instantiated to "g_sound.u_right_analog_ctrl" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":1501)
+WARN  (NL0002) : The module "test_mode_ctrl" instantiated to "g_sound.u_test_mode_ctrl" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":1159)
+WARN  (NL0002) : The module "vibrato_lfo" instantiated to "g_sound.u_vibrato_lfo" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":3785)
+WARN  (NL0002) : The module "led_data" instantiated to "u_led_data" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":4404)
 [95%] Generate netlist file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\gwsynthesis\Gowin2026.vg" completed
 [100%] Generate report file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\gwsynthesis\Gowin2026_syn.rpt.html" completed
 GowinSynthesis finish
@@ -211,5 +211,5 @@ Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.pin.html"
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.rpt.html" completed
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.rpt.txt" completed
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.tr.html" completed
-Thu Oct  1 14:21:50 2026
+Thu Oct  1 16:45:21 2026
 
