@@ -70,3 +70,7 @@ set_false_path -to [get_ports {led_heartbeat}]
 # 复位输入：异步按键 + 已由 rst_sync 同步（K-50）⇒ 不设 input_delay
 set_false_path -from [get_ports {rst_n}]
 
+
+# H5: same PLL divisors as verified 640x480 bringup; CDC remains timed.
+create_generated_clock -name serial_clk -source [get_ports {clk}] -master_clock clk_sys -divide_by 8 -multiply_by 20 [get_pins {u_hdmi/u_clk/u_pll/CLKOUT0}]
+create_generated_clock -name pixel_clk -source [get_ports {clk}] -master_clock clk_sys -divide_by 40 -multiply_by 20 [get_pins {u_hdmi/u_clk/u_pll/CLKOUT1}]

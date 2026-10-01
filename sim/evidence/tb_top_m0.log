@@ -44,6 +44,6 @@ VCD info: dumpfile build/sim/tb_top_m0/tb_top_m0.vcd opened for output.
   ok : J 路 A8 澶栫疆涓夋牴绾垮浣嶅悗鏃?X/Z
 
 PASS: M0 top-level acceptance (timebase + SD_MODE polarity + silence-clean + heartbeat + no X + external DAC)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_m0.sv:539: $finish called at 1310971000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\top\tb_top_m0.sv:539: $finish called at 1310971000 (1ps)
 
 

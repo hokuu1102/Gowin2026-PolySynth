@@ -103,6 +103,6 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
   ok  : A8 af0_pol/af1_pol have no X/Z
 
 PASS: pos_probe_axis -- 'P' rotates over 16 axes and reports the raw code of the chip selected by axis[3] (chip 1 observable)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_pos_probe_axis.sv:428: $finish called at 15670000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_pos_probe_axis.sv:428: $finish called at 15670000 (1ps)
 
 

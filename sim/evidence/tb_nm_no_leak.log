@@ -125,6 +125,6 @@
 tb_nm_no_leak: errors=0 drain_timeouts=0 leak_rounds=0 retrig_seen=479
   D1 iters=400 leak=0 foreign=0 | D2 iters=400 leak=0 foreign=0
 PASS: no voice leak on same-axis repeated press/release (all swept phases)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_no_leak.sv:799: $finish called at 31280221000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_nm_no_leak.sv:799: $finish called at 31280221000 (1ps)
 
 

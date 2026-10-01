@@ -58,6 +58,6 @@
   ok  : tail: replayed release duration is within 10 percent of the live one
   ok  : tail: every gesture matched between live and replay
 PASS: looper tail -- replayed PAD note releases like the live one
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_tail.sv:601: $finish called at 1536170000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_looper_tail.sv:601: $finish called at 1536170000 (1ps)
 
 

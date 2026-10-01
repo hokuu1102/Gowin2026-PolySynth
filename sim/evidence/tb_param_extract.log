@@ -18,6 +18,6 @@
   ok  : pitch_value_o is 0 in this version
 
 PASS: param_extract measures velocity from the two-threshold time gap (fast => louder), saturates at both ends, ignores note_off, and keeps the parametric path entirely separate from the note-event path
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_param_extract.sv:359: $finish called at 29330000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_param_extract.sv:359: $finish called at 29330000 (1ps)
 
 

@@ -1,0 +1,70 @@
+*** GOWIN Tcl Command Line Console  *** 
+Open project C:/Users/cyx/Documents/ChatGPT/FPGA/Gowin2026-PolySynth-t31b-main/bringup/hdmi_640x480/hdmi_640x480.gprj finished
+GowinSynthesis start
+Running parser ...
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\video_timing.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\bringup\hdmi_640x480\rtl\color_bars.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\tmds_encoder.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\tmds_serializer.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\hdmi_clk.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\bringup\hdmi_640x480\rtl\hdmi_top.v'
+Compiling module 'hdmi_top'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\bringup\hdmi_640x480\rtl\hdmi_top.v":1)
+Compiling module 'hdmi_clk'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\hdmi_clk.v":4)
+Compiling module 'video_timing(H_TOTAL=800,V_TOTAL=525)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\video_timing.v":1)
+Compiling module 'color_bars(X_BITS=10)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\bringup\hdmi_640x480\rtl\color_bars.v":1)
+Compiling module 'tmds_encoder'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\tmds_encoder.v":2)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 6("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\tmds_encoder.v":45)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 6("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\tmds_encoder.v":46)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 6("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\tmds_encoder.v":50)
+WARN  (EX3791) : Expression size 32 truncated to fit in target size 6("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\tmds_encoder.v":53)
+Compiling module 'tmds_serializer'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\tmds_serializer.v":2)
+NOTE  (EX0101) : Current top module is "hdmi_top"
+[5%] Running netlist conversion ...
+Running device independent optimization ...
+[10%] Optimizing Phase 0 completed
+[15%] Optimizing Phase 1 completed
+[25%] Optimizing Phase 2 completed
+Running inference ...
+[30%] Inferring Phase 0 completed
+[40%] Inferring Phase 1 completed
+[50%] Inferring Phase 2 completed
+[55%] Inferring Phase 3 completed
+Running technical mapping ...
+[60%] Tech-Mapping Phase 0 completed
+[65%] Tech-Mapping Phase 1 completed
+[75%] Tech-Mapping Phase 2 completed
+[80%] Tech-Mapping Phase 3 completed
+[90%] Tech-Mapping Phase 4 completed
+[95%] Generate netlist file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\bringup\hdmi_640x480\impl\gwsynthesis\hdmi_640x480.vg" completed
+[100%] Generate report file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\bringup\hdmi_640x480\impl\gwsynthesis\hdmi_640x480_syn.rpt.html" completed
+GowinSynthesis finish
+Reading netlist file: "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\bringup\hdmi_640x480\impl\gwsynthesis\hdmi_640x480.vg"
+Parsing netlist file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\bringup\hdmi_640x480\impl\gwsynthesis\hdmi_640x480.vg" completed
+Processing netlist completed
+Reading constraint file: "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\bringup\hdmi_640x480\constr\hdmi_640x480.cst"
+Physical Constraint parsed completed
+Running placement......
+[10%] Placement Phase 0 completed
+[20%] Placement Phase 1 completed
+[30%] Placement Phase 2 completed
+[50%] Placement Phase 3 completed
+Running routing......
+[60%] Routing Phase 0 completed
+[70%] Routing Phase 1 completed
+[80%] Routing Phase 2 completed
+WARN  (PR1014) : Generic routing resource will be used to clock signal 'clk_d' by the specified constraint. And then it may lead to the excessive delay or skew
+[90%] Routing Phase 3 completed
+Running timing analysis......
+[95%] Timing analysis completed
+Placement and routing completed
+Bitstream generation in progress......
+Bitstream generation completed
+Running power analysis......
+[100%] Power analysis completed
+Generate file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\bringup\hdmi_640x480\impl\pnr\hdmi_640x480.power.html" completed
+Generate file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\bringup\hdmi_640x480\impl\pnr\hdmi_640x480.pin.html" completed
+Generate file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\bringup\hdmi_640x480\impl\pnr\hdmi_640x480.rpt.html" completed
+Generate file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\bringup\hdmi_640x480\impl\pnr\hdmi_640x480.rpt.txt" completed
+Generate file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\bringup\hdmi_640x480\impl\pnr\hdmi_640x480.tr.html" completed
+Thu Oct  1 18:29:34 2026
+

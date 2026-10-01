@@ -101,6 +101,6 @@
   ok  : 鈶 transport 鎷変綆鍚?鈬?绔嬪埢鍋滃彂锛堚洈 涓嶅悙娈嬩綑锛?
 --------------------------------------------------
 PASS: drum_gen 涓€姝ュ涔愬櫒涓嶄涪銆?6姝?1灏忚妭銆佹鎷嶇浉浣?step0=Kick+HiHat)銆佷笓鐢ㄦ睜銆佷笉绮樻粸銆乼ransport 闂ㄦ帶銆佽繍琛屾椂鍒囧瀷+鍡甸紦銆佹棤 X/Z銆? 涓妭濂忓瀷浣嶇簿纭鐢ㄦ埛琛?
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_gen.sv:728: $finish called at 132860000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_drum_gen.sv:728: $finish called at 132860000 (1ps)
 
 

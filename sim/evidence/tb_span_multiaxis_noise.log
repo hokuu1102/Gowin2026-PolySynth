@@ -21,6 +21,6 @@
   ok  : 鍣０ 卤40  (< 48) 鈬?16 杞村叏杩? 鏃犳嫆缁?
 ==================================================
 PASS: 绋冲畾鍒ゅ畾闃堝€艰涓烘纭紙鍣０ < TOL 灏辫兘杩囷級
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_multiaxis_noise.sv:202: $finish called at 115201440000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_span_multiaxis_noise.sv:202: $finish called at 115201440000 (1ps)
 
 

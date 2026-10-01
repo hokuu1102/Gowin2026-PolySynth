@@ -1,0 +1,3 @@
+[localhost] 后台进程报告了一个错误，错误消息为: 。
+    + CategoryInfo          : OpenError: (localhost:String) [], PSRemotingTransportException
+    + FullyQualifiedErrorId : 2100,PSSessionStateBroken

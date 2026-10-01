@@ -1,0 +1,4 @@
+good: exit=0 PASS original
+invert_sample: exit=1 KILLED
+wrong_y_origin: exit=1 KILLED
+disconnect_segments: exit=1 KILLED

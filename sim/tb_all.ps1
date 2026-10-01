@@ -265,7 +265,14 @@ foreach ($tb in $tbs) {
     Stop-Job  -Job $job -ErrorAction SilentlyContinue
     Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
     # ⚠️ vvp 可能留下子进程，一并清掉（否则会拖慢后续 tb）
-    Get-Process vvp -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    # BEGIN SCOPED VVP CLEANUP
+    # A timeout must never kill another regression's simulator. Match the
+    # literal image argument and require creation after this test started.
+    $imageArg = '(?:^|\s)"?' + [regex]::Escape($vvpFile) + '"?(?:\s|$)'
+    Get-CimInstance Win32_Process -Filter "Name = 'vvp.exe'" -ErrorAction SilentlyContinue |
+      Where-Object { $_.CreationDate -ge $stamp -and $_.CommandLine -match $imageArg } |
+      ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+    # END SCOPED VVP CLEANUP
     # ⭐⭐ 2026-09-24：超时消息里带上【已产出的日志】——
     #    ⚠️ 若里面已经有 `PASS:` ⇒ 说明**仿真其实成功了**，只是没在预算内返回
     #    ⇒ ⭐ 一眼就能区分"真挂死"和"预算太紧"（⭐ 这正是第四次修复要防的误判）

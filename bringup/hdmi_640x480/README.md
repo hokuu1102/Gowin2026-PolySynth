@@ -4,11 +4,11 @@ This project generates 640x480 eight-colour bars for the Tang Console 60K HDMI T
 
 ## Structure
 
-- `rtl/video_timing.v`: parameterized horizontal/vertical counters, DE, and negative HSYNC/VSYNC.
+- `../../rtl/hdmi/video_timing.v`: parameterized horizontal/vertical counters, DE, and negative HSYNC/VSYNC.
 - `rtl/color_bars.v`: eight equal vertical bars. At the default width their x ranges are 0-79 white, 80-159 yellow, 160-239 cyan, 240-319 green, 320-399 magenta, 400-479 red, 480-559 blue, and 560-639 black.
-- `rtl/tmds_encoder.v`: one pure RTL DVI TMDS lane. `hdmi_top` instantiates three; only blue receives HSYNC/VSYNC control bits. Blanking resets each lane's disparity.
-- `rtl/tmds_serializer.v`: four Gowin OSER10 serializers and TLVDS_OBUF pairs (three data plus forwarded clock).
-- `rtl/hdmi_clk.v`: replaceable clock-source boundary. The default uses a PLL to make 25/125 MHz. `USE_252=1` selects a proposed 25.2/126 MHz PLL configuration.
+- `../../rtl/hdmi/tmds_encoder.v`: one pure RTL DVI TMDS lane. `hdmi_top` instantiates three; only blue receives HSYNC/VSYNC control bits. Blanking resets each lane's disparity.
+- `../../rtl/hdmi/tmds_serializer.v`: four Gowin OSER10 serializers and TLVDS_OBUF pairs (three data plus forwarded clock).
+- `../../rtl/hdmi/hdmi_clk.v`: replaceable clock-source boundary. The default uses a PLL to make 25/125 MHz. `USE_252=1` selects a proposed 25.2/126 MHz PLL configuration.
 - `rtl/hdmi_top.v`: reset, colour, encoder, and output connections. H/V active, porch, sync, and total are parameters. `H_TOTAL` and `V_TOTAL` default to sums of the other parameters; change them together when selecting another mode.
 - `rtl/hdmi_h4.v` and `rtl/hdmi_clk_h4.v`: independent H4 top (1920x1200@60, positive sync) and its 153.75/768.75 MHz PLL. H4 modifies no default 640x480 source file.
 - `constr/hdmi_h4.sdc`, `hdmi_h4.gprj`: H4 timing constraints and project.
@@ -23,7 +23,7 @@ The default mode is 800 clocks per line, 525 lines per frame, 25.000 MHz pixel c
 From this directory in PowerShell:
 
 ```powershell
-iverilog -g2012 -s tb_hdmi_640x480 -o tb/sim.vvp rtl/video_timing.v rtl/color_bars.v rtl/tmds_encoder.v tb/tmds_decoder.sv tb/tb_hdmi_640x480.sv
+iverilog -g2012 -s tb_hdmi_640x480 -o tb/sim.vvp ../../rtl/hdmi/video_timing.v rtl/color_bars.v ../../rtl/hdmi/tmds_encoder.v tb/tmds_decoder.sv tb/tb_hdmi_640x480.sv
 vvp tb/sim.vvp
 powershell -NoProfile -ExecutionPolicy Bypass -File .\tb\run_mutations.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\build_hdmi_640x480.ps1
@@ -55,7 +55,7 @@ The default Gowin build produced a `.fs` and reported **0 setup and 0 hold viola
 
 ## Changing video mode
 
-Set the ten H/V timing parameters on `hdmi_top`; the derived totals can keep their defaults. `video_timing` and `color_bars` use those parameters, including eight bars scaled by `H_ACTIVE/8`. The full-frame testbench is fixed to 640x480: update its H/V constants, coordinate widths, and `bar()` thresholds when verifying another mode. Choose a pixel/serial clock pair at 1:5, update the PLL settings in `rtl/hdmi_clk.v`, and update both generated-clock ratios in `constr/hdmi_640x480.sdc`. The project name and build artifacts still say 640x480. For 1920x1200 at 154 MHz, the serializer clock must be 770 MHz and each TMDS lane carries 1.54 Gb/s; the existing 25/125 and 25.2/126 MHz modes cannot provide this. Recheck PLL VCO/output limits, IO/OSER10 rate, and post-route timing for that mode. The saved 176.035 MHz pixel-clock Fmax is for the 640x480 implementation only.
+Set the ten H/V timing parameters on `hdmi_top`; the derived totals can keep their defaults. `video_timing` and `color_bars` use those parameters, including eight bars scaled by `H_ACTIVE/8`. The full-frame testbench is fixed to 640x480: update its H/V constants, coordinate widths, and `bar()` thresholds when verifying another mode. Choose a pixel/serial clock pair at 1:5, update the PLL settings in `../../rtl/hdmi/hdmi_clk.v`, and update both generated-clock ratios in `constr/hdmi_640x480.sdc`. The project name and build artifacts still say 640x480. For 1920x1200 at 154 MHz, the serializer clock must be 770 MHz and each TMDS lane carries 1.54 Gb/s; the existing 25/125 and 25.2/126 MHz modes cannot provide this. Recheck PLL VCO/output limits, IO/OSER10 rate, and post-route timing for that mode. The saved 176.035 MHz pixel-clock Fmax is for the 640x480 implementation only.
 
 ## On-board verification (2026-09-30)
 
@@ -111,4 +111,4 @@ led_hb drives the Console CFG_LED green channel (SYS_ACT, ball V13) - the same b
 This exists because the first on-board attempt produced a completely black screen, which cannot distinguish "not programmed", "programmed but PLL unlocked", and "PLL locked but TMDS or display problem".
 ### Control-token correction (2026-09-30)
 
-The TMDS control codes for `(c0,c1) = (1,0)` and `(0,1)` were **swapped** in `rtl/tmds_encoder.v`, and the same wrong table had been copied into the testbench `token()` reference and into `tb/tmds_decoder.sv`. Encode/decode round-trips therefore passed while the emitted control codes were wrong - which is why the board showed a live ~1 Hz heartbeat and a locked PLL but a completely black screen. All three tables are now corrected against `nand2mario/tangcore` `src/hdmi2/tmds_channel.sv` (hdl-util/HDMI), an implementation that runs on this exact board. Mutation `TOKEN_CTL10` now re-injects that exact historical bug. Electrical configuration was returned to the combination proven on-board by the official-IP control builds (TLVDS_OBUF + pair syntax -> LVDS25); the ELVDS_OBUF + pair-syntax attempt was measured black, matching a third-party report that ELVDS plus the pair syntax on TRUELVDS-capable pins configures true differential, which is invalid at 3.3 V.
+The TMDS control codes for `(c0,c1) = (1,0)` and `(0,1)` were **swapped** in `../../rtl/hdmi/tmds_encoder.v`, and the same wrong table had been copied into the testbench `token()` reference and into `tb/tmds_decoder.sv`. Encode/decode round-trips therefore passed while the emitted control codes were wrong - which is why the board showed a live ~1 Hz heartbeat and a locked PLL but a completely black screen. All three tables are now corrected against `nand2mario/tangcore` `src/hdmi2/tmds_channel.sv` (hdl-util/HDMI), an implementation that runs on this exact board. Mutation `TOKEN_CTL10` now re-injects that exact historical bug. Electrical configuration was returned to the combination proven on-board by the official-IP control builds (TLVDS_OBUF + pair syntax -> LVDS25); the ELVDS_OBUF + pair-syntax attempt was measured black, matching a third-party report that ELVDS plus the pair syntax on TRUELVDS-capable pins configures true differential, which is invalid at 3.3 V.

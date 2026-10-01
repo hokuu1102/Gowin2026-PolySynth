@@ -70,6 +70,6 @@
   ok  : CH3 captures rate and commits coherent controls
   ok  : disabled right ADC keeps unity and forces safe vibrato controls
 PASS: right analog control maps CH1 volume and snapshots CH2/CH3 coherently
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_right_analog_ctrl.sv:52: $finish called at 2020000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_right_analog_ctrl.sv:52: $finish called at 2020000 (1ps)
 
 

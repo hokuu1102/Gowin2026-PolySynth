@@ -1,0 +1,1 @@
+PASS: intentional timeout exit=1; unrelated sentinel PID 28228 survives; timeout unchanged

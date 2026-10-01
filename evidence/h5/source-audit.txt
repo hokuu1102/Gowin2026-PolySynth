@@ -1,0 +1,32 @@
+PASS shared video_timing: unchanged content (normalized Git line endings); sha256=1dbf1f2ff89842b63600866d4e52ac563b65770445333a214a6311f15db78e65
+PASS shared tmds_encoder: unchanged content (normalized Git line endings); sha256=da39de63a4979a8b517631aa339e0dc6a10ffd120fc64235d2ed6fb70fc3cb15
+PASS shared tmds_serializer: unchanged content (normalized Git line endings); sha256=1f319644965c4c721494547b41913a65a507ef02d88f68f91b7ce2bb7b2a0bdc
+PASS shared hdmi_clk: unchanged content (normalized Git line endings); sha256=257b07711f09604b77343c3bc205b66c5c9de5dbb2c87eb87035735077ffd8e2
+PASS every pre-existing RTL file except additive top.v is byte-identical to pre-change copy
+PASS top.v diff contains additions only; existing audio and heartbeat code untouched
+PASS original CST is exact prefix, including V13 led_heartbeat; new pins only appended
+Original provided baseline sha256=262293c6b8239d074c24d0668cb078ce2c0cdd4cc8c3258c86672726b1b9b0e3; size=51400; incomplete: no final summary
+
+diff --git a/rtl/top.v b/rtl/top.v
+index 48f31b0..2ff50b7 100644
+--- a/rtl/top.v
++++ b/rtl/top.v
+@@ -335,0 +336,3 @@ module top #(
++    // H5: passive master_mix waveform display.
++    output wire [2:0] tmds_d_p_0, tmds_d_n_0,
++    output wire tmds_clk_p_0, tmds_clk_n_0, hpd_en,
+@@ -1030,0 +1034,8 @@ wire       fault_any_w;
++    wire signed [23:0] scope_sample;
++    wire scope_valid;
++    hdmi_scope u_hdmi (.clk(clk), .rst_n(rst_n_sync),
++        .sample_i(scope_sample), .valid_i(scope_valid),
++        .tmds_d_p_0(tmds_d_p_0), .tmds_d_n_0(tmds_d_n_0),
++        .tmds_clk_p_0(tmds_clk_p_0), .tmds_clk_n_0(tmds_clk_n_0),
++        .hpd_en(hpd_en));
++
+@@ -1043,0 +1055,2 @@ wire       fault_any_w;
++        assign scope_sample = 24'sd0;
++        assign scope_valid = tick_audio;
+@@ -4072,0 +4086,2 @@ wire       fault_any_w;
++        assign scope_sample = mm_sample;
++        assign scope_valid = mm_valid;

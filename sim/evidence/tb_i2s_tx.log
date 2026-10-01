@@ -20,6 +20,6 @@
   ok : A8 鏃?X/Z 浼犳挱锛圚P_BCK/HP_WS/HP_DIN锛?
 
 PASS: i2s_tx + S2 瑙ｄ覆閫愮偣涓€鑷达紙M1 鐨勬牳蹇冨垽鎹€氳繃锛?
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_i2s_tx.sv:222: $finish called at 5325051000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_i2s_tx.sv:222: $finish called at 5325051000 (1ps)
 
 

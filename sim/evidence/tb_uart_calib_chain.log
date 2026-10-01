@@ -26,6 +26,6 @@ NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=200 STILL_EN=0 STILL_T
   ok  : after autotare goes idle, 'S' DOES start calibration (interlock recovers)
 
 PASS: a serial 'S' really starts calib_span, 'X' really cancels it, 'T' really re-runs autotare, in-frame letters are payload, commands never fake an event, and the busy interlock blocks (then releases) 'S'
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_uart_calib_chain.sv:420: $finish called at 210190000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_uart_calib_chain.sv:420: $finish called at 210190000 (1ps)
 
 

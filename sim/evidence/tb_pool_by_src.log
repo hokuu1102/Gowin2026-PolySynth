@@ -57,6 +57,6 @@
   ok  : d7: the src=3 voice also keeps phase_inc bit-exact
   ok  : d8: the src=3 voice sits in the reserved pool (>= 28)
 PASS: pool-by-source judgements (26.3 a/b/c/d) all held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_pool_by_src.sv:609: $finish called at 23780000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_pool_by_src.sv:609: $finish called at 23780000 (1ps)
 
 

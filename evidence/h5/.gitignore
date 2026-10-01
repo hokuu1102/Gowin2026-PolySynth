@@ -1,0 +1,6 @@
+baseline-src/
+staging/
+*.vvp
+mutations/*.vvp
+timeout-fixture/
+build-p*/

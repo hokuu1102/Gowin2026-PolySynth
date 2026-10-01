@@ -12,9 +12,10 @@ try {
             if (-not (Test-Path "$letter`:")) { $mappedDrive = "$letter`:"; break }
         }
         if (-not $mappedDrive) { throw 'No free drive letter for ASCII Gowin project path.' }
-        & subst $mappedDrive $projectDir
+        $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '../..')).Path
+        & subst $mappedDrive $repoRoot
         if ($LASTEXITCODE -ne 0) { throw 'subst failed.' }
-        $projectDir = "$mappedDrive\"
+        $projectDir = "$mappedDrive\bringup\hdmi_640x480"
     }
     $buildDir = Join-Path $projectDir 'build'
     New-Item -ItemType Directory -Force -Path $buildDir | Out-Null

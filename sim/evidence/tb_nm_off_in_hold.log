@@ -41,6 +41,6 @@
   ok  : B3: every phase around the sample tick clears the gate (no stuck note)
   ok  : B3 non-vacuity: all phase cases executed with a valid setup
 PASS: B3 note_off always clears the gate, even inside the retrigger hold window
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_off_in_hold.sv:305: $finish called at 1853940000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_nm_off_in_hold.sv:305: $finish called at 1853940000 (1ps)
 
 

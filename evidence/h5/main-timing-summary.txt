@@ -1,0 +1,38 @@
+Report Title | Timing Analysis Report
+Design File | C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\impl\gwsynthesis\Gowin2026.vg
+Physical Constraints File | C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\constr\top.cst
+Timing Constraint File | C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\constr\top.sdc
+Tool Version | V1.9.12.03 (64-bit)
+Part Number | GW5AT-LV60PG484AC1/I0
+Device | GW5AT-60
+Device Version | B
+Created Time | Thu Oct 1 19:00:10 2026
+Legal Announcement | Copyright (C)2014-2026 Gowin Semiconductor Corporation. All rights reserved.
+Setup Delay Model | Slow 0.93V 0C C1/I0
+Hold Delay Model | Fast 0.975V 85C C1/I0
+Numbers of Paths Analyzed | 49773
+Numbers of Endpoints Analyzed | 50658
+Numbers of Falling Endpoints | 26
+Numbers of Setup Violated Endpoints | 0
+Numbers of Hold Violated Endpoints | 0
+NO. | Clock Name | Type | Period | Frequency(MHz) | Rise | Fall | Source | Master | Objects
+1 | clk_sys | Base | 20.000 | 50.000 0.000 | 10.000 |  |  | clk
+2 | serial_clk | Generated | 8.000 | 125.000 0.000 | 4.000 | clk | clk_sys | u_hdmi/u_clk/u_pll/CLKOUT0
+3 | pixel_clk | Generated | 40.000 | 25.000 0.000 | 20.000 | clk | clk_sys | u_hdmi/u_clk/u_pll/CLKOUT1
+NO. | Clock Name | Constraint | Actual Fmax | Logic Level | Entity
+1 | clk_sys | 50.000(MHz) | 50.490(MHz) | 20 | TOP
+2 | pixel_clk | 25.000(MHz) | 118.906(MHz) | 10 | TOP
+Clock Name | Analysis Type | Endpoints TNS | Number of Endpoints
+clk_sys | Setup | 0.000 | 0
+clk_sys | Hold | 0.000 | 0
+serial_clk | Setup | 0.000 | 0
+serial_clk | Hold | 0.000 | 0
+pixel_clk | Setup | 0.000 | 0
+pixel_clk | Hold | 0.000 | 0
+PA1019 count in fresh full build log: 0
+PASS target part must be GW5AT-LV60PG484AC1/I0
+FAIL clk_sys: Fmax=50.490 MHz; frequency headroom over 50 MHz=0.980%; gate >=51.5 MHz AND >=3%
+PASS pixel_clk: Fmax=118.906 MHz; frequency headroom over 25 MHz=375.624%; gate >=51.5 MHz AND >=3%
+Archived bitstream: Gowin2026_H5_UNQUALIFIED.fs
+Bitstream SHA256: c807f1d875a3957aa62c9c00cac0ecb5d5d445cdb4898e98ecaddecff8cbee82
+E3 FAIL

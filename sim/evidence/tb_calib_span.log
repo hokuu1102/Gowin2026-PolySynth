@@ -37,6 +37,6 @@
   ok  : abort_i from DONE returns to idle
 
 PASS: calib_span gates on stability, rejects bad votes, aligns span with its channel, honours calib.err, and aborts cleanly from any state
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_span.sv:552: $finish called at 24402310000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_calib_span.sv:552: $finish called at 24402310000 (1ps)
 
 

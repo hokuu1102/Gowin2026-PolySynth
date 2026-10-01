@@ -13,6 +13,6 @@
   ok  : cal_ch advanced through all channels (implied by exact-once + alignment)
 
 PASS: calib_autotare waits for the hall supply, tares every channel exactly once, aligns each tare with its own sample, and latches done
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_autotare.sv:243: $finish called at 10810000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_calib_autotare.sv:243: $finish called at 10810000 (1ps)
 
 

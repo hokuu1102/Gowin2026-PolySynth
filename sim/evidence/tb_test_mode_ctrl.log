@@ -23,6 +23,6 @@
   ok  : reset wins even while enable is high
   ok  : no output X/Z after reset
 PASS: test_mode_ctrl 4/8/16/32 contract
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_test_mode_ctrl.sv:180: $finish called at 148000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_test_mode_ctrl.sv:180: $finish called at 148000 (1ps)
 
 

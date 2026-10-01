@@ -28,6 +28,6 @@ VCD info: dumpfile build/sim/tb_vel_pos_follow/tb_vel_pos_follow.vcd opened for 
   ok  : J5a: after note_off a vel_upd must NOT change vel (FROZEN)
   ok  : J5b: and env was not pushed back up (still 0)
 PASS: vel_pos_follow acceptance - volume follows position (up AND down), frozen on release
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:420: $finish called at 666360000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_vel_pos_follow.sv:420: $finish called at 666360000 (1ps)
 
 

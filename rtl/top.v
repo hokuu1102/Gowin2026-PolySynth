@@ -333,6 +333,9 @@ module top #(
     input  wire pluck_down_i,    // D21 · PMOD1_IO7 · TRIG_DN
 
     // ── 板级活体见证 ────────────────────────────────────────────────
+    // H5: passive master_mix waveform display.
+    output wire [2:0] tmds_d_p_0, tmds_d_n_0,
+    output wire tmds_clk_p_0, tmds_clk_n_0, hpd_en,
     output wire led_heartbeat,   // V13 · CFG_LED 绿路（SYS_ACT）
 
     // ── ⭐⭐ W3a 采集链 · 左手区 ADC（MCP3208 ×2）────────────────────────
@@ -1028,6 +1031,14 @@ wire       fault_any_w;
         end
     endfunction
 
+    wire signed [23:0] scope_sample;
+    wire scope_valid;
+    hdmi_scope u_hdmi (.clk(clk), .rst_n(rst_n_sync),
+        .sample_i(scope_sample), .valid_i(scope_valid),
+        .tmds_d_p_0(tmds_d_p_0), .tmds_d_n_0(tmds_d_n_0),
+        .tmds_clk_p_0(tmds_clk_p_0), .tmds_clk_n_0(tmds_clk_n_0),
+        .hpd_en(hpd_en));
+
     generate
     if (DEMO_CHORD_ON == 0) begin : g_silent
         // ⭐ `'P'` 诊断：⭐ 静音档没有 `af0_pol` ⇒ ⭐ 恒无回传
@@ -1041,6 +1052,8 @@ wire       fault_any_w;
         //    ⭐ 为什么**整条链都不例化**而不是"接了但喂 0"：
         //       ① 省资源；② ⭐ **静音就是结构上的静音**，⛔ 不给"某个内部节点
         //       意外产生数据"留任何可能（`tb_top_m0` 的 E 判据要 `HP_DIN` 恒 0）。
+        assign scope_sample = 24'sd0;
+        assign scope_valid = tick_audio;
         assign sample_mono = {SAMPLE_W{1'b0}};
         //   ⭐ 静音档：⭐ 没有 `calib_span` ⇒ ⭐ 回传恒"无请求"
         //      ⚠️ **必须显式驱动** —— 否则 `tx_req` 悬空成 `x`
@@ -4082,6 +4095,8 @@ wire       fault_any_w;
             else if (mm_valid) sample_r <= mm_sample;
         end
 
+        assign scope_sample = mm_sample;
+        assign scope_valid = mm_valid;
         assign sample_mono = sample_r;
 
         // ── ⭐ 开机自检音：复位后延时起一个 A4+C#5+E5 和弦 ────────────────

@@ -17,6 +17,6 @@
   鐩告挒璁℃暟 = 0 路 鍚堟祦璁℃暟 = 7 路 涓㈠純 = 0
 --------------------------------------------------
 PASS: seq_arb 澶氭簮鍚屾媿涓嶄涪銆佹紨绀鸿浣嶃€佹孩鍑哄彲瑙併€佸崟鍛ㄦ湡銆佹棤 X/Z
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_seq_arb.sv:390: $finish called at 9420000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_seq_arb.sv:390: $finish called at 9420000 (1ps)
 
 

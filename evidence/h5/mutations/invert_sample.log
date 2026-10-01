@@ -1,0 +1,5 @@
+PASS: startup baseline; unread RAM never leaks into RGB
+PASS: mode=0 full frame exact pixels; green=640 gray=0; live ring overwrite stable
+FAIL: pixel (0,163) RGB=000000 expected=00ff00 DE/HS/VS=111 expected=111
+FATAL: C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\hdmi\tb_waveform_scope.sv:76: renderer mismatch
+       Time: 27916061000  Scope: tb_waveform_scope.pixel

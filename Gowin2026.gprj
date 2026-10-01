@@ -182,5 +182,11 @@
         <File path="rtl/drivers/mcp3208_scanner.sv" type="file.verilog" enable="1"/>
         <File path="constr/top.cst" type="file.cst" enable="1"/>
         <File path="constr/top.sdc" type="file.sdc" enable="1"/>
+        <File path="rtl/hdmi/video_timing.v" type="file.verilog" enable="1"/>
+        <File path="rtl/hdmi/tmds_encoder.v" type="file.verilog" enable="1"/>
+        <File path="rtl/hdmi/tmds_serializer.v" type="file.verilog" enable="1"/>
+        <File path="rtl/hdmi/hdmi_clk.v" type="file.verilog" enable="1"/>
+        <File path="rtl/hdmi/waveform_scope.v" type="file.verilog" enable="1"/>
+        <File path="rtl/hdmi/hdmi_scope.v" type="file.verilog" enable="1"/>
     </FileList>
 </Project>

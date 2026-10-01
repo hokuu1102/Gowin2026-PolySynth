@@ -13,6 +13,6 @@
   ok  : C4 the REPLAYED voice uses the RECORDED timbre PAD(3), not the current key timbre BASS(0)
   ok  : C5 the replayed note_off carries the recorded END velocity (120), not the onset (20)
 PASS: looper replay keeps the SAME per-timbre release tail as the live note
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_replay_tail.sv:531: $finish called at 2851800000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_looper_replay_tail.sv:531: $finish called at 2851800000 (1ps)
 
 

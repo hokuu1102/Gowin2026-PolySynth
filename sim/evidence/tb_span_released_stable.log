@@ -52,6 +52,6 @@ ok  : 鏉炬墜闈欐 鈬?鏍囧畾銆愯兘閫氳繃銆戯紙span=6, reject=
       => 馃敶 涓婃澘琚嫆銆愪笉鏄€戣繖涓満鏅湰韬殑闂 鈬?鍙︽湁鍥犵礌
 ok  : 杞? 甯ч棿鍙樺寲 螖=0 < STABLE_TOL=48 鈬?绋冲畾鍒ゅ畾銆愬簲鑳介€氳繃銆?
 ==================================================
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_released_stable.sv:179: $finish called at 60004440000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_span_released_stable.sv:179: $finish called at 60004440000 (1ps)
 
 
