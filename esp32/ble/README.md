@@ -41,8 +41,8 @@ UUID **照抄 ESP-IDF 官方 `ble_spp_server` 示例**（⚠️ 在 esp-iot-solu
 | **`0xABF0`** | 服务 | — | — |
 | **`0xABF1`** | `RECV` | WRITE_NR | ⭐ **对端把事件帧写这里** |
 | **`0xABF2`** | `NOTI` | NOTIFY | ⭐ **我们 notify 回对端** |
-| **`0xABF3`** | `CMD` | WRITE_NR | 控制命令 |
-| **`0xABF4`** | `STAT` | NOTIFY | 状态上报 |
+| **`0xABF3`** | `CMD` | WRITE_NR | ⭐ **控制命令** —— 🔴🔴 **2026-09-30 更正**：⚠️ 原写"控制命令"却**无解析** ⇒ ⭐ **现已实现**：`0x01` = **清池** · `0x02` = **状态上报**（⚠️ **故意不做 start/stop**，⭐ 架构未定） |
+| **`0xABF4`** | `STAT` | NOTIFY | ⭐ **状态上报** —— 🔴🔴 **2026-09-30 更正**：⚠️ 原**读回空**（属性用 `ESP_GATT_AUTO_RSP` 且 `length=0`）⇒ ⭐ **已改 `ESP_GATT_RSP_BY_APP`**，⭐ 实测返回 `pool=0/18204 sent=0 ovf=0\|ring=0 u_drop=0/0` |
 
 > 🔴 **客户端必须写 `0xABF2` 的 CCCD = `0x0001`**，否则收不到任何通知。
 > ⚠️ 典型症状：**连上了、写数据也成功，但一路收不到东西**。
@@ -52,9 +52,14 @@ UUID **照抄 ESP-IDF 官方 `ble_spp_server` 示例**（⚠️ 在 esp-iot-solu
 ## 三、⭐ 接线
 
 ```
-PC/手机 ──BLE──> ESP32-S3 ──UART1 1Mbps──> FPGA
+PC/手机 ──BLE──> ESP32-S3 ──UART1 500kbps──> FPGA
                      UART2 ──> 串口屏（TJC T1 2.0"）
 ```
+
+> 🔴🔴 **2026-09-30 更正**：⚠️ 上图原写 **`1Mbps`** ⇒ 🔴 **已作废**。
+> ⭐ 现值 = **`500000`**（`esp32/ble/main/ble_config.h` `BLE_BAUD 500000`）；⭐ FPGA 侧 2026-09-24 降档。
+> ⭐ **另**：⭐ **反向通路（FPGA→ESP32→BLE→PC）已打通**（⭐ 2000 字节 round-trip 逐字节一致，
+> `esp32/evidence/反向通路验收-ESP32侧-20260930.md`）；⭐ 上行有 **`up_ring.c/.h`**（**160 KB PSRAM**，蓄水/放水）。
 
 | 项 | 值 |
 |---|---|

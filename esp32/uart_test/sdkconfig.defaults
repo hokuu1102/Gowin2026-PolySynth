@@ -1,0 +1,9 @@
+# ⭐ 目标芯片必须是 ESP32-S3（⚠️ 不写的话 IDF 默认 esp32 经典版）
+# 🔴 实测教训（2026-09-30）：本工程最初漏了这一行 ⇒ idf.py 默认按
+#    【经典 ESP32】编译 ⇒ 产物是 esp32 映像 ⇒ ⚠️ 烧到 S3 上必然不对。
+#    判据：build 日志里若出现 "Successfully created esp32 image" 或
+#          "Merged 2 ELF sections"（S3 是 3 段）⇒ 🔴 目标错了。
+CONFIG_IDF_TARGET="esp32s3"
+
+# ⭐ 本诊断固件【不需要】PSRAM / BLE —— 只验 UART1。
+#    ⚠️ 保持默认最小配置，避免配置项干扰"UART 本身"的验证。

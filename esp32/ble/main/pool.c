@@ -15,8 +15,11 @@
  * 🔴 溢出：为什么这是模式 B 的头号风险
  * ============================================================================
  *   FPGA 侧事件缓冲 = 8 KB = 1024 事件（U-19，⭐ 待拍板）
- *   1 Mbps 线速 = 11,111 事件/s   =>  全速灌，92 ms 就满
+ *   ⚠️ 以下按 **500 kbps**（⭐ 2026-09-30 起两侧统一档位）核算：
+ *      · 500 k 线速 = 50,000 B/s = 5,555 事件/s   =>  全速灌，164 ms 就满
+ *      · （⭐ 对照 1 Mbps：11,111 事件/s ⇒ 92 ms —— ⚠️ 已不用该档）
  *   而 FPGA 消费只有 ~69.5 事件/s（最密曲 @168 BPM）
+ *   ⇒ ⭐ 放水需求仅 626 B/s ⇒ 占用 500 k 链路的 **1.25%**（⭐ 余量 80 倍）
  *
  *   => 一旦本模块"放水"节奏算快了一点点，缓冲就积压 => 溢出 => 丢事件。
  *   => 而 §4.4 已拍板【不做反向通道】=> FPGA 满了我们【不知道】。
@@ -125,6 +128,11 @@ static int64_t   s_t0_us   = 0;
 static bool      s_running = false;
 
 static SemaphoreHandle_t s_lock = NULL;
+
+/* ⭐⭐ 放水收尾遥测（2026-09-30，⭐ 由临时诊断转正）
+ * 整曲放完时打【一行】，用于一眼核对放水节奏对不对。
+ * ⚠️ 一次性：用 s_feed_done_logged 去重，⛔ 不每轮打（pump 在优先级 9 的任务里）。 */
+static bool s_feed_done_logged = false;
 
 /* ⭐ 可观测计数（K-106：会出错的容量必须看得见） */
 static volatile uint32_t s_pool_overflow_frames = 0;   /* 池满丢掉的帧数 */
@@ -265,22 +273,47 @@ static void pool_free(void)
  * ⚠️ 中间量 `dus * tick_inc * F_CLK` 的位宽随 dus 增长：
  *      dus = 500 ms   -> 63 bit  ✅
  *      dus = 3 s      -> 65 bit  🔴 溢出
- *   ⇒ ⭐ 所以本函数【只用于增量】（调用方保证 dus 是"小差值"）。
- *      若要跨越长时间，请【分次】调用（pump 本身就是周期性的）。
+ *   ⇒ ⭐ 所以本函数**只用于增量**（调用方保证 dus 是"小差值"）。
+ *      若要跨越长时间，请**分次**调用（pump 本身就是周期性的）。
  *
- * 🔴 调用方约束：dus 必须 <= BLE_POOL_MAX_DELTA_US（见下）。
+ * 🔴🔴 2026-09-30 修复：**"夹紧"这个做法本身是错的 —— 它会静默把长时长截短**
+ * ---------------------------------------------------------------------------
+ * ⭐ 现象（实测）：起播后 `sent=` **永远是 0**，`pool_pump()` 一帧都不发。
+ *
+ * 🔴 根因：`pool_pump()` 传进来的是**绝对经过时间**
+ *    （`now_us - s_t0_us`，⭐ 起播后可能十几秒），
+ *    ⚠️ 而这里把它**夹到 500 ms** ⇒ `elapsed_ticks` **最大只有 960**
+ *    ⇒ 🔴 而放水要求 `elapsed_ticks > lead_end = s_t0_tick + 20000`
+ *    ⇒ ⚠️ **21000 vs 960 ⇒ 数学上永远达不到** ⇒ `allow_emit` 恒 false。
+ *
+ * ⭐⭐ 两个量纲本来就矛盾：
+ *    · `BLE_POOL_LEAD_TICKS = 20000` ticks ≈ **10.4 s**（音乐时间）
+ *    · `BLE_POOL_MAX_DELTA_US = 500 ms`（墙钟时间，⭐ 为防中间量溢出）
+ *    ⇒ 只要"提前量 > 500 ms 对应的 tick 数"，就**必然**触发本缺陷。
+ *
+ * ✅ 修法：**把"夹紧"改成"分段累加"** ——
+ *    ⭐ 大 dus 拆成若干个 ≤ 500 ms 的小段分别换算再相加。
+ *    ⇒ 既保住"中间量不溢出"的原意，⛔ 又不再截短结果。
+ *    ⭐ 这一步是**结构性**的：只要单段 ≤ 500 ms，位宽就恒在 63 bit 以内。
  */
-#define BLE_POOL_MAX_DELTA_US   500000ll      /* 500 ms，对应 63 bit 上限 */
+#define BLE_POOL_MAX_DELTA_US   500000ll      /* 500 ms，单段上限（对应 63 bit） */
 
 static inline uint64_t delta_us_to_ticks(int64_t dus, uint32_t tick_inc)
 {
     if (dus <= 0 || tick_inc == 0) {
         return 0;
     }
-    if (dus > BLE_POOL_MAX_DELTA_US) {
-        dus = BLE_POOL_MAX_DELTA_US;      /* ⚠️ 夹紧，防中间量溢出 */
+
+    /* ⭐ 分段累加：每段 ≤ BLE_POOL_MAX_DELTA_US ⇒ 中间量恒定安全 */
+    uint64_t ticks = 0;
+    while (dus > 0) {
+        uint64_t seg = ((uint64_t)dus > (uint64_t)BLE_POOL_MAX_DELTA_US)
+                     ? (uint64_t)BLE_POOL_MAX_DELTA_US
+                     : (uint64_t)dus;
+        ticks += (seg * (uint64_t)tick_inc * F_CLK_HZ) / US_NUM_DEN;
+        dus -= (int64_t)seg;
     }
-    return ((uint64_t)dus * (uint64_t)tick_inc * F_CLK_HZ) / US_NUM_DEN;
+    return ticks;
 }
 
 /* ===========================================================================
@@ -328,6 +361,9 @@ void pool_reset(void)
     ESP_LOGI(TAG, "pool reset. cap=%u B = %u frames (%s)",
              (unsigned)s_pool_cap_bytes, (unsigned)s_pool_cap_frames,
              s_pool_in_psram ? "PSRAM" : "internal DRAM");
+
+    /* ⭐ 允许下一曲再打一次收尾遥测（见 pool_pump 末尾的 "feed done"） */
+    s_feed_done_logged = false;
 }
 
 /*
@@ -415,9 +451,35 @@ void pool_start(void)
     xSemaphoreGive(s_lock);
     ESP_LOGW(TAG, "pool START from tick=%lu at t0_us=%lld",
              (unsigned long)s_t0_tick, (long long)s_t0_us);
+
+    /* ⭐ 允许本曲再打一次收尾遥测（见 pool_pump 末尾的 "feed done"） */
+    s_feed_done_logged = false;
 }
 
 bool pool_is_running(void) { return s_running; }
+
+/* ⭐ 停止放水（2026-09-30 新增）
+ * ⚠️ 语义说清：⛔ 不"暂停/续播" —— `pool_start()` 会把 `s_play_idx` 重置到 0
+ *    ⇒ ⭐ **stop 之后再 start = 【从头重播】**。
+ * ⚠️ 保留池内容（⛔ 不清空）⇒ 若只是想停，之后仍可重播同一首。 */
+void pool_stop(void)
+{
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    s_running = false;
+    xSemaphoreGive(s_lock);
+    ESP_LOGW(TAG, "pool STOP at frame %u/%u",
+             (unsigned)s_play_idx, (unsigned)s_frames);
+}
+
+/* ⭐ 已放出的帧数（2026-09-30 新增）—— 给"起播触发"打日志用。 */
+uint32_t pool_frames_sent(void)
+{
+    uint32_t v;
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    v = s_sent_frames;
+    xSemaphoreGive(s_lock);
+    return v;
+}
 
 size_t pool_frames(void)
 {
@@ -506,27 +568,51 @@ void pool_pump(void)
         allow_emit = false;                 /* ⭐ 还在提前量之内，本轮一帧都不发 */
     }
 
-    /* ⭐⭐ tick 限流（🔴 新增，这是本轮的核心修改）
+    /* ⭐⭐ tick 限流（🔴 2026-09-23 新增；⚠️ 2026-09-30 修【首轮顺序缺陷】）
      * ---------------------------------------------------------------------
      * 🔴 为什么必须限：`vTaskDelay(2ms)` 只是"至少 2 ms"——
      *    被调度器延迟后 `elapsed` 会变大 ⇒ `due_tick` 一步跳很远
      *    ⇒ ⚠️ 一轮内连发一大批 ⇒ 可能把 FPGA 缓冲灌满。
      * ⭐ 做法：单轮最多把"允许发到的 tick"从上一轮的位置往前推 N 个 tick。
      *    ⚠️ 落后的部分【不补】（本轮追不上就留着下轮），
-     *       代价是 `late_ticks_max` 变大、可能 underrun —— ⭐ 那是可见的、可接受的。 */
+     *       代价是 `late_ticks_max` 变大、可能 underrun —— ⭐ 那是可见的、可接受的。
+     *
+     * 🔴🔴 2026-09-30 修复：**哨兵分支必须【先于】钳位**（原顺序反了）
+     * -------------------------------------------------------------------
+     * ⭐ 实测症状：放水**偏快** —— pace = **0.782**（比音乐时间快 22%），
+     *    且 `clamp=168`。⚠️ 两次独立测量一致（0.7823 / 0.7822）⇒ 真实偏差。
+     *
+     * 🔴 根因（原代码把哨兵判断放在钳位【之后】）：
+     *    首轮 `s_due_tick_last = -1`（哨兵"未开始"）
+     *      cap = -1 + 31 = 30
+     *      due_tick（真值 ~2004）> 30  ⇒ 🔴 **被截断成 30**
+     *      然后 `if (s_due_tick_last < 0) s_due_tick_last = due_tick` ⇒ 记下 **30**
+     *    ⇒ 🔴 **把"被打残的 30"固化成了合法起点** ⇒ 永久欠下 ~1974 tick
+     *    ⇒ 此后 pump 只能以天花板速率（31 tick/轮）**追赶** ⇒
+     *      ⚠️ 而墙钟每轮只涨 19.2 tick ⇒ 追了 **~1.67 s**（⭐ 几乎整个采集窗口）
+     *    ⇒ 所以实测速率 = **2454 tick/s**（介于音乐 1920 与天花板 3100 之间）
+     *
+     * ⭐⭐ **量纲错误**：钳位的语义是"**单轮【推进】**不超过 N"，
+     *    而首轮**没有"上一轮"** ⇒ 不存在需要限制的"推进量"。
+     *    原代码把 **绝对值** 当 **增量** 限制 ⇒ 🔴 与 `delta_us_to_ticks`
+     *    那个"夹紧 vs 分段累加"的缺陷**同族**（⭐ 见本文件上方 §夹紧）。
+     *
+     * ✅ 修法：**先判哨兵、再做钳位** —— 首轮直接采纳真值（⛔ 不施加钳位）。
+     *    ⭐ 判据：改完 `clamp` 应从 **168 → 0**，`pace` 应 → **1.0**。
+     */
     if (allow_emit) {
-        int64_t cap = s_due_tick_last + (int64_t)BLE_POOL_MAX_TICK_ADVANCE;
-        if (due_tick > cap) {
-            due_tick = cap;                 /* ⭐ 截断：本轮只推进这么多 */
-            s_tick_clamped_cnt++;           /* ⚠️ 可观测：被截断过多少次 */
-        }
-        if (due_tick > s_due_tick_last) {
-            s_due_tick_last = due_tick;     /* ⭐ 记住本轮推进到的位置 */
-        }
-        /* ⚠️ 首次调用时 s_due_tick_last 是 -1（哨兵）⇒ 直接采用当前 due_tick，
-         *    但同样受"单轮不超过 N"约束，避免第一轮就把提前量一次走完。 */
+        /* ⭐ 首轮：哨兵 ⇒ 直接采纳真值，⛔ 不钳位（此刻不存在"推进量"） */
         if (s_due_tick_last < 0) {
             s_due_tick_last = due_tick;
+        } else {
+            int64_t cap = s_due_tick_last + (int64_t)BLE_POOL_MAX_TICK_ADVANCE;
+            if (due_tick > cap) {
+                due_tick = cap;                 /* ⭐ 截断：本轮只推进这么多 */
+                s_tick_clamped_cnt++;           /* ⚠️ 可观测：被截断过多少次 */
+            }
+            if (due_tick > s_due_tick_last) {
+                s_due_tick_last = due_tick;     /* ⭐ 记住本轮推进到的位置 */
+            }
         }
     }
 
@@ -611,6 +697,31 @@ emit:
             }
         }
     }
+
+    /* ⭐ 放水收尾遥测（一次性，⛔ 不每轮打）
+     * -----------------------------------------------------------------
+     * 判据只看"游标追上了池内帧数" —— 即**这一曲放完了**。
+     * ⛔ 不用 elapsed 之类的量做判据（那是被观测的对象，会自证）。
+     *
+     * ⭐ `rate` = 实测 tick 速率 = elapsed_ticks * 1e6 / elapsed_us。
+     *    ⭐ 这是最有价值的一个数：120 BPM / PPQN 960 下应读 **~1920 tick/s**。
+     *       ≈1920 ⇒ 放水节奏正确；明显 >1920 ⇒ 放快了（🔴 FPGA 缓冲会积压）；
+     *       明显 <1920 ⇒ 放慢了（⚠️ 会 evt_underrun）。 */
+    if (!s_feed_done_logged && s_frames > 0 && (s_play_idx >= s_frames)) {
+        s_feed_done_logged = true;
+
+        int64_t  done_us  = esp_timer_get_time();
+        int64_t  elapsed  = done_us - s_t0_us;
+        uint64_t eticks   = delta_us_to_ticks(elapsed, s_tick_inc);
+        uint32_t rate     = (elapsed > 0)
+                          ? (uint32_t)(eticks * 1000000ull / (uint64_t)elapsed)
+                          : 0u;
+
+        ESP_LOGI(TAG, "feed done: sent=%lu/%lu rate=%lu tick/s (expect ~1920) "
+                      "elapsed=%lld ms",
+                 (unsigned long)s_sent_frames, (unsigned long)s_frames,
+                 (unsigned long)rate, (long long)(elapsed / 1000));
+    }
 }
 
 /* 供 pool_start 用：窥一帧（不加锁，调用方已持锁） */
@@ -636,9 +747,12 @@ void task_pool_pump(void *arg)
     for (;;) {
         if (s_running) {
             pool_pump();
-            vTaskDelay(pdMS_TO_TICKS(BLE_POOL_PUMP_PERIOD_MS));
+            /* 🔴 必须【至少 1 tick】—— ⚠️ `BLE_POOL_PUMP_PERIOD_MS = 2`
+             * ⇒ `pdMS_TO_TICKS(2)` 在 100 Hz 下 = 0 ⇒ 忙循环 ⇒ 饿死 IDLE0。
+             * ⭐ 与 `task_drain` 同因，详见 ble_config.h §9b。 */
+            vTaskDelay(BLE_DELAY_TICKS_AT_LEAST_1(BLE_POOL_PUMP_PERIOD_MS));
         } else {
-            vTaskDelay(pdMS_TO_TICKS(10));
+            vTaskDelay(BLE_DELAY_TICKS_AT_LEAST_1(10));
         }
     }
 }

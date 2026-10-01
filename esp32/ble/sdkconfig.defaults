@@ -26,6 +26,20 @@
 # ---- 目标芯片（⭐ ESP32-S3，⛔ 不是初代 ESP32）------------------------------
 CONFIG_IDF_TARGET="esp32s3"
 
+# ---- ⭐ 2026-09-30：flash 容量 2MB → 16MB（⭐ 实机核实）---------------------
+# 🔴 为什么改：**实机 flash 是 16 MB，而映像头原来只写 2 MB**
+#    ⭐ 实测依据（`python -m esptool --port COM29 flash_id`）：
+#         Chip is ESP32-S3 (QFN56) (revision v0.2)
+#         Manufacturer: 46   Device: 4018
+#         🔴 **Detected flash size: 16MB**
+#    ⚠️ 不改的后果：**当前不阻塞**（app 仅 0.79 MB），
+#       🔴 但将来放**曲谱 / 字库**时会**白浪费 14 MB**。
+# ⚠️ 注意：本项只影响【映像头声明的容量】与【esptool 烧录参数】，
+#    ⛔ **不改分区表**（⭐ 仍是 `partitions_singleapp.csv`）。
+#    ⭐ 判据：构建日志里的 `--flash_size` 应从 **2MB** 变成 **16MB**。
+CONFIG_ESPTOOLPY_FLASHSIZE_16MB=y
+CONFIG_ESPTOOLPY_FLASHSIZE="16MB"
+
 # ---- ⭐ 蓝牙总开关（🔴 不开的话下面全是废话）--------------------------------
 CONFIG_BT_ENABLED=y
 CONFIG_BT_BLUEDROID_ENABLED=y
@@ -45,14 +59,65 @@ CONFIG_BT_BLE_ENABLED=y
 #       **报"undefined reference"时，先查该符号是不是被某个 CONFIG 挡住。**
 CONFIG_BT_BLE_42_FEATURES_SUPPORTED=y
 
+# ---- 🔴🔴 BLE 5.0 必须【关掉】—— 实测证明是广播故障的必要条件 --------------
+# ⭐ 2026-09-24 上机实测（ESP32-S3-DevKitC-1 / ESP-IDF v5.5）
+#
+#   症状：E BT_BTM: btm_ble_write_adv_enable_complete failed
+#         E blebridge: adv start failed: 0xD
+#         ⇒ 手机扫不到 "FPGA2026-Synth"。
+#
+#   ⭐⭐ 对照实验（决定性证据）—— 同一块板、同一份代码，只改这一项：
+#       BLE_50=n ⇒ I BLE_INIT: Feature Config, ADV:1, BLE_50:0
+#                  I blebridge: advertising as "FPGA2026-Synth"   ✅ 成功
+#       BLE_50=y ⇒ I BLE_INIT: Feature Config, ADV:1, BLE_50:1
+#                  E blebridge: adv start failed: 0xD              🔴 失败
+#     ⇒ ⭐ 【这一项是必需的】，⛔ 不是可有可无。
+#
+#   ⭐ 旁证：IDF 官方例子 ble_ibeacon 的 sdkconfig 也是
+#       "# CONFIG_BT_BLE_50_FEATURES_SUPPORTED is not set"（BLE_50:0），
+#       而它能广播成功。
+#
+#   ⚠️⚠️ 重要教训（我在这一项上【反复误判过两次】）：
+#     曾经"关掉它 → 仍失败" ⇒ 我据此判定"与故障无关"并回退。
+#     🔴 但那个结论【是错的】—— 因为当时【另一个 bug 尚未修复】：
+#        GAP 回调只 case 了 ADV_DATA_SET_COMPLETE_EVT(=0)，
+#        而 raw API 回调的是 ADV_DATA_RAW_SET_COMPLETE_EVT(=4)
+#        ⇒ start_advertising() 压根没被调用 ⇒ 这一项的开关【根本没机会生效】。
+#     ⇒ ⭐⭐ **"改了没效果" ≠ "这个改动无关"** ——
+#        必须先确认"改动所影响的代码路径【真的执行到了】"，
+#        否则会把【必要修复】误判为【无关】，来回反复。
+#
+#   ⚠️ 本工程用传统广播（BLE 4.2 API），不需要 BLE 5.0 扩展广播。
+#      关掉它既修复故障，也省 47 KB flash。
+CONFIG_BT_BLE_50_FEATURES_SUPPORTED=n
+
 # ⚠️ 不需要写"控制器模式 = BLE_ONLY"：S3 硬件上只有 BLE，
 #    其 Kconfig（复用 C3）里【没有】BTDM_CTRL_MODE 这个 choice。
 #    ⛔ 硬写会得到 unknown kconfig symbol 警告（无害但会误导后人）。
 
 # ---- ⭐ BLE 连接数与活动 ------------------------------------------------
 # ⚠️ S3 的正确符号名是 BT_CTRL_BLE_MAX_ACT（⛔ 不是 BTDM_CTRL_BLE_MAX_CONN）
-CONFIG_BT_ACL_CONNECTIONS=1
-CONFIG_BT_CTRL_BLE_MAX_ACT=1
+#
+# 🔴🔴 2026-09-24 上机实测：【MAX_ACT = 1 会导致广播失败】
+#   症状：E BT_BTM: btm_ble_write_adv_enable_complete failed
+#         E blebridge: adv start failed: 0xD
+#
+#   ⭐ 判定证据（⭐ 这是最干净的一次对照）：
+#     同一份【完全相同的代码】（git diff 为空），只改这一项配置：
+#       MAX_ACT=6 / ACL=4  ⇒ I advertising as "FPGA2026-Synth"   ✅ 成功
+#       MAX_ACT=1 / ACL=1  ⇒ E adv start failed: 0xD             🔴 失败
+#     ⇒ ⭐ MAX_ACT 是【必要条件】，⛔ 不能沿用"单连接就该设 1"的直觉。
+#
+#   ⭐ 含义：MAX_ACT = 控制器可同时进行的 BLE【活动】数上限。
+#      ⚠️ 广播本身就是一种 activity，且"配置广播参数 + 使能广播"
+#        可能占多个 activity ⇒ 设成 1 太紧。
+#      ⚠️ 与日志里 "update params for an active adv" 的现象吻合。
+#
+#   ⚠️⚠️ 我在这两项上【反复误判过三次】（详见 sdkconfig 上方 BLE 5.0 段）：
+#      根因是"改了没效果 ≠ 改动无关" —— 别的 bug 掩盖了它。
+#      ⭐ 这次用"同代码 + 只改配置"的对照，才拿到确凿结论。
+CONFIG_BT_ACL_CONNECTIONS=4
+CONFIG_BT_CTRL_BLE_MAX_ACT=6
 
 # ---- ⭐ MTU ---------------------------------------------------------------
 # ⚠️ ESP-IDF 里【没有】CONFIG_BT_GATT_MAX_MTU_SIZE 这个符号（我一开始写错了）。
@@ -69,6 +134,12 @@ CONFIG_BT_GATT_MAX_SR_ATTRIBUTES=100
 # ---- 日志 --------------------------------------------------------------
 CONFIG_LOG_DEFAULT_LEVEL_INFO=y
 CONFIG_ESP_CONSOLE_UART_BAUDRATE=921600
+
+# ⚠️ 2026-09-24：曾把 BT_LOG_*_TRACE_LEVEL 开到 VERBOSE 查广播故障，
+#    定位完已移除（VERBOSE 日志很吵，会淹没业务日志）。
+#    ⭐ 注意：esp_log_level_set() 运行时【改不动】蓝牙栈日志 ——
+#       低级别日志已被编译期 TRACE_LEVEL 裁掉，必须改 sdkconfig
+#       并【全量重编译】（删 sdkconfig 后重建）。
 
 # ---- 主任务栈 -----------------------------------------------------------
 CONFIG_ESP_MAIN_TASK_STACK_SIZE=4096

@@ -404,8 +404,8 @@ def main(argv=None):
                     help="只校验判据逻辑，不用硬件")
     ap.add_argument("--tx-port", help="发送端串口（蓝牙配对后的 COMx）")
     ap.add_argument("--rx-port", help="接收端串口（USB-TTL 的 COMx）")
-    ap.add_argument("--baud", type=int, default=1000000,
-                    help="波特率（默认 1000000）")
+    ap.add_argument("--baud", type=int, default=500000,
+                    help="波特率（默认 500000，⭐ 与 FPGA 侧同档）")
     ap.add_argument("--pattern", default="counter",
                     choices=["counter", "all-a5", "random"],
                     help="测试载荷类型")

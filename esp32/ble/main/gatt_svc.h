@@ -24,6 +24,25 @@ int gatt_idx_noti(void);
 int gatt_idx_cmd(void);
 int gatt_idx_stat(void);
 
+/* ⭐⭐ 2026-09-30 新增：0xABF2 的 **CCCD（通知使能）** 句柄索引。
+ * 🔴 为什么需要它：⭐ 客户端**必须写 CCCD=0x0001** 才收得到 notify。
+ *    ⚠️ 实测踩过的坑：固件原来把"**已连接**"当成"可以发了" ⇒
+ *      🔴 **连接一建立就把环里的数据全推出去**，⚠️ 而那一刻客户端
+ *      **还没订阅** ⇒ 数据**全丢**（⭐ 且 `fail=0`，看不出来）。
+ *    ⭐ 正解：**用 CCCD 的写入作为"对端就绪"的判据**（⛔ 不是连接）。 */
+int gatt_idx_noti_cccd(void);
+int gatt_idx_stat_cccd(void);
+
+/* ⭐⭐ 2026-09-30（B 子集）：把内容放进 0xABF4(STAT) 供客户端读取。
+ * ⚠️ STAT 是【只读 + 自动响应】⇒ 固件**不能 notify**，只能**更新内容**，
+ *    ⭐ 由客户端主动读。 */
+void gatt_set_stat(const uint8_t *data, size_t n);
+
+/* ⭐⭐ 2026-09-30：取 STAT 的内容指针 + 实际长度。
+ * 🔴 STAT 是 `ESP_GATT_RSP_BY_APP` ⇒ ⭐ 读的时候要**自己填长度**，
+ *    ⚠️ 所以 `ble_main.c` 的 READ_EVT 必须调这个函数。 */
+size_t gatt_get_stat(const uint8_t **out);
+
 /* 打印属性表布局（⭐ 上板第一眼要看的） */
 void gatt_log_layout(int svc, int recv, int noti, int cmd, int stat);
 

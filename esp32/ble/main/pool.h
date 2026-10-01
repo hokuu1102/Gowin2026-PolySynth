@@ -50,13 +50,23 @@ void   pool_mark_done(void);
 /* 开始放水（谱面时间 0 对齐到当下）。 */
 void   pool_start(void);
 
-/* 放水推进（由 task_pool_pump 周期调用；也可手动调）。 */
-void   pool_pump(void);
+/* ⭐ 停止放水（2026-09-30 新增）—— 保留池内容与进度，可再 `pool_start()`？ */
+/*    ⚠️ 注意：`pool_start()` 会把游标重置到 0（从头播），
+ *      所以 stop 后再 start = 【从头重播】，⛔ 不是续播。 */
+void   pool_stop(void);
 
 /* 状态查询 */
 bool   pool_is_running(void);
 size_t pool_frames(void);
+/* ⭐ 已放出的帧数（2026-09-30 新增）—— 给"起播触发"打日志用。 */
+uint32_t pool_frames_sent(void);
 void   pool_stats(pool_stats_t *out);
+
+/* ⭐ 起播触发任务（2026-09-30 新增；⭐ 定义在 `ble_main.c`，见 ble_config.h §9c） */
+void   task_start_trigger(void *arg);
+
+/* 放水推进（由 task_pool_pump 周期调用；也可手动调）。 */
+void   pool_pump(void);
 
 /* 窥探一帧的事件字（大端 8 字节 -> 64 bit）。 */
 uint64_t pool_peek_word(size_t idx);
