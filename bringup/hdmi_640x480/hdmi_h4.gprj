@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<Project>
+    <Template>FPGA</Template>
+    <Version>5</Version>
+    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC1/I0">gw5at60b-002</Device>
+    <FileList>
+        <File path="rtl/video_timing.v" type="file.verilog" enable="1"/>
+        <File path="rtl/color_bars.v" type="file.verilog" enable="1"/>
+        <File path="rtl/tmds_encoder.v" type="file.verilog" enable="1"/>
+        <File path="rtl/tmds_serializer.v" type="file.verilog" enable="1"/>
+        <File path="rtl/hdmi_clk_h4.v" type="file.verilog" enable="1"/>
+        <File path="rtl/hdmi_h4.v" type="file.verilog" enable="1"/>
+        <File path="constr/hdmi_640x480.cst" type="file.cst" enable="1"/>
+        <File path="constr/hdmi_h4.sdc" type="file.sdc" enable="1"/>
+    </FileList>
+</Project>
