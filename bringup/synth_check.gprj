@@ -12,11 +12,16 @@
 
   NOTE: synthesis only (no .cst needed, no bitstream, no board).
   NOTE: keep this file ASCII-only for the Chinese-free paths we need here.
+
+  DEVICE (2026-10-01): the element TEXT is what selects the device, NOT pn=.
+    gw5at60b-002 = GW5AT-LV60PG484AC1/I0  (Console board, C1/I0)
+    gw5at60b-003 = GW5AT-LV60PG484AC2/I1  (jishi / DK_START board, C2/I1)
+  Editing pn= alone changes NOTHING and fails silently.  See K-170.
 -->
 <Project>
     <Template>FPGA</Template>
     <Version>5</Version>
-    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC2/I1">gw5at60b-003</Device>
+    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC1/I0">gw5at60b-002</Device>
     <FileList>
         <File path="../ip/wavetable_sine_rom_ip/wavetable_sine_rom_ip.v" type="file.verilog" enable="1"/>
         <File path="../rtl/clk_gen.v" type="file.verilog" enable="1"/>

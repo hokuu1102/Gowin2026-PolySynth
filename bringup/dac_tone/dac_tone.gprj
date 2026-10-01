@@ -19,13 +19,17 @@
   so building one can never disturb the other.
 
   DEVICE: same part as the main project (confirmed from the board).
+  The element TEXT is what selects the device, NOT pn=:
+      gw5at60b-002 = GW5AT-LV60PG484AC1/I0  (Console board, C1/I0)
+      gw5at60b-003 = GW5AT-LV60PG484AC2/I1  (jishi / DK_START board, C2/I1)
+  Editing pn= alone changes NOTHING and fails silently.  See K-170.
   KEEP THIS COMMENT ASCII-ONLY: the Gowin project parser rejects non-ASCII here,
   and an XML comment must not contain a double hyphen.
 -->
 <Project>
     <Template>FPGA</Template>
     <Version>5</Version>
-    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC1/I0">gw5at60b-003</Device>
+    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC1/I0">gw5at60b-002</Device>
     <FileList>
         <!-- 🔴 **2026-09-26 实测**：⭐ Gowin 把 `.gprj` 里的路径按
              **【工程文件自己所在的目录】**解析，⛔ 不是按仓库根、⛔ 也不是按 CWD。

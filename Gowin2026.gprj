@@ -25,6 +25,28 @@
     TIMING NOTE: C1 is the SLOWER grade, so any Fmax measured while this file
     still said C2 was OPTIMISTIC.  Re-read Fmax from a fresh report.
 
+    2026-10-01 - WHY THE DEVICE WAS STILL C2 DESPITE pn= SAYING C1:
+    the pn= ATTRIBUTE does NOT select the device.  Gowin reads the element
+    TEXT (the device id).  That text still said "gw5at60b-003"
+    = GW5AT-LV60PG484AC2/I1, so every PnR kept building for the jishi
+    (DK_START) speed grade even though pn= had said AC1/I0 since 2026-09-24.
+    PROOF: impl/pnr/Gowin2026.rpt.txt reported
+        <Part Number>: GW5AT-LV60PG484AC2/I1
+    and impl/gwsynthesis/Gowin2026.prj (generated) reported
+        <Device id="GW5AT-60B" package="PBGA484A" speed="2"
+                partNumber="GW5AT-LV60PG484AC2/I1"/>
+    while pn= already read AC1/I0.
+    FIX: the element TEXT is now "gw5at60b-002" = GW5AT-LV60PG484AC1/I0.
+    Id -> part number source of truth (Gowin install):
+      IDE/data/device/device_info.csv
+        gw5at60b-002,GW5AT-LV60PG484AC1/I0,...,C1/I0,1,297,...
+        gw5at60b-003,GW5AT-LV60PG484AC2/I1,...,C2/I1,2,297,...
+    WHENEVER YOU CHANGE THE DEVICE: change the TEXT, then verify the new
+    <Part Number> in impl/pnr/Gowin2026.rpt.txt.  Editing pn= alone changes
+    NOTHING and fails SILENTLY - every report still looks perfectly normal.
+    (The same id is also recorded in ip/wavetable_sine_rom_ip/*.ipc as
+    target_device; keep the two in step.)
+
     KEEP THIS COMMENT ASCII-ONLY: the Gowin project parser is picky and rejects
     non-ASCII bytes here.
 
@@ -35,7 +57,7 @@
 <Project>
     <Template>FPGA</Template>
     <Version>5</Version>
-    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC1/I0">gw5at60b-003</Device>
+    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC1/I0">gw5at60b-002</Device>
     <FileList>
         <File path="ip/wavetable_sine_rom_ip/wavetable_sine_rom_ip.v" type="file.verilog" enable="1"/>
         <File path="rtl/clk_gen.v" type="file.verilog" enable="1"/>

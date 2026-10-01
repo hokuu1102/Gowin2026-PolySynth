@@ -1,6 +1,6 @@
 ﻿iverilog.exe : C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited 
 from another file.
-所在位置 C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:123 字符: 18
+At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:123 char:18
 +   $compileOut  = & $iverilog @compileArgs 2>&1
 +                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (C:\Users\hokuu\...m another file.:String) [], RemoteException
@@ -20,5 +20,9 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160: warning: I
 angling input port 16 (vel_upd_src_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiating module note_manager with d
 angling input port 17 (pitch_upd_src_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiating module note_manager with d
+angling input port 23 (base_semi_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiating module note_manager with d
+angling input port 24 (base_commit_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:189: warning: Instantiating module envelope_bank with 
 dangling input port 7 (timbre_i) floating.

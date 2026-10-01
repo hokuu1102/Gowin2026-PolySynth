@@ -1,10 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE gowin-fpga-project>
 <!-- W1-2 dedicated Tang Mega 60K Dock pROM -> DDS -> I2S proof project. -->
+<!-- DEVICE (2026-10-01): the element TEXT selects the device, NOT pn=.
+     gw5at60b-002 = GW5AT-LV60PG484AC1/I0 (Console, C1/I0).
+     Editing pn= alone fails silently.  See K-170. -->
 <Project>
     <Template>FPGA</Template>
     <Version>5</Version>
-    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC2/I1">gw5at60b-003</Device>
+    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC1/I0">gw5at60b-002</Device>
     <FileList>
         <File path="../../ip/wavetable_sine_rom_ip/wavetable_sine_rom_ip.v" type="file.verilog" enable="1"/>
         <File path="../../rtl/clk_gen.v" type="file.verilog" enable="1"/>

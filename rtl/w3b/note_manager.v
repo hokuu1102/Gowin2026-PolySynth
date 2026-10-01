@@ -147,6 +147,14 @@ module note_manager #(
     input  wire [POLY_TARGET-1:0]            env_active_i,
     input  wire [POLY_TARGET*ENV_W-1:0]      env_level_i,
 
+    // ── ⭐⭐ 2026-10-01：⭐ **T2 起始音（base note）** ────────────────────────
+    //   📌 **背景**：⭐ `uart_ui.base_semi_o` / `base_commit_o` **早就存在、`top.v` 也接了线**，
+    //      🔴 但**全 `rtl/` 里没有任何地方读它** ⇒ ⭐ 一根**悬空线** ⚠️ ⇒ ⭐ **T2 = 把它接上** ✅
+    //   ⭐ **语义**（⭐ `uart_ui.v:252` 原文）：⭐ "起始音：限定八度级（每 12 半音取整）"
+    //      ⇒ ⭐ **`base_semi` = 八度数 × 12**（⭐ `0` = C4 · `12` = C5 · `24` = C6 ✅）
+    input  wire [6:0]                        base_semi_i,        // ⭐ 起始音（⭐ 八度×12）
+    input  wire                              base_commit_i,      // ⭐ 提交（⭐ 单周期脉冲）
+
     // ── 输出 → `oscillator_bank` / `envelope_bank` ─────────────────────────
     output wire [POLY_TARGET-1:0]            voice_gate_o,       // → envelope_bank.gate_i
     output wire [POLY_TARGET-1:0]            voice_active_o,     // → oscillator_bank.voice_active_i
@@ -350,6 +358,26 @@ module note_manager #(
     //  ⭐⭐ 2026-09-30：⭐ **位宽 2 → 3**（⭐ 编码表见 `note_src_i`）
     reg [2:0]              src_r    [0:POLY_TARGET-1];
     reg [PHASE_W-1:0]      phase_r  [0:POLY_TARGET-1];
+
+    // ⭐⭐ 2026-10-01：⭐ **T2 起始音 —— 八度锁存**（⭐ 见端口处 `base_semi_i` 的说明）
+    //   ⚠️ **安全重做（⭐ 按 `交接文档-20260930-补遗.md:54`）**：
+    //      ① ⭐ **显式 `case` 常量** —— ⛔ 不做运行期 `/12`（⭐ 那会引一个除法器 ⚠️）
+    //         📌 与 `axis_map`"查表不做运行期指数"是**同一条纪律** ✅
+    //      ③ ⭐ **先校验再提交** —— ⭐ 只认 `0/12/24`，⭐ 其余**一律回 `0`**（⭐ ⛔ 不写非法值 ✅）
+    //   📌 **范围收窄 0..2**（⭐ C4 / C5 / C6 三档）—— ⭐ §54 明确要求 ✅
+    //   ⚠️ **自带复位**（⭐ 独立 `always`）⇒ ⛔ 不必改动主复位块 ✅
+    reg [1:0] base_oct_r;
+    always @(posedge clk_i) begin
+        if (!rst_n_i) base_oct_r <= 2'd0;
+        else if (base_commit_i) begin
+            case (base_semi_i)
+                7'd0 :   base_oct_r <= 2'd0;   // ⭐ C4（⭐ 默认）
+                7'd12:   base_oct_r <= 2'd1;   // ⭐ C5
+                7'd24:   base_oct_r <= 2'd2;   // ⭐ C6
+                default: base_oct_r <= 2'd0;   // 🔴 非法值 ⇒ ⭐ 回到 0
+            endcase
+        end
+    end
     reg [VEL_W-1:0]        vel_r    [0:POLY_TARGET-1];
     //  ⭐⭐ 2026-09-28：**力度更新的挂起寄存器**（⭐ 修"又响又尖"，⭐ 见 `K-154`）
     //   ⚠️ **必须在【模块级】** —— 🔴 Verilog-2001 要求"声明先于语句"，
@@ -1228,7 +1256,15 @@ module note_manager #(
     generate
         for (g = 0; g < POLY_TARGET; g = g + 1) begin : gen_pack
             assign voice_axis_o[g*AXIS_W +: AXIS_W]        = axis_r[g];
-            assign voice_phase_inc_o[g*PHASE_W +: PHASE_W] = phase_r[g];
+            //  ⭐⭐ 2026-10-01：⭐ **T2 起始音 —— 显式旁路 mux**（⭐ §54 ②）
+            //     ⭐ `base_oct_r == 0` ⇒ ⭐ **逐位恒等【由构造保证】**（⛔ 不走移位器 ✅）
+            //  ⚠️ **为什么移位放在【输出】而⛔ 不是【输入】**：⭐ `phase_r` 有**三条写入路径**
+            //     （⭐ 起音 · ⭐ 提交 · ⭐ **滑音 `pitch_upd`**）
+            //     ⇒ ⭐ 放输入只覆盖前两条 ⇒ 🔴 **滑音会绕过移位**（⭐ 不一致 ⚠️）
+            //     ⇒ ⭐ 放输出 ⇒ ⭐ **三条路径全覆盖** ✅（⭐ 符合 `0.12`"枚举同类路径" ✅）
+            assign voice_phase_inc_o[g*PHASE_W +: PHASE_W] =
+                   (base_oct_r == 2'd0) ? phase_r[g]
+                                        : (phase_r[g] << base_oct_r);
             assign voice_velocity_o[g*VEL_W +: VEL_W]      = vel_r[g];
             assign voice_timbre_o[g*TIMBRE_W +: TIMBRE_W]  = timbre_r[g];
             //  ⭐⭐ 2026-09-29 新增：⭐ **保留轴位 ⇒ 打击乐 voice ⇒ 走噪声表** ✅

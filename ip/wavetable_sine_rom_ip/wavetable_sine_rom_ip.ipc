@@ -2,7 +2,7 @@
 ipc_version=4
 file=wavetable_sine_rom_ip
 module=wavetable_sine_rom_ip
-target_device=gw5at60b-003
+target_device=gw5at60b-002
 type=rom
 version=1.0
 

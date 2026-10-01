@@ -4,13 +4,13 @@
 == STA tool run summary (setup/hold violations) ==
 STA Tool Run Summary:
 Setup Delay Model |
-Slow 0.93V 0C C2/I1 |
+Slow 0.93V 0C C1/I0 |
 Hold Delay Model |
-Fast 0.975V 85C C2/I1 |
+Fast 0.975V 85C C1/I0 |
 Numbers of Paths Analyzed |
-48762 |
+48843 |
 Numbers of Endpoints Analyzed |
-49988 |
+50048 |
 Numbers of Falling Endpoints |
 0 |
 Numbers of Setup Violated Endpoints |
@@ -54,6 +54,6 @@ Entity |
 1 |
 clk_sys |
 50.000(MHz) |
-63.787(MHz) |
-17 |
+50.137(MHz) |
+18 |
 TOP |

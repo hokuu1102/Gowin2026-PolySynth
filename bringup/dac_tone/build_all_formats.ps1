@@ -61,7 +61,7 @@ foreach ($fmt in 0, 1, 2) {
 <Project>
     <Template>FPGA</Template>
     <Version>5</Version>
-    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC1/I0">gw5at60b-003</Device>
+    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC1/I0">gw5at60b-002</Device>
     <FileList>
         <File path="dac_tone_top.v" type="file.verilog" enable="1"/>
         <File path="dac_tone.cst" type="file.cst" enable="1"/>
