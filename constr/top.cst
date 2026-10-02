@@ -427,3 +427,16 @@ IO_PORT "tmds_clk_p_0" PULL_MODE=NONE DRIVE=3.5 BANK_VCCIO=3.3;
 IO_LOC  "hpd_en" K13;
 IO_PORT "hpd_en" PULL_MODE=UP DRIVE=12 BANK_VCCIO=3.3;
 
+
+// ---------------------------------------------------------------------------
+// H5 (2026-10-02): targeted LOOSE region for the calibration return-path cone.
+// Why: with H5 merged, the worst setup path is
+//   g_sound.u_calib_span/reject_o -> u_tx_fifo/mem_*[1]/D
+// with 20.303 ns of ROUTING (92% of the 22.08 ns path) and 0.000 ns clock skew;
+// the net crosses the chip repeatedly (R58C3 -> R52C146 -> R50C38 -> R50C146 -> R57C22).
+// GROUP + GRP_LOC per Gowin SUG1018 2.4.1 (both statements are required).
+// Deliberately NOT exclusive: the design is already ~91% CLS-occupied, so a
+// loose (non-exclusive) region is used first.
+// ---------------------------------------------------------------------------
+GROUP h5_ret = { "tx_byte_*" "u_tx_fifo/*" "g_sound.u_calib_span/reject_o_*" };
+GRP_LOC h5_ret R[45:73]C[1:148];
