@@ -25,6 +25,9 @@
 
 module tb_seq_arb;
 
+    wire depth9_done;
+    seq_arb_depth9_case a1_depth9 (.done(depth9_done));
+
     localparam integer AXIS_W  = 4;
     localparam integer PHASE_W = 32;
     localparam integer VEL_W   = 8;
@@ -382,6 +385,9 @@ module tb_seq_arb;
                  coll_cnt, merged_cnt, drop_cnt);
         $display("--------------------------------------------------");
 
+        // A1 addition: wait for the independent non-default DEPTH case.
+        wait (depth9_done);
+
         if (errors == 0)
             $display("PASS: seq_arb 多源同拍不丢、演示让位、溢出可见、单周期、无 X/Z");
         else
@@ -396,4 +402,133 @@ module tb_seq_arb;
         $finish;
     end
 
+endmodule
+
+// A1: one non-default DEPTH case; original acceptance assertions stay intact.
+module seq_arb_depth9_case(output reg done = 1'b0);
+    localparam integer D = 9;
+    reg clk = 0, rst_n = 0;
+    always #10 clk = ~clk;
+    reg lv = 0, sv = 0, dv = 0;
+    reg [1:0] dk = 0;
+    reg [31:0] tag = 0;
+    wire valid, tv, overflow;
+    wire [3:0] ax;
+    wire [31:0] inc;
+    wire [7:0] vel;
+    wire [1:0] kind, timbre;
+    wire [2:0] src;
+    wire [15:0] collision, merged, dropped, live_count, score_count, demo_count;
+    seq_arb #(.DEPTH(D)) dut (
+        .clk_i(clk), .rst_n_i(rst_n),
+        .live_valid_i(lv), .live_axis_i(4'd1), .live_phase_inc_i(tag),
+        .live_velocity_i(8'd101), .live_kind_i(2'd0), .live_timbre_valid_i(1'b1), .live_timbre_i(2'd1),
+        .score_valid_i(sv), .score_axis_i(4'd2), .score_phase_inc_i(tag + 32'd1),
+        .score_velocity_i(8'd202), .score_kind_i(2'd2), .score_timbre_valid_i(1'b0), .score_timbre_i(2'd2),
+        .demo_valid_i(dv), .demo_axis_i(4'd3), .demo_phase_inc_i(tag + 32'd2),
+        .demo_velocity_i(8'd33), .demo_kind_i(dk), .demo_timbre_valid_i(1'b1), .demo_timbre_i(2'd3),
+        .evt_valid_o(valid), .evt_axis_o(ax), .evt_phase_inc_o(inc), .evt_velocity_o(vel),
+        .evt_kind_o(kind), .evt_timbre_valid_o(tv), .evt_timbre_o(timbre), .evt_src_o(src),
+        .collision_cnt_o(collision), .merged_cnt_o(merged), .drop_cnt_o(dropped), .overflow_o(overflow),
+        .live_cnt_o(live_count), .score_cnt_o(score_count), .demo_cnt_o(demo_count)
+    );
+    // Software queue shifts entries on pop; no RTL pointer/carry implementation.
+    reg [51:0] queue [0:D-1];
+    reg [51:0] last_event = 0;
+    reg priority_score = 0, sticky = 0;
+    integer count = 0, head = 0, tail = 0;
+    integer rc = 0, rm = 0, rd = 0, rl = 0, rs = 0, rdm = 0;
+    integer full_hits = 0, reject_hits = 0, triple_hits = 0, wraps = 0, checks = 0;
+    integer i, k, n;
+    reg demo_allowed, expected_valid;
+    task append_event(input integer source);
+        begin
+            case (source)
+                0: queue[count] = {3'd0, 4'd1, tag, 8'd101, 2'd0, 1'b1, 2'd1};
+                1: queue[count] = {3'd1, 4'd2, tag + 32'd1, 8'd202, 2'd2, 1'b0, 2'd2};
+                2: queue[count] = {3'd2, 4'd3, tag + 32'd2, 8'd33, dk, 1'b1, 2'd3};
+            endcase
+            count = count + 1;
+        end
+    endtask
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            count = 0; head = 0; tail = 0; priority_score = 0; sticky = 0;
+            rc = 0; rm = 0; rd = 0; rl = 0; rs = 0; rdm = 0;
+            last_event = 0; expected_valid = 0;
+        end else begin
+            if (count == D) full_hits = full_hits + 1;
+            expected_valid = (count != 0);
+            if (expected_valid) begin
+                last_event = queue[0];
+                for (k = 0; k < count-1; k = k + 1) queue[k] = queue[k+1];
+                count = count - 1;
+                head = (head + 1) % D;
+                rm = rm + 1;
+                case (last_event[51:49])
+                    0: rl = rl + 1;
+                    1: rs = rs + 1;
+                    2: rdm = rdm + 1;
+                endcase
+            end
+            demo_allowed = dv && (!(lv || sv) || dk == 2'd1);
+            n = (lv ? 1 : 0) + (sv ? 1 : 0) + (demo_allowed ? 1 : 0);
+            if (n == 3) triple_hits = triple_hits + 1;
+            if (n > 1) rc = rc + 1;
+            if (count + n > D) begin
+                rd = rd + n; sticky = 1; reject_hits = reject_hits + 1;
+            end else begin
+                if (lv && sv) begin
+                    append_event(priority_score ? 1 : 0);
+                    append_event(priority_score ? 0 : 1);
+                end else if (lv) append_event(0);
+                else if (sv) append_event(1);
+                if (demo_allowed) append_event(2);
+                if (tail + n >= D) wraps = wraps + 1;
+                tail = (tail + n) % D;
+            end
+            // Baseline rotates even when the batch overflows.
+            if (lv && sv) priority_score = !priority_score;
+        end
+        #1;
+        checks = checks + 1;
+        if ({valid, src, ax, inc, vel, kind, tv, timbre} !== {expected_valid, last_event})
+            $fatal(1, "FAIL: DEPTH9 output/data/valid mismatch check=%0d", checks);
+        if (collision !== rc || merged !== rm || dropped !== rd ||
+            live_count !== rl || score_count !== rs || demo_count !== rdm || overflow !== sticky)
+            $fatal(1, "FAIL: DEPTH9 diagnostic mismatch check=%0d", checks);
+        if (dut.cnt_q !== count || dut.head_q !== head || dut.tail_q !== tail || dut.prio_score_r !== priority_score)
+            $fatal(1, "FAIL: DEPTH9 state/wrap mismatch check=%0d", checks);
+    end
+    initial begin
+        #2;
+        // Red on old RTL is the width contract, not a claimed functional bug.
+        if ($bits(dut.cnt_q) != $clog2(D+1) || $bits(dut.head_q) != $clog2(D) ||
+            $bits(dut.tail_q) != $clog2(D) || $bits(dut.cnt_next) != $clog2(D+3) ||
+            $bits(dut.tail_1) != $clog2(D) || $bits(dut.push_n) != 2)
+            $fatal(1, "FAIL: A1 DEPTH9 width contract: cnt=%0d head=%0d sum=%0d (old RTL must be red)",
+                   $bits(dut.cnt_q), $bits(dut.head_q), $bits(dut.cnt_next));
+        repeat (3) @(negedge clk);
+        rst_n = 1;
+        for (i = 0; i < 640; i = i + 1) begin
+            @(negedge clk);
+            tag = i * 4;
+            // First burst reaches full with three sources, then exercises all
+            // source masks/kinds, drain, and a reset while the queue is busy.
+            if (i < 24) begin lv = 1; sv = 1; dv = 1; dk = 1; end
+            else begin
+                lv = i[0]; sv = i[1]; dv = i[2]; dk = i[4:3];
+            end
+            if (i == 319) rst_n = 0;
+            if (i == 321) rst_n = 1;
+        end
+        @(negedge clk); lv = 0; sv = 0; dv = 0;
+        repeat (D+3) @(negedge clk);
+        if (full_hits == 0 || reject_hits == 0 || triple_hits == 0 || wraps < 2 || count != 0)
+            $fatal(1, "FAIL: DEPTH9 empty coverage: full=%0d reject=%0d triple=%0d wraps=%0d",
+                   full_hits, reject_hits, triple_hits, wraps);
+        $display("PASS: A1 DEPTH9 width and behavioral queue checks=%0d full=%0d reject=%0d triple=%0d wraps=%0d",
+                 checks, full_hits, reject_hits, triple_hits, wraps);
+        done = 1;
+    end
 endmodule

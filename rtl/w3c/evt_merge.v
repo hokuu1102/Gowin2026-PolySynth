@@ -175,8 +175,16 @@ module evt_merge #(
     //      ⇒ 现象：`collision_cnt_o` **正常计数**（那条路径不碰 DEPTH），
     //        但 **数据推不进队列、`cnt_q` 不动** ⇒ ⚠️ 看起来像"事件根本没进来"。
     //      ⭐ 教训：**这条规则不是形式主义** —— 它会让一整块逻辑静默失效。
-    localparam [15:0] DEPTH_C  = DEPTH;
-    localparam [15:0] DEPTH_M1 = DEPTH_C - 16'd1;
+    //  --- 2026-10-02 减宽（阶段 1，与 seq_arb 同一手法）---
+    //  占用 0..DEPTH ⇒ CNT_W；指针 0..DEPTH-1 ⇒ PTR_W；中间和最大 DEPTH+2 ⇒ SUM_W
+    //  槽位偏移 off_a/off_b/off_c 最大 2 ⇒ OFF_W = 2
+    //  DEPTH=6（交付）⇒ 3 / 3 / 4 / 2
+    localparam integer CNT_W = (DEPTH < 2) ? 1 : $clog2(DEPTH + 1);
+    localparam integer PTR_W = (DEPTH < 2) ? 1 : $clog2(DEPTH);
+    localparam integer SUM_W = $clog2(DEPTH + 3);
+    localparam integer OFF_W = 2;
+    localparam [SUM_W-1:0] DEPTH_C  = DEPTH;
+    localparam [CNT_W-1:0] CNT_ONE  = {{(CNT_W-1){1'b0}}, 1'b1};
 
     function [ENT2_W-1:0] pack_evt;
         input [SRC_W-1:0]   src;
@@ -195,15 +203,15 @@ module evt_merge #(
     //   ⚠️ 用**环形缓冲**（⛔ 不是移位寄存器）：推入/弹出各只动一个指针，
     //      ⛔ 不搬数据 ⇒ 面积小、时序好（⚠️ 本项目 Fmax 余量薄）。
     reg [ENT2_W-1:0] mem [0:DEPTH-1];
-    reg [15:0]      cnt_q;
-    reg [15:0]      head_q;      // ⭐ 弹出位置
-    reg [15:0]      tail_q;      // ⭐ 推入位置
+    reg [CNT_W-1:0] cnt_q;
+    reg [PTR_W-1:0] head_q;      // ⭐ 弹出位置
+    reg [PTR_W-1:0] tail_q;      // ⭐ 推入位置
 
     // ⭐ 轮转标志：0 ⇒ A 先；1 ⇒ B 先
     reg prio_b_r;
 
     // ── ⭐ 组合：本拍能不能弹 ───────────────────────────────────────────────
-    wire          pop_now = (cnt_q != 16'd0);        // ⭐ 空队列不弹（⛔ 不吐垃圾）
+    wire          pop_now = (cnt_q != {CNT_W{1'b0}});        // ⭐ 空队列不弹（⛔ 不吐垃圾）
     wire [ENT2_W-1:0] pop_data = mem[head_q];
 
     // ── ⭐ 组合：本拍推几条（⭐ 冲突时按 prio_b_r 定【谁先】）────────────────
@@ -227,10 +235,10 @@ module evt_merge #(
     //       （⚠️ `collision_cnt_o` 还照常计数，因为那条路径不经过 `push_n`）
     //       ⇒ 看起来像"相撞被吞了"，⛔ 其实是**位宽截断**。
     //    📌 **教训**：⛔ 别依赖隐式位宽 —— ⭐ `wire` 不写宽度就是 1 位。
-    //  ⭐⭐ 2026-09-30：⭐ 加到**三路**（A/B/C）—— ⚠️ 位宽纪律**照旧**（⭐ 仍是 16 位）✅
-    wire [15:0] push_n = (push_a ? 16'd1 : 16'd0)
-                       + (push_b ? 16'd1 : 16'd0)
-                       + (push_c ? 16'd1 : 16'd0);
+    //  ⭐⭐ 2026-09-30：⭐ 加到**三路**（A/B/C）—— ⚠️ 位宽纪律**照旧**（⭐ 2026-10-02：**收到 2 位**，最大 3）✅
+    wire [1:0] push_n = (push_a ? 2'd1 : 2'd0)
+                      + (push_b ? 2'd1 : 2'd0)
+                      + (push_c ? 2'd1 : 2'd0);
 
     //  ── ⭐⭐ 三个源各自写进哪个槽（⭐ 2026-09-30 新增的"紧凑写入"手法）──────────
     //   ⭐ **语义与改动前【逐位等价】**（⭐ 只推 A/B 时）：
@@ -242,28 +250,37 @@ module evt_merge #(
     //         （⚠️ `evt_merge` 第一版正是"漏了组合"才丢事件 ✅）
     //      ⇒ ⭐ 改成"**先算槽位、再各写一条**" ⇒ ⭐ 3 条写语句覆盖**全部 8 种组合**，
     //         ⭐ 且**结构上不可能漏**（⭐ 每个源一条独立的 `if`）✅
-    wire [15:0] off_a = push_b ? (push_a_first ? 16'd0 : 16'd1) : 16'd0;
-    wire [15:0] off_b = push_a ? (push_a_first ? 16'd1 : 16'd0) : 16'd0;
-    wire [15:0] off_c = (push_a ? 16'd1 : 16'd0) + (push_b ? 16'd1 : 16'd0);
+    wire [OFF_W-1:0] off_a = push_b ? (push_a_first ? 2'd0 : 2'd1) : 2'd0;
+    wire [OFF_W-1:0] off_b = push_a ? (push_a_first ? 2'd1 : 2'd0) : 2'd0;
+    wire [OFF_W-1:0] off_c = (push_a ? 2'd1 : 2'd0) + (push_b ? 2'd1 : 2'd0);
 
     //  ⭐ 槽位回绕（⭐ 与 `seq_arb.tail_plus` 同一手法：⛔ 不用取模，⭐ 逐个减）
     //   ⚠️ `n` 最大 **2**（⭐ C 的偏移最大 = A+B 都在 = 2）、⭐ `DEPTH ≥ 3`
     //      ⇒ ⭐ **最多减两次**就够（⭐ 下面写了两次，⭐ 与 `seq_arb` 的写法一致）✅
-    function [15:0] tail_off;
-        input [15:0] t;
-        input [15:0] n;
-        reg   [15:0] r;
+    function [PTR_W-1:0] tail_off;
+        input [PTR_W-1:0] t;
+        input [OFF_W-1:0] n;
+        reg   [SUM_W-1:0] r;
         begin
-            r = t + n;
+            r = {{(SUM_W-PTR_W){1'b0}}, t} + {{(SUM_W-OFF_W){1'b0}}, n};
             if (r >= DEPTH_C) r = r - DEPTH_C;
             if (r >= DEPTH_C) r = r - DEPTH_C;
-            tail_off = r;
+            tail_off = r[PTR_W-1:0];
         end
     endfunction
 
     // ⭐ 本拍净变化（⚠️ 弹出优先 ⇒ 先腾位再推，能多接一条）
-    wire [15:0] cnt_after_pop  = pop_now ? (cnt_q - 16'd1) : cnt_q;
-    wire [15:0] cnt_next       = cnt_after_pop + push_n;
+    wire [CNT_W-1:0] cnt_after_pop = pop_now ? (cnt_q - CNT_ONE) : cnt_q;
+    wire [SUM_W-1:0] cnt_next      = {{(SUM_W-CNT_W){1'b0}}, cnt_after_pop}
+                                   + {{(SUM_W-2){1'b0}}, push_n};
+    //  ⭐⭐ 2026-10-02：⭐ 指针推进也【先在 SUM_W 里算】（否则 DEPTH-1 + 1 会截断）
+    wire [SUM_W-1:0] head_next  = {{(SUM_W-PTR_W){1'b0}}, head_q}
+                                + {{(SUM_W-1){1'b0}}, 1'b1};
+    wire [SUM_W-1:0] tail_sum   = {{(SUM_W-PTR_W){1'b0}}, tail_q}
+                                + {{(SUM_W-2){1'b0}}, push_n};
+    wire [SUM_W-1:0] tail_wrap  = tail_sum - DEPTH_C;
+    wire [PTR_W-1:0] tail_next  = (tail_sum >= DEPTH_C) ? tail_wrap[PTR_W-1:0]
+                                                        : tail_sum[PTR_W-1:0];
     wire        will_overflow  = (cnt_next > DEPTH_C);
 
     // ── 输出：本拍弹出来那条（⭐ 单周期脉冲，⛔ 不拉宽）──────────────────────
@@ -277,9 +294,9 @@ module evt_merge #(
             evt_timbre_valid_o <= 1'b0;
             evt_timbre_o    <= {TIMBRE_W{1'b0}};
             evt_src_o       <= {SRC_W{1'b0}};   // ⭐ A1：来源标记也复位（⛔ 不留 X）
-            cnt_q           <= 16'd0;
-            head_q          <= 16'd0;
-            tail_q          <= 16'd0;
+            cnt_q           <= {CNT_W{1'b0}};
+            head_q          <= {PTR_W{1'b0}};
+            tail_q          <= {PTR_W{1'b0}};
             prio_b_r        <= 1'b0;
             collision_cnt_o <= 16'd0;
             merged_cnt_o    <= 16'd0;
@@ -300,8 +317,8 @@ module evt_merge #(
                 evt_timbre_o    <= pop_data[0 +: TIMBRE_W];
                 // ⭐ A1：⭐ 来源标记与**本拍弹出的这条**同时输出（⭐ 时序 = `evt_valid_o`）
                 evt_src_o       <= pop_data[ENT_W +: SRC_W];
-                head_q          <= (head_q + 16'd1 == DEPTH_C) ? 16'd0
-                                                                   : head_q + 16'd1;
+                head_q          <= (head_next == DEPTH_C) ? {PTR_W{1'b0}}
+                                                          : head_next[PTR_W-1:0];
                 merged_cnt_o    <= (merged_cnt_o == 16'hFFFF) ? merged_cnt_o
                                                              : merged_cnt_o + 16'd1;
             end
@@ -315,7 +332,7 @@ module evt_merge #(
             //   📌 **时序影响**：⭐ 槽位地址多了一级 3 输入加法（⭐ `off_c`），
             //      ⚠️ 但它是**纯组合的浅逻辑**（⭐ 3 位宽，⭐ 而 `mem` 只有 4 深）
             //      ⇒ ⭐ 实测由 PnR 报（⭐ 本任务**不跑 PnR**，⭐ 见报告）✅
-            if (push_n != 16'd0) begin
+            if (push_n != 2'd0) begin
                 if (!will_overflow) begin
                     // ⭐ 源 A（⭐ 手弹 / 曲谱 / 演示，⭐ 由 `seq_arb` 打标）
                     if (push_a)
@@ -339,9 +356,8 @@ module evt_merge #(
                     // ⭐ 推进 tail（按实际推入条数）
                     //   ⚠️ `push_n` 最大 **3**、⭐ `DEPTH ≥ 3` ⇒ ⭐ 最多减一次就够
                     //      （⭐ `tail_q + 3 ≤ DEPTH + 2 < 2*DEPTH` ✅）
-                    tail_q <= (tail_q + push_n >= DEPTH_C)
-                              ? (tail_q + push_n - DEPTH_C) : (tail_q + push_n);
-                    cnt_q  <= cnt_next;
+                    tail_q <= tail_next;
+                    cnt_q  <= cnt_next[CNT_W-1:0];
                 end else begin
                     // 🔴 **溢出**：⭐ 丢弃并**记数 + 置 sticky 标志**（⛔ 不静默）
                     overflow_o <= 1'b1;

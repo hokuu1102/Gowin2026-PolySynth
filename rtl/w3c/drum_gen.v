@@ -45,6 +45,7 @@
 //
 // ── ⚠️ `AXIS_ID` 为什么要与节拍器分开 ────────────────────────────────────────
 //   🔴 `AXIS_W = 4` ⇒ ⭐ 轴号只有 0~15 ⇒ ⭐ **≥ `RESERVED_AXIS_BASE`(=14) 只有 14/15**
+//      （⭐ 进不进保留池由**来源**决定，⛔ 不按轴号 —— 见 `note_manager.v` 的 `assign pool_mask[pg]`）
 //   ⭐ 节拍器占 **14**、⭐ 鼓机占 **15** ⇒ ⭐ **分开用，将来"同时用"不用返工**
 //      （⚠️ 改 `AXIS_W` 会动**冻结的 64 bit 事件格式** ⇒ ⛔ 绝不改）
 //   ⚠️ **4 个乐器【共用】** `AXIS_ID` ⇒ ⭐ 靠 `PHASE_INC`（音高）区分音色。
@@ -87,7 +88,7 @@ module drum_gen #(
     //      ⇒ 🔴 那就是 `K-106` 家族：⭐ **"设了没反应"的静默失效** ✅
     //      ⇒ ⭐ 提到形参表 ⇒ ⭐ 覆盖**一定生效**（⭐ 且由 `tb_met_start_top` 的判据守着 ✅）
     //   ⭐ **默认值【保持原样】**（⭐ 230/200/140/190）⇒ ⭐ 直连 `drum_gen` 的 tb **不受影响** ✅
-    //   📌 音量 ∝ 力度（⭐ `perc_env_bank.v:84-86`：`峰值 = velocity << 8`）⇒ ⭐ 线性 ✅
+    //   📌 音量 ∝ 力度（⭐ `perc_env_bank.v` 的 `SHIFT = ENV_W - VEL_W`：`峰值 = velocity << 8`）⇒ ⭐ 线性 ✅
     parameter [7:0]   VEL_KICK    = 8'd230,   // ⭐ 底鼓（⭐ 已接近上限，⚠️ 不建议再抬）
     parameter [7:0]   VEL_SNARE   = 8'd200,   // ⭐ 军鼓
     parameter [7:0]   VEL_HIHAT   = 8'd140,   // ⭐ 踩镲（⭐ 原偏轻）
@@ -141,11 +142,11 @@ module drum_gen #(
     //      ⇒ ⭐ `inc = f × 89478.4853`（⭐ 反算：⭐ `5_368_709 ⇒ 70.0 Hz` ✅）
     //
     //   ⭐⭐ 2026-10-01：⭐ **四件乐器的音高【拉开】**（⭐ 用户上板："4 个鼓听不太出来区分度"）
-    //   🔴 **根因**（⭐ 已核实到 `oscillator_bank.v:699-701`）：
+    //   🔴 **根因**（⭐ 已核实到 `oscillator_bank.v` 的 `rom_dout` 三选一）：
     //      ⭐ 凡被判成"鼓"的 voice，⭐ 波形**一律取噪声表 `rom_noise`**
     //      ⇒ ⭐ **音色与 4 件乐器无关** ⚠️ ⇒ ⭐ 4 件的区别**只剩【噪声播放速率】＋【扫频】** ✅
     //      ⇒ 🔴 而原来 **军鼓 192 Hz 与嗵鼓 144 Hz 只差 4.2 个半音** ⇒ ⭐ **几乎分不出来** ✅
-    //   ⚠️⚠️ **分档边界【必须守住】**（⭐ `oscillator_bank.v:379-381` 用 `base_inc` 就地分档）：
+    //   ⚠️⚠️ **分档边界【必须守住】**（⭐ `oscillator_bank.v` 用 `base_inc` 就地分档）：
     //      · `< 10_000_000`（**111.8 Hz**）⇒ ⭐ **底鼓**（⭐ 带**全深度**扫频 `>>0`）
     //      · `10_000_000 ~ 15_000_000`（**111.8~167.6 Hz**）⇒ ⭐ **嗵鼓**（⭐ 带 1/4 扫频 `>>2`）
     //      · `≥ 15_000_000` ⇒ ⭐ **军鼓 / 踩镲**（⭐ 无扫频）
@@ -467,8 +468,11 @@ module drum_gen #(
             $display("WARNING [drum_gen] RESERVED_N=%0d < 1 => note_manager has no reserved voice; drum events would be stolen by ordinary notes.", RESERVED_N);
         if (STEPS != 16)
             $display("WARNING [drum_gen] STEPS=%0d != 16 => the built-in patterns are 16-step; a different STEPS silently truncates them.", STEPS);
+        // ⚠️ 此告警基于**已过时的轴号判据**；⭐ 池实际按**来源** `SRC_AUX` 选
+        //    （⭐ 见 `note_manager.v` 的 `assign pool_mask[pg]`）⇒ ⭐ 鼓机源恒为 `SRC_AUX`
+        //    ⇒ ⚠️ 无论 `AXIS_ID` 多少，鼓事件都进**保留池**（⛔ 不会被普通音偷走）。
         if (AXIS_ID < 14)
-            $display("WARNING [drum_gen] AXIS_ID=%0d < RESERVED_AXIS_BASE(14) => drum events land in the ORDINARY pool and can steal the player's voices.", AXIS_ID);
+            $display("WARNING [drum_gen] AXIS_ID=%0d < RESERVED_AXIS_BASE(14): 此告警基于已过时的轴号判据；池实际按来源 SRC_AUX 选，见 note_manager 的 pool_mask assign.", AXIS_ID);
         if (TICKS_PER_STEP < 1)
             $display("WARNING [drum_gen] TICKS_PER_STEP=%0d invalid => every tick advances a step.", TICKS_PER_STEP);
     end

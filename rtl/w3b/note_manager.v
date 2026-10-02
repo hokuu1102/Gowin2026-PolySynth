@@ -150,7 +150,7 @@ module note_manager #(
     // ── ⭐⭐ 2026-10-01：⭐ **T2 起始音（base note）** ────────────────────────
     //   📌 **背景**：⭐ `uart_ui.base_semi_o` / `base_commit_o` **早就存在、`top.v` 也接了线**，
     //      🔴 但**全 `rtl/` 里没有任何地方读它** ⇒ ⭐ 一根**悬空线** ⚠️ ⇒ ⭐ **T2 = 把它接上** ✅
-    //   ⭐ **语义**（⭐ `uart_ui.v:252` 原文）：⭐ "起始音：限定八度级（每 12 半音取整）"
+    //   ⭐ **语义**（⭐ `uart_ui.v` 的 `RET_NUM` 分支原文）：⭐ "起始音：限定八度级（每 12 半音取整）"
     //      ⇒ ⭐ **`base_semi` = 八度数 × 12**（⭐ `0` = C4 · `12` = C5 · `24` = C6 ✅）
     input  wire [6:0]                        base_semi_i,        // ⭐ 起始音（⭐ 八度×12）
     input  wire                              base_commit_i,      // ⭐ 提交（⭐ 单周期脉冲）
@@ -164,13 +164,15 @@ module note_manager #(
     output wire [POLY_TARGET*VEL_W-1:0]      voice_velocity_o,   // → envelope_bank
     output wire [POLY_TARGET*TIMBRE_W-1:0]   voice_timbre_o,     // → wavetable（`K-82`）
     //  ⭐⭐ 2026-09-29 新增（⭐ 鼓机噪声波表 · 阶段 2a）：⭐ **每 voice 的"是鼓吗"**
-    //     ⭐ 语义：⭐ `axis_r[i] >= RESERVED_AXIS`（⭐ 保留轴位 = 节拍器 14 / 鼓机 15）
+    //     ⭐ 语义：⭐ `src_r[i] == SRC_AUX`（⭐ 源 B = 节拍器/鼓机）⇒ ⭐ **进保留池 / 是打击乐**
+    //     ⛔ **不再按轴号判断**（⭐ 轴号 14/15 只是节拍器/鼓机的【事件 ID】；
+    //        ⭐ 音色由事件自带的 `timbre` 决定，⛔ 不按轴号 —— 见本文件的 `assign voice_drum_o[g]`）
     //     ⭐ 去向：⭐ `oscillator_bank.voice_drum_i` ⇒ ⭐ 这些 voice 改读**噪声表**
-    //     🔴 **为什么"按轴位"判而⛔ 不是"按池编号"判**：
-    //        ⭐ 池编号（`pg >= NORMAL_N`）只是**分配时的选择规则**，⭐ 而
-    //           `axis_r[i]` 是**这个 voice 现在到底在为谁发声**（⭐ 它随重触发更新 ✅）
-    //        ⇒ ⭐ 用轴位判 = "**声音的归属**"；⚠️ 用池编号判 = "**它当初从哪来**"
-    //        （⭐ 若一个普通 voice 被鼓机抢占/重触发，两者会**不一致** ✅）
+    //     🔴 **为什么"按来源"判而⛔ 不是"按轴号"判**（⭐ 2026-10-01 修B 更正）：
+    //        ⭐ 旧规则 `axis_r[i] >= RESERVED_AXIS` 已被推翻 —— 🔴 它把**物理键 14/15**
+    //           也标成"鼓 voice" ⇒ 音色被换成噪声表 ⇒ ⭐ 就算出声也是错的音 ✅
+    //        ⭐ 保留池的本意是"**给节拍器/鼓机专用**"（⭐ `T33b`），那是【来源】属性
+    //        ⇒ ⭐ 与 `pool_mask`（⭐ 本文件的 `assign pool_mask[pg]`）**由同一个信号导出** ⇒ ⭐ 结构上不可能再不一致 ✅
     //     ⭐ 纯组合、⛔ 不加任何寄存器、⛔ 不改任何已有输出 ⇒ **完全 additive** ✅
     output wire [POLY_TARGET-1:0]            voice_drum_o,
     output wire [POLY_TARGET*AGE_W-1:0]      voice_age_o,        // 抢占年龄（诊断）
@@ -294,7 +296,7 @@ module note_manager #(
     //
     //  ⭐ **本条做了什么**：⭐ 把 `env_level_i`（32×16 = **512 位**）与 `env_active_i`（32 位）
     //     在**进入本模块的第一拍**锁存 ⇒
-    //     · ⭐ `adsr.v:138` 的 **16 位 `env_level_o != 0` OR 树**（⭐ 约 3 级 LUT）
+    //     · ⭐ `adsr.v` 的 `assign active_o` 里 **16 位 `env_level_o != 0` OR 树**（⭐ 约 3 级 LUT）
     //       **离开了关键路径**（⭐ 它现在只喂"ADSR → 本寄存器"这条**短**路径）✅
     //     · ⭐ 跨模块那 512＋32 根长线变成 **FF → FF** 路径（⭐ 无逻辑、无宽扇出树）
     //       ⇒ ⭐ 布局器可以自由复制/缓冲 ✅
@@ -793,7 +795,7 @@ module note_manager #(
             //     `retrig_reset` 从【单拍脉冲】改成【保持到 `sample_tick` 才清】。
             //
             //  🔴 **原缺陷**（⭐ 与本文件 :481 的电平写法**自相矛盾**）：
-            //     · ADSR 只在 `sample_tick_i` 那一拍采样 `retrig_reset_i`（`adsr.v:61-69`）
+            //     · ADSR 只在 `sample_tick_i` 那一拍采样 `retrig_reset_i`（`adsr.v` 的 `retrig_reset_i` 采样分支）
             //     · 而 `ST_COMMIT` 只把 `retrig_reset_r[best_idx]` 拉高 **1 个 clk**
             //     ⇒ ⭐ **命中率 = 1/1024 ≈ 0.1%** ⇒ 抢占路径的"包络清零"**几乎从不生效**
             //     ⇒ 🔴 被抢占的 voice（正在 release、`env` 有残值）会从**残余电平**

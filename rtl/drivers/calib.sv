@@ -332,8 +332,8 @@ module calib #(
     //   ① ⭐ **下溢守卫**：`raw <= zero` ⇒ 差值为 0（⭐ 原代码已有，⭐ 这里显式化）
     //   ② ⭐⭐ **上溢夹紧**：⭐ 差值夹到**该轴标定行程** `span_r[ch]`
     //      ⇒ ⭐ 无论 `gain` 标定与否，`pos` 都不可能超过该轴的真实行程 ✅
-    //      ⚠️ `span_r[ch] == 0`（⭐ 该轴从未标定过）⇒ ⭐ **不夹**（⭐ 保持旧行为，
-    //         ⛔ 否则"未标定"的轴会永远输出 0）
+    //      ⚠️ `span_r[ch] == 0`（⭐ 该轴从未标定过）⇒ ⭐ **退回硬上界 `MAX_TRAVEL` 夹紧**
+    //         （⭐ 即 `dlim = MAXT` —— ⭐ 与紧邻的 `localparam MAXT` 及 `wire dlim` 定义一致）
     wire [DW:0] dcode  = (raw_f > zero_rd) ? (raw_f - zero_rd) : {(DW+1){1'b0}};
     //  ⭐⭐ 上界 = `min(MAX_TRAVEL, span_r[ch])`（⭐ `span_r` 未标定 ⇒ 只用 `MAX_TRAVEL`）
     //     ⭐ 这样**两种情形都安全**：⭐ 标定了 ⇒ 用真实行程；⭐ 没标定 ⇒ 用硬上界 ✅

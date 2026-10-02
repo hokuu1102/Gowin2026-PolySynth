@@ -814,10 +814,13 @@ module wavetable_bank #(
         endcase
     end
 
-    // READ_MODE=1 (Register) gives 1-clock read latency, matching
-    // oscillator_bank's "ROM data returns 1 beat after the address" contract.
-    // READ_MODE=0 (By-pass) returns data in the SAME beat and shifts every
-    // TDM lane by one -> inter-lane data scramble -> transient spikes.
+    // 🔴 2026-10-01 更正：⭐ **旧注释把两种模式写反了**（⭐ 旧文说 `READ_MODE=0` 同拍返回、
+    //    `READ_MODE=1` 才是 1 拍）⇒ ⛔ 下面才是与代码/模型一致的版本。
+    // READ_MODE=0 (By-pass) = BRAM 读寄存器 = **1 拍**读延迟，符合
+    // oscillator_bank's "ROM data returns 1 beat after the address" contract
+    // (代码里 10 处 `defparam ... READ_MODE = 1'b0` 全用 0).
+    // READ_MODE=1 (Pipeline) 会**再加一级输出寄存器 = 2 拍**，那才会把每个
+    // TDM lane 错开 -> inter-lane data scramble -> transient spikes.
     // timbre_q is the matching
     // one-clock response tag; selecting with the live request timbre would
     // pair every ROM response with the following TDM lane.
@@ -826,8 +829,8 @@ module wavetable_bank #(
     // Timbre-independent PURE sine: Test Mode's measurement source.
     assign sample_test_o = rom_test_sine_inst_do;
     //  ⭐⭐ Timbre-independent PSEUDO-RANDOM table: the **drum voices' noise source**.
-    //   ⭐ 谁用它：⭐ `oscillator_bank` 对"保留轴位 voice"（`axis_r[i] >= RESERVED_AXIS`）
-    //      **改选本表**（⭐ 见 `oscillator_bank.voice_drum_i`）✅
+    //   ⭐ 谁用它：⭐ `oscillator_bank` 对"**来源为 `SRC_AUX`** 的 voice"
+    //      **改选本表**（⭐ 见 `oscillator_bank.voice_drum_i`；⭐ 判据同 `note_manager.v` 的 `assign voice_drum_o[g]`）✅
     //   ⭐ 为什么放这里而⛔ 不放 oscillator_bank：⭐ 与其余 9 张表**同源同拍** ——
     //      共用同一个 `clk_i` / `rd_en_i` / `addr_i` ⇒ ⭐ **1 拍读延迟自动对齐**，
     //      ⛔ 不需要在 `oscillator_bank` 里再加任何时序假设 ✅

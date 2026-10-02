@@ -132,3 +132,6 @@ bringup/hdmi_640x480/build/
 ip/**/*.mod
 ip/**/*_tmp.v
 
+
+# 优化证据归档：大件（完整 impl）只在磁盘保留，不入库
+sim/evidence/*/pnr-impl/

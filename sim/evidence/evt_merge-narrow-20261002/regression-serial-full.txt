@@ -1,0 +1,2912 @@
+
+=== 编译 tb_span_multiaxis_noise ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_span_multiaxis_noise ===
+    NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=640000)
+=== tb_span_multiaxis_noise ===
+猸?澶氳酱杩炵画鏍囧畾 + 銆愰€愰€氶亾甯ч棿鍣０銆戯紙猸?鎴戝墠闈?tb 缂哄け鐨勫彉閲忥級
+猸?STABLE_TOL=48 VOTE_TOL=96 STABLE_NEED=8 VOTE_N=8
+猸?閫氶亾鍩哄€?= 涓婃澘瀹炴祴鏉炬墜鍊硷紙ch2=2184 灏辨槸琚嫆閭ｈ酱锛?
+
+  鍣０ 卤0    鈬? span=16   reject=0    鏈€鍚庤鎷掕酱=15 ?
+  鍣０ 卤10   鈬? span=16   reject=0    鏈€鍚庤鎷掕酱=15 ?
+  鍣０ 卤20   鈬? span=16   reject=0    鏈€鍚庤鎷掕酱=15 ?
+  鍣０ 卤40   鈬? span=16   reject=0    鏈€鍚庤鎷掕酱=15 ?
+  鍣０ 卤48   鈬? span=16   reject=0    鏈€鍚庤鎷掕酱=15 ?
+  鍣０ 卤60   鈬? span=10   reject=9    鏈€鍚庤鎷掕酱=10      
+--------------------------------------------------
+猸?瑙ｈ锛?
+  路 鍣０ < STABLE_TOL(48) 鈬?搴斿綋銆愬叏閮?16 杞撮€氳繃銆?reject=0)
+  路 鍣０ > STABLE_TOL(48) 鈬?绋冲畾鍒ゅ畾杩囦笉鍘?鈬?鎷掔粷鏄€愭纭涓恒€?
+--------------------------------------------------
+  ok  : 鍣０ 卤0   (< 48) 鈬?16 杞村叏杩? 鏃犳嫆缁?
+  ok  : 鍣０ 卤10  (< 48) 鈬?16 杞村叏杩? 鏃犳嫆缁?
+  ok  : 鍣０ 卤20  (< 48) 鈬?16 杞村叏杩? 鏃犳嫆缁?
+  ok  : 鍣０ 卤40  (< 48) 鈬?16 杞村叏杩? 鏃犳嫆缁?
+==================================================
+PASS: 绋冲畾鍒ゅ畾闃堝€艰涓烘纭紙鍣０ < TOL 灏辫兘杩囷級
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_multiaxis_noise.sv:202: $finish called at 115201440000 (1ps)
+
+
+
+=== 编译 tb_span_need_press_width ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_span_need_press_width ===
+    NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=200)
+=== tb_span_need_press_width ===
+猸?鐩殑锛氭祴 need_press_o 瀹為檯楂樺嚑鎷嶏紙猸?鍐冲畾 ev_need 鑳藉惁鍙潬瑙﹀彂锛?
+
+鍚姩鍓? need_press_o=0 state=0
+--------------------------------------------------
+  S_PROMPT 鍋滅暀鎷嶆暟      = 4
+  need_press 鏈€瀹?       = 202 鎷?
+  need_press 涓婂崌娌挎鏁? = 2  (= top.v 鐨?ev_need 娆℃暟)
+  褰撳墠 state             = 2
+--------------------------------------------------
+ok  : need_press_o 纭疄浜х敓浜嗕笂鍗囨部 鈬?top.v 鐨?ev_need 浼氳瑙﹀彂
+NOTE: need_press 楂?202 鎷?
+==================================================
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_need_press_width.sv:151: $finish called at 6240000 (1ps)
+
+
+
+=== 编译 tb_span_realistic ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_span_realistic ===
+    NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=640000)
+=== tb_span_realistic ===
+STABLE_NEED=8 VOTE_N=8 STABLE_TOL=48 VOTE_TOL=96
+FRAME=40 鎷?閫氶亾 鈬?涓€甯?320 鎷嶏紱TIMEOUT=640000 鎷?= 2000 甯э紙猸?涓庝笂鏉垮悓姣斾緥锛?
+
+鈿狅笍 涓轰粈涔堣'鍚屾瘮渚?锛氫笂鏉?TIMEOUT=50e6 鎷?= 2000 甯с€?
+   馃敶 鑻ユ妸瓒呮椂缂╂垚鍑犵櫨鎷嶏紙鍙 1 甯э級锛屼細銆愪汉涓哄埗閫犮€戝繀瓒呮椂 鈬?缁撹浣滃簾銆?
+鈶?闆舵姈鍔細span=16 reject=0 杩沄OTE娆℃暟=16 state=7 done_cnt=0
+  ok  : ????16 ???-- span=16 (鏈熸湜 16) reject=0
+鈶?鎶栧姩卤30锛? TOL 48锛夛細span=16 reject=0 杩沄OTE娆℃暟=16 state=7
+  ok  : ???0?????-- span=16 (鏈熸湜 16) reject=0
+鈶?鎶栧姩卤60锛? TOL 48锛夛細span=16 reject=0 杩沄OTE娆℃暟=16 state=7
+  ok  : VOTE_TOL 96) 鈬?浠嶅簲鍏ㄦ爣瀹?-- span=16 (鏈熸湜 16) reject=0
+==================================================
+PASS: 鍚屾瘮渚嬭秴鏃朵笅锛宑alib_span 鍦ㄧǔ瀹?鎶栧姩杈撳叆閮借兘鏍囧畾鍏ㄩ儴 16 杞?
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_realistic.sv:186: $finish called at 76800720000 (1ps)
+
+
+
+=== 编译 tb_span_released_stable ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_span_released_stable ===
+    NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+=== tb_span_released_stable锛堝叏閮ㄦ澗鎵嬶紝鐪嬭兘涓嶈兘杩囷級===
+猸?澶嶅埢瀹炴祴锛? 閫氶亾 = 2139..2146锛堚瓙 鏉炬墜鍊硷級锛屸瓙 妯″瀷鍥烘湁鍣０
+猸?STABLE_TOL=48 VOTE_TOL=96
+
+    [t=410000] state 7 -> 0  (axis=0 rej=0)
+    [t=4450000] state 0 -> 1  (axis=0 rej=0)
+    [t=4490000] state 1 -> 2  (axis=0 rej=0)
+    [t=4524990000] state 2 -> 3  (axis=0 rej=0)
+    [t=8524990000] state 3 -> 4  (axis=0 rej=0)
+    [t=8525010000] state 4 -> 5  (axis=0 rej=0)
+    [t=9024990000] state 5 -> 6  (axis=0 rej=0)
+    [t=9025030000] state 6 -> 1  (axis=0 rej=0)
+    [t=9025070000] state 1 -> 2  (axis=1 rej=0)
+    [t=13549530000] state 2 -> 3  (axis=1 rej=0)
+    [t=17549530000] state 3 -> 4  (axis=1 rej=0)
+    [t=17549550000] state 4 -> 5  (axis=1 rej=0)
+    [t=18049530000] state 5 -> 6  (axis=1 rej=0)
+    [t=18049570000] state 6 -> 1  (axis=1 rej=0)
+    [t=18049610000] state 1 -> 2  (axis=2 rej=0)
+    [t=22574070000] state 2 -> 3  (axis=2 rej=0)
+    [t=26574070000] state 3 -> 4  (axis=2 rej=0)
+    [t=26574090000] state 4 -> 5  (axis=2 rej=0)
+    [t=27074070000] state 5 -> 6  (axis=2 rej=0)
+    [t=27074110000] state 6 -> 1  (axis=2 rej=0)
+    [t=27074150000] state 1 -> 2  (axis=3 rej=0)
+    [t=31598610000] state 2 -> 3  (axis=3 rej=0)
+    [t=35598610000] state 3 -> 4  (axis=3 rej=0)
+    [t=35598630000] state 4 -> 5  (axis=3 rej=0)
+    [t=36098610000] state 5 -> 6  (axis=3 rej=0)
+    [t=36098650000] state 6 -> 1  (axis=3 rej=0)
+    [t=36098690000] state 1 -> 2  (axis=4 rej=0)
+    [t=40623150000] state 2 -> 3  (axis=4 rej=0)
+    [t=44623150000] state 3 -> 4  (axis=4 rej=0)
+    [t=44623170000] state 4 -> 5  (axis=4 rej=0)
+    [t=45123150000] state 5 -> 6  (axis=4 rej=0)
+    [t=45123190000] state 6 -> 1  (axis=4 rej=0)
+    [t=45123230000] state 1 -> 2  (axis=5 rej=0)
+    [t=49647690000] state 2 -> 3  (axis=5 rej=0)
+    [t=53647690000] state 3 -> 4  (axis=5 rej=0)
+    [t=53647710000] state 4 -> 5  (axis=5 rej=0)
+    [t=54147690000] state 5 -> 6  (axis=5 rej=0)
+    [t=54147730000] state 6 -> 1  (axis=5 rej=0)
+    [t=54147770000] state 1 -> 2  (axis=6 rej=0)
+    [t=58672230000] state 2 -> 3  (axis=6 rej=0)
+--------------------------------------------------
+  杞?閫氶亾閲囨牱娆℃暟 = 120
+  杞? raw 鑼冨洿     = 1956 .. 1956  (螖=0)
+  span=6  reject=0  state=3  done_cnt=6
+--------------------------------------------------
+ok  : 鏉炬墜闈欐 鈬?鏍囧畾銆愯兘閫氳繃銆戯紙span=6, reject=0锛?
+      => 馃敶 涓婃澘琚嫆銆愪笉鏄€戣繖涓満鏅湰韬殑闂 鈬?鍙︽湁鍥犵礌
+ok  : 杞? 甯ч棿鍙樺寲 螖=0 < STABLE_TOL=48 鈬?绋冲畾鍒ゅ畾銆愬簲鑳介€氳繃銆?
+==================================================
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_released_stable.sv:179: $finish called at 60004440000 (1ps)
+
+
+
+=== 编译 tb_span_retry_reemits_axis ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_span_retry_reemits_axis ===
+    NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=300)
+=== tb_span_retry_reemits_axis锛堝畧 K-132锛?==
+猸?缁欍€愭姈鍔ㄣ€戣鏁?鈬?蹇呭畾鍙嶅瓒呮椂閲嶈瘯
+猸?鍒ゆ嵁锛氣瓙 姣忔杩?S_PROMPT 閮藉繀椤讳骇鐢熶竴娆?need_press 涓婂崌娌?
+        锛堚瓙 鍗?ev_need_cnt 蹇呴』 鈮?prompt_entries锛屸洈 涓嶆槸 1锛?
+
+--------------------------------------------------
+  杩?S_PROMPT 娆℃暟        = 9
+  ev_need 娆℃暟锛? 鍥炶酱鍙凤級 = 9
+  reject 娆℃暟              = 9
+--------------------------------------------------
+ok  : 姣忔閲嶈瘯閮介噸鏂板彂浜嗚酱鍙凤紙9 娆?/ 9 娆¤繘 PROMPT锛?
+==================================================
+PASS: 閲嶈瘯鏃惰酱鍙蜂細閲嶆柊鍥炲彂锛圞-132 宸蹭慨锛?
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_retry_reemits_axis.sv:145: $finish called at 120240000 (1ps)
+
+
+
+=== 编译 tb_span_vote_offbyone ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_span_vote_offbyone ===
+    NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=8 VOTE_N=4 VOTE_TOL=16 REJECT_MAX=8 WAIT_TIMEOUT_CLK=1000)
+=== tb_span_vote_offbyone 寮€濮嬶紙VOTE_N=4 VOTE_TOL=16锛?==
+  路 SETTLE 闃舵鍠備簡 6 甯?A=2000锛屽綋鍓?state=3
+  路 VOTE 闃舵宸插杺 3 甯?A锛屽綋鍓?state=3
+  路 宸插杺鏈€鍚?1 甯?B=2056锛堢缇わ紝瓒?VOTE_TOL 16锛夆噿 state=2
+--------------------------------------------------
+  reject 娆℃暟 = 1
+  state       = 2
+  鍙戣繃 span?  = 0
+--------------------------------------------------
+ok   : RTL 姝ｇ‘ 鈥斺€?鏈€鍚庝竴甯х殑绂荤兢鍊笺€愯鐪嬭銆戝苟鎷掔粷浜嗚缁勬牱鏈?
+PASS: 鎶曠エ绐楀彛瑕嗙洊浜嗗叏閮?VOTE_N 甯?
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_vote_offbyone.sv:175: $finish called at 1780000 (1ps)
+
+
+
+=== 编译 tb_span_with_real_adc_farm ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_span_with_real_adc_farm ===
+    NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+=== tb_span_with_real_adc_farm锛堢湡 adc_farm + 鐪?calib_span锛?==
+猸?甯у懆鏈?= 25000 鎷?= 500 us锛堚瓙 鐪熷弬鏁?CHANNEL_RATE_HZ=2000锛?
+猸?TIMEOUT = 50_000_000 鎷?= 1 绉?= 2000 甯э紙猸?鐪熷€硷級
+
+猸?澶嶅埢涓婃澘锛氱墖0 鐨?ch7 琚寜浣?= 2903锛屽叾浣欒蛋 IDVAL+ch锛?139~2146锛?
+   鈬?璺ㄩ€氶亾鏋佸樊 = 2903 - 2139 = 764锛堚瓙 涓庡疄娴?762 鍚岄噺绾э級
+--------------------------------------------------
+缁撴灉锛歴pan=6  reject=0  state=3  axis=6 done_cnt=6 rej_cnt=0
+--------------------------------------------------
+ok  : 鐪?adc_farm 椹卞姩涓嬶紝calib_span 鑳芥甯告爣瀹氾紙span>0, reject=0锛?
+      => 鉁?璇存槑銆愮湡瀹為噰鏍锋椂搴忋€戜笅鐘舵€佹満宸ヤ綔姝ｅ父
+      => 馃敶 涓婃澘澶辫触鐨勫師鍥犲湪鍒锛堜笉鏄噰鏍锋椂搴忥級
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_with_real_adc_farm.sv:200: $finish called at 60002440000 (1ps)
+
+
+
+=== 编译 tb_uart_calib_chain ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_uart_calib_chain.sv:210: warning: Port 5 (sample_data_i) of module calib_autotare expects 24 bit(s), given 12.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_uart_calib_chain.sv:210:        : Padding 12 high bits of the port.
+=== 运行 tb_uart_calib_chain ===
+    NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=50 => 1000000 bps at 50 MHz)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=16 BYTE_CLK=50 HEADER=a5 N_CMD=14 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=8 VOTE_N=4 VOTE_TOL=16 REJECT_MAX=2 WAIT_TIMEOUT_CLK=200000)
+NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=200 STILL_EN=0 STILL_TOL=8 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+=== tb_uart_calib_chain (serial -> calib_cmd -> calib_span) ===
+  ok  : before any command: calib_span is idle
+  ok  : calib_cmd counted no commands yet
+  ok  : cmd_cnt_o counted the serial 'S' command
+  ok  : 'S' through the SERIAL PORT starts calib_span (busy_o high)
+  ok  : calib_span raised start_i exactly once
+  ok  : after start, need_press_o is high (waiting for the operator)
+  ok  : cmd_cnt_o counted the 'X' command
+  ok  : 'X' through the SERIAL PORT cancels the calibration (busy_o low)
+  ok  : after abort, need_press_o is cleared
+  ok  : payload full of 'S' does NOT start calibration
+  ok  : payload 'S' bytes were counted as ignored, not as commands
+  ok  : frame completed and idx_o returned to 0
+  ok  : commands raised NO event in evt_uart_rx (no false frame)
+  ok  : evt_uart_rx header-error counter DID advance (expected, not a fault)
+  ok  : autotare finished before the 'T' test
+  ok  : cmd_cnt_o counted the 'T' command
+  [retrig] tare pulses after 'T' = 8 (expect 8)
+  ok  : 'T' through the SERIAL PORT re-ran autotare over ALL 8 channels
+  ok  : while autotare is BUSY, 'S' is IGNORED (no calibration started)
+  ok  : the interlock did not swallow the command itself (cmd still counted)
+  ok  : after autotare goes idle, 'S' DOES start calibration (interlock recovers)
+
+PASS: a serial 'S' really starts calib_span, 'X' really cancels it, 'T' really re-runs autotare, in-frame letters are payload, commands never fake an event, and the busy interlock blocks (then releases) 'S'
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_uart_calib_chain.sv:420: $finish called at 210190000 (1ps)
+
+
+
+=== 编译 tb_adsr ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_adsr.sv:24: warning: Instantiating module adsr with dangling input port 6 (retrig_reset_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_adsr.sv:24: warning: Instantiating module adsr with dangling input port 7 (timbre_i) floating.
+=== 运行 tb_adsr ===
+    VCD info: dumpfile build/sim/tb_adsr/tb_adsr.vcd opened for output.
+PASS: ADSR follows attack, decay, sustain, and release through its public interface
+
+
+
+=== 编译 tb_akwf_wavetables ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_akwf_wavetables ===
+    PASS: wavetable_bank emits the selected CC0 AKWF four-timbre set
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_akwf_wavetables.sv:69: $finish called at 380000 (1ps)
+
+
+
+=== 编译 tb_base_semi ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_base_semi.sv:133: warning: Instantiating module envelope_bank with dangling input port 7 (timbre_i) floating.
+=== 运行 tb_base_semi ===
+    WARNING [note_manager] FIFO_DEPTH=8 < 鏈€鍧忕獊鍙?18 (=16 杞?+1 鑺傛媿鍣?+1 榧撴満) => 浜嬩欢浼氭孩鍑轰涪寮冿紙猸?宸茬敱 event_lost_o 鎸囩ず锛屼絾浼氫涪闊筹級
+=== tb_base_semi: T2 base note (octave shift) ===
+  DBG: state 0 -> x (kind=x axis=x scan=x best_v=x)
+  DBG: state x -> 0 (kind=0 axis=0 scan=0 best_v=0)
+  DBG: posedge note_valid=1 rst_n=1 fifo_push=1 full=0 cnt=0
+  DBG: state 0 -> 1 (kind=0 axis=0 scan=0 best_v=0)
+  DBG: state 1 -> 2 (kind=0 axis=0 scan=0 best_v=0)
+  DBG: state 2 -> 3 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 3 -> 4 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 4 -> 0 (kind=0 axis=0 scan=31 best_v=1)
+  INFO: after press -> gate=0b00000000000000000000000000000001 alloc=0 inc=0x00001234 | fifo_cnt=0 empty=1 state=0
+PASS: base_semi -- octave shift is exact, bypassed at 0, and rejects illegal values
+INFO: checks=10 errors=0
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_base_semi.sv:296: $finish called at 1950000 (1ps)
+
+
+
+=== 编译 tb_dds_wavetable_core ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_dds_wavetable_core ===
+    VCD info: dumpfile build/sim/dds_wavetable_core/tb_dds_wavetable_core.vcd opened for output.
+PASS: DDS wavetable core preserves phase across phase_inc changes
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_dds_wavetable_core.sv:88: $finish called at 440000 (1ps)
+
+
+
+=== 编译 tb_drum_pitch_env ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_drum_pitch_env.sv:150: warning: Instantiating module oscillator_bank with dangling input port 5 (voice_phase_rst_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_drum_pitch_env.sv:173: warning: Instantiating module oscillator_bank with dangling input port 5 (voice_phase_rst_i) floating.
+=== 运行 tb_drum_pitch_env ===
+    == 闃舵 2b 路 榧撴満闊抽珮鍖呯粶锛堝悜涓嬫壂棰戯級路 dut_on=寮€ / dut_off=鍏?==
+== 鍒ゆ嵁 5/6锛氶紦 voice @ **鐪熷疄搴曢紦闊抽珮** INC=5368709锛埼?1.280锛?=
+  info: 搴曢紦闊抽珮 鐩镐綅澧為噺 鏃╃獥=[8579461,9519749]锛堚瓙 鏍囩О 5368709锛夋櫄绐?[5368709,5368709]
+  info: 搴曢紦闊抽珮 杩囬浂鏁?鏃?on=134 off=112 / 鏅?on=1002 off=982
+  info: **杩囬浂鐜囧湪姝ゆ。銆愰ケ鍜屻€?*锛?.500 vs 0.499锛夆噿 鍒ゆ嵁鏀瑰湪浣庨煶楂樻。娴嬶紙瑙佷笅锛?
+  ok  : drum_voice_onset_phase_step_exceeds_nominal
+  ok  : drum_voice_late_phase_step_equals_nominal_exactly
+== 鍒ゆ嵁 1/2/4锛氶紦 voice @ **浣庨煶楂樻。** INC=1610612锛埼?0.384锛屸瓙 杩囬浂鐜囧彲鍒嗚鲸锛?=
+  info: 浣庨煶楂樻。 杩囬浂 鏃192,448) on=86 off=44 | 鏅歔5120,7168) on=373 off=373
+  info: 姣忛噰鏍疯繃闆剁巼(鍗冨垎) on鏃?335 on鏅?182 off鏃?171 off鏅?182
+  info: 涓嬮檷姣?on鏃?on鏅?1844/1000锛堚瓙 棰勬紨 1.845锛壜?闈炵┖娲?off鏃?off鏅?943/1000锛堚瓙 棰勬紨 0.941锛?
+  ok  : drum_voice_output_zcr_decreases_over_time
+  ok  : drum_voice_output_zcr_settles_at_nominal_pitch
+  ok  : non_vacuity_same_formula_is_RED_when_sweep_disabled
+== 鍒ゆ嵁 3a锛氶潪榧?voice锛堚瓙 搴曢紦闊抽珮锛夆噿 鐩镐綅澧為噺鎭掔瓑浜庢爣绉?==
+  info: 闈為紦@搴曢紦闊抽珮 鐩镐綅澧為噺=[5368709,5368709]锛堚瓙 蹇呴』 == 5368709锛夎繃闆?1
+  ok  : non_drum_voice_at_kick_pitch_phase_step_is_nominal
+== 鍒ゆ嵁 3b锛氶潪榧?voice锛堚瓙 韪╅暡闊抽珮锛夆噿 杈撳嚭杩囬浂鐜囨亽瀹?==
+  info: 闈為紦@韪╅暡闊抽珮 杩囬浂 鏃?82 鏅?82锛堚瓙 绐楀彛鍚?1024 鎷嶏級鐩镐綅澧為噺=[171798691,171798691]
+  ok  : non_drum_voice_output_zcr_stays_constant
+  ok  : non_drum_voice_at_hihat_pitch_phase_step_is_nominal
+PASS: drum pitch envelope (stage 2b) - all judgements held
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_drum_pitch_env.sv:431: $finish called at 4428020000 (1ps)
+
+
+
+=== 编译 tb_envelope_bank ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_envelope_bank.sv:30: warning: Instantiating module envelope_bank with dangling input port 6 (retrig_reset_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_envelope_bank.sv:30: warning: Instantiating module envelope_bank with dangling input port 7 (timbre_i) floating.
+=== 运行 tb_envelope_bank ===
+    VCD info: dumpfile build/sim/tb_envelope_bank/tb_envelope_bank.vcd opened for output.
+PASS: envelope_bank keeps per-voice ADSR state independent
+
+
+
+=== 编译 tb_integration_consts ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_integration_consts.sv:44: warning: Instantiating module top with dangling input port 3 (timbre_btn_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_integration_consts.sv:44: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_integration_consts.sv:44: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+=== 运行 tb_integration_consts ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=14 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+=== tb_integration_consts: top.v self-checks as RED-ABLE assertions ===
+  INFO: TRIG=64 REL=32 TRAVEL=744 CALIB_FULL=4095 POS_FULL(passed down)=744
+PASS: integration_consts -- top's self-checks hold AND the value really reaches param_extract
+INFO: checks=6 errors=0
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_integration_consts.sv:128: $finish called at 290000 (1ps)
+
+
+
+=== 编译 tb_nm_no_leak ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_no_leak.sv:160: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_no_leak.sv:160: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_no_leak.sv:217: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_no_leak.sv:217: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+=== 运行 tb_nm_no_leak ===
+    == tb_nm_no_leak: POLY=4 AXIS_W=4 FRAME=16 ROUNDS=40 ==
+-- A: baseline --
+  ok  : A1 reset: no live voice
+  ok  : A2 reset: free count == POLY (pool full)
+  ok  : A3 reset: live == the gate_r|retrig_low|env_active_r definition
+  ok  : A4 reset: free_mask agrees with POLY - live (allocator view)
+  ok  : A5 reset: retrig_low is all zero
+  ok  : A6 reset: no gated voice
+-- B: 40 x same-axis press/release with a fast re-press --
+  round 0: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 1: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 2: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 3: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 4: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 5: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 6: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 7: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 8: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 9: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 10: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 11: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 12: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 13: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 14: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 15: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 16: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 17: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 18: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 19: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 20: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 21: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 22: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 23: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 24: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 25: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 26: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 27: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 28: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 29: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 30: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 31: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 32: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 33: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 34: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 35: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 36: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 37: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 38: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 39: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  ok  : B0: all %0d rounds ended with a full pool
+-- C: fast re-press in the release tail --
+  ok  : C1 exactly one voice is gated after the fast re-press
+  ok  : C2 exactly one live voice on the pressed axis
+  ok  : C3 exactly one live voice in total (no duplicate on the axis)
+  ok  : C4 free count == POLY-1 (one voice in use)
+  ok  : C5 retrig_low returned to all-zero after the re-press
+  ok  : C6 no foreign voice was retriggered by the same-axis re-press
+  ok  : C7 pool is full again after the release
+  ok  : C8 the ST_RETRIG hold was really entered (probe reached the path)
+-- D1: phase sweep, witness voice != 0, voice 0 held on axis 1 --
+  D1: iters=400 foreign=0 axis_bad=0 live_bad=0 retrig_bad=0 leak=0
+  ok  : D1a no foreign voice was ever retriggered (all phases)
+  ok  : D1b exactly one live voice on the pressed axis (all phases)
+  ok  : D1c live count is exactly 3 during the retrigger window (all phases)
+  ok  : D1d retrig_low is all-zero once the re-press completed (all phases)
+  ok  : D1e the pool is full again after every sweep iteration (all phases)
+  ok  : D1f the witness voice was never voice 0 (probe layout stays valid)
+-- D2: phase sweep, voice 0 FREE with a stale axis --
+  D2: iters=400 foreign=0 axis_bad=0 live_bad=0 retrig_bad=0 leak=0
+  ok  : D2a no foreign voice was ever retriggered (all phases)
+  ok  : D2b exactly one live voice on the pressed axis (all phases)
+  ok  : D2c live count is exactly 2 during the retrigger window (all phases)
+  ok  : D2d retrig_low is all-zero once the re-press completed (all phases)
+  ok  : D2e no voice was left stuck on a stale axis (permanent leak, all phases)
+  ok  : D2f voice 0 was FREE (old axis still latched) before every re-press
+-- E: POLY_TARGET=32 instance --
+  ok  : E1 POLY=32: pool is full after reset
+  ok  : E2 POLY=32: press/release leaves the pool full
+  ok  : E3 POLY=32: fast re-press keeps exactly one voice on the axis
+  ok  : E4 POLY=32: retrig_low is all-zero after the re-press
+  ok  : E5 POLY=32: pool is full again after the release
+  ok  : F1 the event queue never overflowed (no silently dropped event)
+  ok  : G1 the ST_RETRIG hold was really entered (retrig_low seen non-zero)
+==================================================================
+tb_nm_no_leak: errors=0 drain_timeouts=0 leak_rounds=0 retrig_seen=479
+  D1 iters=400 leak=0 foreign=0 | D2 iters=400 leak=0 foreign=0
+PASS: no voice leak on same-axis repeated press/release (all swept phases)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_no_leak.sv:799: $finish called at 31280221000 (1ps)
+
+
+
+=== 编译 tb_nm_off_in_hold ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_off_in_hold.sv:107: warning: Port 9 (note_src_i) of module note_manager expects 3 bit(s), given 2.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_off_in_hold.sv:107:        : Padding 1 high bits of the port.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_off_in_hold.sv:107: warning: Instantiating module note_manager with dangling input port 16 (vel_upd_src_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_off_in_hold.sv:107: warning: Instantiating module note_manager with dangling input port 17 (pitch_upd_src_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_off_in_hold.sv:107: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_off_in_hold.sv:107: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_off_in_hold.sv:131: warning: Instantiating module envelope_bank with dangling input port 7 (timbre_i) floating.
+=== 运行 tb_nm_off_in_hold ===
+    
+==============================================================
+ B3 RETRIGGER window: can note_off still clear the gate?
+   (phase sweep around sample_tick; gate MUST be 0 after note_off)
+==============================================================
+  off_phase=   0 -> gate=0 ok
+  off_phase=  64 -> gate=0 ok
+  off_phase= 128 -> gate=0 ok
+  off_phase= 192 -> gate=0 ok
+  off_phase= 256 -> gate=0 ok
+  off_phase= 320 -> gate=0 ok
+  off_phase= 384 -> gate=0 ok
+  off_phase= 448 -> gate=0 ok
+  off_phase= 512 -> gate=0 ok
+  off_phase= 576 -> gate=0 ok
+  off_phase= 640 -> gate=0 ok
+  off_phase= 704 -> gate=0 ok
+  off_phase= 768 -> gate=0 ok
+  off_phase= 832 -> gate=0 ok
+  off_phase= 896 -> gate=0 ok
+  off_phase= 960 -> gate=0 ok
+  off_phase=1016 -> gate=0 ok
+  off_phase=1017 -> gate=0 ok
+  off_phase=1018 -> gate=0 ok
+  off_phase=1019 -> gate=0 ok
+  off_phase=1020 -> gate=0 ok
+  off_phase=1021 -> gate=0 ok
+  off_phase=1022 -> gate=0 ok
+  off_phase=1023 -> gate=0 ok
+  off_phase=   0 -> gate=0 ok
+  off_phase=   1 -> gate=0 ok
+  off_phase=   2 -> gate=0 ok
+  off_phase=   3 -> gate=0 ok
+  off_phase=   4 -> gate=0 ok
+  off_phase=   5 -> gate=0 ok
+  off_phase=   6 -> gate=0 ok
+  off_phase=   7 -> gate=0 ok
+
+  == summary ==
+   cleared=32  STUCK=0  (invalid=0, phases=32)
+  ok  : B3: every phase around the sample tick clears the gate (no stuck note)
+  ok  : B3 non-vacuity: all phase cases executed with a valid setup
+PASS: B3 note_off always clears the gate, even inside the retrigger hold window
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_off_in_hold.sv:305: $finish called at 1853940000 (1ps)
+
+
+
+=== 编译 tb_nm_reuse_tail ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_reuse_tail.sv:116: warning: Port 9 (note_src_i) of module note_manager expects 3 bit(s), given 2.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_reuse_tail.sv:116:        : Padding 1 high bits of the port.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_reuse_tail.sv:116: warning: Instantiating module note_manager with dangling input port 16 (vel_upd_src_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_reuse_tail.sv:116: warning: Instantiating module note_manager with dangling input port 17 (pitch_upd_src_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_reuse_tail.sv:116: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_reuse_tail.sv:116: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_reuse_tail.sv:141: warning: Instantiating module envelope_bank with dangling input port 7 (timbre_i) floating.
+=== 运行 tb_nm_reuse_tail ===
+    
+==============================================================
+ B2: re-pressing during the RELEASE TAIL -- voice reuse?
+   (expect 1 live voice on the axis; 2 => duplicate => BUG)
+==============================================================
+  case 0: wait   2 frames -> env_before=1 live_before=1 live_after=1 ok
+  case 1: wait   5 frames -> env_before=0 live_before=0 live_after=1 ok
+  case 2: wait  10 frames -> env_before=0 live_before=0 live_after=1 ok
+  case 3: wait  20 frames -> env_before=0 live_before=0 live_after=1 ok
+  case 4: wait  40 frames -> env_before=0 live_before=0 live_after=1 ok
+  case 5: wait  60 frames -> env_before=0 live_before=0 live_after=1 ok
+
+  == summary ==
+   reuse=6  DUPLICATE=0
+  ok  : B2 non-vacuity: at wait=2 frames the tail is still alive (env_active=1 on the axis)
+  ok  : B2: release-tail re-press never allocates a 2nd same-axis voice
+PASS: B2 release-tail re-press reuses the SAME voice (no duplicate same-axis voice)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_reuse_tail.sv:326: $finish called at 2842140000 (1ps)
+
+
+
+=== 编译 tb_note_manager ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:126: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:126: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:164: warning: Instantiating module envelope_bank with dangling input port 7 (timbre_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:204: warning: Instantiating module oscillator_bank with dangling input port 9 (voice_drum_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:240: warning: Instantiating module note_manager with dangling input port 16 (vel_upd_src_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:240: warning: Instantiating module note_manager with dangling input port 17 (pitch_upd_src_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:240: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:240: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:283: warning: Instantiating module note_manager with dangling input port 16 (vel_upd_src_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:283: warning: Instantiating module note_manager with dangling input port 17 (pitch_upd_src_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:283: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:283: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+=== 运行 tb_note_manager ===
+    WARNING [note_manager] FIFO_DEPTH=4 < 鏈€鍧忕獊鍙?18 (=16 杞?+1 鑺傛媿鍣?+1 榧撴満) => 浜嬩欢浼氭孩鍑轰涪寮冿紙猸?宸茬敱 event_lost_o 鎸囩ず锛屼絾浼氫涪闊筹級
+== 鍒ゆ嵁 1: 浜嬩欢 -> voice gate锛堝惈 DEFAULT_VEL / 闊宠壊閿佸瓨锛?=
+  ok  : ?悗 0 ?gate
+  ok  : note_?湁 1 ?gate
+  ok  : ???????紩 voice0
+  ok  : voice0 ?axis = 3
+  ok  : voice0 ?phase_in??
+  ok  : vel=???DEFAULT_VEL(200)
+  ok  : ????=??壊(1)
+  ok  : ???note_?湁 2 ?gate
+  ok  : ?????€?棽 voice1
+  ok  : v??0????77)
+  ok  : evt_timb?????圠oop???
+  ok  : note_off(axis3悗 ga???
+  ok  : ??槸 voice0
+  ok  : voic???
+== 鍒ゆ嵁 2: 鏀寔'鏇存柊鍦ㄥ搷 voice'锛坴el_update / pitch_update锛?=
+  ok  : vel_update takes effect (left the start point, ramping toward 240)
+  ok  : vel_update converges to 240 (ramp completed)
+  ok  : vel_update leaves the released voice0 untouched
+  ok  : pitch_updat???殑 voice1
+  ok  : ???axis??????voice
+== 鍒ゆ嵁 6: 婊戦煶涓嶄骇鐢熼煶绗︼紙鍐荤粨琛ㄩ搧寰嬶級==
+  ok  : ???gat????????
+  ok  : ???axis ???
+  ok  : ?????phase_inc
+== 鍒ゆ嵁 3: 鍚岃酱浣嶉噸瑙﹀彂澶嶇敤鍚屼竴 voice ==
+  ok  : ???gat??????voic?
+  ok  : ????湪 voice1
+  ok  : ?????phase_inc
+  ok  : ?????vel
+== 鍒ゆ嵁 4: 閲嶈Е鍙戠湡鐨勮 ADSR 閲嶈捣 Attack锛堟渶鏄撻潤榛樺け鏁堬級==
+  ok  : ??????sustain ?紙640?
+  ok  : ????gate ??坴oic???
+  ok  : ???????簬 sustain => Attack ???
+  ok  : 瓙 ga???????????????
+  ok  : ???????埌 sustai??
+== 鍒ゆ嵁 8: 涓撶敤 voice 姹狅紙鑺傛媿鍣ㄤ笉鍙備笌鏅€氭姠鍗狅紝T33b 鍦板熀锛?=
+  ok  : ?紙src??????紙< 2?
+  ok  : 坰rc=0锛夌殑杞?14 钀藉湪銆愭櫘閫氭睜銆戔€斺€?閿?14/15 鍑哄０鐨勫垽鎹?
+  ok  : ??坰r??????= 2?
+  ok  : ??簮 B ??????
+  ok  : ??敤 voice ???
+  ok  : ????gate ??????
+== 鍒ゆ嵁 5: 鎶㈠崰椤哄簭锛堝湪 POLY_TARGET=4 灏忓疄渚嬩笂楠岋級==
+  ok  : 4 ?????voice
+  ok  : ???voice0..3
+  ok  : axis ???
+  ok  : ????5??????????
+  ok  : ???????崰 voice0
+  ok  : ??????
+  ok  : ?????????坴oice?
+  ok  : ???????=姠 voice0
+  ok  : ???voice????????
+  ok  : voice1 ?€????
+  ok  : ???€????殑 voice1
+  ok  : voice0??????
+  ok  : voice2???
+  ok  : ?????X
+== 鍒ゆ嵁 7: POLY_TARGET 鍙傛暟鍖栵紙32 妗ｅ凡鍏ㄧ▼浣跨敤锛涘啀楠?16 杞村崰婊★級==
+  ok  : ????緥 0 ?gate
+  ok  : 1?????voice
+  ok  : ????殑 voice0..15
+  ok  : voice16..???圓XIS_W=4 ??1??
+  ok  : ???????=?彈 AXIS_W??潪 POLY_TARGE?
+== 9: mid-retrigger voice is not stealable ==
+  ok  : section 9: clean slate (0 gates)
+  ok  : section 9: axis 5 owns voice0
+  ok  : section 9: exactly 1 gate before the test
+  ok  : section 9: axis 5 still owns voice0 (hold kept it busy)
+  ok  : section 9: the other axis landed on a DIFFERENT voice
+  ok  : section 9: axis 5 was NOT stolen (still on voice0)
+  ok  : K-106: baseline - event_lost is 0 BEFORE any overflow
+  ok  : K-106: baseline - lost count is 0 BEFORE any overflow
+  ok  : K-106: event_lost asserts after overflowing the queue
+  ok  : K-106: lost count = 7 and 12 = 5 served + 7 lost (conservation holds)
+  ok  : K-106: the burst really did overflow (lost > 0)
+  ok  : K-106: the burst was not entirely lost (served > 0)
+  ok  : K-106: sticky stays set while later events are processed normally
+  ok  : K-106: lost count is unchanged by later normal events
+  ok  : K-106: the events that FIT were still allocated (axis 0 got a voice)
+  ok  : K-106: overflow did NOT wedge the FSM (some gate is active)
+  ok  : K-106: event_lost_clr_i clears the sticky flag
+  ok  : K-106: event_lost_clr_i clears the lost count
+  ok  : K-106: sticky can RE-ASSERT after being cleared (not a one-shot lockout)
+  ok  : K-106: lost count SATURATED at 15 (did not wrap to 0)
+  ok  : K-106: sticky is set under massive overflow too
+  ok  : A1 setup: live note_on on the test axis allocated a gated voice
+  ok  : A1: score note_off must NOT clear a live voice on the same axis
+  ok  : A1: live note_off still clears the live voice on the same axis
+  ok  : A2 setup: live note_on allocated a gated voice on axis 9
+  ok  : A2: a replayed (src=1) vel_upd must NOT move the live (src=0) voice
+  ok  : A2: the live (src=0) vel_upd still drives the live voice
+  ok  : A2 setup: replayed note_on allocated a gated voice on axis 10
+  ok  : A2: a replayed (src=1) vel_upd DOES drive its own (src=1) voice
+  ok  : A2: a live (src=0) vel_upd must NOT move the replayed (src=1) voice
+  INFO: release sample-ticks  live(240)=6  replayed(240)=6  start-only(80)=3
+  ok  : A2: the replayed note's release lasts EXACTLY as long as the live note's
+  ok  : A2: the END velocity really drives the tail (start-only is SHORTER)
+  ok  : A3 setup: live note_on on axis 6 allocated a gated voice
+  ok  : A3 setup: the live voice reached sustain before the replay
+  ok  : A3-A: replayed note_on must NOT take over the live voice
+  ok  : A3-A: live and replayed voices COEXIST on the same axis
+  ok  : A3-A: the live voice keeps its velocity (not retriggered)
+  ok  : A3-A: the live voice keeps its phase_inc (not retriggered)
+  ok  : A3-A: the live voice envelope was NOT reset
+  ok  : A3-B: replayed note_off leaves EXACTLY one voice on the axis
+  ok  : A3-B: the surviving voice is the live one (still gated)
+  ok  : A3-B: the replayed voice was the one cleared
+  ok  : A3-B: live note_off still clears the live voice (tag intact)
+  ok  : A3-C setup: live note_on on axis 6 allocated a gated voice
+  INFO: A3-C fills=31 alloc-ok=31 gated=32 free(live_mask=0)=0 / 32
+  ok  : A3-C setup: the voice pool is COMPLETELY full (no free voice left)
+  ok  : A3-C setup: the live voice is the OLDEST (age > 0, fills are age 0)
+  ok  : A3-C: the replayed note_on still allocated (via preemption)
+  ok  : A3-C: the preemption victim is NOT the live voice on that axis
+  ok  : A3-C: the live voice survives with its OWN velocity (not re-tagged)
+  ok  : K-169 setup: voice live in release tail (gate=0, active=1)
+  ok  : K-169 setup: phase != seed before re-press (non-vacuous)
+  ok  : K-169 setup: the fresh voice is voice0 (probe lane matches)
+  INFO: K-169 phase before re-press = 40505000, after = 40000000
+  ok  : K-169: re-press in release tail reloads the phase seed
+PASS: note_manager acceptance (T54) - all judgements held
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:1393: $finish called at 889080000 (1ps)
+
+
+
+=== 编译 tb_oscillator_bank ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_oscillator_bank.sv:106: warning: Instantiating module oscillator_bank with dangling input port 5 (voice_phase_rst_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_oscillator_bank.sv:106: warning: Instantiating module oscillator_bank with dangling input port 9 (voice_drum_i) floating.
+=== 运行 tb_oscillator_bank ===
+    == 鍒ゆ嵁 6: 甯у唴鎴锛圱DM 鍥哄畾鎷嶆暟 << 1024锛孉6锛?=
+  ok  : osc_valid ?200 ???
+  ok  : TDM???LANE??4+2=6?
+  ok  : ????歍D??<< 1024
+== 鍒ゆ嵁 1: 姣忎釜 lane 鐨勭浉浣嶇嫭绔嬪墠杩?==
+  ok  : 64?lan??????????????
+     (娉細姝ｅ紡閫氳矾姣?voice 涓€浠?inc 鈬?鍚?voice 涓?lane 鍚屾锛?
+      澶辫皭闇€ test_mode 瑕嗙洊鎴栧悗缁姞 per-lane detune 鈥斺€?瑙?K-95)
+== 鍒ゆ嵁 2: 姣忎釜 lane 鐨勭浉浣嶅閲忕嫭绔嬬敓鏁堬紙test_mode 閫氳矾锛?=
+  ok  : test_mode: lan??lane1??????????
+== 鍒ゆ嵁 4: 鍦板潃 = 鐩镐綅楂?9 浣嶏紙DDS 姝ｇ‘鎬э級==
+  ok  : lane??= 3?^??€=?
+  ok  : phase_acc_dbg?珮 10?= 6
+  ok  : ??????= 5?^??€=?
+== 鍒ゆ嵁 4b: 猸?鐪熸閫?ROM 鐨勫湴鍧€ = 鐩镐綅銆愰珮銆? 浣嶏紙K-98 琛ョ殑鐩插尯锛?=
+  ok  : 掔瓑浜庛€屼笂涓€閲囨牱鏃跺埢鐩镐綅鐨勯珮 9 浣嶃€嶏紙20 娆￠€愪竴鏍稿锛孠-98锛?
+== 鍒ゆ嵁 7: 鏈縺娲?voice 鐨勭浉浣嶄繚鎸佷笉鍙橈紙闃插挃澹帮級==
+  ok  : ???voice0 ?????????
+  ok  : €?voic??????
+== 鍒ゆ嵁 3: TDM 鍙栧洖 64 涓牱鏈紝osc_valid 姣忓抚鎭板ソ 1 娆?==
+  ok  : ?唴 osc_valid ??1?
+  ok  : 64 ?lane??????圱DM ??????
+== 鍒ゆ嵁 5: test_mode 瑕嗙洊鐢熸晥锛圱43 鐨勫熀纭€锛?=
+  ok  : test_mo??lane0/1/2???????????
+  ok  : ??殑 la?????????
+== 8: test_mode overrides voice_active ==
+  ok  : test_mode=1 overrides voice_active=0 (lane0 still advances)
+  ok  : and a lane NOT selected stays frozen
+  ok  : test_mode=1 keeps rom_dout on the dedicated clean sine table (rom_test)
+  ok  : and that check is NON-VACUOUS (rom_test != rom_hard was observed)
+== 9: timbre must not depend on velocity ==
+  ok  : velocity 0 and 255 give BIT-IDENTICAL samples (timbre is velocity-free)
+== 10: two attacks at the same depth must be BIT-IDENTICAL (NO reset) ==
+  ok  : two attacks at the same depth are BIT-IDENTICAL (phase returns to the seed)
+PASS: oscillator_bank acceptance (T55) - all judgements held
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_oscillator_bank.sv:513: $finish called at 117540000 (1ps)
+
+
+
+=== 编译 tb_polyphony_onset_step ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+=== 运行 tb_polyphony_onset_step ===
+    INFO: max note_on step=5998, allowed=11997, baseline=383872
+PASS: polyphony normalization is de-zippered at note_on
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_polyphony_onset_step.sv:161: $finish called at 35440000 (1ps)
+
+
+
+=== 编译 tb_pool_by_src ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_pool_by_src.sv:167: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_pool_by_src.sv:167: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_pool_by_src.sv:209: warning: Instantiating module note_manager with dangling input port 9 (note_src_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_pool_by_src.sv:209: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_pool_by_src.sv:209: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+=== 运行 tb_pool_by_src ===
+    == a: source tag observable at EVERY pipeline stage ==
+  INFO a: src=0 fifo=000 head=000 cur=000 mask_x=0 alloc=1 voice=0 drum=0
+  INFO a: src=1 fifo=001 head=001 cur=001 mask_x=0 alloc=1 voice=1 drum=0
+  INFO a: src=2 fifo=010 head=010 cur=010 mask_x=0 alloc=1 voice=2 drum=0
+  INFO a: src=3 fifo=011 head=011 cur=011 mask_x=0 alloc=1 voice=28 drum=1
+  INFO a: src=4 fifo=100 head=100 cur=100 mask_x=0 alloc=1 voice=3 drum=0
+  INFO a: src=5 fifo=000 head=000 cur=000 mask_x=0 alloc=1 voice=4 drum=0
+  ok  : a1: src tag is stored in the FIFO entry (stage 1/5)
+  ok  : a2: src tag is visible at the queue head (stage 2/5)
+  ok  : a3: src tag is latched into cur_src (stage 3/5)
+  ok  : a4: pool_mask is x-free and equals the src-derived mask (stage 4/5)
+  ok  : a5: voice_drum_o[alloc] == (src == SRC_AUX) (stage 5/5)
+  ok  : a6: every src got a voice, in the pool its source demands
+  ok  : a7: unused src code 5 behaves like hand-play (normal pool, drum=0)
+== b: differential equivalence -- src=0 on axis 14/15 vs axis 0..13 ==
+  INFO b: axis=0 src=0 alloc_voice=0 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=1 src=0 alloc_voice=1 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=2 src=0 alloc_voice=2 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=3 src=0 alloc_voice=3 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=4 src=0 alloc_voice=4 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=5 src=0 alloc_voice=5 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=6 src=0 alloc_voice=6 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=7 src=0 alloc_voice=7 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=8 src=0 alloc_voice=8 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=9 src=0 alloc_voice=9 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=10 src=0 alloc_voice=10 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=11 src=0 alloc_voice=11 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=12 src=0 alloc_voice=12 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=13 src=0 alloc_voice=13 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=14 src=0 alloc_voice=14 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=15 src=0 alloc_voice=15 normal_pool=1 drum=0 mask_x=0
+  ok  : b1: all 16 live (src=0) presses land in the NORMAL pool (< 28)
+  ok  : b2: voice_drum_o is 0 for all 16 live voices (no key is a drum)
+  ok  : b3: pool_mask is bit-identical for axis 14/15 and axis 0..13 under src=0
+  ok  : b4: the 16 live presses occupy 16 distinct voices
+  ok  : b5: axis 14 (G#3) with src=0 is NOT routed to the reserved pool
+  ok  : b6: axis 15 (A#3) with src=0 is NOT routed to the reserved pool
+  ok  : b7: voice_drum_o is 0 on the axis-14 and axis-15 voices
+== c: dangling note_src_i (z) -- pool_mask must be x-free, no event lost ==
+  INFO c: axis=0 fifo=000(x=0) head=000 cur=000 mask_x=0 alloc=1 voice=0
+  INFO c: axis=7 fifo=000(x=0) head=000 cur=000 mask_x=0 alloc=1 voice=1
+  INFO c: axis=14 fifo=000(x=0) head=000 cur=000 mask_x=0 alloc=1 voice=2
+  ok  : c0 (setup): the note_src_i port of DUT Z really is floating (z)
+  ok  : c1: pool_mask has NO x bit while note_src_i dangles
+  ok  : c2: a dangling tag behaves like hand-play (src=0) -- Z-safe decode
+  ok  : c3: no event is lost while note_src_i dangles (alloc still happens)
+  ok  : c4: all 3 dangling-tag events occupy voices
+== d: end-to-end pitch -- axis 14/15 keep phase_inc and are not drums ==
+  INFO d: ax14 voice=0 inc=00123456 drum=0 | ax15 voice=1 inc=00abcdef drum=0
+  INFO d: ax0  voice=2 inc=00112233 drum=0 | aux(src=3,ax5) voice=28 inc=00223344 drum=1
+  ok  : d1: axis 14 (src=0) keeps phase_inc bit-exact (not rewritten)
+  ok  : d2: axis 15 (src=0) keeps phase_inc bit-exact (not rewritten)
+  ok  : d3: axis 0 control also keeps phase_inc bit-exact
+  ok  : d4: the axis-14/15 voices really carry axis 14/15
+  ok  : d5: axis-14/15 voices are NOT drum voices (pitch drives the wavetable)
+  ok  : d6 (non-vacuous): src=3 raises voice_drum_o (d5 is not trivial)
+  ok  : d7: the src=3 voice also keeps phase_inc bit-exact
+  ok  : d8: the src=3 voice sits in the reserved pool (>= 28)
+PASS: pool-by-source judgements (26.3 a/b/c/d) all held
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_pool_by_src.sv:609: $finish called at 23780000 (1ps)
+
+
+
+=== 编译 tb_retrig_reset_span ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_retrig_reset_span.sv:114: warning: Port 9 (note_src_i) of module note_manager expects 3 bit(s), given 2.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_retrig_reset_span.sv:114:        : Padding 1 high bits of the port.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_retrig_reset_span.sv:114: warning: Instantiating module note_manager with dangling input port 16 (vel_upd_src_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_retrig_reset_span.sv:114: warning: Instantiating module note_manager with dangling input port 17 (pitch_upd_src_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_retrig_reset_span.sv:114: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_retrig_reset_span.sv:114: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_retrig_reset_span.sv:144: warning: Instantiating module envelope_bank with dangling input port 7 (timbre_i) floating.
+=== 运行 tb_retrig_reset_span ===
+    VCD info: dumpfile build/sim/tb_retrig_reset_span/tb_retrig_reset_span.vcd opened for output.
+== 1: 寤虹珛鍩虹嚎 鈥斺€?note_on(杞?3) ==
+  info: axis 3 -> voice 0
+  ok  : axis 3 got a voice
+  ok  : that voice gate is high (sounding)
+  ok  : after reset retrig_reset is low
+== 2: 猸愨瓙 鍦ㄥ搷鏃堕噸瑙﹀彂锛堝悓杞?3 鍐?note_on锛?=
+  info: rst_ticks = 1
+  ok  : after retrigger the gate is back high (voice sounding)
+  ok  : after retrigger retrig_reset returned low (not stuck)
+  ok  : P0-4: retrigger while sounding => retrig_reset_r spans exactly ONE sample_tick
+== 3: 猸愨瓙 绱ф帴鐫€鍐嶉噸瑙﹀彂涓€娆★紙杩炵画绗簩娆★級==
+  info: rst_ticks = 1
+  ok  : P0-4: second consecutive retrigger => spans exactly ONE sample_tick
+== 4: 猸愨瓙 灏惧反鏈熷唴閲嶆寜锛坣ote_off 鍚?env 杩樻病姝诲氨鍐嶆寜锛?=
+  ok  : gate fell after note_off
+  ok  : release tail is still live (live_mask=1)
+  info: rst_ticks = 1
+  ok  : gate is back high after re-press inside the tail
+  ok  : P0-4: re-press inside release tail => spans exactly ONE sample_tick
+== 姹囨€?==
+  ok  : all three retriggers really produced a reset pulse (1/1/1, not vacuous)
+PASS: retrig_reset single-tick span (P0-4) - all judgements held (rst_ticks = 1/1/1)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_retrig_reset_span.sv:335: $finish called at 28880000 (1ps)
+
+
+
+=== 编译 tb_soft_hard_blend ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_soft_hard_blend.sv:27: warning: Instantiating module oscillator_bank with dangling input port 5 (voice_phase_rst_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_soft_hard_blend.sv:27: warning: Instantiating module oscillator_bank with dangling input port 9 (voice_drum_i) floating.
+=== 运行 tb_soft_hard_blend ===
+    PASS: oscillator_bank soft/hard interpolation endpoints and midpoint
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_soft_hard_blend.sv:70: $finish called at 400000 (1ps)
+
+
+
+=== 编译 tb_tdm_render_mixer ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+=== 运行 tb_tdm_render_mixer ===
+    ERROR [tdm_render_mixer] POLY_TARGET+2=34 > RENDER_DEADLINE_CYC=4 => 姣忓抚閮戒細瓒呮椂锛圓6 澶辨晥锛?
+== 1: deadline_fault stays 0 (A6) ==
+  ok  : worst case 5 frames: deadline_fault stays 0
+== 2: one dry_valid per frame, fixed latency ==
+  ok  : exactly 1 dry_valid pulse per frame
+  ok  : latency identical across two frames (determinism)
+  ok  : latency is a fixed POLY_TARGET+7 (incl. 3-stage norm + registered output)
+== 3: single-voice mixing ==
+     [sv] 2-lane 3000 @env0x8000 => 91904
+  ok  : 2-lane 1000/2000 @env 0x8000 => 91904 (weighted (9L0+7L1)>>4, gain=64)
+     [sv] 2-lane 1000/2000 @env0xFFFF => 183808
+  ok  : full env => 183808 (weighted lane sum, gain=64)
+  ok  : zero env => 0 (silence)
+     [wgt] same-phase = 383872   anti-phase = 47872
+  ok  : WEIGHT: anti/same ~= 1/8 (=-18 dB) => the beat no longer cancels to ZERO
+  ok  : negative input => negative output (signed ok)
+     [sv] neg 1000/2000 @env0xFFFF => -184064
+  ok  : negative magnitude 184064 (weighted lane sum, gain=64)
+== 4: multi-voice summing (with 1/sqrt(N) normalization) ==
+     [sum] 1v=71808  2v=101070  3v=124690
+  ok  : summing is monotonic (more voices => louder)
+  ok  : 2 voices => ~1.42x (sqrt(2) w/ fixed-point), NOT 2x  [power norm]
+  ok  : 3 voices => ~1.73x (sqrt(3) w/ fixed-point), NOT 3x  [power norm]
+  ok  : NORMALIZATION: 3 voices are NOT 3x (would clip)
+  ok  : NORMALIZATION: 3 voices stay WITHIN signed24 (no clipping)
+== 5: max input, no wrap ==
+  ok  : max input stays POSITIVE (no wrap)
+  ok  : max input clamps to soft-knee ceiling 0x780000 (not wrap)
+     [dbgMax] sSat=7864320 (鏈熸湜杞啙澶╄姳鏉?7864320) acc=68716331040 sh=1048528
+  ok  : min input stays NEGATIVE (no wrap)
+     [dbgMin] sSat=-7864320 (鏈熸湜杞啙澶╄姳鏉?-7864320) acc=-68718428160 sh=-1048560
+  ok  : min input clamps to soft-knee ceiling -0x780000 (not wrap)
+== 6: deadline_fault is sticky ==
+  ok  : tight-deadline instance: fault set after one frame
+  ok  : sticky: fault still 1 after several frames
+  ok  : fault clears only on reset
+== 7: real saturation via wide samples ==
+  ok  : wide positive overflow clamps to soft-knee ceiling (no wrap)
+  ok  : wide negative overflow clamps to soft-knee ceiling (no wrap)
+PASS: tdm_render_mixer acceptance (T56) - all judgements held
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_tdm_render_mixer.sv:476: $finish called at 20920000 (1ps)
+
+
+    ℹ️ 日志含 1 行 ERROR —— 负向测试的预期结果，不算失败
+
+=== 编译 tb_test_mode_ctrl ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_test_mode_ctrl ===
+      ok  : reset holds every output at zero
+  ok  : enable=0 bypasses every output
+  ok  : active_n matches requested mode
+  ok  : gate popcount matches active_n
+  ok  : lane popcount matches active_n
+  ok  : active_n matches requested mode
+  ok  : gate popcount matches active_n
+  ok  : lane popcount matches active_n
+  ok  : active_n matches requested mode
+  ok  : gate popcount matches active_n
+  ok  : lane popcount matches active_n
+  ok  : active_n matches requested mode
+  ok  : gate popcount matches active_n
+  ok  : lane popcount matches active_n
+  ok  : first FFT-bin-aligned increment is exact
+  ok  : second FFT-bin-aligned increment is exact
+  ok  : highest frequency remains below Nyquist
+  ok  : active_n matches requested mode
+  ok  : gate popcount matches active_n
+  ok  : lane popcount matches active_n
+  ok  : 32-to-4 switch leaves no stale fifth voice
+  ok  : disable after 32/4 switching clears every output
+  ok  : reset wins even while enable is high
+  ok  : no output X/Z after reset
+PASS: test_mode_ctrl 4/8/16/32 contract
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_test_mode_ctrl.sv:180: $finish called at 148000 (1ps)
+
+
+
+=== 编译 tb_test_mode_fft ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_test_mode_fft.sv:46: warning: Instantiating module oscillator_bank with dangling input port 5 (voice_phase_rst_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_test_mode_fft.sv:46: warning: Instantiating module oscillator_bank with dangling input port 9 (voice_drum_i) floating.
+=== 运行 tb_test_mode_fft ===
+    FFT_EVIDENCE: mode=4 samples=8192 file=sim/evidence/test_mode_n4.csv
+FFT_EVIDENCE: mode=8 samples=8192 file=sim/evidence/test_mode_n8.csv
+FFT_EVIDENCE: mode=16 samples=8192 file=sim/evidence/test_mode_n16.csv
+FFT_EVIDENCE: mode=32 samples=8192 file=sim/evidence/test_mode_n32.csv
+PASS: generated real Test Mode wavetable samples for FFT acceptance
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_test_mode_fft.sv:131: $finish called at 43909360000 (1ps)
+
+
+
+=== 编译 tb_test_mode_top ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_test_mode_top.sv:25: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_test_mode_top.sv:25: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+=== 运行 tb_test_mode_top ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=1000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=14 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+=== tb_test_mode_top (physical UART integration) ===
+  ok  : top Test Mode enable state
+  ok  : top Test Mode count code
+  ok  : test_mode_ctrl active count
+  ok  : selected test voices equal active count
+  ok  : one oscillator lane per selected voice
+  ok  : Test Mode gate mux reaches envelope bank
+  ok  : Test Mode velocity mux reaches envelope bank
+  ok  : controller lanes reach oscillator bank
+  ok  : top Test Mode enable state
+  ok  : top Test Mode count code
+  ok  : test_mode_ctrl active count
+  ok  : selected test voices equal active count
+  ok  : one oscillator lane per selected voice
+  ok  : Test Mode gate mux reaches envelope bank
+  ok  : Test Mode velocity mux reaches envelope bank
+  ok  : controller lanes reach oscillator bank
+  ok  : top Test Mode enable state
+  ok  : top Test Mode count code
+  ok  : test_mode_ctrl active count
+  ok  : selected test voices equal active count
+  ok  : one oscillator lane per selected voice
+  ok  : Test Mode gate mux reaches envelope bank
+  ok  : Test Mode velocity mux reaches envelope bank
+  ok  : controller lanes reach oscillator bank
+  ok  : top Test Mode enable state
+  ok  : top Test Mode count code
+  ok  : test_mode_ctrl active count
+  ok  : selected test voices equal active count
+  ok  : one oscillator lane per selected voice
+  ok  : Test Mode gate mux reaches envelope bank
+  ok  : Test Mode velocity mux reaches envelope bank
+  ok  : controller lanes reach oscillator bank
+  ok  : top Test Mode enable state
+  ok  : top Test Mode count code
+  ok  : test_mode_ctrl active count
+  ok  : selected test voices equal active count
+  ok  : one oscillator lane per selected voice
+  ok  : Test Mode gate mux reaches envelope bank
+  ok  : Test Mode velocity mux reaches envelope bank
+  ok  : controller lanes reach oscillator bank
+  ok  : top Test Mode enable state
+  ok  : top Test Mode count code
+  ok  : test_mode_ctrl active count
+  ok  : selected test voices equal active count
+  ok  : one oscillator lane per selected voice
+  ok  : Test Mode gate mux reaches envelope bank
+  ok  : Test Mode velocity mux reaches envelope bank
+  ok  : controller lanes reach oscillator bank
+  ok  : top Test Mode enable state
+  ok  : top Test Mode count code
+  ok  : test_mode_ctrl active count
+  ok  : selected test voices equal active count
+  ok  : one oscillator lane per selected voice
+  ok  : Test Mode gate mux reaches envelope bank
+  ok  : Test Mode velocity mux reaches envelope bank
+  ok  : controller lanes reach oscillator bank
+PASS: physical UART M command controls 4/8/16/32 Test Mode in top
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_test_mode_top.sv:130: $finish called at 293710000 (1ps)
+
+
+
+=== 编译 tb_timbre_adsr ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_timbre_adsr ===
+    PASS: four timbres have distinct ADSR profiles
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_timbre_adsr.sv:90: $finish called at 2884101000 (1ps)
+
+
+
+=== 编译 tb_timbre_event_path ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_timbre_event_path.sv:112: warning: Instantiating module note_manager with dangling input port 16 (vel_upd_src_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_timbre_event_path.sv:112: warning: Instantiating module note_manager with dangling input port 17 (pitch_upd_src_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_timbre_event_path.sv:112: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_timbre_event_path.sv:112: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+=== 运行 tb_timbre_event_path ===
+    WARNING [note_manager] FIFO_DEPTH=8 < 鏈€鍧忕獊鍙?18 (=16 杞?+1 鑺傛媿鍣?+1 榧撴満) => 浜嬩欢浼氭孩鍑轰涪寮冿紙猸?宸茬敱 event_lost_o 鎸囩ず锛屼絾浼氫涪闊筹級
+  ok  : score PIANO timbre survives arb/merge/FIFO into voice0
+  ok  : existing voice keeps its original PIANO timbre
+  ok  : new voice snapshots GUITAR while held voice stays PIANO
+PASS: T31b timbre event path
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_timbre_event_path.sv:189: $finish called at 1500000 (1ps)
+
+
+
+=== 编译 tb_vel_pos_follow ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160: warning: Port 9 (note_src_i) of module note_manager expects 3 bit(s), given 2.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160:        : Padding 1 high bits of the port.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiating module note_manager with dangling input port 16 (vel_upd_src_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiating module note_manager with dangling input port 17 (pitch_upd_src_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:189: warning: Instantiating module envelope_bank with dangling input port 7 (timbre_i) floating.
+=== 运行 tb_vel_pos_follow ===
+    WARNING [note_manager] FIFO_DEPTH=8 < 鏈€鍧忕獊鍙?18 (=16 杞?+1 鑺傛媿鍣?+1 榧撴満) => 浜嬩欢浼氭孩鍑轰涪寮冿紙猸?宸茬敱 event_lost_o 鎸囩ず锛屼絾浼氫涪闊筹級
+VCD info: dumpfile build/sim/tb_vel_pos_follow/tb_vel_pos_follow.vcd opened for output.
+  INFO: 浣嶇疆 鈫?鍔涘害鏄犲皠锛堚瓙 vel = 64 + ((pos脳263)>>10)锛岄ケ鍜?255锛?
+  INFO:   P_PRESS(192) = 113
+  INFO:   P_DEEP (600) = 218
+  INFO:   P_HALF (300) = 141
+  INFO:   P_FULL (744) = 255
+  ok  : J1a: note_on -> exactly ONE voice gate is high
+  ok  : J1b: that voice carries axis 0
+  ok  : J1c: attack velocity == pos_to_vel(pos at trigger)
+  ok  : J1d: env settled at sustain_of(that velocity)  [= vel * 64]
+  ok  : J2a: pressing DEEPER made vel LARGER
+  ok  : J2b: vel_upd did NOT touch gate (params never make notes)
+  ok  : J2c: env became LARGER
+  ok  : J2d: and it settled at the NEW sustain (not rising forever)
+  ok  : J3a: easing BACK made vel SMALLER (positional = up AND down)
+  ok  : J3b: *** env became SMALLER ***  [MUST FAIL on the un-fixed note_manager]
+  ok  : J3c: and it settled at the NEW sustain
+  INFO: 鍖呯粶鐢靛钩  L1(pos=192)=7232  L2(pos=600)=13952  L3(pos=300)=9024
+  ok  : J6: vel_upd on ANOTHER axis must NOT change this voice
+== K: per-axis targets must survive interleaved updates ==
+  ok  : K0: axis0 target 200 applied
+  ok  : K1: axis0 still reaches ITS OWN target 100 (not overwritten by axis4)
+  ok  : J4a: note_off dropped the gate
+  ok  : J4b: env started to DECAY (release path is live)
+  ok  : J4c: env decayed all the way to 0
+  ok  : J4d: env_active fell
+  ok  : J5a: after note_off a vel_upd must NOT change vel (FROZEN)
+  ok  : J5b: and env was not pushed back up (still 0)
+PASS: vel_pos_follow acceptance - volume follows position (up AND down), frozen on release
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:420: $finish called at 666360000 (1ps)
+
+
+
+=== 编译 tb_vel_top_stream ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:110: warning: Instantiating module top with dangling input port 3 (timbre_btn_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:110: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:110: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:130: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:130: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:134: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:134: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:214: vvp.tgt sorry: procedural continuous assignments are not yet fully supported. The RHS of this assignment will only be evaluated once, at the time the assignment statement is executed.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:224: vvp.tgt sorry: procedural continuous assignments are not yet fully supported. The RHS of this assignment will only be evaluated once, at the time the assignment statement is executed.
+=== 运行 tb_vel_top_stream ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=48 VOTE_N=4 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=14 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+VCD info: dumpfile build/sim/tb_vel_top_stream/tb_vel_top_stream.vcd opened for output.
+  ok  : T1: pos=0 (below VEL_TRIG_TH) => NO vel_upd packets
+  ok  : T2a: pos=300 => exactly ONE packet per axis (16 total)
+  ok  : T2b: every packet value == pos_to_vel(300) == 141
+  ok  : T2c: every packet axis == vu_ax_r of that cycle
+  ok  : T3: delta=16 still sends (no deadzone) => packet per axis
+  ok  : T3b: value tracks pos=316
+  ok  : T4a: delta=1 also sends => packet per axis
+  ok  : T4b: value tracks pos=317
+  ok  : T5: pos=64 (NOT > VEL_TRIG_TH) => NO packet even though delta is huge
+  ok  : T6a: pos=65 (just over threshold) => packet per axis
+  ok  : T6b: value == pos_to_vel(65) == 80
+  ok  : T7a: vu_ax_r rotates 0->1->...->15->0 on EVERY tick_audio
+  ok  : T7b: vu_valid_r is exactly a ONE-cycle pulse (never 2 in a row)
+  ok  : T8: all packets had val/axis aligned with the SAME cycle (L70)
+== 9: no deadzone -- a held axis keeps sending ==
+  ok  : T9a: pos below threshold => NO packets at all
+  ok  : T9b: pos held ABOVE threshold => keeps sending (>= 2 per 16 ticks)
+  ok  : T9c: still sending on the NEXT window (no deadzone latch-up)
+  ok  : T9d: releasing (pos -> 0) stops the stream immediately
+== 10: axes 8..15 (second left-hand board) must follow too ==
+  ok  : T10a: BOTH halves at pos=0 => NO packets
+  ok  : T10b: ONLY axes 8..15 over threshold => exactly 8 packets per rotation
+  ok  : T10c: every packet axis is in 8..15 (axes 8..15 ARE scanned)
+  ok  : T10d: every packet value == pos_to_vel(700)
+PASS: vel_top_stream -- the top-level vu_* stream obeys its contract
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_top_stream.sv:425: $finish called at 12000000 (1ps)
+
+
+
+=== 编译 tb_velocity_headroom ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_headroom.sv:46: warning: Instantiating module oscillator_bank with dangling input port 5 (voice_phase_rst_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_headroom.sv:46: warning: Instantiating module oscillator_bank with dangling input port 9 (voice_drum_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 2 words in array 'pc_l1'.
+=== 运行 tb_velocity_headroom ===
+    INFO: timbre=0 velocity=64 samples=700 osc=32767 env=16384 max_abs=362688 (43/1000 FS) knee=0 rail=0
+INFO: timbre=0 velocity=128 samples=700 osc=32767 env=32768 max_abs=731136 (87/1000 FS) knee=0 rail=0
+INFO: timbre=0 velocity=160 samples=700 osc=32767 env=40960 max_abs=916352 (109/1000 FS) knee=0 rail=0
+INFO: timbre=0 velocity=200 samples=700 osc=32767 env=51200 max_abs=1147840 (136/1000 FS) knee=0 rail=0
+INFO: timbre=1 velocity=200 samples=700 osc=32767 env=51200 max_abs=1540608 (183/1000 FS) knee=0 rail=0
+INFO: timbre=2 velocity=200 samples=700 osc=32767 env=51200 max_abs=1467264 (174/1000 FS) knee=0 rail=0
+INFO: timbre=3 velocity=200 samples=700 osc=32767 env=31455 max_abs=354816 (42/1000 FS) knee=0 rail=0
+PASS: velocity headroom stays below the digital limiter for all timbres
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_headroom.sv:157: $finish called at 4900700000 (1ps)
+
+
+
+=== 编译 tb_velocity_lane_isolation ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_lane_isolation.sv:24: warning: Instantiating module oscillator_bank with dangling input port 5 (voice_phase_rst_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_lane_isolation.sv:24: warning: Instantiating module oscillator_bank with dangling input port 9 (voice_drum_i) floating.
+=== 运行 tb_velocity_lane_isolation ===
+    PASS: TDM lanes use their own velocity blend coefficient
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_lane_isolation.sv:59: $finish called at 201000 (1ps)
+
+
+
+=== 编译 tb_velocity_tone_decoupling ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_tone_decoupling.sv:22: warning: Instantiating module oscillator_bank with dangling input port 5 (voice_phase_rst_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_tone_decoupling.sv:22: warning: Instantiating module oscillator_bank with dangling input port 9 (voice_drum_i) floating.
+=== 运行 tb_velocity_tone_decoupling ===
+    PASS: performance velocity changes loudness only, not oscillator tone
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_tone_decoupling.sv:63: $finish called at 300000 (1ps)
+
+
+
+=== 编译 tb_vibrato_lfo ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_vibrato_lfo ===
+      ok  : dead-zone below ON threshold keeps vibrato disabled
+  ok  : depth reaches ON threshold and enables vibrato
+  ok  : hysteresis holds enabled inside OFF..ON band
+  ok  : depth at OFF threshold disables vibrato
+  ok  : rate slew first step is bounded
+  ok  : rate slew second step is bounded
+  ok  : rate slew converges without a jump
+  ok  : rate update never clears LFO phase
+  ok  : triangle positive quarter-cycle
+  ok  : triangle crosses zero at half-cycle
+  ok  : triangle negative three-quarter-cycle
+  ok  : triangle returns to zero continuously
+PASS: vibrato LFO hysteresis, slew and phase continuity
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vibrato_lfo.sv:100: $finish called at 350000 (1ps)
+
+
+
+=== 编译 tb_vibrato_top ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1713: warning: Port 5 (sample_data_i) of module calib_autotare expects 24 bit(s), given 36.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1713:        : Pruning 12 high bits of the expression.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vibrato_top.sv:18: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vibrato_top.sv:18: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vibrato_top.sv:32: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vibrato_top.sv:32: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+=== 运行 tb_vibrato_top ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=1000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=14 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=1000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=14 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+  ok  : optional right ADC is instantiated as ADC #2
+  ok  : P4 chip-select is actively scanned
+  ok  : P4 CH1 reaches master mix as Q1.15 unity
+  ok  : P4-disabled configuration retains unity master gain
+  ok  : CH2 high control enables the LFO through hysteresis
+  ok  : LFO output reaches the real oscillator bank
+PASS: T18 P4 ADC -> LFO -> oscillator integration
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vibrato_top.sv:55: $finish called at 700110000 (1ps)
+
+
+
+=== 编译 tb_w1_interfaces ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_w1_interfaces.sv:47: warning: Instantiating module oscillator_bank with dangling input port 5 (voice_phase_rst_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_w1_interfaces.sv:47: warning: Instantiating module oscillator_bank with dangling input port 9 (voice_drum_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_w1_interfaces.sv:62: warning: Instantiating module envelope_bank with dangling input port 6 (retrig_reset_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_w1_interfaces.sv:62: warning: Instantiating module envelope_bank with dangling input port 7 (timbre_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+=== 运行 tb_w1_interfaces ===
+    ERROR [tdm_render_mixer] LANE_W0/W1 = (16,0) but the shift/add identity implements (9,7) => THE PARAMETERS HAVE NO EFFECT, update the code (see the LANE_W0 comment)
+PASS: W3b interfaces elaborate at 32x1 and Test Mode selects 32 voices
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_w1_interfaces.sv:127: $finish called at 200000 (1ps)
+
+
+    ℹ️ 日志含 1 行 ERROR —— 负向测试的预期结果，不算失败
+
+=== 编译 tb_wavetable_bank ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_wavetable_bank.sv:226: warning: Instantiating module oscillator_bank with dangling input port 5 (voice_phase_rst_i) floating.
+=== 运行 tb_wavetable_bank ===
+    VCD info: dumpfile build/sim/wavetable/tb_wavetable_bank.vcd opened for output.
+  info: noise len=1024 sum=0 min=-26333 max=32767 zcr=498
+  info: sine  zcr=2  noise r1=-0.00226 r2=0.00163  wrap_step=5267 max_step=39790
+  ok  : noise_table_dc_sum_is_zero
+  ok  : noise_table_peak_within_2pct_of_full_scale
+  ok  : noise_table_not_clipped_to_full_scale
+  ok  : sine_table_zcr_is_low
+  ok  : noise_table_zcr_ge_64x_sine_zcr
+  ok  : noise_table_autocorr_lag1_le_0p10
+  ok  : noise_table_autocorr_lag2_le_0p10
+  ok  : noise_table_wrap_step_le_max_interior_step
+  info: drum voice capture zcr: noise_sel=246 (0.481) / noise_sel_off=41 (0.080)
+  ok  : noise_sel_off_capture_is_pitched
+  ok  : drum_voice_reads_broadband_noise
+  ok  : drum_voice_zcr_at_least_3x_pitched_ref
+PASS: wavetable_bank four timbres use deterministic synchronous reads
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_wavetable_bank.sv:448: $finish called at 350800000 (1ps)
+
+
+
+=== 编译 tb_wavetable_bank_prom ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_wavetable_bank_prom ===
+    VCD info: dumpfile build/sim/wavetable_prom/tb_wavetable_bank_prom.vcd opened for output.
+PASS: wavetable_bank generated-table build is deterministic
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_wavetable_bank_prom.sv:226: $finish called at 220000 (1ps)
+
+
+
+=== 编译 tb_wavetable_timbres ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_wavetable_timbres ===
+    PASS: T31b four timbre wavetable public interface
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_wavetable_timbres.sv:108: $finish called at 260000 (1ps)
+
+
+
+=== 编译 tb_beat_gen ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_beat_gen ===
+    VCD info: dumpfile build/sim/tb_beat_gen/tb_beat_gen.vcd opened for output.
+PASS: beat_gen tick interval range 0 (strict tiers) / <=1 clk (BPM 60/120/200), BPM rates correct, transport edge assertions hold
+
+
+
+=== 编译 tb_drum_gen ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_drum_gen ===
+    === tb_drum_gen锛堢函鍚堟垚榧撴満锛?==
+猸?鍙傛暟锛欰XIS_ID=15 路 PATTERN_ID=0(BASIC) 路 TICKS_PER_STEP=8
+  ok  : 鈶?transport=0 鈬?鉀?涓€涓簨浠堕兘娌″彂锛堝仠灏辩湡鍋滐級
+  --- 涓€灏忚妭锛圔ASIC / 鍨?0锛変簨浠剁粺璁?---
+      Kick=4  Snare=2  HiHat=8  Tom=0  鎬?14
+  ok  : 鈶?涓€灏忚妭鎭板ソ 14 涓簨浠讹紙Kick4/Snare2/HiHat8/Tom0锛夆€斺€?涓庣敤鎴疯〃(BASIC)鍚诲悎
+  ok  : 鈶⑩瓙 涓€'姝?澶氫箰鍣ㄣ€愭病琚悶銆戔€斺€?step0 鐨?Kick+HiHat 閮藉彂鍑烘潵浜?
+  ok  : 鈶?鍏ㄩ儴浜嬩欢 axis = 15锛?= 14 涓撶敤姹狅級鉀?涓嶆姠婕斿鐨?voice
+  ok  : 鈶?涓嶇矘婊?鈥斺€?valid 杩炵画楂樻椂鏁版嵁姣忔媿閮藉湪鍙?
+  ok  : 鈶?step 璁℃暟鏈夋晥 = 15锛堚瓙 4 浣嶆暟澶╃劧鍦?0~15锛涙湰杞仠鍦?15 鏄€愭甯哥殑銆戔€斺€?猸?鎭板ソ璺戞弧 16 姝ュ埌杈圭晫鍓嶏級
+  ok  : 鈶゜ 鎺ㄨ繘涓€涓?16 鍒嗛煶绗?鈬?step 鎭板ソ +1锛?5 鈫?0锛?
+  ok  : 鈶?鏃?PCM 鈥斺€?鏈ā鍧椼€愪笉鍔犺浇浠讳綍鏂囦欢銆戯紙瑙佽剼鏈骇闈欐€佹鏌ワ級
+  ok  : 鈶?transport 鎷変綆 鈬掋€愬綋鎷嶅嵆鍋溿€戔洈 涓嶅悙娈嬩綑锛?0 鎷嶅唴 0 涓簨浠讹級
+  ok  : 鈶?灏忚妭瀵归綈 鈥斺€?3 涓皬鑺傝捣鐐?step_cnt 閮芥槸 0锛堚洈 涓嶆紓绉伙級
+  --- 鈶懎 灏忚妭鐩镐綅瀹炴祴锛堝瀷 0锛屽浣嶅悗杩炶窇 4 灏忚妭锛?--
+      bar 0: step_at_bar_start=0  first_evt=0051eb85  second_evt=0a3d70a3
+      bar 1: step_at_bar_start=0  first_evt=0051eb85  second_evt=0a3d70a3
+      bar 2: step_at_bar_start=0  first_evt=0051eb85  second_evt=0a3d70a3
+      bar 3: step_at_bar_start=0  first_evt=0051eb85  second_evt=0a3d70a3
+  ok  : 鈶?4 涓?bar_start 鐨?step_cnt 鍏ㄦ槸 0 鈬?16 姝ヨ〃鐨?step 0 钀藉湪姝ｆ媿
+  ok  : 鈶?姝ｆ媿绗竴涓簨浠?= Kick銆佺浜屼釜 = HiHat锛? step 0 鎺╃爜 0101锛?
+  --- 鈶?鍒囧埌鍨?1 鍚庣殑涓€灏忚妭 ---
+      Kick=4  Snare=2  HiHat=4  Tom=2  鎬?12锛圱om 鍔涘害寮傚父 0 涓級
+  ok  : 鈶?杩愯鏃跺垏鍨嬬珛鍒荤敓鏁堬紙鍨?1 = Kick4/Snare2/HiHat4/Tom2 = 12锛屽姏搴?190锛?
+  --- (16) 4 pattern tables, bit-exact vs the user tables ---
+      mask format: %b = bit3..bit0 = Tom,Cym,Snare,Kick
+      pattern 0 (BASIC):
+        step 01 : expected=0101  observed=0101  ok
+        step 02 : expected=0000  observed=0000  ok
+        step 03 : expected=0100  observed=0100  ok
+        step 04 : expected=0000  observed=0000  ok
+        step 05 : expected=0111  observed=0111  ok
+        step 06 : expected=0000  observed=0000  ok
+        step 07 : expected=0100  observed=0100  ok
+        step 08 : expected=0000  observed=0000  ok
+        step 09 : expected=0101  observed=0101  ok
+        step 10 : expected=0000  observed=0000  ok
+        step 11 : expected=0100  observed=0100  ok
+        step 12 : expected=0000  observed=0000  ok
+        step 13 : expected=0111  observed=0111  ok
+        step 14 : expected=0000  observed=0000  ok
+        step 15 : expected=0100  observed=0100  ok
+        step 16 : expected=0000  observed=0000  ok
+  ok  : drum_pat0_basic_16step_mask_table_bitexact
+      pattern 1 (HOUSE):
+        step 01 : expected=0001  observed=0001  ok
+        step 02 : expected=0000  observed=0000  ok
+        step 03 : expected=0100  observed=0100  ok
+        step 04 : expected=0000  observed=0000  ok
+        step 05 : expected=0011  observed=0011  ok
+        step 06 : expected=0000  observed=0000  ok
+        step 07 : expected=0100  observed=0100  ok
+        step 08 : expected=1000  observed=1000  ok
+        step 09 : expected=0001  observed=0001  ok
+        step 10 : expected=0000  observed=0000  ok
+        step 11 : expected=0100  observed=0100  ok
+        step 12 : expected=0000  observed=0000  ok
+        step 13 : expected=0011  observed=0011  ok
+        step 14 : expected=0000  observed=0000  ok
+        step 15 : expected=0100  observed=0100  ok
+        step 16 : expected=1000  observed=1000  ok
+  ok  : drum_pat1_house_16step_mask_table_bitexact
+      pattern 2 (ROCK):
+        step 01 : expected=0101  observed=0101  ok
+        step 02 : expected=0000  observed=0000  ok
+        step 03 : expected=0100  observed=0100  ok
+        step 04 : expected=0000  observed=0000  ok
+        step 05 : expected=0110  observed=0110  ok
+        step 06 : expected=0000  observed=0000  ok
+        step 07 : expected=0101  observed=0101  ok
+        step 08 : expected=0000  observed=0000  ok
+        step 09 : expected=0101  observed=0101  ok
+        step 10 : expected=0000  observed=0000  ok
+        step 11 : expected=0100  observed=0100  ok
+        step 12 : expected=0000  observed=0000  ok
+        step 13 : expected=0110  observed=0110  ok
+        step 14 : expected=1000  observed=1000  ok
+        step 15 : expected=0101  observed=0101  ok
+        step 16 : expected=0000  observed=0000  ok
+  ok  : drum_pat2_rock_16step_mask_table_bitexact
+      pattern 3 (DANCE_FILL):
+        step 01 : expected=0101  observed=0101  ok
+        step 02 : expected=0000  observed=0000  ok
+        step 03 : expected=0100  observed=0100  ok
+        step 04 : expected=0000  observed=0000  ok
+        step 05 : expected=0111  observed=0111  ok
+        step 06 : expected=0000  observed=0000  ok
+        step 07 : expected=0100  observed=0100  ok
+        step 08 : expected=1001  observed=1001  ok
+        step 09 : expected=0101  observed=0101  ok
+        step 10 : expected=0000  observed=0000  ok
+        step 11 : expected=1100  observed=1100  ok
+        step 12 : expected=0000  observed=0000  ok
+        step 13 : expected=0111  observed=0111  ok
+        step 14 : expected=1000  observed=1000  ok
+        step 15 : expected=1100  observed=1100  ok
+        step 16 : expected=1100  observed=1100  ok
+  ok  : drum_pat3_dance_fill_16step_mask_table_bitexact
+  ok  : 鈶?cfg_warn_o = 0锛堝弬鏁颁竴鑷达細AXIS_ID=15 >= 14, STEPS=16锛?
+  ok  : 鈶?A8 鏃?X/Z 浼犳挱
+  ok  : 鈶 transport 鎷変綆鍚?鈬?绔嬪埢鍋滃彂锛堚洈 涓嶅悙娈嬩綑锛?
+--------------------------------------------------
+PASS: drum_gen 涓€姝ュ涔愬櫒涓嶄涪銆?6姝?1灏忚妭銆佹鎷嶇浉浣?step0=Kick+HiHat)銆佷笓鐢ㄦ睜銆佷笉绮樻粸銆乼ransport 闂ㄦ帶銆佽繍琛屾椂鍒囧瀷+鍡甸紦銆佹棤 X/Z銆? 涓妭濂忓瀷浣嶇簿纭鐢ㄦ埛琛?
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_gen.sv:728: $finish called at 132860000 (1ps)
+
+
+
+=== 编译 tb_drum_timbre_top ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_timbre_top.sv:92: warning: Instantiating module top with dangling input port 3 (timbre_btn_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_timbre_top.sv:92: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_timbre_top.sv:92: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_timbre_top.sv:110: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_timbre_top.sv:110: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_timbre_top.sv:114: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_timbre_top.sv:114: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+=== 运行 tb_drum_timbre_top ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=48 VOTE_N=4 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=14 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+VCD info: dumpfile build/sim/tb_drum_timbre_top/tb_drum_timbre_top.vcd opened for output.
+  ok  : T0 precondition: keyboard timbre forced to PAD(3)
+  info: drum events=2 (kick=1 hihat=1)  first_inc=0051eb85
+  info: merged axis-15 events=2  timbre_valid_bad=0  timbre_bad=0
+  ok  : T1 drum machine emitted Kick+HiHat at the bar start
+  ok  : T2 every merged drum event carries timbre_valid=1 (non-vacuous)
+  ok  : T3 every merged drum event carries timbre = DRUM_TIMBRE(2)
+  info: drum voice 27  axis=f  timbre=2  phase_inc=0a3d70a3  (keyboard timbre=3)
+  info: voices with axis=15 and gate high = 1  (2 drum events were emitted)
+  ok  : T4 note_manager latched a voice for the drum (axis 15, gate high)
+  ok  : T4b the drum voice timbre is DRUM_TIMBRE(2), NOT the keyboard's 3
+  ok  : T5 after the keyboard timbre changed, the drum timbre is STILL 2
+PASS: drum_timbre_top -- the drum machine keeps its own timbre when the keyboard timbre changes
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_timbre_top.sv:272: $finish called at 85330000 (1ps)
+
+
+
+=== 编译 tb_evt_merge ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_evt_merge ===
+    VCD info: dumpfile build/sim/evt_merge/tb_evt_merge.vcd opened for output.
+  ok  : empty queue emits nothing (no garbage)
+  ok  : BOTH events survived a same-cycle collision (0 -> 2)
+  ok  : collision payloads intact (axis 1 then 2)
+  ok  : collision_cnt_o = 1 (observed)
+  ok  : round-robin rotates (A first 2, B first 2)
+  ok  : evt_valid_o is strictly single-cycle
+  ok  : overflow_o raised under sustained overload (drop_cnt=28)
+  ok  : all THREE sources survived a same-cycle collision (52 -> 55)
+  ok  : each of the three keeps its OWN source tag (A=0 B=3 C=4)
+  ok  : A8 no X/Z on evt_merge outputs
+  ok  : DEPTH9 浣嶅濂戠害 + 杞欢鍙傝€冩ā鍨嬮€愭媿涓€鑷达紙checks=656 full=81 reject=126 triple=100 wraps=72锛?
+PASS: evt_merge never drops a same-cycle collision, is single-cycle, rotates, and reports overflow
+
+
+
+=== 编译 tb_evt_merge_diff ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_evt_merge_diff ===
+    
+=== evt_merge 閫愭媿宸垎锛欴EPTH 2/3/4/6/9 脳 20000 鎷?===
+    姣旇緝娆℃暟 = 100330   涓嶄竴鑷?= 0
+PASS: 鏂版棫 evt_merge 鍦?5 绉?DEPTH 涓嬮€愭媿閫愪綅鐩稿悓锛?2 缁勮緭鍑猴級
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_merge_diff.sv:143: $finish called at 401320000 (1ps)
+
+
+
+=== 编译 tb_evt_uart_rx ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_evt_uart_rx ===
+    VCD info: dumpfile build/sim/evt_uart_rx/tb_evt_uart_rx.vcd opened for output.
+  ok  : real 115200 baud, 64-bit payload exact (big-endian ok)
+  ok  : payload containing 0xA5 bytes parsed correctly (no false sync)
+  ok  : 0xA5 in the middle of the payload does NOT resync
+  ok  : 18 x 0xA5 reset sequence DROPPED (2 frames), no bogus event
+  ok  : idle gap re-synced to idx=0 (resync_cnt=1)
+  ok  : after resync the next frame parses normally
+  ok  : a wrong header byte is counted and does NOT advance
+  ok  : 10 back-to-back frames all parsed, payloads exact
+  ok  : evt_valid_o is strictly single-cycle
+  ok  : evt_valid_o and evt_data_o are the same beat (14/14)
+  ok  : conservation -- frame_cnt=14 == events emitted, drop_cnt=2 exactly
+  ok  : A8 no X/Z on evt_uart_rx outputs
+PASS: evt_uart_rx frames 64-bit events at real baud, never false-syncs on a 0xA5 payload, drops the reset sequence, and self-heals on idle gaps
+
+
+
+=== 编译 tb_evt_uart_rx_screen ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_evt_uart_rx_screen ===
+    
+==============================================================
+ does a TJC SCREEN frame get mistaken for a SCORE event?
+ (no legal event packet is ever sent here)
+==============================================================
+  [1] TWO screen frames BACK-TO-BACK (gap < 16 byte-times):
+      frame A: 71 01 00 A5 00 FF FF FF FF
+      frame B: 71 02 00 11 00 FF FF FF FF
+      after: n_evt=1  frame_cnt=1  hdr_err=8  resync=0
+  [2] a long continuous screen stream (8 frames, no long gap):
+      after: n_evt=8  frame_cnt=8  hdr_err=10  resync=1
+
+  == summary ==
+   total evt_valid pulses (spurious events) = 8
+   馃敶 CONFIRMED: screen data WAS parsed as a score event!
+      last evt_data = 0xa500ffffffff7107
+      => decoded axis = 15  (14/15 = reserved, keyboard can NEVER clear it)
+      => decoded inc  = 0x1fffff
+      => decoded kind = 0 (0=on 1=off)
+==============================================================
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_screen.sv:170: $finish called at 381760000 (1ps)
+
+
+
+=== 编译 tb_i2s_tx ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_i2s_tx ===
+    VCD info: dumpfile build/sim/tb_i2s_tx/tb_i2s_tx.vcd opened for output.
+  路 宸?#0 瑙ｄ覆=0 鏈熸湜=0锛堥珮 16 浣嶄竴鑷达級
+  路 宸?#1 瑙ｄ覆=410880 鏈熸湜=411113锛堥珮 16 浣嶄竴鑷达級
+  路 宸?#2 瑙ｄ覆=818176 鏈熸湜=818268锛堥珮 16 浣嶄竴鑷达級
+  路 宸?#3 瑙ｄ覆=1217536 鏈熸湜=1217542锛堥珮 16 浣嶄竴鑷达級
+
+================ i2s_tx / S2 瑙ｄ覆瀹炴祴 ================
+  甯ф暟        : 鏀跺埌宸?260 / 鍙?260 涓牱鐐癸紙鏈熸湜 256锛?
+  閫愮偣涓€鑷?   : 宸?256 瀵?/ 0 閿?路 鍙?256 瀵?/ 0 閿?
+  HP_BCK 鍛ㄦ湡 : min=16 max=16 clk锛堟湡鏈?16 = 3.125 MHz锛?
+  HP_WS  鍛ㄦ湡 : min=1024 max=1024 clk锛堟湡鏈?1024 = 48.828125 kHz锛?
+  HP_WS  鍗犵┖ : 浣?133122 / 楂?133118 clk
+  鏍风偣 CSV    : sim/evidence/i2s_tx_l.csv / _r.csv锛堜氦缁?tools/csv_fft.py锛?
+=====================================================
+  ok : 宸﹀０閬撹В涓叉牱鐐逛笌婵€鍔?*閫愮偣涓€鑷?*锛?56 鐐癸級
+  ok : 鍙冲０閬撹В涓叉牱鐐逛笌婵€鍔?*閫愮偣涓€鑷?*锛?56 鐐癸級
+  ok : HP_BCK 鍛ㄦ湡鎭板ソ 16 clk锛?.125 MHz锛?
+  ok : HP_WS 鍛ㄦ湡鎭板ソ 1024 clk锛?8.828125 kHz锛?
+  ok : HP_WS 浣?= 宸﹀０閬擄紙260 涓抚璧风偣澶勫潎涓轰綆锛?
+  ok : A8 鏃?X/Z 浼犳挱锛圚P_BCK/HP_WS/HP_DIN锛?
+
+PASS: i2s_tx + S2 瑙ｄ覆閫愮偣涓€鑷达紙M1 鐨勬牳蹇冨垽鎹€氳繃锛?
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_i2s_tx.sv:222: $finish called at 5325051000 (1ps)
+
+
+
+=== 编译 tb_i2s_tx_prbs ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_i2s_tx_prbs ===
+    VCD info: dumpfile build/sim/tb_i2s_tx_prbs/tb_i2s_tx_prbs.vcd opened for output.
+
+================ i2s_tx value/bit-pattern coverage ================
+  LCG random  : 512 frames (fixed seed DEADBEEF, reproducible)
+  bit walk    : 48 frames (1<<k and ~(1<<k) for k=0..23)
+  edge values : 16 frames (7FFFFF/800000/0/FFFFFF/0000FF)
+  L channel   : ok 578 / bad 0
+  R channel   : ok 580 / bad 0
+  A8          : din=0 bck=0 ws=0
+==================================================================
+  ok : L channel: every value (incl. all bit patterns) round-trips exactly
+  ok : R channel: every value round-trips exactly
+  ok : A8 no X/Z
+
+PASS: i2s_tx round-trips the full 24-bit value range, every single-bit pattern, and the truncation edge cases
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_i2s_tx_prbs.sv:197: $finish called at 11878651000 (1ps)
+
+
+
+=== 编译 tb_i2s_tx_sweep ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_i2s_tx_sweep ===
+    ERROR [i2s_tx] 鍙傛暟涓嶈嚜娲斤細JUSTIFY=0 SLOT_BITS=16 DATA_BITS=16 MSB_DELAY=1 鈬?浼氭湁鏁版嵁浣嶈**闈欓粯涓㈠純**
+VCD info: dumpfile build/sim/tb_i2s_tx_sweep/tb_i2s_tx_sweep.vcd opened for output.
+  [x] (7) #1 got 0x3ffe00 exp 0x3fffff
+  [x] (7) #2 got 0x064400 exp 0x0645e9
+  [x] (7) #3 got 0x3fb000 exp 0x3fb11a
+
+================ i2s_tx parameter sweep ================
+  clk A = 1024 clk/frame (64 BCK) | clk B = 512 clk/frame (32 BCK)
+  (1) default LSBJ right, 32BCK : ok 128 / bad 0
+  (2) left-align MSB_DELAY=1    : ok 128 / bad 0
+  (3)<->(4) left(D=0) vs right, 16BCK : same 69632 / diff 0 clk
+  (4) right-align 16BCK         : ok 128 / bad 0
+  (5) LRCK_POL=1 (L/R swapped)  : ok 128 / bad 0
+  (6) DATA_BITS=8               : ok 128 / bad 0
+  (7) NEGATIVE bad param combo  : ok 62 / bad 66  <- MUST FAIL
+  PARAM_OK self-check           : (1)-(6) = 111111 | (7) = 0 (must be 0)
+  A8 (HP_DIN X/Z)               : default 0 | 16BCK 0 | bad 0
+=======================================================
+  ok : (1) default LSBJ right-align point-by-point match (regression intact)
+  ok : (2) left-align Philips (MSB_DELAY=1, 32BCK) point-by-point match
+  ok : (3)<->(4) left(D=0) and right align produce IDENTICAL bitstream (69632 clk)
+  ok : (4) right-align 16BCK slot point-by-point match (SLOT_BITS parameter works)
+  ok : (5) LRCK_POL=1 point-by-point match with mirrored model
+  ok : (6) DATA_BITS=8 point-by-point match (width param works)
+  ok : (7) NEGATIVE case holds: PARAM_OK flags it AND the compare really fails
+  ok : (1)-(6) parameter self-check all pass
+  ok : A8 no X/Z on all three HP_DIN nets
+  R-14 extreme samples (0x7FFFFF / 0x800000 / 0 / 0xFFFFFF): ok 66 / bad 0
+  ok : R-14 鏋佺鏍风偣鎴柇姝ｇ‘锛堝彇楂?16 浣嶃€佷笉婧㈠嚭锛涒垝0.5LSB 鐩存祦鍋忕疆涓哄凡鐭ュ彇鑸嶏級
+
+PASS: i2s_tx works in every parameter mode (incl. 16BCK equivalence and the inconsistent-parameter negative proof)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_i2s_tx_sweep.sv:419: $finish called at 1392891000 (1ps)
+
+
+    ℹ️ 日志含 1 行 ERROR —— 负向测试的预期结果，不算失败
+
+=== 编译 tb_i2s_tx_timing ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_i2s_tx_timing ===
+    VCD info: dumpfile build/sim/tb_i2s_tx_timing/tb_i2s_tx_timing.vcd opened for output.
+
+================ i2s_tx vs PT8211 timing ================
+  [manual] DAC samples DIN on BCK RISING edge; Fbck<=18.4MHz; tH>=25ns
+  [ours  ] tSU(min) = 160 ns   tHD(min) = 160 ns   (target >= 100 ns)
+           WS setup(min) = 160 ns
+           BCK tH(min) = 160 ns (>= 25) 路 tL(min) = 160 ns
+           BCK period = 320..320 ns (nominal 320) 路 WS period = 20480..20480 ns
+           DIN changes = 307 路 BCK rising = 1153 路 WS changes = 35
+           bit period with >1 DIN change = 0
+  A8     : din=0 bck=0 ws=0
+========================================================
+  ok : DIN setup to BCK rising edge = 160 ns (>= 100)
+  ok : DIN hold after BCK rising edge = 160 ns (>= 100)
+  ok : BCK high time = 160 ns (manual tH >= 25 ns)
+  ok : BCK period = 320..320 ns (= 3.125 MHz, manual max 18.4 MHz)
+  ok : WS period = 20480..20480 ns (= 48.828 kHz, manual max 384 kHz)
+  ok : WS setup to BCK rising edge = 160 ns (>= 100)
+  ok : no bit period had more than one DIN change (glitch-free)
+  ok : A8 no X/Z
+
+PASS: I2S output timing has >=100ns setup/hold around the DAC sampling edge (PT8211 manual limits met)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_i2s_tx_timing.sv:184: $finish called at 368891000 (1ps)
+
+
+
+=== 编译 tb_key_drum ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:58: warning: Instantiating module top with dangling input port 3 (timbre_btn_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:58: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:58: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+=== 运行 tb_key_drum ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=14 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+=== tb_key_drum: keyboard-as-drums ===
+  INFO: byte[0] = 0x6b (got=1)
+PASS: key_drum -- keyboard-as-drums maps 4 instruments by axis[3:2] and stays decoupled
+INFO: checks=85 errors=0
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:326: $finish called at 77270000 (1ps)
+
+
+
+=== 编译 tb_led_data ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_led_data ===
+    VCD info: dumpfile build/sim/tb_led_data/tb_led_data.vcd opened for output.
+  ok  : baseline: pattern all 0 right after reset
+  ok  : baseline: commit is 0 (no spurious commit)
+  ok  : key light: active keys 0,1 are ON (steady)
+  ok  : key light: other keys stay OFF
+  ok  : key light: active keys stay ON even when blink is high (no flicker)
+  ok  : blink: guided key 2 is OFF when blink low
+  ok  : blink: guided key 2 is ON when blink high
+  ok  : blink: guided key 2 is OFF again when blink low
+  ok  : priority: active key 2 stays ON (not blinking) even with blink low
+  ok  : status: upper 8 bits pass through unchanged
+  ok  : commit: no change => commit stays 0
+  ok  : commit: pulses for exactly the change cycle (1st cycle high)
+  ok  : commit: returns to 0 the very next cycle (single-cycle pulse)
+  ok  : commit: blink toggle does NOT trigger commit when only active keys lit
+PASS: led_data (steady active / blinking guide / priority / status passthrough / single-cycle commit)
+
+
+
+=== 编译 tb_looper ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:140: warning: Instantiating module looper with dangling input port 13 (live_vel_valid_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:140: warning: Instantiating module looper with dangling input port 14 (live_vel_axis_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:140: warning: Instantiating module looper with dangling input port 15 (live_vel_value_i) floating.
+=== 运行 tb_looper ===
+    == 1: record ==
+  ok  : record: 8 played + 2 appended note_off = 10 events stored
+== 2: replay two loops ==
+  ok  : replay: exactly 20 events over two loops (10 per loop)
+  ok  : replay: all 10 event payloads come back EXACTLY as recorded
+  ok  : replay: every note_on carries the timbre captured at RECORD time (1,1,1,2,2)
+  ok  : replay: the live timbre is 3 now -- keeps the timbre check NON-VACUOUS
+  ok  : replay: play_timbre_valid_o is asserted on EVERY replayed event
+  ok  : replay: offsets are exactly 2/3/5/5/6/7/9/9/11/11 as recorded
+  ok  : replay: loop 2 offsets are IDENTICAL to loop 1 (period is exact)
+     [dbg] got_n=20  n1=10  n2=10  loop_base=12
+     [dbg] ev[0] tb_tick=14 off=2 kind=0 ax=1
+     [dbg] ev[1] tb_tick=15 off=3 kind=1 ax=1
+     [dbg] ev[2] tb_tick=17 off=5 kind=0 ax=2
+     [dbg] ev[3] tb_tick=17 off=5 kind=0 ax=3
+     [dbg] ev[4] tb_tick=18 off=6 kind=1 ax=2
+     [dbg] ev[5] tb_tick=19 off=7 kind=1 ax=3
+     [dbg] ev[6] tb_tick=21 off=9 kind=0 ax=4
+     [dbg] ev[7] tb_tick=21 off=9 kind=0 ax=15
+     [dbg] ev[8] tb_tick=23 off=11 kind=1 ax=4
+     [dbg] ev[9] tb_tick=23 off=11 kind=1 ax=15
+     [dbg] ev[10] tb_tick=26 off=14 kind=0 ax=1
+     [dbg] ev[11] tb_tick=27 off=15 kind=1 ax=1
+     [dbg] ev[12] tb_tick=29 off=17 kind=0 ax=2
+     [dbg] ev[13] tb_tick=29 off=17 kind=0 ax=3
+     [dbg] ev[14] tb_tick=30 off=18 kind=1 ax=2
+     [dbg] ev[15] tb_tick=31 off=19 kind=1 ax=3
+     [dbg] ev[16] tb_tick=33 off=21 kind=0 ax=4
+     [dbg] ev[17] tb_tick=33 off=21 kind=0 ax=15
+     [dbg] ev[18] tb_tick=35 off=23 kind=1 ax=4
+     [dbg] ev[19] tb_tick=35 off=23 kind=1 ax=15
+  ok  : same-tick: both notes of the tick-5 chord are replayed
+  ok  : no-hang: the unclosed note_on on axis 4 got a note_off
+  ok  : no-hang BOUNDARY: axis 15 is closed too (scan reaches 4'hF)
+== 3: clear ==
+  ok  : clear: the layer reports 0 events
+  ok  : clear: nothing is replayed after clear
+== 4: overflow is visible ==
+  ok  : overflow: the layer stops storing at EVT_MAX (=4)
+  ok  : overflow: full_o is raised (not silent)
+  ok  : overflow: overflow_o is raised (sticky)
+  ok  : overflow: drop_cnt_o counts the dropped events
+== 5: clear during playback must close the sounding note ==
+  ok  : bug1 setup: 1 note_on + 1 appended note_off stored
+  ok  : bug1: clear during playback emits a note_off for the sounding axis
+  ok  : bug1: the layer is empty after the clear-out finishes
+== 6: rec_req during playback must close the sounding note ==
+  ok  : bug1b setup: 1 note_on + 1 appended note_off
+  ok  : bug1b: rec_req during playback emits a note_off for the sounding axis
+== 7: play_en falling must close the sounding note ==
+  ok  : bug1c: play_en falling emits a note_off for the sounding axis
+== 8: light->heavy gesture -- endpoints + interpolation ==
+  ok  : gesture setup: exactly 1 note_on + 1 note_off stored (the note was closed live)
+  ok  : gesture setup: replay emitted interpolated update pulses (non-vacuous)
+  ok  : gesture: the FIRST interpolated value sits BETWEEN start(80) and end(240)
+  ok  : gesture: the LAST interpolated value REACHES the recorded END velocity (240)
+  ok  : gesture: the ramp is a REAL interpolation (>= 8 distinct velocity values)
+  ok  : gesture: every interpolated pulse targets the SAME axis (6)
+  ok  : gesture: the replayed note_off carries the recorded END velocity (240, not 200)
+     [dbg] upd_n=92  first=82  last=240  distinct=92
+     [dbg] got_n=3  off_vel_ok=1
+     [dbg] ep_valid=1 ep_vel=240 ep_tick=186 ep_inc=66660006
+     [dbg] ramp_mask=0000000000000000 ramp_go=0 ramp_sc=0 ramp_vel6=96 rend6=186
+     [dbg] ep0v=1 ep0vel=240 ep0tick=186 on_addr6=0 on_open=0
+== 9: stale on_open_r must not corrupt another note's endpoint ==
+  ok  : stale_on_open setup: clear during record empties the layer
+  ok  : stale_on_open setup: the second take stored 3 events
+  ok  : stale_on_open: replay ramps the NEW note's axis (1) and nothing else
+  ok  : stale_on_open: the replayed endpoint stays its OWN (160) -- not 240
+     [dbg] upd_n=15 last=160 ep0v=1 ep0vel=160 ep0tick=32 on_open0=0
+  ok  : A8: no X/Z on the replay outputs
+PASS: looper T37 record/replay, no-hang incl. axis 15, clear, same-tick, overflow
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:790: $finish called at 181880000 (1ps)
+
+
+
+=== 编译 tb_looper_bar_align ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_looper_bar_align ===
+    == 1: let the DUT measure the bar grid (2 bars) ==
+== 1b: an ARMED record can be cancelled by the next R press ==
+  ok  : bar-align: an armed (pending) record is observable via layer_state_o
+  ok  : bar-align: the armed record is CANCELLED by the next R press
+  ok  : bar-align: after the cancel the bar line does NOT silently start recording
+== 2: take A -- arm record in the MIDDLE of a bar ==
+  ok  : bar-align A: stop at 2.31 bars quantizes DOWN to 2 bars (8 events, not 10)
+== 3: take A replay -- 10 wraps, downbeat must sit ON bar_start ==
+  ok  : bar-align A: at least 8 wraps of the downbeat were replayed (non-vacuous)
+  ok  : bar-align A: the downbeat note_on lands EXACTLY on bar_start on EVERY wrap
+  ok  : bar-align A: the loop period is EXACTLY 2 bars on every wrap (no tick lost)
+  ok  : bar-align A: the events of the TRIMMED half bar are never replayed
+  ok  : bar-align A: a note played BEFORE the bar line is not recorded (record is ARMED)
+  ok  : bar-align A: the held note gets its appended note_off on EVERY wrap (no hang)
+  ok  : bar-align A: every wrap also replays the recorded note_off of the marker
+     [dbg] A: mk_n=11 bad_grid=0 ax5_off=10 ax6=0 ax7=0
+     [dbg] A: wrap[0] grid=0 tick=1344
+     [dbg] A: wrap[1] grid=0 tick=1728
+     [dbg] A: wrap[2] grid=0 tick=2112
+     [dbg] A: wrap[3] grid=0 tick=2496
+     [dbg] A: wrap[4] grid=0 tick=2880
+     [dbg] A: wrap[5] grid=0 tick=3264
+     [dbg] A: wrap[6] grid=0 tick=3648
+     [dbg] A: wrap[7] grid=0 tick=4032
+     [dbg] A: wrap[8] grid=0 tick=4416
+     [dbg] A: wrap[9] grid=0 tick=4800
+     [dbg] A: wrap[10] grid=0 tick=5184
+== 4: take B -- re-record while playing, stop in the SECOND half bar ==
+  ok  : bar-align B: stop at 2.75 bars quantizes UP to 3 bars (8 events, nothing dropped)
+== 5: take B replay -- 10 wraps of a 3-bar loop ==
+  ok  : bar-align B: the downbeat lands EXACTLY on bar_start on EVERY wrap (3-bar loop)
+  ok  : bar-align B: the loop period is EXACTLY 3 bars on every wrap (padded bar)
+  ok  : bar-align B: the note played in the PADDED half bar is kept and replayed
+     [dbg] B: mk_n=11 bad_grid=0 ax4_on=10
+     [dbg] B: wrap[0] grid=0 tick=6336
+     [dbg] B: wrap[1] grid=0 tick=6912
+     [dbg] B: wrap[2] grid=0 tick=7488
+     [dbg] B: wrap[3] grid=0 tick=8064
+     [dbg] B: wrap[4] grid=0 tick=8640
+     [dbg] B: wrap[5] grid=0 tick=9216
+     [dbg] B: wrap[6] grid=0 tick=9792
+     [dbg] B: wrap[7] grid=0 tick=10368
+     [dbg] B: wrap[8] grid=0 tick=10944
+     [dbg] B: wrap[9] grid=0 tick=11520
+     [dbg] B: wrap[10] grid=0 tick=12096
+PASS: looper T41 bar alignment -- arm/quantize/align across 10 wraps
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_bar_align.sv:436: $finish called at 4151220000 (1ps)
+
+
+
+=== 编译 tb_looper_replay_tail ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_replay_tail.sv:233: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_replay_tail.sv:233: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+=== 运行 tb_looper_replay_tail ===
+    == 1: record a PAD note (press, gesture up to 200, release at tick 60) ==
+  ok  : C0 setup: the layer stored exactly note_on + note_off (2 events)
+== 2: wait for the LIVE tail to decay completely ==
+  ok  : C6 non-vacuity: the LIVE PAD tail is really long (start level >= 25000 => ~0.5 s+)
+  ok  : C6b the LIVE tail fully decayed before the replay (clean measurement)
+== 3: replay the loop and measure the replayed tail ==
+     [dbg] live: lv[0]=27600 lv[16]=27586 lv[64]=27538 lv[128]=27474 lv[255]=27347 slope=239 tbr=3
+     [dbg] rep : lv[0]=27600 lv[16]=27588 lv[64]=27540 lv[128]=27476 lv[255]=27349 slope=239 tbr=3
+     [dbg] rep: on_seen=1 on_vel=20 on_tbr=3 off_seen=1 off_vel=120
+  ok  : C1 the LIVE PAD release slope is 1 level/sample tick (the long per-timbre tail)
+  ok  : C2 the REPLAYED release slope is IDENTICAL to the live one (same timbre step)
+  ok  : C3 the REPLAYED release starts at the SAME level as live (same tail length)
+  ok  : C4 the REPLAYED voice uses the RECORDED timbre PAD(3), not the current key timbre BASS(0)
+  ok  : C5 the replayed note_off carries the recorded END velocity (120), not the onset (20)
+PASS: looper replay keeps the SAME per-timbre release tail as the live note
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_replay_tail.sv:531: $finish called at 2851800000 (1ps)
+
+
+
+=== 编译 tb_looper_tail ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_tail.sv:321: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_tail.sv:321: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+=== 运行 tb_looper_tail ===
+    == PAD tail: LIVE vs REPLAY over 4 gestures ==
+     [prog] A start ax=0 P=70 R=2 H=100 F=2 s=37
+     [prog] A note_on seen s=134 pos0=70
+     [prog] A note_off seen s=2667
+     [prog] A release window done s=4667
+     [prog] A waveform done s=4667
+     [prog] B start s=4887 cnt=2 loop_len=186 ep_vel=81
+     [prog] B replay note_on seen s=4967
+     [prog] B replay note_off seen s=7500
+  [LIGHT  P70 ] ax=0 P=70 R=2 H=100 F=2 | pos@trig->vel_on=81 off_evt_vel=200
+     LIVE  vel@off=81 env@off=18666 tbr=3 rel=18666 smp | dur=2533 smp
+     REC   ep_vel=81
+     REPLAY vel@off=81 env@off=18666 tbr=3 rel=18666 smp | dur=2533 smp | upd_n=0 last=0
+     DELTA vel=0 env=0 rel=0
+     [prog] A start ax=1 P=300 R=2 H=100 F=2 s=9531
+     [prog] A note_on seen s=9603 pos0=150
+     [prog] A note_off seen s=12161
+     [prog] A release window done s=14161
+     [prog] A waveform done s=14161
+     [prog] B start s=14381 cnt=2 loop_len=186 ep_vel=141
+     [prog] B replay note_on seen s=14442
+     [prog] B replay note_off seen s=17000
+  [NORMAL P300] ax=1 P=300 R=2 H=100 F=2 | pos@trig->vel_on=102 off_evt_vel=200
+     LIVE  vel@off=102 env@off=34343 tbr=3 rel=34343 smp | dur=2558 smp
+     REC   ep_vel=141
+     REPLAY vel@off=141 env@off=32430 tbr=3 rel=32446 smp | dur=2558 smp | upd_n=103 last=141
+     DELTA vel=39 env=-1913 rel=-1897
+     [prog] A start ax=2 P=744 R=4 H=100 F=2 s=19031
+     [prog] A note_on seen s=19103 pos0=186
+     [prog] A note_off seen s=21711
+     [prog] A release window done s=23711
+     [prog] A waveform done s=23711
+     [prog] B start s=23931 cnt=2 loop_len=188 ep_vel=255
+     [prog] B replay note_on seen s=23992
+     [prog] B replay note_off seen s=26600
+  [HARD   P744] ax=2 P=744 R=4 H=100 F=2 | pos@trig->vel_on=111 off_evt_vel=200
+     LIVE  vel@off=159 env@off=59939 tbr=3 rel=59939 smp | dur=2608 smp
+     REC   ep_vel=255
+     REPLAY vel@off=239 env@off=56810 tbr=3 rel=56810 smp | dur=2608 smp | upd_n=105 last=255
+     DELTA vel=80 env=-3129 rel=-3129
+     [prog] A start ax=3 P=744 R=4 H=100 F=6 s=28631
+     [prog] A note_on seen s=28703 pos0=186
+     [prog] A note_off seen s=31411
+     [prog] A release window done s=33411
+     [prog] A waveform done s=33411
+     [prog] B start s=33631 cnt=2 loop_len=192 ep_vel=255
+     [prog] B replay note_on seen s=33692
+     [prog] B replay note_off seen s=36400
+  [HARD slow-rel] ax=3 P=744 R=4 H=100 F=6 | pos@trig->vel_on=111 off_evt_vel=200
+     LIVE  vel@off=95 env@off=59838 tbr=3 rel=59838 smp | dur=2708 smp
+     REC   ep_vel=255
+     REPLAY vel@off=247 env@off=56809 tbr=3 rel=56865 smp | dur=2708 smp | upd_n=109 last=255
+     DELTA vel=152 env=-3029 rel=-2973
+== verdict ==
+     [dbg] worst env%=94  worst rel%=94
+  ok  : tail: replay vel at note_off equals live vel at note_off (all gestures)
+  ok  : tail: replayed env level at note_off is within 10 percent of the live one
+  ok  : tail: replayed release duration is within 10 percent of the live one
+  ok  : tail: every gesture matched between live and replay
+PASS: looper tail -- replayed PAD note releases like the live one
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_tail.sv:601: $finish called at 1536170000 (1ps)
+
+
+
+=== 编译 tb_master_mix ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_master_mix ===
+    VCD info: dumpfile build/sim/tb_master_mix/tb_master_mix.vcd opened for output.
+  ok  : baseline: output is 0 right after reset (mute-safe), even with a huge input
+  ok  : baseline: valid_o still passes through (chain not stalled)
+  ok  : full gain: ramp has settled to the target
+  ok  : full gain: output == input*0x7FFF>>15 (Q1.15 exact scaling, ~0.99997)
+  ok  : half gain: ramp settled
+  ok  : half gain: output == input>>1 (Q1.15 multiply, >>15)
+  ok  : half gain: exact, not approximate
+  ok  : mute: ramp settled to 0
+  ok  : mute: output is 0 at gain=0
+  ok  : ramp: gain fully reset to 0 before the precise up-ramp measurement
+  ok  : ramp: busy right after a gain step (still ramping)
+  ok  : ramp: still busy at 127 ticks (has NOT overshot or stalled)
+  ok  : ramp: settles at ~129 ticks (16384/128 steps + 1 settle cycle)
+  ok  : ramp: output mid-ramp is NOT the full-gain value (no click)
+  ok  : saturation: max positive sample at unity gain stays valid (no wrap)
+  ok  : saturation: min negative sample at unity gain stays valid (no wrap)
+  ok  : valid: valid_o is asserted the SAME cycle as valid_i (no backpressure)
+PASS: master_mix (mute-safe reset / unity passthrough / exact Q1.15 scaling / smooth ramp / saturation / zero-latency valid)
+
+
+
+=== 编译 tb_met_start_top ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:98: warning: Instantiating module top with dangling input port 3 (timbre_btn_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:98: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:98: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:116: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:116: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:120: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:120: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+=== 运行 tb_met_start_top ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=48 VOTE_N=4 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=14 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+VCD info: dumpfile build/sim/tb_met_start_top/tb_met_start_top.vcd opened for output.
+  ok  : T0 precondition: mid-bar position held (tick_cnt_q==5000)
+  ok  : T1 met_on_r rising edge produced a met_start pulse
+  ok  : T2 pos_reset cleared the bar position (tick_cnt_q==0)
+  ok  : T3 the first tick after enabling IS a bar_start (accent position)
+  ok  : T3b the FIRST metronome event carries the ACCENT velocity
+  info: beat 0 (bar=1)  vcnt=1  tcnt=1  triggers_this_beat=1
+  info: beat 1 (bar=0)  vcnt=2  tcnt=2  triggers_this_beat=1
+  info: beat 2 (bar=0)  vcnt=3  tcnt=3  triggers_this_beat=1
+  info: beat 3 (bar=0)  vcnt=4  tcnt=4  triggers_this_beat=1
+  info: beat 4 (bar=1)  vcnt=5  tcnt=5  triggers_this_beat=1
+  info: beat 5 (bar=0)  vcnt=6  tcnt=6  triggers_this_beat=1
+  info: beat 6 (bar=0)  vcnt=7  tcnt=7  triggers_this_beat=1
+  info: beat 7 (bar=0)  vcnt=8  tcnt=8  triggers_this_beat=1
+  ok  : T4 exactly ONE metronome event per emulated beat (8 events)
+  ok  : T5 velocity pattern is accent-weak-weak-weak (180,108,108,108 x2)
+  ok  : T6 EVERY beat really fired the perc envelope (8 triggers for 8 events)
+PASS: met_start_top -- metronome starts on the DOWNBEAT and every beat fires
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:249: $finish called at 545530000 (1ps)
+
+
+
+=== 编译 tb_metronome ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_metronome.sv:87: warning: Instantiating module note_manager with dangling input port 16 (vel_upd_src_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_metronome.sv:87: warning: Instantiating module note_manager with dangling input port 17 (pitch_upd_src_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_metronome.sv:87: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_metronome.sv:87: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+=== 运行 tb_metronome ===
+    VCD info: dumpfile build/sim/tb_metronome/tb_metronome.vcd opened for output.
+  ok  : baseline: transport is low
+  ok  : baseline: NO events emitted while stopped (counter still 0)
+  ok  : baseline: evt_valid_o is low while stopped
+  ok  : cfg: cfg_warn_o is CLEAR when RESERVED_N >= 1
+  ok  : events were actually emitted (test is not vacuous)
+  ok  : events are spaced EXACTLY 61440 clk apart (= 960 PPQN ticks, in step with beat_gen)
+  info: window=250000 clk, evt=5 accent=2 normal=3
+  ok  : accent + normal == total events (conservation)
+  ok  : at least one accent was observed (test is not vacuous)
+  ok  : weak beats OUTNUMBER accents -- catches 'every beat is an accent'
+  ok  : accents are exactly 4 beats apart (the real 4/4 specification)
+  ok  : every event carries a CONSISTENT payload (accent inc+vel, or normal inc+vel)
+  ok  : every event carries the dedicated axis id 4'hE (so it lands in the reserved pool)
+  ok  : evt counter agrees with the number of observed events
+  ok  : end-to-end: the event actually ALLOCATED a voice in note_manager
+  ok  : end-to-end: it landed on a RESERVED (high-index) voice, not the normal pool
+  ok  : stop test: precondition -- we are running and have emitted events
+  ok  : stop test: transport_o went low after stopping mid-run
+  ok  : stop test: NO events emitted after stopping mid-run
+  ok  : stop test: the event counter FROZE at the value when we stopped
+  ok  : gate: a beat pulse with transport_i=0 must NOT emit an event
+  ok  : gate: the counter must not advance while transport_i=0
+  ok  : gate: the SAME pulse DOES emit once transport_i=1 (gate is not stuck shut)
+  ok  : gate: the counter advanced to 1
+  ok  : gate: lowering transport_i again immediately blocks events
+  ok  : gate: the counter stayed at 1
+PASS: metronome emits one event per beat in step with beat_gen, accents on bar_start, dedicated axis
+
+
+
+=== 编译 tb_perc_env_bank ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_perc_env_bank ===
+    VCD info: dumpfile build/sim/tb_perc_env_bank/tb_perc_env_bank.vcd opened for output.
+  ok  : baseline: all levels are 0 with no trigger
+  ok  : baseline: active_o is all 0 with no trigger
+  ok  : baseline: busy_o is all 0 with no trigger
+  ok  : trigger: level jumps straight to the velocity peak (200<<8 = 51200)
+  ok  : trigger: active_o sets on the trigger
+  ok  : trigger: other instruments stay silent (independence)
+  ok  : decay is monotonic non-increasing (no underflow wrap)
+  ok  : decay took exactly 765 sample ticks (= 15.67 ms at 48828 Hz)
+  ok  : decay: level reaches exactly 0
+  ok  : decay: active_o CLEARS when the envelope finishes (no hung voice)
+  ok  : decay: busy_o clears too
+  ok  : velocity: vel=255 gives peak 65280
+  ok  : velocity: vel=128 gives peak 32768 (half of 255's, within rounding)
+  ok  : velocity: instruments 1 and 2 ring independently while 0 is silent
+  ok  : independence: instrument 1 decayed
+  ok  : independence: instrument 2 ALSO decayed (neither stalled)
+  ok  : independence: both decay at the same rate (200 ticks x 67)
+  ok  : retrigger: instrument 3 is ringing after a fresh trigger (precondition)
+  ok  : retrigger: it has already decayed below the peak
+  ok  : retrigger: level jumps back to the peak
+  ok  : retrigger: still active
+  ok  : retrigger: the retrigger COUNT is observable and incremented (K-106 style)
+  ok  : async fire: all instruments finished before this test
+  ok  : async fire: a trigger BETWEEN sample ticks is NOT lost (level = peak)
+  ok  : async fire: active_o set without any sample_tick
+  ok  : velocity latch: clean slate before this test
+  ok  : velocity latch: peak loaded from velocity at trigger time
+  ok  : velocity latch: changing velocity MID-NOTE does NOT change the ringing peak
+  ok  : velocity latch: the note keeps decaying from its ORIGINAL peak
+  ok  : velocity latch: previous note finished
+  ok  : velocity latch: the NEXT trigger picks up the NEW velocity (255 => 65280)
+PASS: perc_env_bank one-shot decay (peak / monotonic / exact length / active clears / independent / retriggerable)
+
+
+
+=== 编译 tb_perc_env_top ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_perc_env_top.sv:77: warning: Instantiating module top with dangling input port 3 (timbre_btn_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_perc_env_top.sv:77: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_perc_env_top.sv:77: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_perc_env_top.sv:95: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_perc_env_top.sv:95: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_perc_env_top.sv:99: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_perc_env_top.sv:99: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+=== 运行 tb_perc_env_top ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=48 VOTE_N=4 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=14 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+VCD info: dumpfile build/sim/tb_perc_env_top/tb_perc_env_top.vcd opened for output.
+  ok  : P1 keyboard_27_slots_are_BIT_IDENTICAL_to_adsr
+  ok  : P2 perc_slot_attacks_to_PEAK_256 (vel=1 => 1<<8)
+  ok  : P3 perc_slot_decays_to_ZERO_after_peak (K-144 no-hang contract)
+  ok  : P4 edge_detect_fired_EXACTLY_ONCE (not level-triggered)
+  ok  : P5 perc_active_drops_after_decay
+PASS: perc_env_top -- reserved pool is one-shot percussive (K-144 fixed)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_perc_env_top.sv:200: $finish called at 86210000 (1ps)
+
+
+
+=== 编译 tb_play_seq ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_play_seq ===
+    VCD info: dumpfile build/sim/play_seq/tb_play_seq.vcd opened for output.
+  ok  : reset default tick_inc = 164927 (120 BPM, not 0)
+  ok  : evt_underrun_o asserts when the buffer is empty
+  ok  : segment1 = 120 BPM, gap [26041,26042] ok
+  ok  : segment2 = 60 BPM, gap [52083,52084] ok
+  ok  : segment3 = 200 BPM, gap [15625,15625] ok
+  ok  : tick_inc=0 REJECTED, tick_inc_o stays 274878
+  ok  : tempo_cnt_o = 2 (the rejected zero tempo not counted)
+  ok  : 8 same-tick events all emitted within 0 tick (no arpeggio)
+  ok  : no event emitted before its own tick (position invariant holds)
+  ok  : note_valid_o and note_data_o same beat (8/8)
+  ok  : evt_cnt_o = 11 = pushed events (no double-read, none lost)
+  ok  : forward-dated event held back for 5 ticks (not emitted early)
+  ok  : no events consumed while run_i=0 (gate really works)
+  ok  : A8 no X/Z on play_seq outputs
+PASS: play_seq emits every due event (whole chord within one tick), latches data with valid, handshakes a standard FIFO once, applies tempo, rejects tick_inc=0, reports underrun
+
+
+
+=== 编译 tb_pos_probe ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_pos_probe.sv:44: warning: Port 5 (ch_i) of module pos_probe expects 4 bit(s), given 3.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_pos_probe.sv:44:        : Padding 1 high bits of the port.
+=== 运行 tb_pos_probe ===
+    === tb_pos_probe ===
+== 1: 鏃犺姹?==
+  ok  : 鏃犺姹傛椂 push 鎭?0
+== 2/3: 涓€娆¤姹?==
+  ok  : 姝ｅソ 8 涓瓧鑺?
+    744: pos=744 -> P00744
+
+  ok  : 744 鏁板€兼纭?
+    0: pos=0 -> P00000
+
+  ok  : 0 鏁板€兼纭?
+    4095: pos=4095 -> P04095
+
+  ok  : 4095 鏁板€兼纭?
+    9: pos=9 -> P00009
+
+  ok  : 9 鏁板€兼纭?
+    2050: pos=2050 -> P02050
+
+  ok  : 2050 鏁板€兼纭?
+== 4: 閿佸瓨璇箟 ==
+  ok  : 鍥炰紶鏈熼棿鏀硅緭鍏?鈬?浠嶈緭鍑洪攣瀛樼殑 1234
+    閿佸瓨: pos=1234 -> P01234
+
+  ok  : 閿佸瓨 鏁板€兼纭?
+== 5: 闈炵┖鏃朵笉寮€鏂板寘锛圞-126 鐨勬暀璁級==
+  ok  : 闈炵┖鏃朵竴涓兘涓嶅彂锛堚瓙 绛夛紝鉀?涓嶇‖濉烇級
+  ok  : 闈炵┖鏃?busy 涓?0锛堚瓙 杩樻病寮€濮嬶紝鉀?涓嶆槸蹇欙級
+  ok  : 绌轰簡浠ュ悗璇锋眰 鈬?7 涓瓧鑺傚叏鍙戯紙猸?涓€涓病涓級
+    绌哄悗: pos=500 -> P00500
+
+  ok  : 绌哄悗 鏁板€兼纭?
+== 6: busy 璇箟 ==
+  ok  : 绌洪棽鏃?busy 涓?0
+  ok  : 鍥炰紶涓?busy 涓?1
+  ok  : 鍥炲畬鍚?busy 钀?0
+== 7: A8 ==
+  ok  : A8: data 鏃?X/Z
+  ok  : A8: busy 鏃?X/Z
+
+PASS: pos_probe emits 'P<4 digits>CRLF' on request, latches the reading, and never drops when the sink is busy
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_pos_probe.sv:219: $finish called at 4770000 (1ps)
+
+
+
+=== 编译 tb_pos_probe_axis ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+=== 运行 tb_pos_probe_axis ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=48 VOTE_N=4 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=14 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+=== tb_pos_probe_axis ===
+== P0: non-vacuous precondition ==
+  ok  : P0 af0_pol == 256 (chip0 raw 0xEFF inverted)
+  ok  : P0 af1_pol == 2048 (chip1 raw 0x7FF inverted)
+  ok  : P0 the two chips carry DIFFERENT codes (else b/c are vacuous)
+  ok  : P0 pp_axis_r == 0 right after reset
+== d: first 'P' after reset -> axis 0 ==
+  ok  : d1 first 'P' after reset pushed exactly 8 bytes
+  ok  : d2 first 'P' after reset: ch='0' and pos=0256 (chip 0 code)
+  ok  : d3 pp_axis_r advanced to 1 after one request
+== a/b/c: 16 requests cover both chips ==
+  ok  : a0 16 requests produced 8 bytes each (128 total)
+  ok  : a0b pp_axis_r wrapped back to 0 after 16 requests
+  ok  : a1 16 replies are 'P'+CH+4digits+CRLF with CH = 0,1,..,7,0,1,..,7
+== b: request 9 (axis 8) must come from chip 1 ==
+  ok  : b1 request 9 pos field == 2048 (chip1 code), NOT 256 (chip0 code)
+  ok  : b2 request 9 is NOT the chip0 code 0256 (the pre-fix wrong answer)
+  ok  : b3 request 1 came from chip 0 (pos == 0256, non-vacuous)
+== c: every reply's pos == the raw code of the chip it selected ==
+  ok  : c1 all 16 replies: ch == axis%8 AND pos == the selected chip's code
+    req 0: axis=0 chip=0 expect pos=256 -> got P00256
+
+
+  ok  : c req 0 pos comes from chip 0
+    req 1: axis=1 chip=0 expect pos=256 -> got P10256
+
+
+  ok  : c req 1 pos comes from chip 0
+    req 2: axis=2 chip=0 expect pos=256 -> got P20256
+
+
+  ok  : c req 2 pos comes from chip 0
+    req 3: axis=3 chip=0 expect pos=256 -> got P30256
+
+
+  ok  : c req 3 pos comes from chip 0
+    req 4: axis=4 chip=0 expect pos=256 -> got P40256
+
+
+  ok  : c req 4 pos comes from chip 0
+    req 5: axis=5 chip=0 expect pos=256 -> got P50256
+
+
+  ok  : c req 5 pos comes from chip 0
+    req 6: axis=6 chip=0 expect pos=256 -> got P60256
+
+
+  ok  : c req 6 pos comes from chip 0
+    req 7: axis=7 chip=0 expect pos=256 -> got P70256
+
+
+  ok  : c req 7 pos comes from chip 0
+    req 8: axis=8 chip=1 expect pos=2048 -> got P02048
+
+
+  ok  : c req 8 pos comes from chip 1
+    req 9: axis=9 chip=1 expect pos=2048 -> got P12048
+
+
+  ok  : c req 9 pos comes from chip 1
+    req 10: axis=10 chip=1 expect pos=2048 -> got P22048
+
+
+  ok  : c req 10 pos comes from chip 1
+    req 11: axis=11 chip=1 expect pos=2048 -> got P32048
+
+
+  ok  : c req 11 pos comes from chip 1
+    req 12: axis=12 chip=1 expect pos=2048 -> got P42048
+
+
+  ok  : c req 12 pos comes from chip 1
+    req 13: axis=13 chip=1 expect pos=2048 -> got P52048
+
+
+  ok  : c req 13 pos comes from chip 1
+    req 14: axis=14 chip=1 expect pos=2048 -> got P62048
+
+
+  ok  : c req 14 pos comes from chip 1
+    req 15: axis=15 chip=1 expect pos=2048 -> got P72048
+
+
+  ok  : c req 15 pos comes from chip 1
+== d: reset clears the rotation ==
+  ok  : d4 after 19 requests pp_axis_r == 3 (non-zero, so d5/d6 are not vacuous)
+  ok  : d5 pp_axis_r == 0 while reset is asserted
+  ok  : d6 pp_axis_r == 0 after reset release
+  ok  : d7 af0_pol is still 256 after the reset
+  ok  : d8 first 'P' after the 2nd reset returns axis 0 / chip 0 code 0256
+== A8: no X/Z ==
+  ok  : A8 pp_data has no X/Z
+  ok  : A8 pp_axis_r has no X/Z
+  ok  : A8 af0_pol/af1_pol have no X/Z
+
+PASS: pos_probe_axis -- 'P' rotates over 16 axes and reports the raw code of the chip selected by axis[3] (chip 1 observable)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_pos_probe_axis.sv:428: $finish called at 15670000 (1ps)
+
+
+
+=== 编译 tb_score_looper_coexist ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_score_looper_coexist.sv:280: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_score_looper_coexist.sv:280: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+=== 运行 tb_score_looper_coexist ===
+    VCD info: dumpfile build/sim/tb_score_looper_coexist/tb_score_looper_coexist.vcd opened for output.
+== A: score path with an EMPTY looper ==
+  ok  : score_path_unchanged_when_looper_empty: note_on allocates exactly ONE voice
+  ok  : score_path_unchanged_when_looper_empty: note_off releases it again
+== B: record one note on axis 3 (start vel 100 -> end vel 200) ==
+  ok  : recording leaves NO held voice behind (live note was closed)
+  ok  : looper stored the note_on AND the note_off
+== C: start playback ==
+  ok  : looper replay emits a note_on (source C is wired)
+  ok  : looper replay alone holds exactly ONE voice on axis 3
+  ok  : loop_interp_update_reaches_loop_voice: its velocity climbs above the start value
+== D: score note ON the SAME axis while the loop is playing ==
+  ok  : score_and_loop_same_axis_coexist: TWO distinct voices on axis 3
+  ok  : score_and_loop_same_axis_coexist: BOTH are gated (audible)
+== E: score note OFF -- the loop's voice must survive ==
+  ok  : score_note_off_keeps_loop_voice: the loop's voice is STILL gated
+  ok  : score_note_off_keeps_loop_voice: only the score's own voice was cleared
+== F: loop note OFF -- the score's voice must survive ==
+  ok  : score voice re-allocated next to the loop's voice
+  ok  : looper replay emits a note_off
+  ok  : loop_note_off_keeps_score_voice: the score's voice is STILL gated
+  ok  : loop_note_off_keeps_score_voice: only the loop's own voice was cleared
+  ok  : loop_interp_update_reaches_loop_voice: the score voice's velocity is untouched
+  ok  : final score note_off releases the last voice (no stuck voice)
+PASS: score UART and looper coexist; source tags isolate note_off (ok=17)
+
+
+
+=== 编译 tb_seq_arb ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_seq_arb ===
+    === tb_seq_arb锛堟簮 A 涓夌骇浠茶锛?==
+  ok  : 鈶?鏃犺緭鍏?鈬?涓嶅彂浠讳綍浜嬩欢
+  ok  : 鈶?鍗曟簮锛堟墜寮癸級鈬?鎭板ソ 1 鏉★紝鍐呭姝ｇ‘
+  ok  : 鈶♀瓙 鎵嬪脊+鏇茶氨鍚屾媿 鈬?銆愪袱鏉￠兘鍑烘潵浜嗐€?live=1 score=1)
+  ok  : 鈶?婕旂ず璁╀綅 鈥斺€?鎵嬪脊鍦ㄥ彂鏃舵紨绀恒€愪笉鍙備笌銆?live=1 demo=0)
+  ok  : 鈶 婕旂ず鍗曠嫭锛堟棤鍒簮锛夆噿 姝ｅ父鍙?1 鏉?
+  ok  : 鈶?杩炲彂 20 鏉?鈬?鍑烘潵 20 鏉★紙涓嶄涪涓嶅锛?
+  ok  : 鈶?涓嶇矘婊?鈥斺€?valid 杩炵画楂樻椂鏁版嵁姣忔媿閮藉湪鍙橈紙鏈€闀胯繛缁?2 鎷嶏紝姝ｅ父锛?
+  ok  : 鈶?婧㈠嚭銆愬彲瑙併€戔€斺€?overflow=1, drop_cnt=114锛堚洈 涓嶉潤榛樹涪锛?
+  ok  : 鈶?涓夋簮鍚屾媿 鈬?鎵嬪脊+鏇茶氨 2 鏉★紙猸?婕旂ず鎸夎璁¤浣嶏級
+  ok  : 鈶?鏁版嵁涓?valid 鍚屾媿锛堚瓙 鎸?inc 璁よ韩浠藉叏閮ㄨ鍒颁簡锛?
+  ok  : 鈶?A8 鏃?X/Z 浼犳挱
+      鍒嗘簮璁℃暟: live=3(鏈熸湜3) score=2(鏈熸湜2) demo=2(鏈熸湜2)
+  ok  : 鈶?涓変釜鍒嗘簮璁℃暟銆愰兘鐪熺殑鍦ㄦ暟銆戯紙猸?涓婃澘鍙嵁姝ょ湅'璋佸湪鍙?锛?
+--------------------------------------------------
+  鍑哄彛浜嬩欢鎬绘暟 = 7锛堟墜寮?3 路 鏇茶氨 2 路 婕旂ず 2锛?
+  鐩告挒璁℃暟 = 0 路 鍚堟祦璁℃暟 = 7 路 涓㈠純 = 0
+--------------------------------------------------
+PASS: A1 DEPTH9 width and behavioral queue checks=656 full=142 reject=67 triple=43 wraps=72
+PASS: seq_arb 澶氭簮鍚屾媿涓嶄涪銆佹紨绀鸿浣嶃€佹孩鍑哄彲瑙併€佸崟鍛ㄦ湡銆佹棤 X/Z
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_seq_arb.sv:396: $finish called at 13120000 (1ps)
+
+
+
+=== 编译 tb_tlc5916_bank ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_tlc5916_bank ===
+    VCD info: dumpfile build/sim/tb_tlc5916_bank/tb_tlc5916_bank.vcd opened for output.
+  ok  : reset: OE all high (all blanked)
+  ok  : reset: SDI/CLK/LE all 0
+  ok  : reset: busy 0
+  ok  : CH0 -> OUT7
+  ok  : CH1 -> OUT6
+  ok  : CH2 -> OUT4
+  ok  : CH3 -> OUT5
+  ok  : CH4 -> OUT3
+  ok  : CH5 -> OUT2
+  ok  : CH6 -> OUT1
+  ok  : CH7 -> OUT0
+  ok  : CH2 is NOT bit-reversed (would be OUT5=8'b00100000)
+  ok  : after 3-chip write: OE all high (back to IDLE)
+  ok  : after 3-chip write: busy 0
+  ok  : global_blank: OE stays all high during write
+PASS: tlc5916_bank (CH->OUT full-table remap / 3-chip seq / per-board OE / global blank)
+
+
+
+=== 编译 tb_uart_rx ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_uart_rx ===
+    VCD info: dumpfile build/sim/tb_uart_rx/tb_uart_rx.vcd opened for output.
+  ok  : baseline: NO rx_done while the line is idle (rx held high)
+  ok  : baseline: rx data stays 0 with no traffic
+  ok  : all 10 bytes at the REAL configured baud were received
+  ok  : byte[0] = 00  (real baud)
+  ok  : byte[1] = ff  (real baud)
+  ok  : byte[2] = 55  (real baud)
+  ok  : byte[3] = aa  (real baud)
+  ok  : byte[4] = 01  (real baud)
+  ok  : byte[5] = 80  (real baud)
+  ok  : byte[6] = 7f  (real baud)
+  ok  : byte[7] = fe  (real baud)
+  ok  : byte[8] = 5a  (real baud)
+  ok  : byte[9] = a5  (real baud)
+  ok  : bit order: 0x01 came back as 0x01 (LSB-first, NOT 0x80)
+  ok  : arbitrary gap: bytes on BOTH sides of a long idle gap are correct
+  ok  : back-to-back: 10 consecutive frames with NO gap are all received
+  ok  : back-to-back 10/10 matched
+  ok  : glitch: a narrow low pulse produces NO frame
+  ok  : rx_done_o is exactly 1 clk wide (never wider)
+  ok  : sync reset: rx_data_o cleared
+  ok  : sync reset: rx_done_o cleared
+  ok  : after reset the receiver still works
+  ok  : sample point: a +3% slower transmitter still decodes (mid-bit sampling)
+  ok  : sample point: a -3% faster transmitter still decodes (mid-bit sampling)
+  ok  : sample point: a +4% slower transmitter still decodes
+PASS: uart_rx 8N1 at REAL baud (BAUD_DIV=50 => 1000000 bps): 10 patterns, back-to-back, glitch reject, single-cycle done, sync reset
+
+
+
+=== 编译 tb_uart_tx ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_uart_tx ===
+    NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=50 => 1000000 bps at 50 MHz)
+=== tb_uart_tx (loopback through the real uart_rx) ===
+  ok  : idle tx line is HIGH (UART idle state)
+  ok  : busy_o is low when idle
+  ok  : tx_done_o is low when idle
+  ok  : all 10 loopback bytes arrive EXACTLY (incl. 00/FF/55/AA/80/7F)
+  ok  : all 10 bytes were received (rx_done fired 10 times)
+  ok  : bit order is LSB-first (0x01 stays 0x01, NOT 0x80)
+  ok  : tx_done_o pulses exactly once per byte
+  ok  : tx_done_o is exactly ONE cycle wide (never wider)
+  ok  : tx_done_o stays LOW long after completion (no residual high)
+  ok  : busy_o stays low while idling after a byte
+  [busy] actual=500 expected=500
+  ok  : busy_o spans the whole frame (10 bit times, within 1 bit)
+  ok  : mid-transmission change of tx_data_i does NOT corrupt the byte
+  ok  : 8 back-to-back bytes all arrive exactly (no gap needed)
+  ok  : a start pulsed while busy is IGNORED (first byte survives intact)
+  ok  : busy_o really was high before the reset test
+  ok  : reset returns tx to the idle HIGH level
+  ok  : reset clears busy_o
+  ok  : after reset the transmitter still works (0xC3 round-trips)
+
+PASS: uart_tx sends 8N1 LSB-first, latches its data, spans busy over the frame, pulses done for one cycle, ignores start-while-busy and survives mid-byte data changes -- all verified by loopback through the real uart_rx
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_uart_tx.sv:363: $finish called at 863510000 (1ps)
+
+
+
+=== 编译 tb_uart_tx_fifo ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_uart_tx_fifo ===
+    === tb_uart_tx_fifo ===
+== 1: 鑳岄潬鑳屾帹 3 涓紙K-126 鐨勭洿鎺ュ垽鎹級==
+    鍙戝嚭 3 涓? 0x74 0x73 0x30
+  ok  : 3 涓瓧鑺傚叏閮ㄥ彂鍑猴紙涓€涓兘娌′涪锛?
+  ok  : 椤哄簭姝ｇ‘ 't'->'s'->'0'
+== 2: 涓嬫父蹇欐椂鎺紙鍘熸潵灏辨槸杩欐牱涓㈢殑锛?=
+    姝ゅ埢 busy=1 busy_left=17
+  ok  : 绗?1 涓凡鍦ㄥ彂锛坆usy 楂橈級
+    鍙戝嚭 3 涓? 0x41 0x42 0x43
+  ok  : 蹇欐椂鎺ㄧ殑 2 涓病涓?
+  ok  : 椤哄簭浠嶆槸 A->B->C
+== 3: 鍗曟媿鑴夊啿锛堟ā鎷?need_press 閭?20 ns锛?=
+    鍙戝嚭 1 涓? 0x5a
+  ok  : 1 鎷嶈剦鍐蹭篃琚帴浣忓苟鍙戝嚭
+== 4/5: 婧㈠嚭锛堟帹 9 涓紝娣卞害 8锛?=
+    ovf=1 drop_cnt=1
+  ok  : 婧綅缃捣锛堜笉闈欓粯锛?
+  ok  : 涓㈠純璁℃暟 = 1
+    鍙戝嚭 8 涓?
+  ok  : 鍓?8 涓粛鐒跺叏閮ㄥ彂鍑猴紙鍙涪绗?9 涓級
+  ok  : 鍙戝嚭鐨勬槸 0..7锛堜涪鐨勬槸鏈€鍚庨偅涓級
+== 6: ovf_clr_i ==
+  ok  : 娓呭悗 ovf 钀?0
+  ok  : 娓呭悗 drop_cnt 褰?0
+== 7: 澶嶄綅 ==
+  ok  : 澶嶄綅鍚?ovf 娓?0
+  ok  : 澶嶄綅鍚?drop_cnt 娓?0
+  ok  : 澶嶄綅鍚庨槦鍒楃┖锛坮eady 楂橈級
+== 8: A8 ==
+  ok  : A8: tx_data 鏃?X/Z
+  ok  : A8: ovf / drop_cnt 鏃?X/Z
+
+PASS: uart_tx_fifo queues bytes (never drops while busy), surfaces overflow, and clears on demand
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_uart_tx_fifo.sv:235: $finish called at 6710000 (1ps)
+
+
+
+=== 编译 tb_uart_ui ===
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_uart_ui ===
+    VCD info: dumpfile build/sim/tb_uart_ui/tb_uart_ui.vcd opened for output.
+  ok  : reset: mode=MODE_PIANO_DEFAULT (???惔)
+  ok  : reset: base_semi=0 (C4)
+  ok  : reset: hb_ready=0
+  ok  : reset:?commit ??
+  ok  : reset?????0
+  ok  : reset: test_mode???
+  ok  : ??0x88 -> hb_ready=1
+  ok  : ???frame_cnt
+  ok  : ??敼 mode
+  ok  : ???? -> mode???)
+  ok  : mode_comm?????
+  ok  : mode_commit ????????
+  ok  : ??懜 -> mod???)
+  ok  : ???-> base_semi ??=12
+  ok  : base_comm?????
+  ok  : base_commit???
+  ok  : ?????-> test_mode=1, n=00(4)
+  ok  : test_mode_comm?????
+  ok  : test_mode_commit???
+  ok  : ?? ??-> n=01(8)
+  ok  : ?????-> n=10(16)
+  ok  : ?????-> n=11(32)
+  ok  : ?????-> 32???
+  ok  : ?繛 FF???坢ode???
+  ok  : ???-> ???resync_cnt>0)
+  ok  : ????-> err_cnt ??
+  ok  : ?????懜 mode=~??
+  ok  : ?? frame_cnt ??
+PASS: tb_uart_ui (28 checks)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_uart_ui.sv:291: $finish called at 42860000 (1ps)
+
+
+
+================ 汇总 ================
+通过 112 / 共 112
+跳过（工具 tb，非验收）: tb_export_key_wav, tb_export_wav
+  ⭐ 要跑它: powershell -File sim\tb_all.ps1 -Filter tb_export_key_wav
+✅ 全部通过（证据在 sim/evidence/）
+[status: completed, exit code: 0]

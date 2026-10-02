@@ -22,9 +22,9 @@
 | `TIMBRE_W` | 2 | 2（:2282） | 每 voice 音色（K-82） |
 | `ENV_W` | 16 | 16（:2283） | 包络电平回读位宽 |
 | `AGE_W` | 16 | 16（:2284） | 抢占年龄 |
-| `RESERVED_N` | 0 | **5**（:2292） | 从**最高索引**往下留 5 个（voice 27..31） |
+| `RESERVED_N` | 0 | **5**（`top.v:3673`） | 从**最高索引**往下留 5 个（voice 27..31） |
 | `DEFAULT_VEL` | 200 | 200（未覆盖） | `note_velocity_i==0` 时的起音力度 |
-| `RESERVED_AXIS_BASE` | 14 | 14（未覆盖） | 轴 ≥14 视为专用池 |
+| `RESERVED_AXIS_BASE` | 14 | 14（未覆盖） | ⭐ **只影响打击乐音色选择**；进保留池由**来源 `SRC_AUX`** 决定（`note_manager.v:551`） |
 | `FIFO_DEPTH` | 32 | 32（未覆盖） | 事件队列深度 |
 | `EVT_LOST_CNT_W` | 8 | 8（未覆盖） | 丢弃计数（饱和于 255） |
 | `IDX_W` | `clog2(POLY_TARGET)`=5 | 5 | 派生 |

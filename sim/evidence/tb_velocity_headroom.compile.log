@@ -1,40 +1,21 @@
-﻿iverilog.exe : C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\hdmi_clk.v:4: warning: timesc
-ale for hdmi_clk inherited from another file.
-所在位置 C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\sim\tb_all.ps1:123 字符: 18
+﻿iverilog.exe : C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited 
+from another file.
+At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:123 char:18
 +   $compileOut  = & $iverilog @compileArgs 2>&1
 +                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (C:\Users\cyx\Do...m another file.:String) [], RemoteException
+    + CategoryInfo          : NotSpecified: (C:\Users\hokuu\...m another file.:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
  
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited t
-imescale is here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmd
-s_encoder inherited from another file.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale
- is here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\tmds_serializer.v:2: warning: timescale for 
-tmds_serializer inherited from another file.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale
- is here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\video_timing.v:1: warning: timescale for vid
-eo_timing inherited from another file.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale
- is here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\pos_probe.v:71: warning: timescale for pos_pr
-obe inherited from another file.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\play_seq.v:1: ...: The inherited timescale is
- here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\span_probe.v:67: warning: timescale for span_
-probe inherited from another file.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is 
-here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uar
-t_tx_fifo inherited from another file.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is 
-here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_velocity_headroom.sv:46: warning: Instantia
-ting module oscillator_bank with dangling input port 5 (voice_phase_rst_i) floating.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_velocity_headroom.sv:46: warning: Instantia
-ting module oscillator_bank with dangling input port 9 (voice_drum_i) floating.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v:496: warning: @* is sensit
-ive to all 2 words in array 'pc_l1'.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another 
+file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
+her file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_headroom.sv:46: warning: Instantiating module oscillator_bank w
+ith dangling input port 5 (voice_phase_rst_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_headroom.sv:46: warning: Instantiating module oscillator_bank w
+ith dangling input port 9 (voice_drum_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:496: warning: @* is sensitive to all 2 words in array '
+pc_l1'.
