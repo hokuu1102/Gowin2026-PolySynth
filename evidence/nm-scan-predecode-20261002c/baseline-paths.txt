@@ -1,0 +1,695 @@
+Path 1: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_env_0_s0
+slack=0.016 route=14.538 cell=4.845 tCO=0.331 total=19.714 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+1.476 | tNET | 1 | R70C134[2][B] | g_sound.u_note_manager/best_env_0_s0/CE
+
+Path 2: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_idx_4_s0
+slack=0.024 route=14.538 cell=4.845 tCO=0.331 total=19.714 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+1.476 | tNET | 1 | R70C133[1][B] | g_sound.u_note_manager/best_idx_4_s0/CE
+
+Path 3: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_env_1_s0
+slack=0.181 route=14.365 cell=4.845 tCO=0.331 total=19.541 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+1.303 | tNET | 1 | R70C135[2][A] | g_sound.u_note_manager/best_env_1_s0/CE
+
+Path 4: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_env_2_s0
+slack=0.181 route=14.365 cell=4.845 tCO=0.331 total=19.541 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+1.303 | tNET | 1 | R70C135[1][B] | g_sound.u_note_manager/best_env_2_s0/CE
+
+Path 5: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_env_3_s0
+slack=0.181 route=14.365 cell=4.845 tCO=0.331 total=19.541 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+1.303 | tNET | 1 | R70C135[0][A] | g_sound.u_note_manager/best_env_3_s0/CE
+
+Path 6: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_env_4_s0
+slack=0.181 route=14.365 cell=4.845 tCO=0.331 total=19.541 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+1.303 | tNET | 1 | R70C135[0][B] | g_sound.u_note_manager/best_env_4_s0/CE
+
+Path 7: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_env_5_s0
+slack=0.379 route=14.167 cell=4.845 tCO=0.331 total=19.343 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+1.105 | tNET | 1 | R64C135[3][A] | g_sound.u_note_manager/best_env_5_s0/CE
+
+Path 8: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_env_6_s0
+slack=0.379 route=14.167 cell=4.845 tCO=0.331 total=19.343 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+1.105 | tNET | 1 | R64C135[2][A] | g_sound.u_note_manager/best_env_6_s0/CE
+
+Path 9: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_idx_3_s0
+slack=0.403 route=14.151 cell=4.845 tCO=0.331 total=19.327 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+1.089 | tNET | 1 | R70C134[0][A] | g_sound.u_note_manager/best_idx_3_s0/CE
+
+Path 10: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_age_15_s0
+slack=0.405 route=14.158 cell=4.845 tCO=0.331 total=19.334 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+1.096 | tNET | 1 | R63C141[2][A] | g_sound.u_note_manager/best_age_15_s0/CE
+
+Path 11: g_sound.tm_n_code_r_1_s0 -> g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/env_level_o_0_s0
+slack=0.517 route=14.117 cell=4.528 tCO=0.344 total=18.989 source_fanout=35
+DELAY | TYPE | FANOUT | LOC | NODE
+0.344 | tC2Q | 35 | R35C17[1][A] | g_sound.tm_n_code_r_1_s0/Q
+2.865 | tNET | 1 | R32C81[3][B] | n2864_s1/I3
+0.238 | tINS | 373 | R32C81[3][B] | n2864_s1/F
+8.990 | tNET | 1 | R72C13[2][B] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n616_s19/I2
+0.415 | tINS | 1 | R72C13[2][B] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n616_s19/F
+0.142 | tNET | 1 | R72C12[3][B] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n616_s15/I2
+0.448 | tINS | 1 | R72C12[3][B] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n616_s15/F
+0.142 | tNET | 1 | R71C12[3][B] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n616_s12/I1
+0.448 | tINS | 1 | R71C12[3][B] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n616_s12/F
+0.142 | tNET | 1 | R71C13[2][B] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n616_s9/I3
+0.415 | tINS | 1 | R71C13[2][B] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n616_s9/F
+0.002 | tNET | 1 | R71C13[3][A] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n616_s7/I2
+0.448 | tINS | 1 | R71C13[3][A] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n616_s7/F
+0.002 | tNET | 1 | R71C13[2][A] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n616_s5/I0
+0.415 | tINS | 8 | R71C13[2][A] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n616_s5/F
+0.315 | tNET | 1 | R72C14[0][A] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n616_s29/I0
+0.465 | tINS | 11 | R72C14[0][A] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n616_s29/F
+0.891 | tNET | 1 | R69C12[3][B] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n614_s4/I1
+0.448 | tINS | 1 | R69C12[3][B] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n614_s4/F
+0.142 | tNET | 1 | R69C13[3][B] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n614_s3/I3
+0.373 | tINS | 1 | R69C13[3][B] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n614_s3/F
+0.484 | tNET | 1 | R68C16[0][B] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n614_s2/I1
+0.415 | tINS | 1 | R68C16[0][B] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/n614_s2/F
+0.000 | tNET | 1 | R68C16[0][B] | g_sound.u_envelope_bank/g_voice_envelope[29].u_adsr/env_level_o_0_s0/D
+
+Path 12: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_idx_1_s0
+slack=0.544 route=14.018 cell=4.845 tCO=0.331 total=19.194 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+0.956 | tNET | 1 | R62C137[2][B] | g_sound.u_note_manager/best_idx_1_s0/CE
+
+Path 13: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_cls_0_s0
+slack=0.558 route=13.996 cell=4.845 tCO=0.331 total=19.172 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+0.934 | tNET | 1 | R61C132[1][A] | g_sound.u_note_manager/best_cls_0_s0/CE
+
+Path 14: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_cls_1_s0
+slack=0.558 route=13.996 cell=4.845 tCO=0.331 total=19.172 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+0.934 | tNET | 1 | R61C132[1][B] | g_sound.u_note_manager/best_cls_1_s0/CE
+
+Path 15: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_age_9_s0
+slack=0.576 route=13.987 cell=4.845 tCO=0.331 total=19.163 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+0.925 | tNET | 1 | R60C141[1][B] | g_sound.u_note_manager/best_age_9_s0/CE
+
+Path 16: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_env_8_s0
+slack=0.576 route=13.987 cell=4.845 tCO=0.331 total=19.163 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+0.925 | tNET | 1 | R60C141[1][A] | g_sound.u_note_manager/best_env_8_s0/CE
+
+Path 17: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_env_9_s0
+slack=0.576 route=13.987 cell=4.845 tCO=0.331 total=19.163 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+0.925 | tNET | 1 | R60C141[2][B] | g_sound.u_note_manager/best_env_9_s0/CE
+
+Path 18: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_env_10_s0
+slack=0.576 route=13.987 cell=4.845 tCO=0.331 total=19.163 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+0.925 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/best_env_10_s0/CE
+
+Path 19: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_idx_0_s0
+slack=0.583 route=13.971 cell=4.845 tCO=0.331 total=19.147 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+0.909 | tNET | 1 | R64C144[2][A] | g_sound.u_note_manager/best_idx_0_s0/CE
+
+Path 20: g_sound.tm_n_code_r_1_s0 -> g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/env_level_o_4_s0
+slack=0.657 route=14.529 cell=3.972 tCO=0.344 total=18.845 source_fanout=35
+DELAY | TYPE | FANOUT | LOC | NODE
+0.344 | tC2Q | 35 | R35C17[1][A] | g_sound.tm_n_code_r_1_s0/Q
+5.491 | tNET | 1 | R32C81[1][A] | n3056_s1/I0
+0.474 | tINS | 78 | R32C81[1][A] | n3056_s1/F
+3.963 | tNET | 1 | R48C25[3][B] | n3069_s0/I2
+0.448 | tINS | 4 | R48C25[3][B] | n3069_s0/F
+1.929 | tNET | 1 | R39C6[3][A] | g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/n616_s13/I1
+0.373 | tINS | 1 | R39C6[3][A] | g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/n616_s13/F
+0.142 | tNET | 1 | R39C7[3][B] | g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/n616_s12/I1
+0.373 | tINS | 1 | R39C7[3][B] | g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/n616_s12/F
+0.002 | tNET | 1 | R39C7[3][A] | g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/n616_s10/I3
+0.448 | tINS | 1 | R39C7[3][A] | g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/n616_s10/F
+0.002 | tNET | 1 | R39C7[2][A] | g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/n616_s9/I2
+0.415 | tINS | 2 | R39C7[2][A] | g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/n616_s9/F
+0.443 | tNET | 1 | R39C13[1][B] | g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/n616_s18/I1
+0.415 | tINS | 8 | R39C13[1][B] | g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/n616_s18/F
+0.144 | tNET | 1 | R40C13[3][B] | g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/n616_s21/I0
+0.238 | tINS | 10 | R40C13[3][B] | g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/n616_s21/F
+1.821 | tNET | 1 | R39C23[3][B] | g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/n610_s3/I1
+0.373 | tINS | 1 | R39C23[3][B] | g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/n610_s3/F
+0.592 | tNET | 1 | R39C16[2][A] | g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/n610_s2/I1
+0.415 | tINS | 1 | R39C16[2][A] | g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/n610_s2/F
+0.000 | tNET | 1 | R39C16[2][A] | g_sound.u_envelope_bank/g_voice_envelope[6].u_adsr/env_level_o_4_s0/D
+
+Path 21: g_sound.tm_n_code_r_1_s0 -> g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/env_level_o_12_s0
+slack=0.710 route=14.392 cell=4.052 tCO=0.344 total=18.788 source_fanout=35
+DELAY | TYPE | FANOUT | LOC | NODE
+0.344 | tC2Q | 35 | R35C17[1][A] | g_sound.tm_n_code_r_1_s0/Q
+2.865 | tNET | 1 | R32C81[3][B] | n2864_s1/I3
+0.238 | tINS | 373 | R32C81[3][B] | n2864_s1/F
+9.892 | tNET | 1 | R71C4[2][B] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n616_s26/I2
+0.415 | tINS | 1 | R71C4[2][B] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n616_s26/F
+0.124 | tNET | 1 | R71C4[3][A] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n616_s12/I3
+0.469 | tINS | 1 | R71C4[3][A] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n616_s12/F
+0.142 | tNET | 1 | R72C4[3][B] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n616_s9/I3
+0.469 | tINS | 1 | R72C4[3][B] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n616_s9/F
+0.142 | tNET | 1 | R72C5[3][A] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n616_s7/I2
+0.373 | tINS | 1 | R72C5[3][A] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n616_s7/F
+0.295 | tNET | 1 | R70C5[0][A] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n616_s5/I0
+0.465 | tINS | 8 | R70C5[0][A] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n616_s5/F
+0.493 | tNET | 1 | R69C8[1][B] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n602_s5/I2
+0.465 | tINS | 1 | R69C8[1][B] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n602_s5/F
+0.313 | tNET | 1 | R68C9[0][A] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n602_s4/I0
+0.474 | tINS | 1 | R68C9[0][A] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n602_s4/F
+0.002 | tNET | 1 | R68C9[0][B] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n602_s3/I2
+0.236 | tINS | 1 | R68C9[0][B] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n602_s3/F
+0.124 | tNET | 1 | R68C9[3][A] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n602_s2/I1
+0.448 | tINS | 1 | R68C9[3][A] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/n602_s2/F
+0.000 | tNET | 1 | R68C9[3][A] | g_sound.u_envelope_bank/g_voice_envelope[28].u_adsr/env_level_o_12_s0/D
+
+Path 22: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_age_0_s0
+slack=0.743 route=13.811 cell=4.845 tCO=0.331 total=18.987 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+0.749 | tNET | 1 | R61C144[0][B] | g_sound.u_note_manager/best_age_0_s0/CE
+
+Path 23: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_age_1_s0
+slack=0.743 route=13.811 cell=4.845 tCO=0.331 total=18.987 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+0.749 | tNET | 1 | R60C144[0][A] | g_sound.u_note_manager/best_age_1_s0/CE
+
+Path 24: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_age_2_s0
+slack=0.743 route=13.811 cell=4.845 tCO=0.331 total=18.987 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+0.749 | tNET | 1 | R61C144[0][A] | g_sound.u_note_manager/best_age_2_s0/CE
+
+Path 25: g_sound.u_note_manager/scan_cnt_1_s0 -> g_sound.u_note_manager/best_age_10_s0
+slack=0.743 route=13.811 cell=4.845 tCO=0.331 total=18.987 source_fanout=347
+DELAY | TYPE | FANOUT | LOC | NODE
+0.331 | tC2Q | 347 | R60C143[0][B] | g_sound.u_note_manager/scan_cnt_1_s0/Q
+6.586 | tNET | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/I2
+0.474 | tINS | 1 | R70C28[2][A] | g_sound.u_note_manager/cand_env_4_s60/F
+0.002 | tNET | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/I3
+0.415 | tINS | 1 | R70C28[2][B] | g_sound.u_note_manager/cand_env_4_s55/F
+4.758 | tNET | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/I0
+0.469 | tINS | 1 | R70C134[3][B] | g_sound.u_note_manager/cand_env_4_s45/F
+0.142 | tNET | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/I3
+0.465 | tINS | 1 | R71C134[0][B] | g_sound.u_note_manager/cand_env_4_s36/F
+0.142 | tNET | 1 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/I2
+0.415 | tINS | 3 | R71C135[2][B] | g_sound.u_note_manager/cand_env_4_s33/F
+0.146 | tNET | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/I1
+0.373 | tINS | 1 | R70C135[3][A] | g_sound.u_note_manager/n24974_s38/F
+0.002 | tNET | 1 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/I3
+0.415 | tINS | 2 | R70C135[2][B] | g_sound.u_note_manager/n24974_s21/F
+0.856 | tNET | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/I0
+0.465 | tINS | 1 | R60C141[2][A] | g_sound.u_note_manager/n24974_s14/F
+0.142 | tNET | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/I1
+0.465 | tINS | 1 | R60C142[2][B] | g_sound.u_note_manager/n24974_s8/F
+0.142 | tNET | 1 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/I0
+0.474 | tINS | 2 | R60C143[0][A] | g_sound.u_note_manager/n24974_s6/F
+0.144 | tNET | 1 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/I1
+0.415 | tINS | 39 | R59C143[2][B] | g_sound.u_note_manager/n24974_s5/F
+0.749 | tNET | 1 | R60C144[0][B] | g_sound.u_note_manager/best_age_10_s0/CE

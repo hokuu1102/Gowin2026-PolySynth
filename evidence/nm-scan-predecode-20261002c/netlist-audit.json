@@ -1,0 +1,104 @@
+{
+  "file": "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\Gowin2026-PolySynth-t31b-main\\impl\\gwsynthesis\\Gowin2026.vg",
+  "onehot_registers": 32,
+  "binary_load_pin_counts": {
+    "scan_cnt[0]": 7,
+    "scan_cnt[1]": 5,
+    "scan_cnt[2]": 4,
+    "scan_cnt[3]": 3,
+    "scan_cnt[4]": 4
+  },
+  "onehot_load_pin_counts": {
+    "scan_sel[0]": 46,
+    "scan_sel[1]": 46,
+    "scan_sel[2]": 46,
+    "scan_sel[3]": 46,
+    "scan_sel[4]": 46,
+    "scan_sel[5]": 46,
+    "scan_sel[6]": 46,
+    "scan_sel[7]": 46,
+    "scan_sel[8]": 46,
+    "scan_sel[9]": 46,
+    "scan_sel[10]": 46,
+    "scan_sel[11]": 46,
+    "scan_sel[12]": 46,
+    "scan_sel[13]": 46,
+    "scan_sel[14]": 46,
+    "scan_sel[15]": 46,
+    "scan_sel[16]": 46,
+    "scan_sel[17]": 46,
+    "scan_sel[18]": 46,
+    "scan_sel[19]": 46,
+    "scan_sel[20]": 46,
+    "scan_sel[21]": 46,
+    "scan_sel[22]": 46,
+    "scan_sel[23]": 46,
+    "scan_sel[24]": 46,
+    "scan_sel[25]": 46,
+    "scan_sel[26]": 46,
+    "scan_sel[27]": 46,
+    "scan_sel[28]": 46,
+    "scan_sel[29]": 46,
+    "scan_sel[30]": 46,
+    "scan_sel[31]": 45
+  },
+  "groups": {
+    "0": {
+      "env0_output": "scan_group[0][16]",
+      "onehot_ancestors": [
+        "scan_sel[0]",
+        "scan_sel[1]",
+        "scan_sel[2]",
+        "scan_sel[3]",
+        "scan_sel[4]",
+        "scan_sel[5]",
+        "scan_sel[6]",
+        "scan_sel[7]"
+      ],
+      "binary_scan_ancestors": []
+    },
+    "1": {
+      "env0_output": "scan_group[1][16]",
+      "onehot_ancestors": [
+        "scan_sel[10]",
+        "scan_sel[11]",
+        "scan_sel[12]",
+        "scan_sel[13]",
+        "scan_sel[14]",
+        "scan_sel[15]",
+        "scan_sel[8]",
+        "scan_sel[9]"
+      ],
+      "binary_scan_ancestors": []
+    },
+    "2": {
+      "env0_output": "scan_group[2][16]",
+      "onehot_ancestors": [
+        "scan_sel[16]",
+        "scan_sel[17]",
+        "scan_sel[18]",
+        "scan_sel[19]",
+        "scan_sel[20]",
+        "scan_sel[21]",
+        "scan_sel[22]",
+        "scan_sel[23]"
+      ],
+      "binary_scan_ancestors": []
+    },
+    "3": {
+      "env0_output": "scan_group[3][16]",
+      "onehot_ancestors": [
+        "scan_sel[24]",
+        "scan_sel[25]",
+        "scan_sel[26]",
+        "scan_sel[27]",
+        "scan_sel[28]",
+        "scan_sel[29]",
+        "scan_sel[30]",
+        "scan_sel[31]"
+      ],
+      "binary_scan_ancestors": []
+    }
+  },
+  "four_group_merge_instances": 44
+}

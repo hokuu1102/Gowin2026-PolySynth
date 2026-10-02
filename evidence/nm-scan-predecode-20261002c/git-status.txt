@@ -1,0 +1,27 @@
+ M rtl/w3b/note_manager.v
+ M sim/evidence/tb_adc_farm.compile.log
+ M sim/evidence/tb_calib.compile.log
+ M sim/evidence/tb_checkers.compile.log
+ M sim/evidence/tb_clk_gen.compile.log
+ M sim/evidence/tb_clk_gen_badparam.compile.log
+ M sim/evidence/tb_dac_tone_top.compile.log
+ M sim/evidence/tb_debounce.compile.log
+ M sim/evidence/tb_demo_stall_diag.compile.log
+ M sim/evidence/tb_e2e_key_to_sound.compile.log
+ M sim/evidence/tb_mcp3208_driver.compile.log
+ M sim/evidence/tb_mcp3208_scanner.compile.log
+ M sim/evidence/tb_tlc5916_driver.compile.log
+ M sim/evidence/tb_wavetable_tone_top.compile.log
+?? evidence/h5/nmscan-round1-fail/
+?? evidence/h5/nmscan-round1.err.log
+?? evidence/h5/nmscan-round1.log
+?? evidence/h5/nmscan-round1b.err.log
+?? evidence/h5/nmscan-round1b.log
+?? evidence/h5/restore-after-nmscan.err.log
+?? evidence/h5/restore-after-nmscan.log
+?? evidence/h5/restore-after-nmscan2.err.log
+?? evidence/h5/restore-after-nmscan2.log
+?? evidence/h5/restore-final.err.log
+?? evidence/h5/restore-final.log
+?? evidence/nm-scan-predecode-20261002b/
+?? evidence/nm-scan-predecode-20261002c/

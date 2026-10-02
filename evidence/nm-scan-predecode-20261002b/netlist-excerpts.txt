@@ -1,0 +1,860 @@
+
+scan_sel_31_s0
+376474:   DFFRE scan_sel_31_s0 (
+376475:     .Q(scan_sel[31]),
+376476:     .D(n27941_17),
+376477:     .CLK(clk_d),
+376478:     .RESET(n191_6),
+376479:     .CE(scan_cnt_4_13) 
+376480: );
+376481:   DFFRE scan_sel_30_s0 (
+
+scan_sel_30_s0
+376481:   DFFRE scan_sel_30_s0 (
+376482:     .Q(scan_sel[30]),
+376483:     .D(n27942_17),
+376484:     .CLK(clk_d),
+376485:     .RESET(n191_6),
+376486:     .CE(scan_cnt_4_13) 
+376487: );
+376488:   DFFRE scan_sel_29_s0 (
+
+\scan_group[0]_16_s1
+306797:   LUT4 \scan_group[0]_16_s1  (
+306798:     .F(\scan_group[0] [16]),
+306799:     .I0(\scan_group[0]_16_5 ),
+306800:     .I1(\scan_group[0]_16_6 ),
+306801:     .I2(\scan_group[0]_16_7 ),
+306802:     .I3(\scan_group[0]_16_8 ) 
+306803: );
+306804: defparam \scan_group[0]_16_s1 .INIT=16'h7FFF;
+
+\scan_group[0]_16_s2
+333922:   LUT4 \scan_group[0]_16_s2  (
+333923:     .F(\scan_group[0]_16_5 ),
+333924:     .I0(scan_sel[7]),
+333925:     .I1(env_level_r[112]),
+333926:     .I2(scan_sel[6]),
+333927:     .I3(env_level_r[96]) 
+333928: );
+333929: defparam \scan_group[0]_16_s2 .INIT=16'h0777;
+
+scan_sel_7_s0
+376642:   DFFRE scan_sel_7_s0 (
+376643:     .Q(scan_sel[7]),
+376644:     .D(n27965_17),
+376645:     .CLK(clk_d),
+376646:     .RESET(n191_6),
+376647:     .CE(scan_cnt_4_13) 
+376648: );
+376649:   DFFRE scan_sel_6_s0 (
+
+env_level_r_112_s0
+372929:   DFFRE env_level_r_112_s0 (
+372930:     .Q(env_level_r[112]),
+372931:     .D(\g_sound.env_level_164 [112]),
+372932:     .CLK(clk_d),
+372933:     .RESET(n191_6),
+372934:     .CE(VCC) 
+372935: );
+372936: defparam env_level_r_112_s0.INIT=1'b0;
+
+scan_sel_6_s0
+376649:   DFFRE scan_sel_6_s0 (
+376650:     .Q(scan_sel[6]),
+376651:     .D(n27966_17),
+376652:     .CLK(clk_d),
+376653:     .RESET(n191_6),
+376654:     .CE(scan_cnt_4_13) 
+376655: );
+376656:   DFFRE scan_sel_5_s0 (
+
+env_level_r_96_s0
+373057:   DFFRE env_level_r_96_s0 (
+373058:     .Q(env_level_r[96]),
+373059:     .D(\g_sound.env_level_165 [96]),
+373060:     .CLK(clk_d),
+373061:     .RESET(n191_6),
+373062:     .CE(VCC) 
+373063: );
+373064: defparam env_level_r_96_s0.INIT=1'b0;
+
+\scan_group[0]_16_s3
+333930:   LUT4 \scan_group[0]_16_s3  (
+333931:     .F(\scan_group[0]_16_6 ),
+333932:     .I0(scan_sel[5]),
+333933:     .I1(env_level_r[80]),
+333934:     .I2(scan_sel[2]),
+333935:     .I3(env_level_r[32]) 
+333936: );
+333937: defparam \scan_group[0]_16_s3 .INIT=16'h0777;
+
+scan_sel_5_s0
+376656:   DFFRE scan_sel_5_s0 (
+376657:     .Q(scan_sel[5]),
+376658:     .D(n27967_17),
+376659:     .CLK(clk_d),
+376660:     .RESET(n191_6),
+376661:     .CE(scan_cnt_4_13) 
+376662: );
+376663:   DFFRE scan_sel_4_s0 (
+
+env_level_r_80_s0
+373185:   DFFRE env_level_r_80_s0 (
+373186:     .Q(env_level_r[80]),
+373187:     .D(\g_sound.env_level_166 [80]),
+373188:     .CLK(clk_d),
+373189:     .RESET(n191_6),
+373190:     .CE(VCC) 
+373191: );
+373192: defparam env_level_r_80_s0.INIT=1'b0;
+
+scan_sel_2_s0
+376677:   DFFRE scan_sel_2_s0 (
+376678:     .Q(scan_sel[2]),
+376679:     .D(n27970_17),
+376680:     .CLK(clk_d),
+376681:     .RESET(n191_6),
+376682:     .CE(scan_cnt_4_13) 
+376683: );
+376684:   DFFRE scan_sel_1_s0 (
+
+env_level_r_32_s0
+373569:   DFFRE env_level_r_32_s0 (
+373570:     .Q(env_level_r[32]),
+373571:     .D(\g_sound.env_level_169 [32]),
+373572:     .CLK(clk_d),
+373573:     .RESET(n191_6),
+373574:     .CE(VCC) 
+373575: );
+373576: defparam env_level_r_32_s0.INIT=1'b0;
+
+\scan_group[0]_16_s4
+333938:   LUT4 \scan_group[0]_16_s4  (
+333939:     .F(\scan_group[0]_16_7 ),
+333940:     .I0(scan_sel[1]),
+333941:     .I1(env_level_r[16]),
+333942:     .I2(scan_sel[0]),
+333943:     .I3(env_level_r[0]) 
+333944: );
+333945: defparam \scan_group[0]_16_s4 .INIT=16'h0777;
+
+scan_sel_1_s0
+376684:   DFFRE scan_sel_1_s0 (
+376685:     .Q(scan_sel[1]),
+376686:     .D(n27971_17),
+376687:     .CLK(clk_d),
+376688:     .RESET(n191_6),
+376689:     .CE(scan_cnt_4_13) 
+376690: );
+376691:   DFFSE scan_sel_0_s0 (
+
+env_level_r_16_s0
+373697:   DFFRE env_level_r_16_s0 (
+373698:     .Q(env_level_r[16]),
+373699:     .D(\g_sound.env_level_170 [16]),
+373700:     .CLK(clk_d),
+373701:     .RESET(n191_6),
+373702:     .CE(VCC) 
+373703: );
+373704: defparam env_level_r_16_s0.INIT=1'b0;
+
+scan_sel_0_s0
+376691:   DFFSE scan_sel_0_s0 (
+376692:     .Q(scan_sel[0]),
+376693:     .D(n27972_18),
+376694:     .CLK(clk_d),
+376695:     .SET(n191_6),
+376696:     .CE(scan_cnt_4_13) 
+376697: );
+376698:   DFFRE best_valid_s0 (
+
+env_level_r_0_s0
+373825:   DFFRE env_level_r_0_s0 (
+373826:     .Q(env_level_r[0]),
+373827:     .D(\g_sound.env_level_171 [0]),
+373828:     .CLK(clk_d),
+373829:     .RESET(n191_6),
+373830:     .CE(VCC) 
+373831: );
+373832: defparam env_level_r_0_s0.INIT=1'b0;
+
+\scan_group[0]_16_s5
+333946:   LUT4 \scan_group[0]_16_s5  (
+333947:     .F(\scan_group[0]_16_8 ),
+333948:     .I0(scan_sel[4]),
+333949:     .I1(env_level_r[64]),
+333950:     .I2(scan_sel[3]),
+333951:     .I3(env_level_r[48]) 
+333952: );
+333953: defparam \scan_group[0]_16_s5 .INIT=16'h0777;
+
+scan_sel_4_s0
+376663:   DFFRE scan_sel_4_s0 (
+376664:     .Q(scan_sel[4]),
+376665:     .D(n27968_17),
+376666:     .CLK(clk_d),
+376667:     .RESET(n191_6),
+376668:     .CE(scan_cnt_4_13) 
+376669: );
+376670:   DFFRE scan_sel_3_s0 (
+
+env_level_r_64_s0
+373313:   DFFRE env_level_r_64_s0 (
+373314:     .Q(env_level_r[64]),
+373315:     .D(\g_sound.env_level_167 [64]),
+373316:     .CLK(clk_d),
+373317:     .RESET(n191_6),
+373318:     .CE(VCC) 
+373319: );
+373320: defparam env_level_r_64_s0.INIT=1'b0;
+
+scan_sel_3_s0
+376670:   DFFRE scan_sel_3_s0 (
+376671:     .Q(scan_sel[3]),
+376672:     .D(n27969_17),
+376673:     .CLK(clk_d),
+376674:     .RESET(n191_6),
+376675:     .CE(scan_cnt_4_13) 
+376676: );
+376677:   DFFRE scan_sel_2_s0 (
+
+env_level_r_48_s0
+373441:   DFFRE env_level_r_48_s0 (
+373442:     .Q(env_level_r[48]),
+373443:     .D(\g_sound.env_level_168 [48]),
+373444:     .CLK(clk_d),
+373445:     .RESET(n191_6),
+373446:     .CE(VCC) 
+373447: );
+373448: defparam env_level_r_48_s0.INIT=1'b0;
+
+\scan_group[1]_16_s1
+307149:   LUT4 \scan_group[1]_16_s1  (
+307150:     .F(\scan_group[1] [16]),
+307151:     .I0(\scan_group[1]_16_5 ),
+307152:     .I1(\scan_group[1]_16_6 ),
+307153:     .I2(\scan_group[1]_16_7 ),
+307154:     .I3(\scan_group[1]_16_8 ) 
+307155: );
+307156: defparam \scan_group[1]_16_s1 .INIT=16'h7FFF;
+
+\scan_group[1]_16_s2
+335318:   LUT4 \scan_group[1]_16_s2  (
+335319:     .F(\scan_group[1]_16_5 ),
+335320:     .I0(scan_sel[15]),
+335321:     .I1(env_level_r[240]),
+335322:     .I2(scan_sel[14]),
+335323:     .I3(env_level_r[224]) 
+335324: );
+335325: defparam \scan_group[1]_16_s2 .INIT=16'h0777;
+
+scan_sel_15_s0
+376586:   DFFRE scan_sel_15_s0 (
+376587:     .Q(scan_sel[15]),
+376588:     .D(n27957_17),
+376589:     .CLK(clk_d),
+376590:     .RESET(n191_6),
+376591:     .CE(scan_cnt_4_13) 
+376592: );
+376593:   DFFRE scan_sel_14_s0 (
+
+env_level_r_240_s0
+371905:   DFFRE env_level_r_240_s0 (
+371906:     .Q(env_level_r[240]),
+371907:     .D(\g_sound.env_level_156 [240]),
+371908:     .CLK(clk_d),
+371909:     .RESET(n191_6),
+371910:     .CE(VCC) 
+371911: );
+371912: defparam env_level_r_240_s0.INIT=1'b0;
+
+scan_sel_14_s0
+376593:   DFFRE scan_sel_14_s0 (
+376594:     .Q(scan_sel[14]),
+376595:     .D(n27958_17),
+376596:     .CLK(clk_d),
+376597:     .RESET(n191_6),
+376598:     .CE(scan_cnt_4_13) 
+376599: );
+376600:   DFFRE scan_sel_13_s0 (
+
+env_level_r_224_s0
+372033:   DFFRE env_level_r_224_s0 (
+372034:     .Q(env_level_r[224]),
+372035:     .D(\g_sound.env_level_157 [224]),
+372036:     .CLK(clk_d),
+372037:     .RESET(n191_6),
+372038:     .CE(VCC) 
+372039: );
+372040: defparam env_level_r_224_s0.INIT=1'b0;
+
+\scan_group[1]_16_s3
+335326:   LUT4 \scan_group[1]_16_s3  (
+335327:     .F(\scan_group[1]_16_6 ),
+335328:     .I0(scan_sel[13]),
+335329:     .I1(env_level_r[208]),
+335330:     .I2(scan_sel[10]),
+335331:     .I3(env_level_r[160]) 
+335332: );
+335333: defparam \scan_group[1]_16_s3 .INIT=16'h0777;
+
+scan_sel_13_s0
+376600:   DFFRE scan_sel_13_s0 (
+376601:     .Q(scan_sel[13]),
+376602:     .D(n27959_17),
+376603:     .CLK(clk_d),
+376604:     .RESET(n191_6),
+376605:     .CE(scan_cnt_4_13) 
+376606: );
+376607:   DFFRE scan_sel_12_s0 (
+
+env_level_r_208_s0
+372161:   DFFRE env_level_r_208_s0 (
+372162:     .Q(env_level_r[208]),
+372163:     .D(\g_sound.env_level_158 [208]),
+372164:     .CLK(clk_d),
+372165:     .RESET(n191_6),
+372166:     .CE(VCC) 
+372167: );
+372168: defparam env_level_r_208_s0.INIT=1'b0;
+
+scan_sel_10_s0
+376621:   DFFRE scan_sel_10_s0 (
+376622:     .Q(scan_sel[10]),
+376623:     .D(n27962_17),
+376624:     .CLK(clk_d),
+376625:     .RESET(n191_6),
+376626:     .CE(scan_cnt_4_13) 
+376627: );
+376628:   DFFRE scan_sel_9_s0 (
+
+env_level_r_160_s0
+372545:   DFFRE env_level_r_160_s0 (
+372546:     .Q(env_level_r[160]),
+372547:     .D(\g_sound.env_level_161 [160]),
+372548:     .CLK(clk_d),
+372549:     .RESET(n191_6),
+372550:     .CE(VCC) 
+372551: );
+372552: defparam env_level_r_160_s0.INIT=1'b0;
+
+\scan_group[1]_16_s4
+335334:   LUT4 \scan_group[1]_16_s4  (
+335335:     .F(\scan_group[1]_16_7 ),
+335336:     .I0(scan_sel[9]),
+335337:     .I1(env_level_r[144]),
+335338:     .I2(scan_sel[8]),
+335339:     .I3(env_level_r[128]) 
+335340: );
+335341: defparam \scan_group[1]_16_s4 .INIT=16'h0777;
+
+scan_sel_9_s0
+376628:   DFFRE scan_sel_9_s0 (
+376629:     .Q(scan_sel[9]),
+376630:     .D(n27963_17),
+376631:     .CLK(clk_d),
+376632:     .RESET(n191_6),
+376633:     .CE(scan_cnt_4_13) 
+376634: );
+376635:   DFFRE scan_sel_8_s0 (
+
+env_level_r_144_s0
+372673:   DFFRE env_level_r_144_s0 (
+372674:     .Q(env_level_r[144]),
+372675:     .D(\g_sound.env_level_162 [144]),
+372676:     .CLK(clk_d),
+372677:     .RESET(n191_6),
+372678:     .CE(VCC) 
+372679: );
+372680: defparam env_level_r_144_s0.INIT=1'b0;
+
+scan_sel_8_s0
+376635:   DFFRE scan_sel_8_s0 (
+376636:     .Q(scan_sel[8]),
+376637:     .D(n27964_17),
+376638:     .CLK(clk_d),
+376639:     .RESET(n191_6),
+376640:     .CE(scan_cnt_4_13) 
+376641: );
+376642:   DFFRE scan_sel_7_s0 (
+
+env_level_r_128_s0
+372801:   DFFRE env_level_r_128_s0 (
+372802:     .Q(env_level_r[128]),
+372803:     .D(\g_sound.env_level_163 [128]),
+372804:     .CLK(clk_d),
+372805:     .RESET(n191_6),
+372806:     .CE(VCC) 
+372807: );
+372808: defparam env_level_r_128_s0.INIT=1'b0;
+
+\scan_group[1]_16_s5
+335342:   LUT4 \scan_group[1]_16_s5  (
+335343:     .F(\scan_group[1]_16_8 ),
+335344:     .I0(scan_sel[12]),
+335345:     .I1(env_level_r[192]),
+335346:     .I2(scan_sel[11]),
+335347:     .I3(env_level_r[176]) 
+335348: );
+335349: defparam \scan_group[1]_16_s5 .INIT=16'h0777;
+
+scan_sel_12_s0
+376607:   DFFRE scan_sel_12_s0 (
+376608:     .Q(scan_sel[12]),
+376609:     .D(n27960_17),
+376610:     .CLK(clk_d),
+376611:     .RESET(n191_6),
+376612:     .CE(scan_cnt_4_13) 
+376613: );
+376614:   DFFRE scan_sel_11_s0 (
+
+env_level_r_192_s0
+372289:   DFFRE env_level_r_192_s0 (
+372290:     .Q(env_level_r[192]),
+372291:     .D(\g_sound.env_level_159 [192]),
+372292:     .CLK(clk_d),
+372293:     .RESET(n191_6),
+372294:     .CE(VCC) 
+372295: );
+372296: defparam env_level_r_192_s0.INIT=1'b0;
+
+scan_sel_11_s0
+376614:   DFFRE scan_sel_11_s0 (
+376615:     .Q(scan_sel[11]),
+376616:     .D(n27961_17),
+376617:     .CLK(clk_d),
+376618:     .RESET(n191_6),
+376619:     .CE(scan_cnt_4_13) 
+376620: );
+376621:   DFFRE scan_sel_10_s0 (
+
+env_level_r_176_s0
+372417:   DFFRE env_level_r_176_s0 (
+372418:     .Q(env_level_r[176]),
+372419:     .D(\g_sound.env_level_160 [176]),
+372420:     .CLK(clk_d),
+372421:     .RESET(n191_6),
+372422:     .CE(VCC) 
+372423: );
+372424: defparam env_level_r_176_s0.INIT=1'b0;
+
+\scan_group[2]_16_s1
+307501:   LUT4 \scan_group[2]_16_s1  (
+307502:     .F(\scan_group[2] [16]),
+307503:     .I0(\scan_group[2]_16_5 ),
+307504:     .I1(\scan_group[2]_16_6 ),
+307505:     .I2(\scan_group[2]_16_7 ),
+307506:     .I3(\scan_group[2]_16_8 ) 
+307507: );
+307508: defparam \scan_group[2]_16_s1 .INIT=16'h7FFF;
+
+\scan_group[2]_16_s2
+336707:   LUT4 \scan_group[2]_16_s2  (
+336708:     .F(\scan_group[2]_16_5 ),
+336709:     .I0(scan_sel[23]),
+336710:     .I1(env_level_r[368]),
+336711:     .I2(scan_sel[22]),
+336712:     .I3(env_level_r[352]) 
+336713: );
+336714: defparam \scan_group[2]_16_s2 .INIT=16'h0777;
+
+scan_sel_23_s0
+376530:   DFFRE scan_sel_23_s0 (
+376531:     .Q(scan_sel[23]),
+376532:     .D(n27949_17),
+376533:     .CLK(clk_d),
+376534:     .RESET(n191_6),
+376535:     .CE(scan_cnt_4_13) 
+376536: );
+376537:   DFFRE scan_sel_22_s0 (
+
+env_level_r_368_s0
+370881:   DFFRE env_level_r_368_s0 (
+370882:     .Q(env_level_r[368]),
+370883:     .D(\g_sound.env_level_148 [368]),
+370884:     .CLK(clk_d),
+370885:     .RESET(n191_6),
+370886:     .CE(VCC) 
+370887: );
+370888: defparam env_level_r_368_s0.INIT=1'b0;
+
+scan_sel_22_s0
+376537:   DFFRE scan_sel_22_s0 (
+376538:     .Q(scan_sel[22]),
+376539:     .D(n27950_17),
+376540:     .CLK(clk_d),
+376541:     .RESET(n191_6),
+376542:     .CE(scan_cnt_4_13) 
+376543: );
+376544:   DFFRE scan_sel_21_s0 (
+
+env_level_r_352_s0
+371009:   DFFRE env_level_r_352_s0 (
+371010:     .Q(env_level_r[352]),
+371011:     .D(\g_sound.env_level_149 [352]),
+371012:     .CLK(clk_d),
+371013:     .RESET(n191_6),
+371014:     .CE(VCC) 
+371015: );
+371016: defparam env_level_r_352_s0.INIT=1'b0;
+
+\scan_group[2]_16_s3
+336715:   LUT4 \scan_group[2]_16_s3  (
+336716:     .F(\scan_group[2]_16_6 ),
+336717:     .I0(scan_sel[21]),
+336718:     .I1(env_level_r[336]),
+336719:     .I2(scan_sel[18]),
+336720:     .I3(env_level_r[288]) 
+336721: );
+336722: defparam \scan_group[2]_16_s3 .INIT=16'h0777;
+
+scan_sel_21_s0
+376544:   DFFRE scan_sel_21_s0 (
+376545:     .Q(scan_sel[21]),
+376546:     .D(n27951_17),
+376547:     .CLK(clk_d),
+376548:     .RESET(n191_6),
+376549:     .CE(scan_cnt_4_13) 
+376550: );
+376551:   DFFRE scan_sel_20_s0 (
+
+env_level_r_336_s0
+371137:   DFFRE env_level_r_336_s0 (
+371138:     .Q(env_level_r[336]),
+371139:     .D(\g_sound.env_level_150 [336]),
+371140:     .CLK(clk_d),
+371141:     .RESET(n191_6),
+371142:     .CE(VCC) 
+371143: );
+371144: defparam env_level_r_336_s0.INIT=1'b0;
+
+scan_sel_18_s0
+376565:   DFFRE scan_sel_18_s0 (
+376566:     .Q(scan_sel[18]),
+376567:     .D(n27954_17),
+376568:     .CLK(clk_d),
+376569:     .RESET(n191_6),
+376570:     .CE(scan_cnt_4_13) 
+376571: );
+376572:   DFFRE scan_sel_17_s0 (
+
+env_level_r_288_s0
+371521:   DFFRE env_level_r_288_s0 (
+371522:     .Q(env_level_r[288]),
+371523:     .D(\g_sound.env_level_153 [288]),
+371524:     .CLK(clk_d),
+371525:     .RESET(n191_6),
+371526:     .CE(VCC) 
+371527: );
+371528: defparam env_level_r_288_s0.INIT=1'b0;
+
+\scan_group[2]_16_s4
+336723:   LUT4 \scan_group[2]_16_s4  (
+336724:     .F(\scan_group[2]_16_7 ),
+336725:     .I0(scan_sel[17]),
+336726:     .I1(env_level_r[272]),
+336727:     .I2(scan_sel[16]),
+336728:     .I3(env_level_r[256]) 
+336729: );
+336730: defparam \scan_group[2]_16_s4 .INIT=16'h0777;
+
+scan_sel_17_s0
+376572:   DFFRE scan_sel_17_s0 (
+376573:     .Q(scan_sel[17]),
+376574:     .D(n27955_17),
+376575:     .CLK(clk_d),
+376576:     .RESET(n191_6),
+376577:     .CE(scan_cnt_4_13) 
+376578: );
+376579:   DFFRE scan_sel_16_s0 (
+
+env_level_r_272_s0
+371649:   DFFRE env_level_r_272_s0 (
+371650:     .Q(env_level_r[272]),
+371651:     .D(\g_sound.env_level_154 [272]),
+371652:     .CLK(clk_d),
+371653:     .RESET(n191_6),
+371654:     .CE(VCC) 
+371655: );
+371656: defparam env_level_r_272_s0.INIT=1'b0;
+
+scan_sel_16_s0
+376579:   DFFRE scan_sel_16_s0 (
+376580:     .Q(scan_sel[16]),
+376581:     .D(n27956_17),
+376582:     .CLK(clk_d),
+376583:     .RESET(n191_6),
+376584:     .CE(scan_cnt_4_13) 
+376585: );
+376586:   DFFRE scan_sel_15_s0 (
+
+env_level_r_256_s0
+371777:   DFFRE env_level_r_256_s0 (
+371778:     .Q(env_level_r[256]),
+371779:     .D(\g_sound.env_level_155 [256]),
+371780:     .CLK(clk_d),
+371781:     .RESET(n191_6),
+371782:     .CE(VCC) 
+371783: );
+371784: defparam env_level_r_256_s0.INIT=1'b0;
+
+\scan_group[2]_16_s5
+336731:   LUT4 \scan_group[2]_16_s5  (
+336732:     .F(\scan_group[2]_16_8 ),
+336733:     .I0(scan_sel[20]),
+336734:     .I1(env_level_r[320]),
+336735:     .I2(scan_sel[19]),
+336736:     .I3(env_level_r[304]) 
+336737: );
+336738: defparam \scan_group[2]_16_s5 .INIT=16'h0777;
+
+scan_sel_20_s0
+376551:   DFFRE scan_sel_20_s0 (
+376552:     .Q(scan_sel[20]),
+376553:     .D(n27952_17),
+376554:     .CLK(clk_d),
+376555:     .RESET(n191_6),
+376556:     .CE(scan_cnt_4_13) 
+376557: );
+376558:   DFFRE scan_sel_19_s0 (
+
+env_level_r_320_s0
+371265:   DFFRE env_level_r_320_s0 (
+371266:     .Q(env_level_r[320]),
+371267:     .D(\g_sound.env_level_151 [320]),
+371268:     .CLK(clk_d),
+371269:     .RESET(n191_6),
+371270:     .CE(VCC) 
+371271: );
+371272: defparam env_level_r_320_s0.INIT=1'b0;
+
+scan_sel_19_s0
+376558:   DFFRE scan_sel_19_s0 (
+376559:     .Q(scan_sel[19]),
+376560:     .D(n27953_17),
+376561:     .CLK(clk_d),
+376562:     .RESET(n191_6),
+376563:     .CE(scan_cnt_4_13) 
+376564: );
+376565:   DFFRE scan_sel_18_s0 (
+
+env_level_r_304_s0
+371393:   DFFRE env_level_r_304_s0 (
+371394:     .Q(env_level_r[304]),
+371395:     .D(\g_sound.env_level_152 [304]),
+371396:     .CLK(clk_d),
+371397:     .RESET(n191_6),
+371398:     .CE(VCC) 
+371399: );
+371400: defparam env_level_r_304_s0.INIT=1'b0;
+
+\scan_group[3]_16_s1
+307853:   LUT4 \scan_group[3]_16_s1  (
+307854:     .F(\scan_group[3] [16]),
+307855:     .I0(\scan_group[3]_16_5 ),
+307856:     .I1(\scan_group[3]_16_6 ),
+307857:     .I2(\scan_group[3]_16_7 ),
+307858:     .I3(\scan_group[3]_16_8 ) 
+307859: );
+307860: defparam \scan_group[3]_16_s1 .INIT=16'h7FFF;
+
+\scan_group[3]_16_s2
+338096:   LUT4 \scan_group[3]_16_s2  (
+338097:     .F(\scan_group[3]_16_5 ),
+338098:     .I0(scan_sel[31]),
+338099:     .I1(env_level_r[496]),
+338100:     .I2(scan_sel[30]),
+338101:     .I3(env_level_r[480]) 
+338102: );
+338103: defparam \scan_group[3]_16_s2 .INIT=16'h0777;
+
+env_level_r_496_s0
+369857:   DFFRE env_level_r_496_s0 (
+369858:     .Q(env_level_r[496]),
+369859:     .D(\g_sound.env_level [496]),
+369860:     .CLK(clk_d),
+369861:     .RESET(n191_6),
+369862:     .CE(VCC) 
+369863: );
+369864: defparam env_level_r_496_s0.INIT=1'b0;
+
+env_level_r_480_s0
+369985:   DFFRE env_level_r_480_s0 (
+369986:     .Q(env_level_r[480]),
+369987:     .D(\g_sound.env_level_141 [480]),
+369988:     .CLK(clk_d),
+369989:     .RESET(n191_6),
+369990:     .CE(VCC) 
+369991: );
+369992: defparam env_level_r_480_s0.INIT=1'b0;
+
+\scan_group[3]_16_s3
+338104:   LUT4 \scan_group[3]_16_s3  (
+338105:     .F(\scan_group[3]_16_6 ),
+338106:     .I0(scan_sel[29]),
+338107:     .I1(env_level_r[464]),
+338108:     .I2(scan_sel[26]),
+338109:     .I3(env_level_r[416]) 
+338110: );
+338111: defparam \scan_group[3]_16_s3 .INIT=16'h0777;
+
+scan_sel_29_s0
+376488:   DFFRE scan_sel_29_s0 (
+376489:     .Q(scan_sel[29]),
+376490:     .D(n27943_17),
+376491:     .CLK(clk_d),
+376492:     .RESET(n191_6),
+376493:     .CE(scan_cnt_4_13) 
+376494: );
+376495:   DFFRE scan_sel_28_s0 (
+
+env_level_r_464_s0
+370113:   DFFRE env_level_r_464_s0 (
+370114:     .Q(env_level_r[464]),
+370115:     .D(\g_sound.env_level_142 [464]),
+370116:     .CLK(clk_d),
+370117:     .RESET(n191_6),
+370118:     .CE(VCC) 
+370119: );
+370120: defparam env_level_r_464_s0.INIT=1'b0;
+
+scan_sel_26_s0
+376509:   DFFRE scan_sel_26_s0 (
+376510:     .Q(scan_sel[26]),
+376511:     .D(n27946_17),
+376512:     .CLK(clk_d),
+376513:     .RESET(n191_6),
+376514:     .CE(scan_cnt_4_13) 
+376515: );
+376516:   DFFRE scan_sel_25_s0 (
+
+env_level_r_416_s0
+370497:   DFFRE env_level_r_416_s0 (
+370498:     .Q(env_level_r[416]),
+370499:     .D(\g_sound.env_level_145 [416]),
+370500:     .CLK(clk_d),
+370501:     .RESET(n191_6),
+370502:     .CE(VCC) 
+370503: );
+370504: defparam env_level_r_416_s0.INIT=1'b0;
+
+\scan_group[3]_16_s4
+338112:   LUT4 \scan_group[3]_16_s4  (
+338113:     .F(\scan_group[3]_16_7 ),
+338114:     .I0(scan_sel[25]),
+338115:     .I1(env_level_r[400]),
+338116:     .I2(scan_sel[24]),
+338117:     .I3(env_level_r[384]) 
+338118: );
+338119: defparam \scan_group[3]_16_s4 .INIT=16'h0777;
+
+scan_sel_25_s0
+376516:   DFFRE scan_sel_25_s0 (
+376517:     .Q(scan_sel[25]),
+376518:     .D(n27947_17),
+376519:     .CLK(clk_d),
+376520:     .RESET(n191_6),
+376521:     .CE(scan_cnt_4_13) 
+376522: );
+376523:   DFFRE scan_sel_24_s0 (
+
+env_level_r_400_s0
+370625:   DFFRE env_level_r_400_s0 (
+370626:     .Q(env_level_r[400]),
+370627:     .D(\g_sound.env_level_146 [400]),
+370628:     .CLK(clk_d),
+370629:     .RESET(n191_6),
+370630:     .CE(VCC) 
+370631: );
+370632: defparam env_level_r_400_s0.INIT=1'b0;
+
+scan_sel_24_s0
+376523:   DFFRE scan_sel_24_s0 (
+376524:     .Q(scan_sel[24]),
+376525:     .D(n27948_17),
+376526:     .CLK(clk_d),
+376527:     .RESET(n191_6),
+376528:     .CE(scan_cnt_4_13) 
+376529: );
+376530:   DFFRE scan_sel_23_s0 (
+
+env_level_r_384_s0
+370753:   DFFRE env_level_r_384_s0 (
+370754:     .Q(env_level_r[384]),
+370755:     .D(\g_sound.env_level_147 [384]),
+370756:     .CLK(clk_d),
+370757:     .RESET(n191_6),
+370758:     .CE(VCC) 
+370759: );
+370760: defparam env_level_r_384_s0.INIT=1'b0;
+
+\scan_group[3]_16_s5
+338120:   LUT4 \scan_group[3]_16_s5  (
+338121:     .F(\scan_group[3]_16_8 ),
+338122:     .I0(scan_sel[28]),
+338123:     .I1(env_level_r[448]),
+338124:     .I2(scan_sel[27]),
+338125:     .I3(env_level_r[432]) 
+338126: );
+338127: defparam \scan_group[3]_16_s5 .INIT=16'h0777;
+
+scan_sel_28_s0
+376495:   DFFRE scan_sel_28_s0 (
+376496:     .Q(scan_sel[28]),
+376497:     .D(n27944_17),
+376498:     .CLK(clk_d),
+376499:     .RESET(n191_6),
+376500:     .CE(scan_cnt_4_13) 
+376501: );
+376502:   DFFRE scan_sel_27_s0 (
+
+env_level_r_448_s0
+370241:   DFFRE env_level_r_448_s0 (
+370242:     .Q(env_level_r[448]),
+370243:     .D(\g_sound.env_level_143 [448]),
+370244:     .CLK(clk_d),
+370245:     .RESET(n191_6),
+370246:     .CE(VCC) 
+370247: );
+370248: defparam env_level_r_448_s0.INIT=1'b0;
+
+scan_sel_27_s0
+376502:   DFFRE scan_sel_27_s0 (
+376503:     .Q(scan_sel[27]),
+376504:     .D(n27945_17),
+376505:     .CLK(clk_d),
+376506:     .RESET(n191_6),
+376507:     .CE(scan_cnt_4_13) 
+376508: );
+376509:   DFFRE scan_sel_26_s0 (
+
+env_level_r_432_s0
+370369:   DFFRE env_level_r_432_s0 (
+370370:     .Q(env_level_r[432]),
+370371:     .D(\g_sound.env_level_144 [432]),
+370372:     .CLK(clk_d),
+370373:     .RESET(n191_6),
+370374:     .CE(VCC) 
+370375: );
+370376: defparam env_level_r_432_s0.INIT=1'b0;
+
+\scan_merge[4]_0_s0
+308077:   LUT4 \scan_merge[4]_0_s0  (
+308078:     .F(\scan_merge[4] [0]),
+308079:     .I0(\scan_group[0] [0]),
+308080:     .I1(\scan_group[1] [0]),
+308081:     .I2(\scan_group[2] [0]),
+308082:     .I3(\scan_group[3] [0]) 
+308083: );
+308084: defparam \scan_merge[4]_0_s0 .INIT=16'hFFFE;
+
+\scan_merge[4]_1_s0
+308085:   LUT4 \scan_merge[4]_1_s0  (
+308086:     .F(\scan_merge[4] [1]),
+308087:     .I0(\scan_group[0] [1]),
+308088:     .I1(\scan_group[1] [1]),
+308089:     .I2(\scan_group[2] [1]),
+308090:     .I3(\scan_group[3] [1]) 
+308091: );
+308092: defparam \scan_merge[4]_1_s0 .INIT=16'hFFFE;

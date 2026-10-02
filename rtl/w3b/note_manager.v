@@ -644,6 +644,35 @@ module note_manager #(
     //       （⭐ 理由见下方 `cand_foreign`；⭐ 否则池满时回放会抢走手弹的音）✅
     // ═══════════════════════════════════════════════════════════════════════
     reg [SW-1:0]     scan_cnt;
+    // Registered predecode: same edge as scan_cnt, no extra scan/commit cycle.
+    // Keep the one-hot state and eight-voice group boundaries in the netlist.
+    (* syn_preserve = 1 *) reg [POLY_TARGET-1:0] scan_sel;
+    localparam integer SCAN_GROUPS = (POLY_TARGET + 7) / 8;
+    localparam integer SCAN_ATTR_W = 5 + AXIS_W + 3 + ENV_W + AGE_W;
+    (* syn_keep = 1 *) wire [SCAN_ATTR_W-1:0] scan_group [0:SCAN_GROUPS-1];
+    wire [SCAN_ATTR_W-1:0] scan_merge [0:SCAN_GROUPS];
+    assign scan_merge[0] = {SCAN_ATTR_W{1'b0}};
+    genvar scan_g, scan_l;
+    generate
+        for (scan_g = 0; scan_g < SCAN_GROUPS; scan_g = scan_g + 1) begin : g_scan_group
+            wire [SCAN_ATTR_W-1:0] leaf [0:7];
+            for (scan_l = 0; scan_l < 8; scan_l = scan_l + 1) begin : g_scan_voice
+                if (scan_g*8+scan_l < POLY_TARGET) begin : g_present
+                    assign leaf[scan_l] = {SCAN_ATTR_W{scan_sel[scan_g*8+scan_l]}} &
+                        {hold_mask[scan_g*8+scan_l], pool_mask[scan_g*8+scan_l],
+                         free_mask[scan_g*8+scan_l], gate_mask[scan_g*8+scan_l],
+                         env_active_r[scan_g*8+scan_l], axis_r[scan_g*8+scan_l],
+                         src_r[scan_g*8+scan_l],
+                         env_level_r[(scan_g*8+scan_l)*ENV_W +: ENV_W], age_r[scan_g*8+scan_l]};
+                end else begin : g_padding
+                    assign leaf[scan_l] = {SCAN_ATTR_W{1'b0}};
+                end
+            end
+            assign scan_group[scan_g] = leaf[0] | leaf[1] | leaf[2] | leaf[3]
+                                 | leaf[4] | leaf[5] | leaf[6] | leaf[7];
+            assign scan_merge[scan_g+1] = scan_merge[scan_g] | scan_group[scan_g];
+        end
+    endgenerate
     reg              best_valid;
     reg [IDX_W-1:0]  best_idx;
     reg [1:0]        best_cls;
@@ -652,10 +681,14 @@ module note_manager #(
 
     // 当前扫描位的候选属性（组合，深度浅）
     wire [IDX_W-1:0]   cand_idx   = scan_cnt[IDX_W-1:0];
-    wire               cand_hold  = hold_mask[cand_idx];
-    wire               cand_pool  = pool_mask[cand_idx];
-    wire               cand_free  = free_mask[cand_idx];
-    wire               cand_rel   = (~gate_mask[cand_idx]) & env_active_r[cand_idx];
+    wire cand_hold, cand_pool, cand_free, cand_gate, cand_active;
+    wire [AXIS_W-1:0] cand_axis;
+    wire [2:0] cand_src;
+    wire [ENV_W-1:0] cand_env;
+    wire [AGE_W-1:0] cand_age;
+    assign {cand_hold, cand_pool, cand_free, cand_gate, cand_active,
+            cand_axis, cand_src, cand_env, cand_age} = scan_merge[SCAN_GROUPS];
+    wire cand_rel = (~cand_gate) & cand_active;
     //  ⭐⭐ **2026-09-29（A3' 续）⭐ 抢占候选也必须【按来源】排除** ✅
     //
     //  🔴 **为什么 `same_hit` 加来源判据还不够**（⭐ 这两条守的是**同一缺陷的两条路**）：
@@ -688,12 +721,10 @@ module note_manager #(
     //     ⇒ 丢一个事件。⭐ 但轴 14/15 是节拍器/鼓机专用（源 3），⭐ 现实中不会同时
     //     有 4 个异源在响 ⇒ ⭐ 判定为**不可达**，⛔ 不为它加复杂度（`K-91` 同族：
     //     ⭐ 别为不可达的分支把主路径搞复杂）✅
-    wire               cand_foreign = (axis_r[cand_idx] == cur_axis)
-                                   && (src_r[cand_idx]  != cur_src)
-                                   && gate_mask[cand_idx];
+    wire               cand_foreign = (cand_axis == cur_axis)
+                                   && (cand_src  != cur_src)
+                                   && cand_gate;
     wire [1:0]         cand_cls   = cand_free ? 2'd0 : (cand_rel ? 2'd1 : 2'd2);
-    wire [ENV_W-1:0]   cand_env   = env_level_r[cand_idx*ENV_W +: ENV_W];
-    wire [AGE_W-1:0]   cand_age   = age_r[cand_idx];
 
     // ⭐ "更优"判据（⛔ 只用一级比较；升序扫描 + 严格优于 ⇒ 并列取最低索引）
     wire cand_ok = cand_pool & ~cand_hold & ~cand_foreign;
@@ -760,6 +791,7 @@ module note_manager #(
             retrig_low    <= {POLY_TARGET{1'b0}};
             state         <= ST_IDLE;
             scan_cnt      <= {SW{1'b0}};
+            scan_sel      <= {{(POLY_TARGET-1){1'b0}}, 1'b1};
             best_valid    <= 1'b0;
             best_idx      <= {IDX_W{1'b0}};
             best_cls      <= 2'd0;
@@ -1084,6 +1116,7 @@ module note_manager #(
                     end else begin
                         // ⭐ 启动扫描（⛔ 不能保证一定有空闲 voice，故要扫全部）
                         scan_cnt   <= {SW{1'b0}};
+                        scan_sel   <= {{(POLY_TARGET-1){1'b0}}, 1'b1};
                         best_valid <= 1'b0;
                         same_en_r  <= 1'b0;      // ⭐ 本拍⛔ 不走重触发分支（⭐ 见 `ST_RETRIG`）
                         state      <= ST_SCAN;
@@ -1136,7 +1169,7 @@ module note_manager #(
                 end
 
                 ST_SCAN: begin
-                    // ⭐ 每拍只考察一个 voice ⇒ 深度 = 32:1 mux + 一级比较
+                    // One candidate per edge; advance both indices only before the last item.
                     if (cand_ok && cand_better) begin
                         best_valid <= 1'b1;
                         best_idx   <= cand_idx;
@@ -1148,6 +1181,7 @@ module note_manager #(
                         state <= ST_COMMIT;
                     end else begin
                         scan_cnt <= scan_cnt + 1'b1;
+                        scan_sel <= scan_sel << 1;
                     end
                 end
 

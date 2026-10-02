@@ -24,7 +24,7 @@ C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\pos_pr
 obe inherited from another file.
 C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\play_seq.v:1: ...: The inherited timescale is
  here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\span_probe.v:67: warning: timescale for span_
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\span_probe.v:71: warning: timescale for span_
 probe inherited from another file.
 C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is 
 here.

@@ -1,0 +1,15 @@
+build-*/
+impl/
+*.vvp
+*.vcd
+*.fs
+*.bin
+*.binx
+*.pr
+*.db
+*.p
+*.pin.html
+*.rpt.html
+*.tr.html
+green.*
+red_*.vvp

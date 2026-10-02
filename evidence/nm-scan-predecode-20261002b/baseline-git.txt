@@ -1,0 +1,41 @@
+commit 7c7964341b163a488eea9804b20491e15410fbe0
+Author:     cyxxxx <kiyabudraft@gmail.com>
+AuthorDate: Fri Oct 2 15:04:42 2026 +0800
+Commit:     cyxxxx <kiyabudraft@gmail.com>
+CommitDate: Fri Oct 2 15:04:42 2026 +0800
+
+    fix(timing): 合并后 clk_sys 21 条 setup 违例 → 0（回传锥定向区域约束）+ 交给时序优化线的收敛请求
+    
+    【问题】main(H5) 与队友分支 timing/evt_merge-20261002 合并后，同一份源码连续两次构建
+    结果逐位一致：clk_sys Actual Fmax 44.757 MHz、setup 违例 21、hold 0。最差路径
+    g_sound.u_calib_span/reject_o_s0/Q → u_tx_fifo/mem_mem_RAMREG_*_G[1]_s0/D，slack −2.343，
+    数据路径 22.080 ns 中【布线 20.303 ns ≈ 92%、组合逻辑仅 1.447 ns、时钟偏斜 0.000 ns】，
+    该网在芯片上反复横跨（R58C3 → R52C146 → R50C38 → R50C146 → R57C22，四段约 18.331 ns）。
+    
+    【排除项】逐文件比对：合并后的 RTL 与队友分支只差 H5 的新增（rtl/hdmi/* 7 文件 + top.v 15 行）；
+    calib_span / u_tx_fifo 双方都没改；无模块重名；工程无 tb 混入；BSRAM 仅 31/118；
+    SDC 主时钟仍 20 ns、路径两端仍同为 clk_sys；合并未改回传功能（push_ok_s6 只是 LUT 名）。
+    ⇒ 判定为【布线延迟主导的全局布局退化】；同时综合映射确有变化
+    （u_tx_fifo LUT 65→66、calib_span 262→259、looper 4225→4184）。
+    
+    【修复】对回传锥加宽松、非 exclusive 的区域约束（constr/top.cst）：
+      GROUP h5_ret = { "tx_byte_*" "u_tx_fifo/*" "g_sound.u_calib_span/reject_o_*" };
+      GRP_LOC h5_ret R[45:73]C[1:148];
+    Gowin 语法要点（SUG1018 §2.4.1，两句缺一则无效）：对象必须是原语实例（⛔ 不能用模块名）；
+    多个对象在一个花括号内【空格分隔】（逗号会 CT2000）；必须带层次路径（裸 push_ok_* 会 CT1135）；
+    区域列上限为 148（超了 CT1101）。该约束只限制放置范围，⛔ 未放宽任何时序要求、未加 false path。
+    
+    【结果】clk_sys 44.757 → 50.040 MHz，setup 违例 21 → 0，hold 0，pixel_clk 127.906 MHz，
+    器件 C1/I0，PA1019/ERROR = 0；原最差路径 calib_span → u_tx_fifo 已退出最差路径，
+    新的最差为 g_sound.u_note_manager/scan_cnt_1 → best_env_0/CE，slack +0.016。
+    证据归档：evidence/h5/h5ret-region-ok/（含 tr_content.html、rpt.txt、top.cst、build.log、README.md）。
+    
+    【仍未解决 —— 请时序优化线在含 H5 的完整树上收敛】
+    clk_sys 50.040 MHz（+0.08%）仍低于项目门槛 51.5 MHz / 3%，最差 slack 仅 +0.016 ns；
+    队友分支在无 H5 时为 58.581 MHz（+17.2%）⇒ 合并后仍被吃掉约 15%，属"靠布局救回"而非余量足够。
+    建议（来自一次只读对抗式分析）：
+    1) 在 top.v 回包编码之后（约 2164–2178 行）寄存 {rep_req, rep_byte} 再参与最终仲裁，
+       或仲裁后加一整级请求/数据缓冲；⚠️ 必须同时处理容量、连续请求、FIFO 满与包边界
+       （当前 uart_tx_fifo 的 idle_o/ready_o 不知道外部缓冲里还有待发字节）；
+    2) 单独处理 looper 控制路径（违例落在 looper 寄存器的 CE，修 UART 链解决不了）；
+    3) ⛔ 不要用 false path / 随意 multicycle / 放宽主时钟约束。

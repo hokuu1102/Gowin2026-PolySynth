@@ -66,7 +66,10 @@ module test_mode_ctrl #(
     generate
         for (v = 0; v < POLY_TARGET; v = v + 1) begin : gen_test_voice
             localparam [PHASE_W-1:0] VOICE_INC = PHASE_INC_BASE + v*PHASE_INC_STEP;
-            wire selected = mode_enabled && (v < selected_n_r);
+            // Keep a local decode for each voice instead of merging equal
+            // modes into one control net shared by hundreds of ADSR loads.
+            // This is combinational: mode switching retains the same cycle.
+            (* syn_keep = 1 *) wire selected = mode_enabled && (v < selected_n_r);
 
             assign test_voice_gate_o[v] = selected;
             assign test_velocity_o[v*VEL_W +: VEL_W] =

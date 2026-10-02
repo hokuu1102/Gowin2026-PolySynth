@@ -1,0 +1,1 @@
+Startup impl snapshot is STALE: PnR is failed scheme A (36.109 MHz / 130 setup), not the 50.040 MHz baseline. Use reference-50p040 for timing comparison. RTL in baseline/rtl is the original current HEAD used for cycle comparison.

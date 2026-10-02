@@ -1,0 +1,192 @@
+<?xml version="1" encoding="UTF-8"?>
+<!DOCTYPE gowin-fpga-project>
+<!--
+  Gowin2026.gprj - Gowin project file (project = "polyphonic synth, competition 2026")
+
+  WHY THIS FILE EXISTS (P1: "Gowin can synthesise"):
+    Simulation passing does NOT prove the RTL is synthesisable / that the pin
+    constraints are legal. This project lets us run the WHOLE flow (synthesis +
+    place & route + bitstream) from the command line, with NO board attached:
+        build_cli.tcl   ->   impl/gwsynthesis/Gowin2026_syn_rsc.xml  (resources)
+                             impl/pnr/Gowin2026.pin.html            (pin legality)
+                             impl/pnr/Gowin2026.rpt.html            (timing)
+                             impl/pnr/Gowin2026.fs                  (bitstream)
+
+  DEVICE CHOICE - read before changing:
+    UPDATED 2026-09-24: the Console board is IN HAND and the part number was
+    confirmed from the board itself by the user:
+        pn="GW5AT-LV60PG484AC1/I0"
+    IDE settings that go with it:  Package = PBG484A, Device Version = B
+
+    (Earlier this file carried the DK_START / "jishi" board part number,
+     which is a DIFFERENT SPEED GRADE of the same die and package.
+     The RTL and the pin constraints carry over unchanged.)
+
+    TIMING NOTE: C1 is the SLOWER grade, so any Fmax measured while this file
+    still said C2 was OPTIMISTIC.  Re-read Fmax from a fresh report.
+
+    2026-10-01 - WHY THE DEVICE WAS STILL C2 DESPITE pn= SAYING C1:
+    the pn= ATTRIBUTE does NOT select the device.  Gowin reads the element
+    TEXT (the device id).  That text still said "gw5at60b-003"
+    = GW5AT-LV60PG484AC2/I1, so every PnR kept building for the jishi
+    (DK_START) speed grade even though pn= had said AC1/I0 since 2026-09-24.
+    PROOF: impl/pnr/Gowin2026.rpt.txt reported
+        <Part Number>: GW5AT-LV60PG484AC2/I1
+    and impl/gwsynthesis/Gowin2026.prj (generated) reported
+        <Device id="GW5AT-60B" package="PBGA484A" speed="2"
+                partNumber="GW5AT-LV60PG484AC2/I1"/>
+    while pn= already read AC1/I0.
+    FIX: the element TEXT is now "gw5at60b-002" = GW5AT-LV60PG484AC1/I0.
+    Id -> part number source of truth (Gowin install):
+      IDE/data/device/device_info.csv
+        gw5at60b-002,GW5AT-LV60PG484AC1/I0,...,C1/I0,1,297,...
+        gw5at60b-003,GW5AT-LV60PG484AC2/I1,...,C2/I1,2,297,...
+    WHENEVER YOU CHANGE THE DEVICE: change the TEXT, then verify the new
+    <Part Number> in impl/pnr/Gowin2026.rpt.txt.  Editing pn= alone changes
+    NOTHING and fails SILENTLY - every report still looks perfectly normal.
+    (The same id is also recorded in ip/wavetable_sine_rom_ip/*.ipc as
+    target_device; keep the two in step.)
+
+    KEEP THIS COMMENT ASCII-ONLY: the Gowin project parser is picky and rejects
+    non-ASCII bytes here.
+
+  KEEP THE FILE LIST MINIMAL: only what the M0 top actually instantiates.
+  Add each new module here as it lands (one line), so a broken module can never
+  hide behind someone else's error.
+-->
+<Project>
+    <Template>FPGA</Template>
+    <Version>5</Version>
+    <Device name="GW5AT-60B" pn="GW5AT-LV60PG484AC1/I0">gw5at60b-002</Device>
+    <FileList>
+        <File path="ip/wavetable_sine_rom_ip/wavetable_sine_rom_ip.v" type="file.verilog" enable="1"/>
+        <File path="rtl/clk_gen.v" type="file.verilog" enable="1"/>
+        <File path="rtl/rst_sync.v" type="file.verilog" enable="1"/>
+        <File path="rtl/sync_input.v" type="file.verilog" enable="1"/>
+        <!-- W3b synthesis interfaces. Remaining W1-1 skeletons are replaced
+             incrementally as their functional RTL and tests land. -->
+        <File path="rtl/w3b/oscillator_bank.v" type="file.verilog" enable="1"/>
+        <File path="rtl/w3b/adsr.v" type="file.verilog" enable="1"/>
+        <File path="rtl/w3b/envelope_bank.v" type="file.verilog" enable="1"/>
+        <File path="rtl/w3b/tdm_render_mixer.v" type="file.verilog" enable="1"/>
+        <File path="rtl/w3b/test_mode_ctrl.v" type="file.verilog" enable="1"/>
+        <File path="rtl/w3b/vibrato_lfo.v" type="file.verilog" enable="1"/>
+        <File path="rtl/w3b/wavetable_bank.v" type="file.verilog" enable="1"/>
+        <File path="rtl/w3b/dds_wavetable_core.v" type="file.verilog" enable="1"/>
+        <File path="rtl/w3b/voice.v" type="file.verilog" enable="1"/>
+        <File path="rtl/w3b/voice_i2s_chain.v" type="file.verilog" enable="1"/>
+        <!-- T54 (2026-09-21): voice allocation / stealing / parameter update.
+             Needed by the real sound chain; before this top.v sent silence. -->
+        <File path="rtl/w3b/note_manager.v" type="file.verilog" enable="1"/>
+        <File path="rtl/drivers/adc_farm.sv" type="file.verilog" enable="1"/>
+  <File path="rtl/drivers/calib.sv" type="file.verilog" enable="1"/>
+  <File path="rtl/drivers/debounce.sv" type="file.verilog" enable="1"/>
+  <File path="rtl/w3a/axis_map.v" type="file.verilog" enable="1"/>
+  <File path="rtl/w3a/axis_snapshot.v" type="file.verilog" enable="1"/>
+  <File path="rtl/w3a/event_extract.v" type="file.verilog" enable="1"/>
+  <File path="rtl/w3a/async_pluck_capture.v" type="file.verilog" enable="1"/>
+  <File path="rtl/w3a/play_mode_ctrl.v" type="file.verilog" enable="1"/>
+  <File path="rtl/w3a/param_extract.v" type="file.verilog" enable="1"/>
+  <File path="rtl/w3a/right_analog_ctrl.v" type="file.verilog" enable="1"/>
+  <!-- ⭐ 上电自动零点标定（2026-09-23 新增）
+       ⚠️ 由 top.v 例化 ⇒ 🔴 不登记会被综合【静默丢弃】
+       （⭐ 后果：零点不标定 ⇒ ⚠️ 松手位置读错 ⇒ 阈值判错，而报告全绿） -->
+  <File path="rtl/w3a/calib_autotare.v" type="file.verilog" enable="1"/>
+  <!-- ⭐⭐ 满行程（span）标定 + 标定命令解析（2026-09-23 深夜新增）
+       ⚠️ **现在 top.v 还没例化它们** —— ⭐ 但**仍然要登记**，理由：
+         ① 🔴 不登记 ⇒ 综合【静默丢弃】⇒ ⚠️ 我无法用真综合验证它们
+            （⭐ `K-91`：仿真全绿、真综合报错而整个模块被丢）
+         ② ⭐ 登记后 `gowin_build.ps1` 的 `U-30` 守卫才认它们
+         ③ ⭐ 接入 `top.v` 时【不用再改这里】（⭐ 少一次遗漏机会）
+       📌 反例依据：`U-30` / 84 号 —— `.gprj` 漏登记 ⇒ PnR 静默跳过
+          ⇒ 🔴 时序证据与上一版【逐位相同】 -->
+  <File path="rtl/w3a/calib_span.v" type="file.verilog" enable="1"/>
+  <File path="rtl/w3a/calib_cmd.v" type="file.verilog" enable="1"/>
+  <!-- ⭐⭐ 串口事件帧解析（2026-09-23 阶段C 接入 top.v）——
+       🔴 **它一直存在但【从未登记】** ⇒ ⚠️ 本轮接入 top.v 时才发现
+          （⭐ 提醒：⭐ **"文件在 `rtl/` 里" ⛔ 不等于"会被综合"**） -->
+  <File path="rtl/w3c/evt_uart_rx.v" type="file.verilog" enable="1"/>
+  <File path="rtl/w3c/uart_ui.v" type="file.verilog" enable="1"/>
+  <!-- ⭐⭐ 串口发送器（2026-09-23 阶段C 新增）—— 标定进度回传
+       ⚠️ 移植自 `FPGA招新题/phase4/uart_tx.v`，⭐ 但**修了一个真缺陷**：
+          🔴 原版在 `4'd8` 分支**把 D7 又发了一遍** ⇒ 帧长 11 位（⛔ 不是 10）
+             ⇒ ⭐ 接收端收完 8 位后线还在低 ⇒ 🔴 **被当成下一个起始位** ⇒ 幻影帧
+             📌 实测：一次发送产生 **2 个 `rx_done`**
+        + ⭐ 复位改为**同步**（与本项目 `uart_rx` 统一）+ ⭐ 内建波特率发生器 -->
+  <File path="rtl/w3c/uart_tx.v" type="file.verilog" enable="1"/>
+  <!-- 2026-09-24 new: TX queue for the UART reply path (fixes K-126).
+       Without it tx_req goes straight into uart_tx and a byte is SILENTLY
+       dropped whenever uart_tx is busy. -->
+  <File path="rtl/w3c/uart_tx_fifo.v" type="file.verilog" enable="1"/>
+  <!-- 2026-09-24 new: P diagnostic command. Replies with the current pos
+       reading so the operator can see whether it is stable. -->
+  <File path="rtl/w3c/pos_probe.v" type="file.verilog" enable="1"/>
+  <!-- 2026-09-24 new: V diagnostic. Reports calib_span internal state. -->
+  <File path="rtl/w3c/span_probe.v" type="file.verilog" enable="1"/>
+  <File path="rtl/w3c/i2s_tx.v" type="file.verilog" enable="1"/>
+        <!-- T32: PPQN=960 musical clock (phase accumulator) -->
+        <File path="rtl/w3c/beat_gen.v" type="file.verilog" enable="1"/>
+        <!-- T33: synthetic metronome click on the ordinary event path -->
+        <File path="rtl/w3c/metronome.v" type="file.verilog" enable="1"/>
+        <!-- T33: one-shot percussion envelope (drums/metronome) -->
+        <File path="rtl/w3c/perc_env_bank.v" type="file.verilog" enable="1"/>
+        <!-- T33b: UART receiver (score download path) -->
+        <File path="rtl/w3c/uart_rx.v" type="file.verilog" enable="1"/>
+        <!-- U-18: score player (tick -> events, tempo changes) -->
+        <File path="rtl/w3c/play_seq.v" type="file.verilog" enable="1"/>
+        <!-- U-6: event merge (hand-play + metronome into note_manager's single port) -->
+        <File path="rtl/w3c/evt_merge.v" type="file.verilog" enable="1"/>
+        <!-- 2026-09-29 new: event-domain LOOPER (T37 single-layer record+replay,
+             T39 "loop while you play").  Event domain only - it emits events,
+             never audio, so there is no new compliance surface.
+             top.v routes its replay into seq_arb's SCORE port (that port is
+             unused while SCORE_UART_ENABLE=0, the default), so neither
+             evt_merge.v nor seq_arb.v had to change.
+             Registered here because top.v instantiates it: the U-30 build
+             guard would exit 3 otherwise, and Gowin would silently omit it. -->
+        <File path="rtl/w3c/looper.v" type="file.verilog" enable="1"/>
+        <!-- 2026-09-26 teammate (bing/LED chain): top.v instantiates these two,
+             but they were committed WITHOUT being registered here.  The U-30
+             build guard caught it: Gowin would have SILENTLY omitted the files
+             (no error, byte-identical timing evidence, dead LEDs on the board).
+             Both are .sv but MUST be declared type="file.verilog" - writing
+             file.systemverilog makes Gowin skip the file without an error. -->
+        <File path="rtl/w3c/led_data.v" type="file.verilog" enable="1"/>
+        <File path="rtl/w3c/tlc5916_bank.sv" type="file.verilog" enable="1"/>
+        <!-- 2026-09-26 new: source-A three-way arbiter (live / score / demo).
+             Tops up the TODO that used to live in top.v: the old two-way
+             SOURCE_A_SEL could not admit the score path at all, so a dumped
+             score produced no sound.  Same proven ring-FIFO idiom as evt_merge. -->
+        <File path="rtl/w3c/seq_arb.v" type="file.verilog" enable="1"/>
+        <!-- 2026-09-26 new: pure-synthesis drum machine (Kick/Snare/HiHat/Clap)
+             with the 16-step sequencer FOLDED IN (user decision, so no separate
+             seq_16step.v).  Event domain only: it emits events, never audio,
+             so there is no new compliance surface (no PCM, no .mem, no soft core). -->
+        <File path="rtl/w3c/drum_gen.v" type="file.verilog" enable="1"/>
+        <!-- ⭐ 主混音 + 数字主音量 + 静音斜坡（丙线 2026-09-22 新增）
+             ⚠️ 它由 top.v 例化（tdm_render_mixer -> master_mix -> i2s_tx）
+             ⇒ 🔴 不登记会被综合【静默丢弃】⇒ 输出无声而报告全绿（K-46/K-87 同族）
+             📌 2026-09-23 合并队友提交时补登记（构建守卫 U-30 本会拦住，先补省一轮 PnR） -->
+        <File path="rtl/w3c/master_mix.v" type="file.verilog" enable="1"/>
+        <!-- Top-level LED guide chain.  These are separately authored W3c
+             modules, so they must be listed explicitly for a real bitstream. -->
+        <File path="rtl/w3c/led_data.v" type="file.verilog" enable="1"/>
+        <File path="rtl/w3c/tlc5916_bank.sv" type="file.verilog" enable="1"/>
+        <File path="rtl/top.v" type="file.verilog" enable="1"/>
+        <!-- ⭐ SystemVerilog 文件登记成 type="file.verilog"（**和 .v 一样**，不是 file.systemverilog！）
+             ⚠️ 2026-09-17 实测：写错 type 时 Gowin **不报错、直接静默跳过该文件**
+                 （日志里既没有 "Analyzing" 也没有 "Compiling module 'tlc5916_driver'"）——
+                 这种"看着登记了、其实没编译"最坑，所以每次加文件都要在日志里**确认它真的被分析了**。 -->
+        <File path="rtl/drivers/tlc5916_driver.sv" type="file.verilog" enable="1"/>
+        <File path="rtl/drivers/mcp3208_driver.sv" type="file.verilog" enable="1"/>
+        <File path="rtl/drivers/mcp3208_scanner.sv" type="file.verilog" enable="1"/>
+        <File path="constr/top.cst" type="file.cst" enable="1"/>
+        <File path="constr/top.sdc" type="file.sdc" enable="1"/>
+        <File path="rtl/hdmi/video_timing.v" type="file.verilog" enable="1"/>
+        <File path="rtl/hdmi/tmds_encoder.v" type="file.verilog" enable="1"/>
+        <File path="rtl/hdmi/tmds_serializer.v" type="file.verilog" enable="1"/>
+        <File path="rtl/hdmi/hdmi_clk.v" type="file.verilog" enable="1"/>
+        <File path="rtl/hdmi/waveform_scope.v" type="file.verilog" enable="1"/>
+        <File path="rtl/hdmi/hdmi_scope.v" type="file.verilog" enable="1"/>
+    </FileList>
+</Project>

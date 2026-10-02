@@ -1,0 +1,1 @@
+PASS: removing syn_keep synthesis attribute, comments and whitespace yields identical test_mode_ctrl RTL before/after. No executable RTL token changed.

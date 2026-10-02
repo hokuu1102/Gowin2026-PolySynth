@@ -1,0 +1,14 @@
+{
+  "source_directory": "evidence\\nm-scan-predecode-20261002b",
+  "unchanged_note_manager_sha256": "1af6c6097bff41ef5a22fdeca98b3f17e0a9d3dd071a804c620cdfb661cbe467",
+  "files": {
+    "existing-diff.log": "bdfd905dc883126adecc81f5c81601b23bfff5038988f6497bc3f9cc41070baf",
+    "green.log": "e545851db2a3e3cb67ad23dbc68135d46af1939a6510e255ce93dee5288d1a1e",
+    "red_shift2.log": "84dd5b25326f0938623a44982121c186b1f181dd6a8e1e662d4d16e847753a4e",
+    "tb_scan_diff.sv": "ef645a87a9b6cd39c3c532d17fd4f14f5c26158d0611e5ddfb14c0f54901113e",
+    "diff_existing.py": "ea9ca80a06970c2902c448f1b61dadca38763fce756a5852f7fa636f0d503d31",
+    "make_diff.py": "e4484f4f7483105fb26570d3e4aed2d7abd933ef503347789ad3f4a7abe28dda",
+    "note_manager_ref.v": "5d31232b9cff2fe48cdba7899cdb639982b998a5651c070ac05cd47243caab21",
+    "note_manager_observed.sv": "84e554323e5499fe86cec1c2e0f9c895ce85673bda8a8aa908357f62a8c8c781"
+  }
+}

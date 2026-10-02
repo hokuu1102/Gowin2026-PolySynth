@@ -9,6 +9,7 @@
   ok  : all THREE sources survived a same-cycle collision (52 -> 55)
   ok  : each of the three keeps its OWN source tag (A=0 B=3 C=4)
   ok  : A8 no X/Z on evt_merge outputs
+  ok  : DEPTH9 浣嶅濂戠害 + 杞欢鍙傝€冩ā鍨嬮€愭媿涓€鑷达紙checks=656 full=81 reject=126 triple=100 wraps=72锛?
 PASS: evt_merge never drops a same-cycle collision, is single-cycle, rotates, and reports overflow
 
 

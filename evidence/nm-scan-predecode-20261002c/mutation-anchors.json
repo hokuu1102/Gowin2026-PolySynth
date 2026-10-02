@@ -1,0 +1,62 @@
+[
+  {
+    "id": "M23",
+    "matches": 1,
+    "anchor": "if (retrig_low[i]) begin"
+  },
+  {
+    "id": "M24",
+    "matches": 1,
+    "anchor": "wire cand_ok = cand_pool & ~cand_hold & ~cand_foreign;"
+  },
+  {
+    "id": "M25",
+    "matches": 1,
+    "anchor": "if (live_mask[i] && (axis_r[i] == pitch_upd_axis_i)"
+  },
+  {
+    "id": "M26",
+    "matches": 1,
+    "anchor": "if (gate_mask[i] && (axis_r[i] == vel_upd_axis_i)"
+  },
+  {
+    "id": "M27",
+    "matches": 1,
+    "anchor": "&& (axis_r[sg] == cur_axis)"
+  },
+  {
+    "id": "M28",
+    "matches": 1,
+    "anchor": "assign pool_mask[pg] = 1'b1;"
+  },
+  {
+    "id": "M45",
+    "matches": 1,
+    "anchor": "wire fifo_drop = note_valid_i && fifo_full;"
+  },
+  {
+    "id": "M46",
+    "matches": 1,
+    "anchor": "if (fifo_drop && !lost_cnt_sat) lost_cnt_r <= lost_cnt_r + 1'b1;"
+  },
+  {
+    "id": "M47",
+    "matches": 1,
+    "anchor": "if (fifo_drop)                  lost_sticky_r <= 1'b1;"
+  },
+  {
+    "id": "M48",
+    "matches": 1,
+    "anchor": "if (fifo_drop && !lost_cnt_sat) lost_cnt_r <= lost_cnt_r + 1'b1;"
+  },
+  {
+    "id": "M135",
+    "matches": 1,
+    "anchor": "(src_r[sg]  == cur_src);"
+  },
+  {
+    "id": "M136",
+    "matches": 1,
+    "anchor": "wire cand_ok = cand_pool & ~cand_hold & ~cand_foreign;"
+  }
+]

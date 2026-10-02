@@ -1,0 +1,2 @@
+FATAL: C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\evidence\nm-scan-predecode-20261002b\tb_scan_diff.sv:139: FAIL onehot alignment cycle=7 idx=1 sel=00000004
+       Time: 131000  Scope: tb_scan_diff
