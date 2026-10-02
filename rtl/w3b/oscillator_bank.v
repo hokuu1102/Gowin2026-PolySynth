@@ -16,16 +16,19 @@
 // ⭐ 架构（TDM 共享波表 —— 这是本模块的核心设计）
 //
 //   ┌─ 64 个【独立】相位累加器（generate 展开，每人一份寄存器）─────────┐
-//   │   sample_tick_i 到来时： addr_q[lane] ← phase[lane][31:23]（本帧地址）│
+//   │   sample_tick_i 到来时： addr_q[lane] ← phase[lane][31:22]（本帧地址）│
 //   │                          phase[lane] += inc[lane]                    │
 //   └──────────────────────────────┬───────────────────────────────────────┘
 //                                  ▼
-//   ┌─ 1 个【共享】pROM（512×16，Bypass 模式 = 1 级同步读）───────────────┐
+//   ┌─ 1 个【共享】pROM（1024×16，Bypass 模式 = 1 级同步读）───────────────┐
 //   │   TDM 依次送 64 个地址 ⇒ 64 拍取回 64 个样本                         │
 //   └──────────────────────────────┬───────────────────────────────────────┘
 //                                  ▼
 //   osc_sample_bus_o（64×16 bit，lane i = bus[i*16 +: 16]）
 //   osc_valid_o（全部取回后 1 拍脉冲）
+//   📌 ⭐ **pROM 规格（⭐ 以代码为准）**：⭐ `WT_DEPTH = 1024` ⇒ `AW = $clog2(1024) = 10`
+//      ⇒ ⭐ 地址取 `phase[lane][31:22]`（⭐ `ADDR_MSB:ADDR_LSB`，见本文件的 `localparam ADDR_MSB`/`ADDR_LSB` 与 `addr_q` 赋值）
+//      ⚠️ 旧注释写"512×16 / `AW = 9` / `phase[lane][31:23]`" —— 🔴 **已作废**
 //
 //   ⭐ **为什么 TDM 是安全的**：每采样帧有 **1024** 个 clk（`CLK_PER_SAMPLE`），
 //      而 TDM 只需 **LANES+2 = 66 拍** ⇒ ⭐ 余量 15×，
@@ -111,11 +114,14 @@ parameter integer FIXED_BLEND_Q     = 0,
     //      📌 **用【移位加法】而⛔ 不用乘法器** —— ⚠️ 64 lane 各配一个乘法器
     //         会吃掉 64 个 DSP（⭐ 60K 只有 118 个）⇒ 🔴 不可接受。
     parameter integer DETUNE_ON     = 1,
-    //   ⭐ 失谐位移量：⭐ `8` ⇒ 偏移 `1/256 ≈ 0.391%` ⇒ ⭐ **约 6.7 cents**
-    //      📌 **6.7 cents 的依据**：⭐ 常见"温和 detune"区间（⭐ 5~15 cents）
+    //   ⭐ 失谐位移量：⭐ **模块默认 `8`（偏移 `1/256 ≈ 0.391%` ⇒ 约 6.7 cents）**；
+    //      ⭐⭐ **本设计顶层传 `9`**（⭐ `top.v` 的 `parameter integer DETUNE_SH = 9` 命名参数覆盖）
+    //      ⇒ ⭐ **交付偏移 = `1/512 ≈ 0.195% ≈ 3.38 cents`**、⭐ 交付拍频周期 `T = 512/f`
+    //      📌 **cents 的依据**：⭐ 常见"温和 detune"区间（⭐ 5~15 cents）
     //         ⭐ 太小（<3 cents）⇒ 拍频太慢（⭐ 十几秒才一拍）⇒ ⭐ 听不出厚度
     //         ⚠️ 太大（>20 cents）⇒ ⭐ 听起来"走音"（⭐ 而不是"厚"）
-    //      ⚠️ 本项目 16 轴磁轴 ⇒ ⭐ 用户要"能听出和弦"，⭐ 6.7 cents 够厚且不走音
+    //      ⚠️ 本项目 16 轴磁轴 ⇒ ⭐ 用户要"能听出和弦"；⭐ 顶层取 `9`（3.38 cents、`T = 512/f`）
+    //         ⇒ ⭐ 更"厚"而⛔ 不走音
     parameter integer DETUNE_SH     = 8,
 // ═════════════════════════════════════════════════════════════════════════════
 //  ⭐⭐ 2026-09-30 新增（鼓机音高包络 · 阶段 2b）：⭐ **鼓 voice 的向下扫频** ✅
@@ -208,8 +214,8 @@ parameter integer FIXED_BLEND_Q     = 0,
     input  wire [POLY_TARGET*TIMBRE_W-1:0]                  voice_timbre_i,
     input  wire [POLY_TARGET*8-1:0]                         voice_velocity_i,
     //  ⭐⭐ 2026-09-29 新增（⭐ 鼓机噪声波表 · 阶段 2a）：⭐ **"本 voice 是鼓吗"**
-    //     ⭐ 语义：⭐ `note_manager.voice_drum_o` —— ⭐ 由 `axis_r[i] >= RESERVED_AXIS`
-    //        推出（⭐ 保留轴位 = 节拍器 14 / 鼓机 15 ✅）
+    //     ⭐ 语义：⭐ `note_manager.voice_drum_o` —— ⭐ 判据 = `(src_r[i] == SRC_AUX)`，
+    //        见 `note_manager.v` 的 `assign voice_drum_o[g]`；⛔ **不按轴号**（⭐ 旧文 `axis_r[i] >= RESERVED_AXIS` 已作废）
     //     ⭐ 用途：⭐ 这些 voice **改选第 10 张 pROM（宽带噪声表）**，⛔ 不用乐音表。
     //
     //   🔴 **为什么必须按 voice 送一个【独立标志】，而⛔ 不去加宽 `TIMBRE_W`（2→3）**：
@@ -235,9 +241,10 @@ parameter integer FIXED_BLEND_Q     = 0,
 
     localparam integer LANES = POLY_TARGET * OSC_PER_VOICE;
     localparam integer LW    = (LANES <= 1) ? 1 : $clog2(LANES);
-    localparam integer AW    = (WT_DEPTH <= 1) ? 1 : $clog2(WT_DEPTH);   // 9
+    localparam integer AW    = (WT_DEPTH <= 1) ? 1 : $clog2(WT_DEPTH);   // 10
 
-    // ⚠️ `AW` 必须与 `wavetable_bank` 的 `addr_i[8:0]` 一致（512 深）
+    // ⚠️ `AW` 必须与 `wavetable_bank` 的 `addr_i[9:0]` 一致（⭐ **1024 深** ——
+    //    见 `wavetable_bank.v` 的 `parameter integer DEPTH = 1024` 与其 `initial` 契约自检）
     //    ⇒ 相位累加器取**高 AW 位**（MSB 对齐：DDS 的标准做法）
     localparam integer ADDR_MSB = PHASE_W - 1;
     localparam integer ADDR_LSB = PHASE_W - AW;

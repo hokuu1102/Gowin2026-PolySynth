@@ -158,8 +158,15 @@ module seq_arb #(
 
     // ⭐⭐ 把整数参数先落到**定宽 localparam** 再参与运算
     //   🔴 **`K-91`：⛔ 绝不对 `integer` 参数做位选**（`DEPTH[15:0]` 这种）
-    localparam [15:0] DEPTH_C  = DEPTH;
-    localparam [15:0] DEPTH_M1 = DEPTH_C - 16'd1;
+    // Occupancy: 0..DEPTH; pointers: 0..DEPTH-1.
+    // After pop, the largest three-source sum is DEPTH-1+3 = DEPTH+2.
+    localparam integer CNT_W = (DEPTH < 2) ? 1 : $clog2(DEPTH + 1);
+    localparam integer PTR_W = (DEPTH < 2) ? 1 : $clog2(DEPTH);
+    localparam integer SUM_W = $clog2(DEPTH + 3);
+    localparam [SUM_W-1:0] DEPTH_C  = DEPTH;
+    localparam [PTR_W-1:0] DEPTH_M1 = DEPTH - 1;
+    localparam [CNT_W-1:0] CNT_ONE = {{(CNT_W-1){1'b0}}, 1'b1};
+    localparam [PTR_W-1:0] PTR_ONE = {{(PTR_W-1){1'b0}}, 1'b1};
 
     // ⭐⭐ 记录字段宽度（⭐ `evt_merge` 的同样手法）
     //   ⭐⭐ 2026-09-30：⭐ **2 → 3 位** —— ⭐ 理由见端口表 `evt_src_o` 那段长注释
@@ -192,12 +199,12 @@ module seq_arb #(
     //   ⚠️ 用**环形缓冲**（⛔ 不是移位寄存器）：推入/弹出各只动一个指针，
     //      ⛔ 不搬数据 ⇒ 面积小、时序好（⚠️ 本项目 Fmax 余量薄）。
     reg [ENT2_W-1:0] mem [0:DEPTH-1];
-    reg [15:0]       cnt_q;
-    reg [15:0]       head_q;      // ⭐ 弹出位置
-    reg [15:0]       tail_q;      // ⭐ 推入位置
+    reg [CNT_W-1:0]  cnt_q;
+    reg [PTR_W-1:0]  head_q;      // ⭐ 弹出位置
+    reg [PTR_W-1:0]  tail_q;      // ⭐ 推入位置
 
     // ── ⭐ 组合：本拍能不能弹 ───────────────────────────────────────────────
-    wire             pop_now  = (cnt_q != 16'd0);   // ⭐ 空队列不弹（⛔ 不吐垃圾）
+    wire             pop_now  = (cnt_q != {CNT_W{1'b0}});   // ⭐ 空队列不弹（⛔ 不吐垃圾）
     wire [ENT2_W-1:0] pop_data = mem[head_q];
 
     // ══════════════════════════════════════════════════════════════════════
@@ -237,34 +244,33 @@ module seq_arb #(
     // ⭐ 本拍推几条
     //   🔴 **必须显式写位宽** —— ⚠️ `evt_merge` 踩过：`wire push_n` **隐含 1 bit**
     //      ⇒ `1+1` 被截断成 `1'b0` ⇒ 🔴 **恰好"两路同拍相撞"什么都不做**。
-    wire [15:0] push_n = (push_live  ? 16'd1 : 16'd0)
-                       + (push_score ? 16'd1 : 16'd0)
-                       + (push_demo  ? 16'd1 : 16'd0);
+    wire [1:0] push_n = (push_live  ? 2'd1 : 2'd0)
+                      + (push_score ? 2'd1 : 2'd0)
+                      + (push_demo  ? 2'd1 : 2'd0);
 
-    // ⭐ 本拍净变化（⚠️ 弹出优先 ⇒ 先腾位再推，能多接一条）
-    wire [15:0] cnt_after_pop = pop_now ? (cnt_q - 16'd1) : cnt_q;
-    wire [15:0] cnt_next      = cnt_after_pop + push_n;
-    wire        will_overflow = (cnt_next > DEPTH_C);
+    // Pop first; zero-extend BEFORE adding so overflow cannot wrap away.
+    wire [CNT_W-1:0] cnt_after_pop = pop_now ? (cnt_q - CNT_ONE) : cnt_q;
+    wire [SUM_W-1:0] cnt_next = {{(SUM_W-CNT_W){1'b0}}, cnt_after_pop}
+                             + {{(SUM_W-2){1'b0}}, push_n};
+    wire            will_overflow = (cnt_next > DEPTH_C);
 
-    // ⭐ 安全的下一个 tail 指针（⭐ 用"逐个 +1 + 回绕"表示，⛔ 不用取模）
-    function [15:0] tail_plus;
-        input [15:0] t;
-        input [15:0] n;
-        reg   [15:0] r;
+    // Add at SUM_W, wrap at full precision, then narrow the valid pointer.
+    function [PTR_W-1:0] tail_plus;
+        input [PTR_W-1:0] t;
+        input [1:0] n;
+        reg [SUM_W-1:0] r;
         begin
-            r = t + n;
-            //   ⚠️ `n` 最大 3、`DEPTH` 是常数 ⇒ ⭐ 最多减一次就够
+            r = {{(SUM_W-PTR_W){1'b0}}, t} + {{(SUM_W-2){1'b0}}, n};
             if (r >= DEPTH_C) r = r - DEPTH_C;
             if (r >= DEPTH_C) r = r - DEPTH_C;
             if (r >= DEPTH_C) r = r - DEPTH_C;
-            tail_plus = r;
+            tail_plus = r[PTR_W-1:0];
         end
     endfunction
 
-    // ⭐ tail 的三个"下一个位置"（⭐ 按推入条数用）
-    wire [15:0] tail_1 = tail_plus(tail_q, 16'd1);
-    wire [15:0] tail_2 = tail_plus(tail_q, 16'd2);
-    wire [15:0] tail_3 = tail_plus(tail_q, 16'd3);
+    wire [PTR_W-1:0] tail_1 = tail_plus(tail_q, 2'd1);
+    wire [PTR_W-1:0] tail_2 = tail_plus(tail_q, 2'd2);
+    wire [PTR_W-1:0] tail_3 = tail_plus(tail_q, 2'd3);
 
     // ⭐ 弹出那条属于哪个源（⭐ 统计用）
     wire [NW-1:0] pop_src = pop_data[ENT_W +: NW];
@@ -282,9 +288,9 @@ module seq_arb #(
             evt_timbre_valid_o <= 1'b0;
             evt_timbre_o    <= {TIMBRE_W{1'b0}};
             evt_src_o       <= 3'd0;          // ⭐ A1：来源标记也复位（⛔ 不留 X）
-            cnt_q           <= 16'd0;
-            head_q          <= 16'd0;
-            tail_q          <= 16'd0;
+            cnt_q           <= {CNT_W{1'b0}};
+            head_q          <= {PTR_W{1'b0}};
+            tail_q          <= {PTR_W{1'b0}};
             prio_score_r    <= 1'b0;
             collision_cnt_o <= 16'd0;
             merged_cnt_o    <= 16'd0;
@@ -308,7 +314,7 @@ module seq_arb #(
                 evt_timbre_o    <= pop_data[0 +: TIMBRE_W];
                 // ⭐ A1：⭐ 来源标记与**本拍弹出的这条**同时输出（⭐ 时序 = `evt_valid_o`）
                 evt_src_o       <= pop_src;
-                head_q          <= (head_q == DEPTH_M1) ? 16'd0 : (head_q + 16'd1);
+                head_q          <= (head_q == DEPTH_M1) ? {PTR_W{1'b0}} : (head_q + PTR_ONE);
                 merged_cnt_o    <= (merged_cnt_o == 16'hFFFF) ? merged_cnt_o
                                                               : (merged_cnt_o + 16'd1);
                 // ⭐ 按源分别统计（⭐ 上板时"谁在发"一眼可见）
@@ -324,7 +330,7 @@ module seq_arb #(
             end
 
             // ══ ② 推入（⚠️ 只有装得下才推；⛔ 装不下要【看得见】）════════════
-            if (push_n != 16'd0) begin
+            if (push_n != 2'd0) begin
                 if (!will_overflow) begin
                     // ⭐ 按"谁先"定推入顺序（⭐ FIFO 保序 ⇒ 先推的先出）
                     //   🔴 **为什么顺序重要**：⭐ 手弹优先级最高 ⇒ ⭐ 它应当**先出队**
@@ -366,7 +372,7 @@ module seq_arb #(
 
                     // ⭐ 推进 tail（按实际推入条数）
                     tail_q <= tail_plus(tail_q, push_n);
-                    cnt_q  <= cnt_next;
+                    cnt_q  <= cnt_next[CNT_W-1:0];
                 end else begin
                     // 🔴 **溢出**：⭐ 丢弃并**记数 + 置 sticky 标志**（⛔ 不静默）
                     overflow_o <= 1'b1;

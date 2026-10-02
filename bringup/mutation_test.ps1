@@ -332,8 +332,13 @@ $mutations = @(
   #      M64 is the one that matters most: it is EXACTLY the real bug found while
   #      bringing this module up (missing width on push_n truncates 1+1 to 0, so
   #      only the same-cycle collision case breaks while single-source still works).
-  @{ id = "M64"; file = "rtl\w3c\evt_merge.v"; find = "wire [15:0] push_n = (push_a ? 16'd1 : 16'd0) + (push_b ? 16'd1 : 16'd0);"; repl = "wire push_n = (push_a ? 16'd1 : 16'd0) + (push_b ? 16'd1 : 16'd0);"; why = "U-6 regression: push_n loses its width -> 1+1 truncates to 0 -> a same-cycle collision pushes NOTHING (the exact bug this module exists to fix; must be caught)" },
-  @{ id = "M65"; file = "rtl\w3c\evt_merge.v"; find = "wire          pop_now = (cnt_q != 16'd0);"; repl = "wire          pop_now = 1'b1;"; why = "U-6 regression: pop from an EMPTY queue -> emits garbage events that were never pushed (must be caught)" },
+  # 2026-10-02 re-pointed (K-87): push_c made this a THREE-source, THREE-LINE
+  #   statement, so the old two-source single-line anchor no longer matched and
+  #   M64 was silently SKIPping.  The anchor is now byte-identical to the RTL;
+  #   its two newlines are written as backtick-n escapes so the entry stays on
+  #   one physical line (the RTL is LF-only, so the escapes reproduce it exactly).
+  @{ id = "M64"; file = "rtl\w3c\evt_merge.v"; find = "wire [1:0] push_n = (push_a ? 2'd1 : 2'd0)`n                      + (push_b ? 2'd1 : 2'd0)`n                      + (push_c ? 2'd1 : 2'd0);"; repl = "wire push_n = (push_a ? 2'd1 : 2'd0)`n                      + (push_b ? 2'd1 : 2'd0)`n                      + (push_c ? 2'd1 : 2'd0);"; why = "U-6 regression: push_n loses its width -> a same-cycle A+B collision (2'd1 + 2'd1 = 2) truncates to 1'b0 -> that collision pushes NOTHING while single-source still works (the exact bug this module exists to fix; must be caught)" },
+  @{ id = "M65"; file = "rtl\w3c\evt_merge.v"; find = "wire          pop_now = (cnt_q != {CNT_W{1'b0}});"; repl = "wire          pop_now = 1'b1;"; why = "U-6 regression: pop from an EMPTY queue -> emits garbage events that were never pushed (must be caught)" },
   @{ id = "M66"; file = "rtl\w3c\evt_merge.v"; find = "if (!will_overflow) begin"; repl = "if (1'b1) begin"; why = "U-6 regression: overflow ignored -> writes past the ring and the counter runs away (silent corruption; must be caught)" },
   @{ id = "M67"; file = "rtl\w3c\evt_merge.v"; find = "overflow_o <= 1'b1;"; repl = "overflow_o <= 1'b0;"; why = "U-6 regression: overflow flag never latches -> drops happen SILENTLY (K-106; must be caught)" },
   @{ id = "M68"; file = "rtl\w3c\evt_merge.v"; find = "prio_b_r <= ~prio_b_r;"; repl = "prio_b_r <= prio_b_r;"; why = "U-6 regression: round-robin removed -> one source always wins, the other starves under repeated collisions (must be caught)" },

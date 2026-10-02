@@ -42,6 +42,12 @@ module tb_evt_merge;
 
     integer errors = 0;
 
+    // ⭐⭐ 2026-10-02（阶段 1 减宽）：独立的【非默认 DEPTH】用例（照 A1 的 `seq_arb_depth9_case` 模板）
+    //   ① 位宽契约（旧 RTL 必红）② 软件参考队列逐拍比全部输出 + 内部状态 ③ 覆盖率计数器非零
+    wire        depth9_done;
+    wire [31:0] depth9_errors;
+    evt_merge_depth9_case u_depth9 (.done(depth9_done), .errors(depth9_errors));
+
     reg clk = 1'b0;
     always #10 clk = ~clk;                 // 50 MHz
 
@@ -337,6 +343,13 @@ module tb_evt_merge;
         end else
             $display("  ok  : A8 no X/Z on evt_merge outputs");
 
+        // ⭐⭐ 2026-10-02（阶段 1 减宽）：等独立的【非默认 DEPTH】用例跑完再下结论
+        wait (depth9_done);
+        if (depth9_errors != 0) begin
+            $display("FAIL: DEPTH9 位宽契约/软件参考模型比出 %0d 处错误", depth9_errors);
+            errors = errors + depth9_errors;
+        end
+
         if (errors == 0)
             $display("PASS: evt_merge never drops a same-cycle collision, is single-cycle, rotates, and reports overflow");
         else
@@ -351,4 +364,181 @@ module tb_evt_merge;
         $fatal(1, "FAIL: tb_evt_merge timeout");
     end
 
+endmodule
+
+// ═════════════════════════════════════════════════════════════════════════════
+// ⭐⭐ 2026-10-02（阶段 1 减宽）：非默认 DEPTH 的独立用例
+//   —— ⭐ 照 A1 的 `seq_arb_depth9_case` 模板（用户裁定：以后每一次都照这个来）
+//   ① ⭐ **位宽契约**：旧 RTL（16 位寄存器）**必红**
+//   ② ⭐ **软件参考队列**：每拍按 RTL 的优先级/回绕/溢出语义独立重算，比**全部输出 + 内部状态**
+//   ③ ⭐ **覆盖率计数器**：`full/reject/triple/wraps` 末尾必须非零（⛔ 防"跑了但没覆盖"的假绿）
+// ═════════════════════════════════════════════════════════════════════════════
+module evt_merge_depth9_case(output reg done = 1'b0, output reg [31:0] errors = 32'd0);
+    localparam integer D        = 9;      // ⭐ 非默认（模块默认 4、`top.v` 交付 6）
+    localparam integer AXIS_W   = 4;
+    localparam integer PHASE_W  = 32;
+    localparam integer VEL_W    = 8;
+    localparam integer KIND_W   = 2;
+    localparam integer TIMBRE_W = 2;
+
+    reg clk = 0, rst_n = 0;
+    always #10 clk = ~clk;
+
+    reg av = 0, bv = 0, cv = 0;
+    reg [AXIS_W-1:0]   aax = 0, bax = 0, cax = 0;
+    reg [PHASE_W-1:0]  ain = 0, bin = 0, cin = 0;
+    reg [VEL_W-1:0]    ave = 0, bve = 0, cve = 0;
+    reg [KIND_W-1:0]   akd = 0, bkd = 0, ckd = 0;
+    reg atv = 0, btv = 0, ctv = 0;
+    reg [TIMBRE_W-1:0] atb = 0, btb = 0, ctb = 0;
+
+    wire               valid, ovf, tv;
+    wire [AXIS_W-1:0]  ax;
+    wire [PHASE_W-1:0] inc;
+    wire [VEL_W-1:0]   vel;
+    wire [KIND_W-1:0]  kd;
+    wire [TIMBRE_W-1:0] tb;
+    wire [2:0]         src;
+    wire [15:0]        coll, merged, dropped;
+
+    evt_merge #(.AXIS_W(AXIS_W), .PHASE_W(PHASE_W), .VEL_W(VEL_W),
+                .KIND_W(KIND_W), .TIMBRE_W(TIMBRE_W), .DEPTH(D)) dut (
+        .clk_i(clk), .rst_n_i(rst_n),
+        .a_valid_i(av), .a_axis_i(aax), .a_phase_inc_i(ain), .a_velocity_i(ave),
+        .a_kind_i(akd), .a_timbre_valid_i(atv), .a_timbre_i(atb), .a_src_i(3'd0),
+        .b_valid_i(bv), .b_axis_i(bax), .b_phase_inc_i(bin), .b_velocity_i(bve),
+        .b_kind_i(bkd), .b_timbre_valid_i(btv), .b_timbre_i(btb), .b_src_i(3'd3),
+        .c_valid_i(cv), .c_axis_i(cax), .c_phase_inc_i(cin), .c_velocity_i(cve),
+        .c_kind_i(ckd), .c_timbre_valid_i(ctv), .c_timbre_i(ctb), .c_src_i(3'd4),
+        .evt_valid_o(valid), .evt_axis_o(ax), .evt_phase_inc_o(inc), .evt_velocity_o(vel),
+        .evt_kind_o(kd), .evt_timbre_valid_o(tv), .evt_timbre_o(tb), .evt_src_o(src),
+        .collision_cnt_o(coll), .merged_cnt_o(merged), .drop_cnt_o(dropped), .overflow_o(ovf)
+    );
+
+    // ── 软件参考模型（数据用【平移队列】= FIFO 顺序；head/tail 另按环形推进）──
+    reg [51:0] q [0:D-1];                 // {src[2:0], axis[3:0], inc[31:0], vel[7:0], kind[1:0], tv, tb[1:0]}
+    reg [51:0] popped = 52'd0;
+    integer count = 0, head = 0, tail = 0, i, k, w;
+    reg prio_b = 0, sticky = 0, exp_valid = 0;
+    integer rc = 0, rm = 0, rd = 0;
+    integer full_hits = 0, reject_hits = 0, triple_hits = 0, wraps = 0, checks = 0;
+    integer n_push, off_a, off_b, off_c, cnt_after_pop;
+    reg a_first;
+
+    function [51:0] pack_evt(input [2:0] s, input [3:0] a, input [31:0] p,
+                             input [7:0] v, input [1:0] kk, input t, input [1:0] tm);
+        begin pack_evt = {s, a, p, v, kk, t, tm}; end
+    endfunction
+
+    always @(posedge clk) begin
+        a_first = ~prio_b;                // ⭐ RTL：`push_a_first = ~prio_b_r`
+        if (!rst_n) begin
+            count = 0; head = 0; tail = 0; prio_b = 0; sticky = 0;
+            rc = 0; rm = 0; rd = 0; popped = 52'd0; exp_valid = 0;
+        end else begin
+            // ① 弹出优先（先腾位置）
+            if (count == D) full_hits = full_hits + 1;
+            exp_valid = (count != 0);
+            if (exp_valid) begin
+                popped = q[0];
+                for (k = 0; k < count-1; k = k + 1) q[k] = q[k+1];
+                count = count - 1;
+                head = (head + 1) % D;
+                rm = rm + 1;
+            end
+            // ② 推入（⛔ 装不下就【全部】不推，但要记账）
+            n_push = (av ? 1 : 0) + (bv ? 1 : 0) + (cv ? 1 : 0);
+            if (n_push == 3) triple_hits = triple_hits + 1;
+            if ((av && bv) || (av && cv) || (bv && cv)) rc = rc + 1;
+            cnt_after_pop = count;
+            if (n_push != 0) begin
+                if (count + n_push > D) begin
+                    rd = rd + n_push; sticky = 1; reject_hits = reject_hits + 1;
+                    count = cnt_after_pop;              // ⭐ 弹出照样记账
+                end else begin
+                    off_a = bv ? (a_first ? 0 : 1) : 0;
+                    off_b = av ? (a_first ? 1 : 0) : 0;
+                    off_c = (av ? 1 : 0) + (bv ? 1 : 0);
+                    // ⭐ 按【槽位顺序】入队（= FIFO 顺序）：A/B 先后由轮转定，C 固定最后
+                    w = count;
+                    if (av && bv) begin
+                        if (a_first) begin q[w] = pack_evt(3'd0, aax, ain, ave, akd, atv, atb);
+                                             q[w+1] = pack_evt(3'd3, bax, bin, bve, bkd, btv, btb); end
+                        else         begin q[w] = pack_evt(3'd3, bax, bin, bve, bkd, btv, btb);
+                                             q[w+1] = pack_evt(3'd0, aax, ain, ave, akd, atv, atb); end
+                        w = w + 2;
+                    end else if (av) begin
+                        q[w] = pack_evt(3'd0, aax, ain, ave, akd, atv, atb); w = w + 1;
+                    end else if (bv) begin
+                        q[w] = pack_evt(3'd3, bax, bin, bve, bkd, btv, btb); w = w + 1;
+                    end
+                    if (cv) begin
+                        q[w] = pack_evt(3'd4, cax, cin, cve, ckd, ctv, ctb); w = w + 1;
+                    end
+                    if (tail + n_push >= D) wraps = wraps + 1;
+                    tail = (tail + n_push) % D;
+                    count = count + n_push;
+                end
+            end
+            if (av && bv) prio_b = ~prio_b;      // ⭐ 只有 A、B 都到才翻面
+        end
+        #1;                                      // 等 NBA 落定
+        checks = checks + 1;
+        if ({valid, src, ax, inc, vel, kd, tv, tb} !== {exp_valid, popped}) begin
+            errors = errors + 1;
+            if (errors <= 5)
+                $display("  FAIL DEPTH9 输出: got v=%b src=%0d ax=%0d inc=%0d vel=%0d kd=%0d tv=%b tb=%0d | exp v=%b",
+                         valid, src, ax, inc, vel, kd, tv, tb, exp_valid);
+        end
+        if (coll !== rc || merged !== rm || dropped !== rd || ovf !== sticky) begin
+            errors = errors + 1;
+            if (errors <= 5)
+                $display("  FAIL DEPTH9 诊断: coll=%0d/%0d mer=%0d/%0d drop=%0d/%0d ovf=%b/%b",
+                         coll, rc, merged, rm, dropped, rd, ovf, sticky);
+        end
+        if (dut.cnt_q !== count || dut.head_q !== head || dut.tail_q !== tail ||
+            dut.prio_b_r !== prio_b) begin
+            errors = errors + 1;
+            if (errors <= 5)
+                $display("  FAIL DEPTH9 状态: cnt=%0d/%0d head=%0d/%0d tail=%0d/%0d prio=%b/%b",
+                         dut.cnt_q, count, dut.head_q, head, dut.tail_q, tail, dut.prio_b_r, prio_b);
+        end
+    end
+
+    initial begin
+        #2;
+        // ⭐ 位宽契约：⭐ **旧 RTL（16 位）在这一行必红** —— 这就是"判据能红"的证据
+        if ($bits(dut.cnt_q) != $clog2(D+1) || $bits(dut.head_q) != $clog2(D) ||
+            $bits(dut.tail_q) != $clog2(D) || $bits(dut.cnt_next) != $clog2(D+3) ||
+            $bits(dut.push_n) != 2)
+            $fatal(1, "FAIL: DEPTH9 位宽契约: cnt=%0d head=%0d tail=%0d cnt_next=%0d push_n=%0d（旧 RTL 必红）",
+                   $bits(dut.cnt_q), $bits(dut.head_q), $bits(dut.tail_q),
+                   $bits(dut.cnt_next), $bits(dut.push_n));
+        repeat (3) @(negedge clk);
+        rst_n = 1;
+        for (i = 0; i < 640; i = i + 1) begin
+            @(negedge clk);
+            // ⭐ 前 24 拍三源全来 ⇒ 灌满 + 溢出；之后伪随机，覆盖各种 1/2/3 路组合
+            if (i < 24) begin av = 1; bv = 1; cv = 1; end
+            else begin av = i[0]; bv = i[1]; cv = i[2]; end
+            aax = i[3:0]; bax = 4'd9; cax = 4'd10;
+            ain = i * 4; bin = i * 4 + 1; cin = i * 4 + 2;
+            ave = i[7:0]; bve = 8'd200; cve = 8'd100;
+            akd = i[1:0]; bkd = 2'd1; ckd = 2'd2;
+            atv = i[0]; btv = 1'b0; ctv = 1'b1;
+            atb = 2'd1; btb = 2'd2; ctb = 2'd3;
+            if (i == 319) rst_n = 0;             // ⭐ 队列忙时复位
+            if (i == 321) rst_n = 1;
+        end
+        @(negedge clk); av = 0; bv = 0; cv = 0;
+        repeat (D+3) @(negedge clk);
+        if (full_hits == 0 || reject_hits == 0 || triple_hits == 0 || wraps < 2 || count != 0)
+            $fatal(1, "FAIL: DEPTH9 覆盖不足: full=%0d reject=%0d triple=%0d wraps=%0d count=%0d",
+                   full_hits, reject_hits, triple_hits, wraps, count);
+        if (errors != 0)
+            $fatal(1, "FAIL: DEPTH9 软件参考模型比出 %0d 处不一致", errors);
+        $display("  ok  : DEPTH9 位宽契约 + 软件参考模型逐拍一致（checks=%0d full=%0d reject=%0d triple=%0d wraps=%0d）",
+                 checks, full_hits, reject_hits, triple_hits, wraps);
+        done = 1;
+    end
 endmodule

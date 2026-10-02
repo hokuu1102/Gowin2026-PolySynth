@@ -7,7 +7,7 @@ At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:123 char:18
     + FullyQualifiedErrorId : NativeCommandError
  
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from another 
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another 
 file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot

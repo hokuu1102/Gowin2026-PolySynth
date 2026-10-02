@@ -1,0 +1,7 @@
+﻿rtl/w3c/evt_merge.v                39b0eed1ba0dedc210c8120d21137ff356917cd6c2fdb8b5fedaa6ef3a51bc30
+tb/w3c/tb_evt_merge.sv             f2e7cea08c565a706827dd963715fa73d02947d1eb45adafd0f2bae2141d6b4f
+tb/w3c/tb_evt_merge_diff.sv        d67d5e7082ca4f11eda825b4f472602eb0750a1ea633f360582d722eb29290d2
+tb/models/evt_merge_ref.v          489bea971ee67399985c71bcc494c5c0a40451a6ccb80f74aa1c7d58e21c0e9c
+Gowin2026.gprj                     bdd48d19dcda491d6563772a9ee105aa409edff3a8122c4e08feb2bd63c32645
+constr/top.sdc                     12e8c1f71e7586ff7e32538d49b7a45fa19ac888ff30f635e77c9b79bc38fb8e
+constr/top.cst                     3e122b77991f4a1f24c83d1a4fea888dced742fa388a63b6857b7675a6118a2c

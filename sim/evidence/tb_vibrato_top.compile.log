@@ -7,15 +7,15 @@ At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:123 char:18
     + FullyQualifiedErrorId : NativeCommandError
  
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:67: warning: timescale for span_probe inherited from another 
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another 
 file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1707: warning: Port 5 (sample_data_i) of module calib_autotare expects 2
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1711: warning: Port 5 (sample_data_i) of module calib_autotare expects 2
 4 bit(s), given 36.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1707:        : Pruning 12 high bits of the expression.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:1711:        : Pruning 12 high bits of the expression.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:496: warning: @* is sensitive to all 16 words in array 
 'pc_l1'.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vibrato_top.sv:18: warning: Instantiating module top with dangling input

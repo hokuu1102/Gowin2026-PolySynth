@@ -8,6 +8,17 @@
 > · `files/开发板原理图/Tang_Mega_60K_Console_32001C_Schematics.pdf`（Rev 1.3，2025-04-24）
 > · 提取：`pdftotext -layout <pdf> <out>` ⇒ 256 KB 文本（⭐ 副本存 `build/console_extract/console_netlist.txt`）
 > · 交叉验证：`files/开发板原理图/tang_mega_60K_pins.cst`（官方约束，⭐ **网络名对得上**）
+>   ⚠️ **2026-10-01 补注**：该 `.cst` **定性是 `NEO Dock` 口径** —— ⭐ **SOM 级条目**（`sys_clk`/`sys_rst_n`/`HP_*`/`sdram_*`/`tmds_*`）**在 Console 上仍成立**；
+>   🔴 **板级条目作废**（`PA_EN=AB16` · `LEDs[0..7]` · `Key_in` · JoyCon · Ethernet · Mic · WS2812）⇒ ⭐ **引用必须逐条区分**。
+
+---
+
+> 🔴🔴 **2026-10-01 更正（⭐ 用前必读）**：⭐ 本文 **§一 的 SPI ball 表已【被 2026-09-23 晚的重排推翻】** ——
+> ⭐ **SPI 的 ball 一律以 `constr/top.cst` 的 `IO_LOC` 为准**（⭐ 现值：`sclk` = `E14`(`D0`) · `mosi` = `E13`(`D1`) ·
+> `miso[0..2]` = `C15`/`B13`/`A14` · `cs_n[0..2]` = `C14`/`C13`/`A13`）。
+> ⚠️ 另：⭐ **本文 `:54` 有一处 ball 举例错误** —— 写"`SDRAM0_D0` = `B15`"，⭐ **实际 `D0` = `E14`**（`B15` 是 `SDRAM0_D14`）。
+> 📌 **通用教训**：⭐ **标题写着"结案"⛔ 不等于"仍然有效"** —— ⚠️ 引用前先核 `IO_LOC`。
+> ⭐ 最新排针全表见 `files/10-硬件/Console引脚与控制接口总表-20261001.md` §三。
 
 ---
 

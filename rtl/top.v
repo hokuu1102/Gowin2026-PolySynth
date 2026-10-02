@@ -108,7 +108,7 @@ module top #(
     //            `tb_met_start_top` 显式 `.SEL_DRUM(0)`（`:90`）·
     //            `tb_drum_timbre_top` 显式 `.SEL_DRUM(1)`（`:87`）
     //            ⇒ ⭐ **T6 不会因本行改动而变红** ✅
-    //         ② ⭐ 源 B 仍被**运行时** `met_on_r` 串住（⭐ 复位 = 关 ⇒ `top.v:463`）⇒
+    //         ② ⭐ 源 B 仍被**运行时** `met_on_r` 串住（⭐ 复位 = 关 ⇒ 本文件的 `met_on_r`）⇒
     //            ⭐ 换默认档**不会让鼓机上电就响**（⭐ 要发串口 `'B'`）⇒ 行为可预期 ✅
     //      ⚠️ **代价（⭐ 必须知道）**：⭐ 凡**未显式声明**本档、又例化 `top` 的 tb，
     //         从此测的是**鼓机源**（⭐ 而不再被综合扫掉）⇒ ⭐ 若某个 tb 是在"验节拍器那一路"，
@@ -137,7 +137,7 @@ module top #(
     //      ⇒ ⭐ 节拍器仍然**照常运行**（`beat_gen`/`metronome` 内部状态不变），
     //        ⭐ 但**事件被挡在 `evt_merge` 之外** ⇒ ⭐ **确实不出声**。
     //      📌 **为什么不直接停 `beat_gen`**：⚠️ 那样 `bg_beat` 也会停
-    //         ⇒ 🔴 **心跳 LED 不闪**（⭐ `blink_i(bg_beat)`，`top.v:2386`）
+    //         ⇒ 🔴 **心跳 LED 不闪**（⭐ 本文件的 `blink_i(bg_beat)`）
     //         ⇒ ⭐ 上板会以为"板子死了"。⭐ 本做法**心跳照常** ✅
     //      📌 且 `drum_gen`（⭐ 源 B 另一档）也共用 `beat_gen` ⇒ ⭐ 不动它更安全。
     //
@@ -206,7 +206,11 @@ module top #(
     //   📌 依据：`files/20-代码/失谐拍频与长音起伏-方案分析-20260928.md` §15.1
     parameter integer DETUNE_SH         = 9,
     // ⭐⭐ 鼓机的内置节奏型（⭐ 0~3，⭐ 见 `drum_gen.step_mask_of`）
-    //   · 0 = 四拍基本型（Rock）· 1 = 八分摇滚 · 2 = 十六分放克 · 3 = 圆舞曲(3/4)
+    //   · 0 = **BASIC** · 1 = **HOUSE** · 2 = **ROCK** · 3 = **DANCE_FILL**
+    //     （⭐ 全部 4/4 · 16 步 · 见 `drum_gen.v` 的 `step_mask_of` 里 `DRUM_0`~`DRUM_3` 的命名原文）
+    //   🔴 **2026-10-01 更正**：旧注释写"0=四拍基本型(Rock) · 1=八分摇滚 ·
+    //      2=十六分放克 · 3=圆舞曲(3/4)" ⇒ ⚠️ **过时**（⭐ 2026-09-30 已按用户给的表全部换掉，
+    //      ⛔ **没有"圆舞曲"那一型**）。
     //   ⭐⭐ **2026-09-29：⭐ 它从【编译期参数】降级为【上电默认值】** ✅
     //      ⭐ 真正生效的选择现在是**运行时寄存器 `drum_pattern_r`**
     //         （⭐ 串口 `'D'` ⇒ 循环 `0→1→2→3→0`，⭐ 见下方 §节奏型寄存器）
@@ -223,13 +227,13 @@ module top #(
     //   🔎 **根因**：⭐ 源 B（节拍器/鼓机）原来把 `timbre_valid` **恒接 `1'b0`**
     //      ⇒ ⭐ `note_manager` 走
     //         `new_timbre = cur_timbre_valid ? cur_timbre : default_timbre_i`
-    //         （⭐ `note_manager.v:426`）的**兜底分支**
-    //      ⇒ ⭐ 拿到的是 `default_timbre_i = timbre_sel_r`（⭐ **键盘当前音色**，⭐ `top.v:3081`）
+    //         （⭐ `note_manager.v` 的 `default_timbre_i`）的**兜底分支**
+    //      ⇒ ⭐ 拿到的是 `default_timbre_i = timbre_sel_r`（⭐ **键盘当前音色**，⭐ 本文件的 `timbre_sel_r`）
     //      ⇒ 🔴 **鼓的音色 = 键盘的音色** —— ⛔ 完全不是我们要的（鼓必须有自己的音色）。
     //
     //   ⭐ **修法**：⭐ 给源 B 一个**自己的、固定的**音色 ⇒ ⭐ 与键盘**彻底解耦**
     //      （⭐ 键盘怎么切都⛔ 不影响鼓）。
-    //   ⭐ 取值 **2 = PIANO**（⭐ `wavetable_bank.v:3`：`0=BASS 1=GUITAR 2=PIANO 3=PAD`）：
+    //   ⭐ 取值 **2 = PIANO**（⭐ `wavetable_bank.v:3`：`0=BASS 1=GUITAR 2=PIANO 3=PAD`（行号可能漂移，以符号为准））：
     //      ⭐ PIANO 是 **zero-DC 25% 脉冲** ⇒ ⭐ 谐波最丰富、**起音最"脆"**
     //      ⇒ ⭐ 最接近打击乐（⭐ 而 BASS/GUITAR/PAD 都是**持续音**音色，⭐ 敲下去像"按了个和弦"）。
     //   📌 **为什么做成参数**：⭐ 鼓的音色是**主观听感**（⭐ 必须能 A/B 对比，⛔ 不能靠推理）——
@@ -435,7 +439,7 @@ module top #(
     //
     //   ⭐ 需求（用户 2026-09-28 拍板）：⭐ 按一下 **开**、再按一下 **关**。
     //
-    //   ⭐ 链路（⭐ 严格按 `debounce.sv:9-11` 与 `K-62` 的纪律）：
+    //   ⭐ 链路（⭐ 严格按 `debounce.sv` 头部关于 `sync_input` 的说明与 `K-62` 的纪律）：
     //      `met_btn_i`（板外异步）→ `sync_input`（打两拍）→ `debounce`（5 ms）
     //      → `key_down[0]`（按下沿，单周期脉冲）→ 翻转触发器 `met_on_r`
     //
@@ -590,7 +594,7 @@ module top #(
     //      ⇒ ⭐ **第一声就是强拍** ✅
     //
     //   🔴 **为什么必须是【脉冲】**：⭐ `pos_reset_i` 是**电平**有效
-    //      （`beat_gen.v:75`：*"高有效，电平 ⇒ 相位+tick_cnt 归零"*）
+    //      （`beat_gen.v` 的 `pos_reset_i` 端口注释：*"高有效，电平 ⇒ 相位+tick_cnt 归零"*）
     //      ⇒ ⚠️ 若常高 ⇒ 🔴 **相位永远停在 0，一个 tick 都不出**（⭐ 节拍器彻底不响）。
     //
     //   📌 **为什么不改成 `run_i = met_on_r`**（⭐ 看起来更直接）：
@@ -916,11 +920,11 @@ module top #(
     wire [7:0] txf_drop;
     wire       txf_busy;         // ⭐ 来自 uart_tx
 // ⭐⭐ 2026-10-01 BATCH 8.3（⭐ 修 `implicit definition` 警告）：⭐ **`fault_any_w` 必须在【模块级】声明** ⚠️
-//   🔴 **原来错在哪**：⭐ 我把它声明在 `:4136`（⭐ 心跳灯那段）⚠️，⭐ 而 `assign` 在 `:1407`
+//   🔴 **原来错在哪**：⭐ 我把它声明在**心跳灯那段**（⭐ `fault_any_w` 的声明）⚠️，⭐ 而 `assign` 在 `fault_any_w` 的赋值处
 //      ⇒ 🔴 **声明晚于使用** ⇒ ⭐ 工具**隐式创建**了这条 wire ⇒ ⚠️ `warning: implicit definition`
 //      ⚠️ 综合/PnR/108 个 tb **都过了** ⇒ ⭐ 行为是对的 ✅，⭐ 但这是**真代码异味** ⚠️：
 //      🔴 在 `default_nettype none` 下它会变成**硬错误** ✅
-//   ✅ **修法**：⭐ 声明挪到**模块级、且在 `generate`（⭐ `:1001`）之前** ✅
+//   ✅ **修法**：⭐ 声明挪到**模块级、且在 `generate` 块之前** ✅
 //   📌 **作用域要点**：⭐ 本信号由 `g_sound` 块内的 `assign` 驱动（⭐ 那里 `af_fault`/`mx_fault` 可见 ✅），
 //      ⭐ 而心跳灯逻辑（⭐ 模块级）**只读它** ⇒ ⭐ 两边都能看到 ✅
 wire       fault_any_w;
@@ -1081,9 +1085,9 @@ wire       fault_any_w;
         wire [POLY_TARGET*8-1:0]       nm_vel;
         wire [POLY_TARGET*2-1:0]       nm_timbre;
         //  ⭐⭐ 2026-09-29 新增（⭐ 鼓机噪声波表 · 阶段 2a）：⭐ **每 voice 的"是鼓吗"**
-        //     ⭐ 来源：⭐ `note_manager.voice_drum_o`（⭐ = `axis_r[i] >= RESERVED_AXIS` ✅）
-        //     ⭐ 去向：⭐ `oscillator_bank.voice_drum_i` ⇒ ⭐ 保留轴位（节拍器 14 /
-        //       鼓机 15）的 voice **改读第 10 张表（宽带噪声）** ✅
+        //     ⭐ 来源：⭐ `note_manager.voice_drum_o`（⭐ = `(src_r[i] == SRC_AUX)` ✅，见 `note_manager.v` 的 `assign voice_drum_o[g]`）
+        //     ⭐ 去向：⭐ `oscillator_bank.voice_drum_i` ⇒ ⭐ 保留池（⭐ 节拍器 /
+        //       鼓机，⭐ 即来源 `SRC_AUX`）的 voice **改读第 10 张表（宽带噪声）** ✅
         //     🔴 为什么必须由 `top` 直连：⭐ 这条标志是**跨模块**的
         //        （⭐ `note_manager` 知道"谁在发声"，⭐ `oscillator_bank` 才知道"该读哪张表"）
         //        ⇒ ⭐ `top` 是唯一的连接点 ✅
@@ -1272,11 +1276,13 @@ wire       fault_any_w;
         wire        met_cfg_warn;
 
         metronome #(
-            // ⭐ AXIS_ID must stay >= RESERVED_AXIS (14 = 4'hE) so the event
-            //    lands in the reserved pool -- PAIRED with
-            //    note_manager.RESERVED_N above.  cfg_warn_o asserts if the two
-            //    are inconsistent, so a mismatch is observable rather than
+            // ⭐ AXIS_ID stays 4'hE (14) as the metronome's event id -- PAIRED
+            //    with note_manager.RESERVED_N above.  cfg_warn_o asserts if the
+            //    two are inconsistent, so a mismatch is observable rather than
             //    silent (K-106 family).
+            //    🔴 2026-10-01 更正：⭐ **保留池按【来源】选**（`src == SRC_AUX(3'd3)`，
+            //       见 `note_manager.v` 的 `assign pool_mask[pg]`）⇒ ⛔ **不按轴号** —— ⭐ 旧文"so the event
+            //       lands in the reserved pool by that axis" 已被代码推翻。
             .AXIS_W     (4),
             .PHASE_W    (32),
             .VEL_W      (8),
@@ -1284,13 +1290,13 @@ wire       fault_any_w;
             .RESERVED_N (5),
             //  ⭐⭐ 2026-10-01：⭐ **节拍器抬 +1.75 dB**（⭐ 用户："背景的节拍器稍微大声一点"）
             //   ⭐ 原值 `180 / 108`（⭐ 模块默认，⭐ 保持不动）⇒ ⭐ 这里覆盖成 `220 / 132`
-            //   ⭐ **为什么是 220 而⛔ 不是更高**（⭐ 余量算式，⭐ 与 `metronome.v:150-163` 同一口径）：
-            //      ⭐ 软膝 `T = 15/16 FS = 93.75%`、天花板 `100% FS`（⭐ `tdm_render_mixer.v`）
-            //      ⭐ 最坏"节拍器强拍 + 键盘打满 255"：⭐ `(V + 255) × 256 × 2^-1`
-            //         · `V=180` ⇒ **85.0% FS** ✅（⭐ 原值）
-            //         · `V=220` ⇒ **92.7% FS** ⚠️（⭐ 距软膝仅 1%）
-            //         · `V=230` ⇒ 🔴 **≈99% FS** ⇒ **基本顶到天花板** ⛔ 不可取
-            //      ⇒ ⭐ **220 是"保持 5:3 且不越膝"的上限** ✅
+            //   ⭐ **为什么是 220 而⛔ 不是更高**（⭐ 余量算式，⭐ 与 `metronome.v` 的 `LIM_TH_W`/`KNEE_W` 余量算式同一口径）：
+            //      ⭐ 软膝阈值 `T = 0x700000 = 7/8 FS = 87.5%`、⭐ 膝宽 `W = 2^20`（12.5% FS）⇒ ⭐ 天花板 `T + W/2 = 0x780000 = 15/16 FS = 93.75%`
+            //         （⭐ 以代码为准：`tdm_render_mixer.v` 的 `LIM_TH_W`、`KNEE_W`、`ceil_w`；⭐ `sh24 = sh <<< 8` 同放大值与满幅 ⇒ 百分比不变）
+            //      ⭐ 最坏"节拍器强拍 V + 键盘打满 255"：⭐ 分子 = 两路包络峰值之和 `(V + 255) × 256`、⭐ 再 `× 2^-OUTPUT_HEADROOM_SH`(=1) ⇒ `(V + 255) × 128`；⭐ 分母 = 满幅 FS = `2^16 = 65536`（⭐ 占 FS 的**线性百分比**，⛔ 不是 dB）：
+            //         · `V=180` ⇒ `435 × 128 = 55680` ⇒ **`55680/65536 = 85.0% FS`** ⇒ ✅ **低于阈值 87.5%**（⭐ 余量 2.5% FS）
+            //         · `V=220` ⇒ `475 × 128 = 60800` ⇒ **`60800/65536 = 92.7% FS`** ⇒ 🔴 **高于阈值 87.5% ⇒ 已进膝区**（⭐ 距天花板 93.75% 仅 1.0% FS；⭐ 膝内输出 ≈ 91.7% FS）
+            //      ⇒ 🔴 **结论方向已变**：⭐ `220` **⛔ 不再是"不越膝"的上限**（⭐ 按现值阈值，不越膝的上限 = `V ≤ 193`，⭐ 因 `448 × 128 = 57344 = 87.5%` 恰好到阈值）；⭐ `230` ⇒ `485 × 128 = 62080` = **94.7% FS** ⇒ 🔴 超天花板 ⇒ 被夹到 `93.75%` ⛔
             //   📌 比例仍是 **5:3**（⭐ `220/132 = 5/3`）⇒ ⭐ 强拍:弱拍 的语义**一字未改** ✅
             //   ⚠️ **连带**：⭐ `tb/w3c/tb_met_start_top.sv:42-46` 的镜像**必须同步**（⭐ 已同步）✅
             .VEL_ACCENT (8'd220),
@@ -1329,7 +1335,7 @@ wire       fault_any_w;
         //            ⭐ 将来要现场切，⭐ 再加串口命令即可（⭐ 接口已就绪）。
         //
         //   ⭐ **`AXIS_ID = 15`**（⭐ 与节拍器的 14 分开）：
-        //      ⚠️ `AXIS_W = 4` ⇒ ⭐ **≥ `RESERVED_AXIS_BASE`(14) 只有 14/15**
+        //      ⚠️ `AXIS_W = 4` ⇒ ⭐ **≥ `RESERVED_AXIS_BASE`(14) 只有 14/15**（⭐ 进保留池按**来源** `SRC_AUX`，⛔ 不按轴号）
         //      ⇒ ⭐ 4 个乐器**共用 15**、⭐ 靠 `PHASE_INC` 区分音色
         //      （🔴 ⛔ 不改 `AXIS_W` —— 那会动**冻结的 64 bit 事件格式**）。
         //
@@ -1363,7 +1369,7 @@ wire       fault_any_w;
             //   ⭐ 覆盖后：⭐ `SNARE 235` · ⭐ `HIHAT 175` · ⭐ `TOM 220`（⭐ `KICK` **不覆盖**）
             //   🔴 **底鼓为什么【故意不抬】**（⭐ 这是算过的，⛔ 不是省事）：
             //      ⭐ 最坏"底鼓 + 键盘打满 255"：⭐ `(230+255) × 256 × 2^-1 = `**`94.7% FS`**
-            //         ⇒ ⚠️ **已经越过了软膝 93.75%**（⭐ 本项目接受的取舍 ——
+            //         ⇒ ⚠️ **94.7% FS 已越过软膝【阈值 87.5%】**（⭐ 93.75% 是**天花板**、⛔ 不是阈值）（⭐ 本项目接受的取舍 ——
             //            `tb_velocity_headroom` 的判据**故意只判 `vel <= 200`**，⭐ 即 >200 的演奏峰值豁免）
             //      ⇒ ⭐ 再抬底鼓**只会让它更顶限幅器**（⚠️ `L83` 的教训：软限幅一直工作 = 听感"破"）
             //      ⇒ ⭐ **"背景更响"的收益应该做在【偏轻的那几件】上** ✅
@@ -1544,7 +1550,7 @@ wire       fault_any_w;
         //        ⇒ ⚠️ 现场容易改错、且**不可追溯**（⭐ 改了哪版说不清）✅
         //     ⭐ 语义（⭐ 已核到代码级）：
         //       · ⭐ `calib_span.S_NEXT` **先判 `cal_err_i`、后判 `cal_busy_i`**
-        //         （⭐ `:551` 与 `:576`）⇒ ⭐ **"任一片失败 ⇒ 拒绝"这条与 `&`/`|` 无关** ✅
+        //         （⭐ `calib_span` 的 `S_NEXT` 里判 `cal_err_i` / `cal_busy_i` 那两处）⇒ ⭐ **"任一片失败 ⇒ 拒绝"这条与 `&`/`|` 无关** ✅
         //       · ⭐ 而"通过"这条路**只在两片都成功时**才需要 ⇒
         //         ⭐ 两片都成功 ⇒ 两片 `busy` **同拍为 1**（⭐ 两片锁步）⇒ `&` 与 `|` **等价** ✅
         //       ⇒ ⭐ 所以 `&` **不会**堵住通过路径 ✅
@@ -1609,7 +1615,7 @@ wire       fault_any_w;
         //         tare_o   <= {N_ADC{1'b1}};              // ⭐ T 拍发出
         //         if (cur_ch == (NCH-1)) state <= ST_DONE; // ⭐ 同拍 ⇒ done_o 立刻置起
         //         ```
-        //      ⭐ `calib.sv:145-148`：
+        //      ⭐ `calib.sv` 的 `zero_r` / `prod_r` 赋值：
         //         ```verilog
         //         if (tare) zero_r[cal_ch] <= raw;                       // ⭐ T+1 才写入
         //         prod_r <= (raw > zero_r[ch]) ? ... : 0;                // 🔴 T+1 用【旧 zero】算!
@@ -1710,14 +1716,14 @@ wire       fault_any_w;
             .sample_valid_i(af_sample_valid),
             .sample_ch_i   (af_sample_ch),
             //   ⭐⭐ 判"静止"用的原始码：⭐ **【所有片】打包**（⭐ 2026-09-30 夜 修 `N13`）
-            //      （⭐ `af_data` 声明在 `:1351`，⭐ **早于本例化** ⇒ 可用 ✅）
+            //      （⭐ `af_data` 的声明在其上方，⭐ **早于本例化** ⇒ 可用 ✅）
             //   ⚠️ 极性反相是**镜像** ⇒ `|Δraw|` **极性无关** ⇒ ⭐ 用反相前的码等价 ✅
             //   🔴 **为什么必须给【全部片】**：⭐ `tare_o` 是 `{N_ADC{1'b1}}`
-            //      ⇒ ⭐ **两片【同拍锁步】一起发**（⭐ 见 `calib_autotare.v:251`）
+            //      ⇒ ⭐ **两片【同拍锁步】一起发**（⭐ 见 `calib_autotare` 的逐通道 `tare` 扫描）
             //      ⇒ ⚠️ 若只给片 0，则【板 2 的键"按住不动"】对守卫**完全不可见**
             //      ⇒ 🔴 板 2 把【按下位】记成零点 ⇒ ⭐ **那个键永远触发不了**
             //      （⭐ 这正是用户实测的"板2 某几个键不响"）
-            //   ⚠️ `af0_pol`/`af1_pol` 在 `:1706`（⭐ **晚于**本例化）⇒ ⛔ 用不了，
+            //   ⚠️ `af0_pol`/`af1_pol` 的声明在其**下方**（⭐ **晚于**本例化）⇒ ⛔ 用不了，
             //      只能用打包的原始码（⭐ 上一条已说明极性无关）✅
             .sample_data_i (af_data[ADC_N*12-1:0]),
             // ⭐⭐ `retrig_i`：⭐ 接 `'T'` 命令（⭐ 2026-09-23 阶段C 接通）
@@ -1755,7 +1761,7 @@ wire       fault_any_w;
         // ⭐⭐ 霍尔极性反相 —— ⭐ **位置在 `calib` 【之前】**（2026-09-23 第 2 版）
         //
         //   🔴🔴 **为什么必须放在 `calib` 之前（⭐ 实测踩过）**：
-        //      ⭐ `calib.v:148` 的公式是
+        //      ⭐ `calib.sv` 的 `prod_r` 公式是
         //         `prod_r <= (raw > zero_r[ch]) ? ((raw - zero_r[ch]) * gain) : 0`
         //      ⇒ ⚠️ **它【内建假设】"按下 ⇒ raw 变大"**。
         //      ⚠️ 而实测是 **"按下 ⇒ raw 变小"**（松手 1985 → 触底 1241）。
@@ -1823,7 +1829,7 @@ wire       fault_any_w;
         //      ⇒ 🔴 **`'P'` 永远只报片 0** ⇒ ⚠️ **诊断板 2 时会给出【错误答案】**
         //         （⭐ 比"看不到"更危险 —— ⭐ 会让人以为板 2 的轴是好的 ✅）
         //   ⭐ **修法**：⭐ 每次 `'P'` 请求就把"探针轴" +1 ⇒ ⭐ 16 次一轮，⭐ 覆盖**两片** ✅
-        //   ⭐ **选片手法与 `sp_raw_sel`（⭐ 上方 `:1740`）完全一致**：⭐ 用 `axis[3]` 选片 ✅
+        //   ⭐ **选片手法与 `sp_raw_sel`（⭐ 见上方）完全一致**：⭐ 用 `axis[3]` 选片 ✅
         //      ⚠️ 这样 `pos_i` 与 `ch_i` **同源** ⇒ ⭐ 回包里的通道号与位置**必然对得上** ✅
         //   📌 **格式不变**：⭐ 仍是 `P<5 位><CRLF>`（⭐ 8 字节）✅ —— ⭐ `'P'` 是调试命令，
         //      ⭐ 轮转 + ⭐ 文档说明就够用 ⇒ ⛔ 不改格式（⭐ 免得与 ESP32 侧协调 ⚠️）✅
@@ -1915,7 +1921,7 @@ wire       fault_any_w;
         //      📌 所以本段**物理位置在 `af0_pol` 之后**，⛔ 不是紧跟 `u_autotare`。
         //
         //   **② `cal_ch` 必须【同拍仲裁】**（🔴 本模块与 `calib_autotare` 都要驱动它）
-        //      ⭐ `calib.v:106/145` 的 `raw` 是**当拍输入**
+        //      ⭐ `calib.sv` 的 `den_r`/`zero_r` 用的 `raw` 是**当拍输入**
         //      ⇒ 🔴 `cal_ch` 与 `tare`/`span` 错一拍 ⇒ **把别的通道的值记成本通道的**
         //         （⭐ `K-87` 同族：**静默**，没有任何报错）。
         //      ⭐ **仲裁规则**：⭐ **谁在忙用谁的**（⭐ 见 `cal_ch_mux`）。
@@ -2001,8 +2007,8 @@ wire       fault_any_w;
         //
         //   🔴 **为什么必须有**：⭐ `calib` 是**一个共享资源**（两片锁步），
         //      而 `tare` 与 `span` **都要驱动它**：
-        //        · `calib.v:145`  `if (tare) zero_r[cal_ch] <= raw;`
-        //        · `calib.v:106`  `den_r <= raw - zero_r[cal_ch];`
+        //        · `calib.sv` 的 `zero_r` 赋值  `if (tare) zero_r[cal_ch] <= raw;`
+        //        · `calib.sv` 的 `den_r` 赋值  `den_r <= raw - zero_r[cal_ch];`
         //      ⚠️ 若两者**同拍拉高** ⇒ 🔴 **先记零点、又立刻拿这个零点算满量程**
         //         ⇒ ⭐ `den_r` 变成"满量程码 − 刚记的零点" ⇒ 🔴 **增益完全错**
         //         （⭐ 而且是**静默**的：不报错、`calib.err` 也未必触发）
@@ -2123,7 +2129,7 @@ wire       fault_any_w;
         //           （⭐ 拒绝字节总是紧跟在一个轴号之后）
         //
         //   ⭐ 取片号的时机（⭐ 已论证，⛔ 不是"拿当下的粘滞值"）：
-        //      ⭐ `calib.err` **只在 `span` 尝试或复位时**被写（⭐ `calib.sv:270/281`）
+        //      ⭐ `calib.err` **只在 `span` 尝试或复位时**被写（⭐ `calib.sv` 里 `err` 的两处赋值）
         //      ⇒ ⭐ 从发脉冲到本条拒绝之间**没有第二次写** ⇒ ⭐ 这一拍的
         //         `cal0_err`/`cal1_err` **就是本轴本次尝试的结果** ✅
         //      ⚠️ 所以**不需要**给 `calib_span` 加逐片输入（⭐ 少一个端口 = 少一处风险）
@@ -2167,7 +2173,7 @@ wire       fault_any_w;
         //   ⭐⭐ **2026-09-28：加上 `'Q'` 诊断（`dp_push`/`dp_data`）**
         //      ⚠️ **声明必须写在【本行之前】**（⭐ `L66`：声明先于使用）——
         //         🔴 我第一版把 `dp_push` 声明写在 `u_pos_probe_dpos` 旁边
-        //         （⭐ `:2070`，⛔ 在仲裁器**之后**）⇒ ⭐ 这里引用不到
+        //         （⭐ 在 `cal_ch` 仲裁块**之后**）⇒ ⭐ 这里引用不到
         //      ⭐ 且 `dp_push` **⛔ 不会与 `pp_push` 同拍** ——
         //         ⭐ 它的 `probe_req` 是 `'P'` 到达后**延时 400 µs** 才发的
         //         （⭐ 见 `u_pos_probe_dpos` 上方的串行化说明）
@@ -2382,11 +2388,11 @@ wire       fault_any_w;
                          EVT_TRIG_TH, TRAVEL_TARE);
             //  ⭐ ①b ⭐⭐ **锚定自检（⭐ 本轮新增 —— ⭐ 就是为了让这次的缺陷【能红】）**：
             //     🔴 **未做 `span` 时，`pos` 空间【不可能】超过 `calib.MAX_TRAVEL`**(1023)
-            //        （⭐ `calib.sv:38` + `:341-343`：`dlim = min(MAX_TRAVEL, span_r)` ⇒ ⭐ 结构上被夹住 ✅）
+            //        （⭐ `calib.sv` 的 `parameter integer MAX_TRAVEL` + `wire dlim`：`dlim = min(MAX_TRAVEL, span_r)` ⇒ ⭐ 结构上被夹住 ✅）
             //     ⇒ ⭐ 若 `TRAVEL_TARE` 被填成 4095（⭐ 即 BATCH 8.2 干过的事）
             //        ⇒ 🔴 `VEL_T2_EFF = 3276` **永远越不过** ⇒ ⭐ **力度恒定**（`K-124`）
             //        ＋ 🔴 斜率跟着错 ⇒ ⭐ **音量掉到 38%、尾音短 2.6×** ✅
-            //     📌 **为什么原来抓不到**：⭐ `param_extract.v:369` 那条自检只比
+            //     📌 **为什么原来抓不到**：⭐ `param_extract.v` 里 `VEL_T2_EFF > POS_FULL` 那条自检只比
             //        `VEL_T2_EFF ≤ POS_FULL` ⇒ ⭐ **它是【自洽】的**（`3276 ≤ 4095` 成立 ✅）
             //        ⇒ 🔴 **没有锚到【物理行程】** ⇒ ⭐ 本行补上这个锚 ✅
             if (TRAVEL_TARE > 12'd1023)
@@ -2412,7 +2418,7 @@ wire       fault_any_w;
             //        的参数**（⭐ 不是一个 `top` 的 `localparam`）⇒ ⭐ 在 `top` 里引用会**未声明** ❌
             //     📌 **所以结构性保证靠"端口不写数字"**：⭐ 只要例化处写 `TRAVEL_TARE`，
             //        ⭐ 就**不可能**出现第二个数 ✅（⭐ 改 `TRAVEL_TARE` 一处即全动 ✅）
-            //     ⚠️ **残留风险**：⭐ `calib.sv:24` 的 `parameter integer FULL = 4095` 仍是**另一个默认值** ⚠️
+            //     ⚠️ **残留风险**：⭐ `calib.sv` 的 `parameter integer FULL = 4095` 仍是**另一个默认值** ⚠️
             //        ⇒ ⭐ 它现在**是对的**（⭐ `FULL` 本来就该是归一档 4095），
             //        ⚠️ 但它与 `TRAVEL_TARE` **没有任何机械联系** ⇒ ⭐ 改一处不会自动带动另一处
             //        （⭐ 它是归一档、`TRAVEL_TARE` 是行程档 ⇒ ⭐ 本来就不该相等 ⇒ ⛔ 不构成"两处真相"）
@@ -3216,7 +3222,7 @@ wire       fault_any_w;
         reg loop_play_on_r;
 
         //  ⭐⭐ 2026-09-29 新增：⭐ **当前音色**（⭐ 串口 `'I'` 每按一次循环下一档 ✅）
-        //   ⭐ 音色定义（⭐ `rtl/w3b/wavetable_bank.v:3` 原文）：
+        //   ⭐ 音色定义（⭐ `rtl/w3b/wavetable_bank.v:3` 原文（行号可能漂移，以符号为准））：
         //      ⭐ `0=BASS triangle` · ⭐ `1=GUITAR saw` · ⭐ `2=PIANO zero-DC 25% pulse` · ⭐ `3=PAD`
         //   🔴 **为什么加**：⭐ 原来 `note_manager.default_timbre_i` **写死 `2'd0`**
         //      ⇒ ⭐ **手弹永远只有 0 号（BASS 三角波）** ⇒ 🔴 **"4 个音色可以切换"这个需求没满足** ✅
@@ -3369,10 +3375,13 @@ wire       fault_any_w;
             //        🔴 **产生了 8 条伪事件**，其中
             //           `axis = 15`（⭐ **保留轴**）· `inc = 0x1FFFFF` · `kind = 0`（note_on）
             //
-            //   🔴 **为什么这是"挂音"的直接原因**：
-            //      ⭐ 伪事件是 **axis 14/15**（保留轴）且 **只有 note_on、没有 note_off**，
-            //      而**键盘（axis 0~13）永远不可能产生 axis 14/15 的 `note_off`**
-            //      ⇒ ⭐ **那个 voice 的 `gate_r` 永久为 1，⛔ 任何按键都清不掉** ✅
+            //   🔴 **为什么这是"挂音"的直接原因**（⭐ 2026-10-01 更正：⭐ 旧注释的两处依据
+            //      都已被代码推翻 —— ⛔ 不是"axis 14/15 保留轴"、⛔ 也不是"键盘只有 0~13"）：
+            //      ⭐ 伪事件带 **`score` 源**；⭐ 而 `note_off` 按 **`(axis, src)` 双条件**匹配
+            //      （⭐ `note_manager.v` 里按 `(axis, src)` 清 voice 的循环）⇒ ⭐ 手弹（`live`）的 `note_off`
+            //      **清不掉**它 ⇒ ⭐ **那个 voice 的 `gate_r` 永久为 1，⛔ 任何按键都清不掉** ✅
+            //      📌 **键盘实际是 16 轴 0~15**（⭐ `u_axis_map` 例化的 `.N_KEY(16)`）；
+            //         ⭐ 进保留池按**来源**、⛔ 不按轴号 ⇒ ⭐ 与"轴 14/15"无关
             //      📌 与用户实测完全吻合：「按同键不能清」「按所有键也不能清」
             //         「持续几分钟」「断电才清」「~50% 概率」「按一阵后累积」
             //
@@ -3434,7 +3443,7 @@ wire       fault_any_w;
         // ⭐⭐ 2026-10-01：⭐ **键盘打鼓模式**（⭐ `key_drum_r`，⭐ 串口 `'K'` 切换）
         //   ⭐ **布局依据**：⭐ `files/10-硬件/鼓垫.drawio.svg`（⭐ 用户提供的鼓垫图）
         //      ⭐ 16 键 = **2 板 × 8 通道**，⭐ 每板 2 行 × 4 列 ⇒ ⭐ **4 件乐器各占一个 2×2 块** ✅
-        //      ⭐ 轴号 = 片号×8 + 通道（⭐ 见 `axis_map.v:55`）⇒ ⭐ **板1 = 轴 0-7 · 板2 = 轴 8-15** ✅
+        //      ⭐ 轴号 = 片号×8 + 通道（⭐ 见 `axis_map.v` 的 `axis_id_i` 端口注释）⇒ ⭐ **板1 = 轴 0-7 · 板2 = 轴 8-15** ✅
         //      ⭐ 图上 CH 排布：⭐ **左两列 = CH4~CH7 · 右两列 = CH0~CH3** ✅
         //   ⇒ ⭐ **映射恰好是 `axis[3:2]` 两位切片**（⭐ 零逻辑 ✅）：
         //      | ⭐ `axis[3:2]` | ⭐ 轴号 | ⭐ 位置 | ⭐ 乐器 | ⭐ `phase_inc` |
@@ -3448,7 +3457,7 @@ wire       fault_any_w;
         //      ⇒ ⭐ **每只手都有一件高频使用 + 一件低频使用** ✅
         //   ⚠️🔴 **这 4 个常量必须与 `rtl/w3c/drum_gen.v` 的 `INC_*` 逐字一致** ——
         //      ⭐ 因为"**是不是鼓、是哪件鼓**"是靠 **`phase_inc` 的频率范围**判的
-        //      （⭐ `oscillator_bank.v:379-381`：`<10M` 底鼓 · `10M~15M` 嗵鼓 · `≥15M` 军鼓/踩镲）
+        //      （⭐ `oscillator_bank.v` 用 `base_inc` 就地分档：`<10M` 底鼓 · `10M~15M` 嗵鼓 · `≥15M` 军鼓/踩镲）
         //      ⇒ 🔴 **抄错一个数就静默变成另一件乐器** ⚠️
         //      ⇒ ⭐ **判据**：⭐ `tb/w3c/tb_key_drum.sv` 直接拿 `drum_gen` 的**实际输出**逐件比对 ✅
         //   📌 **本处是【有意重复】的常量** —— ⚠️ 单一来源修法（⭐ 把 `INC_*` 提成形参）留待后续；
@@ -3661,11 +3670,13 @@ wire       fault_any_w;
             .AGE_W       (16),
             // ⭐⭐ T33b: metronome + drum machine need a voice that user
             //      notes cannot steal.  metronome emits axis_id 4'hE, and
-            //      note_manager picks the reserved pool by that axis, so this
-            //      MUST be >= 1 or the metronome lands in the normal pool and
-            //      gets stolen the moment 32 voices sound.  It is deliberately
-            //      PAIRED with metronome.AXIS_ID (see u_metronome below)
-            //      (K-106 family: an unpaired setting fails silently).
+            //      note_manager picks the reserved pool by SOURCE
+            //      (src == SRC_AUX(3'd3) -- note_manager pool_mask assign), NOT by that
+            //      axis, so this MUST be >= 1 or the metronome lands in the
+            //      normal pool and gets stolen the moment 32 voices sound.
+            //      It is deliberately PAIRED with metronome.AXIS_ID (see
+            //      u_metronome below) (K-106 family: an unpaired setting
+            //      fails silently).
             .RESERVED_N  (5)
         ) u_note_manager (
             .clk_i             (clk),
@@ -3693,10 +3704,10 @@ wire       fault_any_w;
             .note_src_i        (mg_evt_src),
             // ⭐⭐ 2026-10-01：⭐ **T2 起始音（base note）** —— ⭐ 把【早就存在但悬空】的
             //    `ui_base_semi` / `ui_base_commit` 接上 ✅
-            //   📌 **背景**：⭐ `uart_ui` 一直在解析它们（⭐ `rtl/w3c/uart_ui.v:80`/`:82`），
-            //      `top.v` 也一直连着线（⭐ `:716`/`:750`/`:752`），
+            //   📌 **背景**：⭐ `uart_ui` 一直在解析它们（⭐ `rtl/w3c/uart_ui.v` 的 `mode_o`/`base_semi_o` 端口），
+            //      `top.v` 也一直连着线（⭐ `u_uart_ui` 例化的 `ui_base_semi`/`ui_base_commit`），
             //      🔴 但**全 `rtl/` 里没有任何地方读它** ⇒ ⭐ **一根悬空线** ⚠️ ⇒ ⭐ **T2 = 把它接上** ✅
-            //   ⭐ **语义**（⭐ `uart_ui.v:252` 原文）：⭐ "起始音：限定八度级（每 12 半音取整）"
+            //   ⭐ **语义**（⭐ `uart_ui.v` 的 `RET_NUM` 分支原文）：⭐ "起始音：限定八度级（每 12 半音取整）"
             //      ⇒ ⭐ **`base_semi` = 八度数 × 12**（⭐ `0` = C4 · `12` = C5 · `24` = C6 ✅）
             //   ⚠️ **安全重做**（⭐ 按 `files/00-总览/交接文档-20260930-补遗.md:54` 的 ①②③）
             //      —— ⭐ **换算、旁路 mux、范围校验都在 `note_manager` 内部** ✅
@@ -3815,7 +3826,7 @@ wire       fault_any_w;
             //         ⚠️ 失谐改变音色（⭐ 两 lane 拍频 1.72 Hz ⇒ 每秒 1.72 次起伏）
             //         ⇒ ⭐ **用户主观听感需要能对比** ⇒ ⭐ 必须可切。
             //      ⭐ 默认 **1**（⭐ 开启，⭐ 与 `oscillator_bank` 的默认一致）。
-            //      📌 关联：⭐ 若"太厚" ⇒ ⭐ 调 `oscillator_bank.DETUNE_SH`（⭐ 8→9/10 偏移更小）。
+            //      📌 关联：⭐ 若"太厚" ⇒ ⭐ 调 `oscillator_bank.DETUNE_SH`（⭐ **9→10**，⭐ 当前交付值已是 9，见 `parameter integer DETUNE_SH`）。
             .DETUNE_ON     (DETUNE_ON),
             //   ⭐⭐ **2026-09-28 新增：⭐ 失谐深度透传**（⭐ `Minimal-A` 的第 ① 项）
             //      ⭐ 默认 **9**（⭐ 原 `oscillator_bank` 内部默认是 8）
@@ -3837,7 +3848,7 @@ wire       fault_any_w;
             //         ⚠️ 而 15M 的旧上界会把它判成"军鼓/踩镲"档 ⇒ 🔴 **扫频直接没了** ⚠️
             //      ⚠️ **影响面**：⭐ [167.6, 223) Hz 从"军鼓/踩镲"改判成"嗵鼓"
             //         ⇒ ⭐ 而**军鼓 480 Hz、踩镲 1920 Hz** 都远在上界之上 ⇒ ⛔ **无冲突** ✅
-            //      📌 **自检**：⭐ `oscillator_bank.v:773` 的"扫频深度截断"自检**只守 `DRUM_KICK_MAX`**
+            //      📌 **自检**：⭐ `oscillator_bank.v` 的 `sweep_q`"扫频深度截断"自检**只守 `DRUM_KICK_MAX`**
             //         ⇒ ⭐ 抬高 `DRUM_TOM_MAX` **不会**触发它 ✅
             //   ⭐ **② `DRUM_TOM_SWEEP_SH` 2 → 3**（⭐ 嗵鼓扫频深度 1/4 → **1/8**）
             //      ⭐ **为什么**：⭐ 让嗵鼓的"音高下滑"**更少** ⇒ ⭐ 与底鼓（⭐ **全深度** `>>0`）
@@ -3864,10 +3875,10 @@ wire       fault_any_w;
             .base_phase_inc_i   (nm_phase),
             .voice_timbre_i     (nm_timbre),
             //  ⭐⭐ 2026-09-29 新增（⭐ 鼓机噪声波表 · 阶段 2a）：⭐ **鼓 voice 走噪声表** ✅
-            //   ⭐ 语义：⭐ `axis_r[i] >= RESERVED_AXIS` ⇒ ⭐ 打击乐 ⇒ ⭐ 读噪声表
+            //   ⭐ 语义：⭐ **来源为 `SRC_AUX`** ⇒ ⭐ 打击乐 ⇒ ⭐ 读噪声表
             //   ⚠️ **副作用（⭐ 必须知道）**：⭐ 保留轴位有**两个**（⭐ 14 = 节拍器、
             //      15 = 鼓机）⇒ ⭐ **节拍器的"嘀嗒"也会变成噪声** ✅
-            //      📌 这是本阶段判据（⭐ `axis_r[i] >= RESERVED_AXIS`）的**直接推论**，
+            //      📌 这是本阶段判据（⭐ `src_r[i] == SRC_AUX`）的**直接推论**，
             //         ⭐ 且听感上"节拍器 = 噪声 click"通常**更接近真实节拍器** ⇒
             //         ⭐ 暂按现状保留，⛔ 不为此再引入第三条标志线（⭐ 保持最小改动 ✅）
             .voice_drum_i       (nm_drum),
@@ -3911,7 +3922,7 @@ wire       fault_any_w;
         //
         //   ⭐ **为什么键盘音量不受影响**（⭐ 已核实，⛔ 不是猜）：
         //      `tdm_render_mixer` 的归一化 `popcount` **本来就排除保留池**
-        //      （`.RESERVED_N` ⇒ `NORMAL_N`，⭐ 见 `tdm_render_mixer.v:449-476`：
+        //      （`.RESERVED_N` ⇒ `NORMAL_N`，⭐ 见 `tdm_render_mixer.v` 的 `NORMAL_N` 定义：
         //       *"🔴 根因：`voice_active_i` 包含保留池"*）
         //      ⇒ ⭐ 节拍器响不响都**不改变 `1/√N`** ✅
         //
@@ -3929,7 +3940,7 @@ wire       fault_any_w;
         //      ⇒ ⭐ 强拍(180) ≈ **14.1 ms** · 弱拍(108) ≈ **8.5 ms**（⭐ 打击乐的量级）
         //      📌 **2026-09-30 同步更新**：⭐ 节拍器力度 `120/72 ⇒ 180/108`
         //         （⭐ 用户："节拍器的声音有一点太小了"）⇒ ⭐ 两个时长**跟着变长**
-        //         （⭐ 衰减时长 ∝ 峰值 —— ⭐ 见 `perc_env_bank.v:58-64`）✅
+        //         （⭐ 衰减时长 ∝ 峰值 —— ⭐ 见 `perc_env_bank.v` 的 `DECAY_STEP`）✅
         //         ⚠️ 改力度**必须同时改本注释**（⭐ 本项目"注释↔代码不一致"是复发缺陷）✅
         // ═══════════════════════════════════════════════════════════════════
         //  ⚠️ 下面这个 5 **必须**与 `u_note_manager` / `u_tdm_render_mixer` 的
@@ -4371,7 +4382,7 @@ wire       fault_any_w;
     //   ⚠️ **作用域纪律**（⭐ 第一次就栽在这 ✅）：⭐ `fault_any_w` 由 `g_sound` 块内的
     //      `assign` 驱动（⭐ 那里 `af_fault`/`mx_fault` 才可见 ✅）⇒ ⭐ 本块**只引它** ✅
     //   📌 **它的声明在【模块级、`generate` 之前】**（⭐ 见上方 `txf_*` 那批 wire 的后面 ✅）
-    //      —— ⚠️ 一开始我声明在这里（⭐ `:4136`）⇒ 🔴 **声明晚于使用** ⇒ ⭐ 工具隐式建 wire
+    //      —— ⚠️ 一开始我声明在心跳灯那段 ⇒ 🔴 **声明晚于使用** ⇒ ⭐ 工具隐式建 wire
     //      ⇒ ⚠️ `warning: implicit definition`（⭐ `default_nettype none` 下会变硬错误 ✅）
 
     reg fault_sticky;
