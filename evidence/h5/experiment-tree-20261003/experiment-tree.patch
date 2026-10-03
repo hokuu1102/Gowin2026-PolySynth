@@ -1,0 +1,394 @@
+﻿diff --git a/constr/top.cst b/constr/top.cst
+index aeecd57..5b26995 100644
+--- a/constr/top.cst
++++ b/constr/top.cst
+@@ -439,4 +439,21 @@ IO_PORT "hpd_en" PULL_MODE=UP DRIVE=12 BANK_VCCIO=3.3;
+ // loose (non-exclusive) region is used first.
+ // ---------------------------------------------------------------------------
+ GROUP h5_ret = { "tx_byte_*" "u_tx_fifo/*" "g_sound.u_calib_span/reject_o_*" };
+-GRP_LOC h5_ret R[45:73]C[1:148];
+\ No newline at end of file
++GRP_LOC h5_ret R[45:73]C[1:148];
++// ---------------------------------------------------------------------------
++// 2026-10-02: stop the H5 display logic from disturbing the audio placement,
++// and pull the reset synchronizer back towards its load centroid.
++//
++// Evidence (this build's timing report path details):
++//   u_rst_sync/sync_chain_1_s0/Q   R73C54   FANOUT = 12805 (!)
++//     -> g_sound.u_test_mode_ctrl/gen_test_voice[20].selected_s1/I3  R31C8
++//   i.e. the reset net crosses 42 rows / 46 columns; one net segment alone
++//   costs 4.713 ns, and the worst clk_sys path (slack +0.034) is
++//   u_rst_sync -> u_envelope_bank/.../env_level_o.
++//   u_hdmi/u_scope/wr_gray_1_s0 sits at R33C69.
++//
++// Two groups, both deliberately non-exclusive (the design is ~91% CLS full):
++GROUP rst_sync_grp = { "u_rst_sync/*" };
++GRP_LOC rst_sync_grp R[28:40]C[50:80];
++
++// ---------------------------------------------------------------------------
+diff --git a/constr/top.sdc b/constr/top.sdc
+index 6d18b1a..b374b94 100644
+--- a/constr/top.sdc
++++ b/constr/top.sdc
+@@ -74,3 +74,57 @@ set_false_path -from [get_ports {rst_n}]
+ # H5: same PLL divisors as verified 640x480 bringup; CDC remains timed.
+ create_generated_clock -name serial_clk -source [get_ports {clk}] -master_clock clk_sys -divide_by 8 -multiply_by 20 [get_pins {u_hdmi/u_clk/u_pll/CLKOUT0}]
+ create_generated_clock -name pixel_clk -source [get_ports {clk}] -master_clock clk_sys -divide_by 40 -multiply_by 20 [get_pins {u_hdmi/u_clk/u_pll/CLKOUT1}]
++
++# ─────────────────────────────────────────────────────────────────────────────
++# 2026-10-02：**定向** CDC false path（⭐ 只切异步复位，⛔ 不切功能路径）
++#
++# 🔴 问题（⭐ PnR 实测，随布局在三种接法之间来回跳）：
++#    · `u_rst_sync/sync_chain_1_s0/Q → u_hdmi/u_serializer/lanes[*].u_oser/RESET`
++#      `clk_sys:[R] → pixel_clk:[R]`  hold **−0.053**（⭐ 复位同步器被搬近之后）
++#    · 把 RESET 改由像素域驱动后变成
++#      `pixel_clk:[R] → serial_clk:[F]`  setup **−0.516**
++#    · 再给 RESET 加 serial 域同步器后变成
++#      `u_rst_sync/…/Q → u_hdmi/u_serializer/rst_serial_*_s0/PRESET`
++#      `clk_sys:[R] → serial_clk:[R]`  hold **−0.178**
++#    ⇒ ⭐ **OSER10 的 RESET 是被 FCLK 采样的异步控制**，它跨域是**设计使然**，
++#      ⭐ 任何"数据路径式"的检查都只会换个域再报一次 ✅
++#
++# ✅ 为什么这条 false path 是**正当**的（⛔ 与"给 scan→best 加 false path"不同类）：
++#    · ⛔ **不是**功能数据路径 —— OSER10 的 RESET 是**异步复位**，只在配置/上电时动，
++#      ⭐ 它不携带任何需要逐拍满足建立保持的数据 ✅
++#    · ⛔ **没有**放宽任何功能时钟：`clk_sys` 的 20 ns、`serial_clk` 的 4 ns、
++#      `pixel_clk` 的 40 ns 全部保留 ✅
++#    · 📌 **只切这一个终点的这条源**（⭐ `-to` 精确到序列化器），
++#      ⭐ ADSR 的**同步**复位（`if (!rst_n_i)` 在时钟块内，是真实功能路径）
++#      ⛔ **不受影响，仍被完整分析** ✅
++#    · 📌 与既有 `set_false_path -from [get_ports {rst_n}]`（第 71 行）同源同理：
++#      那条切的是**输入端口**，这条切的是**同步器输出到异步 RESET 引脚**的那一段 ✅
++# ─────────────────────────────────────────────────────────────────────────────
++# ⛔ 2026-10-02 **实测：下面这条写法 Gowin 不接受**（⛔ 不是"生效但无效"，是直接报错）：
++#    set_false_path -from [get_pins {u_rst_sync/sync_chain_1_s0/Q}] -to [get_pins {u_hdmi/u_serializer/*}]
++#    ⇒ `ERROR (TA2003): "constr/top.sdc":103 | Can't set timing constraint to object`
++#    ⚠️ 但**不能据此断定是通配符的错**：SUG940 §5.1 明确支持 `*` 跨层级匹配
++#    ⇒ 该对象选择表达式被拒绝的**具体原因尚未查清**（记录里原来的 P8 结论已作废）。
++#
++# ─────────────────────────────────────────────────────────────────────────────
++# 2026-10-02（按 codex 只读诊断的建议）：**精确限定入口**的例外
++#
++# 🔴 B5 的两条负值位于 Removal Paths Table，终点是 serial 域同步器的 **PRESET**：
++#    `u_rst_sync/sync_chain_1_s0/Q → u_hdmi/u_serializer/rst_serial_{0,1}_s0/PRESET`
++#    `clk_sys:[R] → serial_clk:[R]`  slack −0.178
++#    ⚠️ 这是**异步置位**入口（`rst_serial` 用 `posedge rst` 置位、serial 时钟同步释放），
++#      两级同步器的结构本身是正确的 ⇒ 只对"同步器入口"这一个终点做例外。
++#
++# ✅ **必须保留的检查**（⛔ 不得被这几条例外波及）：
++#    · `rst_serial_0_s0/Q → rst_serial_1_s0/D`（同步器级间时序）
++#    · `rst_serial_1_s0/Q → lanes[*].u_oser/RESET` 的 **recovery / removal**
++#      （⚠️ B5 报告里最差 recovery 只有 **+0.056 ns**，⛔ 不能隐藏）
++#    · pixel 域复位同步器（`u_hdmi/reset_pipe`）内部及其后级检查
++# ⛔ 也不要改成整个 `clk_sys→serial_clk` 时钟对的 false path，或直接切 4 个 OSER10 RESET。
++#
++# 📌 语法依据：SUG940 §5.4.1（`set_false_path` / `get_regs` / `get_pins`）；
++#    两个端点名已在 B5 报告 `Gowin2026_tr_content.html` 中核实。
++#    ⚠️ codex 受"只读"限制**未在本机做语法试验**，本轮构建即是它的验证。
++# ─────────────────────────────────────────────────────────────────────────────
++set_false_path -from [get_regs {u_rst_sync/sync_chain_1_s0}] -to [get_pins {u_hdmi/u_serializer/rst_serial_0_s0/PRESET}]
++set_false_path -from [get_regs {u_rst_sync/sync_chain_1_s0}] -to [get_pins {u_hdmi/u_serializer/rst_serial_1_s0/PRESET}]
+diff --git a/rtl/hdmi/hdmi_scope.v b/rtl/hdmi/hdmi_scope.v
+index 8fbc67d..3168caa 100644
+--- a/rtl/hdmi/hdmi_scope.v
++++ b/rtl/hdmi/hdmi_scope.v
+@@ -34,6 +34,12 @@ module hdmi_scope (
+         .de(scope_de), .c0(1'b0), .c1(1'b0), .symbol(green));
+     tmds_encoder u_red (.clk(pixel_clk), .rst_n(video_reset_n), .data(r),
+         .de(scope_de), .c0(1'b0), .c1(1'b0), .symbol(red));
++    // 2026-10-02: the OSER10 RESET is sampled by FCLK (serial_clk), so the reset
++    // itself is now synchronized into the serial domain inside tmds_serializer.
++    // The source stays the raw clk_sys reset: that is the combination the
++    // earlier 0-violation builds used, and it removes the clk_sys -> pixel_clk
++    // hold path that appeared when the reset synchronizer was moved closer
++    // (u_rst_sync -> u_hdmi/u_serializer/lanes[*].u_oser/RESET, slack -0.053).
+     tmds_serializer u_serializer (.pixel_clk(pixel_clk), .serial_clk(serial_clk),
+         .rst(!rst_n), .blue(blue), .green(green), .red(red),
+         .tmds_d_p_0(tmds_d_p_0), .tmds_d_n_0(tmds_d_n_0),
+diff --git a/rtl/hdmi/tmds_serializer.v b/rtl/hdmi/tmds_serializer.v
+index 5798078..9d2fa9f 100644
+--- a/rtl/hdmi/tmds_serializer.v
++++ b/rtl/hdmi/tmds_serializer.v
+@@ -17,6 +17,21 @@ module tmds_serializer (
+     assign lane[1] = green;
+     assign lane[2] = red;
+     assign lane[3] = 10'b0000011111;
++
++    // 2026-10-02: the OSER10 RESET is sampled by FCLK (serial_clk, 4 ns period).
++    // Feeding it straight from another domain produced, in turn:
++    //   clk_sys   -> pixel_clk  hold   -0.053  (raw !rst_n from hdmi_scope)
++    //   pixel_clk -> serial_clk setup  -0.516  (video_reset_n from hdmi_scope)
++    // Both are cross-domain checks on an asynchronous reset.  Synchronizing the
++    // reset into serial_clk here (2 FFs, reset released in the serial domain)
++    // makes every check serial_clk -> serial_clk while keeping the primitive's
++    // asynchronous assertion, which is the intended use of an OSER10 RESET.
++    reg [1:0] rst_serial;
++    always @(posedge serial_clk or posedge rst) begin
++        if (rst) rst_serial <= 2'b11;
++        else     rst_serial <= {rst_serial[0], 1'b0};
++    end
++
+     genvar j;
+     generate for (j=0; j<4; j=j+1) begin : lanes
+         OSER10 u_oser (
+@@ -24,7 +39,7 @@ module tmds_serializer (
+             .D2(lane[j][2]), .D3(lane[j][3]), .D4(lane[j][4]),
+             .D5(lane[j][5]), .D6(lane[j][6]), .D7(lane[j][7]),
+             .D8(lane[j][8]), .D9(lane[j][9]),
+-            .PCLK(pixel_clk), .FCLK(serial_clk), .RESET(rst)
++            .PCLK(pixel_clk), .FCLK(serial_clk), .RESET(rst_serial[1])
+         );
+         if (j < 3) begin : data_pair
+             TLVDS_OBUF u_diff (.I(serial[j]), .O(tmds_d_p_0[j]), .OB(tmds_d_n_0[j]));
+diff --git a/rtl/hdmi/waveform_scope.v b/rtl/hdmi/waveform_scope.v
+index b4f2b2b..dc94c17 100644
+--- a/rtl/hdmi/waveform_scope.v
++++ b/rtl/hdmi/waveform_scope.v
+@@ -75,33 +75,115 @@ module waveform_scope (
+     endfunction
+ 
+     reg [8:0] frame_y [0:1023];
+-    reg [9:0] copy_base, copy_index, copy_index_q;
+-    reg copying, copy_valid_q, frame_ready;
+-    reg signed [23:0] history_q;
++    // -----------------------------------------------------------------------
++    // Snapshot with an AUDIO-TRIGGERED window start (2026-10-02, H5 fix).
++    //
++    // Old behaviour: copy a fixed 640-sample window from wr_seen-640. The frame
++    // period (16.683 ms) is longer than the window (13.107 ms), so every frame
++    // showed the waveform at a different horizontal phase (~260 px per frame at
++    // 523 Hz). The LCD / camera afterglow of the previous frame was therefore
++    // visible as a SECOND TRACE. Offline proof (dump of two full frames):
++    // one frame holds exactly one trace (640/640 columns with one green run),
++    // while consecutive frames differ by a -260 px horizontal shift.
++    //
++    // New behaviour: scan the ring for the first rising zero crossing and start
++    // the displayed window there, so every frame is phase aligned and the
++    // afterglow lands on top of the trace (a triggered scope).
++    //
++    // Budget: <= 320 scan reads + 640 fill reads = 960 pixel clocks = 38 us,
++    // started on the first blanking line (y=480). Vblank is 45 lines = 1.43 ms,
++    // and the oldest read is 960 samples behind the write pointer, so both the
++    // video timing and the ring content stay safe.
++    // -----------------------------------------------------------------------
++    localparam [9:0] SCAN_BACK = 10'd960;   // oldest window start = wr_seen-960
++    localparam [9:0] TRIG_MAX  = 10'd320;   // latest window start = wr_seen-640
++
++    localparam [1:0] CP_IDLE = 2'd0, CP_SCAN = 2'd1, CP_FILL = 2'd2;
++
++    reg [1:0]  cp_state;
++    reg [9:0]  scan_base, scan_i, scan_i_q;
++    reg [9:0]  fill_base, fill_i, fill_i_q;
++    reg        fill_rd_q;
++    reg        frame_ready;
++    reg signed [23:0] history_q, prev_q;
++    // The read pipeline is one cycle deep, so the first two scan steps would
++    // compare against a sample left over from the previous window (a stale
++    // history_q / the reset prev_q). That produced a false "crossing" at
++    // scan_i_q=0 and broke the phase lock. Comparisons are therefore enabled
++    // only from the third scan step, when both operands come from this window.
++    reg [1:0]  scan_warm;
++
++    wire [9:0] history_addr = (cp_state == CP_SCAN) ? (scan_base + scan_i)
++                                                   : (fill_base + fill_i);
++    wire       history_re   = (cp_state == CP_SCAN) || (cp_state == CP_FILL);
++    // rising zero crossing between the two most recently read samples
++    wire       crossing     = (prev_q < 24'sd0) && (history_q >= 24'sd0);
++
+     // Snapshot only in vertical blanking. The image is immutable during all
+     // 480 active lines; a ring wrap can never splice two different frames.
+     always @(posedge pixel_clk) begin
+         if (!pixel_rst_n) begin
+-            copy_base <= 0; copy_index <= 0; copy_index_q <= 0;
+-            copying <= 0; copy_valid_q <= 0; frame_ready <= 0;
++            cp_state  <= CP_IDLE;
++            scan_base <= 10'd0; scan_i <= 10'd0; scan_i_q <= 10'd0;
++            fill_base <= 10'd0; fill_i <= 10'd0; fill_i_q <= 10'd0;
++            fill_rd_q <= 1'b0;  frame_ready <= 1'b0;
++            prev_q    <= 24'sd0;
++            scan_warm <= 2'b00;
+         end else begin
+-            copy_valid_q <= copying;
+-            if (x_i == 0 && y_i == 480 && full_sync) begin
+-                copy_base <= wr_seen - 10'd640;
+-                copy_index <= 0;
+-                copying <= 1;
+-            end else if (copying) begin
+-                copy_index <= copy_index + 1'b1;
+-                if (copy_index == 639) copying <= 0;
+-            end
+-            if (copying) copy_index_q <= copy_index;
+-            if (copy_valid_q && copy_index_q == 639) frame_ready <= 1;
++            case (cp_state)
++                CP_IDLE: begin
++                    fill_rd_q <= 1'b0;
++                    if (x_i == 0 && y_i == 480 && full_sync) begin
++                        scan_base <= wr_seen - SCAN_BACK;
++                        scan_i    <= 10'd0;
++                        scan_i_q  <= 10'd0;
++                        prev_q    <= 24'sd0;
++                        scan_warm <= 2'b00;
++                        cp_state  <= CP_SCAN;
++                    end
++                end
++
++                CP_SCAN: begin
++                    scan_i    <= scan_i + 10'd1;
++                    scan_i_q  <= scan_i;
++                    prev_q    <= history_q;
++                    fill_rd_q <= 1'b0;
++                    scan_warm <= {scan_warm[0], 1'b1};
++                    if (crossing && (scan_warm == 2'b11)) begin
++                        // the crossing sample (index scan_i_q) becomes column 0
++                        fill_base <= scan_base + scan_i_q;
++                        fill_i    <= 10'd0;
++                        fill_i_q  <= 10'd0;
++                        cp_state  <= CP_FILL;
++                    end else if (scan_i >= TRIG_MAX) begin
++                        // no crossing (silence / DC): fall back to the latest
++                        // legal window start so 640 samples are still filled
++                        fill_base <= scan_base + TRIG_MAX;
++                        fill_i    <= 10'd0;
++                        fill_i_q  <= 10'd0;
++                        cp_state  <= CP_FILL;
++                    end
++                end
++
++                CP_FILL: begin
++                    fill_rd_q <= 1'b1;
++                    fill_i    <= fill_i + 10'd1;
++                    fill_i_q  <= fill_i;
++                    if (fill_i == 10'd639) cp_state <= CP_IDLE;
++                end
++
++                default: cp_state <= CP_IDLE;
++            endcase
++            // frame_ready is raised one cycle after the last frame_y write.
++            // It lives in this block (with the reset) so the register has a
++            // single driver.
++            if (fill_rd_q && (fill_i_q == 10'd639)) frame_ready <= 1'b1;
+         end
+     end
+-    wire [9:0] history_addr = copy_base + copy_index;
++
+     always @(posedge pixel_clk) begin
+-        if (copying) history_q <= history[history_addr];
+-        if (copy_valid_q) frame_y[copy_index_q] <= sample_y(history_q);
++        if (history_re) history_q <= history[history_addr];
++        if (fill_rd_q)  frame_y[fill_i_q] <= sample_y(history_q);
+     end
+ 
+     reg [8:0] point_q, previous_y;
+diff --git a/rtl/w3b/adsr.v b/rtl/w3b/adsr.v
+index 50ee3d2..3c50822 100644
+--- a/rtl/w3b/adsr.v
++++ b/rtl/w3b/adsr.v
+@@ -94,10 +94,38 @@ module adsr #(
+         end
+     endfunction
+ 
+-    wire [ENV_W:0] attack_step_u  = attack_for_timbre(timbre_i);
+-    wire [ENV_W:0] decay_step_u   = decay_for_timbre(timbre_i);
+-    wire [7:0]     sustain_q8_u   = sustain_for_timbre(timbre_i);
+-    wire [ENV_W:0] release_step_u = release_for_timbre(timbre_i);
++    //  ⭐⭐ 2026-10-02：⭐ **按音色参数也【打一拍】**（⭐ 收敛时序，代修）
++    //
++    //  🔴 **问题（⭐ PnR 实测，⛔ 不是推测）** ——
++    //     最差 `clk_sys` 路径是
++    //        `g_sound.tm_n_code_r_1_s0/Q
++    //      → g_sound.u_envelope_bank/g_voice_envelope[9].u_adsr/env_level_o_14_s0/D`
++    //     `Path Slack = 0.025`、`Data Delay = 19.926`（⭐ 周期 20 ns）。
++    //     ⚠️ 这一级的组合来源就是下面这四个 `*_for_timbre` 查表
++    //        （⭐ 其中 `sustain_q8_u` 直接喂乘法器，⭐ 其余三个直接进电平算术）——
++    //        ⭐ **与本文件下方 `sustain_product_r` 的注释同源**：当年只给乘法器打了拍，
++    //        ⭐ 查表这一段仍是组合的 ✅
++    //
++    //  ⭐ **语义为什么不变**：⭐ 与下方 `sustain_product_r` **完全同一个理由** ——
++    //     `timbre_i` 由 `note_manager` **按 voice 锁存**、⭐ 在整条音符期间不变；
++    //     而 `sample_tick_i` 每 `CLK_PER_SAMPLE` = 1024 拍才来一次
++    //     ⇒ ⭐ 打一拍**不影响任何可观测结果**（⭐ 起音/衰减走到持续音要几十个 tick）✅
++    //  📌 写成"**寄存的查表**"⇒ ⭐ 综合器会把四个 case 放在寄存器前面，
++    //     ⭐ 把 `timbre_i` 的长走线从关键路径上摘掉 ✅
++    //  ⚠️ 未接 `timbre_i` 的旧包装（⭐ 值为 Z）走函数的 `default:` 分支，
++    //     ⭐ 与改动前**逐拍一致**，⭐ 旧测试仍然有效 ✅
++    reg [ENV_W:0] attack_step_r, decay_step_r, release_step_r;
++    reg [7:0]     sustain_q8_r;
++    always @(posedge clk_i) begin
++        attack_step_r  <= attack_for_timbre(timbre_i);
++        decay_step_r   <= decay_for_timbre(timbre_i);
++        sustain_q8_r   <= sustain_for_timbre(timbre_i);
++        release_step_r <= release_for_timbre(timbre_i);
++    end
++    wire [ENV_W:0] attack_step_u  = attack_step_r;
++    wire [ENV_W:0] decay_step_u   = decay_step_r;
++    wire [7:0]     sustain_q8_u   = sustain_q8_r;
++    wire [ENV_W:0] release_step_u = release_step_r;
+ 
+     // Release is represented by a flag so all four named ADSR phases remain
+     // visible while keeping the externally observable interface minimal.
+diff --git a/tb/hdmi/tb_waveform_scope.sv b/tb/hdmi/tb_waveform_scope.sv
+index 30fbcd9..d9867a2 100644
+--- a/tb/hdmi/tb_waveform_scope.sv
++++ b/tb/hdmi/tb_waveform_scope.sv
+@@ -17,7 +17,9 @@ module tb_waveform_scope;
+         .r_o(r), .g_o(g), .b_o(b), .de_o(de_o), .hs_o(hs_o), .vs_o(vs_o));
+     integer history_model[0:1023];
+     integer image[0:639];
++    integer image_sample[0:639];
+     integer written=0, checks=0, greens=0, grays=0;
++    integer trig_checks=0, trig_fails=0;
+     reg ready_model=0;
+     reg [23:0] expected_previous=0;
+     reg expected_de=0, expected_hs=1, expected_vs=1;
+@@ -84,11 +86,39 @@ module tb_waveform_scope;
+         end
+     endtask
+     task snapshot;
+-        integer n;
++        integer n, k, base, found, prev, cur;
+         begin
+             // Let the pointer synchronization settle before the blank marker.
+             repeat(8) pixel(799,524);
+-            for(n=0;n<640;n=n+1) image[n]=map_y(history_model[(written-640+n)%1024]);
++            // Triggered window (waveform_scope, 2026-10-02): the copy scans the
++            // ring tail for the FIRST RISING ZERO CROSSING and starts the
++            // displayed window there, so consecutive frames are phase aligned
++            // and the panel/camera afterglow lands on the trace instead of
++            // showing a second, shifted waveform.
++            // Scan starts at written-960 and may advance at most 320 samples;
++            // if no crossing is found (silence / DC) the latest legal window
++            // start (written-640) is used, exactly like the RTL fallback.
++            base  = (written - 960 + 1024) % 1024;
++            found = 320;
++            for(k=1;k<=320;k=k+1) begin
++                prev = history_model[(base + k - 1) % 1024];
++                cur  = history_model[(base + k) % 1024];
++                if(prev < 0 && cur >= 0) begin found=k; k=321; end
++            end
++            for(n=0;n<640;n=n+1) begin
++                image_sample[n] = history_model[(base + found + n) % 1024];
++                image[n]        = map_y(image_sample[n]);
++            end
++            // Independent invariant: the displayed window must start on a
++            // rising zero crossing (or on the documented fallback start).
++            if(found < 320) begin
++                if(!(history_model[(base + found - 1) % 1024] < 0 &&
++                     history_model[(base + found) % 1024] >= 0)) begin
++                    $display("FAIL: window does not start on a rising zero crossing (found=%0d)",found);
++                    trig_fails=trig_fails+1;
++                end
++                trig_checks=trig_checks+1;
++            end
+             pixel(0,480);
+             for(n=1;n<800;n=n+1) pixel(n,480);
+             ready_model=1;
+@@ -130,6 +160,9 @@ module tb_waveform_scope;
+         ready_model=0;expected_previous=0;expected_de=0;expected_hs=1;expected_vs=1;
+         pixel_rst_n=1;sample_rst_n=1;
+         pixel(0,240);pixel(1,240);pixel(799,524);pixel(799,524);
++        if(trig_fails!=0)
++            $fatal(1,"FAIL: %0d triggered-window invariant violations",trig_fails);
++        $display("PASS: triggered window started on a rising zero crossing in %0d snapshots",trig_checks);
+         $display("PASS: waveform_scope %0d pixel checks, silence/DC/sine/square/fullscale/rounding, wrap, DE/sync, reset",checks);
+         $finish;
+     end

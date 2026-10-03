@@ -1,0 +1,459 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// constr/top.cst · 引脚约束（Sipeed Tang Console 60K）
+//
+// ⭐ 引脚以 Tang Console 60K 的官方 `.cst` 与原理图为准；
+//    ⛔ 不得沿用历史 Tang Mega NEO Dock / 基石板的引脚结论。
+//
+// ⭐ 本文件写"当前【实际分配】的全部脚" —— 🔴 **唯一真值是下面的 `IO_LOC` 行**，
+//    ⚠️ 注释可能与代码不一致（⭐ 本文件历史上出过 3 次）。
+//    ✅ 已补：左右手区 ADC（SPI ×6 片位）· `TLC5916` LED · UART · 外置 DAC · 拨弦。
+//    🔴 仍未分配（⭐ 等接口定稿）：编码器 / 辅助按键 / 延音踏板 / 通用控制板 / HDMI。
+//    📌 换板（NEO Dock → Console）后【插哪些座】尚未重定义 ⇒ 见
+//       `files/10-硬件/Console引脚与控制接口总表-20261001.md` §三。
+// ─────────────────────────────────────────────────────────────────────────────
+
+//====== SYS ======
+// 系统时钟 50 MHz（⛔ 不是旧基石板的 F13）
+IO_LOC  "clk"   V22;
+IO_PORT "clk"   IO_TYPE=LVCMOS33 PULL_MODE=NONE BANK_VCCIO=3.3;
+
+// 复位按钮（官方示例的复位脚；⚠️ 原候选 Y12 其实是 Key_in[1]）
+IO_LOC  "rst_n" AA13;
+IO_PORT "rst_n" IO_TYPE=LVCMOS15 PULL_MODE=UP BANK_VCCIO=1.5;
+
+// ⭐⭐ 音色切换按键（S2，2026-09-29 合并 · 用户裁定方案 B）
+//   ⭐ AB13 = EX_KEY.1 / Key_in[1] / S2（Tang Console 60K 官方 .cst）
+//   🔴 **必须 LVCMOS15 + BANK_VCCIO=1.5** —— AB13 属 BANK9（与 rst_n/AA13 同 bank）
+//      ⚠️ 写 3.3 V 会与同 bank 冲突、并可能损伤 IO。
+//   ⭐ PULL_MODE=UP ⇒ 空闲 = 1、按下 = 0 ⇒ 与 rtl 的 ACTIVE_LOW=1 一致。
+//   ⭐ 语义：⭐ 按一下 **循环 BASS → GUITAR → PIANO → PAD → BASS**（⭐ 只影响【新按下】的音 ✅）
+//   🔴 **原用途已让出**：⭐ 2026-09-28 它曾是**节拍器开关**（用户拍板）⇒
+//      ⭐ 2026-09-29 用户裁定改为**音色按键** ⇒ ⭐ 节拍器改走**串口命令 `'B'`** ✅
+//   ⚠️ 跨线冲突：ESP32 线原计划用 AB13 做"起播按键" ⇒ 仍标注"被占用"。
+IO_LOC  "timbre_btn_i" AB13;
+IO_PORT "timbre_btn_i" IO_TYPE=LVCMOS15 PULL_MODE=UP BANK_VCCIO=1.5;
+
+//====== AUDIO ======（板载 DAC = PT8211-S + 功放 NS4263，⛔ 不需要 MCLK）
+IO_LOC  "HP_BCK" Y17;
+IO_PORT "HP_BCK" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "HP_WS"  AB17;
+IO_PORT "HP_WS"  IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "HP_DIN" AA16;
+IO_PORT "HP_DIN" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+//====== AUDIO · ⭐⭐ 外置 DAC（`PCM5102A`，⭐ 2026-09-25 新增 · 路线 A）======
+//   🔴 **为什么加**（`U-26`）：⭐ 用户**没有喇叭** ⇒ ⭐ 必须走外置 DAC 接**有源音箱**。
+//
+//   ⭐⭐ **路线 A：两路并存**（⭐ 用户 2026-09-25 拍板）
+//      · ⭐ 板载 `MAX98357A`（`HP_*`）那一路**完全不动** ⇒ ⭐ 两路同时可用
+//      · ⚠️ 代价：⭐ 多占 3 个引脚（`PMOD1_IO3/4/5`）
+//
+//   ⭐ **引脚出处（⭐ 两处已核对）**：
+//      · `files/10-硬件/板卡替换评估/引脚预算核算.md`（⭐ 规划表）
+//      · ⭐ Console 原理图（⭐ 物理核对：行 466/471/473 → `F20`/`E22`/`D22`）
+//      📌 `PMOD1` 全排：`W19 W20 F19 F20 E22 D22 E21 D21`
+//         · ⭐ `IO0/1/2`（`W19`/`W20`/`F19`）⇒ ⭐ **当前【空】** ✅
+//            🔴 2026-10-01 更正：旧注释写"已被 SPI 占用" —— ⚠️ **错**，SPI 走 `J9`，这三根从未分配
+//         · ⭐ `IO3/4/5`（`F20`/`E22`/`D22`）⇒ ✅ **本处使用**（外置 DAC I2S）
+//         · 🔴 `IO6/IO7`（`E21`/`D21`）⇒ ⭐ **已分配给拨弦**（`pluck_up_i`/`pluck_down_i`）
+//            🔴 2026-10-01 更正：旧注释写"仍空着" —— ⚠️ **错**，见下方"右手区"段
+//
+//   ⚠️⚠️ **电平：⭐ `LVCMOS33`（3.3 V）** —— ⭐ 与 `HP_*` 同档。
+//      🔴 `PCM5102A` 模块是 3.3 V 逻辑 ⇒ ✅ 直连，⛔ **不需要电平转换**。
+//
+//   ⚠️ **不接 `MCLK`**（⭐ `PCM5102A` 内部 PLL 从 BCK 恢复）
+//      ⇒ 🔴 **前提：⭐ 模块必须带【板载晶振】**（`U-26`）⇒ ⛔ 否则会没声/爆音。
+//
+//   🔴🔴 **接线安全（⭐ `U-26` 原文警告）**：
+//      ⛔ **板载 `J5` 是 BTL 输出 ⇒ 不能接有源音箱（会烧！）**
+//      ✅ **正确接法**：`PMOD1_IO3/4/5` → ⭐ **`PCM5102A` 模块** → 音箱 **`Line In`**
+//         （⭐ 不是音箱的功放/高电平输入）
+IO_LOC  "I2S2_BCK"  F20;
+IO_PORT "I2S2_BCK"  IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "I2S2_LRCK" E22;
+IO_PORT "I2S2_LRCK" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "I2S2_DIN"  D22;
+IO_PORT "I2S2_DIN"  IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+//====== T15 · P4 右手拨弦比较器（LM393 双路开漏输出）======
+//   `TRIG_1` 的针序：`TRIG_UP / GND / TRIG_DN / GND`。
+//   板 A 已在两路输出各装 10 kΩ 到 3V3；越阈时输出释放为高，故 RTL 捕获上升沿。
+//   E21/D21 = PMOD1_IO6/IO7：已按本文件全部 IO_LOC 核对，未与外置 DAC 冲突。
+IO_LOC  "pluck_up_i"   E21;
+IO_PORT "pluck_up_i"   IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "pluck_down_i" D21;
+IO_PORT "pluck_down_i" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// ⭐⭐ 功放模式脚（🔴 **2026-09-22 换板后：脚 + 极性 + 电平 全变了**）。
+//
+//   🔴 **旧（`NEO Dock` / `NS4263`）**：`PA_EN_n = AB16`，**低有效**，
+//      且是**"一线脉冲控制"**（1 个下降沿 = AB 类 / 2 个 = D 类 / 高 = 关断）。
+//      ⚠️ **该整套语义在 Console 上【不存在】**。
+//
+//   ⭐ **新（`Tang Console 60K` / `MAX98357A`）**：
+//     · ⭐ **真脚 = `Y14`**（SOM pin 52）。🔴 **⛔ 不是 `AB16`** ——
+//       Console 上 `AB16` 是 **`USB_TERM_RXDN`**（⚠️ 驱动它会**扰动 USB 终端电阻**）。
+//     · ⭐ `PA_EN` 网络经 `R54 (0R)` **直连 `MAX98357A` 的 `SD_MODE`**，
+//       ⚠️ 该网络只有 **`R89 51K` 下拉**（⛔ **不是分压** ⇒ 电平完全由此脚决定）。
+//     · 🔴 **`SD_MODE` 是多电平输入**（⭐ 手册）：
+//         `< 0.16 V` = **`Shutdown`（没声音）** · `0.16~0.77 V` = **(L+R)/2**
+//         · `0.77~1.4 V` = Right · `> 1.4 V` = Left
+//       ⇒ ⭐⭐ **要出声必须驱动【高】**，⛔ **不是低**（⚠️ 低 = 静音）。
+//     · ⚠️ `SD_MODE` **内部有 `100 kΩ` 下拉** ⇒ ⛔ **悬空也是 `Shutdown`**
+//       ⇒ ⭐ **必须有明确的高电平驱动**，⛔ 不能靠悬空。
+//
+//   🔴 **电平硬约束**：`Y14` 属 **`BANK9` = 1.5 V**
+//     ⇒ ⛔ **必须写 `LVCMOS15` / `BANK_VCCIO=1.5`**。
+//     ⚠️ 写成 3.3 V 会**与同 bank 的 `rst_n`(`AA13`) 冲突，并可能损伤 IO**。
+//     ⭐ 驱动高 ≈ `1.3~1.5 V` ⇒ 落到 **Right 或 Left 档**，
+//       而 `top.v` 里 `sample_l`/`sample_r` 接的是**同一个 `sample_mono`**
+//       ⇒ ⭐ **两档都能出声**（⚠️ 具体落哪档可上板实测）。
+//
+//   ⚠️ **`PULL_MODE=UP` 保留**：⭐ 它保证"配置期间即为高"，
+//      ⚠️ 而高在这块板上**恰好是"出声"那一侧** ⇒ ⭐ 依然是安全态。
+//
+//   ✅ **该 TODO 已于 2026-10-01 核实【已完成】**（🔴 旧注释写"目前是旧极性" ⇒ ⚠️ **过时**）：
+//     `rtl/top.v:4278-4300` 已实现 —— ⭐ `PA_ON_AFTER_RESET=1`（默认）⇒ **恒【高】**
+//     ⇒ `SD_MODE` 取 Left ⇒ ⭐ **出声** ✅（⭐ 与用户上板实测一致）。
+//     ⚠️ 端口名仍带 `_n`（历史命名），⭐ **实际语义已是"高 = 出声"** ⇒ 看代码别被名字骗。
+//     ⭐ 详见 `files/10-硬件/板卡替换评估/Console引脚查证-20260922.md` §一。
+IO_LOC  "PA_EN_n" Y14;
+IO_PORT "PA_EN_n" IO_TYPE=LVCMOS15 PULL_MODE=UP DRIVE=8 BANK_VCCIO=1.5;
+
+//====== LEDS ======
+//   🔴 **2026-09-22 换板修正**：旧脚 `T18` 在 Console 上是 **`SDRAM1_D6`**
+//      ⇒ ⚠️ 驱动它**不会点亮任何用户灯**（⭐ 白心跳，等于没有）。
+//   ⭐ **新脚 = `V13`**：Console 的 `CFG_LED`（RGB）**绿路 = `SYS_ACT` = `V13`**，
+//      ⭐ 它是板上**唯一**由 FPGA 驱动的用户可见灯
+//      （⚠️ 红 = `READY`、蓝 = `DONE` 由配置逻辑驱动，⛔ 我们碰不到）。
+IO_LOC  "led_heartbeat" V13;
+IO_PORT "led_heartbeat" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+//====== W3a 采集链 · 左手区 ADC（MCP3208 ×2）======
+//   ⭐ **2026-09-23 新增**（⭐ W3a 接线：`adc_farm` + `calib` + 语义层接进 `top.v`）。
+//
+//   🔴 **为什么走 `J9` 排针、⛔ 不是 `PMOD`**：
+//      ⚠️ 当时（2026-09-22）的口径是"`PMOD0`/`PMOD1` 的 16 根已全部分配完
+//         （UART×4 · CS×3 · SPI×3 · I2S×3 · LED×2）⇒ 再要脚只能从 `J9` 拿"。
+//      🔴🔴 **当前实际分配（以本文件的 `IO_LOC` 为准）**：
+//         · `PMOD0`（`V18 V19 G21 G22 F18 E18 C22 B22`）⇒ 当前未分配。
+//         · `PMOD1_IO3/4/5`（`F20/E22/D22`）⇒ 已分配给外置 PCM5102A I2S。
+//         · ⭐ `PMOD1_IO0/1/2`（`W19/W20/F19`）⇒ ⭐ **当前【空】** ✅
+//            🔴 2026-10-01 更正：旧注释把它与 `IO6/7` 混写"当前未分配" —— ⚠️ 只有这三根是空的
+//         · 🔴 `PMOD1_IO6/IO7`（`E21/D21`）⇒ ⭐ **已分配给拨弦**（`pluck_up_i`/`pluck_down_i`）
+//            🔴 2026-10-01 更正：旧注释写"当前未分配" —— ⚠️ **错**，见下方"右手区"段
+//      ⇒ ⭐ 新增外设前必须先核本文件的实际 `IO_LOC`；规划文档中的预留不等于已占用。
+
+//
+//   ⭐ **为什么 `MISO` 要【两根独立】**：
+//      🔴 `K-06`：**每片 `MISO` 必须独立**，⛔ 不能并到一个 FPGA 输入。
+//      ⚠️ 而 `adc_farm` 是**【三片同时选中】（锁步并行）**（`adc_farm.sv:97-105`）——
+//      ⭐ "共享总线靠未选中片高阻"这个前提**在并行锁步下⛔ 不成立**
+//      ⇒ 🔴 多片同时选中会**推挽对打**。
+//      ⇒ ⭐ 本设计**只用 2 片**（左手板 L/R）⇒ **拆成 2 根独立 `MISO`**。
+//
+//   ⭐ **这 6 根在 `J9` 上是【连续相邻】的**（⭐ 用户要求"一个功能走相邻引脚"）：
+//      `SDRAM0_D2..D7` = `C15 C14 B13 C13 A14 A13`。
+//
+//   ⚠️ **这些脚在官方约束里是 `sdram_dq[*]`**（⭐ 已交叉验证），
+//      而 ⭐ **`PMOD 与 SDRAM 是 0Ω 二选一`** ⇒ ⛔ **用它们就不能插 `SDRAM` 模块**
+//      （⭐ 我们不用 SDRAM ⇒ ✅ 可用）。
+//   ⚠️ **全部 `BANK1` / `LVCMOS33`（3.3 V）** ⇒ ⭐ **与左手板电平一致，⛔ 不需电平转换**。
+//
+//   ⚠️ **接线建议（🔴 2026-10-01 更正为"非必需"）**：⭐ 两个 `MISO` 各加 10 kΩ 上拉。
+//      · ⭐ 原依据：`K-62`/`C-17` —— Console 板上**没有上拉电阻**，且未选中时 `DOUT` 是高阻。
+//      🔴 **但 `K-60` 已更正**：⭐ **不是必需的** —— `MCP3208` 手册保证 `CS` 拉高后 `DOUT`
+//         100 ns 内进高阻，⭐ 而 `.cst` 里已给这两根写 `PULL_MODE=UP`（内部弱上拉）⇒ 双保险。
+//      ⇒ ⭐ **结论：可以不焊**；⚠️ 焊了更好（⭐ 上拉更快、抗干扰更强），⛔ 两者不冲突。
+//      📌 出处：`files/10-硬件/左右手板-纯仪器测试指南-20260923.md:65-70`。
+//
+//   📌 依据：`files/10-硬件/Console排针ball映射-C14结案-20260923.md`
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐ SPI 组：14 根连续占满 `J9` 的 `N1`~`N16`（⭐ 2026-09-23 晚重排）
+//
+//   ⭐ **为什么这样排**（⭐ 用户要求"为扩展板方便走线"）：
+//      · ⭐ **`J9` 是 2×20 双排** ⇒ ⭐ **同排左右（`N3`-`N4`）最容易并排引线**
+//      · ⭐ **每片的 `MISO`+`CS` 放在【同一排左右】** ⇒ ⭐ 扩展板上并排走，⛔ 不用跨排绕
+//      · ⭐ **顺序 = 片号顺序** ⇒ ⭐ 走线不交叉
+//      · ⭐ **`MISO`/`CS` 交错**（⭐ 用户提出）⇒ ⭐ 每片自成一对
+//      · ⚠️ `N11`/`N12` 是 `+5V`/`GND`（⭐ 板上固定）⇒ ⭐ 物理跳过
+//
+//   ⭐⭐ **片号映射（⭐ 2026-09-30 重新裁定 —— ⚠️ 原来写的是"片0~3 = 左手板1~4"）**：
+//      · 片0 = **左手板 1**（⭐ 今天已接，`J9 N3/N4`）
+//      · 片1 = **左手板 2**（⭐ **本次联调要接的第二块左手板**，`J9 N5/N6`）
+//      · 片2 = **右手板 A**（⭐ 推子×2 / 摇杆 / 音量旋钮，`J9 N7/N8`）
+//      · 片3~片5 = **备用**（⭐ 当前无对应硬件）
+//
+//      🔴 **为什么是"片2 = 右手板A"**（⭐ 这条必须写清，⚠️ 否则会照旧文档接错线）：
+//         ⭐ `files/10-硬件/霍尔键位-CH映射-20260923.md` §〇 的**硬件真值**是
+//            "**16 轴 = 左右两块左手板**（各 1 片 `MCP3208` = 8 通道）"
+//            ⇒ ⭐ **左手板一共只有 2 块**，⛔ 不是 4 块 ⇒ ⭐ **片2 起就空出来了**。
+//         ⭐ 且 `rtl/top.v` 的 `RIGHT_ADC_ENABLE` 分支**早已按片2 实现**
+//            （`af_data[2*12 +: 12]` ⇒ `right_analog_ctrl`）⇒ ⭐ **以代码为准**（⛔ 本轮不改 RTL 索引）。
+//         🔴 **文档冲突（⭐ 需更正，⭐ 本次⛔ 不改 `files/**`）**：
+//            `files/10-硬件/排线采购-最终形态-20260923.md` §6.3 与
+//            `bringup/07-Console上机指南-20260924.md` §2.1 仍写 **"片4 = 右手板A"**
+//            ⇒ ⚠️ **照那两份接会把右手板 A 接到 `N13/N14`，⛔ 而 RTL 读的是 `N7/N8`**
+//            ⇒ 🔴 **接上也没反应**。⭐ 本次以本文件 + RTL 为准。
+//
+//   ⚠️ **`MISO` 预留 6 根但当前只接前 2 根**（⭐ 其余留空，⭐ 内部上拉定电平）。
+//   🔴 **`MISO` 必须每片独立**：⭐ `adc_farm` 是【锁步并行】⇒ ⚠️ 多片同时选中
+//      ⇒ ⭐ 共享一根会**推挽对打**（⭐ `K-06`）。
+// ═══════════════════════════════════════════════════════════════════════════
+//   ⭐ 共享总线（⭐ 所有片同时收同一命令）
+IO_LOC  "spi_sclk"   E14;    // ⭐ J9 · N1 · SDRAM0_D0（出）
+IO_PORT "spi_sclk"   IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "spi_mosi"   E13;    // ⭐ J9 · N2 · SDRAM0_D1（出）
+IO_PORT "spi_mosi"   IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+//   ⭐⭐ 片0（⭐ 左手板1）—— ⭐ `MISO`+`CS` 同排左右（`N3`/`N4`）
+// ⭐⭐ 两个 MISO：**必须独立**（`K-06`）⇒ ⚠️ 都要 `PULL_MODE=UP`
+//   🔴 **⚠️ 踩过的坑（2026-09-23）**：⭐ 原来照抄输出脚的写法带了 `DRIVE=8`
+//      ⇒ 🔴 **Gowin 报 `ERROR (CT1108): Illegal port attribute value specified 'DRIVE = 8'`**
+//      ⭐ **根因**：⚠️ `DRIVE` 是**输出驱动能力**，⭐ 对**纯输入脚非法**。
+//      📌 **对照易错点**：⭐ 官方 `.cst` 里 `sdram_dq[2]` **确实带 `DRIVE=8`** ——
+//         ⚠️ 但那是因为它在该设计里是**双向**的；⭐ 我们这里是**纯输入** ⇒ ⛔ 不能带。
+//      ⇒ ⭐ **纪律**：⭐ **`DRIVE` 只给输出脚**；⭐ 输入脚只写 `IO_TYPE` / `PULL_MODE` / `BANK_VCCIO`。
+//   ⭐⭐ 片0（⭐ 左手板1）—— ⭐ `MISO`+`CS` 同排左右（`N3`/`N4`）
+IO_LOC  "spi_miso[0]" C15;   // ⭐ J9 · N3 · SDRAM0_D2（入）
+IO_PORT "spi_miso[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "spi_cs_n[0]" C14;   // ⭐ J9 · N4 · SDRAM0_D3（出）
+IO_PORT "spi_cs_n[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+//   ⭐⭐ 片1（⭐ **左手板 2 = 本次联调要接的第二块左手板**）—— `N5`/`N6`
+//      ⭐ **RTL 侧【已经接好，⛔ 不用改】**：`top.v` 里 `ADC_N = 2` ⇒ `adc_farm` 已在扫片1
+//         ⇒ 轴 8~15 走 `calib1` → `axis_snapshot`（`AXIS_N=16`）→ `event_extract`（`AXIS_N=16`）✅
+//      ⭐ **接线**（⭐ 与左手板 1 完全同构）：左手板 2 的 `SPI_1` →
+//         `N5`(`MISO`) / `N6`(`CS`) ＋ 共享 `N1`(`MCP_CLK`) / `N2`(`MOSI`) ＋ `N11`(+5V) / `N12`(GND)
+//      🔴 **上电顺序有讲究（⭐ 否则看起来像"第二块板坏了"）**：
+//         ⭐ 片1 **未接**时其 `MISO` 被内部上拉 ⇒ `raw = 4095`
+//         ⇒ ⭐ `autotare` 会把该轴 `zero` 记成 4095 ⇒ `pos ≡ 0`（⭐ 所以今天既不出声、也⛔ 不误触发）
+//         ⇒ ⭐⭐ **必须先插好第二块板、再上电**（⭐ 或上电后发串口 `'T'` 重新记零点）
+//      ⭐ **力度跟随已覆盖【全部 16 轴】（⭐ 2026-09-30 改）**：⭐ `top.v` 的
+//         `VEL_AXIS_N` **8 → 16** / `VEL_AX_W` **3 → 4**
+//         ⇒ ⭐ **两块左手板的配置完全一致** —— 板 2 的键与板 1 一样"按住时力度跟行程变" ✅
+//         ⚠️ **代价**：⭐ 单轴刷新率**减半**（164 → 328 µs，⭐ 一轮从 8 拍变 16 拍）
+//            ＋ ⭐ 逻辑只多 **1 个 FF** 与一级选择器 ⇒ ⭐ **必须重跑 PnR 核时序** ✅
+IO_LOC  "spi_miso[1]" B13;   // ⭐ J9 · N5 · SDRAM0_D4（入）
+IO_PORT "spi_miso[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "spi_cs_n[1]" C13;   // ⭐ J9 · N6 · SDRAM0_D5（出）
+IO_PORT "spi_cs_n[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+//   ⭐⭐ 片2（⭐ **右手板 A** = 推子×2 / 摇杆 / 音量旋钮，⭐ 由 `top.v` 的
+//      `RIGHT_ADC_ENABLE` 打开 ⇒ 走 `right_analog_ctrl`）—— `N7`/`N8`
+IO_LOC  "spi_miso[2]" A14;   // ⭐ J9 · N7 · SDRAM0_D6（入）
+IO_PORT "spi_miso[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "spi_cs_n[2]" A13;   // ⭐ J9 · N8 · SDRAM0_D7（出）
+IO_PORT "spi_cs_n[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+//   ⭐⭐ 片3（⭐ **备用**，⭐ 当前无硬件）—— `N9`/`N10`
+IO_LOC  "spi_miso[3]" B16;   // ⭐ J9 · N9 · SDRAM0_D15（入）
+IO_PORT "spi_miso[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "spi_cs_n[3]" B15;   // ⭐ J9 · N10 · SDRAM0_D14（出）
+IO_PORT "spi_cs_n[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+//   ⚠️ `N11` = +5V · `N12` = GND（⭐ 板上固定，⛔ 不可用作信号）
+
+//   ⭐⭐ 片4（⭐ **备用**，⭐ 当前无硬件）—— `N13`/`N14`
+IO_LOC  "spi_miso[4]" A16;   // ⭐ J9 · N13 · SDRAM0_D13（入）
+IO_PORT "spi_miso[4]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "spi_cs_n[4]" A15;   // ⭐ J9 · N14 · SDRAM0_D12（出）
+IO_PORT "spi_cs_n[4]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+//   ⭐⭐ 片5（⭐ **备用**，⭐ 当前无硬件）—— `N15`/`N16`
+IO_LOC  "spi_miso[5]" A20;   // ⭐ J9 · N15 · SDRAM0_D11（入）
+IO_PORT "spi_miso[5]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "spi_cs_n[5]" B20;   // ⭐ J9 · N16 · SDRAM0_D10（出）
+IO_PORT "spi_cs_n[5]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐ LED 组（TLC5916，8 根）—— ⭐ `J9` 的 `N17`~`N24`（⭐ 2026-09-23 晚重排）
+//
+//   ⭐ **为什么从 `PMOD` 挪到 `J9`**（⭐ 用户原则：
+//      "没有特殊要求的优先走 J9/J10，PMOD 留给需求比较高的引脚"）：
+//      · ⚠️ LED 是**低速、非关键**信号 ⇒ ⭐ 不需要 PMOD 的短走线优势
+//      · ⭐ 腾出的 `PMOD1_IO6/IO7` 可以留给**真正需要的**（⭐ 如 UART/高速）
+//
+//   ⭐ **信号共享性**（⭐ 依据 `引脚预算核算.md`）：
+//      · ⭐ `SDI`/`CLK`/`LE` **三根共享**（⭐ 所有片同一总线）
+//      · 🔴 `OE` **每板独立**（⭐ 用户要求预留 5 根 —— "后续可能会加左手板"）
+//
+//   🔴 **`OE` 低有效** ⇒ ⭐ `PULL_MODE=UP` 保证**上电即"不使能"**（⭐ 灯全灭）
+//      —— ⚠️ 若用 DOWN，上电瞬间会**全亮**（⭐ 白耗电 + 闪一片）。
+//   📌 `N17`~`N24` 与 SPI 组**顺序相接**（⭐ SPI 到 `N16` 止）⇒ ⭐ 两组都连续 ✅
+// ═══════════════════════════════════════════════════════════════════════════
+IO_LOC  "led_le"      A21;   // ⭐ J9 · N17 · SDRAM0_D9（出，共享锁存）
+IO_PORT "led_le"      IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "led_sdi"     B21;   // ⭐ J9 · N18 · SDRAM0_D8（出，共享数据，可级联）
+IO_PORT "led_sdi"     IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "led_clk"     B18;   // ⭐ J9 · N19 · SDRAM0_A12（出，共享时钟）
+IO_PORT "led_clk"     IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+//   ⭐ `OE` ×5：⭐ 低有效 ⇒ ⭐ `PULL_MODE=UP`（上电全灭）
+IO_LOC  "led_oe_n[0]" B17;   // ⭐ J9 · N20 · SDRAM0_CLK
+IO_PORT "led_oe_n[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "led_oe_n[1]" C17;   // ⭐ J9 · N21 · SDRAM0_A9
+IO_PORT "led_oe_n[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "led_oe_n[2]" D17;   // ⭐ J9 · N22 · SDRAM0_A11
+IO_PORT "led_oe_n[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "led_oe_n[3]" A19;   // ⭐ J9 · N23 · SDRAM0_A7
+IO_PORT "led_oe_n[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "led_oe_n[4]" A18;   // ⭐ J9 · N24 · SDRAM0_A8
+IO_PORT "led_oe_n[4]" IO_TYPE=LVCMOS33 PULL_MODE=UP DRIVE=8 BANK_VCCIO=3.3;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// 历史方案（已废弃）：曾计划使用板载 USB-C/BL616 对应的 V14/U15。
+//
+//   ⭐ 链路：⭐ `PC ──USB-C──> BL616（桥接）──> FPGA_UART.RX/TX`
+//   📌 出处（⭐ 已逐条查实）：`files/10-硬件/板卡替换评估/Console引脚查证-20260922.md` §3.1
+//      ⭐ 官方 `console60k.cst` 原话（⭐ 与本文逐字一致）：
+//         ```
+//         // UART through USB-C port
+//         IO_LOC "UART_RXD" V14;
+//         IO_LOC "UART_TXD" U15;
+//         IO_PORT "UART_RXD" IO_TYPE=LVCMOS33;
+//         IO_PORT "UART_TXD" IO_TYPE=LVCMOS33;
+//         ```
+//
+//   ⚠️⚠️ **电平：⭐ `LVCMOS33`（3.3 V）—— ⛔ 与 `rst_n`/`PA_EN_n` 不同！**
+//      🔴 `AA13`(`rst_n`) 与 `Y14`(`PA_EN_n`) 属 **`BANK9` = 1.5 V 域** ⇒ 那两个写 `LVCMOS15`。
+//      ⭐ 而：
+//        · `V14` 属 **`BANK8`**（`BANK8_V14_IOB91B`）
+//        · `U15` 属 **`BANK6`**（`BANK6_U15_IOB130B`）
+//      ⇒ ✅ **两个都不是 `BANK9`** ⇒ ⭐ **必须用 3.3 V**（⭐ 与 BL616 的 IO 电平匹配）。
+//      📌 教训：⭐ **同一块板上不同 bank 电平不同** ⇒ ⚠️ 加新引脚时
+//         **必须一个个核对 bank**，⛔ 不能"照抄上一个引脚的写法"。
+//
+//   ⭐ `uart_rx` 用 `PULL_MODE=UP`：⭐ 串口**空闲是高电平**
+//      ⚠️ 若 PC 没插，悬空脚会读到随机跳变 ⇒ 🔴 **可能被当成假起始位**、持续误触发
+//      ⇒ ⭐ 上拉把默认态钉在"空闲" ✅
+//   ⚠️ `uart_tx` 用 `PULL_MODE=NONE`：⭐ 它是**输出**，上拉无意义
+//      ✅ **2026-09-24 更正**：⭐ **`uart_tx` 已经接好逻辑了** ——
+//         `rtl/w3c/uart_tx.v` 存在（162 行）· `top.v` 里已例化（`u_uart_tx`，`BAUD_DIV=50`）
+//         ⇒ ⭐ **空闲时输出【高】**（UART 空闲态），⛔ **不再是"恒 0 / break"**
+//         📌 旧注释写"本版未接逻辑，恒 0" —— ⚠️ **那是过时的**，⛔ 别据此误判"串口没回话是正常的"
+// ─────────────────────────────────────────────────────────────────────────────
+//   🔴🔴 **2026-09-24 晚：UART 从板载搬到了 `J9` 排针**（⭐ 用户拍板）
+//
+//   **为什么搬**（⭐ 实测，⛔ 不是猜）：
+//     · ⭐ 原来接 `V14`/`U15` ⇒ ⚠️ 那两个脚**只在 `J2`（板对板连接器）上**
+//       ⇒ 🔴 **物理上【插不了线】**（0.4 mm 间距，⛔ 不是排针）
+//     · ⭐ 而板载 `BL616` 跑的是 **`TangCore` 游戏机固件**
+//       （⭐ 官方 wiki 原文：*"运行 TangCore firmware for BL616"*）
+//       ⇒ 🔴 **它的 UART 是 `TangCore` 私有协议（2 Mbps · overlay/手柄/ROM）**
+//       ⇒ ⚠️ **⛔ 不透传我们的 `T`/`S`/`X` 命令**
+//       📌 实测：⭐ 发任何字节都被"回显"（⭐ 那是 `TangCore` 的协议流量）
+//
+//   **搬到哪**（⭐ 全部实测自 Console 原理图第 8 页 + 官方 `.cst`）：
+//     · ⭐ `N25` = `SDRAM0_A5` = **`D15`**（`BANK1_D15_IOT82B`）
+//     · ⭐ `N26` = `SDRAM0_A6` = **`D14`**（`BANK1_D14_IOT82A`）
+//     ⇒ ✅ **`J9` 是 `SMD_PIN_2x20_2.54mm`** ⇒ ⭐ **2.54 mm 排针，可直接插杜邦线**
+//     ⇒ ✅ **`BANK1` = `LVCMOS33`（3.3 V）** ⇒ ⭐ 与 USB-TTL 电平一致
+//     📌 **`N1`~`N10`/`N13`~`N16` 是 SPI、`N17`~`N24` 是 LED、`N11`/`N12` 是 +5V/GND**
+//        ⇒ ⭐ **`N25`/`N26` 是当时剩下的空脚**（⭐ 已按 `IO_LOC` 逐条核过）
+//
+//   ⚠️ **接线（⭐ 交叉）**：
+//     ```
+//     ⭐ USB-TTL 的 TX  → J9 的 N26（D14 = `uart_rx`）
+//     ⭐ USB-TTL 的 RX  → J9 的 N25（D15 = `uart_tx`）
+//     ⭐ USB-TTL 的 GND → J9 的 GND
+//     ```
+//
+//   ⚠️ **代价**：⭐ **板载 `BL616` 的那路 UART 从此不接**（⭐ 反正它也不透传）
+//
+//   ⭐ `uart_rx` 用 `PULL_MODE=UP`：⭐ 串口**空闲是高电平**
+//      ⚠️ 若 PC 没插，悬空脚会读到随机跳变 ⇒ 🔴 **可能被当成假起始位**、持续误触发
+//      ⇒ ⭐ 上拉把默认态钉在"空闲" ✅
+//   ⚠️ `uart_tx` 用 `PULL_MODE=NONE`：⭐ 它是**输出**，上拉无意义
+// ─────────────────────────────────────────────────────────────────────────────
+IO_LOC  "uart_rx" D14;       // ⭐ J9 · N26 · SDRAM0_A6 · BANK1（入，⭐ USB-TTL 的 TX）
+IO_PORT "uart_rx" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "uart_tx" D15;       // ⭐ J9 · N25 · SDRAM0_A5 · BANK1（出，⭐ USB-TTL 的 RX）
+IO_PORT "uart_tx" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐ 右手区（**只有板 A**）—— ⭐ 2026-09-30（待上板验证）
+//
+//   依据：`files/10-硬件/右手板方案.md`（⭐ 板 A = 输入+采集）
+//
+//   🔴 **板 B 改为【通用控制板】**（⭐ 用户决定，2026-09-30）：⭐ 可能做**矩阵键盘**，
+//      ⚠️ **键数与接口待定** ⇒ ⭐ **本次不给它分配任何引脚**。
+//      🔴 **`OLED` 已取消**（⭐ 原计划的 `D16`/`E16`/`E17` 三根**不再占用**）。
+//      ⚠️ 2026-09-30 早先那一版曾给板 B 分过 10 根（`N27`~`N39`），
+//         ⭐ 已**全部撤回** ⇒ ⭐ 本文件里**看不到任何板 B 的引脚** ✅
+//      📌 等键数/接口定下来再单独分配（⭐ 见 `bringup/17-…-20260930.md`）。
+// ═══════════════════════════════════════════════════════════════════════════
+// ── ① 右手板 A（推子 / 摇杆 / 音量 + 拨弦比较器）—— ⭐ 引脚**此前已分配**，此处只做汇总
+//   · ⭐ 模拟量（推子×2 / 摇杆 / 音量）= ⭐ **走 ADC 组（片2）**，⛔ **不是**直连 FPGA：
+//        `SPI_1` 座 → ⭐ `MISO`=`A14`(`N7`) · `CS`=`A13`(`N8`)
+//                    ＋ ⭐ 共享 `MCP_CLK`=`E14`(`N1`) · `MOSI`=`E13`(`N2`)
+//        ⇒ ⭐ 通道：`CH1`=音量 · `CH2`=颤音深度 · `CH3`=颤音速率（⭐ `右手板方案.md` §10.3）
+//        ⇒ ⭐ FPGA 侧由 `top.v` 的 `right_analog_ctrl` 消费
+//           ⇒ 🔴 **必须把 `top.v` 的 `RIGHT_ADC_ENABLE` 置 1 才生效**（⭐ 默认 0）
+//        🔴 **⚠️ 未接板时⛔ 不要开 `RIGHT_ADC_ENABLE`**：⭐ 悬空 `MISO` 被内部上拉 ⇒ 满量程
+//           ⇒ ⭐ 颤音会被当成"深度/速率拉满"（⭐ `tb/w3b/tb_vibrato_top.sv` 正是按这个行为建的）
+//   · ⭐ 拨弦比较器 `TRIG_1`（`LM393` 开漏 + 10 kΩ 上拉 ⇒ ⭐ 越阈为**高**）：
+//        `TRIG_UP` = ⭐ `E21`（`PMOD1_IO6`）· `TRIG_DN` = ⭐ `D21`（`PMOD1_IO7`）
+//        ⇒ ⭐ 已由 `async_pluck_capture` 消费（⭐ 上升沿 + 不应期）
+//   · ⚠️ **板 A 没有按键 / 没有 LED**（⭐ `右手板方案.md` §一 "⛔ 不放"）⇒ ⭐ 无其它信号
+//
+// ── ② 右手板 B —— 🔴 **本次不分配任何引脚**
+//   ⭐ 板 B 改为**通用控制板**（⭐ 可能做**矩阵键盘**，⭐ 键数与接口**待定**）
+//      ⇒ ⭐ 引脚**等需求定下来再分配**（⭐ 现在猜着分，接口一变就得全改）。
+//   🔴 **`OLED` 已取消** ⇒ ⭐ 下面这段**没有** `oled_*` / `rb_*` 的任何 `IO_LOC` ✅
+//   ⚠️ **不要**再照 2026-09-30 早先那一版去接 `N27`~`N39`（⭐ 那 10 根已撤回）
+// ═══════════════════════════════════════════════════════════════════════════
+
+// H5: verified TLVDS_OBUF differential pairs; V13 unchanged.
+IO_LOC  "tmds_d_p_0[0]" J14,H14;
+IO_PORT "tmds_d_p_0[0]" PULL_MODE=NONE DRIVE=3.5 BANK_VCCIO=3.3;
+
+IO_LOC  "tmds_d_p_0[1]" J15,H15;
+IO_PORT "tmds_d_p_0[1]" PULL_MODE=NONE DRIVE=3.5 BANK_VCCIO=3.3;
+
+IO_LOC  "tmds_d_p_0[2]" K17,J17;
+IO_PORT "tmds_d_p_0[2]" PULL_MODE=NONE DRIVE=3.5 BANK_VCCIO=3.3;
+
+IO_LOC  "tmds_clk_p_0" G15,G16;
+IO_PORT "tmds_clk_p_0" PULL_MODE=NONE DRIVE=3.5 BANK_VCCIO=3.3;
+
+IO_LOC  "hpd_en" K13;
+IO_PORT "hpd_en" PULL_MODE=UP DRIVE=12 BANK_VCCIO=3.3;
+
+
+// ---------------------------------------------------------------------------
+// H5 (2026-10-02): targeted LOOSE region for the calibration return-path cone.
+// Why: with H5 merged, the worst setup path is
+//   g_sound.u_calib_span/reject_o -> u_tx_fifo/mem_*[1]/D
+// with 20.303 ns of ROUTING (92% of the 22.08 ns path) and 0.000 ns clock skew;
+// the net crosses the chip repeatedly (R58C3 -> R52C146 -> R50C38 -> R50C146 -> R57C22).
+// GROUP + GRP_LOC per Gowin SUG1018 2.4.1 (both statements are required).
+// Deliberately NOT exclusive: the design is already ~91% CLS-occupied, so a
+// loose (non-exclusive) region is used first.
+// ---------------------------------------------------------------------------
+GROUP h5_ret = { "tx_byte_*" "u_tx_fifo/*" "g_sound.u_calib_span/reject_o_*" };
+GRP_LOC h5_ret R[45:73]C[1:148];
+// ---------------------------------------------------------------------------
+// 2026-10-02: stop the H5 display logic from disturbing the audio placement,
+// and pull the reset synchronizer back towards its load centroid.
+//
+// Evidence (this build's timing report path details):
+//   u_rst_sync/sync_chain_1_s0/Q   R73C54   FANOUT = 12805 (!)
+//     -> g_sound.u_test_mode_ctrl/gen_test_voice[20].selected_s1/I3  R31C8
+//   i.e. the reset net crosses 42 rows / 46 columns; one net segment alone
+//   costs 4.713 ns, and the worst clk_sys path (slack +0.034) is
+//   u_rst_sync -> u_envelope_bank/.../env_level_o.
+//   u_hdmi/u_scope/wr_gray_1_s0 sits at R33C69.
+//
+// Two groups, both deliberately non-exclusive (the design is ~91% CLS full):
+GROUP rst_sync_grp = { "u_rst_sync/*" };
+GRP_LOC rst_sync_grp R[28:40]C[50:80];
+
+// ---------------------------------------------------------------------------
