@@ -12,6 +12,6 @@
   ok  : all three distinct axes are present (1, 5, 9)
 
 PASS: event_extract fires on the first crossing (no settle wait), holds with hysteresis, blocks inside the refractory window and self-heals, and NEVER loses events when several axes cross in the same frame
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_event_extract.sv:307: $finish called at 18790000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_event_extract.sv:307: $finish called at 18790000 (1ps)
 
 

@@ -44,6 +44,6 @@
      [dbg] B: wrap[9] grid=0 tick=11520
      [dbg] B: wrap[10] grid=0 tick=12096
 PASS: looper T41 bar alignment -- arm/quantize/align across 10 wraps
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_looper_bar_align.sv:436: $finish called at 4151220000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_bar_align.sv:436: $finish called at 4151220000 (1ps)
 
 

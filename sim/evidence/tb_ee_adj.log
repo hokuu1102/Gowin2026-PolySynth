@@ -38,6 +38,6 @@
    overflow=0 lost_cnt=0
    鉁?PASS: all three adjacent axes emitted
 ==============================================================
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_ee_adj.sv:141: $finish called at 2960000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_ee_adj.sv:141: $finish called at 2960000 (1ps)
 
 

@@ -1,5 +1,5 @@
 ﻿INFO: max note_on step=5998, allowed=11997, baseline=383872
 PASS: polyphony normalization is de-zippered at note_on
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_polyphony_onset_step.sv:161: $finish called at 35440000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_polyphony_onset_step.sv:161: $finish called at 35440000 (1ps)
 
 

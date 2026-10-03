@@ -40,6 +40,6 @@ VCD info: dumpfile build/sim/tb_am_pipe/tb_am_pipe.vcd opened for output.
   ok  : back-to-back injected event count == 14
   ok  : P0-2: w3a_evt_inc is in the SAME cycle as w3a_evt_valid (mismatch == 0)
 PASS: am_pipe pitch-tap alignment (P0-2) - all judgements held (events=17 mismatches=0)
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\top\tb_am_pipe.sv:312: $finish called at 2060000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_am_pipe.sv:312: $finish called at 2060000 (1ps)
 
 

@@ -166,8 +166,26 @@ for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
         # was being reported as FAILED (observed: 0/0 + Fmax 53.821 MHz => "FAIL").
         # Keep digits only.  If the label/value is missing the result is "" and the verdict
         # still fails -- i.e. the safe direction is preserved.
-        $setup = ((($tl | Select-String 'Numbers of Setup Violated Endpoints' -Context 0,1).Context.PostContext -join '') -replace '[^0-9]', '')
-        $hold  = ((($tl | Select-String 'Numbers of Hold Violated Endpoints'  -Context 0,1).Context.PostContext -join '') -replace '[^0-9]', '')
+        # NOTE 2026-10-03 (N7 residual): the setup/hold value used to be read from the line
+        # IMMEDIATELY after the label (-Context 0,1).  That is the same positional-assumption
+        # bug class already fixed twice in this file (the Fmax fixed 12-line window, and the
+        # '|' separator).  Gowin emits the label row, then a line like "0 |" -- but that
+        # layout can shift, and a shifted layout silently yields "" (which then FAILS the
+        # verdict).  Scan FORWARD from the label for the first line whose non-'|',
+        # non-whitespace content is ALL DIGITS, within a bounded window.  Missing value =>
+        # "" => the verdict still FAILS, i.e. the safe direction is preserved.
+        function Get-StatValue([string[]]$lines, [string]$label) {
+            $li = ($lines | Select-String -SimpleMatch $label | Select-Object -First 1).LineNumber
+            if (-not $li) { return '' }
+            $stop = [Math]::Min($lines.Count - 1, $li + 8)
+            for ($k = $li; $k -le $stop; $k++) {
+                $core = ($lines[$k] -replace '[|\s]', '')
+                if ($core -match '^[0-9]+$') { return $core }
+            }
+            return ''
+        }
+        $setup = Get-StatValue $tl 'Numbers of Setup Violated Endpoints'
+        $hold  = Get-StatValue $tl 'Numbers of Hold Violated Endpoints'
         # The Gowin timing text puts the LABEL row first and the VALUES several rows
         # later (Actual Fmax | Logic Level | Entity | 50.000(MHz) | 52.575(MHz) | 2 |),
         # so reading the line right after "Actual Fmax" yields "Logic Level", not a number.
@@ -187,6 +205,13 @@ for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
     }
     $fmaxVal = 0.0
     if ($fmax -match '([0-9]+\.[0-9]+)') { $fmaxVal = [double]$Matches[1] }
+
+    # NOTE 2026-10-03 (D1): if this attempt did NOT produce a NEW bitstream, the timing
+    # text is STALE -- it belongs to an EARLIER build.  Printing those numbers made a
+    # timed-out attempt look like "0 setup / 0 hold / Fmax 52.798" (observed 2026-10-03:
+    # the number came from a previous run).  $fsNew already fails the verdict below; here
+    # we only stop the printed numbers from lying.
+    if (-not $fsNew) { $setup = 'n/a'; $hold = 'n/a'; $fmax = 'n/a'; $fmaxVal = 0.0 }
 
     $ok = $fsNew -and ($setup -eq '0') -and ($hold -eq '0') -and ($fmaxVal -ge $MinFmax)
 

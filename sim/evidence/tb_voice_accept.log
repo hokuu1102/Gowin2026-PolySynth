@@ -18,6 +18,6 @@
   ok : 杈撳嚭纭疄鏈夐潪闆舵牱鐐癸紙96259 鎷嶏級鈥斺€?涓嶆槸銆屽亣瑁呭湪宸ヤ綔銆?
 
 PASS: T10 鐪熷疄 voice 鐨?A6/A7/A8 涓庢椿鍔ㄦ牱鐐归獙鏀跺叏閮ㄩ€氳繃
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\voice\tb_voice_accept.sv:271: $finish called at 2007251000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\voice\tb_voice_accept.sv:271: $finish called at 2007251000 (1ps)
 
 

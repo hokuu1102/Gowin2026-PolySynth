@@ -1,48 +1,42 @@
-﻿iverilog.exe : C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\hdmi_clk.v:4: warning: timesc
-ale for hdmi_clk inherited from another file.
-所在位置 C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\sim\tb_all.ps1:123 字符: 18
+﻿iverilog.exe : C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited fr
+om another file.
+所在位置 C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:123 字符: 18
 +   $compileOut  = & $iverilog @compileArgs 2>&1
 +                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (C:\Users\cyx\Do...m another file.:String) [], RemoteException
+    + CategoryInfo          : NotSpecified: (C:\Users\hokuu\...m another file.:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
  
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited t
-imescale is here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmd
-s_encoder inherited from another file.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale
- is here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\tmds_serializer.v:2: warning: timescale for 
-tmds_serializer inherited from another file.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale
- is here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\video_timing.v:1: warning: timescale for vid
-eo_timing inherited from another file.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale
- is here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\pos_probe.v:71: warning: timescale for pos_pr
-obe inherited from another file.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\play_seq.v:1: ...: The inherited timescale is
- here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\span_probe.v:71: warning: timescale for span_
-probe inherited from another file.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is 
-here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uar
-t_tx_fifo inherited from another file.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is 
-here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_vel_pos_follow.sv:160: warning: Port 9 (not
-e_src_i) of note_manager expects 3 bits, got 2.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_vel_pos_follow.sv:160:        : Padding 1 h
-igh bits of the port.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiati
-ng module note_manager with dangling input port 16 (vel_upd_src_i) floating.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiati
-ng module note_manager with dangling input port 17 (pitch_upd_src_i) floating.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiati
-ng module note_manager with dangling input port 23 (base_semi_i) floating.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiati
-ng module note_manager with dangling input port 24 (base_commit_i) floating.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_vel_pos_follow.sv:189: warning: Instantiati
-ng module envelope_bank with dangling input port 7 (timbre_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from anot
+her file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited fro
+m another file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from anot
+her file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another fi
+le.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another 
+file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
+her file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160: warning: Port 9 (note_src_i) of module note_manag
+er expects 3 bit(s), given 2.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160:        : Padding 1 high bits of the port.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiating module note_manager with d
+angling input port 16 (vel_upd_src_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiating module note_manager with d
+angling input port 17 (pitch_upd_src_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiating module note_manager with d
+angling input port 23 (base_semi_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiating module note_manager with d
+angling input port 24 (base_commit_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:160: warning: Instantiating module note_manager with d
+angling input port 25 (transpose_semi_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vel_pos_follow.sv:189: warning: Instantiating module envelope_bank with 
+dangling input port 7 (timbre_i) floating.

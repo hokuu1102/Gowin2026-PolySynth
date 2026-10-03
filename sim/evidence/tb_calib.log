@@ -11,6 +11,6 @@ ok : median: a GENUINE move still gets through (out -> 600, the spike does not l
 ok : A8: no X/Z on out_val
 ok : A8: no X/Z on med_out_val
 PASS: calib T13 all 11 checks ok
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\drivers\tb_calib.sv:298: $finish called at 1802000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_calib.sv:298: $finish called at 1802000 (1ps)
 
 

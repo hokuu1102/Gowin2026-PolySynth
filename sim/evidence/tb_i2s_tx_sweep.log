@@ -29,6 +29,6 @@ VCD info: dumpfile build/sim/tb_i2s_tx_sweep/tb_i2s_tx_sweep.vcd opened for outp
   ok : R-14 鏋佺鏍风偣鎴柇姝ｇ‘锛堝彇楂?16 浣嶃€佷笉婧㈠嚭锛涒垝0.5LSB 鐩存祦鍋忕疆涓哄凡鐭ュ彇鑸嶏級
 
 PASS: i2s_tx works in every parameter mode (incl. 16BCK equivalence and the inconsistent-parameter negative proof)
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_i2s_tx_sweep.sv:419: $finish called at 1392891000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_i2s_tx_sweep.sv:419: $finish called at 1392891000 (1ps)
 
 

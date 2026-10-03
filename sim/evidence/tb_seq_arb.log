@@ -18,6 +18,6 @@
 --------------------------------------------------
 PASS: A1 DEPTH9 width and behavioral queue checks=656 full=142 reject=67 triple=43 wraps=72
 PASS: seq_arb 澶氭簮鍚屾媿涓嶄涪銆佹紨绀鸿浣嶃€佹孩鍑哄彲瑙併€佸崟鍛ㄦ湡銆佹棤 X/Z
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_seq_arb.sv:396: $finish called at 13120000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_seq_arb.sv:396: $finish called at 13120000 (1ps)
 
 

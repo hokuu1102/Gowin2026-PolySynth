@@ -5,6 +5,6 @@
   ok  : releasing a plucked selection sends note_off
   ok  : fretboard UP pluck starts a newly selected axis
 PASS: play-mode controller enforces keyboard and fretboard semantics
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_play_mode_ctrl.sv:96: $finish called at 470000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_play_mode_ctrl.sv:96: $finish called at 470000 (1ps)
 
 

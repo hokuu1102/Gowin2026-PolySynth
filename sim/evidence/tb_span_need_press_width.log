@@ -12,6 +12,6 @@
 ok  : need_press_o 纭疄浜х敓浜嗕笂鍗囨部 鈬?top.v 鐨?ev_need 浼氳瑙﹀彂
 NOTE: need_press 楂?202 鎷?
 ==================================================
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_span_need_press_width.sv:151: $finish called at 6240000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_need_press_width.sv:151: $finish called at 6240000 (1ps)
 
 

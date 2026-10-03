@@ -1,0 +1,133 @@
+﻿diff --git a/rtl/w3b/note_manager.v b/rtl/w3b/note_manager.v
+index f2ad270..909b96a 100644
+--- a/rtl/w3b/note_manager.v
++++ b/rtl/w3b/note_manager.v
+@@ -775,6 +775,20 @@ module note_manager #(
+     reg [IDX_W-1:0]        same_idx_r;
+     //  ⭐ 重触发清零脉冲：**单周期**（每 clk 先清、由 (f)/(g) 两处按需置位）
+     reg  [POLY_TARGET-1:0] retrig_reset_r;
++    //  ⭐⭐ 2026-10-03：⭐ **T3 就地重算的"写口"**（⭐ 变调核心在文件下方，⭐ 见"变调核心"段 ✅）
++    //     🔴 **为什么⛔ 不能直接在变调那个独立 `always` 里写 `phase_r`**（⭐ 本轮实测）：
++    //        `ERROR (EX2000) : Net 'phase_r[0][31]' is constantly driven from multiple places`
++    //        ＋ `ERROR (EX1999) : Found another driver here`
++    //        ⇒ ⭐ **Gowin ⛔ 不允许同一个数组被两个 `always` 块驱动**（⭐ 哪怕下标永不重叠 ✅）
++    //        ⇒ 🔴 而 `phase_r` 的写**已经**在这个主状态机块里（⭐ 复位 / `ST_COMMIT2` /
++    //           `ST_RETRIG` / `pitch_upd` 共 4 处 ✅）⇒ ⭐ **变调必须把写交给它** ✅
++    //     ⭐ **修法**：⭐ 变调块只**算 + 寄存**一个写请求 ⇒ ⭐ 由本块（`phase_r` 的**唯一**所有者）
++    //        执行写 ⇒ ⭐ **单驱动 ✅**
++    //     📌 代价：⭐ **38 FF**（`tr_we` 1 ＋ `tr_idx` 5 ＋ `tr_dat` 32）；⭐ 写**晚 1 拍**
++    //        （⭐ 变调是 **1 ms** 慢路径 ＋ 32 拍一圈 ⇒ ⚠️ 晚 1 拍**无影响** ✅）
++    reg                    tr_we;      // ⭐ 写使能（⭐ 已由 `rot_ok`/`trans_dirty`/源门控 筛过 ✅）
++    reg [4:0]              tr_idx;     // ⭐ 写地址（⭐ = 上一拍的 `rot_cnt` ✅）
++    reg [PHASE_W-1:0]      tr_dat;     // ⭐ 写数据（⭐ = 上一拍的 `prod_w >>> 15` ✅）
+     integer i;
+ 
+     always @(posedge clk_i) begin
+@@ -836,6 +850,14 @@ module note_manager #(
+             lost_sticky_r <= 1'b0;
+         end else begin
+             alloc_valid_r <= 1'b0;
++            //  ⭐⭐ 2026-10-03：⭐ **T3 就地重算的写**（⭐ 见上方 `tr_we` 的说明 ✅）
++            //     ⭐ 为什么放在**本块最前面**：⭐ Verilog **同块内后写覆盖先写** ⇒
++            //        下面的 `case` 里 `phase_r[cmt_idx_r]`（新音）· `phase_r[same_idx_r]`（重触发）·
++            //        `phase_r[i]`（`pitch_upd` 滑音）都写在**后面** ⇒ ⭐ **它们赢** ✅
++            //        （⭐ 语义正确：⭐ 新音/滑音必须拿到**自己的**相位增量，
++            //           ⛔ 不能被上一轮变调的结果盖掉 ✅）
++            if (tr_we)
++                phase_r[tr_idx] <= tr_dat;
+             //  ⭐⭐ **2026-09-28 修（B2「偶发尖音」的直接原因）**：
+             //     `retrig_reset` 从【单拍脉冲】改成【保持到 `sample_tick` 才清】。
+             //
+@@ -1392,10 +1414,14 @@ module note_manager #(
+ 
+     // ── ④ 轮转 ＋ 共享乘法器（⭐ 32 拍一圈 ✅）
+     //    ⭐ `rot_cnt` **自由运行** 0..31（⭐ 5 位自然回绕，⛔ 不需要"到 31 清零"的逻辑 ✅）
+-    //    ⚠️ `phase_tr` 是**新增的 32×32 寄存器组**（⭐ 1024 FF）——
+-    //       ⭐ 这是"共享乘法器"的**代价项**（⭐ 换来的是 ⛔ 不用 32 个乘法器 ✅）
++    //    ⭐⭐ 2026-10-03：⭐ **就地重算**（⭐ 用户裁定 `T3-PnR阻塞记录:335-340` ✅）——
++    //       🔴 **删掉 `phase_tr` 数组**：⭐ 它的 **32 lane 输出旁路 mux = 1025 LUT**
++    //          就是 `PR0004` 布线失败的元凶（⭐ 四探针实测，⭐ 占 T3 增量的 52% ✅）
++    //       ⭐ 改为把变调结果**写回 `phase_r[g]`** ⇒ ⭐ 输出回到 T2 的原式 ✅
+     reg  [4:0]         rot_cnt;
+-    reg  [PHASE_W-1:0] phase_tr [0:POLY_TARGET-1];
++    //    ⭐ **重算标志**：⭐ `semi_cur` 变化时置 1，⭐ 轮转走完一圈（`rot_wrap`）后清 0 ——
++    //       ⭐ 目的：⭐ **只重算一圈**（⛔ 不是每 32 拍都乘一次 ⇒ ⛔ 不累积误差 ✅）
++    reg                trans_dirty;
+ 
+     //    ⚠️ **小实例的越界保护**（⭐ 本文件是**参数化**的，⭐ tb 里有 `POLY_TARGET=4` 的实例 ✅）：
+     //       ⭐ `rot_cnt` 按规格是 **5 位自由运行 0..31**，⚠️ 而数组长度是 `POLY_TARGET`
+@@ -1406,6 +1432,10 @@ module note_manager #(
+     //    ⛔ 比较对象用 `localparam integer`（⭐ **不对 `integer` 参数做位选** —— `K-91` ✅）
+     localparam integer ROT_LANES = (POLY_TARGET > 32) ? 32 : POLY_TARGET;
+     wire rot_ok = (rot_cnt < ROT_LANES);
++    //    ⭐ **一圈的最后一拍**（⭐ `POLY_TARGET=32` ⇒ `rot_cnt == 31` ✅）——
++    //       ⭐ 用它清 `trans_dirty`（⭐ 即"轮转回绕" ✅）
++    localparam integer ROT_LAST = ROT_LANES - 1;
++    wire rot_wrap = (rot_cnt == ROT_LAST);
+ 
+     //    ⭐ **`phase_base` 与下面的输出表达式【逐字相同】**（⭐ 同一约定：⭐ 八度移位 ＋ 32 位截断 ✅）
+     wire [PHASE_W-1:0] rot_phase = phase_r[rot_cnt];
+@@ -1432,21 +1462,40 @@ module note_manager #(
+             semi_tgt <= 5'sd0;
+             port_cnt <= 16'd0;
+             rot_cnt  <= 5'd0;
+-            for (ti = 0; ti < POLY_TARGET; ti = ti + 1)
+-                phase_tr[ti] <= {PHASE_W{1'b0}};
++            trans_dirty <= 1'b0;        // ⭐ 复位 ⇒ ⛔ 不重算 ⇒ ⭐ 逐位恒等 ✅
++            tr_we    <= 1'b0;           // ⭐ 写请求也复位（⛔ 不留 X ✅）
++            tr_idx   <= 5'd0;
++            tr_dat   <= {PHASE_W{1'b0}};
+         end else begin
+             semi_tgt <= semi_tgt_w;
+             rot_cnt  <= rot_cnt + 5'd1;                 // ⭐ 自由运行（⭐ 5 位回绕 ✅）
+             //  ⭐ **每拍算一个 lane**：⭐ 32 位截断（⭐ 与 T2 的 `<< base_oct_r` **同一约定**，
+             //     ⛔ **不加饱和** —— ⭐ 交付行为由 tb 的"逐项等于 `×比例 >>> 15`"钉住 ✅）
+             //  📌 `prod_w` 是**无符号** ⇒ `>>>` 与 `>>` **完全等价**（⭐ 用 `>>>` 只为与定稿一致 ✅）
+-            if (rot_ok)
+-                phase_tr[rot_cnt] <= (prod_w >>> 15);
++            //  ⭐ 一圈走完 ⇒ 清"重算中"（⭐ 写在下面的置位【之前】⇒ ⭐ 同拍置位优先 ✅）
++            if (rot_wrap)
++                trans_dirty <= 1'b0;
++            //  ⭐⭐ 就地重算：⭐ **把变调结果写回 `phase_r`**（⛔ 不再存 `phase_tr` ✅）
++            //     🔴 **本块⛔ 不直接写 `phase_r`**（⭐ 否则 `EX2000` 多驱动，⭐ 见上方 `tr_we` 说明）——
++            //        ⭐ 这里只**寄存一个写请求**，⭐ 由主状态机块（`phase_r` 的**唯一**所有者）执行写 ✅
++            //     ⭐ 三条门控（⭐ 缺一不可）：
++            //        ① `rot_ok`        ⇒ ⭐ 小实例（`POLY_TARGET<32`）⛔ 不越界 ✅
++            //        ② `trans_dirty`   ⇒ ⭐ **只在该半音值刚变的那一圈算** ✅
++            //        ③ `src_r ∉ {3,4}` ⇒ ⭐ **源门控**（⭐ 节拍器/鼓机 · looper ⛔ 不变调 ✅）
++            //     ⚠️ `&&` **短路**（⭐ IEEE 1364 规定 ✅）⇒ `rot_ok` 为假时⛔ 不求值 `src_r[rot_cnt]`
++            //        （⭐ 小实例里 `rot_cnt ≥ POLY_TARGET` 越界读 ⇒ ⭐ 靠短路避开 ✅）
++            tr_we  <= rot_ok && trans_dirty && (src_r[rot_cnt] != 3'd3) && (src_r[rot_cnt] != 3'd4);
++            tr_idx <= rot_cnt;
++            tr_dat <= (prod_w >>> 15);
+             //  ⭐ 1 ms 一步：⭐ 到点才动，⭐ 每次只走 **±1**（⭐ 单调、⛔ 不跳变 ✅）
+             if (port_cnt == PORT_1MS) begin
+                 port_cnt <= 16'd0;
+                 if      (semi_cur < semi_tgt) semi_cur <= semi_cur + 5'sd1;
+                 else if (semi_cur > semi_tgt) semi_cur <= semi_cur - 5'sd1;
++                //  ⭐⭐ 半音值**刚变化** ⇒ ⭐ 置"重算中"（⭐ 写在上面清 0 **之后**
++                //     ⇒ ⭐ 同拍"清 + 置"时**置位优先** ✅）
++                if (semi_cur != semi_tgt)
++                    trans_dirty <= 1'b1;
+                 //  ⭐ 相等 ⇒ 保持（⭐ 不写 ⇒ 自然静止 ✅）
+             end else begin
+                 port_cnt <= port_cnt + 16'd1;
+@@ -1473,12 +1522,14 @@ module note_manager #(
+             //           "拍子"跟着曲子跑 ⚠️ ⇒ ⭐ 用户失去基准 ✅）；⭐ looper 是**已录素材**
+             //           （⭐ 用户要的是"我弹的音变调"，⛔ 不是"把录音也变速" ✅）
+             //     ⚠️ **`base_g` 必须与 T2 的原式【逐字相同】** —— ⭐ 这是"0 档恒等"的**唯一依据** ✅
++            //  ⭐⭐ 2026-10-03：⭐ **就地重算 ⇒ 输出回到 T2 的原式** ✅
++            //     ⛔ **无旁路 mux**（⭐ 那 1025 LUT 正是 `PR0004` 的元凶 ✅）· ⛔ **无 `phase_tr`**
++            //     ⭐ 变调**已经写回 `phase_r[g]`** ⇒ ⭐ 这里只管八度移位 ✅
++            //     📌 `base_g` **不是死逻辑**：⭐ `voice_phase_inc_o` 是真输出，
++            //        ⭐ 在 `top.v:3925` 接进 `oscillator_bank.base_phase_inc_i` ✅
+             wire [PHASE_W-1:0] base_g = (base_oct_r == 2'd0) ? phase_r[g]
+                                                              : (phase_r[g] << base_oct_r);
+-            assign voice_phase_inc_o[g*PHASE_W +: PHASE_W] =
+-                   (semi_cur == 5'sd0) ? base_g                              // ⭐ 0 档 ⇒ 逐位恒等
+-                 : ((src_r[g] == 3'd3 || src_r[g] == 3'd4) ? base_g          // ⭐ 源门控
+-                                                           : phase_tr[g]);   // ⭐ 变调（轮转结果）
++            assign voice_phase_inc_o[g*PHASE_W +: PHASE_W] = base_g;
+             assign voice_velocity_o[g*VEL_W +: VEL_W]      = vel_r[g];
+             assign voice_timbre_o[g*TIMBRE_W +: TIMBRE_W]  = timbre_r[g];
+             //  ⭐⭐ 2026-09-29 新增：⭐ **保留轴位 ⇒ 打击乐 voice ⇒ 走噪声表** ✅
