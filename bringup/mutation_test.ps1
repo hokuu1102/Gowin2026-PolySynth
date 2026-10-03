@@ -518,7 +518,13 @@ $mutations = @(
   #   non-ASCII bytes) before being written here.
   #   NOTE: keep every comment ABOVE an array element ASCII-only (see C72).
   @{ id = "M135"; file = "rtl\w3b\note_manager.v"; find = "(src_r[sg]  == cur_src);"; repl = "1'b1;"; why = "A3' non-vacuity: the source term is dropped from same_hit -> a replay note_on can take over a hand-played voice again, so the A3' isolation criterion is not actually being exercised. Must be caught." },
-  @{ id = "M136"; file = "rtl\w3b\note_manager.v"; find = "wire cand_ok = cand_pool & ~cand_hold & ~cand_foreign;"; repl = "wire cand_ok = cand_pool & ~cand_hold;"; why = "A3': the foreign-source guard is dropped from the candidate mask -> when the pool is full a replay voice is stolen from another source again (the exact defect A3' fixed). Must be caught." }
+  @{ id = "M136"; file = "rtl\w3b\note_manager.v"; find = "wire cand_ok = cand_pool & ~cand_hold & ~cand_foreign;"; repl = "wire cand_ok = cand_pool & ~cand_hold;"; why = "A3': the foreign-source guard is dropped from the candidate mask -> when the pool is full a replay voice is stolen from another source again (the exact defect A3' fixed). Must be caught." },
+  # ---- guide_lamp (2026-10-03, c): note-event -> key-lamp one-hot guide. M137~M139.
+  #   P1 core: decode play_seq axis field [22:19] into 16-bit guide bitmap.
+  #   Anchors byte-verified against current RTL (each appears exactly once).
+  @{ id = "M137"; file = "rtl\w3c\guide_lamp.v"; find = "guide_key_o[note_axis] <= 1'b1;"; repl = "guide_key_o[note_axis] <= 1'b0;"; why = "guide_lamp: note_on no longer lights the lamp -> guide bitmap stays dark, next-key hint dead. Must be caught." },
+  @{ id = "M138"; file = "rtl\w3c\guide_lamp.v"; find = "wire is_note_on  = (note_kind == KIND_ON);"; repl = "wire is_note_on  = (note_kind != KIND_OFF);"; why = "guide_lamp: tempo event (kind=2) now treated as note_on -> phantom lamp lights on tempo change. Must be caught." },
+  @{ id = "M139"; file = "rtl\w3c\guide_lamp.v"; find = "guide_key_o[note_axis] <= 1'b0;"; repl = "guide_key_o[note_axis] <= 1'b1;"; why = "guide_lamp: note_off no longer clears the lamp -> stale guide never turns off. Must be caught." }
 
 )
 
