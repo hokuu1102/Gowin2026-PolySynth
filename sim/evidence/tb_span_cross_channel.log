@@ -12,6 +12,6 @@ ok  : 璺ㄩ€氶亾闈欐€佸€间笉鍚岋紙鏋佸樊 54锛変笅锛?6 �
 ok  : rej_cnt_o=0 <= REJECT_MAX=8锛堣鏁拌涔夎嚜娲斤級
 ==================================================
 PASS: 璺ㄩ€氶亾闈欐€佸樊寮備笉鐮村潖 span 鏍囧畾
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_span_cross_channel.sv:161: $finish called at 25600240000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_cross_channel.sv:161: $finish called at 25600240000 (1ps)
 
 

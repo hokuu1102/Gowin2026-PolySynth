@@ -28,6 +28,6 @@
   ok  : ?????懜 mode=~??
   ok  : ?? frame_cnt ??
 PASS: tb_uart_ui (28 checks)
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_uart_ui.sv:291: $finish called at 42860000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_uart_ui.sv:291: $finish called at 42860000 (1ps)
 
 

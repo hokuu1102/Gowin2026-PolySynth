@@ -20,6 +20,6 @@
   ok : A8 no X/Z
 
 PASS: I2S output timing has >=100ns setup/hold around the DAC sampling edge (PT8211 manual limits met)
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_i2s_tx_timing.sv:184: $finish called at 368891000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_i2s_tx_timing.sv:184: $finish called at 368891000 (1ps)
 
 

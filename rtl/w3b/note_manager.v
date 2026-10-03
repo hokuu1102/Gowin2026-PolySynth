@@ -62,6 +62,23 @@ module note_manager #(
     parameter integer POLY_TARGET = 32,
     parameter integer AXIS_W      = 4,
     parameter integer PHASE_W     = 32,
+    // ⭐⭐ 2026-10-03（`P1`）：⭐ **T3 实时变调总开关** —— ⭐ 默认 **0 = 关** ✅
+    //   📌 **为什么要有它**（⭐ 详见 `files/20-代码/T3-后续计划-20261003.md` §三 `P1`）：
+    //      ⭐ T3 变调**功能正确、但装不下** —— ⭐ 32 lane 输出旁路 mux = **1025 LUT**
+    //      ⇒ 🔴 布线失败 `PR0004 659 unrouted`；⚠️ 三条减重路（读侧 mux 1025 /
+    //      写侧 mux ~1400 / 每 lane 乘法器 DSP 98%）**全部实测不通**。
+    //      ⇒ ⭐ 用户 2026-10-03 拍板"**暂不做大改**" ⇒ ⭐ **把 T3 关起来，让主线恢复可交付** ✅
+    //   ⭐ **语义**：
+    //      · `T3_EN = 0` ⇒ ⭐ **整个变调核心【不参与综合】**（`generate` 门控，见文件末段）：
+    //         ⭐ `semi_ratio_of()` 比例表 · ⭐ 共享乘法器 `prod_w` · ⭐ `rot_cnt` 轮转 ·
+    //         ⭐ `semi_cur`/`semi_tgt` 滑音 · ⭐ `phase_tr[]` 数组 —— ⭐ **全部不展开** ✅
+    //         ⇒ ⭐ `voice_phase_inc_o` **回到 T2 原式**（`phase_r[g] << base_oct_r`）✅
+    //         ⇒ ⭐ **与 `d36cb64^`（T2 基线）逐位相同** —— ⭐ 这正是 `tb_transpose` 的
+    //            `T1` 判据（⭐ 与 `note_manager_ref` 逐拍差分）所钉住的契约 ✅
+    //      · `T3_EN = 1` ⇒ ⭐ **逐字保持 2026-10-03 的现有语义**（⛔ 只"包起来"，⛔ 不改行为）✅
+    //   ⚠️ **端口 `transpose_semi_i` 保留**：⭐ `T3_EN=0` 时它无人引用 ⇒ 可能触发
+    //      unused 警告 —— ⭐ **可接受**；⛔ **不删端口**（否则 `top.v` / 所有 tb 都要改）✅
+    parameter integer T3_EN       = 0,
     parameter integer VEL_W       = 8,
     parameter integer TIMBRE_W    = 2,
     parameter integer ENV_W       = 16,
@@ -154,6 +171,19 @@ module note_manager #(
     //      ⇒ ⭐ **`base_semi` = 八度数 × 12**（⭐ `0` = C4 · `12` = C5 · `24` = C6 ✅）
     input  wire [6:0]                        base_semi_i,        // ⭐ 起始音（⭐ 八度×12）
     input  wire                              base_commit_i,      // ⭐ 提交（⭐ 单周期脉冲）
+
+    // ── ⭐⭐ 2026-10-03：⭐ **T3 实时变调（Transpose）** ──────────────────────
+    //   📌 **来源**：⭐ `files/00-总览/T3变调与推子功能状态机-设计定稿-20261001.md`
+    //      §三（共享乘法器 ＋ 轮转）· §五（比例表 · 旁路 mux · 短滑音）✅
+    //   ⭐ **语义**：⭐ **总半音偏移**（⭐ 推子量化 ＋ ⭐ 摇把连续 ⇒ 由上层相加后送来 ✅）
+    //      ⇒ ⭐ `0` = 不变调 · ⭐ `−12..+12` = 降/升调 ✅
+    //   ⭐⭐ **本步（步骤①）⛔ 不接线**：⭐ `top.v` 的接线是**步骤②** ⇒
+    //      ⚠️ 本端口现在**悬空**（⭐ 老例化一个都不接）⇒ ⭐ 悬空是 `5'bzzzzz`
+    //      ⇒ 🔴 **必须 Z-safe 解码**（⭐ 见下方 `semi_tgt_w`）⭐ 否则
+    //         `semi_cur` 会变 `x` ⇒ ⭐ `voice_phase_inc_o` 全 `x` ⇒ **老 tb 全假红** ✅
+    //   📌 **本步的核心安全保证**：⭐ **悬空 ⇒ 0 档 ⇒ 逐位恒等**（⭐ `T1` 判据 ✅）
+    //   ⚠️ 位宽写死 **5 位有符号**（⭐ −12..+12 的补码范围 ✅；⛔ 不用 `integer` 参数 —— `K-91`）
+    input  wire signed [4:0]                 transpose_semi_i,   // ⭐ 总半音偏移（⭐ −12..+12）
 
     // ── 输出 → `oscillator_bank` / `envelope_bank` ─────────────────────────
     output wire [POLY_TARGET-1:0]            voice_gate_o,       // → envelope_bank.gate_i
@@ -1287,20 +1317,239 @@ module note_manager #(
         end
     end
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ 2026-10-03：⭐ **T3 实时变调核心**（⭐ 步骤① · ⭐ `note_manager` 内 ✅）
+    //
+    //   📌 **来源**：⭐ `files/00-总览/T3变调与推子功能状态机-设计定稿-20261001.md`
+    //      · §三 ⭐ **乘法器必须时分复用**（⭐ 共享 1 个 ＋ 轮转 ✅）
+    //      · §五 ⭐ **比例表 · 旁路 mux · 短滑音** ✅
+    //
+    //   ⭐ **四条，⭐ 缺一不可**：
+    //     ① ⭐ **比例表**（⭐ 25 项 Q1.15，⭐ **显式 `case`** ⇒ ⛔ 无运行期幂运算 ✅）
+    //     ② ⭐ **共享 1 个乘法器**（⭐ 32×17）＋ ⭐ **5 位轮转**（⭐ 每拍算 **1** 个 lane，
+    //        32 拍转完一圈 = **0.64 µs** ≪ 短滑音 1 ms ✅）
+    //     ③ ⭐ **旁路 mux**（⭐ `semi_cur == 0` ⇒ ⭐ **逐位恒等**，⭐ 乘法器不在通路上 ✅）
+    //     ④ ⭐ **源门控**（⭐ 只有 `live/score/demo` 跟随变调；
+    //        ⭐ `SRC_AUX`（节拍器/鼓机）与 `looper` **逐位不变** ✅）
+    //
+    //   🔴 **为什么⛔ 不能"每 lane 一个乘法器"**（⭐ §三 原文）：
+    //      ⭐ 朴素做法 = **32 个 32×17 乘法器** ⇒ ⭐ LUT/DSP **爆炸** ⚠️
+    //      📌 **本项目的实测先例**：⭐ T2 的"**每 lane 一个变量移位器**"就吃了 **+2202 LUT**
+    //         ⇒ ⭐ 乘法器**绝不能每 lane 一份** ✅
+    //      ⭐ 而"**共享 ＋ 轮转**"在本项目**已有先例**（⭐ `tdm_render_mixer` 共享 1 个 DSP ✅）
+    //
+    //   ⚠️⚠️ **端口悬空的向后兼容**（⭐ 与 `vu_src_w`/`pu_src_w`/`ns_src_w` **同一套口径**）：
+    //      ⭐ 本步 `top.v` **不接** `transpose_semi_i` ⇒ ⭐ 悬空 = `5'bzzzzz`
+    //      ⇒ 🔴 若**直接**拿它当目标：⭐ `semi_cur` 会变 `x` ⇒ ⭐ `(semi_cur == 0)` 变 `x`
+    //      ⇒ 🔴 **`voice_phase_inc_o` 全部变 `x`** ⇒ ⭐ 老 tb（`tb_note_manager` /
+    //         `tb_pool_by_src` / `tb_top_m0` / `tb_top_sound` …）**全部假红** ✅
+    //      ⭐ **修法**：⭐ **Z-safe 解码** —— ⭐ 只有"**所有位都已知**（⛔ 无 x/z）
+    //         **且**落在 `−12..+12`"才当**有效目标**，⭐ 其余**一律当 0** ✅
+    //      ⇒ ⭐ **不接 = 0 档 = 逐位恒等** ✅（⭐ **这就是本步的核心安全保证** ✅）
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ 2026-10-03（`P1`）：⭐ **`T3_EN` 参数门控 —— 变调核心整段条件综合** ✅
+    //
+    //   ⭐ **门控方式**：⭐ `generate if (T3_EN)`（⭐ `T3_EN` 是 `parameter` ⇒ **常量表达式** ✅）
+    //      · `T3_EN = 1` ⇒ ⭐ `g_t3` 分支：⭐ **逐字保持原语义**（⛔ 不改行为，只"包起来"）✅
+    //      · `T3_EN = 0` ⇒ ⭐ `g_t2` 分支：⭐ 本段**整段不展开** ＋ ⭐ 输出**回到 T2 原式** ✅
+    //
+    //   ⚠️ **为什么用 `generate` 而⛔ 不是"常量折叠 ＋ 等综合器删"**：
+    //      ⭐ 本任务的验收判据是 `T_Lut ≈ 37026`（无 T3 基线）——
+    //      ⭐ `generate` 是**结构性保证**（⭐ 那些 `always`/`wire` **根本没被展开**）；
+    //      ⚠️ 而"未驱动的寄存器 ＋ 无负载的乘法器会被优化掉"是**概率性保证**
+    //      （⭐ 本项目已被"工具行为与预期不符"坑过多次 ⇒ ⭐ 宁可结构上不可能 ✅）
+    //
+    //   ⚠️ **作用域**：⭐ `semi_cur` / `phase_tr` 等**只存在于 `g_t3` 内** ⇒
+    //      ⭐ `voice_phase_inc_o` 的旁路 mux **必须**写在同一个 `generate` 里
+    //      （⭐ 见本段末尾）—— ⭐ 否则 `T3_EN=0` 时**引用不到**，⭐ 编译不过 ✅
+    //      📌 对 `tb/w3b/tb_transpose.sv` 的后果：⭐ 探针路径变成
+    //         `u_t3on.g_t3.semi_cur` / `u_t3on.g_t3.phase_tr`（⭐ 该 tb 已同步改 ✅）
+    //
+    //   📌 **本段内容一字未改**（⭐ 只加门控外壳）—— ⚠️ 为把 `git diff` 控制在
+    //      **可逐行复核**的规模，⭐ 块内**沿用原有缩进**（⭐ Verilog 不依赖缩进）✅
+    // ═══════════════════════════════════════════════════════════════════════
+    genvar gp;      // ⭐ `g_t3` 分支：⭐ 变调输出的逐 lane 打包（⭐ 模块级 —— Verilog-2001 要求）
+    genvar gp2;     // ⭐ `g_t2` 分支：⭐ T2 原式的逐 lane 打包
+    generate
+    if (T3_EN) begin : g_t3
+
+    // ── ① 比例表：⭐ Q1.15 **无符号**定点（⭐ 1.0 = 32768）；⭐ 17 位（⭐ 因 +12 半音 = 2.0 = 65536 ✅）
+    //    ⭐ `idx` 0..24 ⇒ ⭐ 半音 **−12..+12**（⭐ `idx = 半音 + 12` ✅）
+    //    ⚠️ **显式 `case`**（⭐ 与 `axis_map` 查表**同一纪律**：⛔ 不做运行期指数运算 ✅）
+    //    ⭐ `default` = **32768**（⭐ 兜底 = **不变调** ⇒ ⭐ 任何非法下标都⛔ 不会放大/静音 ✅）
+    //    📌 **数值来源**：⭐ §五 的比例表（⭐ 2026-10-01 设计定稿 ✅）—— ⛔ 一个字都不改 ✅
+    function [16:0] semi_ratio_of;
+        input [4:0] idx;
+        case (idx)
+            5'd0 : semi_ratio_of = 17'd16384;   // ⭐ −12 半音 ⇒ 0.5
+            5'd1 : semi_ratio_of = 17'd17358;   // ⭐ −11
+            5'd2 : semi_ratio_of = 17'd18390;   // ⭐ −10
+            5'd3 : semi_ratio_of = 17'd19484;   // ⭐  −9
+            5'd4 : semi_ratio_of = 17'd20643;   // ⭐  −8
+            5'd5 : semi_ratio_of = 17'd21870;   // ⭐  −7
+            5'd6 : semi_ratio_of = 17'd23170;   // ⭐  −6
+            5'd7 : semi_ratio_of = 17'd24548;   // ⭐  −5
+            5'd8 : semi_ratio_of = 17'd26008;   // ⭐  −4
+            5'd9 : semi_ratio_of = 17'd27554;   // ⭐  −3
+            5'd10: semi_ratio_of = 17'd29193;   // ⭐  −2
+            5'd11: semi_ratio_of = 17'd30929;   // ⭐  −1
+            5'd12: semi_ratio_of = 17'd32768;   // ⭐   0 ⇒ 1.0
+            5'd13: semi_ratio_of = 17'd34716;   // ⭐  +1
+            5'd14: semi_ratio_of = 17'd36781;   // ⭐  +2
+            5'd15: semi_ratio_of = 17'd38968;   // ⭐  +3
+            5'd16: semi_ratio_of = 17'd41285;   // ⭐  +4
+            5'd17: semi_ratio_of = 17'd43740;   // ⭐  +5
+            5'd18: semi_ratio_of = 17'd46341;   // ⭐  +6
+            5'd19: semi_ratio_of = 17'd49097;   // ⭐  +7
+            5'd20: semi_ratio_of = 17'd52016;   // ⭐  +8
+            5'd21: semi_ratio_of = 17'd55109;   // ⭐  +9
+            5'd22: semi_ratio_of = 17'd58386;   // ⭐ +10
+            5'd23: semi_ratio_of = 17'd61858;   // ⭐ +11
+            5'd24: semi_ratio_of = 17'd65536;   // ⭐ +12 半音 ⇒ 2.0
+            default: semi_ratio_of = 17'd32768; // ⭐ 兜底 = 不变调 ✅
+        endcase
+    endfunction
+
+    // ── ② Z-safe 目标解码（⭐ 见上方"端口悬空"说明 ✅）
+    //    ⭐ `^transpose_semi_i` = **归约异或**：⭐ 只要**有一位**是 `x`/`z` ⇒ 结果为 `x`
+    //       （⭐ 全已知时结果必是 `0`/`1`）⇒ ⭐ `x !== 1'bx` = `0` ⇒ ⭐ 落到"当 0"分支 ✅
+    //    ⭐ 范围判据 `−12..+12`（⭐ 有符号比较：⭐ 两侧都是 signed ⇒ ⭐ 按补码比较 ✅）
+    //    📌 `&&` 的语义：⭐ 左操作数为 `0` 时结果为 `0`（⭐ 短路，⛔ 不看右操作数 ✅）
+    wire               trans_known = (^transpose_semi_i !== 1'bx);
+    wire signed [4:0]  semi_tgt_w  = (trans_known
+                                      && (transpose_semi_i >= -5'sd12)
+                                      && (transpose_semi_i <=  5'sd12))
+                                     ? transpose_semi_i : 5'sd0;
+
+    // ── ③ 短滑音（⭐ 用户裁定：⭐ 量化到半音 ＋ **短滑音过渡** ✅）
+    //    ⭐ `semi_cur` 向 `semi_tgt` **每 1 ms 走 ±1**（⭐ 50 MHz ⇒ 数到 **49999** = 1 ms ✅）
+    //    ⇒ ⭐ **单调逼近 · ⛔ 不跳变**（⭐ 避免"咔"的一声 ✅）
+    //    ⇒ ⭐ **顺带掩盖乘法器的轮转延迟**（⭐ 32 拍 = 0.64 µs ≪ 1 ms ✅ —— 这正是 §三 的判据 ✅）
+    //    ⚠️ 计数器挂 **`clk_i`**（⛔ 不挂 `sample_tick_i`）——
+    //       ⭐ 因为 1 ms 是**绝对时间**（⭐ 50 MHz ⇒ 50000 拍），⭐ 与音频采样率无关 ✅
+    reg  signed [4:0]  semi_cur;      // ⭐ 当前生效的半音（⭐ 逐步逼近 ✅）
+    reg  signed [4:0]  semi_tgt;      // ⭐ 目标半音（⭐ = 解码后的 `transpose_semi_i` ✅）
+    reg  [15:0]        port_cnt;      // ⭐ 1 ms 计数器（⭐ 0..49999 ✅）
+    localparam [15:0]  PORT_1MS = 16'd49999;
+
+    // ── ④ 轮转 ＋ 共享乘法器（⭐ 32 拍一圈 ✅）
+    //    ⭐ `rot_cnt` **自由运行** 0..31（⭐ 5 位自然回绕，⛔ 不需要"到 31 清零"的逻辑 ✅）
+    //    ⚠️ `phase_tr` 是**新增的 32×32 寄存器组**（⭐ 1024 FF）——
+    //       ⭐ 这是"共享乘法器"的**代价项**（⭐ 换来的是 ⛔ 不用 32 个乘法器 ✅）
+    reg  [4:0]         rot_cnt;
+    reg  [PHASE_W-1:0] phase_tr [0:POLY_TARGET-1];
+
+    //    ⚠️ **小实例的越界保护**（⭐ 本文件是**参数化**的，⭐ tb 里有 `POLY_TARGET=4` 的实例 ✅）：
+    //       ⭐ `rot_cnt` 按规格是 **5 位自由运行 0..31**，⚠️ 而数组长度是 `POLY_TARGET`
+    //       ⇒ ⭐ `POLY_TARGET < 32` 时 `rot_cnt ≥ POLY_TARGET` **越界**
+    //       ⇒ ⭐ 用 `rot_ok` **门控写**（⭐ 越界那几拍**什么都不写** ✅）
+    //       📌 对交付值 `POLY_TARGET=32`：⭐ `rot_ok` **恒为真** ⇒ ⭐ 与规格**逐字一致** ✅
+    //       ⚠️ 读侧：⭐ 越界读在仿真里给 `x`，⭐ 但它**只喂给被门控掉的写** ⇒ ⭐ 不会传播 ✅
+    //    ⛔ 比较对象用 `localparam integer`（⭐ **不对 `integer` 参数做位选** —— `K-91` ✅）
+    localparam integer ROT_LANES = (POLY_TARGET > 32) ? 32 : POLY_TARGET;
+    wire rot_ok = (rot_cnt < ROT_LANES);
+
+    //    ⭐ **`phase_base` 与下面的输出表达式【逐字相同】**（⭐ 同一约定：⭐ 八度移位 ＋ 32 位截断 ✅）
+    wire [PHASE_W-1:0] rot_phase = phase_r[rot_cnt];
+    wire [PHASE_W-1:0] rot_base  = (base_oct_r == 2'd0) ? rot_phase
+                                                        : (rot_phase << base_oct_r);
+
+    //    ⭐ `semi_cur + 12` ⇒ ⭐ **5 位回绕算术**（⭐ 正是"下标 = 半音 + 12" ✅）：
+    //       · ⭐ `semi_cur = −12` ⇒ `5'b10100 + 5'b01100` = `5'b00000` = **0** ✅
+    //       · ⭐ `semi_cur =   0` ⇒ **12** ✅   · ⭐ `semi_cur = +12` ⇒ **24** ✅
+    //       ⚠️ 结果宽度 = `max(5,5)` = **5 位**（⭐ 进位自然丢弃 ⇒ ⭐ 正是我们要的回绕 ✅）
+    wire [4:0]         ratio_idx  = semi_cur + 5'd12;
+    wire [16:0]        semi_ratio = semi_ratio_of(ratio_idx);
+
+    //    ⭐⭐ **共享乘法器**（⭐ 全模块**只有这一个** ✅）：⭐ 32 × 17 ⇒ **49 位** ✅
+    wire [PHASE_W+17-1:0] prod_w = rot_base * semi_ratio;
+
+    // ── 变调核心的时序（⭐ 独立 `always` ⇒ ⛔ 不动主状态机，⭐ 与 `base_oct_r` 同一手法 ✅）
+    //    ⚠️ 循环变量**另起一个**（`ti`）—— ⛔ **不能复用主块里的 `i`**
+    //       （⭐ 两个 `always` 同拍写同一个 `integer` = **仿真竞态** ✅）
+    integer ti;
+    always @(posedge clk_i) begin
+        if (!rst_n_i) begin
+            semi_cur <= 5'sd0;          // ⭐ 复位 = 0 档 ⇒ ⭐ 旁路 ⇒ 逐位恒等 ✅
+            semi_tgt <= 5'sd0;
+            port_cnt <= 16'd0;
+            rot_cnt  <= 5'd0;
+            for (ti = 0; ti < POLY_TARGET; ti = ti + 1)
+                phase_tr[ti] <= {PHASE_W{1'b0}};
+        end else begin
+            semi_tgt <= semi_tgt_w;
+            rot_cnt  <= rot_cnt + 5'd1;                 // ⭐ 自由运行（⭐ 5 位回绕 ✅）
+            //  ⭐ **每拍算一个 lane**：⭐ 32 位截断（⭐ 与 T2 的 `<< base_oct_r` **同一约定**，
+            //     ⛔ **不加饱和** —— ⭐ 交付行为由 tb 的"逐项等于 `×比例 >>> 15`"钉住 ✅）
+            //  📌 `prod_w` 是**无符号** ⇒ `>>>` 与 `>>` **完全等价**（⭐ 用 `>>>` 只为与定稿一致 ✅）
+            if (rot_ok)
+                phase_tr[rot_cnt] <= (prod_w >>> 15);
+            //  ⭐ 1 ms 一步：⭐ 到点才动，⭐ 每次只走 **±1**（⭐ 单调、⛔ 不跳变 ✅）
+            if (port_cnt == PORT_1MS) begin
+                port_cnt <= 16'd0;
+                if      (semi_cur < semi_tgt) semi_cur <= semi_cur + 5'sd1;
+                else if (semi_cur > semi_tgt) semi_cur <= semi_cur - 5'sd1;
+                //  ⭐ 相等 ⇒ 保持（⭐ 不写 ⇒ 自然静止 ✅）
+            end else begin
+                port_cnt <= port_cnt + 16'd1;
+            end
+        end
+    end
+
+    // ── ⑤ 变调输出打包（⭐ 与上面**同作用域** ⇒ ⭐ 能直接读 `semi_cur` / `phase_tr` ✅）──
+    //  ⭐⭐ 2026-10-01：⭐ **T2 起始音 —— 显式旁路 mux**（⭐ §54 ②）
+    //     ⭐ `base_oct_r == 0` ⇒ ⭐ **逐位恒等【由构造保证】**（⛔ 不走移位器 ✅）
+    //  ⚠️ **为什么移位放在【输出】而⛔ 不是【输入】**：⭐ `phase_r` 有**三条写入路径**
+    //     （⭐ 起音 · ⭐ 提交 · ⭐ **滑音 `pitch_upd`**）
+    //     ⇒ ⭐ 放输入只覆盖前两条 ⇒ 🔴 **滑音会绕过移位**（⭐ 不一致 ⚠️）
+    //     ⇒ ⭐ 放输出 ⇒ ⭐ **三条路径全覆盖** ✅（⭐ 符合 `0.12`"枚举同类路径" ✅）
+    //  ⭐⭐ 2026-10-03：⭐ **T3 变调 —— 旁路 mux ＋ 源门控**（⭐ 定稿 §五 ✅）
+    //     ⭐ `semi_cur == 0` ⇒ ⭐ **逐位恒等【由构造保证】**（⭐ `base_g` 就是 T2 的原式，
+    //        ⛔ **乘法器不在通路上** ⇒ ⭐ `T1` 判据"0 档逐位相同"**结构上成立** ✅）
+    //     ⭐ `src_r[g] ∈ {3,4}`（⭐ 节拍器/鼓机 · looper 回放）⇒ ⭐ **逐位不变** ✅
+    //        📌 **为什么这两类不跟随变调**：⭐ 节拍器/鼓机是**参考拍**（⭐ 变调会让
+    //           "拍子"跟着曲子跑 ⚠️ ⇒ ⭐ 用户失去基准 ✅）；⭐ looper 是**已录素材**
+    //           （⭐ 用户要的是"我弹的音变调"，⛔ 不是"把录音也变速" ✅）
+    //     ⚠️ **`base_g` 必须与 T2 的原式【逐字相同】** —— ⭐ 这是"0 档恒等"的**唯一依据** ✅
+    for (gp = 0; gp < POLY_TARGET; gp = gp + 1) begin : g_ph_t3
+        wire [PHASE_W-1:0] base_g = (base_oct_r == 2'd0) ? phase_r[gp]
+                                                         : (phase_r[gp] << base_oct_r);
+        assign voice_phase_inc_o[gp*PHASE_W +: PHASE_W] =
+               (semi_cur == 5'sd0) ? base_g                              // ⭐ 0 档 ⇒ 逐位恒等
+             : ((src_r[gp] == 3'd3 || src_r[gp] == 3'd4) ? base_g          // ⭐ 源门控
+                                                         : phase_tr[gp]);  // ⭐ 变调（轮转结果）
+    end
+
+    end else begin : g_t2
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ `T3_EN = 0` ⇒ ⭐ **变调核心整段不存在** ⇒ ⭐ 输出回到 **T2 原式** ✅
+    //   ⭐ 下面这一行与 `d36cb64^`（T2 基线）的 `gen_pack` 里那一行 **逐字相同** ✅
+    //   ⭐ 判据：⭐ 综合后 `T_Lut` 必须回到 **37026 ± 100**（⭐ 无 T3 基线）✅
+    //   ⚠️ 本分支**不引用** `semi_cur` / `phase_tr` / `src_r` ⇒ ⭐ 那 1025 LUT 的
+    //      旁路 mux **在结构上不可能被综合出来** ✅（⛔ 不是"综合完再优化掉"）
+    // ═══════════════════════════════════════════════════════════════════════
+    for (gp2 = 0; gp2 < POLY_TARGET; gp2 = gp2 + 1) begin : g_ph_t2
+        assign voice_phase_inc_o[gp2*PHASE_W +: PHASE_W] =
+               (base_oct_r == 2'd0) ? phase_r[gp2]
+                                    : (phase_r[gp2] << base_oct_r);
+    end
+    end
+    endgenerate
+
     // ── 输出打包（扁平总线契约：voice i = bus[i*W +: W]，voice 0 在最低位）──
     genvar g;
     generate
         for (g = 0; g < POLY_TARGET; g = g + 1) begin : gen_pack
             assign voice_axis_o[g*AXIS_W +: AXIS_W]        = axis_r[g];
-            //  ⭐⭐ 2026-10-01：⭐ **T2 起始音 —— 显式旁路 mux**（⭐ §54 ②）
-            //     ⭐ `base_oct_r == 0` ⇒ ⭐ **逐位恒等【由构造保证】**（⛔ 不走移位器 ✅）
-            //  ⚠️ **为什么移位放在【输出】而⛔ 不是【输入】**：⭐ `phase_r` 有**三条写入路径**
-            //     （⭐ 起音 · ⭐ 提交 · ⭐ **滑音 `pitch_upd`**）
-            //     ⇒ ⭐ 放输入只覆盖前两条 ⇒ 🔴 **滑音会绕过移位**（⭐ 不一致 ⚠️）
-            //     ⇒ ⭐ 放输出 ⇒ ⭐ **三条路径全覆盖** ✅（⭐ 符合 `0.12`"枚举同类路径" ✅）
-            assign voice_phase_inc_o[g*PHASE_W +: PHASE_W] =
-                   (base_oct_r == 2'd0) ? phase_r[g]
-                                        : (phase_r[g] << base_oct_r);
+            //  ⭐⭐ 2026-10-03（`P1`）：⭐ **`voice_phase_inc_o` 已挪进 `T3_EN` 门控的
+            //     `generate`（见上方 `g_t3` / `g_t2` 两个分支）** —— ⭐ 原因：
+            //     `T3_EN=0` 时 `semi_cur` / `phase_tr` **根本不存在**（⭐ 在 `g_t3` 作用域内）
+            //     ⇒ ⭐ 那个旁路 mux **必须与它们同生共死** ⇒ ⭐ 否则 `T3_EN=0` 时
+            //     **引用不到**（⭐ 编译不过）＋ ⚠️ 更糟：⭐ 若把 mux 留在外面，
+            //     那 **1025 LUT 会在 `T3_EN=0` 时依然被综合出来** ⇒ ⭐ 判据达不到 37026 ✅
+            //     📌 其余 6 组输出（axis/velocity/timbre/drum/age）**与 T3 无关** ⇒ ⭐ 原地不动 ✅
             assign voice_velocity_o[g*VEL_W +: VEL_W]      = vel_r[g];
             assign voice_timbre_o[g*TIMBRE_W +: TIMBRE_W]  = timbre_r[g];
             //  ⭐⭐ 2026-09-29 新增：⭐ **保留轴位 ⇒ 打击乐 voice ⇒ 走噪声表** ✅

@@ -121,6 +121,6 @@
   INFO: K-169 phase before re-press = 40505000, after = 40000000
   ok  : K-169: re-press in release tail reloads the phase seed
 PASS: note_manager acceptance (T54) - all judgements held
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_note_manager.sv:1393: $finish called at 889080000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:1393: $finish called at 889080000 (1ps)
 
 

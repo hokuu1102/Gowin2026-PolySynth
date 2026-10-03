@@ -1,4 +1,4 @@
-﻿NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=4 BYTE_CLK=50 HEADER=a5 N_CMD=14 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44)
+﻿NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=4 BYTE_CLK=50 HEADER=a5 N_CMD=18 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a)
 === tb_calib_cmd ===
   ok  : 'T' outside a frame raises tare_req
   ok  : 'T' does NOT raise span_req or abort_req
@@ -21,6 +21,26 @@
   ok  : 'D' pulse is exactly ONE cycle wide
   ok  : cmd_cnt_o counted all NINE commands
   ok  : each command pulse is exactly ONE cycle wide
+  ok  : 'F' outside a frame raises trans_down_req
+  ok  : 'F' does NOT cross-fire the other new commands
+  ok  : 'F' does NOT cross-fire the older commands
+  ok  : 'G' outside a frame raises trans_up_req
+  ok  : 'G' does NOT cross-fire trans_down_req
+  ok  : 'G' can be sent repeatedly (2nd pulse => cumulative count 2)
+  ok  : 'J' outside a frame raises gear_next_req
+  ok  : 'J' does NOT cross-fire the other new commands
+  ok  : cmd_cnt_o counted 'F' + 'G' + 'G' + 'J'
+  ok  : each new command pulse is exactly ONE cycle wide (F x1, G x2, J x1)
+  ok  : bare 'H' outside a frame arms but raises NO value pulse yet
+  ok  : 'H' + frame: first payload byte is taken as the semitone value
+  ok  : in-frame 'H' payload letters do NOT fire extra value pulses
+  ok  : 'H' does NOT cross-fire the other new commands
+  ok  : the arm is one-shot: an UNARMED frame raises no 2nd value pulse
+  ok  : 'H' value pulse is exactly ONE cycle wide (checked late)
+  ok  : payload of eight 'H' letters raises NO trans_abs_req
+  ok  : payload of eight 'H' letters raises NO other command pulses
+  ok  : cmd_cnt_o did NOT count the in-frame 'H' letters
+  ok  : in_frame_cnt_o counted all 8 in-frame 'H' letters
   ok  : payload full of T/S/X raises NO tare_req
   ok  : payload full of T/S/X raises NO span_req
   ok  : payload full of T/S/X raises NO abort_req
@@ -49,7 +69,7 @@
   ok  : back-to-back frames with embedded T/S/X/HDR raise no commands
   ok  : back-to-back frames end with idx_o == 0
 
-PASS: calib_cmd parses T/S/X/M only at frame boundaries, ignores payload letters, counts what it drops, and self-heals after a half frame
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_calib_cmd.sv:402: $finish called at 11690000 (1ps)
+PASS: calib_cmd parses T/S/X/M/F/G/H/J only at frame boundaries, ignores payload letters, counts what it drops, takes the 'H' framed value from the next frame's first payload byte, and self-heals after a half frame
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_cmd.sv:532: $finish called at 13330000 (1ps)
 
 

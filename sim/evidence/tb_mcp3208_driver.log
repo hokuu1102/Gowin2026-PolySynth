@@ -8,6 +8,6 @@ PASS CH5: clocks=24, MOSI=074000, ADC=a5c
 PASS CH6: clocks=24, MOSI=078000, ADC=def
 PASS CH7: clocks=24, MOSI=07c000, ADC=fff
 PASS: all MCP3208 channels completed
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\drivers\tb_mcp3208_driver.sv:214: $finish called at 196611000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_mcp3208_driver.sv:214: $finish called at 196611000 (1ps)
 
 

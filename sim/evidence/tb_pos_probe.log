@@ -39,6 +39,6 @@
   ok  : A8: busy 鏃?X/Z
 
 PASS: pos_probe emits 'P<4 digits>CRLF' on request, latches the reading, and never drops when the sink is busy
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_pos_probe.sv:219: $finish called at 4770000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_pos_probe.sv:219: $finish called at 4770000 (1ps)
 
 

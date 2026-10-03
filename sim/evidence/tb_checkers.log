@@ -63,6 +63,6 @@ ERROR [A7] phase_acc 鐩镐綅澧為噺寮傚父锛氬疄娴?4294937296锛屾湡
   ok : A7 鍚堟硶鐨勭浉浣嶉噸鍚紙jump_ok锛夋湭琚鎶?
 
 PASS: A1/A2/A3/A4/A5/A6/A7/A8 缁撴瀯绫绘柇瑷€鍏ㄩ儴鎸夐鏈熷伐浣滐紙鍚礋鍚戞祴璇曪級
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\checkers\tb_checkers.sv:393: $finish called at 78620000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\checkers\tb_checkers.sv:393: $finish called at 78620000 (1ps)
 
 

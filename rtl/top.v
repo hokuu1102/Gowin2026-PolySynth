@@ -421,7 +421,44 @@ module top #(
     //         （⚠️ 否则 16 轴 `span` 标定**没有进度提示、几乎没法操作**）。
     // ═══════════════════════════════════════════════════════════════════════
     input  wire uart_rx,         // D14 · J9 N26 · 外接 USB-TTL TX → FPGA
-    output wire uart_tx          // D15 · J9 N25 · FPGA → 外接 USB-TTL RX
+    output wire uart_tx,         // D15 · J9 N25 · FPGA → 外接 USB-TTL RX
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🔴🔴 预留引脚 · 画板线申请单（🔴 **2026-10-03**）—— ⭐ **20 根 = 9 出 + 11 入**
+    //
+    //   ⭐ 出处：`files/10-硬件/引脚申请单-给FPGA线-20261003.md`（⭐ **§1 表格 = 真值**）
+    //   🔴🔴 **ball 由画板侧座表 + PCB 布局锁定** ⇒ ⛔ **端口名可改，ball 不可改**。
+    //   🔴🔴 **本段只加【顶层端口 + `.cst` 约束】—— ⭐ 背后逻辑【未接入】**
+    //      ⇒ ⭐ 只为"**引脚预留**"（⭐ 申请单 §6 第 1 步：先只加脚 + 端口，跑 PnR 看是否仍 0 setup/0 hold）。
+    //      ⚠️ **它们现在由【常量 / 异或归并寄存器】驱动**（⭐ 见文件末尾 `reserved_in_r` 段）
+    //         —— 🔴 **这是必须的**：⭐ 否则综合会把**未用的输入**优化掉、
+    //            **未用的输出**接死 ⇒ ⚠️ `constr/top.cst` 里的 `IO_LOC` 会**悬空**。
+    //   📌 电平：⭐ 20 根**全部 3.3 V**（`BANK1`/`BANK2`/`BANK8`）
+    //      ⇒ ⛔ **都不在 `BANK9`（1.5 V）** ⇒ ⭐ 全 `LVCMOS33`。
+    //   ⭐ `.cst` 纪律：⭐ **输出才给 `DRIVE=8`**；⭐ 输入只写
+    //      `IO_TYPE`/`PULL_MODE`/`BANK_VCCIO`（🔴 输入带 `DRIVE` 报 `CT1108`，⭐ `top.cst:216-221`）。
+    //   ⭐ 11 个输入**全部 `PULL_MODE=UP`**（⭐ Console 板上无外部上拉）。
+    //   🔴 **接入功能逻辑时**（⭐ 按申请单 §6 分批：矩阵 → 编码器/踏板 → ESP32 UART → WS2812）
+    //      ⇒ ⭐ **必须把该端口在文件末尾的驱动行删掉**（⛔ 否则**多驱动** ⇒ 综合报错）。
+    // ═══════════════════════════════════════════════════════════════════════
+    // ── ① 控制板 · 4x4 矩阵（行出 / 列入）· `J9` 针 27/28/31/32/34/35/36/37 ──
+    output wire [3:0] ctrl_row_o,   // D16/E16/E17/F16 · J9 针 27/28/31/32（出 · 矩阵行）
+    input  wire [3:0] ctrl_col_i,   // F15/C20/D20/D19 · J9 针 34/35/36/37（入 · 矩阵列 · 上拉）
+    // ── ② 控制板 · EC11 编码器 · `J9` 针 38/39/40 ─────────────────────────
+    input  wire enc_a_i,            // E19 · J9 针 38 · SDRAM0_A1（入 · EC11 A 相 · 上拉）
+    input  wire enc_b_i,            // C19 · J9 针 39 · SDRAM0_A2（入 · EC11 B 相 · 上拉）
+    input  wire enc_sw_i,           // C18 · J9 针 40 · SDRAM0_A3（入 · EC11 按压 · 上拉）
+    // ── ③ 控制板 · WS2812 数据 · `PMOD0` 针 5 ─────────────────────────────
+    output wire ctrl_ws_o,          // C22 · PMOD0 针 5 · IO6（出 · 控制板灯带数据）
+    // ── ④ 三键踏板 · `PMOD0` 针 7/8/6 ─────────────────────────────────────
+    input  wire pedal_sus_i,        // F18 · PMOD0 针 7 · IO4（入 · 延音 · 上拉）
+    input  wire pedal_loop_rec_i,   // E18 · PMOD0 针 8 · IO5（入 · looper 录/停 · 上拉）
+    input  wire pedal_loop_play_i,  // B22 · PMOD0 针 6 · IO7（入 · looper 播 · 上拉）
+    // ── ⑤ ESP32 独立 UART · `PMOD0` 针 9/10（⭐ 与串口屏【不抢】`uart_rx`）──
+    output wire esp_uart_tx_o,      // G21 · PMOD0 针 9 · IO2（出 · → ESP32 的 RX）
+    input  wire esp_uart_rx_i,      // G22 · PMOD0 针 10 · IO3（入 · ← ESP32 的 TX · 上拉）
+    // ── ⑥ 拓展板 WS2812 三路 · `PMOD1` 针 11/12/9 ─────────────────────────
+    output wire [2:0] ws_strip_o    // W19/W20/F19 · PMOD1 针 11/12/9 · IO0/IO1/IO2（出）
 );
 
     // ── ⭐ R-08：外部复位先同步（异步输入 → 同步释放）──────────────────
@@ -583,6 +620,39 @@ module top #(
         if (!rst_n_sync)           key_drum_r <= 1'b0;
         else if (cmd_keydrum_req)  key_drum_r <= ~key_drum_r;
     end
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-03（P2/P3）：⭐ **T3 变调控制量**（⭐ 串口 `'F'`/`'G'`/`'H'`/`'J'`）
+    //
+    //  ⭐ **来源**：⭐ `files/20-代码/T3-后续计划-20261003.md` §P2/§P3 ＋
+    //     ⭐ `files/00-总览/T3变调与推子功能状态机-设计定稿-20261001.md` §四/§五 ✅
+    //
+    //  ⭐⭐ **2026-10-03（P3）：⭐ P2 的临时聚合逻辑【已经整体搬走】**
+    //     🔴 P2 时这里有一段临时的 `trans_semi_r` 聚合（⭐ 编码 `0..24` ＋ clamp）。
+    //     ⭐ P3 把它**整体挪进 `rtl/w3a/fader_gear.v`**，并与推子档位**共用同一个
+    //        目标寄存器** ⇒ ⛔ 本文件**不再持有任何变调状态**（⭐ 一次只改一个变量 ✅）
+    //
+    //  ⭐ 本文件现在只做两件事：
+    //     ① ⭐ 把 `calib_cmd` 的五根线**拉出到模块层**（⭐ 供 generate 里的
+    //        `u_fader_gear` 读 —— ⭐ `default_nettype none` 下必须显式声明 ✅）
+    //     ② ⭐ 把 `u_fader_gear.transpose_semi_o` 接到 `note_manager.transpose_semi_i`
+    //
+    //  ⚠️ **`g_silent` 档不例化 `calib_cmd` / `fader_gear`** ⇒ ⭐ 那里五根 `cmd_*`
+    //     与 `transpose_semi` 都**悬空（`z`）**；⭐ 而 `g_silent` 里**没有任何消费者**
+    //     （⭐ `u_note_manager` 在 `g_sound` 里）⇒ ⛔ 无影响 ✅
+    //     （⭐ 与 `drum_pattern_r`/`key_drum_r` 完全同一个既有模式，⛔ 不是新风险 ✅）
+    // ═══════════════════════════════════════════════════════════════════════
+    //   ⚠️ **必须在【使用之前】声明** —— ⭐ `default_nettype none` 下不存在隐式网线 ✅
+    wire cmd_trans_down_req;        // ⭐ 'F' ⇒ 降 1 半音（⭐ 单周期脉冲）
+    wire cmd_trans_up_req;          // ⭐ 'G' ⇒ 升 1 半音（⭐ 单周期脉冲）
+    wire cmd_trans_abs_req;         // ⭐ 'H' ⇒ 带帧绝对量：⭐ 值到达的那一拍
+    wire [7:0] cmd_trans_abs_val;   // ⭐ 'H' ⇒ 该帧第一个载荷字节（⭐ 编码 0..24）
+    wire cmd_gear_next_req;         // ⭐ 'J' ⇒ 推子档位切下一档（⭐ P3 起由 `u_fader_gear` 消费 ✅）
+
+    //   ⭐ 半音偏移 `−12..+12`（⭐ 由 `g_sound.u_fader_gear` 驱动）
+    //   📌 声明在**模块层**（⭐ 与 `drum_pattern_r` 同一理由）：
+    //      ⭐ generate 里的 `u_note_manager` 读得到它 ✅
+    wire signed [4:0] transpose_semi;
 
     // ⭐⭐ 2026-09-28：**开节拍器的那一刻，把音乐位置复位**（⭐ 用户要求"从第一拍开始响"）
     //
@@ -814,6 +884,15 @@ module top #(
         .drum_pattern_req_o(cmd_drum_pattern_req),
         // ⭐⭐ 2026-10-01：⭐ 键盘打鼓模式（⭐ 'K'）
         .keydrum_req_o  (cmd_keydrum_req),
+        // ⭐⭐ 2026-10-03（P2）：⭐ **T3 变调控制面**（⭐ 'F'/'G'/'H'/'J'）
+        //   ⭐ 五根线**都已在模块层声明**（⭐ 见 `cmd_trans_down_req` 那一段 ✅）
+        //   ⚠️ `cmd_gear_next_req`（`'J'`）**本轮无人消费**（⭐ `P3` 才接档位状态机）
+        //      ⇒ ⭐ 综合会把它剪掉（⭐ 省 LUT），⭐ **⛔ 不是漏接线** ✅
+        .trans_down_req_o(cmd_trans_down_req),
+        .trans_up_req_o  (cmd_trans_up_req),
+        .trans_abs_req_o (cmd_trans_abs_req),
+        .trans_abs_val_o (cmd_trans_abs_val),
+        .gear_next_req_o (cmd_gear_next_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (cmd_in_frame_cnt),
         .resync_cnt_o   (cmd_resync_cnt),
@@ -1517,6 +1596,40 @@ wire       fault_any_w;
             .vibrato_depth_o  (vib_depth_raw),
             .vibrato_rate_o   (vib_rate_raw),
             .param_valid_o    (vib_ctrl_valid)
+        );
+
+        // ── ⭐⭐ 2026-10-03（P3）：⭐ **推子档位状态机**（`rtl/w3a/fader_gear.v`）──
+        //
+        //   ⭐ 来源：`files/20-代码/T3-后续计划-20261003.md` §P3 ＋ 定稿 §四
+        //
+        //   ⭐ 档位表（⭐ 用户裁定，⛔ 不许改）：
+        //       档 0 = 变调（⭐ 左推子只管降、⭐ 右推子只管升，⭐ 各占半程）
+        //       档 1 = 颤音（⭐ **上电默认** ⇒ ⭐ 与现状逐位一致 ⇒ 零回归 ✅）
+        //       档 2/3 = 预留摇把 ⇒ ⭐ 结构上**不可达**（⭐ 见 `fader_gear.v` 的 'J' 处理）
+        //
+        //   ⭐ 接线（⭐ 一次只改一个变量：⛔ 不动 `right_analog_ctrl` 本身）：
+        //       · `ch2_i`/`ch3_i` ← ⭐ `u_right_analog_ctrl` 的原始 CH2/CH3 输出
+        //         （⭐ 即**现状语义**的颤音深度/速率 —— ⭐ 档 1 时逐位透传回去 ✅）
+        //       · `gear_next_i`   ← ⭐ `'J'`（⭐ P2 拉出的那根线，⭐ 此前无人消费）
+        //       · `trans_*`       ← ⭐ `'F'`/`'G'`/`'H'`（⭐ 与推子**共用目标寄存器**）
+        //       · `transpose_semi_o` → ⭐ 模块层 `transpose_semi` → `note_manager`
+        //       · `vibrato_depth_o`/`vibrato_rate_o` → ⭐ 下游 `u_vibrato_lfo`
+        //     ⚠️ `gear_o` 本步**不接**（⭐ 无消费者；⭐ 需要时可在此接一根调试线 ✅）
+        wire [11:0] vib_depth_sel, vib_rate_sel;
+        fader_gear u_fader_gear (
+            .clk              (clk),
+            .rst_n            (rst_n_sync),
+            .gear_next_i      (cmd_gear_next_req),
+            .ch2_i            (vib_depth_raw),
+            .ch3_i            (vib_rate_raw),
+            .trans_down_i     (cmd_trans_down_req),
+            .trans_up_i       (cmd_trans_up_req),
+            .trans_abs_i      (cmd_trans_abs_req),
+            .trans_abs_val_i  (cmd_trans_abs_val),
+            .gear_o           (),
+            .transpose_semi_o (transpose_semi),
+            .vibrato_depth_o  (vib_depth_sel),
+            .vibrato_rate_o   (vib_rate_sel)
         );
 
         // ── ⭐ ② `calib` ×2：逐通道零点/灵敏度标定 ───────────────────────
@@ -3727,6 +3840,14 @@ wire       fault_any_w;
             //   📌 方案与判据：⭐ `files/00-总览/T2-起始音-实施方案-20261001.md` ✅
             .base_semi_i       (ui_base_semi),
             .base_commit_i     (ui_base_commit),
+            // ⭐⭐ 2026-10-03（P2）：⭐ **T3 变调**（⭐ 串口 `'F'`/`'G'`/`'H'` ⇒ 上面的聚合寄存器）
+            //   🔴 **本步之前这个端口是【悬空】的**（⭐ 老例化一个都不接 ⇒ `5'bzzzzz`）
+            //      ⇒ ⭐ `note_manager` 内部靠 **Z-safe 解码**当 0 处理（⭐ 不变调 ✅）
+            //   ⭐ 现在接上 ⇒ ⭐ `T3_EN = 0`（默认）时它**仍不参与综合**
+            //      （⭐ `note_manager` 用 `generate if (T3_EN)` 门控了整段变调核心 ✅）
+            //      ⇒ ⭐ 综合资源应与"无 T3 基线"逐字相同（⭐ `T_Lut 37026`）✅
+            //   📌 口径出处：⭐ `files/20-代码/T3-后续计划-20261003.md` §六 ✅
+            .transpose_semi_i  (transpose_semi),
             // ⭐⭐ 力度修正通路 —— ⭐ **2026-09-28 改接【位置式力度流】**
             //
             //   ⭐ 三段历史（⭐ 都保留，⛔ 不删 —— 每一步都有依据）：
@@ -3816,8 +3937,8 @@ wire       fault_any_w;
             .clk_i            (clk),
             .rst_n_i          (rst_n_sync),
             .ctrl_valid_i     (vib_ctrl_valid),
-            .depth_raw_i      (vib_depth_raw),
-            .rate_raw_i       (vib_rate_raw),
+            .depth_raw_i      (vib_depth_sel),
+            .rate_raw_i       (vib_rate_sel),
             .mod_o            (vibrato_mod),
             .depth_active_o   (vibrato_active),
             .rate_inc_dbg_o   (vibrato_rate_inc),
@@ -4477,5 +4598,48 @@ wire       fault_any_w;
         .led_oe_n_o      (led_oe_n),
         .busy_o          (led_busy)
     );
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // 🔴🔴 预留引脚（⭐ 2026-10-03 画板线申请单）—— ⭐ **只为"让脚活着"**，⛔ 不是功能逻辑
+    //
+    //   🔴 **为什么必须有这一段**：⭐ 综合会把**未使用的输入**优化掉、
+    //      把**未驱动的输出**接死 ⇒ ⚠️ `constr/top.cst` 里那 20 条 `IO_LOC` 就**悬空**了
+    //      （⭐ 引脚不进网表 ⇒ ⭐ 分配等于没写）。
+    //
+    //   ⭐ **11 个输入**：⭐ **异或归并**到一个 `syn_keep` 寄存器 `reserved_in_r`
+    //      ⇒ ⭐ **任何一根输入翻转都会让它翻转** ⇒ ⭐ 综合**不能**把它们当常量去掉。
+    //      📌 `syn_keep` = Synplify / Gowin 的"⛔ 不要优化掉这个信号"属性。
+    //
+    //   ⭐ **9 个输出**：⭐ 由**常量**驱动（⭐ 明确电平，⛔ 不是 `x`）：
+    //      · ⭐ `ctrl_row_o = 4'b0000` —— ⭐ 矩阵行**全 0 = 不扫描**；
+    //        🔴 **为什么不给高**：⚠️ 行若给高，⭐ 同一列上按两个键会**把两个输出短接**
+    //           （⭐ 推挽对打）⇒ ⭐ 全 0 是**无冲突**的安全态。
+    //      · ⭐ `ctrl_ws_o` / `ws_strip_o` = `0` —— ⭐ WS2812 单线码**空闲 = 低** ✅
+    //      · ⭐ `esp_uart_tx_o = 1'b1` —— 🔴 **UART 空闲 = 高**（⭐ 串口线**静默**的正确态）；
+    //        ⚠️ 若给 0 ⇒ ⭐ 一直处于 **break** ⇒ ⭐ ESP32 侧会看到**持续帧错误**。
+    //
+    //   🔴🔴 **接入功能逻辑时**（⭐ 按申请单 §6 分批）：
+    //      ⇒ ⭐ **必须删掉该端口在这里的驱动行**（⛔ 否则**多驱动** ⇒ 综合报错）；
+    //      ⇒ ⭐ 输入侧还要把它**从 `reserved_in_xor` 里摘掉**（⭐ 交给新逻辑消费）。
+    //   📌 本段**不改任何现有行为**：⭐ 只多一个 FF `reserved_in_r`，
+    //      ⛔ 不与任何现有信号相连（⭐ 现有 tb 的判据不受影响）。
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // ── 11 个预留输入 · 异或归并（⭐ 预留，等控制板逻辑接入）─────────────────
+    (* syn_keep = 1 *) wire reserved_in_xor = ^{ctrl_col_i, enc_a_i, enc_b_i, enc_sw_i,
+                                                pedal_sus_i, pedal_loop_rec_i,
+                                                pedal_loop_play_i, esp_uart_rx_i};
+
+    (* syn_keep = 1 *) reg  reserved_in_r;
+    always @(posedge clk) begin
+        if (!rst_n_sync) reserved_in_r <= 1'b0;
+        else             reserved_in_r <= reserved_in_xor;
+    end
+
+    // ── 9 个预留输出 · 常量驱动（⭐ 明确电平，⛔ 不是 `x`）────────────────────
+    assign ctrl_row_o    = 4'b0000;   // ⭐ 矩阵行全 0 = 不扫描（⛔ 不给高：⚠️ 同列两键会推挽）
+    assign ctrl_ws_o     = 1'b0;      // ⭐ WS2812 单线码空闲 = 低
+    assign esp_uart_tx_o = 1'b1;      // 🔴 UART 空闲 = 高（⭐ 给 0 = 一直 break）
+    assign ws_strip_o    = 3'b000;    // ⭐ 拓展板 WS2812 三路空闲 = 低
 
 endmodule

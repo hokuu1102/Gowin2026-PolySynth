@@ -16,6 +16,6 @@
   ok  : negative delta is not a wrapped unsigned value
 
 PASS: axis_snapshot maps (adc,ch)->axis, commits all chips in one cycle, emits a per-frame pulse, and produces a SIGNED per-axis delta (the raw material for slide/two-note detection)
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_axis_snapshot.sv:223: $finish called at 1430000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_axis_snapshot.sv:223: $finish called at 1430000 (1ps)
 
 

@@ -13,6 +13,10 @@
 //   ⑥ ⭐ **归位之后命令重新可用**（⭐ 自愈真的恢复功能）
 //   ⑦ ⭐ **命令脉冲是【单周期】**（⛔ 不是多拍）
 //   ⑧ ⭐ **`0xA5` 帧头本身 ⛔ 不被当成命令**
+//   ⑨ ⭐⭐ **`'F'`/`'G'`/`'H'`/`'J'`**（⭐ 2026-10-03 · `P2`）：⭐ T3 变调控制面 ——
+//      ⭐ 帧外认 · ⭐ **单周期** · ⛔ 不串扰别的命令；⭐ `'F'`/`'G'` **可连发**；
+//      ⭐ `'H'` 的**带帧绝对量** = **下一帧的第一个载荷字节**（⭐ 裸 `'H'` 只"臂化"）；
+//      ⭐ 且 **帧内出现的 `'H'`（载荷字节）⛔ 一个都不触发**（⭐ 与 `'D'` 同一安全口径）✅
 //
 // ── 🔴 tb 纪律（本项目血泪）──────────────────────────────────────────────────
 //   · ⛔ **不要用 `wait(信号)`** —— ⚠️ 它不推进仿真时间 ⇒ 永久阻塞
@@ -41,6 +45,11 @@ module tb_calib_cmd;
     localparam [7:0] I   = 8'h49;             // 'I' 切音色（⭐ 0→1→2→3→0）
     // ⭐ 2026-09-29 新增：⭐ 鼓机节奏型（⭐ 必须与 `calib_cmd.v` 的新参数一致）
     localparam [7:0] D   = 8'h44;             // 'D' 鼓机节奏型（⭐ 0→1→2→3→0）
+    // ⭐ 2026-10-03 新增（⭐ P2）：⭐ T3 变调控制面四条（⭐ 必须与 `calib_cmd.v` 的新参数一致）
+    localparam [7:0] F   = 8'h46;             // 'F' 变调：降 1 半音
+    localparam [7:0] G   = 8'h47;             // 'G' 变调：升 1 半音
+    localparam [7:0] H   = 8'h48;             // 'H' 变调：带帧绝对量（⭐ 臂化 ⇒ 下一帧载荷[0]）
+    localparam [7:0] J   = 8'h4A;             // 'J' 推子档位：切下一档（⭐ 供 P3）
 
     integer errors = 0;
 
@@ -67,6 +76,9 @@ module tb_calib_cmd;
     wire       loop_rec_req, loop_play_req, loop_clear_req;   // ⭐ 2026-09-29
     wire       timbre_req;                                    // ⭐ 2026-09-29：'I' 切音色
     wire       drum_pattern_req;                              // ⭐ 2026-09-29：'D' 鼓机节奏型
+    // ⭐ 2026-10-03（P2）：⭐ T3 变调控制面（⭐ 'F'/'G'/'H'/'J'）
+    wire       trans_down_req, trans_up_req, trans_abs_req, gear_next_req;
+    wire [7:0] trans_abs_val;                                 // ⭐ 'H' 带出来的半音值
     wire [15:0] cmd_cnt, in_frame_cnt, resync_cnt, unknown_cnt;
     wire [3:0]  idx_o;
 
@@ -78,7 +90,12 @@ module tb_calib_cmd;
         .CMD_TARE (T),
         .CMD_SPAN (S),
         .CMD_ABORT(X),
-        .CMD_TEST_MODE(M)
+        .CMD_TEST_MODE(M),
+        // ⭐ 2026-10-03（P2）：⭐ T3 变调控制面四条（⭐ 显式传 ⇒ ⭐ 字母写错时本 tb 会红）
+        .CMD_TRANS_DOWN(F),
+        .CMD_TRANS_UP  (G),
+        .CMD_TRANS_ABS (H),
+        .CMD_GEAR_NEXT (J)
     ) dut (
         .clk_i          (clk),
         .rst_n_i        (rst_n),
@@ -96,6 +113,12 @@ module tb_calib_cmd;
         .timbre_req_o   (timbre_req),
         // ⭐ 2026-09-29：⭐ 鼓机节奏型（⭐ 'D'）
         .drum_pattern_req_o(drum_pattern_req),
+        // ⭐ 2026-10-03（P2）：⭐ T3 变调控制面（⭐ 'F'/'G'/'H'/'J'）
+        .trans_down_req_o(trans_down_req),
+        .trans_up_req_o  (trans_up_req),
+        .trans_abs_req_o (trans_abs_req),
+        .trans_abs_val_o (trans_abs_val),
+        .gear_next_req_o (gear_next_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (in_frame_cnt),
         .resync_cnt_o   (resync_cnt),
@@ -110,6 +133,10 @@ module tb_calib_cmd;
     integer loop_rec_seen, loop_play_seen, loop_clear_seen;   // ⭐ 2026-09-29
     integer timbre_seen;                                      // ⭐ 2026-09-29：'I' 切音色
     integer drum_pat_seen;                                    // ⭐ 2026-09-29：'D' 鼓机节奏型
+    // ⭐ 2026-10-03（P2）：⭐ T3 变调控制面四条
+    integer td_seen, tu_seen, ta_seen, gj_seen;               // ⭐ 各自出现次数
+    integer td_cycles, tu_cycles, ta_cycles, gj_cycles;       // ⭐ 各自高电平拍数（⭐ 单周期证明）
+    integer ta_val_seen;                                      // ⭐ 'H' 脉冲那一拍带出来的值
     integer loop_rec_cycles, loop_play_cycles, loop_clear_cycles;   // ⭐ 单周期证明
     integer timbre_cycles;                                          // ⭐ 单周期证明
     integer drum_pat_cycles;                                        // ⭐ 单周期证明
@@ -122,6 +149,9 @@ module tb_calib_cmd;
         loop_rec_seen = 0; loop_play_seen = 0; loop_clear_seen = 0;   // ⭐ 2026-09-29
         timbre_seen = 0;                                              // ⭐ 2026-09-29
         drum_pat_seen = 0;                                            // ⭐ 2026-09-29
+        td_seen = 0; tu_seen = 0; ta_seen = 0; gj_seen = 0;           // ⭐ 2026-10-03（P2）
+        td_cycles = 0; tu_cycles = 0; ta_cycles = 0; gj_cycles = 0;   // ⭐ 2026-10-03（P2）
+        ta_val_seen = 0;                                              // ⭐ 2026-10-03（P2）
         loop_rec_cycles = 0; loop_play_cycles = 0; loop_clear_cycles = 0;
         timbre_cycles = 0;
         drum_pat_cycles = 0;
@@ -145,6 +175,14 @@ module tb_calib_cmd;
             if (timbre_req)     begin timbre_seen     = timbre_seen     + 1; timbre_cycles     = timbre_cycles     + 1; end
             // ⭐ 2026-09-29：⭐ 鼓机节奏型
             if (drum_pattern_req) begin drum_pat_seen = drum_pat_seen + 1; drum_pat_cycles = drum_pat_cycles + 1; end
+            // ⭐ 2026-10-03（P2）：⭐ T3 变调控制面四条
+            //   ⚠️ `'H'` 的值**必须与脉冲同拍抓** —— ⭐ 它是**数据**（⭐ 不是脉冲），
+            //      多等一拍就可能被下一帧覆盖 ✅
+            if (trans_down_req) begin td_seen = td_seen + 1; td_cycles = td_cycles + 1; end
+            if (trans_up_req)   begin tu_seen = tu_seen + 1; tu_cycles = tu_cycles + 1; end
+            if (trans_abs_req)  begin ta_seen = ta_seen + 1; ta_cycles = ta_cycles + 1;
+                                      ta_val_seen = trans_abs_val; end
+            if (gear_next_req)  begin gj_seen = gj_seen + 1; gj_cycles = gj_cycles + 1; end
         end
     end
 
@@ -206,6 +244,10 @@ module tb_calib_cmd;
             loop_rec_cycles = 0; loop_play_cycles = 0; loop_clear_cycles = 0;
             timbre_seen = 0; timbre_cycles = 0;   // ⭐ 2026-09-29：'I' 切音色（⭐ 同一个坑）
             drum_pat_seen = 0; drum_pat_cycles = 0; // ⭐ 2026-09-29：'D' 鼓机节奏型（⭐ 同一个坑）
+            // ⭐ 2026-10-03（P2）：⭐ T3 变调控制面四条（⭐ 同一个坑）
+            td_seen = 0; tu_seen = 0; ta_seen = 0; gj_seen = 0;
+            td_cycles = 0; tu_cycles = 0; ta_cycles = 0; gj_cycles = 0;
+            ta_val_seen = 0;
         end
     endtask
 
@@ -282,6 +324,94 @@ module tb_calib_cmd;
         // ───────────────────────────────────────────────────────────────
         chk("each command pulse is exactly ONE cycle wide",
             tare_cycles == 1 && span_cycles == 1 && abort_cycles == 1 && test_mode_cycles == 1);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 2026-10-03（`P2`）新增：⭐ **T3 变调控制面四条命令**（⭐ 'F' / 'G' / 'H' / 'J'）
+        //   ⭐ 依据：⭐ `files/20-代码/T3-后续计划-20261003.md` §P2 ✅
+        //   ⭐ 判据口径与上面 `'I'`/`'D'` **完全一致**（⭐ 同一条"帧外才认"的路径）：
+        //      ⭐ ① 帧外认 ✅ · ⭐ ② ⛔ 不串扰别的命令 ✅ · ⭐ ③ 脉冲**恰好一拍宽** ✅
+        //      ⭐ ④ 帧内（载荷里）⛔ 绝不认（⭐ 见下方 payload 段）✅
+        //   📌 **判据名纯 ASCII、<= 128 字节**（⭐ 本机 `vvp` 会把非 ASCII 打乱）✅
+        //   ⚠️ **本段开头 `do_reset()` 是【安全】的**：⭐ 上面那条
+        //      "each command pulse is exactly ONE cycle wide" 用的是**累计计数**，
+        //      但它**已经执行完了** ⇒ ⭐ 在这里清零 ⛔ 不会影响任何已有判据 ✅
+        //      （⚠️ 若把本段插到那一条【之前】⇒ 🔴 它必然假红 —— ⭐ 所以位置是刻意的 ✅）
+        // ═══════════════════════════════════════════════════════════════════
+        do_reset();
+
+        // ── ⭐ `'F'` = 降 1 半音（⭐ 裸字母）────────────────────────────────
+        send_byte(F);
+        chk("'F' outside a frame raises trans_down_req", td_seen == 1);
+        chk("'F' does NOT cross-fire the other new commands",
+            (tu_seen == 0) && (ta_seen == 0) && (gj_seen == 0));
+        chk("'F' does NOT cross-fire the older commands",
+            (tare_seen == 0) && (span_seen == 0) && (abort_seen == 0)
+            && (test_mode_seen == 0) && (loop_rec_seen == 0) && (loop_play_seen == 0)
+            && (loop_clear_seen == 0) && (timbre_seen == 0) && (drum_pat_seen == 0));
+
+        // ── ⭐ `'G'` = 升 1 半音（⭐ 裸字母、⭐ **可连发**）──────────────────
+        send_byte(G);
+        chk("'G' outside a frame raises trans_up_req", tu_seen == 1);
+        chk("'G' does NOT cross-fire trans_down_req", td_seen == 1);
+        //   ⭐ **连发**：⭐ 再发一次 ⇒ ⭐ 应再出**一个**脉冲（⭐ 累计 2）
+        send_byte(G);
+        chk("'G' can be sent repeatedly (2nd pulse => cumulative count 2)", tu_seen == 2);
+
+        // ── ⭐ `'J'` = 切档（⭐ 供 `P3`）────────────────────────────────────
+        send_byte(J);
+        chk("'J' outside a frame raises gear_next_req", gj_seen == 1);
+        chk("'J' does NOT cross-fire the other new commands",
+            (td_seen == 1) && (tu_seen == 2) && (ta_seen == 0));
+        chk("cmd_cnt_o counted 'F' + 'G' + 'G' + 'J'", cmd_cnt == 16'd4);
+        //   ⭐ **单周期判据放在【这里】而不是每条后面**（🔴 关键，`C83` 假绿）：
+        //      ⚠️ 脉冲是寄存器输出 ⇒ ⭐ 它**第一次可见**时必然只有 1 拍
+        //      ⇒ 🔴 紧跟 `send_byte` 的 `cycles == 1` 检查**永远不会红**（⭐ 假绿探针）
+        //      ⭐ 放到"又过了若干拍"之后 ⇒ ⚠️ 若脉冲**没被清掉**（⭐ 卡高）或
+        //         **宽了 2 拍**，⭐ 累计拍数就会 >1 ⇒ ⭐ **这条才真的能红** ✅
+        //      📌 与上面既有那条 "each command pulse is exactly ONE cycle wide"
+        //         （⭐ 在 T/S/X/M/R/L/C/I/D 全部发完之后）**同一手法** ✅
+        chk("each new command pulse is exactly ONE cycle wide (F x1, G x2, J x1)",
+            (td_cycles == 1) && (tu_cycles == 2) && (gj_cycles == 1));
+
+        // ── ⭐⭐ `'H'` = **带帧绝对量**（⭐ 复用现有 9 字节帧）────────────────
+        //   ⭐ 协议：⭐ 先发**裸 `'H'`**（⭐ 只"臂化"、⛔ 本拍不出值）⇒
+        //      ⭐ 紧跟一帧（`0xA5` + 8 字节）⇒ ⭐ **第一个载荷字节**就是半音值 ✅
+        //   🔴 **本段两条关键判据**：
+        //      ① ⭐ 裸 `'H'` **本身不出值脉冲**（⭐ 只臂化）
+        //      ② ⭐ 帧内出现的 `'H'`（⭐ 载荷字节 == 0x48）⛔ **一个都不触发**（⭐ 核心安全）✅
+        do_reset();
+        send_byte(H);
+        chk("bare 'H' outside a frame arms but raises NO value pulse yet", ta_seen == 0);
+        //   ⭐ 帧：⭐ 载荷[0] = 17（⭐ 合法编码：⭐ 17 − 12 = +5 半音）·
+        //      ⚠️ 载荷[1..7] **全是 `'H'`** ⇒ ⭐ 它们必须**一个都不触发** ✅
+        send_frame(8'd17, H, H, H, H, H, H, H);
+        chk("'H' + frame: first payload byte is taken as the semitone value",
+            (ta_seen == 1) && (ta_val_seen == 8'd17));
+        chk("in-frame 'H' payload letters do NOT fire extra value pulses", ta_seen == 1);
+        chk("'H' does NOT cross-fire the other new commands",
+            (td_seen == 0) && (tu_seen == 0) && (gj_seen == 0));
+        //   ⭐ **臂是"一次性"的**：⭐ 紧跟一帧（⭐ 未重新臂化）⇒ ⛔ 不该再出值脉冲 ✅
+        //      （🔴 这条正是"曲谱帧不会被误当变调值"的保证）
+        send_frame(8'd3, 8'd3, 8'd3, 8'd3, 8'd3, 8'd3, 8'd3, 8'd3);
+        chk("the arm is one-shot: an UNARMED frame raises no 2nd value pulse",
+            ta_seen == 1);
+        //   ⭐ 单周期判据**放在这里**（⭐ 同上面 F/G/J 那条的理由：⭐ `C83` 假绿）——
+        //      ⚠️ 紧跟脉冲的 `cycles == 1` 永远为真（⭐ 寄存器脉冲第一次可见必是 1 拍）
+        //      ⇒ ⭐ 必须**过若干拍再查**，⭐ 卡高 / 宽 2 拍 才抓得住 ✅
+        chk("'H' value pulse is exactly ONE cycle wide (checked late)", ta_cycles == 1);
+
+        // ── ⭐ `'H'` 在【载荷里】⛔ 绝不许被认出来（⭐ 与 `'D'` 那条同构）──────
+        do_reset();
+        ifc0 = in_frame_cnt;
+        send_frame(H, H, H, H, H, H, H, H);   // ⭐ 未臂化 ＋ 8 个载荷**全是** `'H'`
+        chk("payload of eight 'H' letters raises NO trans_abs_req", ta_seen == 0);
+        chk("payload of eight 'H' letters raises NO other command pulses",
+            (tare_seen == 0) && (span_seen == 0) && (abort_seen == 0)
+            && (test_mode_seen == 0) && (td_seen == 0) && (tu_seen == 0)
+            && (gj_seen == 0));
+        chk("cmd_cnt_o did NOT count the in-frame 'H' letters", cmd_cnt == 16'd0);
+        chk("in_frame_cnt_o counted all 8 in-frame 'H' letters",
+            (in_frame_cnt - ifc0) == 16'd8);
 
         // ───────────────────────────────────────────────────────────────
         // ⭐⭐⭐ 判据②③：帧【内】的命令字母 ⛔ 绝不当命令
@@ -394,7 +524,7 @@ module tb_calib_cmd;
 
         $display("");
         if (errors == 0)
-            $display("PASS: calib_cmd parses T/S/X/M only at frame boundaries, ignores payload letters, counts what it drops, and self-heals after a half frame");
+            $display("PASS: calib_cmd parses T/S/X/M/F/G/H/J only at frame boundaries, ignores payload letters, counts what it drops, takes the 'H' framed value from the next frame's first payload byte, and self-heals after a half frame");
         else
             $fatal(1, "FAIL: calib_cmd had %0d error(s)", errors);
 

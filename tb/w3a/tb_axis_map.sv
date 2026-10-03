@@ -380,6 +380,44 @@ module tb_axis_map;
             chk("fretboard table: all 16 axes match the confirmed string/fret pitches", bad_cnt == 0);
         end
 
+        //   ⭐⭐ 2026-10-03（BATCH 5 · 缺口 A）：**键盘表 `kb_inc` 的逐项判据**
+        //   🔴 为什么补：判据⑨ 只逐项核对了 `dut.fb_inc`（指板表）—— ⛔ `kb_inc` 一项都没验。
+        //      ⭐ 实测（V1，2026-10-03）：把 `kb_inc[13]` 由 `KB_G3` 改成 `KB_Gs3`（一个半音）
+        //      ⇒ **全量回归 113 个 tb 里【没有任何一个变红】**（唯一的 FAIL 是无关的超时）
+        //      ⇒ ⭐ 这就是"键盘表跑调无人管"的硬证据 ✅
+        //   ⭐ 期望值来源：**用户确认的键盘音高表**（`axis_map.v` 的 `KB_*` 常量注释 + 板上排列）
+        //      ⚠️ 两对重复是【设计如此】（`E#`/`B#` 不存在）⇒ ⛔ 判据不要求 16 项互异
+        begin : kb_table_check
+            integer k;
+            integer bad_cnt;
+            reg [PHASE_W-1:0] exp_kb [0:15];
+            exp_kb[0]  = 32'h00DD_3595;  // 板上排列3  E3
+            exp_kb[1]  = 32'h00F8_4C8F;  // 板上排列4  F#3
+            exp_kb[2]  = 32'h00EA_5CF4;  // 板下排列4  F3
+            exp_kb[3]  = 32'h00DD_3595;  // 板下排列3  E3   ⭐ 与 [0] 重复（E# 不存在）
+            exp_kb[4]  = 32'h00C5_1339;  // 板下排列2  D3
+            exp_kb[5]  = 32'h00AF_92EE;  // 板下排列1  C3
+            exp_kb[6]  = 32'h00BA_039D;  // 板上排列1  C#3
+            exp_kb[7]  = 32'h00D0_CB35;  // 板上排列2  D#3
+            exp_kb[8]  = 32'h014B_7081;  // 板上排列3  B3
+            exp_kb[9]  = 32'h0174_073A;  // 板上排列4  C#4
+            exp_kb[10] = 32'h015F_25DC;  // 板下排列4  C4
+            exp_kb[11] = 32'h014B_7081;  // 板下排列3  B3   ⭐ 与 [8] 重复（B# 不存在）
+            exp_kb[12] = 32'h0127_476D;  // 板下排列2  A3
+            exp_kb[13] = 32'h0107_104E;  // 板下排列1  G3
+            exp_kb[14] = 32'h0116_B4CE;  // 板上排列1  G#3
+            exp_kb[15] = 32'h0138_D653;  // 板上排列2  A#3
+            mode = 1'b0;                 // ⭐ 键盘模式（与上面指板那块的 mode=1 相反）
+            bad_cnt = 0;
+            for (k = 0; k < 16; k = k + 1) begin
+                if (dut.kb_inc[k] !== exp_kb[k]) begin
+                    bad_cnt = bad_cnt + 1;
+                    $display("FAIL: kb_inc[%0d] = 0x%08h, expected 0x%08h", k, dut.kb_inc[k], exp_kb[k]);
+                end
+            end
+            chk("keyboard table: all 16 axes match the confirmed keyboard pitches", bad_cnt == 0);
+        end
+
         $display("");
         if (errors == 0)
             //   ⚠️ **PASS 文案必须与【当前语义】一致**（⭐ `L65`：过时文案会误导下一个人）

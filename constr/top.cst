@@ -411,6 +411,87 @@ IO_PORT "uart_tx" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
 //   ⚠️ **不要**再照 2026-09-30 早先那一版去接 `N27`~`N39`（⭐ 那 10 根已撤回）
 // ═══════════════════════════════════════════════════════════════════════════
 
+// ═══════════════════════════════════════════════════════════════════════════
+// ⭐⭐ 预留引脚 · 画板线申请单（🔴 **2026-10-03**）—— ⭐ **20 根 = 9 出 + 11 入**
+//
+//   ⭐ 出处：`files/10-硬件/引脚申请单-给FPGA线-20261003.md`（⭐ **§1 表格 = 真值**）
+//   🔴🔴 **ball 由画板侧座表 + PCB 布局锁定** ⇒ ⛔ **端口名可改，ball 不可改**
+//      ⇒ ⭐ 改 ball 前**必须先和画板线对座表**。
+//
+//   🔴🔴 **本块只做【引脚预留】—— ⭐ 背后逻辑【尚未接入】**：
+//      · 4x4 矩阵扫描 · EC11 正交解码 · 三键踏板 · 第 2 套 UART（ESP32）· 4 路 WS2812
+//      ⇒ ⭐ 按申请单 §6「分两步走」：**第 1 步 = 只加引脚约束 + 顶层端口**（⭐ 就是本块），
+//         ⭐ 判据 = PnR **仍 0 setup / 0 hold**；⭐ 第 2 步才分批接 RTL。
+//      ⇒ ⭐ `rtl/top.v` 里这 20 个端口现由【常量 / 异或归并寄存器】驱动（⭐ 只为"让脚活着"）
+//         —— 🔴 **否则综合会把未用的输入优化掉、未用的输出接死**
+//         ⇒ ⚠️ **本文件的 `IO_LOC` 就悬空了**（⭐ 引脚不进网表 = 分配没生效）。
+//      📌 `rtl/top.v` 对应实现：⭐ 端口区「预留引脚」段 ＋ 文件末尾 `reserved_in_r` 段。
+//
+//   ⭐ **脚属性纪律**（⭐ 与 `top.cst:216-221` 完全一致）：
+//      · ⭐ **只有【输出】给 `DRIVE=8`**；⭐ **输入只写** `IO_TYPE`/`PULL_MODE`/`BANK_VCCIO`
+//        （🔴 输入带 `DRIVE` ⇒ `ERROR (CT1108): Illegal port attribute value specified`）
+//      · ⭐ **11 个输入全部 `PULL_MODE=UP`**（⭐ Console 板上**没有外部上拉**）
+//      · ⭐ 电平：⭐ **全部 `LVCMOS33` / `BANK_VCCIO=3.3`** —— ⭐ 落在 `BANK1`/`BANK2`/`BANK8`
+//        ⇒ 🔴 **都不在 `BANK9`（1.5 V）** ⇒ ⛔ **⛔ 不许写 `LVCMOS15`**
+//        （⭐ `BANK9` 只有三根：`AA13`/`AB13`/`Y14` = `rst_n`/`timbre_btn_i`/`PA_EN_n`）
+//
+//   🔴 **已核对：与上方全部 42 条 `IO_LOC` 的 ball【零重叠】**（⭐ 42 + 20 = **62** 条）
+//   📌 **画板线逐针回核方式**：⭐ 每行行尾注释 = **座 + 针号**（⭐ 如 `J9 针 27` / `PMOD0 针 5`）
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ── ① 控制板 · 4x4 矩阵（行出 / 列入）· `J9` 针 27/28/31/32/34/35/36/37 ────
+IO_LOC  "ctrl_row_o[0]" D16;   // ⭐ J9 针 27 · SDRAM0_~WE · BANK1（出 · 矩阵行0）
+IO_PORT "ctrl_row_o[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "ctrl_row_o[1]" E16;   // ⭐ J9 针 28 · SDRAM0_A4 · BANK1（出 · 矩阵行1）
+IO_PORT "ctrl_row_o[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "ctrl_row_o[2]" E17;   // ⭐ J9 针 31 · SDRAM0_~CAS · BANK1（出 · 矩阵行2）
+IO_PORT "ctrl_row_o[2]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "ctrl_row_o[3]" F16;   // ⭐ J9 针 32 · SDRAM0_~RAS · BANK1（出 · 矩阵行3）
+IO_PORT "ctrl_row_o[3]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+IO_LOC  "ctrl_col_i[0]" F15;   // ⭐ J9 针 34 · SDRAM0_BA0 · BANK1（入 · 矩阵列0 · 上拉）
+IO_PORT "ctrl_col_i[0]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "ctrl_col_i[1]" C20;   // ⭐ J9 针 35 · SDRAM0_BA1 · BANK2（入 · 矩阵列1 · 上拉）
+IO_PORT "ctrl_col_i[1]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "ctrl_col_i[2]" D20;   // ⭐ J9 针 36 · SDRAM0_A10 · BANK2（入 · 矩阵列2 · 上拉）
+IO_PORT "ctrl_col_i[2]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "ctrl_col_i[3]" D19;   // ⭐ J9 针 37 · SDRAM0_A0 · BANK2（入 · 矩阵列3 · 上拉）
+IO_PORT "ctrl_col_i[3]" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// ── ② 控制板 · EC11 编码器 · `J9` 针 38/39/40 ─────────────────────────────
+IO_LOC  "enc_a_i"  E19;        // ⭐ J9 针 38 · SDRAM0_A1 · BANK2（入 · EC11 A 相 · 上拉）
+IO_PORT "enc_a_i"  IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "enc_b_i"  C19;        // ⭐ J9 针 39 · SDRAM0_A2 · BANK2（入 · EC11 B 相 · 上拉）
+IO_PORT "enc_b_i"  IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "enc_sw_i" C18;        // ⭐ J9 针 40 · SDRAM0_A3 · BANK2（入 · EC11 按压 · 上拉）
+IO_PORT "enc_sw_i" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// ── ③ 控制板 · WS2812 数据 · `PMOD0` 针 5 ────────────────────────────────
+IO_LOC  "ctrl_ws_o" C22;       // ⭐ PMOD0 针 5 · IO6 · BANK2（出 · 控制板灯带数据）
+IO_PORT "ctrl_ws_o" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
+// ── ④ 三键踏板 · `PMOD0` 针 7/8/6 ───────────────────────────────────────
+IO_LOC  "pedal_sus_i"       F18;   // ⭐ PMOD0 针 7 · IO4 · BANK2（入 · 延音 · 上拉）
+IO_PORT "pedal_sus_i"       IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "pedal_loop_rec_i"  E18;   // ⭐ PMOD0 针 8 · IO5 · BANK2（入 · looper 录/停 · 上拉）
+IO_PORT "pedal_loop_rec_i"  IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+IO_LOC  "pedal_loop_play_i" B22;   // ⭐ PMOD0 针 6 · IO7 · BANK2（入 · looper 播 · 上拉）
+IO_PORT "pedal_loop_play_i" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// ── ⑤ ESP32 独立 UART · `PMOD0` 针 9/10（⭐ 与串口屏【不抢】`uart_rx`）────
+IO_LOC  "esp_uart_tx_o" G21;   // ⭐ PMOD0 针 9 · IO2 · BANK2（出 · → ESP32 的 RX）
+IO_PORT "esp_uart_tx_o" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "esp_uart_rx_i" G22;   // ⭐ PMOD0 针 10 · IO3 · BANK2（入 · ← ESP32 的 TX · 上拉）
+IO_PORT "esp_uart_rx_i" IO_TYPE=LVCMOS33 PULL_MODE=UP BANK_VCCIO=3.3;
+
+// ── ⑥ 拓展板 WS2812 三路 · `PMOD1` 针 11/12/9 ───────────────────────────
+IO_LOC  "ws_strip_o[0]" W19;   // ⭐ PMOD1 针 11 · IO0 · BANK8（出 · 拓展板灯带 1）
+IO_PORT "ws_strip_o[0]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "ws_strip_o[1]" W20;   // ⭐ PMOD1 针 12 · IO1 · BANK8（出 · 拓展板灯带 2）
+IO_PORT "ws_strip_o[1]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+IO_LOC  "ws_strip_o[2]" F19;   // ⭐ PMOD1 针 9 · IO2 · BANK2（出 · 拓展板灯带 3）
+IO_PORT "ws_strip_o[2]" IO_TYPE=LVCMOS33 PULL_MODE=NONE DRIVE=8 BANK_VCCIO=3.3;
+
 // H5: verified TLVDS_OBUF differential pairs; V13 unchanged.
 IO_LOC  "tmds_d_p_0[0]" J14,H14;
 IO_PORT "tmds_d_p_0[0]" PULL_MODE=NONE DRIVE=3.5 BANK_VCCIO=3.3;
