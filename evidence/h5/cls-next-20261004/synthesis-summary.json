@@ -1,0 +1,38 @@
+{
+  "synth-before": {
+    "top": {
+      "Register": 15148,
+      "Alu": 12142,
+      "Lut": 33167,
+      "Bsram": 29,
+      "Logic": 45309,
+      "CLS": null
+    },
+    "note_manager": {
+      "Register": 3281,
+      "Alu": 885,
+      "Lut": 10787,
+      "Bsram": 2,
+      "Logic": 11672,
+      "CLS": null
+    }
+  },
+  "synth-after": {
+    "top": {
+      "Register": 15148,
+      "Alu": 12623,
+      "Lut": 32441,
+      "Bsram": 29,
+      "Logic": 45064,
+      "CLS": null
+    },
+    "note_manager": {
+      "Register": 3281,
+      "Alu": 1365,
+      "Lut": 10404,
+      "Bsram": 2,
+      "Logic": 11769,
+      "CLS": null
+    }
+  }
+}

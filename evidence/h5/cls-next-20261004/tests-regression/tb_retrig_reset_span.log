@@ -1,0 +1,24 @@
+VCD info: dumpfile build/sim/tb_retrig_reset_span/tb_retrig_reset_span.vcd opened for output.
+== 1: 建立基线 —— note_on(轴 3) ==
+  info: axis 3 -> voice 0
+  ok  : axis 3 got a voice
+  ok  : that voice gate is high (sounding)
+  ok  : after reset retrig_reset is low
+== 2: ⭐⭐ 在响时重触发（同轴 3 再 note_on）==
+  info: rst_ticks = 1
+  ok  : after retrigger the gate is back high (voice sounding)
+  ok  : after retrigger retrig_reset returned low (not stuck)
+  ok  : P0-4: retrigger while sounding => retrig_reset_r spans exactly ONE sample_tick
+== 3: ⭐⭐ 紧接着再重触发一次（连续第二次）==
+  info: rst_ticks = 1
+  ok  : P0-4: second consecutive retrigger => spans exactly ONE sample_tick
+== 4: ⭐⭐ 尾巴期内重按（note_off 后 env 还没死就再按）==
+  ok  : gate fell after note_off
+  ok  : release tail is still live (live_mask=1)
+  info: rst_ticks = 1
+  ok  : gate is back high after re-press inside the tail
+  ok  : P0-4: re-press inside release tail => spans exactly ONE sample_tick
+== 汇总 ==
+  ok  : all three retriggers really produced a reset pulse (1/1/1, not vacuous)
+PASS: retrig_reset single-tick span (P0-4) - all judgements held (rst_ticks = 1/1/1)
+tb/w3b/tb_retrig_reset_span.sv:335: $finish called at 28880000 (1ps)

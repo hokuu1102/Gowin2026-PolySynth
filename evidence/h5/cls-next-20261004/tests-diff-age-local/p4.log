@@ -1,0 +1,2 @@
+PASS: tb_note_manager_write_share P=4 T3=0 cycles=17604 commits=1563 retriggers=69 collisions=1632 drops=6792 all_voice_mask=f
+tb/w3b/tb_note_manager_write_share.sv:329: $finish called at 176040000 (1ps)

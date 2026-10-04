@@ -1,0 +1,5 @@
+# Reproducible isolated workspaces and simulation executables stay local.
+/synth-*/
+*.vvp
+*.f
+# Input preparation is one-shot; retain the snapshot and final diff instead.

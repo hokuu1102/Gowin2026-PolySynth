@@ -1,0 +1,2 @@
+PASS: four timbres have distinct ADSR profiles
+tb/w3b/tb_timbre_adsr.sv:90: $finish called at 2884101000 (1ps)

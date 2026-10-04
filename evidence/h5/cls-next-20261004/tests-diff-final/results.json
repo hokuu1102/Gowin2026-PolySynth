@@ -1,0 +1,51 @@
+[
+  {
+    "name": "p32",
+    "status": "PASS",
+    "compile_exit": 0,
+    "run_exit": 0,
+    "seconds": 35.73
+  },
+  {
+    "name": "p4",
+    "status": "PASS",
+    "compile_exit": 0,
+    "run_exit": 0,
+    "seconds": 7.88
+  },
+  {
+    "name": "p7",
+    "status": "PASS",
+    "compile_exit": 0,
+    "run_exit": 0,
+    "seconds": 8.08
+  },
+  {
+    "name": "t3",
+    "status": "PASS",
+    "compile_exit": 0,
+    "run_exit": 0,
+    "seconds": 6.56
+  },
+  {
+    "name": "wrong_alloc_phase",
+    "status": "RED_DETECTED",
+    "compile_exit": 0,
+    "run_exit": 1,
+    "seconds": 3.39
+  },
+  {
+    "name": "wrong_retrig_velocity",
+    "status": "RED_DETECTED",
+    "compile_exit": 0,
+    "run_exit": 1,
+    "seconds": 11.29
+  },
+  {
+    "name": "lost_priority",
+    "status": "RED_DETECTED",
+    "compile_exit": 0,
+    "run_exit": 1,
+    "seconds": 2.82
+  }
+]

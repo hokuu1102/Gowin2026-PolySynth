@@ -1,0 +1,44 @@
+
+==============================================================
+ B3 RETRIGGER window: can note_off still clear the gate?
+   (phase sweep around sample_tick; gate MUST be 0 after note_off)
+==============================================================
+  off_phase=   0 -> gate=0 ok
+  off_phase=  64 -> gate=0 ok
+  off_phase= 128 -> gate=0 ok
+  off_phase= 192 -> gate=0 ok
+  off_phase= 256 -> gate=0 ok
+  off_phase= 320 -> gate=0 ok
+  off_phase= 384 -> gate=0 ok
+  off_phase= 448 -> gate=0 ok
+  off_phase= 512 -> gate=0 ok
+  off_phase= 576 -> gate=0 ok
+  off_phase= 640 -> gate=0 ok
+  off_phase= 704 -> gate=0 ok
+  off_phase= 768 -> gate=0 ok
+  off_phase= 832 -> gate=0 ok
+  off_phase= 896 -> gate=0 ok
+  off_phase= 960 -> gate=0 ok
+  off_phase=1016 -> gate=0 ok
+  off_phase=1017 -> gate=0 ok
+  off_phase=1018 -> gate=0 ok
+  off_phase=1019 -> gate=0 ok
+  off_phase=1020 -> gate=0 ok
+  off_phase=1021 -> gate=0 ok
+  off_phase=1022 -> gate=0 ok
+  off_phase=1023 -> gate=0 ok
+  off_phase=   0 -> gate=0 ok
+  off_phase=   1 -> gate=0 ok
+  off_phase=   2 -> gate=0 ok
+  off_phase=   3 -> gate=0 ok
+  off_phase=   4 -> gate=0 ok
+  off_phase=   5 -> gate=0 ok
+  off_phase=   6 -> gate=0 ok
+  off_phase=   7 -> gate=0 ok
+
+  == summary ==
+   cleared=32  STUCK=0  (invalid=0, phases=32)
+  ok  : B3: every phase around the sample tick clears the gate (no stuck note)
+  ok  : B3 non-vacuity: all phase cases executed with a valid setup
+PASS: B3 note_off always clears the gate, even inside the retrigger hold window
+tb/w3b/tb_nm_off_in_hold.sv:305: $finish called at 1853940000 (1ps)

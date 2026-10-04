@@ -1,0 +1,36 @@
+== е€¤жЌ® 6: её§е†…ж€Єж­ўпј€TDM е›єе®љж‹Ќж•° << 1024пјЊA6пј‰==
+  ok  : osc_valid яяЁ 200 яяяеяяя‡яяя°
+  ok  : TDMяяяЌяя° яя€ LANEяяяпя€64+2=6яяя‰
+  ok  : яяяеяяя†яяяЄяяяпяљTDяяя‹яяя° << 1024
+== е€¤жЌ® 1: жЇЏдёЄ lane зљ„з›ёдЅЌз‹¬з«‹е‰Ќиї› ==
+  ok  : 64яяяЄ lanяяяљяяя·яяядяяя…яяяЅяяяеяяяјяяяёяяязяяя®яяя„яяязяяя«яяя‰
+     (жіЁпјљж­ЈејЏйЂљи·ЇжЇЏ voice дёЂд»Ѕ inc в‡’ еђЊ voice дё¤ lane еђЊж­Ґпј›
+      е¤±и°ђйњЂ test_mode и¦†з›–ж€–еђЋз»­еЉ  per-lane detune вЂ”вЂ” и§Ѓ K-95)
+== е€¤жЌ® 2: жЇЏдёЄ lane зљ„з›ёдЅЌеўћй‡Џз‹¬з«‹з”џж•€пј€test_mode йЂљи·Їпј‰==
+  ok  : test_mode: lanяяядяЋ lane1яяя„яяяжяяяёяяяЊяяяеяяя‡яяя„яяязяяя•яяя‰
+== е€¤жЌ® 4: ењ°еќЂ = з›ёдЅЌй« 9 дЅЌпј€DDS ж­ЈзЎ®жЂ§пј‰==
+  ok  : laneяяя›яяяЌ = 3я—2^яяяјяяя°яяЂ=яяя‰
+  ok  : phase_acc_dbgяяязяяя« 10яяяЌ = 6
+  ok  : яяяЌяя° яяяёяяя‡яяя›яяяЌ = 5я—2^яяяјяяя°яяЂ=яяя‰
+== е€¤жЌ® 4b: в­ђ зњџж­ЈйЂЃ ROM зљ„ењ°еќЂ = з›ёдЅЌгЂђй«гЂ‘9 дЅЌпј€K-98 иЎҐзљ„з›ІеЊєпј‰==
+  ok  : ’з­‰дєЋгЂЊдёЉдёЂй‡‡ж ·ж—¶е€»з›ёдЅЌзљ„й« 9 дЅЌгЂЌпј€20 ж¬ЎйЂђдёЂж ёеЇ№пјЊK-98пј‰
+== е€¤жЌ® 7: жњЄжїЂжґ» voice зљ„з›ёдЅЌдїќжЊЃдёЌеЏпј€йІе’”еЈ°пј‰==
+  ok  : яяяжяяяїяяя» voice0 яяязяяяЅяяяќяяядяяяЏяяя€яяяжяяя›яяя‰
+  ok  : яяяЂяя» voicяяяеяяя›яяяЌяяяеяяя‰яяя›
+== е€¤жЌ® 3: TDM еЏ–е›ћ 64 дёЄж ·жњ¬пјЊosc_valid жЇЏеё§жЃ°еҐЅ 1 ж¬Ў ==
+  ok  : яяяеяяя†… osc_valid яяяеяЅ 1яяяЎ
+  ok  : 64 яяЄ laneяяя­яяяжяяяњяяяћяяяжяяяњяяя€TDM яяязяяяЏяяяћяяяжяяяЌяяя‰
+== е€¤жЌ® 5: test_mode и¦†з›–з”џж•€пј€T43 зљ„еџєзЎЂпј‰==
+  ok  : test_moяяядя‹ lane0/1/2яяяжяяяњяяя’яяязяяяђяяя€яяя·яяяЌяяяйяяяЋяяя‰
+  ok  : яяяЄяяядяяяљ„ laяяязяяяЅяяяЌяяяпяяяЅяяя¤яяязяяяђяяя‰
+== 8: test_mode overrides voice_active ==
+  ok  : test_mode=1 overrides voice_active=0 (lane0 still advances)
+  ok  : and a lane NOT selected stays frozen
+  ok  : test_mode=1 keeps rom_dout on the dedicated clean sine table (rom_test)
+  ok  : and that check is NON-VACUOUS (rom_test != rom_hard was observed)
+== 9: timbre must not depend on velocity ==
+  ok  : velocity 0 and 255 give BIT-IDENTICAL samples (timbre is velocity-free)
+== 10: two attacks at the same depth must be BIT-IDENTICAL (NO reset) ==
+  ok  : two attacks at the same depth are BIT-IDENTICAL (phase returns to the seed)
+PASS: oscillator_bank acceptance (T55) - all judgements held
+tb/w3b/tb_oscillator_bank.sv:513: $finish called at 117540000 (1ps)

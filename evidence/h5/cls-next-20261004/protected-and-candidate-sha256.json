@@ -1,0 +1,9 @@
+{
+  "constr/top.sdc": "a60ad2873d307ce36babb536c607a39959acdcf382a5ff8f3267109ebe76ca53",
+  "constr/top.cst": "e8fbcca55ca4f54de6f28c72d92573952464641d5ee6f02b8a4f778e8ae36618",
+  "build_cli.tcl": "1004651db30d63f82c076f9ce36986cee50024e46939f3aaa5eea4526c996669",
+  "rtl/top.v": "d8a6d80ba1731db4af5ca8b727b47a6a59cdd25293d2ee25187fae5f58e926d1",
+  "rtl/w3b/oscillator_bank.v": "47df7040ebacde43083ba29108d683ca3f0c7d6393c67a341b10dd37c48c6fb4",
+  "Gowin2026.gprj": "88a06357d0ec66efbeeb1c55c4ced440bcde28986d19833b57ffc2e012eb26e2",
+  "rtl/w3b/note_manager.v": "6819adf6cf5ad17857cc0bef6f166fe4bb915010ada627af392bf323f61fee6d"
+}

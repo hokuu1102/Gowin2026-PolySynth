@@ -1,0 +1,2 @@
+tb/w3b/tb_retrig_reset_span.sv:114: warning: Port 9 (note_src_i) of note_manager expects 3 bits, got 2.
+tb/w3b/tb_retrig_reset_span.sv:114:        : Padding 1 high bits of the port.
