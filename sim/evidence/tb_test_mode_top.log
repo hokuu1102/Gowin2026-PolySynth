@@ -24,37 +24,13 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : Test Mode gate mux reaches envelope bank
   ok  : Test Mode velocity mux reaches envelope bank
   ok  : controller lanes reach oscillator bank
-  FAIL: top Test Mode enable state
+  ok  : top Test Mode enable state
   ok  : top Test Mode count code
-  FAIL: test_mode_ctrl active count
-  FAIL: selected test voices equal active count
-  FAIL: one oscillator lane per selected voice
-  FAIL: Test Mode gate mux reaches envelope bank
-  FAIL: Test Mode velocity mux reaches envelope bank
-  ok  : controller lanes reach oscillator bank
-  FAIL: top Test Mode enable state
-  FAIL: top Test Mode count code
-  FAIL: test_mode_ctrl active count
-  FAIL: selected test voices equal active count
-  FAIL: one oscillator lane per selected voice
-  FAIL: Test Mode gate mux reaches envelope bank
-  FAIL: Test Mode velocity mux reaches envelope bank
-  ok  : controller lanes reach oscillator bank
-  FAIL: top Test Mode enable state
-  FAIL: top Test Mode count code
-  FAIL: test_mode_ctrl active count
-  FAIL: selected test voices equal active count
-  FAIL: one oscillator lane per selected voice
-  FAIL: Test Mode gate mux reaches envelope bank
-  FAIL: Test Mode velocity mux reaches envelope bank
-  ok  : controller lanes reach oscillator bank
-  FAIL: top Test Mode enable state
-  FAIL: top Test Mode count code
-  FAIL: test_mode_ctrl active count
-  FAIL: selected test voices equal active count
-  FAIL: one oscillator lane per selected voice
-  FAIL: Test Mode gate mux reaches envelope bank
-  FAIL: Test Mode velocity mux reaches envelope bank
+  ok  : test_mode_ctrl active count
+  ok  : selected test voices equal active count
+  ok  : one oscillator lane per selected voice
+  ok  : Test Mode gate mux reaches envelope bank
+  ok  : Test Mode velocity mux reaches envelope bank
   ok  : controller lanes reach oscillator bank
   ok  : top Test Mode enable state
   ok  : top Test Mode count code
@@ -64,7 +40,31 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : Test Mode gate mux reaches envelope bank
   ok  : Test Mode velocity mux reaches envelope bank
   ok  : controller lanes reach oscillator bank
-FATAL: C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_test_mode_top.sv:129: FAIL: physical Test Mode integration has 27 error(s)
-       Time: 293710000  Scope: tb_test_mode_top
+  ok  : top Test Mode enable state
+  ok  : top Test Mode count code
+  ok  : test_mode_ctrl active count
+  ok  : selected test voices equal active count
+  ok  : one oscillator lane per selected voice
+  ok  : Test Mode gate mux reaches envelope bank
+  ok  : Test Mode velocity mux reaches envelope bank
+  ok  : controller lanes reach oscillator bank
+  ok  : top Test Mode enable state
+  ok  : top Test Mode count code
+  ok  : test_mode_ctrl active count
+  ok  : selected test voices equal active count
+  ok  : one oscillator lane per selected voice
+  ok  : Test Mode gate mux reaches envelope bank
+  ok  : Test Mode velocity mux reaches envelope bank
+  ok  : controller lanes reach oscillator bank
+  ok  : top Test Mode enable state
+  ok  : top Test Mode count code
+  ok  : test_mode_ctrl active count
+  ok  : selected test voices equal active count
+  ok  : one oscillator lane per selected voice
+  ok  : Test Mode gate mux reaches envelope bank
+  ok  : Test Mode velocity mux reaches envelope bank
+  ok  : controller lanes reach oscillator bank
+PASS: physical UART M command controls 4/8/16/32 Test Mode in top
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_test_mode_top.sv:130: $finish called at 293710000 (1ps)
 
 
