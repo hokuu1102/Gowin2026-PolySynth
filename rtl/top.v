@@ -69,7 +69,7 @@ module top #(
 //      —— 那样逻辑还在、锥还在）。
 //   ⚠️ 两个配置必须**显式记录**（本参数值 + 其它参数），⛔ 不能依赖 IDE 上次留下的值。
 //   📌 切换方式：构建正式码流时把本行默认值改为 0（一行、可由 git diff 核验）。
-parameter integer TEST_MODE_EN       = 1,
+parameter integer TEST_MODE_EN       = 0,
     // 与 w3b 链路一致的参数（改这里要同时核对 `POLY_TARGET`）
     parameter integer POLY_TARGET       = 32,
     parameter integer OSC_PER_VOICE     = 2,

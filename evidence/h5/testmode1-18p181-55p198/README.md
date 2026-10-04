@@ -49,3 +49,25 @@ set_max_delay -from [get_clocks {clk_sys}] -to [get_regs {u_hdmi/u_scope/gray_la
 2. **上板验证**：两个码流都还没上板。
 3. **进一步降 CLS**：当前最差路径已换成 `note_manager`（`gate_r/retrig_low → scan_cnt/best_idx`
    抢声部逻辑）与 `tdm_render_mixer`（`cnt → prod_c`）⇒ 这两个是下一轮的靶子。
+---
+
+## 更新（2026-10-04 13:50）：正式版码流已重建并交付
+
+正式版已按本文方法重建（改回 `TEST_MODE_EN=0` + 删整个 `impl/` + `gw_sh build_cli.tcl`），
+**逐项复现**上一次正式版结果（⇒ PnR 确定性再次确认）：
+
+| 项 | 值 |
+|---|---|
+| `clk_sys` | **56.399 MHz** / setup 0 / hold 0 |
+| 55 MHz 预算 slack | +0.450 ns ✅ |
+| Logic / Register / CLS | 46283 / 15148 / 25725（86%） |
+| 码流 | 18,902,023 B |
+
+两个码流已放到交付目录 `Desktop\学习\hdmi_640x480\bitstreams\`：
+
+| 文件 | 配置 | `clk_sys` | 用途 |
+|---|---|---|---|
+| `P_prod_TESTMODE0_56p399.fs` | `TEST_MODE_EN=0` | **56.399 MHz** | **上板交付**（Test Mode 编译裁剪） |
+| `Q_diag_TESTMODE1_55p198.fs` | `TEST_MODE_EN=1` | **55.198 MHz** | 诊断（保留完整 Test Mode） |
+
+⛔ 两个码流**都还没上板验证**。
