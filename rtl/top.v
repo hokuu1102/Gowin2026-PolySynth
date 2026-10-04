@@ -59,6 +59,17 @@ module top #(
     //   📌 为什么默认是 1：`top.v` 是**交付顶层**，默认值必须让板子**能出声**；
     //     "静音"是**测试配置**，⛔ 不该当交付默认值（同 `PA_ON_AFTER_RESET` 的 `R-16` 教训）。
     parameter integer DEMO_CHORD_ON     = 1,
+// ⭐⭐ 2026-10-04（codex 只读评审「阶段 1」）：**Test Mode 编译期开关（双码流）**
+//   🔴 动机（实测）：当前最差 setup 前三条全部是
+//      `g_sound.tm_enable_r_s3/Q → …u_adsr/env_level_o_*`
+//      （按 19.417 ns 余量预算计 +0.267/+0.356/+0.420）⇒
+//      ⭐ **Test Mode 的高扇出选择锥就是第一瓶颈**。
+//   ✅ `1`（**默认**，诊断码流）= 行为与改动前**逐字一致**（现有测试台与上板习惯不变）；
+//      `0`（**正式码流**）= 整条 Test Mode 通路**不进网表**（⛔ 不是"运行时拉低 enable"
+//      —— 那样逻辑还在、锥还在）。
+//   ⚠️ 两个配置必须**显式记录**（本参数值 + 其它参数），⛔ 不能依赖 IDE 上次留下的值。
+//   📌 切换方式：构建正式码流时把本行默认值改为 0（一行、可由 git diff 核验）。
+parameter integer TEST_MODE_EN       = 0,
     // 与 w3b 链路一致的参数（改这里要同时核对 `POLY_TARGET`）
     parameter integer POLY_TARGET       = 32,
     parameter integer OSC_PER_VOICE     = 2,
@@ -1211,48 +1222,74 @@ wire       fault_any_w;
         //      'M' 命令（`cmd_test_mode_req`）**并联**，两个入口驱动同一状态机。
         //      ⚠️ `ui_test_mode`/`ui_test_mode_n` 仅作可观测镜像（⛔ 非权威），
         //         权威状态是本 `tm_enable_r`/`tm_n_code_r`（接 `test_mode_ctrl`）。
-        reg                              tm_enable_r;
-        reg [1:0]                        tm_n_code_r;
+        //  ⭐⭐ 2026-10-04（codex 只读评审「阶段 1」）：**`TEST_MODE_EN` 双码流**
+        //  📌 诊断码流（`TEST_MODE_EN=1`）**行为与改动前逐字一致**；默认值保持 1，
+        //     以免影响现有测试台与上板习惯。
+        //  ⚠️ ⛔ 这里**不能**再套 `generate`/`endgenerate`：本块已在外层 `g_sound`
+        //     的 generate 区里，嵌套会报 `Generate/endgenerate regions cannot nest`
+        //     （2026-10-03 实测踩过）。
+        wire                             tm_enable_r;
+        wire [1:0]                       tm_n_code_r;
         wire [POLY_TARGET-1:0]           tm_gate;
         wire [POLY_TARGET*8-1:0]         tm_vel;
         wire [POLY_TARGET*OSC_PER_VOICE-1:0] tm_lane_active;
         wire [POLY_TARGET*OSC_PER_VOICE*32-1:0] tm_phase_inc;
         wire [5:0]                       tm_active_n;
 
-        always @(posedge clk) begin
-            if (!rst_n_sync) begin
-                tm_enable_r <= 1'b0;
-                tm_n_code_r <= 2'b00;
-            end else if (cmd_test_mode_req || ui_test_mode_commit) begin
-                if (!tm_enable_r) begin
-                    tm_enable_r <= 1'b1;
-                    tm_n_code_r <= 2'b00;  // 4 voices
-                end else if (tm_n_code_r == 2'b11) begin
-                    tm_enable_r <= 1'b0;
-                    tm_n_code_r <= 2'b00;
-                end else begin
-                    tm_n_code_r <= tm_n_code_r + 2'b01;
+        if (TEST_MODE_EN != 0) begin : g_test_mode
+            // ── 诊断码流：原行为，一字不改 ─────────────────────────────────
+            reg       tm_enable_q;
+            reg [1:0] tm_n_code_q;
+            assign tm_enable_r = tm_enable_q;
+            assign tm_n_code_r = tm_n_code_q;
+
+            always @(posedge clk) begin
+                if (!rst_n_sync) begin
+                    tm_enable_q <= 1'b0;
+                    tm_n_code_q <= 2'b00;
+                end else if (cmd_test_mode_req || ui_test_mode_commit) begin
+                    if (!tm_enable_q) begin
+                        tm_enable_q <= 1'b1;
+                        tm_n_code_q <= 2'b00;  // 4 voices
+                    end else if (tm_n_code_q == 2'b11) begin
+                        tm_enable_q <= 1'b0;
+                        tm_n_code_q <= 2'b00;
+                    end else begin
+                        tm_n_code_q <= tm_n_code_q + 2'b01;
+                    end
                 end
             end
-        end
 
-        test_mode_ctrl #(
-            .POLY_TARGET   (POLY_TARGET),
-            .OSC_PER_VOICE (OSC_PER_VOICE),
-            .PHASE_W       (32),
-            .VEL_W         (8)
-        ) u_test_mode_ctrl (
-            .clk_i              (clk),
-            .rst_n_i            (rst_n_sync),
-            .sample_tick_i      (tick_audio),
-            .enable_i           (tm_enable_r),
-            .n_code_i           (tm_n_code_r),
-            .test_voice_gate_o  (tm_gate),
-            .test_velocity_o    (tm_vel),
-            .test_lane_active_o (tm_lane_active),
-            .test_phase_inc_o   (tm_phase_inc),
-            .active_n_o         (tm_active_n)
-        );
+            test_mode_ctrl #(
+                .POLY_TARGET   (POLY_TARGET),
+                .OSC_PER_VOICE (OSC_PER_VOICE),
+                .PHASE_W       (32),
+                .VEL_W         (8)
+            ) u_test_mode_ctrl (
+                .clk_i              (clk),
+                .rst_n_i            (rst_n_sync),
+                .sample_tick_i      (tick_audio),
+                .enable_i           (tm_enable_r),
+                .n_code_i           (tm_n_code_r),
+                .test_voice_gate_o  (tm_gate),
+                .test_velocity_o    (tm_vel),
+                .test_lane_active_o (tm_lane_active),
+                .test_phase_inc_o   (tm_phase_inc),
+                .active_n_o         (tm_active_n)
+            );
+        end else begin : g_no_test_mode
+            // ── 正式码流：整条 Test Mode 通路**不进网表** ─────────────────
+            //    ⭐ 所有输出给确定常量 ⇒ 下游选择器被常量传播折叠掉，
+            //       那条扇出 769 的长网**不存在**。
+            //    📌 M 命令反馈会自然回 "关"（`tm_enable_r`=0）⇒ ⛔ 不会误报"已进入测试模式"。
+            assign tm_enable_r    = 1'b0;
+            assign tm_n_code_r    = 2'b00;
+            assign tm_gate        = {POLY_TARGET{1'b0}};
+            assign tm_vel         = {POLY_TARGET*8{1'b0}};
+            assign tm_lane_active = {POLY_TARGET*OSC_PER_VOICE{1'b0}};
+            assign tm_phase_inc   = {POLY_TARGET*OSC_PER_VOICE*32{1'b0}};
+            assign tm_active_n    = 6'd0;
+        end
 
         // ── ⭐ 开机自检音（A4+C#5+E5）的驱动信号 ──────────────────────────
         //    ⚠️ 必须**先声明后使用**（Verilog 不允许先用后声明）

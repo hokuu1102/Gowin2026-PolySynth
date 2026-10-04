@@ -20,6 +20,10 @@ C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\video
 eo_timing inherited from another file.
 C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale
  is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\guide_lamp.v:30: warning: timescale for guide
+_lamp inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale
+ is here.
 C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\pos_probe.v:71: warning: timescale for pos_pr
 obe inherited from another file.
 C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\play_seq.v:1: ...: The inherited timescale is

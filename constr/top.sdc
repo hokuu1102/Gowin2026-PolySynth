@@ -74,3 +74,29 @@ set_false_path -from [get_ports {rst_n}]
 # H5: same PLL divisors as verified 640x480 bringup; CDC remains timed.
 create_generated_clock -name serial_clk -source [get_ports {clk}] -master_clock clk_sys -divide_by 8 -multiply_by 20 [get_pins {u_hdmi/u_clk/u_pll/CLKOUT0}]
 create_generated_clock -name pixel_clk -source [get_ports {clk}] -master_clock clk_sys -divide_by 40 -multiply_by 20 [get_pins {u_hdmi/u_clk/u_pll/CLKOUT1}]
+
+# ═════════════════════════════════════════════════════════════════════════════
+# ⭐⭐ 2026-10-04：**余量预算（margin）约束** —— 独立实验，物理时钟不变
+#
+# 🔴 动机（实测）：布局器只按 `clk_sys` 20 ns 优化，报告里那个 Fmax（52.219 MHz）
+#    只是**外推值** ⇒ 它**没有为 51.5 MHz 门槛做任何优化**。
+#    ⇒ 这里给"起止都在 `clk_sys` 域"的路径加一条**更紧的预算**，让布局器真正去争。
+#
+# ⚠️ 三条纪律（来自 codex 只读评审 `margin-roadmap-review-20261004`）：
+#   ① **物理不变**：50 MHz 晶振、PLL 与 `1024` 分频都不动 ⇒ 板子照跑 50 MHz；
+#      本约束只改**优化目标**（故意过约束），⛔ 不改任何硬件行为。
+#   ② ⛔ **不许**用 `set_clock_groups -asynchronous` 把 `clk_sys` 与 HDMI 整组切开 ——
+#      那会连 `u_rst_sync → OSER10/RESET` 的**真实 recovery/removal** 检查一起删掉
+#      （当前 recovery +1.490 ns、removal +0.217 ns，都是必须保留的检查）。
+#   ③ `gray_launch`/`full_launch` 走的是 `negedge sample_clk` 半周期预算（10 ns，
+#      见 `rtl/hdmi/waveform_scope.v:38-43`）⇒ 必须**显式钉住 10 ns**，
+#      否则会被下面那条 19.417 意外放宽。
+#
+# 📌 取值：19.417 ns ≈ 51.5 MHz（精确值 19.4174757 ⇒ 这里**略紧**）。
+#    挑战档 = 18.181 ns（≈55 MHz，精确 18.1818182 ⇒ **略松**，确保严格达标）。
+# ⚠️ 验收三步：① Constraints Report 全部 Actived 且对象非空；
+#    ② Timing Exceptions Report 确认 max-delay 真正覆盖目标锥（⛔ 不能只看 Fmax 汇总）；
+#    ③ 对**同一份 PnR 结果**按 nominal 口径复算 Fmax 与四类 slack。
+# ═════════════════════════════════════════════════════════════════════════════
+set_max_delay -from [get_clocks {clk_sys}] -to [get_clocks {clk_sys}] 19.417
+set_max_delay -from [get_clocks {clk_sys}] -to [get_regs {u_hdmi/u_scope/gray_launch_*_s0 u_hdmi/u_scope/full_launch_s0}] 10.000
