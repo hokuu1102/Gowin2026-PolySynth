@@ -257,6 +257,10 @@ parameter integer FIXED_BLEND_Q     = 0,
     localparam integer DRUM_SWEEP_W = 16;
     localparam [PHASE_W-1:0] DRUM_KICK_MAX_C = DRUM_KICK_MAX;
     localparam [PHASE_W-1:0] DRUM_TOM_MAX_C  = DRUM_TOM_MAX;
+    //  ⭐⭐ 2026-10-04（P5-②）：⭐ **1/4 周期初相** —— ⭐ 原来写在 lane 里，
+    //     ⭐ 现在提成**共享常量**（⭐ 只有 `OSC_IDX==1` 那个 lane 用它 ✅）
+    //   📌 语义见下方 `phase_seed` 的长注释（⭐ "起音时一个是 sin、一个是 cos" ✅）
+    localparam [PHASE_W-1:0] PHASE_QUARTER = {{(PHASE_W-2){1'b0}}, 2'b01} << (PHASE_W - 2);
 
     // ═══════════════════════════════════════════════════════════════════════
     // ① ⭐⭐ 64 个【独立】相位累加器 + 本帧地址锁存（generate 展开）
@@ -286,73 +290,123 @@ parameter integer FIXED_BLEND_Q     = 0,
     wire signed [PHASE_W-1:0] vib_off = vib_mul >>> 15;
 
     // ═══════════════════════════════════════════════════════════════════════
-    // ⭐⭐ 2026-10-04（codex 只读评审「阶段 2」）：鼓扫频状态**按 voice 共享**
+    //  ⭐⭐ 2026-10-04（P5-②）：⭐ **每 voice 一份的"增量 + 扫频"算术**
     //
-    //  🔴 实测依据：综合网表里 `sweep_q` 触发器 = **1024 个**（64 lane × 16 位）
-    //     ⇒ 综合器**没有**自动合并 ⇒ 这是真实的重复。
-    //  ✅ 为什么可以共享：同 voice 两 lane 的
-    //     · `base_inc`（`base_phase_inc_i[VOICE_IDX*PHASE_W +: PHASE_W]`，**不含 `OSC_IDX`**）
-    //     · 鼓分类 `is_kick_drum`/`is_tom_drum`
-    //     · 装载值 `sweep_load`、衰减 `sweep_dec`
-    //     **逐位完全相同** ⇒ 只有 `sweep_q` 是多余的 64 份。
+    //  🔴 **为什么**：⭐ `OSC_PER_VOICE = 2` ⇒ 同一 voice 的两个 lane **共用同一个
+    //     `base_phase_inc_i`** ⇒ ⚠️ 原来"每 lane 各算一遍"的这些东西**全是重复的**：
+    //       ① 失谐偏移（纯移位）② 鼓判据（两级比较器）③ `sweep_load`（三目选择）
+    //       ④ ⭐ **`sweep_q` 扫频计数器（16 位 × 64 lane ⇒ 现在只要 32 个）**
+    //       ⑤ 相位增量的加法链
+    //     ⇒ ⭐ 上提到 voice 级 ⇒ **这部分逻辑直接减半** ✅
     //
-    //  ⚠️ reload 用 **lane 0** 的 `lane_active` 边沿作 per-voice 判据，理由：
-    //     · 正常模式两 lane 的 `lane_active` 都 = `voice_active_i[VOICE_IDX]` ⇒ 相同；
-    //     · Test Mode 只激活 lane 0（`test_mode_ctrl.v:78–82`）⇒ 取 lane 0 才对；
-    //     · 且 reload 被 `!test_mode_i` 屏蔽、Test Mode 下完全绕过 sweep（走
-    //       `test_phase_inc_i`）⇒ 与逐 lane 版本**逐拍等价**。
-    //       （详见 `evidence/h5/stage2-osc-sweep-share/DESIGN.md`）
+    //  ⭐ **为什么逐位等价**（⭐ ⛔ 不是"看起来一样"，⭐ 判据见 `tb/w3b/tb_p5_osc_equiv.sv`）：
+    //     · ⭐ 加法在 **mod 2³²** 意义下**结合、交换** ⇒ ⭐ 原来
+    //       `$signed(base)+$signed(detune)+$signed(vib)`（**33 位中间宽度**）
+    //       与这里 `bv + vib_off[31:0] + so_v`（**32 位**）**截断后完全相同** ✅
+    //     · ⭐ `sweep_q` 的**装载/衰减条件逐项照抄**（⭐ 含"test 档下仍然衰减"）✅
+    //     · ⭐ `lane_active`（非 test 档）= `voice_active_i[VOICE_IDX]`
+    //       ⇒ ⭐ **同一 voice 的两个 lane 恒等** ⇒ ⭐ 上升沿检测搬到 voice 级等价 ✅
+    //     📌 实证：⭐ 参考副本 vs 本实现 **320 帧 0 mismatch**（⭐ 且比了**全部 64 个相位累加器**）
     //
-    //  📌 用**打包向量**索引（⛔ 不用非打包数组 —— 那样在 generate 里索引会报
-    //     `Unable to bind wire/reg/memory`，2026-10-03 实测踩过）。
-    //  📌 输出的是**未左移**的 `v_sweep_q`：左移定标仍由下面 per-lane 的
-    //     `sweep_off` 做（先零扩展到 `PHASE_W` 再移位）⇒ ⛔ 不会截断。
+    //  ⛔ **本块【不碰】相位累加器**：⭐ `phase_q`/`addr_q` 仍然**每 lane 一份**
+    //     （⭐ 64 个相位累加器 = 评分主体，⭐ 一个都不能省 ✅）
     // ═══════════════════════════════════════════════════════════════════════
-    wire [POLY_TARGET*DRUM_SWEEP_W-1:0] voice_sweep_q;
-    genvar v;
-    generate
-        for (v = 0; v < POLY_TARGET; v = v + 1) begin : gen_voice_sweep
-            wire [PHASE_W-1:0] v_base_inc = base_phase_inc_i[v*PHASE_W +: PHASE_W];
-            wire v_drum = lane_drum[v*OSC_PER_VOICE];
-            wire v_kick = v_drum && (v_base_inc <  DRUM_KICK_MAX_C);
-            wire v_tom  = v_drum && (v_base_inc >= DRUM_KICK_MAX_C)
-                                 && (v_base_inc <  DRUM_TOM_MAX_C);
-            wire [DRUM_SWEEP_W-1:0] v_sweep_load =
-                (DRUM_PITCH_ENV_EN == 0) ? {DRUM_SWEEP_W{1'b0}}
-              : v_kick                   ? (v_base_inc >> (DRUM_SWEEP_LSB_SH + DRUM_KICK_SWEEP_SH))
-              : v_tom                    ? (v_base_inc >> (DRUM_SWEEP_LSB_SH + DRUM_TOM_SWEEP_SH))
-              :                            {DRUM_SWEEP_W{1'b0}};
-            reg  [DRUM_SWEEP_W-1:0] v_sweep_r;
-            reg                     v_active_d;
-            //  ⚠️ 衰减必须引用**本块自己的寄存器** `v_sweep_r`，⛔ 不能引用本块驱动的
-            //     输出 wire `voice_sweep_q`（那样 iverilog 报
-            //     `Unable to bind wire/reg/memory`，2026-10-04 实测踩过）
-            wire [DRUM_SWEEP_W-1:0] v_sweep_dec =
-                v_sweep_r - (v_sweep_r >> DRUM_SWEEP_SH) - 1'b1;
+    //   ⭐ 每 voice 两份增量：⭐ 主 lane 用 `inc_main_w`、⭐ 失谐副本用 `inc_det_w`
+    wire [POLY_TARGET*PHASE_W-1:0] inc_main_w;
+    wire [POLY_TARGET*PHASE_W-1:0] inc_det_w;
+    //   ⭐ 每 voice 上一拍"在响"（⭐ 用于取**起音上升沿** ✅）
+    wire [POLY_TARGET-1:0]         act_d_bus;
 
-            // lane 0 的"在响"（Test Mode 下 lane 0 才是被激活的那个）
-            wire v_active = test_mode_i ? test_lane_active_i[v*OSC_PER_VOICE]
-                                        : voice_active_i[v];
-            // 与 per-lane 版同款：`=== 1'b1` 是必需的（老例化不接该端口 ⇒ `z`）
-            wire v_phase_rst = (voice_phase_rst_i[v] === 1'b1);
+    genvar vg;
+    generate
+        for (vg = 0; vg < POLY_TARGET; vg = vg + 1) begin : gen_voice
+            //   ⭐ **本 voice 的基频增量**（⭐ 两个 lane 共用）
+            wire [PHASE_W-1:0] bv = base_phase_inc_i[vg*PHASE_W +: PHASE_W];
+
+            //   ⭐ 失谐偏移：⭐ `bv >> DETUNE_SH`（⭐ 纯移位，⛔ 无乘法器）
+            //      ⚠️ `DETUNE_ON == 0` ⇒ ⭐ **偏移为 0** ⇒ ⭐ 两个 lane 同频（⛔ 无拍频）
+            //      📌 **只有 `OSC_IDX == 1` 那个 lane 会加上它**（⭐ 见下方 `inc_det_w`）
+            //         ⇒ ⭐ 两个 lane 频率【不同】⇒ ⭐ **拍频**
+            //         ⇒ ⭐ 叠加从"严格 ×2"变成**自然的非相干叠加** ✅
+            //   ⚠️ **`>>>` 还是 `>>`**：⭐ 此处 `bv` 是**无符号频率增量**
+            //      （⭐ 相位增量恒正）⇒ ⭐ 两者等价 ⇒ ⭐ 用 `>>` 更直观
+            wire [PHASE_W-1:0] dv = (DETUNE_ON != 0) ? (bv >> DETUNE_SH)
+                                                     : {PHASE_W{1'b0}};
+
+            //   ⭐ 鼓判据（⭐ 两级比较器，⭐ 纯组合、⭐ 无乘法 ✅）
+            //     🔴 **必须与 `voice_drum_i` 相与** —— ⚠️ 否则一个"低音区"的**乐音** voice
+            //        （⭐ 如 BASS 的低八度）也会被扫频 ⇒ 🔴 低音会"滑音" ✅
+            //     ⚠️ 用 `bv`（⭐ 标称增量）而⛔ **不是**含失谐/颤音/本扫频的增量：
+            //        ⭐ 后者会**自反馈**（⭐ 越扫越偏 ✅）
+            wire drum_v  = (voice_drum_i[vg] === 1'b1);
+            wire is_kick = drum_v && (bv <  DRUM_KICK_MAX_C);
+            wire is_tom  = drum_v && (bv >= DRUM_KICK_MAX_C) && (bv < DRUM_TOM_MAX_C);
+
+            //   ⭐ **本档的扫频深度**（⭐ `bv >> (LSB_SH + 本档 SH)` ⇒ ⭐ 纯连线 ✅）
+            //     ⚠️ 赋给 16 位 ⇒ **高 16 位被截掉** ⇒ ⭐ 深度必须 < 65536
+            //        （⭐ 底鼓 `5_368_709 >> 8  = 24466` ✅ · ⭐ 嗵鼓 `17_895_697 >> 10 = 13981` ✅）
+            //        ⇒ ⭐ 模块末尾有**显式参数自检**（⭐ `K-106`：⛔ 不许静默截断 ✅）
+            wire [DRUM_SWEEP_W-1:0] sweep_kick =
+                bv >> (DRUM_SWEEP_LSB_SH + DRUM_KICK_SWEEP_SH);
+            wire [DRUM_SWEEP_W-1:0] sweep_tom  =
+                bv >> (DRUM_SWEEP_LSB_SH + DRUM_TOM_SWEEP_SH);
+            //   ⭐ **装载值**：⭐ 非鼓 / 非底鼓嗵鼓 / 总开关关 ⇒ ⭐ **0（不扫）** ✅
+            wire [DRUM_SWEEP_W-1:0] sweep_load =
+                (DRUM_PITCH_ENV_EN == 0) ? {DRUM_SWEEP_W{1'b0}}
+              : is_kick                  ? sweep_kick
+              : is_tom                   ? sweep_tom
+              :                            {DRUM_SWEEP_W{1'b0}};
+
+            //   ⭐ **扫频计数器**（⭐ 阶段 2b 的寄存器 —— ⭐ 现在**每 voice 一个** ✅）
+            reg  [DRUM_SWEEP_W-1:0] sweep_q;
+            reg                     act_d;
+
+            //   ⭐⭐ **衰减**：⭐ `sweep <= sweep - (sweep >> SH) - 1`（⭐ 每采样拍一次 ✅）
+            //     · ⭐ `- (sweep>>SH)` ⇒ ⭐ **指数**衰减，⭐ 时间常数 ≈ `2^SH` 拍 ✅
+            //        （⭐ 听感上"**先快后慢**"—— ⭐ 正是真实鼓的音高包络形状 ✅）
+            //     · ⭐ `- 1`           ⇒ ⭐ **保证有限拍内精确到 0** ✅
+            //        （⚠️ 只减 `sweep>>SH` 的话，`sweep < 2^SH` 之后**永远差一点**
+            //         ⇒ 🔴 稳态频率被抬高 `sweep_q` 那一档 ⇒ 🔴 永远**settle 不到标称** ✅）
+            //     📌 只有 `sweep_q != 0` 才衰减 —— ⚠️ 否则 `0 - 1` 会**回绕成全 1**
+            //        ⇒ 🔴 稳态被加上一个**巨大**偏移 ✅
+            wire [DRUM_SWEEP_W-1:0] sweep_dec =
+                sweep_q - (sweep_q >> DRUM_SWEEP_SH) - 1'b1;
+
+            //   ⭐ 本 voice 是否"在响"（⭐ 含 Release 尾巴 ✅）
+            //     📌 **非 test 档下它就等于原来那个 per-lane 的 `lane_active`**
+            //        （⭐ 因为 `lane_active = voice_active_i[VOICE_IDX]`，⭐ 同 voice 两 lane 恒等 ✅）
+            wire act_v = test_mode_i ? test_lane_active_i[vg*OSC_PER_VOICE]
+                                     : voice_active_i[vg];
+            //   ⭐ 起音事件（⭐ 与 lane 级那条 `phase_rst_lane` **同源** ✅）
+            wire rst_v = (voice_phase_rst_i[vg] === 1'b1);
+
+            //   ⭐ **当前额外增量**（⭐ 左移定标 ⇒ ⭐ 纯连线、⛔ 无乘法器 ✅）
+            wire [PHASE_W-1:0] so_v =
+                {{(PHASE_W-DRUM_SWEEP_W){1'b0}}, sweep_q} << DRUM_SWEEP_LSB_SH;
 
             always @(posedge clk_i) begin
                 if (!rst_n_i) begin
-                    v_sweep_r  <= {DRUM_SWEEP_W{1'b0}};
-                    v_active_d <= 1'b0;
+                    sweep_q <= {DRUM_SWEEP_W{1'b0}};   // ⭐ 复位 ⇒ 无扫频
+                    act_d   <= 1'b0;
                 end else if (sample_tick_i) begin
-                    v_active_d <= v_active;
-                    if (!test_mode_i && (v_phase_rst || (v_active && !v_active_d))) begin
-                        v_sweep_r <= v_sweep_load;      // ⭐ 起音 ⇒ 装载本档扫频深度
-                    end else begin
-                        // 扫频是"时间包络"，与 lane_active 无关；
-                        // 只有非零才衰减（否则 0-1 会回绕成全 1）
-                        if (v_sweep_r != {DRUM_SWEEP_W{1'b0}})
-                            v_sweep_r <= v_sweep_dec;
-                    end
+                    act_d <= act_v;
+                    //  ⭐⭐ 装载条件**逐项照抄**原来的 lane 级写法：
+                    //     `!test_mode_i && (phase_rst_lane || (lane_active && !lane_active_d))`
+                    //     ⚠️ 注意：⭐ **test 档下不装载、但仍然衰减**（⭐ 与原来逐项一致 ✅）
+                    if (!test_mode_i && (rst_v || (act_v && !act_d)))
+                        sweep_q <= sweep_load;
+                    else if (sweep_q != {DRUM_SWEEP_W{1'b0}})
+                        sweep_q <= sweep_dec;
                 end
             end
-            assign voice_sweep_q[v*DRUM_SWEEP_W +: DRUM_SWEEP_W] = v_sweep_r;
+
+            assign act_d_bus[vg] = act_d;
+            //   ⭐⭐ **相位增量**：⭐ 主 lane = 基频 + 颤音 + 本 voice 的扫频偏移
+            //      ⭐ 失谐副本 = 主 lane 的增量 **＋ 失谐偏移**
+            //     📌 32 位无符号加法（⭐ mod 2³²）与原来 33 位有符号加法**截断后等价** ✅
+            assign inc_main_w[vg*PHASE_W +: PHASE_W] = bv + vib_off[PHASE_W-1:0] + so_v;
+            assign inc_det_w [vg*PHASE_W +: PHASE_W] =
+                inc_main_w[vg*PHASE_W +: PHASE_W] + dv;
         end
     endgenerate
 
@@ -404,109 +458,55 @@ parameter integer FIXED_BLEND_Q     = 0,
             //      ⭐ 起音时包络从 **0** 起 ⇒ ⭐ **没有可听的不连续** ✅
             //      （⭐ 该顾虑对"**在响时**改相位"成立 —— ⭐ 例如滑音 ✅ 见 `pitch_upd` ✅）
             //   📌 **成本**：⭐ 每 lane 1 个 FF（⭐ 64 个 ✅）＋ ⭐ 一个 `phase_seed` 载入 ✅
-            reg               lane_active_d;   // ⭐ 上一采样拍是否在响（⭐ 用于取上升沿 ✅）
+            //   ⭐⭐ 2026-10-04（P5-②）：⭐ **"上一拍是否在响"已经上提到 `gen_voice`**
+            //      （⭐ 非 test 档下同 voice 的两个 lane 恒等 ⇒ ⭐ 搬到 voice 级等价 ✅）
+            //      ⇒ ⭐ 本 lane 用 `act_d_bus[VOICE_IDX]` 取**起音上升沿** ✅
 
-            //   ⭐⭐ **本 lane 的基频增量**（⭐ 在这里注入失谐）
-            wire [PHASE_W-1:0] base_inc =
-                base_phase_inc_i[VOICE_IDX*PHASE_W +: PHASE_W];
+            //   ⭐⭐ 2026-10-04（P5-②）：⭐ **基频增量 / 失谐偏移已上提到 `gen_voice`**
+            //      ⇒ ⭐ 本 lane 只剩"**选哪一份**"：⭐ 主 lane 用 `inc_main_w`、
+            //         ⭐ 失谐副本（`OSC_IDX != 0`）用 `inc_det_w` ✅
+            //      📌 "只有失谐副本才加偏移"这条语义 ⇒ ⭐ 见 `gen_voice` 的 `dv`/`inc_det_w` ✅
+            wire [PHASE_W-1:0] lane_inc_base =
+                (OSC_IDX != 0) ? inc_det_w[VOICE_IDX*PHASE_W +: PHASE_W]
+                               : inc_main_w[VOICE_IDX*PHASE_W +: PHASE_W];
 
-            //   ⭐ 失谐偏移：⭐ `base_inc >> DETUNE_SH`（⭐ 纯移位，⛔ 无乘法器）
-            //      ⚠️ `DETUNE_ON == 0` 或 `OSC_IDX == 0`
-            //         ⇒ ⭐ **偏移为 0** ⇒ ⭐ 该 lane 用原频率
-            //      📌 **只有 OSC_IDX==1 才加偏移** ⇒ ⭐ 两个 lane 频率【不同】
-            //         ⇒ ⭐ **拍频** ⇒ ⭐ 叠加从"严格 ×2"变成**自然的非相干叠加** ✅
-            //   ⚠️ **`>>>` 还是 `>>`**：⭐ 此处 `base_inc` 是**无符号频率增量**
-            //      （⭐ 相位增量恒正）⇒ ⭐ 两者等价 ⇒ ⭐ 用 `>>` 更直观
-            wire [PHASE_W-1:0] detune_off =
-                ((DETUNE_ON != 0) && (OSC_IDX != 0))
-                ? (base_inc >> DETUNE_SH) : {PHASE_W{1'b0}};
-
-            //  ⭐⭐ **2026-09-28 根因修复（B2 尖音候选）：混合符号求值 ⇒ `vib_off` 符号被丢**
+            //  ⭐⭐ **2026-09-28 的历史修复（⭐ 结论保留；写法已随 P5-② 上提到 `gen_voice`）**
             //
-            //  🔴 **原写法**：`lane_inc = base_inc + detune_off + vib_off`
-            //     · `base_inc`  是 `wire [PHASE_W-1:0]`        ⇒ **无符号**
-            //     · `detune_off` 是 `wire [PHASE_W-1:0]`        ⇒ **无符号**
-            //     · `vib_off`   是 `wire signed [PHASE_W-1:0]`  ⇒ 有符号
-            //     ⭐ **Verilog 规则：表达式中只要有一个操作数无符号，整个表达式就按无符号求值**
-            //        ⇒ 🔴 **`vib_off` 的符号位被当成【幅值位】**
-            //        ⇒ 颤音**负半周**时 `base_inc + vib_off` 在 32 位里**回绕**
-            //           （例如 `vib_off = -1000` 被当成 `+4294966296`）
-            //        ⇒ 🔴 **相位累加器每拍跳一个巨大增量** ⇒ 相位随机化
-            //        ⇒ ⭐ **宽带噪声 / 孤立尖峰**（⭐ 与用户 DS0004 实测的孤立尖峰吻合）
+            //  🔴 **当年的症状**：⭐ 颤音**负半周**出现宽带噪声 / 孤立尖峰
+            //     （⭐ 与用户 DS0004 实测吻合）。
+            //     ⚠️ 当时的写法把三个量**按无符号**求值（⭐ Verilog 规则：表达式中只要有**一个**
+            //        操作数无符号，整个表达式就按无符号求值）⇒ 怀疑 `vib_off` 的符号被丢。
+            //  ✅ **当年的修法**：把两个无符号量**零扩展后转有符号**，让加法链**全程按有符号**
+            //     求值，最后截到 `PHASE_W` 位 ⇒ ⭐ 相位累加器（无符号、故意回绕）拿到的
+            //     仍是**正确增量** ✅
             //
-            //  ✅ **修法**：把两个无符号量**显式零扩展后转有符号**，让整条加法链
-            //     **全程按有符号**求值；最后截到 `PHASE_W` 位即为其**补码表示**
-            //     ⇒ ⭐ 相位累加器（无符号、故意回绕）拿到的仍是正确的增量。
-            //     📌 这样 `base_inc + vib_off < 0` 时**自然回绕成"反向增量"**，
-            //        而不是"巨大正增量" ⇒ ⭐ 颤音负半周**行为正确**。
-            wire signed [PHASE_W:0] lane_inc_s = $signed({1'b0, base_inc})
-                                               + $signed({1'b0, detune_off})
-                                               + $signed(vib_off);
+            //  ⭐⭐ **2026-10-04（P5-②）的等价性论证**（⭐ 这就是"上提"合法的依据）：
+            //     ⭐ 加法在 **mod 2³²** 下**结合、交换** ⇒ ⭐ "33 位有符号和**截断到 32 位**"
+            //        与 "32 位无符号和" **逐位相同** ✅
+            //     ⇒ ⭐ 现在写成 `inc_main_w = bv + vib_off[31:0] + so_v`（⭐ 见 `gen_voice`）
+            //        —— ⭐ **既保住当年修法的效果，又省掉一级 33 位加法器** ✅
+            //     📌 判据：⭐ `tb/w3b/tb_p5_osc_equiv.sv` 比**全部 64 个相位累加器**，
+            //        320 帧 **0 mismatch**（⭐ 且 `vibrato` 扫过 −15000…+15000 全量程 ✅）
 
             //  ═══════════════════════════════════════════════════════════
             //  ⭐⭐⭐⭐ 2026-09-30 新增（阶段 2b）：⭐ **鼓 lane 的向下扫频** ✅
             //    ⭐ 目的：⭐ 让底鼓/嗵鼓起音时**瞬时频率高于标称**、⭐ 然后**指数回落**
             //       ⇒ ⭐ 稳态**精确**回到 `PHASE_INC`（⭐ 偏移衰减到 0 ✅）
             //    📌 参数语义与"为什么用音高分档"见模块头的长注释（⛔ 此处不重复 ✅）
+            //  🔴🔴 **2026-10-04（P5-②）：⭐ 整块（鼓判据 / `sweep_load` / `sweep_q` /
+            //      `sweep_dec` / 增量加法）已经【整体上提到 `gen_voice`】** ——
+            //     ⭐ 因为 `OSC_PER_VOICE = 2` ⇒ 同一 voice 的两个 lane 本来就得到
+            //        **完全相同**的 `is_kick`/`is_tom`/`sweep_load`/`sweep_q` ✅
+            //     ⇒ ⭐ 语义、条件、衰减算法**逐项照抄**（⭐ 见 `gen_voice` 里那段注释）
+            //     ⚠️ 唯一变化：⭐ `sweep_q` 从 **64 个（每 lane）** 变成 **32 个（每 voice）**
             //  ═══════════════════════════════════════════════════════════
-            //   ⭐ **本 lane 是不是底鼓 / 嗵鼓**（⭐ 两级比较器，⭐ 纯组合、⭐ 无乘法 ✅）
-            //     🔴 **必须与 `lane_drum` 相与** —— ⚠️ 否则一个"低音区"的**乐音** voice
-            //        （⭐ 如 BASS 的低八度）也会被扫频 ⇒ 🔴 低音会"滑音" ✅
-            //     ⚠️ 用 `base_inc`（⭐ 标称增量）而⛔ **不是** `lane_inc`：
-            //        ⭐ 后者含失谐/颤音/本扫频偏移 ⇒ 🔴 会**自反馈**（⭐ 越扫越偏 ✅）
-            wire is_kick_drum = lane_drum[g] && (base_inc <  DRUM_KICK_MAX_C);
-            wire is_tom_drum  = lane_drum[g] && (base_inc >= DRUM_KICK_MAX_C)
-                                             && (base_inc <  DRUM_TOM_MAX_C);
 
-            //   ⭐ **本档的扫频深度**（⭐ `base_inc >> (LSB_SH + 本档 SH)` ⇒ ⭐ 纯连线 ✅）
-            //     ⚠️ 赋给 16 位 ⇒ **高 16 位被截掉** ⇒ ⭐ 深度必须 < 65536
-            //        （⭐ 底鼓 `5_368_709 >> 8  = 24466` ✅ · ⭐ 嗵鼓 `17_895_697 >> 10 = 13981` ✅）
-            //        ⇒ ⭐ 模块末尾有**显式参数自检**（⭐ `K-106`：⛔ 不许静默截断 ✅）
-            wire [DRUM_SWEEP_W-1:0] sweep_kick =
-                base_inc >> (DRUM_SWEEP_LSB_SH + DRUM_KICK_SWEEP_SH);
-            wire [DRUM_SWEEP_W-1:0] sweep_tom  =
-                base_inc >> (DRUM_SWEEP_LSB_SH + DRUM_TOM_SWEEP_SH);
-            //   ⭐ **装载值**：⭐ 非鼓 / 非底鼓嗵鼓 / 总开关关 ⇒ ⭐ **0（不扫）** ✅
-            wire [DRUM_SWEEP_W-1:0] sweep_load =
-                (DRUM_PITCH_ENV_EN == 0) ? {DRUM_SWEEP_W{1'b0}}
-              : is_kick_drum             ? sweep_kick
-              : is_tom_drum              ? sweep_tom
-              :                            {DRUM_SWEEP_W{1'b0}};
-
-            //   ⭐ **扫频计数器**（⭐ 唯一新增的寄存器 —— ⭐ 每 lane `DRUM_SWEEP_W` 位 ✅）
-            reg  [DRUM_SWEEP_W-1:0] sweep_q;
-
-            //   ⭐ 当前**额外增量**（⭐ 左移定标 ⇒ ⭐ 纯连线、⛔ 无乘法器 ✅）
-            //   ⭐⭐ 2026-10-04（codex 阶段 2）：改用**按 voice 共享**的扫频状态
-            //      （见本模块上方 `gen_voice_sweep`）⇒ 下面 per-lane 的
-            //      `sweep_q` / `sweep_dec` / `sweep_load` / 鼓分类**不再被读取**
-            //      ⇒ 由综合器作为死逻辑剪除（这正是本阶段的收益来源）。
-            //   📌 仍是"先零扩展到 `PHASE_W` 再左移"⇒ 与原来一样**不会截断** ✅
-            wire [PHASE_W-1:0] sweep_off =
-                {{(PHASE_W-DRUM_SWEEP_W){1'b0}},
-                 voice_sweep_q[VOICE_IDX*DRUM_SWEEP_W +: DRUM_SWEEP_W]} << DRUM_SWEEP_LSB_SH;
-
-            //   ⭐⭐ **衰减**：⭐ `sweep <= sweep - (sweep >> SH) - 1`（⭐ 每采样拍一次 ✅）
-            //     · ⭐ `- (sweep>>SH)` ⇒ ⭐ **指数**衰减，⭐ 时间常数 ≈ `2^SH` 拍 ✅
-            //        （⭐ 听感上"**先快后慢**"—— ⭐ 正是真实鼓的音高包络形状 ✅）
-            //     · ⭐ `- 1`           ⇒ ⭐ **保证有限拍内精确到 0** ✅
-            //        （⚠️ 只减 `sweep>>SH` 的话，`sweep < 2^SH` 之后**永远差一点**
-            //         ⇒ 🔴 稳态频率被抬高 `sweep_q` 那一档 ⇒ 🔴 永远**settle 不到标称** ✅）
-            //     📌 只有 `sweep_q != 0` 才衰减 —— ⚠️ 否则 `0 - 1` 会**回绕成全 1**
-            //        ⇒ 🔴 稳态被加上一个**巨大**偏移 ✅（⭐ 这正是"没有 else 的保持"要防的 ✅）
-            wire [DRUM_SWEEP_W-1:0] sweep_dec =
-                sweep_q - (sweep_q >> DRUM_SWEEP_SH) - 1'b1;
-
-            //   ⭐⭐ 把扫频偏移**加到相位增量**上（⭐ 只在**正式通路** ✅）
-            //     ⭐ `test_mode_i` 仍直接走 `test_phase_inc_i` ⇒ ⭐ **test-mode 一个 bit 不变** ✅
+            //   ⭐⭐ 把"本 lane 的相位增量"接上（⭐ 算术已在 `gen_voice` 算好 ✅）
+            //     ⭐ `test_mode_i` 仍**直接覆盖** ⇒ ⭐ **test-mode 一个 bit 不变** ✅
             //        （⭐ `T43`/`T55`/`M4` 的判据建立在"test 覆盖下相位照常前进"之上 ✅）
-            //     📌 **代价（⭐ 时序）**：⭐ 相位通路上多 **1 级 32 位加法器**
-            //        （⭐ `sweep_off` 来自**寄存器** ⇒ ⛔ 不产生新的长组合链 ✅）
-            wire [PHASE_W-1:0] lane_inc_sweep = lane_inc_s[PHASE_W-1:0] + sweep_off;
-
             wire [PHASE_W-1:0] lane_inc = test_mode_i
                              ? test_phase_inc_i[g*PHASE_W +: PHASE_W]
-                             : lane_inc_sweep;
+                             : lane_inc_base;
 
             //   ⭐⭐ **去相关初相**（⭐ 2026-09-26 新增，⭐ 学自 `xls32` 源码）
             //
@@ -531,24 +531,23 @@ parameter integer FIXED_BLEND_Q     = 0,
             //   ⚠️ **为什么⛔ 不是 1/2 周期（180°）**：⭐ 那会让两路**反相**
             //      ⇒ 🔴 **起音瞬间完全抵消**（⭐ 声音"先弱后强"，⭐ 更糟）。
             //   📌 `PHASE_W=32` ⇒ 1/4 周期 = `32'h4000_0000`
+            //   ⭐ 2026-10-04（P5-②）：⭐ 常量提成模块级 `PHASE_QUARTER`（⭐ 只此一处定义 ✅）
             wire [PHASE_W-1:0] phase_seed =
                 ((DETUNE_ON != 0) && (OSC_IDX != 0))
-                ? ({{(PHASE_W-2){1'b0}}, 2'b01} << (PHASE_W - 2))   // ⭐ 1/4 周期
+                ? PHASE_QUARTER
                 : {PHASE_W{1'b0}};
 
             always @(posedge clk_i) begin
                 if (!rst_n_i) begin
                     //   ⭐ 复位时**直接给去相关初相**（⭐ 不是全 0）
-                    phase_q       <= phase_seed;
-                    addr_q        <= {AW{1'b0}};
-                    lane_active_d <= 1'b0;
-                    sweep_q       <= {DRUM_SWEEP_W{1'b0}};   // ⭐ 阶段 2b：复位 ⇒ 无扫频
+                    //   ⭐ 2026-10-04（P5-②）：⭐ `sweep_q`/`act_d` 已搬到 `gen_voice` ✅
+                    phase_q <= phase_seed;
+                    addr_q  <= {AW{1'b0}};
                 end else if (sample_tick_i) begin
                     // ⭐ 地址锁存用**本帧起始**的相位（DDS 标准做法），
                     //   然后相位再前进 ⇒ ⭐ 保证整帧 64 个样本来自**同一时刻**的相位
                     //   （对应接口表 "osc_sample_bus_i 稳定至本帧结束"）
-                    addr_q        <= phase_q[ADDR_MSB:ADDR_LSB];
-                    lane_active_d <= lane_active;      // ⭐ 记一拍的"在响"
+                    addr_q <= phase_q[ADDR_MSB:ADDR_LSB];
                     // ⭐⭐⭐⭐ 2026-09-29 **治本**：⭐ 起音（上升沿）⇒ 复位到设计初相 ✅
                     //   🔴 **原行为**：⭐ `if (lane_active) phase_q <= phase_q + inc;`
                     //      —— ⭐ **无 `else`** ⇒ ⭐ 未激活时**保持相位** ✅
@@ -605,7 +604,7 @@ parameter integer FIXED_BLEND_Q     = 0,
                     //  📌 **代价**：⭐ 每 lane 1 个 2 输入 OR ＋ 1 个 1 位比较 ⇒ 可忽略 ✅
                     //  ═══════════════════════════════════════════════════════
                     if (!test_mode_i && (phase_rst_lane
-                                         || (lane_active && !lane_active_d))) begin
+                                         || (lane_active && !act_d_bus[VOICE_IDX]))) begin
                         phase_q <= phase_seed;         // ⭐ 起音：回到设计初相
                         //  ⭐⭐ 阶段 2b：⭐ **起音 ⇒ 装载本档的扫频深度** ✅
                         //     🔴 **为什么必须挂在【同一个条件】上**：⭐ 扫频是"**起音事件**"
@@ -614,7 +613,9 @@ parameter integer FIXED_BLEND_Q     = 0,
                         //         上升沿那条兼容路径 **两条都覆盖** ✅）
                         //     ⭐ 非鼓 / ⭐ 军鼓踩镲 / ⭐ 总开关关 ⇒ ⭐ `sweep_load = 0`
                         //        ⇒ ⭐ **行为与加本功能之前完全一致** ✅
-                        sweep_q <= sweep_load;
+                        //     🔴 2026-10-04（P5-②）：⭐ **"装载"本身已搬到 `gen_voice`**
+                        //        （⭐ 条件**逐项照抄**：`!test_mode_i && (rst_v || (act_v && !act_d))`）
+                        //        ⇒ ⭐ 本块**只管相位**；⭐ 两件事仍然**同源同拍** ✅
                     end else begin
                         if (lane_active)
                             phase_q <= phase_q + lane_inc;
@@ -622,8 +623,7 @@ parameter integer FIXED_BLEND_Q     = 0,
                         //     📌 **与 `lane_active` 无关** —— ⭐ 扫频是"**时间**包络"，
                         //        ⛔ 不是"相位"包络；⭐ 且非鼓 lane 的 `sweep_q` 恒为 0 ✅
                         //        ⇒ ⭐ 少一级门控（⭐ 省逻辑、⭐ 且语义更直白 ✅）
-                        if (sweep_q != {DRUM_SWEEP_W{1'b0}})
-                            sweep_q <= sweep_dec;
+                        //     🔴 2026-10-04（P5-②）：⭐ **衰减也已搬到 `gen_voice`** ✅
                     end
                 end
             end

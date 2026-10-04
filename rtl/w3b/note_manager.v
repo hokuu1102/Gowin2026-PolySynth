@@ -1484,8 +1484,21 @@ module note_manager #(
             //  ⭐ **每拍算一个 lane**：⭐ 32 位截断（⭐ 与 T2 的 `<< base_oct_r` **同一约定**，
             //     ⛔ **不加饱和** —— ⭐ 交付行为由 tb 的"逐项等于 `×比例 >>> 15`"钉住 ✅）
             //  📌 `prod_w` 是**无符号** ⇒ `>>>` 与 `>>` **完全等价**（⭐ 用 `>>>` 只为与定稿一致 ✅）
+            //  ⭐⭐ 2026-10-04（T3『影子数组』）：⭐ **『选 base 还是选变调值』挪到【写侧】**
+            //     🔴 **为什么**：⭐ 32 lane × 32 位的**输出 mux**（≈1025 LUT）是 `PR0004` 的元凶
+            //        （⭐ 实测数组版 `T3_EN=1`：`CLS 85%` · **490 根不布通**）✅
+            //     ⭐ 而**写侧一次只处理一个 lane** ⇒ ⭐ 一个 32 位 mux 就够 ✅
+            //     📌 `rot_base` **已经含八度移位** ⇒ ⭐ 写侧⛔ 不用再加移位器
+            //        （⭐ 于是连『32 份 per-lane 八度移位器 ≈2650 LUT』也一起省掉 ✅）
+            //     ⭐ **实测（探针）**：⭐ 本架构 `T_Lut 29622`
+            //        —— ⭐ 比『关掉 T3』的基线（31039）**还低 1417** ✅
+            //     ⚠️ **代价**：⭐ `phase_tr[g]` 是**轮转刷新**的 ⇒ 任何变化**最多 32 拍**
+            //        （0.64 µs）后才反映到输出 ⇒ ⭐ `T1` 的『逐拍逐位』要**留这 32 拍窗口**
+            //        （⭐ 判据见 `tb/w3b/tb_transpose.sv` 的 `T1_SETTLE` ✅）
             if (rot_ok)
-                phase_tr[rot_cnt] <= (prod_w >>> 15);
+                phase_tr[rot_cnt] <= ((semi_cur == 5'sd0) ||
+                                      (src_r[rot_cnt] == 3'd3) || (src_r[rot_cnt] == 3'd4))
+                                   ? rot_base : (prod_w >>> 15);
             //  ⭐ 1 ms 一步：⭐ 到点才动，⭐ 每次只走 **±1**（⭐ 单调、⛔ 不跳变 ✅）
             if (port_cnt == PORT_1MS) begin
                 port_cnt <= 16'd0;
@@ -1514,12 +1527,15 @@ module note_manager #(
     //           （⭐ 用户要的是"我弹的音变调"，⛔ 不是"把录音也变速" ✅）
     //     ⚠️ **`base_g` 必须与 T2 的原式【逐字相同】** —— ⭐ 这是"0 档恒等"的**唯一依据** ✅
     for (gp = 0; gp < POLY_TARGET; gp = gp + 1) begin : g_ph_t3
-        wire [PHASE_W-1:0] base_g = (base_oct_r == 2'd0) ? phase_r[gp]
-                                                         : (phase_r[gp] << base_oct_r);
-        assign voice_phase_inc_o[gp*PHASE_W +: PHASE_W] =
-               (semi_cur == 5'sd0) ? base_g                              // ⭐ 0 档 ⇒ 逐位恒等
-             : ((src_r[gp] == 3'd3 || src_r[gp] == 3'd4) ? base_g          // ⭐ 源门控
-                                                         : phase_tr[gp]);  // ⭐ 变调（轮转结果）
+        //  ⭐⭐ 2026-10-04（T3『影子数组』）：⭐ **输出直接取数组** ——
+        //     ⛔ **没有 32 lane 输出 mux、⛔ 没有 32 份 per-lane 八度移位器** ✅
+        //     ⭐ 『选 base / 选变调值 / 源门控』三件事**全部在写侧完成**（⭐ 见上 ✅）
+        //     📌 语义：⭐ `phase_tr[g]` = 『本 lane 此刻该用的相位增量』，
+        //        ⭐ 由**轮转刷新**保证在 **≤32 拍**内跟踪
+        //        `phase_r[g]` / `base_oct_r` / `src_r[g]` / `semi_cur` ✅
+        //     ⭐ 附带治好『就地重算』的累积 bug：⭐ 每次都从 `phase_r`（base）重算，
+        //        ⛔ 不把比例乘到自己身上（⭐ 那会让 0→+12 累积成 ~90×）✅
+        assign voice_phase_inc_o[gp*PHASE_W +: PHASE_W] = phase_tr[gp];
     end
 
     end else begin : g_t2

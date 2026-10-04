@@ -440,6 +440,15 @@ module tb_note_manager;
     //       实际跑了 **16 个采样步** ⇒ 包络快了 16 倍 ⇒
     //       ⭐ "重触发后 15 拍应该还在爬升" 实际早就爬完并衰回 sustain 了
     //       ⇒ 判据假失败。（`K-93` 记录了这条：**tb 的时基必须和被测系统的节拍语义一致**）
+    //  ⭐⭐ P5-1（2026-10-03）契约变更：⭐ `envelope_bank` 现在是**共享引擎 +
+    //     每拍服务一个 voice**（⭐ 见 `rtl/w3b/envelope_bank.v` 的文件头）⇒
+    //     **每帧必须留出 ≥34 拍**让 32 路全部更新完（⭐ 本 tb `POLY=32`
+    //     ⇒ 轮转共 33 拍）⛔ 否则第 N 路之后**永远不更新**。
+    //     ⇒ ⭐ 帧间空拍 **3 → 40**（⭐ 帧周期 5 → 42 拍）。
+    //     ⛔ **判据一个字没改**，⭐ 只是把"拍"的**真实时长**放长 ——
+    //        ⭐ 所有判据都是按**采样拍数**计的（⭐ `run_ticks(n)` = n 帧），
+    //        ⛔ 不按 clk 数 ⇒ ⭐ 语义不变 ✅
+    //     📌 代价：⭐ 仿真时间 ×8.4（⭐ 实测本 tb 仅 ~7 s ⇒ 约 60 s，⭐ 预算 300 s ✅）
     task run_ticks;
         input integer n;
         integer t;
@@ -447,7 +456,7 @@ module tb_note_manager;
             for (t = 0; t < n; t = t + 1) begin
                 @(negedge clk); sample_tick = 1'b1;   // ← 只高 1 拍
                 @(negedge clk); sample_tick = 1'b0;
-                repeat (3) @(negedge clk);
+                repeat (40) @(negedge clk);
             end
         end
     endtask
@@ -480,11 +489,23 @@ module tb_note_manager;
     //      判据 = 每个采样拍检查：⭐ 若某 voice 的 gate 在【上一拍还是低】的情况下
     //      变为高，则它的包络在那一拍**必须已经是 0**（= 清零脉冲确实生效了）。
     //      ⚠️ 老 bug 的表现正是"gate 抬高时包络还很高"（残余 6400 或更多）。
+    //
+    //   ⭐⭐ P5-1（2026-10-03）契约变更：⭐ `envelope_bank` 现在是**共享引擎 +
+    //      32 拍轮转**（⭐ 见其文件头）⇒ ⭐ 第 v 路要 **tick 后第 (2+v) 拍**
+    //      才落盘 ⇒ ⭐ 而 `note_manager` 的重触发在 tick 后 **1 拍**就把 gate
+    //      抬回来（⭐ 它只管自己的门，⛔ 不等包络）⇒ ⭐ **上升沿那一拍读到的是
+    //      轮转前的旧值**（⭐ 清零其实已经在 tick 上发生，⭐ 只是还没扫到 voice1）。
+    //   ⭐ **判据语义不变**（⭐ ⛔ 没有放松）：⭐ 包络**只在 tick 上变**
+    //      （⭐ 每 42 拍一次，⭐ 而本检查窗口只有 `POLY+4 = 36` 拍）
+    //      ⇒ ⭐ "上升沿后 36 拍" 与 "上升沿那一拍" 读到的**是同一个值**
+    //      ⇒ ⭐ 若清零脉冲**没生效**，⭐ 这里照样会红（⭐ 非空洞性保持 ✅）。
     reg        watch_voice;
     integer    watch_idx;
     reg        watch_gate_d;
     reg [ENV_W-1:0] watch_env_at_gate_rise;
     reg        watch_bad_rise;          // 🔴 见到"带残余电平的 gate 上升沿" ⇒ 违规
+    reg        watch_pending;           // ⭐ P5-1：等轮转扫完该 voice 再判
+    integer    watch_wait;
 
     always @(posedge clk) begin
         watch_gate_d <= voice_gate[watch_idx];
@@ -492,8 +513,16 @@ module tb_note_manager;
             //  ⭐ gate 上升沿：包络必须为 0（清零脉冲已生效）
             if (voice_gate[watch_idx] && !watch_gate_d) begin
                 watch_env_at_gate_rise <= env_of(watch_idx);
-                if (env_of(watch_idx) !== {ENV_W{1'b0}})
-                    watch_bad_rise = 1'b1;
+                watch_pending          <= 1'b1;
+                watch_wait             <= 0;
+            end else if (watch_pending) begin
+                if (watch_wait >= (POLY + 4)) begin
+                    watch_pending <= 1'b0;
+                    if (env_of(watch_idx) !== {ENV_W{1'b0}})
+                        watch_bad_rise = 1'b1;
+                end else begin
+                    watch_wait <= watch_wait + 1;
+                end
             end
         end
     end

@@ -37,12 +37,18 @@ module tb_envelope_bank;
         .env_active_o  (env_active)
     );
 
+    //  ⭐⭐ P5-1（2026-10-03）契约变更：⭐ `envelope_bank` 现在是**共享引擎 +
+    //     每拍服务一个 voice**（⭐ 见 `rtl/w3b/envelope_bank.v` 的文件头）⇒
+    //     第 v 路要 **tick 后第 (2+v) 拍**才落盘（⭐ 本 tb `POLY=4` ⇒ 共 5 拍）。
+    //     ⭐ 因此 `tick()` 必须**等轮转走完**再让判据采样 ——
+    //     ⛔ **判据（期望值）一个字没改**，⭐ 只是补了等待。
     task automatic tick;
         begin
             @(negedge clk);
             sample_tick = 1'b1;
             @(negedge clk);
             sample_tick = 1'b0;
+            repeat (8) @(negedge clk);
             #1;
         end
     endtask

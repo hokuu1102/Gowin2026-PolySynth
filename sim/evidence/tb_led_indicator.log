@@ -1,0 +1,61 @@
+﻿=== (0) 鑺傛媿鍣細寮€浣嗘棤鎷嶇偣 ===
+  ok  : (0b) metro on, no beat yet =?[led1] = 000000
+  ok  : (0b) metro on, no beat yet 伃 (fast) [led1] = 000000
+=== (1) 闊宠壊 4 妗ｏ紙led0锛?==
+  ok  : (1a) timbre 0 [led0] = ffffff
+  ok  : (1b) timbre 1 [led0] = 00ffff
+  ok  : (1c) timbre 2 [led0] = 8000ff
+  ok  : (1d) timbre 3 [led0] = ff8000
+=== (2) 鍗曡矾鐙珛鎬?===
+  ok  : (2a) timbre 0->1 only moves led0 (only led0 changed -> 00ffff)
+  ok  : (2b) metro beat only moves led1 (only led1 changed -> 00ff00)
+  ok  : (2c) drum on only moves led2 (only led2 changed -> ff0000)
+  ok  : (2d) keydrum only moves led3 (only led3 changed -> 0000ff)
+  ok  : (2e) looper play only moves led4 (only led4 changed -> 00ff00)
+  ok  : (2f) gear 3->1 only moves led5 (only led5 changed -> 00ffff)
+  ok  : (2g) fb_mode 0->1 only moves led6 (only led6 changed -> ff8000)
+=== (3) 涓冭矾缁勫悎 ===
+  ok  : (3) combo led0 (timbre 3) [led0] = ff8000
+  ok  : (3) combo led1 (metro beat) [led1] = 00ff00
+  ok  : (3) combo led2 (drum 3) [led2] = ff4000
+  ok  : (3) combo led3 (keydrum) [led3] = 0000ff
+  ok  : (3) combo led4 (loop idle) [led4] = 000030
+  ok  : (3) combo led5 (gear 2) [led5] = ffff00
+  ok  : (3) combo led6 (fretboard) [led6] = ff8000
+=== (4) 榧撴満 ===
+  ok  : (4a) drum off [led2] = 000000
+  ok  : (4b) drum pat 0 [led2] = ff0000
+  ok  : (4c) drum pat 1 [led2] = ff00ff
+  ok  : (4d) drum pat 2 [led2] = ffff00
+  ok  : (4e) drum pat 3 [led2] = ff4000
+=== (5) 閿洏鎵撻紦 / 鎺ㄥ瓙 / 妯″紡 ===
+  ok  : (5a) keydrum on [led3] = 0000ff
+  ok  : (5b) keydrum off [led3] = 000000
+  ok  : (5c) gear 0 ??[led5] = 8000ff
+  ok  : (5d) gear 1 ??[led5] = 00ffff
+  ok  : (5e) gear 2 ???? [led5] = ffff00
+  ok  : (5f) gear 3 =???[led5] = 000000
+  ok  : (5g????=?[led6] = ff8000
+  ok  : (5h????=?[led6] = 00ff00
+=== (6) 鑺傛媿鍣?===
+  ok  : (6a) metro off =?[led1] = 000000
+  ok  : (6c) beat =????[led1] = 00ff00
+  ok  : (6c) beat???? fas?[led1] = 00ff00
+  info: 鐢熶骇榛樿 FLASH_CYC = 5000000 鎷嶏紙= 100 ms @50 MHz锛?
+  info: beat-flash length  fast=20000 (want 20000);  prod still lit after 500000
+  ok  : (6d???暱 == FLASH_C????????
+  ok  : (6????簡 500 k ???????????
+  ok  : (6f)???????坧rod ?fast?????????
+=== (7) looper ===
+  ok  : (7a) loop?棽 = ???[led4] = 000030
+  ok  : (7b) loope?????[led4] = 00ff00
+  info: rec blink: edges=8 on=4096/8192 iv=[1024..1024] (want 1024) other_col=0
+  ok  : (7?煶 = ????????????== 2^FAST_DIV
+  ok  : (7d)?????50%
+  ok  : (7e????孩 / ???????????
+  ok  : (7?????????????
+  ok  : (8) no X/Z on led_col_o after reset (A????
+PASS: led_indicator -- 7 璺涔?+ 鍏变韩蹇棯 + 鎷嶇偣闂?+ 鍙傛暟鍖栭棯鐑佸叏閮ㄦ垚绔?
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_led_indicator.sv:388: $finish called at 10566240000 (1ps)
+
+

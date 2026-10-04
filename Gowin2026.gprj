@@ -89,6 +89,15 @@
   <File path="rtl/w3a/param_extract.v" type="file.verilog" enable="1"/>
   <File path="rtl/w3a/right_analog_ctrl.v" type="file.verilog" enable="1"/>
         <File path="rtl/w3a/fader_gear.v" type="file.verilog" enable="1"/>
+  <!-- ⭐ WS2812 灯带驱动（2026-10-03 接入 top.v · 控制板 ctrl_ws_o）
+       ⚠️ 由 top.v 例化 ⇒ 🔴 不登记会被综合【静默丢弃】
+       （⭐ 后果：灯带脚无波形；或报 EX3937 Instantiating unknown module） -->
+  <File path="rtl/w3a/ws2812_driver.v" type="file.verilog" enable="1"/>
+  <!-- ⭐ 指示层（第 2 层）：状态码 → 颜色/闪烁（2026-10-03 接入 top.v）
+       ⚠️ 由 top.v 例化 ⇒ 🔴 不登记会被综合【静默丢弃】
+       （⭐ 后果：`ctrl_ws_o` 恒灭 / 或报 EX3937 Instantiating unknown module）
+       📌 规格：files/20-代码/WS2812指示层规格-20261003.md（⭐ 用户给定 7 路语义） -->
+  <File path="rtl/w3a/led_indicator.v" type="file.verilog" enable="1"/>
   <!-- ⭐ 上电自动零点标定（2026-09-23 新增）
        ⚠️ 由 top.v 例化 ⇒ 🔴 不登记会被综合【静默丢弃】
        （⭐ 后果：零点不标定 ⇒ ⚠️ 松手位置读错 ⇒ 阈值判错，而报告全绿） -->

@@ -1,0 +1,47 @@
+﻿NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=18 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=18 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+=== (1) 涓婄數甯?路 g_sound锛圠ED0..LED6 + 灏剧伅鍏ㄧ伃锛?==
+  info: 甯ч暱 = 23808 鎷嶏紙鏈熸湜 23808 = 384 脳 62锛?
+  ok  : (????== NBITS?BIT_???????
+  ok  : (1a) led0 ??=?[led0] = ffffff
+  ok  : (1b) led1???=?[led1] = 000000
+  ok  : (1c) led2 ??=?[led2] = 000000
+  ok  : (1d) led????=?[led3] = 000000
+  ok  : (1e) led4 looper ??[led4] = 000030
+  ok  : (1f) le????煶) =?[led5] = 00ffff
+  ok  : (1g) led????=?[led6] = 00ff00
+  ok  : (1h) led7..led1????彛 defaul?
+=== (3) 闈欓煶妗ｏ紙g_silent锛壜?璺?generate 鍒嗘敮 ===
+  ok  : (3a) led0 ??=??????????[led0] = ffffff
+  ok  : (3b) led4 looper ??[led4] = 000030
+  ok  : (3c) led????=?[led6] = 00ff00
+  ok  : (3d)?led???紙g_silen妸 led_gear_s????[led5] = 000000
+  ok  : (3e) led7..led1??
+=== (2) 娲讳綋锛歎ART 瑁?'I' 鍒囬煶鑹?===
+  ok  : (2??led0 ??0???????[led0] = 00ffff
+  ok  : (2b) le??????????[led1] = 000000
+  ok  : (2c) led2 ??=?[led2] = 000000
+  ok  : (2d) led????=?[led3] = 000000
+  ok  : (2e) led4 looper ??[led4] = 000030
+  ok  : (2f) led?????????[led5] = 00ffff
+  ok  : (2g) led????=?[led6] = 00ff00
+  ok  : (2h) led7..led1??
+=== (5) 棰勭暀鑴?/ UART 绌洪棽鎬?===
+  ok  : (5a) ws_strip_o == 3'b000?????????????
+  ok  : (5b) esp_uart_tx_????UART ?€?
+  ok  : (6) ctrl_ws_o ???X/Z圓?
+PASS: top 鐏甫闆嗘垚 鈥斺€?ctrl_ws_o 浣嶆祦瑙ｅ嚭鐨?7 璺鑹?鐏簭/鍒囩墖/涓ゆ。鍒嗘敮鍏ㄩ儴姝ｇ‘
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_led_strip.sv:295: $finish called at 3106510000 (1ps)
+
+
