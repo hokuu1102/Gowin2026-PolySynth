@@ -98,5 +98,5 @@ create_generated_clock -name pixel_clk -source [get_ports {clk}] -master_clock c
 #    ② Timing Exceptions Report 确认 max-delay 真正覆盖目标锥（⛔ 不能只看 Fmax 汇总）；
 #    ③ 对**同一份 PnR 结果**按 nominal 口径复算 Fmax 与四类 slack。
 # ═════════════════════════════════════════════════════════════════════════════
-set_max_delay -from [get_clocks {clk_sys}] -to [get_clocks {clk_sys}] 19.417
+set_max_delay -from [get_clocks {clk_sys}] -to [get_clocks {clk_sys}] 18.181
 set_max_delay -from [get_clocks {clk_sys}] -to [get_regs {u_hdmi/u_scope/gray_launch_*_s0 u_hdmi/u_scope/full_launch_s0}] 10.000
