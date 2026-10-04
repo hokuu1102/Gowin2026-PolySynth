@@ -14,6 +14,6 @@
   ok  : drum_voice_reads_broadband_noise
   ok  : drum_voice_zcr_at_least_3x_pitched_ref
 PASS: wavetable_bank four timbres use deterministic synchronous reads
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_wavetable_bank.sv:448: $finish called at 350800000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_wavetable_bank.sv:448: $finish called at 350800000 (1ps)
 
 

@@ -285,6 +285,77 @@ parameter integer FIXED_BLEND_Q     = 0,
     wire signed [47:0]  vib_mul = vib_s * VIB_REF_INC;
     wire signed [PHASE_W-1:0] vib_off = vib_mul >>> 15;
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ 2026-10-04（codex 只读评审「阶段 2」）：鼓扫频状态**按 voice 共享**
+    //
+    //  🔴 实测依据：综合网表里 `sweep_q` 触发器 = **1024 个**（64 lane × 16 位）
+    //     ⇒ 综合器**没有**自动合并 ⇒ 这是真实的重复。
+    //  ✅ 为什么可以共享：同 voice 两 lane 的
+    //     · `base_inc`（`base_phase_inc_i[VOICE_IDX*PHASE_W +: PHASE_W]`，**不含 `OSC_IDX`**）
+    //     · 鼓分类 `is_kick_drum`/`is_tom_drum`
+    //     · 装载值 `sweep_load`、衰减 `sweep_dec`
+    //     **逐位完全相同** ⇒ 只有 `sweep_q` 是多余的 64 份。
+    //
+    //  ⚠️ reload 用 **lane 0** 的 `lane_active` 边沿作 per-voice 判据，理由：
+    //     · 正常模式两 lane 的 `lane_active` 都 = `voice_active_i[VOICE_IDX]` ⇒ 相同；
+    //     · Test Mode 只激活 lane 0（`test_mode_ctrl.v:78–82`）⇒ 取 lane 0 才对；
+    //     · 且 reload 被 `!test_mode_i` 屏蔽、Test Mode 下完全绕过 sweep（走
+    //       `test_phase_inc_i`）⇒ 与逐 lane 版本**逐拍等价**。
+    //       （详见 `evidence/h5/stage2-osc-sweep-share/DESIGN.md`）
+    //
+    //  📌 用**打包向量**索引（⛔ 不用非打包数组 —— 那样在 generate 里索引会报
+    //     `Unable to bind wire/reg/memory`，2026-10-03 实测踩过）。
+    //  📌 输出的是**未左移**的 `v_sweep_q`：左移定标仍由下面 per-lane 的
+    //     `sweep_off` 做（先零扩展到 `PHASE_W` 再移位）⇒ ⛔ 不会截断。
+    // ═══════════════════════════════════════════════════════════════════════
+    wire [POLY_TARGET*DRUM_SWEEP_W-1:0] voice_sweep_q;
+    genvar v;
+    generate
+        for (v = 0; v < POLY_TARGET; v = v + 1) begin : gen_voice_sweep
+            wire [PHASE_W-1:0] v_base_inc = base_phase_inc_i[v*PHASE_W +: PHASE_W];
+            wire v_drum = lane_drum[v*OSC_PER_VOICE];
+            wire v_kick = v_drum && (v_base_inc <  DRUM_KICK_MAX_C);
+            wire v_tom  = v_drum && (v_base_inc >= DRUM_KICK_MAX_C)
+                                 && (v_base_inc <  DRUM_TOM_MAX_C);
+            wire [DRUM_SWEEP_W-1:0] v_sweep_load =
+                (DRUM_PITCH_ENV_EN == 0) ? {DRUM_SWEEP_W{1'b0}}
+              : v_kick                   ? (v_base_inc >> (DRUM_SWEEP_LSB_SH + DRUM_KICK_SWEEP_SH))
+              : v_tom                    ? (v_base_inc >> (DRUM_SWEEP_LSB_SH + DRUM_TOM_SWEEP_SH))
+              :                            {DRUM_SWEEP_W{1'b0}};
+            reg  [DRUM_SWEEP_W-1:0] v_sweep_r;
+            reg                     v_active_d;
+            //  ⚠️ 衰减必须引用**本块自己的寄存器** `v_sweep_r`，⛔ 不能引用本块驱动的
+            //     输出 wire `voice_sweep_q`（那样 iverilog 报
+            //     `Unable to bind wire/reg/memory`，2026-10-04 实测踩过）
+            wire [DRUM_SWEEP_W-1:0] v_sweep_dec =
+                v_sweep_r - (v_sweep_r >> DRUM_SWEEP_SH) - 1'b1;
+
+            // lane 0 的"在响"（Test Mode 下 lane 0 才是被激活的那个）
+            wire v_active = test_mode_i ? test_lane_active_i[v*OSC_PER_VOICE]
+                                        : voice_active_i[v];
+            // 与 per-lane 版同款：`=== 1'b1` 是必需的（老例化不接该端口 ⇒ `z`）
+            wire v_phase_rst = (voice_phase_rst_i[v] === 1'b1);
+
+            always @(posedge clk_i) begin
+                if (!rst_n_i) begin
+                    v_sweep_r  <= {DRUM_SWEEP_W{1'b0}};
+                    v_active_d <= 1'b0;
+                end else if (sample_tick_i) begin
+                    v_active_d <= v_active;
+                    if (!test_mode_i && (v_phase_rst || (v_active && !v_active_d))) begin
+                        v_sweep_r <= v_sweep_load;      // ⭐ 起音 ⇒ 装载本档扫频深度
+                    end else begin
+                        // 扫频是"时间包络"，与 lane_active 无关；
+                        // 只有非零才衰减（否则 0-1 会回绕成全 1）
+                        if (v_sweep_r != {DRUM_SWEEP_W{1'b0}})
+                            v_sweep_r <= v_sweep_dec;
+                    end
+                end
+            end
+            assign voice_sweep_q[v*DRUM_SWEEP_W +: DRUM_SWEEP_W] = v_sweep_r;
+        end
+    endgenerate
+
     genvar g;
     generate
         for (g = 0; g < LANES; g = g + 1) begin : gen_lane
@@ -406,8 +477,14 @@ parameter integer FIXED_BLEND_Q     = 0,
             reg  [DRUM_SWEEP_W-1:0] sweep_q;
 
             //   ⭐ 当前**额外增量**（⭐ 左移定标 ⇒ ⭐ 纯连线、⛔ 无乘法器 ✅）
+            //   ⭐⭐ 2026-10-04（codex 阶段 2）：改用**按 voice 共享**的扫频状态
+            //      （见本模块上方 `gen_voice_sweep`）⇒ 下面 per-lane 的
+            //      `sweep_q` / `sweep_dec` / `sweep_load` / 鼓分类**不再被读取**
+            //      ⇒ 由综合器作为死逻辑剪除（这正是本阶段的收益来源）。
+            //   📌 仍是"先零扩展到 `PHASE_W` 再左移"⇒ 与原来一样**不会截断** ✅
             wire [PHASE_W-1:0] sweep_off =
-                {{(PHASE_W-DRUM_SWEEP_W){1'b0}}, sweep_q} << DRUM_SWEEP_LSB_SH;
+                {{(PHASE_W-DRUM_SWEEP_W){1'b0}},
+                 voice_sweep_q[VOICE_IDX*DRUM_SWEEP_W +: DRUM_SWEEP_W]} << DRUM_SWEEP_LSB_SH;
 
             //   ⭐⭐ **衰减**：⭐ `sweep <= sweep - (sweep >> SH) - 1`（⭐ 每采样拍一次 ✅）
             //     · ⭐ `- (sweep>>SH)` ⇒ ⭐ **指数**衰减，⭐ 时间常数 ≈ `2^SH` 拍 ✅
