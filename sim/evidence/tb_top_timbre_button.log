@@ -2,6 +2,6 @@
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
 PASS: S2 cycles BASS -> GUITAR -> PIANO -> PAD -> BASS once per press
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\top\tb_top_timbre_button.sv:82: $finish called at 8018630000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_timbre_button.sv:82: $finish called at 8018630000 (1ps)
 
 

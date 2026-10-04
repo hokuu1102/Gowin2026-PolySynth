@@ -70,6 +70,6 @@
   ok  : back-to-back frames end with idx_o == 0
 
 PASS: calib_cmd parses T/S/X/M/F/G/H/J only at frame boundaries, ignores payload letters, counts what it drops, takes the 'H' framed value from the next frame's first payload byte, and self-heals after a half frame
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_calib_cmd.sv:532: $finish called at 13330000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_cmd.sv:532: $finish called at 13330000 (1ps)
 
 

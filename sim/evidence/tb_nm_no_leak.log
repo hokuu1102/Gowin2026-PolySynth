@@ -1,4 +1,4 @@
-﻿== tb_nm_no_leak: POLY=4 AXIS_W=4 FRAME=16 ROUNDS=40 ==
+﻿== tb_nm_no_leak: POLY=4 AXIS_W=4 FRAME=40 ROUNDS=40 ==
 -- A: baseline --
   ok  : A1 reset: no live voice
   ok  : A2 reset: free count == POLY (pool full)
@@ -122,9 +122,9 @@
   ok  : F1 the event queue never overflowed (no silently dropped event)
   ok  : G1 the ST_RETRIG hold was really entered (retrig_low seen non-zero)
 ==================================================================
-tb_nm_no_leak: errors=0 drain_timeouts=0 leak_rounds=0 retrig_seen=479
+tb_nm_no_leak: errors=0 drain_timeouts=0 leak_rounds=0 retrig_seen=513
   D1 iters=400 leak=0 foreign=0 | D2 iters=400 leak=0 foreign=0
 PASS: no voice leak on same-axis repeated press/release (all swept phases)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_no_leak.sv:799: $finish called at 31280221000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_no_leak.sv:807: $finish called at 78160221000 (1ps)
 
 

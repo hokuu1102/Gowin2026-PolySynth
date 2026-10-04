@@ -297,7 +297,33 @@ parameter integer TEST_MODE_EN       = 0,
     parameter [7:0]   FIXED_VELOCITY_VALUE   = 8'd96,
 
     //  ⭐ 板载 S2 音色按键的**去抖时间**（⭐ 参数化 ⇒ ⭐ 仿真里能快速跑完整按键流程 ✅）
-    parameter integer TIMBRE_BTN_DB_MS        = 5
+    parameter integer TIMBRE_BTN_DB_MS        = 5,
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-04：⭐ **T3 实时变调总闸**（⭐ 交付档 = **开**）
+    //
+    //  ⭐ 出处：⭐ `files/20-代码/T3-后续计划-20261003.md` §P5 ＋ ⭐ 用户裁定
+    //     （⭐ 2026-10-04：「⭐ **最终效果没问题就行**」⇒ ⭐ 采用**影子数组**架构）
+    //
+    //  ⭐ 语义：⭐ 本参数**原样透传**给 `u_note_manager.T3_EN`：
+    //     · `= 1`（⭐ **本档 = 交付**）⇒ ⭐ 变调核心**参与综合**（⭐ 影子数组版）
+    //     · `= 0`                ⇒ ⭐ 变调核心**整段不展开**，`voice_phase_inc_o` 回到 T2 原式
+    //
+    //  📌 **为什么做成 top 参数而⛔ 不是改 `note_manager` 的默认值**：
+    //     ⭐ 那样会让**所有不传 `T3_EN` 的模块级 tb** 一起变成『开着 T3』
+    //     ⇒ ⚠️ 它们的判据范围被动扩大（⭐ 与『一次只改一个变量』冲突）
+    //     ⇒ ⭐ 现在只有**顶层构建**打开它，⭐ 模块级 tb 一个都不受影响 ✅
+    //
+    //  ⚠️ **`transpose_semi_i` 已经接好**（⭐ `u_fader_gear.transpose_semi_o`）：
+    //     ⭐ 上电 `gear = 档 1（颤音）` ⇒ `semi = 0` ⇒ ⭐ **输出与 T2 相同**（⭐ 见 T1 判据）
+    //     ⭐ 要真正变调：⭐ `'J'` 切到**档 0**，⭐ 再动推子 / 发 `'F'`/`'G'`/`'H'` ✅
+    //
+    //  ⭐ **为什么是『影子数组』而⛔ 不是『数组 ＋ 输出 mux』**（⭐ 实测）：
+    //     · 数组＋输出 mux：`T_Lut 33040` · `CLS 85%` · 🔴 **`PR0004` 490 根不布通**
+    //     · ⭐ 影子数组　：`T_Lut 29622`（⭐ 比 T3 关的基线 **还低 1417**）· ⛔ **没有输出 mux**
+    //     ⇒ ⭐ 详见 `sim/evidence/t3-probe-shadow-20261004/README.md` ✅
+    // ═══════════════════════════════════════════════════════════════════════
+    parameter integer T3_ENABLE               = 1
 ) (
     input  wire clk,             // V22 · 50 MHz
     input  wire rst_n,           // AA13 · 低有效（同步复位）
@@ -981,6 +1007,19 @@ parameter integer TEST_MODE_EN       = 0,
     // `g_sound` 作用域内的 `bg_beat`。
     wire       led_blink;
 
+    // ⭐⭐ 2026-10-03：⭐ **指示层（第 2 层）** 需要的【跨 generate 边界】状态线
+    //   ⭐ 出处：`files/20-代码/WS2812指示层规格-20261003.md` §二 第 1 层
+    //   🔴 为什么必须声明在这里（`generate` 之外）：⭐ 与 `led_blink`/`txf_ready` **同一理由** ——
+    //      ⚠️ 消费者（`u_led_indicator`）在 `generate` 之外，⭐ 而**生产者**在 `g_sound` 里
+    //      ⇒ ⭐ 必须由两个**互斥**分支各自驱动（⛔ 否则 `g_silent` 档悬空成 `x`）
+    //   📌 `timbre_sel_r` / `met_on_r` / `key_drum_r` / `drum_pattern_r` /
+    //      `play_fretboard_mode` **本来就在模块层** ⇒ ⛔ 不用引线（⭐ 直接读）✅
+    localparam integer NCH_LED = 7;         // ⭐ 指示灯颗数（⭐ 一颗对一个东西）
+    wire       led_beat;                    // ⭐ 拍点脉冲（`g_sound` 的 `bg_beat`，⭐ 单周期）
+    wire [1:0] led_gear_st;                 // ⭐ 推子档位（`g_sound.u_fader_gear.gear_o`）
+    wire [1:0] led_looper_st;               // ⭐ looper：0=空闲 · 1=录音 · 2=回放
+    wire [NCH_LED*24-1:0] led_col_flat;     // ⭐ 7 颗灯的颜色（⭐ `u_led_indicator` 驱动）
+
     // ═══════════════════════════════════════════════════════════════════════
     //   🔴🔴 **`uart_tx_fifo`：回传的发送队列**（⭐ 2026-09-24 新增，修 `K-126`）
     //
@@ -1157,6 +1196,17 @@ wire       fault_any_w;
         assign tx_req  = 1'b0;
         assign tx_byte = 8'h00;
         assign led_blink = 1'b0;
+        //   ⭐ 指示层：⭐ 静音档没有节拍器 / looper / 推子档位
+        //      ⇒ ⭐ 三根线**显式给 0**（⛔ 否则悬空成 `x` ⇒ ⚠️ 指示灯随机亮）
+        assign led_beat      = 1'b0;
+        //  🔴 **`led_gear_st` 必须是 `2'd3`（= "无" ⇒ 灭），⛔ 不是 `2'd0`** ——
+        //     ⚠️ `2'd0` 在指示层的表里是 **"变调"（紫）** ⇒ 🔴 **指示灯会说谎**
+        //     （⭐ 这一档**根本没有推子**；⭐ 由 `tb/top/tb_top_led_strip.sv` 的 (3d) 钉住 ✅）
+        assign led_gear_st   = 2'd3;
+        //  📌 `led_looper_st` 仍是 `2'd0`（= 空闲 ⇒ 暗蓝）——
+        //     ⭐ 因为用户的 looper 语义里**没有"无"这一档**（只有 空闲/录音/回放）
+        //     ⇒ ⭐ "没有 looper" 与"looper 空闲"在**灯上是同一个状态**（⭐ 也是它的复位态）✅
+        assign led_looper_st = 2'd0;
     end else begin : g_sound
         // ═══════════════════════════════════════════════════════════════════════
         //   ⭐⭐ `'P'` 诊断：⭐ 回传 `pos` 读数（⭐ 2026-09-24 新增）
@@ -1367,6 +1417,9 @@ wire       fault_any_w;
         wire [15:0] bg_bar_cnt;
         wire        bg_wrap;
         assign led_blink = bg_beat;
+        //   ⭐ 指示层：⭐ 拍点脉冲也引给"节拍器指示灯"（⭐ 与心跳灯**同一个** `bg_beat`）
+        //      📌 `beat_o` 是**单周期**脉冲 ⇒ ⭐ 拉伸（亮多久）由 `led_indicator` 自己做 ✅
+        assign led_beat  = bg_beat;
 
         beat_gen #(
             .PPQN          (960),
@@ -1651,7 +1704,8 @@ wire       fault_any_w;
         //       · `trans_*`       ← ⭐ `'F'`/`'G'`/`'H'`（⭐ 与推子**共用目标寄存器**）
         //       · `transpose_semi_o` → ⭐ 模块层 `transpose_semi` → `note_manager`
         //       · `vibrato_depth_o`/`vibrato_rate_o` → ⭐ 下游 `u_vibrato_lfo`
-        //     ⚠️ `gear_o` 本步**不接**（⭐ 无消费者；⭐ 需要时可在此接一根调试线 ✅）
+        //       · `gear_o` → ⭐ 模块层 `led_gear_st` → ⭐ **指示层 led5**（推子功能）
+        //         📌 2026-10-03 起有消费者了（⭐ 原来空着；⭐ 语义见 `led_indicator.v`）✅
         wire [11:0] vib_depth_sel, vib_rate_sel;
         fader_gear u_fader_gear (
             .clk              (clk),
@@ -1663,7 +1717,7 @@ wire       fault_any_w;
             .trans_up_i       (cmd_trans_up_req),
             .trans_abs_i      (cmd_trans_abs_req),
             .trans_abs_val_i  (cmd_trans_abs_val),
-            .gear_o           (),
+            .gear_o           (led_gear_st),   // ⭐ 2026-10-03：⭐ 引出给指示层 led5
             .transpose_semi_o (transpose_semi),
             .vibrato_depth_o  (vib_depth_sel),
             .vibrato_rate_o   (vib_rate_sel)
@@ -3507,6 +3561,18 @@ wire       fault_any_w;
             .overflow_o     (looper_overflow)
         );
 
+        //   ⭐⭐ 2026-10-03：⭐ **looper 状态码 → 指示层**（⭐ 用户语义：空闲 / 录音 / 回放）
+        //     ⭐ 用 `top.v` 已有的两个开关寄存器（⭐ 它们才是"录/放"的真相）：
+        //        `loop_rec_on_r`  = 1 ⇒ 录音中 ⇒ ⭐ 码 1（⭐ 红色快闪）
+        //        `loop_play_on_r` = 1 ⇒ 回放中 ⇒ ⭐ 码 2（⭐ 绿色常亮）
+        //        ⛔ 两者都 0         ⇒ 空闲   ⇒ ⭐ 码 0（⭐ 暗蓝常亮）
+        //     ⚠️ 为什么⛔ 不用 `looper.layer_state_o`：⭐ 它只有 **1 位**
+        //        （`0 = 空闲 · 1 = 录/放`）⇒ 🔴 **分不出"在录"还是"在放"**
+        //        ⇒ ⭐ 满足不了用户要的**三态** ✅
+        //     ⚠️ 优先级：⭐ **录音优先**（⭐ `looper` 自己也是"录的时候不放"）
+        assign led_looper_st = loop_rec_on_r  ? 2'd1 :
+                               loop_play_on_r ? 2'd2 : 2'd0;
+
         seq_arb #(
             .AXIS_W  (4),
             .PHASE_W (32),
@@ -3840,7 +3906,9 @@ wire       fault_any_w;
             //      It is deliberately PAIRED with metronome.AXIS_ID (see
             //      u_metronome below) (K-106 family: an unpaired setting
             //      fails silently).
-            .RESERVED_N  (5)
+            .RESERVED_N  (5),
+            // ⭐⭐ 2026-10-04：⭐ **T3 变调总闸**（⭐ 交付档 = 1，⭐ 见 `T3_ENABLE` 的说明 ✅）
+            .T3_EN       (T3_ENABLE)
         ) u_note_manager (
             .clk_i             (clk),
             .rst_n_i           (rst_n_sync),
@@ -4169,6 +4237,42 @@ wire       fault_any_w;
         //  ② ⭐ 保留池 5 路：⭐ 换成"一击到底"的打击包络
         assign env_level_mix[POLY_TARGET*16-1 : RES_BASE*16] = perc_level;
 
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ P5-1（2026-10-03）：⭐ **`tdm_render_mixer` 的帧起点推后 32 拍**
+        //
+        //   ⭐ **为什么**：⭐ `envelope_bank` 改成了**共享引擎 + 32 拍轮转**
+        //      （⭐ 见 `rtl/w3b/envelope_bank.v` 的文件头）⇒ ⭐ 它那 512 位
+        //      `env_level_o` **要 32 拍才全部更新完**（⭐ 第 v 路在 tick 后第
+        //      (2+v) 拍落盘）。
+        //      ⇒ ⭐ 给 `tdm_render_mixer` 的帧起点**留出这 32 拍的偏斜**，
+        //        保证它扫到任何一个 voice 时看到的都是**本帧的新值** ✅
+        //
+        //   ⭐ **为什么选"推后帧起点"而⛔ 不是"攒够 32 位原子提交"**：
+        //      · 原子提交要**再加 512 个 FF** 做影子寄存器，⭐ 且会把输出
+        //        整体推迟 **1 帧**（⭐ 用户已拍板：⛔ 不要 1 帧延迟）
+        //      · 推后 32 拍则**仍在同一个 1024 拍帧内**（⭐ mixer 只要 34 拍扫完，
+        //        32 + 34 + 7 级流水 ≈ 73 拍 ⇒ ⭐ 余量 13×）✅
+        //
+        //   ⭐ **为什么 I2S 输出逐位不变**：⭐ 下游是**握手式**的 ——
+        //      `mx_valid` 到 `master_mix` 再到 `top.v` 的输出寄存器
+        //      （⭐ `sample_r <= mm_sample`，⭐ 见下方 `mm_valid` 那段），
+        //      而 `i2s_tx` **只在 `frame_start` 装载一次**（⭐ `i2s_tx.v:184`）
+        //      ⇒ ⭐ 只要在**下一个 `frame_start` 之前**给出即可 ✅
+        //      （⭐ 32 拍 = 20.48 µs 的 3.1% ⇒ ⭐ 对采样值本身零影响 ✅）
+        //
+        //   ⚠️ **口径（⭐ 如实记录）**：⭐ 本次改动**同时**把这三种"帧边界快照"
+        //      推后了 32 拍 —— `n_active_r`（归一化 popcount）、`norm_gain_r`
+        //      的去拉链步进、`cnt` 起点。⭐ 前两者在**帧边界**取值，
+        //      ⭐ 若那 32 拍内恰好有 note 事件落地，⭐ 归一化增益会差 1 档。
+        //      📌 这是本改动的**已知代价**，⭐ 已跑全量回归复核（⭐ 见证据）。
+        // ═══════════════════════════════════════════════════════════════════
+        reg [31:0] mx_start_dly;
+        always @(posedge clk) begin
+            if (!rst_n_sync) mx_start_dly <= 32'd0;
+            else             mx_start_dly <= {mx_start_dly[30:0], ob_valid};
+        end
+        wire mx_render_start = mx_start_dly[31];
+
         tdm_render_mixer #(
             .POLY_TARGET         (POLY_TARGET),
             .OSC_PER_VOICE       (OSC_PER_VOICE),
@@ -4189,7 +4293,7 @@ wire       fault_any_w;
         ) u_tdm_render_mixer (
             .clk_i            (clk),
             .rst_n_i          (rst_n_sync),
-            .render_start_i   (ob_valid),
+            .render_start_i   (mx_render_start),
             .osc_sample_bus_i (ob_samples),
             //   ⭐⭐ **2026-09-28：`env_level` ⇒ `env_level_mix`**（⭐ 修 `K-144`）
             //      ⭐ 差别**只在保留池那 5 路**：⭐ 键盘那 27 路**逐位相同**
@@ -4647,11 +4751,13 @@ wire       fault_any_w;
     //      ⇒ ⭐ **任何一根输入翻转都会让它翻转** ⇒ ⭐ 综合**不能**把它们当常量去掉。
     //      📌 `syn_keep` = Synplify / Gowin 的"⛔ 不要优化掉这个信号"属性。
     //
-    //   ⭐ **9 个输出**：⭐ 由**常量**驱动（⭐ 明确电平，⛔ 不是 `x`）：
+    //   ⭐ **9 个输出**：⭐ 其中 **8 个由常量**驱动（⭐ 明确电平，⛔ 不是 `x`）；
+    //      ⭐ `ctrl_ws_o` **已接真实驱动**（⭐ 2026-10-03 · 见下方 §WS2812）：
     //      · ⭐ `ctrl_row_o = 4'b0000` —— ⭐ 矩阵行**全 0 = 不扫描**；
     //        🔴 **为什么不给高**：⚠️ 行若给高，⭐ 同一列上按两个键会**把两个输出短接**
     //           （⭐ 推挽对打）⇒ ⭐ 全 0 是**无冲突**的安全态。
-    //      · ⭐ `ctrl_ws_o` / `ws_strip_o` = `0` —— ⭐ WS2812 单线码**空闲 = 低** ✅
+    //      · ⭐ `ws_strip_o = 3'b000` —— ⭐ 拓展板 3 路**预留**（⭐ WS2812 单线码空闲 = 低）✅
+    //      · ⭐ `ctrl_ws_o` —— ⛔ **不再在此驱动**（⭐ 已由 `u_ws2812` 驱动）✅
     //      · ⭐ `esp_uart_tx_o = 1'b1` —— 🔴 **UART 空闲 = 高**（⭐ 串口线**静默**的正确态）；
     //        ⚠️ 若给 0 ⇒ ⭐ 一直处于 **break** ⇒ ⭐ ESP32 侧会看到**持续帧错误**。
     //
@@ -4675,8 +4781,141 @@ wire       fault_any_w;
 
     // ── 9 个预留输出 · 常量驱动（⭐ 明确电平，⛔ 不是 `x`）────────────────────
     assign ctrl_row_o    = 4'b0000;   // ⭐ 矩阵行全 0 = 不扫描（⛔ 不给高：⚠️ 同列两键会推挽）
-    assign ctrl_ws_o     = 1'b0;      // ⭐ WS2812 单线码空闲 = 低
+    // ⭐ `ctrl_ws_o` 已由 `u_ws2812` 驱动（⭐ 见下方 §WS2812）—— ⛔ 常量驱动行已删除
     assign esp_uart_tx_o = 1'b1;      // 🔴 UART 空闲 = 高（⭐ 给 0 = 一直 break）
-    assign ws_strip_o    = 3'b000;    // ⭐ 拓展板 WS2812 三路空闲 = 低
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐ WS2812 · 控制板灯带驱动（2026-10-03 接入）
+    //
+    //   🔴 为什么现在接：⭐ `constr/top.cst` 里的 `ctrl_ws_o`（C22）原本只靠
+    //      **常量驱动保活**（⭐ 目的仅是"让脚进网表"），⭐ 现在改由真驱动产生波形
+    //      ⇒ ⛔ 它的常量驱动行必须删除（⭐ 否则与驱动模块**多驱动** ⇒ 综合报错）。
+    //
+    //   ⭐ 为什么只做 1 通道：⭐ 用户的 7 路指示灯**全部串在控制板这一条带**上
+    //      ⇒ ⭐ 主通道 = `ctrl_ws_o`；⭐ 拓展板那 3 根（`ws_strip_o[2:0]`）
+    //      是**预留** ⇒ ⛔ 暂不驱动，保持常量 `3'b000`（灭）✅
+    //
+    //   ⭐ 数据源（⭐ 2026-10-03 起）：⭐ **指示层 `u_led_indicator`**（⭐ 见下方）——
+    //      ⚠️ 原来是"上电自检图案"（前 7 颗恒亮蓝）⇒ ⭐ 那个占位已被**真状态**取代
+    //      （⭐ 上电后 led0 亮 / led4 暗蓝 / led6 绿 ⇒ ⭐ 照样看得见"板子活着"）✅
+    //      📌 将来若要做 LED 演奏指引 / M7 灯效：⭐ 再加一路数据源进那个 `case` 即可
+    //      （⭐ 位时序与 `start_i` 握手**不用改**）。
+    //
+    //   ⚠️ `wr_data_i` = `24'hRRGGBB`（⭐ 标准 RGB888）——
+    //      ⭐ 到线上的 **GRB** 重排由 `ws2812_driver` 内部做（⭐ 只此一处定义，好测）。
+    // ═══════════════════════════════════════════════════════════════════════
+    localparam integer WS_LED_N = 16;     // ⭐ 控制板灯带灯数（⭐ 改灯数只改这一个参数）
+
+    wire        ws_busy;
+    wire        ws_start;
+    reg  [1:0]  ws_ld_state;
+    reg         ws_wr_en;
+    reg  [4:0]  ws_wr_addr;
+    reg  [23:0] ws_wr_data;   // ⭐ 2026-10-03：⭐ 改由 `always @*` 从 7 路颜色里选（原来是常量 assign）
+    wire        ws_dout;
+
+    localparam [1:0] WLS_WRITE = 2'd0;
+    localparam [1:0] WLS_START = 2'd1;
+    localparam [1:0] WLS_WAIT  = 2'd2;
+
+    ws2812_driver #(.LED_N(WS_LED_N)) u_ws2812 (
+        .clk       (clk),
+        .rst_n     (rst_n_sync),
+        .start_i   (ws_start),
+        .busy_o    (ws_busy),
+        .wr_en_i   (ws_wr_en),
+        .wr_addr_i (ws_wr_addr),
+        .wr_data_i (ws_wr_data),
+        .dout_o    (ws_dout)
+    );
+
+    assign ctrl_ws_o  = ws_dout;          // ⭐ 控制板灯带（C22）
+    assign ws_strip_o = 3'b000;           // ⭐ 拓展板 3 路【预留】= 灭（⛔ 暂不驱动）
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ 2026-10-03：⭐ **指示层（第 2 层）** —— 状态码 → 颜色/闪烁
+    //
+    //   ⭐ 出处：`files/20-代码/WS2812指示层规格-20261003.md`（⭐ 用户给定的 7 路语义）
+    //   ⭐ 三层：各子系统状态码（第 1 层）→ **本模块**（第 2 层）→ `ws2812_driver`（第 3 层）
+    //
+    //   ⭐ 7 路 = 灯带上**前 7 颗**（LED0..LED6），⭐ 一颗对一个东西：
+    //       led0 音色 · led1 节拍器 · led2 鼓机 · led3 键盘打鼓 ·
+    //       led4 looper · led5 推子功能 · led6 指板/键盘模式
+    //
+    //   🔴 **本段替换掉了原来的"上电自检图案"**（前 7 颗恒亮蓝 `24'h000020`）——
+    //      ⭐ 那个占位的唯一目的（让 `ctrl_ws_o` 有**真实波形**）由**真状态**接管：
+    //      ⭐ 上电后 led0 亮（音色 = 白）、led4 暗蓝（looper 空闲）、led6 绿（键盘模式）
+    //      ⇒ ⭐ 眼睛/示波器照样看得见"板子活着"，⭐ 而且每颗灯现在**有语义** ✅
+    //
+    //   ⭐ `led_drum_on` 的取法（⭐ ⛔ 不新增状态机，⭐ 全部读现成信号）：
+    //      ⭐ 源 B 是"节拍器 / 鼓机"**二选一**（`SEL_DRUM`）＋ 编译期总闸
+    //      （`METRONOME_ON`）＋ 运行时开关（`met_on_r`）
+    //      ⇒ ⭐ 只有三者都成立时，鼓机才**真的在出声** ⇒ ⭐ 那时才显示节奏型颜色
+    //      🔴 **与 `g_sound` 里 `src_b_valid` 的算式逐项一致** ⇒ ⭐ 改一处必须改两处
+    //         （⭐ 否则指示灯会说"鼓机在响"而实际不响 —— ⚠️ 比不亮更坏）
+    // ═══════════════════════════════════════════════════════════════════════
+    wire led_drum_on = (SEL_DRUM == 1) && (METRONOME_ON != 0) && met_on_r;
+
+    led_indicator #(.N_CH(NCH_LED)) u_led_indicator (
+        .clk        (clk),
+        .rst_n      (rst_n_sync),
+        .timbre_i   (timbre_sel_r),         // ⭐ 第 1 层：⭐ 全部是**现成**信号
+        .metro_on_i (met_on_r),
+        .beat_i     (led_beat),
+        .drum_on_i  (led_drum_on),
+        .drum_pat_i (drum_pattern_r),
+        .keydrum_i  (key_drum_r),
+        .looper_i   (led_looper_st),
+        .gear_i     (led_gear_st),
+        .fb_mode_i  (play_fretboard_mode),  // ⭐ 1 = 指板 · 0 = 键盘
+        .led_col_o  (led_col_flat)
+    );
+
+    // ⭐ 7 路颜色 → 灯带写口（⭐ LED0..LED6）；⭐ LED7..LED15（`WS_LED_N=16`）恒灭
+    //   ⚠️ 为什么用 `case` 而不是"按 `ws_wr_addr*24` 切 `led_col_flat`"：
+    //      ⭐ 那样当地址 ≥ 7 时是**越界选择**（⭐ 仿真出 `x`）⇒ ⚠️ 靠外层三元挡住很脆；
+    //      ⭐ `case` 的 `default` 把"其余灯"**明确**写成灭 ✅
+    always @* begin
+        case (ws_wr_addr)
+            5'd0: ws_wr_data = led_col_flat[  0 +: 24];
+            5'd1: ws_wr_data = led_col_flat[ 24 +: 24];
+            5'd2: ws_wr_data = led_col_flat[ 48 +: 24];
+            5'd3: ws_wr_data = led_col_flat[ 72 +: 24];
+            5'd4: ws_wr_data = led_col_flat[ 96 +: 24];
+            5'd5: ws_wr_data = led_col_flat[120 +: 24];
+            5'd6: ws_wr_data = led_col_flat[144 +: 24];
+            default: ws_wr_data = 24'h000000;
+        endcase
+    end
+
+    // ⭐ 先把整帧写完，再发一个 `start_i` 脉冲；⭐ `busy_o` 高时什么都不做。
+    //   ⚠️ `busy_o` **覆盖帧尾复位**（≥300 µs）⇒ "等 !busy 再启动"天然满足帧间隔，
+    //      ⛔ 这里不需要（也不该）再写一个复位计数器。
+    always @(posedge clk) begin
+        if (!rst_n_sync) begin
+            ws_ld_state <= WLS_WAIT;
+            ws_wr_en    <= 1'b0;
+            ws_wr_addr  <= 5'd0;
+        end else begin
+            ws_wr_en <= 1'b0;
+            case (ws_ld_state)
+                WLS_WAIT: if (!ws_busy) begin
+                    ws_wr_en    <= 1'b1;
+                    ws_wr_addr  <= 5'd0;
+                    ws_ld_state <= WLS_WRITE;
+                end
+                WLS_WRITE: begin
+                    if (ws_wr_addr == WS_LED_N - 1) begin
+                        ws_ld_state <= WLS_START;
+                    end else begin
+                        ws_wr_en   <= 1'b1;
+                        ws_wr_addr <= ws_wr_addr + 5'd1;
+                    end
+                end
+                default: ws_ld_state <= WLS_WAIT;   // WLS_START：只停 1 拍 = start 脉冲
+            endcase
+        end
+    end
+
+    assign ws_start = (ws_ld_state == WLS_START);
 
 endmodule

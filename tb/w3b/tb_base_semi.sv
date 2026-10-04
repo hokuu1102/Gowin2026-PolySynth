@@ -219,6 +219,52 @@ module tb_base_semi;
         end
     endtask
 
+    // ═════════════════════════════════════════════════════════════════════════
+    // ⭐⭐ 2026-10-03（P4 · ROT32 正式落地）：⭐ **换档必须先"静音"**
+    //
+    //   🔴 **为什么**：⭐ 本方案把"输出端每 lane 变量移位"搬进**存储**
+    //      ⇒ ⭐ 换档时要**重算整张相位表**，⭐ 而重算是**每拍只重算 1 个 lane**
+    //      （⭐ 32 拍一圈）⇒ ⚠️ 若此刻有音在响，⭐ 那 32 拍就是一次**可闻的音高毛刺**
+    //      ⇒ ⭐ RTL 的对策（⭐ 用户批准的决定 ②）：⭐ **`gate_r` 全 0 时才真正换档**
+    //      ⇒ ⭐ 本 tb 的换档激励也必须**先松手**（⭐ 与 `tb_transpose` 同一口径）✅
+    //
+    //   📌 **这是【激励口径】的调整，⛔ 不是判据放宽**：
+    //      ⭐ 判据仍然是"⭐ `base_semi = 12` ⇒ **精确 ×2**"（⭐ 一条没删、没改容差）✅
+    //      ⭐ 只是把"换档"与"起音"的**先后**调成真实使用顺序
+    //         （⭐ 用户换档时手上没有按键 ⇒ ⭐ `gate_r` 全 0 ✅）
+    //      📌 而且本 tb **多了一条更强的证据**：⭐ 换档后**再按同一个 `TV`**
+    //         ⇒ ⭐ 输出必须**精确**是 `TV << oct`（⭐ 覆盖"写入时移位"这条新路径 ✅）
+    // ═════════════════════════════════════════════════════════════════════════
+    task release_a;
+        begin
+            @(negedge clk);
+            note_valid = 1'b1; note_axis = 4'd0; note_phase_inc = {PHASE_W{1'b0}};
+            note_velocity = 8'd200; note_kind = 2'd1; note_src = 3'd0;
+            @(negedge clk);
+            note_valid = 1'b0; note_kind = 2'd0;
+        end
+    endtask
+
+    task wait_gate0;
+        begin
+            n = 0;
+            while ((voice_gate !== {POLY{1'b0}}) && (n < 4000)) begin
+                @(posedge clk); n = n + 1;
+            end
+            @(negedge clk); #1;
+        end
+    endtask
+
+    task set_oct;
+        input [6:0] v;
+        begin
+            release_a;
+            wait_gate0;                      // ⭐ RTL 的换档门槛
+            do_commit(v);
+            repeat (80) @(posedge clk);      // ⭐ 等轮转重算走完（⭐ 最多 2 档 × 32 拍）
+        end
+    endtask
+
     localparam [PHASE_W-1:0] TV = 32'h0000_1234;   // ⭐ 任意测试值（⭐ 低位留 0 便于看移位）
 
     initial begin
@@ -239,23 +285,30 @@ module tb_base_semi;
             v0_inc === TV);
 
         // ══ T1 ⭐ oct=0 ⇒ 逐位恒等 ═════════════════════════════════════
-        do_commit(7'd0);
+        set_oct(7'd0);
+        press_a(4'd0, TV);
         chk("T1: base_semi=0  => bit-identical (oct 0)", v0_inc === TV);
 
         // ══ T2 ⭐ oct=1 ⇒ ×2 ═══════════════════════════════════════════
-        do_commit(7'd12);
+        //   ⭐ P4-ROT32：⭐ 换档在**静音**下做（⭐ 先松手），⭐ 换完**再按** ✅
+        set_oct(7'd12);
+        press_a(4'd0, TV);
         chk("T2: base_semi=12 => exactly x2 (oct 1)", v0_inc === (TV << 1));
 
         // ══ T3 ⭐ oct=2 ⇒ ×4 ═══════════════════════════════════════════
-        do_commit(7'd24);
+        set_oct(7'd24);
+        press_a(4'd0, TV);
         chk("T3: base_semi=24 => exactly x4 (oct 2)", v0_inc === (TV << 2));
 
         // ══ T4 ⭐ 非法值被拒 ════════════════════════════════════════════
-        do_commit(7'd13);
+        set_oct(7'd13);
+        press_a(4'd0, TV);
         chk("T4a: base_semi=13  => rejected, oct back to 0", v0_inc === TV);
-        do_commit(7'd36);
+        set_oct(7'd36);
+        press_a(4'd0, TV);
         chk("T4b: base_semi=36  => rejected, oct back to 0", v0_inc === TV);
-        do_commit(7'd127);
+        set_oct(7'd127);
+        press_a(4'd0, TV);
         chk("T4c: base_semi=127 => rejected, oct back to 0", v0_inc === TV);
 
         // ══ T5 ⭐ 只在 commit 拍更新 ════════════════════════════════════
@@ -265,7 +318,8 @@ module tb_base_semi;
         chk("T5: value changed without commit => oct unchanged", v0_inc === TV);
 
         // ══ T6 ⭐ 滑音路径也带移位（⭐ 走真 `pitch_upd` 端口）════════════
-        do_commit(7'd12);                       // ⭐ oct=1
+        set_oct(7'd12);                         // ⭐ oct=1（⭐ 静音换档）
+        press_a(4'd0, TV);                      // ⭐ 先有一个在响的 voice
         @(negedge clk);
         pitch_upd_valid = 1'b1;
         pitch_upd_axis  = 4'd0;

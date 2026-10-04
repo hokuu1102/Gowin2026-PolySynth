@@ -61,8 +61,18 @@ module tb_looper_replay_tail;
     localparam [TIMBRE_W-1:0] TBR_PAD  = 2'd3;   // ⭐ 录制时的手弹音色 = PAD（⭐ release 步长 1）
     localparam [TIMBRE_W-1:0] TBR_BASS = 2'd0;   // ⭐ 录完之后切成的音色 = BASS（⭐ 步长 6，⭐ 诱饵）
 
-    localparam integer CLK_PER_SAMPLE = 4;       // ⭐ 压缩时基（⭐ 见文件头）
-    localparam integer TICK_GAP       = 102;     // ⭐ 25.5 采样拍 / tick（⭐ 真实 25.4）
+    //  ⭐⭐ P5-1（2026-10-03）契约变更：⭐ `envelope_bank` 现在是**共享引擎 +
+    //     每拍服务一个 voice**（⭐ 见 `rtl/w3b/envelope_bank.v` 的文件头）⇒
+    //     **每帧必须留出 ≥34 拍**让 32 路全部更新完（⭐ 本 tb `POLY=32`）。
+    //     ⛔ 原来 `CLK_PER_SAMPLE=4` 只够扫 3 路 ⇒ 第 3 路之后**永远不更新**
+    //        ⇒ ⭐ 实测 C1/C3/C6/C6b 四条红。
+    //     ⭐ **修法**：⭐ `CLK_PER_SAMPLE` 4 → **34**，⭐ `TICK_GAP` 102 → **864**
+    //        ⇒ ⭐ **采样拍 : PPQN tick 的比例仍是 25.4**（⭐ 864/34 = 25.41，
+    //           ⭐ 与真实 26043/1024 = 25.43 一致）⇒ ⭐ **语义完全不变**，
+    //           ⭐ 只是把墙钟时间压缩比从 256× 改成 30× ✅
+    //     📌 副作用：⭐ 仿真时间 ×8.5（⭐ 本 tb 本来就短 ⇒ 可接受）
+    localparam integer CLK_PER_SAMPLE = 34;      // ⭐ 压缩时基（⭐ 见上）
+    localparam integer TICK_GAP       = 864;     // ⭐ 25.41 采样拍 / tick（⭐ 真实 25.43）
     localparam integer LOOP_TICKS     = 250;     // ⭐ 录 250 个 tick
     localparam integer OFF_TICK       = 60;      // ⭐ 第 60 个 tick 松手（⭐ 60×25.5 ≈ 1530 采样拍
                                                  //    ⇒ ⭐ 包络**已经爬满**持续电平 ✅）

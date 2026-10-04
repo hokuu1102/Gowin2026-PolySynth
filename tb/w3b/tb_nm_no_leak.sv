@@ -87,7 +87,15 @@ module tb_nm_no_leak;
     localparam integer ENV_W      = 16;
     localparam integer AGE_W      = 16;
     localparam integer IDX_W      = 2;    // clog2(POLY)
-    localparam integer FRAME      = 16;   // clk per sample_tick (DUT A/B share it)
+    localparam integer FRAME      = 40;   // clk per sample_tick (DUT A/B share it)
+                                          //   ⭐ P5-1（2026-10-03）：⭐ 16 → **40**。
+                                          //   ⭐ 为什么：`envelope_bank` 改成**共享引擎 +
+                                          //      32 拍轮转**（⭐ 见其文件头）⇒ ⭐ 每帧必须
+                                          //      留出 **≥34 拍**让 32 路全部更新完，
+                                          //      ⛔ 否则第 15 路之后**永远不更新**
+                                          //      ⇒ ⭐ E3「快速重按不泄漏」会红（⭐ 实测确实红）。
+                                          //   ⭐ 分配 FSM 只要 POLY+4 = 8 拍 ⇒ 40 拍绰绰有余 ✅
+                                          //   📌 副作用：⭐ 本 tb 的仿真时间 ×2.5（⭐ 可接受）
     localparam integer ROUNDS     = 40;   // same-axis press/release rounds
     localparam integer DRAIN_MAX  = 400;  // bounded wait, in sample ticks
 

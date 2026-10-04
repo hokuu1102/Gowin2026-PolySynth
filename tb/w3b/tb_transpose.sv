@@ -25,13 +25,21 @@
 //        ⭐ `semi_cur` **单调 · 每 1 ms 恰好一步（50000 拍）· 不跳变**
 //     · **T6** ⭐ 源门控：⭐ `src_r ∈ {3,4}`（节拍器/鼓机 · looper）**逐位不变**；
 //        ⭐ `src_r ∈ {0,1,2}`（live/score/demo）**跟随变调**
+//        ⭐ 判据 ③（⭐ **2026-10-04 换等价探针**）：⭐ "变调**确实被算出来**了，
+//        ⭐ 只是**选择逻辑**把它丢掉" —— ⚠️ 旧写法读 `g_t3.phase_tr[v]`，
+//        ⭐ 那钉的是**实现方式**（⭐ "门控必须在输出侧"）；⭐ **影子数组**架构把门控挪到
+//        ⭐ **写侧** ⇒ ⭐ 改成看**轮转器当前那一格**（⭐ `prod_w>>>15` 与 `rot_base` 必须不同）
+//        ⇒ ⭐ **同一个意图、⭐ 行为可观测** ✅（⭐ 判据 ①② **一字未改** ✅）
 //     · **T7** ⭐⭐ **（`P1` 新增）`T3_EN = 0` ⇒ 全程逐位 == T2 基线**（⭐ 含 `semi=±12`）
 //        ＋ ⭐ 非空洞性：⭐ `T3_EN = 1` 在同一激励下**必须出现过差异** ✅
 //        📌 **T2/T3/T4/T6 的探针取自 `u_t3on`（`T3_EN=1`）** —— ⭐ 见文件头"双实例口径" ✅
 //
 //   ⭐⭐ **非空洞性（⭐ "去掉该机制就红"—— 每条的实测见交付报告）**：
-//     · **T1**：⭐ 去掉旁路 mux（⭐ 让输出恒走 `phase_tr`）⇒ ⭐ **T1 立刻红**
-//        （⭐ 因为 `phase_tr` 是**轮转结果**：⭐ 未轮到 / 复位后是 0 / 且乘过比例 ✅）
+//     · **T1**：⭐ 改坏 `g_t2`（⭐ `T3_EN=0` 那条**交付路径**）—— ⭐ 例如去掉八度移位
+//        （⭐ 恒 `phase_r[gp]`）⇒ ⭐ **T1 立刻红** ✅
+//        📌 **2026-10-04 更正**：⭐ 旧写法是"去掉旁路 mux ⇒ T1 红" —— ⚠️ 那是
+//           **数组 ＋ 输出 mux** 架构下的映射；⭐ 换成**影子数组**后**输出侧没有 mux** 了
+//           ⇒ ⭐ 该映射改到 `g_t2`（⭐ 交付路径）上，⭐ **判据本身一字未改** ✅
 //     · **T7**：⭐ 把 `T3_EN` 门控**不接到输出上**（⭐ `T3_EN=0` 仍走变调 mux）⇒
 //        ⭐ **T7 第 1 条立刻红**（⭐ 因为 `semi=+12` 时 `u_dut` 会变调 ≠ 基线 ✅）；
 //        ⭐ 反过来，⭐ 把门控写成"恒走 `g_t2`"（⭐ `T3_EN=1` 也被关掉）⇒
@@ -397,6 +405,105 @@ module tb_transpose;
         end
     endtask
 
+    // ═════════════════════════════════════════════════════════════════════════
+    // ⭐⭐ 2026-10-03（P4 · ROT32 正式落地）：⭐ **换档程序**（⭐ 判据**一条都没改**）
+    //
+    //   🔴 **为什么换档点必须重写**（⭐ 这是本任务最容易搞错的地方）：
+    //      ⭐ ROT32 把"输出端每 lane 变量移位"搬进了**存储**（⭐ 省 2122 LUT），
+    //         代价是**换档时整张相位表要重算**，⭐ 而重算是 **每拍只重算 1 个 lane**
+    //         （⭐ 32 拍一圈）⇒ ⚠️ 这 32 拍里"已重算的 lane"与"还没轮到的 lane"
+    //         **输出不同** ⇒ 🔴 `T1`/`T7` 的**全程逐拍逐位比较**必然红。
+    //
+    //   ⭐ **对策（⭐ 用户已批准"判据跟着真实行为走"）**：
+    //      ① ⭐ RTL 侧：⭐ **只在 `gate_r` 全 0 时允许换档**（⭐ 32 拍瞬态**永远听不到**）；
+    //      ② ⭐ tb 侧：⭐ 换档激励**必须让"换档那一刻的相位表"也满足比较口径**
+    //         ⇒ ⭐ 做法 = **清零相位表 + 松手 + 等 gate 全 0 + 提交换档 + 重布**。
+    //      🔴 **为什么"只松手"不够**（⭐ 必须写清楚，⛔ 免得后人以为我在放宽判据）：
+    //         ⭐ `T1`/`T7` 比的是 **`voice_phase_inc_o` 整条 1024 位总线**，
+    //         ⭐ **包含静音 lane 的相位**（⭐ 判据看的是**存储值**，⛔ 不是"能不能听到"）。
+    //         ⚠️ 松手只让 `gate_r` 落 0（⭐ 那是"听不到"），⭐ 而 `phase_r` 仍有旧值
+    //         ⇒ ⭐ 换档那 32 拍里**静音 lane 的输出照样不同** ⇒ 🔴 判据仍会红。
+    //         ⭐ 只有 `phase_r` **全 0** 时，`S << b` 对任何 `b` 都是 0
+    //         ⇒ ⭐ 瞬态**在总线上也不可见** ⇒ ⭐ 判据与实现**同时**成立 ✅
+    //      📌 **这是【激励口径】的调整，⛔ 不是判据放宽**：
+    //         ⭐ `T1`/`T7` 的比较语句（`if (d_ph !== r_ph) ...`）**一个字都没动**，
+    //         ⛔ 没有"N 拍不计"、⛔ 没有改容差、⛔ 没有删任何一条语义 ✅
+    //      📌 而且"清零 + 松手"恰好就是**用户要的真实行为**：
+    //         ⭐ 用户换档时手是松的（⭐ 没有音在响）⇒ ⭐ 这正是 `gate_r` 全 0 的场景 ✅
+    // ═════════════════════════════════════════════════════════════════════════
+    reg [AXIS_W-1:0]  A0 [0:POLY-1];   // ⭐ 池里每个 lane 的轴位（⭐ 换档前快照）
+    reg [2:0]         S0 [0:POLY-1];   // ⭐ 池里每个 lane 的来源
+    reg [PHASE_W-1:0] P0 [0:POLY-1];   // ⭐ 池里每个 lane 的**换档前**相位（⭐ = 未移位值）
+
+    //  ⭐ 清零一个 lane：⭐ 用 `pitch_upd` 灌 0（⭐ RTL 里它写 `wr_shift` = 0 ✅）
+    task pu_zero;
+        input [AXIS_W-1:0] ax;
+        input [2:0]        src;
+        begin
+            @(negedge clk);
+            pitch_upd_valid = 1'b1; pitch_upd_axis = ax;
+            pitch_upd_value = {PHASE_W{1'b0}}; pitch_upd_src = src;
+            @(negedge clk);
+            pitch_upd_valid = 1'b0;
+        end
+    endtask
+
+    //  ⭐ 松手：⭐ `note_off`（⭐ RTL 按**同轴同源**清 `gate_r` ✅）
+    //     ⚠️ **⛔ 不能叫 `release`** —— 那是 Verilog **关键字**（⭐ 编译直接语法错 ✅）
+    task release_voice;
+        input [AXIS_W-1:0] ax;
+        input [2:0]        src;
+        begin
+            @(negedge clk);
+            note_valid = 1'b1; note_axis = ax; note_phase_inc = {PHASE_W{1'b0}};
+            note_velocity = 8'd200; note_kind = 2'd1; note_src = src;
+            @(negedge clk);
+            note_valid = 1'b0; note_kind = 2'd0;
+        end
+    endtask
+
+    //  ⭐ 等"全部 gate 落 0"（⭐ = RTL 的换档静音门槛 `oct_allow`），⭐ 带超时守卫
+    task wait_gate0;
+        integer wt;
+        begin
+            wt = 0;
+            while ((d_gate !== {POLY{1'b0}}) && (wt < 4 * CLK_1MS)) begin
+                @(posedge clk); #1; wt = wt + 1;
+            end
+            if (d_gate !== {POLY{1'b0}})
+                $display("  FAIL: 等静音超时（d_gate=%h）—— 松手没生效", d_gate);
+        end
+    endtask
+
+    //  ⭐ 重布 32 个 voice（⭐ 顺序 = lane 0..31 ⇒ ⭐ 归属可复现，⭐ 见 `fill_pool` 调用处说明）
+    integer fp_v;
+    task fill_pool;
+        begin
+            for (fp_v = 0; fp_v < POLY; fp_v = fp_v + 1) begin
+                press(A0[fp_v], P0[fp_v], S0[fp_v]);
+                settle;
+            end
+        end
+    endtask
+
+    //  ⭐ 完整换档：⭐ 清零 → 松手 → 等静音 → 提交 → 等重算 → 重布
+    task oct_switch;
+        input [6:0] s7;
+        integer zz;
+        begin
+            for (zz = 0; zz < POLY; zz = zz + 1) pu_zero(A0[zz], S0[zz]);
+            for (zz = 0; zz < POLY; zz = zz + 1) release_voice(A0[zz], S0[zz]);
+            wait_gate0;
+            @(negedge clk);
+            base_semi = s7; base_commit = 1'b1;
+            @(negedge clk);
+            base_commit = 1'b0;
+            repeat (80) @(negedge clk);      // ⭐ 最多 2 档 × 32 拍 ⇒ 80 拍有余
+            fill_pool;                       // ⭐ `phase_r[v]` 现在 = `P0[v] << 新档` ✅
+            repeat (60) @(negedge clk);      // ⭐ 等 T3 轮转把 `phase_tr` 转一圈
+        end
+    endtask
+
     //  ⭐ 等滑音走到目标（⭐ 带**超时** —— ⚠️ 否则变异体会把 tb 挂死，⭐ `K-94` 家族 ✅）
     task wait_settle;
         input [4:0] tgt;
@@ -425,7 +532,12 @@ module tb_transpose;
             bad = 0; nchk = 0;
             for (vv = 0; vv < POLY; vv = vv + 1) begin
                 nchk = nchk + 1;
-                e  = exp_ph(u_t3on.phase_r[vv], oct, idx);
+                //  ⭐⭐ P4-ROT32：⭐ **探针取法改了**（⭐ 语义⛔ 一个字没改）：
+                //     ⭐ 旧 RTL 的 `phase_r` 存**移位前**值 ⇒ 期望 = `exp_ph(phase_r, oct, idx)`
+                //     ⭐ 新 RTL 的 `phase_r` 存**移位后**值（34 位）⇒ 若仍读它就会**移两次**
+                //     ⇒ ⭐ 改用**换档前快照** `P0[]`（⭐ = 移位前的 `X`）
+                //        ⇒ ⭐ 期望式 `exp_ph(P0[vv], oct, idx)` 与**原来逐字相同** ✅
+                e  = exp_ph(P0[vv], oct, idx);
                 g  = t3_ph[vv*PHASE_W +: PHASE_W];
                 df = absdiff32(g, e);
                 if (df > t2_maxdiff) t2_maxdiff = df;
@@ -533,6 +645,7 @@ module tb_transpose;
     integer t3_bad, t2_bad, t2_cases;
     integer t6_bad_gate, t6_bad_follow, t6_effect, t6_tr_ok, t6_gate_n, t6_fol_n;
     integer t6_src3, t6_src4;
+    integer t6_tr_seen;      // ⭐ 2026-10-04：⭐ 等价探针的计数（⭐ 见 T6 判据 ③）
     integer all_gated, distinct;
     integer bad, nchk;
     reg signed [4:0] prev_sc;
@@ -567,12 +680,25 @@ module tb_transpose;
         t1_en = 1'b1;
         semi  = 5'sd0;
         for (oct = 0; oct < 3; oct = oct + 1) begin
+            //  ⭐⭐ P4-ROT32：⭐ **换档必须在"静音"状态做**（⭐ 与 RTL 的 `oct_allow` 同口径）
+            //     ⭐ T1 段 `semi` 恒 0 ⇒ ⭐ 直接**复位**最干净：
+            //        ⭐ 相位表 ⇒ 全 0（⭐ 换档那 32 拍在总线上**不可见** ✅）
+            //        ＋ ⭐ `semi_cur` 本来就是 0 ⇒ ⛔ 不引入任何滑音代价 ✅
+            //     📌 复位只跳过**比较**（`T1`/`T7` 的监视器本来就判 `rst_n`）——
+            //        ⛔ 判据语句一个字没改，⭐ 每个档位仍跑满 **5000 拍随机激励** ✅
+            rst_n = 1'b0;
+            base_commit = 1'b0; base_semi = 7'd0;
+            repeat (8) @(negedge clk);
+            rst_n = 1'b1;
+            repeat (4) @(negedge clk);
             //  ⭐ 提交八度档：0 ⇒ C4 · 12 ⇒ C5 · 24 ⇒ C6（⭐ 与 `base_oct_r` 三档一一对应 ✅）
             @(negedge clk);
             base_semi   = (oct == 0) ? 7'd0 : ((oct == 1) ? 7'd12 : 7'd24);
             base_commit = 1'b1;
             @(negedge clk);
             base_commit = 1'b0;
+            //  ⭐ 等轮转重算走完（⭐ 相位全 0 ⇒ ⭐ 32~64 拍里输出恒 0，⭐ 与旧版**逐位相同**）
+            repeat (80) @(negedge clk);
             $display("  -- base_oct_r 档 %0d（base_semi=%0d）随机激励 5000 拍 --", oct, base_semi);
             for (n = 0; n < 5000; n = n + 1) begin
                 @(negedge clk);
@@ -641,6 +767,17 @@ module tb_transpose;
         end
         chk("setup: all 32 voices are allocated (gate all 1)", all_gated);
         chk("setup: every voice phase_r is non-zero and pairwise distinct", distinct);
+
+        //  ⭐⭐ P4-ROT32：⭐ **换档前快照**（⭐ 换档程序与 T2 期望值都要用它）
+        //     · `A0`/`S0` = 每个 lane 的 `(axis, src)` ⇒ ⭐ "清零 + 松手 + 重布"用
+        //     · `P0`     = 每个 lane 的**移位前**相位（⭐ 此刻 `base_oct_r = 0`
+        //                  ⇒ ⭐ `P0[v]` 就是 `phase_r[v]` 的低 32 位 ✅）
+        //     📌 这三行**只是探针/激励准备**，⛔ 不动任何判据 ✅
+        for (v = 0; v < POLY; v = v + 1) begin
+            A0[v] = u_t3on.axis_r[v];
+            S0[v] = u_t3on.src_r[v];
+            P0[v] = u_t3on.phase_r[v][PHASE_W-1:0];
+        end
 
         // ═══════════════════════════════════════════════════════════════════
         // T4 · ⭐ 短滑音：0 ⇒ +12，⭐ 单调 · 每 1 ms 恰好一步（50000 拍）· 不跳变
@@ -712,22 +849,24 @@ module tb_transpose;
         $display("  n=+12 oct=0 : 不一致 %0d / %0d lane", bad, nchk);
 
         //  ⭐ 顺带验 `base_oct_r = 1/2`：⭐ 证明**八度移位确实进了乘法器**（⛔ 不是只走旁路）
+        //     ⭐⭐ P4-ROT32：⭐ 换档改走 `oct_switch`（⭐ 清零 → 松手 → 等静音 → 提交 → 重布）
+        //        ⇒ ⭐ **期望式 `exp_ph(P0[v], oct, idx)` 与改动前逐字相同** ✅
+        //        ⇒ ⭐ "八度移位确实进了乘法器"这条语义**原样保留**（⭐ 而且更直接：
+        //           ⭐ 重布后 `phase_r[v] == P0[v] << oct`，⭐ 见下面的新判据 ✅）
         for (oct = 1; oct <= 2; oct = oct + 1) begin
-            @(negedge clk);
-            base_semi   = (oct == 1) ? 7'd12 : 7'd24;
-            base_commit = 1'b1;
-            @(negedge clk);
-            base_commit = 1'b0;
-            repeat (40) @(negedge clk);
+            oct_switch((oct == 1) ? 7'd12 : 7'd24);
+            //  ⚠️ **2026-10-03 晚：⭐ 这里原来还有一条 ROT32 专用判据**
+            //     （⭐ "存储里确实存着移位后的值"：`phase_r[v] == P0[v] << oct`）
+            //     🔴 **ROT32 已按用户裁定【回退】**（⭐ 见 `files/20-代码/P4-base_g优化计划-20261003.md` §九）
+            //     ⇒ ⭐ 回退后的 `phase_r` 存的是**移位前**的值 ⇒ 🔴 那条判据**必然红**
+            //     ⇒ ⭐ **已删除**（⭐ 它只是 ROT32 的**附加证据**，⛔ 不是原有判据 ——
+            //        ⭐ 原有判据（`check_lanes`）**一条没动** ✅）
             check_lanes(5'd24, oct[1:0], bad, nchk);
             t2_bad = t2_bad + bad; t2_cases = t2_cases + 1;
             $display("  n=+12 oct=%0d : 不一致 %0d / %0d lane", oct, bad, nchk);
         end
-        //  ⭐ 回到 oct = 0
-        @(negedge clk);
-        base_semi = 7'd0; base_commit = 1'b1;
-        @(negedge clk);
-        base_commit = 1'b0;
+        //  ⭐ 回到 oct = 0（⭐ 同样走 `oct_switch`）
+        oct_switch(7'd0);
         repeat (40) @(negedge clk);
 
         //  ⭐ 其余四档：+7 · 0 · −7 · −12（⭐ 每档都等滑音走完 ✅）
@@ -776,12 +915,33 @@ module tb_transpose;
                 //  ⭐ 判据 ②：⭐ **证明门控真的起了作用** —— 若跟随，⭐ 输出本应是变调值
                 e2 = exp_ph(u_t3on.phase_r[v], 2'd0, semi + 5'd12);
                 if (e2 !== g2) t6_effect = t6_effect + 1;
-                //  ⭐ 判据 ③：⭐ `phase_tr` 里**确实存着**变调值 ⇒ ⭐ 是 mux 挡住的（⛔ 不是没算）
-                if (absdiff32(u_t3on.g_t3.phase_tr[v], e2) <= 1) t6_tr_ok = t6_tr_ok + 1;
+                //  ⭐ 判据 ③：⭐ **"变调确实被算出来了，只是没被采用"** ——
+                //     🔴 **2026-10-04 改口径**（⭐ 用户裁定「⭐ 最终效果没问题就行」＋ ⭐ 影子数组架构）：
+                //        ⚠️ 旧探针读 `g_t3.phase_tr[v]`，⭐ 而**影子版把源门控挪到写侧**
+                //        ⇒ ⭐ 被门控 lane 的 `phase_tr` 里存的是 **base**（⛔ 不是变调值）
+                //        ⇒ ⭐ 旧探针**必然红** —— ⚠️ 但它钉的是**实现方式**，⛔ 不是行为 ✅
+                //     ⭐ **等价探针**（⭐ 同一个意图、⭐ 换成**行为可观测**的写法）：⭐ 见下方轮询块 ✅
+                //     📌 判据 ①②（⭐ 输出逐位不变 ＋ 门控确实挡住了一个不同的值）**一字未改** ✅
             end else begin
                 t6_fol_n = t6_fol_n + 1;
                 e2 = exp_ph(u_t3on.phase_r[v], 2'd0, semi + 5'd12);
                 if (absdiff32(g2, e2) > 1) t6_bad_follow = t6_bad_follow + 1;
+            end
+        end
+        //  ⭐ 判据 ③（等价探针）：⭐ 轮转器**当前那一格**若落在**被门控**的 lane 上，
+        //     ⭐ 则 `prod_w>>>15`（变调值）与 `rot_base`（base）**必须不同**
+        //     ⇒ ⭐ 证明"变调真的算了，只是选择逻辑把它丢掉"（⭐ 与旧探针**同一个意图** ✅）
+        //   📌 为什么看"轮转器那一格"：⭐ 共享乘法器**每拍只算一个 lane**
+        //      ⇒ ⭐ 只有 `rot_cnt` 指到谁，⭐ 谁的值才"此刻可观测" ✅
+        //   ⚠️ `{17'd0, rot_base}` 是**零扩展到 49 位**（⭐ 与 `prod_w` 同宽 ⇒ ⭐ 比较才有意义 ✅）
+        t6_tr_seen = 0;
+        for (v = 0; v < 400; v = v + 1) begin
+            @(negedge clk);
+            if ((semi != 5'sd0) &&
+                ((u_t3on.src_r[u_t3on.g_t3.rot_cnt] == 3'd3) ||
+                 (u_t3on.src_r[u_t3on.g_t3.rot_cnt] == 3'd4))) begin
+                if ((u_t3on.g_t3.prod_w >>> 15) !== {17'd0, u_t3on.g_t3.rot_base})
+                    t6_tr_seen = t6_tr_seen + 1;
             end
         end
         $display("  src=3 lanes %0d · src=4 lanes %0d · src=0/1/2 lanes %0d (mismatch %0d) · gated mismatch %0d",
@@ -792,7 +952,7 @@ module tb_transpose;
         chk("T6: src=3/4 voices are bit-UNCHANGED (== phase_r, NOT transposed)", (t6_bad_gate == 0));
         chk("T6: src=0/1/2 voices DO follow the transposition (== ratio table)", (t6_bad_follow == 0));
         chk("T6 non-vacuous: gating really blocks a DIFFERENT value (transposed != base)", (t6_effect >= 1));
-        chk("T6: gated lanes DO hold the transposed value in phase_tr (mux blocked it)", (t6_tr_ok >= 1));
+        chk("T6: the rotator DOES compute a transposed value for gated lanes (the select discards it)", (t6_tr_seen >= 1));
         $display("  [非空洞性] 去掉源门控（恒走 phase_tr）⇒ 上面 T6 的判据必红");
 
         // ═══════════════════════════════════════════════════════════════════

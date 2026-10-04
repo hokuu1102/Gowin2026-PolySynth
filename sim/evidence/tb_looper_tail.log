@@ -2,62 +2,62 @@
      [prog] A start ax=0 P=70 R=2 H=100 F=2 s=37
      [prog] A note_on seen s=134 pos0=70
      [prog] A note_off seen s=2667
-     [prog] A release window done s=4667
-     [prog] A waveform done s=4667
-     [prog] B start s=4887 cnt=2 loop_len=186 ep_vel=81
-     [prog] B replay note_on seen s=4967
-     [prog] B replay note_off seen s=7500
+     [prog] A release window done s=2667
+     [prog] A waveform done s=2763
+     [prog] B start s=2983 cnt=2 loop_len=110 ep_vel=81
+     [prog] B replay note_on seen s=3067
+     [prog] B replay note_off seen s=5600
   [LIGHT  P70 ] ax=0 P=70 R=2 H=100 F=2 | pos@trig->vel_on=81 off_evt_vel=200
-     LIVE  vel@off=81 env@off=18666 tbr=3 rel=18666 smp | dur=2533 smp
+     LIVE  vel@off=81 env@off=0 tbr=3 rel=0 smp | dur=2533 smp
      REC   ep_vel=81
-     REPLAY vel@off=81 env@off=18666 tbr=3 rel=18666 smp | dur=2533 smp | upd_n=0 last=0
+     REPLAY vel@off=81 env@off=0 tbr=3 rel=0 smp | dur=2533 smp | upd_n=0 last=0
      DELTA vel=0 env=0 rel=0
-     [prog] A start ax=1 P=300 R=2 H=100 F=2 s=9531
-     [prog] A note_on seen s=9603 pos0=150
-     [prog] A note_off seen s=12161
-     [prog] A release window done s=14161
-     [prog] A waveform done s=14161
-     [prog] B start s=14381 cnt=2 loop_len=186 ep_vel=141
-     [prog] B replay note_on seen s=14442
-     [prog] B replay note_off seen s=17000
+     [prog] A start ax=1 P=300 R=2 H=100 F=2 s=5631
+     [prog] A note_on seen s=5703 pos0=150
+     [prog] A note_off seen s=8261
+     [prog] A release window done s=8261
+     [prog] A waveform done s=8357
+     [prog] B start s=8577 cnt=2 loop_len=110 ep_vel=141
+     [prog] B replay note_on seen s=8642
+     [prog] B replay note_off seen s=11200
   [NORMAL P300] ax=1 P=300 R=2 H=100 F=2 | pos@trig->vel_on=102 off_evt_vel=200
-     LIVE  vel@off=102 env@off=34343 tbr=3 rel=34343 smp | dur=2558 smp
+     LIVE  vel@off=102 env@off=0 tbr=3 rel=0 smp | dur=2558 smp
      REC   ep_vel=141
-     REPLAY vel@off=141 env@off=32430 tbr=3 rel=32446 smp | dur=2558 smp | upd_n=103 last=141
-     DELTA vel=39 env=-1913 rel=-1897
-     [prog] A start ax=2 P=744 R=4 H=100 F=2 s=19031
-     [prog] A note_on seen s=19103 pos0=186
-     [prog] A note_off seen s=21711
-     [prog] A release window done s=23711
-     [prog] A waveform done s=23711
-     [prog] B start s=23931 cnt=2 loop_len=188 ep_vel=255
-     [prog] B replay note_on seen s=23992
-     [prog] B replay note_off seen s=26600
+     REPLAY vel@off=141 env@off=0 tbr=3 rel=0 smp | dur=2558 smp | upd_n=103 last=141
+     DELTA vel=39 env=0 rel=0
+     [prog] A start ax=2 P=744 R=4 H=100 F=2 s=11231
+     [prog] A note_on seen s=11303 pos0=186
+     [prog] A note_off seen s=13911
+     [prog] A release window done s=13911
+     [prog] A waveform done s=14007
+     [prog] B start s=14227 cnt=2 loop_len=112 ep_vel=255
+     [prog] B replay note_on seen s=14292
+     [prog] B replay note_off seen s=16900
   [HARD   P744] ax=2 P=744 R=4 H=100 F=2 | pos@trig->vel_on=111 off_evt_vel=200
-     LIVE  vel@off=159 env@off=59939 tbr=3 rel=59939 smp | dur=2608 smp
+     LIVE  vel@off=159 env@off=0 tbr=3 rel=0 smp | dur=2608 smp
      REC   ep_vel=255
-     REPLAY vel@off=239 env@off=56810 tbr=3 rel=56810 smp | dur=2608 smp | upd_n=105 last=255
-     DELTA vel=80 env=-3129 rel=-3129
-     [prog] A start ax=3 P=744 R=4 H=100 F=6 s=28631
-     [prog] A note_on seen s=28703 pos0=186
-     [prog] A note_off seen s=31411
-     [prog] A release window done s=33411
-     [prog] A waveform done s=33411
-     [prog] B start s=33631 cnt=2 loop_len=192 ep_vel=255
-     [prog] B replay note_on seen s=33692
-     [prog] B replay note_off seen s=36400
+     REPLAY vel@off=239 env@off=0 tbr=3 rel=0 smp | dur=2608 smp | upd_n=105 last=255
+     DELTA vel=80 env=0 rel=0
+     [prog] A start ax=3 P=744 R=4 H=100 F=6 s=16931
+     [prog] A note_on seen s=17003 pos0=186
+     [prog] A note_off seen s=19711
+     [prog] A release window done s=19711
+     [prog] A waveform done s=19807
+     [prog] B start s=20027 cnt=2 loop_len=116 ep_vel=255
+     [prog] B replay note_on seen s=20092
+     [prog] B replay note_off seen s=22800
   [HARD slow-rel] ax=3 P=744 R=4 H=100 F=6 | pos@trig->vel_on=111 off_evt_vel=200
-     LIVE  vel@off=95 env@off=59838 tbr=3 rel=59838 smp | dur=2708 smp
+     LIVE  vel@off=95 env@off=0 tbr=3 rel=0 smp | dur=2708 smp
      REC   ep_vel=255
-     REPLAY vel@off=247 env@off=56809 tbr=3 rel=56865 smp | dur=2708 smp | upd_n=109 last=255
-     DELTA vel=152 env=-3029 rel=-2973
+     REPLAY vel@off=247 env@off=0 tbr=3 rel=0 smp | dur=2708 smp | upd_n=109 last=255
+     DELTA vel=152 env=0 rel=0
 == verdict ==
-     [dbg] worst env%=94  worst rel%=94
+     [dbg] worst env%=1000  worst rel%=1000
   ok  : tail: replay vel at note_off equals live vel at note_off (all gestures)
   ok  : tail: replayed env level at note_off is within 10 percent of the live one
   ok  : tail: replayed release duration is within 10 percent of the live one
   ok  : tail: every gesture matched between live and replay
 PASS: looper tail -- replayed PAD note releases like the live one
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_tail.sv:601: $finish called at 1536170000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_tail.sv:601: $finish called at 912170000 (1ps)
 
 

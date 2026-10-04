@@ -16,6 +16,19 @@ module tb_test_mode_top;
 
     top #(
         .PA_ON_AFTER_RESET     (0),
+        // ⭐⭐ 2026-10-04（合并 main 后）：⭐ **必须显式传 `TEST_MODE_EN(1)`**
+        //   🔴 为什么：⭐ `top.v` 的**交付默认值**现在是 **`0`**（正式码流 —— 整条 Test Mode
+        //      通路**不进网表**，⭐ 见 `top.v` 的 `TEST_MODE_EN` 说明 ＋
+        //      `evidence/h5/testmode1-18p181-55p198/README.md`）
+        //   ⭐ 而本 tb 的**全部判据**都建立在"**Test Mode 真的存在**"之上
+        //      （⭐ 它用**物理 UART 的 `M` 命令**去驱动 4/8/16/32 档 ✅）
+        //   ⇒ ⭐ 不传它 ⇒ 本 tb 会**整片假红**（⚠️ 不是功能坏了，⭐ 是配置不对）
+        //   📌 **两个配置都仍被覆盖**：
+        //      · `TEST_MODE_EN = 0`（⭐ 交付档）⇒ 由**其它所有顶层 tb** 覆盖
+        //        （`tb_top_m0` / `tb_top_sound` / `tb_top_led_strip` / … 都用默认值 ✅）
+        //      · `TEST_MODE_EN = 1`（⭐ 诊断档）⇒ ⭐ **由本 tb 覆盖** ✅
+        //   ⛔ 本改动**只改配置、⛔ 不改任何判据**（⭐ 5 条判据一字未动 ✅）
+        .TEST_MODE_EN          (1),
         .DEMO_CHORD_ON         (1), // instantiate the real sound chain
         .DEMO_NOTE_DELAY       (1_000_000), // keep demo notes out of this test
         .DEMO_HOLD_CYC         (1_000_000),

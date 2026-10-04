@@ -19,7 +19,8 @@
 
 param(
   [string]$GwSh = "C:\Gowin\Gowin_V1.9.12.03_x64\IDE\bin\gw_sh.exe",
-  [int]$BuildTimeoutSec = 1200
+  [int]$BuildTimeoutSec = 1200,
+  [switch]$KeepSyn
 )
 
 $ErrorActionPreference = "Continue"
@@ -96,6 +97,41 @@ $trTimePre = if (Test-Path $trPathPre) { (Get-Item $trPathPre).LastWriteTime } e
 #
 #   ✅ 修法：⭐ 不用管道，改成【重定向到文件】+ ⭐ 【硬超时】。
 #      超时后强杀 gw_sh —— 此时产物通常已落盘，由下面的【新鲜度检查】裁决成败。
+# ---- T2 (2026-10-03): wipe impl/gwsynthesis before synthesising ----
+#   WHY: `run all` (and `run syn`) write into impl/gwsynthesis and read back
+#   whatever is already there, so a resource number produced on top of a
+#   previous build's leftovers is not trustworthy for comparison.  This repo's
+#   own notes only obtained the clean figure AFTER wiping it (P5-1 ADSR share:
+#   T_Lut 37075 -> 31672).
+#
+#   MEASURED 2026-10-03 with Gowin V1.9.12.03, same RTL (the 2026-10-03
+#   tool-trap list, entry T2):
+#       clean       T_Lut 31672(889)   164.2 s / 177.1 s
+#       incremental T_Lut 31672(889)   164.8 s / 164.9 s
+#       leftovers from a DIFFERENT rtl revision (the 37075 design) also gave
+#       31672, and that run's console log was BYTE-IDENTICAL to the clean
+#       run's -- so on this toolchain the wipe costs ~nothing and gw_sh
+#       appears to re-synthesise fully either way.
+#   Default is therefore CLEAN (option (a) of T2): it is free, and it removes
+#   the whole class of "did the leftovers change the number?" doubt.
+#   -KeepSyn restores the old incremental behaviour AND shouts about it,
+#   because numbers produced that way must never go into a comparison table.
+#   Placed here (after the .gprj guard, just before the build) so that a build
+#   refused by the guard does not destroy the incremental state for nothing.
+$synDir = Join-Path $root "impl\gwsynthesis"
+if ($KeepSyn) {
+  Write-Host "WARN: -KeepSyn -- SYNTHESIS IS INCREMENTAL (impl/gwsynthesis was NOT wiped)." -ForegroundColor Yellow
+  Write-Host "WARN: the T_Lut / resource numbers from this run are NOT comparable with any other run." -ForegroundColor Yellow
+} else {
+  if (Test-Path $synDir) {
+    $nSyn = @(Get-ChildItem $synDir -Recurse -File -ErrorAction SilentlyContinue).Count
+    Remove-Item $synDir -Recurse -Force -ErrorAction SilentlyContinue
+    Write-Host "OK  wiped impl/gwsynthesis ($nSyn files) -- full synthesis, numbers are comparable" -ForegroundColor Green
+  } else {
+    Write-Host "OK  impl/gwsynthesis already absent (clean synthesis)" -ForegroundColor Green
+  }
+}
+
 $errLog = Join-Path $evDir "gowin_build.stderr.log"
 $gwProc = Start-Process -FilePath $GwSh -ArgumentList @("build_cli.tcl") `
                         -NoNewWindow -PassThru `
@@ -114,16 +150,37 @@ Write-Host "NOTE: gw_sh exit code = $code (informational only -- see the freshne
 # gw_sh sometimes does not exit on its own: give it a grace period, then kill
 # it.  Never let the script hang forever -- a hang yields NO evidence while
 # still looking like it is working.
-$stray = Get-Process gw_sh -ErrorAction SilentlyContinue
+#
+# T5 (2026-10-03): kill ONLY the process THIS script started ($gwProc, from
+#   Start-Process -PassThru), plus its own descendants.
+#
+#   The old code here was:
+#       Get-Process gw_sh -ErrorAction SilentlyContinue | Stop-Process -Force
+#   i.e. it killed EVERY gw_sh on the machine -- including a synthesis another
+#   agent was running at that very moment.  That really happened: a WS2812
+#   synthesis was killed by somebody else's gowin_build.ps1.
+#
+#   NEVER re-introduce a bare `Get-Process gw_sh | Stop-Process`.  Other
+#   agents' probes live in %TEMP% and their builds run in other directories;
+#   they are none of this script's business.
+$stray = $null
+try { $gwProc.Refresh(); if (-not $gwProc.HasExited) { $stray = $gwProc } } catch { $stray = $null }
 if ($stray) {
-  Write-Host "NOTE: gw_sh still alive after the pipe returned; waiting up to 30 s ..." -ForegroundColor Yellow
+  Write-Host "NOTE: OUR gw_sh (PID $($stray.Id)) is still alive after the build; waiting up to 30 s ..." -ForegroundColor Yellow
   $waited = 0
-  while ((Get-Process gw_sh -ErrorAction SilentlyContinue) -and $waited -lt 30) {
-    Start-Sleep -Seconds 1; $waited++
-  }
-  if (Get-Process gw_sh -ErrorAction SilentlyContinue) {
-    Write-Host "WARN: gw_sh did not exit after ${waited}s -- killing it (reports are already written)" -ForegroundColor Yellow
-    Get-Process gw_sh -ErrorAction SilentlyContinue | Stop-Process -Force
+  while ((-not $gwProc.WaitForExit(1000)) -and $waited -lt 30) { $waited++ }
+  try { $gwProc.Refresh() } catch {}
+  if (-not $gwProc.HasExited) {
+    Write-Host "WARN: OUR gw_sh (PID $($gwProc.Id)) did not exit after ${waited}s -- killing THAT PID (and its children) only" -ForegroundColor Yellow
+    $ownIds = @([int]$gwProc.Id)
+    # bounded descent: only processes whose parent chain starts at OUR PID
+    for ($pass = 0; $pass -lt 3; $pass++) {
+      $kids = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue |
+                Where-Object { ($ownIds -contains [int]$_.ParentProcessId) -and ($ownIds -notcontains [int]$_.ProcessId) })
+      if ($kids.Count -eq 0) { break }
+      $ownIds += @($kids | ForEach-Object { [int]$_.ProcessId })
+    }
+    foreach ($ownId in $ownIds) { Stop-Process -Id $ownId -Force -ErrorAction SilentlyContinue }
   }
 }
 
