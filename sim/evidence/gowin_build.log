@@ -171,7 +171,7 @@ WARN  (EX3791) : Expression size 24 truncated to fit in target size 16("C:\Users
 WARN  (EX3791) : Expression size 21 truncated to fit in target size 16("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\oscillator_bank.v":351)
 Compiling module 'wavetable_bank'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\wavetable_bank.v":16)
 Compiling module 'perc_env_bank(N_PERC=5)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\perc_env_bank.v":51)
-Compiling module 'tdm_render_mixer(RESERVED_N=5,OUTPUT_HEADROOM_SH=1)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v":50)
+Compiling module 'tdm_render_mixer(RESERVED_N=5,OUTPUT_HEADROOM_SH=2)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v":50)
 Compiling module 'master_mix'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\master_mix.v":39)
 Compiling module 'i2s_tx'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\i2s_tx.v":71)
 Compiling module 'i2s_tx(MSB_DELAY=0)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\i2s_tx.v":71)
@@ -243,5 +243,5 @@ Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.pin.html"
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.rpt.html" completed
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.rpt.txt" completed
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.tr.html" completed
-Mon Oct  5 06:00:27 2026
+Mon Oct  5 21:40:24 2026
 
