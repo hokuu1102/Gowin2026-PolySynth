@@ -41,5 +41,7 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_off_in_hold.sv:107: warning: I
 angling input port 24 (base_commit_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_off_in_hold.sv:107: warning: Instantiating module note_manager with d
 angling input port 25 (transpose_semi_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_off_in_hold.sv:107: warning: Instantiating module note_manager with d
+angling input port 26 (sus_pedal_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_off_in_hold.sv:131: warning: Instantiating module envelope_bank with 
 dangling input port 7 (timbre_i) floating.

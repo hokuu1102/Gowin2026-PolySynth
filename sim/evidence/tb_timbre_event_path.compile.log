@@ -38,3 +38,5 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_timbre_event_path.sv:112: warning
 h dangling input port 24 (base_commit_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_timbre_event_path.sv:112: warning: Instantiating module note_manager wit
 h dangling input port 25 (transpose_semi_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_timbre_event_path.sv:112: warning: Instantiating module note_manager wit
+h dangling input port 26 (sus_pedal_i) floating.

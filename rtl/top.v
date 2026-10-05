@@ -298,6 +298,9 @@ parameter integer TEST_MODE_EN       = 0,
 
     //  ⭐ 板载 S2 音色按键的**去抖时间**（⭐ 参数化 ⇒ ⭐ 仿真里能快速跑完整按键流程 ✅）
     parameter integer TIMBRE_BTN_DB_MS        = 5,
+    // ⭐⭐ 2026-10-04（T5）：⭐ **延音踏板去抖时间**（ms）—— ⭐ 与按键同一量级
+    //   ⚠️ 机械踏板（⭐ 尤其脚踏开关）抖动比按键大 ⇒ ⭐ 上板若发现"踩一下跳两下"就加大它 ✅
+    parameter integer PEDAL_DB_MS             = 5,
 
     // ═══════════════════════════════════════════════════════════════════════
     //  ⭐⭐ 2026-10-04：⭐ **T3 实时变调总闸**（⭐ 交付档 = **开**）
@@ -610,6 +613,62 @@ parameter integer TEST_MODE_EN       = 0,
         else if (cmd_timbre_req || timbre_btn_down)
             timbre_sel_r <= timbre_sel_r + 2'd1;
     end
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ 2026-10-04（T5）：⭐ **延音踏板**（⭐ `pedal_sus_i` = F18 · PMOD0 针 7 · 上拉、低有效）
+    //
+    //   ⭐ 链路（⭐ 与音色按键**同一套纪律**：⭐ **先同步、再去抖**）：
+    //      `pedal_sus_i`（板外异步）→ Z-safe 归一 → `sync_input`（打两拍）
+    //      → `debounce`（`PEDAL_DB_MS`，低有效）→ ⭐ `sus_pedal_r`（**1 = 踩住**）
+    //
+    //   ⚠️ **Z-safe（⭐ 关键，⛔ 否则要改 ~13 个例化 `top` 的 tb）**：
+    //      · 硬件：`PULL_MODE=UP` ⇒ 空闲 = 1、踩下 = 0
+    //      · 仿真：**未连接 ⇒ `Z`** ⇒ ⭐ 这里按"未踩(1)"处理（⭐ 用 `===` 判 `0`）
+    //      ⇒ ⭐ 现有 tb **一个都不用改** ✅（⭐ 与上面 `timbre_btn_s` **完全同款** ✅）
+    //
+    //   📌 **消费方**：⭐ `u_note_manager.sus_pedal_i`（⭐ 它在 `g_sound` 里读模块层这根线 ✅）
+    //   📌 本模块**不再把 `pedal_sus_i` 并进 `reserved_in_xor`** —— ⭐ 它现在有真消费者了 ✅
+    //      （⭐ 依据本文件末段 §"接入功能逻辑时"的纪律：⭐ 输入侧要把它从异或归并里摘掉 ✅）
+    //   ⚠️ 语义细节（⭐ 为什么只影响手弹、松踏板为什么是"全放"）⇒ 见 `note_manager.v` 的端口注释 ✅
+    // ═══════════════════════════════════════════════════════════════════════
+    wire pedal_sus_s = (pedal_sus_i === 1'b0) ? 1'b0 : 1'b1;   // ⭐ Z-safe：未连接按"未踩"
+    wire pedal_sus_sync;
+    wire sus_pedal_r;                                          // ⭐ 1 = 踩住（低有效已翻正）
+    sync_input #(
+        .W         (1),
+        .STAGES    (2),
+        .RESET_VAL (1'b1)
+    ) u_pedal_sus_sync (
+        .clk      (clk),
+        .rst_n    (rst_n_sync),
+        .async_in (pedal_sus_s),
+        .sync_out (pedal_sus_sync)
+    );
+    debounce #(
+        .NKEY       (1),
+        .CLK_HZ     (50_000_000),
+        .DB_MS      (PEDAL_DB_MS),
+        .ACTIVE_LOW (1)
+    ) u_pedal_sus_debounce (
+        .clk        (clk),
+        .rst_n      (rst_n_sync),
+        .key_in     (pedal_sus_sync),
+        .key_level  (sus_pedal_r),
+        .key_down   (),
+        .key_up     (),
+        .enc_a      (1'b1),
+        .enc_b      (1'b1),
+        .enc_sw     (1'b1),
+        .enc_a_lvl  (),
+        .enc_b_lvl  (),
+        .enc_sw_lvl (),
+        .enc_sw_down(),
+        .enc_sw_up  (),
+        .enc_cw     (),
+        .enc_ccw    (),
+        .enc_state  (),
+        .enc_err    ()
+    );
 
     // ═══════════════════════════════════════════════════════════════════════
     //  ⭐⭐ 2026-09-29：⭐ **鼓机节奏型寄存器**（⭐ 串口 `'D'` ⇒ 循环 `0→1→2→3→0`）
@@ -3953,6 +4012,10 @@ wire       fault_any_w;
             //      ⇒ ⭐ 综合资源应与"无 T3 基线"逐字相同（⭐ `T_Lut 37026`）✅
             //   📌 口径出处：⭐ `files/20-代码/T3-后续计划-20261003.md` §六 ✅
             .transpose_semi_i  (transpose_semi),
+        //  ⭐⭐ 2026-10-04（T5）：⭐ **延音踏板**（⭐ 1 = 踩住）
+        //     ⭐ 模块层已完成 **同步 + 去抖 + 低有效翻正**（⭐ 见上面 §延音踏板）✅
+        //     ⭐ 语义：⭐ 踩住期间手弹的 `note_off` 只关 gate、⛔ 不启动包络释放 ✅
+        .sus_pedal_i       (sus_pedal_r),
             // ⭐⭐ 力度修正通路 —— ⭐ **2026-09-28 改接【位置式力度流】**
             //
             //   ⭐ 三段历史（⭐ 都保留，⛔ 不删 —— 每一步都有依据）：
@@ -4768,9 +4831,14 @@ wire       fault_any_w;
     //      ⛔ 不与任何现有信号相连（⭐ 现有 tb 的判据不受影响）。
     // ═══════════════════════════════════════════════════════════════════════
 
-    // ── 11 个预留输入 · 异或归并（⭐ 预留，等控制板逻辑接入）─────────────────
+    // ── ⭐ 预留输入 · 异或归并（⭐ 预留，等控制板逻辑接入）───────────────────
+    //  ⭐⭐ 2026-10-04（T5）：⭐ **`pedal_sus_i` 已从本行【摘掉】** —— ⭐ 它现在有真消费者了
+    //     （⭐ `u_note_manager.sus_pedal_i`，见上面 §延音踏板）⇒ ⭐ 不再并进异或归并 ✅
+    //     📌 依据本文件末段 §"接入功能逻辑时"的纪律：⭐ "输入侧还要把它从
+    //        `reserved_in_xor` 里摘掉（交给新逻辑消费）" ✅
+    //     📌 因此本行从 **11 个** 输入变成 **10 个**（⭐ 下面注释里的数字同步更正 ✅）
     (* syn_keep = 1 *) wire reserved_in_xor = ^{ctrl_col_i, enc_a_i, enc_b_i, enc_sw_i,
-                                                pedal_sus_i, pedal_loop_rec_i,
+                                                pedal_loop_rec_i,
                                                 pedal_loop_play_i, esp_uart_rx_i};
 
     (* syn_keep = 1 *) reg  reserved_in_r;

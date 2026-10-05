@@ -185,6 +185,18 @@ module note_manager #(
     //   ⚠️ 位宽写死 **5 位有符号**（⭐ −12..+12 的补码范围 ✅；⛔ 不用 `integer` 参数 —— `K-91`）
     input  wire signed [4:0]                 transpose_semi_i,   // ⭐ 总半音偏移（⭐ −12..+12）
 
+    //  ⭐⭐ 2026-10-04（T5）：⭐ **延音踏板**（⭐ 高有效：1 = 踩住）
+    //     ⭐ 语义：⭐ 踩住期间 `note_off` **只关 gate、⛔ 不启动包络释放**（音保持 sustain）；
+    //        ⭐ 松开踏板 ⇒ ⭐ 所有被留住的音**同时释放** ✅
+    //     ⚠️ **只影响手弹**（`note_src_i == 0`）—— ⭐ 节拍器/鼓机/looper 回放的 `note_off`
+    //        照常释放（⭐ 否则会破坏节奏与鼓的衰减 ✅）
+    //     📌 顶层负责：⭐ 同步（`sync_input`）＋ 去抖（`debounce`）＋ **低有效翻正**
+    //        （⭐ 硬件 `PULL_MODE=UP` ⇒ 踩下 = 0；⭐ 见 `top.v`）
+    //     📌 端口默认悬空（⭐ 老例化不接）⇒ `Z` ⇒ ⚠️ 在本模块内**按"未踩"处理**：
+    //        下面所有判据都用 `sus_pedal_i === 1'b1`（⭐ `===` 能识别 `Z`/`X`，
+    //        ⛔ 普通 `==` 会得到 `x` 并传播 ⇒ 🔴 会把 `sus_hold_r` 变成 `x`）✅
+    input  wire                              sus_pedal_i,
+
     // ── 输出 → `oscillator_bank` / `envelope_bank` ─────────────────────────
     output wire [POLY_TARGET-1:0]            voice_gate_o,       // → envelope_bank.gate_i
     output wire [POLY_TARGET-1:0]            voice_active_o,     // → oscillator_bank.voice_active_i
@@ -485,6 +497,15 @@ module note_manager #(
     //      · gate_mask —— 对外门（重触发压低期间为 0，让 ADSR 看到下降沿）
     //      · live_mask —— **还能出声**（含 Release 尾巴 + 重触发保持）⇒ 给振荡器用
     //      · free_mask —— 完全空闲（⭐ 重触发保持**不算**空闲，否则会被别的轴抢走）
+    //  ⭐⭐ 2026-10-04（T5）：⭐ **延音踏板留音位**（⭐ 1 = 这个 voice 被踏板留住）
+    //     ⭐ 语义：⭐ `note_off` 时若踏板踩住 ⇒ 置 1 ⇒ `voice_gate_o` 仍为 1
+    //        ⇒ ⭐ 包络**停在 sustain、⛔ 不进入释放** ✅
+    //     ⭐ 清零（四条，缺一不可）：⭐ ① 复位 ② 松踏板（整条一起清）
+    //        ③ 重触发 ④ 提交分配 —— ⛔ 否则会叠音/挂音
+    //     ⚠️ **必须声明在 `gen_mask`（L505）之前** —— ⚠️ 它被 `live_mask` 引用，
+    //        而 Verilog ⛔ 不允许先引用后声明（`reg` 无前向引用）✅
+    reg  [POLY_TARGET-1:0] sus_hold_r;
+
     wire [POLY_TARGET-1:0] hold_mask;
     wire [POLY_TARGET-1:0] gate_mask;
     wire [POLY_TARGET-1:0] live_mask;
@@ -494,7 +515,7 @@ module note_manager #(
         for (mg = 0; mg < POLY_TARGET; mg = mg + 1) begin : gen_mask
             assign hold_mask[mg] = retrig_low[mg];
             assign gate_mask[mg] = gate_r[mg] & ~hold_mask[mg];
-            assign live_mask[mg] = gate_r[mg] | hold_mask[mg] | env_active_r[mg];
+            assign live_mask[mg] = gate_r[mg] | hold_mask[mg] | env_active_r[mg] | sus_hold_r[mg];
             assign free_mask[mg] = ~live_mask[mg];
         end
     endgenerate
@@ -848,10 +869,18 @@ module note_manager #(
             same_en_r     <= 1'b0;
             same_idx_r    <= {IDX_W{1'b0}};
             retrig_reset_r <= {POLY_TARGET{1'b0}};
+            sus_hold_r    <= {POLY_TARGET{1'b0}};   // ⭐ T5：延音踏板留音位复位（⛔ 不留 X）
             // ⭐⭐ 溢出指示：硬复位清（⚠️ 上电后是干净的；上板运行中要靠 clr 输入清）
             lost_cnt_r    <= {EVT_LOST_CNT_W{1'b0}};
             lost_sticky_r <= 1'b0;
         end else begin
+            //  ⭐⭐ 2026-10-04（T5）：⭐ **松开踏板 ⇒ 所有被留住的音同时释放** ✅
+            //     ⭐ 整条 `sus_hold_r` 一起清 ⇒ 下一拍 `voice_gate_o` 落 0 ⇒ 包络进释放 ✅
+            //     📌 电平写法（⛔ 不用边沿检测）：踏板未踩时恒清 ⇒ 与"上电未踩"同态 ✅
+            //     ⚠️ 与下面 `case` 里的**置位互斥**：置位要求 `sus_pedal_i === 1'b1` ✅
+            //     ⚠️ 用 `!==`（⛔ 不是 `==`）：悬空 `Z` / `X` 一律按"未踩" ⇒
+            //        老例化不接这个端口时**逐位零回归** ✅（`K-91` 同族的 Z-safe 纪律）
+            if (sus_pedal_i !== 1'b1) sus_hold_r <= {POLY_TARGET{1'b0}};
             alloc_valid_r <= 1'b0;
             //  ⭐⭐ **2026-09-28 修（B2「偶发尖音」的直接原因）**：
             //     `retrig_reset` 从【单拍脉冲】改成【保持到 `sample_tick` 才清】。
@@ -1054,6 +1083,8 @@ module note_manager #(
                     if (sample_tick_i) begin
                         gate_r[i]     <= 1'b1;
                         retrig_low[i] <= 1'b0;
+                        //  ⭐ T5：⭐ 重触发 ⇒ 新音接管 ⇒ **清掉旧的留音位**（⛔ 防叠音/挂音）
+                        sus_hold_r[i] <= 1'b0;
                     end
                 end
             end
@@ -1094,6 +1125,16 @@ module note_manager #(
                                 && (axis_r[i] == cur_axis)
                                 && (src_r[i]  == cur_src)) begin
                                 gate_r[i]     <= 1'b0;
+                                //  ⭐⭐ 2026-10-04（T5）：⭐ **踩住延音踏板 ⇒ 留住这个 voice** ✅
+                                //     ⭐ 只关 gate、⛔ 不启动包络释放 —— 由 `voice_gate_o` 的 OR 实现
+                                //        （⭐ `gate_r=0` 但 `sus_hold_r=1` ⇒ 包络看到的 gate 仍是 1
+                                //         ⇒ ⭐ 停在 sustain ✅）
+                                //     ⚠️ **只对【手弹】生效**：⭐ 节拍器/鼓机/looper 回放的 `note_off`
+                                //        照常释放（⭐ 与上面"只有 `cur_src == 3'd0` 才清力度目标"
+                                //        的口径一致 ✅）
+                                //     📌 用 `===`：⭐ 悬空 `Z` ⇒ 按"未踩" ⇒ 老 tb 逐位零回归 ✅
+                                if ((sus_pedal_i === 1'b1) && (cur_src == 3'd0))
+                                    sus_hold_r[i] <= 1'b1;
                                 //  ⭐⭐ **`note_off` 无条件优先**（2026-09-28 根因修复）：
                                 //     同时清掉"重触发压低"位 ⇒ (f) 段此后再不会把它抬回 1
                                 //     ⇒ ⛔ 彻底杜绝"清了又被拉回"的永久挂音。
@@ -1281,6 +1322,8 @@ module note_manager #(
                 ST_COMMIT2: begin
                     if (cmt_en_r) begin
                         gate_r[cmt_idx_r]   <= 1'b1;
+                        //  ⭐ T5：⭐ 新分配/接管 ⇒ 清掉旧的留音位（⛔ 防"上一个音的踏板留音"串到新音）
+                        sus_hold_r[cmt_idx_r] <= 1'b0;
                         axis_r[cmt_idx_r]   <= cmt_axis_r;
                         // ⭐ A1：来源标记与 `axis_r` **同一拍写同一个 voice**（⭐ 不可分离）
                         src_r[cmt_idx_r]    <= cmt_src_r;
@@ -1585,7 +1628,8 @@ module note_manager #(
         end
     endgenerate
 
-    assign voice_gate_o      = gate_mask;
+    assign voice_gate_o      = gate_mask | sus_hold_r;   // ⭐ T5：被踏板留住的音，包络看到的 gate 仍为 1
+                                                          //   ⇒ ⭐ 停在 sustain、⛔ 不进入释放（音不消失）✅
     assign voice_active_o    = live_mask;
     assign voice_releasing_o = live_mask & ~gate_mask;
     assign voice_retrig_reset_o = retrig_reset_r;

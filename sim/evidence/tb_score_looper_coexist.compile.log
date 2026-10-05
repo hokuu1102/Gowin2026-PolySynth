@@ -34,3 +34,5 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_score_looper_coexist.sv:280: warn
 with dangling input port 24 (base_commit_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_score_looper_coexist.sv:280: warning: Instantiating module note_manager 
 with dangling input port 25 (transpose_semi_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_score_looper_coexist.sv:280: warning: Instantiating module note_manager 
+with dangling input port 26 (sus_pedal_i) floating.

@@ -34,9 +34,13 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_no_leak.sv:168: warning: Insta
 ing input port 24 (base_commit_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_no_leak.sv:168: warning: Instantiating module note_manager with dangl
 ing input port 25 (transpose_semi_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_no_leak.sv:168: warning: Instantiating module note_manager with dangl
+ing input port 26 (sus_pedal_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_no_leak.sv:225: warning: Instantiating module note_manager with dangl
 ing input port 23 (base_semi_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_no_leak.sv:225: warning: Instantiating module note_manager with dangl
 ing input port 24 (base_commit_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_no_leak.sv:225: warning: Instantiating module note_manager with dangl
 ing input port 25 (transpose_semi_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_nm_no_leak.sv:225: warning: Instantiating module note_manager with dangl
+ing input port 26 (sus_pedal_i) floating.
