@@ -4289,7 +4289,7 @@ wire       fault_any_w;
             //  ⭐⭐ 2026-09-29 合并（⭐ 队友版）：⭐ **限幅器前留 6 dB 裕量**（⭐ `1` = −6.02 dB ✅）
             //   ⭐ 纯线性衰减：⭐ 保住 AKWF 样本 / 音色比 / 力度 / 失谐**全部不变** ✅
             //   🔴 为什么需要：⭐ AKWF 表**满幅** ⇒ 复音叠加会频繁触发软膝限幅 ⇒ ⭐ 音质变糙 ✅
-            .OUTPUT_HEADROOM_SH  (1)
+            .OUTPUT_HEADROOM_SH  (2)
         ) u_tdm_render_mixer (
             .clk_i            (clk),
             .rst_n_i          (rst_n_sync),
