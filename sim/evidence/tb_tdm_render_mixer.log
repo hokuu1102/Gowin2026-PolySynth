@@ -8,7 +8,7 @@
 == 3: single-voice mixing ==
      [sv] 2-lane 3000 @env0x8000 => 91904
   ok  : 2-lane 1000/2000 @env 0x8000 => 91904 (weighted (9L0+7L1)>>4, gain=64)
-     [dbgNorm] n_active_r=1 acc_env_r=32768 n_eff_r=1 gain_pow=64 gain_lvl=100 target=64 gain_r=64
+     [dbgNorm] n_active_r=1 acc_env_r=32768 n_eff_r=1 gain_pow=64 gain_lvl=115 target=64 gain_r=64
      [sv] 2-lane 1000/2000 @env0xFFFF => 183808
   ok  : full env => 183808 (weighted lane sum, gain=64)
   ok  : zero env => 0 (silence)
@@ -18,10 +18,10 @@
      [sv] neg 1000/2000 @env0xFFFF => -184064
   ok  : negative magnitude 184064 (weighted lane sum, gain=64)
 == 4: multi-voice summing (with 1/sqrt(N) normalization) ==
-     [sum] 1v=71808  2v=101070  3v=111210
+     [sum] 1v=71808  2v=101070  3v=124690
   ok  : summing is monotonic (more voices => louder)
   ok  : 2 voices => ~1.42x (sqrt(2) w/ fixed-point), NOT 2x  [power norm]
-  ok  : 3 voices: bounded below 80% FS (headroom-first; sqrt3 law relaxed by design)
+  ok  : 3 voices => ~1.73x (sqrt(3) w/ fixed-point), NOT 3x  [power norm]
   ok  : NORMALIZATION: 3 voices are NOT 3x (would clip)
   ok  : NORMALIZATION: 3 voices stay WITHIN signed24 (no clipping)
 == 5: max input, no wrap ==
@@ -40,13 +40,13 @@
   ok  : wide negative overflow clamps to soft-knee ceiling (no wrap)
 == 6: level-aware normalization (band-boundary stability) ==
   ok  : 3-voice full-env: output identical over 12 frames (no band flicker)
-     [lvlA] 3v full env => 3959934 (n_eff=3 gain=33)
+     [lvlA] 3v full env => 4439926 (n_eff=3 gain=37)
   ok  : 3-voice: gain band does NOT flip when envelope moves by 1 LSB
   ok  : N=1 full env: gain unchanged (=64, loudness preserved)
   ok  : N=2 full env: gain unchanged (=45, loudness preserved)
   ok  : N=4 full env: output stays below soft-knee ceiling
-     [lvlD] N=4 full env => 6553300 (gain=25)
+     [lvlD] N=4 full env => 7339696 (gain=28)
 PASS: tdm_render_mixer acceptance (T56) - all judgements held
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_tdm_render_mixer.sv:553: $finish called at 35200000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_tdm_render_mixer.sv:547: $finish called at 35200000 (1ps)
 
 

@@ -705,39 +705,39 @@ module tdm_render_mixer #(
     function [15:0] gain_lin_lut;
         input [LW:0] n;
         begin
-            // ⭐ A 方案（2026-10-06）：目标 100/n（原 115/n）
-            //   理由：115/n 在 N=3 时不生效（115/3=38 > sqrt(3)=37）⇒ 输出仍贴 86.7% 软膝；
-         //   改 100/n 后 N=3 生效（33 < 37）⇒ 输出 77.4%，余量 12%。单/双音不受影响。
+            // ⭐ 2026-10-06：A 方案（100/n）已【回退】—— 用户上板实测：降到 100/n 后症状仍在，
+            //   即 12% 余量也没治好 ⇒ 根因不在电平越界（测试 B 已证实是霍尔读数持续变化）。
+            //   故恢复 115/n，把 N≥3 的响度还给用户；C 方案（包络原子提交）保留。
             case (n)
                 6'd0:  gain_lin_lut = 16'd128;
-                6'd1:  gain_lin_lut = 16'd100;
-                6'd2:  gain_lin_lut = 16'd50;
-                6'd3:  gain_lin_lut = 16'd33;
-                6'd4:  gain_lin_lut = 16'd25;
-                6'd5:  gain_lin_lut = 16'd20;
-                6'd6:  gain_lin_lut = 16'd16;
-                6'd7:  gain_lin_lut = 16'd14;
-                6'd8:  gain_lin_lut = 16'd12;
-                6'd9:  gain_lin_lut = 16'd11;
-                6'd10: gain_lin_lut = 16'd10;
-                6'd11: gain_lin_lut = 16'd9;
-                6'd12: gain_lin_lut = 16'd8;
-                6'd13: gain_lin_lut = 16'd7;
-                6'd14: gain_lin_lut = 16'd7;
-                6'd15: gain_lin_lut = 16'd6;
-                6'd16: gain_lin_lut = 16'd6;
-                6'd17: gain_lin_lut = 16'd5;
-                6'd18: gain_lin_lut = 16'd5;
-                6'd19: gain_lin_lut = 16'd5;
+                6'd1:  gain_lin_lut = 16'd115;
+                6'd2:  gain_lin_lut = 16'd57;
+                6'd3:  gain_lin_lut = 16'd38;
+                6'd4:  gain_lin_lut = 16'd28;
+                6'd5:  gain_lin_lut = 16'd23;
+                6'd6:  gain_lin_lut = 16'd19;
+                6'd7:  gain_lin_lut = 16'd16;
+                6'd8:  gain_lin_lut = 16'd14;
+                6'd9:  gain_lin_lut = 16'd12;
+                6'd10: gain_lin_lut = 16'd11;
+                6'd11: gain_lin_lut = 16'd10;
+                6'd12: gain_lin_lut = 16'd9;
+                6'd13: gain_lin_lut = 16'd8;
+                6'd14: gain_lin_lut = 16'd8;
+                6'd15: gain_lin_lut = 16'd7;
+                6'd16: gain_lin_lut = 16'd7;
+                6'd17: gain_lin_lut = 16'd6;
+                6'd18: gain_lin_lut = 16'd6;
+                6'd19: gain_lin_lut = 16'd6;
                 6'd20: gain_lin_lut = 16'd5;
-                6'd21: gain_lin_lut = 16'd4;
-                6'd22: gain_lin_lut = 16'd4;
-                6'd23: gain_lin_lut = 16'd4;
+                6'd21: gain_lin_lut = 16'd5;
+                6'd22: gain_lin_lut = 16'd5;
+                6'd23: gain_lin_lut = 16'd5;
                 6'd24: gain_lin_lut = 16'd4;
                 6'd25: gain_lin_lut = 16'd4;
-                6'd26: gain_lin_lut = 16'd3;
-                6'd27: gain_lin_lut = 16'd3;
-                6'd28: gain_lin_lut = 16'd3;
+                6'd26: gain_lin_lut = 16'd4;
+                6'd27: gain_lin_lut = 16'd4;
+                6'd28: gain_lin_lut = 16'd4;
                 6'd29: gain_lin_lut = 16'd3;
                 6'd30: gain_lin_lut = 16'd3;
                 6'd31: gain_lin_lut = 16'd3;
