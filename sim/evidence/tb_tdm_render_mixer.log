@@ -8,7 +8,6 @@
 == 3: single-voice mixing ==
      [sv] 2-lane 3000 @env0x8000 => 91904
   ok  : 2-lane 1000/2000 @env 0x8000 => 91904 (weighted (9L0+7L1)>>4, gain=64)
-     [dbgNorm] n_active_r=1 acc_env_r=32768 n_eff_r=1 gain_pow=64 gain_lvl=115 target=64 gain_r=64
      [sv] 2-lane 1000/2000 @env0xFFFF => 183808
   ok  : full env => 183808 (weighted lane sum, gain=64)
   ok  : zero env => 0 (silence)
@@ -26,11 +25,11 @@
   ok  : NORMALIZATION: 3 voices stay WITHIN signed24 (no clipping)
 == 5: max input, no wrap ==
   ok  : max input stays POSITIVE (no wrap)
-  ok  : max input ????????????????????
-     [dbgMax] sSat=6291168 (鏈熸湜杞啙澶╄姳鏉?7864320) acc=68716331040 sh=1048528
+  ok  : max input clamps to soft-knee ceiling 0x780000 (not wrap)
+     [dbgMax] sSat=7864320 (鏈熸湜杞啙澶╄姳鏉?7864320) acc=68716331040 sh=1048528
   ok  : min input stays NEGATIVE (no wrap)
-     [dbgMin] sSat=-6291360 (鏈熸湜杞啙澶╄姳鏉?-7864320) acc=-68718428160 sh=-1048560
-  ok  : min input ????????????????????
+     [dbgMin] sSat=-7864320 (鏈熸湜杞啙澶╄姳鏉?-7864320) acc=-68718428160 sh=-1048560
+  ok  : min input clamps to soft-knee ceiling -0x780000 (not wrap)
 == 6: deadline_fault is sticky ==
   ok  : tight-deadline instance: fault set after one frame
   ok  : sticky: fault still 1 after several frames
@@ -38,15 +37,7 @@
 == 7: real saturation via wide samples ==
   ok  : wide positive overflow clamps to soft-knee ceiling (no wrap)
   ok  : wide negative overflow clamps to soft-knee ceiling (no wrap)
-== 6: level-aware normalization (band-boundary stability) ==
-  ok  : 3-voice full-env: output identical over 12 frames (no band flicker)
-     [lvlA] 3v full env => 4439926 (n_eff=3 gain=37)
-  ok  : 3-voice: gain band does NOT flip when envelope moves by 1 LSB
-  ok  : N=1 full env: gain unchanged (=64, loudness preserved)
-  ok  : N=2 full env: gain unchanged (=45, loudness preserved)
-  ok  : N=4 full env: output stays below soft-knee ceiling
-     [lvlD] N=4 full env => 7339696 (gain=28)
 PASS: tdm_render_mixer acceptance (T56) - all judgements held
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_tdm_render_mixer.sv:547: $finish called at 35200000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_tdm_render_mixer.sv:476: $finish called at 20920000 (1ps)
 
 

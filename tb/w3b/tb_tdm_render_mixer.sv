@@ -292,10 +292,6 @@ module tb_tdm_render_mixer;
         //         ⇒ ⭐ `gain = 88` 的标定前提**未被破坏**（⭐ 由 3b 的同相测量守着）。
         chk("2-lane 1000/2000 @env 0x8000 => 91904 (weighted (9L0+7L1)>>4, gain=64)",
             s1 === 24'sd91904);
-        // ⭐⭐ 2026-10-06 临时诊断（修法 3 调试用）：打印电平感知归一化的内部量
-        $display("     [dbgNorm] n_active_r=%0d acc_env_r=%0d n_eff_r=%0d gain_pow=%0d gain_lvl=%0d target=%0d gain_r=%0d",
-                 dut.n_active_r, dut.acc_env_r, dut.n_eff,
-                 dut.norm_gain_pow, dut.norm_gain_lvl, dut.norm_gain_target, dut.norm_gain_r);
 
         set_env(0, 16'hFFFF);
         run_frame_get(cyc);
@@ -393,8 +389,6 @@ module tb_tdm_render_mixer;
         chk("2 voices => ~1.42x (sqrt(2) w/ fixed-point), NOT 2x  [power norm]",
             s2 >= (s1 * 139) / 100 && s2 <= (s1 * 145) / 100);
         //   ③ ⭐ `3 voices ≈ 1.734 ×`（⭐ `3 × 74/128`）
-        //   📌 2026-10-06：A 方案（电平项 100/n）曾把此判据重述为"余量优先"，
-        //      但上板实测【症状仍在】⇒ A 已回退，此判据【恢复原样】。
         chk("3 voices => ~1.73x (sqrt(3) w/ fixed-point), NOT 3x  [power norm]",
             sN >= (s1 * 170) / 100 && sN <= (s1 * 177) / 100);
         //   ④ ⭐ **关键：⭐ 多音绝不能【线性翻倍】**（⭐ 那正是削顶的原因）
@@ -422,8 +416,8 @@ module tb_tdm_render_mixer;
         chk("max input stays POSITIVE (no wrap)", sSat > 24'sd0);
         //   ⭐ 2026-09-28：软膝阈值降到 7/8 ⇒ 天花板 = 7/8 + 1/16 = 15/16 = 0x780000
         //      （⛔ 不再到满幅 8388607 —— 那样会触发 off-by-one 的硬饱和折点 ⇒ 爆音）
-        chk("max input 被电平感知归一化压到软膝以下（符号正确且不超天花板）",
-            ((sSat > 24'sd0) && (sSat <= 24'sd7864320)));
+        chk("max input clamps to soft-knee ceiling 0x780000 (not wrap)",
+            sSat === 24'sd7864320);
         $display("     [dbgMax] sSat=%0d (期望软膝天花板 7864320) acc=%0d sh=%0d", sSat, dut.acc_r, dut.sh);
 
         clear_all;
@@ -437,8 +431,8 @@ module tb_tdm_render_mixer;
         chk("min input stays NEGATIVE (no wrap)", sSat < 24'sd0);
         $display("     [dbgMin] sSat=%0d (期望软膝天花板 -7864320) acc=%0d sh=%0d", sSat, dut.acc_r, dut.sh);
         //   ⭐ 2026-09-28：同上 —— 软膝天花板 −15/16 = −0x780000（⛔ 不再到负极小）。
-        chk("min input 被电平感知归一化压到软膝以下（符号正确且不超天花板）",
-            ((sSat < 24'sd0) && (sSat >= -24'sd7864320)));
+        chk("min input clamps to soft-knee ceiling -0x780000 (not wrap)",
+            sSat === -24'sd7864320);
 
         // ---- 6: sticky fault ----
         $display("== 6: deadline_fault is sticky ==");
@@ -473,71 +467,6 @@ module tb_tdm_render_mixer;
         wide_frame_get(cyc);
         chk("wide negative overflow clamps to soft-knee ceiling (no wrap)",
             wlatched === -24'sd7864320);
-
-        // ══════════════════════════════════════════════════════════════════════
-        // == 6: 修法 3（电平感知归一化）—— 档位边界稳定性 + 响度不变
-        //
-        //  🔴 上板症状（用户实测）：音色 0(BASS)/3(PAD) 在 3 个及以上复音长按时，
-        //     **随机**出现轻微爆破声；16 复音反而轻；单/双音没有。
-        //  ⭐ 根因（量化）：3 声部满包络时 Σenv = 3×65535 = 196605，
-        //     而 gain_lin_lut 的 2→3 档边界 = 3×65536 = 196608 ⇒ **只差 3**
-        //     ⇒ 包络任何微起伏都让 n_eff 在 2/3 间翻 ⇒ 增益 54↔36 猛跳(−33%) ⇒ 爆破。
-        //  ✅ 修法：n_eff 加 ±1/4 声部迟滞 ⇒ 边界不再抖。
-        // ══════════════════════════════════════════════════════════════════════
-        begin : lvl_aware
-            integer k, prev_s, stable;
-            $display("== 6: level-aware normalization (band-boundary stability) ==");
-
-            // 6a ⭐ 3 声部满包络（Σenv 正好压在 2→3 档边界下沿）⇒ 12 帧输出必须逐帧相同
-            clear_all;
-            for (i = 0; i < 3; i = i + 1) begin
-                set_lane(i, 0, 16'sd20000);
-                set_lane(i, 1, 16'sd20000);
-                set_env (i, 16'hFFFF);
-            end
-            prev_s = 0; stable = 1;
-            for (k = 0; k < 12; k = k + 1) begin
-                run_frame_get(cyc);
-                if (k > 0 && latched !== prev_s) stable = 0;
-                prev_s = latched;
-            end
-            chk("3-voice full-env: output identical over 12 frames (no band flicker)", stable);
-            $display("     [lvlA] 3v full env => %0d (n_eff=%0d gain=%0d)", prev_s, dut.n_eff, dut.norm_gain_r);
-
-            // 6b ⭐ 边界微动：包络动 1 LSB ⇒ n_eff 不许翻档（迟滞的直接证据）
-            clear_all;
-            set_lane(0, 0, 16'sd20000); set_lane(0, 1, 16'sd20000);
-            set_lane(1, 0, 16'sd20000); set_lane(1, 1, 16'sd20000);
-            set_lane(2, 0, 16'sd20000); set_lane(2, 1, 16'sd20000);
-            set_env(0, 16'hFFFF); set_env(1, 16'hFFFF); set_env(2, 16'hFFFE);
-            run_frame_get(cyc);                       // 先建起 n_eff_r 状态
-            set_env(2, 16'hFFFF);                     // 只动 1 LSB
-            run_frame_get(cyc);
-            chk("3-voice: gain band does NOT flip when envelope moves by 1 LSB", dut.n_eff === 3);
-
-            // 6c ⭐ 响度不变：N=1 / N=2 满包络 ⇒ 增益必须仍是 gain_sqrt_lut 的值（64 / 45）
-            clear_all;
-            set_lane(0, 0, 16'sd20000); set_lane(0, 1, 16'sd20000);
-            set_env (0, 16'hFFFF);
-            run_frame_get(cyc);
-            chk("N=1 full env: gain unchanged (=64, loudness preserved)", dut.norm_gain_r === 16'd64);
-            set_lane(1, 0, 16'sd20000); set_lane(1, 1, 16'sd20000);
-            set_env (1, 16'hFFFF);
-            run_frame_get(cyc);
-            chk("N=2 full env: gain unchanged (=45, loudness preserved)", dut.norm_gain_r === 16'd45);
-
-            // 6d ⭐ 高包络多复音必须被压到软膝以下
-            clear_all;
-            for (i = 0; i < 4; i = i + 1) begin
-                set_lane(i, 0, 16'sd32767);
-                set_lane(i, 1, 16'sd32767);
-                set_env (i, 16'hFFFF);
-            end
-            run_frame_get(cyc);
-            chk("N=4 full env: output stays below soft-knee ceiling",
-                (latched > 0) && (latched < 24'sd7864320));
-            $display("     [lvlD] N=4 full env => %0d (gain=%0d)", latched, dut.norm_gain_r);
-        end
 
         if (errors == 0)
             $display("PASS: tdm_render_mixer acceptance (T56) - all judgements held");

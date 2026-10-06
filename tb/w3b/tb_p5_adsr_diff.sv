@@ -141,25 +141,16 @@ module tb_p5_adsr_diff;
             snap_new_act = ref_act;
 
             for (c = 1; c <= CYCLES; c = c + 1) begin
-                // ⭐⭐ 2026-10-06 **契约更新（C 方案：原子提交）**
-                //
-                //  🔴 旧契约（本测试原来断言的）：`env_level_o` **逐拍落盘**
-                //     —— voice v 在 `c = 3+v` 换成新值 ⇒ 轮转期间总线是
-                //     "新帧 + 旧帧"的**混合**。那正是导致"高 sustain 音色在多音时
-                //     出现收音机滋滋声"的根因（幅度突跳顶到软限幅）。
-                //
-                //  ✅ 新契约（本测试现在断言，**比旧契约更强**）：
-                //     · 轮转期间（`c <= 33`）：整条总线必须**逐位等于上一整帧**
-                //       ⇒ ⛔ **任何 voice 都不许提前换新值**（混合即失败）
-                //     · 轮转结束后第一拍（`c >= 34`）：整条总线**原子**变成新一整帧
-                //     📌 也就是说：消费者**任何时刻读到的都是一整帧**，
-                //        "新旧混合"在结构上不可能出现 ✅
-                if (c >= 34) begin
-                    expect_lvl = snap_new;
-                    expect_act = snap_new_act;
-                end else begin
-                    expect_lvl = snap_old;
-                    expect_act = snap_old_act;
+                expect_lvl = {POLY*ENV_W{1'b0}};
+                expect_act = {POLY{1'b0}};
+                for (v = 0; v < POLY; v = v + 1) begin
+                    if (c >= 3 + v) begin
+                        expect_lvl[v*ENV_W +: ENV_W] = snap_new[v*ENV_W +: ENV_W];
+                        expect_act[v]                = snap_new_act[v];
+                    end else begin
+                        expect_lvl[v*ENV_W +: ENV_W] = snap_old[v*ENV_W +: ENV_W];
+                        expect_act[v]                = snap_old_act[v];
+                    end
                 end
                 cycle_cmps = cycle_cmps + 1;
                 if (new_lvl !== expect_lvl || new_act !== expect_act) begin
