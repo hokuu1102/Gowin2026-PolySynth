@@ -1,0 +1,43 @@
+﻿ERROR [tdm_render_mixer] POLY_TARGET+2=34 > RENDER_DEADLINE_CYC=4 => 姣忓抚閮戒細瓒呮椂锛圓6 澶辨晥锛?
+== 1: deadline_fault stays 0 (A6) ==
+  ok  : worst case 5 frames: deadline_fault stays 0
+== 2: one dry_valid per frame, fixed latency ==
+  ok  : exactly 1 dry_valid pulse per frame
+  ok  : latency identical across two frames (determinism)
+  ok  : latency is a fixed POLY_TARGET+7 (incl. 3-stage norm + registered output)
+== 3: single-voice mixing ==
+     [sv] 2-lane 3000 @env0x8000 => 4308
+  FAIL: 2-lane 1000/2000 @env 0x8000 => 91904 (weighted (9L0+7L1)>>4, gain=64)
+     [sv] 2-lane 1000/2000 @env0xFFFF => 183808
+  ok  : full env => 183808 (weighted lane sum, gain=64)
+  ok  : zero env => 0 (silence)
+     [wgt] same-phase = 383872   anti-phase = 47872
+  ok  : WEIGHT: anti/same ~= 1/8 (=-18 dB) => the beat no longer cancels to ZERO
+  ok  : negative input => negative output (signed ok)
+     [sv] neg 1000/2000 @env0xFFFF => -184064
+  ok  : negative magnitude 184064 (weighted lane sum, gain=64)
+== 4: multi-voice summing (with 1/sqrt(N) normalization) ==
+     [sum] 1v=71808  2v=101070  3v=124690
+  ok  : summing is monotonic (more voices => louder)
+  ok  : 2 voices => ~1.42x (sqrt(2) w/ fixed-point), NOT 2x  [power norm]
+  ok  : 3 voices => ~1.73x (sqrt(3) w/ fixed-point), NOT 3x  [power norm]
+  ok  : NORMALIZATION: 3 voices are NOT 3x (would clip)
+  ok  : NORMALIZATION: 3 voices stay WITHIN signed24 (no clipping)
+== 5: max input, no wrap ==
+  ok  : max input stays POSITIVE (no wrap)
+  ok  : max input clamps to soft-knee ceiling 0x780000 (not wrap)
+     [dbgMax] sSat=7864320 (鏈熸湜杞啙澶╄姳鏉?7864320) acc=68716331040 sh=1048528
+  ok  : min input stays NEGATIVE (no wrap)
+     [dbgMin] sSat=-6291360 (鏈熸湜杞啙澶╄姳鏉?-7864320) acc=-68718428160 sh=-1048560
+  FAIL: min input clamps to soft-knee ceiling -0x780000 (not wrap)
+== 6: deadline_fault is sticky ==
+  ok  : tight-deadline instance: fault set after one frame
+  ok  : sticky: fault still 1 after several frames
+  ok  : fault clears only on reset
+== 7: real saturation via wide samples ==
+  ok  : wide positive overflow clamps to soft-knee ceiling (no wrap)
+  ok  : wide negative overflow clamps to soft-knee ceiling (no wrap)
+FATAL: C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_tdm_render_mixer.sv:474: FAIL: tdm_render_mixer acceptance has 2 error(s)
+       Time: 20720000  Scope: tb_tdm_render_mixer
+
+
