@@ -36,5 +36,5 @@ C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_t
 t_tx_fifo inherited from another file.
 C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is 
 here.
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v:530: warning: @* is sensit
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v:536: warning: @* is sensit
 ive to all 16 words in array 'pc_l1'.

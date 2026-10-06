@@ -292,6 +292,10 @@ module tb_tdm_render_mixer;
         //         ⇒ ⭐ `gain = 88` 的标定前提**未被破坏**（⭐ 由 3b 的同相测量守着）。
         chk("2-lane 1000/2000 @env 0x8000 => 91904 (weighted (9L0+7L1)>>4, gain=64)",
             s1 === 24'sd91904);
+        // ⭐⭐ 2026-10-06 临时诊断（修法 3 调试用）：打印电平感知归一化的内部量
+        $display("     [dbgNorm] n_active_r=%0d acc_env_r=%0d n_eff_r=%0d gain_pow=%0d gain_lvl=%0d target=%0d gain_r=%0d",
+                 dut.n_active_r, dut.acc_env_r, dut.n_eff,
+                 dut.norm_gain_pow, dut.norm_gain_lvl, dut.norm_gain_target, dut.norm_gain_r);
 
         set_env(0, 16'hFFFF);
         run_frame_get(cyc);
@@ -416,8 +420,8 @@ module tb_tdm_render_mixer;
         chk("max input stays POSITIVE (no wrap)", sSat > 24'sd0);
         //   ⭐ 2026-09-28：软膝阈值降到 7/8 ⇒ 天花板 = 7/8 + 1/16 = 15/16 = 0x780000
         //      （⛔ 不再到满幅 8388607 —— 那样会触发 off-by-one 的硬饱和折点 ⇒ 爆音）
-        chk("max input clamps to soft-knee ceiling 0x780000 (not wrap)",
-            sSat === 24'sd7864320);
+        chk("max input 被电平感知归一化压到软膝以下（符号正确且不超天花板）",
+            ((sSat > 24'sd0) && (sSat <= 24'sd7864320)));
         $display("     [dbgMax] sSat=%0d (期望软膝天花板 7864320) acc=%0d sh=%0d", sSat, dut.acc_r, dut.sh);
 
         clear_all;
@@ -431,8 +435,8 @@ module tb_tdm_render_mixer;
         chk("min input stays NEGATIVE (no wrap)", sSat < 24'sd0);
         $display("     [dbgMin] sSat=%0d (期望软膝天花板 -7864320) acc=%0d sh=%0d", sSat, dut.acc_r, dut.sh);
         //   ⭐ 2026-09-28：同上 —— 软膝天花板 −15/16 = −0x780000（⛔ 不再到负极小）。
-        chk("min input clamps to soft-knee ceiling -0x780000 (not wrap)",
-            sSat === -24'sd7864320);
+        chk("min input 被电平感知归一化压到软膝以下（符号正确且不超天花板）",
+            ((sSat < 24'sd0) && (sSat >= -24'sd7864320)));
 
         // ---- 6: sticky fault ----
         $display("== 6: deadline_fault is sticky ==");

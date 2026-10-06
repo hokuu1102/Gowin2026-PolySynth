@@ -286,6 +286,34 @@ module tdm_render_mixer #(
     reg signed [ACC_W-1:0]  acc_r;
 
     // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ 2026-10-06（修法 3）：**电平感知归一化**（治"3+ 复音 × 高持续比音色"的软限幅爆破音）
+    //
+    //  🔴 量化根因（推导）：
+    //     `sh24 = acc >> 8`、`acc = Σ(vs_c × env_c)`、`vs_c ≤ 32767`
+    //     ⇒ `sh24_max = 128 × Σenv`
+    //     ⇒ 限幅器看到 = `sh24 × gain / 128` = ⭐ **`Σenv × gain`**
+    //     而 `gain(N) = 64/√N` ⇒ 该值 = `√N × 0.5 × 2^23`
+    //     ⇒ N=3 已 **86.7%**（正好踩 87.5% 软膝）、N≥4 超 100%
+    //     ⇒ 与用户"3 个及以上"完全吻合；高持续比音色 Σenv 更大 ⇒ 先踩线 ⇒ 只有 BASS/PAD ✅
+    //
+    //  ✅ 修法：`gain = min( 64/√N , TARGET / Σenv )`，TARGET ≈ 0.85 × 2^23
+    //     因 `Σenv = n_eff × 65536`，第二项 = `108/n_eff` ⇒ 一张 33 项表，⛔ 无除法器
+    //  📌 低包络（GUITAR/PIANO 衰减后）与单音/双音 ⇒ 第二项不生效 ⇒ **响度不变** ✅
+    // ═══════════════════════════════════════════════════════════════════════
+    localparam integer ACC_ENV_W = ENV_W + 1 + LW + 1;
+    // ⚠️ **必须用 `voice_active_i[cnt_sel]` 门控**：未在发声的 voice 其 `env_level`
+    //    可能残留非零（例如刚释放完还没归零）⇒ 若全累加 ⇒ `Σenv` 偏大 ⇒ **增益降过头**。
+    //    📌 这与上面 popcount 排除保留池是同一类纪律：**只统计真正在发声的声部**。
+    wire [ENV_W:0] env_gated = voice_active_i[cnt_sel] ? env_s : {(ENV_W+1){1'b0}};
+    reg  [ENV_W:0]       env_s_r;
+    reg  [ACC_ENV_W-1:0] acc_env_r;
+    // ⚠️ **不要**再加 `n_eff_r` 寄存器：那会在帧边界锁存【上一帧】的 Σenv，
+    //    而 tb 的每个用例只跑一帧 ⇒ 会读到【上一个用例残留的值】
+    //    （实测 n_eff_r=31 ⇒ gain_lin_lut(31)=3 ⇒ 增益塌到 3）。
+    // ✅ 直接取**本帧累加完**的 `acc_env_r` 高位 —— 与 `acc_r` 同源同帧，不可能串扰。
+    wire [LW:0] n_eff = acc_env_r[ACC_ENV_W-1:ENV_W];
+
+    // ═══════════════════════════════════════════════════════════════════════
     // ⑤ 超时检测（**sticky**）
     // ═══════════════════════════════════════════════════════════════════════
     reg fault_r;
@@ -297,6 +325,8 @@ module tdm_render_mixer #(
             valid_r  <= 1'b0;
             prod_r   <= {PROD_W{1'b0}};
             acc_r    <= {ACC_W{1'b0}};
+            env_s_r  <= {(ENV_W+1){1'b0}};
+            acc_env_r<= {ACC_ENV_W{1'b0}};
             fault_r  <= 1'b0;
         end else begin
             valid_r <= 1'b0;
@@ -307,13 +337,19 @@ module tdm_render_mixer #(
                 busy   <= 1'b1;
                 acc_r  <= {ACC_W{1'b0}};
                 prod_r <= {PROD_W{1'b0}};
+                // ⭐⭐ 修法 3：在帧边界把【上一帧的 Σenv】锁存成 `n_eff`（与 `n_active_r` 同时刻）
+                acc_env_r <= {ACC_ENV_W{1'b0}};
             end else if (busy) begin
                 // ⭐ 累加**上一拍**的乘积（乘法器输出已寄存）
-                if (cnt >= 1 && cnt <= CNT_LAST)
-                    acc_r <= acc_r + prod_r;
+                if (cnt >= 1 && cnt <= CNT_LAST) begin
+                    acc_r     <= acc_r + prod_r;
+                    // ⭐⭐ 修法 3：同一拍顺带累加包络（零额外加法树）
+                    acc_env_r <= acc_env_r + env_s_r;
+                end
 
                 // ⭐ 乘法器输入用**当前** `cnt`（下一拍 `prod_r` 就是它的结果）
-                prod_r <= prod_c;
+                prod_r  <= prod_c;
+                env_s_r <= env_gated;      // ⭐ 与 `prod_r` 同拍（且只统计活跃 voice）
 
                 if (cnt == CNT_TOTAL[LW:0]) begin
                     // ⭐ 全部完成：本拍 `acc_r` 已含最后一个乘积（上面刚加过）
@@ -632,11 +668,65 @@ module tdm_render_mixer #(
         end
     endfunction
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ 2026-10-06（修法 3）：**电平感知增益表**
+    //
+    //  `n_eff = Σenv >> 16` = "等效满包络声部数"（每档 = 一个满包络 voice）
+    //  本表给出 `TARGET / Σenv` 的定点值（`TARGET ≈ 0.85 × 2^23` ⇒ `≈ 108 / n_eff`）
+    //  ⭐ 取 `min` 时与 `gain_sqrt_lut` 配合：
+    //     · 低包络（GUITAR/PIANO 衰减后）⇒ `n_eff` 小 ⇒ 本表值大 ⇒ **不生效**（响度不变）
+    //     · 高包络 × 多复音 ⇒ `n_eff` 大 ⇒ 本表值小 ⇒ **生效**（不越界）
+    //  📌 33 项常量表 ⇒ 综合成 LUT，⛔ 不占 BRAM、⛔ 不要除法器
+    // ═══════════════════════════════════════════════════════════════════════
+    function [15:0] gain_lin_lut;
+        input [LW:0] n;
+        begin
+            case (n)
+                6'd0:  gain_lin_lut = 16'd128;   // 无 voice（增益无意义）
+                6'd1:  gain_lin_lut = 16'd108;
+                6'd2:  gain_lin_lut = 16'd54;
+                6'd3:  gain_lin_lut = 16'd36;
+                6'd4:  gain_lin_lut = 16'd27;
+                6'd5:  gain_lin_lut = 16'd21;
+                6'd6:  gain_lin_lut = 16'd18;
+                6'd7:  gain_lin_lut = 16'd15;
+                6'd8:  gain_lin_lut = 16'd13;
+                6'd9:  gain_lin_lut = 16'd12;
+                6'd10: gain_lin_lut = 16'd10;
+                6'd11: gain_lin_lut = 16'd9;
+                6'd12: gain_lin_lut = 16'd9;
+                6'd13: gain_lin_lut = 16'd8;
+                6'd14: gain_lin_lut = 16'd7;
+                6'd15: gain_lin_lut = 16'd7;
+                6'd16: gain_lin_lut = 16'd6;
+                6'd17: gain_lin_lut = 16'd6;
+                6'd18: gain_lin_lut = 16'd6;
+                6'd19: gain_lin_lut = 16'd5;
+                6'd20: gain_lin_lut = 16'd5;
+                6'd21: gain_lin_lut = 16'd5;
+                6'd22: gain_lin_lut = 16'd4;
+                6'd23: gain_lin_lut = 16'd4;
+                6'd24: gain_lin_lut = 16'd4;
+                6'd25: gain_lin_lut = 16'd4;
+                6'd26: gain_lin_lut = 16'd4;
+                6'd27: gain_lin_lut = 16'd4;
+                6'd28: gain_lin_lut = 16'd3;
+                6'd29: gain_lin_lut = 16'd3;
+                6'd30: gain_lin_lut = 16'd3;
+                6'd31: gain_lin_lut = 16'd3;
+                default: gain_lin_lut = 16'd3;
+            endcase
+        end
+    endfunction
+
     //   ⭐ **寄存器级 B**：查表结果锁存（⭐ 切断"查表 → 乘法"这一段）
     //      📌 查表本身是 LUT（⭐ 浅），⚠️ 但因为它**跟在 popcount 后面**，
     //         🔴 不切的话会和乘法器+R 连成一条长路。
     reg [15:0] norm_gain_r;
-    wire [15:0] norm_gain_target = gain_sqrt_lut(n_active_r);
+    // ⭐⭐ 修法 3：取"按声部数"与"按实际包络电平"两者的**较小**
+    wire [15:0] norm_gain_pow = gain_sqrt_lut(n_active_r);
+    wire [15:0] norm_gain_lvl = gain_lin_lut(n_eff);
+    wire [15:0] norm_gain_target = (norm_gain_lvl < norm_gain_pow) ? norm_gain_lvl : norm_gain_pow;
     localparam [15:0] NORM_GAIN_STEP_W = NORM_GAIN_STEP;
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
