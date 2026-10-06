@@ -30,5 +30,7 @@ her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_base_semi.sv:93: warning: Instantiating module note_manager with danglin
 g input port 25 (transpose_semi_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_base_semi.sv:93: warning: Instantiating module note_manager with danglin
+g input port 26 (sus_pedal_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_base_semi.sv:133: warning: Instantiating module envelope_bank with dangl
 ing input port 7 (timbre_i) floating.

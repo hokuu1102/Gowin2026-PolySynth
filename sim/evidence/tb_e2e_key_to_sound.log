@@ -15,9 +15,9 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
   [demo ] demo chord fully settled after 4 round(s) (~8 ms)
   [idleb] pos[0]=0  nm_gate=0x00000000  normal_held=0  n_on=0  env[0]=50988
   ok  : no key pressed => W3a starts NO new note (n_on unchanged)
-  [idle ] HP_DIN toggles = 520  (threshold 800)
+  [idle ] HP_DIN toggles = 492  (threshold 800)
   ok  : no key pressed => HP_DIN is essentially quiet (demo tail allowed)
-  [press] HP_DIN toggles = 2857
+  [press] HP_DIN toggles = 2673
   ok  : pressing (left board reads RAW_DOWN) => HP_DIN carries audio
   [samp ] 4 keys => voices 11/12/13/14  phases 0174073a 0127476d 0107104e 0138d653
   [samp ] pos[9]=745 pos[12]=748 pos[13]=749 pos[15]=751
@@ -26,14 +26,14 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
   [samp ] released; refract now counts down during criteria 3~6
   [vel  ] pos[0]=744  max(vel_r)=255  (pos_to_vel(744)=71)
   ok  : vel_r FOLLOWS pos end-to-end (press => vel reaches the pos-mapped value)
-  [relA ] env_level[0] = 46890   HP_DIN toggles = 534
-  [relB ] env_level[0] = 44898   HP_DIN toggles = 547
+  [relA ] env_level[0] = 46890   HP_DIN toggles = 502
+  [relB ] env_level[0] = 44898   HP_DIN toggles = 516
   [evts ] total note_on=13  note_off=13
   [gate ] nm_gate[15:0] = 0000000000000000
   ok  : after note_off the envelope is DECAYING (release path works)
   [note ] release is ~0.45 s; this tb only waits 80 ms by design
   ok  : a note_off was produced by the release (distinguishes the two failure modes)
-  [right] HP_DIN toggles = 2945
+  [right] HP_DIN toggles = 2757
   ok  : pressing the right board => also sounds
   ok  : no X propagated on HP_DIN after reset release
   [pos  ] idle = 0   pressed = 744

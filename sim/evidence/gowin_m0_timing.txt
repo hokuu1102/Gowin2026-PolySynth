@@ -8,9 +8,9 @@ Slow 0.93V 0C C1/I0 |
 Hold Delay Model |
 Fast 0.975V 85C C1/I0 |
 Numbers of Paths Analyzed |
-50306 |
+50446 |
 Numbers of Endpoints Analyzed |
-52572 |
+52722 |
 Numbers of Falling Endpoints |
 26 |
 Numbers of Setup Violated Endpoints |
@@ -74,6 +74,6 @@ Entity |
 1 |
 clk_sys |
 50.000(MHz) |
-56.351(MHz) |
-12 |
+56.645(MHz) |
+11 |
 TOP |

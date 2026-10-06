@@ -34,6 +34,8 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:126: warning: Ins
 gling input port 24 (base_commit_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:126: warning: Instantiating module note_manager with dan
 gling input port 25 (transpose_semi_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:126: warning: Instantiating module note_manager with dan
+gling input port 26 (sus_pedal_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:164: warning: Instantiating module envelope_bank with da
 ngling input port 7 (timbre_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:204: warning: Instantiating module oscillator_bank with 
@@ -48,6 +50,8 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:240: warning: Ins
 gling input port 24 (base_commit_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:240: warning: Instantiating module note_manager with dan
 gling input port 25 (transpose_semi_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:240: warning: Instantiating module note_manager with dan
+gling input port 26 (sus_pedal_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:283: warning: Instantiating module note_manager with dan
 gling input port 16 (vel_upd_src_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:283: warning: Instantiating module note_manager with dan
@@ -58,3 +62,5 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:283: warning: Ins
 gling input port 24 (base_commit_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:283: warning: Instantiating module note_manager with dan
 gling input port 25 (transpose_semi_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager.sv:283: warning: Instantiating module note_manager with dan
+gling input port 26 (sus_pedal_i) floating.

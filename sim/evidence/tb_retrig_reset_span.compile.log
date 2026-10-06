@@ -41,5 +41,7 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_retrig_reset_span.sv:114: warning
 h dangling input port 24 (base_commit_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_retrig_reset_span.sv:114: warning: Instantiating module note_manager wit
 h dangling input port 25 (transpose_semi_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_retrig_reset_span.sv:114: warning: Instantiating module note_manager wit
+h dangling input port 26 (sus_pedal_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_retrig_reset_span.sv:144: warning: Instantiating module envelope_bank wi
 th dangling input port 7 (timbre_i) floating.

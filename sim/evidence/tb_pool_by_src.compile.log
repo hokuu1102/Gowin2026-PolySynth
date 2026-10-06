@@ -34,6 +34,8 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_pool_by_src.sv:167: warning: Inst
 ling input port 24 (base_commit_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_pool_by_src.sv:167: warning: Instantiating module note_manager with dang
 ling input port 25 (transpose_semi_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_pool_by_src.sv:167: warning: Instantiating module note_manager with dang
+ling input port 26 (sus_pedal_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_pool_by_src.sv:209: warning: Instantiating module note_manager with dang
 ling input port 9 (note_src_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_pool_by_src.sv:209: warning: Instantiating module note_manager with dang
@@ -42,3 +44,5 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_pool_by_src.sv:209: warning: Inst
 ling input port 24 (base_commit_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_pool_by_src.sv:209: warning: Instantiating module note_manager with dang
 ling input port 25 (transpose_semi_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_pool_by_src.sv:209: warning: Instantiating module note_manager with dang
+ling input port 26 (sus_pedal_i) floating.

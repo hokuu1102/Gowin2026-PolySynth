@@ -28,5 +28,11 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_transpose.sv:187: warning: Instantiating module note_manager with dangli
+ng input port 26 (sus_pedal_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_transpose.sv:225: warning: Instantiating module note_manager with dangli
 ng input port 25 (transpose_semi_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_transpose.sv:225: warning: Instantiating module note_manager with dangli
+ng input port 26 (sus_pedal_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_transpose.sv:263: warning: Instantiating module note_manager with dangli
+ng input port 26 (sus_pedal_i) floating.

@@ -34,3 +34,5 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_replay_tail.sv:243: warnin
 th dangling input port 24 (base_commit_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_replay_tail.sv:243: warning: Instantiating module note_manager wi
 th dangling input port 25 (transpose_semi_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_replay_tail.sv:243: warning: Instantiating module note_manager wi
+th dangling input port 26 (sus_pedal_i) floating.
