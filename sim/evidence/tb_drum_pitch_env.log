@@ -20,6 +20,6 @@
   ok  : non_drum_voice_output_zcr_stays_constant
   ok  : non_drum_voice_at_hihat_pitch_phase_step_is_nominal
 PASS: drum pitch envelope (stage 2b) - all judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_drum_pitch_env.sv:431: $finish called at 4428020000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_drum_pitch_env.sv:431: $finish called at 4428020000 (1ps)
 
 

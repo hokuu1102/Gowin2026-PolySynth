@@ -320,6 +320,28 @@ module envelope_bank #(
     //    cnt = k : service voice k-1, prefetch voice k.
     //    cnt = POLY_TARGET : service the last voice, stop.
     // ═══════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════════════
+    // ⭐⭐ 2026-10-06（C 方案）：**原子提交影子数组**
+    //
+    //  🔴 问题（本文件 L25-29 自己记录的契约）：env_level_o / env_active_o 是
+    //     **逐拍落盘**的（voice 0 在 tick+2、voice 31 在 tick+33）
+    //     ⇒ 每次 tick 后的 **33 拍（33/1024 ≈ 3.2%）**内，输出总线是
+    //       "已服务的新帧 + 未服务的旧帧"的**混合**
+    //     ⇒ 消费者（`tdm_render_mixer` / `note_manager`）在这窗口里读
+    //       ⇒ 包络幅度**突跳** ⇒ 软限幅被顶 ⇒ 听感"收音机滋滋声"
+    //     📌 为什么只有音色 0(BASS,sustain 0.70)/3(PAD,0.90)：它们的持续电平
+    //        贴近 87.5% 软膝 ⇒ 突跳直接越界；1(GUITAR,0.30)/2(PIANO,0.40)
+    //        衰减到软膝很下面 ⇒ 同样的突跳够不到 ✅
+    //
+    //  ✅ 修法：本轮的包络先写【影子数组】，轮转结束时**一次性提交**给
+    //     `env_level_o` ⇒ 消费者**任何时刻读到的都是一整帧**（要么全是上一帧、
+    //     要么全是本帧），不存在"新旧混合"。
+    //  📌 时序契约**不变**：仍在 tick+33 完成（voice 31 的新值直接拼进提交值）
+    //     ⇒ 现有 testbench 的"等 34 拍"约定不受影响 ✅
+    //  📌 成本：+POLY_TARGET×ENV_W = **+512 FF**（无 LUT 增加，提交是整寄存器载入）
+    // ═══════════════════════════════════════════════════════════════════════════
+    reg [POLY_TARGET*ENV_W-1:0] env_lvl_shadow;
+    reg [POLY_TARGET-1:0]       env_act_shadow;
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
             lvl_sr       <= {(POLY_TARGET*ENV_W){1'b0}};
@@ -329,6 +351,8 @@ module envelope_bank #(
             running      <= 1'b0;
             env_level_o  <= {(POLY_TARGET*ENV_W){1'b0}};
             env_active_o <= {POLY_TARGET{1'b0}};
+            env_lvl_shadow <= {(POLY_TARGET*ENV_W){1'b0}};
+            env_act_shadow <= {POLY_TARGET{1'b0}};
         end else if (sample_tick_i) begin
             cnt     <= {(AW+1){1'b0}};
             running <= 1'b1;
@@ -337,11 +361,17 @@ module envelope_bank #(
                 lvl_sr <= {lvl_n, lvl_sr[POLY_TARGET*ENV_W-1:ENV_W]};
                 st_sr  <= {st_n,  st_sr[POLY_TARGET*2-1:2]};
                 rel_sr <= {rel_n, rel_sr[POLY_TARGET-1:1]};
-                env_level_o[svc_i*ENV_W +: ENV_W] <= lvl_n;
-                env_active_o[svc_i]                <= act_n;
+                env_lvl_shadow[svc_i*ENV_W +: ENV_W] <= lvl_n;   // ⭐ 写影子
+                env_act_shadow[svc_i]                <= act_n;   // ⭐ 写影子
             end
-            if (cnt == CNT_STOP)
+            if (cnt == CNT_STOP) begin
                 running <= 1'b0;
+                // ⭐⭐ 原子提交：整帧一次性生效（⛔ 不再逐拍落盘）
+                //    svc_i 在 cnt==CNT_STOP 时 = POLY_TARGET-1（最高那一路）
+                //    ⇒ 把它的新值直接拼进提交值高位，保证本帧全部生效 ✅
+                env_level_o  <= {lvl_n, env_lvl_shadow[POLY_TARGET*ENV_W-1-ENV_W:0]};
+                env_active_o <= {act_n, env_act_shadow[POLY_TARGET-2:0]};
+            end
             cnt <= cnt + 1'b1;
         end
     end
