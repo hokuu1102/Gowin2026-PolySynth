@@ -301,17 +301,39 @@ module tdm_render_mixer #(
     //  📌 低包络（GUITAR/PIANO 衰减后）与单音/双音 ⇒ 第二项不生效 ⇒ **响度不变** ✅
     // ═══════════════════════════════════════════════════════════════════════
     localparam integer ACC_ENV_W = ENV_W + 1 + LW + 1;
+    localparam integer NORMAL_N   = (RESERVED_N >= POLY_TARGET)
+                                    ? 0 : (POLY_TARGET - RESERVED_N);
     // ⚠️ **必须用 `voice_active_i[cnt_sel]` 门控**：未在发声的 voice 其 `env_level`
     //    可能残留非零（例如刚释放完还没归零）⇒ 若全累加 ⇒ `Σenv` 偏大 ⇒ **增益降过头**。
     //    📌 这与上面 popcount 排除保留池是同一类纪律：**只统计真正在发声的声部**。
-    wire [ENV_W:0] env_gated = voice_active_i[cnt_sel] ? env_s : {(ENV_W+1){1'b0}};
+    wire [ENV_W:0] env_gated = (voice_active_i[cnt_sel] && (cnt_sel < NORMAL_N))
+                             ? env_s : {(ENV_W+1){1'b0}};
     reg  [ENV_W:0]       env_s_r;
     reg  [ACC_ENV_W-1:0] acc_env_r;
     // ⚠️ **不要**再加 `n_eff_r` 寄存器：那会在帧边界锁存【上一帧】的 Σenv，
     //    而 tb 的每个用例只跑一帧 ⇒ 会读到【上一个用例残留的值】
     //    （实测 n_eff_r=31 ⇒ gain_lin_lut(31)=3 ⇒ 增益塌到 3）。
     // ✅ 直接取**本帧累加完**的 `acc_env_r` 高位 —— 与 `acc_r` 同源同帧，不可能串扰。
-    wire [LW:0] n_eff = acc_env_r[ACC_ENV_W-1:ENV_W];
+    // ⭐⭐ 2026-10-06 第二次修：**迟滞**（±1/4 声部死区）
+    //   🔴 实测根因：3 声部满包络时 Σenv = 3×65535 = 196605，而 2→3 档边界 = 196608
+    //      ⇒ 只差 3 ⇒ 包络任何微起伏都让 n_eff 在 2/3 间翻 ⇒ 增益 54↔36 猛跳(−33%)
+    //      ⇒ 听感"随机轻微爆破"（16 声部时相邻档只差 14%，所以轻；32 声部 0%）
+    //   ✅ 修法：只有 Σenv 越过当前档位 ±0.25 声部才换档 ⇒ 边界不再抖
+    //   📌 复位值 0 ⇒ gain_lin_lut(0)=128 ⇒ 单/双音仍取 64（⛔ 不会重犯上一版那个坑）
+    reg  [LW:0] n_eff_r;
+    // ⚠️ **必须四舍五入，不能直接取高位**：每个满包络声部贡献 65535（比 65536 少 1）
+    //    ⇒ N 个满包络声部时 Σenv = N×65535 ⇒ 直接 >>16 永远得到 N-1
+    //    ⇒ 电平项【系统性少算一档】⇒ 该生效时不生效（实测 N=4 满包络仍削顶到天花板）。
+    //    ✅ 加 32768 再取高位 ⇒ 满包络声部恰好得到 N。
+    wire [LW:0] n_eff_raw = (acc_env_r + 16'd32768) >> ENV_W;
+    // ⭐⭐ **迟滞 + 组合**（关键：增益必须用【本帧】Σenv，否则 tb 的单帧用例会读到上一用例残留值）
+    //    · 上抬：Σenv > (n_eff_r+1) 档 + 1/4 声部
+    //    · 下降：Σenv <  n_eff_r 档 − 1/4 声部
+    //    · 其余：保持上一帧档位（这就是死区，边界不再抖）
+    wire [ACC_ENV_W-1:0] eff_hi = {n_eff_r, {ENV_W{1'b0}}} + {ENV_W{1'b0}} + 16'd16384;  // (n+1)档 + 1/4
+    wire [ACC_ENV_W-1:0] eff_lo = {n_eff_r, {ENV_W{1'b0}}} - 16'd16384;                  //  n  档 − 1/4
+    wire [LW:0] n_eff = (acc_env_r > eff_hi) ? n_eff_raw :
+                        (acc_env_r < eff_lo) ? n_eff_raw : n_eff_r;
 
     // ═══════════════════════════════════════════════════════════════════════
     // ⑤ 超时检测（**sticky**）
@@ -327,6 +349,7 @@ module tdm_render_mixer #(
             acc_r    <= {ACC_W{1'b0}};
             env_s_r  <= {(ENV_W+1){1'b0}};
             acc_env_r<= {ACC_ENV_W{1'b0}};
+            n_eff_r  <= {(LW+1){1'b0}};
             fault_r  <= 1'b0;
         end else begin
             valid_r <= 1'b0;
@@ -339,6 +362,9 @@ module tdm_render_mixer #(
                 prod_r <= {PROD_W{1'b0}};
                 // ⭐⭐ 修法 3：在帧边界把【上一帧的 Σenv】锁存成 `n_eff`（与 `n_active_r` 同时刻）
                 acc_env_r <= {ACC_ENV_W{1'b0}};
+                // 迟滞状态跟随【组合判定的结果】（判据见上方 n_eff 的定义）
+                n_eff_r <= n_eff;
+                n_eff_r <= n_eff;
             end else if (busy) begin
                 // ⭐ 累加**上一拍**的乘积（乘法器输出已寄存）
                 if (cnt >= 1 && cnt <= CNT_LAST) begin
@@ -511,8 +537,6 @@ module tdm_render_mixer #(
     // ═══════════════════════════════════════════════════════════════════════
     //   ⭐ 普通池的 voice 数（⭐ 不含保留池）
     //   ⚠️ 必须与 `top.v` 的 `note_manager.RESERVED_N` 一致
-    localparam integer NORMAL_N = (RESERVED_N >= POLY_TARGET)
-                                  ? 0 : (POLY_TARGET - RESERVED_N);
 
     //   级 1：两两配对相加（⭐ 32 → 16 个数，每级路径只有 1 个加法器）
     //   ⭐ **只数普通池**（⭐ 索引 < NORMAL_N 的才计入）
@@ -681,40 +705,40 @@ module tdm_render_mixer #(
     function [15:0] gain_lin_lut;
         input [LW:0] n;
         begin
-            case (n)
-                6'd0:  gain_lin_lut = 16'd128;   // 无 voice（增益无意义）
-                6'd1:  gain_lin_lut = 16'd108;
-                6'd2:  gain_lin_lut = 16'd54;
-                6'd3:  gain_lin_lut = 16'd36;
-                6'd4:  gain_lin_lut = 16'd27;
-                6'd5:  gain_lin_lut = 16'd21;
-                6'd6:  gain_lin_lut = 16'd18;
-                6'd7:  gain_lin_lut = 16'd15;
-                6'd8:  gain_lin_lut = 16'd13;
-                6'd9:  gain_lin_lut = 16'd12;
-                6'd10: gain_lin_lut = 16'd10;
-                6'd11: gain_lin_lut = 16'd9;
-                6'd12: gain_lin_lut = 16'd9;
-                6'd13: gain_lin_lut = 16'd8;
-                6'd14: gain_lin_lut = 16'd7;
-                6'd15: gain_lin_lut = 16'd7;
-                6'd16: gain_lin_lut = 16'd6;
-                6'd17: gain_lin_lut = 16'd6;
-                6'd18: gain_lin_lut = 16'd6;
-                6'd19: gain_lin_lut = 16'd5;
-                6'd20: gain_lin_lut = 16'd5;
-                6'd21: gain_lin_lut = 16'd5;
-                6'd22: gain_lin_lut = 16'd4;
-                6'd23: gain_lin_lut = 16'd4;
-                6'd24: gain_lin_lut = 16'd4;
-                6'd25: gain_lin_lut = 16'd4;
-                6'd26: gain_lin_lut = 16'd4;
-                6'd27: gain_lin_lut = 16'd4;
-                6'd28: gain_lin_lut = 16'd3;
-                6'd29: gain_lin_lut = 16'd3;
-                6'd30: gain_lin_lut = 16'd3;
-                6'd31: gain_lin_lut = 16'd3;
-                default: gain_lin_lut = 16'd3;
+            case (n)   // 115/n ⇒ 目标 ≈ 115×65536 = 7.54e6（< 87.5% 软膝 7.86e6）
+                6'd0:  gain_lin_lut = 16'd128;  
+                6'd1:  gain_lin_lut = 16'd115;  
+                6'd2:  gain_lin_lut = 16'd57;   
+                6'd3:  gain_lin_lut = 16'd38;   
+                6'd4:  gain_lin_lut = 16'd28;   
+                6'd5:  gain_lin_lut = 16'd23;   
+                6'd6:  gain_lin_lut = 16'd19;   
+                6'd7:  gain_lin_lut = 16'd16;   
+                6'd8:  gain_lin_lut = 16'd14;   
+                6'd9:  gain_lin_lut = 16'd12;   
+                6'd10: gain_lin_lut = 16'd11;   
+                6'd11: gain_lin_lut = 16'd10;   
+                6'd12: gain_lin_lut = 16'd9;    
+                6'd13: gain_lin_lut = 16'd8;    
+                6'd14: gain_lin_lut = 16'd8;    
+                6'd15: gain_lin_lut = 16'd7;    
+                6'd16: gain_lin_lut = 16'd7;    
+                6'd17: gain_lin_lut = 16'd6;    
+                6'd18: gain_lin_lut = 16'd6;    
+                6'd19: gain_lin_lut = 16'd6;    
+                6'd20: gain_lin_lut = 16'd5;    
+                6'd21: gain_lin_lut = 16'd5;    
+                6'd22: gain_lin_lut = 16'd5;    
+                6'd23: gain_lin_lut = 16'd5;    
+                6'd24: gain_lin_lut = 16'd4;    
+                6'd25: gain_lin_lut = 16'd4;    
+                6'd26: gain_lin_lut = 16'd4;    
+                6'd27: gain_lin_lut = 16'd4;    
+                6'd28: gain_lin_lut = 16'd4;    
+                6'd29: gain_lin_lut = 16'd3;    
+                6'd30: gain_lin_lut = 16'd3;    
+                6'd31: gain_lin_lut = 16'd3;    
+                default: gain_lin_lut = 16'd3;    
             endcase
         end
     endfunction

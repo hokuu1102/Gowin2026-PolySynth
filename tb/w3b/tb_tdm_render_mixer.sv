@@ -472,6 +472,71 @@ module tb_tdm_render_mixer;
         chk("wide negative overflow clamps to soft-knee ceiling (no wrap)",
             wlatched === -24'sd7864320);
 
+        // ══════════════════════════════════════════════════════════════════════
+        // == 6: 修法 3（电平感知归一化）—— 档位边界稳定性 + 响度不变
+        //
+        //  🔴 上板症状（用户实测）：音色 0(BASS)/3(PAD) 在 3 个及以上复音长按时，
+        //     **随机**出现轻微爆破声；16 复音反而轻；单/双音没有。
+        //  ⭐ 根因（量化）：3 声部满包络时 Σenv = 3×65535 = 196605，
+        //     而 gain_lin_lut 的 2→3 档边界 = 3×65536 = 196608 ⇒ **只差 3**
+        //     ⇒ 包络任何微起伏都让 n_eff 在 2/3 间翻 ⇒ 增益 54↔36 猛跳(−33%) ⇒ 爆破。
+        //  ✅ 修法：n_eff 加 ±1/4 声部迟滞 ⇒ 边界不再抖。
+        // ══════════════════════════════════════════════════════════════════════
+        begin : lvl_aware
+            integer k, prev_s, stable;
+            $display("== 6: level-aware normalization (band-boundary stability) ==");
+
+            // 6a ⭐ 3 声部满包络（Σenv 正好压在 2→3 档边界下沿）⇒ 12 帧输出必须逐帧相同
+            clear_all;
+            for (i = 0; i < 3; i = i + 1) begin
+                set_lane(i, 0, 16'sd20000);
+                set_lane(i, 1, 16'sd20000);
+                set_env (i, 16'hFFFF);
+            end
+            prev_s = 0; stable = 1;
+            for (k = 0; k < 12; k = k + 1) begin
+                run_frame_get(cyc);
+                if (k > 0 && latched !== prev_s) stable = 0;
+                prev_s = latched;
+            end
+            chk("3-voice full-env: output identical over 12 frames (no band flicker)", stable);
+            $display("     [lvlA] 3v full env => %0d (n_eff=%0d gain=%0d)", prev_s, dut.n_eff, dut.norm_gain_r);
+
+            // 6b ⭐ 边界微动：包络动 1 LSB ⇒ n_eff 不许翻档（迟滞的直接证据）
+            clear_all;
+            set_lane(0, 0, 16'sd20000); set_lane(0, 1, 16'sd20000);
+            set_lane(1, 0, 16'sd20000); set_lane(1, 1, 16'sd20000);
+            set_lane(2, 0, 16'sd20000); set_lane(2, 1, 16'sd20000);
+            set_env(0, 16'hFFFF); set_env(1, 16'hFFFF); set_env(2, 16'hFFFE);
+            run_frame_get(cyc);                       // 先建起 n_eff_r 状态
+            set_env(2, 16'hFFFF);                     // 只动 1 LSB
+            run_frame_get(cyc);
+            chk("3-voice: gain band does NOT flip when envelope moves by 1 LSB", dut.n_eff === 3);
+
+            // 6c ⭐ 响度不变：N=1 / N=2 满包络 ⇒ 增益必须仍是 gain_sqrt_lut 的值（64 / 45）
+            clear_all;
+            set_lane(0, 0, 16'sd20000); set_lane(0, 1, 16'sd20000);
+            set_env (0, 16'hFFFF);
+            run_frame_get(cyc);
+            chk("N=1 full env: gain unchanged (=64, loudness preserved)", dut.norm_gain_r === 16'd64);
+            set_lane(1, 0, 16'sd20000); set_lane(1, 1, 16'sd20000);
+            set_env (1, 16'hFFFF);
+            run_frame_get(cyc);
+            chk("N=2 full env: gain unchanged (=45, loudness preserved)", dut.norm_gain_r === 16'd45);
+
+            // 6d ⭐ 高包络多复音必须被压到软膝以下
+            clear_all;
+            for (i = 0; i < 4; i = i + 1) begin
+                set_lane(i, 0, 16'sd32767);
+                set_lane(i, 1, 16'sd32767);
+                set_env (i, 16'hFFFF);
+            end
+            run_frame_get(cyc);
+            chk("N=4 full env: output stays below soft-knee ceiling",
+                (latched > 0) && (latched < 24'sd7864320));
+            $display("     [lvlD] N=4 full env => %0d (gain=%0d)", latched, dut.norm_gain_r);
+        end
+
         if (errors == 0)
             $display("PASS: tdm_render_mixer acceptance (T56) - all judgements held");
         else
