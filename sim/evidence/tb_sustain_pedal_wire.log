@@ -1,0 +1,24 @@
+﻿NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=18 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+=== tb_sustain_pedal_wire (T5 椤跺眰鎺ョ嚎) ===
+  ok  : W1 idle (pedal_sus_i=1) => sus_pedal_r=0 (no phantom press)
+  ok  : W1b note_manager.sus_pedal_i=0 while idle
+  ok  : W2 pressed (pedal_sus_i=0) => sus_pedal_r=1 (polarity OK)
+  ok  : W5 note_manager.sus_pedal_i=1 while pressed (wired)
+  ok  : W3 short glitch (< DB window) => state unchanged (debounce works)
+  ok  : W4 released (pedal_sus_i=1) => sus_pedal_r=0
+  ok  : W4b note_manager.sus_pedal_i=0 after release
+  ok  : W6 floating (Z) => treated as NOT pressed (Z-safe, old tbs unaffected)
+  ok  : W7 sus_pedal_r is never X/Z
+
+PASS: tb_sustain_pedal_wire 鈥?9/9 judgements held (T5 top wiring)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_sustain_pedal_wire.sv:131: $finish called at 5454400000 (1ps)
+
+
