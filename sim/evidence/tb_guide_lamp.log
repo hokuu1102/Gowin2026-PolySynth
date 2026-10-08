@@ -1,0 +1,19 @@
+﻿VCD info: dumpfile build/sim/tb_guide_lamp/tb_guide_lamp.vcd opened for output.
+  ok  : baseline: guide all 0 right after reset
+  ok  : baseline: commit is 0 (no spurious)
+  ok  : note_on axis=3 -> guide[3] lit
+  ok  : note_on axis=3 -> one-hot (only bit3)
+  ok  : note_on axis=3 -> commit pulsed
+  ok  : note_off axis=3 -> guide[3] off
+  ok  : note_off axis=3 -> all 0 again
+  ok  : tempo ignored -> guide stays 0
+  ok  : tempo ignored -> no commit
+  ok  : non-vacuity: every axis 0..15 lights its own lamp
+  ok  : commit high on change
+  ok  : commit falls back to 0 next cycle
+  ok  : multi: axis 0 and 15 both lit
+  ok  : multi: only those two bits
+PASS: tb_guide_lamp (16 checks)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_guide_lamp.sv:171: $finish called at 951000 (1ps)
+
+
