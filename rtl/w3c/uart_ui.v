@@ -34,7 +34,12 @@
 //     🔴 **2026-10-01 澄清**：本模块只做 `val_q >> 1`（见下方 `:253`），⛔ **不是"按 12 取整"**；
 //        ⭐ **真正只认 `0/12/24` 的是 `note_manager.v:373-378`**（⭐ 其余值一律回 0）
 //        ⇒ ⭐ **屏侧要发 `val_q = 0 / 24 / 48`**（⭐ 即 `2 × base_semi`）。
-//   ⭐ 效果器「留位」（§四）：fx_en_o / fx_sel_o 只定义接口，⛔ 不实现本体
+//   ⭐ 效果器（§四，⭐ 2026-10-09 实装控制面 D-1）：
+//     · fx_sel_o : 2 bit，0 = 关 · 1 = delay（回声）· 2/3 = 预留（chorus/reverb）
+//     · fx_en_o  : 1 bit，= (fx_sel_o != 0)，选了效果器即使能
+//     · 触摸控件 3 循环切换：关 → delay → 关（⭐ 未来扩展 chorus/reverb 时顺延）
+//   ⭐ 效果器本体（fx_delay.v 等）在 W3c，⚠️ 本模块只负责【控制面】，
+//     不实现音频算法；mix/feedback 等参数由下游（top.v 接线 fx_delay）给默认值。
 //
 // ── ⛔ 纪律（本项目血泪）────────────────────────────────────────────────────
 //   · ⭐ **Verilog-2001 语法**（`K-91`：Gowin 按 Verilog-2001 编译，
@@ -92,9 +97,13 @@ module uart_ui #(
     output reg  [1:0]  test_mode_n_o,      // ⭐ 分档（00/01/10/11 = 4/8/16/32）
     output reg         test_mode_commit_o, // ⭐ 切档提交（单周期脉冲）
 
-    // ── ⭐ 效果器「留位」（§四：只定义接口，⛔ 不实现本体）────────────────
-    output reg         fx_en_o,            // ⭐ 效果器使能（留位，恒 0）
-    output reg  [1:0]  fx_sel_o,           // ⭐ 效果器选择（留位，恒 0）
+    // ── ⭐ 效果器控制面（⭐ 2026-10-09 实装，D-1）────────────────────────
+    //   ⭐ 触摸控件 3 循环切换：关(0) → delay(1) → 关(0)
+    //   📌 fx_sel_o 编码：00=关 · 01=delay · 10/11=预留（chorus/reverb）
+    //      fx_en_o = (fx_sel_o != 0)：选了效果器即使能
+    output reg         fx_en_o,            // ⭐ 效果器使能（= 选中任一效果器）
+    output reg  [1:0]  fx_sel_o,           // ⭐ 效果器选择（0=关 1=delay 2/3=预留）
+    output reg         fx_commit_o,        // ⭐ 效果器切换提交（单周期脉冲）
 
     // ── ⭐ 可观测性（`K-106`）────────────────────────────────────────────
     output reg  [15:0] frame_cnt_o,        // ⭐ 成功解析的返回帧数（饱和）
@@ -196,8 +205,9 @@ module uart_ui #(
             test_mode_o  <= 1'b0;          // ⭐ A1：上电默认关（⛔ 不打扰正常演奏）
             test_mode_n_o<= 2'b00;         // ⭐ 关后首档 = 4 voices
             test_mode_commit_o <= 1'b0;
-            fx_en_o      <= 1'b0;          // ⭐ 留位，恒 0
-            fx_sel_o     <= 2'd0;          // ⭐ 留位，恒 0
+            fx_en_o      <= 1'b0;          // ⭐ 上电默认关（不 surprise 演奏）
+            fx_sel_o     <= 2'd0;          // ⭐ 0 = 关
+            fx_commit_o  <= 1'b0;
             frame_cnt_o  <= 16'd0;
             resync_cnt_o <= 16'd0;
             err_cnt_o    <= 16'd0;
@@ -209,6 +219,7 @@ module uart_ui #(
             mode_commit_o <= 1'b0;
             base_commit_o <= 1'b0;
             test_mode_commit_o <= 1'b0;
+            fx_commit_o   <= 1'b0;
             tx_start_o    <= 1'b0;
 
             if (rx_done_i) begin
@@ -247,7 +258,7 @@ module uart_ui #(
                                     RET_TOUCH: begin
                                         // ⭐ 触摸事件：body_q = 控件 ID
                                         //   ⭐ 约定（见 tb）：控件 0 = 模式切换，控件 1 = 起始音，
-                                        //      控件 2 = Test Mode 切档（⭐ A1）
+                                        //      控件 2 = Test Mode 切档（⭐ A1），控件 3 = 效果器切换（⭐ D-1）
                                         if (body_q == 7'd0) begin
                                             mode_o        <= ~mode_o;    // ⭐ 翻转
                                             mode_commit_o <= 1'b1;
@@ -263,6 +274,17 @@ module uart_ui #(
                                                 test_mode_n_o <= test_mode_n_o + 2'b01;
                                             end
                                             test_mode_commit_o <= 1'b1;
+                                        end else if (body_q == 7'd3) begin
+                                            // ⭐ D-1 效果器切换：关 → delay → 关（循环）
+                                            //   fx_sel_o: 00=关 01=delay；fx_en = (sel != 0)
+                                            if (fx_sel_o == 2'd0) begin
+                                                fx_sel_o   <= 2'd1;   // delay
+                                                fx_en_o    <= 1'b1;
+                                            end else begin
+                                                fx_sel_o   <= 2'd0;   // 关
+                                                fx_en_o    <= 1'b0;
+                                            end
+                                            fx_commit_o <= 1'b1;
                                         end
                                     end
                                     RET_NUM: begin

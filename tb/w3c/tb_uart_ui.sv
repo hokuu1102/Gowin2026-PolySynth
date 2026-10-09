@@ -43,6 +43,7 @@ module tb_uart_ui;
     wire        base_commit;
     wire        fx_en;
     wire [1:0]  fx_sel;
+    wire        fx_commit;
     wire        test_mode;
     wire [1:0]  test_mode_n;
     wire        test_mode_commit;
@@ -91,6 +92,7 @@ module tb_uart_ui;
         .base_commit_o(base_commit),
         .fx_en_o      (fx_en),
         .fx_sel_o     (fx_sel),
+        .fx_commit_o  (fx_commit),
         .test_mode_o  (test_mode),
         .test_mode_n_o(test_mode_n),
         .test_mode_commit_o(test_mode_commit),
@@ -178,7 +180,7 @@ module tb_uart_ui;
         chk("reset: base_semi=0 (C4)", base_semi === 7'd0);
         chk("reset: hb_ready=0", hb_ready === 1'b0);
         chk("reset: 无 commit 脉冲", mode_commit === 1'b0 && base_commit === 1'b0);
-        chk("reset: 效果器留位恒 0", fx_en === 1'b0 && fx_sel === 2'd0);
+        chk("reset: 效果器默认关", fx_en === 1'b0 && fx_sel === 2'd0 && fx_commit === 1'b0);
         chk("reset: test_mode 默认关", test_mode === 1'b0 && test_mode_n === 2'd0);
 
         // ═══════════════════════════════════════════════════════════════════
@@ -245,6 +247,20 @@ module tb_uart_ui;
         chk("控件2 第5次 -> 32 回到关", test_mode === 1'b0 && test_mode_n === 2'b00);
 
         // ═══════════════════════════════════════════════════════════════════
+        // ④c ⭐ D-1 效果器切换：触摸控件 3 → 关 → delay → 关 循环
+        // ═══════════════════════════════════════════════════════════════════
+        //   控件 3 = 效果器切换（fx_sel 00=关 01=delay；fx_en = sel!=0）
+        feed_frame(8'h65, 8'h03, 8'h00);
+        chk("控件3 第1次 -> fx_sel=01(delay), fx_en=1", fx_sel === 2'd1 && fx_en === 1'b1);
+        chk("fx_commit 单周期脉冲", fx_commit === 1'b1);
+        @(negedge clk);
+        chk("fx_commit 仅 1 拍", fx_commit === 1'b0);
+
+        feed_frame(8'h65, 8'h03, 8'h00);
+        @(negedge clk);
+        chk("控件3 第2次 -> fx 回到关", fx_sel === 2'd0 && fx_en === 1'b0);
+
+        // ═══════════════════════════════════════════════════════════════════
         // ⑤ 结束符严格三连：两连 FF 不结束帧
         // ═══════════════════════════════════════════════════════════════════
         //   发 0x65 + 控件0 + FF + FF（只有两个 FF）+ 一个非 FF 数据字节
@@ -284,7 +300,7 @@ module tb_uart_ui;
         // 汇总
         // ═══════════════════════════════════════════════════════════════════
         if (errors == 0) begin
-            $display("PASS: tb_uart_ui (%0d checks)", 28);
+            $display("PASS: tb_uart_ui (%0d checks)", 32);
         end else begin
             $display("FAIL: tb_uart_ui errors=%0d", errors);
         end
