@@ -111,8 +111,17 @@ module evt_uart_rx #(
     //      ⚠️ 本项目踩过：对 `integer` 位选会让**整块索引比较静默失效**
     //      （⚠️ 现象是"数据推不进去"，看起来像别的原因）。
     //   ⭐ 正确做法：**先算 integer，再【赋值】给定宽 localparam**（⛔ 不是位选）。
-    localparam integer BYTE_CLK_I = (CLK_HZ + BAUD/2) / BAUD;   // ⭐ 四舍五入
-    localparam integer GAP_CLK_I  = BYTE_CLK_I * GAP_BYTES;
+    //  ⭐⭐ 2026-10-09（`P0-05`）：⭐ **与 `calib_cmd.v` 同步改** —— 单位是【字节】⛔ 不是【位】 ✅
+    //   🔴 **原缺陷**：⭐ `CLK_HZ / BAUD` = **一个位**的时间 ⇒ ⭐ `GAP_CLK = 100 × 16 = 1600` 拍 = **32 µs**
+    //      ⚠️ 而一个字节（8N1 = 10 位）在 500 kbaud 下 = **20 µs** ⇒ 🔴 **容忍只有 1.6 个字节时间**
+    //      （⭐ 设计意图是 16 个字节时间 = **320 µs**）⇒ ⭐ **差 10 倍** ✅
+    //   🔴 **后果**：⭐ 主机分块投递（⭐ USB-CDC 的 1 ms 帧边界）⇒ ⭐ 曲谱包被**空闲归位**截断
+    //      ⇒ ⚠️ 半条事件被丢 + 剩下的字节被当成**别的消费者**的载荷 ✅
+    //   ⚠️ **纪律**：⭐ 本公式与 `calib_cmd.v:242` **逐字相同**（⭐ 两处**必须同值**，
+    //      ⛔ 否则一个认为已归位、另一个还在帧内 ⇒ 🔴 **窗口错配**）✅
+    localparam integer BIT_CLK_I  = (CLK_HZ + BAUD/2) / BAUD;   // ⭐ 【位】时间（⭐ 四舍五入）
+    localparam integer BYTE_CLK_I = BIT_CLK_I * 10;             // ⭐ 【字节】时间 = 10 位（8N1）
+    localparam integer GAP_CLK_I  = BYTE_CLK_I * GAP_BYTES;     // ⭐ 16 字节 = 320 µs
     localparam [19:0]  GAP_CLK    = GAP_CLK_I;                  // ⭐ 赋值 ⇒ 自动截断
     localparam [3:0]   IDX_LAST   = 4'd8;                       // ⭐ 第 9 个字节
 

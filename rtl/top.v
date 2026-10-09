@@ -289,7 +289,7 @@ parameter integer TEST_MODE_EN       = 0,
     // T18: P4 right-hand ADC is optional until its cable and MCP3208 are
     // physically installed. Keeping this 0 prevents an open MISO line from
     // being interpreted as full-depth vibrato on today's two-ADC setup.
-    parameter integer RIGHT_ADC_ENABLE       = 0,
+    parameter integer RIGHT_ADC_ENABLE       = 1,   // ⭐ 2026-10-09 用户指令：默认右手板联调档（⛔ 不再用 =0 当基线）
     //  ⭐⭐ 2026-09-29 合并（⭐ 队友 `t31b-final-6db-s2`）：⭐ **满行程失真的二分诊断** ✅
     //   ⭐ 打开后：⭐ 按键位置**只控 note on/off**，⭐ 每个键盘音用**固定力度**
     //      ⇒ ⭐ 行程深度**无法**再影响音量 ⇒ ⭐ 用来二分"失真来自力度通路还是别处" ✅
@@ -866,6 +866,8 @@ parameter integer TEST_MODE_EN       = 0,
     // ── ⭐ ① 字节接收器（8N1 @ 500 kbps）───────────────────────────────────
     wire [7:0] ur_data;
     wire       ur_done;
+    //  ⭐⭐ 2026-10-09（`P0-02`）：⭐ **uart_ui 的"正在收一帧"**（⭐ 见其端口注释）✅
+    wire       ui_in_frame;
 
     uart_rx #(
         // ⭐ `BAUD_DIV = 50 MHz / 500 kbps = 100`（⭐ 整除 ⇒ 无误差）
@@ -931,7 +933,9 @@ parameter integer TEST_MODE_EN       = 0,
         .frame_cnt_o   (ui_frame_cnt),
         .resync_cnt_o  (ui_resync_cnt),
         .err_cnt_o     (ui_err_cnt),
-        .hb_ready_o    (ui_hb_ready)
+        .hb_ready_o    (ui_hb_ready),
+        //  ⭐⭐ 2026-10-09（`P0-02`）：⭐ **"uart_ui 正在收一帧"** ⇒ 顶层互斥门控用 ✅
+        .in_frame_o    (ui_in_frame)
     );
 
     // `uart_ui`: 0=指板、1=钢琴；`axis_map`/T15 控制器则相反。
@@ -1008,6 +1012,24 @@ parameter integer TEST_MODE_EN       = 0,
     wire [3:0]  eu_idx;
     wire        eu_synced;
 
+    //  ⭐⭐ 2026-10-09（`P0-02`）：⭐ **曲谱接收的互斥门控** ✅
+    //   🔴 **缺陷**：⭐ `uart_ui`（串口屏）· `calib_cmd`（命令）· `evt_uart_rx`（曲谱）
+    //      **共用同一条** `uart_rx` 的 `ur_done`/`ur_data`
+    //      ⇒ ⚠️ 而 `evt_uart_rx` 的帧头是 `0xA5`，⛔ 它**看不到别人的帧边界**
+    //      ⇒ 🔴 别人**合法载荷**里的 `0xA5` 落在它的 `idx==0` 上 ⇒ **伪曲谱事件**
+    //      （⭐ 实测：8 个屏帧 ⇒ 8 条伪 `note_on`，`axis=15` 保留轴 · `kind=on`）
+    //      ⇒ ⭐ `note_manager.note_off` 按 `(轴, 源)` 匹配 ⇒ 🔴 **手弹永远清不掉 `score` 源的 voice**
+    //         ⇒ **永久挂音**（⭐ 用户实测："按同键不能清、按所有键也不能清、断电才清"）✅
+    //   ✅ **修法**：⭐ **别人在帧内时，曲谱接收器【不看字节】** ✅
+    //      · `uart_ui`   在帧内 ⇒ `ui_in_frame`（⭐ 新引出）
+    //      · `calib_cmd` 在帧内 ⇒ `cmd_idx != 0`（⭐ 它**早就有**这个输出 ✅ 零改动）
+    //   📌 **代价**：⭐ 1 个端口 + 2 条 AND（⭐ 纯组合，浅 ✅）
+    //   ⚠️ **局限（诚实）**：⭐ 本门控只能挡"**别人帧内**"的字节；
+    //      ⭐ 若 `0xA5` 出现在**帧间空隙**（⭐ 别人的帧已结束）⇒ ⚠️ 仍可能误判
+    //      ⇒ ⭐ 根治方案是把曲谱挪到**独立 UART**（⭐ `esp_uart_rx_i` 现成，
+    //         ⚠️ 但要 ESP32 侧配合 + 一次引脚 PnR）⇒ ⭐ 记入 P1 ✅
+    wire evt_rx_done = ur_done & ~ui_in_frame & (cmd_idx == 4'd0);
+
     evt_uart_rx #(
         .CLK_HZ   (50_000_000),
         .BAUD     (500_000),        // ⚠️ 与 `uart_rx.BAUD_DIV=100` 同一档
@@ -1015,7 +1037,7 @@ parameter integer TEST_MODE_EN       = 0,
     ) u_evt_uart_rx (
         .clk_i         (clk),
         .rst_n_i       (rst_n_sync),
-        .rx_done_i     (ur_done),
+        .rx_done_i     (evt_rx_done),   // ⭐ P0-02：⭐ 门控后（⛔ 不是裸 `ur_done`）✅
         .rx_data_i     (ur_data),
         .evt_valid_o   (eu_evt_valid),
         .evt_data_o    (eu_evt_data),
@@ -1266,6 +1288,24 @@ wire       fault_any_w;
         //     ⭐ 因为用户的 looper 语义里**没有"无"这一档**（只有 空闲/录音/回放）
         //     ⇒ ⭐ "没有 looper" 与"looper 空闲"在**灯上是同一个状态**（⭐ 也是它的复位态）✅
         assign led_looper_st = 2'd0;
+        //  ⭐⭐ 2026-10-09（`P0-06`）：⭐ **`fault_any_w` 必须在这里也驱动** ✅
+        //   🔴 **原缺陷**：⭐ `g_silent` 分支逐个显式驱动了 **10 根**跨分支共享线
+        //      （`pp_push`/`pp_data`/`scope_sample`/`scope_valid`/`sample_mono`/
+        //       `tx_req`/`tx_byte`/`led_blink`/`led_beat`/`led_gear_st`/`led_looper_st`）
+        //      ⚠️ **唯独漏了 `fault_any_w`** ⇒ 🔴 本档下它是 **`z`** ✅
+        //   🔴 **后果（⭐ 为什么是 P0）**：
+        //      · ⭐ **仿真**：⭐ `if (fault_any_w)` 判成 **X** ⇒ `fault_sticky` 变 X
+        //        ⇒ ⭐ `hb_div_eff` 变 X ⇒ `hb_cnt >= hb_div_eff - 1` **恒为 X（判假）**
+        //        ⇒ 🔴 **`hb` 永不翻转 ⇒ 心跳灯死** ✅
+        //        ⇒ ⭐ **M0「活体见证」**（⭐ 本设计**唯一**的故障可观测手段）**在静默档上完全失效** ✅
+        //      · ⭐ **硅片**：⭐ 综合对"无驱动网线"通常接 0（⭐ 一条极易被刷屏淹没的 warning）
+        //        ⇒ ⭐ `fault_sticky` 恒 0 ⇒ 🔴 **故障指示永远不亮**
+        //        ⇒ ⭐ `adc_farm` SPI 挂了 / `tdm_render_mixer` 超时了也**没人知道** ✅
+        //   ✅ **修法**：⭐ 静音档两个故障源（`af_fault`/`mx_fault`）**都不存在**
+        //      ⇒ ⭐ 明确声明 **"无故障"**（⛔ 不是留空让它悬空）✅
+        //   📌 **代价**：⭐ 1 行、**0 资源** ✅
+        //   📌 **机械旁证**：⭐ `Select-String 'assign\s+fault_any_w'` **必须返回 2 行**（两分支各 1）✅
+        assign fault_any_w   = 1'b0;
     end else begin : g_sound
         // ═══════════════════════════════════════════════════════════════════════
         //   ⭐⭐ `'P'` 诊断：⭐ 回传 `pos` 读数（⭐ 2026-09-24 新增）
@@ -2633,8 +2673,16 @@ wire       fault_any_w;
         //   ⚠️ **代价（⭐ 必须知道）**：⭐ 换定位板高度 / 换板子 ⇒ 行程变
         //      ⇒ ⭐ 这四个数（`TRIG`/`REL`/`TRAVEL_TARE`/斜率）**必须一起重算**
         //      （⭐ 公式见 `param_extract` 例化处的注释）
-        localparam [11:0] EVT_TRIG_TH = 12'd64;   // ⭐ 唯一定义（= `event_extract.TRIG_TH`）
-        localparam [11:0] EVT_REL_TH  = 12'd32;   // ⭐ 唯一定义（= `event_extract.REL_TH`）
+        //  ⭐⭐ 2026-10-09（`P0-11`）：⭐ `EVT_TRIG_TH` / `EVT_REL_TH` **已改成【派生常量】**
+        //   📌 定义处已**下移**到 `TRAVEL_TARE` 之后（⭐ Verilog 要求先声明后使用）——
+        //      ⭐ 见下方 `TRAVEL_TARE` 声明处的 `P0-11` 块 ✅
+        //   🔴 **原缺陷**：⭐ 这两个是**手写常量**（64/32），而 `TRAVEL_TARE` 另写一处
+        //      ⇒ ⚠️ 两者可以**各自被改而互不知情** ⇒ 🔴 `TRAVEL_TARE = 0` 时：
+        //      ⭐ 下方两条 N4 守卫的上下界**同时塌成 0** ⇒ `0*100 >= 5*0` ∧ `0*100 <= 12*0`
+        //      ⭐ **全真** ⇒ 🔴 **整条守卫被绕过**（⭐ 6 道守卫全部放行）✅
+        //      ⇒ 🔴 后果：⭐ `pos >= 0` 恒真 ⇒ 16 轴同时判"按下"（一帧 16 个 `note_on`）
+        //         ＋ ⭐ `pos < 0` 恒假 ⇒ **16 个 voice 永久 held、永不释放** ✅
+        //         （⭐ 与用户报过的"挂音几分钟不停"同族 ✅）
 
         //  ⭐⭐ 2026-10-01 BATCH 8.2：⭐ **满行程常量【单一来源】＋ 量纲自检** ⚠️
         //   🔴 **为什么要做**：⭐ 本项目已经**两次**栽在"常量与量纲脱钩"上 ✅
@@ -2659,9 +2707,33 @@ wire       fault_any_w;
         //   📌 ⭐ **自检①b 会守它**（⭐ `> calib.MAX_TRAVEL(1023)` ⇒ 报 `ERROR`）✅
         localparam [11:0] TRAVEL_TARE = 12'd744;   // ⭐ 实际行程档（⭐ `POS_FULL` 的正确来源）
 
+        //  ⭐⭐ 2026-10-09（`P0-11`）：⭐ **比例不变量 = 派生常量**（⭐ 堵住 `TRAVEL_TARE==0` 的绕过）✅
+        //   ✅ **语义**：⭐ **8.6% / 4.3% 是【不变量】，行程才是【变量】** ⇒
+        //      ⭐ 阈值**从行程派生** ⇒ ⛔ 结构上不可能"两个数各自漂" ✅
+        //   📌 **数值逐位相同**（⭐ 四舍五入 +500 的整数除法）：
+        //      · `744`  ⇒ ⭐ `64` / `32`   （⭐ 与改前手写值**完全相同**）✅
+        //      · `4095` ⇒ ⭐ `352` / `176` （⭐ 与设计记录里的 `0.086×4095 ≈ 352` 一致 ✅）
+        //   ⚠️ **为什么必须放在 `TRAVEL_TARE` 之后**：⭐ Verilog 先声明后使用 ✅
+        //   📌 原来的 6 道守卫**全部保留**（⭐ 现在它们是"结构上恒真"的冗余防线 ✅）
+        localparam [11:0] EVT_TRIG_TH = (TRAVEL_TARE * 32'd86 + 32'd500) / 32'd1000;  // ⭐ 8.6%
+        localparam [11:0] EVT_REL_TH  = (TRAVEL_TARE * 32'd43 + 32'd500) / 32'd1000;  // ⭐ 4.3%（迟滞 2:1）
+
         //  ⭐ 量纲自检（⭐ 全部是 `localparam` ⇒ ⭐ **综合期即可判定** ✅）
         //   📌 与各模块的 `PARAM_OK` 同一套路：⭐ **⛔ 不许静默给错** ✅
         initial begin
+            //  ⭐⭐ 2026-10-09（`P0-11`）：⭐ **绝对下界（⭐ 三道，都在最前面）** ✅
+            //   🔴 **为什么必须有**：⭐ 上面把阈值改成"从行程派生"之后，
+            //      ⭐ 比例不变量**结构上**成立了；⚠️ 但 `TRAVEL_TARE` 小到 **1** 时
+            //      ⭐ 派生出来的阈值是 **0** ⇒ ⚠️ 又回到"`pos >= 0` 恒真"那个失效模式 ✅
+            //   ⇒ ⭐ 这三条是**最后一道**：⭐ 任何一个为 0 ⇒ ⭐ **硬失败** ✅
+            //   📌 **为什么用 `$fatal` 而⛔ 不是 `$display`**：⭐ 依据本项目 `U-2` 的教训 ——
+            //      ⚠️ `$display` 时**仿真照跑完、综合照常进行** ⇒ 🔴 缺陷原样进板 ✅
+            if (TRAVEL_TARE == 12'd0)
+                $fatal(1, "ERROR [top] TRAVEL_TARE=0 => N4 守卫退化成 0/0（两条都不触发），且 pos>=0 恒真 => 16 轴恒 held (P0-11)");
+            if (EVT_TRIG_TH == 12'd0)
+                $fatal(1, "ERROR [top] EVT_TRIG_TH=0 => pos>=0 恒真 => 一上电 16 轴全部判按下 (P0-11)");
+            if (EVT_REL_TH == 12'd0)
+                $fatal(1, "ERROR [top] EVT_REL_TH=0 => pos<0 恒假 => 永不产生 note_off => 永久挂音 (P0-11)");
             //  ⭐ ① 触发阈值必须落在【实际行程档】内（⭐ 否则**永远触发不了** ⇒ ⭐ 全琴不响 ⚠️）
             //     ⚠️ 2026-10-01 返工：⭐ **必须比 `TRAVEL_TARE`(744)**，⛔ **不是 `CALIB_FULL`(4095)** ——
             //        🔴 拿 4095 比 ⇒ ⭐ 阈值就算填到 1000 也会"通过"，⭐ 而实际永远够不着 ✅

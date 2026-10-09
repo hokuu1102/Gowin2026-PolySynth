@@ -30,7 +30,7 @@ module tb_calib_cmd;
     localparam integer CLK_HZ    = 50000000;
     localparam integer BAUD      = 1000000;
     //   ⭐ 字节时间 = 50 拍；⭐ 归位阈值 = 4 × 50 = 200 拍
-    localparam integer BYTE_CLK  = (CLK_HZ + BAUD/2) / BAUD;
+    localparam integer BYTE_CLK  = ((CLK_HZ + BAUD/2) / BAUD) * 10;   // ⭐ 字节时间 = 10 位（8N1）
 
     localparam [7:0] HDR = 8'hA5;
     localparam [7:0] T   = 8'h54;             // 'T'
@@ -501,6 +501,31 @@ module tb_calib_cmd;
         send_byte(X);
         chk("after idle resync, a command works again ('X' fires)",
             abort_seen == 1);
+
+        // ═══════════════════════════════════════════════════════════════
+        // ⭐⭐ 2026-10-09（`P0-05`）：⭐ **分块投递判据（⭐ 能红）** ✅
+        //   🔴 **缺陷**：⭐ `GAP_BYTES` 的单位错成"位时间" ⇒ ⭐ 归位阈值只有 **1.6 个字节时间**
+        //      ⇒ ⭐ 主机把一帧**拆成两次 write**（⭐ 或 USB-CDC 的 1 ms 帧边界插进来）
+        //      ⇒ 🔴 剩下的载荷字节落在"帧外" ⇒ ⭐ 被当**命令**执行
+        //      （⭐ 其中 `'X'` 中止标定 · `'C'` 清 loop · `'R'` 开始录音 · `'S'` 启动 span）✅
+        //   ⭐ **判据**：⭐ 帧头发完后 ⭐ 等 **300 拍**（⭐ 旧阈值 200 ⇒ 会归位；⭐ 新阈值 2000 ⇒ 不归位）
+        //      再发 `'T'` ⇒ ⭐ `tare` **必须不出脉冲** ＋ ⭐ `resync_cnt` **必须为 0** ✅
+        //   📌 🔴 **未修复时**：⭐ 300 拍已越过 200 拍阈值 ⇒ 归位 ⇒ `'T'` 当命令 ⇒ ⭐ **必红** ✅
+        begin : p005_chunked
+            integer n2;
+            do_reset();
+            send_byte(HDR);                                  // ⭐ 帧头
+            for (n2 = 0; n2 < 300; n2 = n2 + 1) @(posedge clk);  // ⭐ 帧内间隔（⭐ 模拟分块投递）
+            send_byte(T);                                    // ⭐ 载荷里的 'T'
+            send_byte(S);                                    // ⭐ 载荷里的 'S'
+            for (n2 = 0; n2 < 7; n2 = n2 + 1) send_byte(8'h00);  // ⭐ 补齐载荷
+            $display("      [dbg] P0-05 chunked: tare=%0d span=%0d resync=%0d idx=%0d",
+                     tare_seen, span_seen, resync_cnt, idx_o);
+            chk("P0-05 chunked delivery: payload 'T'/'S' inside a frame gap are NOT commands",
+                tare_seen == 0 && span_seen == 0);
+            chk("P0-05 chunked delivery: no mid-frame resync (gap tolerance is 16 byte times)",
+                resync_cnt === 16'd0);
+        end
 
         // ───────────────────────────────────────────────────────────────
         // ⭐ 附加：连续多个命令（⭐ 确保不互相遮蔽）

@@ -1,11 +1,11 @@
 ﻿PASS: startup baseline; unread RAM never leaks into RGB
 PASS: mode=0 full frame exact pixels; green=640 gray=0; live ring overwrite stable
 PASS: mode=1 full frame exact pixels; green=640 gray=640; live ring overwrite stable
-PASS: mode=2 full frame exact pixels; green=7822 gray=613; live ring overwrite stable
-PASS: mode=3 full frame exact pixels; green=10240 gray=608; live ring overwrite stable
-PASS: mode=4 full frame exact pixels; green=306721 gray=1; live ring overwrite stable
-PASS: mode=5 full frame exact pixels; green=20800 gray=547; live ring overwrite stable
+PASS: mode=2 full frame exact pixels; green=2422 gray=613; live ring overwrite stable
+PASS: mode=3 full frame exact pixels; green=3040 gray=608; live ring overwrite stable
+PASS: mode=4 full frame exact pixels; green=163585 gray=1; live ring overwrite stable
+PASS: mode=5 full frame exact pixels; green=5678 gray=543; live ring overwrite stable
 PASS: waveform_scope 2308886 pixel checks, silence/DC/sine/square/fullscale/rounding, wrap, DE/sync, reset
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\hdmi\tb_waveform_scope.sv:134: $finish called at 135683581000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\hdmi\tb_waveform_scope.sv:140: $finish called at 135683581000 (1ps)
 
 

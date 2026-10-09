@@ -376,8 +376,14 @@ module seq_arb #(
                 end else begin
                     // 🔴 **溢出**：⭐ 丢弃并**记数 + 置 sticky 标志**（⛔ 不静默）
                     overflow_o <= 1'b1;
-                    drop_cnt_o <= (drop_cnt_o + push_n > 16'hFFFF) ? 16'hFFFF
-                                                                   : (drop_cnt_o + push_n);
+                    //  ⭐⭐ 2026-10-09（`P0-16`）：⭐ **饱和判据必须升到 17 位** ✅
+                    //   🔴 **原缺陷**：⭐ 与 `evt_merge.v:363` **同一处写法错误** ——
+                    //      ⚠️ `drop_cnt_o`(16) `+` `push_n`(2) ⇒ ⭐ **和自定宽度 = 16 位**
+                    //      ⇒ 🔴 `x > 16'hFFFF` **恒为假** ⇒ ⭐ 饱和分支是死代码 ⇒ **计数器回绕** ✅
+                    //   ⭐ **修法**：⭐ 零扩展到 17 位再比（⭐ 详见 `evt_merge.v` 同处的说明）✅
+                    if (drop_cnt_o != 16'hFFFF)
+                        drop_cnt_o <= ({1'b0, drop_cnt_o} + push_n > 17'h0FFFF)
+                                      ? 16'hFFFF : (drop_cnt_o + push_n);
                     // ⚠️ **本拍的弹出必须照样记账**（⭐ `evt_merge` 踩过的坑：
                     //    原来 overflow 分支里完全没写 `cnt_q` ⇒ `cnt_q` 永远 > 0
                     //    ⇒ `pop_now` 恒真 ⇒ 🔴 `evt_valid_o` 一直挂着、不再单周期）

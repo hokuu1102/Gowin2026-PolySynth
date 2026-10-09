@@ -1066,16 +1066,33 @@ module note_manager #(
                     if (gate_mask[i]) begin
                         if (src_r[i] == 3'd0) begin
                             //  ⭐ 手弹：⭐ 每轴目标（⭐ `vtgt_vld` 是"该轴收到过目标"）
+                            //  ⭐⭐ 2026-10-09（`P0-01`）：⭐ **比较必须用 9 位** ✅
+                            //   🔴 **原缺陷**：⭐ 原写 `vtgt_val[axis_r[i]] > vel_r[i] + 8'd8`
+                            //      ⚠️ `vel_r` 是 `reg [7:0]`、`8'd8` 是 8 位常量
+                            //      ⇒ ⭐ **加法表达式自定宽度 = 8 位**（IEEE 1364-2001 §5.1.1：
+                            //         **比较不会把操作数加宽到 9 位**）⇒ 🔴 是 **mod 256**：
+                            //         `vel_r=248` ⇒ `248+8 = 0` ⇒ `tgt > 0` **几乎恒真**
+                            //         ⇒ ⭐ `vel_r` 被写成 **0**（⭐ 实测：力度 248 → 0）
+                            //         `vel_r=250` ⇒ `250+8 = 2` ⇒ 被写成 **2**（⭐ 实测）
+                            //      ⇒ 🔴 **任何力度 ≥248 的音瞬间塌到 0~26**（−20 ~ −∞ dB）✅
+                            //   ⭐ **修法**：⭐ 两侧**零扩展到 9 位**再比 ⇒ ⛔ 加法不再截断 ✅
+                            //   📌 **为什么不用钳位**：⭐ 上升支成立的前提是 `tgt > vel_r+8`
+                            //      ⇒ `vel_r+8 < tgt ≤ 255` ⇒ ⭐ 和必 ≤ 254 ⇒ **天然不溢出** ✅
+                            //   📌 **代价**：⭐ 每 voice 每分支 +1 位比较 ≈ +64~128 LUT（⭐ 0.5% T_Lut）
+                            //      ⛔ **不在关键路径上**（⭐ 不在 `timing_paths` 的 Top-25 里）✅
+                            //   📌 **判据**：⭐ `tb/w3b/tb_note_manager_vel_wrap.sv`（6 条）
+                            //      —— ⭐ 改前实测 **1 pass / 5 fail**，⭐ 改后必须 6/6 ✅
                             if (vtgt_vld[axis_r[i]]) begin
-                                if      (vtgt_val[axis_r[i]] > vel_r[i] + 8'd8) vel_r[i] <= vel_r[i] + 8'd8;
-                                else if (vtgt_val[axis_r[i]] + 8'd8 < vel_r[i]) vel_r[i] <= vel_r[i] - 8'd8;
-                                else                                            vel_r[i] <= vtgt_val[axis_r[i]];
+                                if      ({1'b0, vtgt_val[axis_r[i]]} > {1'b0, vel_r[i]} + 9'd8) vel_r[i] <= vel_r[i] + 8'd8;
+                                else if ({1'b0, vtgt_val[axis_r[i]]} + 9'd8 < {1'b0, vel_r[i]}) vel_r[i] <= vel_r[i] - 8'd8;
+                                else                                                              vel_r[i] <= vtgt_val[axis_r[i]];
                             end
                         end else begin
                             //  ⭐ 非手弹（回放）：⭐ 每 voice 目标（⭐ 与手弹**同一套 ±8 斜坡** ✅）
-                            if      (vtgt_rep[i] > vel_r[i] + 8'd8) vel_r[i] <= vel_r[i] + 8'd8;
-                            else if (vtgt_rep[i] + 8'd8 < vel_r[i]) vel_r[i] <= vel_r[i] - 8'd8;
-                            else                                    vel_r[i] <= vtgt_rep[i];
+                            //  ⭐⭐ 2026-10-09（`P0-01`）：⭐ 同样必须 9 位比较（⭐ 见上方说明）✅
+                            if      ({1'b0, vtgt_rep[i]} > {1'b0, vel_r[i]} + 9'd8) vel_r[i] <= vel_r[i] + 8'd8;
+                            else if ({1'b0, vtgt_rep[i]} + 9'd8 < {1'b0, vel_r[i]}) vel_r[i] <= vel_r[i] - 8'd8;
+                            else                                                      vel_r[i] <= vtgt_rep[i];
                         end
                     end
             end
@@ -1543,6 +1560,41 @@ module note_manager #(
     //    ⭐⭐ **共享乘法器**（⭐ 全模块**只有这一个** ✅）：⭐ 32 × 17 ⇒ **49 位** ✅
     wire [PHASE_W+17-1:0] prod_w = rot_base * semi_ratio;
 
+    //  ⭐⭐ 2026-10-09（`P0-03`）：⭐ **写侧流水级** —— ⭐ 把 32 路写译码移出关键路径 ✅
+    //   🔴 **原缺陷**：⭐ 一个周期里串了**四件宽结构的事**（⭐ 实测 **22.172 ns** / 挑战档 18.181）：
+    //      ① `phase_r[rot_cnt]` 32:1 读 mux —— ⭐ `rot_cnt[0]` **扇出 595**
+    //         ⇒ ⭐ 光把这一位送到 32 项 mux 的每个 LUT 输入就要 **5.264 ns** ✅
+    //      ② `<< base_oct_r` 32 位变量移位器（⭐ 2 级桶形）⇒ 2.1 ns
+    //      ③ `rot_base * semi_ratio` 32×17 乘法器 ⇒ 2.53 ns（⭐ DSP）
+    //      ④ `phase_tr[rot_cnt] <= …` 32 路写译码 ＋ ⭐ **1024 个 D 脚**扇出 ⇒ **5.407 ns**
+    //      ⇒ ⭐ 合计 22.17 ns ⇒ slack **+0.102 ns**（⭐ 且**两档 PnR 都排第一** ⇒ **结构性**，
+    //         ⭐ 跨 4 次归档构建里 3 次最差路径落在本模块 ✅）
+    //   ✅ **修法**：⭐ **把"算值"与"写值"分开** —— ⭐ 写侧用**寄存后的**数据与索引 ✅
+    //      ⇒ ⭐ 切成 **A: `rot_cnt` → mux → 移位 → 乘法 ≈ 17 ns** ＋ **B: FF → 写译码 ≈ 5.4 ns** ✅
+    //      ⇒ ⭐ 本结构退出 Fmax 绑定项（⭐ 与 `P0-04` 成对做才有意义 —— ⭐ 只修一条只涨 0.1 MHz）✅
+    //   📌 **代价**：⭐ 5 + 1 + 32 = **38 FF**（⛔ 零 LUT、⛔ 零 DSP）✅
+    //   ⚠️ **行为影响**：⭐ 影子数组刷新**晚一拍** ⇒ ⭐ `T1` 的 32 拍 settle 窗口**少一拍余量**
+    //      （⭐ `tb_transpose` 的 `T1_SETTLE` = 34 拍 ⇒ ⭐ 仍够 ✅）
+    //   📌 **为什么这样切**：⭐ 写侧那 5.4 ns **主要是布线**（⭐ 驱动 1024 个 D 脚）
+    //      ⇒ ⭐ 只有"把数据寄存到写口旁边"才能消掉它 ✅
+    reg  [4:0]         rot_cnt_d;
+    reg                wr_en_d;
+    reg  [PHASE_W-1:0] wr_data_d;
+    wire [PHASE_W-1:0] wr_data_v = ((semi_cur == 5'sd0) ||
+                                    (src_r[rot_cnt] == 3'd3) || (src_r[rot_cnt] == 3'd4))
+                                  ? rot_base : (prod_w >>> 15);
+    always @(posedge clk_i) begin
+        if (!rst_n_i) begin
+            rot_cnt_d <= 5'd0;
+            wr_en_d   <= 1'b0;
+            wr_data_d <= {PHASE_W{1'b0}};
+        end else begin
+            rot_cnt_d <= rot_cnt;
+            wr_en_d   <= rot_ok;
+            wr_data_d <= wr_data_v;
+        end
+    end
+
     // ── 变调核心的时序（⭐ 独立 `always` ⇒ ⛔ 不动主状态机，⭐ 与 `base_oct_r` 同一手法 ✅）
     //    ⚠️ 循环变量**另起一个**（`ti`）—— ⛔ **不能复用主块里的 `i`**
     //       （⭐ 两个 `always` 同拍写同一个 `integer` = **仿真竞态** ✅）
@@ -1572,10 +1624,14 @@ module note_manager #(
             //     ⚠️ **代价**：⭐ `phase_tr[g]` 是**轮转刷新**的 ⇒ 任何变化**最多 32 拍**
             //        （0.64 µs）后才反映到输出 ⇒ ⭐ `T1` 的『逐拍逐位』要**留这 32 拍窗口**
             //        （⭐ 判据见 `tb/w3b/tb_transpose.sv` 的 `T1_SETTLE` ✅）
-            if (rot_ok)
-                phase_tr[rot_cnt] <= ((semi_cur == 5'sd0) ||
-                                      (src_r[rot_cnt] == 3'd3) || (src_r[rot_cnt] == 3'd4))
-                                   ? rot_base : (prod_w >>> 15);
+            //  ⭐⭐ 2026-10-09（`P0-03`）：⭐ **写口改用【寄存后的】索引与数据** ✅
+            //   🔴 原写：`if (rot_ok) phase_tr[rot_cnt] <= (…) ? rot_base : (prod_w >>> 15);`
+            //      ⚠️ 那条链 = 读 mux + 移位 + 乘法 + **32 路写译码（含 1024 D 脚扇出）** 串一拍
+            //      ⇒ ⭐ 22.172 ns（⭐ slack +0.102）✅
+            //   ✅ 现在：⭐ 组合链在 `wr_data_v` **截止**（⭐ 下一拍由 `wr_data_d` 驱动写口）
+            //      ⇒ ⭐ 写侧那 5.4 ns 只剩"FF → 译码 → D 脚" ✅
+            if (wr_en_d)
+                phase_tr[rot_cnt_d] <= wr_data_d;
             //  ⭐ 1 ms 一步：⭐ 到点才动，⭐ 每次只走 **±1**（⭐ 单调、⛔ 不跳变 ✅）
             if (port_cnt == PORT_1MS) begin
                 port_cnt <= 16'd0;

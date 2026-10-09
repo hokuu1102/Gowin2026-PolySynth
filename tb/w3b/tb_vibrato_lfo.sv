@@ -95,6 +95,31 @@ module tb_vibrato_lfo;
         @(negedge clk); chk("triangle negative three-quarter-cycle", fast_mod < 0);
         @(negedge clk); chk("triangle returns to zero continuously", fast_mod == 0);
 
+        //  ⭐⭐ 2026-10-09（`P0-19`）：⭐ **幅度上限判据（⭐ 能红）** ✅
+        //   🔴 **缺陷**：⭐ 档 1（上电默认）把 `ch2_i` 原样透传 ⇒ ⭐ 推子**全量程可达**
+        //      ⇒ ⭐ 满深度（`depth_raw = 4095`）时 `vib_off_peak = 9448 × 4095 ≈ 38.7 M`
+        //      ⇒ ⚠️ 而 A4 的 `bv` = 38.70 M ⇒ ⭐ **摆幅 = ±100% 频率**
+        //      ⇒ 🔴 低音（⭐ E1 41.2 Hz 在 9.4% 行程就够）在 LFO 负半周**相位增量翻负**
+        //      ⇒ ⭐ 相位累加器倒着走 ⇒ 🔴 **音高跳 +3.27 个八度**（⭐ 明确错音，⛔ 不是噪声）✅
+        //   ✅ **判据**：⭐ 满推子（`depth_raw = 4095`）下 ⭐ `|mod|` **必须 ≤ 960**
+        //      （⭐ = ±50 cents @ A4 的限幅值 ⇒ `depth_q ≤ 960` ⇒ `vib_off ≤ 1.134 M`
+        //       ⇒ ⭐ 最低可听音 20 Hz 的 `bv` = 1 759 220 仍 > 它 ⇒ **永不翻负**）✅
+        //   📌 🔴 **未修复时**：⭐ 峰值 ≈ **32759** ⇒ ⭐ 本断言必红 ✅
+        depth_raw = 12'hFFF;
+        commit;
+        begin : depth_limit
+            integer k3;
+            integer peak;
+            peak = 0;
+            for (k3 = 0; k3 < 64; k3 = k3 + 1) begin
+                @(negedge clk);
+                if (fast_mod > peak) peak = fast_mod;
+                if (-fast_mod > peak) peak = -fast_mod;
+            end
+            $display("      [dbg] P0-19 depth_raw=4095 => |mod| peak = %0d（上限 960）", peak);
+            chk("P0-19 depth clamp: |mod| <= 960 with the fader at full travel", peak <= 960);
+        end
+
         if (errors == 0) $display("PASS: vibrato LFO hysteresis, slew and phase continuity");
         else $fatal(1, "FAIL: vibrato LFO has %0d error(s)", errors);
         $finish;

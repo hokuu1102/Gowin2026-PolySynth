@@ -36,8 +36,8 @@
   [HARD   P744] ax=2 P=744 R=4 H=100 F=2 | pos@trig->vel_on=111 off_evt_vel=200
      LIVE  vel@off=159 env@off=0 tbr=3 rel=0 smp | dur=2608 smp
      REC   ep_vel=255
-     REPLAY vel@off=239 env@off=0 tbr=3 rel=0 smp | dur=2608 smp | upd_n=105 last=255
-     DELTA vel=80 env=0 rel=0
+     REPLAY vel@off=255 env@off=0 tbr=3 rel=0 smp | dur=2608 smp | upd_n=105 last=255
+     DELTA vel=96 env=0 rel=0
      [prog] A start ax=3 P=744 R=4 H=100 F=6 s=16931
      [prog] A note_on seen s=17003 pos0=186
      [prog] A note_off seen s=19711
@@ -49,8 +49,8 @@
   [HARD slow-rel] ax=3 P=744 R=4 H=100 F=6 | pos@trig->vel_on=111 off_evt_vel=200
      LIVE  vel@off=95 env@off=0 tbr=3 rel=0 smp | dur=2708 smp
      REC   ep_vel=255
-     REPLAY vel@off=247 env@off=0 tbr=3 rel=0 smp | dur=2708 smp | upd_n=109 last=255
-     DELTA vel=152 env=0 rel=0
+     REPLAY vel@off=255 env@off=0 tbr=3 rel=0 smp | dur=2708 smp | upd_n=109 last=255
+     DELTA vel=160 env=0 rel=0
 == verdict ==
      [dbg] worst env%=1000  worst rel%=1000
   ok  : tail: replay vel at note_off equals live vel at note_off (all gestures)

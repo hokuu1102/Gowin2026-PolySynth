@@ -453,7 +453,13 @@ module evt_merge_depth9_case(output reg done = 1'b0, output reg [31:0] errors = 
             cnt_after_pop = count;
             if (n_push != 0) begin
                 if (count + n_push > D) begin
-                    rd = rd + n_push; sticky = 1; reject_hits = reject_hits + 1;
+                    //  ⭐⭐ 2026-10-09（`P0-16`）：⭐ **模型也必须饱和**（⭐ 与 RTL 同步）✅
+                    //   🔴 原来 `rd = rd + n_push` **无饱和** ⇒ ⚠️ 灌到 65535 之后
+                    //      ⭐ 模型继续数（`65537`）、而修好的 RTL 停在 `0xFFFF`
+                    //      ⇒ 🔴 **判据会假红** ⇒ ⭐ 必须同步（⭐ 同 `oscillator_bank_ref` 纪律）✅
+                    if (rd != 65535)
+                        rd = (rd + n_push > 65535) ? 65535 : (rd + n_push);
+                    sticky = 1; reject_hits = reject_hits + 1;
                     count = cnt_after_pop;              // ⭐ 弹出照样记账
                 end else begin
                     off_a = bv ? (a_first ? 0 : 1) : 0;
@@ -539,6 +545,34 @@ module evt_merge_depth9_case(output reg done = 1'b0, output reg [31:0] errors = 
             $fatal(1, "FAIL: DEPTH9 软件参考模型比出 %0d 处不一致", errors);
         $display("  ok  : DEPTH9 位宽契约 + 软件参考模型逐拍一致（checks=%0d full=%0d reject=%0d triple=%0d wraps=%0d）",
                  checks, full_hits, reject_hits, triple_hits, wraps);
+        //  ⭐⭐ 2026-10-09（`P0-16`）：⭐ **饱和判据** —— ⭐ 灌到【超过 16 位】为止 ✅
+        //   🔴 **原缺陷**：⭐ `drop_cnt_o <= (drop_cnt_o + push_n > 16'hFFFF) ? ...`
+        //      ⚠️ `drop_cnt_o`(16) `+` `push_n`(2) ⇒ ⭐ **和自定宽度 = 16 位**
+        //      （IEEE 1364-2001 §5.1.1）⇒ 🔴 `x > 16'hFFFF` **恒为假** ⇒ ⭐ 饱和分支是死代码
+        //      ⇒ 🔴 计数器**裸回绕**（⭐ 实测 `0xFFFF + 3 ⇒ 0x0002`）⇒ ⚠️ 上板诊断撒谎 ✅
+        //   ⭐ **判据**：⭐ 三源齐发灌满队列 ⇒ 实测 `push_n` **均值 2/拍**（⭐ 有一路不是每拍都被收）
+        //      ⇒ ⭐ 灌 **40000 拍 ≈ 80000 > 65535** 足够饱和
+        //      ⇒ ⭐ `drop_cnt_o` **必须停在 `0xFFFF`**（🔴 未修复会回绕成小值）✅
+        begin : sat_test
+            integer k2;
+            for (k2 = 0; k2 < 40000; k2 = k2 + 1) begin
+                @(negedge clk);
+                av = 1; bv = 1; cv = 1;
+                aax = 4'd1; bax = 4'd9; cax = 4'd10;
+                ain = 32'd1; bin = 32'd2; cin = 32'd3;
+                ave = 8'd200; bve = 8'd200; cve = 8'd100;
+                akd = 2'd0; bkd = 2'd1; ckd = 2'd2;
+                atv = 1'b0; btv = 1'b0; ctv = 1'b0;
+                atb = 2'd1; btb = 2'd2; ctb = 2'd3;
+            end
+            @(negedge clk); av = 0; bv = 0; cv = 0;
+            repeat (4) @(negedge clk);
+            if (dut.drop_cnt_o !== 16'hFFFF)
+                $fatal(1, "FAIL: P0-16 饱和判据: drop_cnt_o=0x%04X（应为 0xFFFF）=> 计数器回绕了",
+                       dut.drop_cnt_o);
+            $display("  ok  : P0-16 饱和判据 drop_cnt_o=0x%04X（灌 40000 拍 x push_n 均值 2 > 65535）",
+                     dut.drop_cnt_o);
+        end
         done = 1;
     end
 endmodule

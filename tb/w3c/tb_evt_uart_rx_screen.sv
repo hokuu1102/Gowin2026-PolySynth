@@ -163,6 +163,13 @@ module tb_evt_uart_rx_screen;
                      last_evt[22:19]);
             $display("      => decoded inc  = 0x%05X", last_evt[43:23]);
             $display("      => decoded kind = %0d (0=on 1=off)", last_evt[10:9]);
+            //  ⭐⭐ 2026-10-09（`P0-02`）：⭐ **本 tb 是【模块级诊断】，⛔ 不是门控判据** ✅
+            //   🔴 **为什么**：⭐ `evt_uart_rx` **单模块看不到别人的帧边界**
+            //      ⇒ ⭐ 只要喂进来的字节流里有 `0xA5`，⭐ 它**必然**会当帧头 —— ⭐ 这是**固有局限**，
+            //      ⛔ 不是本模块能修的（⭐ 修在**顶层门控**：⭐ 别人帧内时不给它字节 ✅）
+            //   ✅ **门控的判据在** `tb/w3c/tb_evt_uart_rx_gate.sv`（⭐ 集成级，双向往返验证）✅
+            //   📌 本 tb 保留**打印**：⭐ 它是"缺陷复现的原始证据"（⭐ 8 帧 ⇒ 8 条伪事件）✅
+            $display("   ⚠️  这是模块固有局限；⭐ 门控判据见 tb_evt_uart_rx_gate.sv ✅");
         end else begin
             $display("   ✅ no spurious event: screen data is safely ignored.");
         end

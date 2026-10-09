@@ -28,7 +28,7 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 16 words in array 
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 
 'pc_l1'.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_timbre_top.sv:92: warning: Instantiating module top with dangling i
 nput port 3 (timbre_btn_i) floating.

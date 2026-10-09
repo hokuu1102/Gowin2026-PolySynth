@@ -132,6 +132,12 @@ module tb_top_m0;
     chk_xprop #(.W(1), .NAME("led_heartbeat")) u_a8_hb   (.clk(clk), .rst_n(rst_n), .sig(hb_a),          .err_cnt(a8_hb));
     chk_xprop #(.W(1), .NAME("PA_EN_n(延时)")) u_a8_pa_b (.clk(clk), .rst_n(rst_n), .sig(PA_EN_n_b),     .err_cnt(a8_pa_b));
 
+    //  ⭐⭐ 2026-10-09（`P0-06`）：⭐ **心跳翻转计数**（⭐ "活体见证"判据）✅
+    //   📌 为什么单独数：⭐ `chk_xprop` 只看端口有没有 X/Z
+    //      ⚠️ 而"心跳**恒为 0**"是**合法电平** ⇒ ⭐ 必须**数翻转次数**才抓得到 ✅
+    integer hb_toggles = 0;
+    always @(posedge hb_d) hb_toggles = hb_toggles + 1;
+
     // ═══════════════════════════════════════════════════════════════════════
     // ⭐⭐ J · 外置 DAC 通路（`PCM5102A`，⭐ 2026-09-25 新增 · 路线 A）
     //
@@ -529,6 +535,28 @@ module tb_top_m0;
         else begin
             $display("FAIL: J · 外置线出现 X/Z（bck=%0d lrck=%0d din=%0d）", a8_bck2, a8_lrck2, a8_din2);
             errors = errors + 1;
+        end
+
+        //  ⭐⭐ 2026-10-09（`P0-06`）：⭐ **心跳必须真的翻转** ＋ ⭐ **`fault_sticky` 不许是 X** ✅
+        //   🔴 **原缺陷**：⭐ `g_silent` 档（⭐ 本 tb 的 `u_top_default`）漏驱动 `fault_any_w`
+        //      ⇒ ⭐ 它悬空成 `z` ⇒ `if (fault_any_w)` 判成 **X** ⇒ `fault_sticky` 变 X
+        //      ⇒ ⭐ `hb_div_eff` 变 X ⇒ `hb_cnt >= hb_div_eff − 1` **恒为 X（判假）**
+        //      ⇒ 🔴 **`hb` 永不翻转 ⇒ 心跳灯死** ⇒ ⭐ **M0「活体见证」在静默档上完全失效** ✅
+        //   📌 ⚠️ **为什么原来的 A8 判据抓不到**：⭐ `chk_xprop` 只看**端口** `led_heartbeat`
+        //      在**复位释放后**有没有 X/Z —— ⚠️ 而这里的 X 在**内部**（`fault_sticky`），
+        //      ⭐ 端口上只是一个**恒定不动**的合法电平 ⇒ 🔴 **判据漏了** ✅
+        //      （⭐ 实测：摘掉修复后本 tb **照样 PASS** ⇒ ⭐ 本判据是补出来的 ✅）
+        if ($isunknown(u_top_default.fault_sticky)) begin
+            $display("FAIL: P0-06 fault_sticky 是 X（g_silent 档 fault_any_w 悬空）");
+            errors = errors + 1;
+        end else begin
+            $display("  ok : P0-06 g_silent 档 fault_sticky 有确定值（=%0d）", u_top_default.fault_sticky);
+        end
+        if (hb_toggles < 2) begin
+            $display("FAIL: P0-06 心跳只翻转 %0d 次（应 >= 2）=> 活体见证失效", hb_toggles);
+            errors = errors + 1;
+        end else begin
+            $display("  ok : P0-06 心跳翻转 %0d 次（活体见证有效）", hb_toggles);
         end
 
         $display("");

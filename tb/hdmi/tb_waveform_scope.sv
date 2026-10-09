@@ -26,8 +26,8 @@ module tb_waveform_scope;
         integer scaled;
         begin
             // Arithmetic floor by division, independent of RTL slice/shift.
-            if(s>=0) scaled=s/16384;
-            else scaled=-((-s+16383)/16384);
+            if(s>=0) scaled=s/65536;
+            else scaled=-((-s+65535)/65536);
             map_y=240-scaled;
             if(map_y<0) map_y=0;
             if(map_y>479) map_y=479;
@@ -123,6 +123,12 @@ module tb_waveform_scope;
                 end
             join
             $display("PASS: mode=%0d full frame exact pixels; green=%0d gray=%0d; live ring overwrite stable",mode,greens,grays);
+            // P0-18 独立不变量：满幅方波绿像素必须 <= 60% 屏（改前 100% / 改后 53.3%）
+            if (mode == 4 && greens > (60*640*480/100)) begin
+                $display("FAIL: P0-18 满幅方波绿像素 = %0d（%.1f%%）> 60%% 阈值 => 纵轴仍在饱和",
+                         greens, greens*100.0/(640.0*480.0));
+                $fatal(1, "P0-18: waveform_scope vertical scale still saturates on a full-scale square");
+            end
         end
         // Reset after a full ring must invalidate the old image and history.
         @(negedge pixel_clk); pixel_rst_n=0;sample_rst_n=0;

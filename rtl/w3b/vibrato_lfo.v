@@ -40,7 +40,27 @@ module vibrato_lfo #(
     wire [31:0] rate_target_w = (rate_raw_i == 12'hFFF)
                               ? RATE_MAX_INC
                               : RATE_MIN_INC + rate_product[43:12];
-    wire [15:0] depth_target_w = {depth_raw_i, 3'b000}; // 12-bit -> Q1.15
+    //  ⭐⭐ 2026-10-09（`P0-19`）：⭐ **颤音深度上限（⭐ 止血版）** ✅
+    //   🔴 **缺陷**：⭐ 档 1（上电默认）把 `ch2_i` **原样透传**到 `vibrato_depth_o`
+    //      ⇒ ⭐ 推子行程 = `depth_raw_i` **0..4095 全量程可达** ✅
+    //      ⇒ ⭐ 本 LFO 的输出是**绝对偏移**（⛔ 不是按基频比例）：
+    //         `vib_off_peak = 9448.2 × depth_raw_i`（⭐ 单位 = 相位增量/拍）
+    //         ⚠️ 而 A4 的 `bv` = **38 702 840** ⇒ ⭐ **满深度时摆幅 = ±100% 频率** ✅
+    //      ⇒ 🔴 `inc_main = bv + vib_off`（mod 2³²）在 `vib_off < −bv` 时**翻负**
+    //         ⇒ ⭐ 相位累加器**倒着走** ⇒ 🔴 **明确的错音**（⛔ 不是噪声）✅
+    //   📌 **翻负门限（⭐ 实测换算）**：⭐ 低 B(5弦) 30.87 Hz ⇒ `depth_raw ≥ 287`（**7.0%** 行程）
+    //      · E1 41.20 Hz ⇒ **384**（9.4%）· E2 82.41 Hz ⇒ **767**（18.7%）· A2 110 Hz ⇒ **1024**（25%）✅
+    //      · ⭐ 例：E1 + `depth_raw=4095` ⇒ `inc = 3 624 000 − 38 689 000 = −35 065 000`
+    //        ⇒ ⭐ 等效 **398.7 Hz 倒放** ⇒ ⭐ 41.2 Hz 的音**跳 +3.27 个八度** ✅
+    //   ✅ **修法（A）**：⭐ 深度上限 **±50 cents @ A4**（⭐ 50 cents = 2^(50/1200)−1 = 2.93%）
+    //      ⇒ `vib_off ≤ 0.0293 × 38.7M = 1.134M` ⇒ `depth_q ≤ 960` ⇒ ⭐ **`depth_raw ≤ 120`** ✅
+    //   📌 **上限足够**：⭐ 最低可听音 20 Hz 的 `bv` = 1 759 220 > 1 134 000 ⇒ ⭐ **永不翻负** ✅
+    //   📌 **代价**：⭐ 1 个 12 位比较 + 1 个 12 位 2:1 mux ≈ **+16 LUT**，⛔ 零 FF、对 Fmax 可忽略 ✅
+    //   ⚠️ **结构修法（B，⭐ 未做）**：⭐ 把"绝对偏移"改成"按基频比例"（⭐ 共享乘法器 + 32 拍轮转）
+    //      ⇒ ⭐ 代价 1 个 DSP + 1024 FF + 32 拍状态机 ⇒ ⚠️ 给 CLS 78% 的布线加压 ⇒ ⭐ 记入 P1 ✅
+    localparam [11:0] DEPTH_MAX_RAW = 12'd120;   // ⭐ ±50 cents @ A4
+    wire [11:0] depth_eff = (depth_raw_i > DEPTH_MAX_RAW) ? DEPTH_MAX_RAW : depth_raw_i;
+    wire [15:0] depth_target_w = {depth_eff, 3'b000}; // 12-bit -> Q1.15（⭐ 已限幅）
 
     reg              depth_active_r;
     reg [15:0]       depth_q;
@@ -51,23 +71,27 @@ module vibrato_lfo #(
 
     // Triangle LFO: 0 -> +1 -> 0 -> -1 -> 0 over one 32-bit phase turn.
     wire [14:0] tri_mag = phase_q[30] ? ~phase_q[29:15] : phase_q[29:15];
-    // Build two's-complement negation at exactly 16 bits. Gowin widens both
-    // unary '-' and '+' by one bit, so use a ripple carry here instead.
-    function [15:0] twos_complement16;
-        input [15:0] value;
-        integer bit_i;
-        reg carry;
-        begin
-            carry = 1'b1;
-            for (bit_i = 0; bit_i < 16; bit_i = bit_i + 1) begin
-                twos_complement16[bit_i] = (~value[bit_i]) ^ carry;
-                carry = (~value[bit_i]) & carry;
-            end
-        end
-    endfunction
-    wire [15:0] triangle_bits = phase_q[31]
-                               ? twos_complement16({1'b0, tri_mag})
-                               :  {1'b0, tri_mag};
+    //  ⭐⭐ 2026-10-09（`P0-17`）：⭐ **补码取负改用 `(~x) + 16'd1`（一条进位链）** ✅
+    //   🔴 **原写法**：⭐ 手写 16 级 ripple-carry 函数（`carry = (~value[bit_i]) & carry;`）——
+    //      ⚠️ 那是一条**纯 2 输入 AND 串联链**，`carry` 只能逐级传播 ⇒ **16 级 LUT 级联** ✅
+    //   📌 **关键**：⭐ 这**不是加法器** —— ⭐ Gowin 的专用进位链（ALU 资源，每单元 2 bit）
+    //      **只在综合器识别出 `+` / `-` 运算符时**才被推断
+    //      ⚠️ 手写 `&` 链 ⇒ ⭐ 综合器**没有义务**把它映射成进位链 ⇒ 🔴 大概率是 16 级普通 LUT ✅
+    //   🔴 **它曾经就是全设计最差路径的上游**（⭐ 2026-10-08 实测）：
+    //      `u_vibrato_lfo/phase_q_17_s0/Q → u_oscillator_bank/gen_lane[*].phase_q_*_s0/D`
+    //      = **21.4 ns**（约束 18.181）· slack **−3.272** · **1630 个端点同时违例** · TNS −2718.329 ✅
+    //      那一次在 `oscillator_bank` 侧插了两级流水（⭐ 把终点拉回 `vibrato_mod_r`），
+    //      ⚠️ **但本链的 16 级一级没减** —— ⭐ 现在只是**被布局掩盖**（`timing_paths` 里 `vibrato_lfo` 出现 0 次）✅
+    //   ✅ **修法**：⭐ `(~tri_pos) + 16'd1` **就是 16 位补码取负**，⭐ 与旧函数**逐位等价** ✅
+    //      📌 **宽度安全**：⭐ 两个操作数都是 16 位（`tri_pos` 与 `16'd1`）
+    //         ⇒ ⭐ 结果宽度 = `max(16,16)` = **16** ⇒ ⛔ **不会触发作者担心的"Gowin 加宽一位"** ✅
+    //      📌 **代价**：⭐ `(~tri_pos)` = 16 个 LUT（**并行**、不在关键路径上）；
+    //         ⭐ `+ 16'd1` = **一条 16 位进位链 = 8 个 ALU**（每 ALU 2 bit）≈ **0.3~0.5 ns**
+    //         ⇒ ⭐ 对比 16 级 LUT 的 **8~11 ns** ⇒ ⭐ **省 8~10 ns** ✅
+    //      📌 资源：`LUT −16` · `ALU +8` · ⛔ **零 FF、零行为变更** ✅
+    wire [15:0] tri_pos = {1'b0, tri_mag};          // 16 位，MSB 恒 0
+    wire [15:0] tri_neg = (~tri_pos) + 16'd1;       // ⭐ 16 位进位链取负（⛔ 不是 16 级 LUT）
+    wire [15:0] triangle_bits = phase_q[31] ? tri_neg : tri_pos;
     wire signed [15:0] triangle_q = triangle_bits;
     wire signed [31:0] mod_product = triangle_q * $signed(depth_q);
     // Q1.15 product -> Q1.15.  The explicit slice is the low 16 bits of the

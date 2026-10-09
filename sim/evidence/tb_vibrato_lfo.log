@@ -10,7 +10,9 @@
   ok  : triangle crosses zero at half-cycle
   ok  : triangle negative three-quarter-cycle
   ok  : triangle returns to zero continuously
+      [dbg] P0-19 depth_raw=4095 => |mod| peak = 960锛堜笂闄?960锛?
+  ok  : P0-19 depth clamp: |mod| <= 960 with the fader at full travel
 PASS: vibrato LFO hysteresis, slew and phase continuity
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vibrato_lfo.sv:100: $finish called at 350000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vibrato_lfo.sv:125: $finish called at 1020000 (1ps)
 
 

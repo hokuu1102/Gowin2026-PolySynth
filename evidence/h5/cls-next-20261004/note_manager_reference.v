@@ -1007,16 +1007,21 @@ module note_manager_reference #(
                     if (gate_mask[i]) begin
                         if (src_r[i] == 3'd0) begin
                             //  ⭐ 手弹：⭐ 每轴目标（⭐ `vtgt_vld` 是"该轴收到过目标"）
+                            //  ⭐⭐ 2026-10-09（P0-01 同步）：⭐ 9 位比较 —— ⛔ 8 位会 mod 256 回绕
+                            //   🔴 原写 `> vel_r[i] + 8'd8` ⇒ vel_r=248 时 248+8=0 ⇒ 恒真 ⇒ 写成 0 ✅
+                            //   📌 本文件是 `tb_note_manager_write_share` 的**参考基线**
+                            //      ⇒ ⭐ 必须与 `rtl/w3b/note_manager.v` **同步修**（同 oscillator_bank_ref 纪律）✅
                             if (vtgt_vld[axis_r[i]]) begin
-                                if      (vtgt_val[axis_r[i]] > vel_r[i] + 8'd8) vel_r[i] <= vel_r[i] + 8'd8;
-                                else if (vtgt_val[axis_r[i]] + 8'd8 < vel_r[i]) vel_r[i] <= vel_r[i] - 8'd8;
-                                else                                            vel_r[i] <= vtgt_val[axis_r[i]];
+                                if      ({1'b0, vtgt_val[axis_r[i]]} > {1'b0, vel_r[i]} + 9'd8) vel_r[i] <= vel_r[i] + 8'd8;
+                                else if ({1'b0, vtgt_val[axis_r[i]]} + 9'd8 < {1'b0, vel_r[i]}) vel_r[i] <= vel_r[i] - 8'd8;
+                                else                                                              vel_r[i] <= vtgt_val[axis_r[i]];
                             end
                         end else begin
                             //  ⭐ 非手弹（回放）：⭐ 每 voice 目标（⭐ 与手弹**同一套 ±8 斜坡** ✅）
-                            if      (vtgt_rep[i] > vel_r[i] + 8'd8) vel_r[i] <= vel_r[i] + 8'd8;
-                            else if (vtgt_rep[i] + 8'd8 < vel_r[i]) vel_r[i] <= vel_r[i] - 8'd8;
-                            else                                    vel_r[i] <= vtgt_rep[i];
+                            //  ⭐⭐ 2026-10-09（P0-01 同步）：⭐ 同样 9 位比较 ✅
+                            if      ({1'b0, vtgt_rep[i]} > {1'b0, vel_r[i]} + 9'd8) vel_r[i] <= vel_r[i] + 8'd8;
+                            else if ({1'b0, vtgt_rep[i]} + 9'd8 < {1'b0, vel_r[i]}) vel_r[i] <= vel_r[i] - 8'd8;
+                            else                                                      vel_r[i] <= vtgt_rep[i];
                         end
                     end
             end

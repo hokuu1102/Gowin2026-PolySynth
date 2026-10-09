@@ -1,4 +1,4 @@
-﻿NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=4 BYTE_CLK=50 HEADER=a5 N_CMD=18 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a)
+﻿NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=4 BYTE_CLK=500 HEADER=a5 N_CMD=18 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a)
 === tb_calib_cmd ===
   ok  : 'T' outside a frame raises tare_req
   ok  : 'T' does NOT raise span_req or abort_req
@@ -64,12 +64,15 @@
   ok  : idle gap forces a resync back to idx 0
   ok  : idle resync was counted (observable, not silent)
   ok  : after idle resync, a command works again ('X' fires)
+      [dbg] P0-05 chunked: tare=0 span=0 resync=0 idx=0
+  ok  : P0-05 chunked delivery: payload 'T'/'S' inside a frame gap are NOT commands
+  ok  : P0-05 chunked delivery: no mid-frame resync (gap tolerance is 16 byte times)
   ok  : consecutive T,S,X,M each fire exactly once
   ok  : consecutive commands: cmd_cnt_o == 4
   ok  : back-to-back frames with embedded T/S/X/HDR raise no commands
   ok  : back-to-back frames end with idx_o == 0
 
 PASS: calib_cmd parses T/S/X/M/F/G/H/J only at frame boundaries, ignores payload letters, counts what it drops, takes the 'H' framed value from the next frame's first payload byte, and self-heals after a half frame
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_cmd.sv:532: $finish called at 13330000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_cmd.sv:557: $finish called at 91850000 (1ps)
 
 

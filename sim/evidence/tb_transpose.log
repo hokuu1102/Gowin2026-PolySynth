@@ -60,7 +60,7 @@
 
 === T7: T3_EN=0 浜や粯閰嶇疆 鈬?鍏ㄧ▼閫愭媿閫愪綅 == T2 鍩虹嚎锛坉36cb64^锛?==
   鍏ㄧ▼姣旇緝 1815845 鎷嶏紙猸?涓ゆ潯鐪熷垽鎹?*鍏ㄧ▼閫愭媿**锛?
-  闈炵┖娲炴€ф帰閽堬細T3_EN=1 涓庡熀绾裤€愬嚭鐜拌繃銆戜笉鍚?10635 鎷嶏紙鍏朵腑 semi!=0 涔嬪悗 1 鎷嶏級
+  闈炵┖娲炴€ф帰閽堬細T3_EN=1 涓庡熀绾裤€愬嚭鐜拌繃銆戜笉鍚?11047 鎷嶏紙鍏朵腑 semi!=0 涔嬪悗 1 鎷嶏級
   鈿狅笍 鍚庝袱涓暟鍦ㄣ€愬瓨鍦ㄦ€у凡璇併€戝悗**鍋滄绱姞** 鈬?猸?鍙渶 > 0锛屸洈 涓嶆槸鎬绘暟锛堣涓婃柟銆屼豢鐪熷紑閿€銆嶏級
   ok  : T7: T3_EN=0 instance is bit-identical to the T2 baseline for the WHOLE run
   ok  : T7: the dangling-transpose instance (= top.v today) is bit-identical too

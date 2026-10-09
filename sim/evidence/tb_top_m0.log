@@ -1,10 +1,10 @@
-﻿NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=18 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a)
+﻿NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=18 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
-NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=18 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=18 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
-NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=18 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=18 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
 VCD info: dumpfile build/sim/tb_top_m0/tb_top_m0.vcd opened for output.
@@ -42,8 +42,10 @@ VCD info: dumpfile build/sim/tb_top_m0/tb_top_m0.vcd opened for output.
   J 娲诲姩閲? : 澶栫疆 bck=8193 lrck=127 din=0 锝?鏉胯浇 bck=8193 ws=127 din=0
   ok : J ** 澶栫疆涓庢澘杞界殑銆愭椿鍔ㄩ噺鐩哥О銆戯紙猸?鏃堕挓绾块兘鍦ㄥ姩锛涙湰妗ｄ袱璺?DIN 鍚屼负闈欓煶锛?
   ok : J 路 A8 澶栫疆涓夋牴绾垮浣嶅悗鏃?X/Z
+  ok : P0-06 g_silent 妗?fault_sticky 鏈夌‘瀹氬€硷紙=0锛?
+  ok : P0-06 蹇冭烦缈昏浆 64 娆★紙娲讳綋瑙佽瘉鏈夋晥锛?
 
 PASS: M0 top-level acceptance (timebase + SD_MODE polarity + silence-clean + heartbeat + no X + external DAC)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_m0.sv:539: $finish called at 1310971000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_m0.sv:567: $finish called at 1310971000 (1ps)
 
 

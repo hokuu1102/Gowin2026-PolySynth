@@ -4,7 +4,7 @@ NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
 NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
 NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
 NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
-NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=100 HEADER=a5 N_CMD=18 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=18 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
   [tare ] autotare finished (at_done=1) -- safe to test now
@@ -17,7 +17,7 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
   ok  : no key pressed => W3a starts NO new note (n_on unchanged)
   [idle ] HP_DIN toggles = 520  (threshold 800)
   ok  : no key pressed => HP_DIN is essentially quiet (demo tail allowed)
-  [press] HP_DIN toggles = 2857
+  [press] HP_DIN toggles = 2901
   ok  : pressing (left board reads RAW_DOWN) => HP_DIN carries audio
   [samp ] 4 keys => voices 11/12/13/14  phases 0174073a 0127476d 0107104e 0138d653
   [samp ] pos[9]=745 pos[12]=748 pos[13]=749 pos[15]=751
@@ -26,14 +26,14 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
   [samp ] released; refract now counts down during criteria 3~6
   [vel  ] pos[0]=744  max(vel_r)=255  (pos_to_vel(744)=71)
   ok  : vel_r FOLLOWS pos end-to-end (press => vel reaches the pos-mapped value)
-  [relA ] env_level[0] = 46890   HP_DIN toggles = 534
-  [relB ] env_level[0] = 44898   HP_DIN toggles = 547
+  [relA ] env_level[0] = 46890   HP_DIN toggles = 514
+  [relB ] env_level[0] = 44898   HP_DIN toggles = 494
   [evts ] total note_on=13  note_off=13
   [gate ] nm_gate[15:0] = 0000000000000000
   ok  : after note_off the envelope is DECAYING (release path works)
   [note ] release is ~0.45 s; this tb only waits 80 ms by design
   ok  : a note_off was produced by the release (distinguishes the two failure modes)
-  [right] HP_DIN toggles = 2945
+  [right] HP_DIN toggles = 2849
   ok  : pressing the right board => also sounds
   ok  : no X propagated on HP_DIN after reset release
   [pos  ] idle = 0   pressed = 744

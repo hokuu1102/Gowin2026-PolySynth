@@ -38,5 +38,5 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_w1_interfaces.sv:62: warning: Ins
 ngling input port 6 (retrig_reset_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_w1_interfaces.sv:62: warning: Instantiating module envelope_bank with da
 ngling input port 7 (timbre_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 16 words in array 
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 
 'pc_l1'.

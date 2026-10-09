@@ -275,8 +275,42 @@ module tdm_render_mixer #(
     // ③ ⭐⭐ 唯一的乘法器（TDM 共享 —— `K-83`：60K 只有 118 个 DSP）
     //    `vs_c` 有符号 × `env_c` 无符号 ⇒ 显式零扩展到有符号再乘
     // ═══════════════════════════════════════════════════════════════════════
-    wire signed [SUM_W-1:0]   vs_s   = vs_c;
-    wire signed [ENV_W:0]     env_s  = $signed({1'b0, env_c});
+    //  ⭐⭐ 2026-10-09（`P0-04`）：⭐ **读侧流水级** —— ⭐ 把 64:1 选路从关键路径上摘掉 ✅
+    //   🔴 **原缺陷**：⭐ 一拍里串了四件事（⭐ 实测 **20.062 ns** / 挑战档 18.181 · slack **+0.133**）：
+    //      ① `cnt_sel` 夹取 → ② **64 lane（16 位 × 2）选择** ≈ **6.1 ns**
+    //      （⭐ 其中 ≥7.4 ns 是纯布线：`n41→n101` 三段 3.7 + 1.9 + 0.43）
+    //      → ③ 18 位加减（⭐ lane 加权）≈ 2.5 ns → ④ **DSP 输入** ≈ 2.6 ns ⇒ ⭐ 合计 20.06 ns ✅
+    //      📌 ⭐ **86.8% 的周期**烧在"`cnt` → 选路 → 加法树"这一段 ✅
+    //      （⭐ 减法器本身只要 **45 ps/bit** —— ⭐ 它是进位链、很便宜，⭐ 但它 **17.358 ns 才开始**）✅
+    //   ✅ **修法**：⭐ 在 **mux 输出与算术之间**插一级（⭐ 数据路径只多 1 级）
+    //      ⇒ ⭐ 一拍切成 **A: `cnt` → mux → FF ≈ 11.5 ns** ＋ **B: FF → 减法 → DSP → FF ≈ 5 ns** ✅
+    //   📌 **代价**：⭐ 18 FF（⭐ 零 LUT、零 DSP）✅
+    //   📌 **拍数不变（⭐ 关键）**：⭐ 数据路径 +1 级，而 `valid_d` 从 5 级**降到 4 级**
+    //      （⭐ 它原先比数据**多 2 级** ⇒ 正好吃掉这一级）⇒ ⭐ `dry_valid` 仍在
+    //      **+39 clk = POLY_TARGET+7** ⇒ ⭐ `tb_tdm_render_mixer` 的 `k ∈ [POLY+3, POLY+8]`
+    //      判据**一字不改** ✅
+    //   ⚠️⚠️ **`cnt_sel` 必须【保持 `cnt` 原样】—— ⭐ 这一条是 2026-10-09 第一次尝试翻车的原因** ✅
+    //      🔴 **我第一版**：⭐ 把 `cnt_sel` 改成 `clamp(cnt−1, …)`（⭐ 以为"累加拍用的是上一拍的读值"）
+    //         ⇒ ⚠️ 而**流水寄存的是【读出来的值】** ⇒ ⭐ `cnt_sel` **本来就已经晚了一拍**
+    //         ⇒ 🔴 结果：⭐ cycle 0 读 voice 0（特例）＋ cycle 1 读 voice 0（`k−1`）
+    //         ⇒ ⭐ **voice 0 被读两次、voice 31 永远读不到** ⇒ 🔴 **静默幅度错**（⭐ 实测 `tb_tdm_render_mixer` 红 5 条）✅
+    //      ✅ **正确**：⭐ `cnt_sel(k) = k`（⛔ 不动）＋ ⭐ 窗口 `[2, CNT_LAST+1]`
+    //         ⇒ ⭐ cycle j 累加的是 voice `j−2` ⇒ ⭐ 恰好覆盖 0..31 ✅
+    //      📌 ⭐ 教训（⭐ 已记档）：**"插流水 ⇒ 谁该挪"必须逐拍对账，⛔ 不能靠"读值晚一拍"这种直觉** ✅
+    reg signed [SUM_W-1:0] vs_c_r;
+    reg        [ENV_W-1:0] env_c_r;
+    always @(posedge clk_i) begin
+        if (!rst_n_i) begin
+            vs_c_r  <= {SUM_W{1'b0}};
+            env_c_r <= {ENV_W{1'b0}};
+        end else if (busy) begin
+            vs_c_r  <= vs_c;
+            env_c_r <= env_c;
+        end
+    end
+
+    wire signed [SUM_W-1:0]   vs_s   = vs_c_r;
+    wire signed [ENV_W:0]     env_s  = $signed({1'b0, env_c_r});
     wire signed [PROD_W-1:0]  prod_c = vs_s * env_s;
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -309,7 +343,14 @@ module tdm_render_mixer #(
                 prod_r <= {PROD_W{1'b0}};
             end else if (busy) begin
                 // ⭐ 累加**上一拍**的乘积（乘法器输出已寄存）
-                if (cnt >= 1 && cnt <= CNT_LAST)
+                //  ⭐⭐ 2026-10-09（`P0-04`）：⭐ **窗口后移一拍** `[1,32]` → `[2,33]` ✅
+                //   📌 逐拍账（⭐ 本次已对过，⛔ 不再靠直觉）：
+                //      · cycle k：`cnt_sel(k)=k` ⇒ `vs_c` = voice k ⇒ 寄存 ⇒ ⭐ cycle k+1：`vs_c_r` = voice k
+                //      · cycle k+1：`prod_c` = voice k ⇒ 寄存 ⇒ ⭐ cycle k+2：`prod_r` = voice k
+                //      · ⭐ 所以 cycle j 累加的 `prod_r` = **voice (j−2)** ✅
+                //      ⇒ ⭐ 窗口 `[2, 33]` 恰好覆盖 voice **0..31**（⭐ j=2 ⇒ voice 0 · j=33 ⇒ voice 31）✅
+                //   ⚠️ `CNT_TOTAL = 34` **不动** ⇒ ⭐ `dry_valid` 的拍数不变 ✅
+                if (cnt >= 2 && (cnt <= CNT_LAST + 1'b1))
                     acc_r <= acc_r + prod_r;
 
                 // ⭐ 乘法器输入用**当前** `cnt`（下一拍 `prod_r` 就是它的结果）
@@ -854,13 +895,17 @@ module tdm_render_mixer #(
     //      📌 **配套**：`tb_tdm_render_mixer.sv` 的判据名字 `POLY_TARGET+6` → `+7`
     //         （⭐ 它的**断言是范围** `[POLY+3, POLY+8]` ⇒ ⛔ 判据本身不用改）。
     //   2026-09-29: the registered soft-knee square adds one more data stage.
-    reg [4:0] valid_d;
+    //  ⭐⭐ 2026-10-09（`P0-04`）：⭐ **`valid_d` 5 级 → 4 级**（⭐ 数据路径多了一级，⭐ 正好抵消）✅
+    //   📌 **纪律**（⭐ 见上方注释）：⭐ **加了几级数据寄存器，`valid` 就要跟着延几级** ✅
+    //      ⭐ 读侧 +1 级数据 ⇒ ⭐ valid 减 1 级 ⇒ ⭐ **净拍数不变** ✅
+    //   ⇒ ⭐ `dry_valid_o` 仍在 **+39 clk = `POLY_TARGET+7`** ⇒ ⭐ tb 判据不用改 ✅
+    reg [3:0] valid_d;
     always @(posedge clk_i) begin
-        if (!rst_n_i) valid_d <= 5'b00000;
-        else          valid_d <= {valid_d[3:0], valid_r};
+        if (!rst_n_i) valid_d <= 4'b0000;
+        else          valid_d <= {valid_d[2:0], valid_r};
     end
     //   ⭐ 延时后的 valid = 数据出 `samp_r` 的那一拍
-    assign dry_valid_o      = valid_d[4];
+    assign dry_valid_o      = valid_d[3];
     assign dry_sample_o     = samp_r;
     assign deadline_fault_o = fault_r;
 

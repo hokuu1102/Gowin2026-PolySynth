@@ -67,7 +67,7 @@ module waveform_scope (
         reg signed [10:0] y_calc;
         begin
             // Signed slice is exactly s >>> 14, including negative rounding.
-            y_calc = 11'sd240 - $signed(s[23:14]);
+            y_calc = 11'sd240 - $signed(s[23:16]);   // P0-18: 1/65536 (never saturates)
             if (y_calc < 0) sample_y = 9'd0;
             else if (y_calc > 479) sample_y = 9'd479;
             else sample_y = y_calc[8:0];

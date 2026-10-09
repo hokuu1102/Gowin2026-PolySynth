@@ -8,7 +8,7 @@
       frame B: 71 02 00 11 00 FF FF FF FF
       after: n_evt=1  frame_cnt=1  hdr_err=8  resync=0
   [2] a long continuous screen stream (8 frames, no long gap):
-      after: n_evt=8  frame_cnt=8  hdr_err=10  resync=1
+      after: n_evt=8  frame_cnt=8  hdr_err=10  resync=0
 
   == summary ==
    total evt_valid pulses (spurious events) = 8
@@ -17,7 +17,8 @@
       => decoded axis = 15  (14/15 = reserved, keyboard can NEVER clear it)
       => decoded inc  = 0x1fffff
       => decoded kind = 0 (0=on 1=off)
+   鈿狅笍  杩欐槸妯″潡鍥烘湁灞€闄愶紱猸?闂ㄦ帶鍒ゆ嵁瑙?tb_evt_uart_rx_gate.sv 鉁?
 ==============================================================
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_screen.sv:170: $finish called at 381760000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_screen.sv:177: $finish called at 381760000 (1ps)
 
 
