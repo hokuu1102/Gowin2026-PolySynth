@@ -11,6 +11,8 @@
 //   ⑤ ⭐⭐ 非空洞性：轴号 0..15 每个 note_on 都落到一个真实灯位（满射、无空洞）
 //   ⑥ ⭐ commit 单周期：指引变化那拍拉高恰好 1 拍
 //   ⑦ ⭐ 多键并存：多个 note_on 累积成多位 one-hot（⛔ 互相覆盖）
+//   ⑧ ⭐⭐ P0-28 消隐：key_active 的键即使 note_on 也不亮（已按不指引）
+//   ⑨ ⭐ P0-28 消隐存在性：key_active 的变化会改变输出（反证 & ~key_active 存在）
 // ─────────────────────────────────────────────────────────────────────────────
 
 module tb_guide_lamp;
@@ -32,7 +34,6 @@ module tb_guide_lamp;
     reg                     note_valid  = 1'b0;
     reg  [EVT_W-1:0]        note_data   = {EVT_W{1'b0}};
     reg  [AXIS_N-1:0]       key_active  = {AXIS_N{1'b0}};
-    reg                     blink       = 1'b0;
 
     wire [AXIS_N-1:0]       guide_key;
     wire                    guide_commit;
@@ -61,7 +62,6 @@ module tb_guide_lamp;
         .note_valid_i   (note_valid),
         .note_data_i    (note_data),
         .key_active_i   (key_active),
-        .blink_i        (blink),
         .guide_key_o    (guide_key),
         .guide_commit_o (guide_commit)
     );
@@ -161,6 +161,46 @@ module tb_guide_lamp;
         send_note(4'd15, KIND_ON);
         chk("multi: axis 0 and 15 both lit", guide_key[0] === 1'b1 && guide_key[15] === 1'b1);
         chk("multi: only those two bits", guide_key === 16'h8001);
+        // 清掉，避免影响 ⑧
+        send_note(4'd0, KIND_OFF);
+        send_note(4'd15, KIND_OFF);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ⑧⭐ P0-28 消隐：key_active 的键即使 note_on 也不亮
+        // ═══════════════════════════════════════════════════════════════════
+        // 先 note_on axis=3 点亮，再置 key_active[3]=1 ⇒ guide[3] 应被消隐
+        send_note(4'd3, KIND_ON);
+        chk("pre-mask: guide[3] lit", guide_key[3] === 1'b1);
+        @(negedge clk);
+        key_active = 16'h0008;                 // 键 3 正在响
+        @(posedge clk); #1;
+        chk("P0-28 mask: guide[3] hidden when key_active[3]", guide_key[3] === 1'b0);
+        chk("P0-28 mask: only bit3 affected", guide_key === {AXIS_N{1'b0}});
+        // 释放键 3 ⇒ 指引恢复
+        @(negedge clk);
+        key_active = {AXIS_N{1'b0}};
+        @(posedge clk); #1;
+        chk("P0-28 unmask: guide[3] reappears", guide_key[3] === 1'b1);
+        send_note(4'd3, KIND_OFF);
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ⑨⭐ P0-28 消隐存在性：key_active 变化会改变输出（反证 & ~key_active 真存在）
+        // ═══════════════════════════════════════════════════════════════════
+        begin : mask_existence
+            reg [AXIS_N-1:0] before_m, after_m;
+            send_note(4'd5, KIND_ON);
+            @(negedge clk);
+            key_active = {AXIS_N{1'b0}};
+            @(posedge clk); #1;
+            before_m = guide_key;
+            @(negedge clk);
+            key_active = 16'h0020;             // 键 5 正在响
+            @(posedge clk); #1;
+            after_m = guide_key;
+            chk("P0-28 existence: key_active changes output", before_m !== after_m);
+            send_note(4'd5, KIND_OFF);
+            key_active = {AXIS_N{1'b0}};
+        end
 
         // ── 收尾 ────────────────────────────────────────────────────────────
         if (errors == 0) begin

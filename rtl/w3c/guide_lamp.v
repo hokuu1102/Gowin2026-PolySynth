@@ -17,8 +17,9 @@
 //    · note_on（kind=0）→ 点亮 axis 对应灯位（下一键该按）
 //    · note_off（kind=1）→ 熄灭 axis 对应灯位
 //    · tempo（kind=2）→ 忽略（换速不是音符，⛔ 不得点亮任何灯）
-//    · key_active_i 已按下的键 → 消隐（已按就不需要再指引）
-//    · blink_i（拍点脉冲）→ 使当前指引位跟随拍点闪烁（可观测节拍）
+//    · key_active_i 已按下的键 → 消隐（已按就不需要再指引）⭐ P0-28 已实装
+//    · 拍点闪烁 ⛔ 本模块【不做】—— 那是 led_data 的职责（它已写 blink_keys & blink_i），
+//      这里若再做会二次闪烁 ⇒ 占空比变 25%（P0-28 审查结论，⛔ 别再引 blink_i 进来）
 //
 //  ⭐ 非空洞性（P1 判据硬要求）：任意轴号 0..15 的 note_on 事件，
 //    都能落到一个真实、非空的灯位（one-hot 位 set），满射、无空洞。
@@ -39,13 +40,10 @@ module guide_lamp #(
     input  wire [EVT_W-1:0]    note_data_i,       // 事件数据（axis 在 [22:19]）
 
     // ── 来自采集/演奏侧的已按下键（消隐用）──────────────────────────────
-    input  wire [AXIS_N-1:0]   key_active_i,      // 1 = 该键正在响/已按
+    input  wire [AXIS_N-1:0]   key_active_i,      // 1 = 该键正在响/已按 ⇒ 消隐
 
-    // ── 拍点闪烁（来自 beat_gen.tick 或 bg_beat）─────────────────────────
-    input  wire                blink_i,           // 单周期脉冲
-
-    // ── 输出：one-hot 指引位图 ───────────────────────────────────────────
-    output reg  [AXIS_N-1:0]   guide_key_o,       // 1 = 该键「该按」（指引）
+    // ── 输出：one-hot 指引位图（⭐ 已消隐：key_active 的键不指引）───────
+    output wire [AXIS_N-1:0]   guide_key_o,       // 1 = 该键「该按」且「未在响」
     output reg                 guide_commit_o     // 指引更新（单周期脉冲，可观测）
 );
 
@@ -67,11 +65,13 @@ module guide_lamp #(
 
     // ── 指引位图寄存器 ────────────────────────────────────────────────────
     //   ⭐ one-hot 生成：note_on → 置位 axis 位；note_off → 清零 axis 位。
-    //   ⚠️ 用索引赋值（`guide_key_o[note_axis]`），⛔ 不用移位（轴号直接就是索引，
+    //   ⚠️ 用索引赋值（`guide_raw_r[note_axis]`），⛔ 不用移位（轴号直接就是索引，
     //      保证「每个轴号 → 一个灯位」的满射、非空洞）。
+    reg [AXIS_N-1:0] guide_raw_r;
+
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
-            guide_key_o    <= {AXIS_N{1'b0}};
+            guide_raw_r    <= {AXIS_N{1'b0}};
             guide_commit_o <= 1'b0;
         end
         else begin
@@ -81,17 +81,21 @@ module guide_lamp #(
             if (note_valid_i) begin
                 if (is_note_on) begin
                     // ⭐ note_on → 点亮 axis 灯位（one-hot 置位）
-                    guide_key_o[note_axis] <= 1'b1;
-                    guide_commit_o         <= 1'b1;
+                    guide_raw_r[note_axis] <= 1'b1;
+                    guide_commit_o          <= 1'b1;
                 end
                 else if (is_note_off) begin
                     // ⭐ note_off → 熄灭 axis 灯位
-                    guide_key_o[note_axis] <= 1'b0;
-                    guide_commit_o         <= 1'b1;
+                    guide_raw_r[note_axis] <= 1'b0;
+                    guide_commit_o          <= 1'b1;
                 end
                 // ⭐ tempo（kind=2）→ 忽略，不改任何灯位
             end
         end
     end
+
+    // ⭐ P0-28 消隐：已按下的键（key_active_i）不再指引（已按就不需要再提示）。
+    //   组合 AND，+16 LUT / 0 FF，无时序代价。
+    assign guide_key_o = guide_raw_r & ~key_active_i;
 
 endmodule

@@ -73,6 +73,59 @@ module tb_tlc5916_bank;
     wire [7:0] c1_out = dut.chip1_out;
     wire [7:0] c2_out = dut.chip2_out;
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐ P0-20 串行捕获：在 led_clk_o 上升沿采样 SDI（MSB-first），
+    //    在 led_le_o 上升沿锁存「当前片写完的字节 + chip_sel + 当时的 oe_n」。
+    //    这样能真正核验「串行链」而不只核验「CH→OUT 组合表」（§1.4 之外的另一半）。
+    // ═══════════════════════════════════════════════════════════════════════
+    reg [7:0] cap_sreg;          // 移位捕获寄存器（MSB-first）
+    reg [2:0] cap_bitcnt;
+    // 记录三片写完后锁存的（字节, chip_sel, oe_n）
+    reg [7:0] cap_byte [0:2];
+    reg [1:0] cap_sel  [0:2];
+    reg [OE_N-1:0] cap_oe [0:2];
+    reg [2:0] cap_cnt;
+
+    // CLK 上升沿：采样 SDI（注意 led_clk_o 是 DUT 输出的慢时钟）
+    always @(posedge clk_o) begin
+        if (cap_bitcnt < 8) begin
+            cap_sreg <= {cap_sreg[6:0], sdi};
+            cap_bitcnt <= cap_bitcnt + 3'd1;
+        end
+    end
+
+    // LE 上升沿：锁存当前片
+    always @(posedge le) begin
+        if (cap_cnt < 3) begin
+            cap_byte[cap_cnt] <= cap_sreg;
+            cap_sel[cap_cnt]  <= dut.chip_sel;
+            cap_oe[cap_cnt]   <= oe_n;
+            cap_cnt <= cap_cnt + 3'd1;
+        end
+        cap_sreg <= 8'd0;
+        cap_bitcnt <= 3'd0;
+    end
+
+    task check_cap;
+        input integer idx;
+        input integer expect_sel;
+        reg [8*100-1:0] msg;
+        begin
+            $sformat(msg, "serial chip%0d: byte == chip%0d_out", idx, idx);
+            chk(msg, cap_byte[idx] === (idx == 0 ? c0_out : idx == 1 ? c1_out : c2_out));
+            $sformat(msg, "serial chip%0d: chip_sel == %0d", idx, expect_sel);
+            chk(msg, cap_sel[idx] === expect_sel);
+            // OE 分板：只当前片 OE 拉低，其余全高
+            $sformat(msg, "serial chip%0d: oe_n[%0d]==0, others==1", idx, expect_sel == 0 ? 0 : expect_sel == 1 ? 1 : 4);
+            if (expect_sel == 0)
+                chk(msg, cap_oe[idx][0] === 1'b0 && cap_oe[idx][4:1] === 4'b1111);
+            else if (expect_sel == 1)
+                chk(msg, cap_oe[idx][1] === 1'b0 && cap_oe[idx][0] === 1'b1 && cap_oe[idx][4:2] === 3'b111);
+            else
+                chk(msg, cap_oe[idx][4] === 1'b0 && cap_oe[idx][3:0] === 4'b1111);
+        end
+    endtask
+
     // ⭐ 期望的 CH→OUT 表（硬件真值 §一）
     //   CH0→OUT7 CH1→OUT6 CH2→OUT4 CH3→OUT5 CH4→OUT3 CH5→OUT2 CH6→OUT1 CH7→OUT0
     // 喂一个"只有 CH[k] 置 1"的图案 ⇒ 期望 chip0_out = 只有 OUT[表[k]] 置 1
@@ -93,6 +146,8 @@ module tb_tlc5916_bank;
     initial begin
         $dumpfile("build/sim/tb_tlc5916_bank/tb_tlc5916_bank.vcd");
         $dumpvars(0, tb_tlc5916_bank);
+
+        cap_sreg = 8'd0; cap_bitcnt = 3'd0; cap_cnt = 3'd0;
 
         repeat (4) @(negedge clk);
         rst_n = 1'b1;
@@ -132,6 +187,7 @@ module tb_tlc5916_bank;
         // ③ 三片逐写 + ④ OE 分板
         //    commit 一次，应依次写片0(oe0=0)→片1(oe1=0)→片2(oe4=0)，写完回 IDLE
         // ═══════════════════════════════════════════════════════════════════
+        cap_cnt = 3'd0;
         pattern = 24'd0;
         pattern[0] = 1'b1;     // 片0 CH0（键灯）
         pattern[8] = 1'b1;     // 片1 CH0（键灯）
@@ -148,6 +204,12 @@ module tb_tlc5916_bank;
         // 写完应回 IDLE：OE 全高、busy 0
         chk("after 3-chip write: OE all high (back to IDLE)", oe_n === {OE_N{1'b1}});
         chk("after 3-chip write: busy 0", busy === 1'b0);
+
+        // ⭐ P0-20：核验串行捕获的三片（字节 == chip*_out、chip_sel 依次 0/1/2、OE 分板）
+        chk("serial capture: caught all 3 chips", cap_cnt === 3'd3);
+        check_cap(0, 0);
+        check_cap(1, 1);
+        check_cap(2, 2);
 
         // ═══════════════════════════════════════════════════════════════════
         // ⑤ 全局消隐：blank=1 时 OE 应保持全高（即使正在写）
