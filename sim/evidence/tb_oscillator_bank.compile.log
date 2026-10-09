@@ -32,3 +32,5 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_oscillator_bank.sv:106: warning: 
 th dangling input port 5 (voice_phase_rst_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_oscillator_bank.sv:106: warning: Instantiating module oscillator_bank wi
 th dangling input port 9 (voice_drum_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_oscillator_bank.sv:106: warning: Instantiating module oscillator_bank wi
+th dangling input port 10 (drum_cls_i) floating.

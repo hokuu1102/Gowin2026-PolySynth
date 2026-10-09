@@ -1,4 +1,4 @@
-# archive_bitstream.ps1 -- archive ONE PnR result into build/bitstreams/<name>.*
+﻿# archive_bitstream.ps1 -- archive ONE PnR result into build/bitstreams/<name>.*
 #
 # WHY THIS EXISTS
 #   The build/bitstreams/ archive used to be copied BY HAND, and that went wrong:

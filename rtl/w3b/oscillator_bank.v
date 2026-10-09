@@ -189,7 +189,19 @@ parameter integer FIXED_BLEND_Q     = 0,
     //        ⚠️ 要么**在样本上加脉冲**（⭐ 动 `tdm_render_mixer` 的饱和口径 ✅）
     //        ⇒ 🔴 **两者都会碰刚挂掉的那条时序路径** ⇒ ⭐ 本阶段**只做音高包络**，
     //        ⭐ 把时序余量留给队友 ✅（⭐ 见报告"未做项" ✅）
-    parameter integer DRUM_CLICK_EN     = 0
+    parameter integer DRUM_CLICK_EN     = 0,
+    //  ⭐⭐ 2026-10-08（`A3` 正确修法）：⭐ **鼓分类是否由上层给**（⭐ 0 = 本模块自己比 ✅）
+    //   ⭐ **语义**：
+    //      · `0`（⭐ 默认）⇒ ⭐ **本模块内部**用 `bv`（⭐ 变调后的增量）与常量阈值比 ——
+    //         ⭐ **老行为** ⇒ ⭐ 所有**直接例化本模块的 tb 一个都不用改** ✅
+    //      · `1` ⇒ ⭐ **改用 `drum_cls_i`**（⭐ 由 `note_manager` 在**提交那一刻**算好 ✅）
+    //         ⇒ ⭐ **零窗口**（⭐ 不再受 `phase_tr` 轮转 32 拍的影响）✅
+    //         ＋ ⭐ **省掉那 64 个比较器**（⭐ 2×32 个 32 位常量比较器 ≈ **640 LUT**）✅
+    //   📌 ⭐ **为什么用参数门控**（⭐ 而不是 Z-safe 回退）：⭐ 参数是**编译期常量**
+    //      ⇒ ⭐ `1` 时那 64 个比较器**根本不参与综合** ⇒ ⭐ **净省 ~500 LUT** ✅
+    //      （⭐ 而 Z-safe 回退会把比较器留着 ⇒ 🔴 净收益归零 —— ⭐ 那正是本修法第一版失败的原因 ✅）
+    //   📌 `top.v` 传 **1**（⭐ 唯一的生产例化 ✅）；⭐ 所有 tb 用默认 **0** ✅
+    parameter integer DRUM_CLS_EXT      = 0
 ) (
     input  wire                                             clk_i,
     input  wire                                             rst_n_i,
@@ -227,6 +239,11 @@ parameter integer FIXED_BLEND_Q     = 0,
     //   📌 位宽 = `POLY_TARGET`（⭐ 每 voice 1 位，⛔ 不是每 lane）——
     //      ⭐ 同一 voice 的两个失谐 lane **共用**这个标志（⭐ 两路都该是噪声 ✅）
     input  wire [POLY_TARGET-1:0]                           voice_drum_i,
+    //  ⭐⭐ 2026-10-08（`A3` 正确修法）：⭐ **每 voice 的鼓分类**（⭐ 2 位：`[1]`=底鼓 · `[0]`=嗵鼓）
+    //   ⭐ 由 `note_manager` 在**提交那一刻**算好（⭐ 见其 `ST_COMMIT2`）⇒ ⭐ **零窗口** ✅
+    //   ⚠️ **只在 `DRUM_CLS_EXT != 0` 时被使用** ⇒ ⭐ 参数为 `0`（⭐ 所有 tb）时
+    //      ⭐ 本端口**完全不参与综合**（⭐ 悬空 `Z` 也⛔ 不会传播 `x`）✅
+    input  wire [POLY_TARGET*2-1:0]                         drum_cls_i,
     input  wire signed [15:0]                               vibrato_mod_i,
     input  wire                                             test_mode_i,
     input  wire [POLY_TARGET*OSC_PER_VOICE-1:0]             test_lane_active_i,
@@ -285,9 +302,35 @@ parameter integer FIXED_BLEND_Q     = 0,
     //    ⚠️ 这是**共享的绝对偏移**（⛔ 不是每 lane 按各自基频比例）
     //       —— 理由：按比例需要每 lane 一个乘法器（64 DSP，占 60K 的 54%）。
     //       📌 已记 `K-95`；若将来要求"按比例颤音"，改成 TDM 复用同一个乘法器即可。
-    wire signed [15:0]  vib_s   = vibrato_mod_i;
-    wire signed [47:0]  vib_mul = vib_s * VIB_REF_INC;
-    wire signed [PHASE_W-1:0] vib_off = vib_mul >>> 15;
+    //
+    //  ⭐⭐ 2026-10-08（右手板时序修复）：⭐ **本条链加 2 级流水** ✅
+    //   🔴 **为什么必须切**（⭐ 实测，`RIGHT_ADC_ENABLE=1` 档的 PnR 报告）：
+    //      · 最差路径 **100% 是本条**：`u_vibrato_lfo/phase_q_17_s0/Q`
+    //        → `u_oscillator_bank/gen_lane[*].phase_q_*_s0/D`
+    //      · slack **−3.272 ns** · 数据延迟 **21.4 ns** vs 约束 **18.181 ns**
+    //      · ⇒ ⭐ **1630 个端点同时违例** · TNS **−2718.329 ns**（⭐ 25 条最差路径全是它）
+    //   ⭐ **病因**：⭐ 本条是**纯组合** —— `× VIB_REF_INC`（48 位常量乘法）+ 移位
+    //      + 后面 32 位加法链 + ⭐ **扇出到 64 个 lane 的相位累加器** ✅
+    //   ✅ **修法**：⭐ 切两刀（每刀一级寄存器）：
+    //      ① `vibrato_mod_r` ← `vibrato_mod_i`（⭐ 把 LFO 的内部逻辑与乘法分开）
+    //      ② `vib_mul_r`     ← `vibrato_mod_r × VIB_REF_INC`（⭐ 把乘法与后面的加法链分开）
+    //   ⚠️ **代价**：⭐ 颤音延迟 **2 拍 = 40 ns** —— ⭐ 听感不可闻（颤音是 ~5 Hz 慢调制）✅
+    //   📌 **代价极小**：⭐ 16 + 48 = **64 个 FF**，⛔ 几乎不加 LUT ✅
+    //   ⚠️ **等价性**：⭐ 参考副本 `tb/models/oscillator_bank_ref.v` **同步加同一条流水**
+    //      ⇒ ⭐ `tb_p5_osc_equiv` 的"逐位等价"判据**仍然成立**
+    //      （⭐ 它验的是 **P5-② 上提的等价性**，⛔ 不是"与 2026-10-08 之前逐位相同"）✅
+    reg  signed [15:0]  vibrato_mod_r;
+    reg  signed [47:0]  vib_mul_r;
+    always @(posedge clk_i) begin
+        if (!rst_n_i) begin
+            vibrato_mod_r <= 16'sd0;
+            vib_mul_r     <= 48'sd0;
+        end else begin
+            vibrato_mod_r <= vibrato_mod_i;
+            vib_mul_r     <= vibrato_mod_r * VIB_REF_INC;
+        end
+    end
+    wire signed [PHASE_W-1:0] vib_off = vib_mul_r >>> 15;
 
     // ═══════════════════════════════════════════════════════════════════════
     //  ⭐⭐ 2026-10-04（P5-②）：⭐ **每 voice 一份的"增量 + 扫频"算术**
@@ -338,9 +381,28 @@ parameter integer FIXED_BLEND_Q     = 0,
             //        （⭐ 如 BASS 的低八度）也会被扫频 ⇒ 🔴 低音会"滑音" ✅
             //     ⚠️ 用 `bv`（⭐ 标称增量）而⛔ **不是**含失谐/颤音/本扫频的增量：
             //        ⭐ 后者会**自反馈**（⭐ 越扫越偏 ✅）
+            //   ⭐⭐ 2026-10-08（`A3`）：⭐ **窗口问题与两版修法的完整记录**
+            //     📌 `sim/evidence/a3-drum-raw-20261008/README.md` ✅
+            //     🔴 **第一版**（⭐ 改读"未变调原始相位"＋ 阈值按八度缩放）：⭐ 窗口能清零，
+            //        但 ⚠️ **阈值变成运行时值** ⇒ 2×32 个「常量比较器」变**全 32 位比较器**
+            //        ⇒ 🔴 **实测 +2051 LUT（`CLS 78% → 82%`）** ⇒ ⭐ 回退 ✅
+            //     ✅ **本版（正确修法）**：⭐ **把分类搬到提交路径**（⭐ `note_manager.ST_COMMIT2`）
+            //        ＋ ⭐ **参数门控**（⭐ `DRUM_CLS_EXT`）⇒ ⭐ 生产档下那 64 个比较器
+            //        **根本不参与综合** ⇒ ⭐ **净省 ~500 LUT** ✅
+            //   ⭐⭐ 2026-10-08（`A3` 正确修法）：⭐ **分类来源由参数选** ✅
+            //     · `DRUM_CLS_EXT = 0`（⭐ 默认）⇒ ⭐ 本模块自己比（⭐ 老行为；⭐ 所有 tb 走这条）✅
+            //     · `DRUM_CLS_EXT = 1`（⭐ 生产）⇒ ⭐ 用 `note_manager` 提交时算好的分类 ✅
+            //        ⇒ ⭐ **零窗口** ＋ ⭐ **那 64 个比较器不参与综合（净省 ~500 LUT）** ✅
+            //   📌 参数是**编译期常量** ⇒ ⭐ 综合时直接折掉没选中的那支 ✅
+            //   ⚠️ 注意：⭐ `DRUM_CLS_EXT=1` 时用 `drum_cls_i`（⭐ 2 位/voice）：
+            //      `[vg*2+1]` = 底鼓 · `[vg*2+0]` = 嗵鼓 ✅
             wire drum_v  = (voice_drum_i[vg] === 1'b1);
-            wire is_kick = drum_v && (bv <  DRUM_KICK_MAX_C);
-            wire is_tom  = drum_v && (bv >= DRUM_KICK_MAX_C) && (bv < DRUM_TOM_MAX_C);
+            wire is_kick = drum_v && ((DRUM_CLS_EXT != 0)
+                                      ? drum_cls_i[vg*2 + 1]
+                                      : (bv <  DRUM_KICK_MAX_C));
+            wire is_tom  = drum_v && ((DRUM_CLS_EXT != 0)
+                                      ? drum_cls_i[vg*2 + 0]
+                                      : ((bv >= DRUM_KICK_MAX_C) && (bv < DRUM_TOM_MAX_C)));
 
             //   ⭐ **本档的扫频深度**（⭐ `bv >> (LSB_SH + 本档 SH)` ⇒ ⭐ 纯连线 ✅）
             //     ⚠️ 赋给 16 位 ⇒ **高 16 位被截掉** ⇒ ⭐ 深度必须 < 65536

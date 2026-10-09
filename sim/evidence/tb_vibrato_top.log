@@ -23,6 +23,6 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : CH2 high control enables the LFO through hysteresis
   ok  : LFO output reaches the real oscillator bank
 PASS: T18 P4 ADC -> LFO -> oscillator integration
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_vibrato_top.sv:55: $finish called at 700110000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vibrato_top.sv:55: $finish called at 700110000 (1ps)
 
 

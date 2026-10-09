@@ -25,6 +25,6 @@ VCD info: dumpfile build/sim/tb_met_start_top/tb_met_start_top.vcd opened for ou
   ok  : T5 velocity pattern is accent-weak-weak-weak (180,108,108,108 x2)
   ok  : T6 EVERY beat really fired the perc envelope (8 triggers for 8 events)
 PASS: met_start_top -- metronome starts on the DOWNBEAT and every beat fires
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_met_start_top.sv:249: $finish called at 545530000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:249: $finish called at 545530000 (1ps)
 
 

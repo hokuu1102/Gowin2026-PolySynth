@@ -1,4 +1,4 @@
-# Exercise the runner's actual process-selection block with isolated process
+﻿# Exercise the runner's actual process-selection block with isolated process
 # records. Mock termination so the RED test cannot kill real user simulators.
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot

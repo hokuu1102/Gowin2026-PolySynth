@@ -1,0 +1,12 @@
+﻿=== tb_osc_drum_raw (A3: 榧撳垎绫荤敤鏈彉璋冨師濮嬬浉浣? ===
+      [dbg] A1: base=tom(12M) raw=kick(8M) => is_kick=1 is_tom=0
+  ok  : A1 phase_raw connected => is_kick follows phase_raw (NOT the transposed base)
+  ok  : A1b is_tom must be 0 (it judged the raw kick value)
+      [dbg] A2: phase_raw=Z => is_kick=0 is_tom=1
+  ok  : A2 phase_raw floating (Z) => falls back to base_phase_inc_i (is_kick=0)
+  ok  : A2b fallback judges the base tom value (is_tom=1)
+
+PASS: tb_osc_drum_raw 鈥?4/4 judgements held (A3 榧撳垎绫婚浂绐楀彛 + Z-safe 鍥為€€)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_osc_drum_raw.sv:136: $finish called at 1000000 (1ps)
+
+

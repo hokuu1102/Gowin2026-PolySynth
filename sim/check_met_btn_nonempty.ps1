@@ -1,4 +1,4 @@
-# check_met_btn_nonempty.ps1 -- non-emptiness proof for the 2026-09-28 metronome work
+﻿# check_met_btn_nonempty.ps1 -- non-emptiness proof for the 2026-09-28 metronome work
 #
 #   covers:  tb/w3c/tb_met_btn_top.sv   (S2/AB13 metronome switch)
 #            tb/w3c/tb_perc_env_top.sv  (reserved pool = one-shot percussive, K-144 fix)

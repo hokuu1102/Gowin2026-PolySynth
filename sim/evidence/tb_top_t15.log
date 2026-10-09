@@ -11,6 +11,6 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
   ok  : top fretboard selection is silent
   ok  : top DOWN comparator edge plucks selected axis
 PASS: T15 top-level keyboard/fretboard integration
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\top\tb_top_t15.sv:106: $finish called at 451000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_t15.sv:106: $finish called at 451000 (1ps)
 
 

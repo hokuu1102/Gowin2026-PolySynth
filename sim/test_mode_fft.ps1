@@ -1,4 +1,4 @@
-param([string]$Python = "")
+﻿param([string]$Python = "")
 
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot

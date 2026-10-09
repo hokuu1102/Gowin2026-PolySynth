@@ -1,4 +1,4 @@
-# t3_rsc_delta.ps1 -- archive Gowin synthesis resources and print the delta vs a stored baseline.
+﻿# t3_rsc_delta.ps1 -- archive Gowin synthesis resources and print the delta vs a stored baseline.
 #
 # WHY THIS EXISTS (2026-10-03):
 #   During the T3 transpose work we repeatedly needed "what did this RTL change cost?".

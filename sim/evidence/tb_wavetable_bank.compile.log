@@ -30,3 +30,5 @@ her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_wavetable_bank.sv:226: warning: Instantiating module oscillator_bank wit
 h dangling input port 5 (voice_phase_rst_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_wavetable_bank.sv:226: warning: Instantiating module oscillator_bank wit
+h dangling input port 10 (drum_cls_i) floating.

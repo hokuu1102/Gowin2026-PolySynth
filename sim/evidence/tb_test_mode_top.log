@@ -65,6 +65,6 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : Test Mode velocity mux reaches envelope bank
   ok  : controller lanes reach oscillator bank
 PASS: physical UART M command controls 4/8/16/32 Test Mode in top
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_test_mode_top.sv:143: $finish called at 293710000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_test_mode_top.sv:143: $finish called at 293710000 (1ps)
 
 

@@ -1304,6 +1304,12 @@ wire       fault_any_w;
         //        （⭐ `note_manager` 知道"谁在发声"，⭐ `oscillator_bank` 才知道"该读哪张表"）
         //        ⇒ ⭐ `top` 是唯一的连接点 ✅
         wire [POLY_TARGET-1:0]         nm_drum;
+        //  ⭐⭐ 2026-10-08（`A3` 正确修法）：⭐ **每 voice 2 位的鼓分类**（⭐ `note_manager` → `oscillator_bank`）
+        //   ⭐ 编码：⭐ `[v*2+1]` = 底鼓 · `[v*2+0]` = 嗵鼓 ✅
+        //   📌 由 `note_manager` 在**提交那一刻**算好 ⇒ ⭐ `oscillator_bank` **当拍可用**
+        //      ⇒ ⭐ **零窗口**（⛔ 不再受 `phase_tr` 轮转 ≤32 拍的影响）✅
+        //   📌 它一接上 ⇒ `oscillator_bank` 里那 **64 个常量比较器整段不综合**（⭐ 净省 ~500 LUT）✅
+        wire [POLY_TARGET*2-1:0]       nm_drum_cls;
         wire [POLY_TARGET*16-1:0]      nm_age;
         wire                           nm_alloc_valid;
         wire [4:0]                     nm_alloc_voice;
@@ -2685,6 +2691,37 @@ wire       fault_any_w;
             if (EVT_REL_TH >= EVT_TRIG_TH)
                 $display("ERROR [top] EVT_REL_TH(%0d) >= EVT_TRIG_TH(%0d) => 无迟滞 => 键在阈值附近会抖",
                          EVT_REL_TH, EVT_TRIG_TH);
+            //  ⭐⭐ 2026-10-08（`N4`）：⭐ **量纲一致性 = 比例不变量** ✅
+            //   🔴 **为什么 ①②①b①c 还不够**：⭐ 它们查的是【顺序】与【上界】——
+            //      · ①  `TRIG <= 行程`（⭐ 太高 ⇒ 全琴不响）✅
+            //      · ①b `行程 > 1023`（⭐ 拿归一档当行程档）✅
+            //      · ①c `行程 == CALIB_FULL`（⭐ 同上，点名）✅
+            //      · ②  `REL < TRIG`（⭐ 迟滞）✅
+            //      ⇒ ⚠️ **但"阈值相对行程的比例"从来不是不变量** 🔴
+            //   🔴 **反方向的静默错配**（⭐ 上面四条**全部放行**）：
+            //      · 把 4095 档算出来的 `TRIG_TH = 205` 填进 744 档
+            //        ⇒ ⭐ 触发点 = 205/744 = **27.5%** ⇒ 🔴 **要按到底才响**（演奏手感全废）
+            //        ＋ ⭐ `REL_TH = 102/744 = 13.7%` ⇒ 迟滞比也错
+            //      · 或把 `TRIG_TH = 64` 填进 4095 档
+            //        ⇒ ⭐ 触发点 = **1.56%** ⇒ 🔴 **键没按就触发**（幻影音）
+            //      ⇒ ⭐ 两种都是**静默**的（⚠️ 与 `N4` 描述的 744/4095 错配同族）✅
+            //   ✅ **本守卫**：⭐ 把"阈值 = 行程的百分之几"钉成**不变量** ——
+            //      ⭐ 两套已知正确的档位都必须落在带内：
+            //        · `744/64/32`   ⇒ 触发 **8.6%** · 释放 **4.3%** ✅
+            //        · `4095/205/102`⇒ 触发 **5.0%** · 释放 **2.5%** ✅
+            //   📌 **用 `$fatal`（⛔ 不是 `$display`）**：⭐ 依据本项目 `U-2` 的教训 ——
+            //      ⚠️ `$display` 时**仿真照跑完、综合照常进行** ⇒ 缺陷原样进板 🔴
+            //      ⭐ 这是**配置错误**（不是警告）⇒ 必须硬失败 ✅
+            //   📌 **位宽**：⭐ 乘 100 必须写 `32'd100` —— ⚠️ 两个 12 位相乘在 Verilog 里
+            //      只保留 12 位 ⇒ `64×100` 会**溢出**（⭐ `K-91` 同族：位宽要显式）✅
+            if (!((EVT_TRIG_TH * 32'd100 >= 32'd5  * TRAVEL_TARE) &&
+                  (EVT_TRIG_TH * 32'd100 <= 32'd12 * TRAVEL_TARE)))
+                $fatal(1, "ERROR [top] 触发点量纲错配(N4): EVT_TRIG_TH(%0d)/TRAVEL_TARE(%0d) = %0d%% 超出 [5%%,12%%] => 要么键没按就触发、要么要按到底才响",
+                       EVT_TRIG_TH, TRAVEL_TARE, (EVT_TRIG_TH * 32'd100) / TRAVEL_TARE);
+            if (!((EVT_REL_TH * 32'd100 >= 32'd2 * TRAVEL_TARE) &&
+                  (EVT_REL_TH * 32'd100 <= 32'd7 * TRAVEL_TARE)))
+                $fatal(1, "ERROR [top] 释放点量纲错配(N4): EVT_REL_TH(%0d)/TRAVEL_TARE(%0d) = %0d%% 超出 [2%%,7%%] => 迟滞比错，键会在阈值附近抖或粘",
+                       EVT_REL_TH, TRAVEL_TARE, (EVT_REL_TH * 32'd100) / TRAVEL_TARE);
             //  ⭐ ③ ⭐ **`POS_FULL` 由 `TRAVEL_TARE` 派生**（⭐ 见下方 `.POS_FULL(TRAVEL_TARE)`）✅
             //     ⚠️ 2026-10-01 返工：⭐ 原写"由 `CALIB_FULL` 派生" ⇒ 🔴 **那是错的**（⭐ 已改正）。
             //     ⭐ **两个量的分工（⭐ 混用就是本轮返工的根因）**：
@@ -3950,6 +3987,14 @@ wire       fault_any_w;
         // ⭐ voice 分配 / 抢占 / 参数更新（T54）
         note_manager #(
             .POLY_TARGET (POLY_TARGET),
+            //  ⭐⭐ 2026-10-08（`A3` 正确修法）：⭐ **鼓分类阈值必须与 `oscillator_bank` 【同值】**
+            //   🔴 **为什么必须显式传**：⭐ `oscillator_bank` 那边被顶层覆盖成
+            //      `.DRUM_TOM_MAX(20_000_000)`（⭐ 见下方例化处的说明：⭐ 为了让嗵鼓上到 200 Hz）⚠️
+            //      ⇒ ⭐ 而 `note_manager` 的默认是 **15_000_000** ⇒
+            //      🔴 **不传就会两处口径不一致** ⇒ ⭐ 分类与实际扫频档**对不上** ✅
+            //   📌 `DRUM_KICK_MAX` 两边都用默认 **10_000_000**（⭐ 顶层没覆盖它）✅
+            .DRUM_KICK_MAX (10_000_000),
+            .DRUM_TOM_MAX  (20_000_000),
             .AXIS_W      (4),
             .PHASE_W     (32),
             .VEL_W       (8),
@@ -4087,6 +4132,8 @@ wire       fault_any_w;
             .voice_timbre_o    (nm_timbre),
             //  ⭐⭐ 2026-09-29 新增：⭐ **每 voice 的"是鼓吗"** ⇒ 噪声表选择（⭐ 见上方声明）✅
             .voice_drum_o      (nm_drum),
+        //  ⭐⭐ 2026-10-08（`A3` 正确修法）：⭐ **每 voice 2 位的鼓分类**（⭐ 提交时算好）✅
+        .voice_drum_cls_o  (nm_drum_cls),
             .voice_age_o       (nm_age),
             .voice_retrig_reset_o(nm_retrig_reset),
             .alloc_valid_o     (nm_alloc_valid),
@@ -4156,7 +4203,15 @@ wire       fault_any_w;
             //      ⭐ **为什么**：⭐ 让嗵鼓的"音高下滑"**更少** ⇒ ⭐ 与底鼓（⭐ **全深度** `>>0`）
             //         的**音高包络**差得更远 ⇒ ⭐ 这是"区分度"的第二个维度（⭐ 不止音高本身）✅
             .DRUM_TOM_MAX     (20_000_000),
-            .DRUM_TOM_SWEEP_SH(3)
+            .DRUM_TOM_SWEEP_SH(3),
+            //  ⭐⭐ 2026-10-08（`A3` 正确修法）：⭐ **鼓分类改由 `note_manager` 提交时算好** ✅
+            //   ⭐ `1` ⇒ ⭐ 本模块**不再**自己比 `bv` ⇒ ⭐ 那 **64 个常量比较器整段不综合** ✅
+            //   ⭐ 收益：⭐ ① **零窗口**（⭐ 分类当拍就绪，⛔ 不受 `phase_tr` 轮转 32 拍影响）✅
+            //           ② ⭐ **净省 ~500 LUT**（⭐ 64 个 32 位常量比较器 ≈640 LUT
+            //              换成 1 套 TDM 比较器 + 64 FF）✅
+            //           ③ ⭐ **语义更对**：⭐ 鼓种由"**按的哪个键**"决定，⛔ 不被变调带走 ✅
+            //   ⚠️ 阈值（`.DRUM_KICK_MAX`/`.DRUM_TOM_MAX`）⭐ 必须与 `note_manager` 的**同值** ✅
+            .DRUM_CLS_EXT     (1)
         ) u_oscillator_bank (
             .clk_i              (clk),
             .rst_n_i            (rst_n_sync),
@@ -4184,6 +4239,9 @@ wire       fault_any_w;
             //         ⭐ 且听感上"节拍器 = 噪声 click"通常**更接近真实节拍器** ⇒
             //         ⭐ 暂按现状保留，⛔ 不为此再引入第三条标志线（⭐ 保持最小改动 ✅）
             .voice_drum_i       (nm_drum),
+            //  ⭐⭐ 2026-10-08（`A3` 正确修法）：⭐ **每 voice 2 位的鼓分类**（⭐ 提交时算好）✅
+            //   📌 配 `.DRUM_CLS_EXT(1)` 使用 ⇒ ⭐ 本模块内部的 64 个比较器**不综合** ✅
+            .drum_cls_i         (nm_drum_cls),
             .voice_velocity_i   (nm_vel),
             .vibrato_mod_i      (vibrato_mod),
             .test_mode_i        (tm_enable_r),

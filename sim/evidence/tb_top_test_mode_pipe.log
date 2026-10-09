@@ -1,5 +1,5 @@
 ﻿  checks=6229  new-vs-old mismatches=0  red(one-cycle-late) mismatches=1383
 PASS: tb_top_test_mode_pipe 6229 per-clock comparisons, 0 mismatches; red variant detected in 1383 clocks
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_top_test_mode_pipe.sv:211: $finish called at 125300000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_top_test_mode_pipe.sv:211: $finish called at 125300000 (1ps)
 
 

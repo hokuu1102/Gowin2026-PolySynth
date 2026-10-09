@@ -1,4 +1,4 @@
-param(
+﻿param(
     [string]$GwSh = "D:\Gowin\Software\Gowin_V1.9.12.03_x64\IDE\bin\gw_sh.exe",
     [int]$BuildTimeoutSec = 1200
 )

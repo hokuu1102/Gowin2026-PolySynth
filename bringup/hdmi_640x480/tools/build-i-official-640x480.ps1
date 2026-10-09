@@ -1,4 +1,4 @@
-# build-i-official-640x480.ps1
+﻿# build-i-official-640x480.ps1
 # Isolation experiment: take the PROVEN official encrypted DVI_TX_Top design
 # (H1, which the user just confirmed displays 1280x720 colour bars on the
 # Console) and change ONLY the video timing + PLL to 640x480@60.

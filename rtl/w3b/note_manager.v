@@ -103,7 +103,12 @@ module note_manager #(
     // ⭐ 丢弃事件计数位宽（8 bit ⇒ 饱和于 255；⚠️ 饱和而**不回绕**，见下方注释）
     parameter integer EVT_LOST_CNT_W = 8,
     // voice 索引位宽（`alloc_voice_o` 用）
-    parameter integer IDX_W = (POLY_TARGET <= 1) ? 1 : $clog2(POLY_TARGET)
+    parameter integer IDX_W = (POLY_TARGET <= 1) ? 1 : $clog2(POLY_TARGET),
+    //  ⭐⭐ 2026-10-08（`A3` 正确修法）：⭐ **鼓分类的两个阈值**（⭐ 与 `oscillator_bank` 同值）✅
+    //   ⭐ 用途：⭐ 在**提交那一刻**判"这件鼓是底鼓还是嗵鼓"（⭐ 每拍只判 1 个 voice）✅
+    //   📌 `top.v` 对**两处都显式传同值**（⭐ 免得默认值漂了没人发现）✅
+    parameter integer DRUM_KICK_MAX = 10_000_000,   // ⭐ ≈114 Hz（底鼓 / 嗵鼓 之间）
+    parameter integer DRUM_TOM_MAX  = 15_000_000    // ⭐ ≈171 Hz（嗵鼓 / 军鼓 之间）
 ) (
     input  wire                              clk_i,
     input  wire                              rst_n_i,
@@ -217,6 +222,12 @@ module note_manager #(
     //        ⇒ ⭐ 与 `pool_mask`（⭐ 本文件的 `assign pool_mask[pg]`）**由同一个信号导出** ⇒ ⭐ 结构上不可能再不一致 ✅
     //     ⭐ 纯组合、⛔ 不加任何寄存器、⛔ 不改任何已有输出 ⇒ **完全 additive** ✅
     output wire [POLY_TARGET-1:0]            voice_drum_o,
+    //  ⭐⭐ 2026-10-08（`A3` 正确修法）：⭐ **每 voice 2 位的鼓分类**（⭐ 给 `oscillator_bank`）✅
+    //   ⭐ 编码：⭐ `[v*2+1]` = 底鼓 · `[v*2+0]` = 嗵鼓（⭐ 两者都 0 = 既不是底鼓也不是嗵鼓）✅
+    //   📌 它只在**提交那一刻**算一次（⭐ 与 `axis_r`/`src_r`/`phase_r` 同拍写 ✅）
+    //      ⇒ ⭐ `oscillator_bank` 拿到的分类**当拍就绪** ⇒ **零窗口** ✅
+    //   📌 `oscillator_bank` 只在 `DRUM_CLS_EXT=1`（⭐ 生产档）时用它 ✅
+    output wire [POLY_TARGET*2-1:0]          voice_drum_cls_o,
     output wire [POLY_TARGET*AGE_W-1:0]      voice_age_o,        // 抢占年龄（诊断）
     //  ⭐ 重触发/抢占时命令该 voice 的包络【先归零】—— → envelope_bank.retrig_reset_i
     //     ⚠️ 为什么必须归零（2026-09-27 上板实测）：
@@ -389,6 +400,9 @@ module note_manager #(
     localparam [2:0] ST_RETRIG = 3'd5;   // ⭐ 用寄存后的 `same_idx_r` 写译码器
 
     localparam integer SCAN_LAST = POLY_TARGET - 1;
+    //  ⭐⭐ 2026-10-08（`A3` 正确修法）：⭐ 阈值定宽常量（⭐ 与 `oscillator_bank` 同款）✅
+    localparam [PHASE_W-1:0] DRUM_KICK_MAX_C = DRUM_KICK_MAX;
+    localparam [PHASE_W-1:0] DRUM_TOM_MAX_C  = DRUM_TOM_MAX;
     localparam integer SW = (POLY_TARGET <= 1) ? 1 : $clog2(POLY_TARGET);   // 扫描计数位宽
     localparam integer FW = (FIFO_DEPTH <= 1) ? 1 : $clog2(FIFO_DEPTH);
 
@@ -805,6 +819,21 @@ module note_manager #(
     reg [VEL_W-1:0]        cmt_vel_r;
     reg [TIMBRE_W-1:0]     cmt_timbre_r;
     reg [2:0]              cmt_src_r;   // ⭐ A1：来源标记也走提交流水级（⭐ 与 `axis_r` 同拍写）
+    //  ⭐⭐ 2026-10-08（`A3` 正确修法）：⭐ **每 voice 2 位的鼓分类**（⭐ 2 位/voice = 64 FF）✅
+    //   ⭐ 语义：⭐ `[v*2+1]` = 底鼓 · `[v*2+0]` = 嗵鼓（⭐ 与 `oscillator_bank.drum_cls_i` 同编码）✅
+    //   🔴 **为什么在这里算**（⭐ 而不是在 `oscillator_bank` 每拍比）：
+    //      · ⭐ 鼓种是**音的性质**（⭐ `note_on` 那一刻就定了，⭐ 与 `timbre`/`velocity` 同类）✅
+    //      · ⭐ 每拍只判 **1 个 voice**（⭐ 提交路径）⇒ ⭐ **1 套比较器**（⛔ 不是 2×32 套）✅
+    //      · ⭐ **零窗口** —— ⛔ 不再受 `phase_tr` 轮转（≤32 拍）影响 ✅
+    //      · ⭐ 于是 `oscillator_bank` 里那 **64 个常量比较器可以整段不综合**（⭐ 净省 ~500 LUT）✅
+    //   📌 用 `cmt_inc_r`（⭐ 提交进来的**未变调**相位）＋ ⭐ `base_oct_r`（⭐ 当时八度）
+    //      ⇒ ⭐ 判的就是"**这个键的实际音高**" ✅（⭐ 与变调⛔ 无关 ✅）
+    reg  [POLY_TARGET*2-1:0] drum_cls_r;
+    wire [PHASE_W-1:0] cmt_inc_oct = (base_oct_r == 2'd0) ? cmt_inc_r
+                                   : (base_oct_r == 2'd1) ? (cmt_inc_r << 1)
+                                                          : (cmt_inc_r << 2);
+    wire cmt_kick = (cmt_inc_oct <  DRUM_KICK_MAX_C);
+    wire cmt_tom  = (cmt_inc_oct >= DRUM_KICK_MAX_C) && (cmt_inc_oct < DRUM_TOM_MAX_C);
     //  ⭐⭐ 2026-09-30（时序，待上板验证）：⭐ **同轴重触发的流水级锁存**（⭐ 见 `ST_RETRIG`）
     //     ⭐ `same_en_r` = "本拍要写"（⭐ 由 `same_valid` 锁存）· ⭐ `same_idx_r` = "写哪个 voice"
     //     📌 为什么要寄存：⭐ `same_idx` 来自 **32 路优先编码器**，而写译码又是 **32 路比较**
@@ -870,6 +899,7 @@ module note_manager #(
             same_idx_r    <= {IDX_W{1'b0}};
             retrig_reset_r <= {POLY_TARGET{1'b0}};
             sus_hold_r    <= {POLY_TARGET{1'b0}};   // ⭐ T5：延音踏板留音位复位（⛔ 不留 X）
+            drum_cls_r    <= {(POLY_TARGET*2){1'b0}};  // ⭐ A3：鼓分类复位（⛔ 不留 X）
             // ⭐⭐ 溢出指示：硬复位清（⚠️ 上电后是干净的；上板运行中要靠 clr 输入清）
             lost_cnt_r    <= {EVT_LOST_CNT_W{1'b0}};
             lost_sticky_r <= 1'b0;
@@ -1327,6 +1357,10 @@ module note_manager #(
                         axis_r[cmt_idx_r]   <= cmt_axis_r;
                         // ⭐ A1：来源标记与 `axis_r` **同一拍写同一个 voice**（⭐ 不可分离）
                         src_r[cmt_idx_r]    <= cmt_src_r;
+                        //  ⭐⭐ 2026-10-08（`A3` 正确修法）：⭐ **鼓分类与"占 voice"同拍写**
+                        //     ⇒ ⭐ 与 `axis_r`/`src_r`/`phase_r` **同生命周期**（⭐ 不可分离）✅
+                        //     ⇒ ⭐ `oscillator_bank` 拿到的分类**当拍就绪** ⇒ **零窗口** ✅
+                        drum_cls_r[cmt_idx_r*2 +: 2] <= {cmt_kick, cmt_tom};
                         phase_r[cmt_idx_r]  <= cmt_inc_r;
                         vel_r[cmt_idx_r]    <= cmt_vel_r;
                         timbre_r[cmt_idx_r] <= cmt_timbre_r;
@@ -1627,6 +1661,10 @@ module note_manager #(
             assign voice_age_o[g*AGE_W +: AGE_W]           = age_r[g];
         end
     endgenerate
+
+    //  ⭐⭐ 2026-10-08（`A3` 正确修法）：⭐ **鼓分类引出去**（⭐ 每 voice 2 位，⭐ 提交时算好）✅
+    //   📌 只在 `oscillator_bank.DRUM_CLS_EXT=1`（⭐ 生产档）时被使用 ✅
+    assign voice_drum_cls_o = drum_cls_r;
 
     assign voice_gate_o      = gate_mask | sus_hold_r;   // ⭐ T5：被踏板留住的音，包络看到的 gate 仍为 1
                                                           //   ⇒ ⭐ 停在 sustain、⛔ 不进入释放（音不消失）✅

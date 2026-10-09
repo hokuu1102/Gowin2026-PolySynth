@@ -281,9 +281,27 @@ parameter integer FIXED_BLEND_Q     = 0,
     //    ⚠️ 这是**共享的绝对偏移**（⛔ 不是每 lane 按各自基频比例）
     //       —— 理由：按比例需要每 lane 一个乘法器（64 DSP，占 60K 的 54%）。
     //       📌 已记 `K-95`；若将来要求"按比例颤音"，改成 TDM 复用同一个乘法器即可。
-    wire signed [15:0]  vib_s   = vibrato_mod_i;
-    wire signed [47:0]  vib_mul = vib_s * VIB_REF_INC;
-    wire signed [PHASE_W-1:0] vib_off = vib_mul >>> 15;
+    //
+    //  ⭐⭐ 2026-10-08：⭐ **本条链加 2 级流水**（⭐ 与 `rtl/w3b/oscillator_bank.v` **同步**）✅
+    //   📌 **为什么要同步改参考副本**：⭐ 本文件的用途是"**P5-② 上提之前的基线**"，
+    //      ⭐ `tb_p5_osc_equiv` 逐位比对"上提后的 RTL vs 本副本" ⇒
+    //      ⚠️ 若只给 RTL 加流水，⭐ 两侧就会差 2 拍 ⇒ 🔴 **判据会红（但那是假红）**
+    //   ⭐ 加同一条流水后：⭐ 本副本 = "**基线 + 颤音流水**" ⇒
+    //      ⭐ 判据仍然只验 **P5-② 的等价性**（⛔ 不验"颤音流水是否存在"）✅
+    //   🔴 修它的原因见 RTL 侧注释：⭐ `RIGHT_ADC_ENABLE=1` 档最差路径 100% 是本条
+    //      （−3.272 ns · 1630 端点违例 · TNS −2718 ns）✅
+    reg  signed [15:0]  vibrato_mod_r;
+    reg  signed [47:0]  vib_mul_r;
+    always @(posedge clk_i) begin
+        if (!rst_n_i) begin
+            vibrato_mod_r <= 16'sd0;
+            vib_mul_r     <= 48'sd0;
+        end else begin
+            vibrato_mod_r <= vibrato_mod_i;
+            vib_mul_r     <= vibrato_mod_r * VIB_REF_INC;
+        end
+    end
+    wire signed [PHASE_W-1:0] vib_off = vib_mul_r >>> 15;
 
     genvar g;
     generate

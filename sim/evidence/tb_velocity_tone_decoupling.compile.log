@@ -32,3 +32,5 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_tone_decoupling.sv:22: w
 _bank with dangling input port 5 (voice_phase_rst_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_tone_decoupling.sv:22: warning: Instantiating module oscillator
 _bank with dangling input port 9 (voice_drum_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_tone_decoupling.sv:22: warning: Instantiating module oscillator
+_bank with dangling input port 10 (drum_cls_i) floating.

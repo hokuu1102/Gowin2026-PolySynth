@@ -1,4 +1,4 @@
-# mutation_test.ps1 -- MUTATION TESTING: inject a known defect, require the suite to catch it.
+﻿# mutation_test.ps1 -- MUTATION TESTING: inject a known defect, require the suite to catch it.
 #
 # Usage (from the repository root):
 #   powershell -NoProfile -ExecutionPolicy Bypass -File bringup\mutation_test.ps1

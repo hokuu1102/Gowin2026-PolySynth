@@ -14,6 +14,6 @@
   ok  : 鈶?骞呭害鍚堢悊涓斻€愬弻鏋佹€с€戯紙-16384 .. 16383锛屾憜骞?32767锛夆€斺€?姝ｅ鸡姝ｇ‘
   ok  : 鈶?A8 鏃?X/Z
 PASS: dac_tone_top 杈撳嚭姝ｇ‘鐨?I2S 娴侊紙BCK/LRCK/DIN 鍏ㄥ锛屾寮﹀彲瑙ｏ級
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\bringup\tb_dac_tone_top.sv:247: $finish called at 8192200000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\bringup\tb_dac_tone_top.sv:247: $finish called at 8192200000 (1ps)
 
 

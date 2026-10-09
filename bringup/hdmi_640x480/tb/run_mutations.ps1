@@ -1,4 +1,4 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $tmp = Join-Path $PSScriptRoot 'mutant.v'
 $out = Join-Path $PSScriptRoot 'mutant.vvp'

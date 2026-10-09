@@ -1,4 +1,4 @@
-# build-frac-candidate.ps1
+﻿# build-frac-candidate.ps1
 # Builds a candidate clock mode that keeps the PLL VCO inside the legal
 # 700-1400 MHz range while getting much closer to the VESA 25.175 MHz pixel
 # clock, using the fractional M divider (MDIV_FRAC_SEL, eighths).

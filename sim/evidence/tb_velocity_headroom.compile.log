@@ -32,5 +32,7 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_headroom.sv:46: warning:
 ith dangling input port 5 (voice_phase_rst_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_headroom.sv:46: warning: Instantiating module oscillator_bank w
 ith dangling input port 9 (voice_drum_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_headroom.sv:46: warning: Instantiating module oscillator_bank w
+ith dangling input port 10 (drum_cls_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:500: warning: @* is sensitive to all 2 words in array '
 pc_l1'.

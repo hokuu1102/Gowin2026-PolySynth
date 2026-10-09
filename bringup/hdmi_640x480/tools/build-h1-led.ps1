@@ -1,4 +1,4 @@
-# build-h1-led.ps1
+﻿# build-h1-led.ps1
 # Adds the same V13 liveness LED to the H1 official 720p reference project, so
 # the control experiment carries the SAME witness as our own design. Without
 # the LED a black screen from H1 cannot be distinguished from "H1 never ran".
