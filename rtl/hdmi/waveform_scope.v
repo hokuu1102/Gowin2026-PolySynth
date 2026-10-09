@@ -65,14 +65,9 @@ module waveform_scope (
     function [8:0] sample_y;
         input signed [23:0] s;
         reg signed [10:0] y_calc;
-        reg signed [10:0] x6;
         begin
-            // 2026-10-09（用户指令 · 第三次）：显示分度 x6（4x + 2x）
-            //   x = $signed(s[23:16])，范围 ±128；6x 范围 ±768 ⇒ 11 位够放
-            //   ⚠️ 必须用【显式拼接】加宽，⛔ 不能写 (x<<2)+(x<<1)
-            //      —— 本工程记录过 `a << k` 的结果位宽等于 a ⇒ 会静默丢高位
-            x6 = $signed({s[23:16], 2'b00}) + $signed({s[23:16], 1'b0});
-            y_calc = 11'sd240 - x6;
+            // 2026-10-09（用户指令 · 第二次）：显示分度再调小一档（x4，÷16384）
+            y_calc = 11'sd240 - $signed(s[23:14]);   // x4（原 P0-18: s[23:16] = x1）
             if (y_calc < 0) sample_y = 9'd0;
             else if (y_calc > 479) sample_y = 9'd479;
             else sample_y = y_calc[8:0];
