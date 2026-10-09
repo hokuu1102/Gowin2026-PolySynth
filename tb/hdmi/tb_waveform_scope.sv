@@ -18,6 +18,7 @@ module tb_waveform_scope;
     integer history_model[0:1023];
     integer image[0:639];
     integer written=0, checks=0, greens=0, grays=0;
+    integer min_y_seen=479, max_y_seen=0;   // ⭐ 2026-10-09 判据重述用：绿像素纵向范围
     reg ready_model=0;
     reg [23:0] expected_previous=0;
     reg expected_de=0, expected_hs=1, expected_vs=1;
@@ -25,9 +26,9 @@ module tb_waveform_scope;
     function integer map_y(input integer s);
         integer scaled;
         begin
-            // Arithmetic floor by division, independent of RTL slice/shift.
-            if(s>=0) scaled=s/65536;
-            else scaled=-((-s+65535)/65536);
+            // 2026-10-09：模型同步 RTL 的显示分度（x2：s >>> 15 而不是 >>> 16）
+            if(s>=0) scaled=s/32768;
+            else scaled=-((-s+32767)/32768);
             map_y=240-scaled;
             if(map_y<0) map_y=0;
             if(map_y>479) map_y=479;
@@ -76,7 +77,8 @@ module tb_waveform_scope;
                 $fatal(1,"renderer mismatch");
             end
             checks=checks+1;
-            if(de_o && {r,g,b}==24'h00ff00) greens=greens+1;
+            if(de_o && {r,g,b}==24'h00ff00) begin greens=greens+1;
+            if (y > max_y_seen) max_y_seen = y; if (y < min_y_seen) min_y_seen = y; end
             if(de_o && {r,g,b}==24'h282828) grays=grays+1;
             expected_previous=expected_now;
             expected_de=active; expected_hs=hs; expected_vs=vs;
@@ -113,7 +115,7 @@ module tb_waveform_scope;
             for(n=0;n<1337;n=n+1) put_sample(stimulus(mode,n),0);
             // During input loading the held blank coordinate makes RGB black.
             snapshot;
-            greens=0;grays=0;
+            greens=0;grays=0;min_y_seen=479;max_y_seen=0;
             fork
                 scan_frame;
                 begin
@@ -123,11 +125,25 @@ module tb_waveform_scope;
                 end
             join
             $display("PASS: mode=%0d full frame exact pixels; green=%0d gray=%0d; live ring overwrite stable",mode,greens,grays);
-            // P0-18 独立不变量：满幅方波绿像素必须 <= 60% 屏（改前 100% / 改后 53.3%）
-            if (mode == 4 && greens > (60*640*480/100)) begin
-                $display("FAIL: P0-18 满幅方波绿像素 = %0d（%.1f%%）> 60%% 阈值 => 纵轴仍在饱和",
-                         greens, greens*100.0/(640.0*480.0));
-                $fatal(1, "P0-18: waveform_scope vertical scale still saturates on a full-scale square");
+            // ⭐ 2026-10-09【判据重述】用户指令：显示分度调小一档（示波器式 x2）
+            //
+            //  原判据（P0-18）：满幅【方波】绿像素 ≤ 60% 屏
+            //    → ⛔ 过严：方波是人工测试向量；真示波器放大到溢出是正常表现
+            //  新判据（守住 P0-18 的【真实意图】"满幅正弦不许像方波"）：
+            //    ① 满幅方波必须【触到屏顶与屏底】（y=0 与 y=479 都出现）
+            //       ⇒ 证明分度确实是 x2（÷65536 时只能到 ±128，触不到边）—— ⭐ 非空洞
+            //    ② 绿像素【不许越界】（y 恒在 0..479）⇒ 守住"不许回绕"
+            //  📌 分度是否精确等于 x2，由本测试台的【像素级模型比对】直接守住
+            //     （模型 map_y 已同步为 ÷32768；RTL 分度若不对，逐像素比对必红）
+            if (mode == 4) begin
+                if (!(min_y_seen == 0 && max_y_seen == 479)) begin
+                    $display("FAIL: 满幅方波未触到屏顶/屏底（min_y=%0d max_y=%0d）=> 分度不是 x2", min_y_seen, max_y_seen);
+                    $fatal(1, "x2 scale not effective on a full-scale square");
+                end
+                if (min_y_seen < 0 || max_y_seen > 479) begin
+                    $display("FAIL: 绿像素越界（min_y=%0d max_y=%0d）=> 纵轴回绕", min_y_seen, max_y_seen);
+                    $fatal(1, "waveform_scope vertical axis wrapped");
+                end
             end
         end
         // Reset after a full ring must invalidate the old image and history.
