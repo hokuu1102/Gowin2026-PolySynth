@@ -26,9 +26,9 @@ module tb_waveform_scope;
     function integer map_y(input integer s);
         integer scaled;
         begin
-            // 2026-10-09：模型同步 RTL 的显示分度（x2：s >>> 15 而不是 >>> 16）
-            if(s>=0) scaled=s/32768;
-            else scaled=-((-s+32767)/32768);
+            // 2026-10-09：模型同步 RTL 的显示分度（x4：s >>> 14）
+            if(s>=0) scaled=s/16384;
+            else scaled=-((-s+16383)/16384);
             map_y=240-scaled;
             if(map_y<0) map_y=0;
             if(map_y>479) map_y=479;
