@@ -647,6 +647,9 @@ module tb_transpose;
     integer t6_src3, t6_src4;
     integer t6_tr_seen;      // ⭐ 2026-10-04：⭐ 等价探针的计数（⭐ 见 T6 判据 ③）
     integer all_gated, distinct;
+    //  ⭐⭐ 2026-10-11（`P1-59`）：⭐ **T8 专用** —— 源 5（键盘打鼓）不跟变调 ✅
+    integer t8_v0, t8_v5;
+    reg [PHASE_W-1:0] t8_i0, t8_i5;
     integer bad, nchk;
     reg signed [4:0] prev_sc;
     reg [PHASE_W-1:0] g2, e2;
@@ -707,7 +710,18 @@ module tb_transpose;
                 note_phase_inc  = $random;
                 note_velocity   = $random;
                 note_kind       = $random;
-                note_src        = $random;
+                //  ⭐⭐ 2026-10-11（`P1-59`）：⭐ **随机源收紧到 `% 5`（0~4）** ✅
+                //     🔴 **为什么**：⭐ 编码 **5** 从"**未使用**"变成"**键盘打鼓**" ✅
+                //        ⇒ ⚠️ 而本 tb 的参照 `note_manager_ref` 是**冻结的 T2 基线**
+                //           （⭐ 它把 5 归一化成手弹 0 ✅）
+                //        ⇒ 🔴 旧参照不可能知道 5 的新语义 ⇒ ⚠️ 随机会撞上 ⇒ **必然红** ✅
+                //     ✅ **契约收紧（⭐ 正确的契约）**：⭐ 本 tb 断言的是
+                //        "**T3 变调 ⛔ 不许改变【既有编码 0~4】的行为**" ✅
+                //        —— ⭐ 而编码 5 是**新功能**（⭐ 源 3/4/5 一律**不跟变调** ✅）
+                //        ⇒ ⭐ **它的行为【应当】变** ✅
+                //     📌 ⭐ **覆盖没有丢**：⭐ 源 5 的新语义由 `tb_pool_by_src` 的 `a7`
+                //        ＋ ⭐ `tb_key_drum` 的 `T2`/`T2b` 覆盖 ✅
+                note_src        = (({$random} % 5) + 5) % 5;
                 vel_upd_valid   = ((({$random} % 100) + 100) % 100) < 5;
                 vel_upd_axis    = $random;
                 vel_upd_value   = $random;
@@ -978,9 +992,42 @@ module tb_transpose;
 
         // ═══════════════════════════════════════════════════════════════════
         $display("");
+        $display("=== T8: 源 5（键盘打鼓）**不跟变调**（⭐ `P1-59`）===");
+        // ═══════════════════════════════════════════════════════════════════
+        //  🔴 **为什么必须单独测**：⭐ `T1`/`T7` **全程**跑在 `semi_cur == 0` 下
+        //     ⇒ ⚠️ 那时**所有源都 bypass**（⭐ `wr_data_v` 的**第一项**就是 `semi_cur == 0` ✅）
+        //     ⇒ 🔴 **它们证明不了"源 3/4/5 的源门控"** ✅
+        //  ✅ **做法**：⭐ 把 `u_t3on.g_t3.semi_cur` **强成 `+12`**（⭐ 绕过 1 ms 台阶 ✅）
+        //     ＋ ⭐ **同一个 `phase_inc`** 分别以 **源 0** 与 **源 5** 按下 ⇒
+        //        · ⭐ 源 0 **必须被变调**（⭐ **非空洞性对照** ✅）
+        //        · ⭐ 源 5 **必须逐位不变**（⭐ bypass ✅）
+        //  📌 ⭐ **lane 号怎么拿**：⭐ `u_t3on` 的 `alloc_voice_o` **没接**
+        //     ⇒ ⭐ 用 `u_dut`（⭐ `T3_EN=0`，⭐ **接了** `d_avo` ✅）
+        //     —— ⭐ 两个实例吃**同一份激励** ⇒ ⭐ **分配顺序一致** ✅
+        //  ⚠️ **必须等够轮转周期**（⭐ `phase_tr` 每 ≤33 拍刷一次 ✅）
+        //     ⇒ ⭐ `settle` 只有 40 个 negedge（≈20 拍）**不够** ⇒ ⭐ 再补 40 个 ✅
+        force u_t3on.g_t3.semi_cur = 5'sd12;
+        press(4'd1, 32'h0033_4455, 3'd0);
+        settle;
+        repeat (40) @(negedge clk);
+        t8_v0 = d_avo;
+        t8_i0 = t3_ph[t8_v0*PHASE_W +: PHASE_W];
+        press(4'd2, 32'h0044_5566, 3'd5);
+        settle;
+        repeat (40) @(negedge clk);
+        t8_v5 = d_avo;
+        t8_i5 = t3_ph[t8_v5*PHASE_W +: PHASE_W];
+        release u_t3on.g_t3.semi_cur;
+        $display("  INFO T8: semi_cur=+12 | src0 lane=%0d inc=%08x（⭐ 应【变】）| src5 lane=%0d inc=%08x（⭐ 应【不变】）",
+                 t8_v0, t8_i0, t8_v5, t8_i5);
+        chk("T8 non-vacuous: src=0 IS transposed while semi_cur=+12", t8_i0 !== 32'h0033_4455);
+        chk("T8: src=5 (keyboard drums) BYPASSES transposition -- P1-59", t8_i5 === 32'h0044_5566);
+
+        // ═══════════════════════════════════════════════════════════════════
+        $display("");
         $display("================================================================");
         if (errors == 0)
-            $display("PASS: tb_transpose —— T1/T2/T3/T4/T6/T7 全部成立（T3_EN=0 交付口径 + T3_EN=1 语义保持）");
+            $display("PASS: tb_transpose —— T1/T2/T3/T4/T6/T7/T8 全部成立（T3_EN=0 交付口径 + T3_EN=1 语义保持）");
         else
             $display("FAIL: tb_transpose —— %0d 条判据不成立", errors);
         $display("================================================================");

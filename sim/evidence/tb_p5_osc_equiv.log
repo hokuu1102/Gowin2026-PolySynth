@@ -1,7 +1,7 @@
 ﻿--------------------------------------------------
-  osc frames compared = 320 路 mismatches = 0
+  osc frames compared = 322 路 mismatches = 0
   姣斾簡锛歰sc_sample_bus_o(64脳16) + osc_valid_o + phase_acc_dbg + 64 涓?phase_q
 PASS: P5-2 per-voice oscillator_bank is BIT-IDENTICAL to the reference
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_p5_osc_equiv.sv:222: $finish called at 524960000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_p5_osc_equiv.sv:234: $finish called at 528240000 (1ps)
 
 

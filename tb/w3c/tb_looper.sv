@@ -93,6 +93,30 @@ module tb_looper;
     wire [0:0]           full_o;
     wire [15:0]          drop_cnt_o;
     wire                 overflow_o;
+    //  ⭐⭐ 2026-10-11：⭐ **导出读口**（⭐ 录制回传 ✅）
+    reg                  dump_en = 1'b0;
+    reg  [15:0]          dump_a  = 16'd0;
+    wire [63:0]          dump_d;          // ⭐ **线上 64 位格式**（⭐ 由 looper 重打包 ✅）
+    wire                 dump_clip;       // ⭐ 截断标志 ✅
+    reg  [63:0]          d0, d1;
+    reg                  clip0, clip1;
+    //  ⚠️ ⭐ **两套偏移都必须与 `looper.v` 一致**（⭐ 那边是 `localparam` ⇒ 这里照抄 ✅）
+    //     · ⭐ `I_*` = **内部 68 位**存储布局（⭐ `looper.v` 的 `O_*` ✅）
+    //       `O_VEL=0` · `O_INC=8` · `O_AXIS=40` · `O_KIND=44` · `O_TICK=46` · `O_TBR=66` ✅
+    //     · ⭐ `T_*` = **线上 64 位**帧布局（⭐ 与 `evt_uart_rx` 的 9 字节帧逐位一致 ✅）
+    //       `tick[63:44]` · `inc[43:23]` · `axis[22:19]` · `vel[18:11]` ·
+    //       `kind[10:9]` · `timbre[8:7]` · `[6:0]` 保留 ✅
+    localparam integer I_VEL  = 0,  I_INC  = 8,  I_AXIS = 40, I_KIND = 44, I_TICK = 46, I_TBR = 66;
+    localparam integer T_TICK = 44, T_INC  = 23, T_AXIS = 19, T_VEL  = 11, T_KIND = 9,  T_TBR = 7;
+
+    //  ⭐⭐ **期望值由本 tb 独立按【线上格式】拼出来** ⇒ ⭐ 它就是**规格** ✅
+    function [63:0] repack;
+        input [67:0] w;
+        begin
+            repack = {w[I_TICK +: 20], w[I_INC +: 21], w[I_AXIS +: 4],
+                      w[I_VEL  +: 8],  w[I_KIND +: 2], w[I_TBR +: 2], 7'b0};
+        end
+    endfunction
 
     looper #(
         .AXIS_W(AXIS_W), .PHASE_W(PHASE_W), .VEL_W(VEL_W), .KIND_W(KIND_W),
@@ -119,7 +143,10 @@ module tb_looper;
         .rec_req_i(rec_req_i), .stop_req_i(stop_req_i),
         .play_en_i(play_en_i), .clear_req_i(clear_req_i),
         .layer_state_o(layer_state_o), .evt_cnt_flat_o(evt_cnt_flat_o),
-        .full_o(full_o), .drop_cnt_o(drop_cnt_o), .overflow_o(overflow_o)
+        .full_o(full_o), .drop_cnt_o(drop_cnt_o), .overflow_o(overflow_o),
+        //  ⭐⭐ 2026-10-11：⭐ **录制回传的导出读口** ✅
+        .dump_en_i(dump_en), .dump_addr_i(dump_a), .dump_data_o(dump_d),
+        .dump_clip_o(dump_clip)
     );
 
     //  ⭐ 第二个实例：`EVT_MAX = 4` ⇒ ⭐ 专门验"录满可见"（判据 ⑧）
@@ -782,6 +809,82 @@ module tb_looper;
         // ══════════════════════════════════════════════════════════════════
         chk((a8_axis == 0) && (a8_inc == 0) && (a8_vel == 0) && (a8_kind == 0) && (a8_tbr == 0),
             "A8: no X/Z on the replay outputs");
+
+        // ══════════════════════════════════════════════════════════════════
+        $display("== ⑩ ⭐ 2026-10-11：录制回传 · 导出读口（dump_en/addr/data）==");
+        // ══════════════════════════════════════════════════════════════════
+        //  ⭐ 判据：⭐ 导出必须能**按地址读出已录的事件**，⭐ 且⛔ 不干扰放音路径 ✅
+        //  ⚠️ **为什么必须复用同一个读口**（⭐ 这是本判据真正守的东西）：
+        //     ⭐ `mem` 要推成 **BSRAM**（⭐ 物理结构 = **1 写口 ＋ 1 读口** ✅）
+        //     ⇒ ⚠️ 再加一条 `always @(posedge clk) x <= mem[addr2]`
+        //        ⇒ 🔴 **推不出 BSRAM** ⇒ 退回 DFF 阵列
+        //        ⇒ ⭐ 就是 `looper.v` 记过的那个 **`135168 > 60780` 综合失败** ✅
+        //     ⇒ ⭐ 所以导出走的是**同一条**读口（⭐ 地址 mux ✅）
+        pulse_clr;
+        do_tick; do_tick;
+        pulse_rec;
+        do_tick;
+        live_evt(2'd0, 4'd3, 32'h0012_3456, 8'd77);      // ⭐ 第 0 条（⭐ inc < 2^21 ✅）
+        do_tick; do_tick;
+        live_evt(2'd1, 4'd9, 32'h0015_6789, 8'd88);      // ⭐ 第 1 条（⭐ 同上 ✅）
+        do_tick; do_tick;
+        pulse_stop;
+        idle_ticks(4);
+
+        dump_en = 1'b1; dump_a = 16'd0;
+        @(negedge clk); @(negedge clk);
+        d0 = dump_d;
+        clip0 = dump_clip;
+        dump_a = 16'd1;
+        @(negedge clk); @(negedge clk);
+        d1 = dump_d;
+
+        chk((^d0) !== 1'bx, "DUMP-a dump_data_o is X-free while dumping");
+        //  ⭐⭐ **验【重打包】**（⭐ 比"和 `mem[k]` 比"有意义得多 ✅）：
+        //     ⭐ 期望值由**本 tb 独立按【线上格式】拼出来**（⭐ 见 `repack()` ✅）
+        //     ⭐ 内部 68 位 ⇒ ⭐ 线上 64 位（⭐ `inc` **只留 21 位** ✅）
+        chk(d0 === repack(dut.mem[0]), "DUMP-b addr 0 == the repacked WIRE-FORMAT word of mem[0]");
+        chk(d1 === repack(dut.mem[1]), "DUMP-c addr 1 == the repacked wire-format word of mem[1]");
+        chk(d0 !== d1,   "DUMP-d (NON-VACUOUS) the two entries differ => the address really selects");
+        //  ⭐ 字段位序（⭐ **线上格式** ✅）
+        chk(d0[T_AXIS +: 4] === 4'd3,  "DUMP-e axis[22:19] of entry 0 == 3 (as recorded)");
+        chk(d1[T_AXIS +: 4] === 4'd9,  "DUMP-f axis[22:19] of entry 1 == 9");
+        chk(d0[T_INC  +: 21] === 21'h012_3456,
+            "DUMP-g inc[43:23] of entry 0 == 0x123456 (fits in 21 bits, so lossless)");
+        chk(d0[T_VEL  +: 8] === 8'd77, "DUMP-h vel[18:11] of entry 0 == 77");
+        chk(d0[T_KIND +: 2] === 2'd0,  "DUMP-i kind[10:9] of entry 0 == 0");
+        //  ⭐⭐ **截断标志**：⭐ 两条录进去的 `inc` 都 < 2^21 ⇒ ⭐ **不许报截断** ✅
+        //     🔴 **诚实记录**：⭐ 本判据的**第一版用了 `0x11112222`**（⭐ 286 M ✅）——
+        //        ⚠️ 而那个值**本身就远超 21 位** ⇒ 🔴 **判据自己写错了**（⭐ RTL 是对的 ✅）
+        //     📌 ⭐ 顺带发现：⭐ **实时弹的 `inc` 常常就超过 21 位**
+        //        （⭐ `axis_map.BASE_INC = 0x0010_0000`，⭐ 键 69 ≈ 5.6e7 ✅）
+        //        ⇒ ⭐ 所以"导出截断"**⛔ 不是边角情形**，⭐ 而是**常态** ✅
+        //        ⇒ ⭐ 这正是 `dump_clip_o` 必须存在的理由 ✅
+        chk(clip0 === 1'b0, "DUMP-j no clip flag for the two small-inc entries (lossless)");
+
+        //  ⭐⭐⭐ **截断的【非空洞性】对照**：⭐ 录一条 `inc` 超出 21 位的事件 ✅
+        //     ⭐ 它模拟的是"**实时弹**的事件"（⭐ `axis_map` 给的是 **32 位全用** ✅）
+        //     ⇒ ⭐ 导出**必然截断** ⇒ ⭐ 而这**必须【可见】**（⭐ `K-106` ⛔ 不许静默失真 ✅）
+        pulse_clr;
+        do_tick; do_tick;
+        pulse_rec;
+        do_tick;
+        live_evt(2'd0, 4'd5, 32'h0080_0000, 8'd99);      // ⭐ bit23 ⇒ **超出 21 位** ✅
+        do_tick; do_tick;
+        pulse_stop;
+        idle_ticks(4);
+        dump_en = 1'b1; dump_a = 16'd0;
+        @(negedge clk); @(negedge clk);
+        clip1 = dump_clip;
+        chk(clip1 === 1'b1, "DUMP-k (NON-VACUOUS) a >21-bit inc DOES raise the clip flag");
+        chk(dump_d[T_INC +: 21] === 21'd0,
+            "DUMP-l ...and the 21-bit field keeps only the low bits (the truncation is real)");
+
+        //  ⭐⭐ **非干扰性**：⭐ `dump_en = 0` ⇒ 读口必须**回到放音指针** ✅
+        dump_en = 1'b0;
+        @(negedge clk); @(negedge clk);
+        chk(dump_d === repack(dut.mem[dut.rd_ptr_r]),
+            "DUMP-m with dump_en=0 the read port is back on the playback pointer (no interference)");
 
         if (fail_cnt == 0)
             $display("PASS: looper T37 record/replay, no-hang incl. axis 15, clear, same-tick, overflow");

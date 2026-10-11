@@ -4,14 +4,17 @@
   INFO a: src=2 fifo=010 head=010 cur=010 mask_x=0 alloc=1 voice=2 drum=0
   INFO a: src=3 fifo=011 head=011 cur=011 mask_x=0 alloc=1 voice=28 drum=1
   INFO a: src=4 fifo=100 head=100 cur=100 mask_x=0 alloc=1 voice=3 drum=0
-  INFO a: src=5 fifo=000 head=000 cur=000 mask_x=0 alloc=1 voice=4 drum=0
+  INFO a: src=5 fifo=101 head=101 cur=101 mask_x=0 alloc=1 voice=29 drum=1
+  INFO a: src=6 fifo=000 head=000 cur=000 mask_x=0 alloc=1 voice=4 drum=0
+  INFO a: src=7 fifo=000 head=000 cur=000 mask_x=0 alloc=1 voice=5 drum=0
   ok  : a1: src tag is stored in the FIFO entry (stage 1/5)
   ok  : a2: src tag is visible at the queue head (stage 2/5)
   ok  : a3: src tag is latched into cur_src (stage 3/5)
   ok  : a4: pool_mask is x-free and equals the src-derived mask (stage 4/5)
-  ok  : a5: voice_drum_o[alloc] == (src == SRC_AUX) (stage 5/5)
+  ok  : a5: voice_drum_o[alloc] == (src is AUX or KDRUM) (stage 5/5)
   ok  : a6: every src got a voice, in the pool its source demands
-  ok  : a7: unused src code 5 behaves like hand-play (normal pool, drum=0)
+  ok  : rc code 5 (keyboard drums) => reserved pool + drum=1 + allocated (P1-59)
+  ok  : a8: UNUSED src codes 6/7 behave like hand-play (normal pool, drum=0)
 == b: differential equivalence -- src=0 on axis 14/15 vs axis 0..13 ==
   INFO b: axis=0 src=0 alloc_voice=0 normal_pool=1 drum=0 mask_x=0
   INFO b: axis=1 src=0 alloc_voice=1 normal_pool=1 drum=0 mask_x=0
@@ -57,6 +60,6 @@
   ok  : d7: the src=3 voice also keeps phase_inc bit-exact
   ok  : d8: the src=3 voice sits in the reserved pool (>= 28)
 PASS: pool-by-source judgements (26.3 a/b/c/d) all held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_pool_by_src.sv:609: $finish called at 23780000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_pool_by_src.sv:636: $finish called at 25340000 (1ps)
 
 

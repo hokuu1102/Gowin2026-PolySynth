@@ -16,6 +16,7 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:4252: warning: implicit definition of wire 'looper_full'.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another 
 file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
@@ -28,30 +29,30 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:2083: warning: Port 5 (sample_data_i) of module calib_autotare expects 2
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:2396: warning: Port 5 (sample_data_i) of module calib_autotare expects 2
 4 bit(s), given 36.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:2083:        : Pruning 12 high bits of the expression.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:2396:        : Pruning 12 high bits of the expression.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 
 'pc_l1'.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:58: warning: Instantiating module top with dangling input po
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:59: warning: Instantiating module top with dangling input po
 rt 3 (timbre_btn_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:58: warning: Instantiating module top with dangling input po
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:59: warning: Instantiating module top with dangling input po
 rt 11 (pluck_up_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:58: warning: Instantiating module top with dangling input po
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:59: warning: Instantiating module top with dangling input po
 rt 12 (pluck_down_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:58: warning: Instantiating module top with dangling input po
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:59: warning: Instantiating module top with dangling input po
 rt 30 (ctrl_col_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:58: warning: Instantiating module top with dangling input po
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:59: warning: Instantiating module top with dangling input po
 rt 31 (enc_a_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:58: warning: Instantiating module top with dangling input po
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:59: warning: Instantiating module top with dangling input po
 rt 32 (enc_b_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:58: warning: Instantiating module top with dangling input po
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:59: warning: Instantiating module top with dangling input po
 rt 33 (enc_sw_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:58: warning: Instantiating module top with dangling input po
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:59: warning: Instantiating module top with dangling input po
 rt 35 (pedal_sus_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:58: warning: Instantiating module top with dangling input po
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:59: warning: Instantiating module top with dangling input po
 rt 36 (pedal_loop_rec_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:58: warning: Instantiating module top with dangling input po
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:59: warning: Instantiating module top with dangling input po
 rt 37 (pedal_loop_play_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:58: warning: Instantiating module top with dangling input po
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:59: warning: Instantiating module top with dangling input po
 rt 39 (esp_uart_rx_i) floating.

@@ -227,7 +227,18 @@ module tb_rot32_diff;
             rnd; note_phase_inc  = rv;
             rnd; note_velocity   = rv[VEL_W-1:0];
             rnd; note_kind       = rv[1:0];
-            rnd; note_src        = rv[2:0];
+            //  ⭐⭐ 2026-10-11（`P1-59`）：⭐ **随机源从 `rv[2:0]`（0~7）收紧到 `% 5`（0~4）** ✅
+            //     🔴 **为什么**：⭐ 编码 **5** 从"**未使用**"变成了
+            //        "**键盘打鼓**"（⭐ 进保留池 ＋ 判为打击乐 ＋ 不跟变调 ✅）
+            //        ⇒ ⚠️ 而本 tb 的参照是**冻结的旧 `note_manager`**（⭐ 它把 5 归一化成手弹 0 ✅）
+            //        ⇒ 🔴 旧参照**不可能**知道 5 的新语义 ⇒ ⚠️ 随机会撞上它 ⇒ **逐位差分必然红** ✅
+            //     ✅ **契约收紧（⭐ 这是正确的契约）**：⭐ 本 tb 断言的是
+            //        "**ROT32 重构 ⛔ 不许改变【既有编码 0~4】的行为**" ✅
+            //        —— ⭐ 而编码 5 是**新功能** ⇒ ⭐ **它的行为【应当】变** ✅
+            //     📌 ⭐ **覆盖没有丢**：⭐ 源 5 的新语义由
+            //        `tb/w3b/tb_pool_by_src.sv` 的 **`a7`**（⭐ 保留池 ＋ `drum=1` ＋ 拿到 voice ✅）
+            //        ＋ ⭐ `tb/w3c/tb_key_drum.sv` 的 **`T2`/`T2b`** 覆盖 ✅
+            rnd; note_src        = rv % 5;
             rnd; vel_upd_valid   = (rv % 100) < 5;
             rnd; vel_upd_axis    = rv[AXIS_W-1:0];
             rnd; vel_upd_value   = rv[VEL_W-1:0];

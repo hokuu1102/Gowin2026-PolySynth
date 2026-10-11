@@ -67,6 +67,13 @@ module tb_pool_by_src;
     localparam integer EVT_LOST_W = 8;
     localparam integer FW         = 5;              // $clog2(FIFO_DEPTH=32)
     localparam [2:0]   SRC_AUX    = 3'd3;           // 源 B = 节拍器 / 鼓机
+    //  ⭐⭐ 2026-10-11（`P1-59`）：⭐ **源 5 = 键盘打鼓**（⭐ 从"未使用编码"变成**已定义**）✅
+    //     🔴 **为什么本 tb 必须跟着改**：⭐ 它原来有一条判据
+    //        `a7: unused src code 5 behaves like hand-play`（⭐ 那时 5 确实空闲 ✅）
+    //        ⇒ ⭐ 现在 5 = 键盘打鼓 ⇒ ⭐ **它必须进保留池 ＋ 判为打击乐** ✅
+    //     📌 ⭐ 而"**未使用编码 ⇒ 当手弹**"这条口径**没有消失** ——
+    //        ⭐ 只是**挪到了 6/7**（⭐ 本 tb 已把扫描范围扩到 `0..7` ✅）
+    localparam [2:0]   SRC_KDRUM  = 3'd5;           // ⭐ 键盘打鼓（⭐ `P1-59`）
     localparam [2:0]   ST_IDLE    = 3'd0;           // ⭐ 与 RTL 的 `ST_IDLE` 编码一致
 
     reg clk   = 1'b0;
@@ -90,13 +97,15 @@ module tb_pool_by_src;
 
     // ── 辅助函数 ────────────────────────────────────────────────────────────
     //  ⭐ 规格（⛔ 不是抄 RTL）：由【来源】推出应有的 `pool_mask`。
-    //     源 B(3) ⇒ 保留池（高位 `pg >= NORMAL_N`）；其余（0/1/2/4 及未用编码）⇒ 普通池。
+    //     源 B(3) 或 ⭐ **键盘打鼓(5)** ⇒ 保留池（高位 `pg >= NORMAL_N`）；
+    //     其余（0/1/2/4 及未用编码 6/7）⇒ 普通池。
     function [POLY-1:0] exp_mask;
         input [2:0] s;
         integer q;
         begin
             for (q = 0; q < POLY; q = q + 1)
-                exp_mask[q] = (s === SRC_AUX) ? (q >= NORMAL_N) : (q < NORMAL_N);
+                exp_mask[q] = ((s === SRC_AUX) || (s === SRC_KDRUM))
+                              ? (q >= NORMAL_N) : (q < NORMAL_N);
         end
     endfunction
 
@@ -372,6 +381,10 @@ module tb_pool_by_src;
     integer sa, kb, kc, ax_tmp;
     integer a_bad_fifo, a_bad_head, a_bad_cur, a_bad_mask, a_bad_drum, a_bad_pool, a_bad_alloc;
     integer a5_bad;
+    //  ⭐⭐ 2026-10-11（`P1-59`）：⭐ **未使用编码 6/7 的反向判据计数** ✅
+    //     ⭐ 原来这个角色由 `a5_bad` 兼（⭐ 那时 5 是空闲编码 ✅）；
+    //     ⭐ 现在 5 已定义 ⇒ ⭐ 把"未用 ⇒ 当手弹"这条口径**挪到 6/7** ✅
+    integer a67_bad;
     integer b_bad_pool, b_bad_drum, b_bad_mask;
     integer c_bad_x, c_bad_mask, c_bad_alloc, c_seen_x;
     reg [POLY-1:0]  b_mask0;
@@ -456,38 +469,51 @@ module tb_pool_by_src;
         // ═══════════════════════════════════════════════════════════════════
         $display("== a: source tag observable at EVERY pipeline stage ==");
         // ═══════════════════════════════════════════════════════════════════
-        //  6 个来源各发一次（轴 = 来源编号，⛔ 互不重叠 ⇒ 都是"新占 voice"）：
-        //    0=live · 1=score · 2=demo · 3=源 B · 4=looper · 5=未使用编码
-        //  ⭐ `5` 是**未使用**编码 ⇒ 按"悬空/未用 = 手弹"的口径，应落普通池。
+        //  8 个来源各发一次（轴 = 来源编号，⛔ 互不重叠 ⇒ 都是"新占 voice"）：
+        //    0=live · 1=score · 2=demo · 3=源 B · ⭐ **5=键盘打鼓（`P1-59` 起已定义）**
+        //    · 4=looper · ⭐ **6/7=未使用编码**
+        //  ⭐ `6/7` 是**未使用**编码 ⇒ 按"悬空/未用 = 手弹"的口径，应落普通池 ✅
         a_bad_fifo = 0; a_bad_head = 0; a_bad_cur = 0;
         a_bad_mask = 0; a_bad_drum = 0; a_bad_pool = 0; a_bad_alloc = 0;
-        a5_bad = 0;
-        for (sa = 0; sa < 6; sa = sa + 1) begin
+        a5_bad = 0; a67_bad = 0;
+        for (sa = 0; sa < 8; sa = sa + 1) begin
             press_probe_n(sa[AXIS_W-1:0], 32'h0001_0000 + sa, sa[2:0]);
             $display("  INFO a: src=%0d fifo=%b head=%b cur=%b mask_x=%0d alloc=%0d voice=%0d drum=%b",
                      sa, obs_fifo_src, obs_head_src, obs_cur_src,
                      count_x(obs_pool_mask), obs_alloc, obs_alloc_voice,
                      obs_drum_bus[obs_alloc_voice]);
-            //  ⭐ 级 1..3 只对【已定义的 5 个编码】(0..4) 断言"逐位透传"：
-            //     编码 5..7 是【未使用】⇒ 允许（而且应当）被归一化成手弹(0)
+            //  ⭐ 级 1..3 只对【已定义的 6 个编码】(0..5) 断言"逐位透传"：
+            //     ⭐ **2026-10-11（`P1-59`）：上界 5 → 6**（⭐ 因为 5 现在是**已定义**的
+            //        键盘打鼓，⭐ `ns_src_w` **必须逐位透传它** ✅）
+            //     编码 6/7 仍是【未使用】⇒ 允许（而且应当）被归一化成手弹(0)
             //     （⭐ 与 `vu_src_w`/`pu_src_w` 的"未用编码 ⇒ 当手弹"同一口径）。
-            //     ⇒ s=5 只判【语义级】（池 / 鼓标志 / 有没有分配），⛔ 不判"逐位透传"。
-            if (sa < 5) begin
+            if (sa < 6) begin
                 if (obs_fifo_src !== sa[2:0])        a_bad_fifo = a_bad_fifo + 1;
                 if (obs_head_src !== sa[2:0])        a_bad_head = a_bad_head + 1;
                 if (obs_cur_src  !== sa[2:0])        a_bad_cur  = a_bad_cur  + 1;
             end
+            //  ⭐⭐ `sa == 5`（键盘打鼓）：⭐ **必须进保留池 ＋ 判为打击乐 ＋ 拿到 voice** ✅
+            //     🔴 **这是 `P1-59` 新增的语义** —— ⭐ 原来 5 是空闲编码，
+            //        ⚠️ 所以本条原来是"应当落【普通】池" ✅
             if (sa == 5) begin
+                if ((obs_alloc_voice <  NORMAL_N) ||
+                    (obs_drum_bus[obs_alloc_voice] !== 1'b1) || !obs_alloc)
+                    a5_bad = a5_bad + 1;
+            end
+            //  ⭐ `sa >= 6`（仍未使用的编码）：⭐ 按"未用 ⇒ 当手弹"⇒ ⭐ 普通池 ＋ drum=0 ✅
+            if (sa >= 6) begin
                 if ((obs_alloc_voice >= NORMAL_N) ||
                     (obs_drum_bus[obs_alloc_voice] !== 1'b0) || !obs_alloc)
-                    a5_bad = a5_bad + 1;
+                    a67_bad = a67_bad + 1;
             end
             if ((count_x(obs_pool_mask) != 0) ||
                 (obs_pool_mask !== exp_mask(sa[2:0]))) a_bad_mask = a_bad_mask + 1;
-            if (obs_drum_bus[obs_alloc_voice] !== ((sa[2:0] === SRC_AUX) ? 1'b1 : 1'b0))
+            if (obs_drum_bus[obs_alloc_voice] !==
+                (((sa[2:0] === SRC_AUX) || (sa[2:0] === SRC_KDRUM)) ? 1'b1 : 1'b0))
                                                      a_bad_drum = a_bad_drum + 1;
-            if ((sa[2:0] === SRC_AUX) ? (obs_alloc_voice < NORMAL_N)
-                                      : (obs_alloc_voice >= NORMAL_N))
+            if (((sa[2:0] === SRC_AUX) || (sa[2:0] === SRC_KDRUM))
+                ? (obs_alloc_voice <  NORMAL_N)
+                : (obs_alloc_voice >= NORMAL_N))
                                                      a_bad_pool = a_bad_pool + 1;
             if (!obs_alloc)                          a_bad_alloc = a_bad_alloc + 1;
         end
@@ -495,9 +521,10 @@ module tb_pool_by_src;
         chk("a2: src tag is visible at the queue head (stage 2/5)", a_bad_head == 0);
         chk("a3: src tag is latched into cur_src (stage 3/5)", a_bad_cur == 0);
         chk("a4: pool_mask is x-free and equals the src-derived mask (stage 4/5)", a_bad_mask == 0);
-        chk("a5: voice_drum_o[alloc] == (src == SRC_AUX) (stage 5/5)", a_bad_drum == 0);
+        chk("a5: voice_drum_o[alloc] == (src is AUX or KDRUM) (stage 5/5)", a_bad_drum == 0);
         chk("a6: every src got a voice, in the pool its source demands", (a_bad_alloc == 0) && (a_bad_pool == 0));
-        chk("a7: unused src code 5 behaves like hand-play (normal pool, drum=0)", a5_bad == 0);
+        chk("a7: src code 5 (keyboard drums) => reserved pool + drum=1 + allocated (P1-59)", a5_bad == 0);
+        chk("a8: UNUSED src codes 6/7 behave like hand-play (normal pool, drum=0)", a67_bad == 0);
         run_ticks(1);
 
         // ═══════════════════════════════════════════════════════════════════

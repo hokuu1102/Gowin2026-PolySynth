@@ -184,7 +184,15 @@ module calib_cmd #(
     parameter [7:0]   CMD_TRANS_DOWN = 8'h46,   // 'F' ⭐ 变调：降 1 半音（⭐ 单周期脉冲）
     parameter [7:0]   CMD_TRANS_UP   = 8'h47,   // 'G' ⭐ 变调：升 1 半音（⭐ 单周期脉冲）
     parameter [7:0]   CMD_TRANS_ABS  = 8'h48,   // 'H' ⭐ 变调：带帧绝对量（⭐ 臂化 ⇒ 下一帧载荷[0]）
-    parameter [7:0]   CMD_GEAR_NEXT  = 8'h4A    // 'J' ⭐ 推子档位：切下一档（⭐ 供 `P3`）
+    parameter [7:0]   CMD_GEAR_NEXT  = 8'h4A,   // 'J' ⭐ 推子档位：切下一档（⭐ 供 `P3`）
+    //  ⭐⭐ 2026-10-11：⭐ **'Y' = 导出录制内容**（⭐ 录制回传 ✅）
+    //     📌 ⭐ 语义：⭐ 把 `looper` 该层**已录下的事件**按 9 字节帧（`0xA5` ＋ 8 字节）
+    //        ⭐ 推给 `u_tx_fifo` ⇒ ⭐ `u_uart_tx_esp` ⇒ ⭐ ESP32 ⇒ BLE ⇒ PC ✅
+    //     ⚠️ ⭐ **为什么用命令字母而⛔ 不是"在 ESP32 线上认一个单字节"**：
+    //        🔴 曲谱帧的**载荷字节是任意的** ⇒ ⚠️ 一个裸单字节触发器
+    //        **会被载荷误触发**（⭐ 例如载荷里恰好有 `0x59` ✅）
+    //        ⇒ ⭐ 所以触发**必须走命令通道**（⭐ 它天然只在"帧外"接受命令 ✅）
+    parameter [7:0]   CMD_RECDUMP   = 8'h59    // 'Y' ⭐ 录制回传：导出该层已录事件
 ) (
     input  wire        clk_i,
     input  wire        rst_n_i,        // ⭐ 同步复位、低有效
@@ -226,6 +234,8 @@ module calib_cmd #(
     output reg         trans_abs_req_o,  // ⭐ 'H' ⇒ 带帧绝对量：⭐ 值到达的那一拍
     output reg  [7:0]  trans_abs_val_o,  // ⭐ 'H' ⇒ 该帧**第一个载荷字节**（⭐ 编码 0..24）
     output reg         gear_next_req_o,  // ⭐ 'J' ⇒ 推子档位 **切下一档**（⭐ 供 `P3`）
+    //  ⭐⭐ 2026-10-11：⭐ `'Y'` ⇒ **导出录制内容**（⭐ 单周期脉冲 ✅）
+    output reg         recdump_req_o,    // ⭐ 'Y' ⇒ 启动"录制回传"导出
 
     // ── ⭐ 可观测性（`K-106`：⛔ 不许静默失效）────────────────────────────
     output reg  [15:0] cmd_cnt_o,      // ⭐ 已接受的命令数（饱和）
@@ -311,6 +321,8 @@ module calib_cmd #(
     wire byte_is_trans_up   = (rx_data_i == CMD_TRANS_UP);
     wire byte_is_trans_abs  = (rx_data_i == CMD_TRANS_ABS);
     wire byte_is_gear_next  = (rx_data_i == CMD_GEAR_NEXT);
+    //  ⭐⭐ 2026-10-11：⭐ `'Y'`（⭐ 录制回传 ✅）
+    wire byte_is_recdump    = (rx_data_i == CMD_RECDUMP);
     // ⭐ 任一命令字母
     wire byte_is_cmd   = byte_is_tare | byte_is_span | byte_is_abort |
                          byte_is_probe | byte_is_vstat | byte_is_posprobe |
@@ -322,7 +334,11 @@ module calib_cmd #(
                          //   ⚠️ 否则**帧内出现它们时 `in_frame_cnt_o` 不计数**
                          //      ⇒ 🔴 "边界跟踪在工作"的**证据就没了**（`K-106` 静默失效）
                          byte_is_trans_down | byte_is_trans_up |
-                         byte_is_trans_abs | byte_is_gear_next;
+                         byte_is_trans_abs | byte_is_gear_next |
+                         //  ⭐ 2026-10-11：⭐ `'Y'`（⭐ 录制回传）⭐ **同样必须在这里** ✅
+                         //     ⚠️ 漏了 ⇒ 🔴 帧内出现 `0x59` 时 `in_frame_cnt_o` 不计数
+                         //        ⇒ ⭐ "边界跟踪在工作"的证据就没了（⭐ 同上面那条 ✅）
+                         byte_is_recdump;
 
     // ⭐ 只有在**帧外**（`idx_q == 0`）才认命令
     //   🔴 这是本模块的**安全核心** —— ⚠️ 帧内的字母是**载荷**，⛔ 绝不能当命令
@@ -373,6 +389,7 @@ module calib_cmd #(
             trans_abs_req_o  <= 1'b0;   // ⭐ 'H' 带帧绝对量（⭐ 2026-10-03 · P2）
             trans_abs_val_o  <= 8'd0;   // ⭐ 'H' 的载荷值（⭐ 2026-10-03 · P2）
             gear_next_req_o  <= 1'b0;   // ⭐ 'J' 切档（⭐ 2026-10-03 · P2）
+            recdump_req_o    <= 1'b0;   // ⭐ 'Y' 录制回传导出（⭐ 2026-10-11）
             abs_arm_q        <= 1'b0;   // ⭐ 'H' 臂化标志（⭐ 2026-10-03 · P2）
             cmd_cnt_o      <= 16'd0;
             in_frame_cnt_o <= 16'd0;
@@ -398,6 +415,7 @@ module calib_cmd #(
             trans_up_req_o     <= 1'b0; // ⭐ 'G'（⭐ 2026-10-03 · P2）
             trans_abs_req_o    <= 1'b0; // ⭐ 'H'（⭐ 2026-10-03 · P2）
             gear_next_req_o    <= 1'b0; // ⭐ 'J'（⭐ 2026-10-03 · P2）
+            recdump_req_o      <= 1'b0; // ⭐ 'Y' 录制回传导出（⭐ 2026-10-11）
             //   ⚠️ `trans_abs_val_o` **刻意不在这里清零** ——
             //      ⭐ 它是**数据**（⛔ 不是脉冲）：⭐ 清掉会让"值保持到下一帧"这个
             //      ⚠️ 隐含契约失效；⭐ 且清零会产生**无谓的翻转**（⭐ 上板看不出区别，
@@ -438,6 +456,8 @@ module calib_cmd #(
                         if (byte_is_trans_down) trans_down_req_o <= 1'b1;
                         if (byte_is_trans_up)   trans_up_req_o   <= 1'b1;
                         if (byte_is_gear_next)  gear_next_req_o  <= 1'b1;
+                        //  ⭐⭐ 2026-10-11：⭐ `'Y'`（⭐ 录制回传）—— ⭐ 同样是**纯脉冲** ✅
+                        if (byte_is_recdump)    recdump_req_o    <= 1'b1;
                         //   ⭐ `'H'` = **臂化**（⛔ 本拍**不出脉冲**）——
                         //      ⭐ 值在**下一帧的第一个载荷字节**那一拍才出（⭐ 见下方帧内段）
                         //      📌 所以"发 `'H'` 就立刻变调"是**错的预期**：
@@ -517,7 +537,7 @@ module calib_cmd #(
     //   ⭐ 2026-10-03（`P2`）：⭐ **14 ⇒ 18**（⭐ 新增 `'F'`/`'G'`/`'H'`/`'J'` 四条变调命令）
     //      📌 ⚠️ **忘了加这里 = 查重漏掉新字母** ⇒ 🔴 将来撞字母时**静默遮蔽**
     //         （⭐ 所以本表是"加新命令时的**必改项**"，⭐ 见上方注释 ✅）
-    localparam integer N_CMD = 18;
+    localparam integer N_CMD = 19;
     reg [7:0] cmd_tab [0:N_CMD-1];
     integer   ci, cj;
     reg       letters_ok;
@@ -541,6 +561,7 @@ module calib_cmd #(
         cmd_tab[15] = CMD_TRANS_UP;    // ⭐ 2026-10-03：⭐ 'G' 变调：升 1 半音（⭐ P2）
         cmd_tab[16] = CMD_TRANS_ABS;   // ⭐ 2026-10-03：⭐ 'H' 变调：带帧绝对量（⭐ P2）
         cmd_tab[17] = CMD_GEAR_NEXT;   // ⭐ 2026-10-03：⭐ 'J' 推子档位切下一档（⭐ P2）
+        cmd_tab[18] = CMD_RECDUMP;     // ⭐ 2026-10-11：⭐ 'Y' 录制回传导出（⭐ 查重必改项 ✅）
 
         if (GAP_BYTES <= 1)
             $display("ERROR [calib_cmd] GAP_BYTES = %0d <= 1 => intra-frame byte gaps would be mistaken for idle, so a half frame resyncs early and payload bytes get treated as commands. PARAM_OK=0.", GAP_BYTES);
@@ -562,12 +583,13 @@ module calib_cmd #(
         end
 
         if (PARAM_OK && letters_ok)
-            $display("NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=%0d BAUD=%0d GAP_BYTES=%0d BYTE_CLK=%0d HEADER=%02h N_CMD=%0d T=%02h S=%02h X=%02h M=%02h R=%02h L=%02h C=%02h I=%02h D=%02h F=%02h G=%02h H=%02h J=%02h)",
+            $display("NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=%0d BAUD=%0d GAP_BYTES=%0d BYTE_CLK=%0d HEADER=%02h N_CMD=%0d T=%02h S=%02h X=%02h M=%02h R=%02h L=%02h C=%02h I=%02h D=%02h F=%02h G=%02h H=%02h J=%02h Y=%02h)",
                      CLK_HZ, BAUD, GAP_BYTES, BYTE_CLK_I, HEADER, N_CMD,
                      CMD_TARE, CMD_SPAN, CMD_ABORT, CMD_TEST_MODE,
                      CMD_LOOP_REC, CMD_LOOP_PLAY, CMD_LOOP_CLR, CMD_TIMBRE,
                      CMD_DRUM_PATTERN,
-                     CMD_TRANS_DOWN, CMD_TRANS_UP, CMD_TRANS_ABS, CMD_GEAR_NEXT);
+                     CMD_TRANS_DOWN, CMD_TRANS_UP, CMD_TRANS_ABS, CMD_GEAR_NEXT,
+                     CMD_RECDUMP);
     end
 
 endmodule

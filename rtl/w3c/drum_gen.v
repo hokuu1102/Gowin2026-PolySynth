@@ -110,6 +110,25 @@ module drum_gen #(
     input  wire                  bar_start_i,   // ⭐ 小节起点
     input  wire                  transport_i,   // ⭐ run 状态（0 ⇒ ⛔ 不发事件）
 
+    //  ⭐⭐⭐⭐ 2026-10-11（`P1-18`）：⭐ **音乐位置复位**（⭐ 必须与 `beat_gen.pos_reset_i` 同源）✅
+    //
+    //  🔴🔴 **为什么必须新增这个端口**（⭐ 审查 `[P1-18]`，⭐ 实测复现）：
+    //     ⭐ `top.v` 的 `met_start`（⭐ = "开节拍器/鼓机"的上升沿脉冲）**同时喂**
+    //        `beat_gen.pos_reset_i` ✅
+    //     ⭐ `beat_gen` 收到它 ⇒ ⭐ **`tick_cnt_o` 在那一拍【立刻跳回 0】**
+    //        （⛔ 不产生 `tick`、⛔ 不产生 `bar_start` ✅）
+    //     🔴 而本模块的步进判据是**无符号差值法**（⭐ 见下方 `step_advance`）
+    //        ⇒ ⭐ `0 - 300 = 65336 ≥ 240` ⇒ 🔴 **无符号下溢 ⇒ 假的 `step_advance`** ✅
+    //     ⇒ ⭐ **多推进一步 ＋ 多发一条不在 16 分网格上的事件** ✅
+    //     📌 ⭐ 听感（⭐ 交付默认档 `SEL_DRUM=1` = 鼓机 ⇒ ⭐ **用户能听到**）：
+    //        ⭐ 每次开鼓机，⭐ 强拍前 **≈0.52 ms** 多一记 ⇒ 🔴 **紧 flam / 双击** ✅
+    //
+    //  ⚠️ **老例化不接本端口 ⇒ `z`** ⇒ ⭐ 由下方 `=== 1'b1` 解码为 **0**
+    //     ⇒ ⭐ **行为与加本端口之前完全一致** ✅
+    //     （⭐ 与 `oscillator_bank.voice_phase_rst_i` / `note_manager.vel_upd_src_i`
+    //       是**同一套向后兼容口径** ✅）
+    input  wire                  pos_reset_i,   // ⭐ 高有效电平/脉冲：⭐ 位置归零（⭐ 与 beat_gen 同源）
+
     // ── 事件输出（⭐ 与 `metronome` 完全同构）──────────────────────────────
     output reg                   evt_valid_o,   // ⭐ 单周期脉冲（⭐ 连续多拍=一步多鼓）
     output wire [AXIS_W-1:0]     evt_axis_o,
@@ -351,13 +370,31 @@ module drum_gen #(
     // ── ⭐⭐ 16 分音符步进（⭐ 差值法，⛔ 不用取模）────────────────────────────
     //   ⭐ 内部维护"上一次推进时的 tick 位置"，⭐ 与当前值求差
     //      ⇒ ⭐ 差值 ≥ 240 就推进一步 ⇒ ⚠️ **跨小节归零时天然正确**
+    //      （⭐ 因为小节归零由 `bar_start_i` 那条 `step_zero_align` **优先**处理 ✅）
+    //
+    //   🔴🔴 2026-10-11（`P1-18`）：⭐ **原来的判据在 `tick_cnt_i` 【向后跳变】时会假推进** ✅
+    //      ⭐ 原文只有 `((tick_cnt_i - tick_at_step_q) >= TPS_C)` —— ⭐ 两者都是 `[15:0]`、
+    //         ⭐ **无符号** ⇒ ⚠️ `0 - 300` 得 `65336`（⭐ **下溢**）⇒ 🔴 **假 `step_advance`** ✅
+    //      ⭐ 而模块头 `:33-35` 恰好把这条差值法论证成"**天然容忍跨小节跳变**" ——
+    //         ⚠️ 它容忍的是**向前回绕**，⛔ **不是向后跳变** ✅
+    //      ⭐ 触发条件（⭐ 实测）：⭐ `top.v` 的 `met_start` ⇒ `beat_gen` 立刻清 `tick_cnt_o` ✅
+    //      ✅ **加固**：⭐ **先要求"没有后退"**（`tick_cnt_i >= tick_at_step_q`），
+    //         ⭐ 再判差值 ✅ ⇒ ⭐ **一行改动、把下溢整类排除掉** ✅
+    //      📌 ⭐ 为什么不影响正常路径：⭐ `bar_start_i` 那条分支**优先级更高** ⇒
+    //         ⭐ 小节回绕（`959 → 0`）永远走 `step_zero_align`，⛔ 走不到这里 ✅
     reg  [15:0] tick_at_step_q;
     reg  [3:0]  step_q;
-    //   ⭐ 步进脉冲（⭐ 只在 transport 有效时推进）
+    //   ⭐ 步进脉冲（⭐ 只在 transport 有效时推进；⭐ 且 **不许后退**）
     wire        step_advance = transport_i
+                             & (tick_cnt_i >= tick_at_step_q)
                              & ((tick_cnt_i - tick_at_step_q) >= TPS_C);
     //   ⭐ 小节起点强制对齐到 step 0（⭐ 保证与鼓机/节拍器【不错拍】）
     wire        step_zero_align = transport_i & bar_start_i;
+    //   ⭐⭐ 2026-10-11（`P1-18`）：⭐ **位置复位**（⭐ Z-safe 解码 ✅）
+    //     ⚠️ **必须用 `=== 1'b1`**（⛔ 不是 `if (pos_reset_i)`）——
+    //        ⭐ 老例化**不接**本端口 ⇒ 该位是 `z` ⇒ ⚠️ 用普通 `if` 会得到 `x`
+    //        ⇒ 🔴 判据真假不定 ✅（⭐ 与 `oscillator_bank.voice_phase_rst_i` 同一个坑 ✅）
+    wire        pos_rst = (pos_reset_i === 1'b1);
 
     // ── ⭐⭐ 待发列表（⭐ 关键点：一步可能多件乐器，必须逐个发）────────────────
     reg  [3:0]  pending_q;                  // ⭐ one-hot：本步还要发哪几件
@@ -422,7 +459,24 @@ module drum_gen #(
             evt_valid_o <= 1'b0;
 
             // ══ ① 步进（⭐ 小节起点强制归零 ⇒ 与节拍器不错拍）════════════
-            if (step_zero_align) begin
+            //  ⭐⭐ 2026-10-11（`P1-18`）：⭐ **位置复位【优先级最高】** ✅
+            //     🔴 **为什么必须有它**：⭐ `beat_gen` 收到 `pos_reset` 会把 `tick_cnt_o`
+            //        立刻清 0 ⇒ ⚠️ 本模块的差值法会**下溢**（⭐ 见 `step_advance` 的长注释 ✅）
+            //     ✅ **做法**：⭐ 清空**步进状态** ⇒ ⭐ 等下一个 tick 的 `bar_start` 重新对齐 ✅
+            //        · ⭐ `step_q <= 0`、⭐ `pending_q <= 0` ⇒ ⭐ **本拍不发任何残余事件** ✅
+            //        · ⭐ `tick_at_step_q <= tick_cnt_i`（⭐ = **当拍**的位置）
+            //           ⇒ ⭐ **紧接着的下一拍不会立刻假推进** ✅
+            //     📌 ⭐ **既有行为【不变】**：⭐ 下一个 tick 上 `bar_start_i` 会走
+            //        `step_zero_align` ⇒ ⭐ `step_q <= 0` ＋ ⭐ `pending_q <= mask_step0`
+            //        ⇒ ⭐ **"开鼓机从强拍开始"照旧**（⭐ 2026-09-28 用户要求 ✅）
+            //        📌 判据：⭐ `tb/w3c/tb_drum_gen_posreset.sv` 的 `J3`/`J4` ✅
+            if (pos_rst) begin
+                step_q         <= 4'd0;
+                tick_at_step_q <= tick_cnt_i;
+                pending_q      <= 4'd0;
+                hit_cnt_o      <= 4'd0;
+                step_evt_cnt_o <= 16'd0;
+            end else if (step_zero_align) begin
                 // ⭐ 小节对齐：⭐ 回到 step 0，⭐ 并【重新装载】本步的鼓
                 //   ⚠️ 必须**丢弃上一小节残留的 pending**（⭐ 否则会"补发"上一小节的音）
                 step_q         <= 4'd0;

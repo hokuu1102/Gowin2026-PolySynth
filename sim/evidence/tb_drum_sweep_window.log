@@ -1,0 +1,31 @@
+﻿=== tb_drum_sweep_window (P0-31: 榧撴壂棰戞繁搴?32 鎷嶈疆杞獥鍙? ===
+   KICK=5368709 TOM=17895697 路 LSB_SH=8 KICK_SH=0 TOM_SH=3
+
+== W1 kick->tom (WINDOW: base_inc refreshes AFTER the onset tick) ==
+   info: 鏃ч煶楂?5368709 鏂伴煶楂?17895697 路 绐楀彛=1
+   info: 鏈熸湜娣卞害=8738 路 鏈慨澶嶄細鎷垮埌=2621
+   info: 瀹炴祴 璧烽煶鎷?sweep_q=0 路 绐楀彛鍐?max sweep_q=8738
+   info: 鏈熸湜鐩镐綅澧為噺=20132625 路 鏈慨澶嶄細鏄?18566673 路 瀹炴祴 max=20132625
+  ok  : W1 kick->tom (WINDOW: base_inc refreshes AFTER the onset tick) : sweep_q loaded from the NEW pitch (not the stale one)
+  ok  : W1 kick->tom (WINDOW: base_inc refreshes AFTER the onset tick) : per-sample phase step == NEW_INC + depth<<8 (end-to-end)
+
+== W2 kick->tom (NO WINDOW: base_inc refreshes BEFORE the onset tick) ==
+   info: 鏃ч煶楂?5368709 鏂伴煶楂?17895697 路 绐楀彛=0
+   info: 鏈熸湜娣卞害=8738 路 鏈慨澶嶄細鎷垮埌=2621
+   info: 瀹炴祴 璧烽煶鎷?sweep_q=0 路 绐楀彛鍐?max sweep_q=8738
+   info: 鏈熸湜鐩镐綅澧為噺=20132625 路 鏈慨澶嶄細鏄?18566673 路 瀹炴祴 max=20132625
+  ok  : W2 kick->tom (NO WINDOW: base_inc refreshes BEFORE the onset tick) : sweep_q loaded from the NEW pitch (not the stale one)
+  ok  : W2 kick->tom (NO WINDOW: base_inc refreshes BEFORE the onset tick) : per-sample phase step == NEW_INC + depth<<8 (end-to-end)
+
+== W3 tom->kick (WINDOW: base_inc refreshes AFTER the onset tick) ==
+   info: 鏃ч煶楂?17895697 鏂伴煶楂?5368709 路 绐楀彛=1
+   info: 鏈熸湜娣卞害=20971 路 鏈慨澶嶄細鎷垮埌=4369
+   info: 瀹炴祴 璧烽煶鎷?sweep_q=0 路 绐楀彛鍐?max sweep_q=20971
+   info: 鏈熸湜鐩镐綅澧為噺=10737285 路 鏈慨澶嶄細鏄?6487173 路 瀹炴祴 max=10737285
+  ok  : W3 tom->kick (WINDOW: base_inc refreshes AFTER the onset tick) : sweep_q loaded from the NEW pitch (not the stale one)
+  ok  : W3 tom->kick (WINDOW: base_inc refreshes AFTER the onset tick) : per-sample phase step == NEW_INC + depth<<8 (end-to-end)
+
+PASS: tb_drum_sweep_window - 6/6 judgements held
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_drum_sweep_window.sv:338: $finish called at 24700000 (1ps)
+
+

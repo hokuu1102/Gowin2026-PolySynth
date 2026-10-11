@@ -48,8 +48,10 @@ Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\metronome.v
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\perc_env_bank.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_rx.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_buf.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_merge.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v'
+Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\rec_dump.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\led_data.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\tlc5916_bank.sv'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v'
@@ -57,6 +59,7 @@ Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\drum_gen.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\master_mix.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v'
+Undeclared symbol 'looper_full', assumed default net type 'wire'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":4252)
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\tlc5916_driver.sv'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\mcp3208_driver.sv'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\mcp3208_scanner.sv'
@@ -67,8 +70,8 @@ Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_clk.v
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\waveform_scope.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v'
 Compiling module 'top'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":36)
-Extracting RAM for identifier 'as_pos_d'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":3085)
-WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":4941)
+Extracting RAM for identifier 'as_pos_d'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":3455)
+WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":5463)
 Compiling module 'rst_sync'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\rst_sync.v":27)
 Compiling module 'sync_input(RESET_VAL=1'b1)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\sync_input.v":31)
 Compiling module 'debounce(NKEY=1)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\debounce.sv":24)
@@ -77,9 +80,11 @@ Compiling module 'clk_gen'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\clk_gen.v":
 Compiling module 'uart_rx(BAUD_DIV=100)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_rx.v":81)
 Compiling module 'uart_ui(BAUD=500000)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_ui.v":49)
 Compiling module 'calib_cmd(BAUD=500000)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\calib_cmd.v":70)
-Extracting RAM for identifier 'cmd_tab'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\calib_cmd.v":521)
-WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\calib_cmd.v":570)
+Extracting RAM for identifier 'cmd_tab'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\calib_cmd.v":541)
+WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\calib_cmd.v":592)
 Compiling module 'evt_uart_rx(BAUD=500000)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_uart_rx.v":70)
+Compiling module 'evt_buf(HIGH_WM=768)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_buf.v":51)
+Extracting RAM for identifier 'mem'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_buf.v":107)
 Compiling module 'uart_tx_fifo'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v":54)
 Extracting RAM for identifier 'mem'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v":89)
 Compiling module 'uart_tx(BAUD_DIV=100)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v":56)
@@ -97,6 +102,7 @@ WARN  (EX3791) : Expression size 32 truncated to fit in target size 6("C:\Users\
 WARN  (EX3791) : Expression size 32 truncated to fit in target size 6("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\tmds_encoder.v":53)
 Compiling module 'tmds_serializer'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\tmds_serializer.v":2)
 Compiling module 'envelope_bank'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\envelope_bank.v":33)
+Compiling module 'play_seq'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v":64)
 Compiling module 'beat_gen'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\beat_gen.v":59)
 Compiling module 'metronome(VEL_ACCENT=8'd220,VEL_NORMAL=8'd132)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\metronome.v":43)
 Compiling module 'drum_gen(VEL_SNARE=8'd235,VEL_HIHAT=8'd175,VEL_TOM=8'd220)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\drum_gen.v":64)
@@ -114,7 +120,7 @@ Extracting RAM for identifier 'last_raw'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\r
 Extracting RAM for identifier 'still_cnt'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\calib_autotare.v":176)
 Extracting RAM for identifier 'seen_r'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\calib_autotare.v":177)
 WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\calib_autotare.v":377)
-WARN  (EX3670) : Actual bit length 36 differs from formal bit length 24 for port 'sample_data_i'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":2098)
+WARN  (EX3670) : Actual bit length 36 differs from formal bit length 24 for port 'sample_data_i'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":2411)
 Compiling module 'pos_probe'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v":71)
 Compiling module 'span_probe'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v":71)
 Compiling module 'calib_span(STABLE_NEED=8,STABLE_TOL=12'b000000110000,VOTE_N=8,VOTE_TOL=12'b000001100000)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\calib_span.v":46)
@@ -147,35 +153,36 @@ Extracting RAM for identifier 'was_above_t2'("C:\Users\hokuu\Desktop\FPGA\FPGA20
 Extracting RAM for identifier 'vel_lut'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\param_extract.v":178)
 WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\param_extract.v":382)
 Compiling module 'looper'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":37)
-Extracting RAM for identifier 'mem'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":236)
-Extracting RAM for identifier 'last_inc_r'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":357)
-Extracting RAM for identifier 'vel_max_r'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":358)
-Extracting RAM for identifier 'on_addr_r'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":364)
-Extracting RAM for identifier 'ramp_inc'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":369)
-Extracting RAM for identifier 'ramp_vel'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":370)
-Extracting RAM for identifier 'rtgt_inc'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":371)
-Extracting RAM for identifier 'rtgt_vel'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":372)
-Extracting RAM for identifier 'rend_tick'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":373)
-Extracting RAM for identifier 'ep_mem'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":594)
-WARN  (EX3791) : Expression size 20 truncated to fit in target size 9("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":527)
+Extracting RAM for identifier 'mem'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":258)
+Extracting RAM for identifier 'last_inc_r'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":379)
+Extracting RAM for identifier 'vel_max_r'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":380)
+Extracting RAM for identifier 'on_addr_r'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":386)
+Extracting RAM for identifier 'ramp_inc'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":391)
+Extracting RAM for identifier 'ramp_vel'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":392)
+Extracting RAM for identifier 'rtgt_inc'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":393)
+Extracting RAM for identifier 'rtgt_vel'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":394)
+Extracting RAM for identifier 'rend_tick'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":395)
+Extracting RAM for identifier 'ep_mem'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":667)
+WARN  (EX3791) : Expression size 20 truncated to fit in target size 9("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\looper.v":549)
+Compiling module 'rec_dump'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\rec_dump.v":37)
 Compiling module 'seq_arb'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v":72)
 Extracting RAM for identifier 'mem'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v":201)
 Compiling module 'evt_merge(DEPTH=6)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_merge.v":70)
 Extracting RAM for identifier 'mem'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_merge.v":205)
 Compiling module 'note_manager(T3_EN=1,RESERVED_N=5,DRUM_TOM_MAX=20000000)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":61)
-Extracting RAM for identifier 'vtgt_val'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":457)
-Extracting RAM for identifier 'vtgt_vld'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":458)
-Extracting RAM for identifier 'vtgt_rep'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":474)
-Extracting RAM for identifier 'fifo_v'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":543)
-Extracting RAM for identifier 'fifo_ax'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":544)
-Extracting RAM for identifier 'fifo_inc'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":545)
-Extracting RAM for identifier 'fifo_vel'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":546)
-Extracting RAM for identifier 'fifo_knd'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":547)
-Extracting RAM for identifier 'fifo_timbre_valid'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":548)
-Extracting RAM for identifier 'fifo_timbre'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":549)
-Extracting RAM for identifier 'fifo_src'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":553)
-WARN  (EX3045) : Case inequality operator always evaluates to true due to comparison with 'x' or 'z'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":1574)
-WARN  (EX3791) : Expression size 34 truncated to fit in target size 32("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":1643)
+Extracting RAM for identifier 'vtgt_val'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":487)
+Extracting RAM for identifier 'vtgt_vld'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":488)
+Extracting RAM for identifier 'vtgt_rep'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":504)
+Extracting RAM for identifier 'fifo_v'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":573)
+Extracting RAM for identifier 'fifo_ax'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":574)
+Extracting RAM for identifier 'fifo_inc'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":575)
+Extracting RAM for identifier 'fifo_vel'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":576)
+Extracting RAM for identifier 'fifo_knd'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":577)
+Extracting RAM for identifier 'fifo_timbre_valid'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":578)
+Extracting RAM for identifier 'fifo_timbre'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":579)
+Extracting RAM for identifier 'fifo_src'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":583)
+WARN  (EX3045) : Case inequality operator always evaluates to true due to comparison with 'x' or 'z'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":1604)
+WARN  (EX3791) : Expression size 34 truncated to fit in target size 32("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\note_manager.v":1673)
 Compiling module 'vibrato_lfo'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\vibrato_lfo.v":16)
 Compiling module 'oscillator_bank(DETUNE_SH=9,DRUM_TOM_SWEEP_SH=3,DRUM_TOM_MAX=20000000,DRUM_CLS_EXT=1)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\oscillator_bank.v":54)
 WARN  (EX3791) : Expression size 33 truncated to fit in target size 32("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\oscillator_bank.v":333)
@@ -188,6 +195,7 @@ WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\
 Compiling module 'master_mix'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\master_mix.v":39)
 Compiling module 'i2s_tx'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\i2s_tx.v":71)
 Compiling module 'i2s_tx(MSB_DELAY=0)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\i2s_tx.v":71)
+Compiling module 'guide_lamp'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v":30)
 Compiling module 'led_data'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\led_data.v":50)
 Compiling module 'tlc5916_bank'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\tlc5916_bank.sv":59)
 Compiling module 'tlc5916_driver'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\tlc5916_driver.sv":37)
@@ -203,7 +211,6 @@ WARN  (CV0016) : Input enc_b_i is unused("C:\Users\hokuu\Desktop\FPGA\FPGA2026\r
 WARN  (CV0016) : Input enc_sw_i is unused("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":490)
 WARN  (CV0016) : Input pedal_loop_rec_i is unused("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":495)
 WARN  (CV0016) : Input pedal_loop_play_i is unused("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":496)
-WARN  (CV0016) : Input esp_uart_rx_i is unused("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":499)
 Running device independent optimization ...
 [10%] Optimizing Phase 0 completed
 [15%] Optimizing Phase 1 completed
@@ -219,9 +226,9 @@ Running technical mapping ...
 [75%] Tech-Mapping Phase 2 completed
 [80%] Tech-Mapping Phase 3 completed
 [90%] Tech-Mapping Phase 4 completed
-WARN  (NL0002) : The module "metronome" instantiated to "g_sound.u_metronome" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":1634)
-WARN  (NL0002) : The module "param_extract" instantiated to "g_sound.u_param_extract" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":3507)
-WARN  (NL0002) : The module "pos_probe" instantiated to "g_sound.u_pos_probe_dpos" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":3172)
+WARN  (NL0002) : The module "metronome" instantiated to "g_sound.u_metronome" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":1939)
+WARN  (NL0002) : The module "param_extract" instantiated to "g_sound.u_param_extract" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":3877)
+WARN  (NL0002) : The module "pos_probe" instantiated to "g_sound.u_pos_probe_dpos" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":3542)
 [95%] Generate netlist file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\gwsynthesis\Gowin2026.vg" completed
 [100%] Generate report file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\gwsynthesis\Gowin2026_syn.rpt.html" completed
 GowinSynthesis finish
@@ -253,5 +260,5 @@ Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.pin.html"
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.rpt.html" completed
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.rpt.txt" completed
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.tr.html" completed
-Sun Oct 11 15:15:36 2026
+Mon Oct 12 03:30:03 2026
 

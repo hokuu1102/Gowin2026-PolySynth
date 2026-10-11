@@ -344,6 +344,63 @@ if (Test-Path $nlLog) {
 }
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  ⭐⭐⭐⭐ 2026-10-11（`P1-53`）：⭐ **参数守卫硬门**（`EX3793` => ERROR）✅
+#
+#  🔴🔴 **为什么必须加**（⭐ 2026-10-11 **实测证据**，⛔ 不是推测）：
+#     ⭐ 本项目很多模块用 `initial` + `$fatal`/`$display` 做**参数自检**
+#        （⭐ `top.v` 的 N4 三条下界、⭐ `uart_rx.v`、⭐ 各模块的 `PARAM_OK` …）✅
+#     🔴 **而 Gowin 综合【完全不执行它们】** —— ⭐ 实测：
+#        ```
+#        WARN (EX2488) : Elaboration system task 'fatal' is ignored for synthesis
+#        WARN (EX3858) : System task 'display' is ignored for synthesis
+#        GowinSynthesis finish
+#        gw_sh exit code = 0          ← 🔴 仍然是 0
+#        ```
+#     ⇒ 🔴 **"门① 综合 `ERROR=0`"【拦不住】任何参数错配** ✅
+#        ⇒ ⭐ 例如把 `TRAVEL_TARE` 填成 0（⭐ `P0-11` 那个"**16 轴恒 held**"的失效模式）
+#           ⇒ 🔴 **位流照样生成、照样上板** ✅
+#
+#  ⭐⭐ **实测过的三种"综合期断言"写法（⭐ 结论：Gowin 一律【只警告】）**：
+#     | 写法 | 工具反应 | 退出码 |
+#     |---|---|---|
+#     | ⭐ `$fatal` / `$display` | ⭐ `EX2488` / `EX3858` … **is ignored for synthesis** | ⭐ **0** |
+#     | ⭐ 例化**未声明模块** | ⭐ **`EX3793`** *Instantiating unknown empty module* | ⭐ **0** |
+#     | ⭐ **负重复次数** `{(1-2){1'b0}}` | ⭐ `EX2195` *must be positive* | ⭐ **0** |
+#     ⇒ 🔴 **RTL 层面的"综合期硬失败"在本工具链上【做不到】** ✅
+#
+#  ✅ **所以本门就是那个"把警告提升为错误"的地方** ✅
+#     · ⭐ RTL 侧：⭐ 参数非法时 ⇒ ⭐ `generate` 取**坏分支** ⇒ ⭐ 例化一个**故意不存在**的模块
+#        （⭐ 条件就写在 RTL 里 ⇒ ⭐ **RTL 仍是唯一真相源** ✅）
+#     · ⭐ 本门：⭐ 综合日志里**出现 `EX3793`** ⇒ 🔴 **`exit 10`** ✅
+#     📌 ⭐ **为什么这样比"在脚本里再解析一遍 Verilog 常量"好**：
+#        ⚠️ 后者要**再实现一遍** RTL 的表达式 ⇒ ⭐ 又多一处"**两处真相**"；
+#        ⭐ 本写法**条件只有一份**（⭐ 在 RTL 里），⭐ 脚本只认**工具给的信号** ✅
+#     📌 ⭐ 参数**合法**时那条分支**不参与详细阐述** ⇒ ⭐ **零逻辑 / 零 FF**
+#        （⭐ 实测：⭐ 加门前后 `T_Lut 27655` / `T_Register 17627` **一字不变** ✅）
+#
+#  ⚠️ **诚实标注**：⭐ 本门只能覆盖"**已经写了 `generate` 守卫**"的参数 ✅
+#     ⇒ ⭐ 若某模块**只有** `initial` + `$display`（⭐ 没有 `generate` 守卫）
+#        ⇒ ⚠️ **本门管不到它** ✅
+#     📌 ⭐ 已加 `generate` 守卫的（⭐ 2026-10-11）：⭐ `top.v` 的 **N4 五个参数判据** ·
+#        ⭐ `rtl/w3c/evt_buf.v` 的 **DEPTH 两条** ✅
+#     📌 ⭐ 其余模块（⭐ `event_extract` / `axis_snapshot` / `axis_map` / `param_extract` /
+#        `uart_rx` …）**仍是仿真侧防线** ⇒ ⭐ 记入 `P1-53` 的后续 ✅
+# ═══════════════════════════════════════════════════════════════════════════════
+if (Test-Path $nlLog) {
+  $exHits = @(Select-String -Path $nlLog -Pattern 'EX3793' | ForEach-Object { $_.Line })
+  if ($exHits.Count -gt 0) {
+    Write-Host "ERROR: EX3793 -- a PARAMETER GUARD fired in synthesis (see P1-53):" -ForegroundColor Red
+    foreach ($h in $exHits) { Write-Host "         $($h.Trim())" -ForegroundColor Red }
+    Write-Host "       The offending module name spells the error; fix the parameter." -ForegroundColor Red
+    Write-Host "       (Gowin only WARNS on this, and gw_sh still exits 0 -- so this gate is what makes it fail.)" -ForegroundColor Red
+    exit 10
+  }
+  Write-Host "OK  P1-53 gate: 0 parameter-guard violations (EX3793 absent)" -ForegroundColor Green
+} else {
+  Write-Host "WARN: no synthesis log at $nlLog => P1-53 parameter-guard gate skipped" -ForegroundColor Yellow
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  ⭐⭐ 2026-10-09（`P0-25`）：⭐ **looper BSRAM 读路径的 HOLD 余量判据** ✅
 #
 #  🔴 **为什么**：⭐ `u_looper` 的 BSRAM 读路径是**短路径 hold** ——

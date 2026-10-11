@@ -422,6 +422,14 @@ parameter integer FIXED_BLEND_Q     = 0,
 
             //   ⭐ **扫频计数器**（⭐ 唯一新增的寄存器 —— ⭐ 每 lane `DRUM_SWEEP_W` 位 ✅）
             reg  [DRUM_SWEEP_W-1:0] sweep_q;
+            //  ⭐⭐ P0-31（2026-10-11）：⭐ **"上一拍采样看到起音"的标志** ✅
+            //    🔴 **必须与 `rtl/w3b/oscillator_bank.v` 【逐项同步】**（⭐ 铁律④）——
+            //       ⭐ 否则 `tb_p5_osc_equiv` 的"逐位等价"会**假红** ✅
+            //    📌 语义 / 为什么"晚一拍必然够"的推导 ⇒ ⭐ 见主实现里那段长注释（⛔ 此处不重复）
+            //    📌 本副本是**每 lane** 一份；⭐ 主实现是**每 voice** 一份
+            //       —— ⚠️ 非 test 档下 `lane_active = voice_active_i[VOICE_IDX]`
+            //          ⇒ ⭐ 同一 voice 的两个 lane **恒等** ⇒ ⭐ 两种写法**逐拍等价** ✅
+            reg                     onset_d;
 
             //   ⭐ 当前**额外增量**（⭐ 左移定标 ⇒ ⭐ 纯连线、⛔ 无乘法器 ✅）
             wire [PHASE_W-1:0] sweep_off =
@@ -477,6 +485,12 @@ parameter integer FIXED_BLEND_Q     = 0,
                 ? ({{(PHASE_W-2){1'b0}}, 2'b01} << (PHASE_W - 2))   // ⭐ 1/4 周期
                 : {PHASE_W{1'b0}};
 
+            //  ⭐⭐ P0-31（2026-10-11）：⭐ **本采样拍的"起音条件"** ✅
+            //     📌 提成一根线只是为了让"判断"与"装载"分开写（⭐ 语义一字不变 ✅）
+            //     ⚠️ **必须与 `rtl/w3b/oscillator_bank.v` 的 `onset_v` 逐项相同**（⭐ 铁律④）✅
+            wire onset_now = (!test_mode_i) && (phase_rst_lane
+                                                || (lane_active && !lane_active_d));
+
             always @(posedge clk_i) begin
                 if (!rst_n_i) begin
                     //   ⭐ 复位时**直接给去相关初相**（⭐ 不是全 0）
@@ -484,12 +498,15 @@ parameter integer FIXED_BLEND_Q     = 0,
                     addr_q        <= {AW{1'b0}};
                     lane_active_d <= 1'b0;
                     sweep_q       <= {DRUM_SWEEP_W{1'b0}};   // ⭐ 阶段 2b：复位 ⇒ 无扫频
+                    onset_d       <= 1'b0;                   // ⭐ P0-31：复位 ⇒ 无待装
                 end else if (sample_tick_i) begin
                     // ⭐ 地址锁存用**本帧起始**的相位（DDS 标准做法），
                     //   然后相位再前进 ⇒ ⭐ 保证整帧 64 个样本来自**同一时刻**的相位
                     //   （对应接口表 "osc_sample_bus_i 稳定至本帧结束"）
                     addr_q        <= phase_q[ADDR_MSB:ADDR_LSB];
                     lane_active_d <= lane_active;      // ⭐ 记一拍的"在响"
+                    //  ⭐⭐ P0-31：⭐ **记住"本拍看到了起音"** ⇒ ⭐ 下一拍才装载 ✅
+                    onset_d       <= onset_now;
                     // ⭐⭐⭐⭐ 2026-09-29 **治本**：⭐ 起音（上升沿）⇒ 复位到设计初相 ✅
                     //   🔴 **原行为**：⭐ `if (lane_active) phase_q <= phase_q + inc;`
                     //      —— ⭐ **无 `else`** ⇒ ⭐ 未激活时**保持相位** ✅
@@ -545,27 +562,31 @@ parameter integer FIXED_BLEND_Q     = 0,
                     //
                     //  📌 **代价**：⭐ 每 lane 1 个 2 输入 OR ＋ 1 个 1 位比较 ⇒ 可忽略 ✅
                     //  ═══════════════════════════════════════════════════════
-                    if (!test_mode_i && (phase_rst_lane
-                                         || (lane_active && !lane_active_d))) begin
+                    if (onset_now) begin
                         phase_q <= phase_seed;         // ⭐ 起音：回到设计初相
-                        //  ⭐⭐ 阶段 2b：⭐ **起音 ⇒ 装载本档的扫频深度** ✅
-                        //     🔴 **为什么必须挂在【同一个条件】上**：⭐ 扫频是"**起音事件**"
-                        //        的包络 ⇒ ⭐ 与相位复位**同源同拍**才不会错位 ✅
-                        //        （⭐ `voice_phase_rst_i` 那条新路径 / ⭐ `lane_active`
-                        //         上升沿那条兼容路径 **两条都覆盖** ✅）
-                        //     ⭐ 非鼓 / ⭐ 军鼓踩镲 / ⭐ 总开关关 ⇒ ⭐ `sweep_load = 0`
-                        //        ⇒ ⭐ **行为与加本功能之前完全一致** ✅
-                        sweep_q <= sweep_load;
                     end else begin
                         if (lane_active)
                             phase_q <= phase_q + lane_inc;
-                        //  ⭐⭐ 阶段 2b：⭐ **扫频衰减**（⭐ 每采样拍一次 ✅）
-                        //     📌 **与 `lane_active` 无关** —— ⭐ 扫频是"**时间**包络"，
-                        //        ⛔ 不是"相位"包络；⭐ 且非鼓 lane 的 `sweep_q` 恒为 0 ✅
-                        //        ⇒ ⭐ 少一级门控（⭐ 省逻辑、⭐ 且语义更直白 ✅）
-                        if (sweep_q != {DRUM_SWEEP_W{1'b0}})
-                            sweep_q <= sweep_dec;
                     end
+                    //  ⭐⭐ 阶段 2b：⭐ **扫频装载 / 衰减**（⭐ 每采样拍一次 ✅）
+                    //     🔴 **为什么必须与相位复位【同源同拍】**：⭐ 扫频是"**起音事件**"
+                    //        的包络 ⇒ ⭐ 起音那条判据（`voice_phase_rst_i` 的新路径 /
+                    //        ⭐ `lane_active` 上升沿那条兼容路径）**两条都覆盖** ✅
+                    //     ⭐ 非鼓 / ⭐ 军鼓踩镲 / ⭐ 总开关关 ⇒ ⭐ `sweep_load = 0`
+                    //        ⇒ ⭐ **行为与加本功能之前完全一致** ✅
+                    //     🔴🔴 P0-31（2026-10-11）：⭐ **装载【不再】在起音当拍** ✅
+                    //        · ⭐ 起音当拍（`onset_now`）⇒ ⭐ **只清 0、先不扫** ✅
+                    //        · ⭐ **下一拍**（`onset_d`）⇒ ⭐ **真正装载** ✅
+                    //        📌 理由见主实现的长注释：⭐ `bv` 来自 `note_manager.phase_tr`
+                    //           （⭐ 轮转刷新，⭐ 最多滞后 **33 拍**）⇒ ⭐ 起音当拍可能是旧值 ✅
+                    //     📌 **优先级与主实现逐项相同**：⭐ `onset_d` > `onset_now` > 衰减 ✅
+                    //        （⭐ 起音电平持续多拍时 `onset_d` 也持续为 1 ⇒ ⭐ 每拍重装 ✅）
+                    if (onset_d)
+                        sweep_q <= sweep_load;         // ⭐ 上一拍起音 ⇒ 现在装（bv 已新鲜）
+                    else if (onset_now)
+                        sweep_q <= {DRUM_SWEEP_W{1'b0}};
+                    else if (sweep_q != {DRUM_SWEEP_W{1'b0}})
+                        sweep_q <= sweep_dec;
                 end
             end
 

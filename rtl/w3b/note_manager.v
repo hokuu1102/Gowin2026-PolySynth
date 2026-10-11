@@ -289,6 +289,30 @@ module note_manager #(
     //   ⚠️ **为什么⛔ 不写 `src != 0`**：⭐ 那样会把 **looper（4）** 也判成鼓
     //      ⇒ 🔴 **回放会全走噪声表**（⭐ 实测源 C = `3'd4` ⚠️）✅
     localparam [2:0] SRC_AUX = 3'd3;
+    //  ⭐⭐⭐⭐ 2026-10-11（`P1-59`）：⭐ **键盘打鼓自己的源标签** ✅
+    //
+    //  🔴🔴 **为什么必须新增**（⭐ 审查 `[P1-59]`，⭐ `TORCH-2【P1-4】`）：
+    //     ⭐ `top.v` 原来是 `src_a_src = key_drum_r ? 3'd3 : ...`
+    //        ⇒ 🔴 **键盘打鼓与源 B（节拍器/鼓机）【共用标签 3】** ✅
+    //     🔴 而 `same_hit[sg] = (... ) && (axis_r[sg] == cur_axis) && (src_r[sg] == cur_src)`
+    //        ⇒ ⭐ 节拍器在**轴 14** 的 `note_on`（⭐ `metronome.AXIS_ID = 14`）
+    //           **命中用户在轴 14 的踩镲 voice**（⭐ 同轴同源 ✅）
+    //        ⇒ 🔴 走"同轴重触发"复用路径 ⇒ ⭐ **把用户那个 voice 直接改判/重触发** ✅
+    //        📌 ⭐ 鼓机同病（⭐ `drum_gen.AXIS_ID = 15`）⇒ ⭐ 而 `SEL_DRUM=1` 是**交付默认档** ✅
+    //     ⇒ ⭐ 症状：⭐ **打鼓模式下每来一拍，轴 14/15 那个音被抢走/打断** ✅
+    //     ⚠️ 而 `top.v:3838-3841` 的注释**只承认了"共用保留池"**，
+    //        ⛔ **没有承认"同标签导致 `(轴,源)` 隔离失效"这一条** ✅
+    //
+    //  ⭐ **为什么是 `3'd5`**：⭐ 源标记是 **3 位**、⭐ 现在只用 `0~4`
+    //     （⭐ `0`=live 手弹 · `1`=score 曲谱 · `2`=demo 演示 · `3`=源 B · `4`=looper ✅）
+    //     ⇒ ⭐ **`5/6/7` 空闲** ⇒ ⭐ 取 `5` 最省（⛔ 不用加宽任何总线 ✅）
+    //
+    //  ⚠️⚠️ **本次改动是【纯增量】的**（⭐ 这一点很重要，⭐ 见 §判据）：
+    //     ⭐ 源 `0~4` 的**每一条判据、每一处行为都一字不变** ✅
+    //     ⇒ ⭐ 所以那些"与**冻结的旧 `note_manager` 副本**逐拍逐位差分"的 tb
+    //        （⭐ `tb_transpose` 的 `T7` · ⭐ `tb_rot32_diff`）**仍然有效** ✅
+    //        （⭐ 因为它们的激励**从不使用源 5** ✅）
+    localparam [2:0] SRC_KDRUM = 3'd5;
     localparam [VEL_W-1:0]  DEFAULT_VEL_V = DEFAULT_VEL;
     localparam integer      NORMAL_N      = (RESERVED_N > POLY_TARGET)
                                             ? POLY_TARGET
@@ -324,7 +348,13 @@ module note_manager #(
     wire [2:0] ns_src_w = (note_src_i === 3'd1) ? 3'd1 :
                           (note_src_i === 3'd2) ? 3'd2 :
                           (note_src_i === 3'd3) ? 3'd3 :
-                          (note_src_i === 3'd4) ? 3'd4 : 3'd0;
+                          (note_src_i === 3'd4) ? 3'd4 :
+                          //  ⭐⭐ 2026-10-11（`P1-59`）：⭐ **新增源 5（键盘打鼓）** ✅
+                          //     🔴 **这一条【不能漏】**：⭐ 漏了 ⇒ 源 5 会落到 `else` ⇒
+                          //        ⭐ 被解码成 **手弹(0)** ⇒ 🔴 **键盘打鼓不进保留池、
+                          //        ⭐ 也不走噪声表** ⇒ ⭐ 整个功能静默失效 ✅
+                          //     （⭐ 与 `3'd4`（looper）那条是**同一个坑** —— 见上方 :304-306 ✅）
+                          (note_src_i === 3'd5) ? 3'd5 : 3'd0;
 
     //  ═══════════════════════════════════════════════════════════════════════
     //  ⭐⭐ 2026-09-30（时序，待上板验证）：⭐ **`env_level_i` / `env_active_i` 在模块入口打一拍**
@@ -615,7 +645,7 @@ module note_manager #(
                 //      那是【来源】属性（⭐ `SRC_AUX`），⛔ **不是【轴号】属性** ✅
                 //      ⇒ ⭐ 现场手弹（`src == 0`）**无论按哪个键**都该进普通池 ✅
                 //   ⚠️ 用 `cur_src`（⭐ 锁存后的）⛔ 不用活的 `note_src_i`（⭐ 与 `cur_axis` 同纪律）
-                assign pool_mask[pg] = (cur_src == SRC_AUX)
+                assign pool_mask[pg] = ((cur_src == SRC_AUX) || (cur_src == SRC_KDRUM))
                                        ? (pg >= NORMAL_N)
                                        : (pg < NORMAL_N);
         end
@@ -1641,7 +1671,17 @@ module note_manager #(
     reg                wr_en_d;
     reg  [PHASE_W-1:0] wr_data_d;
     wire [PHASE_W-1:0] wr_data_v = ((semi_cur == 5'sd0) ||
-                                    (src_r[rot_cnt] == 3'd3) || (src_r[rot_cnt] == 3'd4))
+                                    (src_r[rot_cnt] == 3'd3) || (src_r[rot_cnt] == 3'd4) ||
+                                    //  ⭐⭐ 2026-10-11（`P1-59`）：⭐ **源 5（键盘打鼓）也不跟变调** ✅
+                                    //     ⭐ 理由与源 3/4 **逐条相同**（⭐ 见上方 :1717-1721）：
+                                    //        · ⭐ 鼓机/节拍器是**参考拍** ⇒ ⭐ 变调会让"拍子"跟着曲子跑
+                                    //        · ⭐ looper 是**已录素材**
+                                    //     ＋ ⭐ 键盘打鼓是**同一套打击乐**（⭐ 4 件乐器的音高
+                                    //        由 `key_drum_inc` 定档 ⇒ ⚠️ 变调会**改乐器分档** ✅）
+                                    //     📌 ⭐ 漏了这一条 ⇒ 🔴 **打鼓模式下按变调键会"换乐器"** ✅
+                                    //     📌 ⭐ **判据**：⭐ `tb/w3b/tb_transpose.sv` 的 **`T8`** ✅
+                                    //        （⭐ 它把 `semi_cur` 强成 `+12`，⭐ 源 0 必须变、⭐ 源 5 必须不变 ✅）
+                                    (src_r[rot_cnt] == 3'd5))
                                   ? rot_base : (prod_w >>> 15);
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
@@ -1773,7 +1813,7 @@ module note_manager #(
             //      ⇒ ⭐ 就算出声也是错的音 ✅
             //   ⭐ **§26.3-e「同源派生」**：⭐ `pool_mask` 与 `voice_drum_o` **必须由同一个信号导出**
             //      ⇒ ⭐ 两者都用 `src == SRC_AUX` ⇒ ⭐ **结构上不可能再不一致** ✅
-            assign voice_drum_o[g] = (src_r[g] == SRC_AUX);
+            assign voice_drum_o[g] = (src_r[g] == SRC_AUX) || (src_r[g] == SRC_KDRUM);
             assign voice_age_o[g*AGE_W +: AGE_W]           = age_r[g];
         end
     endgenerate

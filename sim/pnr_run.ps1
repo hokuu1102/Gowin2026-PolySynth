@@ -361,6 +361,42 @@ for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
     $fmaxVal = 0.0
     if ($fmax -match '([0-9]+\.[0-9]+)') { $fmaxVal = [double]$Matches[1] }
 
+    # ═══════════════════════════════════════════════════════════════════════════
+    #  ⭐⭐⭐⭐ 2026-10-11：⭐ **把 `gowin_build.ps1` 的退出码纳入判据** ✅
+    #
+    #  🔴🔴 **原缺陷（⭐ 实测取证，⛔ 不是推测）**：
+    #     ⭐ 本脚本**写了** `"EXITCODE=$LASTEXITCODE"`（⭐ 上面那个 `Start-Job` 的最后一句），
+    #        ⚠️ 但**从来不读回** —— ⭐ `$jobOut` 拿到之后就**再也没人用** ✅
+    #     ⇒ 🔴 **`gowin_build.ps1` 的 6 道门（`exit 5`..`exit 10`）
+    #        在走 `pnr_run.ps1` 时【全都只是"提示"】** ✅
+    #     📌 ⭐ **实测现场（2026-10-11）**：⭐ `P1-53` 参数守卫门打印了
+    #        `ERROR: EX3793 -- a PARAMETER GUARD fired in synthesis`
+    #        ⇒ ⭐ `gowin_build.ps1` **确实 `exit 10`** 了（⭐ 日志在它之后就断了）
+    #        ⇒ 🔴 **而本脚本仍然报 `PASS` 并 `exit 0`** ——
+    #           ⚠️ 因为判据只看"`.fs` 是新的 ＋ 时序 0/0 ＋ Fmax 够" ✅
+    #     ⚠️ ⭐ **危害面**：⭐ 这不是只有那道新门受影响 ——
+    #        ⭐ `NL0002`（模块被扫掉）· ⭐ `P0-25`（HOLD 余量）· ⭐ `P0-23`（异步复位）·
+    #        ⭐ `P0-26`（时钟域）· ⭐ `P0-29`（观测线）**五道老门全都在同一处境** ✅
+    #        ⇒ 🔴 **"门红了但构建报 PASS"** —— ⭐ 正是本项目最忌讳的
+    #           "**判据不可靠**"（⭐ `K-94` / `K-161` 同族）✅
+    #
+    #  ✅ **修法**：⭐ 从 `$jobOut` 里取出 `EXITCODE=`，⭐ **非 `0` 即判该次 attempt 失败** ✅
+    #     📌 ⭐ **取值缺失也判失败** —— ⭐ 与本文件其它判据**同一条纪律**：
+    #        ⭐ "**缺失 ⇒ 失败**"（⭐ 见上面 `Get-StatValue` 的两段 NOTE：
+    #          *"Missing value => the verdict still FAILS, i.e. the safe direction is preserved"* ✅）
+    # ═══════════════════════════════════════════════════════════════════════════
+    $buildExit = $null
+    foreach ($line in @($jobOut)) {
+        if ("$line" -match '^\s*EXITCODE=(-?[0-9]+)\s*$') { $buildExit = [int]$Matches[1] }
+    }
+    $exitOk = ($null -ne $buildExit) -and ($buildExit -eq 0)
+    if ($null -eq $buildExit) {
+        Say "  WARN: gowin_build.ps1 exit code NOT captured => this attempt FAILS (safe direction)" Yellow
+    } elseif (-not $exitOk) {
+        Say ("  FAIL: gowin_build.ps1 exited {0} => a BUILD GATE fired (see the attempt log)." -f $buildExit) Red
+        Say "        exit 5=NL0002 swept  6=HOLD margin  7=async reset  8=clock domain  9=observability  10=param guard" Red
+    }
+
     # NOTE 2026-10-03 (D1): if this attempt did NOT produce a NEW bitstream, the timing
     # text is STALE -- it belongs to an EARLIER build.  Printing those numbers made a
     # timed-out attempt look like "0 setup / 0 hold / Fmax 52.798" (observed 2026-10-03:
@@ -368,15 +404,15 @@ for ($attempt = 1; $attempt -le $MaxAttempts; $attempt++) {
     # we only stop the printed numbers from lying.
     if (-not $fsNew) { $setup = 'n/a'; $hold = 'n/a'; $fmax = 'n/a'; $fmaxVal = 0.0 }
 
-    $ok = $fsNew -and ($setup -eq '0') -and ($hold -eq '0') -and ($fmaxVal -ge $MinFmax)
+    $ok = $fsNew -and ($setup -eq '0') -and ($hold -eq '0') -and ($fmaxVal -ge $MinFmax) -and $exitOk
 
     $verdicts += [pscustomobject]@{
         Attempt = $attempt; Minutes = $elapsed; FsNew = $fsNew
-        Setup = $setup; Hold = $hold; Fmax = $fmaxVal; Pass = $ok
+        Setup = $setup; Hold = $hold; Fmax = $fmaxVal; BuildExit = $buildExit; Pass = $ok
     }
 
-    Say ("attempt {0}: {1} min | .fs new={2} | setup={3} hold={4} | Fmax={5} MHz | {6}" -f `
-         $attempt, $elapsed, $fsNew, $setup, $hold, $fmaxVal, $(if ($ok) { 'PASS' } else { 'FAIL' })) `
+    Say ("attempt {0}: {1} min | .fs new={2} | setup={3} hold={4} | Fmax={5} MHz | buildExit={6} | {7}" -f `
+         $attempt, $elapsed, $fsNew, $setup, $hold, $fmaxVal, $buildExit, $(if ($ok) { 'PASS' } else { 'FAIL' })) `
          $(if ($ok) { 'Green' } else { 'Red' })
 
     if ($ok) { break }
@@ -390,7 +426,8 @@ $verdicts | Format-Table -AutoSize | Out-String | Write-Host
 $best = $verdicts | Where-Object { $_.Pass } | Select-Object -First 1
 if ($best) {
     Say ("PnR PASSED on attempt " + $best.Attempt + " in " + $best.Minutes + " min") Green
-    Say ("  setup=" + $best.Setup + "  hold=" + $best.Hold + "  Fmax=" + $best.Fmax + " MHz")
+    Say ("  setup=" + $best.Setup + "  hold=" + $best.Hold + "  Fmax=" + $best.Fmax + " MHz" +
+         "  buildExit=" + $best.BuildExit)
     Say ("  bitstream: " + $fsPath)
     Say ("  sha256   : " + (Get-FileHash $fsPath -Algorithm SHA256).Hash)
     if (-not $SkipRegression) {

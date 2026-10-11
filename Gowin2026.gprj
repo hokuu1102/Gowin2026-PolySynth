@@ -144,6 +144,16 @@
         <File path="rtl/w3c/uart_rx.v" type="file.verilog" enable="1"/>
         <!-- U-18: score player (tick -> events, tempo changes) -->
         <File path="rtl/w3c/play_seq.v" type="file.verilog" enable="1"/>
+        <!--  ⭐⭐ 2026-10-11：⭐ **登记 `U-19` 事件缓冲区 `evt_buf.v`** ✅
+              ⭐ 为什么需要它：⭐ `play_seq` 的读侧要**标准同步 FIFO** 语义
+                 （`evt_valid_i` + `evt_data_i` + `evt_rd_o`），
+                 ⚠️ 而 `evt_uart_rx.evt_valid_o` 只是**单拍脉冲**
+                 ⇒ 🔴 直接对接 ⇒ **凡"tick 还没到"的事件当拍就被丢掉** ✅
+              ⭐ 容量 = **8 KB / 1024 事件**（⭐ 已拍板：`整曲缓冲大小定案.md` §2.3）✅
+              🔴 **必须登记**：⚠️ `P0-28` 已经栽过一次 ——
+                 `guide_lamp.v` 没登记 ⇒ 🔴 综合日志里**根本没有它** ⇒ 没进网表 ✅
+                 📌 登记后 ⚠️ **必须**在综合日志里确认出现 `Compiling module 'evt_buf'` ✅ -->
+        <File path="rtl/w3c/evt_buf.v" type="file.verilog" enable="1"/>
         <!-- U-6: event merge (hand-play + metronome into note_manager's single port) -->
         <File path="rtl/w3c/evt_merge.v" type="file.verilog" enable="1"/>
         <!-- 2026-09-29 new: event-domain LOOPER (T37 single-layer record+replay,
@@ -155,6 +165,10 @@
              Registered here because top.v instantiates it: the U-30 build
              guard would exit 3 otherwise, and Gowin would silently omit it. -->
         <File path="rtl/w3c/looper.v" type="file.verilog" enable="1"/>
+<!--  ⭐⭐ 2026-10-11：⭐ **登记录制回传的导出 FSM `rec_dump.v`** ✅
+📌 登记后 ⚠️ **必须**在综合日志里确认出现 `Compiling module 'rec_dump'` ✅
+（⭐ 漏登记 ⇒ 🔴 综合报 `unknown module` ⇒ ⭐ 与 `evt_buf` 那次同一个坑 ✅） -->
+<File path="rtl/w3c/rec_dump.v" type="file.verilog" enable="1"/>
         <!-- 2026-09-26 teammate (bing/LED chain): top.v instantiates these two,
              but they were committed WITHOUT being registered here.  The U-30
              build guard caught it: Gowin would have SILENTLY omitted the files

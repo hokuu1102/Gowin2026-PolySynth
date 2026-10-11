@@ -744,6 +744,27 @@ parameter integer TEST_MODE_EN       = 0,
     wire cmd_trans_abs_req;         // ⭐ 'H' ⇒ 带帧绝对量：⭐ 值到达的那一拍
     wire [7:0] cmd_trans_abs_val;   // ⭐ 'H' ⇒ 该帧第一个载荷字节（⭐ 编码 0..24）
     wire cmd_gear_next_req;         // ⭐ 'J' ⇒ 推子档位切下一档（⭐ P3 起由 `u_fader_gear` 消费 ✅）
+    //  ⭐⭐ 2026-10-11：⭐ `'Y'` ⇒ **录制回传导出**（⭐ 由 `g_sound` 里的 `u_rec_dump` 消费 ✅）
+    //     📌 ⭐ **声明在模块层**（⭐ 与 `cmd_gear_next_req` 同一口径 ✅）——
+    //        ⭐ 因为 `calib_cmd` 在 `g_sound` 里，⭐ 而模块层信号**在里面可读可写** ✅
+    wire cmd_recdump_req;           // ⭐ 'Y' ⇒ 启动导出（⭐ 单周期脉冲 ✅）
+    //  ⭐⭐ 2026-10-11：⭐ **录制回传导出 FSM 的线**（⭐ `u_rec_dump`，⭐ 在 `g_sound` 里 ✅）
+    //     🔴 **必须声明在【模块层】**（⭐ 实测踩坑，⭐ 见 `u_rec_dump` 那里的注释 ✅）：
+    //        ⚠️ `u_rec_dump` 与 `tx_req` 那两个块**不在同一个 generate 作用域**
+    //        ⇒ ⭐ 声明在任一块里 ⇒ 🔴 另一块**绑不上**（`Unable to bind` ✅）
+    //     📌 ⭐ 口径与 `cmd_gear_next_req` 一致：⭐ **模块层声明 ＋ generate 内读写** ✅
+    wire        rd_dump_en;         // ⭐ 占用 `looper` 的读口 ✅
+    wire [15:0] rd_dump_addr;       // ⭐ 导出地址 ✅
+    wire        rd_push;            // ⭐ 推一个字节给 `u_tx_fifo` ✅
+    wire [7:0]  rd_byte;
+    wire        rd_busy;            // ⭐ 导出中 ✅
+    wire        rd_done;            // ⭐ 导出完成（⭐ 单周期 ✅）
+    //  ⭐⭐ **截断计数**（⭐ `K-106`：⛔ 不许静默失真 ✅）
+    //     ⚠️ **加 `syn_keep`**：⭐ 它现在**没有消费者** ⇒ ⚠️ 综合会剪掉
+    //        ⇒ 🔴 上板就**看不到"有多少条不是原样"** 了 ✅
+    //     📌 ⭐ 与 `eb_hw`/`eb_cnt`/`eb_low` **同一处置**（⭐ 留给将来的状态回包 ✅）
+    (* syn_keep = 1 *) wire [15:0] rd_clip_cnt;
+    (* syn_keep = 1 *) wire [15:0] rd_frame_cnt;
 
     //   ⭐ 半音偏移 `−12..+12`（⭐ 由 `g_sound.u_fader_gear` 驱动）
     //   📌 声明在**模块层**（⭐ 与 `drum_pattern_r` 同一理由）：
@@ -884,6 +905,55 @@ parameter integer TEST_MODE_EN       = 0,
         .rx_done_o (ur_done)
     );
 
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐⭐⭐ 2026-10-11：⭐ **ESP32 独立 UART**（⭐ 曲谱 ＋ 回传）✅
+    //
+    //  ⭐⭐ **接线方案（⭐ 用户 2026-10-11 明确）**：
+    //     · ⭐ **`D15`/`D14` → `XH_SCREEN`** = **串口屏 ＋ 命令/调试**（⭐ **共用一条** ✅）
+    //     · ⭐ **`G21`/`G22` → `XH_ESP32`**  = ⭐ **ESP32 独立一对** ✅
+    //     📌 ⭐ 依据：⭐ `files/10-硬件/Console拓展板接线需求-20261003.md`
+    //        · `:562` 命令/调试 UART 500000 8N1 → `XH_SCREEN` ✅
+    //        · `:564` ESP32（BLE 回传/上位机）**独立 UART** → `XH_ESP32` ✅
+    //        · `:610` *"串口屏与命令口撞字母（`P0-4`）… ⭐ **ESP32 那一路已给独立 UART，
+    //          可作为规避手段**"* ✅
+    //
+    //  🔴🔴 **为什么必须这么分**（⭐ 这解决了两个真问题）：
+    //     ① ⭐ **`P0-02` 那个门控【整条作废】** ✅
+    //        ⚠️ 原状：⭐ 曲谱接收器与串口屏/命令**共用一条线** ⇒ 屏帧载荷里的 `0xA5`
+    //           会被当帧头 ⇒ 🔴 **伪曲谱事件 ⇒ 永久挂音**（⭐ `P0-02` 修过）
+    //        ⇒ ⭐ 而 `P0-02` 的修法是"别人帧内就不给曲谱字节" ⇒ ⚠️ **只能治标**
+    //           （⭐ `0xA5` 落在帧间空隙仍可能误判 ⇒ 那条 P1 一直挂着 ✅）
+    //        ✅ **现在曲谱走自己的线** ⇒ ⭐ **不可能再与屏帧/命令互相误判** ✅
+    //     ② ⭐ **曲谱带宽不再受屏刷新挤占** ✅（⭐ 屏帧与 9 字节曲谱帧**不再抢线**）
+    //
+    //  ⭐ **ESP32 侧现状（⭐ 它自己的 `esp32/README.md`，⭐ 2026-09-30）**：
+    //     · ⭐ 定位 = **"无线的 USB 线"**：⭐ PC 怎么发就原样照搬、⭐ **不看内容** ✅
+    //     · ⭐ 波特率 = **500000** ⇒ ⭐ **与本模块同档**（⭐ `BAUD_DIV = 50 MHz / 500 kbps
+    //       = 100`，⭐ **整除 ⇒ 零误差** ✅）
+    //     · ⭐ **反向通路（FPGA→ESP32→BLE→PC）已打通并验收**：
+    //       ⭐ 2000 字节 round-trip **逐字节一致** ✅
+    //     ⇒ ⭐ **所以 FPGA 侧只要"真的收发"，端到端就通** ✅
+    //
+    //  ⚠️⚠️ **接入纪律（⭐ 本文件 `:5390` 那段自己写明的）**：
+    //     · ⭐ **必须删掉** `assign esp_uart_tx_o = 1'b1;`（⛔ 否则**多驱动** ⇒ 综合报错 ✅）
+    //     · ⭐ **必须把 `esp_uart_rx_i` 从 `reserved_in_xor` 里摘掉**（⭐ 交给本逻辑消费 ✅）
+    //     📌 ⭐ 两条**都已在本轮做到** ✅
+    // ═══════════════════════════════════════════════════════════════════════
+    wire       esp_rx_done;
+    wire [7:0] esp_rx_data;
+
+    uart_rx #(
+        //  ⭐ 与板载口**同档**（⭐ 也正好等于 ESP32 固件的 `BLE_BAUD 500000` ✅）
+        .BAUD_DIV(100)
+    ) u_uart_rx_esp (
+        .clk_i     (clk),
+        .rst_n_i   (rst_n_sync),
+        //   ⭐ `G22` · PMOD0 针 10（⭐ `.cst` 里已给 `PULL_MODE=UP` ⇒ 空闲态稳定 ✅）
+        .rx_i      (esp_uart_rx_i),
+        .rx_data_o (esp_rx_data),
+        .rx_done_o (esp_rx_done)
+    );
+
     // ── 串口屏控制面：模式默认指板，触摸控件 0 切到/离开键盘模式 ─────────
     //   `uart_ui` 只消费 TJC 返回帧；演奏触发不经过 UART，因此 UI 的不确定
     //   延迟不会进入拨弦→发声通路。当前 UART 物理口也可先接 USB-TTL 调试。
@@ -950,6 +1020,13 @@ parameter integer TEST_MODE_EN       = 0,
     wire cmd_test_mode_req;
     wire [15:0] cmd_cnt, cmd_in_frame_cnt, cmd_resync_cnt, cmd_unknown_cnt;
     wire [3:0]  cmd_idx;
+    //  ⚠️ **2026-10-11 起 `cmd_idx` 在 `top.v` 里【没有消费者】了**（⭐ 诚实标注）：
+    //     ⭐ 它原来只喂 `P0-02` 的门控，⭐ 而那条门控**已被证明是错的并删除**
+    //        （⭐ 理由见 `evt_rx_done` 上方那段长注释 ✅）
+    //     ⇒ ⭐ 综合会把 `calib_cmd.idx_o` 这条锥**剪掉** ✅
+    //     📌 ⭐ **可以接受**：⭐ 它与 `evt_uart_rx.idx_o`（`eu_idx`）**恒等**
+    //        （⭐ 两者数的是**同一个 9 字节帧** ✅）⇒ ⭐ 信息没有丢 ✅
+    //     📌 而它**不在** `P0-29` 那 6 条"必须有消费者"的关键观测线名单里 ✅
 
     // ⭐ 2026-09-29：looper 的三条命令（⭐ `calib_cmd` 新增 `'R'`/`'L'`/`'C'`）
     wire cmd_loop_rec_req;      // ⭐ 'R' ⇒ 录/停**切换**
@@ -993,6 +1070,8 @@ parameter integer TEST_MODE_EN       = 0,
         .trans_abs_req_o (cmd_trans_abs_req),
         .trans_abs_val_o (cmd_trans_abs_val),
         .gear_next_req_o (cmd_gear_next_req),
+        //  ⭐⭐ 2026-10-11：⭐ `'Y'` 录制回传导出（⭐ 2026-10-11 新增第 19 条命令 ✅）
+        .recdump_req_o   (cmd_recdump_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (cmd_in_frame_cnt),
         .resync_cnt_o   (cmd_resync_cnt),
@@ -1028,8 +1107,50 @@ parameter integer TEST_MODE_EN       = 0,
     //      ⭐ 若 `0xA5` 出现在**帧间空隙**（⭐ 别人的帧已结束）⇒ ⚠️ 仍可能误判
     //      ⇒ ⭐ 根治方案是把曲谱挪到**独立 UART**（⭐ `esp_uart_rx_i` 现成，
     //         ⚠️ 但要 ESP32 侧配合 + 一次引脚 PnR）⇒ ⭐ 记入 P1 ✅
-    wire evt_rx_done = ur_done & ~ui_in_frame & (cmd_idx == 4'd0);
-
+    //
+    //  ⭐⭐⭐⭐ 2026-10-11：⭐ **`& (cmd_idx == 4'd0)` 这一条是【错的】，已删** ✅
+    //
+    //  🔴🔴 **为什么它错（⭐ 实测 + 读源码双重确认，⭐ ⛔ 不是推测）**：
+    //     ⭐ `calib_cmd` 的 `idx_q` **只在一种情况下**离开 0 —— ⭐ **看到 `0xA5`** ✅
+    //        （⭐ `calib_cmd.v:408-412` 原文：
+    //          *"⭐ 帧外：这里只可能是帧头或命令 … if (byte_is_header) idx_q <= 4'd1;
+    //            ⭐ 事件帧开始 ⇒ ⭐ 进入帧内，⛔ 之后 8 个字节一律不认命令"* ✅）
+    //     ⭐ 而**命令**只在 `idx_q == 0` 时被识别，⭐ 且**不推进 `idx_q`**
+    //        （⭐ `calib_cmd.v:447` 原文：*"`idx_q <= 4'd0;` ⭐ 命令不推进帧位置"* ✅）
+    //     ⇒ ⭐⭐ **所以 `cmd_idx != 0` ⟺ "有一个 `0xA5` 事件帧正在收"** ✅
+    //        —— ⚠️ 它**⛔ 完全不能**表示"别人（屏/命令）在帧内" ✅
+    //     ⇒ 🔴 **后果（⭐ 实测）**：⭐ 曲谱帧的**第 1 个字节**（`0xA5`）通过门控
+    //        ⇒ ⭐ `calib_cmd` 随即把 `idx_q` 推到 1 ⇒ 🔴 **门控在【曲谱自己的 8 个载荷字节】
+    //          上全程关闭** ⇒ ⭐ `evt_uart_rx` 永远收不满一帧
+    //        ⇒ 🔴 **曲谱链路【整体不可用】**（⭐ 实测：9 个字节只有 1 个过门，
+    //           `eu_idx` 卡在 1、`eu_frame_cnt` 恒 0 ✅）
+    //     📌 ⭐ 一句话：⭐ **这个门控把曲谱接收器【正好在它最需要的时候】关掉了** ✅
+    //
+    //  ✅ **修法**：⭐ **只留 `~ui_in_frame`** —— ⭐ 它才是 `P0-02` 真正要挡的东西
+    //     （⭐ 实测的伪事件源是 **8 个【串口屏】帧**，⭐ 而屏帧由 `uart_ui` 认领 ✅）
+    //     · ⭐ **`P0-02` 的保护【完整保留】**：⭐ 屏帧期间 `ui_in_frame == 1`
+    //       ⇒ ⭐ 曲谱接收器**照样不看字节** ⇒ ⭐ **伪事件依然不可能发生** ✅
+    //       📌 ⭐ 判据：⭐ `tb/w3c/tb_evt_uart_rx_gate.sv` 的 `G1`（8 个含 `0xA5` 的屏帧
+    //          ⇒ ⭐ 曲谱侧 **0 条事件**）**一字未改、仍然全绿** ✅
+    //     · ⭐ **曲谱恢复**：⭐ 载荷字节不再被挡 ⇒ ⭐ `evt_uart_rx` 能收满 9 字节 ✅
+    //   ⚠️ **仍然存在的那条局限**（⭐ 诚实标注）：⭐ `0xA5` 出现在**帧间空隙**时仍可能误判
+    //      ⇒ ⭐ 根治仍是"曲谱挪到独立 UART"（⭐ `P1`，⭐ 与本条**不冲突** ✅）
+    //  ⭐⭐⭐⭐ 2026-10-11：⭐ **曲谱接收器改走【ESP32 独立 UART】** ✅
+    //
+    //  🔴🔴 **`P0-02` 那个门控【整条作废了】—— ⭐ 而这是好事** ✅
+    //     ⚠️ 它当年存在，是因为曲谱与**串口屏/命令共用一条线** ⇒
+    //        ⭐ 屏帧载荷里的 `0xA5` 会被当帧头 ⇒ 🔴 伪曲谱事件 ⇒ 永久挂音 ✅
+    //     ⇒ ⭐ 而它的修法"别人帧内就不给曲谱字节"**只能治标**：
+    //        ⚠️ `0xA5` 落在**帧间空隙**时仍可能误判（⭐ 那条 P1 一直挂着 ✅）
+    //     ✅ **现在曲谱有自己的线**（⭐ `esp_uart_rx_i`，⭐ 见上方 `u_uart_rx_esp`）⇒
+    //        · ⭐ 那条 P1 的**根因消失**（⭐ 不再与屏帧/命令共用线路 ✅）
+    //        · ⭐ 而 `~ui_in_frame` 这个门控**反而必须删掉** ——
+    //          🔴 否则串口屏每刷一帧，⭐ **曲谱字节就会被吞**（⭐ 两条线本该互不相干 ✅）
+    //
+    //  📌 ⭐ **保留 `ui_in_frame` / `cmd_idx` 的声明**（⭐ 不删）：
+    //     ⚠️ 它们现在是**无消费者的观测线** ⇒ ⭐ 综合会剪掉 ✅
+    //     📌 ⭐ 可接受：⭐ 串口屏的"在帧内"状态对**本板卡内部**没有别的用处 ✅
+    //     （⭐ 而 `uart_ui` 自己的帧解析**照常工作** ✅）
     evt_uart_rx #(
         .CLK_HZ   (50_000_000),
         .BAUD     (500_000),        // ⚠️ 与 `uart_rx.BAUD_DIV=100` 同一档
@@ -1037,8 +1158,10 @@ parameter integer TEST_MODE_EN       = 0,
     ) u_evt_uart_rx (
         .clk_i         (clk),
         .rst_n_i       (rst_n_sync),
-        .rx_done_i     (evt_rx_done),   // ⭐ P0-02：⭐ 门控后（⛔ 不是裸 `ur_done`）✅
-        .rx_data_i     (ur_data),
+        //  ⭐⭐ 2026-10-11：⭐ **改接 ESP32 独立 UART**（⛔ 不再是板载 `ur_done`）✅
+        //     📌 ⭐ 这也**顺带删掉了 `P0-02` 的门控**（⭐ 理由见上方那段长注释 ✅）
+        .rx_done_i     (esp_rx_done),   // ⭐ 来自 `u_uart_rx_esp`（⭐ `G22`）✅
+        .rx_data_i     (esp_rx_data),
         .evt_valid_o   (eu_evt_valid),
         .evt_data_o    (eu_evt_data),
         .frame_cnt_o   (eu_frame_cnt),
@@ -1047,6 +1170,81 @@ parameter integer TEST_MODE_EN       = 0,
         .drop_cnt_o    (eu_drop_cnt),
         .idx_o         (eu_idx),
         .synced_o      (eu_synced)
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-11：`U-19` 事件缓冲区 —— ⭐ **曲谱按 tick 播放的最后一块拼图** ✅
+    //
+    //  🔴 **为什么必须加**（⭐ 这是 `play_seq` 一直没能例化的**唯一**原因）：
+    //     ⭐ `play_seq.v` 的读侧契约是**标准同步 FIFO** 语义
+    //        （`evt_valid_i` = "有事件" ＋ `evt_data_i` = 队头 ＋ `evt_rd_o` = 取走）
+    //     🔴 而 `evt_uart_rx.evt_valid_o` 是**单拍脉冲**（⭐ 它**不是** FIFO）
+    //        ⇒ ⭐ 直接对接 ⇒ 🔴 **凡"tick 还没到"的事件【当拍就被丢掉】** ✅
+    //     ⇒ ⭐ 中间必须有一级缓冲 ⇒ ⭐ 本模块 ✅
+    //
+    //  ⭐ **容量 = 8 KB / 1024 事件**（⭐ **已拍板**：⭐ `整曲缓冲大小定案.md` §2.3）
+    //     · ⭐ 为什么不是最初的 2 KB：⭐ 2 KB = 256 事件**只够 8 拍**；
+    //       ⭐ 8 KB 够**最密曲子（`夜洋风景` 99.3 事件/小节）的 8 小节** ＋ 33% 余量 ✅
+    //     · ⭐ BSRAM：⭐ 1024 × 64 bit = 64 kbit ⇒ ⭐ **4 个 BSRAM**（⭐ 118 个里 ✅）
+    //     📌 ⭐ 三个真实曲子的实测密度（⭐ 不是估算）：
+    //        `09_Conjurer` 55.9 · `6.世界悲` 51.7 · `夜洋风景` **99.3**（最密）
+    //     ⚠️ ⭐ **8 KB 也装不下整曲**（⭐ `09_Conjurer` 全曲 = **92.6 KB** = 只覆盖 8.6%）
+    //        ⇒ ⭐ **必须滚动预灌**（⭐ PC 提前灌下一段）✅
+    //
+    //  ⭐ **数据流（⭐ 本块之后）**：
+    //     `evt_uart_rx`（单拍脉冲）⇒ ⭐ **本缓冲** ⇒ `play_seq`（按 tick 吐）
+    //        ⇒ ⭐ ① `seq_arb.score`（⭐ 出声）· ⭐ ② `guide_lamp`（⭐ LED 指引）✅
+    //
+    //  ⚠️ **作用域**：⭐ 本实例在 **`generate` 之外**（⭐ 模块级）——
+    //     ⭐ 因为它只跟 `evt_uart_rx`（也是模块级）打交道 ✅
+    //     ⭐ 而 `play_seq` **必须**放进 `g_sound`（⭐ 它要读 `bg_tick`、⭐ 又要驱动
+    //        `beat_gen.tick_inc_i`）⇒ ⭐ 两边的线走**模块级中间量** ✅
+    //     📌 ⭐ 与 `ee_key_on`（`P0-27`）/ `fault_any_w`（`P0-29`）**同一手法** ✅
+    // ═══════════════════════════════════════════════════════════════════════
+    wire        eb_rd_valid;      // ⭐ 缓冲非空（→ `play_seq.evt_valid_i`）
+    wire [63:0] eb_rd_data;       // ⭐ 缓冲队头（→ `play_seq.evt_data_i`）
+    wire        ps_evt_rd;        // ⭐ `play_seq.evt_rd_o`（→ 缓冲的 `rd_ack_i`）
+    wire        ps_note_valid;    // ⭐ `play_seq.note_valid_o`（→ `seq_arb` ＋ `guide_lamp`）
+    wire [63:0] ps_note_data;     // ⭐ `play_seq.note_data_o`
+    wire        eb_ovf;           // ⭐ 缓冲溢出（sticky）
+    wire [15:0] eb_drop;          // ⭐ 丢弃计数（饱和）
+    wire [15:0] eb_cnt;           // ⭐ 当前深度
+    wire        eb_low;           // ⭐ 低水位
+    //  ⭐⭐ 2026-10-11：⭐ **高水位（sticky）** —— ⭐ "**还没丢，但余量告急**" ✅
+    //     📌 ⭐ 依据：⭐ ESP32 侧清单 `FPGA侧对接清单-ESP32通路-20260922.md` §2.3 的 **L1**：
+    //        *"它**在真正丢失【之前】**就置位 ⇒ ⭐ 调试时能在'还没丢'的时候就发现余量不够"* ✅
+    //     📌 ⭐ **与 `eb_ovf` 的分工**：⭐ `eb_ovf` = **已经丢了** · ⭐ `eb_hw` = **快满了** ✅
+    //     ⚠️ ⭐ **为什么⛔ 不 OR 进 `ovf_any`**（⭐ 想清楚了才这么做 ✅）：
+    //        ⭐ `ovf_any` 驱动**心跳灯快闪**，⭐ 而那是**已交付语义**
+    //        （⭐ 交接文档写明"**心跳灯快闪 = 丢过曲谱事件**" ✅）
+    //        ⇒ ⚠️ 把"快满了"混进去 ⇒ 🔴 **改变既有指示的含义**（⭐ 而且**真丢了**与
+    //           **快满了**在上板时是**必须分清**的两件事 ✅）
+    //     ✅ **处置**：⭐ 引出为**顶层挂钩**（`syn_keep` 防剪 ✅），
+    //        ⭐ 语义留给**将来的状态回包**（⭐ 与 `eb_cnt`/`eb_low` 同一处 ✅）
+    //     📌 ⭐ 判据在**模块级**：⭐ `tb/w3c/tb_evt_buf.sv`（⭐ 直接验 `high_water_o` ✅）
+    (* syn_keep = 1 *) wire eb_hw;
+
+    evt_buf #(
+        .DEPTH   (1024),          // ⭐ **已拍板 8 KB**（⛔ 不要改小 —— 见上面的容量账）
+        .EVT_W   (64),
+        .LOW_WM  (256),           // ⭐ 低水位 = 1/4（⭐ 供将来反向流控 ＋ 可观测）
+        .HIGH_WM (768)            // ⭐ 高水位 = 3/4（⭐ 2026-10-11 新增，⭐ L1 要求）
+    ) u_evt_buf (
+        .clk_i       (clk),
+        .rst_n_i     (rst_n_sync),
+        .wr_valid_i  (eu_evt_valid),   // ⭐ 来自 `evt_uart_rx`（⭐ 单拍脉冲 ✅）
+        .wr_data_i   (eu_evt_data),
+        .rd_valid_o  (eb_rd_valid),
+        .rd_data_o   (eb_rd_data),
+        .rd_ack_i    (ps_evt_rd),      // ⭐ 由 `g_sound` 里的 `play_seq` 驱动 ✅
+        .ovf_o       (eb_ovf),
+        .drop_cnt_o  (eb_drop),
+        .cnt_o       (eb_cnt),
+        .low_o       (eb_low),
+        .high_water_o(eb_hw),          // ⭐ 2026-10-11：⭐ L1 高水位 ✅
+        //  ⚠️ 暂无消费者 ⇒ ⭐ 接 0 —— ⚠️ 但 **`ovf_o`/`drop_cnt_o` 有消费者**：
+        //     ⭐ 下面 OR 进 `ovf_any` ⇒ ⭐ **心跳灯快闪 = 丢过曲谱事件** ✅（`K-106`）
+        .ovf_clr_i   (1'b0)
     );
 
     // ── ⭐ ④ 串口发送器（⭐ 回传标定进度）─────────────────────────────────
@@ -1196,6 +1394,38 @@ wire ovf_any;
         .tx_done_o ()
     );
 
+    //  ⭐⭐⭐⭐ 2026-10-11：⭐ **ESP32 独立 UART 的【发送】—— 与板载口【镜像同一份回包】** ✅
+    //
+    //  ⭐ **为什么用"镜像"而⛔ 不是"另起一个 FIFO"**：
+    //     · ⭐ `u_tx_fifo` 的 `busy_i` 握手**只挂在板载口上**（⭐ 那是它的流控源 ✅）
+    //     · ⭐ 若给 ESP32 也接一个 FIFO ⇒ ⚠️ 两条链要各自流控 ⇒ **复杂且无必要** ✅
+    //     ⇒ ⭐ **镜像**：⭐ 同一份 `txf_start`/`txf_data` **同时**喂两个 `uart_tx`
+    //        ⇒ ⭐ 两个口**逐字节发出同样的内容** ✅
+    //
+    //  ⭐ **镜像谁**：⭐ 现在 `u_tx_fifo` 的内容是**标定回包 ＋ 探针**
+    //     （⭐ `'s'`/轴号 · ⭐ `'P'`/`'V'`/`'N'`/`'Q'` ✅）
+    //     ⇒ ⭐ 于是 **PC（经 BLE）也能看到这些诊断** ✅
+    //     📌 ⭐ **这正是 ESP32 反向通路要的东西** ——
+    //        ⭐ 它自己的 README 写着"反向通路（FPGA→ESP32→BLE→PC）**已打通并验收**"
+    //        （⭐ 2000 字节 round-trip 逐字节一致 ✅）⇒ ⭐ **FPGA 侧只要真的发** ✅
+    //
+    //  ⚠️ **`busy_o` 留空**：⭐ 镜像口**不参与流控**（⭐ 它跟着板载口的节奏走 ✅）
+    //     📌 ⭐ 两者速率相同（⭐ 同 `BAUD_DIV=100`）⇒ ⭐ **不会积压** ✅
+    //
+    //  📌 ⭐ **将来的"录制回传"就挂在这条路上**（⭐ 把 looper 的 dump 推给 `u_tx_fifo` ✅）
+    //     —— ⚠️ 那需要先给 `looper` 加一个读出口（⭐ 见 `P1` 清单 ✅）
+    uart_tx #(
+        .BAUD_DIV(100)               // ⭐ 与 ESP32 固件 `BLE_BAUD 500000` 同档 ✅
+    ) u_uart_tx_esp (
+        .clk_i     (clk),
+        .rst_n_i   (rst_n_sync),
+        .tx_start_i(txf_start),      // ⭐ 镜像：⭐ 与 `u_uart_tx` **同一份** ✅
+        .tx_data_i (txf_data),
+        .tx_o      (esp_uart_tx_o),  // ⭐ 引脚 `G21`（⭐ PMOD0 针 9）
+        .busy_o    (),               // ⭐ 镜像 ⇒ ⛔ 不参与流控
+        .tx_done_o ()
+    );
+
     // ═══════════════════════════════════════════════════════════════════════════
     // ⭐⭐ 位置式力度：**唯一的映射函数**（⭐ 2026-09-28 新增）
     //
@@ -1335,6 +1565,12 @@ wire ovf_any;
         //  ⭐⭐ 2026-10-09（`P0-27`）：⭐ 静音档没有 `event_extract` ⇒ ⭐ 按键状态恒 0 ✅
         //   📌 与上面 `fault_any_w` 同一条纪律：⭐ **两个互斥分支各自显式驱动** ✅
         assign ee_key_on     = 16'd0;
+        //  ⭐⭐ 2026-10-11（`U-19`）：⭐ 静音档没有 `play_seq` ⇒ ⭐ 三条跨作用域线**显式驱动** ✅
+        //   📌 ⭐ 同一条纪律（⭐ 两个互斥分支各自显式驱动，⛔ 不留悬空）——
+        //      ⚠️ 悬空 = `z` ⇒ 🔴 会顺着 `evt_buf.rd_ack_i` / `guide_lamp` 传播 `x` ✅
+        assign ps_evt_rd     = 1'b0;
+        assign ps_note_valid = 1'b0;
+        assign ps_note_data  = 64'd0;
     end else begin : g_sound
         // ═══════════════════════════════════════════════════════════════════════
         //   ⭐⭐ `'P'` 诊断：⭐ 回传 `pos` 读数（⭐ 2026-09-24 新增）
@@ -1555,6 +1791,69 @@ wire ovf_any;
         //      📌 `beat_o` 是**单周期**脉冲 ⇒ ⭐ 拉伸（亮多久）由 `led_indicator` 自己做 ✅
         assign led_beat  = bg_beat;
 
+        // ═══════════════════════════════════════════════════════════════════
+        //  ⭐⭐ 2026-10-11：`play_seq` —— ⭐ **曲谱按 tick 播放 ＋ 处理换速** ✅
+        //
+        //  🔴 **为什么现在才能例化**：⭐ 它的读侧要的是**标准同步 FIFO**
+        //     （⭐ `evt_valid_i` ＋ `evt_data_i` ＋ `evt_rd_o`），
+        //     ⚠️ 而 `evt_uart_rx` 只给**单拍脉冲** ⇒ ⭐ 中间必须有 `U-19` 缓冲
+        //     ⇒ ⭐ 缓冲已在模块级建好（`u_evt_buf`）⇒ ⭐ **本块终于能落地** ✅
+        //
+        //  ⭐ **它在这里的两个职责**：
+        //     ① ⭐ **按音乐位置吐事件**：⭐ `evt_tick <= cur_tick_r` 才发
+        //        （⭐ 修掉"每个 tick 只取一条 ⇒ 和弦被拉成琶音"那个缺陷 ✅）
+        //     ② ⭐⭐ **驱动 `beat_gen.tick_inc_i`**：⭐ `kind=2` 事件 ⇒ **硬件换速**
+        //        （⭐ 相位连续 ⇒ 不跳拍、不断音 ✅ —— `beat_gen` ⛔ 不用改，已核实 ✅）
+        //
+        //  ⚠️⚠️ **`run_i` 必须与 `beat_gen.run_i` 【同一个值】**：
+        //     ⭐ 契约原文：*"`cur_tick_r` 必须与 `beat_gen` 的音乐位置严格同步推进"*
+        //        （⭐ 两者都靠**同一个 `tick_i`** 推进、⭐ 靠**同一个 `pos_reset_i`** 归零 ✅）
+        //     🔴 而 `top.v` 的 `beat_gen` 是 **free-running（`run_i = 1'b1`）**
+        //        —— ⚠️ 这是**有意的**（⭐ 停了 `bg_beat` ⇒ 🔴 心跳 LED 不闪，⭐ 见 L756 的长注释）
+        //     ⇒ ⭐ 所以本模块也**必须**接 `1'b1`，⛔ **不能**接成别的"transport"信号
+        //        （⭐ 否则两边位置**静默错位**：⭐ 事件按错误的时间播放，⭐ 且**不报错** ✅）
+        //
+        //  ⚠️ **`pos_reset_i` 接 `met_start`** —— ⭐ 与 `beat_gen.pos_reset_i` **同一个信号** ✅
+        //     📌 ⭐ 这正是契约的硬要求（⭐ 见上），⭐ 且它顺带给了用户一个**可用的工作流**：
+        //        **"先按 S2（位置归零）⇒ PC 再灌谱子 ⇒ 谱子从头按拍播放"** ✅
+        //     🔴 **已知局限（⭐ 诚实标注）**：⭐ **播放中按 S2** ⇒ `cur_tick_r` 归零
+        //        ⇒ ⚠️ 缓冲里"未来"的事件**全部立刻到期** ⇒ 🔴 **一次性地吐出来** ✅
+        //        ⇒ ⭐ 正确用法：⭐ **起拍之后不要中途按 S2**（⭐ 要重放就让 PC 重灌 ✅）
+        //
+        //  📌 **`tick_inc_o` 是【寄存器输出】**（⭐ 契约 §2.1 专门确认过）
+        //     ⇒ ⭐ `play_seq → beat_gen → play_seq` **不成组合环** ✅
+        //  📌 **复位默认 = `TICK_INC_DEFAULT` = 164927 = 120 BPM**
+        //     ⇒ ⭐ **与原来的常量 `TICK_INC_120BPM` 逐位相同**
+        //     ⇒ ⭐ **没有曲谱时行为一字不变** ✅（⭐ 这是本次改动最重要的安全性论据 ✅）
+        // ═══════════════════════════════════════════════════════════════════
+        wire [31:0] ps_inc32;         // ⭐ `play_seq.tick_inc_o`（→ `beat_gen.tick_inc_i`）
+        wire        ps_tempo_applied;
+        wire        ps_underrun;
+        wire [15:0] ps_evt_cnt;
+        wire [15:0] ps_tempo_cnt;
+        wire [19:0] ps_cur_tick;
+
+        play_seq #(
+            .EVT_W(64)
+        ) u_play_seq (
+            .clk_i          (clk),
+            .rst_n_i        (rst_n_sync),
+            .tick_i         (bg_tick),        // ⭐ 与 `beat_gen.tick_o` **同源** ✅
+            .run_i          (1'b1),           // ⭐ **必须与 `beat_gen.run_i` 相同**（见上）
+            .pos_reset_i    (met_start),      // ⭐ **与 `beat_gen.pos_reset_i` 同一个信号** ✅
+            .tick_inc_o     (ps_inc32),       // ⭐ → `beat_gen.tick_inc_i` ✅
+            .evt_valid_i    (eb_rd_valid),    // ⭐ 来自 `U-19` 缓冲（⭐ 模块级）✅
+            .evt_data_i     (eb_rd_data),
+            .evt_rd_o       (ps_evt_rd),      // ⭐ **组合**取数选通（⭐ 契约 §2.3.3 硬要求）✅
+            .note_valid_o   (ps_note_valid),
+            .note_data_o    (ps_note_data),
+            .tempo_applied_o(ps_tempo_applied),
+            .evt_underrun_o (ps_underrun),
+            .evt_cnt_o      (ps_evt_cnt),
+            .tempo_cnt_o    (ps_tempo_cnt),
+            .cur_tick_o     (ps_cur_tick)
+        );
+
         beat_gen #(
             .PPQN          (960),
             .BEATS_PER_BAR (4),
@@ -1571,8 +1870,14 @@ wire ovf_any;
             //       常高会让相位永远停在 0 ⇒ 节拍器彻底不响）
             //    📌 `beat_gen` 仍 **free-running**（⛔ 没改成 `met_on_r`）
             //       ⇒ ⭐ **心跳 LED 照常闪** ✅（见 `led_blink = bg_beat`）
+            //    ⭐⭐ 2026-10-11（`U-19`）：⭐ **本信号同时喂 `play_seq.pos_reset_i`** ✅
+            //       —— ⭐ 契约硬要求"两者必须接同一个信号"（⭐ 否则位置静默错位 ✅）
             .pos_reset_i     (met_start),
-            .tick_inc_i      (TICK_INC_120BPM),
+            //  ⭐⭐ 2026-10-11（`U-19`）：⭐ **速度由 `play_seq` 驱动**（⛔ 不再是常量）
+            //     ⭐ `play_seq` 复位默认 = `164927` = **120 BPM** = 原来的常量
+            //     ⇒ ⭐ **没有曲谱（没有 `kind=2` 事件）时，本行与改前逐位相同** ✅
+            //     ⭐ 有 `kind=2` 时 ⇒ **硬件换速**（⭐ 相位连续、不跳拍 —— `beat_gen` 不用改 ✅）
+            .tick_inc_i      (ps_inc32),
             .tick_o          (bg_tick),
             .tick_cnt_o      (bg_tick_cnt),
             .bar_start_o     (bg_bar_start),
@@ -1711,6 +2016,14 @@ wire ovf_any;
             .tick_cnt_i     (bg_tick_cnt),
             .bar_start_i    (bg_bar_start),
             .transport_i    (bg_transport),
+            //  ⭐⭐⭐⭐ 2026-10-11（`P1-18`）：⭐ **位置复位必须与 `beat_gen` 同源** ✅
+            //     🔴 **原缺陷**：⭐ `met_start` 只喂了 `beat_gen` ⇒
+            //        ⭐ `beat_gen` 立刻把 `tick_cnt_o` 清 0，⚠️ 而 `drum_gen` **不知道**
+            //        ⇒ 🔴 它的无符号差值法**下溢** ⇒ **假的步进** ⇒
+            //        ⭐ 开鼓机时**强拍前一记多余鼓击**（⭐ 约 0.52 ms ⇒ **紧 flam** ✅）
+            //     ✅ **现在两者同源** ⇒ ⭐ `drum_gen` 也清步进状态 ⇒ ⛔ 不发残余事件 ✅
+            //     📌 ⭐ 而"**开鼓机从强拍开始**"照旧（⭐ 下一个 tick 的 `bar_start` 重新对齐 ✅）
+            .pos_reset_i    (met_start),
             .evt_valid_o    (drm_evt_valid),
             .evt_axis_o     (drm_evt_axis),
             .evt_phase_inc_o(drm_evt_inc),
@@ -2588,12 +2901,20 @@ wire ovf_any;
         //      ⇒ ⭐ **不占时序余量、也不拖慢仿真** ✅
         //      📌 要用诊断时：⭐ 把 `DPOS_DIAG` 改成 1 ⇒ 重新 PnR ✅
         assign tx_req  = rep_req | pp_push | vp_push | np_push
-                       | ((DPOS_DIAG != 0) ? dp_push : 1'b0);
+                       | ((DPOS_DIAG != 0) ? dp_push : 1'b0)
+                       //  ⭐⭐ 2026-10-11：⭐ **录制回传的导出字节**（⭐ `u_rec_dump` ✅）
+                       | rd_push;
         //   ⭐ 'N'（`np_push`）优先级最高 —— 它也是独立命令，与其余不同拍。
         //   ⭐ 'Q'（`dp_push`）次高 —— 它与 `'P'` **故意错开 400 µs**，⛔ 不同拍。
+        //   ⭐ **`rd_push` 优先级【最低】**（⭐ 2026-10-11）：
+        //      ⭐ 它是**批量**传输（⭐ 一条事件 9 字节 ✅）⇒ ⭐ 让**交互式回包**先走 ✅
+        //      ⚠️ **诚实标注**：⭐ 若 `rep_req` 与 `rd_push` **同拍**，
+        //         ⭐ 则**回包那一个字节会被挤掉**（⭐ 两者都是单拍脉冲 ✅）
+        //      📌 ⭐ 触发条件：⭐ 导出期间**恰好**来了标定回包 —— ⚠️ 极少（⭐ 且导出只在层空闲 ✅）
         assign tx_byte = np_push ? np_data
                        : (((DPOS_DIAG != 0) && dp_push) ? dp_data
-                       : (vp_push ? vp_data : (pp_push ? pp_data : rep_byte)));
+                       : (vp_push ? vp_data
+                       : (pp_push ? pp_data : (rd_push ? rd_byte : rep_byte))));
 
 
         calib #(.NCH(8), .DW(12)) u_calib0 (
@@ -2901,6 +3222,55 @@ wire ovf_any;
             //        ⇒ ⭐ 它现在**是对的**（⭐ `FULL` 本来就该是归一档 4095），
             //        ⚠️ 但它与 `TRAVEL_TARE` **没有任何机械联系** ⇒ ⭐ 改一处不会自动带动另一处
             //        （⭐ 它是归一档、`TRAVEL_TARE` 是行程档 ⇒ ⭐ 本来就不该相等 ⇒ ⛔ 不构成"两处真相"）
+        end
+
+        // ═══════════════════════════════════════════════════════════════════
+        //  ⭐⭐⭐⭐ 2026-10-11（`P1-53`）：⭐ **N4 参数的【综合期】硬失败守卫** ✅
+        //
+        //  🔴🔴 **为什么必须有它**（⭐ 2026-10-11 **实测证据**，⛔ 不是推测）：
+        //     ⭐ 上面 `initial` 里那 **5 条 `$fatal`** ——
+        //        ⚠️ **综合【完全不执行】** ✅
+        //        ⭐ Gowin 自己的警告原文（⭐ 实测）：
+        //        ```
+        //        WARN (EX2488) : Elaboration system task 'fatal' is ignored for synthesis
+        //        ```
+        //        ⇒ ⭐ 而且 **`gw_sh` 的退出码仍然是 `0`** ✅
+        //     ⇒ 🔴 **"门① 综合 `ERROR=0`"【拦不住】任何参数错配** ✅
+        //        ⇒ ⭐ 也就是说：⭐ `TRAVEL_TARE` 被填成 0（⭐ `P0-11` 那个
+        //           "**16 轴恒 held**"的失效模式）⇒ 🔴 **位流照样生成、照样上板** ✅
+        //     📌 ⭐ 这不是 `P0-11` 修错了 —— ⭐ 是**它依赖的那道防线【只在仿真侧】** ✅
+        //        （⭐ `sim/tb_all.ps1` 的回归**会**跑到它，⭐ 所以它**不是空的**；
+        //          ⚠️ 但它**保护不了 `sim/gowin_build.ps1` 那条路** ✅）
+        //
+        //  ✅ **修法（⭐ 结构性 ⇒ 工具无关）**：⭐ **例化一个【故意不存在】的模块**，
+        //     ⭐ 而**错误信息就写在模块名里** ✅
+        //     · ⭐ 参数**合法** ⇒ ⭐ `if` 条件为假 ⇒ ⭐ 那一支**不参与详细阐述**
+        //        ⇒ ⭐ **零代价**（⭐ 0 逻辑、⭐ 0 FF —— ⭐ 综合日志里连提都不提 ✅）
+        //     · ⭐ 参数**非法** ⇒ ⭐ 综合与仿真**都**报
+        //        `Unknown module type: <那一长串名字>`
+        //        ⇒ 🔴 **构建失败**，⭐ 而**错误信息本身就在报错行里** ✅
+        //     📌 ⭐ **为什么不用"在构建脚本里体检参数"**（⭐ `P1-53` 的备选方案 2）：
+        //        ⚠️ 那要求脚本**再解析一遍** RTL 常量 ⇒ ⭐ 又多一处"**两处真相**"；
+        //        ⭐ 而本写法**与 RTL 同源**（⭐ 条件就是那 5 条判据本身）⇒ ⭐ **不可能不同步** ✅
+        //     📌 ⭐ **为什么不直接删掉 `initial` 里那 5 条**：⭐ **不删** ——
+        //        ⭐ 它们给的是**带数字的可读信息**（⭐ `$fatal` 会打印百分比），
+        //        ⚠️ 而本守卫只能给"模块名"⇒ ⭐ **两者互补**：⭐ 仿真看前者、⭐ 综合看后者 ✅
+        // ═══════════════════════════════════════════════════════════════════
+        //  ⭐ 把上面那 5 条判据合成**一个编译期常量**（⭐ 与 `initial` 里逐条一致 ✅）
+        localparam integer N4_PARAM_OK =
+               (TRAVEL_TARE  != 12'd0)
+            && (EVT_TRIG_TH  != 12'd0)
+            && (EVT_REL_TH   != 12'd0)
+            && (EVT_TRIG_TH  <= TRAVEL_TARE)
+            && (EVT_TRIG_TH * 32'd100 >= 32'd5  * TRAVEL_TARE)
+            && (EVT_TRIG_TH * 32'd100 <= 32'd12 * TRAVEL_TARE)
+            && (EVT_REL_TH  * 32'd100 >= 32'd2  * TRAVEL_TARE)
+            && (EVT_REL_TH  * 32'd100 <= 32'd7  * TRAVEL_TARE);
+
+        //  ⚠️ **⛔ 这里不套 `generate`/`endgenerate`** —— ⭐ 本块已在外层 `g_sound`
+        //     （⭐ 与本文件 `g_test_mode` / `g_right_adc_data` 同一写法 ✅）
+        if (N4_PARAM_OK == 0) begin : g_n4_param_bad
+            P1_53_N4_PARAM_ERROR__TRAVEL_TARE_or_TRIG_TH_or_REL_TH_inconsistent__see_initial_block u_n4_guard();
         end
 
         localparam [11:0] VEL_TRIG_TH  = EVT_TRIG_TH;  // ⭐ **派生**，⛔ 不另写数字
@@ -3605,15 +3975,68 @@ wire ovf_any;
         //         ⛔ 不能凭接口表的字段【顺序】去推位【位置】。
         //      ⚠️ `inc` 是 **21 位**（⛔ 不是 32）⇒ ⭐ 高位补 0 到 32 位给 `seq_arb`。
 
-        // ⭐ 曲谱源：⭐ 从 `evt_uart_rx` 的 64 bit 打包里拆字段（⭐ 位域见上方）
-        wire [3:0]  score_evt_axis = eu_evt_data[22:19];
-        wire [31:0] score_evt_inc  = {11'd0, eu_evt_data[43:23]};
-        wire [7:0]  score_evt_vel  = eu_evt_data[18:11];
-        wire [1:0]  score_evt_kind = eu_evt_data[10:9];
+        // ⭐⭐ 2026-10-11（`U-19`）：⭐ **曲谱源从"裸 UART"改成"`play_seq` 的输出"** ✅
+        //   🔴 **改前**：⭐ `eu_evt_valid`/`eu_evt_data` **直连** `seq_arb.score`
+        //      ⇒ ⚠️ **`tick` 字段被完全忽略** ⇒ 🔴 **事件一到就响**（⭐ 整曲被"压扁"）
+        //      ⇒ ⭐ 而 `play_seq`（⭐ 就是为"按 tick 播放"写的那个模块）**根本不在链上**
+        //      ⇒ 🔴 **"按音乐位置播放"从未生效过** ✅
+        //   ✅ **改后**：⭐ `evt_uart_rx ⇒ u_evt_buf ⇒ u_play_seq ⇒ seq_arb.score` ✅
+        //      ⇒ ⭐ `tick` 被尊重（⭐ 修掉"每个 tick 只取一条 ⇒ 和弦被拉成琶音"✅）
+        //      ＋ ⭐ `kind=2` 能真的换速（⭐ 驱动 `beat_gen.tick_inc_i`）✅
+        //      ＋ ⭐ 同一 tick 上的全部事件**在一个 tick 内连续吐完** ✅
+        //   📌 **位域与 `play_seq.v` / `guide_lamp.v` / `tools/mid2evt.py` 逐位一致** ✅
+        //      （⭐ `tick [63:44]` · `inc [43:23]` · `axis [22:19]` · `vel [18:11]`
+        //        · `kind [10:9]` · `timbre [8:7]` ✅）
+        //   ⚠️ **`inc` 是 21 位**（⛔ 不是 32）⇒ ⭐ 高位补 0 到 32 位给 `seq_arb` ✅
+        //   📌 ⭐ 注意：⭐ `kind=2`（换速）**不会**出现在这里 ——
+        //      ⭐ `play_seq` 的 `note_valid_o` **只为 kind 0/1 拉高**（⭐ 契约 §一）
+        //      ⇒ ⭐ 下游 `seq_arb`/`note_manager` **永远看不到换速事件** ✅
+        //      （⭐ 这正是"换速不会被当成伪音符"的实现方式 ✅）
+        wire [3:0]  ps_evt_axis   = ps_note_data[22:19];
+        //  ⭐⭐⭐⭐ 2026-10-11：⭐ **曲谱音高必须按【采样率】换算** —— 🔴 **修一个 1024 倍的量纲错** ✅
+        //
+        //  🔴🔴 **原缺陷（⭐ 本轮发现，⭐ 从未有人听到过）**：
+        //     ⭐ 原文是 `{11'd0, ps_note_data[43:23]}`（⭐ **21 位零扩展** ✅）
+        //     · ⭐ `tools/mid2evt.py:115` 是 **`FS = 50_000_000.0`**
+        //       ⇒ ⭐ 它给 MIDI 69（A4 = 440 Hz）写
+        //          `inc = round(440 × 2^32 / 50e6) = **37791**` ✅
+        //     · ⭐ 而 `oscillator_bank` 的相位**按 `sample_tick_i` 推进**
+        //       （⭐ `oscillator_bank.v:725`：⭐ `phase_q <= phase_q + lane_inc`
+        //         在 `sample_tick_i` 门控内 ✅）⇒ ⭐ 时钟是 **48.828125 kHz** ✅
+        //     ⇒ 🔴 零扩展直接用 ⇒ ⭐ 实际频率 = `37791/2^32 × 48828.125 = **0.43 Hz**`
+        //        ⇒ ⭐ **低 1024 倍（正好 10 个八度）** ⇒ 🔴 **整条曲谱变成次声波** ✅
+        //
+        //  📌 ⭐ **为什么一直没暴露**：⭐ 这条链路在 2026-10-11 之前
+        //     **结构上不可能工作** —— ⭐ `play_seq` 从未被例化 ✅
+        //     ＋ ⭐ `P0-02` 门控把曲谱载荷全挡掉 ✅ ⇒ ⭐ **从来没人听到过** ✅
+        //
+        //  📌 ⭐ **契约的洞**：⭐ `play_seq接口冻结契约.md:145-150` **只定义了
+        //     `tick_inc`（速度）的量纲**（⭐ `2^32 × f / 50e6` ✅ —— ⭐ 那**是对的**，
+        //     因为 `beat_gen` 的相位**按系统时钟**推进 ✅）
+        //     ⇒ ⚠️ **`phase_inc`（音高）的量纲【没有定义】** ⇒ ⭐ 这就是漏洞的来源 ✅
+        //
+        //  ✅ **修法**：⭐ **左移 10 位** —— ⭐ `50e6 ÷ 48828.125 = 1024 = 2^10` ✅
+        //     ⇒ ⭐ 正好把"50 MHz 口径"换成"采样率口径" ✅
+        //     📌 ⭐ **精度**：⭐ 线上是 21 位 ⇒ ⭐ 移后是 **31 位有效** ✅
+        //        ⇒ ⭐ 相对误差 ≤ `2^-21`（⭐ ≈ **0.0008 音分**）⇒ ⭐ **完全够** ✅
+        //     📌 ⭐ **为什么⛔ 不改 PC 侧**：⭐ 若 `mid2evt` 直接用采样率算
+        //        ⇒ ⭐ MIDI 127 要 `1.1e9` ⇒ 🔴 **31 位装不进 21 位字段** ✅
+        //        ⇒ ⭐ **只有"FPGA 侧移位"这条路可行** ✅
+        //
+        //  ⛔⛔ **关键边界：⛔ 只能移【音高】这一条** ——
+        //     ⚠️ `kind=2` 的 `inc` 是 **`tick_inc`**（⭐ 走 `play_seq.tick_inc_o` → `beat_gen`）
+        //     ⇒ ⭐ **它的量纲本来就是对的**（⭐ `beat_gen` 按系统时钟 ✅）
+        //     ⇒ ⛔ **不许移**（⭐ 移了节拍就会快 1024 倍 🔴）
+        //     📌 ⭐ 判据：⭐ `tb/w3b/tb_top_score_path.sv` 的 **`Fa`**
+        //        （⭐ `tick_inc_o` 必须仍等于 `kind=2` 事件里的原值 ✅）
+        //        ＋ ⭐ **`H1`/`H2`**（⭐ 音高必须按采样率 ✅）
+        wire [31:0] ps_evt_inc    = {1'b0, ps_note_data[43:23], 10'b0};
+        wire [7:0]  ps_evt_vel    = ps_note_data[18:11];
+        wire [1:0]  ps_evt_kind   = ps_note_data[10:9];
         // T31b: bits [8:7] are the existing score-frame timbre field.
         // Keep it as a sideband; the 64-bit UART transport and board I/O stay unchanged.
-        wire        score_evt_timbre_valid = eu_evt_valid;
-        wire [1:0]  score_evt_timbre = eu_evt_data[8:7];
+        wire        ps_evt_timbre_valid = ps_note_valid;
+        wire [1:0]  ps_evt_timbre = ps_note_data[8:7];
         // ═══════════════════════════════════════════════════════════════════
         //   ⚠️ **旧的二选一写法（⭐ 保留痕迹，⭐ 已被 `seq_arb` 取代）**：
         //      wire src_a_valid = (SOURCE_A_SEL == 1) ? demo_note_valid : w3a_evt_valid;
@@ -3758,7 +4181,9 @@ wire ovf_any;
         //     📌 待办：⭐ 接到串口回传（⭐ 与 `'P'`/`'N'` 诊断同一套路）⇒ 现在先留线，⛔ 不悬空
         wire        looper_layer_state;
         wire [15:0] looper_evt_cnt;
-        wire        looper_full;
+        //  ⭐⭐ 2026-10-11：⭐ **导出读口的线**（⭐ 录制回传 ✅）
+        wire [63:0] looper_dump_data;    // ⭐ 线上 64 位（⭐ looper 内部已重打包 ✅）
+        wire        looper_dump_clip;    // ⭐ 本条 `inc` 超 21 位（⭐ 导出会失真 ✅）        wire        looper_full;
         wire [15:0] looper_drop_cnt;
         wire        looper_overflow;
 
@@ -3826,7 +4251,68 @@ wire ovf_any;
             .evt_cnt_flat_o (looper_evt_cnt),
             .full_o         (looper_full),
             .drop_cnt_o     (looper_drop_cnt),
-            .overflow_o     (looper_overflow)
+            .overflow_o     (looper_overflow),
+            //  ⭐⭐⭐⭐ 2026-10-11：⭐ **录制回传（导出读口）** —— ⭐ 由 `u_rec_dump` 驱动 ✅
+            //     📌 ⭐ 接线口径：⭐ `'Y'` 命令 ⇒ ⭐ 导出 FSM ⇒ ⭐ 逐字节推 `u_tx_fifo`
+            //        ⇒ ⭐ `u_uart_tx_esp` ⇒ ⭐ ESP32 ⇒ BLE ⇒ PC ✅
+            //     ⚠️ ⭐ **导出期间读口归导出** ⇒ ⭐ 由 `idle_i` 保证只在层空闲时导 ✅
+            .dump_en_i      (rd_dump_en),
+            .dump_addr_i    (rd_dump_addr),
+            .dump_data_o    (looper_dump_data),
+            .dump_clip_o    (looper_dump_clip)
+        );
+
+        //  ═══════════════════════════════════════════════════════════════════
+        //  ⭐⭐⭐⭐ 2026-10-11：⭐ **录制回传的导出 FSM**（⭐ 用户需求 ✅）
+        //
+        //  ⭐ **干什么**：⭐ `'Y'` 命令 ⇒ ⭐ 把该层**已录下的事件**按 **9 字节帧**
+        //     （⭐ `0xA5` ＋ 8 字节大端 ✅）逐条推给 `u_tx_fifo`
+        //     ⇒ ⭐ `u_uart_tx`（板载口）＋ ⭐ `u_uart_tx_esp`（ESP32 口）
+        //     ⇒ ⭐ ESP32 ⇒ BLE ⇒ PC ✅
+        //     📌 ⭐ **两个口同时发**（⭐ 镜像 ✅）⇒ ⭐ 板载口接 USB-TTL 也能抓 ✅
+        //
+        //  🔴🔴 **三条硬约束（⭐ 都在 `rec_dump.v` 与 `looper.v` 里写明）**：
+        //     ① ⭐ **只在层空闲时导**（`idle_i = ~layer_state`）——
+        //        ⚠️ 因为导出要**占用 `mem` 的读口**，⭐ 而放音也要用 ✅
+        //        （⭐ BSRAM 只有 1 读口 ⇒ ⭐ 加第二个读口会**推不出 BSRAM** ✅）
+        //     ② ⭐ **读是同步的** ⇒ ⭐ 给地址后等 **2 拍**（⭐ 由 FSM 的 `S_WAIT` 保证 ✅）
+        //     ③ ⭐ **`ready_i` 节流** ⇒ ⭐ FIFO 满时**等**（⛔ 不丢字节 ✅）
+        //
+        //  ⭐ **帧格式与收帧【同构】** ⇒ ⭐ **导出的东西能直接回灌** ✅
+        //     ⇒ ⭐ "**录一段 → 回传 → 存成谱子 → 再灌回去**" 这条闭环成立 ✅
+        //
+        //  📌 ⭐ **截断可观测**：⭐ `clip_cnt_o` = 有多少条因为 `inc` 超 21 位**不是原样** ✅
+        //     （⭐ 实时弹的事件**常常**超 ⇒ ⚠️ 这是**常态**，⛔ 不是边角 ✅）
+        //  ═══════════════════════════════════════════════════════════════════
+        //  ⚠️ **这 8 根线声明在【模块层】**（⭐ 见 `cmd_recdump_req` 那里 ✅）——
+        //     🔴 **实测踩坑**：⭐ 第一版把它们声明在**本 generate 块里**
+        //        ⇒ ⚠️ `tx_req` 那个块（`top.v:2886`）**绑不上** `rd_push`
+        //        （⭐ `Unable to bind wire/reg/memory rd_push` ✅）
+        //        ⇒ ⭐ 说明两个块**不在同一个 generate 作用域** ✅
+        //     📌 ⭐ 处置与 `cmd_gear_next_req` **同一口径**：⭐ **模块层声明，
+        //        在 generate 里可读可写** ✅
+        rec_dump #(
+            .ADDR_W (16),
+            .HDR    (8'hA5)          // ⭐ 与 `evt_uart_rx.HEADER` 一致 ✅
+        ) u_rec_dump (
+            .clk_i       (clk),
+            .rst_n_i     (rst_n_sync),
+            .req_i       (cmd_recdump_req),        // ⭐ `'Y'` ✅
+            //  ⭐ **层空闲**（⭐ `layer_state_o` 的 0 = 空闲 ✅）——
+            //     ⚠️ 这是"导出⛔ 不与放音抢读口"的**唯一保证** ✅
+            .idle_i      (~looper_layer_state),
+            .cnt_i       (looper_evt_cnt),         // ⭐ 已录事件数 ✅
+            .data_i      (looper_dump_data),       // ⭐ 线上 64 位（⭐ looper 已重打包 ✅）
+            .clip_i      (looper_dump_clip),       // ⭐ 本条被截断过 ✅
+            .ready_i     (txf_ready),              // ⭐ `u_tx_fifo` 未满 ✅
+            .push_o      (rd_push),
+            .byte_o      (rd_byte),
+            .dump_en_o   (rd_dump_en),
+            .dump_addr_o (rd_dump_addr),
+            .busy_o      (rd_busy),
+            .done_o      (rd_done),
+            .clip_cnt_o  (rd_clip_cnt),
+            .frame_cnt_o (rd_frame_cnt)
         );
 
         //   ⭐⭐ 2026-10-03：⭐ **looper 状态码 → 指示层**（⭐ 用户语义：空闲 / 录音 / 回放）
@@ -3894,17 +4380,19 @@ wire ovf_any;
             //        ⇒ ⭐ 本口**只剩曲谱一个来源** ⇒ ⭐ mux **整个删掉** ✅
             //     ⭐ `SCORE_UART_ENABLE = 0` 时接**常量 0**（⭐ 即"这条通路关闭"，
             //        ⚠️ 与 2026-09-28 那版"禁用曲谱"的语义**逐位一致**）✅
-            .score_valid_i    (SCORE_UART_ENABLE ? eu_evt_valid : 1'b0),
-            .score_axis_i     (SCORE_UART_ENABLE ? score_evt_axis : 4'd0),
-            .score_phase_inc_i(SCORE_UART_ENABLE ? score_evt_inc  : 32'd0),
-            .score_velocity_i (SCORE_UART_ENABLE ? score_evt_vel  : 8'd0),
-            .score_kind_i     (SCORE_UART_ENABLE ? score_evt_kind : 2'd0),
+            //  ⭐⭐ 2026-10-11（`U-19`）：⭐ **源 = `play_seq` 的输出**（⛔ 不再是裸 `eu_evt_*`）✅
+            //     🔴 改前直连 `evt_uart_rx` ⇒ ⚠️ `tick` 被忽略 ⇒ **事件一到就响** ✅
+            .score_valid_i    (SCORE_UART_ENABLE ? ps_note_valid : 1'b0),
+            .score_axis_i     (SCORE_UART_ENABLE ? ps_evt_axis : 4'd0),
+            .score_phase_inc_i(SCORE_UART_ENABLE ? ps_evt_inc  : 32'd0),
+            .score_velocity_i (SCORE_UART_ENABLE ? ps_evt_vel  : 8'd0),
+            .score_kind_i     (SCORE_UART_ENABLE ? ps_evt_kind : 2'd0),
             //  ⭐⭐ 2026-09-29 新增（⭐ 用户需求）：⭐ **音色 sideband**
             //   ✅ 现在：⭐ 曲谱帧 `[8:7]` 的音色**照常**随事件走（⭐ 它本来就是这个用途）✅
             //   📌 looper 的音色**不再经过本口** —— ⭐ 它随源 C 走
             //      （⭐ `evt_merge.c_timbre_i` ⇒ `note_manager.evt_timbre_i`）✅
-            .score_timbre_valid_i(SCORE_UART_ENABLE ? score_evt_timbre_valid : 1'b0),
-            .score_timbre_i   (SCORE_UART_ENABLE ? score_evt_timbre : 2'd0),
+            .score_timbre_valid_i(SCORE_UART_ENABLE ? ps_evt_timbre_valid : 1'b0),
+            .score_timbre_i   (SCORE_UART_ENABLE ? ps_evt_timbre : 2'd0),
             // ── 源 3：演示（⭐ 自检和弦）—— ⚠️ 自动让位 ───────────────────
             .demo_valid_i     (demo_note_valid),
             .demo_axis_i      (demo_note_axis),
@@ -4011,7 +4499,27 @@ wire ovf_any;
         //        （⭐ `RESERVED_N = 5`）⇒ ⚠️ 两者同时响时抢 5 个 voice；
         //        ⭐ 且**手敲 + 鼓机同时**最多 5 音（⭐ 超了按池内分配策略丢）
         //        📌 缓解：⭐ 手敲鼓时用 `'B'` 关掉源 B ✅
-        wire [2:0]  src_a_src = key_drum_r ? 3'd3
+        //
+        //  ⭐⭐⭐⭐ 2026-10-11（`P1-59`）：⭐ **改标 `SRC_KDRUM(3'd5)`** —— ⭐ **⛔ 不再与源 B 共用** ✅
+        //
+        //  🔴🔴 **为什么必须改**（⭐ 审查 `[P1-59]`，⭐ 而上面那段注释**漏了这条**）：
+        //     ⭐ 上面只承认了"**共用保留池**"（⭐ 资源争用 ✅），
+        //     🔴 **没有承认"共用【标签】⇒ `(轴, 源)` 隔离失效"** —— ⭐ 那是**另一个、更严重的后果** ✅
+        //     ⭐ `note_manager` 的 `same_hit[sg] = (... ) && (axis_r[sg] == cur_axis)
+        //        && (src_r[sg] == cur_src)` ⇒ ⭐ **同轴 + 同源 ⇒ 判成"同一个键还在响"** ✅
+        //     🔴 而 `metronome.AXIS_ID = 14` · ⭐ `drum_gen.AXIS_ID = 15`
+        //        ⇒ ⭐ 打鼓模式下**轴 14/15 是真实键**（⭐ 踩镲）
+        //        ⇒ 🔴 **节拍器/鼓机每来一拍，就把用户在轴 14/15 那个 voice 改判/重触发** ✅
+        //        📌 ⭐ 而 `SEL_DRUM = 1`（**鼓机**）是**交付默认档** ✅
+        //     ⇒ ⭐ 症状：⭐ **打鼓模式下每来一拍，轴 14/15 的音被抢走/打断** ✅
+        //     ✅ **改标 5 之后**：⭐ `cur_src` 不同 ⇒ ⭐ `same_hit` 不命中
+        //        ⇒ ⭐ **各占各的 voice、互不打断** ✅
+        //        📌 ⭐ 而"**进保留池 + 走 perc 包络**"**照旧**（⭐ `note_manager` 已把
+        //           `SRC_KDRUM` 加进同一判据 ⇒ ⭐ 两处**同源派生**、⛔ 不会不一致 ✅）
+        //     📌 ⭐ **代价**：⭐ 源标记是 3 位、⭐ `0~4` 已用 ⇒ ⭐ **`5` 空闲** ⇒ ⭐ 零位宽代价 ✅
+        //     ⚠️ ⭐ **保留池仍共用**（⭐ `RESERVED_N = 5`）—— ⭐ 那一条**本条⛔ 不解决** ✅
+        //        （⭐ 它只是**资源争用**，⭐ 而"抢音"那条**已解决** ✅）
+        wire [2:0]  src_a_src = key_drum_r ? 3'd5
                               : ((SOURCE_A_SEL == 1) ? 3'd2 : sa_src);
 
         // ⭐⭐ 源 B 二选一（⭐ 节拍器 / 鼓机，⭐ `SEL_DRUM`，⭐ 默认节拍器）
@@ -4078,13 +4586,27 @@ wire ovf_any;
         wire [15:0] mg_merged_cnt;
         wire [15:0] mg_drop_cnt;
         wire        mg_overflow;
-//  ⭐⭐ 2026-10-09（P0-29）：⭐ **"丢事件/溢出"汇合**（⭐ 5 个源，⭐ 全部在此处之前已声明）✅
-//   📌 ⭐ 五个源：⭐ `ee_ovf`（event_extract，L3177）· ⭐ `sa_overflow`（seq_arb，L3614）
+//  ⭐⭐ 2026-10-09（P0-29）：⭐ **"丢事件/溢出"汇合**（⭐ 6 个源，⭐ 全部在此处之前已声明）✅
+//   📌 ⭐ 六个源：⭐ `ee_ovf`（event_extract，L3177）· ⭐ `sa_overflow`（seq_arb，L3614）
 //      · ⭐ `looper_overflow`（looper，L3738）· ⭐ `mg_overflow`（evt_merge，L4055）
-//      · ⭐ `txf_ovf`（uart_tx_fifo，L1124）✅
+//      · ⭐ `txf_ovf`（uart_tx_fifo，L1124）· ⭐⭐ **`eb_ovf`（`U-19` 曲谱缓冲，2026-10-11 新增）** ✅
 //   📌 ⭐ 这一位现在驱动 `fault_any_w` ⇒ ⭐ **心跳灯快闪** ✅
 //      ⇒ ⭐ 上板时"**刚才是不是丢了事件**"**终于可判定** ✅
-assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overflow | txf_ovf;
+//   ⭐⭐ 2026-10-11：⭐ **新增 `eb_ovf`** —— ⭐ 曲谱缓冲只有 **1024 条**（8 KB）
+//      ⇒ ⚠️ 若 PC 灌太快（⭐ 或"全曲一次性灌"）⇒ 🔴 **必然写满丢事件** ✅
+//      ⇒ ⭐ 现在**必须能看见**（⭐ `K-106`：⛔ 不许静默丢 ✅）
+//      📌 ⭐ 这也是"**必须滚动预灌**"的可观测证据：⭐ 全曲 92.6 KB ≫ 8 KB ✅
+//   ⭐⭐ `| eb_drop`（⭐ 那个**饱和计数**）**也** OR 进来 —— ⚠️ 它在逻辑上**与 `eb_ovf` 等价**
+//      （⭐ `ovf_clr_i` 在 `top.v` 里接 0 ⇒ ⭐ 两者同时置位、同时清零 ✅）
+//      📌 ⭐ 那为什么还要 OR：⭐ **纯粹为了给它一个消费者** ——
+//         🔴 否则综合会把"计数锥"整条剪掉（⭐ 这正是 `P0-29` 的教训：
+//            ⭐ **K-106 的观测线没有消费者 ⇒ 在交付位流里根本不存在** ✅）
+//      ⚠️ ⭐ 代价：⭐ 一个 16 位归约 OR ≈ 4 LUT（⭐ 换来"上板能看到**丢了几条**"✅）
+//   ⚠️ **诚实标注**：⭐ `eb_cnt`（深度）/ `eb_low`（低水位）在 `top.v` 里**暂无消费者**
+//      ⇒ ⭐ 它们**会被综合剪掉**（⭐ 可接受：⭐ 今天没有任何逻辑依赖它们；
+//      ⭐ 将来做**反向流控**时接上消费者即可自动复活 ✅）
+assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overflow
+               | txf_ovf | eb_ovf | (|eb_drop);
 
         //  ⭐⭐ 2026-09-30：⭐ **深度 4 → 6** —— ⭐ 因为**源从 2 个变成 3 个**（⭐ 多了源 C）
         //     🔴 **为什么**：⭐ 深度要按"**最坏在飞条数**"算（⭐ `evt_merge` 第一版的教训）——
@@ -5007,6 +5529,48 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
     wire        led_pattern_commit;
     wire        led_busy;
 
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-11：⭐ **LED 指引链复活 —— `guide_lamp` 接入** ✅
+    //
+    //  🔴 **改前（⭐ 诚实记录）**：⭐ `led_data.guide_key_i` 是**占位 `16'd0`**
+    //     ⇒ ⭐ "**该按哪个键**"那半**从来不工作**（⭐ 只有"正在响的键"亮 —— `P0-27` 修的）
+    //     ⚠️ 根因不是 `led_data` 写错，⭐ 而是**它的上游从未被例化** ✅
+    //
+    //  ⭐ **缺的那一环是什么**：⭐ `play_seq` 吐的是**音符事件**（64 bit），
+    //     ⚠️ 而 `led_data` 要的是 **16 位 one-hot 位图**（"哪个键该按"）
+    //     ⇒ ⭐ `guide_lamp` 就做这一层 **事件 → 位图** 转换（⭐ 它早已写好并验收过 ✅）
+    //     ⇒ ⭐ 而 `play_seq` 又必须先有 `U-19` 缓冲才能例化
+    //     ⇒ ⭐ **本行就是"三级依赖链"的最后一环** ✅
+    //        （⭐ `U-19 缓冲 ⇒ play_seq ⇒ guide_lamp ⇒ led_data.guide_key_i`）
+    //
+    //  ⭐ **为什么用 `guide_vis_o`（⭐ 消隐后）而⛔ 不是 `guide_key_o`**：
+    //     ⭐ `guide_vis_o = guide_key_o & ~key_active_i`（⭐ `P0-28` 修的）
+    //     ⇒ ⭐ **已经按下的键不再被指引** ⇒ ✅ 用户能分清"该按的"和"正在响的" ✅
+    //     📌 ⭐ 而 `key_active_i` 用的是**同一个 `ee_key_on`**（⭐ 与 `led_data` 同源）
+    //        ⇒ ⭐ 两边的"已按下"口径**必然一致** ✅
+    //
+    //  📌 ⭐ **闪烁**由 `led_data` 自己做（⭐ `blink_keys & blink_i`）——
+    //     ⚠️ `guide_lamp` 的 `blink_i` 端口**已删**（⭐ `P0-28`：⭐ 两处都做会变成 25% 占空比 ✅）
+    // ═══════════════════════════════════════════════════════════════════════
+    wire [15:0] gl_guide_vis;
+
+    guide_lamp #(
+        .EVT_W  (64),
+        .AXIS_N (16)
+    ) u_guide_lamp (
+        .clk_i          (clk),
+        .rst_n_i        (rst_n_sync),
+        //  ⭐ 来自 `g_sound.u_play_seq`（⭐ 模块级中间量 —— 跨 generate 作用域 ✅）
+        .note_valid_i   (ps_note_valid),
+        .note_data_i    (ps_note_data),
+        //  ⭐ 消隐用：⭐ 与 `led_data` **同一个源**（⭐ 保证口径一致 ✅）
+        .key_active_i   (ee_key_on),
+        //  ⚠️ 未消隐的原图**无消费者** ⇒ ⭐ 留空（⭐ 消隐后的那根才是要接的 ✅）
+        .guide_key_o    (),
+        .guide_commit_o (),
+        .guide_vis_o    (gl_guide_vis)
+    );
+
     // 逻辑图案层：键灯（16，CH 序）+ 状态灯（8）→ 24 bit
     led_data #(
         .KEY_N    (16),
@@ -5014,7 +5578,9 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
     ) u_led_data (
         .clk_i           (clk),
         .rst_n_i         (rst_n_sync),
-        .guide_key_i     (16'd0),            // ⭐ 占位：待 play_seq（甲）
+        //  ⭐⭐ 2026-10-11：⭐ **占位换成真源**（⭐ 原来写的是 `16'd0`）✅
+        //     ⇒ ⭐ **"该按哪个键"的指引灯从此真的会亮** ✅
+        .guide_key_i     (gl_guide_vis),
         //  ⭐⭐ 2026-10-09（`P0-27`）：⭐ **接真源**（⭐ 原来是占位 `16'd0`）✅
         //   ✅ `ee_key_on` = `event_extract.key_on[]` 的打包版（⭐ 模块级 wire）
         //   📌 ⭐ 这一接 ⇒ ⭐ 按键就亮（⭐ 16 个键灯复活）✅
@@ -5082,7 +5648,12 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
     //     📌 因此本行从 **11 个** 输入变成 **10 个**（⭐ 下面注释里的数字同步更正 ✅）
     (* syn_keep = 1 *) wire reserved_in_xor = ^{ctrl_col_i, enc_a_i, enc_b_i, enc_sw_i,
                                                 pedal_loop_rec_i,
-                                                pedal_loop_play_i, esp_uart_rx_i};
+                                                pedal_loop_play_i};
+    //  ⭐⭐ 2026-10-11：⭐ **`esp_uart_rx_i` 已从本行【摘掉】** ✅
+    //     ⭐ 依据本文件 `:5390` 自己写明的接入纪律：
+    //        *"输入侧还要把它从 `reserved_in_xor` 里摘掉（交给新逻辑消费）"* ✅
+    //     ⭐ 它现在的消费者 = `u_uart_rx_esp` ⇒ ⭐ **曲谱接收器** ✅
+    //     📌 因此本行从 **10 个** 输入变成 **9 个** ✅
 
     (* syn_keep = 1 *) reg  reserved_in_r;
     always @(posedge clk) begin
@@ -5093,7 +5664,12 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
     // ── 9 个预留输出 · 常量驱动（⭐ 明确电平，⛔ 不是 `x`）────────────────────
     assign ctrl_row_o    = 4'b0000;   // ⭐ 矩阵行全 0 = 不扫描（⛔ 不给高：⚠️ 同列两键会推挽）
     // ⭐ `ctrl_ws_o` 已由 `u_ws2812` 驱动（⭐ 见下方 §WS2812）—— ⛔ 常量驱动行已删除
-    assign esp_uart_tx_o = 1'b1;      // 🔴 UART 空闲 = 高（⭐ 给 0 = 一直 break）
+    //  ⭐⭐ 2026-10-11：⭐ **`esp_uart_tx_o` 的常量驱动行【已删除】** ✅
+    //     ⭐ 依据本文件 `:5390` 的接入纪律：*"接入功能逻辑时 ⇒ ⭐ **必须删掉该端口
+    //        在这里的驱动行**（⛔ 否则**多驱动** ⇒ 综合报错）"* ✅
+    //     ⭐ 它现在由 `u_uart_tx_esp` 驱动（⭐ 与板载口镜像同一份回包 ✅）
+    //     📌 ⭐ **原值 `1'b1`（UART 空闲高）** —— ⚠️ 现在由 `uart_tx` 自己保证
+    //        （⭐ 它空闲时输出高 ✅）⇒ ⭐ **行为等价、⛔ 不再有 break 风险** ✅
     // ═══════════════════════════════════════════════════════════════════════
     // ⭐ WS2812 · 控制板灯带驱动（2026-10-03 接入）
     //
