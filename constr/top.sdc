@@ -127,5 +127,21 @@ create_generated_clock -name pixel_clk -source [get_ports {clk}] -master_clock c
 #    ② Timing Exceptions Report 确认 max-delay 真正覆盖目标锥（⛔ 不能只看 Fmax 汇总）；
 #    ③ 对**同一份 PnR 结果**按 nominal 口径复算 Fmax 与四类 slack。
 # ═════════════════════════════════════════════════════════════════════════════
-set_max_delay -from [get_clocks {clk_sys}] -to [get_clocks {clk_sys}] 18.181
+#  ⭐⭐ 2026-10-10：⭐ **过约束实验** —— 18.181 → **17.0**（55.0 → 58.8 MHz）✅
+#   📌 **为什么**：⭐ 原 `18.181 ns` 是**目标**，⛔ 不是能力 ——
+#      ⭐ 工具**只要满足它就停手** ✅ ⇒ ⭐ 报告 Fmax 恰好 ≈ 55 MHz ✅
+#      ⭐ 最差 slack 只剩 **+0.028 ns** ⇒ ⭐ **余量薄是"没让它更拼"造成的** ✅
+#   ✅ **收紧到 17.0 ns** ⇒ ⭐ 工具更努力 ⇒ ⭐ 报告 Fmax 涨 + ⭐ 真实余量变厚 ✅
+#   ⚠️ **代价**：⭐ PnR 时间可能变长 · ⭐ 若不收敛 ⇒ ⭐ 回退 ✅
+#   📌 ⭐ 参考：⭐ 本项目历史最高 `Fmax = 60.784 MHz` ⇒ ⭐ 58.8 是**可达的** ✅
+#  ⭐⭐ 2026-10-10：⭐ **过约束标定实验（⭐ 第 2 次：17.0 → 17.8）** ✅
+#   📌 **两次实验的数据**：
+#      · ⭐ 目标 `18.181 ns`（55.0 MHz）⇒ ⭐ 实测 `Fmax 55.087` · ⭐ slack **+0.028** · ⭐ 0 违例 ✅
+#      · ⭐ 目标 `17.0 ns`（58.8 MHz）⇒ ⭐ 实测 `Fmax 57.203` · ⭐ slack **−0.481** · 🔴 14 违例 ❌
+#   ⇒ ⭐ **设计的真实上限 ≈ 57.2 MHz** ✅（⭐ 17.48 ns ✅）
+#   ⇒ ⭐ **18.181 那个目标【太松】** —— ⭐ 工具一到就收工 ⇒ ⭐ 余量只有 +0.028 ✅
+#   ✅ **取 17.8 ns**（56.2 MHz ✅）—— ⭐ 比上限低 ~1 MHz，⭐ 留收敛余量 ✅
+#      ⇒ ⭐ 工具会干到接近极限 ⇒ ⭐ **相对 50 MHz 时钟的真实余量 ≈ 20 − 17.8 = +2.2 ns** ✅
+#   📌 ⭐ 这是**唯一**能真抬余量的杠杆（⭐ PnR 是确定性的 ⇒ ⭐ "重跑抽签"无效 ✅）
+set_max_delay -from [get_clocks {clk_sys}] -to [get_clocks {clk_sys}] 17.8
 set_max_delay -from [get_clocks {clk_sys}] -to [get_regs {u_hdmi/u_scope/gray_launch_*_s0 u_hdmi/u_scope/full_launch_s0}] 10.000

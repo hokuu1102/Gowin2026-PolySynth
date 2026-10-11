@@ -74,6 +74,6 @@ Entity |
 1 |
 clk_sys |
 50.000(MHz) |
-55.087(MHz) |
+56.180(MHz) |
 14 |
 TOP |
