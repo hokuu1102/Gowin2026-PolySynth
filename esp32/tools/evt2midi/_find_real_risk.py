@@ -32,20 +32,32 @@ def truth(evs):
     return [e.tick for e in evs if e.tick is not None]
 
 
-def case(name, data, expect_ticks):
-    _, st = parse_stream(data)
-    evs, _ = parse_stream(data)
+def case(name, data, expect_sm, expect_nv=None, note=""):
+    """
+    ⭐ 对照跑一遍：⭐ **状态机（本工具）** vs **扫描式（无校验）**。
+
+    ⚠️ 2026-10-01（加固）：⭐ `expect_sm` 与 `expect_nv` **分开给** ——
+       🔴 旧版两边共用一个期望值 ⇒ ⚠️ 于是"**状态机正确地拒收坏帧**"
+       会被打成 RED（🔴 把**正确行为**当成失败），⭐ 结论就反了。
+       ⭐ 正确的期望：⭐ **被破坏的那一帧，数据真的丢了** ⇒
+       状态机应当**只报出剩下的好帧 + 坏帧计数**，⛔ 而不是"还原"出原始值。
+    """
+    if expect_nv is None:
+        expect_nv = expect_sm
+    evs, st = parse_stream(data)
     nv = naive_scan(data)
     got_sm = truth(evs)
     got_nv = [k for _, k in nv]
-    sm_ok = got_sm == expect_ticks
-    nv_ok = got_nv == expect_ticks
+    sm_ok = got_sm == expect_sm
+    nv_ok = got_nv == expect_nv
     print("  %-42s 状态机 %s   扫描式 %s"
           % (name, "OK " if sm_ok else "RED", "OK " if nv_ok else "RED"))
     if not nv_ok:
-        print("       扫描式拿到 %s（期望 %s）" % (got_nv, expect_ticks))
+        print("       扫描式拿到 %s（期望 %s）" % (got_nv, expect_nv))
     if not sm_ok:
-        print("       状态机拿到 %s（期望 %s）" % (got_sm, expect_ticks))
+        print("       状态机拿到 %s（期望 %s）" % (got_sm, expect_sm))
+    if note:
+        print("       ⭐ %s" % note)
     return sm_ok, nv_ok
 
 
@@ -71,15 +83,20 @@ def main():
 
     print("\n【C】丢一个字节（⭐ 真实链路会发生的）")
     # ⭐ 丢掉第 1 帧的第 3 个字节 ⇒ 流错位
+    # ⚠️ 这一帧的数据**真的被破坏了** ⇒ ⭐ 期望：状态机只留【剩下的好帧】+ 坏帧计数
     broken = f1[:3] + f1[4:] + f2
-    case("C1 帧内丢 1 字节", broken, [1000, 2000])
+    case("C1 帧内丢 1 字节", broken, [2000], [256003],
+         "🔴 扫描式输出 256003（⚠️ 看似合理，⭐ 其实那帧已经坏了）")
     # ⭐ 整帧丢头字节
     broken2 = f1[1:] + f2
-    case("C2 帧头被吞", broken2, [2000])
+    case("C2 帧头被吞", broken2, [2000], [2000],
+         "⭐ 两边都只剩第二帧（⭐ 第一帧的头没了，谁也认不出来）")
 
     print("\n【D】帧内混入一个 0xA5（⭐ 模拟位翻转）")
     flip = bytearray(f1); flip[6] = 0xA5   # tick 中间
-    case("D1 载荷被翻成 0xA5", bytes(flip) + f2, [1000, 2000])
+    case("D1 载荷被改成 0xA5", bytes(flip) + f2, [2000], [933, 2000],
+         "🔴 **933 就是这里来的** —— ⭐ 扫描式拿错位数据当帧头，"
+         "读出 933（⚠️ 看起来像个正常值，⭐ 但它是错的）")
 
     print("\n【E】ASCII 与帧交错")
     case("E1 ASCII 夹在中间", f1 + b"st" + f2, [1000, 2000])
@@ -88,14 +105,20 @@ def main():
     print("结论（⭐ 用数据说话）")
     print("=" * 78)
     print("""
-⭐ A/B/D/E：扫描式【也能对】——
+⭐ A/B/E：两边【都能对】——
    ⚠️ 因为"见 0xA5 就吃 14 字节"**不会去检查帧内载荷**，
       载荷里的 0xA5 被【整帧跳过】了。
    🔴 ⇒ **我原来那条"载荷含 0xA5 会让扫描式失步"的说法【是错的】**。
 
-🔴 C：**只有【丢字节】才会失步** —— 而这时：
-   · 扫描式 会拿错位的数据当帧 ⇒ 输出**看似合理但内容是错的**
-   · 状态机 也恢复不了，⭐ **但它能靠【校验】把坏帧计数报出来**
+🔴 C/D：**真正的问题是"坏数据伪装成好数据"** ——
+   · ⭐ 扫描式（无校验）：⭐ **照样输出一个数**（C1 得 256003、D1 得 **933**），
+     🔴 而且**它没有任何办法知道自己错了**（⚠️ 这才是最危险的）
+   · ⭐ 状态机（本工具）：⭐ **拒收坏帧 + 计数**，⭐ 只输出能确认的好帧
+     ⚠️ 它**救不回**被破坏的那一帧（数据真的丢了），
+     ⭐ 但它**会告诉你丢了** ⇒ 🔴 这就是"可判"与"不可判"的差别
+
+📌 一句话：🔴 **风险不是"失步"（那你看得出来），而是"错值看起来正常"（你看不出来）。**
+   ⇒ ⭐ 所以本工具的核心是 **校验 + 坏帧记账**，⭐ 而不是"怎么找帧头"。
 """)
     return 0
 

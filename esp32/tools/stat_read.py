@@ -157,7 +157,7 @@ async def run(do_json, scan_to):
         print("字段数：%d" % len([k for k in d if not k.startswith("_")]))
         print()
         if ok:
-            print("✅ 结构完整（六组 + 关键字段都在）")
+            print("✅ 结构完整（八组 + 关键字段都在）")
         else:
             print("🔴 结构有问题：")
             for p in problems:
@@ -190,7 +190,7 @@ def selftest():
             "frame=total=200 tf=1 rst=4 unk=0\n"
             "cmd=ok2 unk1\n")
     d = parse_stat(good)
-    chk("① 六组全在", check(d)[0], "  问题=%s" % (check(d)[1] or "无"))
+    chk("① 八组全在", check(d)[0], "  问题=%s" % (check(d)[1] or "无"))
     chk("① pool.sent = 200", d.get("pool.sent") == "200")
     chk("① ble.mtu = 517", d.get("ble.mtu") == "517")
     chk("① ble.rx = 1845（⭐ rx 无 = 号）", d.get("ble.rx") == "1845")

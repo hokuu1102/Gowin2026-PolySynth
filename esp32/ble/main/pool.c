@@ -126,6 +126,27 @@ static uint32_t  s_tick_inc = BLE_POOL_DEFAULT_TICK_INC;
 static uint32_t  s_t0_tick = 0;
 static int64_t   s_t0_us   = 0;
 static bool      s_running = false;
+
+/* 提前量门控的【一次性】阈值（谱面 tick）
+ * ---------------------------------------------------------------------------
+ * 2026-10-01 修 bug 新增。原来的门控写的是：
+ *     uint64_t lead_end = (uint64_t)s_t0_tick + BLE_POOL_LEAD_TICKS;
+ *     if (elapsed_ticks > lead_end) { ... }
+ * 它把【已过 tick 数】(elapsed_ticks，一个"时长") 与【锚点的谱面 tick 位置】
+ * (s_t0_tick，一个"位置") 相加后比大小 —— 量纲混了。
+ *
+ * 起播时 s_t0_tick = 首帧 tick（真谱面为 0）=> 恰好等价于 "elapsed > LEAD"，
+ * 所以这个混用一直没暴露。但【中段换速】会把 s_t0_tick 重锚成一个很大的位置
+ * => 门控变成 "elapsed > 该位置 + LEAD"，而 elapsed 同时被重置为 0
+ * => 在歌曲剩余时间里【不可满足】=> 喂水停住。
+ *
+ * 实测预测（09_Conjurer，第 2 条 tempo 在 tick=414720，谱面总长 814080）：
+ *     sent 会停在 7445（tick<=414720 的事件数），停约 226 秒。
+ *
+ * 修法：门控改用这个【在 pool_start 时算一次】的常量阈值，与重锚解耦。
+ * 行为等价性：真谱面首帧 tick=0 => 新旧门控在起播段【逐位相同】。
+ */
+static uint64_t  s_lead_end = 0;
 /* ⭐⭐ "这一曲【自然放完】了"—— 一次性标志，⭐ 由消费方取走（take）
  * ---------------------------------------------------------------------------
  * 🔴 为什么需要它（2026-10-01 新增）：
@@ -294,7 +315,8 @@ static void pool_free(void)
  * 🔴 根因：`pool_pump()` 传进来的是**绝对经过时间**
  *    （`now_us - s_t0_us`，⭐ 起播后可能十几秒），
  *    ⚠️ 而这里把它**夹到 500 ms** ⇒ `elapsed_ticks` **最大只有 960**
- *    ⇒ 🔴 而放水要求 `elapsed_ticks > lead_end = s_t0_tick + 20000`
+ *    ⇒ 🔴 而放水要求 `elapsed_ticks > lead_end`（当时写作 `s_t0_tick + 20000`；
+ *       ⚠️ 那个写法本身还有【第二个】缺陷，见 `s_lead_end` 的注释，2026-10-01 已修）
  *    ⇒ ⚠️ **21000 vs 960 ⇒ 数学上永远达不到** ⇒ `allow_emit` 恒 false。
  *
  * ⭐⭐ 两个量纲本来就矛盾：
@@ -460,6 +482,8 @@ void pool_start(void)
     s_play_idx = 0;
     s_t0_tick  = (uint32_t)ev_tick(pool_peek_word(0));
     s_t0_us    = esp_timer_get_time();
+    /* 提前量门控的阈值：只在这里算一次，此后【不随换速重锚而变】 */
+    s_lead_end = (uint64_t)s_t0_tick + (uint64_t)BLE_POOL_LEAD_TICKS;
     s_running  = true;
     xSemaphoreGive(s_lock);
     ESP_LOGW(TAG, "pool START from tick=%lu at t0_us=%lld",
@@ -589,9 +613,16 @@ void pool_pump(void)
      *    它同时表示"先不发"和"允许发 tick <= 0 的帧"，
      *    ⚠️ 于是"首帧 tick 恰好是 0"时行为取决于巧合。
      * ⭐ 现在用一个显式布尔，⛔ 不靠 due_tick 的取值去暗示。 */
-    uint64_t lead_end = (uint64_t)s_t0_tick + BLE_POOL_LEAD_TICKS;
-    if (elapsed_ticks > lead_end) {
-        due_tick   = (int64_t)(s_t0_tick + elapsed_ticks - BLE_POOL_LEAD_TICKS);
+    /* ⭐ 当前位置（谱面 tick）。用【当前】s_tick_inc 换算，且在换速改
+     *    s_tick_inc 之前算好 —— 换速重锚要靠它保持位置连续（见下方换速段）。 */
+    int64_t pos_now = (int64_t)s_t0_tick + (int64_t)elapsed_ticks;
+
+    /* 🔴 2026-10-01 修 bug：门控原来写 `elapsed_ticks > s_t0_tick + LEAD`，
+     *    把"时长"与"位置"混着比。起播时 s_t0_tick=0 恰好等价，但中段换速
+     *    重锚成一个大位置后条件不可满足 => 喂水停住（详见 s_lead_end 的注释）。
+     *    ⭐ 现在比【位置】：pos_now > s_lead_end（一次性阈值）。 */
+    if (pos_now > (int64_t)s_lead_end) {
+        due_tick   = pos_now - (int64_t)BLE_POOL_LEAD_TICKS;
         allow_emit = true;
     } else {
         due_tick   = 0;
@@ -702,8 +733,14 @@ void pool_pump(void)
             ESP_LOGI(TAG, "tempo @tick=%lu -> tick_inc=%lu (time base re-anchored)",
                      (unsigned long)tick, (unsigned long)inc);
 
-            /* ⭐ 重锚：本帧 tick 作为新原点，时刻取当下 */
-            s_t0_tick = tick;
+            /* ⭐ 重锚：把【当前音乐位置】作为新原点，时刻取当下。
+             * 🔴 2026-10-01 修 bug：原来写的是 `s_t0_tick = tick`（本帧自己的 tick），
+             *    而 due_tick = 位置 - 提前量 ⇒ 本帧 tick 比【真实位置】小了整整
+             *    一个提前量 ⇒ 重锚会把位置【往回拉 20000 tick】⇒ 门控随之
+             *    不可满足 ⇒ 喂水停住（实测预测见 s_lead_end 的注释）。
+             *    ⭐ 正确做法：用 pos_now（换速前、用旧 tick_inc 算好的当前位置）
+             *    ⇒ 位置【连续】⇒ due_tick 既不跳增（突发灌水）也不跳降（停发）。 */
+            s_t0_tick = (uint32_t)pos_now;
             s_t0_us   = now_us;
 
             /* ⚠️ 重锚后 due_tick 从头算，所以本帧必须【立刻发出去】，

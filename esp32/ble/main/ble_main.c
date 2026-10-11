@@ -361,7 +361,7 @@ static void ind_set(bool connected)
  */
 static void cmd_report_status(void)
 {
-    /* ⭐⭐ 2026-10-01（任务 2）：从"一行短文本"扩展成**六组完整状态**
+    /* ⭐⭐ 2026-10-01（任务 2）：从"一行短文本"扩展成**八组完整状态**
      * -----------------------------------------------------------------------
      * 🔴 为什么扩：⚠️ 原来只有 `pool/sent/ovf/ring/u_drop` 几项
      *    ⇒ 🔴 **上位机看不到**：CMD 计数、环的 hwm/full、BLE 的 fail、
@@ -1055,7 +1055,7 @@ static void task_drain(void *arg)
  * ⭐ 三种触发（编译期由 `BLE_START_TRIGGER` 选，见 `ble_config.h` §9c）：
  *    · SERIAL —— 从 UART1 RX 收单字符（⭐ 默认，⛔ 无需接线）
  *                ⚠️ 解析点在 `task_uart_to_ble()` 里（⭐ 那个任务已持有读口）
- *    · GPIO   —— 板载 BOOT 键（`GPIO0`），⭐ 见 `task_start_trigger()`
+ *    · GPIO   —— 外接按键（⭐ `BLE_BTN_GPIO`；⚠️ **2026-09-30 起是 `GPIO6`，⛔ 不是板载 BOOT 键 `GPIO0`**），⭐ 见 `task_start_trigger()`
  *    · NONE   —— 关闭
  * =========================================================================== */
 
@@ -1315,7 +1315,8 @@ static void task_status(void *arg)
 /* ===========================================================================
  * 起播触发的 GPIO 变体（⭐ 仅 `BLE_START_TRIGGER == GPIO` 时编译）
  * ===========================================================================
- * ⚠️ 用板载 BOOT 键（`GPIO0`，低有效）。
+ * ⚠️ 用**外接按键**（⭐ 低有效）：⭐ 引脚 = `BLE_BTN_GPIO`
+ *    （⚠️ **2026-09-30 起是 `GPIO6`**，🔴 ⛔ **不是**板载 BOOT 键 `GPIO0`）。
  * ⭐ 轮询 + 消抖（⛔ 不用中断，⭐ 省事且够用）。
  * ⚠️ `BLE_BTN_POLL_MS` / `BLE_BTN_DEBOUNCE_MS` 都 ≥ 10 ms，
  *    ⛔ 不会被 `pdMS_TO_TICKS` 塌成 0（⭐ 见 ble_config.h §9b 的教训）。

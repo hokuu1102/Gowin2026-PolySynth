@@ -24,6 +24,7 @@ screen_demo.py —— ⭐ 完整上屏演示：⭐ 你盯屏看，我同时【�
 
 import argparse
 import asyncio
+import os
 import re
 import struct
 import sys
@@ -39,9 +40,22 @@ for _n in ("stdout", "stderr"):
 import serial
 from bleak import BleakClient, BleakScanner
 
+# 位域与帧层常量：唯一真源在 score_word.py（2026-10-01 起）
+# 本文件原来自己拼位域，用的是 2026-09-22 修订【之前】的旧布局：
+#     inc<<22(22bit) / axis<<18 / vel 7bit / timbre<<8(1bit)
+# 而 FPGA(rtl/top.v:3594-3616) 与固件(ble/main/pool.c:60-63) 都用新布局：
+#     inc[43:23](21bit) / axis[22:19] / vel[18:11](8bit) / timbre[8:7](2bit)
+# => 本文件发出去的谱面，FPGA 会解出 inc>>1（低一个八度），且 inc 的最低位
+#    会渗进 axis 字段把轴号污染。ESP32 侧固件只读 tick/kind（两个布局相同），
+#    所以本文件的错误一直没被本地测试发现。
+_HERE = os.path.dirname(os.path.abspath(__file__))
+if _HERE not in sys.path:
+    sys.path.insert(0, _HERE)
+import score_word as SW          # noqa: E402
+
 CMD = "0000abf3-0000-1000-8000-00805f9b34fb"
 RECV = "0000abf1-0000-1000-8000-00805f9b34fb"
-FRAME = 9
+FRAME = SW.FRAME_BYTES
 DEV = "FPGA2026-Synth"
 LOG_PORT = "COM29"
 RX_RE = re.compile(r"screen -> ESP32: \d+ B .*?\[([0-9A-Fa-f ]+)\]")
@@ -101,10 +115,10 @@ def build_score(n, step=24):
         tick = i * step
         freq = SCALE[(i // 8) % len(SCALE)]
         inc = phase_inc(freq)
-        word = ((tick & 0xFFFFF) << 44) | ((inc & 0x3FFFFF) << 22) | \
-               ((0 & 0xF) << 18) | ((90 & 0x7F) << 11) | \
-               ((0 & 0x3) << 9) | ((0 & 0x1) << 8)
-        out += bytes([0xA5]) + word.to_bytes(8, "big")
+        # 位域由 score_word.pack_word 统一负责（唯一真源，与 FPGA 逐位一致）
+        word = SW.pack_word(tick=tick, inc=inc, axis=0, vel=90,
+                            kind=SW.KIND_ON, timbre=0)
+        out += SW.frame_from_word(word)
     return bytes(out)
 
 
@@ -346,7 +360,16 @@ def selftest():
     #   ⭐ f = inc × 50e6 / 2³² ⇒ A4=440 ⇒ inc = 440 × 2³² / 50e6 ≈ 37796
     inc440 = phase_inc(440.0)
     chk("⭐ A4=440Hz ⇒ inc ≈ 37796", abs(inc440 - 37796) <= 1, "  %d" % inc440)
-    chk("⭐ inc 不超 22 位（字段宽度）", inc440 < (1 << 22))
+    # ⭐ 2026-10-01 修正：原来写的是 `< (1 << 22)`，那是 2026-09-22 修订【之前】的
+    #    字段宽度。新布局 inc 是 [43:23] = 21 bit。而且这里必须真的验证
+    #    "inc 装进字里之后，按 FPGA 的切片能原样解回来" —— 光比大小抓不住漂移。
+    chk("⭐ inc 不超 21 位（新布局 [43:23]）", inc440 < (1 << 21), "  %d" % inc440)
+    _w = SW.pack_word(tick=0, inc=inc440, axis=0, vel=90,
+                      kind=SW.KIND_ON, timbre=0)
+    chk("⭐ inc 打包后按 FPGA 切片解回原值",
+        SW.unpack_word(_w)["inc"] == inc440,
+        "  解回 %d" % SW.unpack_word(_w)["inc"])
+    chk("⭐ 保留位为 0（契约）", SW.reserved_bits(_w) == 0)
     # ⭐ 非空洞性：⭐ 不同频率必须给不同 inc
     chk("⭐⭐ 非空洞：A5=880 ⇒ inc 约为 A4 的两倍",
         abs(phase_inc(880.0) - 2 * inc440) <= 2,

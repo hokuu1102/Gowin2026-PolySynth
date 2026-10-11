@@ -73,6 +73,16 @@ FRAME_LEN_BY_TYPE = {
     T_TABLESYNC: 68,
 }
 
+# ⭐⭐ 2026-10-01（加固）：**已知类型的白名单** —— ⚠️ 这是"未知类型必须拒收"的依据。
+# 🔴 为什么需要它：⚠️ `frame_len_for()` 对未知类型会**回退到 14**
+#    ⇒ 🔴 若解析器只靠它定长，一个**未知类型**的帧会被当成 14 B 音符帧**照收**
+#    ⇒ ⭐ 那就等于"把不理解的东西当理解了的用"（⭐ 与"坏帧伪装成合理值"同族）。
+#    ⇒ ⭐ 所以解析器**必须先查白名单**：⛔ 不在白名单 ⇒ 拒收 + 计数，⛔ 不猜长度。
+KNOWN_TYPES = frozenset(FRAME_LEN_BY_TYPE)
+
+# ⭐ 最长帧（⭐ 用于定重同步窗口 —— ⚠️ 窗口必须能跨过一整个被损坏的表帧）
+MAX_FRAME_LEN = max(FRAME_LEN_BY_TYPE.values())
+
 # ---- 音符类帧的字段偏移（⭐ 大端）------------------------------------------
 OFF_TYPE = 1
 OFF_SEQ = 2
@@ -96,6 +106,23 @@ TABLESYNC_TABLE_NAMES = {TABLESYNC_TABLE_KB: "kb(键盘)",
 def frame_len_for(ftype):
     """⭐ 按类型取帧长；⚠️ 未知类型回退到 14 B（⭐ 调用方会把它计为 bad_type）。"""
     return FRAME_LEN_BY_TYPE.get(ftype, FRAME_LEN_DEFAULT)
+
+
+def frame_len_known(ftype):
+    """
+    ⭐⭐ 2026-10-01（加固）：**严格版** —— ⚠️ 未知类型返回 `None`，⛔ 不猜长度。
+
+    🔴 为什么必须有两个版本：
+       · `frame_len_for()`  ⚠️ 给"造帧/兼容旧代码"用 —— ⭐ 未知类型回退 14
+       · `frame_len_known()` ⭐ 给**解析器**用 —— ⭐ 未知类型必须能被识别出来
+    ⚠️ 解析器若用前者，就会**把未知类型当 14 B 音符帧收下** ⇒ 🔴 静默错误。
+    """
+    return FRAME_LEN_BY_TYPE.get(ftype)
+
+
+def is_known_type(ftype):
+    """⭐ 该类型码在白名单里吗？（⭐ 解析器判"未知类型"就靠它）"""
+    return ftype in KNOWN_TYPES
 
 
 def frame_checksum(b):
@@ -125,15 +152,37 @@ def is_ascii_byte(b):
 
 def parse_frame(f):
     """
-    ⭐ 把**一个完整帧**（长度已由 `frame_len_for` 定好）解成 dict。
+    ⭐ 把**一个完整帧**解成 dict。
 
     ⚠️ 调用方负责：① 长度够 ② 校验已过。⭐ 本函数**不做校验**（⭐ 职责单一）。
+
+    ⭐⭐ 2026-10-01（加固）：**本函数现在会【拒收】明显不合法的输入**（⭐ 抛 `ValueError`）：
+      · 长度 < 2                  ⇒ ⚠️ 连"类型字节"都没有
+      · `f[0] != FRAME_HDR`       ⇒ ⚠️ 不是帧头
+      · 类型**不在白名单**         ⇒ 🔴 未知类型 ⛔ 不猜布局（⭐ 旧版会按 14 B 瞎解）
+      · 长度 **≠ 该类型的帧长**    ⇒ 🔴 半帧 / 错位（⭐ 旧版会 `IndexError` 或读出垃圾）
+
+    🔴 为什么必须"抛错"而⛔ 不是"尽量解"：
+       ⚠️ 一位翻转会让字段变成**看起来正常**的值（⭐ 实测 933）
+       ⇒ ⭐ 只要还有一条路径能把坏数据解成"合理值"，🔴 那个风险就还在。
 
     返回 dict，⭐ 字段随类型不同：
       · 音符类：`type/seq/tick/axis/inc/vel`
       · 表同步：`type/table/items`（⭐ 16 个 32 位增量）
     """
-    ftype = f[OFF_TYPE]
+    if len(f) < 2:
+        raise ValueError("帧太短：%d 字节（⛔ 连类型字节都没有）" % len(f))
+    if f[0] != FRAME_HDR:
+        raise ValueError("帧头错：0x%02X（⭐ 应为 0x%02X）" % (f[0], FRAME_HDR))
+
+    ftype = f[1]
+    want = frame_len_known(ftype)
+    if want is None:
+        raise ValueError("未知类型 0x%02X（⭐ ⛔ 不猜长度，拒收）" % ftype)
+    if len(f) != want:
+        raise ValueError("长度不符：类型 0x%02X 应为 %d B，实为 %d B（⚠️ 半帧/错位）"
+                         % (ftype, want, len(f)))
+
     if ftype == T_TABLESYNC:
         items = []
         for k in range(TABLESYNC_ITEMS):
@@ -200,6 +249,18 @@ def selftest():
         print("  %-46s %s%s" % (name, "OK" if cond else "RED", extra))
         ok = ok and cond
 
+    def _raises(fn, *a, **kw):
+        """
+        ⭐⭐ 加固用的判据：⭐ "**必须抛错**"。
+        ⚠️ 为什么需要它：🔴 旧版只能断言"解出来的值不同" ——
+           ⚠️ 那只说明"会读错"，⭐ 而**不禁止**读错 ⇒ 🔴 弱断言。
+        """
+        try:
+            fn(*a, **kw)
+            return False
+        except ValueError:
+            return True
+
     print("\n[1] ⭐ 常量自洽")
     chk("   帧头 = 0xA5", FRAME_HDR == 0xA5)
     chk("   帧头【不是】ASCII（⭐ 模式可辨的前提）", not is_ascii_byte(FRAME_HDR))
@@ -207,6 +268,13 @@ def selftest():
     chk("   表帧   = 68 B", frame_len_for(T_TABLESYNC) == 68)
     chk("   68 = 1+1+1+16×4+1", 1 + 1 + 1 + TABLESYNC_ITEMS * TABLESYNC_ITEM_BYTES + 1 == 68)
     chk("   未知类型回退 14", frame_len_for(0x7F) == FRAME_LEN_DEFAULT)
+    # ⭐⭐ 2026-10-01（加固）：⭐ 白名单 / 严格长度
+    chk("   白名单恰为 5 类", len(KNOWN_TYPES) == 5, "  %s" % sorted(KNOWN_TYPES))
+    chk("   0x10 在白名单里", is_known_type(T_TABLESYNC))
+    chk("   0x7F ⛔ 不在白名单里", not is_known_type(0x7F))
+    chk("   frame_len_known(0x10) = 68", frame_len_known(T_TABLESYNC) == 68)
+    chk("   frame_len_known(未知) = None（⭐ ⛔ 不猜）", frame_len_known(0x7F) is None)
+    chk("   MAX_FRAME_LEN = 68", MAX_FRAME_LEN == 68)
 
     print("\n[2] ⭐ 构造 → 解析 往返（⭐ 音符帧）")
     fr = build_frame(T_NOTE_ON, seq=5, tick=0x0000B000, axis=9, inc=37796, vel=200)
@@ -249,17 +317,50 @@ def selftest():
     print("\n[5] ⭐⭐ 反例（非空洞性）：改坏必须被发现")
     bad = bytearray(fr); bad[-1] ^= 0xFF
     chk("   坏校验被识别", frame_checksum(bytes(bad)) != bad[-1])
+    # ⭐⭐ 2026-10-01（加固）：⭐ 上面那条**抓不住"校验恒为常数"** ——
+    #    🔴 若 `frame_checksum` 恒返回 0，`build_frame` 也会写 0 ⇒
+    #    ⚠️ "校验对"与"坏校验被识别"**都会绿** ⇒ 🔴 常数校验**伪装成通过**。
+    #    ⭐ 修法：⭐ 直接验"**对每一处单比特翻转都敏感**"（⭐ 常数函数必被抓）。
+    _insensitive = 0
+    for _pos in range(len(fr) - 1):          # ⚠️ 排除校验字节本身
+        for _bit in (0x01, 0x40, 0x80):
+            _t = bytearray(fr)
+            _t[_pos] ^= _bit
+            if frame_checksum(bytes(_t)) == frame_checksum(fr):
+                _insensitive += 1
+    chk("   校验对每一处单比特翻转都敏感（⭐ 常数校验会被抓）",
+        _insensitive == 0, "  不敏感 %d 处" % _insensitive)
+    chk("   校验不是常数（⭐ 至少两种取值）",
+        len({frame_checksum(fr), frame_checksum(tf)}) == 2)
     bad2 = bytearray(fr); bad2[OFF_TICK] ^= 0x01
     chk("   翻 tick 一位 ⇒ 解出的 tick 确实变了",
         parse_frame(bytes(bad2))["tick"] != 0x0000B000,
         "  变后=0x%X" % parse_frame(bytes(bad2))["tick"])
     chk("   错期望值会被判红（⭐ 非空洞）", parse_frame(fr)["tick"] != 0x12345)
+
     # ⭐⭐ 关键：⭐ 若把表帧当 14 B 音符帧解 ⇒ ⭐ 一定读错
     #    ⭐ 这条把"长度必须按类型取"这个结论【钉死】
-    as_note = parse_frame(bytes(tf[:14]))
-    correct = parse_frame(tf)
-    chk("   表帧按 14 B 解 ⇒ 结果与正确解不同（⭐ 证明长度必须分类型）",
-        as_note != correct)
+    #    ⚠️ 2026-10-01（加固）：⭐ 旧版这里是"解出来结果不同" ——
+    #       🔴 那是**弱断言**：它只说明"会读错"，⭐ 而**不禁止**读错。
+    #       ⭐ 现在 `parse_frame` 会**直接拒收** ⇒ ⭐ 断言改成"必须抛错"（⭐ 强得多）。
+    chk("   表帧按 14 B 解 ⇒ 被【拒收】（⭐ 长度必须分类型）",
+        _raises(parse_frame, bytes(tf[:14])))
+
+    print("\n[6] ⭐⭐ 加固：不合法的输入必须【抛错拒收】（⛔ 不尽量解）")
+    chk("   长度 0 ⇒ 拒收", _raises(parse_frame, b""))
+    chk("   长度 1 ⇒ 拒收（⛔ 连类型字节都没有）", _raises(parse_frame, b"\xA5"))
+    chk("   帧头错（0x00）⇒ 拒收", _raises(parse_frame, b"\x00" + fr[1:]))
+    chk("   未知类型 0x7F ⇒ 拒收（⭐ ⛔ 不按 14 B 瞎解）",
+        _raises(parse_frame, bytes([FRAME_HDR, 0x7F]) + bytes(12)))
+    chk("   14 B 音符帧补成 68 B ⇒ 拒收（⚠️ 长度不符）",
+        _raises(parse_frame, bytes(fr) + bytes(54)))
+    chk("   68 B 表帧截成 14 B ⇒ 拒收",
+        _raises(parse_frame, bytes(tf[:14])))
+    chk("   长度 15（多 1 字节）⇒ 拒收", _raises(parse_frame, bytes(fr) + b"\x00"))
+    chk("   合法 14 B 帧【不】抛错", not _raises(parse_frame, fr))
+    chk("   合法 68 B 表帧【不】抛错", not _raises(parse_frame, tf))
+    # ⭐ 非空洞：⭐ 证明 `_raises` 本身有效（⭐ 用一个【确实不抛】的输入反证）
+    chk("   非空洞：_raises 对【正常输入】返回 False", _raises(parse_frame, fr) is False)
 
     print()
     print("结论：%s" % ("全部通过" if ok else "有失败项"))
