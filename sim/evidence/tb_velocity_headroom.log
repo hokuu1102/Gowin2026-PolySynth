@@ -1,4 +1,5 @@
-﻿INFO: timbre=0 velocity=64 samples=700 osc=32767 env=16384 max_abs=362752 (43/1000 FS) knee=0 rail=0
+﻿INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
+INFO: timbre=0 velocity=64 samples=700 osc=32767 env=16384 max_abs=362752 (43/1000 FS) knee=0 rail=0
 INFO: timbre=0 velocity=128 samples=700 osc=32767 env=32768 max_abs=731200 (87/1000 FS) knee=0 rail=0
 INFO: timbre=0 velocity=160 samples=700 osc=32767 env=40960 max_abs=916416 (109/1000 FS) knee=0 rail=0
 INFO: timbre=0 velocity=200 samples=700 osc=32767 env=51200 max_abs=1147904 (136/1000 FS) knee=0 rail=0

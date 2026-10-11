@@ -88,29 +88,45 @@ module tb_adc_farm;
         end
     endfunction
 
+    //  ⭐⭐ 2026-10-09（`P1-28`）：⭐ **死片测试开关** ✅
+    //   📌 ⭐ 为什么需要：⭐ 下面的逐样本检查器**一直在跑**（⭐ 每拍 `sample_valid` 都查 ✅）
+    //     ⚠️ 而死片测试要**故意把某片 MISO 拉死** ⇒ ⭐ 检查器会开始报
+    //       `adc0 ch1 data=000 expected=001` ✅（⭐ 那是**预期的**，⛔ 不是真失败 ✅）
+    //     ⇒ ⭐ 用一个开关在死片测试期间**关掉它** ✅
+    reg dead_test_on = 1'b0;
+
     always @(posedge clk) begin
         if (rst_n) begin
             #1;
             if (sample_valid) begin
-                // 通道号应逐拍 0→7 循环（三片锁步，channel 一致）
-                if (sample_ch !== expected_ch) begin
-                    $fatal(1, "FAIL: sample order ch=%0d expected=%0d",
-                           sample_ch, expected_ch);
-                end
-                // 三片样本各自正确（不同 IDVAL）
-                if (sample_data0 !== expect_data(0, expected_ch)) begin
-                    $fatal(1, "FAIL: adc0 ch%0d data=%03h expected=%03h",
-                           expected_ch, sample_data0, expect_data(0, expected_ch));
-                end
-                if (sample_data1 !== expect_data(1, expected_ch)) begin
-                    $fatal(1, "FAIL: adc1 ch%0d data=%03h expected=%03h",
-                           expected_ch, sample_data1, expect_data(1, expected_ch));
-                end
-                if (sample_data2 !== expect_data(2, expected_ch)) begin
-                    $fatal(1, "FAIL: adc2 ch%0d data=%03h expected=%03h",
-                           expected_ch, sample_data2, expect_data(2, expected_ch));
+                //  ⭐⭐ 2026-10-09（`P1-28`）：⭐ **只关【检查】、⛔ 不关【计数】** ✅
+                //   🔴 **踩过的坑**：⭐ 我第一版把整个 `if (sample_valid)` 块都关掉了
+                //      ⇒ ⭐ `sample_count`/`frame_count` **一起停** ✅
+                //      ⇒ ⭐ 下面的 `wait (frame_count >= 19)` **永远等不到** ⇒ 🔴 超时 ✅
+                //   ✅ 正确做法：⭐ 检查部分用 `!dead_test_on` 挡住 ✅，
+                //      ⭐ 而**计数与 `expected_ch` 推进【永远跑】** ✅
+                if (!dead_test_on) begin
+                    // 通道号应逐拍 0→7 循环（三片锁步，channel 一致）
+                    if (sample_ch !== expected_ch) begin
+                        $fatal(1, "FAIL: sample order ch=%0d expected=%0d",
+                               sample_ch, expected_ch);
+                    end
+                    // 三片样本各自正确（不同 IDVAL）
+                    if (sample_data0 !== expect_data(0, expected_ch)) begin
+                        $fatal(1, "FAIL: adc0 ch%0d data=%03h expected=%03h",
+                               expected_ch, sample_data0, expect_data(0, expected_ch));
+                    end
+                    if (sample_data1 !== expect_data(1, expected_ch)) begin
+                        $fatal(1, "FAIL: adc1 ch%0d data=%03h expected=%03h",
+                               expected_ch, sample_data1, expect_data(1, expected_ch));
+                    end
+                    if (sample_data2 !== expect_data(2, expected_ch)) begin
+                        $fatal(1, "FAIL: adc2 ch%0d data=%03h expected=%03h",
+                               expected_ch, sample_data2, expect_data(2, expected_ch));
+                    end
                 end
 
+                //  ⭐ 计数【永远跑】✅
                 sample_count = sample_count + 1;
                 expected_ch = (expected_ch == 3'd7) ? 3'd0 : expected_ch + 1'b1;
             end
@@ -169,7 +185,31 @@ module tb_adc_farm;
             $fatal(1, "FAIL: fault=%b expected=000", fault);
         end
 
-        $display("PASS: 2 frames, 16 sample_valid, 24 samples total, frame period=%0d ns, fanout clean",
+        // ═══════════════════════════════════════════════════════════════════
+        //  ⭐⭐ 2026-10-09（`P1-28`）：⭐ **死片检测判据** ✅
+        //   🔴 **未修复代码上必红**（⭐ `fault` 恒 0 ✅）
+        //   ⭐ 造现场：⭐ 把片 0 的 `MISO` **拉死为 0**（⭐ 等价于断线/无供电 ✅）
+        //      ⇒ ⭐ 片 0 的 raw 恒 `0x000` ⇒ ⭐ 连续 `DEAD_FRAMES` 帧后应判死片 ✅
+        //   ⭐ 断言：⭐ `fault[0] === 1'b1`（⭐ 片 0 被抓到 ✅）
+        //      ＋ ⭐ `fault[2:1] === 2'b00`（⭐ **其它片不受影响** ✅）
+        //   📌 ⭐ 为什么用 `force`：⭐ `adc_miso` 由三个 MCP3208 从机模型驱动 ✅
+        //      ⇒ ⭐ 只能 `force` 才能盖住模型 ✅
+        // ═══════════════════════════════════════════════════════════════════
+        $display("  -- P1-28: force chip-0 MISO stuck at 0, wait %0d frames --", 17);
+        dead_test_on = 1'b1;                    // ⭐ 关掉逐样本检查器（⭐ 它会被故意拉死的数据打红 ✅）
+        force adc_miso[0] = 1'b0;
+        wait (frame_count >= 2 + 17);
+        #10;
+        if (fault[0] !== 1'b1) begin
+            $fatal(1, "FAIL: P1-28 dead-chip NOT detected: fault=%b (chip 0 stuck for 17 frames)", fault);
+        end
+        if (fault[2:1] !== 2'b00) begin
+            $fatal(1, "FAIL: P1-28 false alarm on live chips: fault=%b expected 3'b001", fault);
+        end
+        $display("  ok  : P1-28 dead chip 0 detected (fault=%b), live chips untouched", fault);
+        release adc_miso[0];
+
+        $display("PASS: 2 frames + P1-28 dead-chip window (19 frames total), 16 sample_valid, frame period=%0d ns, fanout clean",
                  second_frame_time - first_frame_time);
 
         #100;
@@ -177,8 +217,14 @@ module tb_adc_farm;
     end
 
     // 防挂死
+    //  ⭐⭐ 2026-10-09（`P1-28`）：⭐ 看门狗从 **2 ms 抬到 12 ms** ✅
+    //   📌 **为什么**：⭐ 死片判据要跑 **19 帧 × 0.5 ms = 9.5 ms** ✅
+    //     ⚠️ 原来的 `#2_000_000`（⭐ 2 ms ✅）会**先超时** ⇒ ⭐ 判据永远跑不到 ✅
+    //   📌 ⭐ 实测：⭐ 2 ms 的仿真耗时 **4 秒**（墙钟 ✅）
+    //     ⇒ ⭐ 12 ms 约 **24 秒** ⇒ ⭐ 远在 tb 预算（120 s）之内 ✅
     initial begin
-        #2_000_000;
+        #12_000_000;
+        $display("  [diag] timeout: frame_count=%0d sample_count=%0d fault=%b t=%0t", frame_count, sample_count, fault, $time);
         $fatal(1, "FAIL: adc_farm simulation timeout");
     end
 

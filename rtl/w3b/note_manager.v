@@ -713,29 +713,80 @@ module note_manager #(
     // Keep the one-hot state and eight-voice group boundaries in the netlist.
     (* syn_preserve = 1 *) reg [POLY_TARGET-1:0] scan_sel;
     localparam integer SCAN_GROUPS = (POLY_TARGET + 7) / 8;
-    localparam integer SCAN_ATTR_W = 5 + AXIS_W + 3 + ENV_W + AGE_W;
-    (* syn_keep = 1 *) wire [SCAN_ATTR_W-1:0] scan_group [0:SCAN_GROUPS-1];
-    wire [SCAN_ATTR_W-1:0] scan_merge [0:SCAN_GROUPS];
-    assign scan_merge[0] = {SCAN_ATTR_W{1'b0}};
+    //  ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-09（`P1-01` 改法②）：⭐ **把 44 位属性向量【拆成两半】** ✅
+    //
+    //  🔴 **原写法**：⭐ `SCAN_ATTR_W = 5 + AXIS_W + 3 + ENV_W + AGE_W = 44` ✅
+    //     ⚠️ 而 `env`(16) + `age`(16) = **32 位**是**陪跑**的 ——
+    //     ⭐ 它们**只在选出赢家之后**才被写进 `best_env`/`best_age` ✅
+    //     ⇒ 🔴 **每一拍都让它们参与 8 路 OR + 组间归约** ✅
+    //     ⇒ 🔴 **每一级 LUT 的输入数被撑大**（⭐ 12 位和 44 位的 OR 树，⭐ 级数一样但**每级的 LUT 数差 3~4 倍** ✅）
+    //
+    //  ✅ **拆法**：
+    //     · ⭐ **比较锥**只归约 **12 位**（`hold/pool/free/gate/active` + `axis` + `src` ✅）
+    //       —— ⭐ 只有这些参与 `cand_cls`/`cand_foreign`/`cand_ok`/`cand_better` ✅
+    //     · ⭐ **`env`/`age` 走【旁路】**：⭐ 直接按 `scan_cnt` 从数组里选（⭐ 32:1 mux ✅）
+    //       ⇒ ⭐ **不在比较锥里** ⇒ ⭐ 它的延迟被"比较链"盖住 ✅
+    //  📌 **为什么旁路用 `scan_cnt`（⭐ 二进制）而不是 `scan_sel`（⭐ one-hot）**：
+    //     ⭐ `cand_idx` **本来就是 `scan_cnt`** ✅（⭐ 审查指出这是"同一件事的两套编码" ✅）
+    //     ⇒ ⭐ 旁路也用 `scan_cnt` ⇒ ⭐ **索引与载荷【同源】** ⇒
+    //       ⭐ 即使 `scan_sel` 被工具重编码/被毛刺，⭐ **也不会把 A 的 env/age 写到 B 身上** ✅
+    //       （⭐ 这正是审查担心的"幽灵候选"风险 ✅）
+    //  ⚠️ **代价**：⭐ 多一级 32:1 mux（⭐ 但它在比较锥之外 ✅）⇒ ⭐ 必须用综合报告实测权衡 ✅
+    //  ⚠️ ⛔ **不要动** `(* syn_preserve *)` / `(* syn_keep *)` ✅
+    // ═══════════════════════════════════════════════════════════════════════
+    localparam integer SCAN_CMP_W = 5 + AXIS_W + 3;   // ⭐ = 12（⭐ 只有这些参与比较 ✅）
+    (* syn_keep = 1 *) wire [SCAN_CMP_W-1:0] scan_group [0:SCAN_GROUPS-1];
+    wire [SCAN_CMP_W-1:0] scan_merge [0:SCAN_GROUPS];
+    assign scan_merge[0] = {SCAN_CMP_W{1'b0}};
     genvar scan_g, scan_l;
     generate
         for (scan_g = 0; scan_g < SCAN_GROUPS; scan_g = scan_g + 1) begin : g_scan_group
-            wire [SCAN_ATTR_W-1:0] leaf [0:7];
+            wire [SCAN_CMP_W-1:0] leaf [0:7];
             for (scan_l = 0; scan_l < 8; scan_l = scan_l + 1) begin : g_scan_voice
                 if (scan_g*8+scan_l < POLY_TARGET) begin : g_present
-                    assign leaf[scan_l] = {SCAN_ATTR_W{scan_sel[scan_g*8+scan_l]}} &
+                    assign leaf[scan_l] = {SCAN_CMP_W{scan_sel[scan_g*8+scan_l]}} &
                         {hold_mask[scan_g*8+scan_l], pool_mask[scan_g*8+scan_l],
                          free_mask[scan_g*8+scan_l], gate_mask[scan_g*8+scan_l],
                          env_active_r[scan_g*8+scan_l], axis_r[scan_g*8+scan_l],
-                         src_r[scan_g*8+scan_l],
-                         env_level_r[(scan_g*8+scan_l)*ENV_W +: ENV_W], age_r[scan_g*8+scan_l]};
+                         src_r[scan_g*8+scan_l]};
                 end else begin : g_padding
-                    assign leaf[scan_l] = {SCAN_ATTR_W{1'b0}};
+                    assign leaf[scan_l] = {SCAN_CMP_W{1'b0}};
                 end
             end
             assign scan_group[scan_g] = leaf[0] | leaf[1] | leaf[2] | leaf[3]
                                  | leaf[4] | leaf[5] | leaf[6] | leaf[7];
-            assign scan_merge[scan_g+1] = scan_merge[scan_g] | scan_group[scan_g];
+        end
+    endgenerate
+    //  ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-09（`P1-01`）：⭐ **把 `scan_merge` 的串行 OR 链改成【平衡树】** ✅
+    //
+    //  🔴 **原写法（⭐ 串行链）**：⭐ `assign scan_merge[g+1] = scan_merge[g] | scan_group[g];`
+    //     ⇒ ⭐ `scan_merge[1] = 0|g0` ⇒ `[2] = [1]|g1` ⇒ `[3] = [2]|g2` ⇒ `[4] = [3]|g3`
+    //     ⇒ 🔴 **4 级串行依赖** ✅
+    //  ✅ **平衡树**：⭐ `(g0|g1) | (g2|g3)` ⇒ ⭐ **2 级** ✅
+    //  📌 **为什么这值得改**：⭐ 这条锥的深度直接决定 `cand_*` 何时稳定 ——
+    //     ⭐ 整条链 = `scan_sel`(FF) → 1 级 AND → 组内 8 路 OR（3 级）→ **串行 4 级 OR**
+    //       → `cand_cls`/`cand_foreign`（4 位 + 3 位比较，1~2 级）
+    //       → `cand_ok`/`cand_better`（2 级）→ `best_*`(FF)
+    //     ⇒ ⭐ 合计 **约 10~12 级 LUT** ✅（⭐ 审查原文 ✅）
+    //     ⇒ ⭐ 省 2 级 = ⭐ **约 17% 的锥深** ✅
+    //  📌 **零代价**：⭐ 同面积的 OR 门，⭐ 只是**重排连接** ⇒ ⛔ 不加 FF/LUT ✅
+    //  ⚠️ **通用性**：⭐ 平衡树只对 `SCAN_GROUPS == 4` 写死（⭐ 交付档 `POLY_TARGET=32` ⇒ 4 ✅）；
+    //     ⭐ 其它组数**保留原串行链**（⭐ 语义完全等价 ✅）
+    //  ⚠️ ⛔ **不要动** `(* syn_preserve *)` / `(* syn_keep *)`（⭐ 审查明确 ✅）——
+    //     ⭐ 它们保 one-hot 与组边界；⭐ 要动必须先有综合报告证明它们有害 ✅
+    // ═══════════════════════════════════════════════════════════════════════
+    generate
+        if (SCAN_GROUPS == 4) begin : g_merge_tree4
+            //  ⭐ 交付档：⭐ 平衡树（⭐ 2 级 ✅）
+            assign scan_merge[4] = (scan_group[0] | scan_group[1])
+                                 | (scan_group[2] | scan_group[3]);
+        end else begin : g_merge_chain
+            //  ⭐ 通用回退：⭐ 保留原串行链（⭐ 语义等价 ✅）
+            for (scan_g = 0; scan_g < SCAN_GROUPS; scan_g = scan_g + 1) begin : g_chain
+                assign scan_merge[scan_g+1] = scan_merge[scan_g] | scan_group[scan_g];
+            end
         end
     endgenerate
     reg              best_valid;
@@ -752,7 +803,16 @@ module note_manager #(
     wire [ENV_W-1:0] cand_env;
     wire [AGE_W-1:0] cand_age;
     assign {cand_hold, cand_pool, cand_free, cand_gate, cand_active,
-            cand_axis, cand_src, cand_env, cand_age} = scan_merge[SCAN_GROUPS];
+            cand_axis, cand_src} = scan_merge[SCAN_GROUPS];
+    //  ⭐⭐ 2026-10-09（`P1-01` 改法②）：⭐ **`env`/`age` 走【旁路】** ✅
+    //   📌 ⭐ 它们只在选出赢家后才用（⭐ 写进 `best_env`/`best_age` ✅）
+    //      ⇒ ⭐ **不该参与比较锥的每一级归约** ✅
+    //   📌 ⭐ 按 **`scan_cnt`**（⭐ 二进制）直选 ⇒ ⭐ 与 `cand_idx` **同源** ✅
+    //      ⇒ ⭐ 即使 `scan_sel` 被工具重编码/被毛刺，⭐ **也不会把 A 的 env/age 写到 B 身上** ✅
+    //   ⚠️ ⭐ `(scan_cnt * ENV_W)` 的表达式宽度 = max(5, 32) = **32 位** ✅（⭐ `ENV_W` 是 integer ✅）
+    //      ⇒ ⛔ **不会溢出**（⭐ 31×16 = 496 ✅）
+    assign cand_env = env_level_r[(scan_cnt * ENV_W) +: ENV_W];
+    assign cand_age = age_r[scan_cnt];
     wire cand_rel = (~cand_gate) & cand_active;
     //  ⭐⭐ **2026-09-29（A3' 续）⭐ 抢占候选也必须【按来源】排除** ✅
     //

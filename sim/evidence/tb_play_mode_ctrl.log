@@ -4,7 +4,9 @@
   ok  : fretboard DOWN pluck starts selected axis
   ok  : releasing a plucked selection sends note_off
   ok  : fretboard UP pluck starts a newly selected axis
+  ok  : P0-22 slide-then-release: the SOUNDING note (gate axis 6) gets its note_off
+  ok  : P0-22 keyboard->fretboard switch: the release still emits note_off (no stuck note)
 PASS: play-mode controller enforces keyboard and fretboard semantics
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_play_mode_ctrl.sv:96: $finish called at 470000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_play_mode_ctrl.sv:136: $finish called at 930000 (1ps)
 
 

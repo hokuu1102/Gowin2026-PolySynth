@@ -108,6 +108,14 @@ module event_extract #(
     output reg  [1:0]              evt_kind_o,    // ⭐ 0=note_on 1=note_off 2=pluck
     output reg  [POS_W-1:0]        evt_depth_o,
 
+    //  ⭐⭐ 2026-10-09（`P0-27`）：⭐ **把内部按键状态打包引出** ✅
+    //   🔴 **为什么**：⭐ `led_data.key_active_i` 原来是**占位 `16'd0`**
+    //      ⇒ 🔴 `key_pattern` 恒 0 ⇒ ⭐ `pattern_changed` 恒假 ⇒ ⭐ `commit_r` 恒 0
+    //      ⇒ ⭐ `tlc5916_bank` 一轮都不跑 ⇒ 🔴 **24 路 TLC5916 输出（16 键灯 + 8 状态灯）永久消隐** ✅
+    //   ⭐ **本输出** = `key_on[]` 的**打包版**（⭐ 位 i = 轴 i 当前是否已按下 ✅）
+    //      📌 `key_on[]` 本来就在内部维护（⭐ 带迟滞的状态 ✅）⇒ ⭐ **零额外逻辑** ✅
+    output wire [AXIS_N-1:0]       key_on_o,
+
     // ── 输出：滑音 / 双音【预留接口】（⭐ 阶段 2 填，⛔ 本版恒 0）─────────────
     output reg                     slide_valid_o,
     output reg  [AXIS_W-1:0]       slide_axis_o,
@@ -129,6 +137,16 @@ module event_extract #(
     // ═══════════════════════════════════════════════════════════════════════
     reg              key_on [0:AXIS_N-1];
     reg [15:0]       refr   [0:AXIS_N-1];    // ⭐ 16 位够 65535 帧（≈12.8 s）
+
+    //  ⭐⭐ 2026-10-09（`P0-27`）：⭐ **把 `key_on[]` 打包成 `key_on_o`**（⭐ 给 `led_data` 用）✅
+    //   📌 用 `generate` + `assign`（⭐ 与文件里其它地方同一风格，⛔ 不用 `always @(*)`）✅
+    //   📌 零额外逻辑：⭐ 纯组合重排（⭐ 综合后只是改连线）✅
+    genvar ko;
+    generate
+        for (ko = 0; ko < AXIS_N; ko = ko + 1) begin : g_key_on_pack
+            assign key_on_o[ko] = key_on[ko];
+        end
+    endgenerate
 
     // ⭐ 逐轴扫描状态机（⭐ 一拍一个轴 ⇒ ⛔ 不会覆盖 FIFO 指针）
     //   ⚠️ `SAW` 位宽 = `$clog2(AXIS_N)`（⭐ 16 轴 ⇒ 4 位）

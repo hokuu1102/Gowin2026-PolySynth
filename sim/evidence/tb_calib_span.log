@@ -28,15 +28,19 @@
   ok  : frame loss DURING the vote stage times out instead of hanging
   ok  : vote-stage timeout reports rejection (observable, not silent)
   ok  : vote-stage timeout never claims a successful calibration
-  [align] ok=16  bad=0  spans=16
+  [align] ok=8  bad=0  spans=8
   ok  : every span pulse occurred when sample_ch == cal_ch
   ok  : span pulses were actually emitted (chain is live)
   ok  : all axes calibrated => done_o asserted
   ok  : done_cnt_o == AXIS_TOTAL when done
   ok  : abort_i from DONE is safe (no span escapes)
   ok  : abort_i from DONE returns to idle
+      [dbg] P0-09 鎶曠エ浠ｈ〃鍊?= 0xb26锛堝簲 0xb26 = 2854锛涘洖缁曚細鍙?0x326 = 806锛?
+  ok  : P0-09 span_val_o carries the VOTE median (2854), NOT a 12-bit wrapped 806
+      [dbg] P0-10 span_o 鏇炬槸 2'b11 鐨勬鏁?= 0锛堝簲涓?0锛?
+  ok  : P0-10 span_o is NEVER 2'b11 (span goes to ONE chip only, per user choice A)
 
 PASS: calib_span gates on stability, rejects bad votes, aligns span with its channel, honours calib.err, and aborts cleanly from any state
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_span.sv:552: $finish called at 24402310000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_span.sv:602: $finish called at 24406310000 (1ps)
 
 

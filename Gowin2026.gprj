@@ -180,6 +180,13 @@
         <File path="rtl/w3c/master_mix.v" type="file.verilog" enable="1"/>
         <!-- Top-level LED guide chain.  These are separately authored W3c
              modules, so they must be listed explicitly for a real bitstream. -->
+        <!--  ⭐⭐ 2026-10-09（`P0-28`）：⭐ **补登记 `guide_lamp.v`** ✅
+              🔴 **原缺陷**：⭐ 它**根本没登记**（⭐ 全文件只有这一句注释提到 "guide"）
+                 ⇒ 🔴 综合日志的 `Compiling module` 列表里**没有 `guide_lamp`**
+                 ⇒ ⭐ **它压根没进网表** ✅
+              📌 登记后 ⚠️ **必须**在综合日志里确认出现 `Compiling module 'guide_lamp'`
+                 （⭐ 见下方 :186-189 的坑：⭐ 写错 `type` 会**静默跳过**）✅ -->
+        <File path="rtl/w3c/guide_lamp.v" type="file.verilog" enable="1"/>
         <File path="rtl/w3c/led_data.v" type="file.verilog" enable="1"/>
         <File path="rtl/w3c/tlc5916_bank.sv" type="file.verilog" enable="1"/>
         <File path="rtl/top.v" type="file.verilog" enable="1"/>

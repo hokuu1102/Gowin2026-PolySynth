@@ -57,7 +57,7 @@ module wavetable_bank #(
         .OCE(1'b1),
         .CE(rd_en_i),
         .RESET(~rst_n_i),
-        .AD({addr_i[9:0], 4'b0000})
+        .AD({addr_i, 4'b0000})   // P0-15: addr_i 本身就是 clog2(DEPTH) 位（去掉写死的 [9:0]）
     );
     defparam rom_soft_t0_inst.READ_MODE = 1'b0;
     defparam rom_soft_t0_inst.BIT_WIDTH = 16;
@@ -132,7 +132,7 @@ module wavetable_bank #(
         .OCE(1'b1),
         .CE(rd_en_i),
         .RESET(~rst_n_i),
-        .AD({addr_i[9:0], 4'b0000})
+        .AD({addr_i, 4'b0000})   // P0-15: addr_i 本身就是 clog2(DEPTH) 位（去掉写死的 [9:0]）
     );
     defparam rom_hard_t0_inst.READ_MODE = 1'b0;
     defparam rom_hard_t0_inst.BIT_WIDTH = 16;
@@ -207,7 +207,7 @@ module wavetable_bank #(
         .OCE(1'b1),
         .CE(rd_en_i),
         .RESET(~rst_n_i),
-        .AD({addr_i[9:0], 4'b0000})
+        .AD({addr_i, 4'b0000})   // P0-15: addr_i 本身就是 clog2(DEPTH) 位（去掉写死的 [9:0]）
     );
     defparam rom_soft_t1_inst.READ_MODE = 1'b0;
     defparam rom_soft_t1_inst.BIT_WIDTH = 16;
@@ -282,7 +282,7 @@ module wavetable_bank #(
         .OCE(1'b1),
         .CE(rd_en_i),
         .RESET(~rst_n_i),
-        .AD({addr_i[9:0], 4'b0000})
+        .AD({addr_i, 4'b0000})   // P0-15: addr_i 本身就是 clog2(DEPTH) 位（去掉写死的 [9:0]）
     );
     defparam rom_hard_t1_inst.READ_MODE = 1'b0;
     defparam rom_hard_t1_inst.BIT_WIDTH = 16;
@@ -357,7 +357,7 @@ module wavetable_bank #(
         .OCE(1'b1),
         .CE(rd_en_i),
         .RESET(~rst_n_i),
-        .AD({addr_i[9:0], 4'b0000})
+        .AD({addr_i, 4'b0000})   // P0-15: addr_i 本身就是 clog2(DEPTH) 位（去掉写死的 [9:0]）
     );
     defparam rom_soft_t2_inst.READ_MODE = 1'b0;
     defparam rom_soft_t2_inst.BIT_WIDTH = 16;
@@ -432,7 +432,7 @@ module wavetable_bank #(
         .OCE(1'b1),
         .CE(rd_en_i),
         .RESET(~rst_n_i),
-        .AD({addr_i[9:0], 4'b0000})
+        .AD({addr_i, 4'b0000})   // P0-15: addr_i 本身就是 clog2(DEPTH) 位（去掉写死的 [9:0]）
     );
     defparam rom_hard_t2_inst.READ_MODE = 1'b0;
     defparam rom_hard_t2_inst.BIT_WIDTH = 16;
@@ -507,7 +507,7 @@ module wavetable_bank #(
         .OCE(1'b1),
         .CE(rd_en_i),
         .RESET(~rst_n_i),
-        .AD({addr_i[9:0], 4'b0000})
+        .AD({addr_i, 4'b0000})   // P0-15: addr_i 本身就是 clog2(DEPTH) 位（去掉写死的 [9:0]）
     );
     defparam rom_soft_t3_inst.READ_MODE = 1'b0;
     defparam rom_soft_t3_inst.BIT_WIDTH = 16;
@@ -582,7 +582,7 @@ module wavetable_bank #(
         .OCE(1'b1),
         .CE(rd_en_i),
         .RESET(~rst_n_i),
-        .AD({addr_i[9:0], 4'b0000})
+        .AD({addr_i, 4'b0000})   // P0-15: addr_i 本身就是 clog2(DEPTH) 位（去掉写死的 [9:0]）
     );
     defparam rom_hard_t3_inst.READ_MODE = 1'b0;
     defparam rom_hard_t3_inst.BIT_WIDTH = 16;
@@ -657,7 +657,7 @@ module wavetable_bank #(
         .OCE(1'b1),
         .CE(rd_en_i),
         .RESET(~rst_n_i),
-        .AD({addr_i[9:0], 4'b0000})
+        .AD({addr_i, 4'b0000})   // P0-15: addr_i 本身就是 clog2(DEPTH) 位（去掉写死的 [9:0]）
     );
     defparam rom_test_sine_inst.READ_MODE = 1'b0;
     defparam rom_test_sine_inst.BIT_WIDTH = 16;
@@ -732,7 +732,7 @@ module wavetable_bank #(
         .OCE(1'b1),
         .CE(rd_en_i),
         .RESET(~rst_n_i),
-        .AD({addr_i[9:0], 4'b0000})
+        .AD({addr_i, 4'b0000})   // P0-15: addr_i 本身就是 clog2(DEPTH) 位（去掉写死的 [9:0]）
     );
     defparam rom_noise_inst.READ_MODE = 1'b0;
     defparam rom_noise_inst.BIT_WIDTH = 16;
@@ -850,7 +850,7 @@ module wavetable_bank #(
     initial begin
         if ((TIMBRE_N != 4) || (TIMBRE_W != 2) ||
             (DEPTH != 1024) || (SAMPLE_W != 16))
-            $display("ERROR [wavetable_bank] fixed pROM contract is 4x1024x16");
+            $fatal(1, "ERROR [wavetable_bank] fixed pROM contract is 4x1024x16");   // P0-15: 升级成能红
     end
 endmodule
 `default_nettype wire

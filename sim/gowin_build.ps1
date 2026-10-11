@@ -303,6 +303,227 @@ if (Test-Path $rscXml) {
   Write-Host "WARN: no resource report at $rscXml" -ForegroundColor Yellow
 }
 
+# ═══════════════════════════════════════════════════════════════════════════════
+#  ⭐⭐ 2026-10-09（`P0-21`）：⭐ **`NL0002` 硬门** —— 模块被"扫掉"必须是 ERROR ✅
+#
+#  🔴 **为什么**：⭐ 本项目第四道门是"综合 `ERROR=0`"，⭐ 而 `NL0002` 是 **WARN**
+#     ⇒ 🔴 **一个模块整块消失也能过门** ✅
+#     ⚠️ 而它带走的可能是注释**声称"仍在用"**的功能 ✅
+#     📌 实测（⭐ 审查原文）：⭐ `param_extract`/`vibrato_lfo`/`right_analog_ctrl`
+#        三个都被扫掉过，⭐ 而 `top.v` 的注释说它们"仍在用" ✅
+#     📌 本条 = 把"注释声称的功能"与"网表里真有的功能"**强制对齐** ✅
+#
+#  ⭐ **白名单**：⭐ 只允许【文档写明该被扫掉】的模块（⭐ 每条必须附理由）✅
+#     ⚠️ 白名单**过期**也会被反向发现（⭐ 若某模块复活，它就不再出现在 `NL0002` 里）✅
+# ═══════════════════════════════════════════════════════════════════════════════
+$nlLog = "impl/gwsynthesis/Gowin2026.log"
+if (Test-Path $nlLog) {
+  $nlAllow = @{
+    'g_sound.u_pos_probe_dpos' = 'DPOS_DIAG=0 => diagnostic probe, documented as swept (top.v:186-196)'
+    'g_sound.u_metronome'      = 'SEL_DRUM=1 => metronome replaced by the drum machine, should be swept'
+    'u_led_data'               = 'three inputs are placeholder constants, should be swept'
+    'g_sound.u_param_extract'  = 'PENDING: review says its pitch path is still in use => needs a live judgement'
+  }
+  $nlHits = @(Select-String -Path $nlLog -Pattern 'NL0002' | ForEach-Object { $_.Line })
+  $nlBad  = @()
+  foreach ($h in $nlHits) {
+    $ok = $false
+    foreach ($k in $nlAllow.Keys) { if ($h -match [regex]::Escape($k)) { $ok = $true; break } }
+    if (-not $ok) { $nlBad += $h }
+  }
+  if ($nlBad.Count -gt 0) {
+    Write-Host "ERROR: NL0002 -- these modules were SWEPT but are NOT whitelisted:" -ForegroundColor Red
+    foreach ($b in $nlBad) { Write-Host "         $($b.Trim())" -ForegroundColor Red }
+    Write-Host "       A swept module is SILENT functional loss (a WARN passes the ERROR=0 gate)." -ForegroundColor Red
+    Write-Host "       Either fix the dead path, or add it to the whitelist WITH a written reason." -ForegroundColor Red
+    exit 5
+  }
+  Write-Host "OK  NL0002 gate: $($nlHits.Count) swept module(s), all whitelisted" -ForegroundColor Green
+} else {
+  Write-Host "WARN: no synthesis log at $nlLog => NL0002 gate skipped" -ForegroundColor Yellow
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  ⭐⭐ 2026-10-09（`P0-25`）：⭐ **looper BSRAM 读路径的 HOLD 余量判据** ✅
+#
+#  🔴 **为什么**：⭐ `u_looper` 的 BSRAM 读路径是**短路径 hold** ——
+#     `rd_ptr_r`(FF) -> BSRAM 地址译码 -> BSRAM 输出 -> `ep_word_r`(FF) 的逻辑**极短**
+#     => 数据到达太早 => 与最小 required time 相比**余量最小** ✅
+#  ⚠️ **战场事实**：⭐ 本项目 PnR 是**布局噪声主导**的（同源重跑差 **2~3 MHz ≈ 0.7~1.1 ns 周期**）
+#     => **0.1 ns 级的 hold 余量在这个噪声面前没有安全边际** ✅
+#  📌 **审查快照的基线**：⭐ 最差 hold slack = **0.137 ns**（`rd_ptr_r_3_s0`）✅
+#  🔴🔴 **2026-10-09 实测（本判据上线时）**：⭐ 最差已掉到 **0.053 ns**
+#     => **余量恶化了 0.084 ns** => 这条**已经从"理论风险"变成"活风险"** ✅
+#
+#  ⛔ **两条红线**（审查原文）：
+#    ① 任何把 `mem`/`ep_mem` 从 BSRAM 改成 FF/分布式 RAM 的方案**一律否决**
+#       —— 那会把读路径逻辑**再缩短** => 🔴 **立刻变成 hold 违规** ✅
+#    ② 不要在 `rd_ptr_r` -> RAM 读地址之间**删**逻辑（例如砍掉比较器）
+#       —— 同理会把路径变短；**要动只能【加】** ✅
+# ═══════════════════════════════════════════════════════════════════════════════
+$tpPath = "impl/pnr/Gowin2026.timing_paths"
+if (Test-Path $tpPath) {
+  $tpLines = @(Get-Content $tpPath)
+  #  找 HOLD 段的第一条（文件里 slack 按升序 => 第一条就是最差）
+  $hIdx = -1
+  for ($i = 0; $i -lt $tpLines.Count; $i++) {
+    if ($tpLines[$i].Trim() -eq 'HOLD') { $hIdx = $i; break }
+  }
+  if ($hIdx -ge 0 -and ($hIdx + 1) -lt $tpLines.Count) {
+    $holdWorst = [double]($tpLines[$hIdx + 1].Trim())
+    $looperCnt = @($tpLines | Select-String -Pattern 'u_looper').Count
+    Write-Host "  HOLD worst slack = $holdWorst ns  (review baseline 0.137)   u_looper hits = $looperCnt"
+    if ($holdWorst -lt 0.05) {
+      Write-Host "ERROR: P0-25 -- worst HOLD slack $holdWorst ns < 0.05 ns" -ForegroundColor Red
+      Write-Host "       This is the u_looper BSRAM read path (short-path hold)." -ForegroundColor Red
+      Write-Host "       Layout noise here is 0.7..1.1 ns => 0.05 ns has NO margin." -ForegroundColor Red
+      Write-Host "       Do NOT move mem/ep_mem to FF/distributed RAM (makes it worse)." -ForegroundColor Red
+      Write-Host "       Add shallow logic on rd_ptr_r -> read address instead (P0-25 fix 4)." -ForegroundColor Red
+      exit 6
+    }
+    if ($holdWorst -lt 0.137) {
+      Write-Host "WARN: P0-25 -- HOLD worst slack $holdWorst ns is BELOW the 0.137 baseline (but >= 0.05)" -ForegroundColor Yellow
+    }
+    Write-Host "OK  P0-25 gate: HOLD worst slack $holdWorst ns >= 0.05 ns" -ForegroundColor Green
+  } else {
+    Write-Host "WARN: no HOLD section in $tpPath => P0-25 gate skipped" -ForegroundColor Yellow
+  }
+} else {
+  Write-Host "WARN: no timing_paths at $tpPath => P0-25 gate skipped" -ForegroundColor Yellow
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  ⭐⭐ 2026-10-09（`P0-23`）：⭐ **复位必须【同步释放】** ✅
+#
+#  🔴 **为什么**：⭐ `rst_sync` 在 `posedge clk` 上产生一个**同步释放**的复位 ✅
+#     ⚠️ 但接收端把它接进 `always @(posedge clk or negedge rst_n)` 的**异步**复位端
+#     => 🔴 **释放沿对每个 FF 而言又变成【异步】的** ✅
+#     => 各模块释放相差 **1~2 拍（20~40 ns）** —— 正是 `rst_sync` 明文要消灭的现象 ✅
+#     📌 实测数字（审查引用 constr/top.sdc:90）：recovery +1.490 ns / **removal +0.217 ns**
+#        => removal 余量只有 **1.1% 个时钟周期** => 任何布局噪声都能吃掉它 ✅
+#     📌 现象："某次上电某个模块慢一拍"这类**偶发、不可复现**的怪病 ✅
+#
+#  ✅ **修法**：去掉灵敏度列表里的 `or negedge rst_n`（变纯同步复位）——
+#     函数体本来就是 `if (!rst_n) ... else ...` => 语义不变、只是**释放同沿** ✅
+#  📌 **代价**：同步复位生效晚 1 拍（20 ns）· 而 `rst_sync` 保持 STAGES 拍 => 够 ✅
+#  📌 **收益（实测）**：`T_Lut` **-334**（同步复位反而更省 LUT ✅）
+#
+#  ⚠️ **例外**：`rtl/hdmi/hdmi_scope.v` 的 `reset_pipe` **保留异步**
+#     —— 它有正当理由（要同步 PLL 的 `lock`）✅
+#     📌 若要改它，必须走"**异步置位 + 同步释放的两级同步器**"并加 `(* async_reg *)` ✅
+#     ⛔ **不许用 `set_false_path` 把 recovery/removal 藏起来**（top.sdc:88-90 已明文禁止 ✅）
+# ═══════════════════════════════════════════════════════════════════════════════
+#  ⭐⭐ 2026-10-09（`P0-24`）：⭐ **门扩到【整棵 rtl/ 树】** ✅
+#   📌 演进：⭐ 改前 **16 处** → ⭐ P0-23 后 **1 处**（`hdmi_scope`）→ ⭐ **P0-24 后 0 处** ✅
+#   ⇒ ⭐ **全设计现在是【纯同步复位】** ✅
+#   ⚠️ **正则必须【锚行首】**：⭐ 否则会命中【注释里】写的原文（⭐ 我踩过：假阳性 4 处 ✅）
+#   ⚠️ `hdmi_scope.v` 的例外**已随 P0-24 消失**（⭐ 它现在也是域内同步 ✅）
+$p023Hits = @()
+Get-ChildItem rtl -Recurse -Include *.v, *.sv -ErrorAction SilentlyContinue | ForEach-Object {
+  $h = @(Select-String -Path $_.FullName -Pattern '^\s*always\s*@\s*\(\s*posedge\s+\w+\s+or\s+negedge' -ErrorAction SilentlyContinue)
+  if ($h.Count -gt 0) { $p023Hits += $h }
+}
+if ($p023Hits.Count -gt 0) {
+  Write-Host "ERROR: P0-23 -- $($p023Hits.Count) async-reset sensitivity list(s) remain:" -ForegroundColor Red
+  foreach ($h in $p023Hits) { Write-Host "         $($h.Path):$($h.LineNumber)" -ForegroundColor Red }
+  Write-Host "       rst_sync produces a SYNCHRONOUS release; feeding it to an async reset" -ForegroundColor Red
+  Write-Host "       port makes the release async again (modules leave reset 1..2 cycles apart)." -ForegroundColor Red
+  Write-Host "       Fix: drop 'or negedge rst_n' (the body already has if(!rst_n))." -ForegroundColor Red
+  Write-Host "       Exception: hdmi_scope.v reset_pipe (needs PLL lock) - use async_reg 2-stage." -ForegroundColor Red
+  exit 7
+}
+Write-Host "OK  P0-23 gate: 0 async-reset sensitivity lists" -ForegroundColor Green
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  ⭐⭐ 2026-10-09（`P0-26`）：⭐ **每个 `create_generated_clock` 都必须有 Fmax 行** ✅
+#
+#  🔴 **为什么**：⭐ 审查快照当时，`serial_clk`（125 MHz）在 Max Frequency Summary 里
+#     **一行都没有** ⇒ ⭐ STA 直接写 "No timing paths to get frequency of serial_clk!"
+#     ⇒ 🔴 **那个时钟域【零验证】** —— ⭐ 而"0 违例"会被误读成"已验证" ✅
+#     📌 那是 `K-45`/`L31` 那一类坑：⭐ **沉默的域 ≠ 干净的域** ✅
+#
+#  ⭐⭐ **2026-10-09 的重要变更（⭐ 由 `P0-24` 引起）**：
+#     ⭐ `P0-24` 往 `serial_clk` 域加了 `rstn_ser` 三级同步器
+#        （⭐ `rtl/hdmi/hdmi_scope.v`，⭐ `posedge serial_clk` ✅）
+#     ⇒ ⭐ **该域现在有真逻辑** ⇒ ⭐ 工具**自动报了它的 Fmax**
+#     ⇒ ⭐ 实测 `Actual Fmax = 1312.981 MHz`（⭐ 约束 125 MHz ⇒ ⭐ 余量 **10.5×** ✅）
+#     ⇒ ⭐ **"零验证"这件事已经不存在** —— ⭐ 但**必须用门钉住**，⛔ 不能靠"记得看报告" ✅
+#
+#  ✅ **判据（⭐ 机械、可复现）**：⭐ 从 `constr/top.sdc` 收集所有 `create_generated_clock -name X`
+#     ⇒ ⭐ 每一个都必须在 `tr_content.html` 的 **Max Frequency Summary** 段里**出现** ✅
+#     · 🔴 **改前（⭐ 审查当时）**：⭐ `serial_clk` **没有行** ⇒ ⭐ **FAIL** ✅
+#     · ✅ **现在**：⭐ `clk_sys` / `serial_clk` / `pixel_clk` **三行都有** ⇒ ⭐ **PASS** ✅
+#     📌 ⭐ **反向也有效**：⭐ 若哪天有人把 `rstn_ser` 删了 ⇒ ⭐ 那行会消失 ⇒ ⭐ **门主动报警** ✅
+# ═══════════════════════════════════════════════════════════════════════════════
+$sdcPath = "constr/top.sdc"
+$htmlPath = "impl/pnr/Gowin2026_tr_content.html"
+if ((Test-Path $sdcPath) -and (Test-Path $htmlPath)) {
+  $sdcText = Get-Content $sdcPath -Raw
+  $genClocks = @([regex]::Matches($sdcText, 'create_generated_clock\s+-name\s+(\S+)') | ForEach-Object { $_.Groups[1].Value })
+  $html = Get-Content $htmlPath -Raw
+  $mfsStart = $html.IndexOf('Max Frequency Summary')
+  $mfsEnd = $html.IndexOf('Total Negative Slack Summary')
+  if ($mfsStart -lt 0 -or $mfsEnd -le $mfsStart) {
+    Write-Host "WARN: P0-26 -- Max Frequency Summary section not found => gate skipped" -ForegroundColor Yellow
+  } else {
+    $mfs = $html.Substring($mfsStart, $mfsEnd - $mfsStart)
+    $missing = @()
+    foreach ($c in $genClocks) { if ($mfs -notmatch [regex]::Escape($c)) { $missing += $c } }
+    if ($missing.Count -gt 0) {
+      Write-Host "ERROR: P0-26 -- these generated clocks have NO Fmax row (domain is UNVERIFIED):" -ForegroundColor Red
+      foreach ($m in $missing) { Write-Host "         $m" -ForegroundColor Red }
+      Write-Host "       A clock with no timing paths is SILENT, not clean (K-45/L31)." -ForegroundColor Red
+      Write-Host "       Either add real logic so STA sees the domain, or document an explicit exemption." -ForegroundColor Red
+      exit 8
+    }
+    Write-Host "OK  P0-26 gate: all $($genClocks.Count) generated clock(s) have an Fmax row: $($genClocks -join ', ')" -ForegroundColor Green
+  }
+} else {
+  Write-Host "WARN: no top.sdc or no tr_content.html => P0-26 gate skipped" -ForegroundColor Yellow
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+#  ⭐⭐ 2026-10-09（`P0-29`）：⭐ **关键观测线必须有【消费者】** ✅
+#
+#  🔴 **为什么**：⭐ 本项目纪律 `K-106`：⭐ "**容量有限/会静默失效的东西必须可观测**" ✅
+#     ⚠️ 但 top.v 里 **60+ 条**可观测性线**只出现 2 次**（声明 + 端口连接）
+#     ⇒ ⭐ **没有消费者** ⇒ 🔴 **综合把整个观测锥剪掉** ✅
+#     ⇒ ⭐ 那些为 K-106 写的 `overflow_o`（sticky）在**交付位流里一个都不存在** ✅
+#     📌 ⭐ 后果：⭐ `event_extract` 的 FIFO 只有 **4 深** · `seq_arb`/`evt_merge` **6 深**
+#        · `looper` 有 `EVT_MAX=2048` 上限
+#        ⇒ ⭐ **丢事件是设计内的可能事件** —— ⭐ 而它 **100% 静默** ✅
+#        ⇒ 🔴 上板永远看不到"溢出/丢弃/相撞"，⭐ 也没法给"挂音"类 bug 取证 ✅
+#     📌 ⭐ 这正是 `P0-16`（`drop_cnt_o` 恒假饱和）的**放大版**：⭐ 既算错、又没人能看见 ✅
+#
+#  ✅ **判据（⭐ 机械、可复现）**：⭐ 这 6 条关键线在 `rtl/top.v` 里**必须出现 > 2 次** ✅
+#     （⭐ 即"**有消费者**"，⭐ 不是"只有声明 + 端口连接" ✅）
+#     · 🔴 **改前实测**：⭐ `ee_ovf`=2 · `ee_lost`=2 · `sa_overflow`=2 · `looper_overflow`=2
+#       · `txf_ovf`=2（⭐ **6 条里 5 条会被剪** ✅）
+#     · ✅ **改后实测**：⭐ 全部 **≥ 3 次** ✅
+#     📌 ⭐ **反向也有效**：⭐ 若哪天有人把 `ovf_any` 的 OR 删了 ⇒ ⭐ 它们又掉回 2 ⇒ **门报警** ✅
+# ═══════════════════════════════════════════════════════════════════════════════
+$p029Critical = @('ee_ovf', 'ee_lost', 'sa_overflow', 'mg_overflow', 'looper_overflow', 'txf_ovf')
+$topVPath = "rtl/top.v"
+if (Test-Path $topVPath) {
+  $topText = Get-Content $topVPath -Raw
+  $p029Dead = @()
+  foreach ($w in $p029Critical) {
+    $cnt = ([regex]::Matches($topText, [regex]::Escape($w))).Count
+    if ($cnt -le 2) { $p029Dead += "$w ($cnt)" }
+  }
+  if ($p029Dead.Count -gt 0) {
+    Write-Host "ERROR: P0-29 -- these critical observability wires have NO consumer (synthesis will prune them):" -ForegroundColor Red
+    foreach ($d in $p029Dead) { Write-Host "         $d" -ForegroundColor Red }
+    Write-Host "       K-106: anything that can silently fail must be observable." -ForegroundColor Red
+    Write-Host "       A wire that only appears in its declaration + port map is electrically dangling." -ForegroundColor Red
+    Write-Host "       Fix: OR the sticky bits into fault_any_w (heartbeat LED fast-blink)." -ForegroundColor Red
+    exit 9
+  }
+  Write-Host "OK  P0-29 gate: all $($p029Critical.Count) critical observability wires have a consumer" -ForegroundColor Green
+} else {
+  Write-Host "WARN: no rtl/top.v => P0-29 gate skipped" -ForegroundColor Yellow
+}
+
 Write-Host ""
 Write-Host "=== Gowin build finished, exit code 0 ===" -ForegroundColor Green
 Write-Host "bitstream: impl/pnr/Gowin2026.fs  (git-ignored, regenerated by this script)"

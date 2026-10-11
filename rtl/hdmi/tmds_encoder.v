@@ -53,7 +53,7 @@ module tmds_encoder (
             next_disparity = disparity - 2*(!qm[8]) + (2*ones_qm - 8);
         end
     end
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk) begin
         if (!rst_n) begin symbol <= 10'b1101010100; disparity <= 0; end
         else begin symbol <= next_symbol; disparity <= next_disparity; end
     end

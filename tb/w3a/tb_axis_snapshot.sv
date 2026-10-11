@@ -138,6 +138,46 @@ module tb_axis_snapshot;
         end
     endtask
 
+    //  ⭐⭐ 2026-10-09（`P0-13`）：⭐ **"真实生产者时序"的帧驱动** ✅
+    //   🔴 与 `scan_frame` 的**唯一区别**：⭐ `frame_done` 与 **ch7 的 `sample_valid` 同拍** ✅
+    //      📌 真实 `mcp3208_scanner` 就是这样（⭐ 同一个 `always`、同一个 `if (driver_done)`）——
+    //         ⚠️ 而老 `scan_frame` 把 `frame_done` 放在 8 个样本**之后 2 拍**（⭐ 比真机宽松 2 拍）
+    //         ⇒ 🔴 **这正是老 tb 抓不到 `P0-13` 的原因之一**（⭐ 另一原因是它只判轴 3）✅
+    //   📌 只新增、⛔ 不改老任务 ⇒ ⭐ 现有判据的时序一字不变 ✅
+    task scan_frame_real;
+        input [POS_W-1:0] base0;
+        input [POS_W-1:0] base1;
+        integer c;
+        reg [POS_W-1:0] v0, v1;
+        begin
+            for (c = 0; c < 8; c = c + 1) begin
+                v0 = base0 + c[POS_W-1:0];
+                v1 = base1 + c[POS_W-1:0];
+                //  ⭐⭐ P0-13 关键：⭐ **`frame_done` 必须比 ch7 的 `sample_valid` 早 1 拍** ✅
+                //   📌 真机链路（⭐ 这才是缺陷的成因）：
+                //      · `frame_done_i` ← `adc_farm`（⭐ **不延**，⭐ 与 scanner 的 ch7 同拍）
+                //      · `sample_valid_i`/`sample_data_i` ← **`calib`**（⭐ **延 1 拍**）
+                //      ⇒ ⭐ 所以到达 `axis_snapshot` 时：⭐ `frame_done` **领先** ch7 的 `sample_valid` **1 拍** ✅
+                //   ⚠️ 老 `scan_frame` 把 `frame_done` 放在**之后 2 拍** ⇒ 🔴 **方向反了** ⇒ 抓不到 ✅
+                if (c == 7) begin
+                    @(negedge clk); frame_done = 1'b1;
+                    @(posedge clk);
+                    @(negedge clk); frame_done = 1'b0;
+                end
+                @(negedge clk);
+                sample_ch    = c[2:0];
+                sample_data  = {v1, v0};
+                sample_valid = 1'b1;
+                @(posedge clk);
+                @(negedge clk);
+                sample_valid = 1'b0;
+                @(posedge clk);
+            end
+            @(posedge clk);
+            @(posedge clk);
+        end
+    endtask
+
     integer i;
     integer snap_total = 0;
 
@@ -145,6 +185,14 @@ module tb_axis_snapshot;
     //   ⚠️ 这就是上一版 `fork` 想做但做砸了的事：⭐ **用 always 计数才是对的**
     always @(posedge clk)
         if (rst_n && snap_valid) snap_total = snap_total + 1;
+
+    //  ⭐⭐ 2026-10-09（`P0-13`）：⭐ **快照当拍锁存 `pos_o`**（⭐ 这就是下游消费者看到的内容）✅
+    //   📌 为什么要锁存：⭐ `pos_o` 是**组合输出**（⭐ 由 `cur` 直接组合）
+    //      ⇒ ⭐ 必须**在 `snap_valid` 那一拍**采，⛔ 不能等几拍后再读
+    //      （⭐ 否则 `cur` 已被本帧后续样本改写 ⇒ 判据失真）✅
+    reg [AXIS_N*POS_W-1:0] snap_pos_r;
+    always @(posedge clk)
+        if (rst_n && snap_valid) snap_pos_r <= pos;
 
     // ⭐ 判据 ⑤：快照有效时 pos 必须同拍有值（⭐ 组合输出 ⇒ 同拍）
     always @(posedge clk)
@@ -212,6 +260,22 @@ module tb_axis_snapshot;
 
         // ⭐ 判据：负增量的【符号】必须真的对（⛔ 不是回绕成大正数）
         chk("negative delta is not a wrapped unsigned value", dget(0) < 0);
+
+        //  ═══ ⭐⭐ 2026-10-09（`P0-13`）：⭐ 真实生产者时序下，⭐ 快照里的【最后一轴】必须是【本帧】值 ═══
+        //    🔴 **原缺陷**：⭐ `snap_valid_o <= frame_done_i`（延 1 拍）
+        //       ⚠️ 而 `cur[7] <= …` 是**非阻塞** ⇒ 要到 `T+2` 才落定
+        //       ⇒ 🔴 快照当拍（`T+1`）读到的 `cur[7]`/`cur[15]` 还是**上一帧**的值 ✅
+        //       ⇒ ⭐ 轴 7/15 恒滞后一帧（**500 µs**）⇒ ⭐ 和弦跨轴 7/15 时被拆到两帧 ✅
+        //    ✅ **修法后**：⭐ `snap_valid_o` 与 `cur[7]` 的写入同源 ⇒ ⭐ 快照里 16 轴**同帧原子** ✅
+        //    📌 ⭐ **本判据在未修复代码上必红**（⭐ 实测：`snap_pos_r` 的轴15 = 上一帧的 0x207）✅
+        scan_frame_real(12'h100, 12'h200);
+        scan_frame_real(12'h300, 12'h400);   // ⭐ 本帧：轴7 = 0x307 · 轴15 = 0x407
+        $display("      [dbg] P0-13 快照当拍：轴7=0x%03h（本帧应 0x307）· 轴15=0x%03h（本帧应 0x407）",
+                 snap_pos_r[7*POS_W +: POS_W], snap_pos_r[15*POS_W +: POS_W]);
+        chk("P0-13 last axis 15 in the snapshot is the CURRENT frame value (real producer timing)",
+            snap_pos_r[15*POS_W +: POS_W] === 12'h407);
+        chk("P0-13 last axis 7 in the snapshot is the CURRENT frame value (real producer timing)",
+            snap_pos_r[7*POS_W +: POS_W] === 12'h307);
 
         $display("");
         if (errors == 0)

@@ -20,7 +20,7 @@ module video_timing #(
     output wire hsync,
     output wire vsync
 );
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk) begin
         if (!rst_n) begin x <= 0; y <= 0; end
         else if (x == H_TOTAL-1) begin
             x <= 0;

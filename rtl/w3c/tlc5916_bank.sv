@@ -230,12 +230,22 @@ module tlc5916_bank #(
                 end
 
                 S_START: begin
-                    drv_start_r <= 1'b1;   // 拉 start（driver 锁进 pending 或直接接受）
-                    if (drv_busy) begin
-                        // driver 已接受本片 ⇒ 撤 start，等 done
-                        drv_start_r <= 1'b0;
-                        state       <= S_WAIT_BUSY;
-                    end
+                    //  ⭐⭐ 2026-10-09（`P0-08`）：⭐ **start 只允许【1 拍】** ✅
+                    //   🔴 **原缺陷**：⭐ 原写"拉 start，**等 `drv_busy` 来了才撤**"
+                    //      ⚠️ 而 `drv_busy` 是**下一拍**才拉高的（⭐ driver 的同步输入）
+                    //      ⇒ 🔴 `drv_start_r` 实际宽 **2 拍 = 40 ns** ✅
+                    //   🔴 **后果**：⭐ 第 2 拍时 `drv_busy` 已经高了、而 `start` **还高**
+                    //      ⇒ ⭐ 正好踩中 driver 的 `if (start && busy) pending <= 1'b1;`
+                    //      （⭐ `tlc5916_driver.sv:277`）⇒ ⭐ 给**下一片**预先置了一个 pending ✅
+                    //      ⇒ 🔴 线上实测字节 **`f0/f0/95`**（⭐ 应为 **`f0/3c/95`**）
+                    //      ⇒ ⭐ **片1 的图案被片0 顶替、永远发不出去** ✅
+                    //   ✅ **修法**：⭐ 拉 1 拍就**立刻**转 `S_WAIT_BUSY`
+                    //      （⭐ 那一状态里 `drv_start_r <= 1'b0` ⇒ ⭐ 恰好 1 拍脉冲 ✅）
+                    //   📌 **代价**：⭐ 0 资源（只是状态转移改了）✅
+                    //   📌 **安全性**：⭐ 进 `S_START` 前已经等过 `drv_done`（⭐ 见 `S_WAIT_BUSY`）
+                    //      ⇒ ⭐ 此刻 driver **必然空闲** ⇒ ⛔ 不会丢 start ✅
+                    drv_start_r <= 1'b1;   // ⭐ 本拍拉高（⭐ 下一拍自动撤）
+                    state       <= S_WAIT_BUSY;
                 end
 
                 S_WAIT_BUSY: begin

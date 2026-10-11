@@ -37,6 +37,26 @@ module tb_tlc5916_bank;
 
     integer errors = 0;
 
+    //  ⭐⭐ 2026-10-09（`P0-08`）：⭐ **盯 driver 的 `pending` 置位次数**（⭐ 必须为 0）✅
+    //   🔴 **原缺陷**：⭐ `tlc5916_bank` 的 `S_START` 把 `drv_start_r` 拉高后**等 `drv_busy` 才撤**
+    //      ⇒ ⚠️ 而 `drv_busy` 是下一拍才高的 ⇒ 🔴 `start` 实际宽 **2 拍**
+    //      ⇒ ⭐ 第 2 拍 `start && busy` 同时为真 ⇒ 🔴 踩中 driver 的 `R-09` 路径
+    //      `if (start && busy) pending <= 1'b1;`（⭐ `tlc5916_driver.sv:277`）
+    //      ⇒ ⭐ 给**下一片**预置了一个 pending ✅
+    //   🔴 **后果**：⭐ 线上实测字节 **`f0/f0/95`**（⭐ 应 **`f0/3c/95`**）
+    //      ⇒ ⭐ **片1 的图案被片0 顶替、永远发不出去**（⭐ 审查实测 `n_pending_sets=2`）✅
+    //   ⭐ **判据**：⭐ 整个"3 片依次写"的过程里，⭐ `pending` 的**置位次数必须为 0** ✅
+    //      （⭐ 正确的 1 拍脉冲下 `start && busy` **永不共存** ⇒ pending 不该被置 ✅）
+    //   📌 ⚠️ **为什么现有判据抓不到**：⭐ 它们只看"OE 回全高 / busy 回落"
+    //      ⇒ ⚠️ 那两件事**即使片1 被顶替也照样成立** ⇒ 🔴 判据漏了 ✅
+    //      （⭐ 实测：退回旧写法后本 tb **照样 PASS** ⇒ ⭐ 本条判据是补出来的 ✅）
+    integer pending_sets = 0;
+    reg     pend_d = 1'b0;
+    always @(posedge clk) begin
+        pend_d <= dut.u_driver.pending;
+        if (rst_n && dut.u_driver.pending && !pend_d) pending_sets = pending_sets + 1;
+    end
+
     task chk;
         input [8*100-1:0] name;
         input             cond;
@@ -165,6 +185,15 @@ module tb_tlc5916_bank;
         blank = 1'b0;
 
         // ── 结论 ───────────────────────────────────────────────────────────
+        //  ⭐⭐ 2026-10-09（`P0-08`）：⭐ **pending 置位次数必须为 0** ✅
+        $display("      [dbg] P0-08 driver.pending 置位次数 = %0d（应为 0）", pending_sets);
+        if (pending_sets != 0) begin
+            $display("FAIL: P0-08 driver.pending 被置位 %0d 次 => start 宽了 => 下一片图案被顶替", pending_sets);
+            errors = errors + 1;
+        end else begin
+            $display("  ok : P0-08 start 是恰好 1 拍（driver.pending 从未被置位）");
+        end
+
         if (errors == 0)
             $display("PASS: tlc5916_bank (CH->OUT full-table remap / 3-chip seq / per-board OE / global blank)");
         else

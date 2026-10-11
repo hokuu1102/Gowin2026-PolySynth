@@ -14,6 +14,8 @@
   ok  : after 3-chip write: OE all high (back to IDLE)
   ok  : after 3-chip write: busy 0
   ok  : global_blank: OE stays all high during write
+      [dbg] P0-08 driver.pending 缃綅娆℃暟 = 0锛堝簲涓?0锛?
+  ok : P0-08 start 鏄伆濂?1 鎷嶏紙driver.pending 浠庢湭琚疆浣嶏級
 PASS: tlc5916_bank (CH->OUT full-table remap / 3-chip seq / per-board OE / global blank)
 
 

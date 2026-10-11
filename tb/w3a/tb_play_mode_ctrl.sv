@@ -91,6 +91,46 @@ module tb_play_mode_ctrl;
         repeat (2) @(posedge clk);
         chk("fretboard UP pluck starts a newly selected axis", event_n == 5 && events_axis[4] == 4'd9 && events_kind[4] == 2'd2);
 
+        //  ═══════════════════════════════════════════════════════════════════
+        //  ⭐⭐ 2026-10-09（`P0-22`）：⭐ **换品后松键必须放掉【正在响】的音** ✅
+        //   🔴 **原缺陷**：⭐ 原判据只看 `axis_i == gate_axis` ✅
+        //      ⚠️ 而 `gate_axis` **只在拨弦那一拍锁存**（⭐ 此后只有再次拨弦才更新）
+        //      ⇒ ⭐ 松开"新选中的轴"时 `9 != 6` ⇒ 🔴 **不发 OFF ⇒ 挂音** ✅
+        //   📌 ⚠️ **搭用例的坑（⭐ 我第一版就栽了）**：⭐ 不能接着上面那一步做 ——
+        //      上面 L89-92 的 **UP 拨弦已经把 `gate_axis` 重新锁到 9 了**
+        //      ⇒ ⭐ 那时松 9 本来就该放 9 ⇒ ⭐ **判据恒真，测不出东西** ✅
+        //   ✅ **正确序列（⭐ 审查原文）**：⭐ 必须**重新复位**后走
+        //      ① 按 6（ON）⇒ `selected_axis=6`
+        //      ② 拨弦 ⇒ `gate_axis=6`（⭐ voice 起音）
+        //      ③ 按 9（ON）⇒ ⭐ `selected_axis=9`（⭐ **而 `gate_axis` 仍是 6**）
+        //      ④ 松 9（OFF）⇒ ⭐ 应发 `note_off` 且 `evt_axis` = **6**（⭐ 正在响的那个）✅
+        rst_n = 1'b0; repeat (3) @(posedge clk); rst_n = 1'b1;
+        event_n = 0;
+        fretboard_mode = 1'b1;
+        axis_evt(4'd6, 2'd0, 12'd900);            // ⭐ ① 选中轴 6
+        pluck_evt(1'b0);                          // ⭐ ② 拨弦 ⇒ gate_axis = 6（起音）
+        repeat (2) @(posedge clk);
+        axis_evt(4'd9, 2'd0, 12'd800);            // ⭐ ③ 换到轴 9（⭐ 不拨弦！）
+        repeat (2) @(posedge clk);
+        axis_evt(4'd9, 2'd1, 12'd0);              // ⭐ ④ 松开轴 9
+        repeat (2) @(posedge clk);
+        chk("P0-22 slide-then-release: the SOUNDING note (gate axis 6) gets its note_off",
+            event_n == 2 && events_axis[1] == 4'd6 && events_kind[1] == 2'd1);
+
+        //  ═══ ⭐⭐ P0-22 第二条：⭐ **键盘模式 → 指板模式切换后松键** ═══
+        //   🔴 **原缺陷**：⭐ 键盘分支**从不写 `gate_valid`** ⇒ ⭐ 切到指板后 `gate_valid=0`
+        //      ⇒ 🔴 `evt_valid_o` **一拍都不抬** ⇒ ⭐ **挂音** ✅
+        rst_n = 1'b0; repeat (3) @(posedge clk); rst_n = 1'b1;
+        event_n = 0;
+        fretboard_mode = 1'b0;                    // ⭐ 键盘模式
+        axis_evt(4'd5, 2'd0, 12'd1000);           // ⭐ 按下
+        repeat (2) @(posedge clk);
+        fretboard_mode = 1'b1;                    // ⭐ 切到指板模式（⭐ 音色循环 ⇒ 运行期信号）
+        axis_evt(4'd5, 2'd1, 12'd0);              // ⭐ 松键
+        repeat (2) @(posedge clk);
+        chk("P0-22 keyboard->fretboard switch: the release still emits note_off (no stuck note)",
+            event_n == 2 && events_kind[1] == 2'd1 && events_axis[1] == 4'd5);
+
         if (errors == 0) $display("PASS: play-mode controller enforces keyboard and fretboard semantics");
         else $fatal(1, "FAIL: play_mode_ctrl has %0d error(s)", errors);
         $finish;

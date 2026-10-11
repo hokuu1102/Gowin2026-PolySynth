@@ -213,10 +213,63 @@ module adc_farm #(
     assign sample_data1 = sample_data_alias[23:12];
     assign sample_data2 = sample_data_alias[35:24];
 
-    // ── 故障（预留 sticky，当前未实现死片检测，保持 0）─────────────────────
+    //  ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-09（`P1-28`）：⭐ **兑现"死片检测"**（⭐ 原来 `fault` 恒 0 ✅）
+    //
+    //  🔴 **原缺陷**：⭐ 本块**只有复位分支、没有 else** ⇒ ⭐ `fault_r` 是"**只被复位**"的寄存器
+    //     ⇒ ⭐ **恒 0** ✅（⭐ 综合把它的 FF 也折掉了 ✅）
+    //     ⇒ ⭐ 而 `top.v` 把它当**故障源**用：
+    //       `assign fault_any_w = (|af_fault) | mx_fault;` ⇒ ⭐ `|af_fault` **恒 0** ✅
+    //     ⇒ 🔴 **心跳灯的"快闪"只能由 `mx_fault` 触发** ✅
+    //     ⇒ 🔴 **`spi_miso` 被拉死 / 排线松脱 / 某片未上电 —— 全部【不会】点亮故障指示** ✅
+    //     📌 ⭐ 而代码结构（⭐ 多位 `fault` 端口 + OR 归并 + sticky 灯 ✅）**明确暗示**
+    //        "ADC 故障会被抓到" ⇒ ⭐ 这是**注释/结构与行为不符**的又一例 ✅
+    //
+    //  ✅ **修法（⭐ 审查的方案 A ✅）**：⭐ **死片 sticky** ——
+    //     ⭐ MCP3208 在 `CS` 有效期间 `DOUT` **恒 0/1**（⭐ 断线/无供电 ✅）
+    //     ⇒ ⭐ 该片 raw **恒 `0x000` 或 `0xFFF`** ✅
+    //     ⇒ ⭐ 用**连续帧**统计：⭐ 某片**连续 `DEAD_FRAMES` 帧**都贴死 ⇒ ⭐ 判死片 ✅
+    //     ⇒ ⭐ `fault_r[i]` **sticky 置 1**（⭐ 只置不清，⭐ 复位才清 ✅）
+    //
+    //  📌 **为什么用 `sample_valid && sample_ch == 0` 计数**：
+    //     ⭐ 这两者**每帧、每片恰好来一次**（⭐ 所有片同一拍 `sample_valid` ✅，
+    //     ⭐ 通道 0 是该帧第一个 ✅）⇒ ⭐ **等价于"按帧计数"** ✅
+    //     ⚠️ ⭐ 若直接用 `sample_valid`（⭐ 每通道都来 ✅）⇒ ⭐ 计数会快 8 倍 ⚠️
+    //        ⇒ ⭐ 这正是审查明确警告的（⭐ "必须用帧边界，不要用 sample_valid" ✅）
+    //
+    //  📌 **判据**：⭐ `tb/drivers/tb_adc_farm.sv` —— ⭐ 把某片的 `miso` 拉死
+    //     ⇒ ⭐ 跑 ≥ `DEAD_FRAMES` 帧 ⇒ ⭐ 断言 `fault[那片] === 1'b1` ✅
+    //     🔴 **未修复代码上必红**（⭐ 恒 0 ✅）· ⭐ 且断言**其它片不受影响** ✅
+    //  📌 **代价**：⭐ 每片 5 FF（`dead_run`）+ 1 FF（sticky）⇒ ⭐ `N_ADC × 6` = **18 FF** ✅
+    //     （⭐ 交付档 `N_ADC = 3` ✅）
+    // ═══════════════════════════════════════════════════════════════════════
+    localparam integer DEAD_FRAMES = 16;                 // ⭐ 16 帧 ≈ 8 ms @2 kHz ✅
+    localparam integer DFC = $clog2(DEAD_FRAMES + 1);    // ⭐ = 5 ✅
+    localparam [DFC-1:0] DEAD_MAX = DEAD_FRAMES;         // ⭐ 向量化阈值 ✅
     reg [N_ADC-1:0] fault_r;
-    always @(posedge clk or negedge rst_n) begin
+    reg [DFC-1:0]   dead_run [0:N_ADC-1];
+    wire [N_ADC-1:0] dead_flag;
+    genvar dg;
+    generate
+        for (dg = 0; dg < N_ADC; dg = dg + 1) begin : gen_dead
+            wire [11:0] dead_raw  = sample_data_packed[dg*12 +: 12];
+            wire        dead_stuck = (dead_raw == 12'h000) || (dead_raw == 12'hFFF);
+            always @(posedge clk) begin
+                if (!rst_n) dead_run[dg] <= {DFC{1'b0}};
+                else if (sample_valid && (sample_ch == 3'd0)) begin
+                    if (dead_stuck) begin
+                        if (dead_run[dg] != DEAD_MAX) dead_run[dg] <= dead_run[dg] + 1'b1;
+                    end else begin
+                        dead_run[dg] <= {DFC{1'b0}};     // ⭐ 一旦活过来 ⇒ 计数清零 ✅
+                    end
+                end
+            end
+            assign dead_flag[dg] = (dead_run[dg] >= DEAD_MAX);
+        end
+    endgenerate
+    always @(posedge clk) begin
         if (!rst_n) fault_r <= {N_ADC{1'b0}};
+        else        fault_r <= fault_r | dead_flag;      // ⭐ sticky：⭐ 只置不清 ✅
     end
     assign fault = fault_r;
 

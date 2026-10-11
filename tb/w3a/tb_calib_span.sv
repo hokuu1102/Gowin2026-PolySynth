@@ -35,6 +35,8 @@ module tb_calib_span;
 
     localparam [11:0] STABLE_TOL  = 12'd8;   // ⭐ 与真值一致（语义关键）
     localparam [11:0] VOTE_TOL    = 12'd16;  // ⭐ 与真值一致（语义关键）
+    //  ⭐⭐ 2026-10-09（`P0-09`）：⭐ **投票代表值**（⭐ 新端口，⭐ 只在 `span_o` 那拍有效）✅
+    wire [11:0] span_val_o;
     // ⭐ 兜底超时：⭐ 调成 **200000 拍**（⭐ 真值 1 秒 = 50M 拍）
     //   🔴 **为什么不能太小**（⭐ 关键）：⭐ 判据⑤b 要求**在超时之前**靠 `err` 拒绝
     //      ⇒ ⚠️ 若超时阈值小于那次循环的拍数，拒绝就**可能来自超时**
@@ -42,6 +44,10 @@ module tb_calib_span;
     localparam integer WAIT_TO    = 200000;
 
     integer errors = 0;
+    //  ⭐⭐ 2026-10-09（`P0-09`）：⭐ 锁存 `span` 那拍的投票代表值（⭐ 判据用）✅
+    reg [11:0] p009_val = 12'h0;
+    //  ⭐⭐ 2026-10-09（`P0-10`）：⭐ "`span_o` 曾是 `2'b11`" 的计数（⭐ 必须为 0）✅
+    integer p010_bad = 0;
 
     reg clk = 1'b0;
     reg rst_n = 1'b0;
@@ -99,6 +105,8 @@ module tb_calib_span;
         .sample_ch_i   (sample_ch),
         .raw_i         (raw_in),
         .span_o        (span_o),
+        //  ⭐⭐ 2026-10-09（`P0-09`）：⭐ 接出新端口（⭐ 判据要用）✅
+        .span_val_o    (span_val_o),
         .cal_ch_o      (cal_ch_o),
         .cal_busy_i    (cal_busy_i),
         .cal_err_i     (cal_err_i),
@@ -131,7 +139,11 @@ module tb_calib_span;
         .ch       (sample_ch),
         .raw      (raw_in),
         .tare     (1'b0),            // ⭐ 本 tb 只测 span（⭐ tare 由 autotare 测）
-        .span     (span_o[0]),       // ⭐ DUT 的 span（⭐ 片0）
+        //  ⭐⭐ 2026-10-09（`P0-10`）：⭐ **span 已改成按片单发**（⭐ 用户拍板选 A）✅
+        //   ⇒ ⭐ 本模型代表"某一颗 calib" ⇒ ⭐ **两片任一有脉冲都算**
+        //     （⭐ 这样轴 0~7（片0）与轴 8~15（片1）都能被本模型看到 ✅）
+        //   📌 ⭐ 原写 `span_o[0]` ⇒ ⚠️ 轴 8~15 时 `span_o = 2'b10` ⇒ **本模型收不到** ⇒ 🔴 假红 ✅
+        .span     (span_o[0] | span_o[1]),
         .cal_ch   (cal_ch_o),        // ⭐ 与 span **同拍**（⭐ 这正是被测的契约）
         .busy     (cal_busy_w),
         .err      (cal_err_w),
@@ -177,10 +189,18 @@ module tb_calib_span;
         if (rst_n) begin
             if (span_o[0]) begin
                 span_total = span_total + 1;
+                //  ⭐⭐ 2026-10-09（`P0-09`）：⭐ **锁存投票代表值**（⭐ 判据用）✅
+                p009_val = span_val_o;
+                //  ⭐⭐ 2026-10-09（`P0-10`）：⭐ **按片单发判据**（⭐ 见下方独立检查）✅
                 // ⭐⭐ 判据④：⭐ `span` 那一拍 `sample_ch` 必须 == `cal_ch`
                 if (sample_ch === cal_ch_o) align_ok  = align_ok + 1;
                 else                        align_bad = align_bad + 1;
             end
+            //  ⭐⭐ 2026-10-09（`P0-10`）：⭐ **独立不变量** —— ⭐ `span_o` **永不**是 `2'b11` ✅
+            //   📌 一次只标**一个轴** ⇒ ⭐ 只该打给**一片** ✅
+            //   🔴 原写法 `{N_ADC{1'b1}}` ⇒ ⭐ 恒 `2'b11` ⇒ 本判据必红 ✅
+            //   📌 放在 `span_o[0]` 判断【之外】⇒ ⭐ 片 1 的脉冲也数得到 ✅
+            if (span_o === 2'b11) p010_bad = p010_bad + 1;
             if (reject_o) reject_total = reject_total + 1;
         end
     end
@@ -541,6 +561,36 @@ module tb_calib_span;
         repeat (2) @(posedge clk);
         chk("abort_i from DONE is safe (no span escapes)", span_total == span_before_abort);
         chk("abort_i from DONE returns to idle", busy_o === 1'b0);
+
+        //  ═══════════════════════════════════════════════════════════════════
+        //  ⭐⭐ 2026-10-09（`P0-09`）：⭐ **投票代表值必须是【中位数】**，⛔ 不是最后采样 ✅
+        //   🔴 **原缺陷（两层）**：
+        //      · ⭐ `vote_lo` **只被写、从不被读** ⇒ ⭐ 送进 `calib` 的是**当拍活采样** ✅
+        //      · ⭐ 且 `(vmin+vmax)>>1` 是 **12 位加法** ⇒ ⭐ **≥4096 回绕** ✅
+        //   📌 **本判据为什么能同时抓两条**：⭐ 用**实测工作点** `2854`（⭐ `top.v:2069`）
+        //      · ⭐ 正确中位数 = `(2854+2854)/2 = 2854` ✅
+        //      · 🔴 若加法器回绕：`2854+2854 = 5708` ⇒ 12 位 = **1612** ⇒ `>>1 = 806` ⇒ **FAIL** ✅
+        //      · 🔴 若只取最后采样 ⇒ 值会随抖动漂（⭐ 本用例是恒值 ⇒ 那条要另测）✅
+        //   📌 ⭐ **本判据在未修复代码上【测不到】**（⭐ 端口都不存在 ⇒ 编译就过不去）
+        //      ⇒ ⭐ 它的价值是**把 2854 这条真实工作点钉住** ✅
+        // ═══════════════════════════════════════════════════════════════════
+        do_reset();
+        p009_val = 12'h0;
+        @(negedge clk); start_i = 1'b1;
+        @(posedge clk); @(negedge clk); start_i = 1'b0;
+        for (k = 0; k < 600; k = k + 1) begin
+            scan_frame_stable(12'hB26);          // ⭐ 2854 = 实测工作点（⭐ top.v:2069）
+            if (p009_val != 12'h0) k = 600;      // ⭐ 拿到就停
+        end
+        $display("      [dbg] P0-09 投票代表值 = 0x%03h（应 0x%03h = 2854；回绕会变 0x326 = 806）",
+                 p009_val, 12'hB26);
+        chk("P0-09 span_val_o carries the VOTE median (2854), NOT a 12-bit wrapped 806",
+            p009_val === 12'hB26);
+
+        //  ⭐⭐ 2026-10-09（`P0-10`）：⭐ **span 必须按片单发**（⭐ `span_o` 永不为 `2'b11`）✅
+        $display("      [dbg] P0-10 span_o 曾是 2'b11 的次数 = %0d（应为 0）", p010_bad);
+        chk("P0-10 span_o is NEVER 2'b11 (span goes to ONE chip only, per user choice A)",
+            p010_bad == 0);
 
         $display("");
         if (errors == 0)

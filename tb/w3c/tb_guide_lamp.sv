@@ -32,10 +32,14 @@ module tb_guide_lamp;
     reg                     note_valid  = 1'b0;
     reg  [EVT_W-1:0]        note_data   = {EVT_W{1'b0}};
     reg  [AXIS_N-1:0]       key_active  = {AXIS_N{1'b0}};
-    reg                     blink       = 1'b0;
+    //  ⭐⭐ 2026-10-09（`P0-28`）：⭐ `blink` 已删（⭐ `guide_lamp` 的 `blink_i` 端口已删）✅
+    //   📌 理由：⭐ 闪烁是 `led_data` 的职责（⭐ 它已经做了 `blink_keys & blink_i`）
+    //      ⇒ ⚠️ 若 `guide_lamp` 也做 ⇒ 🔴 两次闪烁串联 ⇒ 占空比变 25% ✅
 
     wire [AXIS_N-1:0]       guide_key;
     wire                    guide_commit;
+    //  ⭐⭐ 2026-10-09（`P0-28`）：⭐ **消隐后的指引位图**（⭐ 新端口）✅
+    wire [AXIS_N-1:0]       guide_vis;
 
     integer errors = 0;
 
@@ -61,7 +65,8 @@ module tb_guide_lamp;
         .note_valid_i   (note_valid),
         .note_data_i    (note_data),
         .key_active_i   (key_active),
-        .blink_i        (blink),
+        //  ⭐⭐ 2026-10-09（`P0-28`）：⭐ `.blink_i` 已删（⭐ 端口删了）+ ⭐ 接出消隐输出 ✅
+        .guide_vis_o    (guide_vis),
         .guide_key_o    (guide_key),
         .guide_commit_o (guide_commit)
     );
@@ -163,7 +168,28 @@ module tb_guide_lamp;
         chk("multi: only those two bits", guide_key === 16'h8001);
 
         // ── 收尾 ────────────────────────────────────────────────────────────
-        if (errors == 0) begin
+        // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-09（`P0-28`）：⭐ **已按下的键必须被消隐** ✅
+    //   🔴 **原缺陷**：⭐ `key_active_i` 在 RTL 里**一次都没用到**
+    //      （⭐ 全文只出现 2 次：⭐ 端口声明 + :20 注释）✅
+    //      ⇒ ⭐ 已按键**仍被指引灯点亮** ⇒ 🔴 **用户分不清"该按的键"和"正在响的键"** ✅
+    //   ⭐ **判据**：⭐ `key_active = 16'h0008`（⭐ 轴 3 正在响）+ ⭐ 给轴 3 一条 `note_on`
+    //      ⇒ ⭐ `guide_key_o[3] == 1`（⭐ 指引位亮）**但** `guide_vis_o[3] == 0`（⭐ 被消隐）✅
+    //   📌 ⚠️ **本判据在未修复 RTL 上【编译都过不去】**（⭐ `guide_vis_o` 端口不存在）
+    //      ⇒ ⭐ 它的价值 = **把消隐语义钉住**（⭐ 防将来有人把它删掉）✅
+    // ═══════════════════════════════════════════════════════════════════════
+    key_active = 16'h0008;                       // ⭐ 轴 3 正在响
+    send_note(4'd3, 2'd0);                       // ⭐ 给轴 3 一条 note_on
+    chk("P0-28 a PRESSED key is blanked: guide_key[3]=1 but guide_vis[3]=0",
+        guide_key[3] === 1'b1 && guide_vis[3] === 1'b0);
+    chk("P0-28 blanking does not disturb other axes: guide_vis == guide_key & ~key_active",
+        guide_vis === (guide_key & ~key_active));
+    key_active = 16'h0000;                       // ⭐ 松手 ⇒ 指引位恢复可见
+    #1;
+    chk("P0-28 after release the guide bit is visible again", guide_vis[3] === 1'b1);
+
+    // ── 收尾 ──────────────────────────────────────────────────────────────
+    if (errors == 0) begin
             $display("PASS: tb_guide_lamp (16 checks)");
         end else begin
             $display("FAIL: tb_guide_lamp errors=%0d", errors);

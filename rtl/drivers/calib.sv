@@ -172,7 +172,7 @@ module calib #(
             //     ⇒ ⭐ **每次复位后该通道的第 1 个 `pos` 会假 0**（⭐ 1 个采样拍 = 500 µs）
             assign raw_f = seen_r[ch] ? raw_med : raw;
 
-            always @(posedge clk or negedge rst_n) begin
+            always @(posedge clk) begin
                 if (!rst_n) begin
                     for (mi = 0; mi < NCH; mi = mi + 1) begin
                         raw_h1[mi] <= {DW{1'b0}};
@@ -254,7 +254,7 @@ module calib #(
         t_cmp = {rem_r, quo_r[23]};
     end
 
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk) begin
         if (!rst_n) begin
             busy <= 1'b0;
             err  <= 1'b0;
@@ -342,7 +342,7 @@ module calib #(
                      ? span_rd : MAXT;
     wire [DW:0] dclamp = (dcode > dlim) ? dlim : dcode;
 
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk) begin
         if (!rst_n) begin
             v_r   <= 1'b0;
             ch_r  <= {CW{1'b0}};

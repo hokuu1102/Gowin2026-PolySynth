@@ -1142,6 +1142,32 @@ parameter integer TEST_MODE_EN       = 0,
 //      ⭐ 而心跳灯逻辑（⭐ 模块级）**只读它** ⇒ ⭐ 两边都能看到 ✅
 wire       fault_any_w;
 
+//  ⭐⭐ 2026-10-09（`P0-27`）：⭐ **`event_extract.key_on[]` 的打包版**（⭐ 跨作用域）✅
+//   📌 **作用域要点（⭐ 与上面 `fault_any_w` 同一手法）**：
+//      ⭐ `u_event_extract` **在 `generate` 区里**（⭐ `g_sound`，⭐ `endgenerate` 在下面很远处）
+//      ⭐ 而 `u_led_data` **在 generate 区【外】**（⭐ 模块级）
+//      ⇒ 🔴 **不能让 `u_led_data` 直接读 generate 里的信号**（⭐ 作用域不可见）
+//      ⇒ ⭐ 所以本信号声明在**模块级**，⭐ 由 `g_sound` 分支驱动、⭐ 由模块级的 `u_led_data` 读 ✅
+//   📌 **为什么需要它**：⭐ `led_data.key_active_i` 原来是**占位 `16'd0`**
+//      ⇒ 🔴 `key_pattern` 恒 0 ⇒ `pattern_changed` 恒假 ⇒ `commit_r` 恒 0
+//      ⇒ ⭐ `tlc5916_bank` 一轮都不跑 ⇒ 🔴 **24 路灯永久全灭** ✅
+wire [15:0] ee_key_on;
+
+//  ⭐⭐ 2026-10-09（P0-29）：⭐ **"丢事件/溢出"汇合位**（⭐ 模块级 ⇒ 跨 generate 作用域）✅
+//   🔴 **原缺陷**：⭐ top.v 里 **60+ 条**可观测性线**只出现 2 次**（声明 + 端口连接）
+//      ⇒ ⭐ **没有消费者** ⇒ 🔴 **综合把整个观测锥剪掉** ✅
+//      ⇒ ⭐ 三个模块为 K-106 写的 overflow_o（sticky）在**交付位流里一个都不存在**
+//      ⇒ 🔴 **上板永远看不到"溢出/丢弃/相撞"** —— ⭐ 而 event_extract 的 FIFO 只有 4 深、
+//        seq_arb/evt_merge 只有 6 深、looper 有 EVT_MAX=2048 上限
+//        ⇒ ⭐ **丢事件是设计内的可能事件**，⭐ 现在它 100% 静默 ✅
+//   ✅ **修法（⭐ 审查推荐的最省方案）**：⭐ 把它们 **OR 进已有的 `fault_any_w`**
+//      ⇒ ⭐ **心跳灯快闪 = 丢过事件** ✅（⭐ 只加 1 个 LUT ✅）
+//   📌 **为什么用中间 wire**：⭐ `fault_any_w` 的赋值在 L1773，⭐ 而这些源在 L3177+
+//      ⇒ ⭐ Verilog **先声明后使用** ⇒ ⭐ 必须用模块级中间量 ✅
+//   ⚠️ **诚实标注**：⭐ `fault_sticky` 是"**只复位才清**"（⭐ 现有注释说明是有意为之 ✅）
+//      ⇒ ⭐ 它会**掩盖后续正常帧**（⭐ 想看"最近一次"要复位 ✅）
+wire ovf_any;
+
     uart_tx_fifo #(.DEPTH(8)) u_tx_fifo (
         .clk_i     (clk),
         .rst_n_i   (rst_n_sync),
@@ -1306,6 +1332,9 @@ wire       fault_any_w;
         //   📌 **代价**：⭐ 1 行、**0 资源** ✅
         //   📌 **机械旁证**：⭐ `Select-String 'assign\s+fault_any_w'` **必须返回 2 行**（两分支各 1）✅
         assign fault_any_w   = 1'b0;
+        //  ⭐⭐ 2026-10-09（`P0-27`）：⭐ 静音档没有 `event_extract` ⇒ ⭐ 按键状态恒 0 ✅
+        //   📌 与上面 `fault_any_w` 同一条纪律：⭐ **两个互斥分支各自显式驱动** ✅
+        assign ee_key_on     = 16'd0;
     end else begin : g_sound
         // ═══════════════════════════════════════════════════════════════════════
         //   ⭐⭐ `'P'` 诊断：⭐ 回传 `pos` 读数（⭐ 2026-09-24 新增）
@@ -1756,7 +1785,7 @@ wire       fault_any_w;
         //      ⇒ ⭐ 模块级的心跳灯逻辑**只引 `fault_any_w`** ⇒ ⭐ 作用域就通了 ✅
         //   📌 两个源：⭐ `af_fault` = `adc_farm` 的 SPI/片选故障（⭐ 多位，⭐ 取或 ✅）
         //              ⭐ `mx_fault` = `tdm_render_mixer.deadline_fault_o`（⭐ 单 bit ✅）
-        assign fault_any_w = (|af_fault) | mx_fault;
+        assign fault_any_w = (|af_fault) | mx_fault | ovf_any;   // ⭐ P0-29：把"丢事件/溢出"也 OR 进来 ✅
 
         // ⭐ 同源扇出 ⇒ 只用片 0 的 SCLK/MOSI 引到引脚
         //   ⚠️ `adc_farm` 内部已把片 1 扇出成与片 0 相同 ⇒ 这里取 `[0]` 即可
@@ -1883,8 +1912,11 @@ wire       fault_any_w;
         //       ⚠️ 单板现场（⭐ 片 1 未接 ⇒ 它的 `raw` 恒 4095 ⇒ `err` 恒高 ⇒ `'S'` 会一直回 `!`）
         //          ⇒ ⭐ 把下面这一行改成 `= 0` 再重编译即可 ✅（⛔ 不用动逻辑行）
         localparam integer SPAN_CHECK_BOTH = 1;
-        wire cal_err_any  = (SPAN_CHECK_BOTH != 0) ? (cal0_err  | cal1_err ) : cal0_err;
-        wire cal_busy_all = (SPAN_CHECK_BOTH != 0) ? (cal0_busy & cal1_busy) : cal0_busy;
+        //  ⭐⭐ 2026-10-09（`P0-10`，⭐ 用户拍板选 A）：⭐ **归并式挪到下面**
+        //   🔴 **为什么挪**：⭐ 新的归并式要按片选（⭐ 用 `sp_cur_axis[3]`）
+        //      ⚠️ 而 `sp_cur_axis` **在下面才声明**（⭐ 见 `wire [3:0] sp_cur_axis, sp_done_cnt;`）
+        //      ⇒ ⭐ Verilog **先声明后使用** ⇒ ⛔ 不能写在这里（⭐ 否则 `Unable to bind`）✅
+        //   📌 新定义见 `sp_cur_axis` 声明之后 ✅
 
         // ═══════════════════════════════════════════════════════════════════
         // ⭐⭐ 上电自动零点标定（⭐ `calib_autotare`，2026-09-23 接入）
@@ -1985,8 +2017,24 @@ wire       fault_any_w;
         // ═══════════════════════════════════════════════════════════════════
         wire [1:0] sp_span;          // ⭐ 逐片（⭐ 锁步 ⇒ 同拍）
         wire [2:0] sp_ch;
+        //  ⭐⭐ 2026-10-09（`P0-09`）：⭐ `calib_span` 的投票代表值（⭐ 只在 `sp_span` 那拍有效）✅
+        wire [11:0] sp_span_val;
+        //  ⭐⭐ 2026-10-09（`P0-10`，⭐ 用户拍板选 A）：⭐ **反馈按片选** ✅
+        //   🔴 **原缺陷**：⭐ 原来归并两片（`cal0_err | cal1_err` / `cal0_busy & cal1_busy`）
+        //      ⚠️ 而 span 是**两片同拍广播**的 ⇒ ⭐ 标轴 8 时片 0 的 ch0 也被标
+        //      ⇒ 🔴 片 0 没按下 ⇒ `cal0_err=1` ⇒ ⭐ **整轴被拒** ⇒ 必须**双手同按** ✅
+        //      ＋ 🔴 另一片的 `den_r` 来自**未经静止判定**的采样 ⇒ 增益误差可达 **74%** ✅
+        //   ✅ **修法**：⭐ span 已改成按片单发（`calib_span`）⇒ ⭐ 反馈也必须按片选
+        //      ⇒ ⭐ 只看**目标轴所在那片**的 `err`/`busy` ✅
+        //   📌 `SPAN_CHECK_BOTH` 现在**失去意义**（⭐ 一次只有一片被标）——
+        //      ⚠️ 保留 `localparam` 只为 ⛔ 不改动别处的引用 ✅
+        //   ⚠️⚠️ **位置纪律**：⭐ 必须在 `sp_cur_axis` **声明之后**（⭐ 见下面那一行）
+        //      —— 🔴 我第一次放在声明前 3 行 ⇒ iverilog 直接 `Unable to bind wire/reg/memory`
+        //      （⭐ 而 ⚠️ **Gowin 综合却报 0 ERROR** ⇒ ⭐ 只有 iverilog 抓得到）✅
         wire       sp_busy, sp_done, sp_need_press, sp_reject;
         wire [3:0] sp_cur_axis, sp_done_cnt;
+        wire cal_err_sel  = sp_cur_axis[3] ? cal1_err  : cal0_err;
+        wire cal_busy_sel = sp_cur_axis[3] ? cal1_busy : cal0_busy;
         // ⭐⭐ 2026-09-30 新增：`calib_autotare` 的"跳过/失败"指示
         //   🔴 **必须在 `u_autotare` 之前声明**（⭐ 同 `sp_*` 的理由：
         //      ⚠️ 否则 iverilog 只报 `implicit definition` warning
@@ -2167,7 +2215,17 @@ wire       fault_any_w;
             .rst_n_i    (rst_n_sync),
             .probe_req_i(cmd_probe_req),
             .pos_i      (pp_raw_sel),   // ⭐ 2026-10-01：⭐ 由 `af0_pol` 改为**按轴选片** ✅
-            .ch_i       ({1'b0, pp_axis_r[2:0]}), // ⭐ 与 `pp_raw_sel` **同源** ✅
+            //  ⭐⭐ 2026-10-09（`P1-80`）：⭐ **4 位直传**（⭐ bit3 = 片号，⭐ bit2:0 = 片内通道 ✅）
+        //   🔴 **原写法**：⭐ `{1'b0, pp_axis_r[2:0]}` ⇒ ⭐ 打印值 = **`axis mod 8`** ✅
+        //      ⇒ 🔴 片 0（轴 0~7）与片 1（轴 8~15）**共用同一串通道号** ✅
+        //      ⇒ 🔴 **片 1 的读数会被读成片 0 的某个轴**（⭐ "给出错误答案比看不到更危险" ✅）
+        //      📌 实测（⭐ 审查亲跑）：⭐ `P7256`（轴 7 片 0）与 `P72048`（轴 15 片 1）
+        //        ⇒ ⭐ **两个不同轴的 `ch` 字段都是 `'7'`** ✅
+        //   ✅ **修法**：⭐ `pos_probe` 的 `tx_byte_c` 本来就是**十六进制一位（0~F）**
+        //      ⇒ ⭐ **⛔ 不用改它**，⭐ 只要把 4 位原样传进去 ✅
+        //      ⇒ ⭐ 轴 7 ⇒ `'7'` · ⭐ 轴 15 ⇒ **`'F'`** ✅
+        //   📌 **代价 = 0**（⭐ 一根线 3→4 位 ✅）
+        .ch_i       (pp_axis_r),
             .push_o     (pp_push),
             .data_o     (pp_data),
             .ready_i    (txf_ready),
@@ -2299,11 +2357,18 @@ wire       fault_any_w;
             //   ⭐⭐ 2026-09-30 修 K-127：⭐ 改为**按当前轴选片**（⛔ 原来恒接 `af0_pol`）
             .raw_i         (sp_raw_sel),
             .span_o        (sp_span),
+            //  ⭐⭐ 2026-10-09（`P0-09`）：⭐ **投票代表值接出来**（⭐ 只在 `span_o` 那拍有效）✅
+            //   🔴 **原缺陷**：⭐ `calib_span.vote_lo` **只被写、从不被读** ⇒ ⭐ 综合剪掉
+            //      ⇒ 🔴 真正进 `calib` 的是发脉冲那一拍的**当拍活采样** ✅
+            //      ⇒ ⭐ 增益散布 **6.5%**（⭐ 满行程 pos 误差 **266 码**，⭐ 是触发阈值 37~89 码的 3~7 倍）
+            //      ⇒ 🔴 **"同一批键有的灵敏有的要按到底"** ✅
+            .span_val_o    (sp_span_val),
             .cal_ch_o      (sp_ch),
             //   ⭐ `calib` 的反馈（⭐ 修"静默卡死"缺陷时新增的连接）
             //      ⚠️ 接入前这两个是【空连接】⇒ 标定失败**无法感知**
-            .cal_busy_i    (cal_busy_all),  // ⭐ 2026-09-30：两片都成功才算成功
-            .cal_err_i     (cal_err_any),   // ⭐ 2026-09-30：任一片失败都算失败
+            //   ⭐⭐ 2026-10-09（`P0-10`）：⭐ **改为按片选**（⭐ span 已按片单发 ⇒ 反馈必须同片）✅
+            .cal_busy_i    (cal_busy_sel),  // ⭐ P0-10：只看目标轴那一片
+            .cal_err_i     (cal_err_sel),   // ⭐ P0-10：只看目标轴那一片
             .busy_o        (sp_busy),
             .done_o        (sp_done),
             .cur_axis_o    (sp_cur_axis),
@@ -2428,10 +2493,25 @@ wire       fault_any_w;
         // 'M' reply is the newly selected state: '4'/'8'/'A'(16)/'B'(32)/'0'.
         // This is computed from the old register values because command request
         // and state update happen on the same clock edge.
-        wire [7:0] tm_reply_byte = !tm_enable_r          ? 8'h34
-                                : (tm_n_code_r == 2'b00) ? 8'h38
-                                : (tm_n_code_r == 2'b01) ? 8'h41
-                                : (tm_n_code_r == 2'b10) ? 8'h42
+        //  ⭐⭐ 2026-10-09（`P0-07`）：⭐ **本码流没有 Test Mode ⇒ 回包必须说实话** ✅
+        //   🔴 **原缺陷**：⭐ 交付档 `TEST_MODE_EN = 0` ⇒ ⭐ `tm_enable_r ≡ 1'b0`（⭐ 编译期常量）
+        //      ⇒ 🔴 `tm_reply_byte ≡ 8'h34 = '4'` ✅
+        //      ⚠️ 而回传表（⭐ `top.v` 的回包定义）把 `'4'` 定义为 **"Test Mode 已切至 4"**
+        //      ⇒ 🔴 操作者**每发一次 `'M'` 都收到 `'4'`，永远不变** ✅
+        //      （⭐ `tm_n_code_q` 那套状态机在 `g_no_test_mode` 分支里**根本不存在**）✅
+        //   🔴 **后果**：⭐ `tm_gate`/`tm_vel`/`tm_lane_active`/`tm_phase_inc` **全是常量 0**
+        //      ⇒ ⭐ `test_mode_ctrl` **不进网表**（⭐ 实测 `Gowin2026.vg` 的 57 个 module 里没有它）
+        //      ⇒ 🔴 **整条 FFT 验收通路在交付码流里是死的** ✅
+        //      ⇒ ⭐ 上板做音频验收时 `'M'` 会告诉你"已进入测试模式"，⭐ **而实际没有测试音**
+        //        ⇒ 🔴 **"全绿但没声音"家族**（⭐ `R-16`/`K-69` 同族）✅
+        //   ✅ **修法（⭐ 1 行，⛔ 不改任何功能）**：⭐ 本码流直接回 **`'-'`（0x2D）** = **"本码流无 Test Mode"** ✅
+        //      📌 ⭐ `TEST_MODE_EN` 是**编译期参数** ⇒ ⭐ 这个三元在综合期就定死 ⇒ ⭐ **零资源代价** ✅
+        //      📌 ⭐ 诊断码流（`TEST_MODE_EN=1`）**行为逐字不变** ✅
+        wire [7:0] tm_reply_byte = (TEST_MODE_EN == 0)  ? 8'h2D          // '-' = 本码流无 Test Mode
+                                 : !tm_enable_r          ? 8'h34
+                                 : (tm_n_code_r == 2'b00) ? 8'h38
+                                 : (tm_n_code_r == 2'b01) ? 8'h41
+                                 : (tm_n_code_r == 2'b10) ? 8'h42
                                                          : 8'h30;
         // ═══════════════════════════════════════════════════════════════════
         // ⭐⭐ 2026-09-30：**拒绝原因回包**（⭐ 上板诊断）
@@ -2522,7 +2602,19 @@ wire       fault_any_w;
             .valid     (af_sample_valid),
             .ch        (af_sample_ch),
             // ⭐ 送【极性校正后】的码 —— ⭐ 满足 `calib` 的"按下 ⇒ raw 变大"假设
-            .raw       (af0_pol),
+            //  ⭐⭐ 2026-10-09（`P0-09`）：⭐ **本片被选中时，改用投票代表值（中位数）** ✅
+            //   🔴 **原缺陷**：⭐ 原来恒送**当拍活采样** ⇒ ⭐ 组内 `(max−min)` 可达 `SPAN_VOTE_TOL=96`
+            //      ⇒ ⭐ 用"最后一个采样"代替中位数 ⇒ 误差可达 **±48 码**
+            //      ⇒ ⭐ 增益误差 **6.5%**（⭐ 满行程 pos 误差 **266 码**）
+            //      ⇒ 🔴 **是触发阈值（37~89 码）的 3~7 倍** ⇒ ⭐ **"同一批键有的灵敏有的要按到底"** ✅
+            //   ⚠️⚠️ **为什么必须加"本片被选中"这个条件**：⭐ `calib_span` 一次只标**一个轴**
+            //      （⭐ `sp_cur_axis[3]` 选片），⭐ 而 `span` 是**两片同拍广播**的 ✅
+            //      ⇒ 🔴 若把同一个投票值喂给两片 ⇒ ⭐ **非选中片会拿到【别的轴】的值** ⇒ ⭐ 比现状更差 ✅
+            //      ⇒ ⭐ 所以只喂给**选中的那片**；⭐ 另一片保持原样（⭐ 不劣化）✅
+            //   📌 **遗留（⭐ 诚实标注）**：⭐ 非选中片的那条轴**仍用活采样**
+            //      ⇒ ⭐ 要彻底修，`calib_span` 必须**按片各记一套 `vmin`/`vmax`**
+            //      （⭐ 即 `raw_i` 要带两片的值 + `span_val_o` 变 `N_ADC` 路）⇒ ⭐ 记入后续 ✅
+            .raw       (sp_span[0] && (sp_cur_axis[3] == 1'b0) ? sp_span_val : af0_pol),
             // ⭐ 2026-09-23：由"硬接 0"改为接 `calib_autotare`（⭐ 上电自动零点）
             .tare      (at_tare[0]),
             // ⭐⭐ 2026-09-23 阶段B：接 `calib_span.（⭐ 原来硬接 0）
@@ -2541,7 +2633,9 @@ wire       fault_any_w;
             .rst_n     (rst_n_sync),
             .valid     (af_sample_valid),
             .ch        (af_sample_ch),
-            .raw       (af1_pol),
+            //  ⭐⭐ 2026-10-09（`P0-09`）：⭐ 同 `u_calib0` —— ⭐ **本片被选中时用投票代表值** ✅
+            //   📌 条件里的片号**必须与本实例一致**（⭐ 这是 `1` ⇒ `sp_cur_axis[3]==1`）✅
+            .raw       (sp_span[1] && (sp_cur_axis[3] == 1'b1) ? sp_span_val : af1_pol),
             // ⭐ 2026-09-23：同 `u_calib0`，接 `calib_autotare`（⭐ 两片锁步、同时标）
             .tare      (at_tare[1]),
             // ⭐⭐ 2026-09-23 阶段B：同 `u_calib0`（⭐ 两片锁步 ⇒ 同时标）
@@ -3239,6 +3333,12 @@ wire       fault_any_w;
             .evt_axis_o       (ee_axis),
             .evt_kind_o       (ee_kind),
             .evt_depth_o      (ee_depth),
+            //  ⭐⭐ 2026-10-09（`P0-27`）：⭐ **把按键状态接给 `led_data`**（⭐ 见模块级 `ee_key_on`）✅
+            //   🔴 原缺陷：⭐ `led_data.key_active_i` 是**占位 `16'd0`**
+            //      ⇒ ⭐ `key_pattern` 恒 0 ⇒ `pattern_changed` 恒假 ⇒ `commit_r` 恒 0
+            //      ⇒ ⭐ `tlc5916_bank` 一轮都不跑 ⇒ 🔴 **24 路灯永久全灭** ✅
+            //   ✅ 修法：⭐ 接 `event_extract` 内部已经在维护的 `key_on[]`（⭐ 零额外逻辑）✅
+            .key_on_o         (ee_key_on),
             // ⚠️ 滑音/双音：⭐ 接口已接，⛔ 本版恒 0（⭐ 阶段 2 填）
             .slide_valid_o    (ee_slide_v),
             .slide_axis_o     (ee_slide_ax),
@@ -3978,6 +4078,13 @@ wire       fault_any_w;
         wire [15:0] mg_merged_cnt;
         wire [15:0] mg_drop_cnt;
         wire        mg_overflow;
+//  ⭐⭐ 2026-10-09（P0-29）：⭐ **"丢事件/溢出"汇合**（⭐ 5 个源，⭐ 全部在此处之前已声明）✅
+//   📌 ⭐ 五个源：⭐ `ee_ovf`（event_extract，L3177）· ⭐ `sa_overflow`（seq_arb，L3614）
+//      · ⭐ `looper_overflow`（looper，L3738）· ⭐ `mg_overflow`（evt_merge，L4055）
+//      · ⭐ `txf_ovf`（uart_tx_fifo，L1124）✅
+//   📌 ⭐ 这一位现在驱动 `fault_any_w` ⇒ ⭐ **心跳灯快闪** ✅
+//      ⇒ ⭐ 上板时"**刚才是不是丢了事件**"**终于可判定** ✅
+assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overflow | txf_ovf;
 
         //  ⭐⭐ 2026-09-30：⭐ **深度 4 → 6** —— ⭐ 因为**源从 2 个变成 3 个**（⭐ 多了源 C）
         //     🔴 **为什么**：⭐ 深度要按"**最坏在飞条数**"算（⭐ `evt_merge` 第一版的教训）——
@@ -4908,7 +5015,13 @@ wire       fault_any_w;
         .clk_i           (clk),
         .rst_n_i         (rst_n_sync),
         .guide_key_i     (16'd0),            // ⭐ 占位：待 play_seq（甲）
-        .key_active_i    (16'd0),            // ⭐ 占位：待 event_extract.key_on（甲）
+        //  ⭐⭐ 2026-10-09（`P0-27`）：⭐ **接真源**（⭐ 原来是占位 `16'd0`）✅
+        //   ✅ `ee_key_on` = `event_extract.key_on[]` 的打包版（⭐ 模块级 wire）
+        //   📌 ⭐ 这一接 ⇒ ⭐ 按键就亮（⭐ 16 个键灯复活）✅
+        //   ⚠️ **遗留**：⭐ `guide_key_i`（⭐ "该按的键"）**仍是占位** ——
+        //      ⭐ 它的正确来源是 `play_seq`，⛔ 而 `play_seq` **尚未例化**（⭐ top.v 里的"甲"）
+        //      ⇒ ⭐ 所以"指引"那半仍不工作（⭐ 见 P0-27 的诚实标注）✅
+        .key_active_i    (ee_key_on),
         .status_i        (8'd0),             // ⭐ 占位：待 UI 状态总线
         .blink_i         (led_blink),        // ⭐ 四分音符拍点 = 闪烁节拍
         .pattern_o       (led_pattern),

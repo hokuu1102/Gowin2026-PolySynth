@@ -290,7 +290,7 @@ module looper #(
     //        ⇒ ⭐ 两个脉冲**同拍** ✅
     //      · `beat_gen.v:166`：⭐ `at_bar_start = (tick_cnt_q == 16'd0)` ⇒ 小节起点 = 编号 0 那一拍 ✅
     //   ⇒ ⭐ 数到下一个 `bar_start` 时 `bar_cnt_r` 恰好 = **一小节的 tick 数** ✅
-    always @(posedge clk_i or negedge rst_n_i) begin
+    always @(posedge clk_i) begin
         if (!rst_n_i) begin
             bar_len_r  <= {TICK_W{1'b0}};
             bar_cnt_r  <= {TICK_W{1'b0}};
@@ -790,7 +790,7 @@ module looper #(
 
     //  ⭐ 停录时还有哪些轴**没收到 `note_off`**（⭐ 从 `live_*` 维护）
     integer ai;
-    always @(posedge clk_i or negedge rst_n_i) begin
+    always @(posedge clk_i) begin
         if (!rst_n_i) begin
             state        <= ST_IDLE;
             cnt_r        <= {CNT_W{1'b0}};

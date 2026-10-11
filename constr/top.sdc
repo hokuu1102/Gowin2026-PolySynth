@@ -76,6 +76,35 @@ create_generated_clock -name serial_clk -source [get_ports {clk}] -master_clock 
 create_generated_clock -name pixel_clk -source [get_ports {clk}] -master_clock clk_sys -divide_by 40 -multiply_by 20 [get_pins {u_hdmi/u_clk/u_pll/CLKOUT1}]
 
 # ═════════════════════════════════════════════════════════════════════════════
+#  ⭐⭐ 2026-10-09（`P0-26`）：⭐ **`serial_clk`（125 MHz）域的验证状态** ✅
+#
+#  🔴🔴 **重要变更（⭐ 2026-10-09，⭐ 由 `P0-24` 引起）**：
+#     ⭐ 审查快照当时报 **"No timing paths to get frequency of serial_clk!"**
+#        —— ⭐ 那时该域**只有 `OSER10` 的 `FCLK`**，⭐ **不承载寄存器逻辑** ✅
+#     ⭐ **但 `P0-24` 往该域加了 `rstn_ser` 三级同步器**
+#        （⭐ `rtl/hdmi/hdmi_scope.v`，⭐ 用 `posedge serial_clk` ✅）
+#        ⇒ ⭐ **该域现在有真逻辑了** ✅
+#     ⇒ ⭐ 工具**已经自动报了它的 Fmax**（⭐ 实测 `1312.981 MHz`，⭐ 约束 `125 MHz` ✅）
+#     ⇒ ⭐ **"零验证"这件事【已经不存在】** —— ⭐ 本条的原始前提**已失效** ✅
+#
+#  ✅ **现在的状态**：⭐ `serial_clk` **在 Max Frequency Summary 里有一行**
+#     （⭐ `tr_content.html` 的 "Max Frequency Summary" 段 ✅）
+#     · ⭐ 实测 `Actual Fmax = 1312.981 MHz` · ⭐ `Logic Level = 1`
+#     · ⭐ 约束 `125.000 MHz` ⇒ ⭐ **余量 10.5×** ✅
+#
+#  🔴 **纪律（⭐ 机械门）**：⭐ `sim/gowin_build.ps1` 的 **`P0-26` 门**断言 ——
+#     ⭐ **每一条 `create_generated_clock` 都必须在 Max Frequency Summary 里有一行** ✅
+#     · 🔴 **改前**：⭐ `serial_clk` **没有行** ⇒ ⭐ **FAIL**（⭐ 这正是审查当时的状态 ✅）
+#     · ✅ **现在**：⭐ `clk_sys` / `serial_clk` / `pixel_clk` **三行都有** ⇒ ⭐ **PASS** ✅
+#     📌 ⭐ 若哪天有人把 `rstn_ser` 删了 ⇒ ⭐ 那行会**消失** ⇒ ⭐ **门主动报警** ✅
+#
+#  📌 **速率余量论证（⭐ 上板闭环的便宜替代）**：⭐ H4 已在 **6.15×** 速率上出图
+#     （⭐ 1537.5 Mb/s ÷ 250 Mb/s ⇒ ⭐ 见 `bringup/hdmi_640x480/`）✅
+#  📌 ⭐ **唯一真判据是【仪器】**：⭐ 量 `tmds_clk_p` 的 **125 MHz**
+#     ＋ ⭐ `tmds_d_p_0` 的 **250 Mb/s 眼宽**（⭐ 记录到 `evidence/h5/`）✅
+# ═════════════════════════════════════════════════════════════════════════════
+
+# ═════════════════════════════════════════════════════════════════════════════
 # ⭐⭐ 2026-10-04：**余量预算（margin）约束** —— 独立实验，物理时钟不变
 #
 # 🔴 动机（实测）：布局器只按 `clk_sys` 20 ns 优化，报告里那个 Fmax（52.219 MHz）

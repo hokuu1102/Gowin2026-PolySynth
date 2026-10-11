@@ -4,6 +4,7 @@ NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
 NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=4)
 NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
 NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
 NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=18 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
@@ -71,11 +72,11 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
        (x) ee_cnt=0 mg_ev_cnt=6 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
        (x) best_seen=0 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=2 gate_seen=0x0000 ev_ax=0x0007
        (x) nm_active=0x00000007 env_active=0x00000007 pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
-  [FSM  ] t=3697050000 state 0 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
-  [FSM  ] t=3697070000 state 1 -> 2  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=0
-  [FSM  ] t=3697710000 state 2 -> 3  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
-  [FSM  ] t=3697730000 state 3 -> 4  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
-  [FSM  ] t=3697750000 state 4 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=3697090000 state 0 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=3697110000 state 1 -> 2  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=0
+  [FSM  ] t=3697750000 state 2 -> 3  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=3697770000 state 3 -> 4  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=3697790000 state 4 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
   [gate ] axis=0 gate_seen=1 first_gate_latency=25040 clk (~25 sample_tick, window=96)
   [TAG  ] AFTER press (window end)
 [DIAG] t=3697951000 ev=7  state=0 fifo_cnt=0 fifo_wr=7 fifo_rd=7
@@ -92,8 +93,8 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
        (x) ee_cnt=1 mg_ev_cnt=7 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
        (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
        (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=744 pos[8]=2 af0_pol=2103 cal0_val=0
-  [FSM  ] t=5197050000 state 0 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
-  [FSM  ] t=5197070000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=5197090000 state 0 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=5197110000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
   [rel  ] axis=0 gate cleared after 24944 clk (25 tick)
   [TAG  ] after release
 [DIAG] t=5197151000 ev=8  state=0 fifo_cnt=0 fifo_wr=8 fifo_rd=8
@@ -103,22 +104,22 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
        (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
        (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
   [refr ] wait axis 0: bound = 200000 clk (= 8 frame x 25000 clk/frame); refr now = 1
-  [refr ] axis 0 refractory cleared after 19984 clk (bound was 200000 clk; REFRACT_N was 4 frames at the press)
+  [refr ] axis 0 refractory cleared after 19986 clk (bound was 200000 clk; REFRACT_N was 4 frames at the press)
 
 === press A #2 : axis 0 (chip 0 ch 0) ===
   [TAG  ] BEFORE press
-[DIAG] t=5696852000 ev=8  state=0 fifo_cnt=0 fifo_wr=8 fifo_rd=8
+[DIAG] t=5696892000 ev=8  state=0 fifo_cnt=0 fifo_wr=8 fifo_rd=8
        best_valid=1 same_valid=1 cur_kind=1 cur_axis=0 cur_src=0
        free_cnt=28 live_cnt=4 gate_cnt=0 retrig_low_cnt=0
        (x) ee_cnt=2 mg_ev_cnt=8 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
        (x) best_seen=0 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=3 gate_seen=0x0000 ev_ax=0x0007
        (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
-  [FSM  ] t=6197050000 state 0 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
-  [FSM  ] t=6197070000 state 1 -> 5  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
-  [FSM  ] t=6197090000 state 5 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=6197090000 state 0 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=6197110000 state 1 -> 5  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=6197130000 state 5 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
   [gate ] axis=0 gate_seen=1 first_gate_latency=25440 clk (~25 sample_tick, window=96)
   [TAG  ] AFTER press (window end)
-[DIAG] t=6205971000 ev=9  state=0 fifo_cnt=0 fifo_wr=9 fifo_rd=9
+[DIAG] t=6206011000 ev=9  state=0 fifo_cnt=0 fifo_wr=9 fifo_rd=9
        best_valid=1 same_valid=1 cur_kind=0 cur_axis=0 cur_src=0
        free_cnt=28 live_cnt=4 gate_cnt=1 retrig_low_cnt=0
        (x) ee_cnt=3 mg_ev_cnt=9 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
@@ -126,17 +127,17 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
        (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=744 pos[8]=2 af0_pol=2103 cal0_val=0
   ok  : B press axis 0 #2 => a voice on that axis got GATED (25440 clk, 25 tick)
   [TAG  ] during press hold
-[DIAG] t=7205971000 ev=9  state=0 fifo_cnt=0 fifo_wr=9 fifo_rd=9
+[DIAG] t=7206011000 ev=9  state=0 fifo_cnt=0 fifo_wr=9 fifo_rd=9
        best_valid=1 same_valid=1 cur_kind=0 cur_axis=0 cur_src=0
        free_cnt=28 live_cnt=4 gate_cnt=1 retrig_low_cnt=0
        (x) ee_cnt=3 mg_ev_cnt=9 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
        (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
        (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=744 pos[8]=2 af0_pol=2103 cal0_val=0
-  [FSM  ] t=7697050000 state 0 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
-  [FSM  ] t=7697070000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=7697090000 state 0 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=7697110000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
   [rel  ] axis=0 gate cleared after 24544 clk (24 tick)
   [TAG  ] after release
-[DIAG] t=7697171000 ev=10  state=0 fifo_cnt=0 fifo_wr=10 fifo_rd=10
+[DIAG] t=7697211000 ev=10  state=0 fifo_cnt=0 fifo_wr=10 fifo_rd=10
        best_valid=1 same_valid=1 cur_kind=1 cur_axis=0 cur_src=0
        free_cnt=28 live_cnt=4 gate_cnt=0 retrig_low_cnt=0
        (x) ee_cnt=4 mg_ev_cnt=10 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
@@ -147,18 +148,18 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
 
 === press A #3 : axis 0 (chip 0 ch 0) ===
   [TAG  ] BEFORE press
-[DIAG] t=8196852000 ev=10  state=0 fifo_cnt=0 fifo_wr=10 fifo_rd=10
+[DIAG] t=8196892000 ev=10  state=0 fifo_cnt=0 fifo_wr=10 fifo_rd=10
        best_valid=1 same_valid=1 cur_kind=1 cur_axis=0 cur_src=0
        free_cnt=28 live_cnt=4 gate_cnt=0 retrig_low_cnt=0
        (x) ee_cnt=4 mg_ev_cnt=10 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
        (x) best_seen=0 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0000 ev_ax=0x0007
        (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
-  [FSM  ] t=8697050000 state 0 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
-  [FSM  ] t=8697070000 state 1 -> 5  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
-  [FSM  ] t=8697090000 state 5 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=8697090000 state 0 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=8697110000 state 1 -> 5  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=8697130000 state 5 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
   [gate ] axis=0 gate_seen=1 first_gate_latency=25376 clk (~25 sample_tick, window=96)
   [TAG  ] AFTER press (window end)
-[DIAG] t=8704691000 ev=11  state=0 fifo_cnt=0 fifo_wr=11 fifo_rd=11
+[DIAG] t=8704731000 ev=11  state=0 fifo_cnt=0 fifo_wr=11 fifo_rd=11
        best_valid=1 same_valid=1 cur_kind=0 cur_axis=0 cur_src=0
        free_cnt=28 live_cnt=4 gate_cnt=1 retrig_low_cnt=0
        (x) ee_cnt=5 mg_ev_cnt=11 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
@@ -166,17 +167,17 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
        (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=744 pos[8]=2 af0_pol=2103 cal0_val=0
   ok  : B press axis 0 #3 => a voice on that axis got GATED (25376 clk, 25 tick)
   [TAG  ] during press hold
-[DIAG] t=9704691000 ev=11  state=0 fifo_cnt=0 fifo_wr=11 fifo_rd=11
+[DIAG] t=9704731000 ev=11  state=0 fifo_cnt=0 fifo_wr=11 fifo_rd=11
        best_valid=1 same_valid=1 cur_kind=0 cur_axis=0 cur_src=0
        free_cnt=28 live_cnt=4 gate_cnt=1 retrig_low_cnt=0
        (x) ee_cnt=5 mg_ev_cnt=11 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
        (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
        (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=744 pos[8]=2 af0_pol=2103 cal0_val=0
-  [FSM  ] t=10197050000 state 0 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
-  [FSM  ] t=10197070000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=10197090000 state 0 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=10197110000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
   [rel  ] axis=0 gate cleared after 24608 clk (25 tick)
   [TAG  ] after release
-[DIAG] t=10197171000 ev=12  state=0 fifo_cnt=0 fifo_wr=12 fifo_rd=12
+[DIAG] t=10197211000 ev=12  state=0 fifo_cnt=0 fifo_wr=12 fifo_rd=12
        best_valid=1 same_valid=1 cur_kind=1 cur_axis=0 cur_src=0
        free_cnt=28 live_cnt=4 gate_cnt=0 retrig_low_cnt=0
        (x) ee_cnt=6 mg_ev_cnt=12 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
@@ -187,20 +188,20 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
 
 === press B #1 : axis 8 (chip 1 ch 0) ===
   [TAG  ] BEFORE press
-[DIAG] t=10696852000 ev=12  state=0 fifo_cnt=0 fifo_wr=12 fifo_rd=12
+[DIAG] t=10696892000 ev=12  state=0 fifo_cnt=0 fifo_wr=12 fifo_rd=12
        best_valid=1 same_valid=1 cur_kind=1 cur_axis=0 cur_src=0
        free_cnt=28 live_cnt=4 gate_cnt=0 retrig_low_cnt=0
        (x) ee_cnt=6 mg_ev_cnt=12 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
        (x) best_seen=0 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0000 ev_ax=0x0007
        (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
-  [FSM  ] t=11197210000 state 0 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
-  [FSM  ] t=11197230000 state 1 -> 2  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=0
-  [FSM  ] t=11197870000 state 2 -> 3  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
-  [FSM  ] t=11197890000 state 3 -> 4  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
-  [FSM  ] t=11197910000 state 4 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=11197250000 state 0 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=11197270000 state 1 -> 2  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=0
+  [FSM  ] t=11197910000 state 2 -> 3  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=11197930000 state 3 -> 4  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=11197950000 state 4 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
   [gate ] axis=8 gate_seen=1 first_gate_latency=25040 clk (~25 sample_tick, window=96)
   [TAG  ] AFTER press (window end)
-[DIAG] t=11197971000 ev=13  state=0 fifo_cnt=0 fifo_wr=13 fifo_rd=13
+[DIAG] t=11198011000 ev=13  state=0 fifo_cnt=0 fifo_wr=13 fifo_rd=13
        best_valid=1 same_valid=1 cur_kind=0 cur_axis=8 cur_src=0
        free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
        (x) ee_cnt=7 mg_ev_cnt=13 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
@@ -208,17 +209,17 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
        (x) nm_active=0x0000001f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
   ok  : B press axis 8 #1 => a voice on that axis got GATED (25040 clk, 25 tick)
   [TAG  ] during press hold
-[DIAG] t=12197971000 ev=13  state=0 fifo_cnt=0 fifo_wr=13 fifo_rd=13
+[DIAG] t=12198011000 ev=13  state=0 fifo_cnt=0 fifo_wr=13 fifo_rd=13
        best_valid=1 same_valid=1 cur_kind=0 cur_axis=8 cur_src=0
        free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
        (x) ee_cnt=7 mg_ev_cnt=13 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
        (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=3 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
        (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
-  [FSM  ] t=12697210000 state 0 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
-  [FSM  ] t=12697230000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=12697250000 state 0 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=12697270000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
   [rel  ] axis=8 gate cleared after 24960 clk (25 tick)
   [TAG  ] after release
-[DIAG] t=12697491000 ev=14  state=0 fifo_cnt=0 fifo_wr=14 fifo_rd=14
+[DIAG] t=12697531000 ev=14  state=0 fifo_cnt=0 fifo_wr=14 fifo_rd=14
        best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
        free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
        (x) ee_cnt=8 mg_ev_cnt=14 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
@@ -229,18 +230,18 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
 
 === press B #2 : axis 8 (chip 1 ch 0) ===
   [TAG  ] BEFORE press
-[DIAG] t=13196852000 ev=14  state=0 fifo_cnt=0 fifo_wr=14 fifo_rd=14
+[DIAG] t=13196892000 ev=14  state=0 fifo_cnt=0 fifo_wr=14 fifo_rd=14
        best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
        free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
        (x) ee_cnt=8 mg_ev_cnt=14 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
        (x) best_seen=0 scan_cnt=31 same_en=0 same_idx=3 cmt_en=1 cmt_idx=4 gate_seen=0x0000 ev_ax=0x0107
        (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
-  [FSM  ] t=13697210000 state 0 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
-  [FSM  ] t=13697230000 state 1 -> 5  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
-  [FSM  ] t=13697250000 state 5 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=13697250000 state 0 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=13697270000 state 1 -> 5  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=13697290000 state 5 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
   [gate ] axis=8 gate_seen=1 first_gate_latency=25232 clk (~25 sample_tick, window=96)
   [TAG  ] AFTER press (window end)
-[DIAG] t=13701811000 ev=15  state=0 fifo_cnt=0 fifo_wr=15 fifo_rd=15
+[DIAG] t=13701851000 ev=15  state=0 fifo_cnt=0 fifo_wr=15 fifo_rd=15
        best_valid=1 same_valid=1 cur_kind=0 cur_axis=8 cur_src=0
        free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
        (x) ee_cnt=9 mg_ev_cnt=15 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
@@ -248,17 +249,17 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
        (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
   ok  : B press axis 8 #2 => a voice on that axis got GATED (25232 clk, 25 tick)
   [TAG  ] during press hold
-[DIAG] t=14701811000 ev=15  state=0 fifo_cnt=0 fifo_wr=15 fifo_rd=15
+[DIAG] t=14701851000 ev=15  state=0 fifo_cnt=0 fifo_wr=15 fifo_rd=15
        best_valid=1 same_valid=1 cur_kind=0 cur_axis=8 cur_src=0
        free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
        (x) ee_cnt=9 mg_ev_cnt=15 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
        (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
        (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
-  [FSM  ] t=15197210000 state 0 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
-  [FSM  ] t=15197230000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=15197250000 state 0 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=15197270000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
   [rel  ] axis=8 gate cleared after 24768 clk (25 tick)
   [TAG  ] after release
-[DIAG] t=15197491000 ev=16  state=0 fifo_cnt=0 fifo_wr=16 fifo_rd=16
+[DIAG] t=15197531000 ev=16  state=0 fifo_cnt=0 fifo_wr=16 fifo_rd=16
        best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
        free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
        (x) ee_cnt=10 mg_ev_cnt=16 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
@@ -269,18 +270,18 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
 
 === press B #3 : axis 8 (chip 1 ch 0) ===
   [TAG  ] BEFORE press
-[DIAG] t=15696852000 ev=16  state=0 fifo_cnt=0 fifo_wr=16 fifo_rd=16
+[DIAG] t=15696892000 ev=16  state=0 fifo_cnt=0 fifo_wr=16 fifo_rd=16
        best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
        free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
        (x) ee_cnt=10 mg_ev_cnt=16 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
        (x) best_seen=0 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0000 ev_ax=0x0107
        (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
-  [FSM  ] t=16197210000 state 0 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
-  [FSM  ] t=16197230000 state 1 -> 5  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
-  [FSM  ] t=16197250000 state 5 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=16197250000 state 0 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=16197270000 state 1 -> 5  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=16197290000 state 5 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
   [gate ] axis=8 gate_seen=1 first_gate_latency=25152 clk (~25 sample_tick, window=96)
   [TAG  ] AFTER press (window end)
-[DIAG] t=16200211000 ev=17  state=0 fifo_cnt=0 fifo_wr=17 fifo_rd=17
+[DIAG] t=16200251000 ev=17  state=0 fifo_cnt=0 fifo_wr=17 fifo_rd=17
        best_valid=1 same_valid=1 cur_kind=0 cur_axis=8 cur_src=0
        free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
        (x) ee_cnt=11 mg_ev_cnt=17 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
@@ -288,17 +289,17 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
        (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
   ok  : B press axis 8 #3 => a voice on that axis got GATED (25152 clk, 25 tick)
   [TAG  ] during press hold
-[DIAG] t=17200211000 ev=17  state=0 fifo_cnt=0 fifo_wr=17 fifo_rd=17
+[DIAG] t=17200251000 ev=17  state=0 fifo_cnt=0 fifo_wr=17 fifo_rd=17
        best_valid=1 same_valid=1 cur_kind=0 cur_axis=8 cur_src=0
        free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
        (x) ee_cnt=11 mg_ev_cnt=17 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
        (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
        (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
-  [FSM  ] t=17697210000 state 0 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
-  [FSM  ] t=17697230000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=17697250000 state 0 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=17697270000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
   [rel  ] axis=8 gate cleared after 24848 clk (25 tick)
   [TAG  ] after release
-[DIAG] t=17697491000 ev=18  state=0 fifo_cnt=0 fifo_wr=18 fifo_rd=18
+[DIAG] t=17697531000 ev=18  state=0 fifo_cnt=0 fifo_wr=18 fifo_rd=18
        best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
        free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
        (x) ee_cnt=12 mg_ev_cnt=18 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
@@ -311,7 +312,7 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
   [fifo ] after keys released: c1=0 c2=0 c3=0 (must not grow)
   ok  : C2 after keys released, fifo_cnt does NOT keep growing
   [TAG  ] nal (keys released, tail waited)
-[DIAG] t=18360711000 ev=18  state=0 fifo_cnt=0 fifo_wr=18 fifo_rd=18
+[DIAG] t=18360751000 ev=18  state=0 fifo_cnt=0 fifo_wr=18 fifo_rd=18
        best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
        free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
        (x) ee_cnt=12 mg_ev_cnt=18 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
@@ -326,6 +327,6 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
   ok  : D note_manager reported no event loss (event_lost_o==0)
 
 PASS: demo-chord-then-key diagnostic -- the queue drained and every press gated a voice on its own axis
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\e2e\tb_demo_stall_diag.sv:707: $finish called at 18361711000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\e2e\tb_demo_stall_diag.sv:707: $finish called at 18361751000 (1ps)
 
 

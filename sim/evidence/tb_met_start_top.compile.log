@@ -28,6 +28,9 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:2083: warning: Port 5 (sample_data_i) of module calib_autotare expects 2
+4 bit(s), given 36.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:2083:        : Pruning 12 high bits of the expression.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 
 'pc_l1'.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:98: warning: Instantiating module top with dangling inp

@@ -83,6 +83,23 @@ module tb_vibrato_lfo;
         commit;
         chk("rate update never clears LFO phase", phase != 32'd0 && phase != phase_before);
 
+        //  ═══════════════════════════════════════════════════════════════════
+        //  ⭐⭐ 2026-10-09（`P0-30`）：⭐ **速率目标值的【精确值】判据** ✅
+        //   🔴 **为什么必须补**：⭐ 上面三条（78/79/80）只约束了**步长**（+10 一拍），
+        //      ⛔ **没有约束目标值的数值** ✅
+        //   📌 **实测证据**：⭐ 把 `rate_product[21:12]` 改成 `[20:11]`（⭐ 差 1 位）
+        //      ⇒ ⭐ **上面三条照样 PASS** ⇒ 🔴 **判据是空的** ✅
+        //   ⭐ **本判据**：⭐ `rate_raw_i = 2048` ⇒ 目标 = `100 + (2048 × 100) >> 12`
+        //      = `100 + 204800/4096` = `100 + 50` = ⭐ **150** ✅
+        //      · ⭐ 正确（`[21:12]`）⇒ 收敛到 **150** ✅
+        //      · 🔴 变异（`[20:11]`）⇒ `100 + 204800/2048 = 200` ⇒ ⭐ **判据必红** ✅
+        //   📌 **参数**：⭐ 本 tb 的 `RATE_MIN_INC=100` · `RATE_MAX_INC=200` ⇒ ⭐ `span = 100` ✅
+        //   📌 ⭐ `rate_raw_i == 12'hFFF` 是**特例**（⭐ 直接给 `RATE_MAX_INC`）⇒ ⭐ 这里刻意用 2048 ✅
+        rate_raw = 12'd2048;
+        commit; commit; commit; commit; commit; commit;   // ⭐ 6 拍 ⇒ 步长 +10 ⇒ 够收敛到 150 ✅
+        chk("P0-30 rate target exact value: rate_raw=2048 => 100 + (2048*100)>>12 == 150",
+            rate_inc == 32'd150);
+
         // The fast instance must produce a signed, zero-centred triangle.
         depth_raw = 12'hFFF;
         rate_raw  = 12'd0;

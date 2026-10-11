@@ -14,8 +14,11 @@
   ok  : delta is NEGATIVE when travel decreases (axis 0)  [slide prerequisite]
   ok  : delta is NEGATIVE when travel decreases (axis 8)
   ok  : negative delta is not a wrapped unsigned value
+      [dbg] P0-13 蹇収褰撴媿锛氳酱7=0x307锛堟湰甯у簲 0x307锛壜?杞?5=0x407锛堟湰甯у簲 0x407锛?
+  ok  : P0-13 last axis 15 in the snapshot is the CURRENT frame value (real producer timing)
+  ok  : P0-13 last axis 7 in the snapshot is the CURRENT frame value (real producer timing)
 
 PASS: axis_snapshot maps (adc,ch)->axis, commits all chips in one cycle, emits a per-frame pulse, and produces a SIGNED per-axis delta (the raw material for slide/two-note detection)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_axis_snapshot.sv:223: $finish called at 1430000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_axis_snapshot.sv:287: $finish called at 2230000 (1ps)
 
 

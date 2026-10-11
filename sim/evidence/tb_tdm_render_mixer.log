@@ -1,4 +1,7 @@
-﻿ERROR [tdm_render_mixer] POLY_TARGET+2=34 > RENDER_DEADLINE_CYC=4 => 姣忓抚閮戒細瓒呮椂锛圓6 澶辨晥锛?
+﻿INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=0 => 鍗曢煶宄?鈮?50% FS
+ERROR [tdm_render_mixer] POLY_TARGET+2=34 > RENDER_DEADLINE_CYC=4 => 姣忓抚閮戒細瓒呮椂锛圓6 澶辨晥锛?
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=0 => 鍗曢煶宄?鈮?50% FS
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=0 => 鍗曢煶宄?鈮?50% FS
 == 1: deadline_fault stays 0 (A6) ==
   ok  : worst case 5 frames: deadline_fault stays 0
 == 2: one dry_valid per frame, fixed latency ==

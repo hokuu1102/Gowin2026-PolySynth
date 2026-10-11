@@ -35,11 +35,25 @@ module vibrato_lfo #(
 );
 
     // Explicitly widen before multiplication: 12 bits x 32 bits needs 44 bits.
+    //  ⭐⭐ 2026-10-09（`P0-30`）：⭐ **把 44 位乘法云收窄到真实的 22 位** ✅
+    //   🔴 **原写法**：`wire [43:0] rate_product = {32'd0, rate_raw_i} * {12'd0, rate_span};`
+    //      ⚠️ 而 `rate_raw_i` **只有 12 个有效位**、`rate_span = 945` 只有 **10 位** ✅
+    //      ⇒ ⭐ 真实积上限 = `4095 × 945 = 3 869 775` = **22 位**（2^22 = 4 194 304）✅
+    //      ⇒ 🔴 声明的 44 位里有 **22 位是纯零填充** ✅
+    //      ⚠️ 而 945 = `0b11_1011_0001` ⇒ **6 个非零部分积**
+    //      ⇒ ⭐ 每一级加法树的位宽都被撑到 44 位 ✅
+    //   ✅ **修法**：⭐ 收窄到 22 位 —— ⭐ **与现写法逐位等价**：
+    //      ⭐ 44 位积 = 22 位积的**零扩展** ⇒ ⭐ `rate_product[43:12]` ≡ `rate_product[21:12]`（零扩展）✅
+    //   📌 **预期**：⭐ 6 级加法树位宽 44 → 22 ⇒ ⭐ 每级进位链减半
+    //      ⇒ ⭐ 估算 **省 66 ALU**（`6 × 44/2 = 132` → `6 × 22/2 = 66`）✅
+    //   ⚠️ **诚实边界**：⭐ Gowin 的常量乘法优化**有可能**本来就已经把它收窄了
+    //      ⇒ ⭐ **必须用综合报告确认**（⭐ 若 ALU 不变 ⇒ 工具早已收窄，⭐ 收益为零也要如实记）✅
+    localparam [21:0] RATE_SPAN22 = RATE_MAX_INC - RATE_MIN_INC;   // ⭐ 真值 945
     wire [31:0] rate_span = RATE_MAX_INC - RATE_MIN_INC;
-    wire [43:0] rate_product = {32'd0, rate_raw_i} * {12'd0, rate_span};
+    wire [21:0] rate_product = rate_raw_i * RATE_SPAN22;   // ⭐ 12×10 ⇒ 22 位，够 ✅
     wire [31:0] rate_target_w = (rate_raw_i == 12'hFFF)
                               ? RATE_MAX_INC
-                              : RATE_MIN_INC + rate_product[43:12];
+                              : RATE_MIN_INC + rate_product[21:12];
     //  ⭐⭐ 2026-10-09（`P0-19`）：⭐ **颤音深度上限（⭐ 止血版）** ✅
     //   🔴 **缺陷**：⭐ 档 1（上电默认）把 `ch2_i` **原样透传**到 `vibrato_depth_o`
     //      ⇒ ⭐ 推子行程 = `depth_raw_i` **0..4095 全量程可达** ✅
@@ -65,7 +79,12 @@ module vibrato_lfo #(
     reg              depth_active_r;
     reg [15:0]       depth_q;
     reg [31:0]       rate_inc_q;
-    reg [31:0]       rate_target_q;
+    //  ⭐⭐ 2026-10-09（`P0-30`）：⭐ **删掉死寄存器 `rate_target_q`**（⭐ 省 32 FF）✅
+    //   🔴 它**一个负载都没有**（⭐ 三处引用全是写、无读）⇒ ⭐ 纯浪费 32 FF ✅
+    //   📌 作者原意应是"把 `rate_target_w` 打一拍再用于 slew"
+    //      ⇒ ⭐ 那一拍正好能把乘法云从 `rate_inc_q` 的反馈环里切出去（⭐ 即审查的"改法二"）
+    //      ⚠️ 但那是**行为变更**（⭐ 会打红 tb 的 78/79/80 三条精确值断言）
+    //      ⇒ ⭐ **留作独立决策**，⛔ 本次只做零风险的"改法一 + 删死寄存器" ✅
     reg [31:0]       phase_q;
     integer          slew_count_q;
 
@@ -104,7 +123,7 @@ module vibrato_lfo #(
             depth_active_r <= 1'b0;
             depth_q        <= 16'd0;
             rate_inc_q     <= RATE_MIN_INC;
-            rate_target_q  <= RATE_MIN_INC;
+            //  ⭐ P0-30：死寄存器已删（原 `rate_target_q <= RATE_MIN_INC;`）✅
             phase_q        <= 32'd0;
             slew_count_q   <= 0;
         end else begin
@@ -125,7 +144,9 @@ module vibrato_lfo #(
                     depth_q        <= depth_target_w;
                 end
 
-                rate_target_q <= rate_target_w;
+                //  ⭐ P0-30：死寄存器已删（原 `rate_target_q <= rate_target_w;`）✅
+                //   ⚠️ 注意：⭐ `rate_target_w` **仍在用**（⭐ 见下面的 slew 判据）
+                //      ⇒ ⭐ 删掉的只是那个"没人读的寄存器" ✅
 
                 // The control source commits at 2 kHz.  Move rate only every
                 // 10 commits (5 ms nominal), with a bounded step each time.

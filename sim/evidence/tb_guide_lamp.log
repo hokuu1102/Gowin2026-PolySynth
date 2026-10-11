@@ -13,7 +13,10 @@
   ok  : commit falls back to 0 next cycle
   ok  : multi: axis 0 and 15 both lit
   ok  : multi: only those two bits
+  ok  : P0-28 a PRESSED key is blanked: guide_key[3]=1 but guide_vis[3]=0
+  ok  : P0-28 blanking does not disturb other axes: guide_vis == guide_key & ~key_active
+  ok  : P0-28 after release the guide bit is visible again
 PASS: tb_guide_lamp (16 checks)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_guide_lamp.sv:171: $finish called at 951000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_guide_lamp.sv:197: $finish called at 972000 (1ps)
 
 

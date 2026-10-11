@@ -249,35 +249,43 @@ module tb_pos_probe_axis;
     endtask
 
     // ⭐ 整包校验：⭐ `'P' + CH + 4 位十进制 + CR + LF`，且
-    //    `CH == k%8`、`pos == (k>=8 ? POL1 : POL0)`（⭐ 这就是判据 c）
-    integer e3, e2, e1, e0, exp_pos, bad, base;
+    //    ⭐⭐ **2026-10-09（`P1-80`）修正**：⭐ `CH` = **轴号的十六进制一位（0~F）** ✅
+    //      🔴 **原判据写的是 `CH == k % 8`** —— ⚠️ 那**正是缺陷本身** ✅
+    //         （⭐ `ch_i = {1'b0, pp_axis_r[2:0]}` ⇒ ⭐ 片 1 的读数被读成片 0 的某个轴 ✅）
+    //      ✅ **修后**：⭐ `ch_i = pp_axis_r`（4 位直传：⭐ bit3 = 片号 ✅）
+    //         ⇒ ⭐ CH = `k` 的十六进制一位 ⇒ ⭐ 轴 7 ⇒ `'7'` · ⭐ 轴 15 ⇒ `'F'` ✅
+    //      📌 ⭐ **本判据在【未修复】代码上必红**（⭐ 它给的是 `k%8` ✅）
+    //         ⇒ ⭐ 这正是铁律① 要的"未修复能红" ✅
+    integer e3, e2, e1, e0, exp_pos, bad, base, exp_ch;
     task chk_pkt;
         input integer k;
         begin
             base    = k * 8;
             exp_pos = (k >= 8) ? POL1 : POL0;
+            //  ⭐ 期望的 CH 字符：⭐ 0~9 ⇒ '0'~'9' · ⭐ 10~15 ⇒ 'A'~'F' ✅
+            exp_ch  = (k < 10) ? (8'h30 + k) : (8'h41 + (k - 10));
             e3 = exp_pos / 1000;
             e2 = (exp_pos % 1000) / 100;
             e1 = (exp_pos % 100) / 10;
             e0 = exp_pos % 10;
             bad = 0;
             if (got[base+0] !== 8'h50) bad = bad + 1;                  // 'P'
-            if (got[base+1] !== (8'h30 + (k % 8))) bad = bad + 1;      // ⭐ CH
+            if (got[base+1] !== exp_ch) bad = bad + 1;                 // ⭐ CH（P1-80 修后）
             if (got[base+2] !== (8'h30 + e3)) bad = bad + 1;
             if (got[base+3] !== (8'h30 + e2)) bad = bad + 1;
             if (got[base+4] !== (8'h30 + e1)) bad = bad + 1;
             if (got[base+5] !== (8'h30 + e0)) bad = bad + 1;
             if (got[base+6] !== 8'h0D) bad = bad + 1;
             if (got[base+7] !== 8'h0A) bad = bad + 1;
-            $display("    req %0d: axis=%0d chip=%0d expect pos=%0d -> got %c%c%c%c%c%c%c%c",
-                     k, k, (k >= 8), exp_pos,
+            $display("    req %0d: axis=%0d chip=%0d expect pos=%0d expect ch=%c -> got %c%c%c%c%c%c%c%c",
+                     k, k, (k >= 8), exp_pos, exp_ch,
                      got[base+0], got[base+1], got[base+2], got[base+3],
                      got[base+4], got[base+5], got[base+6], got[base+7]);
             if (bad == 0) begin
                 $display("  ok  : c req %0d pos comes from chip %0d", k, (k >= 8));
             end else begin
-                $display("  FAIL: c req %0d expected ch=%0d pos=%0d (chip %0d) but the reply bytes are wrong",
-                         k, (k % 8), exp_pos, (k >= 8));
+                $display("  FAIL: c req %0d expected ch=%c pos=%0d (chip %0d) but the reply bytes are wrong",
+                         k, exp_ch, exp_pos, (k >= 8));
                 errors = errors + 1;
             end
         end
@@ -340,11 +348,11 @@ module tb_pos_probe_axis;
         ch_seq_bad = 0;
         for (k = 0; k < NPKT; k = k + 1) begin
             if (got[k*8+0] !== 8'h50)             ch_seq_bad = ch_seq_bad + 1;
-            if (got[k*8+1] !== (8'h30 + (k % 8))) ch_seq_bad = ch_seq_bad + 1;
+            if (got[k*8+1] !== ((k < 10) ? (8'h30 + k) : (8'h41 + (k - 10)))) ch_seq_bad = ch_seq_bad + 1;
             if (got[k*8+6] !== 8'h0D)             ch_seq_bad = ch_seq_bad + 1;
             if (got[k*8+7] !== 8'h0A)             ch_seq_bad = ch_seq_bad + 1;
         end
-        chk("a1 16 replies are 'P'+CH+4digits+CRLF with CH = 0,1,..,7,0,1,..,7",
+        chk("a1 16 replies are 'P'+CH+4digits+CRLF with CH = 0..F (P1-80 修后)",
             ch_seq_bad === 0);
 
         // ── b：⭐⭐ 第 9 次（轴 8）必须来自【片 1】────────────────────────────
@@ -369,13 +377,13 @@ module tb_pos_probe_axis;
             d2 = (expd % 1000) / 100;
             d1 = (expd % 100) / 10;
             d0 = expd % 10;
-            if (got[k*8+1] !== (8'h30 + (k % 8))) nbad = nbad + 1;
+            if (got[k*8+1] !== ((k < 10) ? (8'h30 + k) : (8'h41 + (k - 10)))) nbad = nbad + 1;
             if (got[k*8+2] !== (8'h30 + d3))      nbad = nbad + 1;
             if (got[k*8+3] !== (8'h30 + d2))      nbad = nbad + 1;
             if (got[k*8+4] !== (8'h30 + d1))      nbad = nbad + 1;
             if (got[k*8+5] !== (8'h30 + d0))      nbad = nbad + 1;
         end
-        chk("c1 all 16 replies: ch == axis%8 AND pos == the selected chip's code",
+        chk("c1 all 16 replies: ch == axis (hex 0..F) AND pos == the selected chip's code",
             nbad === 0);
         //   ⭐ 逐包明细（⭐ 失败时能一眼看出是哪一包）
         for (k = 0; k < NPKT; k = k + 1) chk_pkt(k);

@@ -63,7 +63,7 @@ module debounce #(
 
     assign key_norm = ACTIVE_LOW ? ~key_in : key_in;
 
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk) begin
         if (!rst_n) begin
             for (ki = 0; ki < NKEY; ki = ki + 1) begin
                 key_level[ki] <= 1'b0;
@@ -85,7 +85,7 @@ module debounce #(
 
     // ── 边沿检测（1 周期脉冲）──────────────────────────────────────────────
     reg [NKEY-1:0] key_level_d;
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk) begin
         if (!rst_n) key_level_d <= {NKEY{1'b0}};
         else        key_level_d <= key_level;
     end
@@ -105,7 +105,7 @@ module debounce #(
     wire [2:0] enc_norm = ACTIVE_LOW ? {~enc_in[2], enc_in[1], enc_in[0]}
                                       : enc_in;
 
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk) begin
         if (!rst_n) begin
             enc_lvl <= 3'b000;
             for (ei = 0; ei < 3; ei = ei + 1) enc_cnt[ei] <= 32'd0;
@@ -124,7 +124,7 @@ module debounce #(
     end
 
     // SW 键的去抖后电平与边沿
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk) begin
         if (!rst_n) begin
             enc_a_lvl  <= 1'b0;
             enc_b_lvl  <= 1'b0;
@@ -137,7 +137,7 @@ module debounce #(
     end
 
     reg enc_sw_lvl_d;
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk) begin
         if (!rst_n) enc_sw_lvl_d <= 1'b0;
         else        enc_sw_lvl_d <= enc_sw_lvl;
     end
@@ -149,12 +149,12 @@ module debounce #(
     assign enc_state = {enc_b_lvl, enc_a_lvl};
 
     reg [1:0] st_d;
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk) begin
         if (!rst_n) st_d <= 2'b00;
         else        st_d <= enc_state;
     end
 
-    always @(posedge clk or negedge rst_n) begin
+    always @(posedge clk) begin
         if (!rst_n) begin
             enc_cw  <= 1'b0;
             enc_ccw <= 1'b0;
