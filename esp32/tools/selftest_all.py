@@ -56,15 +56,22 @@ def has_selftest(path):
     """
     ⭐ 判断该脚本是否支持 `--selftest`。
 
-    ⚠️ 用【源码里有没有 `--selftest` 这个字面串】判断 ——
-    ⭐ 因为要跑的可能是 argparse 参数，⚠️ 也可能像 `frame_format.py`
-       那样"直接跑就是自检"（⭐ 它没有参数）。
+    ⚠️ 判据必须锚在【真的注册了这个参数】上，⛔ 不是"源码里出现过这几个字"。
+    🔴 实测踩过：新写的 `run_all_tests.py` 在**命令清单字符串**里写了
+       `--selftest`，于是被误枚举、被加上 `--selftest` 跑 => argparse 报
+       `unrecognized arguments` => 退出码 2 => 全量自检变红。
+    ⭐ 同族：`C157`（"提到过" ⛔ 不等于"真的支持"）。
     """
     try:
         with open(path, "r", encoding="utf-8", errors="replace") as f:
-            return "--selftest" in f.read()
+            src = f.read()
     except OSError:
         return False
+    # ⭐ 只看 argparse 注册：add_argument("--selftest" ...) / add_argument('--selftest' ...
+    if re.search(r"""add_argument\(\s*["']--selftest""", src):
+        return True
+    # ⚠️ 兼容"手动看 sys.argv"的写法（当前工程没有，但保留这条以防将来）
+    return bool(re.search(r"""["']--selftest["']\s+in\s+sys\.argv""", src))
 
 
 def discover():
@@ -88,6 +95,35 @@ def discover():
     return found
 
 
+# ⭐ 只认【判据位】的 RED —— ⛔ 不认标签 / 列名 / 测试描述里的 RED。
+# 🔴 实测踩过：`run_all_tests.py` 的自检里，测试【标签】本身含 "RED" 二字
+#    （如「判据位的 RED 必须判红」）=> 被数成 2 项 RED =>
+#    合计说"2 项 RED"而结论说"全部通过" => ⭐ 两行又打架（`C162` / `C161` 同族）。
+# ⭐ 同族：`C159`（用字面串做能力探测会误判）。
+_RED_VERDICT = (
+    re.compile(r"(?m)^\s*RED\b"),            # 行首的 RED（如 "  RED  rc=2  x.py"）
+    re.compile(r"RED\s*=\s*[1-9]"),          # RED=3
+    re.compile(r"\b([1-9]\d*)\s*项\s*RED"),  # "3 项 RED"
+)
+
+
+def count_red(out):
+    """⭐ 数【判据位】的 RED 个数（⛔ 不是"文本里出现过几次"）。"""
+    n = 0
+    for ln in out.splitlines():
+        if _RED_VERDICT[0].match(ln):
+            n += 1
+            continue
+        m = _RED_VERDICT[1].search(ln)
+        if m:
+            n += 1
+            continue
+        m = _RED_VERDICT[2].search(ln)
+        if m:
+            n += int(m.group(1))
+    return n
+
+
 def run_one(rel, use_flag):
     """⭐ 跑一个工具，返回 (rc, ok 数, red 数, 输出)。"""
     cmd = [sys.executable, rel] + (["--selftest"] if use_flag else [])
@@ -100,10 +136,7 @@ def run_one(rel, use_flag):
         return 124, 0, 0, "(超时 300 s)"
     except Exception as e:                       # noqa: BLE001
         return 99, 0, 0, "(启动失败：%s)" % e
-    return (rc,
-            len(re.findall(r"\bOK\b", out)),
-            len(re.findall(r"\bRED\b", out)),
-            out)
+    return rc, len(re.findall(r"\bOK\b", out)), count_red(out), out
 
 
 def main():
@@ -141,7 +174,12 @@ def main():
 
     print()
     print("=" * 74)
-    print("合计：%d 个工具，%d 项 OK，%d 项 RED" % (len(tools), total_ok, total_red))
+    # ⚠️ 合计行必须包含【工具不通过数】—— 否则会与下面的结论行自相矛盾。
+    # 🔴 实测踩过：合计只数输出里 "RED" 字面出现的次数，
+    #    而 argparse 报错（退出码 2）的输出里没有 "RED" ⇒
+    #    合计说"0 项 RED"、结论说"1 个工具不通过" ⇒ ⭐ 两行打架（C157 同族）。
+    print("合计：%d 个工具（不通过 %d 个），%d 项 OK，%d 项 RED"
+          % (len(tools), len(failed), total_ok, total_red))
     if not failed:
         print("结论：全部通过 ✅")
     else:

@@ -103,10 +103,23 @@ async def read_stat(c):
        而实际上池里明明有 200 帧、上行明明通了 —— ⚠️ 全是**陈旧快照**。
     ⭐ 同族：`C113`（⭐ 错值伪装成合理值 —— ⚠️ 这里连"值"都是合理的旧值）。
     """
-    await c.write_gatt_char(UUID_CMD, bytes([0x02]), response=False)
-    await asyncio.sleep(0.6)          # ⚠️ 给固件一点时间组装
-    st = await c.read_gatt_char(UUID_STAT)
-    return bytes(st).decode("utf-8", "replace")
+    # ⭐ 重试 3 次：BLE 抖动时读回会失败或读到半截
+    #    🔴 实测症状：偶发 `ValueError: invalid literal for int(): '?'`
+    #    —— ⚠️ 那是读到**被截断/半更新的内容**（⭐ 不是设备坏）。
+    #    ⭐ 判据要结实：⭐ 读不稳就重读，⛔ 不要一次失败就判红。
+    last = ""
+    for _try in range(3):
+        await c.write_gatt_char(UUID_CMD, bytes([0x02]), response=False)
+        await asyncio.sleep(0.6)          # ⚠️ 给固件一点时间组装
+        try:
+            st = await c.read_gatt_char(UUID_STAT)
+            last = bytes(st).decode("utf-8", "replace")
+            if last.count("=") > 10:      # ⭐ 粗判"像一份完整状态"
+                break
+        except Exception:                 # noqa: BLE001
+            pass
+        await asyncio.sleep(0.4)
+    return last
 
 
 async def run(log_port, uart_port, baud):

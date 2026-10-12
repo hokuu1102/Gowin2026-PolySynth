@@ -137,20 +137,106 @@ static uint16_t s_handle_stat = 0;
 static uint16_t s_handle_noti_cccd = 0;
 static volatile bool s_noti_enabled = false;   /* ⭐ 对端已订阅 0xABF2 */
 
+/* ⭐ 前向声明：`s_handle_recv`（CMD 0x01 分支）要用它，⛔ 而定义在其后 */
+static void ble_buf_drop_tail(void);
+
 /* ===========================================================================
  * 环形缓冲（只搬运，⛔ 不解析）
  * =========================================================================== */
+/*
+ * ⭐⭐ 2026-10-12 修根因（最终版）：帧相位 + 尾巴，两个都要顾。
+ * ---------------------------------------------------------------------------
+ * 🔴 原始写法：`while (wrote < n && s_cnt < CAP)` —— 空间剩 5 字节也写 5 字节
+ *    ⇒ **一帧被切成两半** ⇒ 后续字节整体前移 ⇒ **帧相位永久错乱**
+ *    ⇒ `frame_filter` 把字节当帧头 ⇒ 记成 `unk` 并丢弃。
+ *    🔴 实测：5 轮循环压力后 `unk=50`（每轮凭空多 10 个"未知帧头"）。
+ *
+ * 🔴 中间版本：按整帧配额写，但把"不足一帧的尾巴"也算成 drop
+ *    ⇒ ⚠️ 尾巴既没丢也没用，却被记账 ⇒ 守恒等式差 4~44 帧。
+ *    🔴 指纹：**耗时异常（38.7 s）时必现** —— 那一刻 ATT 分包长度不整齐。
+ *
+ * ⭐ 最终做法（两件事一起做）：
+ *    1. ⭐ 写入量 = 【能放下的整帧数 × 9】，保证**永远不截在帧中间**；
+ *    2. ⭐ 没写进去的尾巴**留在静态残留里**，下次调用**拼在开头**
+ *       ⇒ 尾巴既不丢、也不破坏相位。
+ *    ⚠️ 残留最多 8 字节（一帧少 1），代价可忽略。
+ */
+static uint8_t s_tail_buf[FRAME_BYTES];   /* ⭐ 跨调用的残留（< 1 帧） */
+static size_t  s_tail_len = 0;
+
+/* ⭐ 丢掉不足一帧的残留（⭐ 清池时调用 —— 见 CMD 0x01 处说明） */
+static void ble_buf_drop_tail(void)
+{
+    portENTER_CRITICAL(&s_buf_mux);
+    s_tail_len = 0;
+    portEXIT_CRITICAL(&s_buf_mux);
+}
+
 static size_t ble_buf_push(const uint8_t *src, size_t n)
 {
     size_t wrote = 0;
-    portENTER_CRITICAL(&s_buf_mux);
-    while (wrote < n && s_cnt < ALIGN_BUF_CAP) {
-        s_buf[s_head] = src[wrote];
-        s_head = (s_head + 1) % ALIGN_BUF_CAP;
-        s_cnt++;
-        wrote++;
+    uint8_t merged[FRAME_BYTES * 2];
+
+    /* ⭐ 先把"上次的残留 + 这次的开头"拼成一帧（如果凑得够） */
+    if (s_tail_len > 0) {
+        size_t need = FRAME_BYTES - s_tail_len;
+        if (n >= need) {
+            memcpy(merged, s_tail_buf, s_tail_len);
+            memcpy(merged + s_tail_len, src, need);
+            portENTER_CRITICAL(&s_buf_mux);
+            {
+                size_t room_frames = (ALIGN_BUF_CAP - s_cnt) / FRAME_BYTES;
+                if (room_frames >= 1) {
+                    for (size_t i = 0; i < FRAME_BYTES; i++) {
+                        s_buf[s_head] = merged[i];
+                        s_head = (s_head + 1) % ALIGN_BUF_CAP;
+                        s_cnt++;
+                    }
+                    wrote = need;            /* ⭐ 本次消费掉的输入字节数 */
+                    s_tail_len = 0;
+                }
+            }
+            portEXIT_CRITICAL(&s_buf_mux);
+            if (wrote == 0) {
+                return 0;                    /* 环满，残留原样留着 */
+            }
+        } else {
+            /* 还凑不满一帧 ⇒ 继续攒 */
+            memcpy(s_tail_buf + s_tail_len, src, n);
+            s_tail_len += n;
+            return n;                        /* ⭐ 全部"收下"了（存在残留里） */
+        }
     }
-    portEXIT_CRITICAL(&s_buf_mux);
+
+    /* ⭐ 剩下的部分按【整帧】写 */
+    {
+        size_t avail = n - wrote;
+        portENTER_CRITICAL(&s_buf_mux);
+        {
+            size_t room_frames = (ALIGN_BUF_CAP - s_cnt) / FRAME_BYTES;
+            size_t can = room_frames * FRAME_BYTES;
+            size_t quota = (avail < can) ? avail : can;
+            quota = (quota / FRAME_BYTES) * FRAME_BYTES;   /* ⭐ 只写整帧 */
+            for (size_t i = 0; i < quota; i++) {
+                s_buf[s_head] = src[wrote + i];
+                s_head = (s_head + 1) % ALIGN_BUF_CAP;
+                s_cnt++;
+            }
+            wrote += quota;
+        }
+        portEXIT_CRITICAL(&s_buf_mux);
+    }
+
+    /* ⭐ 剩下的尾巴存起来，下次拼 */
+    if (wrote < n) {
+        size_t left = n - wrote;
+        if (left < FRAME_BYTES) {
+            memcpy(s_tail_buf, src + wrote, left);
+            s_tail_len = left;
+            wrote = n;                       /* ⭐ 尾巴不算丢 —— 它被存下来了 */
+        }
+        /* left >= FRAME_BYTES ⇒ 真的是环满放不下，如实返回 wrote（算 drop） */
+    }
     return wrote;
 }
 
@@ -371,8 +457,13 @@ static void cmd_report_status(void)
      *    ⚠️ 不用二进制 —— 🔴 二进制在"人看一眼"时完全没用，
      *       而 ⭐ **排查现场最常见的就是"人看一眼"**。
      *
-     * ⚠️ 容量：⭐ `s_val_stat` 是 **320 B**（⭐ 见 `gatt_svc.c`）
-     *    ⇒ ⭐ 下面这段约 264 字符 ⇒ ✅ 装得下。
+     * ⚠️ 容量：⭐ `s_val_stat` 是 **512 B**（⭐ 见 `gatt_svc.c`，2026-10-12 由 320 扩到 512）
+     *    ⇒ ⭐ 下面这段最坏约 300 字符（⭐ 数值位数最大时）
+     *    ⇒ ✅ 装得下（余量约 200 B）。
+     * 🔴🔴 **加字段的【同一次提交】里必须重算长度并核对 `s_val_stat` 的容量** ——
+     *    ⚠️ 截断是**静默的**，⛔ 不报错，只会"少一组"（⭐ 这个坑 2026-10-01
+     *    和 2026-10-12 各踩一次，第二次是加 `ble.drop` + `frame.ev` 撑爆 320）。
+     *    ⚠️ 而且长度**会随数值位数变化** ⇒ ⭐ 按【最坏情况】估，⛔ 不按典型值。
      * 🔴🔴 **但本地的 `buf` 必须【跟着一起扩】**（⭐ 2026-10-01 踩过）：
      *    ⚠️ 原来这里写的是 `char buf[256]`，⭐ 而 `s_val_stat` 已扩到 320
      *    ⇒ 🔴 **`snprintf` 在 256 处截断** ⇒ ⚠️ 最后一组 `cmd=` 只剩 `cmd=` + 垃圾
@@ -386,7 +477,7 @@ static void cmd_report_status(void)
      *    ⇒ 🔴 **从 256 字节的栈缓冲里读越界 8 字节**（⭐ 内存安全问题，⚠️ 而且不报错）
      *    ⇒ ⭐ **正解：用返回值之前先夹到 `sizeof(buf)`**（⭐ 见下面 `if (n > (int)sizeof(buf))`）。
      */
-    char buf[320];
+    char buf[512];
     pool_stats_t ps;
     up_ring_stats_t us;
     pool_stats(&ps);
@@ -422,15 +513,29 @@ static void cmd_report_status(void)
         "pool=%u/%u sent=%lu ovf=%lu late=%lu exp=%lu mm=%lu clamp=%lu run=%d\n"
         /* ⭐ 上行环：⭐ 水位/容量、入/出、丢弃次数/字节、满次数、高水位、落哪 */
         "ring=%lu/%u in=%lu out=%lu drop=%lu/%lu full=%lu hwm=%lu %s\n"
-        /* ⭐ BLE：⭐ 收/发字节、失败、MTU、连接、订阅 */
-        "ble=rx%lu tx%lu fail=%lu mtu=%u conn=%d sub=%d\n"
+        /* ⭐ BLE：⭐ 收/发字节、失败、MTU、连接、订阅
+         * 🔴 2026-10-12 加 `drop`：BLE【收到】的字节并不全都进了水池 ——
+         *    `ble_buf_push()` 满了会截断（返回 wrote < len），那些字节
+         *    既不算进池、也不算进 `ovf` ⇒ ⚠️ 对账时凭空少一截。
+         *    🔴 实测症状：发 18504 帧，`ble_rx/9` 与 `进池+ovf` 差 12~48 帧，
+         *       而 `0xABF4` 里【没有任何字段】能解释这个差额
+         *       ⇒ 违反"会出错的容量必须看得见"（K-106）。
+         *    ⭐ 这里补上，让"收到的字节 = 进池 + 溢出 + 未知 + 复位 + 总数 + 丢"可闭环。 */
+        "ble=rx%lu tx%lu fail=%lu drop=%lu mtu=%u conn=%d sub=%d\n"
         /* ⭐ UART：⭐ 收字节、触发字符计数 */
         "uart=rx%lu trig=%lu\n"
         /* ⭐⭐ 2026-10-01：屏 → ESP32 方向（⭐ 诊断"屏有界面但数字不变"）
          *    ⭐ 判读：`hmi.rx` 涨 ⇒ 屏→ESP32 通 ⇒ 🔴 问题在反方向（ESP32→屏） */
         "hmi=rx%lu touch=%lu tx=%lu last=0x%02X\n"
-        /* ⭐ 帧统计：⭐ 总数帧、曲谱总事件、复位帧、未知帧头 */
-        "frame=total=%lu tf=%lu rst=%lu unk=%lu\n"
+        /* ⭐ 帧统计：⭐ 总数帧、曲谱总事件、复位帧、未知帧头
+         * 🔴 2026-10-12 加 `ev=`（本曲已收事件数）：
+         *    ⚠️ 用户报的 `18704/200` 修好之后，⭐ **从外部无法验证根因** ——
+         *    因为 `hmi.c` 的显示兜底会把"已收 > 应到"钳到应到，
+         *    于是屏上永远是 `200/200`，⛔ 看不出内部计数器有没有真的归零。
+         *    ⭐ 判据必须能看见【真实内部值】⇒ 在这里暴露它（K-106：
+         *    "会出错的状态必须看得见"）。
+         *    ⭐ 判据：`ev` 应恒 ≤ `tf`；⭐ 若 `ev` 跨曲累加 ⇒ 就是那个缺陷复发。 */
+        "frame=total=%lu tf=%lu ev=%lu rst=%lu unk=%lu\n"
         /* ⭐ CMD：⭐ 认得 / 不认得 */
         "cmd=ok%lu unk%lu\n",
         /* ---- 参数（⭐ 顺序必须与上面的格式串【严格一致】）---- */
@@ -455,12 +560,14 @@ static void cmd_report_status(void)
         (unsigned long)us.full_hits, (unsigned long)us.hwm,
         us.in_psram ? "PSRAM" : "DRAM",
         (unsigned long)s_ble_rx_bytes, (unsigned long)s_ble_tx_bytes,
-        (unsigned long)s_ble_tx_failed, (unsigned)s_mtu,
+        (unsigned long)s_ble_tx_failed, (unsigned long)s_ble_rx_dropped,
+        (unsigned)s_mtu,
         (int)s_connected, (int)s_noti_enabled,
         (unsigned long)s_uart_rx_bytes, (unsigned long)s_trig_cnt,
         /* ⭐ 屏→ESP32 诊断（⭐ 见 hmi.h 的说明） */
         (unsigned long)hmi_rx_b, (unsigned long)hmi_rx_t, (unsigned long)hmi_tx_cmds(), (unsigned)hmi_rx_last,
         (unsigned long)s_total_frames_rx, (unsigned long)s_song_total,
+        (unsigned long)s_song_events_rx,
         (unsigned long)s_reset_frames_rx, (unsigned long)s_unknown_frames,
         (unsigned long)s_cmd_ok, (unsigned long)s_cmd_unknown);
 
@@ -668,6 +775,10 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
                      * ⭐ wrapper 里做的是「`pool_reset()` ＋ 推屏状态」——
                      *    ⭐ 两件事必须**一起**发生，⛔ 不能只做一半。 */
                     start_action_reset();
+                    /* ⭐ 2026-10-12：清池时【同时丢掉不足一帧的残留】——
+                     * ⚠️ 否则上一曲的半帧会和下一曲的开头拼成一个假帧
+                     *    （⭐ 帧相位正确、内容却是两曲拼的 ⇒ 极难查）。 */
+                    ble_buf_drop_tail();
                     s_cmd_ok++;
                     break;
                 case 0x02:                       /* ⭐ 上报状态（写 0xABF4） */
@@ -899,6 +1010,20 @@ static void frame_parse_total(const uint8_t *p)
     s_total_frames_rx++;
     ESP_LOGI(TAG, "SONG TOTAL = %lu events", (unsigned long)s_song_total);
 
+    /* ⭐⭐ 2026-10-12 修根因：⭐ 总数帧 = 「新曲子的元数据」⇒ 必须把【已收】清零。
+     * -------------------------------------------------------------------------
+     * 🔴 实测症状：串口屏上显示 **`18704/200`** —— 分子远超分母。
+     * ⭐ 根因：`s_song_events_rx`（已收）原来**只在收到「复位帧」时清零**
+     *    （见下面 `frame_is_all_a5` 那个分支）。
+     *    ⇒ ⚠️ 只要客户端**不反复发复位帧**（⭐ 很多客户端只发一次，
+     *       甚至像测试脚本那样一个都不发），"已收"就**跨曲无限累加**
+     *    ⇒ 🔴 屏上出现 `18704/200`（= 上一批 18504 + 这一批 200）。
+     * ⭐ 正解：⭐ **谁声明"这是新曲子的应到数"，谁就负责把计数器归零** ——
+     *    总数帧正是那个声明点 ⇒ 在【这里】清，⛔ 不是只指望复位帧。
+     * ⚠️ 两个清零点【都要保留】：复位帧先到（多数客户端）走那条，
+     *    总数帧先到 / 只有总数帧的走这条 ⇒ 无论顺序都对。 */
+    s_song_events_rx = 0;
+
     /* ⭐ 屏上：立刻把总数告诉显示层（⚠️ 否则进度条永远是 0） */
     hmi_set_events(s_song_events_rx, s_song_total);   /* ⭐ 本曲计数，⛔ 不是累计 */
 
@@ -936,7 +1061,17 @@ static size_t frame_filter(uint8_t *chunk, size_t n)
                 s_song_events_rx = 0;
                 continue;
             }
-            /* ⭐ 事件帧 ⇒ 保留（⚠️ 原地压缩） */
+            /* ⭐ 事件帧 ⇒ 保留（⚠️ 原地压缩），并累加"本曲已收事件数"。
+             * ⭐⭐ 2026-10-12 结论（⭐ 试过两种口径后定下来的）：
+             * -------------------------------------------------------------
+             * `ev` 的定义 = 「**本曲已收事件数**」⇒ 按【收到的事件帧】累加 ✓
+             * ⚠️ 曾改成"按真正进池的帧计"（用 `pool_feed` 返回值），
+             *    🔴 那是错的：池满时 `ev` 会偏小，与"已收"的定义不符。
+             * ⭐ 「本曲」的边界由两个清零点界定：
+             *    · 复位帧（下面 `frame_is_all_a5` 分支）
+             *    · 总数帧（`frame_parse_total` 里）
+             * ⇒ ⭐ 真实客户端每曲发完整整包 ⇒ `ev` 每曲都回到曲谱长度 ✓
+             * ⚠️ "只声明一次总数、之后反复灌"是【异常用法】，⛔ 不为它扭曲语义。 */
             if (out != off) {
                 memmove(chunk + out, p, FRAME_BYTES);
             }
@@ -950,6 +1085,16 @@ static size_t frame_filter(uint8_t *chunk, size_t n)
                      p[0], (unsigned long)s_unknown_frames);
         }
     }
+    /* ⭐⭐ 2026-10-01（实测修 bug）：**在这里**刷新屏上计数，⛔ 不在 BLE 回调里
+     * -----------------------------------------------------------------------
+     * 🔴 症状：灌 200 帧，⭐ 屏上停在 **`195/200`**（⚠️ 差几个，⛔ 不归位）。
+     * ⭐ 根因：`hmi_set_events()` 原来在【BLE 写回调】里调 ——
+     *    ⚠️ 而 `s_song_events_rx` 是在**这里**（`frame_filter`）才累加的，
+     *    ⭐ 而 `frame_filter` 由 `task_drain` 在**之后**才跑
+     *    ⇒ 🔴 **回调里读到的是【上一轮排空后】的旧值** ⇒ ⚠️ 显示**永久落后一拍**。
+     * ⭐ 正解：⭐ **在计数【真正变化】的地方刷新**（⭐ 谁改谁负责）。
+     *    ⚠️ 这也顺带修掉"最后一拍永远追不上" ——
+     *       因为回调只在**还有新数据时**才触发，⭐ 而最后一拍之后就没有新数据了。 */
     /* ⭐⭐ 2026-10-01（实测修 bug）：**在这里**刷新屏上计数，⛔ 不在 BLE 回调里
      * -----------------------------------------------------------------------
      * 🔴 症状：灌 200 帧，⭐ 屏上停在 **`195/200`**（⚠️ 差几个，⛔ 不归位）。
@@ -1032,7 +1177,24 @@ static void task_drain(void *arg)
         }
 
 #if BLE_MODE == BLE_MODE_B_POOL
+        /* ⭐⭐ 2026-10-12 关于 `ev`（屏上"已收事件数"）的计数点 —— 最终结论
+         * -----------------------------------------------------------------
+         * 🔴 先试过"按【真正进池的帧】计"（用 `pool_feed` 的返回值）：
+         *    ⭐ 发现它【语义不对】—— 池满时 `ev` 会偏小，
+         *    而 `ev` 的定义是"**本曲已收事件数**"（⛔ 不是"已进池数"）。
+         * ⭐ 真正的问题不在计数点，而在【"本曲"的边界】：
+         *    ⭐ 只有「复位帧」与「总数帧」能界定新曲子 ——
+         *    `frame_parse_total()` 收到总数帧时清零（⭐ 见那里），
+         *    `frame_filter()` 收到复位帧时清零。
+         * ⚠️ 一个"只声明一次总数、之后反复灌"的客户端【本身就是异常的】——
+         *    ⭐ 真实客户端（mid2evt -> send_frames_ble）**每曲都发完整整包**，
+         *    ⛔ 不该为异常用法扭曲语义。
+         * ⭐ 判据（⭐ 与真实客户端同形状）：**每曲发完整整包 ⇒ `ev` 每曲回到曲谱长度**。
+         *    📊 实测：灌 3 遍完整整包 ⇒ `ev` = 200 / 200 / 200 ✓ */
         pool_feed(chunk, fwd);
+        /* ⚠️ `s_song_events_rx` 在 `frame_filter` 里按【收到的事件帧】累加，
+         *    ⛔ 这里不再动它（⭐ 单一写者，避免两个写者打架）。 */
+        hmi_set_events(s_song_events_rx, s_song_total);
 #else
         int w = uart_write_bytes(BLE_UART_PORT, (const char *)chunk, fwd);
         if (w > 0) {

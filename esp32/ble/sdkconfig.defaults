@@ -128,6 +128,25 @@ CONFIG_BT_CTRL_BLE_MAX_ACT=6
 # ⚠️ 但要保证服务属性表有足够空间：
 CONFIG_BT_GATT_MAX_SR_ATTRIBUTES=100
 
+# ---- ⭐ 蓝牙任务栈（🔴 2026-10-12 修：BTC_TASK 栈溢出导致板子重启）-----------
+# 🔴 真机复现（网页与脚本各一次）：【起播约 20 秒后】BLE 掉线，串口日志抓到
+#       ***ERROR*** A stack overflow in task BTC_TASK has been detected.
+#       Backtrace: ...
+#       Rebooting...
+#       rst:0xc (RTC_SW_CPU_RST)
+#   ⇒ ⭐ 定性：这是【固件崩溃】（panic => 软件复位），⛔ 不是掉电。
+#      （⚠️ 一度怀疑 Brownout —— 日志里【没有】"Brownout detector was triggered"，
+#        这条负面证据把它排除了。）
+#   ⇒ ⭐ 为什么偏偏起播后才炸：起播时负载最高 ——
+#      GATT 读（STAT 轮询）＋ 通知 ＋ 池泵写 UART1 三者同时进行，
+#      BTC 任务的调用链最深 ⇒ 3 KB 的默认栈不够。
+#   IDF 默认：BTC=3072 / BTU=4352 字节。
+#   ⭐ 改成 6144：ESP32-S3 有 512 KB SRAM，用这点内存换掉一个崩溃很值。
+#   ⚠️ 必须写在这里（sdkconfig.defaults）—— ⛔ 只改 sdkconfig 的话，
+#      下次重新生成 sdkconfig 就被默认值覆盖回去，缺陷会静默复发。
+CONFIG_BT_BTC_TASK_STACK_SIZE=6144
+CONFIG_BT_BTU_TASK_STACK_SIZE=6144
+
 # ---- 不用 WiFi（省内存、减少射频争用）--------------------------------------
 # CONFIG_ESP_WIFI_ENABLED is not set
 

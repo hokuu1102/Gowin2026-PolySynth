@@ -269,6 +269,75 @@ async def run(events):
                 fails.append("LINK_LOST: 期望 %s，实测 %s"
                              % (EXPECT["LINK_LOST"], txt))
 
+    # ⭐⭐ 2026-10-12 新增：屏上【事件计数】`t2` 的回归判据。
+    # -----------------------------------------------------------------------
+    # 🔴 用户实测报的 bug：屏上显示 **`18704/200`** —— 分子远超分母。
+    # ⭐ 根因：`s_song_events_rx`（已收）原来只在收到「复位帧」时清零，
+    #    而「总数帧」(0x00) 才是声明"新曲子应到多少"的那个点，它到达时没清
+    #    ⇒ 客户端不反复发复位帧时，"已收"跨曲无限累加。
+    # ⭐ 修法：`frame_parse_total()` 里一并清零（见 ble_main.c）。
+    # ⚠️ 本判据的意义：⭐ 把"用户看得见的那串字"钉住 ——
+    #    ⛔ 只看 `0xABF4` 里的内部值是不够的（值 / 显示 / 重绘是三件事，C139）。
+    # ⭐ 判据：`t2` 形如 `已收/应到`，且【已收 <= 应到】且【应到 == 本次灌入数】。
+    try:
+        async with BleakClient(dev2 if dev2 is not None else dev) as c3:
+            await asyncio.sleep(0.8)
+            a3 = Ask(ser, c3)
+            got2 = await a3.get("t2")
+            t2 = got2.decode("utf-8", "replace") if got2 is not None else "(无回包)"
+            num = den = None
+            if "/" in t2:
+                try:
+                    num, den = (int(x.strip()) for x in t2.split("/", 1))
+                except ValueError:
+                    pass
+            if num is None:
+                print("  %-10s 期望 %-10s 实测 %-10s RED   t2 不是 数字/数字 形状"
+                      % ("T2_COUNT", "%d/%d" % (events, events), t2))
+                fails.append("T2_COUNT: 形状不对，实测 %r" % t2)
+            else:
+                ok = (num <= den) and (den == events)
+                print("  %-10s 期望 %-10s 实测 %-10s %s  已收<=应到 且 应到==灌入数"
+                      % ("T2_COUNT", "%d/%d" % (events, events), t2,
+                         "OK " if ok else "RED"))
+                if not ok:
+                    fails.append("T2_COUNT: 期望 %d/%d，实测 %s（🔴 已收>应到 = 计数没归零）"
+                                 % (events, events, t2))
+            # ⭐⭐ 还要查【内部真实值】：屏上显示有兜底钳制（见 hmi.c），
+            #    ⚠️ 所以"屏上看起来对"⛔ 不等于"内部计数器真的归零了"。
+            #    ⭐ `0xABF4` 的 `frame=... ev=<本曲已收>` 才是真值。
+            #    ⭐ 判据：`ev <= tf`（⛔ 不该出现 ev 跨曲累加）。
+            # ⚠️ 读 `0xABF4` 偶发失败（BLE 抖动）⇒ ⭐ **重试 3 次**，
+            #    ⛔ 不要一次读失败就判红（⭐ 那是"判据不结实"，不是设备坏）。
+            ev = tf = None
+            last_err = None
+            for _try in range(3):
+                try:
+                    st = bytes(await c3.read_gatt_char(
+                        "0000abf4-0000-1000-8000-00805f9b34fb")).decode("utf-8", "replace")
+                    m_ev = re.search(r"\bev=(\d+)", st)
+                    m_tf = re.search(r"\btf=(\d+)", st)
+                    if m_ev is not None:
+                        ev = int(m_ev.group(1))
+                        tf = int(m_tf.group(1)) if m_tf else None
+                        break
+                    last_err = "0xABF4 里没有 ev 字段（⭐ 需要重新烧录固件）"
+                except Exception as e:           # noqa: BLE001
+                    last_err = str(e)
+                await asyncio.sleep(0.4)
+            if ev is None:
+                print("  %-10s ⚠️ 读不到（重试 3 次后）：%s" % ("T2_INTERNAL", last_err))
+            else:
+                ok2 = (tf is None or tf == 0 or ev <= tf)
+                print("  %-10s 内部 ev=%-6s tf=%-6s %s  内部已收<=应到（⛔ 不受显示兜底影响）"
+                      % ("T2_INTERNAL", ev, tf, "OK " if ok2 else "RED"))
+                if not ok2:
+                    fails.append("T2_INTERNAL: ev=%s > tf=%s（🔴 内部计数跨曲累加）"
+                                 % (ev, tf))
+    except Exception as e:                       # noqa: BLE001
+        print("  T2_COUNT   ⚠️ 读取失败：%s" % e)
+        fails.append("T2_COUNT: 读取失败 %s" % e)
+
     try:
         ser.close()
     except Exception:
