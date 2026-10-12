@@ -99,6 +99,15 @@ void hmi_set_state(hmi_state_t st);
  * ⚠️ 调用方在别的任务里 ⇒ ⭐ 实现内部取锁，⛔ 不返回指针。 */
 hmi_state_t hmi_get_state(void);
 
+/* 某状态【进入过多少次】（2026-10-12 新增）。
+ *
+ * 用途：`断链` 是转瞬即逝的过渡态 —— 重连一成功就被置回 `就绪`，
+ *   而测试必须重连才能读 BLE => 永远读不到它。
+ *   => "断开到底有没有置断链"这件事【不可观测】，判据无从下手。
+ *   本计数器把它变成可事后读的数字（从 0xABF4 的 hmi= 行读）。
+ *   同族 C139：显示层会掩盖内部真值 => 把内部真值暴露成可读字段。 */
+uint32_t hmi_state_enter_count(hmi_state_t st);
+
 /* 蓝牙连接状态（屏上 t3）。⭐ 与状态字分开，两者会交叉 */
 void hmi_set_bt_connected(bool connected);
 

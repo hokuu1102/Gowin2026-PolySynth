@@ -77,6 +77,12 @@ def build_plan(esp, ch340, log_sec=20):
           "--seconds", "18"], 180, "逐字节一致"),
         ("异常路径（未知帧头/池满/断连重连）", "BLE",
          ["_exception_paths_check.py"], 240, "全部通过"),
+        # 2026-10-12 补：这两个工具原来【没被任何自动化跑到】
+        #   _stress_cycles.py 以 _ 开头 => selftest_all.py 排除它
+        #   而它又不在本列表里 => 全程裸奔，判据从没被验证过。
+        ("循环压力（重启/丢帧/卡顿）", "BLE",
+         ["_stress_cycles.py", "--cycles", "3", "--events", "200",
+          "--cycle-timeout", "120"], 600, "全部通过"),
     ]
     play = [
         ("灌真谱面并放到底", "BLE", ["_score_play_probe.py", "--minutes", "9"], 720,
@@ -176,6 +182,58 @@ def selftest():
     chk("每一项都是 5 元组且有 argv/超时", shape_ok)
     kw_ok = all(x[4] for x in offline + live)
     chk("离线+真机每项都有判据关键字", kw_ok)
+
+    # 1b) 【工具覆盖率】—— 目录里每个真机工具都必须被登记
+    # ---------------------------------------------------------------------
+    # 2026-10-12 新增。触发原因：_stress_cycles.py 一直【没被任何自动化跑到】
+    #   · 它以 `_` 开头 => selftest_all.py 明确排除（那是有意的）
+    #   · 而它又不在本文件的列表里 => 双重漏网，判据从没被验证过
+    # 判据：把 tools/ 下的 .py 列出来，减去【明确不必登记】的，
+    #       剩下的必须能在本文件的三张表里找到。
+    HERE = os.path.dirname(os.path.abspath(__file__))
+    registered = set()
+    for _, _, argv, _, _ in offline + live + play:
+        registered.add(argv[0])
+    # 明确不登记的：
+    #  A. 库 / 执行器自身
+    #  B. 造数据的小工具
+    #  C. 已被 selftest_all.py 覆盖的（它们有 --selftest，单独跑没意义）
+    #     —— 2026-10-12 实测：下面 7 个都在 selftest_all 的 23 个里
+    #  D. 一次性排查脚本（人工判读、无关键字判据，跑不了自动化）
+    NOT_TESTS = {
+        # A
+        "score_word.py",          # 库：位布局与帧层的唯一定义处
+        "selftest_all.py",        # 它就是"跑别人"的
+        "run_all_tests.py",       # 本文件
+        # B
+        "send_frames.py",
+        "send_frames_ble.py",
+        "demo_scale.py",
+        "read_log.py",
+        # C —— 有 --selftest，已被 selftest_all.py 覆盖
+        "loopback_check.py",
+        "pool_pace_check.py",
+        "screen_demo.py",
+        "trigger_and_capture.py",
+        "uart_rx_check.py",
+        "uart_timing_check.py",
+        "wrappers_check.py",
+        # D —— 一次性排查脚本（人工判读结论）
+        "_ble_poll_stress.py",    # A/B 探针（静默 vs 轮询）
+        "_crash_capture.py",      # 崩溃取证器（出事才用）
+        "_hmi_probe.py",          # 探屏 t3 的内部值
+        "_hmi_vis.py",            # 判"哪一栏跟着动"（要人看屏）
+        "_idle_probe.py",         # 定位"复位后仍是断链"的三种可能
+        "_lead_probe.py",         # 起播提前量探针
+        "score_uploader.py",      # 上位机 GUI（已单独登记 --selftest）
+    }
+    missing = []
+    for fn in sorted(os.listdir(HERE)):
+        if not fn.endswith(".py") or fn in NOT_TESTS or fn in registered:
+            continue
+        missing.append(fn)
+    chk("目录里的工具都已登记进本执行器", not missing,
+        ("  漏登记：" + ", ".join(missing)) if missing else "  %d 个已登记" % len(registered))
 
     # 2) 端口探测可用
     try:

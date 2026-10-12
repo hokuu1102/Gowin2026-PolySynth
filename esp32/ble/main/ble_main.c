@@ -525,8 +525,17 @@ static void cmd_report_status(void)
         /* ⭐ UART：⭐ 收字节、触发字符计数 */
         "uart=rx%lu trig=%lu\n"
         /* ⭐⭐ 2026-10-01：屏 → ESP32 方向（⭐ 诊断"屏有界面但数字不变"）
-         *    ⭐ 判读：`hmi.rx` 涨 ⇒ 屏→ESP32 通 ⇒ 🔴 问题在反方向（ESP32→屏） */
-        "hmi=rx%lu touch=%lu tx=%lu last=0x%02X\n"
+         *    ⭐ 判读：`hmi.rx` 涨 ⇒ 屏→ESP32 通 ⇒ 🔴 问题在反方向（ESP32→屏）
+         * ⭐ 2026-10-12 补 `st=`（各状态的【进入次数】）：
+         *    🔴 原因：`断链` 是转瞬即逝的过渡态 —— 断开时置 LINK_LOST，
+         *       而重连成功后又立刻置回 READY，测试必须重连才能读 BLE
+         *       => 永远读不到 `断链` => "断开到底有没有置断链"【不可观测】，
+         *          正确实现和缺陷实现【读数一模一样】=> 判据无从下手。
+         *    ⭐ 计数把它变成可事后读的数字（同族 C139：别让显示层掩盖内部真值）。
+         *    ⭐ 判据：`st.lost` 必须 ≥ 1（断开过就必须涨过）。
+         *    ⚠️ 只列 5 个关键的，避免这行过长（⭐ 320→512 扩容踩过截断的坑）。 */
+        "hmi=rx%lu touch=%lu tx=%lu last=0x%02X "
+        "st.i%lu l%lu r%lu p%lu x%lu\n"
         /* ⭐ 帧统计：⭐ 总数帧、曲谱总事件、复位帧、未知帧头
          * 🔴 2026-10-12 加 `ev=`（本曲已收事件数）：
          *    ⚠️ 用户报的 `18704/200` 修好之后，⭐ **从外部无法验证根因** ——
@@ -564,8 +573,20 @@ static void cmd_report_status(void)
         (unsigned)s_mtu,
         (int)s_connected, (int)s_noti_enabled,
         (unsigned long)s_uart_rx_bytes, (unsigned long)s_trig_cnt,
-        /* ⭐ 屏→ESP32 诊断（⭐ 见 hmi.h 的说明） */
+        /* ⭐ 屏→ESP32 诊断（⭐ 见 hmi.h 的说明）
+         * ⚠️ 末尾 5 个是【各状态的进入次数】：i=待机 l=灌谱中 r=就绪 p=播放中 x=断链
+         *    🔴 为什么要它：`断链` 转瞬即逝（重连一成功就被置回就绪），
+         *       测试必须重连才能读 BLE => 永远读不到它
+         *       => "断开到底有没有置断链"【不可观测】，正确实现和缺陷实现读数一样。
+         *    ⭐ 判据：`st.x`（断链进入次数）必须 ≥ 1。
+         *    ⚠️ 主状态 `s_c.state` 本身也在 `0xABF4` 没暴露 —— 这里只给计数，
+         *       因为计数才是【独立于读取时机】的判据。 */
         (unsigned long)hmi_rx_b, (unsigned long)hmi_rx_t, (unsigned long)hmi_tx_cmds(), (unsigned)hmi_rx_last,
+        (unsigned long)hmi_state_enter_count(HMI_ST_IDLE),
+        (unsigned long)hmi_state_enter_count(HMI_ST_LOADING),
+        (unsigned long)hmi_state_enter_count(HMI_ST_READY),
+        (unsigned long)hmi_state_enter_count(HMI_ST_PLAYING),
+        (unsigned long)hmi_state_enter_count(HMI_ST_LINK_LOST),
         (unsigned long)s_total_frames_rx, (unsigned long)s_song_total,
         (unsigned long)s_song_events_rx,
         (unsigned long)s_reset_frames_rx, (unsigned long)s_unknown_frames,
@@ -676,6 +697,24 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
         s_connected = true;
         ESP_LOGI(TAG, "BLE CONNECTED conn_id=%d", s_conn_id);
         hmi_set_bt_connected(true);
+        /* 重连恢复：从断链回到"就绪"（用户 2026-10-12 裁定）
+         * -----------------------------------------------------------------
+         * 未修之前的行为：断开时置 LINK_LOST，重连后【无人复位】
+         *   => 屏上一直挂着"断链"，直到有新数据到达才被动走掉。
+         *   后果：断链期间板子其实已经恢复可用了，用户却以为还断着。
+         *
+         * 语义（用户裁定）：重连成功 => 屏上显示"就绪"。
+         *   注意：这里用 READY 而不是 IDLE，因为 IDLE 的语义是
+         *   "池是空的、什么都没装"；而重连时池里往往还留着上一曲的谱，
+         *   把它说成"待机"会误导人去按起播。READY 的语义是"有谱、可以起播"。
+         *
+         * 只在【当前确实是 LINK_LOST】时才动状态，避免把
+         * 播放中/灌谱中这类正常状态误拉回就绪。
+         * 同族教训 C141：条件要写全，别只看"连上了"这一个信号。 */
+        if (hmi_get_state() == HMI_ST_LINK_LOST) {
+            hmi_set_state(HMI_ST_READY);
+            ESP_LOGI(TAG, "BLE 重连：屏上状态 断链 -> 就绪");
+        }
 #if WS2812_ENABLE || WS2812_CLEAR_ON_BOOT || BLE_LED_ENABLE
         /* ⭐⭐ 2026-09-30 夜：连上就点亮（⭐ 用户 Q4「让灯亮一下」）
          * ⚠️ 注意：⭐ 这里只是"物理连接"，⚠️ **还未订阅**（CCCD）。
@@ -691,6 +730,35 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
         break;
 
     case ESP_GATTS_DISCONNECT_EVT:
+        /* 2026-10-12 诊断：先无条件打一条 INFO，确认本回调【到底进没进】。
+         *   🔴 实测背景：断开后日志里【完全没有】DISCONNECT 字样，
+         *      而 `st.x`（断链进入次数）恒为 0 => 怀疑本回调根本没触发。
+         *      ⚠️ 但原来的日志在 `conn_id` 判断【之后】，
+         *        所以"回调进了但被 break 掉"和"回调没进"看起来一样。
+         *      ⭐ 把日志提到最前面，两种可能立刻分开。 */
+        ESP_LOGI(TAG, "DISCONNECT_EVT 进入：conn_id=%d（s_conn_id=%d）reason=0x%02X",
+                 param->disconnect.conn_id, s_conn_id,
+                 param->disconnect.reason);
+        /* 2026-10-12 竞态修复：先认领事件，再做任何清理。
+         *
+         * 根因：本回调原来【无条件】执行清理并置 LINK_LOST，不校验 conn_id。
+         *   Bluedroid 的回调是异步投递的，重连够快时
+         *   旧连接的 DISCONNECT 可能【晚于】新连接的 CONNECT 落地：
+         *     ① CONNECT(新)     -> 恢复逻辑置「就绪」、s_connected=true
+         *     ② DISCONNECT(旧)  -> 无条件又打回「断链」，还把 s_connected
+         *                          和 s_noti_enabled 一起清掉
+         *     => 屏上停在「断链」，链路其实好好的；而且因为 CCCD 被清，
+         *        数据也不再放水（放水要求 s_connected && s_noti_enabled）。
+         *   这正是 _idle_probe.py 列的第 (c) 种可能
+         *   「有东西把状态又打回 LINK_LOST」。
+         *
+         * 修法：用 conn_id 认领 —— 只有当断的【就是】当前记录的那条连接时才处理。
+         *   ⚠️ 判断必须放在【所有清理之前】，否则过期事件照样会污染当前连接。 */
+        if (param->disconnect.conn_id != s_conn_id) {
+            ESP_LOGW(TAG, "忽略过期断连事件 conn_id=%d（当前=%d）",
+                     param->disconnect.conn_id, s_conn_id);
+            break;
+        }
         s_connected = false;
 #if WS2812_ENABLE || WS2812_CLEAR_ON_BOOT || BLE_LED_ENABLE
         ind_set(false);                   /* ⭐ 断开 ⇒ 灭 */

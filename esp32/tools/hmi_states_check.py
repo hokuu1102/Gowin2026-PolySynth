@@ -28,6 +28,10 @@ import argparse
 import asyncio
 import re
 import sys
+import time
+
+# 串口日志的累积缓冲（⭐ 全局，因为断开后仍要从日志口读屏的回包）
+LOG_CHUNKS = []
 
 for _n in ("stdout", "stderr"):
     _s = getattr(sys, _n, None)
@@ -97,7 +101,13 @@ class Ask:
         try:
             n = self.ser.in_waiting
             if n:
-                self.log.extend(self.ser.read(n))
+                chunk = self.ser.read(n)
+                self.log.extend(chunk)
+                # 同时喂进全局缓冲：断开后 Ask 已经不 pump 了，
+                # 但屏的回包还在日志里流 => 那条路径靠这个缓冲。
+                LOG_CHUNKS.append(chunk)
+                if len(LOG_CHUNKS) > 64:
+                    del LOG_CHUNKS[:-32]
         except Exception:
             pass
 
@@ -244,30 +254,132 @@ async def run(events):
         await asyncio.sleep(22)
         await check("DONE", "起播 ~22 s 后")
 
-    # ---- ⑤ LINK_LOST（⭐ 断开后重连，立刻读）----
-    # ⭐ 断开时固件调 `hmi_set_state(LINK_LOST)` ⇒ 屏上应是 `断链`
-    # ⚠️ 断开后 BLE 读不到 ⇒ ⭐ 必须【重连】再读；⭐ 重连本身不会改状态
-    #    （⭐ 只有收到新曲数据才会离开 `断链`）⇒ ⭐ 读到的仍是断开时设的那个值
-    print("  ...  断开，等 1.5 s 让固件设 `断链`，然后重连读回")
-    await asyncio.sleep(1.5)
+    # ---- ⑤ LINK_LOST（断开）----
+    # 断开时固件调 `hmi_set_state(LINK_LOST)` => 屏上应是 `断链`。
+    #
+    # 2026-10-12 第三次改写（⭐ 前两版都不成立，原因值得记）：
+    #   🔴 第 1 版：断开 -> 【重连】 -> 读 t1，期望 `断链`。
+    #      重连成功时恢复逻辑立刻把状态置成 `就绪` => 永远读到 `就绪`。
+    #      ⚠️ 它和 L4_RECOVER（要求重连后是 `就绪`）【互相矛盾】，
+    #         两个判据不可能同时成立 => 等于把这条判据废掉了。
+    #   🔴 第 2 版：断开 -> 【不重连】，从串口日志读屏的回包。
+    #      ⚠️ 但屏【只在被查询时才回包】，断开后没人查询 => 读不到（前置不满足）。
+    #   ✅ 第 3 版（本版）：读固件里的【状态进入次数】`st.x`。
+    #      ⭐ 关键认知：`断链` 是一个【转瞬即逝的过渡态】——
+    #         它的"当前值"注定读不到；能读到的只有【它发生过】这件事。
+    #         => 判据必须落在【计数】上，⛔ 不能落在"此刻的值"上。
+    #      ⭐ 这也解释了为什么这个缺陷能长期存在：正确实现和缺陷实现
+    #         在"重连后读 t1"这个观测下【读数完全一样】。
+    #
+    # 判据：断开 -> 【等固件自己发现】 -> 重连 -> 读 `hmi.st.x`（断链进入次数）≥ 1。
+    #
+    # 🔴 2026-10-12 实测：**断开不是立刻被发现的**。
+    #    PC 侧 `disconnect()` 之后，要等 HCI 层的链路监督超时（实测 **约 6 秒**）
+    #    固件才收到 `ESP_GATTS_DISCONNECT_EVT`：
+    #      W (8422) BT_HCI: hcif disc complete: hdl 0x1, rsn 0x13
+    #      I (8422) blebridge: DISCONNECT_EVT 进入：conn_id=0 (s_conn_id=0) reason=0x13
+    #      I (8552) hmi: screen <- ESP32: "t1.txt="断链""       <= 这时才置
+    #    ⚠️ 我第一版只等 1.8 秒 => 固件还没发现断链就去读 => `st.x=0` 假红。
+    #    ⭐ 教训：凡是"对端要过一会儿才反应过来"的判据，
+    #       等待时间必须【从实测日志里量出来】，⛔ 不能拍脑袋给。
+    print("  ...  断开，等固件自己发现（HCI 监督超时，实测约 6 秒），再重连读 st.x")
+    # 🔴 必须用【主连接 `c`】断开。
+    #    踩过：这里原来写的是 `c3` —— 而 `c3` 直到下面 T2_INTERNAL 那段
+    #    （`async with BleakClient(...) as c3`）才被赋值。
+    #    在此处 `c3` 是【上一轮循环留下的、早已关闭的 client】
+    #    => `c3.disconnect()` 是个空操作 => 🔴 连接其实【根本没断】
+    #    => 固件不会置断链 => `st.x` 恒 0 => 假红，且查了很久。
+    #    ⭐ 教训：`disconnect()` 不报错 ⛔ 不等于"断开了"；
+    #      断开类操作必须【显式确认对象就是当前活跃连接】。
+    try:
+        await c.disconnect()
+    except Exception:                        # noqa: BLE001
+        pass
+    await asyncio.sleep(8.0)                 # ⭐ 必须 > 实测的 6 秒，留余量
+
     dev2 = await BleakScanner.find_device_by_filter(
         lambda d, ad: (d.name or "") == DEV, timeout=12)
     if dev2 is None:
-        fails.append("LINK_LOST: 重连失败（⭐ 找不到设备）")
-        print("  LINK_LOST  期望 断链   RED  重连失败")
+        fails.append("LINK_LOST: 重连失败（找不到设备）")
+        print("  LINK_LOST  期望 st.x>=1   RED  重连失败")
     else:
         async with BleakClient(dev2) as c2:
-            await asyncio.sleep(0.8)
-            a2 = Ask(ser, c2)
-            got = await a2.get("t1")
-            txt = got.decode("utf-8", "replace") if got is not None else "(无回包)"
-            ok = (got is not None and txt == EXPECT["LINK_LOST"])
+            await asyncio.sleep(1.0)
+            st = None
+            for _try in range(3):
+                try:
+                    # ⚠️ 关键：`0xABF4` 的内容是【CMD 0x02 触发组装】的，
+                    #    ⛔ 不是"一读就是最新"。刚重连时它还是上次那份旧内容
+                    #    （实测：不发 0x02 直接读 => 读到的是上一次的 STAT，
+                    #      里面没有刚加的 `st.` 字段 => 误报"需要重新烧录固件"）。
+                    # ⭐ 所以必须先要一份新的，再读。
+                    await c2.write_gatt_char(
+                        "0000abf3-0000-1000-8000-00805f9b34fb",
+                        bytes([0x02]), response=False)
+                    await asyncio.sleep(0.7)
+                    raw = bytes(await c2.read_gatt_char(
+                        "0000abf4-0000-1000-8000-00805f9b34fb")).decode(
+                            "utf-8", "replace")
+                    # 🔴 必须锚定在 `st.` 之后。
+                    #    踩过：原来写 `\bx(\d+)` —— 它会先命中
+                    #    `last=0x00` 里的 `x00`（`0x` 的 x）=> 读到的是
+                    #    那个 0，⭐ 而且刚好等于"变异体的期望值"，
+                    #    会让判据【假绿】。锚定写法见下。
+                    m = re.search(r"\bst\.i(\d+)\s+l(\d+)\s+r(\d+)\s+p(\d+)\s+x(\d+)",
+                                  raw)
+                    if m:
+                        st = int(m.group(5))
+                        break
+                except Exception:            # noqa: BLE001
+                    pass
+                await asyncio.sleep(0.4)
+            if st is None:
+                print("  %-10s 期望 st.x>=1  实测 (读不到)   前置  "
+                      "0xABF4 里没有 st.x 字段（⭐ 需要重新烧录固件）"
+                      % "LINK_LOST")
+            else:
+                ok = (st >= 1)
+                print("  %-10s 期望 st.x>=1  实测 st.x=%-5d %s  %s"
+                      % ("LINK_LOST", st, "OK " if ok else "RED",
+                         "断开确实置过 `断链`（⭐ 计数独立于读取时机）"))
+                if not ok:
+                    fails.append("LINK_LOST: st.x=%d，断开【没有】置断链" % st)
+
+    # ---- ⑤b L4_RECOVER（重连恢复）----
+    # 用户 2026-10-12 裁定：重连成功 => 屏上显示 `就绪`。
+    #
+    # 为什么单独立一条判据：原来的测试【只验了断开置位】，
+    #   注释里还写着"重连本身不会改状态" —— 于是"重连后停在断链"这件事
+    #   从头到尾没有任何判据看着，做了没做都测不出来。
+    #   同族 C166：一条判据不能同时代表两个相反的行为。
+    #
+    # 判据：断开 -> 重连 -> 等恢复落地 -> 读 `t1`，必须是 `就绪`。
+    #
+    # ⚠️ 衔接：上面的 LINK_LOST 判据已经用【主连接 c】断开过了（且没重连），
+    #    中间为了读 `st.x` 开的那次连接（`c2`）在它的 with 块结束时也关了。
+    #    ⭐ 所以这里【直接重连】就行，⛔ 不要再 disconnect ——
+    #      原来的代码在这里调 `c3.disconnect()`，而 `c3` 直到下面才被赋值
+    #      => 调的是上一轮的僵尸 client => 空操作（同 LINK_LOST 那个坑）。
+    dev3 = None
+    await asyncio.sleep(1.0)
+    dev3 = await BleakScanner.find_device_by_filter(
+        lambda d, ad: (d.name or "") == DEV, timeout=12)
+    if dev3 is None:
+        fails.append("L4_RECOVER: 重连失败（找不到设备）")
+        print("  L4_RECOVER 期望 就绪   RED  重连失败")
+    else:
+        async with BleakClient(dev3) as c4:
+            await asyncio.sleep(1.2)      # 留出恢复逻辑落地的时间
+            a4 = Ask(ser, c4)
+            got4 = await a4.get("t1")
+            txt4 = got4.decode("utf-8", "replace") if got4 is not None else "(无回包)"
+            ok4 = (got4 is not None and txt4 == EXPECT["READY"])
             print("  %-10s 期望 %-6s 实测 %-8s %s  %s"
-                  % ("LINK_LOST", EXPECT["LINK_LOST"], txt,
-                     "OK " if ok else "RED", "断开后重连读回"))
-            if not ok:
-                fails.append("LINK_LOST: 期望 %s，实测 %s"
-                             % (EXPECT["LINK_LOST"], txt))
+                  % ("L4_RECOVER", EXPECT["READY"], txt4,
+                     "OK " if ok4 else "RED", "重连后应恢复为就绪"))
+            if not ok4:
+                fails.append("L4_RECOVER: 期望 %s，实测 %s"
+                             % (EXPECT["READY"], txt4))
 
     # ⭐⭐ 2026-10-12 新增：屏上【事件计数】`t2` 的回归判据。
     # -----------------------------------------------------------------------
@@ -313,6 +425,12 @@ async def run(events):
             last_err = None
             for _try in range(3):
                 try:
+                    # ⚠️ 同 LINK_LOST：`0xABF4` 要先发 CMD 0x02 触发组装，
+                    #    ⛔ 不能直接读（否则读到上一次那份旧内容）。
+                    await c3.write_gatt_char(
+                        "0000abf3-0000-1000-8000-00805f9b34fb",
+                        bytes([0x02]), response=False)
+                    await asyncio.sleep(0.7)
                     st = bytes(await c3.read_gatt_char(
                         "0000abf4-0000-1000-8000-00805f9b34fb")).decode("utf-8", "replace")
                     m_ev = re.search(r"\bev=(\d+)", st)
