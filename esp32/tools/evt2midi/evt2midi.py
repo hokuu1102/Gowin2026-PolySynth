@@ -434,7 +434,21 @@ def parse_stream(data, stats=None, tables=None, anchors=None):
             if axis > 15:
                 stats.axis_out_of_range += 1
 
-            # ⭐ 序号连续性（⭐ 只用于短窗口丢帧检测）
+            # 序号连续性（只用于短窗口丢帧检测）。
+            #
+            # 口径（FPGA 侧 2026-10-12 建议，本实现已满足）：
+            #   `last_seq` 【只】由音符事件 0x01/0x02 更新；
+            #   0x03 calib / 0x04 looper / 0x05 transport_start / 0x10 tablesync
+            #   【都不】参与。
+            # 依据（FPGA 侧原话）：0x05 是"谱面锚点"、0x01/0x02 是"音符事件"
+            #   => 它们是【两个不同的序列】。
+            #   若锚点也更新 last_seq，锚点与音符帧的序号会串起来
+            #   => 制造假 gap（症状：PC 侧报"丢帧"，而其实一帧没丢）。
+            #
+            # 实现保障：本分支只对音符类帧可达 ——
+            #   0x10 表帧和 0x05 锚点都在上面就 `continue` 掉了。
+            #   => "非音符类型全部排除"是【结构上成立】的，
+            #      而不是靠这里多写几个 if（那种写法将来加类型时会漏）。
             if last_seq is not None:
                 d = (seq - last_seq) & 0xFF
                 if d > 1:
@@ -938,6 +952,40 @@ def selftest():
         "  含锚点 %d B vs 不含 %d B" % (len(_midi_an), len(_midi_na)))
     chk("⑧c 非空洞：锚点帧确实在流里（⭐ 证明上一条不是空流对比）",
         st_an.anchor_frames == 1 and "anchor" in [e.kind for e in evs_an])
+
+    # ---- `last_seq` 的口径：只有音符事件参与 ----
+    # FPGA 侧 2026-10-12 确认：0x05 是"谱面锚点"、0x01/0x02 是"音符事件"
+    # => 两个不同的序列 => 锚点不得更新 last_seq，否则制造【假 gap】。
+    # 这里造一个"锚点戳在两个连续音符中间"的流：
+    #   音符 seq=10 -> 锚点 seq=99 -> 音符 seq=11
+    #   ✅ 正确行为：seq_gaps == 0（锚点被排除）
+    #   🔴 错误行为：seq_gaps >= 1（报"丢帧"，而其实一帧没丢）
+    _sg = bytearray()
+    _sg += _mk_frame(T_NOTE_ON, 10, 1000, 0, inc440, 200)
+    _sg += _mk_frame(T_TRANSPORT_START, 99, 2000, ppqn=960)
+    _sg += _mk_frame(T_NOTE_ON, 11, 3000, 0, inc440, 200)
+    _evs_sg, _st_sg = parse_stream(bytes(_sg))
+    chk("⑧d 锚点【不参与】last_seq（⛔ 不制造假 gap）",
+        _st_sg.seq_gaps == 0,
+        "  seq_gaps=%d（应为 0）" % _st_sg.seq_gaps)
+    chk("⑧d 非空洞：锚点确实夹在两个音符之间（⭐ 证明上一条不是真空）",
+        _st_sg.anchor_frames == 1 and _st_sg.frames_ok == 2,
+        "  anchor=%d notes=%d" % (_st_sg.anchor_frames, _st_sg.frames_ok))
+    # 反证：真的少一帧时，判据必须报出来（否则上面那条是"永远绿"）
+    _sg2 = bytearray()
+    _sg2 += _mk_frame(T_NOTE_ON, 10, 1000, 0, inc440, 200)
+    _sg2 += _mk_frame(T_NOTE_ON, 13, 3000, 0, inc440, 200)   # 跳了 2
+    _evs_sg2, _st_sg2 = parse_stream(bytes(_sg2))
+    chk("⑧d 非空洞：音符序号真跳了就必须报 gap（⭐ 不是永远绿）",
+        _st_sg2.seq_gaps == 1, "  seq_gaps=%d（应为 1）" % _st_sg2.seq_gaps)
+    # 表帧同样不参与
+    _sg3 = bytearray()
+    _sg3 += _mk_frame(T_NOTE_ON, 10, 1000, 0, inc440, 200)
+    _sg3 += _mk_frame(T_TABLESYNC, items=[1] * TABLESYNC_ITEMS)
+    _sg3 += _mk_frame(T_NOTE_ON, 11, 3000, 0, inc440, 200)
+    _evs_sg3, _st_sg3 = parse_stream(bytes(_sg3))
+    chk("⑧d 表帧也不参与 last_seq", _st_sg3.seq_gaps == 0,
+        "  seq_gaps=%d" % _st_sg3.seq_gaps)
 
     seq = bytearray()
     seq += _mk_frame(T_NOTE_ON, 0, 1000, 0, inc440, 200)
