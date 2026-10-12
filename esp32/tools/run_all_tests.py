@@ -38,14 +38,61 @@ VID_ESP32 = "303A"      # ESP32-S3 原生 USB（日志口）
 VID_CH340 = "1A86"      # CH340（假 FPGA / 上行灌入口）
 
 
-def find_port(vid):
+def _port_opens(dev):
+    """
+    真打开一次，确认这个口【是活的】。
+
+    🔴 为什么必须验：Windows 的 `HKLM\\HARDWARE\\DEVICEMAP\\SERIALCOMM`
+       会【保留已拔出设备的历史项】=> `list_ports.comports()` 照样列出来，
+       而实际 `Open()` 报「端口不存在」。
+    ⭐ 实测（2026-10-12）：本机有 8 个 VID_1A86 的 CH340 记录，
+       只有 1 个能真打开 —— 其余全是历史残留。
+    ⚠️ 不验的话，`find_port` 会返回一个打不开的口
+       => 下游工具全线"前 0 帧"假红（⭐ 本轮实测就是这个）。
+    """
+    try:
+        import serial
+    except Exception:
+        return True                      # 没装 pyserial 就不在这层判
+    try:
+        s = serial.Serial()
+        s.port = dev
+        s.baudrate = 115200
+        s.timeout = 0.2
+        # 不拉 DTR/RTS：某些板子会被这两根线复位（见经验库 U86）
+        s.dtr = False
+        s.rts = False
+        s.open()
+        s.close()
+        return True
+    except Exception:
+        return False
+
+
+def find_port(vid, must_open=True):
+    """
+    按 VID 找一个【当前可用】的串口。
+
+    ⚠️ 端口号会漂（⭐ 本机实测：同一个 CH340 一天内换过 COM31 -> COM24）
+       => ⭐ 必须按 VID 找，⛔ 不能写死。
+    🔴 2026-10-12 修：原实现返回【第一个】VID 匹配的口，不验能不能打开。
+       而 Windows 保留历史 COM 项 => 会拿到一个死口
+       => 下游"前 0 帧"假红，且看起来像"链路不通"（⭐ 极难查）。
+       ⭐ 现在：逐个候选试开，返回【第一个真能打开的】。
+    """
     try:
         from serial.tools import list_ports
     except Exception:
         return None
-    for p in list_ports.comports():
-        if vid.lower() in (p.hwid or "").lower():
-            return p.device
+    cands = [p.device for p in list_ports.comports()
+             if vid.lower() in (p.hwid or "").lower()]
+    if not cands:
+        return None
+    if not must_open:
+        return cands[0]
+    for dev in cands:
+        if _port_opens(dev):
+            return dev
     return None
 
 
@@ -241,6 +288,41 @@ def selftest():
         chk("find_port 可调用", True)
     except Exception as e:
         chk("find_port 可调用", False, "  " + str(e))
+
+    # 2b) 【端口必须验"能打开"】—— 2026-10-12 新增
+    # -----------------------------------------------------------------
+    # 触发原因：`find_port` 原来返回第一个 VID 匹配的口，不验能不能打开。
+    #   Windows 保留历史 COM 项 => 拿到死口 => 下游"前 0 帧"假红，
+    #   ⚠️ 而现象看起来像"链路不通"（⭐ 查了很久）。
+    # 判据：`_port_opens` 对一个【必然打不开】的口必须返回 False，
+    #   对【当前真在线的口】必须返回 True（若一个都没有则跳过，不算失败）。
+    chk("非空洞：_port_opens(不存在的口) == False",
+        _port_opens("COM_NOPE_9999") is False)
+    chk("非空洞：_port_opens(空串) == False", _port_opens("") is False)
+    _esp = find_port(VID_ESP32)
+    if _esp:
+        chk("ESP32 口【真能打开】（%s）" % _esp, _port_opens(_esp) is True)
+        # ⭐ 关键判据：find_port 返回的口，必须自己也能打开
+        chk("find_port 返回的口【通过自己的可打开检验】", _port_opens(_esp) is True)
+    else:
+        chk("ESP32 未接（跳过可打开检验）", True, "  当前没插板子")
+    _ch = find_port(VID_CH340)
+    if _ch:
+        chk("CH340 口【真能打开】（%s）" % _ch, _port_opens(_ch) is True)
+    else:
+        chk("CH340 未接（跳过可打开检验）", True, "  当前没插 CH340")
+    # ⭐ 反证：把 must_open 关掉时，行为应当不同（证明这个参数真的起作用）
+    _all_ch = [p.device for p in __import__("serial.tools.list_ports",
+                                            fromlist=["comports"]).comports()
+               if VID_CH340.lower() in (p.hwid or "").lower()]
+    if len(_all_ch) > 1 and _ch:
+        chk("非空洞：CH340 有 %d 个记录但只有 1 个能用 => 说明确实在筛"
+            % len(_all_ch),
+            len(_all_ch) > 1 and _port_opens(_ch) is True,
+            "  全部候选=%s，选用=%s" % (_all_ch, _ch))
+    else:
+        chk("CH340 候选数不足以验证筛选（跳过）", True,
+            "  候选=%d" % len(_all_ch))
 
     # 3) ⭐ 非空洞性：判据必须能红
     st, rc, v, _ = run_one("假失败", ["-c", "import sys; print('RED 我失败了'); sys.exit(3)"],

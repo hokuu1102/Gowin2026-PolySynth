@@ -84,6 +84,7 @@ from frame_format import (          # noqa: E402
     KNOWN_TYPES, MAX_FRAME_LEN,
     OFF_AXIS, OFF_INC, OFF_SEQ, OFF_TICK, OFF_VEL, LEN_INC, LEN_TICK,
     T_CALIB, T_LOOPER, T_NOTE_OFF, T_NOTE_ON, T_TABLESYNC,
+    T_TRANSPORT_START, PPQN_FPGA, PPQN_TYPES,
     TABLESYNC_DATA_OFF, TABLESYNC_ITEM_BYTES, TABLESYNC_ITEMS,
     TABLESYNC_TABLE_FB, TABLESYNC_TABLE_KB, TABLESYNC_TABLE_NAMES,
     build_frame as _mk_frame,        # ⭐ 造帧（⭐ 测试用）
@@ -180,6 +181,12 @@ class ParseStats:
         self.frames_ok = 0
         self.ascii_events = 0
         self.table_frames = 0          # ⭐ 表同步帧数
+        # v1.1 起播锚点（0x05）。单独计数，因为它不是音符事件 ——
+        # 混进 frames_ok 的话，"收到几帧"这个数会看不出锚点到没到。
+        self.anchor_frames = 0
+        # ppqn = 0 的次数（异常/旧固件）。我们回退到了可用值，
+        # 但必须如实计数：回退是兜底，不能把异常掩盖成正常。
+        self.anchor_ppqn_zero = 0
 
         # ---- 🔴 拒收（⭐ 加固：⛔ 一律不许静默）----
         self.frames_bad_csum = 0       # ⭐ 校验错（⭐ 最可能的一类）
@@ -279,7 +286,7 @@ def _try_resync(data, start, limit=None):
     return None
 
 
-def parse_stream(data, stats=None, tables=None):
+def parse_stream(data, stats=None, tables=None, anchors=None):
     """
     ⭐ 状态机解析 + ⭐ **校验驱动的重同步** + ⭐ **按类型定帧长**。
 
@@ -289,11 +296,17 @@ def parse_stream(data, stats=None, tables=None):
 
     ⭐ `tables`：⭐ 若给了 dict，⭐ 表同步帧（`0x10`）会**存进去**
     （⭐ 键 = 表号 0=kb / 1=fb，⭐ 值 = 16 个 32 位增量）。
+
+    ⭐ `anchors`（v1.1 新增）：⭐ 若给了 list，⭐ 起播锚点帧（`0x05`）
+    会 append 一个 dict `{seq, tick, ppqn, ppqn_raw}`。
+    用途：`tick` 是自由运行计数器 ⇒ 有锚点才能把 tick 换算成"第几拍/第几小节"。
     """
     if stats is None:
         stats = ParseStats()
     if tables is None:
         tables = {}
+    if anchors is None:
+        anchors = []
     evs = []
     i = 0
     n = len(data)
@@ -371,12 +384,42 @@ def parse_stream(data, stats=None, tables=None):
             fd = parse_frame(f)
             ftype = fd["type"]
 
-            # ---- ⭐ 表同步帧：⭐ 布局与音符帧不同 ⇒ **先处理并 continue** ----
+            # ---- 表同步帧：布局与音符帧不同，先处理并 continue ----
             if ftype == T_TABLESYNC:
                 tables[fd["table"]] = fd["items"]
                 stats.table_frames += 1
                 evs.append(Event("tablesync", seq=fd["table"], t_raw=fd["items"]))
                 stats.frames_ok += 1
+                i += flen
+                continue
+
+            # ---- v1.1 起播锚点（0x05）：必须【在取 inc 之前】分流 ----
+            # 这个分支不能省：0x05 帧的 [8..11] 是 ppqn，
+            # parse_frame 返回的键是 `ppqn` 而不是 `inc`
+            # => 若走到下面那行 `fd["inc"]` 会直接 KeyError 崩溃。
+            # 它的用途是给后续事件一个"第几拍"的基准（tick 是自由运行计数器，
+            # 没有锚点就只能算相对间隔，算不出小节位置）。
+            if ftype == T_TRANSPORT_START:
+                anchors.append({
+                    "seq": fd["seq"],
+                    "tick": fd["tick"],
+                    "ppqn": fd["ppqn"],
+                    "ppqn_raw": fd["ppqn_raw"],
+                })
+                if fd["ppqn_raw"] == 0:
+                    # 如实计数：ppqn=0 是异常/旧固件，我们回退了值但不能假装没发生
+                    stats.anchor_ppqn_zero += 1
+                stats.anchor_frames += 1
+                # 用 t_raw 带上 tick 快照（Event 没有 note 字段）——
+                # 锚点不是音频事件，所以 kind 单独用 "anchor"，
+                # 后面 build_midi 会跳过它，不会污染音符序列。
+                evs.append(Event("anchor", seq=fd["seq"], t_raw=fd["tick"],
+                                 inc=fd["ppqn"]))
+                # 注意：这里【不】++ frames_ok。
+                # frames_ok 的语义是"成功解析出的【音频事件】帧数"，
+                # 而锚点是元数据（它不带音高、不进 MIDI）。
+                # 混进去会让"收到几帧"这个数虚高，且和 table_frames 的
+                # 处理方式不一致（表帧也是单独计数的）。
                 i += flen
                 continue
 
@@ -831,8 +874,70 @@ def selftest():
         st_tb.frames_ok == 1 and any(e.tick == 0x0000B000 for e in evs_tb),
         "  ok=%d resync=%d ticks=%s" % (st_tb.frames_ok, st_tb.resyncs,
                                         [e.tick for e in evs_tb if e.tick is not None]))
-    chk("⑧b 拒收原因被记账", len(st_tb.rejects) == 1 and "csum" in st_tb.rejects[0][1],
+    chk("⑧b 拒收原因被记账", len(st_tb.rejects) == 1 and "csum" in st_tb.rejects[1 - 1][1],
         "  %s" % st_tb.rejects)
+
+    # ---- v1.1 起播锚点（0x05）：解析器必须能认它，且【不崩】----
+    # 为什么专门测"不崩"：0x05 的 [8..11] 是 ppqn，
+    # parse_frame 返回的键是 `ppqn` 而不是 `inc`
+    # => 若解析器没在取 inc 之前分流，会直接 KeyError 崩掉。
+    _anch = []
+    seq_anchor = bytearray()
+    seq_anchor += _mk_frame(T_TRANSPORT_START, 0, 0x00100000, ppqn=960)
+    seq_anchor += _mk_frame(T_NOTE_ON, 1, 0x00100010, 3, inc440, 200)
+    seq_anchor += _mk_frame(T_NOTE_OFF, 2, 0x00101000, 3, inc440, 200)
+    try:
+        evs_an, st_an = parse_stream(bytes(seq_anchor), anchors=_anch)
+        _anchor_ok = True
+        _anchor_err = ""
+    except Exception as e:                        # noqa: BLE001
+        _anchor_ok = False
+        _anchor_err = "%s: %s" % (type(e).__name__, e)
+        evs_an, st_an = [], None
+    chk("⑧c 含 0x05 锚点的流【能解析，⛔ 不崩】", _anchor_ok,
+        ("  " + _anchor_err) if _anchor_err else "")
+    chk("⑧c 锚点帧被计数", st_an is not None and st_an.anchor_frames == 1,
+        "  anchor_frames=%s" % (st_an.anchor_frames if st_an else None))
+    chk("⑧c 锚点【不】被算成正弦音符帧",
+        st_an is not None and st_an.frames_ok == 2,
+        "  frames_ok=%s（应 = 2 个音符）" % (st_an.frames_ok if st_an else None))
+    chk("⑧c 锚点内容被收集", len(_anch) == 1 and _anch[0]["ppqn"] == 960,
+        "  %s" % (_anch[0] if _anch else None))
+    chk("⑧c 锚点的 tick 是【起播快照】",
+        bool(_anch) and _anch[0]["tick"] == 0x00100000)
+    chk("⑧c 锚点之后音符帧仍正常解析（⭐ 证明没错位）",
+        any(e.tick == 0x00100010 for e in evs_an),
+        "  ticks=%s" % [e.tick for e in evs_an if e.tick is not None])
+    # 非空洞：把 0x05 帧的校验打坏 => 必须被拒收，且【不能】被当成音符收下
+    bad_anchor = bytearray(seq_anchor)
+    bad_anchor[13] ^= 0xFF
+    evs_ba, st_ba = parse_stream(bytes(bad_anchor))
+    chk("⑧c 非空洞：坏锚点帧被拒收（⛔ 不当音符收）",
+        st_ba.frames_bad_csum == 1 and st_ba.anchor_frames == 0,
+        "  bad_csum=%d anchor=%d ok=%d"
+        % (st_ba.frames_bad_csum, st_ba.anchor_frames, st_ba.frames_ok))
+    # 非空洞：ppqn=0 必须被计数（兜底不能掩盖异常）
+    _a2 = []
+    evs_z, st_z = parse_stream(
+        bytes(_mk_frame(T_TRANSPORT_START, 0, 5, ppqn=0)), anchors=_a2)
+    chk("⑧c 非空洞：ppqn=0 被如实计数（⭐ 兜底⛔ 不掩盖异常）",
+        st_z.anchor_ppqn_zero == 1 and bool(_a2) and _a2[0]["ppqn_raw"] == 0,
+        "  zero=%d raw=%s" % (st_z.anchor_ppqn_zero,
+                              _a2[0]["ppqn_raw"] if _a2 else None))
+    chk("⑧c ppqn=0 时解析出来的仍是【可用值】（⛔ 不是 0）",
+        bool(_a2) and _a2[0]["ppqn"] != 0)
+    # 锚点⛔ 不能进 MIDI —— 它不是音符，混进去会多出莫名其妙的音符/静音段。
+    _midi_an, _sk_an, _n_an = build_midi(evs_an, st_an)
+    _midi_no_anchor = bytearray()
+    _midi_no_anchor += _mk_frame(T_NOTE_ON, 1, 0x00100010, 3, inc440, 200)
+    _midi_no_anchor += _mk_frame(T_NOTE_OFF, 2, 0x00101000, 3, inc440, 200)
+    _evs_na, _st_na = parse_stream(bytes(_midi_no_anchor))
+    _midi_na, _, _n_na = build_midi(_evs_na, _st_na)
+    chk("⑧c 锚点【不影响】MIDI 输出（⭐ 加不加锚点，字节一致）",
+        _midi_an == _midi_na,
+        "  含锚点 %d B vs 不含 %d B" % (len(_midi_an), len(_midi_na)))
+    chk("⑧c 非空洞：锚点帧确实在流里（⭐ 证明上一条不是空流对比）",
+        st_an.anchor_frames == 1 and "anchor" in [e.kind for e in evs_an])
 
     seq = bytearray()
     seq += _mk_frame(T_NOTE_ON, 0, 1000, 0, inc440, 200)
