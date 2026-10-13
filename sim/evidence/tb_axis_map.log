@@ -21,8 +21,11 @@
   ok  : axis_id is passed through to the output
   ok  : fretboard table: all 16 axes match the confirmed string/fret pitches
   ok  : keyboard table: all 16 axes match the confirmed keyboard pitches
+--- 鍒ゆ嵁鈶э細猸?绗簩鏌ヨ〃鍙?`phase_inc_b_o`锛堚瓙 婊戦煶闊抽珮閫氳矾鐢?鉁咃級---
+  ok  : FB: port B equals port A when fed the SAME axis id (all 16 axes)
+  ok  : FB: port B is NOT a constant (axis 0 vs axis 7 differ => the check above is not vacuous)
 
 PASS: axis_map selects phase_inc by AXIS ID in both modes (keyboard + fretboard), with interpolation disabled; 16 fretboard axes and 16 keyboard axes each map to their confirmed pitch tables, phase_inc is never zero, and valid stays in the same cycle as data
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_axis_map.sv:432: $finish called at 4399000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_axis_map.sv:482: $finish called at 4579000 (1ps)
 
 

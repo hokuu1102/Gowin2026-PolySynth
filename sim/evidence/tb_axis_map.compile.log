@@ -28,5 +28,3 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_axis_map.sv:45: warning: Instantiating module axis_map with dangling inp
-ut port 10 (axis_id_b_i) floating.

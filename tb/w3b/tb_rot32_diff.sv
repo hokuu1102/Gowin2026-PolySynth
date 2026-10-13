@@ -116,7 +116,15 @@ module tb_rot32_diff;
         .POLY_TARGET(POLY), .AXIS_W(AXIS_W), .PHASE_W(PHASE_W),
         .VEL_W(VEL_W), .TIMBRE_W(TIMBRE_W), .ENV_W(ENV_W), .AGE_W(AGE_W),
         .RESERVED_N(0), .DEFAULT_VEL(200), .IDX_W(IDX_W),
-        .FIFO_DEPTH(32), .EVT_LOST_CNT_W(EVT_LOST_W), .T3_EN(0)
+        .FIFO_DEPTH(32), .EVT_LOST_CNT_W(EVT_LOST_W), .T3_EN(0),
+        //  ⭐⭐ 2026-10-13：⭐ **`MATCH_PIPE_EN` 也显式写 0** ✅ —— 🔴 必读原因 ✅
+        //     ⚠️ ⭐ 本 tb 比的是"⭐ **逐周期逐位相同**"（⭐ `bit-identical EVERY cycle` ✅）
+        //     🔴 ⭐ 而 `note_manager` 新增了 `MATCH_PIPE_EN`（⭐ **默认 1** ✅）——
+        //        ⭐ 它把 `same_hit` 打了一拍（⭐ 时序优化 ✅）⇒ ⭐ **周期行为变了** ✅
+        //     ✅ ⭐ **正解**：⭐ 逐周期判据必须在"⭐ **未加流水**"那一档比 ✅
+        //        📌 ⭐ 该参数的用途原文：⭐ *"0 only for pre-pipeline cycle-reference checks"* ✅
+        //     ⚠️ ⭐ ⭐ **⛔ 没有改 RTL** —— ⭐ 交付默认**仍然是 1** ✅
+        .MATCH_PIPE_EN(0)
     ) u_new (
         .clk_i(clk), .rst_n_i(rst_n), .sample_tick_i(sample_tick),
         .note_valid_i(note_valid), .note_axis_i(note_axis),

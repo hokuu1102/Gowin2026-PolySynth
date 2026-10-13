@@ -573,6 +573,15 @@ parameter integer TEST_MODE_EN       = 1,
     //   📌 ⭐ 它直接接 `event_extract.slide_en_i` ✅（⭐ 而 `event_extract` 里是 **Z-safe** 判定 ✅）
     //   📌 ⭐ **可观测**：⭐ 已纳入 `P0-29` 门 ✅（⭐ 见 `sim/gowin_build.ps1` ✅）
     wire cmd_slide_req;         // ⭐ 'W' ⇒ 滑音 **开/关切换**
+    //  ⭐⭐ 2026-10-13：⭐ `'A'` ⇒ **模式翻转（指板 ⇄ 钢琴）** ✅
+    //     🔴 **为什么必须有**：⭐ 滑音的音高更新被 `am_mode` 门控 ✅
+    //        （⭐ 见下方 `pitch_upd_valid_i` 里的 `(ee_slide_v & am_mode)` ✅）
+    //        ⭐ 而交付默认 `MODE_PIANO_DEFAULT = 1`（钢琴）⇒ ⭐ `am_mode = 0`
+    //        ⇒ 🔴 **滑音探测照常触发、音高却一动不动** ✅（⭐ 已实测 ✅）
+    //     📌 ⭐ 以前**只有屏**能切模式（触摸控件 0）⇒ ⭐ 没屏就没法用滑音 ✅
+    //     ✅ ⭐ 本命令给出**脱离屏**的入口（⭐ 与屏触摸控件 0 **同语义** ✅）
+    //     📌 ⭐ 它就是 `uart_ui.mode_sw_req_i` ⇒ ⭐ 在里面翻转 + 发提交脉冲 ✅
+    wire cmd_mode_sw_req;       // ⭐ 'A' ⇒ 模式翻转（⭐ 2026-10-13）
     reg  slide_on_r;
     always @(posedge clk) begin
         if (!rst_n_sync) slide_on_r <= 1'b0;
@@ -1027,6 +1036,11 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
         .tx_start_o    (ui_tx_start),
         .tx_data_o     (ui_tx_data),
         .mode_o        (ui_mode_piano),
+        //  ⭐⭐ 2026-10-13：⭐ **外部模式翻转入口**（⭐ 串口 `'A'` ✅）
+        //     📌 与屏触摸控件 0 **同一语义**（⭐ 在 `uart_ui` 里翻转 + 发提交脉冲 ✅）
+        //     🔴 **它存在的理由**：⭐ 交付默认钢琴模式 ⇒ `am_mode = 0`
+        //        ⇒ ⭐ 滑音的音高更新**被结构性挡死**（⭐ 已实测 ✅）
+        .mode_sw_req_i (cmd_mode_sw_req),
         .base_semi_o   (ui_base_semi),
         .mode_commit_o (ui_mode_commit),
         .base_commit_o (ui_base_commit),
@@ -1115,6 +1129,10 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
         .bpm_val_o       (cmd_bpm_val),
         //  ⭐⭐ 2026-10-11：⭐ `'W'` 滑音开关（⭐ 第 21 条命令 ✅）
         .slide_req_o     (cmd_slide_req),
+        //  ⭐⭐ 2026-10-13：⭐ `'A'` 模式翻转（⭐ 第 23 条命令 ✅）
+        //     📌 交付默认是钢琴模式 ⇒ `am_mode = 0` ⇒ 滑音不改音高
+        //        ⭐ 本命令是**脱离屏**切到指板模式的唯一入口 ✅
+        .mode_sw_req_o   (cmd_mode_sw_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (cmd_in_frame_cnt),
         .resync_cnt_o   (cmd_resync_cnt),
@@ -5013,6 +5031,52 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             .overflow_o       (mg_overflow)
         );
 
+        // ═══════════════════════════════════════════════════════════════════
+        //  ⭐⭐⭐⭐ 2026-10-13：⭐ **滑音斜坡（真滑音）** ✅
+        //
+        //  🔴 **改之前是什么样**（⭐ 已实测 ✅）：
+        //     `pitch_upd_value_i = am_inc_b` ⇒ ⭐ **一步**把 A 的音高设成 B ✅
+        //     ⇒ ⭐ 实测 `phase` 从 `00ba039d` **直接跳到** `00d0cb35` ✅
+        //     ⇒ ⚠️ 听觉是"⭐ 音高突然跳过去"，⛔ **不是滑音** ✅
+        //
+        //  ✅ **现在**：⭐ 由 `slide_ramp` 在 **84 小步（≈42 ms）** 内把音高
+        //     从 A 连续推到 B ✅ —— ⭐ 每帧走一小步，⭐ 单调、⭐ 不回头 ✅
+        //
+        //  📌 **为什么它便宜**（⭐ 这解释了之前两次为什么失败 ✅）：
+        //     ⚠️ 之前那 **+287 LUT** 其实是"⭐ **第二查表口读两套表 ＋ mode mux**" ✅
+        //        （⭐ 4 个 16 选 1 ✅）—— ⛔ **不是斜坡本身** ✅
+        //     ✅ 现在第二口**只读 `fb_inc`**（⭐ 2 个 16 选 1 ✅）⇒ ⭐ 斜坡只剩：
+        //        ⭐ 移位 ＋ 加减 ＋ 比较 ⇒ **~70 FF ＋ ~100 LUT** ✅
+        //     而 `Register` 只用 31%（⭐ 18,518 / 60,780 ✅）⇒ ⭐ FF 极宽裕 ✅
+        //
+        //  📌 **语义（⭐ 用户规格 §七 ✅）**：
+        //     · ⭐ 起点 = **A 的音高**（⭐ `am_inc`，主口 ✅）
+        //     · ⭐ 目标 = **B 的音高**（⭐ `am_inc_b`，第二口 ✅）
+        //     · ⭐ **中途退回 A ⇒ 从当前位置滑回去**（⭐ 判据 5 ✅）
+        //
+        //  ⚠️ ⭐ **门控仍然是 `am_mode`**（⭐ 见下方 `pitch_upd_valid_i` ✅）：
+        //     ⭐ 只有**指板模式**才接滑音 ✅（⭐ 因为第二口只读 `fb_inc` 指板表 ✅）
+        //     ⇒ ⭐ 交付默认是钢琴 ⇒ ⭐ **必须发串口 `'A'` 切到指板**（⭐ 2026-10-13 新增 ✅）
+        // ═══════════════════════════════════════════════════════════════════
+        wire        sl_ramp_active;
+        wire [31:0] sl_ramp_val;
+        wire [15:0] sl_ramp_steps;
+
+        slide_ramp #(
+            .SHIFT (4),                 // ⭐ 时长旋钮：4 ⇒ 84 步 ≈ 42 ms
+            .EPS   (32'd4096)           // ⭐ 收尾吸附阈值
+        ) u_slide_ramp (
+            .clk       (clk),
+            .rst_n     (rst_n_sync),
+            .tick_i    (as_valid),      // ⭐ 帧节拍（每帧推进一步）
+            .trig_i    (ee_slide_v),    // ⭐ 滑音触发（一减一增 + 相邻 + 窗口）
+            .start_i   (am_inc),        // ⭐ A 的音高（主口）
+            .target_i  (am_inc_b),      // ⭐ B 的音高（第二口）
+            .active_o  (sl_ramp_active),
+            .value_o   (sl_ramp_val),
+            .steps_o   (sl_ramp_steps)
+        );
+
         // ⭐ voice 分配 / 抢占 / 参数更新（T54）
         note_manager #(
             .POLY_TARGET (POLY_TARGET),
@@ -5164,6 +5228,16 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             //     ⚠️ ⭐ 三者**同拍**才需要仲裁 ✅（⭐ 极少见 ✅）；⭐ 而 `src_r` 的**源隔离**在
             //        `note_manager` 里保证"**不同源的音互不干扰**" ✅
             //  🔴🔴 ⭐⭐ **2026-10-13 回退：滑音源【暂时不接】** ✅
+            //     🔴🔴 ⭐⭐ **【本节已被下面"用户裁定 · 复活滑音音高"那节取代 —— 保留仅作历史】** ✅
+            //        ⚠️ ⭐ **读到这里请直接跳到下面那节**：⭐ 滑音源**现在是接上的** ✅
+            //        🔴 ⭐ **尤其下面 5082 那句已经【不成立】**：
+            //           ⭐ 它说"`phase_inc_b_o` → `am_inc_b` **没有消费者**" ——
+            //           ⚠️ 那是**回退期的状态**；⭐ 现在 **`pitch_upd_value_i` 就在消费
+            //           `am_inc_b`** ✅ ⇒ ⭐ 综合**不会**剪掉它 ✅
+            //        📌 ⭐ **判据**：⭐ `tb/top/tb_slide_top_pitch.sv` 判据 0b
+            //           （⭐ 直接回读 `rtl/top.v`，⭐ 确认 `& am_mode` 门控还在 ✅）
+            //        ⚠️ ⭐ **为什么留而不删**：⭐ 它记着"当初为什么会退"（⭐ `P0-25`
+            //           余量只剩 0.001 ns ✅）—— ⭐ 那是**做 50 ms 斜坡前**必须知道的背景 ✅
             //
             //  ⭐ **为什么退**（⭐ 实测 ✅）：⭐ 接了之后 `CLS` 从 **24752 → 25039**（⭐ **+287** ✅，
             //     ⭐ 83% → **84%** ✅）⇒ ⭐ 布局移动 ⇒ 🔴 **`P0-25` 门又红**（⭐ HOLD **0.044 < 0.05** ✅）
@@ -5174,6 +5248,7 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             //     · ⭐ `axis_map.axis_id_b_i` / ⭐ `phase_inc_b_o` ✅
             //     · ⭐ `top.v` 里 `ee_slide_b` → ⭐ `axis_id_b_i` 的接线 ✅
             //     ⚠️ ⭐ 但 ⭐ `phase_inc_b_o` → ⭐ `am_inc_b` **没有消费者** ⇒ ⭐ 综合**整段剪掉** ✅
+            //        🔴 ⭐ **【上面这句在"复活"之后已失效 —— 见本节开头的更正】** ✅
             //        ⇒ ⭐ 所以 PnR 会回到上次那个绿色状态 ✅
             //
             //  ⭐⭐ **要复活它，必须先解决"第二查表口的 +287 LUT"**（⭐ 三条候选 ✅）：
@@ -5194,11 +5269,20 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             //     ✅ ⭐ **并且用 `am_mode` 门控** ✅：⭐ 滑音只在**指板模式**触发 ✅
             //        ⇒ ⭐ 结构上保证"⭐ 键盘模式下第二口的值**不被使用**" ✅
             //        （⭐ 这正是"第二口只读 `fb_inc`"能成立的前提 ✅）
-            .pitch_upd_valid_i (pe_pitch_v | lp_upd_valid | (ee_slide_v & am_mode)),
+            //  ⭐⭐⭐⭐ 2026-10-13：⭐ **滑音源改为"触发拍 ＋ 斜坡推进期"** ✅
+            //     🔴 改之前：⭐ 只有 `ee_slide_v` 那一拍发一次 ⇒ ⭐ **一步跳到位** ✅
+            //     ✅ 现在：⭐ `sl_ramp_active` 期间**每帧都发**一次 ⇒ ⭐ **连续滑** ✅
+            //        （⭐ 值 = `sl_ramp_val`，⭐ 由 `u_slide_ramp` 每帧推一小步 ✅）
+            //     📌 ⭐ **门控仍是 `am_mode`**：⭐ 第二口只读指板表 `fb_inc`
+            //        ⇒ ⭐ 只有指板模式接滑音 ✅（⭐ 键鼠模式该值**语义不对** ✅）
+            //        ⇒ ⭐ 交付默认是钢琴 ⇒ ⭐ **发串口 `'A'` 切指板** ✅
+            .pitch_upd_valid_i (pe_pitch_v | lp_upd_valid
+                              | ((ee_slide_v | sl_ramp_active) & am_mode)),
             .pitch_upd_axis_i  (pe_pitch_v ? pe_pitch_ax
                               : lp_upd_valid ? lp_upd_axis : ee_slide_ax),
             .pitch_upd_value_i (pe_pitch_v ? pe_pitch
-                              : lp_upd_valid ? lp_upd_inc  : am_inc_b),
+                              : lp_upd_valid ? lp_upd_inc
+                              : (ee_slide_v | sl_ramp_active) ? sl_ramp_val : am_inc_b),
             .pitch_upd_src_i   (pe_pitch_v ? 3'd0
                               : lp_upd_valid ? 3'd4 : 3'd0),   // 滑音更新手弹 A；5 是键盘鼓源，不是空闲码
             //  🔴🔴 ⭐⭐ **2026-10-13：原 `.pitch_upd_src_i` 已并入上一行** ✅

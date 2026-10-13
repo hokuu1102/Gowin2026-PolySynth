@@ -68,6 +68,15 @@ module uart_ui #(
     input  wire        clk_i,
     input  wire        rst_n_i,            // ⭐ 同步复位、低有效（约定 2）
 
+    // ── ⭐⭐ 2026-10-13：外部模式切换（串口命令 / 控制板按键）──────────────
+    //   语义与屏触摸控件 0 **完全一致**（翻转 `mode_o` + 发提交脉冲）。
+    //   🔴 **为什么必须加**：交付默认 `MODE_PIANO_DEFAULT = 1`（钢琴），
+    //      而 `play_fretboard_mode = ~ui_mode_piano` ⇒ `am_mode = 0`
+    //      ⇒ `top.v` 的滑音项 `(ee_slide_v & am_mode)` **恒 0**
+    //      ⇒ 没有"脱离屏"的切换入口，滑音的音高更新就**形同虚设**。
+    //   📌 来源（键/串口）在外面 OR 好，本模块只认这一个脉冲。
+    input  wire        mode_sw_req_i,      // ⭐ 模式翻转请求（单周期脉冲）
+
     // ── ⭐ 来自 `uart_rx.v` 的字节流（屏 → FPGA）──────────────────────────
     input  wire        rx_done_i,          // ⭐ 收到一个字节（单周期脉冲）
     input  wire [7:0]  rx_data_i,          // ⭐ 该字节
@@ -210,6 +219,14 @@ module uart_ui #(
             base_commit_o <= 1'b0;
             test_mode_commit_o <= 1'b0;
             tx_start_o    <= 1'b0;
+
+            //  ⭐⭐ 2026-10-13：外部模式翻转（串口 'A' 命令 / 控制板模式键）
+            //     与屏触摸控件 0 **同一语义**。
+            //  ⚠️ 与屏触摸**同拍**时的取舍：本分支在前 ⇒ 同拍以屏为准（可接受）。
+            if (mode_sw_req_i) begin
+                mode_o        <= ~mode_o;
+                mode_commit_o <= 1'b1;
+            end
 
             if (rx_done_i) begin
                 case (state)

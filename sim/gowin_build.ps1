@@ -323,6 +323,15 @@ if (Test-Path $nlLog) {
     'g_sound.u_metronome'      = 'SEL_DRUM=1 => metronome replaced by the drum machine, should be swept'
     'u_led_data'               = 'three inputs are placeholder constants, should be swept'
     'g_sound.u_param_extract'  = 'PENDING: review says its pitch path is still in use => needs a live judgement'
+    #  2026-10-13（合并 origin/main 之后新增）：u_uart_tx_esp 被扫，
+    #    经【网表核实】是 Gowin 把两个完全相同的 uart_tx 例化【去重合并】，
+    #    不是功能丢失。证据 impl/gwsynthesis/Gowin2026.vg：
+    #      OBUF uart_tx_obuf       ( .O(uart_tx),       .I(esp_uart_tx_o_d) )
+    #      OBUF esp_uart_tx_o_obuf ( .O(esp_uart_tx_o), .I(esp_uart_tx_o_d) )
+    #    => 两个输出引脚【同源】，由同一套发送逻辑同时驱动 D15 与 G21，
+    #       这正是 top.v:1512-1528 想要的"镜像同一份回包"语义 => 功能未丢。
+    #    旁证：两个引脚在 sim/evidence/gowin_m0_pins.txt 里都 placed。
+    'u_uart_tx_esp'            = 'Gowin deduplicated the two identical uart_tx instances (both OBUFs share net esp_uart_tx_o_d) => mirror semantics preserved, benign'
   }
   $nlHits = @(Select-String -Path $nlLog -Pattern 'NL0002' | ForEach-Object { $_.Line })
   $nlBad  = @()

@@ -34,6 +34,12 @@ module tb_axis_map;
     wire [PHASE_W-1:0]     phase_inc;
     wire                   phase_valid;
     wire [AXIS_W-1:0]      axis_id_o;
+    //  ⭐⭐ 2026-10-13（⭐ 滑音音高通路）：⭐ **第二查表口** ✅
+    //     ⭐ 用途：⭐ 滑音时按 **B 的轴号**查音高 ✅（⭐ `top.v` 拿它当 `pitch_upd` 的值 ✅）
+    //     📌 ⭐ 判据思路：⭐ 把两个口**喂同一个轴号** ✅ ⇒ ⭐ 两路输出**必须逐位相等** ✅
+    //        （⭐ 这是**自洽性**判据 ✅ —— ⛔ 不用手抄期望值 ✅，⭐ 也⛔ 不会与实现同源 ✅）
+    reg  [AXIS_W-1:0]      axis_id_b;
+    wire [PHASE_W-1:0]     phase_inc_b;
 
     axis_map #(
         .AXIS_W       (AXIS_W),
@@ -47,9 +53,11 @@ module tb_axis_map;
         .rst_n         (rst_n),
         .pos_valid_i   (pos_valid),
         .axis_id_i     (axis_id),
+        .axis_id_b_i   (axis_id_b),
         .pos_i         (pos),
         .mode_i        (mode),
         .phase_inc_o   (phase_inc),
+        .phase_inc_b_o (phase_inc_b),
         .phase_valid_o (phase_valid),
         .axis_id_o     (axis_id_o)
     );
@@ -416,6 +424,48 @@ module tb_axis_map;
                 end
             end
             chk("keyboard table: all 16 axes match the confirmed keyboard pitches", bad_cnt == 0);
+        end
+
+        // ══════════════════════════════════════════════════════════════
+        $display("--- 判据⑧：⭐ 第二查表口 `phase_inc_b_o`（⭐ 滑音音高通路用 ✅）---");
+        //   ⭐ 判据思路（⭐ **自洽性** ✅，⛔ 不手抄期望值 ✅）：
+        //      ⭐ 把两个口**喂同一个轴号** ✅ ⇒ ⭐ 两路输出**必须逐位相等** ✅
+        //   📌 ⭐ 为什么这样写是对的 ✅：
+        //      · ⭐ 主口 `phase_inc_o` 已有 7 条判据钉住 ✅（⭐ 表值、⭐ 非零、⭐ 插值关闭 ✅）
+        //      · ⭐ 只要第二口与它**一致** ✅ ⇒ ⭐ 第二口就继承了那 7 条的正确性 ✅
+        //      · ⭐ 而且**不会与实现同源** ✅（⭐ ⛔ 不是抄 DUT 的算式 ✅）
+        //   ⚠️ ⭐ **只验指板模式**（⭐ `mode = 1` ✅）—— ⭐ 因为第二口**只读 `fb_inc`** ✅
+        //      （⭐ 省一半 LUT 的优化 ✅，⭐ 依据见 `axis_map.v` 的长注释 ✅）
+        //      ⇒ ⭐ 键盘模式下它**是错的但不会被用**（⭐ `top.v` 用 `am_mode` 门控 ✅）
+        // ══════════════════════════════════════════════════════════════
+        begin : b_port
+            integer k;
+            integer b_bad;
+            b_bad = 0;
+            mode = 1'b1;          // ⭐ 指板模式
+            pos  = 12'h800;
+            pos_valid = 1'b1;
+            for (k = 0; k < 16; k = k + 1) begin
+                axis_id   = k[AXIS_W-1:0];
+                axis_id_b = k[AXIS_W-1:0];   // ⭐ 同一个轴号
+                #10;
+                if (phase_inc !== phase_inc_b) begin
+                    $display("  FAIL detail: axis %0d  main=%08h  b_port=%08h", k, phase_inc, phase_inc_b);
+                    b_bad = b_bad + 1;
+                end
+            end
+            chk("FB: port B equals port A when fed the SAME axis id (all 16 axes)",
+                b_bad == 0);
+
+            //  ⭐ **非空洞守卫** ✅：⭐ 若两个口**恒为同一个常数** ✅，⭐ 上一条会**假绿** ✅
+            //     ⇒ ⭐ 必须证明"⭐ 换个轴号，⭐ 输出真的变" ✅
+            begin : b_nonvac
+                reg [PHASE_W-1:0] p0, p7;
+                axis_id = 4'd0; axis_id_b = 4'd0; #10; p0 = phase_inc_b;
+                axis_id = 4'd7; axis_id_b = 4'd7; #10; p7 = phase_inc_b;
+                chk("FB: port B is NOT a constant (axis 0 vs axis 7 differ => the check above is not vacuous)",
+                    p0 !== p7);
+            end
         end
 
         $display("");

@@ -89,6 +89,17 @@
   <File path="rtl/w3a/param_extract.v" type="file.verilog" enable="1"/>
   <File path="rtl/w3a/right_analog_ctrl.v" type="file.verilog" enable="1"/>
         <File path="rtl/w3a/fader_gear.v" type="file.verilog" enable="1"/>
+  <!-- 2026-10-13: slide_ramp (portamento ramp, instantiated by top.v).
+       Without this line Gowin would SILENTLY omit it: no error, and the
+       timing evidence would look perfectly normal while the bitstream has
+       no ramp at all.  Same trap as ws2812_driver/guide_lamp below.
+       NOTE: .sv files must also be type="file.verilog" - there is no
+       file.systemverilog type, and a wrong type is skipped WITHOUT error. -->
+  <File path="rtl/w3a/slide_ramp.v" type="file.verilog" enable="1"/>
+  <!-- 2026-10-13: control-board 4x4 keypad.  Not yet instantiated by top.v;
+       registered now so it cannot be forgotten when it is wired in. -->
+  <File path="rtl/w3a/ctrl_keypad.v" type="file.verilog" enable="1"/>
+  <File path="rtl/w3a/ctrl_key_map.v" type="file.verilog" enable="1"/>
   <!-- ⭐ WS2812 灯带驱动（2026-10-03 接入 top.v · 控制板 ctrl_ws_o）
        ⚠️ 由 top.v 例化 ⇒ 🔴 不登记会被综合【静默丢弃】
        （⭐ 后果：灯带脚无波形；或报 EX3937 Instantiating unknown module） -->

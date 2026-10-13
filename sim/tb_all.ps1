@@ -254,6 +254,15 @@ foreach ($tb in $tbs) {
                   #     📌 ⭐ 与 `tb_top_sound` **同一处置**（它已抬到 900 s，见下）
                   #     ⇒ ⭐ 抬到 **900 s**（2.7× 实测）⛔ 否则会**误报 TIMEOUT**（⭐ 见 `K-161` / `K-94`）
                   elseif ($name -eq 'tb_e2e_key_to_sound') { 900 }
+                  #  ⭐⭐ 2026-10-13 新增：⭐ `tb_slide_e2e`（滑音顶层端到端 ✅）
+                  #     ⭐ 它例化整个 `top`，要等 `calib_autotare` 完成（100k 拍）
+                  #        ＋ 两遍手势（⭐ 每遍含若干 500 us 的 ADC 帧 ✅）
+                  #     📌 ⭐ 帧周期固定 500 us（`adc_farm.CHANNEL_RATE_HZ = 2000` ✅）
+                  #        ⇒ ⭐ 等待帧数直接决定仿真时长 ⇒ ⭐ 本 tb **已把等待压到最小**
+                  #          （⭐ 收敛由模块级 `tb_slide_ramp` 证明，
+                  #             ⭐ 端到端只证明"斜坡接进通路、音高真的在动" ✅）
+                  #     ⇒ ⭐ 给 900 s（与 `tb_e2e_key_to_sound` **同一处置** ✅）
+                  elseif ($name -eq 'tb_slide_e2e') { 900 }
                   #  ⭐⭐ 2026-09-29 同日：⭐ `tb_top_sound` 的注释实测值是 **93 s**，
                   #     ⚠️ 但同一轮回归里实测**已耗 CPU 155 s**（⭐ 机器负载 ✅）
                   #     ⇒ ⭐ 300 s 的余量只剩 ~2× ⚠️ ⇒ ⭐ 与 `tb_e2e` / `tb_met_btn_top` **同一处置**：给 600 s ✅

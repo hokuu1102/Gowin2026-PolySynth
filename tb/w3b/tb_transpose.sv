@@ -183,7 +183,18 @@ module tb_transpose;
         .FIFO_DEPTH(32), .EVT_LOST_CNT_W(EVT_LOST_W),
         //  ⭐⭐ `P1` 新参数：⭐ **显式写 0**（⛔ 不依赖 RTL 默认值）——
         //     ⭐ 这样即使将来有人把默认值改成 1，⭐ 本 tb 仍**确实在验交付配置** ✅
-        .T3_EN(0)
+        .T3_EN(0),
+        //  ⭐⭐ 2026-10-13：⭐ **`MATCH_PIPE_EN` 也显式写 0** ✅ —— 🔴 必读原因 ✅
+        //     ⚠️ ⭐ 本 tb 的判据是"⭐ **逐周期逐位相同**"（⭐ `bit-identical EVERY cycle` ✅）
+        //     🔴 ⭐ 而 `note_manager` 新增了 `MATCH_PIPE_EN`（⭐ **默认 1** ✅）——
+        //        ⭐ 它把 `same_hit` 打了一拍（⭐ 时序优化，⭐ 加了 `ST_MATCH` 状态 ✅）
+        //        ⇒ ⭐ ⭐ **周期行为变了** ⇒ ⭐ 逐周期判据**必然红** ✅（⭐ 实测就是如此 ✅）
+        //     ✅ ⭐ **正解**：⭐ 逐周期判据必须在"⭐ **未加流水**"那一档比 ✅
+        //        📌 ⭐ 这正是该参数自己的注释写的用途 ✅：
+        //           *"⭐ `0` only for pre-pipeline cycle-reference checks"* ✅
+        //     ⚠️ ⭐ ⭐ **⛔ 没有改 RTL** —— ⭐ 交付默认**仍然是 1** ✅，
+        //        ⭐ 只是本 tb **显式**选 0（⭐ 与上面 `.T3_EN(0)` 同一手法 ✅）
+        .MATCH_PIPE_EN(0)
     ) u_dut (
         .clk_i(clk), .rst_n_i(rst_n), .sample_tick_i(sample_tick),
         .note_valid_i(note_valid), .note_axis_i(note_axis),
@@ -221,7 +232,8 @@ module tb_transpose;
         .VEL_W(VEL_W), .TIMBRE_W(TIMBRE_W), .ENV_W(ENV_W), .AGE_W(AGE_W),
         .RESERVED_N(0), .DEFAULT_VEL(200), .IDX_W(IDX_W),
         .FIFO_DEPTH(32), .EVT_LOST_CNT_W(EVT_LOST_W),
-        .T3_EN(0)                                   // ⭐ 同上：⭐ `top.v` 现状 = `T3_EN=0` ＋ 悬空 ✅
+        .T3_EN(0),                                  // ⭐ 同上：⭐ `top.v` 现状 = `T3_EN=0` ＋ 悬空 ✅
+        .MATCH_PIPE_EN(0)                           // ⭐ 同上：⭐ 逐周期判据须在"未加流水"档比 ✅
     ) u_nc (
         .clk_i(clk), .rst_n_i(rst_n), .sample_tick_i(sample_tick),
         .note_valid_i(note_valid), .note_axis_i(note_axis),
@@ -259,7 +271,8 @@ module tb_transpose;
         .VEL_W(VEL_W), .TIMBRE_W(TIMBRE_W), .ENV_W(ENV_W), .AGE_W(AGE_W),
         .RESERVED_N(0), .DEFAULT_VEL(200), .IDX_W(IDX_W),
         .FIFO_DEPTH(32), .EVT_LOST_CNT_W(EVT_LOST_W),
-        .T3_EN(1)
+        .T3_EN(1),
+        .MATCH_PIPE_EN(0)                           // ⭐ 同上：⭐ 逐周期判据须在"未加流水"档比 ✅
     ) u_t3on (
         .clk_i(clk), .rst_n_i(rst_n), .sample_tick_i(sample_tick),
         .note_valid_i(note_valid), .note_axis_i(note_axis),

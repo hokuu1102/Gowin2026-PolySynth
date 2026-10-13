@@ -362,6 +362,25 @@ module waveform_scope #(
     //     波形：把该列的 Y 值（9 位）写进 `xy_fb[0..639]` 的低 9 位
     //     李萨如：读-改-写，把当前像素位置 1
     //     ⚠️ 必须只有一个写口，否则综合器会【复制整块内存】（这正是之前 BSRAM 82% 的教训）
+    //
+    //  🔴🔴 ⭐⭐ **2026-10-13：⭐ 这两个声明【必须在这里】—— 修一处前向引用** ✅
+    //     ⚠️ ⭐ 它们原来声明在下方 `:394-395` ✅，⭐ 但：
+    //        · ⭐ `fb_q`      在 ⭐ `:374`（`fb_wdata`）和 ⭐ `:381`（写口）**就被用了** ✅
+    //        · ⭐ `fb_rdaddr` 在 ⭐ `:391`（`fb_rdaddr_r` 打拍）**就被用了** ✅
+    //     ⇒ 🔴 ⭐ **前向引用** ✅（⭐ 本模块反复强调的头号教训：⭐ "声明必须在使用之前" ✅）
+    //     🔴 ⭐ **实测后果**：⭐ **iverilog 直接编译失败** ✅
+    //        `error: Unable to bind wire/reg/memory 'fb_q'`
+    //        ⇒ ⭐ **28 个例化 `top` 的 tb 全部编译不过**（⭐ 含 `tb_top_m0`/`tb_top_sound` ✅）
+    //     🔴🔴 ⭐ ⭐ **而 Gowin 综合【静默接受】了它** —— ⭐ 队友那一版 PnR 报 `0/0`
+    //        并出了位流 ✅ ⇒ ⚠️ 说明综合器很可能把 `fb_q` 当成**隐式 1 位 wire** ✅
+    //        ⇒ 🔴 ⭐ **李萨如（XY）显示在板上很可能是坏的，而没人知道** ✅
+    //        📌 ⭐ 这正是本项目最怕的**静默类**缺陷（⭐ `K-106` ✅）——
+    //           ⭐ **仿真器报错反而是好事** ✅
+    //     ✅ ⭐ **修法**：⭐ 把这两行【上移】到首次使用之前 ✅ ——
+    //        ⭐ ⭐ **纯声明顺序调整，⛔ 零逻辑、⛔ 零面积变化** ✅
+    wire [13:0] fb_rdaddr = (xy_st == XY_PLOT) ? plot_addr : render_addr;
+    reg  [31:0] fb_q;                              // ⭐ 唯一读口输出（打点/渲染共用）
+
     wire        fb_we     = (SCOPE_MODE == 0)
                             ? copy_valid_q
                             : (xy_st == XY_PLOT && pt_step == 3'd5);
@@ -391,8 +410,8 @@ module waveform_scope #(
     always @(posedge pixel_clk) fb_rdaddr_r <= fb_rdaddr;
     //  ⭐ 修法：xy_fb 的读地址【不含运行时 mux】—— 波形走自己的 frame_y，不再读这里
     //  ⭐ 解法 D：`xy_fb` 的读地址【不含运行时 mux】（波形读自己的 wave_y）
-    wire [13:0] fb_rdaddr = (xy_st == XY_PLOT) ? plot_addr : render_addr;
-    reg  [31:0] fb_q;                              // ⭐ 唯一读口输出（打点/渲染共用）
+    //  🔴 2026-10-13：⭐ `fb_rdaddr` / `fb_q` 的【声明已上移】到首次使用之前 ✅
+    //     ⚠️ 原来在这里声明 ⇒ ⭐ 前向引用 ⇒ 🔴 iverilog 编译失败 ✅（⭐ 见上方长注释 ✅）
     reg  [4:0]  fb_bit_q;
     always @(posedge pixel_clk) begin
         fb_q <= xy_fb[fb_rdaddr];

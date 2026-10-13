@@ -208,7 +208,16 @@ module calib_cmd #(
     //        ⭐ 滑音判据**依赖阈值和窗口** ✅ ⇒ ⚠️ 上板调参时**必须能关掉** ✅
     //        （⭐ 否则一旦误触发，⭐ 会**静默改掉音高** 🔴 —— ⭐ `K-106` 那一类 ✅）
     //     📌 ⭐ **默认【关】** ⇒ ⭐ 行为与现在**逐位一致** ✅
-    parameter [7:0]   CMD_SLIDE    = 8'h57    // 'W' ⭐ 滑音开/关切换（⭐ 2026-10-11）
+    parameter [7:0]   CMD_SLIDE    = 8'h57,   // 'W' ⭐ 滑音开/关切换（⭐ 2026-10-11）
+    //  ⭐⭐ 2026-10-13：⭐ **`'A'` 模式翻转（指板 ⇄ 钢琴）** ✅
+    //     🔴 **为什么必须有**：⭐ 交付默认 `uart_ui.MODE_PIANO_DEFAULT = 1`（钢琴）✅
+    //        ⇒ ⭐ `play_fretboard_mode = 0` ⇒ ⭐ `am_mode = 0`
+    //        ⇒ ⭐ `top.v` 的滑音项 `(ee_slide_v & am_mode)` **恒 0**
+    //        ⇒ 🔴 **滑音的音高更新被结构性挡死**（⭐ 实测：探测触发、音高不动 ✅）
+    //     📌 ⭐ 以前只能**靠屏**切（触摸控件 0）⇒ ⭐ 没屏就没法用滑音 ✅
+    //     ✅ ⭐ 本命令给出**脱离屏**的入口 ✅（⭐ 语义与屏触摸控件 0 **完全一致** ✅）
+    //     ⚠️ ⭐ 字母 `'A'` 是空闲的（⭐ 已用：T S X M R L C I D F G H J Y Q W E ✅）
+    parameter [7:0]   CMD_MODE_SW  = 8'h41    // 'A' ⭐ 模式翻转 指板⇄钢琴（⭐ 2026-10-13）
 ) (
     input  wire        clk_i,
     input  wire        rst_n_i,        // ⭐ 同步复位、低有效
@@ -258,6 +267,9 @@ module calib_cmd #(
     output reg  [7:0]  bpm_val_o,        // ⭐ 'Q' ⇒ 该帧**第一个载荷字节**（⭐ 40~240 ✅）
     //  ⭐⭐ 2026-10-11：⭐ **`'W'` 滑音开/关切换** ✅（⭐ 与 `met_req_o` 同构 ✅）
     output reg         slide_req_o,      // ⭐ 'W' ⇒ 滑音开/关 **切换**（⭐ 单周期脉冲 ✅）
+    //  ⭐⭐ 2026-10-13：⭐ `'A'` ⇒ 模式翻转（指板 ⇄ 钢琴）**切换** ✅
+    //     ⚠️ 与 `slide_req_o`/`met_req_o` **同构** ⇒ `top.v` 用寄存器记状态
+    output reg         mode_sw_req_o,    // ⭐ 'A' ⇒ 模式翻转（⭐ 单周期脉冲 ✅）
 
     // ── ⭐ 可观测性（`K-106`：⛔ 不许静默失效）────────────────────────────
     output reg  [15:0] cmd_cnt_o,      // ⭐ 已接受的命令数（饱和）
@@ -355,6 +367,7 @@ module calib_cmd #(
     wire byte_is_bpm        = (rx_data_i == CMD_BPM);
     //  ⭐⭐ 2026-10-11：⭐ **`'W'` 滑音开关** ✅
     wire byte_is_slide      = (rx_data_i == CMD_SLIDE);
+wire byte_is_mode_sw    = (rx_data_i == CMD_MODE_SW);   // 2026-10-13 'A' 模式翻转
     // ⭐ 任一命令字母
     wire byte_is_cmd   = byte_is_tare | byte_is_span | byte_is_abort |
                          byte_is_probe | byte_is_vstat | byte_is_posprobe |
@@ -427,6 +440,7 @@ module calib_cmd #(
             recdump_req_o    <= 1'b0;   // ⭐ 'Y' 录制回传导出（⭐ 2026-10-11）
             bpm_set_req_o    <= 1'b0;   // ⭐ 'Q' 设置 BPM（⭐ 2026-10-11）
             slide_req_o      <= 1'b0;   // ⭐ 'W' 滑音开关（⭐ 2026-10-11）
+        mode_sw_req_o    <= 1'b0;   // ⭐ 'A' 模式翻转（⭐ 2026-10-13）
             bpm_val_o        <= 8'd0;   // ⭐ 'Q' 的载荷值
             bpm_arm_q        <= 1'b0;   // ⭐ 'Q' 臂化标志
             abs_arm_q        <= 1'b0;   // ⭐ 'H' 臂化标志（⭐ 2026-10-03 · P2）
@@ -461,6 +475,7 @@ module calib_cmd #(
             //        （⭐ 复位 ✅ ＋ ⭐ 每拍默认清零 ✅）—— ⚠️ 漏一处就变成"电平" ✅
             bpm_set_req_o      <= 1'b0; // ⭐ 'Q'（⭐ 2026-10-11）
             slide_req_o        <= 1'b0; // ⭐ 'W'（⭐ 2026-10-11）
+        mode_sw_req_o      <= 1'b0; // ⭐ 'A'（⭐ 2026-10-13）
             gear_next_req_o    <= 1'b0; // ⭐ 'J'（⭐ 2026-10-03 · P2）
             recdump_req_o      <= 1'b0; // ⭐ 'Y' 录制回传导出（⭐ 2026-10-11）
             //   ⚠️ `trans_abs_val_o` **刻意不在这里清零** ——
@@ -517,6 +532,7 @@ module calib_cmd #(
                         //   ⭐⭐ 2026-10-11：⭐ **`'W'` 滑音开关**（⭐ 切换语义 ⇒ ⭐ 直接出脉冲 ✅）
                         //      📌 ⭐ 与 `'B'`（节拍器）/`'K'`（键盘打鼓）**同构** ✅
                         if (byte_is_slide)      slide_req_o      <= 1'b1;
+        if (byte_is_mode_sw)    mode_sw_req_o    <= 1'b1;   // 2026-10-13 'A'
                         cmd_cnt_o <= sat_inc16(cmd_cnt_o);
                         idx_q     <= 4'd0;      // ⭐ 命令不推进帧位置
                     end else begin
@@ -599,7 +615,7 @@ module calib_cmd #(
     //   ⭐ 2026-10-03（`P2`）：⭐ **14 ⇒ 18**（⭐ 新增 `'F'`/`'G'`/`'H'`/`'J'` 四条变调命令）
     //      📌 ⚠️ **忘了加这里 = 查重漏掉新字母** ⇒ 🔴 将来撞字母时**静默遮蔽**
     //         （⭐ 所以本表是"加新命令时的**必改项**"，⭐ 见上方注释 ✅）
-    localparam integer N_CMD = 22;   // E 显示、Q BPM、W 滑音分别查重
+    localparam integer N_CMD = 23;   // E 显示、Q BPM、W 滑音、A 模式 分别查重
     reg [7:0] cmd_tab [0:N_CMD-1];
     integer   ci, cj;
     reg       letters_ok;
@@ -627,6 +643,7 @@ module calib_cmd #(
         cmd_tab[18] = CMD_RECDUMP;     // ⭐ 2026-10-11：⭐ 'Y' 录制回传导出（⭐ 查重必改项 ✅）
         cmd_tab[19] = CMD_BPM;         // ⭐ 2026-10-11：⭐ 'Q' 设置 BPM（⭐ 查重必改项 ✅）
         cmd_tab[20] = CMD_SLIDE;       // ⭐ 2026-10-11：⭐ 'W' 滑音开关（⭐ 查重必改项 ✅）
+        cmd_tab[22] = CMD_MODE_SW;     // ⭐ 2026-10-13：⭐ 'A' 模式翻转 指板⇄钢琴（⭐ 查重必改项 ✅）
 
         if (GAP_BYTES <= 1)
             $display("ERROR [calib_cmd] GAP_BYTES = %0d <= 1 => intra-frame byte gaps would be mistaken for idle, so a half frame resyncs early and payload bytes get treated as commands. PARAM_OK=0.", GAP_BYTES);
