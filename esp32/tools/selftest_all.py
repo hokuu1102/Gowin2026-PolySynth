@@ -84,14 +84,29 @@ def discover():
         for name in sorted(os.listdir(full)):
             if not name.endswith(".py"):
                 continue
-            if name in EXCLUDE or name.startswith("_"):
+            if name in EXCLUDE:
                 continue
             p = os.path.join(full, name)
             if not os.path.isfile(p):
                 continue
             rel = os.path.relpath(p, HERE)
+            has = has_selftest(p)
+            # 2026-10-14 改：`_` 开头的脚本【也收录】，但只收【真有 --selftest】的。
+            #
+            # 为什么改（原来的规则有个真缺口）：
+            #   原来 `_` 开头一律跳过 => 我给 `_uart1_wire_check.py` /
+            #   `_upstream_loop_check.py` / `_stress_cycles.py` 补的 `--selftest`
+            #   **永远跑不到** => 判据等于白写。
+            #   🔴 同族：`_stress_cycles.py` 也是"补了自检但没人跑"，
+            #      当时的修法是"登记进 run_all_tests"，但那要一个个记得登记。
+            #   ⭐ 现在的规则让它【自动被收录】=> 补了自检就自动进网，
+            #      ⛔ 不需要额外的"记得登记"。
+            # ⚠️ 仍然跳过"没有 --selftest 的 `_` 脚本"（它们是真机/一次性工具，
+            #    直接跑需要硬件）—— 判据锚在 `has_selftest`，⛔ 不看名字。
+            if name.startswith("_") and not has:
+                continue
             # ⭐ 有 --selftest 的加参数；⚠️ 没有的（如 frame_format.py）直接跑
-            found.append((rel, has_selftest(p)))
+            found.append((rel, has))
     return found
 
 

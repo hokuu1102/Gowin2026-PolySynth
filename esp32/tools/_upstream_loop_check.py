@@ -120,6 +120,87 @@ def split_frames(buf):
     return out
 
 
+def selftest():
+    """离线自检 —— 重点是【非空洞性】：坏输入必须被判出来。
+
+    为什么这个文件也要自检：它原来是 `_` 开头的"一次性脚本"，
+    没有 --selftest => 判据从来没被验证过（同族：`_stress_cycles` 也踩过）。
+    """
+    print("=" * 70)
+    print("_upstream_loop_check.py 离线自检（不需要硬件）")
+    print("=" * 70)
+    bad = 0
+
+    def chk(name, cond, extra=""):
+        nonlocal bad
+        print("  %-50s %s%s" % (name, "OK" if cond else "RED",
+                                ("   " + extra) if extra else ""))
+        if not cond:
+            bad += 1
+
+    # 好样本：一条完整流（含表帧 + 一条故意坏校验的帧）
+    stream, expect = make_stream(3)
+    parts = split_frames(stream)
+    good = [f for f, ok in parts if ok is True]
+    n_badcks = sum(1 for f, ok in parts if ok is False)
+    # ⚠️ 判据要如实反映【流的构成】：make_stream 默认会在末尾附一条
+    #    【故意打坏校验】的帧（用来验证"坏帧会被识别"）。
+    #    => 校验通过的帧数 = 期望帧数 - 1（那条坏的）。
+    #    🔴 我第一版写的是 `len(good) >= len(expect)` => 报红 ——
+    #       那是【判据错】，不是代码错。⭐ 又一次印证"判据必须从数据里量"。
+    chk("好样本：校验通过的帧 = 期望 - 1（那条是故意打坏的）",
+        len(good) == len(expect) - 1,
+        "  通过 %d / 期望 %d / 坏校验 %d" % (len(good), len(expect), n_badcks))
+    chk("好样本：确实有帧被判坏校验（⭐ 证明上一条不是恒真）",
+        n_badcks >= 1, "  坏校验帧 %d" % n_badcks)
+    chk("好样本：能识别出校验通过的帧", len(good) > 0)
+    chk("好样本：切分覆盖整个流（无残留）",
+        sum(len(f) for f, _ in parts) == len(stream),
+        "  覆盖 %d / 共 %d" % (sum(len(f) for f, _ in parts), len(stream)))
+
+    # ⭐ 定长切分的关键判据：表帧（68 B）不能被切成 4 个假帧
+    only_tbl = bytes(FF.build_frame(FF.T_TABLESYNC,
+                                    items=[1] * FF.TABLESYNC_ITEMS))
+    p2 = split_frames(only_tbl)
+    chk("表帧（68 B）切成【1 帧】而不是 4 个假帧",
+        len(p2) == 1 and len(p2[0][0]) == 68,
+        "  切出 %d 帧，首帧 %d B" % (len(p2), len(p2[0][0]) if p2 else 0))
+    chk("非空洞：表帧确实比 14 B 长（⭐ 证明上一条不是恒真）",
+        len(only_tbl) > 14, "  %d B" % len(only_tbl))
+
+    # 非空洞：坏校验必须被标出来（⛔ 不能混进 good）
+    broken = bytearray(stream)
+    for i, (f, ok) in enumerate(parts):
+        pass
+    idx = None
+    off = 0
+    for f, ok in parts:
+        if ok is True and len(f) == 14:
+            idx = off
+            break
+        off += len(f)
+    if idx is not None:
+        broken[idx + 13] ^= 0xFF        # 打坏校验字节
+        p3 = split_frames(bytes(broken))
+        bad_cks = sum(1 for f, ok in p3 if ok is False)
+        chk("非空洞：打坏校验 => 至少一帧被判坏", bad_cks >= 1,
+            "  坏校验帧 %d" % bad_cks)
+    else:
+        chk("非空洞：打坏校验（跳过，没找到 14 B 好帧）", True)
+
+    # 非空洞：空输入
+    chk("非空洞：空输入 => 0 帧", split_frames(b"") == [])
+    # 非空洞：半个帧 => 标成 None（⛔ 不假装完整）
+    half = bytes(FF.build_frame(FF.T_NOTE_ON))[:7]
+    ph = split_frames(half)
+    chk("非空洞：半帧 => 标记为 None（⛔ 不假装完整）",
+        len(ph) == 1 and ph[0][1] is None, "  %s" % (ph[0][1],))
+
+    print()
+    print("结论：%s" % ("全部通过" if bad == 0 else "有 %d 项不符" % bad))
+    return 0 if bad == 0 else 1
+
+
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", default="COM31", help="USB-TTL 口（TX 接 GPIO18）")
@@ -236,4 +317,6 @@ async def main():
 
 
 if __name__ == "__main__":
+    if "--selftest" in sys.argv:
+        sys.exit(selftest())
     sys.exit(asyncio.run(main()))

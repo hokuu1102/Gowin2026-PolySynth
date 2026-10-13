@@ -86,6 +86,108 @@ def open_quiet(port, baud):
     return s
 
 
+# ===========================================================================
+# 判据（抽成纯函数 => 可以离线自检，⛔ 不必插硬件）
+# ===========================================================================
+def split_frames(raw, hdr=0xA5):
+    """把裸字节按 9 B 切帧，丢掉帧头不对的。
+
+    返回 (frames, bad_hdr, nbytes)。
+    ⚠️ 为什么按【固定 9 B】切而不是找 0xA5：
+    载荷里本来就可能是 0xA5（tick/inc 任意值）=> 扫描会误判；
+    而线上格式是【定长】的，按 9 B 推进才是正确做法。
+    """
+    frames = []
+    bad_hdr = 0
+    for off in range(0, len(raw) - 8, 9):
+        fr = bytes(raw[off:off + 9])
+        if fr[0] != hdr:
+            bad_hdr += 1
+            continue
+        frames.append(fr)
+    return frames, bad_hdr, len(raw)
+
+
+def compare_frames(frames, expect_words, frame_from_word):
+    """逐帧比对【除帧头外的 8 字节载荷】。
+
+    返回 (n_cmp, first_bad_index_or_None)。
+    ⚠️ 为什么【跳过字节 0】（帧头）：
+    帧头恒为 0xA5，比它没有信息量；⭐ 真正的判据是【载荷是否一致】。
+    """
+    n_cmp = min(len(frames), len(expect_words))
+    for i in range(n_cmp):
+        want = frame_from_word(expect_words[i])[1:]
+        if frames[i][1:] != want:
+            return n_cmp, i
+    return n_cmp, None
+
+
+def selftest():
+    """离线自检 —— ⭐ 重点是【非空洞性】：坏输入必须被判出来。"""
+    print("=" * 70)
+    print("_uart1_wire_check.py 离线自检（不需要硬件）")
+    print("=" * 70)
+    bad = 0
+
+    def chk(name, cond, extra=""):
+        nonlocal bad
+        print("  %-50s %s%s" % (name, "OK" if cond else "RED",
+                                ("   " + extra) if extra else ""))
+        if not cond:
+            bad += 1
+
+    words = fake_song(3)
+    stream = b"".join(SW.frame_from_word(w) for w in words)
+
+    fr, bh, nb = split_frames(stream)
+    chk("好样本：帧数 = 3", len(fr) == 3, "  实测 %d" % len(fr))
+    chk("好样本：无坏帧头", bh == 0)
+    chk("好样本：字节数 = 27", nb == 27, "  实测 %d" % nb)
+
+    n, fb = compare_frames(fr, words, SW.frame_from_word)
+    chk("好样本：逐帧一致", fb is None and n == 3)
+
+    # 非空洞性 A：载荷被改一位 => 必须抓住
+    broken = bytearray(stream)
+    broken[9 + 5] ^= 0x01          # 第 2 帧的载荷里翻一位
+    fr2, _, _ = split_frames(bytes(broken))
+    _, fb2 = compare_frames(fr2, words, SW.frame_from_word)
+    chk("非空洞：载荷改一位 => 判出不一致", fb2 == 1, "  首个坏帧 = %s" % fb2)
+
+    # 非空洞性 B：帧头坏 => 该帧被丢掉（bad_hdr 涨）
+    bh_bad = bytearray(stream)
+    bh_bad[0] = 0x00
+    fr3, bh3, _ = split_frames(bytes(bh_bad))
+    chk("非空洞：帧头坏 => 被丢弃且计数", bh3 == 1 and len(fr3) == 2,
+        "  坏头 %d / 有效 %d" % (bh3, len(fr3)))
+
+    # 非空洞性 C：一个字节都没收到 => 帧数为 0（对应"接线没通"那个分支）
+    fr4, _, nb4 = split_frames(b"")
+    chk("非空洞：空输入 => 0 帧 0 字节", len(fr4) == 0 and nb4 == 0)
+
+    # 非空洞性 D：少一帧 => 比对数变少（⛔ 不该"看起来通过"）
+    fr5, _, _ = split_frames(stream[:-9])
+    n5, fb5 = compare_frames(fr5, words, SW.frame_from_word)
+    chk("非空洞：少一帧 => 只比 2 帧（⭐ 不是假装通过）",
+        n5 == 2 and fb5 is None, "  比对 %d 帧" % n5)
+
+    # 定长切分的正确性：载荷里含 0xA5 也不能错位
+    w = list(words)
+    w[1] = SW.pack_word(tick=0xA5A5, inc=0xA5A5A5, axis=5, vel=0xA5,
+                        kind=0, timbre=1)
+    s2 = b"".join(SW.frame_from_word(x) for x in w)
+    fr6, bh6, _ = split_frames(s2)
+    chk("载荷含 0xA5 时，定长切分仍正确（⛔ 不扫描）",
+        len(fr6) == 3 and bh6 == 0, "  帧 %d 坏头 %d" % (len(fr6), bh6))
+    _, fb6 = compare_frames(fr6, w, SW.frame_from_word)
+    chk("载荷含 0xA5 时，逐帧仍一致", fb6 is None)
+
+    print()
+    print("结论：%s" % ("全部通过" if bad == 0 else "有 %d 项不符" % bad))
+    return 0 if bad == 0 else 1
+
+
 async def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--port", default="COM31", help="USB-TTL 的口（默认 COM31）")
@@ -173,22 +275,12 @@ async def main():
     print("=" * 66)
     bad_hdr = 0
     frames = []
-    for off in range(0, len(raw) - 8, 9):
-        fr = bytes(raw[off:off + 9])
-        if fr[0] != SW.HDR_EVENT:
-            bad_hdr += 1
-            continue
-        frames.append(fr)
+    frames, bad_hdr, _nb = split_frames(bytes(raw))
     print("抓到字节 = %d（%.2f 帧）" % (len(raw), len(raw) / 9.0))
     print("帧头非 0xA5 的位置 = %d" % bad_hdr)
     print("可用事件帧 = %d（期望 %d）" % (len(frames), len(expect)))
 
-    n_cmp = min(len(frames), len(expect))
-    first_bad = None
-    for i in range(n_cmp):
-        if frames[i][1:] != SW.frame_from_word(expect[i])[1:]:
-            first_bad = i
-            break
+    n_cmp, first_bad = compare_frames(frames, expect, SW.frame_from_word)
     if first_bad is None:
         print("前 %d 帧载荷【逐字节一致】" % n_cmp)
     else:
@@ -218,4 +310,6 @@ async def main():
 
 
 if __name__ == "__main__":
+    if "--selftest" in sys.argv:
+        sys.exit(selftest())
     sys.exit(asyncio.run(main()))
