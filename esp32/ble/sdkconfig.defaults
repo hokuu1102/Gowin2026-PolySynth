@@ -183,3 +183,17 @@ CONFIG_SPIRAM_TYPE_AUTO=y
 CONFIG_SPIRAM_USE_MALLOC=y
 # ⚠️ 小分配仍走内部 RAM（PSRAM 慢，且不能用于 DMA/中断上下文）
 CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384
+
+# ---------------------------------------------------------------------------
+# GATTS 服务变更指示模式（2026-10-13 新增）
+# ---------------------------------------------------------------------------
+# 为什么改成 MANUAL：实测 Windows 会用【按 MAC 缓存的旧服务表】，
+#   认定本设备只有 4 个 GATT 强制服务，于是【不发起服务发现】
+#   => PC 连上后 0xABF1~0xABF4 一个都看不到（BleakCharacteristicNotFoundError）。
+#   决定性证据：板子收到的 ATT 请求 = 0 条（客户端压根没问）；
+#   而同一台 PC 连另一个 BLE 设备能正常发现其自定义服务 => 不是 PC 无能。
+# 修法：连上就发 Service Changed 指示（0x2A05），客户端必须丢弃缓存重新发现。
+#   AUTO 模式只在"服务表变化时"才自动发，而板子重启后表没变 => 不发。
+#   MANUAL 允许我们用 API 主动发。
+CONFIG_BT_GATTS_SEND_SERVICE_CHANGE_MANUAL=y
+CONFIG_BT_GATTS_SEND_SERVICE_CHANGE_MODE=1

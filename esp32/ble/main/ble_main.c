@@ -300,10 +300,34 @@ static esp_ble_adv_params_t s_adv_params = {
     .adv_int_min        = 0x20,     /* 20 ms */
     .adv_int_max        = 0x40,     /* 40 ms */
     .adv_type           = ADV_TYPE_IND,
-    .own_addr_type      = BLE_ADDR_TYPE_PUBLIC,
+    /* 2026-10-13：由 PUBLIC 改为 RANDOM —— 绕开 Windows 的 MAC 级 GATT 缓存。
+     *
+     * ═══ 为什么必须换地址（而不是换名字）═══
+     * 实测：Windows 按【MAC 地址】缓存 GATT 服务表，且【不理会】设备名。
+     *   证据链：
+     *     · 板子侧属性表创建 + StartService 全 OK（句柄 40~49）
+     *     · 板子收到的 ATT 请求 = 【0 条】—— 客户端压根没问
+     *     · 改设备名（Synth -> Synth2）后：能扫到了，但服务表还是 4 个
+     *     · 发 Service Changed 指示：API 返回 ESP_OK，但服务表没变
+     *     · 对照实验：同一台 PC 连【另一个】BLE 设备能正常发现其自定义服务
+     *   => 缓存键是 MAC，所以只有【换 MAC】才能真正让它重新发现。
+     *
+     * ⚠️ 代价与注意：
+     *   · 随机地址每次上电【可能不同】=> 每次都是"新设备"，⛔ 不会命中缓存
+     *     （这正是我们要的；但也意味着【配对信息不持久】—— 本设备本来也不配对）
+     *   · 地址类型必须与 set_rand_addr 配套，否则广播起不来
+     *   · 静态随机地址的两个最高位必须是 11（BLE 规范），下面用固定值保证
+     */
+    .own_addr_type      = BLE_ADDR_TYPE_RANDOM,
     .channel_map        = ADV_CHNL_ALL,
     .adv_filter_policy  = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
 };
+
+/* 静态随机地址（BLE 规范：最高两位置 1）。
+ * 用固定值而不是每次随机，是为了【可复现】—— 重启后地址不变，
+ *   便于日志比对；而它和出厂 public 地址不同，足以绕开已有缓存。
+ * ⚠️ 若要"每次上电都换"，改成 esp_random() 生成即可（⛔ 但那样就没法复现了）。 */
+static esp_bd_addr_t s_rand_addr = { 0xC2, 0xAA, 0x20, 0x26, 0x00, 0x01 };
 
 static void ble_start_advertising(void)
 {
@@ -635,6 +659,19 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
         ESP_LOGI(TAG, "GATTS registered, app_id=%d if=%d", param->reg.app_id, gatts_if);
         esp_ble_gap_set_device_name(BLE_DEV_NAME);
 
+        /* 2026-10-13：设置【随机静态地址】—— 与 s_adv_params.own_addr_type
+         * = BLE_ADDR_TYPE_RANDOM 配套。
+         * ⚠️ 顺序要求：必须在【开始广播之前】设好，否则广播用的是旧地址。
+         * ⚠️ 必须在蓝牙协议栈使能之后调（本处在 REG_EVT 里，已使能）。
+         * ⭐ 目的见 s_adv_params 上方的注释：绕开 Windows 按 MAC 缓存的 GATT 表。 */
+        {
+            esp_err_t ra = esp_ble_gap_set_rand_addr(s_rand_addr);
+            ESP_LOGI(TAG, "set_rand_addr %02X:%02X:%02X:%02X:%02X:%02X -> %s",
+                     s_rand_addr[0], s_rand_addr[1], s_rand_addr[2],
+                     s_rand_addr[3], s_rand_addr[4], s_rand_addr[5],
+                     esp_err_to_name(ra));
+        }
+
         /* ⭐ 先把属性表建起来（句柄要从创建回调里拿） */
         esp_ble_gatts_create_attr_tab(gatt_get_db(), gatts_if,
                                       gatt_idx_count(), 0);
@@ -688,19 +725,33 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
              *   并加编译期断言把总长钉死。⛔ 不再手写字符与长度。
              *   ⚠️ 改名时只需改 ble_config.h 一处。 */
             enum { ADV_NAME_LEN = sizeof(BLE_DEV_NAME) - 1 };   /* 设备名字节数 */
-            static uint8_t adv_raw[3 + 2 + ADV_NAME_LEN];       /* Flags + AD 头 + 名字 */
-            /* 编译期断言（两个都要）：
+            /* 包结构（3 条 AD）：
+             *   Flags              : 02 01 06
+             *   完整 16 位 UUID 列表: 03 03 F0 AB      (0xABF0 小端)
+             *   完整本地名          : (N+1) 09 <name>
+             * ⭐ 2026-10-13 新增服务 UUID：
+             *   🔴 为什么必须加：实测 PC 连上后只发现 4 个【GATT 强制服务】
+             *      （2a05/2a00/2a01/2aa6），我们自己的 0xABF0 一个都没有。
+             *      而广播包里【只有 Flags + 名字】—— 客户端从广播里
+             *      拿不到"这个设备提供什么服务"的信息。
+             *   ⭐ 标准做法是把服务 UUID 放进广播（AD type 0x03 = 完整列表），
+             *      客户端据此建立服务表，⛔ 不必等连接后再逐个探。
+             *   ⚠️ 代价：+4 字节（当前 3+4+2+15 = 24 ≤ 31 ✅）。 */
+            static uint8_t adv_raw[3 + 4 + 2 + ADV_NAME_LEN];
+            /* 编译期断言（三个都要）：
              *  · 包不能超过 31 字节 —— BLE 4.x 广播硬上限，超了广播会被拒，
              *    现象是"PC 扫不到"，极难定位；
-             *  · 数组必须正好装下 —— 少了会静默截断名字（这次的坑）。 */
+             *  · 数组必须正好装下 —— 少了会静默截断名字（踩过）。 */
             _Static_assert(sizeof(adv_raw) <= 31,
                            "广播包超过 31 字节：BLE_DEV_NAME 太长了");
-            _Static_assert(sizeof(adv_raw) == 5 + ADV_NAME_LEN,
+            _Static_assert(sizeof(adv_raw) == 9 + ADV_NAME_LEN,
                            "广播数组大小与内容不符（会截断名字）");
             adv_raw[0] = 0x02; adv_raw[1] = 0x01; adv_raw[2] = 0x06;   /* Flags */
-            adv_raw[3] = (uint8_t)(ADV_NAME_LEN + 1);                  /* len = 名长+1 */
-            adv_raw[4] = 0x09;                                        /* 完整本地名 */
-            memcpy(&adv_raw[5], BLE_DEV_NAME, ADV_NAME_LEN);
+            adv_raw[3] = 0x03; adv_raw[4] = 0x03;                      /* len=3, 完整 UUID16 列表 */
+            adv_raw[5] = 0xF0; adv_raw[6] = 0xAB;                      /* 0xABF0 小端 */
+            adv_raw[7] = (uint8_t)(ADV_NAME_LEN + 1);                  /* len = 名长+1 */
+            adv_raw[8] = 0x09;                                        /* 完整本地名 */
+            memcpy(&adv_raw[9], BLE_DEV_NAME, ADV_NAME_LEN);
             esp_err_t adv_err = esp_ble_gap_config_adv_data_raw(adv_raw,
                                                                sizeof(adv_raw));
             if (adv_err != ESP_OK) {
@@ -754,6 +805,37 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
         s_connected = true;
         ESP_LOGI(TAG, "BLE CONNECTED conn_id=%d", s_conn_id);
         hmi_set_bt_connected(true);
+        /* 🔴🔴 2026-10-13：连上就发【GATT 服务变更指示】（0x2A05）。
+         *
+         * ═══ 为什么必须发（这是"服务发现只有 4 个"的修法）═══
+         * 实测症状：PC 连上后只发现 4 个 GATT 强制特征
+         *   （2a05/2a00/2a01/2aa6），我们自己的 0xABF0 一个都没有。
+         * 决定性证据：
+         *   · 板子日志：属性表创建 + StartService 全部成功（句柄 40~49）
+         *   · 板子收到的 ATT 请求：【0 条】—— 客户端压根没问
+         *   · 对照实验：同一台 PC 连【另一个】BLE 设备，能正常发现它的
+         *     自定义服务（fe55）=> ⛔ 不是 PC 无能
+         *   => 结论：Windows 用了【按 MAC 缓存的旧服务表】，
+         *      认定"这个设备只有 4 个服务"，于是【不发起服务发现】。
+         *
+         * ⭐ 修法：BLE 规范里有专门打破这件事的机制 ——
+         *   "Service Changed" 指示（characteristic 0x2A05）。
+         *   客户端收到它之后【必须】丢弃缓存并重新发现服务。
+         *   ⚠️ 而 0x2A05 正好就在 PC 看到的那 4 个特征里
+         *      => 说明 Windows 认这个机制，只是我们从来没发过。
+         *
+         * ⚠️ 时机：必须在【连接建立之后】发（连接前没有接收方）。
+         * ⚠️ 副作用：客户端会重新做一次服务发现（多几百毫秒），
+         *    ⛔ 无害 —— 这正是我们要的。
+         * 📌 它同时解决了"刷固件后服务变了但客户端不知道"这个通用问题：
+         *    以后改 GATT 结构，客户端也能自动跟上，⛔ 不用清缓存。 */
+        if (s_gatts_if != ESP_GATT_IF_NONE) {
+            esp_err_t sci = esp_ble_gatts_send_service_change_indication(
+                                s_gatts_if, NULL);   /* NULL = 发给所有已连设备 */
+            ESP_LOGI(TAG, "service change indication -> %s",
+                     esp_err_to_name(sci));
+        }
+
         /* 重连恢复：从断链回到"就绪"（用户 2026-10-12 裁定）
          * -----------------------------------------------------------------
          * 未修之前的行为：断开时置 LINK_LOST，重连后【无人复位】
@@ -848,6 +930,14 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
         uint16_t h = param->write.handle;
         uint16_t len = param->write.len;
         const uint8_t *val = param->write.value;
+
+        /* 2026-10-13 诊断：把客户端【写的每个句柄】都打出来（同 READ 的理由）。
+         * ⚠️ 这条会给每次灌谱写都打一行 —— 所以只在【非数据口】时打，
+         *    避免淹没日志（数据口是 0xABF1，灌谱时每秒几十次）。 */
+        if (h != s_handle_recv) {
+            ESP_LOGI(TAG, "WRITE_EVT handle=%u len=%u conn=%u",
+                     (unsigned)h, (unsigned)len, (unsigned)param->write.conn_id);
+        }
 
         /* ⭐⭐ 2026-09-30：**先识别 CCCD 写入** —— 这是"对端已就绪"的唯一可靠信号
          * -----------------------------------------------------------------
@@ -1053,6 +1143,14 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
         esp_gatt_rsp_t rsp;
         memset(&rsp, 0, sizeof(rsp));
         rsp.attr_value.handle = param->read.handle;
+        /* 2026-10-13 诊断：把客户端【读的每个句柄】都打出来。
+         * 背景：实测 PC 连上后只发现 4 个 GATT 强制服务，我们 0xABF0 一个都没有；
+         *   而对照设备（另一个 BLE 设备）能正常发现自定义服务
+         *   => 问题在板子侧。这条日志能看出客户端【到底问了哪些句柄】：
+         *      · 若只读 0x0001~0x0005 一类 => 它压根没扫到我们的服务
+         *      · 若读到了 40~49 => 说明扫到了，问题在别处 */
+        ESP_LOGI(TAG, "READ_EVT handle=%u conn=%u",
+                 (unsigned)param->read.handle, (unsigned)param->read.conn_id);
         /* ⭐⭐ 2026-09-30（B 子集）：**STAT(`0xABF4`) 要回【真实内容】**
          * -----------------------------------------------------------------
          * 🔴 原来这里【无条件**回 0 长度**】⇒ ⚠️ 任何特征读回来都是空串。
