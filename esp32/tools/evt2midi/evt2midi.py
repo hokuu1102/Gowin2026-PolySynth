@@ -188,6 +188,22 @@ class ParseStats:
         # 但必须如实计数：回退是兜底，不能把异常掩盖成正常。
         self.anchor_ppqn_zero = 0
 
+        # ---- tick 单位（2026-10-13）----
+        # 🔴 这个字段存在的原因：`tick` 的单位【没有权威定义】（两侧文档冲突），
+        #    而选错会让整曲时间全错、且是【静默】的（音高还对，只是挤在一起）。
+        #    => 必须把"我按哪种口径算的、为什么"【显式报出来】，⛔ 不能默认。
+        self.tick_unit = None            # auto 判断出来的结果
+        self.tick_unit_reason = ""
+        self.tick_unit_used = None       # 实际用于换算的口径
+        # tick 非单调的次数（2026-10-13）。
+        # 🔴 为什么必须单独计：tick 是 32 位【自由运行】计数器，
+        #    正常情况下只会"增长 + 回绕"。若出现"小幅回退"，
+        #    那多半是【多轴/多段录制混在一起】=> 时间轴会错乱。
+        #    ⚠️ 而这种错乱会表现为"MIDI 写不出来"（delta 超上限），
+        #       现象看起来像"工具坏了"，其实是【输入不是单条时间轴】。
+        #    => 把它计出来并在报告里说清，免得下次又当成工具 bug 查。
+        self.non_monotonic_tick = 0
+
         # ---- 🔴 拒收（⭐ 加固：⛔ 一律不许静默）----
         self.frames_bad_csum = 0       # ⭐ 校验错（⭐ 最可能的一类）
         self.bad_type = 0              # ⭐ 未知类型（🔴 现在【不计入】frames_ok）
@@ -506,14 +522,69 @@ def note_from_axis_inc(axis, inc):
     return hz_to_note(inc_to_hz(inc))
 
 
-def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None, tables=None,
-               table_fallback=False):
-    """
-    ⭐ 生成标准 MIDI（Format 0，单轨）。
+TICK_UNIT_AUTO = "auto"
+TICK_UNIT_MIDI = "midi"
+TICK_UNIT_CLOCK = "clock"
 
-    ⚠️ 时间基准：⭐ FPGA `tick` 是 **50 MHz 自由运行计数器**
-    ⇒ `seconds = Δtick / 50e6` ⇒ `MIDI Δ = seconds × PPQN × BPM / 60`
-    ⭐ **Δtick 用取模**（⭐ 见文件头纪律②）。
+
+def _guess_tick_unit(evs):
+    """
+    按数据判断 `tick` 是【音乐 tick】还是【50 MHz 计数】。
+
+    ⭐ 判据（机械可判，⛔ 不靠"我觉得"）：
+      音乐 tick 的典型间隔是【PPQN 的整数分之一】（960/ppqn ⇒ 480/240/120…），
+      而 50 MHz 计数的间隔是【任意大整数】（毫秒级手弹 => 百万量级）。
+
+    具体做法：取音符事件的相邻 tick 差（去掉 0），看中位数落在哪个量级。
+
+      中位数 < 100000  => 音乐 tick（960/拍时，一个 16 分音符 = 240）
+      中位数 >= 100000 => 50 MHz 计数（1 个 16 分音符 = 12,000,000）
+
+    ⚠️ 两者相差【4 个数量级】⇒ 这个判据很结实，⛔ 不会骑墙。
+    ⚠️ 边界情况（只有 0 或 1 个事件）=> 返回 clock（保持旧行为），
+       并在 reason 里说明"数据不足以判断"。
+    """
+    ticks = [e.tick for e in evs
+             if getattr(e, "tick", None) is not None
+             and e.kind in ("note_on", "note_off")]
+    if len(ticks) < 2:
+        return TICK_UNIT_CLOCK, "事件少于 2 个，不足以判断 => 沿用旧口径(clock)"
+    diffs = []
+    for i in range(1, len(ticks)):
+        d = ticks[i] - ticks[i - 1]
+        if d > 0:
+            diffs.append(d)
+    if not diffs:
+        return TICK_UNIT_CLOCK, "所有事件 tick 相同 => 无法判断 => 沿用旧口径(clock)"
+    diffs.sort()
+    med = diffs[len(diffs) // 2]
+    if med < 100000:
+        return TICK_UNIT_MIDI, ("相邻 tick 中位数 = %d（< 100000）"
+                                "=> 判为音乐 tick(PPQN=%d)" % (med, PPQN))
+    return TICK_UNIT_CLOCK, ("相邻 tick 中位数 = %d（>= 100000）"
+                             "=> 判为 50 MHz 自由运行计数" % med)
+
+
+def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None, tables=None,
+               table_fallback=False, tick_unit=TICK_UNIT_AUTO):
+    """
+    生成标准 MIDI（Format 0，单轨）。
+
+    ---- tick 的单位（2026-10-13 新增，因为发现两侧定义冲突）----
+    🔴 **实测发现**：`tick` 的单位在两条通路上【不一样】，而旧代码只会一种：
+       · 9 B 回传帧：`tick[63:44]` 是【音乐 tick】（PPQN 960）—— FPGA 侧文档 §一-③
+       · 14 B v1.1 帧：文档写"32 位自由运行"，**没说单位**
+       · `rtl/top.v:1988`：`.tick_i (bg_tick)` => 来自 `beat_gen` => 【音乐 tick】
+    ⚠️ 旧代码一律按 `CLK_HZ = 50 MHz` 换算 =>
+       `480 / 5e7 = 9.6 µs` => 🔴 **整曲挤成 0 秒**（实测：播放器报 0 秒）。
+
+    故这里给出可切换的口径：
+       · `"midi"` —— tick 是音乐 tick（PPQN = 本文件的 PPQN）
+       · `"clock"` —— tick 是 50 MHz 自由运行计数（旧行为）
+       · `"auto"`（默认）—— **按数据自己判断**，见 `_guess_tick_unit()`
+     📌 等 FPGA 侧在 v1.1 规范里写明单位后，把默认值钉死为那一种。
+
+    ⭐ `Δtick` 用取模（见文件头纪律②）。
 
     ⭐⭐ 2026-10-01（加固）：⭐ **改为【逐事件累加】取模** ——
        🔴 旧版是 `(e.tick - base_tick) % 2³²`（⭐ **固定基准**）。
@@ -538,7 +609,22 @@ def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None, tables=None,
        ⭐ 现在写 `FF 51 03 <µs/四分音符>` ⇒ ⭐ 文件**自描述**，⛔ 不依赖播放器默认。
     """
     tps = PPQN * bpm / 60.0          # ⭐ 每秒多少个 MIDI tick（120BPM/960PPQN ⇒ 1920）
-    ticks_per_sec_fpga = CLK_HZ      # ⭐ FPGA tick 就是 50 MHz 计数
+    # ---- tick 单位（2026-10-13）----
+    # ⚠️ 这个值决定"tick -> 秒"。选错 => 整曲时间全错（且是【静默】的：
+    #    音高还对，只是全挤在一起）=> 所以既给显式开关，也有自动判断 + 上报。
+    unit = tick_unit
+    if unit == TICK_UNIT_AUTO:
+        unit, why = _guess_tick_unit(evs)
+        stats.tick_unit = unit
+        stats.tick_unit_reason = why
+    stats.tick_unit_used = unit
+    if unit == "midi":
+        # 音乐 tick：一拍 = PPQN 个 tick => 每秒的 tick 数 = PPQN × BPM / 60
+        ticks_per_sec_fpga = tps
+    elif unit == "clock":
+        ticks_per_sec_fpga = CLK_HZ   # ⭐ 旧行为：50 MHz 自由运行计数
+    else:
+        raise ValueError("未知 tick_unit：%r" % (unit,))
 
     # ⭐⭐ 任务 3：把【表同步】收到的表转成 `axis → 音符号` 的回退映射
     # -----------------------------------------------------------------------
@@ -571,10 +657,23 @@ def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None, tables=None,
     skipped_no_pitch = 0
     ticks_seen = 0
 
+    # MIDI 变长量的硬上限（规范：最多 4 字节，每字节 7 位）。
+    # 🔴 2026-10-13 加：原来这里没有上限检查 => 超限时会**一直往后写**，
+    #    产出一个【非法 MIDI】，而且**不报错**（⭐ 只有下游播放器/校验器才炸）。
+    #    ⚠️ 实测触发条件：tick 序列非单调（例如多轴混合录制）时，
+    #       `acc_ticks` 会累出天文数字 => delta 超限。
+    #    ⭐ 判据：宁可【报错并说清原因】，也⛔ 不写出坏文件。
+    VARLEN_MAX = 0x0FFFFFFF
+
     def var_len(v):
-        """⭐ MIDI 变长量（⚠️ 每字节 7 位，最高位是"还有后续"标志）。"""
+        """MIDI 变长量（每字节 7 位，最高位是"还有后续"标志）。"""
         if v < 0:
             v = 0
+        if v > VARLEN_MAX:
+            raise ValueError(
+                "delta 超 MIDI 变长量上限：%d > %d（⭐ 通常意味着 tick 序列"
+                "非单调，例如多条轴/多段录制混在一起 => 请先按轴或按段拆开）"
+                % (v, VARLEN_MAX))
         buf = [v & 0x7F]
         v >>= 7
         while v:
@@ -596,11 +695,39 @@ def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None, tables=None,
         if prev_fpga_tick is None:
             prev_fpga_tick = e.tick
         else:
-            # ⭐⭐ Δt = (t_n − t_{n−1}) mod 2³² —— ⭐ **逐事件累加**
-            #    ⚠️ 这是跨回绕正确性的关键；⭐ 累加 ⇒ 支持**任意次**回绕
+            # Δt = (t_n − t_{n−1}) mod 2³² —— 逐事件累加
+            #    这是跨回绕正确性的关键；累加 => 支持任意次回绕。
+            #
+            # 🔴🔴 2026-10-13 修：原来【无条件】取模 ⇒ 把"乱序"当成"回绕"。
+            #    ⚠️ 后果：tick 真变小时（例如【多轴/多段混在同一份录制里】），
+            #       取模得到 ≈ 2³² 的巨大 step ⇒ acc_ticks 爆掉
+            #       ⇒ delta 超 MIDI 变长量上限 ⇒ 🔴 **写出非法 MIDI**。
+            #    🔴 而且当时**不报错** —— 只有下游播放器/校验器才炸
+            #       （⭐ 实测：midi_verify 报"变长量超过 4 字节"）。
+            #
+            # ⭐ 判据（怎么区分"回绕"和"乱序"）：
+            #    回绕：32 位计数器在 85.9 秒处归零 ⇒ 新值【小】，但
+            #          差值应当接近整圈（≈ 2³²）—— 即 step 落在"大半圈"。
+            #    乱序：tick 突然回退一点点（例如另一条轴的录制插进来）
+            #          ⇒ 取模后会得到"接近整圈但【不是】大半圈"的值，
+            #            且随后的值又跳回原轨 ⇒ 会连续出现。
+            #    实践上最稳的判据：⭐ 取模后 step 若 > 半圈（2³¹），
+            #       它要么是真回绕（后续 tick 继续单调增长），
+            #       要么是乱序 —— 而**乱序时后续还会再出现一次同样的跳变**。
+            #    => 这里采用【保守且可观测】的做法：
+            #       仍然按取模算（保留跨回绕正确性），但
+            #       ① 计数（已有的 big_tick_steps）
+            #       ② 再单独计一个 non_monotonic（tick 直接变小、且差值不大）
+            #       ③ 若累计出现"不可接受的 delta"，var_len 会抛错并说清原因
+            if e.tick < prev_fpga_tick:
+                back = prev_fpga_tick - e.tick
+                if back < (1 << 24):
+                    # 回退幅度不大 ⇒ 基本可以断定是【乱序】而不是回绕
+                    # （真回绕的回退幅度应当接近 2³²）
+                    stats.non_monotonic_tick += 1
             step = (e.tick - prev_fpga_tick) % (1 << 32)
             if step > (1 << 31):
-                # ⚠️ 单步跨过半圈（> 43 秒）⇒ ⚠️ 可疑（⭐ 多半是乱序或坏帧残留）
+                # 单步跨过半圈（> 43 秒）⇒ 可疑（多半是乱序或坏帧残留）
                 stats.big_tick_steps += 1
             acc_ticks += step
             prev_fpga_tick = e.tick
@@ -1084,8 +1211,17 @@ def selftest():
 
     print("\n[14] ⭐⭐ Tempo 元事件：⭐ 文件必须【自描述】速度")
     chk("⑭ 读侧（midi_verify）可用（⭐ 下面几条的前提）", HAVE_MIDI_READER)
-    m120, _s1, _n1 = build_midi(evs6, ParseStats(), bpm=120.0)
-    m60, _s2, _n2 = build_midi(evs6, ParseStats(), bpm=60.0)
+    # ⚠️ 必须【显式钉住 tick 单位】：
+    #    这条测的是"BPM 变了，时间线跟着变"，与单位无关 ——
+    #    但 `evs6` 的 tick 值（1000 / 51000）是【为 50 MHz 设计】的，
+    #    而 2026-10-13 起了 auto 判断 => 51000 < 100000 会被判成音乐 tick
+    #    => 两种 BPM 下都算出同一个绝对 tick => 这条判据假红。
+    #    ⭐ 教训：判据依赖"数据长什么样"时，要把那个前提【显式写出来】，
+    #       ⛔ 不要留给"自动推断"去猜。
+    m120, _s1, _n1 = build_midi(evs6, ParseStats(), bpm=120.0,
+                                tick_unit=TICK_UNIT_CLOCK)
+    m60, _s2, _n2 = build_midi(evs6, ParseStats(), bpm=60.0,
+                               tick_unit=TICK_UNIT_CLOCK)
     r120 = _read_midi(m120)
     r60 = _read_midi(m60)
     chk("⑭ 120 BPM ⇒ tempo = 500000 µs", r120["tempo_us"] == 500000,
@@ -1227,6 +1363,17 @@ def main():
     print("  ⚠️ 孤儿 note_off = %d（⭐ 没 on 就 off ⇒ 通常意味着前面有帧被拒收）"
           % st.orphan_off)
     print("  ⚠️ 单步 Δ>43 秒    = %d（⚠️ 可疑，⛔ 不是拒收）" % st.big_tick_steps)
+    # tick 非单调：必须显眼。它多半意味着"输入不是单条时间轴"
+    # （多轴/多段录制混在一起）—— 症状是 MIDI 写不出来，
+    # ⚠️ 看起来像工具 bug，其实是输入的问题。
+    if st.non_monotonic_tick:
+        print("  🔴 tick 非单调      = %d  <== 🔴 输入可能混了多条时间轴"
+              "（多轴/多段），⛔ 不是单条录制" % st.non_monotonic_tick)
+    else:
+        print("  ⭐ tick 单调        = OK（单条时间轴）")
+    if st.tick_unit_used:
+        print("  ⭐ tick 单位        = %s（%s）"
+              % (st.tick_unit_used, st.tick_unit_reason or "显式指定"))
     print("  ⚠️ 收尾补 off = %d" % st.notes_open_at_end)
 
     # ⭐⭐ 加固：⭐ 写完**立刻按规范读回**核对（⛔ 只写不读 = 假绿风险）

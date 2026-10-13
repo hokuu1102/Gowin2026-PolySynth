@@ -104,6 +104,9 @@ def build_plan(esp, ch340, log_sec=20):
         ("离线全量自检（22 工具）", "无", ["selftest_all.py"], 300, "0 项 RED"),
         ("上位机离线自检", "无", ["score_uploader.py", "--selftest"], 120, "全部通过"),
         ("池算术校验", "无", ["pool_math_check.py"], 120, "通过"),
+        # MIDI 回传端到端演示（离线）：造 v1.1 字节流 -> 解析 -> 转 MIDI -> 逐点核对。
+        # 它是"上行解析 + 时间轴"这两块的回归网 —— 本轮的时间 bug 就是它抓到的。
+        ("MIDI 回传端到端（离线）", "无", ["demo_midi_roundtrip.py"], 180, "全部通过"),
     ]
     live = [
         ("读状态 0xABF4（8 组齐全）", "BLE", ["stat_read.py"], 90, "结构完整"),
