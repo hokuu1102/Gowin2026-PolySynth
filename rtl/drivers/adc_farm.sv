@@ -48,7 +48,10 @@ module adc_farm #(
     parameter integer N_ADC          = 3,
     parameter integer CLK_HZ         = 50_000_000,
     parameter integer SCLK_HZ        = 1_000_000,
-    parameter integer CHANNEL_RATE_HZ = 2_000
+    parameter integer CHANNEL_RATE_HZ = 2_000,
+    // Endpoint checks are a communication suspicion, not proof of a dead ADC.
+    // Allow the analogue supplies to settle before retaining any suspicion.
+    parameter integer FAULT_STARTUP_MS = 200
 ) (
     input  wire         clk,
     input  wire         rst_n,
@@ -228,20 +231,18 @@ module adc_farm #(
     //  ✅ **修法（⭐ 审查的方案 A ✅）**：⭐ **死片 sticky** ——
     //     ⭐ MCP3208 在 `CS` 有效期间 `DOUT` **恒 0/1**（⭐ 断线/无供电 ✅）
     //     ⇒ ⭐ 该片 raw **恒 `0x000` 或 `0xFFF`** ✅
-    //     ⇒ ⭐ 用**连续帧**统计：⭐ 某片**连续 `DEAD_FRAMES` 帧**都贴死 ⇒ ⭐ 判死片 ✅
+    //     ⇒ 连续 `DEAD_FRAMES` 帧整片同一端点 ⇒ 锁存数据异常嫌疑（不是死片证明）
     //     ⇒ ⭐ `fault_r[i]` **sticky 置 1**（⭐ 只置不清，⭐ 复位才清 ✅）
     //
-    //  📌 **为什么用 `sample_valid && sample_ch == 0` 计数**：
-    //     ⭐ 这两者**每帧、每片恰好来一次**（⭐ 所有片同一拍 `sample_valid` ✅，
-    //     ⭐ 通道 0 是该帧第一个 ✅）⇒ ⭐ **等价于"按帧计数"** ✅
-    //     ⚠️ ⭐ 若直接用 `sample_valid`（⭐ 每通道都来 ✅）⇒ ⭐ 计数会快 8 倍 ⚠️
-    //        ⇒ ⭐ 这正是审查明确警告的（⭐ "必须用帧边界，不要用 sample_valid" ✅）
+    // 2026-10-12 correction: CH0 alone is not a dead-chip witness.
+    // Count only completed CH0..CH7 scans whose eight values are all zero
+    // or all full scale. Ignore the first FAULT_STARTUP_MS of complete scans.
+    // This is still a rail-stuck suspicion: eight genuinely grounded inputs
+    // cannot be distinguished from stuck-low MISO by data values alone.
     //
     //  📌 **判据**：⭐ `tb/drivers/tb_adc_farm.sv` —— ⭐ 把某片的 `miso` 拉死
-    //     ⇒ ⭐ 跑 ≥ `DEAD_FRAMES` 帧 ⇒ ⭐ 断言 `fault[那片] === 1'b1` ✅
-    //     🔴 **未修复代码上必红**（⭐ 恒 0 ✅）· ⭐ 且断言**其它片不受影响** ✅
-    //  📌 **代价**：⭐ 每片 5 FF（`dead_run`）+ 1 FF（sticky）⇒ ⭐ `N_ADC × 6` = **18 FF** ✅
-    //     （⭐ 交付档 `N_ADC = 3` ✅）
+    //     ⇒ 跳过启动窗口，再跑 >= DEAD_FRAMES 个完整扫描帧；其它片不受影响。
+    //  代价：每片 5 FF 计数 + 2 FF 扫描摘要 + 1 FF sticky，另加启动帧计数器。
     // ═══════════════════════════════════════════════════════════════════════
     localparam integer DEAD_FRAMES = 16;                 // ⭐ 16 帧 ≈ 8 ms @2 kHz ✅
     localparam integer DFC = $clog2(DEAD_FRAMES + 1);    // ⭐ = 5 ✅
@@ -249,18 +250,45 @@ module adc_farm #(
     reg [N_ADC-1:0] fault_r;
     reg [DFC-1:0]   dead_run [0:N_ADC-1];
     wire [N_ADC-1:0] dead_flag;
+    localparam integer STARTUP_FRAMES = (CHANNEL_RATE_HZ * FAULT_STARTUP_MS + 999) / 1000;
+    localparam integer WARM_W = (STARTUP_FRAMES < 1) ? 1 : $clog2(STARTUP_FRAMES + 1);
+    localparam [WARM_W-1:0] WARM_MAX = STARTUP_FRAMES;
+    reg [WARM_W-1:0] warm_frames;
+    wire fault_armed = (warm_frames >= WARM_MAX);
+    always @(posedge clk) begin
+        if (!rst_n || !enable) warm_frames <= {WARM_W{1'b0}};
+        else if (sample_valid && sample_ch == 3'd7 && !fault_armed)
+            warm_frames <= warm_frames + 1'b1;
+    end
     genvar dg;
     generate
         for (dg = 0; dg < N_ADC; dg = dg + 1) begin : gen_dead
             wire [11:0] dead_raw  = sample_data_packed[dg*12 +: 12];
-            wire        dead_stuck = (dead_raw == 12'h000) || (dead_raw == 12'hFFF);
+            reg frame_all_zero, frame_all_one;
+            // CH0 can legitimately be zero/full scale. Only an entire scan
+            // at the same rail is suspicious; a single rail channel is valid.
+            wire scan_zero = frame_all_zero && (dead_raw == 12'h000);
+            wire scan_one  = frame_all_one  && (dead_raw == 12'hFFF);
             always @(posedge clk) begin
-                if (!rst_n) dead_run[dg] <= {DFC{1'b0}};
-                else if (sample_valid && (sample_ch == 3'd0)) begin
-                    if (dead_stuck) begin
-                        if (dead_run[dg] != DEAD_MAX) dead_run[dg] <= dead_run[dg] + 1'b1;
-                    end else begin
-                        dead_run[dg] <= {DFC{1'b0}};     // ⭐ 一旦活过来 ⇒ 计数清零 ✅
+                if (!rst_n || !enable) begin
+                    dead_run[dg] <= {DFC{1'b0}};
+                    frame_all_zero <= 1'b0;
+                    frame_all_one <= 1'b0;
+                end else begin
+                    if (!fault_armed) dead_run[dg] <= {DFC{1'b0}};
+                    if (sample_valid) begin
+                        if (sample_ch == 3'd0) begin
+                            frame_all_zero <= (dead_raw == 12'h000);
+                            frame_all_one <= (dead_raw == 12'hFFF);
+                        end else begin
+                            frame_all_zero <= scan_zero;
+                            frame_all_one <= scan_one;
+                        end
+                        if (sample_ch == 3'd7 && fault_armed) begin
+                            if (scan_zero || scan_one) begin
+                                if (dead_run[dg] != DEAD_MAX) dead_run[dg] <= dead_run[dg] + 1'b1;
+                            end else dead_run[dg] <= {DFC{1'b0}};
+                        end
                     end
                 end
             end

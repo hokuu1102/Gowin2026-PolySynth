@@ -1,0 +1,8 @@
+﻿iverilog.exe : C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_looper.sv:852: warning: extr
+a digits given for sized hex constant.
+At C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tools\run_q_adc_regression.ps1:19 char:24
++ ... mpileOutput=& $Iverilog -g2012 -DWAVETABLE_BEHAVIORAL -s $testName -o ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\cyx\Do...d hex constant.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 

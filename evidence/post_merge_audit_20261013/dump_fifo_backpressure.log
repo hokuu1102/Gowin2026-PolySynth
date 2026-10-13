@@ -1,0 +1,3 @@
+RESULT reported_frames=1 fifo_drop=1 ovf=1 busy=0
+FAIL: real rec_dump/uart_tx_fifo ready handshake loses bytes
+audit_review/tb_dump_fifo_backpressure.sv:23: $finish called at 700000 (1ps)

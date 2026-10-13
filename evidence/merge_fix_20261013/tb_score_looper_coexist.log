@@ -1,0 +1,25 @@
+﻿VCD info: dumpfile build/sim/tb_score_looper_coexist/tb_score_looper_coexist.vcd opened for output.
+== A: score path with an EMPTY looper ==
+  ok  : score_path_unchanged_when_looper_empty: note_on allocates exactly ONE voice
+  ok  : score_path_unchanged_when_looper_empty: note_off releases it again
+== B: record one note on axis 3 (start vel 100 -> end vel 200) ==
+  ok  : recording leaves NO held voice behind (live note was closed)
+  ok  : looper stored the note_on AND the note_off
+== C: start playback ==
+  ok  : looper replay emits a note_on (source C is wired)
+  ok  : looper replay alone holds exactly ONE voice on axis 3
+  ok  : loop_interp_update_reaches_loop_voice: its velocity climbs above the start value
+== D: score note ON the SAME axis while the loop is playing ==
+  ok  : score_and_loop_same_axis_coexist: TWO distinct voices on axis 3
+  ok  : score_and_loop_same_axis_coexist: BOTH are gated (audible)
+== E: score note OFF -- the loop's voice must survive ==
+  ok  : score_note_off_keeps_loop_voice: the loop's voice is STILL gated
+  ok  : score_note_off_keeps_loop_voice: only the score's own voice was cleared
+== F: loop note OFF -- the score's voice must survive ==
+  ok  : score voice re-allocated next to the loop's voice
+  ok  : looper replay emits a note_off
+  ok  : loop_note_off_keeps_score_voice: the score's voice is STILL gated
+  ok  : loop_note_off_keeps_score_voice: only the loop's own voice was cleared
+  ok  : loop_interp_update_reaches_loop_voice: the score voice's velocity is untouched
+  ok  : final score note_off releases the last voice (no stuck voice)
+PASS: score UART and looper coexist; source tags isolate note_off (ok=17)

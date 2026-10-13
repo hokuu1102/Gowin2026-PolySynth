@@ -1,0 +1,29 @@
+=== tb_drum_sweep_window (P0-31: 鼓扫频深度 32 拍轮转窗口) ===
+   KICK=5368709 TOM=17895697 · LSB_SH=8 KICK_SH=0 TOM_SH=3
+
+== W1 kick->tom (WINDOW: base_inc refreshes AFTER the onset tick) ==
+   info: 旧音高=5368709 新音高=17895697 · 窗口=1
+   info: 期望深度=8738 · 未修复会拿到=2621
+   info: 实测 起音拍 sweep_q=0 · 窗口内 max sweep_q=8738
+   info: 期望相位增量=20132625 · 未修复会是=18566673 · 实测 max=20132625
+  ok  : W1 kick->tom (WINDOW: base_inc refreshes AFTER the onset tick) : sweep_q loaded from the NEW pitch (not the stale one)
+  ok  : W1 kick->tom (WINDOW: base_inc refreshes AFTER the onset tick) : per-sample phase step == NEW_INC + depth<<8 (end-to-end)
+
+== W2 kick->tom (NO WINDOW: base_inc refreshes BEFORE the onset tick) ==
+   info: 旧音高=5368709 新音高=17895697 · 窗口=0
+   info: 期望深度=8738 · 未修复会拿到=2621
+   info: 实测 起音拍 sweep_q=0 · 窗口内 max sweep_q=8738
+   info: 期望相位增量=20132625 · 未修复会是=18566673 · 实测 max=20132625
+  ok  : W2 kick->tom (NO WINDOW: base_inc refreshes BEFORE the onset tick) : sweep_q loaded from the NEW pitch (not the stale one)
+  ok  : W2 kick->tom (NO WINDOW: base_inc refreshes BEFORE the onset tick) : per-sample phase step == NEW_INC + depth<<8 (end-to-end)
+
+== W3 tom->kick (WINDOW: base_inc refreshes AFTER the onset tick) ==
+   info: 旧音高=17895697 新音高=5368709 · 窗口=1
+   info: 期望深度=20971 · 未修复会拿到=4369
+   info: 实测 起音拍 sweep_q=0 · 窗口内 max sweep_q=20971
+   info: 期望相位增量=10737285 · 未修复会是=6487173 · 实测 max=10737285
+  ok  : W3 tom->kick (WINDOW: base_inc refreshes AFTER the onset tick) : sweep_q loaded from the NEW pitch (not the stale one)
+  ok  : W3 tom->kick (WINDOW: base_inc refreshes AFTER the onset tick) : per-sample phase step == NEW_INC + depth<<8 (end-to-end)
+
+PASS: tb_drum_sweep_window - 6/6 judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\w3b\tb_drum_sweep_window.sv:338: $finish called at 24700000 (1ps)

@@ -15,6 +15,9 @@ module tb_test_mode_top;
     wire I2S2_BCK, I2S2_LRCK, I2S2_DIN;
 
     top #(
+        //  ⭐ 2026-10-09：本 tb 只测音频/控制，⛔ 不测 HDMI ⇒ 剪掉李萨如渲染器。
+        //     ⚠️ 必须显式传 0：`top.v` 交付默认已是 SCOPE_MODE=1，否则本 tb 会超时。
+        .SCOPE_MODE        (0),
         .PA_ON_AFTER_RESET     (0),
         // ⭐⭐ 2026-10-04（合并 main 后）：⭐ **必须显式传 `TEST_MODE_EN(1)`**
         //   🔴 为什么：⭐ `top.v` 的**交付默认值**现在是 **`0`**（正式码流 —— 整条 Test Mode

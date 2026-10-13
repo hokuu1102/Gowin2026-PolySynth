@@ -1,0 +1,3 @@
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=10 => 5000000 bps at 50 MHz)
+PASS: decoded UART distinguishes current, sticky and first fault, with timestamp
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_fault_report.sv:27: $finish called at 137700000 (1ps)

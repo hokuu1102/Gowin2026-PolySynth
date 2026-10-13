@@ -1,0 +1,6 @@
+FAIL: mode=0 pixel(320,100) got=000000 expected=282828
+FAIL: mode=0 pixel(474,95) got=000000 expected=00ff00
+FAIL: mode=0 pixel(320,100) got=000000 expected=282828
+FAIL: mode=1 pixel(300,163) got=000000 expected=00ff00
+FATAL: C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\hdmi\tb_scope_mode_switch.sv:61: FAIL: frame-atomic mode switching errors=4
+       Time: 4244240000  Scope: tb_scope_mode_switch

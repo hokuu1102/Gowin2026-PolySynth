@@ -1,0 +1,90 @@
+=== tb_evt_buf (U-19 曲谱事件缓冲区) ===
+== ⓪ 写穿：⭐ 空 ⇒ 非空【那一拍】队头必须立刻是新写的那条 ==
+  ok  : 0b the very first entry is live immediately (write-through, no stale/X window)
+  ok  : 0c drained after the write-through check
+== ① 顺序与条数（⭐ 灌 6 条 ⇒ 读出 6 条、逐条相同、第 7 次读【空】）==
+  ok  : 1a cnt == 6 after 6 pushes
+  ok  : 1b rd_valid == 1 when non-empty
+  ok  : 1c FIFO order preserved (in order)
+  ok  : 1c FIFO order preserved (in order)
+  ok  : 1c FIFO order preserved (in order)
+  ok  : 1c FIFO order preserved (in order)
+  ok  : 1c FIFO order preserved (in order)
+  ok  : 1c FIFO order preserved (in order)
+  ok  : 1d rd_valid == 0 after draining
+  ok  : 1e cnt == 0 after draining
+== ② FWFT：取走后【下一拍】队头必须已经是下一条（⛔ 不许有死拍）==
+  ok  : 2a head correct before ack
+  ok  : 2a head correct before ack
+  ok  : 2a head correct before ack
+  ok  : 2a head correct before ack
+  ok  : 2a head correct before ack
+  ok  : 2a head correct before ack
+  ok  : 2b FWFT: next head is live on the very next cycle (no dead cycle)
+  ok  : 2c empty after the FWFT drain
+== ③/④ 满 / 溢出留痕（⭐ DEPTH=8）==
+  ok  : 3a cnt == DEPTH(8) when exactly full
+  ok  : 3b exactly-full is NOT an overflow
+  ok  : 3c low_o == 0 when full
+  ok  : 4a overflow sets the sticky ovf_o
+  ok  : 4b drop_cnt_o == 1 (saturating counter, NOT silent)
+  ok  : 4c cnt stays at DEPTH after a dropped write
+  ok  : 4d the first DEPTH entries survive the overflow
+  ok  : 4d the first DEPTH entries survive the overflow
+  ok  : 4d the first DEPTH entries survive the overflow
+  ok  : 4d the first DEPTH entries survive the overflow
+  ok  : 4d the first DEPTH entries survive the overflow
+  ok  : 4d the first DEPTH entries survive the overflow
+  ok  : 4d the first DEPTH entries survive the overflow
+  ok  : 4d the first DEPTH entries survive the overflow
+== ⑤ 满时同拍【取+推】= 净 0，且推的那条真的进去了 ==
+  ok  : 5a full again
+  ok  : 5b ovf cleared (so 5d is non-vacuous)
+  ok  : 5c cnt net 0 on a same-cycle push+pop
+  ok  : 5d the pushed entry was NOT dropped (no NEW overflow)
+  ok  : 5e ring order after the simultaneous op
+  ok  : 5e ring order after the simultaneous op
+  ok  : 5e ring order after the simultaneous op
+  ok  : 5e ring order after the simultaneous op
+  ok  : 5e ring order after the simultaneous op
+  ok  : 5e ring order after the simultaneous op
+  ok  : 5e ring order after the simultaneous op
+  ok  : 5f the simultaneously-pushed entry IS in the FIFO (not silently lost)
+  ok  : 5g empty after the ring drain
+== ⑥ ovf_clr_i / ⑧ low_o 边界 ==
+  ok  : 8a low_o == 1 at cnt == 1 (<= LOW_WM=2)
+  ok  : 8b low_o == 1 at cnt == LOW_WM (boundary counts as low)
+  ok  : 8c low_o == 0 just above LOW_WM
+  ok  : 6a ovf_clr_i clears the sticky ovf_o
+  ok  : 6b ovf_clr_i clears drop_cnt_o
+== ⑦ 复位清空 ==
+  ok  : 7a reset empties the FIFO
+  ok  : 7b reset drops rd_valid
+  ok  : 7c reset clears ovf
+  ok  : 7d reset clears drop_cnt
+== ⑨ 真实深度 1024：装满 + 读空 + 溢出留痕 ==
+  ok  : 9a DEPTH=1024 fills exactly
+  ok  : 9b no overflow at exactly 1024
+  ok  : 9c low_o == 0 when full
+  ok  : 9d the 1025th push sets ovf (8 KB really is the limit)
+  ok  : 9e drop_cnt == 1 at DEPTH=1024
+  ok  : 9g DEPTH=1024 drains to empty
+== ⑩ A8：无 X/Z ==
+  ok  : 10a small instance outputs contain no X
+  ok  : 10b real instance outputs contain no X
+== ⑪ ⭐⭐ 高水位 `high_water_o`（⭐ ESP32 侧清单 §2.3 的 L1 要求）==
+  ok  : 11a after reset/clear: high_water is 0
+  ok  : 11b (setup) no overflow yet
+  ok  : 11c (setup) level is 5 = HIGH_WM-1
+  ok  : 11d level HIGH_WM-1 (5) => high_water is STILL 0 (not yet)
+  ok  : 11e (setup) level is 6 = HIGH_WM
+  ok  : 11f level HIGH_WM (6) => high_water SET  <-- the L1 point
+  ok  : 11g (NON-VACUOUS) high_water fired BEFORE any overflow -- the whole point
+  ok  : 11h (setup) drained to empty
+  ok  : 11i high_water is STICKY (still 1 after draining to 0)
+  ok  : 11j clear resets high_water (shared with ovf_clr_i)
+  ok  : 11k small instance HIGH_WM derives to 8-2 = 6
+  ok  : 11l delivery instance HIGH_WM derives to 1024-256 = 768
+
+PASS: tb_evt_buf - 76/76 judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\w3c\tb_evt_buf.sv:364: $finish called at 86100000 (1ps)

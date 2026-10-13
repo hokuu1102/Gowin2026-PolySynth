@@ -60,6 +60,10 @@ module tb_top_sound;
     wire I2S2_BCK, I2S2_LRCK, I2S2_DIN;
     top #(
         .PA_ON_AFTER_RESET (0),        // 本 tb 只关心音频，功放时序另有 tb
+        //  ⭐ 2026-10-09：本 tb 只测【音频】，⛔ 不测 HDMI ⇒ 把李萨如渲染器剪掉。
+        //     ⚠️ 必须显式传 0：`top.v` 交付默认已是 SCOPE_MODE=1，
+        //        否则 XY 打点/清屏逻辑会让本 tb 的仿真时长越过 900 s 预算（实测踩到）。
+        .SCOPE_MODE        (0),
         .DEMO_CHORD_ON     (1),        // ⭐ 出声档
         // ⭐⭐ 2026-09-23：源 A 现在有仲裁（见 top.v §源 A 仲裁）——
         //    本 tb 验的是【演示和弦】出声链 ⇒ ⭐ 必须选 1（演示和弦档）。

@@ -614,16 +614,10 @@ module looper #(
     //  ⭐ **线上格式（⭐ 与 `evt_uart_rx`/`evt_buf` 的 9 字节帧**逐位一致 ✅）**：
     //     ⭐ `tick[63:44]`（20）· ⭐ `inc[43:23]`（**21**）· ⭐ `axis[22:19]`（4）·
     //     ⭐ `vel[18:11]`（8）· ⭐ `kind[10:9]`（2）· ⭐ `timbre[8:7]`（2）· ⭐ `[6:0]` 保留 ✅
-    //     📌 ⭐ 依据：⭐ `top.v:3950` 的 `ps_evt_inc = {11'd0, ps_note_data[43:23]}`
-    //        ⇒ ⭐ **线上 `inc` 是 21 位、⭐ 零扩展进 32 位** ✅
-    //
-    //  🔴🔴 **必须如实标注的【截断】**：
-    //     · ⭐ **曲谱事件**（⭐ 从 `evt_uart_rx` 来）⇒ ⭐ 它的 `phase_inc` **高 11 位恒 0**
-    //       ⇒ ⭐ **导出无损** ✅
-    //     · 🔴 **实时弹的事件**（⭐ `live_inc_i` 来自 `axis_map`，⭐ **32 位全用**）
-    //       ⇒ ⚠️ **导出会截断到 21 位** ⇒ ⭐ 回灌后**音高会变** ✅
-    //     ⇒ ✅ **所以给出 `dump_clip_o`**（⭐ 本条被截断过）——
-    //        ⭐ 上板/PC 侧**立刻能看出**"这条不是原样" ✅（⛔ 不许静默失真 —— `K-106` ✅）
+    // 2026-10-13 原说法“音符零扩展/直接截低 21 位”错误：
+    // 顶层回灌音符左移 10，因此导出必须反向转换单位。
+    // dump_clip_o 表示低 10 位量化损失或越界，不再表示正常音高高位被截。
+    // 速度事件 kind=2 不使用音符转换；不能混用两种量纲。
     wire [19:0] dw_tick = e_word_r[O_TICK +: TICK_W];
     wire [1:0]  dw_kind = e_word_r[O_KIND +: KIND_W];
     wire [3:0]  dw_axis = e_word_r[O_AXIS +: AXIS_W];
@@ -631,8 +625,15 @@ module looper #(
     wire [7:0]  dw_vel  = e_word_r[O_VEL  +: VEL_W];
     wire [1:0]  dw_tbr  = e_word_r[O_TBR  +: TIMBRE_W];
 
-    assign dump_data_o = {dw_tick, dw_inc[20:0], dw_axis, dw_vel, dw_kind, dw_tbr, 7'b0};
-    assign dump_clip_o = |dw_inc[31:21];
+    // 2026-10-13 correction: note increments are stored per audio sample;
+    // the score wire format is per 50MHz clock (top scales notes by 1024).
+    // Floor quantization loses at most 1023 phase units (~0.01164Hz).
+    // Tempo kind=2 keeps its clock-domain increment. Report any precision loss.
+    wire [20:0] dw_wire_inc = (dw_kind == 2'd2) ? dw_inc[20:0]
+                              : (dw_inc[31] ? 21'h1fffff : dw_inc[30:10]);
+    assign dump_data_o = {dw_tick, dw_wire_inc, dw_axis, dw_vel, dw_kind, dw_tbr, 7'b0};
+    assign dump_clip_o = (dw_kind == 2'd2) ? (|dw_inc[31:21])
+                                          : (dw_inc[31] | (|dw_inc[9:0]));
 
     // ══════════════════════════════════════════════════════════════════════
     //  ⭐⭐ 2026-09-29 新增：⭐ **端点侧表 `ep_mem`**（⭐ "起点→终点"插值的【必需】信息）

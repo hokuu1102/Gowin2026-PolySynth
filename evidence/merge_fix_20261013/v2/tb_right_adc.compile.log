@@ -1,0 +1,26 @@
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\rtl\top.v:2456: warning: Port 5 (sample_data_i) of calib_autotare expects 24 bits, got 36.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\rtl\top.v:2456:        : Pruning 12 high bits of the expression.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:63: warning: Port 6 (ovr_val_i) of mcp3208_model expects 12 bits, got 32.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:63:        : Pruning (signed) 20 high bits of the expression.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:63: warning: Port 8 (ch_val_i) of mcp3208_model expects 12 bits, got 32.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:63:        : Pruning (signed) 20 high bits of the expression.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:66: warning: Port 6 (ovr_val_i) of mcp3208_model expects 12 bits, got 32.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:66:        : Pruning (signed) 20 high bits of the expression.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:66: warning: Port 8 (ch_val_i) of mcp3208_model expects 12 bits, got 32.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:66:        : Pruning (signed) 20 high bits of the expression.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:70: warning: Port 6 (ovr_val_i) of mcp3208_model expects 12 bits, got 32.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:70:        : Pruning (signed) 20 high bits of the expression.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:70: warning: Port 8 (ch_val_i) of mcp3208_model expects 12 bits, got 32.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:70:        : Pruning (signed) 20 high bits of the expression.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:101: warning: Port 6 (ovr_val_i) of mcp3208_model expects 12 bits, got 32.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:101:        : Pruning (signed) 20 high bits of the expression.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:101: warning: Port 8 (ch_val_i) of mcp3208_model expects 12 bits, got 32.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:101:        : Pruning (signed) 20 high bits of the expression.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:104: warning: Port 6 (ovr_val_i) of mcp3208_model expects 12 bits, got 32.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:104:        : Pruning (signed) 20 high bits of the expression.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:104: warning: Port 8 (ch_val_i) of mcp3208_model expects 12 bits, got 32.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:104:        : Pruning (signed) 20 high bits of the expression.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:107: warning: Port 6 (ovr_val_i) of mcp3208_model expects 12 bits, got 32.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:107:        : Pruning (signed) 20 high bits of the expression.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:107: warning: Port 8 (ch_val_i) of mcp3208_model expects 12 bits, got 32.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_right_adc.sv:107:        : Pruning (signed) 20 high bits of the expression.

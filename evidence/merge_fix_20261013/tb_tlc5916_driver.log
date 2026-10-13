@@ -1,0 +1,36 @@
+﻿VCD info: dumpfile build/sim/tlc5916/tlc5916_tb.vcd opened for output.
+PASS: TLC5916 transmitted 00 correctly
+PASS: TLC5916 transmitted a5 correctly
+PASS: TLC5916 transmitted ff correctly
+PASS: TLC5916 transmitted 3c correctly
+PASS: synchronous reset behavior checked
+PASS: TLC5916 transmitted 5a correctly
+--- bit-walk: 8 single-bit patterns (proves bit position + MSB-first order) ---
+PASS: TLC5916 transmitted 01 correctly
+PASS: TLC5916 transmitted 02 correctly
+PASS: TLC5916 transmitted 04 correctly
+PASS: TLC5916 transmitted 08 correctly
+PASS: TLC5916 transmitted 10 correctly
+PASS: TLC5916 transmitted 20 correctly
+PASS: TLC5916 transmitted 40 correctly
+PASS: TLC5916 transmitted 80 correctly
+  ok : 逐位走查 8/8 通过（每一位的位置与 MSB-first 位序都对）
+--- A1: OE single-cycle glitch must NOT reach the pin ---
+  ok : A1 前置：outputs_enable=1 稳定后 tlc_oe_n=0（LED 使能）
+  ok : A1 ⭐ 1 拍窄脉冲被稳定窗完全滤掉（tlc_oe_n 未动）
+--- A1b: OE change during transfer must wait for IDLE ---
+  ok : A1b ⭐ 传输期间 OE 保持不变（只在 CLK 静止 + LE 低时才更新）
+  ok : A1b 回到 IDLE 后 OE 正确关断（outputs_enable=0 被接受）
+PASS: A2 LE 在移位期间全程为低（含上面的 OE 用例期间）
+PASS: A1 全程未出现窄脉冲（OE/LE 都过了最小宽度检查）
+--- K-57: OE stable window vs datasheet tw(OE) >= 500 ns ---
+  ok : K-57 OE 稳定窗 = 500 ns（≥ 手册 500 ns）
+PASS: A8 无 X/Z 传播
+--- K-66: Normal-Mode recovery sequence (datasheet 101 pulse + LE low) ---
+  ok : K-66 ⭐ `OE` 低窗口**每个恢复窗口恰好跨过 1 个 CLK 上升沿**（2 次窗口 / 2 个沿）
+  ok : K-66 ⭐ 恢复期间 `LE` **全程低**（⇒ 第 4 个沿必判 Normal Mode）
+  ok : K-66 ⭐ `OE` 低电平宽度 1000 ns ≥ 手册 tw(OE) 500 ns
+  ok : K-66 恢复序列发了 12 个 CLK 周期（≥5，第 4 个沿能采到 LE）
+  ok : K-66 恢复序列**每次复位后恰好跑一次**（本 tb 有 2 次复位释放 ⇒ 2 次）
+PASS: all TLC5916 tests completed successfully
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\drivers\tb_tlc5916_driver.sv:495: $finish called at 137520000 (1ps)

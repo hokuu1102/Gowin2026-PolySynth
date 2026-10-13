@@ -1,0 +1,2 @@
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\w3c\tb_pos_probe.sv:44: warning: Port 5 (ch_i) of pos_probe expects 4 bits, got 3.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\w3c\tb_pos_probe.sv:44:        : Padding 1 high bits of the port.

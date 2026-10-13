@@ -1,0 +1,9 @@
+PASS HDL token equivalence: rtl/hdmi/tmds_serializer.v
+PASS HDL token equivalence: rtl/top.v
+PASS HDL token equivalence: rtl/w3b/note_manager.v
+PASS HDL token equivalence: rtl/w3c/evt_buf.v
+PASS HDL token equivalence: rtl/w3c/looper.v
+PASS HDL token equivalence: rtl/w3c/pos_probe.v
+PASS HDL token equivalence: rtl/w3c/rec_dump.v
+PASS HDL token equivalence: rtl/w3c/span_probe.v
+PASS HDL token equivalence: rtl/w3c/tlc5916_bank.sv

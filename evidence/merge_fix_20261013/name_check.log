@@ -1,0 +1,5 @@
+⚠️  没有 names.local.txt
+   做法：把队友姓名每行一个写进该文件（已 gitignore，不会入库）
+   这样「要查什么名字」这件事本身也不会进仓库。
+   生成模板：python tools/check_names.py --init
+结论：⚠️ 未提供姓名，跳过（不算通过）

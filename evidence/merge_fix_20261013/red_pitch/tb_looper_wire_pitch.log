@@ -1,0 +1,2 @@
+﻿FATAL: C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_looper_wire_pitch.sv:26: FAIL: wire pitch addr=0 got=2096128 loss=0 expected=2047/0
+       Time: 840000  Scope: tb_looper_wire_pitch.check_word

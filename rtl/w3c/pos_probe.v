@@ -79,7 +79,8 @@ module pos_probe #(
     //   · `'N'`(0x4E) = 回 `calib` 后的 **`pos`**（⭐ 判键用的那个数）
     //   📌 为什么提成参数：⭐ 两条命令**必须能从回包前缀区分**，
     //      ⚠️ 否则 PC 侧解析不出"这个数是谁"。⛔ 不改其余逻辑。
-    parameter [7:0]   PREFIX  = 8'h50
+    parameter [7:0]   PREFIX  = 8'h50,
+    parameter integer QUEUE_WHEN_BLOCKED = 0
 ) (
     input  wire        clk_i,
     input  wire        rst_n_i,
@@ -102,7 +103,8 @@ module pos_probe #(
     input  wire        ready_i,      // ⭐ 下游未满（⭐ 来自 `tx_fifo.ready_o`）
     input  wire        idle_i,       // ⭐ **下游彻底空闲**（⭐ 来自 `tx_fifo.idle_o`）
 
-    output reg         busy_o        // ⭐ 正在回传（⭐ 可观测）
+    output reg         busy_o,
+    output wire        packet_active_o
 );
 
     // ── ⭐ 常量 ───────────────────────────────────────────────────────────
@@ -117,9 +119,11 @@ module pos_probe #(
     //      ⭐ 实测：⭐ 发一次 `'P'` ⇒ 板子回 **9 字节** `P52900\r\nP`，
     //         ⚠️ 那个尾巴会**黏在下一次回包前面** ⇒ ⭐ 看起来像"包不完整"。
     localparam [2:0] S_DONE = 3'd3;   // ⭐ 收尾（⭐ 不推字节，⭐ 只把 push_o 拉低）
+    localparam [2:0] S_WAIT_IDLE = 3'd4;
 
     // ── ⭐ 声明（⭐ 全部先于使用 —— `L66`）────────────────────────────────
     reg  [2:0]  state;
+    assign packet_active_o = (state == S_BCD) || (state == S_SEND) || (state == S_DONE);
     reg  [2:0]  bcd_stage;           // ⭐ 0..3
     reg  [3:0]  idx;                 // ⭐ 0..6
     reg  [11:0] pos_lat;             // ⭐ 锁存的读数
@@ -234,18 +238,22 @@ module pos_probe #(
                     //      ⇒ ⭐ 包与包之间【干净分开】✅
                     //   📌 `ready_i`（⭐ 未满）⛔ **不够** —— ⚠️ 它只保证"塞得进去"，
                     //      ⛔ 不保证"上一个包发完了"。
-                    if (probe_req_i && idle_i) begin
+                    if (probe_req_i && (idle_i || QUEUE_WHEN_BLOCKED)) begin
                         // 🔴 **锁存读数**（⭐ 否则回传期间读数变了 ⇒ 同一行数字不自洽）
                         pos_lat   <= pos_i;
                         ch_lat    <= ch_i;   // ⭐ 同拍锁存通道号
                         rem       <= pos_i;      // ⭐ 流水从"整值"起步
                         bcd_stage <= 3'd0;
                         idx       <= 4'd0;
-                        state     <= S_BCD;
+                        state     <= idle_i ? S_BCD : S_WAIT_IDLE;
                         busy_o    <= 1'b1;
                     end
                 end
 
+                S_WAIT_IDLE: begin
+                    busy_o <= 1'b1;
+                    if (idle_i) state <= S_BCD;
+                end
                 // ── ⭐ BCD 流水：⭐ 每拍算一位 ─────────────────────────────
                 //   ⚠️ 本状态【不依赖 `ready_i`】—— ⭐ 它只做算术，⭐ 与下游无关
                 S_BCD: begin

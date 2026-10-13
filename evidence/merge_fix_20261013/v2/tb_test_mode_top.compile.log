@@ -1,0 +1,2 @@
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\rtl\top.v:2456: warning: Port 5 (sample_data_i) of calib_autotare expects 24 bits, got 36.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\rtl\top.v:2456:        : Pruning 12 high bits of the expression.

@@ -65,11 +65,13 @@ module top #(
 //      （按 19.417 ns 余量预算计 +0.267/+0.356/+0.420）⇒
 //      ⭐ **Test Mode 的高扇出选择锥就是第一瓶颈**。
 //   ✅ `1`（**默认**，诊断码流）= 行为与改动前**逐字一致**（现有测试台与上板习惯不变）；
-//      `0`（**正式码流**）= 整条 Test Mode 通路**不进网表**（⛔ 不是"运行时拉低 enable"
+//      `0`（旧资源对照档，非竞赛正式码流）= 整条 Test Mode 通路**不进网表**（⛔ 不是"运行时拉低 enable"
 //      —— 那样逻辑还在、锥还在）。
 //   ⚠️ 两个配置必须**显式记录**（本参数值 + 其它参数），⛔ 不能依赖 IDE 上次留下的值。
-//   📌 切换方式：构建正式码流时把本行默认值改为 0（一行、可由 git diff 核验）。
-parameter integer TEST_MODE_EN       = 0,
+//   2026-10-13 更正：正式码流保持 1；只有显式资源对照构建才改为 0。
+// 2026-10-13 correction: Test Mode is a competition feature, not debug-only.
+// 0 is retained solely for explicitly labeled resource/timing comparisons.
+parameter integer TEST_MODE_EN       = 1,
     // 与 w3b 链路一致的参数（改这里要同时核对 `POLY_TARGET`）
     parameter integer POLY_TARGET       = 32,
     parameter integer OSC_PER_VOICE     = 2,
@@ -326,7 +328,16 @@ parameter integer TEST_MODE_EN       = 0,
     //     · ⭐ 影子数组　：`T_Lut 29622`（⭐ 比 T3 关的基线 **还低 1417**）· ⛔ **没有输出 mux**
     //     ⇒ ⭐ 详见 `sim/evidence/t3-probe-shadow-20261004/README.md` ✅
     // ═══════════════════════════════════════════════════════════════════════
-    parameter integer T3_ENABLE               = 1
+    parameter integer T3_ENABLE               = 1,
+    //  ⭐ 2026-10-09（乙）：HDMI 显示模式 —— ⛔ 端口一个没变，只加【参数】
+    //    SCOPE_MODE = 0 → 波形（原行为）· 1 → 李萨如（XY，交付默认）
+    //    依据 files/20-代码/李萨如显示-设计-20261009.md
+    //  ⚠️⚠️ 必须声明在【端口参数表】里，⛔ 不能声明在 module 体内 ——
+    //      iverilog 会报 "Parameter cannot be overriden in the scope it has been declared in"
+    //      ⇒ tb 无法覆盖 ⇒ 音频 tb 会被迫跑 XY 路径 ⇒ 仿真超预算（实测踩到）
+    parameter integer SCOPE_MODE              = 1,
+    parameter integer XY_DELAY                = 64,     // Y 取延迟 64 个样本（≈1.3 ms）
+    parameter integer XY_GAIN                 = 8       // XY 增益（⭐ 图形大小 ∝ 它；台阶 = 它/8 像素）
 ) (
     input  wire clk,             // V22 · 50 MHz
     input  wire rst_n,           // AA13 · 低有效（同步复位）
@@ -563,6 +574,7 @@ parameter integer TEST_MODE_EN       = 0,
 
     //  ⭐ 串口 `'I'` 的音色脉冲（⭐ 提前声明 ⇒ ⭐ 下面的按键块要用它 ✅）
     wire cmd_timbre_req;
+    wire cmd_scope_mode_req;   // ⭐ 2026-10-10（乙）：'Q' 显示模式切换
 
     //  ⭐⭐ 2026-09-29 合并（⭐ 队友版 + 方案 B）：⭐ **板载 S2 音色按键**
     //   ⚠️ **必须放在【模块层】** —— ⭐ 队友的 `tb\top\tb_top_timbre_button.sv` 用
@@ -759,10 +771,14 @@ parameter integer TEST_MODE_EN       = 0,
     wire [7:0]  rd_byte;
     wire        rd_busy;            // ⭐ 导出中 ✅
     wire        rd_done;            // ⭐ 导出完成（⭐ 单周期 ✅）
+    wire        rd_pending;
+    wire        rd_lock = rd_pending | rd_busy;
+    wire [15:0] rd_reject_count;
+    wire rd_notice_valid;
     //  ⭐⭐ **截断计数**（⭐ `K-106`：⛔ 不许静默失真 ✅）
-    //     ⚠️ **加 `syn_keep`**：⭐ 它现在**没有消费者** ⇒ ⚠️ 综合会剪掉
-    //        ⇒ 🔴 上板就**看不到"有多少条不是原样"** 了 ✅
-    //     📌 ⭐ 与 `eb_hw`/`eb_cnt`/`eb_low` **同一处置**（⭐ 留给将来的状态回包 ✅）
+    //     2026-10-13：两个累计计数已由导出 ASCII footer 消费，PC 可读。
+    //     旧版只有 `syn_keep`、没有物理回包，不能算可观测。
+    //     量化/越界损失经本次 ASCII footer 物理回传，不再只留内部线。
     (* syn_keep = 1 *) wire [15:0] rd_clip_cnt;
     (* syn_keep = 1 *) wire [15:0] rd_frame_cnt;
 
@@ -1056,6 +1072,8 @@ parameter integer TEST_MODE_EN       = 0,
         .loop_clear_req_o(cmd_loop_clear_req),
         // ⭐ 2026-09-29：⭐ 切音色（⭐ 'I'）
         .timbre_req_o   (cmd_timbre_req),
+        //  ⭐ 2026-10-10（乙）：⭐ 'Q' 显示模式切换（⭐ 第一步 = 冻结/恢复）
+        .scope_mode_req_o (cmd_scope_mode_req),
         .met_req_o      (cmd_met_req),
         // ⭐ 2026-09-29：⭐ 鼓机节奏型切下一个（⭐ 'D'，⭐ 2026-09-29 新增）
         .drum_pattern_req_o(cmd_drum_pattern_req),
@@ -1330,6 +1348,15 @@ parameter integer TEST_MODE_EN       = 0,
     wire       txf_idle;         // ⭐ 队列空且发送器停（⭐ 2026-09-24）
     wire [7:0] txf_drop;
     wire       txf_busy;         // ⭐ 来自 uart_tx
+    wire       board_uart_busy, esp_uart_busy;
+    wire pp_busy, vp_busy, np_busy, dp_busy;
+    wire pp_active, vp_active, np_active, dp_active;
+    // Pending Y lets already-started reply producers finish. Actual export
+    // starts only after producers AND FIFO/UART are idle, then pauses them.
+    wire       normal_tx_ready = txf_ready & ~rd_busy;
+    wire       shared_tx_start = rd_busy ? rd_push : txf_start;
+    wire [7:0] shared_tx_data = rd_busy ? rd_byte : txf_data;
+    assign txf_busy = board_uart_busy | esp_uart_busy;
 // ⭐⭐ 2026-10-01 BATCH 8.3（⭐ 修 `implicit definition` 警告）：⭐ **`fault_any_w` 必须在【模块级】声明** ⚠️
 //   🔴 **原来错在哪**：⭐ 我把它声明在**心跳灯那段**（⭐ `fault_any_w` 的声明）⚠️，⭐ 而 `assign` 在 `fault_any_w` 的赋值处
 //      ⇒ 🔴 **声明晚于使用** ⇒ ⭐ 工具**隐式创建**了这条 wire ⇒ ⚠️ `warning: implicit definition`
@@ -1375,7 +1402,7 @@ wire ovf_any;
         .idle_o    (txf_idle),      // ⭐ 队列真空了（⭐ 包边界用）
         .tx_start_o(txf_start),
         .tx_data_o (txf_data),
-        .busy_i    (txf_busy),
+        .busy_i    (txf_busy | rd_busy),
         .ovf_o     (txf_ovf),
         .drop_cnt_o(txf_drop),
         .ovf_clr_i (1'b0)           // ⚠️ 本版不清（⭐ 置位后保持 ⇒ 上板可观测）
@@ -1387,10 +1414,10 @@ wire ovf_any;
     ) u_uart_tx (
         .clk_i     (clk),
         .rst_n_i   (rst_n_sync),
-        .tx_start_i(txf_start),      // ⭐ 来自 `u_tx_fifo`（⛔ 不再是 `tx_req`）
-        .tx_data_i (txf_data),       // ⭐ 同上
+        .tx_start_i(shared_tx_start),
+        .tx_data_i (shared_tx_data),
         .tx_o      (uart_tx),        // ⭐ 引脚 `D15`（⭐ J9·N25）
-        .busy_o    (txf_busy),       // ⭐ 回给 `u_tx_fifo`
+        .busy_o    (board_uart_busy),
         .tx_done_o ()
     );
 
@@ -1409,7 +1436,7 @@ wire ovf_any;
     //        ⭐ 它自己的 README 写着"反向通路（FPGA→ESP32→BLE→PC）**已打通并验收**"
     //        （⭐ 2000 字节 round-trip 逐字节一致 ✅）⇒ ⭐ **FPGA 侧只要真的发** ✅
     //
-    //  ⚠️ **`busy_o` 留空**：⭐ 镜像口**不参与流控**（⭐ 它跟着板载口的节奏走 ✅）
+    // 2026-10-13 更正：两口 busy 合并参与流控，保证镜像字节同时受理。
     //     📌 ⭐ 两者速率相同（⭐ 同 `BAUD_DIV=100`）⇒ ⭐ **不会积压** ✅
     //
     //  📌 ⭐ **将来的"录制回传"就挂在这条路上**（⭐ 把 looper 的 dump 推给 `u_tx_fifo` ✅）
@@ -1419,10 +1446,10 @@ wire ovf_any;
     ) u_uart_tx_esp (
         .clk_i     (clk),
         .rst_n_i   (rst_n_sync),
-        .tx_start_i(txf_start),      // ⭐ 镜像：⭐ 与 `u_uart_tx` **同一份** ✅
-        .tx_data_i (txf_data),
+        .tx_start_i(shared_tx_start),
+        .tx_data_i (shared_tx_data),
         .tx_o      (esp_uart_tx_o),  // ⭐ 引脚 `G21`（⭐ PMOD0 针 9）
-        .busy_o    (),               // ⭐ 镜像 ⇒ ⛔ 不参与流控
+        .busy_o    (esp_uart_busy),
         .tx_done_o ()
     );
 
@@ -1501,9 +1528,28 @@ wire ovf_any;
         end
     endfunction
 
+    //  ⭐ 2026-10-09（乙）：HDMI 显示模式参数已在【端口参数表】声明（见 `module top #(`）
+    //    ⛔ 这里不再重复声明 —— 声明在 module 体内会导致 tb 无法覆盖（iverilog 报错）
+    //
+    //  ⚠️⚠️ 2026-10-10（乙）：⭐ 第二步「运行时切换」**三次实测均失败，已回退** ——
+    //     ① 两个独立内存           : ❌ 布线卡死
+    //     ② 共用一个内存（B）      : ❌ 布线卡死
+    //     ③ 共用 + 波形数据通路桩掉 : ❌ 仍然卡死（隔离实验，2026-10-10）
+    //     ⇒ ⭐ 真凶 = 把 `SCOPE_MODE` 变成【运行时信号】这件事本身（5 个宽 mux + 两套 FSM 并存），
+    //        ⛔ 不是波形数据通路（减法器/比较器都桩掉了还是卡）。
+    //     `SCOPE_MODE` 恢复为【编译期参数】；串口 `'Q'` 保留【冻结/恢复】语义。
+    //     📌 重设计思路见 `files/20-代码/显示模式切换-重新设计-20261010.md`
+    reg scope_mode_r;
+    always @(posedge clk) begin
+        if (!rst_n_sync)             scope_mode_r <= (SCOPE_MODE != 0);
+        else if (cmd_scope_mode_req) scope_mode_r <= ~scope_mode_r;
+    end
+
     wire signed [23:0] scope_sample;
     wire scope_valid;
-    hdmi_scope u_hdmi (.clk(clk), .rst_n(rst_n_sync),
+    hdmi_scope #(.XY_DELAY(XY_DELAY), .XY_GAIN(XY_GAIN))
+    u_hdmi (.clk(clk), .rst_n(rst_n_sync),
+        .SCOPE_MODE(scope_mode_r),     // ⭐ 运行时显示模式（串口 'Q'）
         .sample_i(scope_sample), .valid_i(scope_valid),
         .tmds_d_p_0(tmds_d_p_0), .tmds_d_n_0(tmds_d_n_0),
         .tmds_clk_p_0(tmds_clk_p_0), .tmds_clk_n_0(tmds_clk_n_0),
@@ -1532,6 +1578,12 @@ wire ovf_any;
         //      ⇒ ⭐ 各自驱动同名信号 **⛔ 不会冲突** ✅
         assign tx_req  = 1'b0;
         assign tx_byte = 8'h00;
+        assign rd_pending = 1'b0;
+        assign rd_busy = 1'b0;
+        assign rd_push = 1'b0;
+        assign rd_byte = 8'd0;
+        assign rd_reject_count = 16'd0;
+        assign rd_notice_valid = 1'b0;
         assign led_blink = 1'b0;
         //   ⭐ 指示层：⭐ 静音档没有节拍器 / looper / 推子档位
         //      ⇒ ⭐ 三根线**显式给 0**（⛔ 否则悬空成 `x` ⇒ ⚠️ 指示灯随机亮）
@@ -1786,7 +1838,14 @@ wire ovf_any;
         wire        bg_transport;
         wire [15:0] bg_bar_cnt;
         wire        bg_wrap;
-        assign led_blink = bg_beat;
+        // A beat is a one-clock event, not a visible lamp level.
+        reg [22:0] guide_flash_count;
+        always @(posedge clk) begin
+            if (!rst_n_sync) guide_flash_count <= 0;
+            else if (bg_beat) guide_flash_count <= 23'd6_250_000;
+            else if (guide_flash_count != 0) guide_flash_count <= guide_flash_count - 1'b1;
+        end
+        assign led_blink = (guide_flash_count != 0);
         //   ⭐ 指示层：⭐ 拍点脉冲也引给"节拍器指示灯"（⭐ 与心跳灯**同一个** `bg_beat`）
         //      📌 `beat_o` 是**单周期**脉冲 ⇒ ⭐ 拉伸（亮多久）由 `led_indicator` 自己做 ✅
         assign led_beat  = bg_beat;
@@ -2502,7 +2561,6 @@ wire ovf_any;
         // ═══════════════════════════════════════════════════════════════════════
         wire       pp_push;
         wire [7:0] pp_data;
-        wire       pp_busy;
         // ⚠️ `txf_ready` **已在 `generate` 之外声明**（⭐ 见 `u_tx_fifo` 那段）——
         //    🔴 这里⛔ **不能重复声明**（⭐ 否则又变成"局部隐式 wire"）
 
@@ -2523,7 +2581,7 @@ wire ovf_any;
         end
         wire [11:0] pp_raw_sel = pp_axis_r[3] ? af1_pol : af0_pol;
 
-        pos_probe #(.N_BYTES(8)) u_pos_probe (
+        pos_probe #(.N_BYTES(8), .QUEUE_WHEN_BLOCKED(1)) u_pos_probe (
             .clk_i      (clk),
             .rst_n_i    (rst_n_sync),
             .probe_req_i(cmd_probe_req),
@@ -2541,16 +2599,15 @@ wire ovf_any;
         .ch_i       (pp_axis_r),
             .push_o     (pp_push),
             .data_o     (pp_data),
-            .ready_i    (txf_ready),
-            .idle_i     (txf_idle),     // ⭐ 等真空了才开新包（⭐ 修包错位）
-            .busy_o     (pp_busy)
+            .ready_i    (normal_tx_ready),
+            .idle_i     (txf_idle && !np_busy && !vp_busy && !dp_active),
+            .busy_o     (pp_busy), .packet_active_o(pp_active)
         );
 
         //   ⭐⭐ `'N'` 诊断（⭐ 回传 `calib` 后的 `pos`）—— ⚠️ 实例化在 `as_pos` 声明【之后】，
         //      见下方 §`'N'` 诊断。⭐ 这里只声明线网（⛔ `as_pos` 此时还没声明）。
         wire       np_push;
         wire [7:0] np_data;
-        wire       np_busy;
 
 
         // ═══════════════════════════════════════════════════════════════════
@@ -2568,9 +2625,8 @@ wire ovf_any;
         // ═══════════════════════════════════════════════════════════════════
         wire       vp_push;
         wire [7:0] vp_data;
-        wire       vp_busy;
 
-        span_probe #(.N_BYTES(7)) u_span_probe (
+        span_probe #(.N_BYTES(7), .QUEUE_WHEN_BLOCKED(1)) u_span_probe (
             .clk_i      (clk),
             .rst_n_i    (rst_n_sync),
             .req_i      (cmd_vstat_req),   // ⭐ `'V'` 命令
@@ -2579,9 +2635,9 @@ wire ovf_any;
             .rej_i      (sp_rej_cnt),      // ⭐ 拒绝计数
             .push_o     (vp_push),
             .data_o     (vp_data),
-            .ready_i    (txf_ready),
-            .idle_i     (txf_idle),
-            .busy_o     (vp_busy)
+            .ready_i    (normal_tx_ready),
+            .idle_i     (txf_idle && !np_busy && !pp_active && !dp_active),
+            .busy_o     (vp_busy), .packet_active_o(vp_active)
         );
 
         // ═══════════════════════════════════════════════════════════════════
@@ -2900,21 +2956,20 @@ wire ovf_any;
         //      ⇒ ⭐ `u_pos_probe_dpos` 的输出**无人使用** ⇒ 🔴 **整块被综合器扫掉**
         //      ⇒ ⭐ **不占时序余量、也不拖慢仿真** ✅
         //      📌 要用诊断时：⭐ 把 `DPOS_DIAG` 改成 1 ⇒ 重新 PnR ✅
-        assign tx_req  = rep_req | pp_push | vp_push | np_push
-                       | ((DPOS_DIAG != 0) ? dp_push : 1'b0)
-                       //  ⭐⭐ 2026-10-11：⭐ **录制回传的导出字节**（⭐ `u_rec_dump` ✅）
-                       | rd_push;
+        wire normal_req_w = rep_req | pp_push | vp_push | np_push
+                           | ((DPOS_DIAG != 0) ? dp_push : 1'b0);
+        wire rd_notice_push = rd_notice_valid && txf_ready && !normal_req_w;
+        // Export bypasses this FIFO and owns both UARTs until its footer ends.
+        // Normal replies queue here; ready-aware producers pause during export.
+        assign tx_req = normal_req_w | rd_notice_push;
         //   ⭐ 'N'（`np_push`）优先级最高 —— 它也是独立命令，与其余不同拍。
         //   ⭐ 'Q'（`dp_push`）次高 —— 它与 `'P'` **故意错开 400 µs**，⛔ 不同拍。
-        //   ⭐ **`rd_push` 优先级【最低】**（⭐ 2026-10-11）：
-        //      ⭐ 它是**批量**传输（⭐ 一条事件 9 字节 ✅）⇒ ⭐ 让**交互式回包**先走 ✅
-        //      ⚠️ **诚实标注**：⭐ 若 `rep_req` 与 `rd_push` **同拍**，
-        //         ⭐ 则**回包那一个字节会被挤掉**（⭐ 两者都是单拍脉冲 ✅）
-        //      📌 ⭐ 触发条件：⭐ 导出期间**恰好**来了标定回包 —— ⚠️ 极少（⭐ 且导出只在层空闲 ✅）
+        // 2026-10-13: rd_push no longer shares this pulse-priority mux.
+        // Binary frames + footer own both UARTs; normal replies stay queued.
         assign tx_byte = np_push ? np_data
-                       : (((DPOS_DIAG != 0) && dp_push) ? dp_data
-                       : (vp_push ? vp_data
-                       : (pp_push ? pp_data : (rd_push ? rd_byte : rep_byte))));
+                       : ((DPOS_DIAG != 0) && dp_push) ? dp_data
+                       : vp_push ? vp_data : pp_push ? pp_data
+                       : rep_req ? rep_byte : 8'h21; // '!' = operation rejected
 
 
         calib #(.NCH(8), .DW(12)) u_calib0 (
@@ -3415,7 +3470,7 @@ wire ovf_any;
             else if (cmd_posprobe_req) np_axis_r <= np_axis_r + 4'd1;   // ⭐ 自动轮转
         end
 
-        pos_probe #(.N_BYTES(8), .PREFIX(8'h4E)) u_pos_probe_cal (
+        pos_probe #(.N_BYTES(8), .PREFIX(8'h4E), .QUEUE_WHEN_BLOCKED(1)) u_pos_probe_cal (
             .clk_i      (clk),
             .rst_n_i    (rst_n_sync),
             .probe_req_i(cmd_posprobe_req),
@@ -3425,9 +3480,9 @@ wire ovf_any;
             .ch_i       (np_axis_r),                    // ⭐ "通道号"= 轴号(hex)
             .push_o     (np_push),
             .data_o     (np_data),
-            .ready_i    (txf_ready),
-            .idle_i     (txf_idle),
-            .busy_o     (np_busy)
+            .ready_i    (normal_tx_ready),
+            .idle_i     (txf_idle && !pp_active && !vp_active && !dp_active),
+            .busy_o     (np_busy), .packet_active_o(np_active)
         );
 
         // ═══════════════════════════════════════════════════════════════════
@@ -3488,7 +3543,6 @@ wire ovf_any;
         end
 
         //  ⚠️ `dp_push`/`dp_data` **已在仲裁器之前声明**（⭐ `L66`：声明先于使用）
-        wire       dp_busy;
 
         //  🔴🔴 **2026-09-28 修（⭐ 第一版有两个真 bug，⭐ 上板实测"只有 P 包、没有 Q 包"）**：
         //
@@ -3528,7 +3582,7 @@ wire ovf_any;
         //     ⇒ ⭐ 它的寄存器全变常量 ⇒ **被综合器扫掉** ✅
         wire dp_req = (DPOS_DIAG != 0) && (dp_wait_r == 15'd1);
 
-        pos_probe #(.N_BYTES(8), .PREFIX(8'h51)) u_pos_probe_dpos (
+        pos_probe #(.N_BYTES(8), .PREFIX(8'h51), .QUEUE_WHEN_BLOCKED(1)) u_pos_probe_dpos (
             .clk_i      (clk),
             .rst_n_i    (rst_n_sync),
             .probe_req_i(dp_req),
@@ -3536,9 +3590,9 @@ wire ovf_any;
             .ch_i       (dpos_axh_r),     // ⭐ 回的是【出峰的轴号】，⛔ 不是 ADC 扫描通道
             .push_o     (dp_push),
             .data_o     (dp_data),
-            .ready_i    (txf_ready),
-            .idle_i     (txf_idle),
-            .busy_o     (dp_busy)
+            .ready_i    (normal_tx_ready),
+            .idle_i     (txf_idle && !np_busy && !vp_busy && !pp_busy),
+            .busy_o     (dp_busy), .packet_active_o(dp_active)
         );
 
         // ── ⭐ ④ `axis_map`：轴位 → `phase_inc` ──────────────────────────
@@ -4149,12 +4203,12 @@ wire ovf_any;
             if (!rst_n_sync) begin
                 loop_rec_on_r  <= 1'b0;
                 loop_play_on_r <= 1'b0;
-            end else if (cmd_loop_clear_req) begin
+            end else if (cmd_loop_clear_req && !rd_lock) begin
                 loop_rec_on_r  <= 1'b0;
                 loop_play_on_r <= 1'b0;
             end else begin
-                if (cmd_loop_rec_req)  loop_rec_on_r  <= ~loop_rec_on_r;
-                if (cmd_loop_play_req) loop_play_on_r <= ~loop_play_on_r;
+                if (cmd_loop_rec_req && !rd_lock)  loop_rec_on_r  <= ~loop_rec_on_r;
+                if (cmd_loop_play_req && !rd_lock) loop_play_on_r <= ~loop_play_on_r;
             end
         end
 
@@ -4181,9 +4235,38 @@ wire ovf_any;
         //     📌 待办：⭐ 接到串口回传（⭐ 与 `'P'`/`'N'` 诊断同一套路）⇒ 现在先留线，⛔ 不悬空
         wire        looper_layer_state;
         wire [15:0] looper_evt_cnt;
+        reg rd_pending_r;
+        reg rd_notice_r;
+        reg [15:0] rd_reject_r;
+        wire rd_start_w = rd_pending_r && txf_idle &&
+                          !pp_busy && !vp_busy && !np_busy && !dp_busy;
+        wire rd_reject_event = (cmd_recdump_req &&
+            (rd_lock || looper_layer_state || (looper_evt_cnt == 0))) ||
+            (rd_lock && (cmd_loop_rec_req || cmd_loop_play_req || cmd_loop_clear_req)) ||
+            (cmd_probe_req && pp_busy) || (cmd_posprobe_req && np_busy) ||
+            (cmd_vstat_req && vp_busy);
+        assign rd_pending = rd_pending_r;
+        assign rd_notice_valid = rd_notice_r;
+        assign rd_reject_count = rd_reject_r;
+        always @(posedge clk) begin
+            if (!rst_n_sync) begin
+                rd_pending_r <= 0;
+                rd_notice_r <= 0;
+                rd_reject_r <= 0;
+            end else begin
+                if (cmd_recdump_req && !rd_lock && !looper_layer_state && (looper_evt_cnt != 0))
+                    rd_pending_r <= 1;
+                else if (rd_start_w)
+                    rd_pending_r <= 0;
+                if (rd_reject_event) begin
+                    rd_notice_r <= 1;
+                    if (rd_reject_r != 16'hffff) rd_reject_r <= rd_reject_r + 1'b1;
+                end else if (rd_notice_push) rd_notice_r <= 0;
+            end
+        end
         //  ⭐⭐ 2026-10-11：⭐ **导出读口的线**（⭐ 录制回传 ✅）
         wire [63:0] looper_dump_data;    // ⭐ 线上 64 位（⭐ looper 内部已重打包 ✅）
-        wire        looper_dump_clip;    // ⭐ 本条 `inc` 超 21 位（⭐ 导出会失真 ✅）        wire        looper_full;
+        wire        looper_dump_clip;    // 本条相位增量转换存在量化或越界损失
         wire [15:0] looper_drop_cnt;
         wire        looper_overflow;
 
@@ -4242,10 +4325,10 @@ wire ovf_any;
             .play_upd_inc_o  (lp_upd_inc),
             .play_upd_vel_o  (lp_upd_vel),
             //  ⭐ 控制（⭐ 脉冲 / 电平）
-            .rec_req_i      (cmd_loop_rec_req & ~loop_rec_on_r),   // ⭐ 没在录 ⇒ 开录
-            .stop_req_i     (cmd_loop_rec_req &  loop_rec_on_r),   // ⭐ 正在录 ⇒ 停录
+            .rec_req_i      (cmd_loop_rec_req & ~loop_rec_on_r & ~rd_lock),
+            .stop_req_i     (cmd_loop_rec_req &  loop_rec_on_r & ~rd_lock),
             .play_en_i      (loop_play_on_r),
-            .clear_req_i    (cmd_loop_clear_req),
+            .clear_req_i    (cmd_loop_clear_req & ~rd_lock),
             //  ⭐ 可观测
             .layer_state_o  (looper_layer_state),
             .evt_cnt_flat_o (looper_evt_cnt),
@@ -4276,13 +4359,13 @@ wire ovf_any;
         //        ⚠️ 因为导出要**占用 `mem` 的读口**，⭐ 而放音也要用 ✅
         //        （⭐ BSRAM 只有 1 读口 ⇒ ⭐ 加第二个读口会**推不出 BSRAM** ✅）
         //     ② ⭐ **读是同步的** ⇒ ⭐ 给地址后等 **2 拍**（⭐ 由 FSM 的 `S_WAIT` 保证 ✅）
-        //     ③ ⭐ **`ready_i` 节流** ⇒ ⭐ FIFO 满时**等**（⛔ 不丢字节 ✅）
+        //     ③ 同边沿 ready 节流；顶层导出独占双 UART，不进入正常回复 FIFO。
         //
         //  ⭐ **帧格式与收帧【同构】** ⇒ ⭐ **导出的东西能直接回灌** ✅
         //     ⇒ ⭐ "**录一段 → 回传 → 存成谱子 → 再灌回去**" 这条闭环成立 ✅
         //
-        //  📌 ⭐ **截断可观测**：⭐ `clip_cnt_o` = 有多少条因为 `inc` 超 21 位**不是原样** ✅
-        //     （⭐ 实时弹的事件**常常**超 ⇒ ⚠️ 这是**常态**，⛔ 不是边角 ✅）
+        // 2026-10-13 更正：clip_cnt_o 统计量纲转换的量化/越界损失，
+        // 并在本次导出 footer 回传；不能把低 21 位截取当成正确音高转换。
         //  ═══════════════════════════════════════════════════════════════════
         //  ⚠️ **这 8 根线声明在【模块层】**（⭐ 见 `cmd_recdump_req` 那里 ✅）——
         //     🔴 **实测踩坑**：⭐ 第一版把它们声明在**本 generate 块里**
@@ -4293,18 +4376,20 @@ wire ovf_any;
         //        在 generate 里可读可写** ✅
         rec_dump #(
             .ADDR_W (16),
-            .HDR    (8'hA5)          // ⭐ 与 `evt_uart_rx.HEADER` 一致 ✅
+            .HDR    (8'hA5),
+            .STATUS_ENABLE(1)
         ) u_rec_dump (
             .clk_i       (clk),
             .rst_n_i     (rst_n_sync),
-            .req_i       (cmd_recdump_req),        // ⭐ `'Y'` ✅
+            .req_i       (rd_start_w),
             //  ⭐ **层空闲**（⭐ `layer_state_o` 的 0 = 空闲 ✅）——
-            //     ⚠️ 这是"导出⛔ 不与放音抢读口"的**唯一保证** ✅
-            .idle_i      (~looper_layer_state),
+            // rd_lock additionally blocks R/L/C for the entire transaction.
+            .idle_i      (~looper_layer_state && txf_idle),
             .cnt_i       (looper_evt_cnt),         // ⭐ 已录事件数 ✅
             .data_i      (looper_dump_data),       // ⭐ 线上 64 位（⭐ looper 已重打包 ✅）
             .clip_i      (looper_dump_clip),       // ⭐ 本条被截断过 ✅
-            .ready_i     (txf_ready),              // ⭐ `u_tx_fifo` 未满 ✅
+            .reject_count_i(rd_reject_count),
+            .ready_i     (~txf_busy && rd_busy),
             .push_o      (rd_push),
             .byte_o      (rd_byte),
             .dump_en_o   (rd_dump_en),
@@ -5190,8 +5275,21 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             else if (mm_valid) sample_r <= mm_sample;
         end
 
+        //  🔴🔴 2026-10-11（乙）修 bug：⛔ **不能再让 `'Q'` 翻转 `scope_run_r`** ——
+        //     原来 `'Q'` 同时翻转 `scope_mode_r`（模式）和 `scope_run_r`（冻结）：
+        //       第 1 次 'Q' ⇒ 模式 1→0（切到波形）**并且** 冻结 1→0
+        //       ⇒ `scope_valid = mm_valid & scope_run_r` 恒 0
+        //       ⇒ ⭐ 采样流被切断 ⇒ 波形数据全空 ⇒ **屏幕上只有中央一条绿线** ✅
+        //         （上板实测症状，与 tb 不符 —— 因为 tb 不经过这条命令路径）
+        //     ✅ 修法：`'Q'` **只切显示模式**；冻结功能由模式切换取代（不再需要）
+        //     📌 语义变更：`'Q'` = 波形 ↔ 李萨如 切换（⛔ 不再是冻结/恢复）
+        // 2026-10-12: remove scope_run_r. The prior expression made it equal
+        // to the new mode, so selecting mode 0 stopped all history writes.
+        // Placement/timing must be revalidated after this functional fix.
         assign scope_sample = mm_sample;
-        assign scope_valid = mm_valid;
+        // Q selects the renderer. Both renderers keep collecting live audio;
+        // mode selection must not double as a sample-stream freeze switch.
+        assign scope_valid  = mm_valid;
         assign sample_mono = sample_r;
 
         // ── ⭐ 开机自检音：复位后延时起一个 A4+C#5+E5 和弦 ────────────────

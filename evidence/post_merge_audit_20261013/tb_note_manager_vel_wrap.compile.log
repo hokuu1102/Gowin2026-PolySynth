@@ -1,0 +1,10 @@
+﻿iverilog.exe : C:\Users\cyx\Documents\ChatGPT\FPGA\audit-merge-20261013-f8fb7b3\tb\w3b\tb_note_manager_vel_wrap.sv:98: 
+warning: Port 39 (alloc_voice_o) of note_manager expects 1 bits, got 4.
+At C:\Users\cyx\Documents\ChatGPT\FPGA\audit-merge-20261013-f8fb7b3\tools\run_q_adc_regression.ps1:19 char:24
++ ... mpileOutput=& $Iverilog -g2012 -DWAVETABLE_BEHAVIORAL -s $testName -o ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\cyx\Do... 1 bits, got 4.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-merge-20261013-f8fb7b3\tb\w3b\tb_note_manager_vel_wrap.sv:98:        : Paddin
+g 3 high bits of the expression.

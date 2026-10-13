@@ -1,0 +1,3 @@
+RESULT shifts=30 ones=0 latches=3 final_oe=11111 guide_axis=5
+FAIL: requested guide key never reaches TLC physical data
+audit_review/tb_guide_physical_pulse.sv:26: $finish called at 400180000 (1ps)

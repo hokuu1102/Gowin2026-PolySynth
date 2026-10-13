@@ -184,6 +184,7 @@ module calib_cmd #(
     parameter [7:0]   CMD_TRANS_DOWN = 8'h46,   // 'F' ⭐ 变调：降 1 半音（⭐ 单周期脉冲）
     parameter [7:0]   CMD_TRANS_UP   = 8'h47,   // 'G' ⭐ 变调：升 1 半音（⭐ 单周期脉冲）
     parameter [7:0]   CMD_TRANS_ABS  = 8'h48,   // 'H' ⭐ 变调：带帧绝对量（⭐ 臂化 ⇒ 下一帧载荷[0]）
+    parameter [7:0]   CMD_SCOPE_MODE = 8'h51,   // 'Q' 切换波形/李萨如显示，采样持续运行
     parameter [7:0]   CMD_GEAR_NEXT  = 8'h4A,   // 'J' ⭐ 推子档位：切下一档（⭐ 供 `P3`）
     //  ⭐⭐ 2026-10-11：⭐ **'Y' = 导出录制内容**（⭐ 录制回传 ✅）
     //     📌 ⭐ 语义：⭐ 把 `looper` 该层**已录下的事件**按 9 字节帧（`0xA5` ＋ 8 字节）
@@ -214,6 +215,7 @@ module calib_cmd #(
     output reg         loop_rec_req_o, // ⭐ 'R' ⇒ looper 录/停切换
     output reg         loop_play_req_o,// ⭐ 'L' ⇒ looper 播放切换
     output reg         loop_clear_req_o,// ⭐ 'C' ⇒ looper 清空该层
+    output reg         scope_mode_req_o,  // ⭐ 'Q' ⇒ 显示模式切换（⭐ 2026-10-10 乙）
     output reg         timbre_req_o,    // ⭐ 'I' ⇒ 切音色（⭐ 0→1→2→3→0 循环，⭐ 2026-09-29 新增）
     output reg         met_req_o,       // ⭐ 'B' ⇒ 节拍器开/关切换（⭐ 2026-09-29 新增，方案 B）
     // ⭐⭐ 2026-09-29 新增：⭐ 鼓机节奏型切换（⭐ 'D' ⇒ 单周期脉冲）
@@ -310,6 +312,7 @@ module calib_cmd #(
     wire byte_is_loop_clr  = (rx_data_i == CMD_LOOP_CLR);
     // ⭐ 2026-09-29：⭐ 切音色（⭐ 'I'）
     wire byte_is_timbre    = (rx_data_i == CMD_TIMBRE);
+    wire byte_is_scope     = (rx_data_i == CMD_SCOPE_MODE);   // ⭐ 'Q'
     // ⭐⭐ 2026-09-29：⭐ 节拍器开/关（⭐ 'B'）—— 方案 B：⭐ `AB13`/S2 让给音色按键 ✅
     wire byte_is_met       = (rx_data_i == CMD_METRONOME);
     // ⭐⭐ 2026-09-29：⭐ 鼓机节奏型（⭐ 'D'）
@@ -328,7 +331,7 @@ module calib_cmd #(
                          byte_is_probe | byte_is_vstat | byte_is_posprobe |
                          byte_is_test_mode |
                          byte_is_loop_rec | byte_is_loop_play | byte_is_loop_clr |
-                         byte_is_timbre | byte_is_met | byte_is_drum_pat |
+                         byte_is_timbre | byte_is_scope | byte_is_met | byte_is_drum_pat |
                          byte_is_keydrum |
                          // ⭐ 2026-10-03（`P2`）：⭐ 四个新字母**必须**在这里 ⇒
                          //   ⚠️ 否则**帧内出现它们时 `in_frame_cnt_o` 不计数**
@@ -381,6 +384,7 @@ module calib_cmd #(
             loop_play_req_o<= 1'b0;     // ⭐ 'L' looper 播放切换
             loop_clear_req_o<= 1'b0;    // ⭐ 'C' looper 清空
             timbre_req_o   <= 1'b0;     // ⭐ 'I' 切音色（⭐ 2026-09-29）
+            scope_mode_req_o <= 1'b0;   // ⭐ 'Q'
             met_req_o      <= 1'b0;     // ⭐ 'B' 节拍器开/关（⭐ 2026-09-29）
             drum_pattern_req_o <= 1'b0; // ⭐ 'D' 鼓机节奏型（⭐ 2026-09-29）
             keydrum_req_o  <= 1'b0;     // ⭐ 'K' 键盘打鼓模式（⭐ 2026-10-01）
@@ -408,6 +412,7 @@ module calib_cmd #(
             loop_play_req_o <= 1'b0;    // ⭐ 'L'
             loop_clear_req_o<= 1'b0;    // ⭐ 'C'
             timbre_req_o    <= 1'b0;    // ⭐ 'I'（⭐ 2026-09-29）
+            scope_mode_req_o <= 1'b0;   // ⭐ 'Q'
             met_req_o       <= 1'b0;    // ⭐ 'B'（⭐ 2026-09-29）
             drum_pattern_req_o <= 1'b0; // ⭐ 'D'（⭐ 2026-09-29）
             keydrum_req_o      <= 1'b0; // ⭐ 'K'（⭐ 2026-10-01）
@@ -445,6 +450,7 @@ module calib_cmd #(
                         if (byte_is_loop_clr)  loop_clear_req_o<= 1'b1;
                         // ⭐ 2026-09-29：⭐ 切音色（⭐ 帧外 ⇒ 安全）
                         if (byte_is_timbre)    timbre_req_o    <= 1'b1;
+            if (byte_is_scope)     scope_mode_req_o <= 1'b1;   // ⭐ 'Q'
                         if (byte_is_met)       met_req_o       <= 1'b1;   // ⭐ 'B'（⭐ 2026-09-29）
                         // ⭐ 2026-09-29：⭐ 鼓机节奏型（⭐ 帧外 ⇒ 安全）
                         if (byte_is_drum_pat)  drum_pattern_req_o <= 1'b1;
@@ -537,7 +543,7 @@ module calib_cmd #(
     //   ⭐ 2026-10-03（`P2`）：⭐ **14 ⇒ 18**（⭐ 新增 `'F'`/`'G'`/`'H'`/`'J'` 四条变调命令）
     //      📌 ⚠️ **忘了加这里 = 查重漏掉新字母** ⇒ 🔴 将来撞字母时**静默遮蔽**
     //         （⭐ 所以本表是"加新命令时的**必改项**"，⭐ 见上方注释 ✅）
-    localparam integer N_CMD = 19;
+    localparam integer N_CMD = 20;   // 'Q' 显示切换和 'Y' 录制回传均参与查重
     reg [7:0] cmd_tab [0:N_CMD-1];
     integer   ci, cj;
     reg       letters_ok;
@@ -560,6 +566,7 @@ module calib_cmd #(
         cmd_tab[14] = CMD_TRANS_DOWN;  // ⭐ 2026-10-03：⭐ 'F' 变调：降 1 半音（⭐ P2）
         cmd_tab[15] = CMD_TRANS_UP;    // ⭐ 2026-10-03：⭐ 'G' 变调：升 1 半音（⭐ P2）
         cmd_tab[16] = CMD_TRANS_ABS;   // ⭐ 2026-10-03：⭐ 'H' 变调：带帧绝对量（⭐ P2）
+        cmd_tab[19] = CMD_SCOPE_MODE; // 'Q' 与 'Y' 使用不同查重槽位
         cmd_tab[17] = CMD_GEAR_NEXT;   // ⭐ 2026-10-03：⭐ 'J' 推子档位切下一档（⭐ P2）
         cmd_tab[18] = CMD_RECDUMP;     // ⭐ 2026-10-11：⭐ 'Y' 录制回传导出（⭐ 查重必改项 ✅）
 

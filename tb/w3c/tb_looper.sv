@@ -113,7 +113,7 @@ module tb_looper;
     function [63:0] repack;
         input [67:0] w;
         begin
-            repack = {w[I_TICK +: 20], w[I_INC +: 21], w[I_AXIS +: 4],
+            repack = {w[I_TICK +: 20], w[I_INC+10 +: 21], w[I_AXIS +: 4],
                       w[I_VEL  +: 8],  w[I_KIND +: 2], w[I_TBR +: 2], 7'b0};
         end
     endfunction
@@ -849,8 +849,8 @@ module tb_looper;
         //  ⭐ 字段位序（⭐ **线上格式** ✅）
         chk(d0[T_AXIS +: 4] === 4'd3,  "DUMP-e axis[22:19] of entry 0 == 3 (as recorded)");
         chk(d1[T_AXIS +: 4] === 4'd9,  "DUMP-f axis[22:19] of entry 1 == 9");
-        chk(d0[T_INC  +: 21] === 21'h012_3456,
-            "DUMP-g inc[43:23] of entry 0 == 0x123456 (fits in 21 bits, so lossless)");
+        chk(d0[T_INC  +: 21] === 21'h0048d,
+            "DUMP-g 0x123456 sample increment exports as clock-unit 0x48d");
         chk(d0[T_VEL  +: 8] === 8'd77, "DUMP-h vel[18:11] of entry 0 == 77");
         chk(d0[T_KIND +: 2] === 2'd0,  "DUMP-i kind[10:9] of entry 0 == 0");
         //  ⭐⭐ **截断标志**：⭐ 两条录进去的 `inc` 都 < 2^21 ⇒ ⭐ **不许报截断** ✅
@@ -860,7 +860,7 @@ module tb_looper;
         //        （⭐ `axis_map.BASE_INC = 0x0010_0000`，⭐ 键 69 ≈ 5.6e7 ✅）
         //        ⇒ ⭐ 所以"导出截断"**⛔ 不是边角情形**，⭐ 而是**常态** ✅
         //        ⇒ ⭐ 这正是 `dump_clip_o` 必须存在的理由 ✅
-        chk(clip0 === 1'b0, "DUMP-j no clip flag for the two small-inc entries (lossless)");
+        chk(clip0 === 1'b1, "DUMP-j nonzero low ten bits report quantization loss");
 
         //  ⭐⭐⭐ **截断的【非空洞性】对照**：⭐ 录一条 `inc` 超出 21 位的事件 ✅
         //     ⭐ 它模拟的是"**实时弹**的事件"（⭐ `axis_map` 给的是 **32 位全用** ✅）
@@ -876,9 +876,9 @@ module tb_looper;
         dump_en = 1'b1; dump_a = 16'd0;
         @(negedge clk); @(negedge clk);
         clip1 = dump_clip;
-        chk(clip1 === 1'b1, "DUMP-k (NON-VACUOUS) a >21-bit inc DOES raise the clip flag");
-        chk(dump_d[T_INC +: 21] === 21'd0,
-            "DUMP-l ...and the 21-bit field keeps only the low bits (the truncation is real)");
+        chk(clip1 === 1'b0, "DUMP-k exact multiple of 1024 exports losslessly");
+        chk(dump_d[T_INC +: 21] === 21'd8192,
+            "DUMP-l sample increment 0x00800000 exports as 8192, not zero");
 
         //  ⭐⭐ **非干扰性**：⭐ `dump_en = 0` ⇒ 读口必须**回到放音指针** ✅
         dump_en = 1'b0;

@@ -1,0 +1,3 @@
+ADC_HEALTHY_PROTOCOL samples=121 mismatches=0 chip0_ch0_zero_count=16 faults=001 time_ns=7524800000
+REPRO_FALSE_DEAD: all 3 SPI models correctly return every channel, but chip0 legitimate CH0=0 is declared dead
+C:\tmp\polysynth_diag_20261012\tb_adc_false_dead.sv:35: $finish called at 7524800000 (1ps)

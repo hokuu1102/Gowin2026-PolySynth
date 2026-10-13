@@ -45,6 +45,6 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
   ok  : (5b) esp_uart_tx_????UART ?€?
   ok  : (6) ctrl_ws_o ???X/Z圓?
 PASS: top 鐏甫闆嗘垚 鈥斺€?ctrl_ws_o 浣嶆祦瑙ｅ嚭鐨?7 璺鑹?鐏簭/鍒囩墖/涓ゆ。鍒嗘敮鍏ㄩ儴姝ｇ‘
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_led_strip.sv:295: $finish called at 3106510000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\top\tb_top_led_strip.sv:298: $finish called at 3106510000 (1ps)
 
 

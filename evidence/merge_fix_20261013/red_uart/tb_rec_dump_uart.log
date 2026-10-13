@@ -1,0 +1,3 @@
+﻿NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+FATAL: C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_rec_dump_uart.sv:33: FAIL: export frames=2 drop=4 bytes=14
+       Time: 600100000  Scope: tb_rec_dump_uart

@@ -82,6 +82,9 @@ module tb_top_led_strip;
     // ⭐ 11 个预留输入 + 3 个踏板：⭐ 全部按 `.cst` 的**上拉空闲态**显式给值
     //   （⛔ 不留悬空：`z` 会经 `reserved_in_xor` 传成 `x` ⇒ ⚠️ 污染 A8 判据）
     top #(
+        //  ⭐ 2026-10-09：本 tb 只测音频/控制，⛔ 不测 HDMI ⇒ 剪掉李萨如渲染器。
+        //     ⚠️ 必须显式传 0：`top.v` 交付默认已是 SCOPE_MODE=1，否则本 tb 会超时。
+        .SCOPE_MODE        (0),
         .DEMO_CHORD_ON (1),                   // ⭐ 出声档（`g_sound`）
         .HEARTBEAT_DIV (512),                 // ⭐ 心跳加快，便于观测（本 tb 不查心跳）
         .SAMPLE_W      (24),

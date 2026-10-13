@@ -1,0 +1,17 @@
+﻿=== tb_drum_gen_posreset (P1-18: met_start 的 pos_reset 让 drum_gen 多发一条) ===
+   info: 复位前 A: tick_cnt=300 step_q=1 evt=2 | B: tick_cnt=300 step_q=1 evt=2
+   info: pos_reset 脉冲已发（1 拍，t=156770780000）
+== J5 复位脉冲后【立刻】（远早于下一个 tick）step_q 必须已是 0 ==
+   info: 复位后 10 拍（tick 还没来）：A step_q=0 evt=2
+  ok  : J5 pos_reset clears step_q IMMEDIATELY (before the next tick) -- fix (1) only
+== J1/J2 复位后窗口内不许有多余事件（⭐ 窗口 = 20000 clk < 一个 tick）==
+   info: 窗口1（复位后 20000 拍）新增 A=0 B=0（A: tick_cnt=0 step_q=0 | B: tick_cnt=300 step_q=1）
+  ok  : J1 pos_reset must NOT produce any off-grid event (window = 1 tick)
+  ok  : J2 non-vacuity: the control (no pos_reset) has 0 events in the same window
+== J3/J4 复位后必须正常回到 step 0 并发出强拍 ==
+   info: 窗口2 累计新增 A=2 B=0 | A: step_q=0 复位后前两条=5368709,171798691
+  ok  : J3 the FIRST post-reset events are the step-0 downbeat (Kick then HiHat), no stray in front
+  ok  : J4 step_q realigns to 0 after pos_reset
+
+PASS: tb_drum_gen_posreset - 5/5 judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-merge-20261013-f8fb7b3\tb\w3c\tb_drum_gen_posreset.sv:278: $finish called at 158212460000 (1ps)

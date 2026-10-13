@@ -12,6 +12,9 @@ module tb_vibrato_top;
     integer errors = 0, cs2_low_count = 0;
 
     top #(
+        //  ⭐ 2026-10-09：本 tb 只测音频/控制，⛔ 不测 HDMI ⇒ 剪掉李萨如渲染器。
+        //     ⚠️ 必须显式传 0：`top.v` 交付默认已是 SCOPE_MODE=1，否则本 tb 会超时。
+        .SCOPE_MODE        (0),
         .RIGHT_ADC_ENABLE(1), .PA_ON_AFTER_RESET(0), .DEMO_CHORD_ON(1),
         .DEMO_NOTE_DELAY(1_000_000), .DEMO_HOLD_CYC(1_000_000),
         .AUTOTARE_DELAY_CLK(10), .SPAN_WAIT_TIMEOUT_CLK(1000), .HEARTBEAT_DIV(100)

@@ -19,6 +19,9 @@ module tb_top_t15;
     always #10 clk = ~clk;
 
     top #(
+        //  ⭐ 2026-10-09：本 tb 只测音频/控制，⛔ 不测 HDMI ⇒ 剪掉李萨如渲染器。
+        //     ⚠️ 必须显式传 0：`top.v` 交付默认已是 SCOPE_MODE=1，否则本 tb 会超时。
+        .SCOPE_MODE        (0),
         .DEMO_NOTE_DELAY(1_000_000), // keep the demonstration source inactive
         .DEMO_HOLD_CYC(1_000_000)
     ) dut (

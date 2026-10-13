@@ -55,6 +55,9 @@ module tb_key_drum;
     wire [5:0]  spi_cs_n;
 
     top #(
+        //  ⭐ 2026-10-09：本 tb 只测音频/控制，⛔ 不测 HDMI ⇒ 剪掉李萨如渲染器。
+        //     ⚠️ 必须显式传 0：`top.v` 交付默认已是 SCOPE_MODE=1，否则本 tb 会超时。
+        .SCOPE_MODE        (0),
         .SEL_DRUM (0)               // ⭐ 源 B = 节拍器（⭐ 本 tb 不测源 B）
     ) u_top (
         .clk           (clk),
