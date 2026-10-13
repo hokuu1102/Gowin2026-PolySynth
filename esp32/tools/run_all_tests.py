@@ -118,6 +118,12 @@ def build_plan(esp, ch340, log_sec=25):
           "--events", "200"], 180, "通过"),
         ("命令与上行回归", "BLE+串口",
          ["regress_live.py", "--log-port", esp, "--uart-port", ch340], 180, "通过"),
+        # ⭐ 只用 BLE 验 UART1 的【发送路径】—— ⛔ 不需要 CH340。
+        # 🔴 为什么必须有它：CH340 没接时，`_uart1_wire_check` 只会说
+        #    "一个字节都没收到"，分不清是【ESP32 没发】还是【线没接】。
+        #    本项把"ESP32 侧"和"接线/对端"分开 —— 这是本轮踩过的坑。
+        ("UART1 发送路径（仅 BLE）", "BLE",
+         ["_uart1_send_path_check.py", "--settle", "14"], 180, "UART1 发送路径正常"),
         ("屏状态机", "BLE+串口",
          ["hmi_states_check.py", "--events", "200", "--log-port", esp], 180,
          "状态字全部正确"),
