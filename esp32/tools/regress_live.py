@@ -230,6 +230,16 @@ async def run(log_port, uart_port, baud):
               % (UP_BYTES, u_in0))
         got_noti = []
         # ⚠️ 未订阅 ⇒ 只入环不发
+        #
+        # 2026-10-14 改：CH340 不可用时，⑥⑦ 标【前置不满足】⛔ 不算失败。
+        #
+        # 为什么：①~⑤（CMD 命令集）全走 BLE，⛔ 不需要 CH340；
+        #   而 ⑥⑦ 的本质是"从【外部】往 GPIO18 灌字节" ——
+        #   必须有物理发送端（CH340）。它⛔ 不可能改走 BLE
+        #   （BLE 灌的是 0xABF1，不走 UART1）。
+        # ⚠️ 原来的行为：打开失败就 `return 3` => 整个工具算失败
+        #   => 把【①~⑤ 的绿灯】一起掩盖掉（🔴 判据粒度太粗）。
+        # ⭐ 现在：明确区分"前置没满足"与"被测对象失败"（同 run_all_tests 的三态）。
         try:
             s = open_no_reset(uart_port, baud, timeout=0.2)
             time.sleep(0.3)
@@ -240,44 +250,82 @@ async def run(log_port, uart_port, baud):
                 time.sleep(0.05)
             s.close()
         except Exception as e:
-            print("   🔴 打不开 %s: %s" % (uart_port, e))
-            return 3
-        await asyncio.sleep(1.5)
-        txt = await read_stat(c)
-        ring_line = _stat_line(txt, "ring=")
-        print("   %s" % ring_line)
-        u_in1 = int(_stat_tok(ring_line, "in") or 0)
-        d_in = u_in1 - u_in0
-        print("   u_in 增量 = %d（⭐ 必须 = %d —— ⚠️ 少于就是【驱动层丢了】）"
-              % (d_in, UP_BYTES))
-        if d_in != UP_BYTES:
-            fails.append("上行 u_in 增量=%d，期望 %d" % (d_in, UP_BYTES))
-
-        print("⑦ 上行放水：订阅 0xABF2 ...")
-        await c.start_notify(UUID_NOTI, lambda _s, d: got_noti.append(bytes(d)))
-        await asyncio.sleep(6.0)
-        try:
-            await c.stop_notify(UUID_NOTI)
-        except Exception:
-            pass
-        total = b"".join(got_noti)
-        print("   收到 %d 字节 / %d 包（期望 %d）" % (len(total), len(got_noti), UP_BYTES))
-        # ⚠️ 环里可能有**更早**的残留 ⇒ ⭐ 只要求"包含刚写的那一段"
-        want = bytes(i & 0xFF for i in range(UP_BYTES))
-        if want in total:
-            print("   ✅ 刚写的 %d 字节【逐字节一致】地回来了" % UP_BYTES)
-        elif len(total) >= UP_BYTES:
-            print("   ⚠️ 收到了 %d 字节，但没找到完整匹配段（⚠️ 可能有残留/错位）"
-                  % len(total))
-            fails.append("上行放水内容不匹配")
+            print("   ⚠️ 打不开 %s: %s" % (uart_port, e))
+            print("   => ⑥⑦ 需要 CH340（往 GPIO18 灌字节）⇒ 标【前置不满足】，"
+                  "⛔ 不计入失败")
+            print("   ⭐ ①~⑤（CMD 命令集）已全走 BLE 并通过，不受影响")
+            prereq = True
         else:
-            print("   🔴 只收到 %d 字节 < %d" % (len(total), UP_BYTES))
-            fails.append("上行放水字节不足（%d < %d）" % (len(total), UP_BYTES))
+            prereq = False
+
+        if not prereq:
+            await asyncio.sleep(1.5)
+            txt = await read_stat(c)
+            ring_line = _stat_line(txt, "ring=")
+            print("   %s" % ring_line)
+            u_in1 = int(_stat_tok(ring_line, "in") or 0)
+            d_in = u_in1 - u_in0
+            print("   u_in 增量 = %d（⭐ 必须 = %d —— ⚠️ 少于就是【驱动层丢了】）"
+                  % (d_in, UP_BYTES))
+            # 🔴 2026-10-14：`d_in == 0` 判【前置不满足】，⛔ 不算失败。
+            #
+            # 为什么（实测踩到）：**"串口能打开" ⛔ 不等于 "线是通的"**。
+            #   CH340 的 RX 没接到 GPIO17 / 没共地时，
+            #   `open_no_reset()` **不抛异常、写也不报错**，
+            #   只是【一个字节都没送到 ESP32】。
+            #   ⚠️ 原来的判据 `d_in != UP_BYTES` 会把这种"缺硬件"记成"被测对象坏了"
+            #   => 🔴 掩盖了"①~⑤ 其实全绿"这个事实（判据粒度太粗）。
+            # ⭐ 判据（怎么区分"缺硬件"和"驱动层丢")：
+            #     d_in == 0        => 一个都没到 => 多半是【没接线】（前置）
+            #     0 < d_in < 期望  => 到了但少了 => 那是【驱动层真丢了】（失败）
+            #     d_in == 期望     => 通过
+            # ⭐ 同族 C112（增量判据）/ run_all_tests 的三态（通过/失败/前置）。
+            if d_in == 0:
+                print("   ⚠️ 一个字节都没到 => 判【前置不满足】"
+                      "（⭐ 多半是 CH340 没接 / 没共地）")
+                print("      ⛔ 不计入失败：这是缺硬件，⛔ 不是被测对象坏了")
+                prereq = True
+            elif d_in != UP_BYTES:
+                fails.append("上行 u_in 增量=%d，期望 %d"
+                             "（⚠️ 到了但少了 => 驱动层丢）" % (d_in, UP_BYTES))
+            else:
+                # ⑥ 通过才做 ⑦（⭐ ⑦ 依赖"刚才真灌进去了那 2000 字节"）
+                print("⑦ 上行放水：订阅 0xABF2 ...")
+                await c.start_notify(UUID_NOTI,
+                                     lambda _s, d: got_noti.append(bytes(d)))
+                await asyncio.sleep(6.0)
+        else:
+            print("   （⑥⑦ 已跳过，原因见上）")
+        # ⚠️ ⑦ 的收尾：只有【真灌进去过】才有意义
+        #    （d_in == 0 时 got_noti 必空，判"字节不足"是假红）
+        if not prereq:
+            try:
+                await c.stop_notify(UUID_NOTI)
+            except Exception:
+                pass
+            total = b"".join(got_noti)
+            print("   收到 %d 字节 / %d 包（期望 %d）"
+                  % (len(total), len(got_noti), UP_BYTES))
+            # ⚠️ 环里可能有**更早**的残留 ⇒ ⭐ 只要求"包含刚写的那一段"
+            want = bytes(i & 0xFF for i in range(UP_BYTES))
+            if want in total:
+                print("   ✅ 刚写的 %d 字节【逐字节一致】地回来了" % UP_BYTES)
+            elif len(total) >= UP_BYTES:
+                print("   ⚠️ 收到了 %d 字节，但没找到完整匹配段"
+                      "（⚠️ 可能有残留/错位）" % len(total))
+                fails.append("上行放水内容不匹配")
+            else:
+                print("   🔴 只收到 %d 字节 < %d" % (len(total), UP_BYTES))
+                fails.append("上行放水字节不足（%d < %d）"
+                             % (len(total), UP_BYTES))
 
     print()
     print("=" * 74)
     if not fails:
         print("结论：真机回归全部通过 ✅")
+        if prereq:
+            print("      ⚠️ ⑥⑦（上行蓄水/放水）【前置不满足】—— 需要 CH340 往 GPIO18 灌字节")
+            print("      => 这两项不计入失败（是缺硬件，不是被测对象坏了）")
     else:
         print("结论：%d 项不通过 🔴" % len(fails))
         for f in fails:
