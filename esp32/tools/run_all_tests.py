@@ -107,6 +107,9 @@ def build_plan(esp, ch340, log_sec=25):
         # MIDI 回传端到端演示（离线）：造 v1.1 字节流 -> 解析 -> 转 MIDI -> 逐点核对。
         # 它是"上行解析 + 时间轴"这两块的回归网 —— 本轮的时间 bug 就是它抓到的。
         ("MIDI 回传端到端（离线）", "无", ["demo_midi_roundtrip.py"], 180, "全部通过"),
+        # 网页内联 JS 语法检查：单文件 HTML 的语法错只有打开浏览器才暴露，
+        # 这里用 node --check 离线抓出来（改网页后必须跑）。
+        ("网页 JS 语法检查", "无", ["_check_html_js.py"], 120, "全部通过"),
     ]
     live = [
         ("读状态 0xABF4（8 组齐全）", "BLE", ["stat_read.py"], 90, "结构完整"),
@@ -275,6 +278,7 @@ def selftest():
         "_hmi_vis.py",            # 判"哪一栏跟着动"（要人看屏）
         "_idle_probe.py",         # 定位"复位后仍是断链"的三种可能
         "_lead_probe.py",         # 起播提前量探针
+        "_migrate_devname.py",    # 一次性迁移脚本（已跑完，改完 22 处设备名比较）
         "score_uploader.py",      # 上位机 GUI（已单独登记 --selftest）
     }
     missing = []

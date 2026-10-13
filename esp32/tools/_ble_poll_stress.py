@@ -27,12 +27,27 @@ import time
 
 from bleak import BleakClient, BleakScanner
 
+
+def _name_matches(name, exact):
+    """设备名匹配（2026-10-13 改为【前缀匹配】）。
+
+    为什么不用 `==`：Windows 按 MAC 缓存 GATT 服务列表，改名是绕开它的
+    唯一低成本手段（见 ble_config.h）。若写死全名，每改一次名就要改
+    22 个工具；前缀匹配后 Synth / Synth2 / Synth3 全都能认。
+    ⚠️ 仍然要求【前缀一致】—— 不会误连到别的设备。
+    """
+    n = name or ""
+    return n == exact or n.startswith("FPGA2026-Synth")
+
+
 sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 UUID_RECV = "0000abf1-0000-1000-8000-00805f9b34fb"
 UUID_CMD = "0000abf3-0000-1000-8000-00805f9b34fb"
 UUID_STAT = "0000abf4-0000-1000-8000-00805f9b34fb"
 DEV = "FPGA2026-Synth"
+# 前缀匹配（改名后备选）：见 _name_matches 的说明
+DEV_PREFIX = "FPGA2026-Synth"
 CMD_RESET, CMD_STAT, CMD_PLAY = 0x01, 0x02, 0x03
 FRAME_BYTES = 9
 HDR_EVENT, HDR_TOTAL = 0xA5, 0x00
@@ -76,7 +91,7 @@ async def main():
     args = ap.parse_args()
 
     dev = await BleakScanner.find_device_by_filter(
-        lambda d, ad: (d.name or "") == DEV, timeout=15)
+        lambda d, ad: _name_matches(d.name, DEV), timeout=15)
     if dev is None:
         print("RED: 没找到 %s（板子在广播吗）" % DEV)
         return 1

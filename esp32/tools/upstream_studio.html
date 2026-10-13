@@ -147,6 +147,16 @@ function hzToNote(hz) {
   return names[((n % 12) + 12) % 12] + (Math.floor(n / 12) - 1);
 }
 const hzToMidi = hz => hz <= 0 ? 0 : 69 + 12 * Math.log2(hz / 440);
+/* 音名（全名 + 八度）与黑键判定 —— 与曲谱上位机保持同一套约定（C4 = 中央 C）。 */
+const PITCH_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+function midiName(m) {
+  const i = ((m % 12) + 12) % 12;
+  return PITCH_NAMES[i] + (Math.floor(m / 12) - 1);
+}
+function isBlackKey(m) {
+  const i = ((m % 12) + 12) % 12;
+  return (i === 1 || i === 3 || i === 6 || i === 8 || i === 10);
+}
 
 /* ============================== 状态 ============================== */
 const S = {
@@ -272,7 +282,7 @@ window.addEventListener("resize", fitCanvas);
 
 function draw() {
   const w = cv.clientWidth, h = cv.clientHeight;
-  const PAD = { l: 48, r: 14, t: 14, b: 22 };
+  const PAD = { l: 76, r: 14, t: 14, b: 22 };
   const pw = Math.max(1, w - PAD.l - PAD.r), ph = Math.max(1, h - PAD.t - PAD.b);
   ctx.clearRect(0, 0, w, h);
   ctx.fillStyle = "#1b2330"; ctx.fillRect(PAD.l, PAD.t, pw, ph);
@@ -295,13 +305,37 @@ function draw() {
   const Y = m => PAD.t + ph - ((m - lo) / (hi - lo)) * ph;
 
   ctx.font = "10px Consolas,monospace"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+
+  // 左侧钢琴键盘 + 音名（与曲谱上位机一致：让"哪个音"一眼可辨）
+  const rowH = ph / (hi - lo);
+  const drawKeys = rowH >= 5;
+  for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
+    const y0 = Y(m + 0.5), y1 = Y(m - 0.5);
+    const yTop = Math.min(y0, y1), hh = Math.max(1, Math.abs(y1 - y0));
+    ctx.fillStyle = isBlackKey(m) ? "#141a24" : "#e8eefc";
+    ctx.fillRect(0, yTop, PAD.l - 30, hh - (drawKeys ? 1 : 0));
+    if (drawKeys) {
+      ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, yTop + 0.5, PAD.l - 31, Math.max(1, hh - 1));
+    }
+  }
+  ctx.textAlign = "left";
+  for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
+    const y = Y(m);
+    if (y < PAD.t - 2 || y > PAD.t + ph + 2) continue;
+    const isC = (((m % 12) + 12) % 12 === 0);
+    const black = isBlackKey(m);
+    if (!isC && !black && rowH < 9) continue;
+    if (!isC && rowH < 5) continue;
+    ctx.fillStyle = isC ? "#e8eefc" : "#8695ab";
+    ctx.fillText(midiName(m), PAD.l - 27, y);
+  }
+  ctx.textAlign = "right";
   for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
     if (((m % 12) + 12) % 12 === 0) {
       const y = Y(m);
       ctx.strokeStyle = "#212b3a"; ctx.beginPath();
       ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l + pw, y); ctx.stroke();
-      ctx.fillStyle = "#5b6b82";
-      ctx.fillText(hzToNote(440 * Math.pow(2, (m - 69) / 12)), PAD.l - 6, y);
     }
   }
   // 连线（同一 axis 相邻事件连起来，看旋律轮廓）
@@ -317,11 +351,38 @@ function draw() {
     }
     ctx.stroke();
   }
+  // 音符：画成【有长度的色块】（与曲谱上位机一致，⛔ 不再是孤立的点）
+  // 为什么在 draw 里配对：上行是【流式】到达的，不能预先配对；
+  //   而且滚动窗口会截断 —— 窗口外的 on 配不到 off 时按最小长度画。
+  const blockH = Math.max(2, Math.min(rowH * 0.72, 12));
+  const minLen = Math.max(1, (tMax - tMin) / 400);
+  const openMap = new Map();
   for (const e of win) {
-    ctx.fillStyle = AXIS_COLORS[e.axis % 16];
-    ctx.beginPath();
-    ctx.arc(X(e.tick), Y(e.midi), e.type === T_ON ? 2.6 : 1.5, 0, 6.2832);
-    ctx.fill();
+    const key = ((e.axis & 15) * 128) + (e.midi & 127);
+    if (e.type === T_ON) {
+      openMap.set(key, e.tick);
+    } else {
+      const t0 = openMap.get(key);
+      if (t0 !== undefined) {
+        openMap.set(key, undefined);
+        const x0 = X(t0), x1 = X(e.tick);
+        ctx.fillStyle = AXIS_COLORS[e.axis % 16];
+        ctx.globalAlpha = 0.5 + 0.5 * Math.min(1, (e.vel || 0) / 127);
+        ctx.fillRect(x0, Y(e.midi) - blockH / 2,
+                     Math.max(1.6, x1 - x0), blockH);
+        ctx.globalAlpha = 1;
+      }
+      // 没配到 on 的 off => 不画（孤儿，计数由别处负责）
+    }
+  }
+  // 还没闭合的 on：画一个最小长度的块（表示"正在响"）
+  for (const [, t0] of openMap) {
+    if (t0 === undefined) continue;
+    ctx.globalAlpha = 0.75;
+    ctx.fillStyle = "#e8eefc";
+    ctx.fillRect(X(t0), Y(lo + (hi - lo) / 2) - blockH / 2,
+                 Math.max(1.6, X(t0 + minLen) - X(t0)), blockH);
+    ctx.globalAlpha = 1;
   }
   // 轴图例
   const axes = [...new Set(win.map(e => e.axis))].sort((a, b) => a - b);

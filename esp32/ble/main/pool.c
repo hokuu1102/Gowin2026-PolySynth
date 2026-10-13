@@ -48,6 +48,7 @@
 
 #include "ble_config.h"
 #include "pool.h"
+#include "hmi.h"          /* 2026-10-13：把播放位置推给串口屏 */
 
 static const char *TAG = "pool";
 
@@ -126,6 +127,11 @@ static uint32_t  s_tick_inc = BLE_POOL_DEFAULT_TICK_INC;
 static uint32_t  s_t0_tick = 0;
 static int64_t   s_t0_us   = 0;
 static bool      s_running = false;
+
+/* 2026-10-13：最近一次放水时算出的"此刻应播到的谱面 tick"。
+ * 供 pool_stats() 上报，让 PC / 串口屏能显示真实的播放位置。
+ * 不参与任何控制逻辑 —— 纯粹是"把内部真值暴露出来"（K-106）。 */
+static uint32_t  s_play_tick = 0;
 
 /* 提前量门控的【一次性】阈值（谱面 tick）
  * ---------------------------------------------------------------------------
@@ -363,6 +369,7 @@ void pool_reset(void)
     s_play_idx      = 0;
     s_pool_done     = false;
     s_running       = false;
+    s_play_tick     = 0;          /* 播放位置归零，避免上报上一曲的残留 */
     s_tick_inc      = BLE_POOL_DEFAULT_TICK_INC;
     s_t0_tick       = 0;
     s_t0_us         = 0;
@@ -563,6 +570,16 @@ void pool_stats(pool_stats_t *out)
     out->expected_frames  = s_expected_frames;
     out->total_mismatch   = s_total_mismatch;
     out->tick_clamped_cnt = s_tick_clamped_cnt;
+
+    /* 播放位置（2026-10-13 新增）——
+     * 消费方算法：heard_tick = play_tick - t0_tick - lead_ticks */
+    out->play_tick  = s_play_tick;
+    out->t0_tick    = s_t0_tick;
+    out->lead_ticks = (uint32_t)BLE_POOL_LEAD_TICKS;
+    /* 本曲总长 = 末帧的 tick。取不到（池空）就给 0 => 消费方退回别的显示方式。 */
+    out->total_tick = (s_frames > 0)
+                    ? (uint32_t)ev_tick(pool_peek_word(s_frames - 1)) : 0;
+    out->pos_valid  = s_running ? 1 : 0;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -616,6 +633,15 @@ void pool_pump(void)
     /* ⭐ 当前位置（谱面 tick）。用【当前】s_tick_inc 换算，且在换速改
      *    s_tick_inc 之前算好 —— 换速重锚要靠它保持位置连续（见下方换速段）。 */
     int64_t pos_now = (int64_t)s_t0_tick + (int64_t)elapsed_ticks;
+
+    /* 2026-10-13：把"此刻应该播到哪"缓存下来，供 pool_stats() 读。
+     * 为什么在这里算而不在 pool_stats() 里算：
+     *   pos_now 依赖 elapsed_ticks，而它的换算要 s_tick_inc 与 s_t0_us
+     *   —— 这两者都只在本函数里用。放这里算一次最省事，也保证
+     *   "上报的位置"和"实际用的门控"用的是同一个值（不会两处漂）。
+     * 为什么用 32 位：谱面 tick 本身是 32 位（BLE_POOL_LEAD 也是），
+     *   曲长 20 bit/960PPQN 早已超出任何真实曲子 => 不会溢出。 */
+    s_play_tick = (uint32_t)pos_now;
 
     /* 🔴 2026-10-01 修 bug：门控原来写 `elapsed_ticks > s_t0_tick + LEAD`，
      *    把"时长"与"位置"混着比。起播时 s_t0_tick=0 恰好等价，但中段换速
@@ -825,11 +851,29 @@ void task_pool_pump(void *arg)
     for (;;) {
         if (s_running) {
             pool_pump();
-            /* 🔴 必须【至少 1 tick】—— ⚠️ `BLE_POOL_PUMP_PERIOD_MS = 2`
+
+            /* 2026-10-13：把"播到哪了"推给串口屏。
+             * 为什么放在这里而不是 ble_main.c：
+             *   play_tick 只在本文件里维护，就近取用不用加锁跨模块传。
+             * 为什么每轮都推：播放位置是【连续变化量】，
+             *   hmi.c 那边按百分比做变化检测，只有整数百分比变了才真发命令
+             *   => 不会刷屏（屏 115200 baud，刷不起）。
+             * 为什么用 frames>0 判总长：池空时末帧 tick 没意义，传 0 让显示层退回。 */
+            {
+                uint32_t tot = (s_frames > 0)
+                             ? (uint32_t)ev_tick(pool_peek_word(s_frames - 1)) : 0;
+                hmi_set_play_pos(s_play_tick, s_t0_tick,
+                                 (uint32_t)BLE_POOL_LEAD_TICKS, tot, true);
+            }
+
+            /* 必须【至少 1 tick】—— `BLE_POOL_PUMP_PERIOD_MS = 2`
              * ⇒ `pdMS_TO_TICKS(2)` 在 100 Hz 下 = 0 ⇒ 忙循环 ⇒ 饿死 IDLE0。
-             * ⭐ 与 `task_drain` 同因，详见 ble_config.h §9b。 */
+             * 与 `task_drain` 同因，详见 ble_config.h §9b。 */
             vTaskDelay(BLE_DELAY_TICKS_AT_LEAST_1(BLE_POOL_PUMP_PERIOD_MS));
         } else {
+            /* 停下来了：把位置标成无效，让屏上的进度条退回"灌谱百分比"，
+             * ⛔ 不要停在一个"看起来还在播"的位置。 */
+            hmi_set_play_pos(0, 0, 0, 0, false);
             vTaskDelay(BLE_DELAY_TICKS_AT_LEAST_1(10));
         }
     }

@@ -30,6 +30,10 @@ bool      hmi_ready(void)                { return false; }
 void      hmi_set_song(const char *n)    { (void)n; }
 void      hmi_set_progress(uint32_t s, uint32_t t) { (void)s; (void)t; }
 void      hmi_set_events(uint32_t s, uint32_t t)   { (void)s; (void)t; }
+void      hmi_set_play_pos(uint32_t pt, uint32_t t0, uint32_t lead,
+                           uint32_t total, bool valid)
+                                       { (void)pt; (void)t0; (void)lead;
+                                         (void)total; (void)valid; }
 void      hmi_set_state(hmi_state_t st)  { (void)st; }
 void      hmi_set_bt_connected(bool c)   { (void)c; }
 void      hmi_set_buffer_pct(uint8_t p)  { (void)p; }
@@ -68,6 +72,15 @@ typedef struct {
     hmi_state_t state;
     bool     bt_conn;
     uint8_t  buf_pct;
+    /* 播放位置（2026-10-13 新增）。
+     * 灌完之后 sent/total 恒为 100%，进度条就"死"了；
+     * 而用户真正想知道的是"放到哪了"。
+     * 消费方算法：heard = play_tick - play_t0 - play_lead（还没出声时 <= 0）。 */
+    uint32_t play_tick;         /* 此刻应播到的谱面 tick */
+    uint32_t play_t0;           /* 起播锚点 */
+    uint32_t play_lead;         /* 提前量（tick） */
+    uint32_t play_total;        /* 本曲总 tick（分母；0 = 未知，退回灌谱百分比） */
+    bool     play_valid;        /* 位置是否有效（正在放水） */
     /* 上次已发送的值（用于变化检测） */
     char     last_song[40];
     uint32_t last_sent;
@@ -75,6 +88,7 @@ typedef struct {
     hmi_state_t last_state;
     int      last_bt_conn;      /* -1 = 未发送过 */
     int      last_buf_pct;
+    int      last_play_pct;     /* -1 = 未发送过；播放进度的变化检测 */
     bool     dirty;
 } hmi_cache_t;
 
@@ -386,6 +400,28 @@ void hmi_set_events(uint32_t sent, uint32_t total)
     hmi_set_progress(sent, total);
 }
 
+/* 播放位置（2026-10-13 新增）。
+ *
+ * 为什么单独一个 setter：`sent/total`（灌谱量）与"播放位置"是【两件事】——
+ *   灌完之后前者恒为 100%，只有后者还会继续动。
+ *   ⚠️ 而且它们的变化频率不同：前者很多次，后者每秒都在变
+ *   => 分开设置 + 各自做变化检测，避免刷屏。
+ *
+ * `total` 是本曲总 tick（分母）；传 0 表示未知 => 显示层退回灌谱百分比。
+ */
+void hmi_set_play_pos(uint32_t play_tick, uint32_t t0_tick, uint32_t lead_ticks,
+                      uint32_t total_ticks, bool valid)
+{
+    s_c.play_tick  = play_tick;
+    s_c.play_t0    = t0_tick;
+    s_c.play_lead  = lead_ticks;
+    s_c.play_total = total_ticks;
+    s_c.play_valid = valid;
+    /* 注意：这里【不】置 dirty —— 播放进度是"连续变化量"，
+     *   由刷新任务的周期性节拍驱动（见 hmi_task），
+     *   ⛔ 不用 dirty 触发（否则每来一帧数据就刷一次屏）。 */
+}
+
 void hmi_set_state(hmi_state_t st)
 {
     /* 计数必须【无条件】做（2026-10-12 修正）。
@@ -513,11 +549,29 @@ void hmi_task(void *arg)
             if (pct > 100) {
                 pct = 100;
             }
+            /* 播放中：进度条改成显示【播放位置】，⛔ 不再是灌谱百分比。
+             * 为什么这样切：灌完之后 sent/total 恒为 100%，进度条就"死"了；
+             *   而用户真正想知道的是"放到哪了"。
+             * 判据：拿到有效的播放位置（play_valid）就用它，否则退回灌谱百分比。
+             * 语义区分靠 t2（灌谱计数）与 t1（播放中/播完）不变。 */
+            if (s_c.play_valid && s_c.play_total > 0) {
+                uint64_t heard = 0;
+                if (s_c.play_tick > (s_c.play_t0 + s_c.play_lead)) {
+                    heard = (uint64_t)s_c.play_tick - s_c.play_t0 - s_c.play_lead;
+                }
+                if (heard > s_c.play_total) {
+                    heard = s_c.play_total;
+                }
+                pct = (uint32_t)(heard * 100ull / s_c.play_total);
+                if (pct > 100) {
+                    pct = 100;
+                }
+            }
             snprintf(cmd, sizeof(cmd), "j0.val=%u", (unsigned)pct);
             hmi_send_cmd(cmd);
 
             if (s_c.total > 0) {
-                /* ⭐ 屏自己算百分比（省一条我们这边的除法/格式化） */
+                /* 屏自己算百分比（省一条我们这边的除法/格式化） */
                 snprintf(cmd, sizeof(cmd), "n0.val=%u*100/%u",
                          (unsigned)s_c.sent, (unsigned)s_c.total);
             } else {

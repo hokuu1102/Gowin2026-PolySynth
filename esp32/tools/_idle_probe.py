@@ -24,9 +24,24 @@ sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 import serial
 from bleak import BleakClient, BleakScanner
 
+
+def _name_matches(name, exact):
+    """设备名匹配（2026-10-13 改为【前缀匹配】）。
+
+    为什么不用 `==`：Windows 按 MAC 缓存 GATT 服务列表，改名是绕开它的
+    唯一低成本手段（见 ble_config.h）。若写死全名，每改一次名就要改
+    22 个工具；前缀匹配后 Synth / Synth2 / Synth3 全都能认。
+    ⚠️ 仍然要求【前缀一致】—— 不会误连到别的设备。
+    """
+    n = name or ""
+    return n == exact or n.startswith("FPGA2026-Synth")
+
+
 CMD = "0000abf3-0000-1000-8000-00805f9b34fb"
 LOG_PORT = "COM29"
 DEV = "FPGA2026-Synth"
+# 前缀匹配（改名后备选）：见 _name_matches 的说明
+DEV_PREFIX = "FPGA2026-Synth"
 RX_RE = re.compile(r"screen -> ESP32: \d+ B .*?\[([0-9A-Fa-f ]+)\]")
 
 
@@ -70,7 +85,7 @@ async def main():
     lg = Log(ser)
 
     dev = await BleakScanner.find_device_by_filter(
-        lambda d, ad: (d.name or "") == DEV, timeout=12)
+        lambda d, ad: _name_matches(d.name, DEV), timeout=12)
     if dev is None:
         print("RED: not advertising")
         return 1

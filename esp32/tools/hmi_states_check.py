@@ -43,10 +43,25 @@ for _n in ("stdout", "stderr"):
 
 import struct
 
+
+def _name_matches(name, exact):
+    """设备名匹配（2026-10-13 改为【前缀匹配】）。
+
+    为什么不用 `==`：Windows 按 MAC 缓存 GATT 服务列表，改名是绕开它的
+    唯一低成本手段（见 ble_config.h）。若写死全名，每改一次名就要改
+    22 个工具；前缀匹配后 Synth / Synth2 / Synth3 全都能认。
+    ⚠️ 仍然要求【前缀一致】—— 不会误连到别的设备。
+    """
+    n = name or ""
+    return n == exact or n.startswith("FPGA2026-Synth")
+
+
 CMD = "0000abf3-0000-1000-8000-00805f9b34fb"
 RECV = "0000abf1-0000-1000-8000-00805f9b34fb"
 FRAME = 9
 DEV = "FPGA2026-Synth"
+# 前缀匹配（改名后备选）：见 _name_matches 的说明
+DEV_PREFIX = "FPGA2026-Synth"
 # ⚠️ 端口会漂 ⇒ ⭐ 传 `--log-port` 覆盖；⭐ 默认按 ESP32 的 USB VID 自动找
 LOG_PORT = "COM29"
 
@@ -153,7 +168,7 @@ async def run(events):
     print("=" * 74)
 
     dev = await BleakScanner.find_device_by_filter(
-        lambda d, ad: (d.name or "") == DEV, timeout=12)
+        lambda d, ad: _name_matches(d.name, DEV), timeout=12)
     if dev is None:
         print("🔴 没找到 %s（⚠️ 板子在广播吗？）" % DEV)
         return 3
@@ -298,7 +313,7 @@ async def run(events):
     await asyncio.sleep(8.0)                 # ⭐ 必须 > 实测的 6 秒，留余量
 
     dev2 = await BleakScanner.find_device_by_filter(
-        lambda d, ad: (d.name or "") == DEV, timeout=12)
+        lambda d, ad: _name_matches(d.name, DEV), timeout=12)
     if dev2 is None:
         fails.append("LINK_LOST: 重连失败（找不到设备）")
         print("  LINK_LOST  期望 st.x>=1   RED  重连失败")
@@ -363,7 +378,7 @@ async def run(events):
     dev3 = None
     await asyncio.sleep(1.0)
     dev3 = await BleakScanner.find_device_by_filter(
-        lambda d, ad: (d.name or "") == DEV, timeout=12)
+        lambda d, ad: _name_matches(d.name, DEV), timeout=12)
     if dev3 is None:
         fails.append("L4_RECOVER: 重连失败（找不到设备）")
         print("  L4_RECOVER 期望 就绪   RED  重连失败")

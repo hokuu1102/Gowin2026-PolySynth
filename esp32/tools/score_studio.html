@@ -138,6 +138,22 @@
         <div><small>运行</small><b id="st_run">-</b></div>
       </div>
       <div class="hint" id="st_more">未识别帧头 <b id="st_unk">-</b> · 不匹配 <b id="st_mm">-</b></div>
+      <!-- 播放进度：喂食（实测）+ 出声（估计）
+           为什么要分开显示：ESP32 起播后要先灌约 10.4 秒的提前量 FPGA 才出声。
+           只显示"喂食"会让人以为游标卡住、时间轴错位。 -->
+      <div style="margin-top:10px">
+        <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--dim)">
+          <span>喂食进度（实测）</span><span id="st_lead">-</span>
+        </div>
+        <div style="position:relative; height:8px; background:#0b0e14; border:1px solid var(--line);
+                    border-radius:4px; margin-top:4px; overflow:hidden">
+          <div id="st_bar" style="height:100%; width:0%; background:var(--acc);
+                                  transition:width .25s linear"></div>
+        </div>
+        <div class="hint" style="margin-top:4px">
+          游标 = 出声位置（估计）；要拿真实位置需 FPGA 回传实时事件
+        </div>
+      </div>
     </div>
     <div class="card" style="flex:1; display:flex; flex-direction:column; min-height:0">
       <h2>日志</h2>
@@ -163,6 +179,11 @@ const F_CLK = 50000000, TPS120 = 1920.003;
 const SVC  = 0xABF0, CH_RECV = 0xABF1, CH_NOTI = 0xABF2, CH_CMD = 0xABF3, CH_STAT = 0xABF4;
 const CMD_RESET = 0x01, CMD_STAT = 0x02, CMD_PLAY = 0x03, CMD_STOP = 0x04;
 const DEV_NAME = "FPGA2026-Synth";
+/* 设备名【前缀】—— Web Bluetooth 用 namePrefix 过滤，天然支持改名。
+   为什么需要改名：Windows 按 MAC 缓存 GATT 服务列表，不信板子的实际 GATT
+   （实测：固件正常但 PC 只看到 4 个标准特征 => 0xABF3 not found）。
+   换名让 Windows 当成新设备，缓存失效。前缀匹配后 Synth/Synth2/Synth3 都能认。 */
+const DEV_PREFIX = "FPGA2026-Synth";
 
 function packWord(tick, inc, axis, vel, kind, timbre) {
   return ((BigInt(tick) & M_TICK) << OFF_TICK) |
@@ -237,13 +258,48 @@ function buildScore(words, name) {
       notes.push({ tick: d.tick, axis: d.axis, midi: hzToMidi(hz), vel: d.vel, kind: d.kind });
     }
   }
+  // 把 note_on / note_off 配成【有长度的音符段】。
+  // 为什么要配对：原来只画"点"，看不出音有多长 —— 而"长度"才是时值的直接体现。
+  // 配对规则（按轴 + 音高）：
+  //   同轴同音高的 on 之后遇到的第一个 off 就是它的结束。
+  //   匹配不上 off 的 on => 用最后 tick 或下一个事件兜底（标注为悬空）。
+  //   匹配不上 on 的 off => 丢弃（孤儿 off，不计入）。
+  const segs = [];
+  const open = new Map();          // key = axis*128+midi  ->  {seg, idx}
+  let orphanOff = 0, danglingOn = 0;
+  for (const n of notes) {
+    const key = ((n.axis & 15) * 128) + (n.midi & 127);
+    if (n.kind === KIND_ON) {
+      const seg = { t0: n.tick, t1: null, axis: n.axis, midi: n.midi,
+                    vel: n.vel, axis2: n.axis };
+      segs.push(seg);
+      open.set(key, seg);
+    } else {
+      const seg = open.get(key);
+      if (seg) { seg.t1 = n.tick; open.delete(key); }
+      else { orphanOff++; }
+    }
+  }
+  // 收尾：还没闭合的 on
+  for (const seg of open.values()) { danglingOn++; }
+  if (segs.length) {
+    const endTick = Math.max(tickMax, 1);
+    // 用一个"最小可见长度"，免得零长度块完全看不见
+    const minLen = Math.max(1, Math.round((endTick - (isFinite(tickMin) ? tickMin : 0)) / 400));
+    for (const s of segs) {
+      if (s.t1 === null) s.t1 = endTick;
+      if (s.t1 <= s.t0) s.t1 = s.t0 + minLen;
+      s.t1 = Math.max(s.t1, s.t0 + minLen);
+    }
+  }
   const hz0 = tempos.length ? tempos[0].hz : TPS120;
   const parts = [resetSequence(), frameTotal(words.length)];
   for (const w of words) parts.push(frameFromWord(w));
   let len = 0; for (const p of parts) len += p.length;
   const payload = new Uint8Array(len);
   let o = 0; for (const p of parts) { payload.set(p, o); o += p.length; }
-  return { name, words, notes, tempos, kinds, tickMax, tickMin,
+  return { name, words, notes, segs, orphanOff, danglingOn, tempos, kinds,
+           tickMax, tickMin,
            duration: (tickMax - (isFinite(tickMin) ? tickMin : 0)) / (hz0 || 1),
            payload };
 }
@@ -266,10 +322,53 @@ function fitCanvas() {
 }
 window.addEventListener("resize", fitCanvas);
 
-const PAD = { l: 48, r: 14, t: 14, b: 26 };
+const PAD = { l: 76, r: 14, t: 14, b: 26 };
 function geom() {
   const w = cv.clientWidth, h = cv.clientHeight;
   return { w, h, pw: Math.max(1, w - PAD.l - PAD.r), ph: Math.max(1, h - PAD.t - PAD.b) };
+}
+/* 音名（按 MIDI 音符号）—— 全名，带升号和八度。
+ * 为什么要全名：原来只标 C2/C3 这种八度刻度，看不出具体是哪个音。
+ * 约定：C4 = 中央 C（与 evt2midi 的换算一致）。 */
+const PITCH_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+function midiName(m) {
+  const i = ((m % 12) + 12) % 12;
+  return PITCH_NAMES[i] + (Math.floor(m / 12) - 1);
+}
+/* 黑键判定（用于钢琴键盘着色） */
+function isBlackKey(m) {
+  const i = ((m % 12) + 12) % 12;
+  return (i === 1 || i === 3 || i === 6 || i === 8 || i === 10);
+}
+/* 左侧钢琴键盘 —— 让"哪个音"一眼可辨，不用去数参考线。
+ * 只在行高够的时候画按键细节，否则退化成色带。 */
+function drawPiano(lo, hi, Y, ph) {
+  const rowH = ph / (hi - lo);
+  const drawKeys = rowH >= 5;
+  for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
+    const y0 = Y(m + 0.5), y1 = Y(m - 0.5);
+    const yTop = Math.min(y0, y1), hh = Math.max(1, Math.abs(y1 - y0));
+    ctx.fillStyle = isBlackKey(m) ? "#141a24" : "#e8eefc";
+    ctx.fillRect(0, yTop, PAD.l - 30, hh - (drawKeys ? 1 : 0));
+    if (drawKeys) {
+      ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, yTop + 0.5, PAD.l - 31, Math.max(1, hh - 1));
+    }
+  }
+  // 音名：C 音与所有黑键都标 —— 保证"每个音都能认出来"
+  ctx.font = "10px Consolas,monospace";
+  ctx.textAlign = "left"; ctx.textBaseline = "middle";
+  for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
+    const y = Y(m);
+    if (y < PAD.t - 2 || y > PAD.t + ph + 2) continue;
+    const isC = (((m % 12) + 12) % 12 === 0);
+    const black = isBlackKey(m);
+    // 行太密时只标 C（否则字会糊成一团）
+    if (!isC && !black && rowH < 9) continue;
+    if (!isC && rowH < 5) continue;
+    ctx.fillStyle = isC ? "#e8eefc" : "#8695ab";
+    ctx.fillText(midiName(m), PAD.l - 27, y);
+  }
 }
 function draw() {
   const { w, h, pw, ph } = geom();
@@ -291,15 +390,16 @@ function draw() {
   const X = t => PAD.l + (t / tm) * pw;
   const Y = m => PAD.t + ph - ((m - lo) / (hi - lo)) * ph;
 
-  // 八度参考线
+  // 左侧钢琴键盘 + 音名
+  drawPiano(lo, hi, Y, ph);
+
+  // 八度参考线（保留：配合键盘看整体位置）
   ctx.font = "10px Consolas,monospace"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
   for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
     if (((m % 12) + 12) % 12 === 0) {
       const y = Y(m);
       ctx.strokeStyle = "#212b3a"; ctx.beginPath();
       ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l + pw, y); ctx.stroke();
-      ctx.fillStyle = "#5b6b82";
-      ctx.fillText(hzToNote(440 * Math.pow(2, (m - 69) / 12)), PAD.l - 6, y);
     }
   }
   // 变速竖线（BPM 标签太近就不画，避免重叠成一团）
@@ -315,14 +415,21 @@ function draw() {
       lastLabelX = x;
     }
   }
-  // 音符
-  const step = score.notes.length > 24000 ? Math.ceil(score.notes.length / 24000) : 1;
-  for (let i = 0; i < score.notes.length; i += step) {
-    const n = score.notes[i];
-    ctx.fillStyle = AXIS_COLORS[n.axis % 16];
-    ctx.beginPath();
-    ctx.arc(X(n.tick), Y(n.midi), n.kind === KIND_ON ? 2.1 : 1.2, 0, 6.2832);
-    ctx.fill();
+  // 音符：画成【有长度的色块】（原来只画点，看不出时值）
+  const segs = score.segs || [];
+  const step = segs.length > 24000 ? Math.ceil(segs.length / 24000) : 1;
+  const rowH = ph / (hi - lo);
+  const blockH = Math.max(2, Math.min(rowH * 0.72, 12));
+  for (let i = 0; i < segs.length; i += step) {
+    const s = segs[i];
+    const x0 = X(s.t0), x1 = X(s.t1);
+    const y = Y(s.midi) - blockH / 2;
+    const bw = Math.max(1.6, x1 - x0);      // 极短的音也保证看得见
+    ctx.fillStyle = AXIS_COLORS[s.axis % 16];
+    // 力度 => 透明度（一眼看出强弱）
+    ctx.globalAlpha = 0.45 + 0.55 * Math.min(1, (s.vel || 0) / 127);
+    ctx.fillRect(x0, y, bw, blockH);
+    ctx.globalAlpha = 1;
   }
   // 播放游标
   if (playFrac !== null) {
@@ -397,7 +504,7 @@ async function connect() {
     return;
   }
   try {
-    log("请求设备（过滤器：名字含 " + DEV_NAME + "）…");
+    log("请求设备（过滤器：名字含 " + DEV_PREFIX + "）…");
     device = await navigator.bluetooth.requestDevice({
       filters: [{ namePrefix: "FPGA2026" }],
       optionalServices: [uuid16(SVC)],
@@ -438,7 +545,12 @@ async function readStat() {
   const pm = txt.match(/pool=(\d+)\/(\d+)/);
   return { txt, pool: pm ? +pm[1] : null, cap: pm ? +pm[2] : null,
            sent: g("sent"), ovf: g("ovf"), late: g("late"), mm: g("mm"),
-           run: g("run"), tf: g("tf"), unk: g("unk") };
+           run: g("run"), tf: g("tf"), unk: g("unk"),
+           /* 播放位置（2026-10-13 新增字段）——
+            * heard_tick = play - t0 - lead，这才是"放水基准"给的真实位置，
+            * 比 sent/tf 准得多（后者只是喂食量）。 */
+           play: g("play"), t0: g("t0"), lead: g("lead"),
+           ttot: g("ttot"), pv: g("pv") };
 }
 function paintStat(d) {
   $("st_pool").textContent = (d.pool ?? "-") + "/" + (d.cap ?? "-");
@@ -449,9 +561,76 @@ function paintStat(d) {
   $("st_run").textContent  = d.run === null ? "-" : (d.run ? "运行中" : "已停");
   $("st_unk").textContent  = d.unk ?? "-";
   $("st_mm").textContent   = d.mm ?? "-";
-  if (d.sent != null && d.tf) { playFrac = Math.min(1, d.sent / d.tf); draw(); }
+  updateProgress(d);
   const run = $("st_run"); run.style.color = d.run ? "var(--ok)" : "var(--dim)";
   const ovf = $("st_ovf"); ovf.style.color = d.ovf ? "var(--err)" : "var(--fg)";
+}
+
+/* ---------------------------------------------------------------------------
+ * 播放进度与游标
+ * ---------------------------------------------------------------------------
+ * 为什么不能直接用 sent/tf 当播放进度（原来的写法）：
+ *   `sent` = 已喂给 FPGA 的事件数。而 ESP32 的放水纪律是
+ *   「应发到 tick = t0_tick + elapsed - LEAD_TICKS」（LEAD = 20000 tick ≈ 10.4 s）。
+ *   => 起播后 sent 会【立刻冲到接近满】，而 FPGA 要再等 ~10.4 秒才出声。
+ *   => 用 sent/tf 当进度，游标瞬间跑到最右边，而声音刚开始 —— 时间轴必然对不上。
+ *
+ * 正确的估计：真正的播放位置 ≈ (sent/tf * 总时长) - 提前量。
+ *   注意这是【估计】—— 因为 ESP32 目前不上报"FPGA 真放到哪了"
+ *   （需要 FPGA 回传 14 B 实时事件帧，尚未实现）。
+ *   => 所以下面明确标出"估计"，并且提前量用倒数显示出来，
+ *      让用户知道"现在还没出声"，而不是以为坏了。
+ */
+const LEAD_SEC_DEFAULT = 10.4;      // BLE_POOL_LEAD_TICKS=20000 tick @120BPM/960PPQN
+let playStartWall = null;           // 点起播的本地时刻（ms）
+let leadSec = LEAD_SEC_DEFAULT;
+
+function updateProgress(d) {
+  const run = !!d.run;
+  if (!run) {
+    // 停了：位置标记为无效，游标保留在最后一次的位置（方便看"停在哪"）
+    if (playFrac !== null) { draw(); }
+    const el = $("st_lead");
+    if (el) { el.textContent = "-"; el.style.color = "var(--dim)"; }
+    return;
+  }
+  if (playStartWall === null) playStartWall = performance.now();
+  const sinceStart = (performance.now() - playStartWall) / 1000;
+
+  /* ---- 播放位置：优先用 ESP32 给的真值，拿不到才退回估算 ---- */
+  let heardTick = null, totalTick = null;
+  if (d.pv === 1 && d.play != null && d.t0 != null && d.lead != null) {
+    const heard = d.play - d.t0 - d.lead;     // 还没出声时为负
+    heardTick = Math.max(0, heard);
+    totalTick = (d.ttot && d.ttot > 0) ? d.ttot : null;
+  } else if (score && d.tf) {
+    // 退回估算：喂食比例 * 总时长 - 提前量
+    const fedSec = (d.sent / d.tf) * score.duration;
+    const secPerTick = score.duration / Math.max(1, score.tickMax);
+    heardTick = Math.max(0, (fedSec - leadSec)) / (secPerTick || 1);
+    totalTick = score.tickMax;
+  }
+  if (heardTick !== null && totalTick) {
+    playFrac = Math.min(1, heardTick / totalTick);
+  }
+
+  // 提前量倒数：还没出声时显示"再等 N 秒"
+  const el = $("st_lead");
+  if (el) {
+    if (sinceStart < leadSec) {
+      el.textContent = "再等 " + (leadSec - sinceStart).toFixed(1) + " 秒出声";
+      el.style.color = "var(--warn)";
+    } else {
+      el.textContent = "已出声 " + (sinceStart - leadSec).toFixed(1) + " 秒";
+      el.style.color = "var(--ok)";
+    }
+  }
+  // 进度条 = 喂食（实测）
+  const bar = $("st_bar");
+  if (bar && d.tf) {
+    bar.style.width = Math.min(100, (d.sent / d.tf) * 100) + "%";
+  }
+  draw();
 }
 async function pollOnce() {
   if (!connected) return;

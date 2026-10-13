@@ -45,6 +45,19 @@ import struct
 import sys
 import time
 
+
+def _name_matches(name, exact):
+    """设备名匹配（2026-10-13 改为【前缀匹配】）。
+
+    为什么不用 `==`：Windows 按 MAC 缓存 GATT 服务列表，改名是绕开它的
+    唯一低成本手段（见 ble_config.h）。若写死全名，每改一次名就要改
+    22 个工具；前缀匹配后 Synth / Synth2 / Synth3 全都能认。
+    ⚠️ 仍然要求【前缀一致】—— 不会误连到别的设备。
+    """
+    n = name or ""
+    return n == exact or n.startswith("FPGA2026-Synth")
+
+
 # --- 控制台 UTF-8（⚠️ 中文 Windows 默认 GBK，会炸）----------------------------
 for _n in ("stdout", "stderr"):
     _s = getattr(sys, _n, None)
@@ -60,6 +73,8 @@ HDR_TOTAL = 0x00
 RESET_FRAMES = 4
 
 DEV_NAME = "FPGA2026-Synth"
+# 前缀匹配（改名后备选）：见 _name_matches 的说明
+DEV_PREFIX = "FPGA2026-Synth"
 UUID_RECV = "0000abf1-0000-1000-8000-00805f9b34fb"
 UUID_NOTI = "0000abf2-0000-1000-8000-00805f9b34fb"
 
@@ -228,7 +243,7 @@ async def ble_feed(n_events, chunk, scan_to):
     from bleak import BleakScanner, BleakClient
     payload = build_payload(n_events)
     dev = await BleakScanner.find_device_by_filter(
-        lambda d, ad: (d.name or "") == DEV_NAME, timeout=scan_to)
+        lambda d, ad: _name_matches(d.name, DEV_NAME), timeout=scan_to)
     if dev is None:
         return None, "没找到设备 %s（⚠️ 手机是否还连着？板子在广播吗？）" % DEV_NAME
     sent = 0

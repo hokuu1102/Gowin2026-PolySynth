@@ -509,8 +509,14 @@ static void cmd_report_status(void)
 
     int n = snprintf(buf, sizeof(buf),
         "V1 mode=%s req=%lu up=%lldms\n"
-        /* ⭐ 池：⭐ 已收/容量、已发、溢出、落后、应到/不符、限流截断、是否在跑 */
-        "pool=%u/%u sent=%lu ovf=%lu late=%lu exp=%lu mm=%lu clamp=%lu run=%d\n"
+        /* 池：已收/容量、已发、溢出、落后、应到/不符、限流截断、是否在跑
+         * 2026-10-13 补 play/t0/lead/pv（播放位置）：
+         *   消费方算法 heard_tick = play - t0 - lead；pv=1 表示值有效。
+         *   为什么必须暴露：sent 只是"喂了多少"，起播后它会很快冲到满，
+         *   而 FPGA 要再等 lead（约 10.4 秒）才出声
+         *   => 拿 sent 当进度会让时间轴整体错位。 */
+        "pool=%u/%u sent=%lu ovf=%lu late=%lu exp=%lu mm=%lu clamp=%lu run=%d "
+        "play=%lu t0=%lu lead=%lu ttot=%lu pv=%d\n"
         /* ⭐ 上行环：⭐ 水位/容量、入/出、丢弃次数/字节、满次数、高水位、落哪 */
         "ring=%lu/%u in=%lu out=%lu drop=%lu/%lu full=%lu hwm=%lu %s\n"
         /* ⭐ BLE：⭐ 收/发字节、失败、MTU、连接、订阅
@@ -563,6 +569,12 @@ static void cmd_report_status(void)
         (unsigned long)ps.total_mismatch,
         (unsigned long)ps.tick_clamped_cnt,
         (int)ps.running,
+        /* 播放位置（2026-10-13 新增）—— 顺序必须与格式串严格一致 */
+        (unsigned long)ps.play_tick,
+        (unsigned long)ps.t0_tick,
+        (unsigned long)ps.lead_ticks,
+        (unsigned long)ps.total_tick,
+        (int)ps.pos_valid,
         (unsigned long)us.level, (unsigned)us.cap,
         (unsigned long)us.in, (unsigned long)us.out,
         (unsigned long)us.drop_ev, (unsigned long)us.drop,
@@ -650,19 +662,64 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
              *    · Complete Name: 0x0F 09 "FPGA2026-Synth"   (14 字符 + 类型 + 长度 = 16 B)
              *    ⚠️ 合计 3 + 16 = 19 B ≤ 31 B（BLE 4.x 广播包上限）✅
              */
-            static uint8_t adv_raw[] = {
-                0x02, 0x01, 0x06,                     /* Flags */
-                0x0F, 0x09,                           /* len=15, type=完整本地名 */
-                'F','P','G','A','2','0','2','6','-','S','y','n','t','h'
-            };
+            /* 广播数据 = Flags + 完整本地名。
+             *
+             * 🔴🔴 2026-10-13 修（两个缺陷叠在一起，都在这几行里）：
+             *
+             * 缺陷 A（原来就有）：名字和长度【都写死】，而且【互相不符】：
+             *      static uint8_t adv_raw[] = {
+             *          0x02, 0x01, 0x06,
+             *          0x0F, 0x09,                    <- 声明 15 字节
+             *          'F','P','G','A','2','0','2','6','-','S','y','n','t','h'
+             *      };                                 <- 实际只有 14 个字符
+             *   ⚠️ 后果：PC 按 15 字节取名字 => 越界 => 名字解析失败。
+             *
+             * 缺陷 B（我第一次修的时候引入的）：数组大小算式算错：
+             *      2 + 2 + sizeof(BLE_DEV_NAME)-1            = 18   ✗
+             *      正确 = Flags(3) + [len][type](2) + 名字(N) = N+5  ✓
+             *   🔴 少 1 字节 => memcpy 把【名字的最后一个字符截掉】。
+             *   实测证据（诊断日志打出的真实字节）：
+             *      bytes = [02 01 06 0F 09 46 50 47 41 32 30 32 36 2D 53 79 6E 74]
+             *               ^^^^^ 声明 15 字节，实际只跟了 13 个字符（缺 'h'）
+             *   ⭐ 这解释了全部现象：板子日志说在广播、PC 却**收不到名字**
+             *      （收到的是空包）=> "找不到设备"。
+             *
+             * 修法：由 BLE_DEV_NAME 自动生成，长度用【加法】而不是硬编码算式，
+             *   并加编译期断言把总长钉死。⛔ 不再手写字符与长度。
+             *   ⚠️ 改名时只需改 ble_config.h 一处。 */
+            enum { ADV_NAME_LEN = sizeof(BLE_DEV_NAME) - 1 };   /* 设备名字节数 */
+            static uint8_t adv_raw[3 + 2 + ADV_NAME_LEN];       /* Flags + AD 头 + 名字 */
+            /* 编译期断言（两个都要）：
+             *  · 包不能超过 31 字节 —— BLE 4.x 广播硬上限，超了广播会被拒，
+             *    现象是"PC 扫不到"，极难定位；
+             *  · 数组必须正好装下 —— 少了会静默截断名字（这次的坑）。 */
+            _Static_assert(sizeof(adv_raw) <= 31,
+                           "广播包超过 31 字节：BLE_DEV_NAME 太长了");
+            _Static_assert(sizeof(adv_raw) == 5 + ADV_NAME_LEN,
+                           "广播数组大小与内容不符（会截断名字）");
+            adv_raw[0] = 0x02; adv_raw[1] = 0x01; adv_raw[2] = 0x06;   /* Flags */
+            adv_raw[3] = (uint8_t)(ADV_NAME_LEN + 1);                  /* len = 名长+1 */
+            adv_raw[4] = 0x09;                                        /* 完整本地名 */
+            memcpy(&adv_raw[5], BLE_DEV_NAME, ADV_NAME_LEN);
             esp_err_t adv_err = esp_ble_gap_config_adv_data_raw(adv_raw,
                                                                sizeof(adv_raw));
             if (adv_err != ESP_OK) {
                 ESP_LOGE(TAG, "config_adv_data_raw FAILED: 0x%X (%s)",
                          adv_err, esp_err_to_name(adv_err));
             } else {
-                ESP_LOGI(TAG, "config_adv_data_raw OK (%u B), waiting for SET_COMPLETE",
-                         (unsigned)sizeof(adv_raw));
+                /* 2026-10-13 诊断：把【实际要广播的字节】打出来。
+                 * 为什么需要：PC 侧实测收到的是【空广播包】（local_name=None、
+                 *   无 manufacturer、无 service_uuid，只有 RSSI），
+                 *   而固件每一步日志都说成功 —— 两边对不上。
+                 *   ⭐ 只有把字节打出来才能确定是"我们发错了"还是"控制器没发"。 */
+                char hexbuf[3 * sizeof(adv_raw) + 1];
+                size_t hp = 0;
+                for (size_t k = 0; k < sizeof(adv_raw) && hp + 3 < sizeof(hexbuf); k++) {
+                    hp += snprintf(hexbuf + hp, sizeof(hexbuf) - hp, "%02X ", adv_raw[k]);
+                }
+                ESP_LOGI(TAG, "config_adv_data_raw OK (%u B), adv name = \"%s\", "
+                         "bytes = [%s], waiting for SET_COMPLETE",
+                         (unsigned)sizeof(adv_raw), BLE_DEV_NAME, hexbuf);
             }
         }
         break;

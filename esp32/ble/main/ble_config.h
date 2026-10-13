@@ -146,8 +146,21 @@
  * 5. ⭐ BLE 参数
  * ---------------------------------------------------------------------------
  * ⚠️ 设备名：手机/PC 靠它找设备。⛔ 不要写含人名的字符串。
+ *
+ * 🔴🔴 2026-10-13 改名（`-Synth` -> `-Synth2`）—— 这不是随意改，是【绕开
+ *   Windows 的 GATT 缓存】：
+ *   实测症状：板子固件完全正常（日志里 `attr table created OK`、
+ *     `0xABF1`~`0xABF4` 全部注册、`service started`），但 PC 连上后
+ *     只能发现 【4 个标准 GATT 特征】，我们自己的一个都没有
+ *     => `BleakCharacteristicNotFoundError`（0xABF3 not found）。
+ *   ⭐ 根因：Windows 按【MAC 地址】缓存服务列表，不信板子的实际 GATT。
+ *     板子复位、重烧固件都无效（试过，都还是 4 个）——
+ *     因为地址没变。
+ *   ⭐ 换名字会让 Windows 当成【新设备】，缓存自然失效。
+ *   📌 若将来又要清缓存：再改一次名字（`-Synth3`）即可，
+ *     ⛔ 不必动注册表（那里也没有 GATT 缓存，实测只存了设备名/指纹）。
  */
-#define BLE_DEV_NAME         "FPGA2026-Synth"
+#define BLE_DEV_NAME         "FPGA2026-Synth2"
 
 /*
  * 🔴 GATT UUID —— ⭐ **照抄 ESP-IDF 官方 `ble_spp_server` 示例**

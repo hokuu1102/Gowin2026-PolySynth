@@ -88,6 +88,23 @@ void hmi_set_progress(uint32_t sent, uint32_t total);
 /* 事件计数文本（屏上 t1）。⭐ 与"守恒等式"呼应：它就是丢没丢的现场证据 */
 void hmi_set_events(uint32_t sent, uint32_t total);
 
+/* 播放位置（2026-10-13 新增）—— 让屏上的进度条显示"放到哪了"，⛔ 不是"灌了多少"。
+ *
+ * 为什么需要它：灌完之后 `sent/total` 恒为 100%，进度条就"死"了；
+ *   而用户真正想知道的是播放位置。
+ *
+ * 参数（都是音乐 tick，与谱面同量纲）：
+ *   play_tick  = 此刻应该已经播到的位置（= t0 + elapsed）
+ *   t0_tick    = 起播锚点
+ *   lead_ticks = 提前量（BLE_POOL_LEAD_TICKS）
+ *   total_ticks= 本曲总 tick（分母；⭐ 0 = 未知 => 显示层退回灌谱百分比）
+ *   valid      = 位置是否有效（正在放水）
+ *
+ * 消费方算法：heard = play_tick - t0_tick - lead_ticks（还没出声时 <= 0）。
+ */
+void hmi_set_play_pos(uint32_t play_tick, uint32_t t0_tick, uint32_t lead_ticks,
+                      uint32_t total_ticks, bool valid);
+
 /* 状态字（屏上 t2） */
 void hmi_set_state(hmi_state_t st);
 
