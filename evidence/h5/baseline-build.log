@@ -1,0 +1,89 @@
+*** GOWIN Tcl Command Line Console  *** 
+Open project C:/Users/cyx/Documents/ChatGPT/FPGA/Gowin2026-PolySynth-t31b-main/Gowin2026.gprj finished
+GowinSynthesis start
+Running parser ...
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\ip\wavetable_sine_rom_ip\wavetable_sine_rom_ip.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\clk_gen.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\rst_sync.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\sync_input.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\oscillator_bank.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\adsr.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\envelope_bank.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v'
+WARN  (EX3801) : Parameter 'LANE_WS' becomes localparam in 'tdm_render_mixer' with formal parameter declaration list("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v":203)
+WARN  (EX3801) : Parameter 'LANE_W0' becomes localparam in 'tdm_render_mixer' with formal parameter declaration list("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v":204)
+WARN  (EX3801) : Parameter 'LANE_W1' becomes localparam in 'tdm_render_mixer' with formal parameter declaration list("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\tdm_render_mixer.v":205)
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\test_mode_ctrl.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\vibrato_lfo.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\wavetable_bank.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\dds_wavetable_core.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\voice.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\voice_i2s_chain.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3b\note_manager.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\drivers\adc_farm.sv'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\drivers\calib.sv'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\drivers\debounce.sv'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\axis_map.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\axis_snapshot.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\event_extract.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\async_pluck_capture.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\play_mode_ctrl.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\param_extract.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\right_analog_ctrl.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\fader_gear.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\ws2812_driver.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\led_indicator.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\calib_autotare.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\calib_span.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\calib_cmd.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\evt_uart_rx.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_ui.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_tx.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_tx_fifo.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\pos_probe.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\span_probe.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\i2s_tx.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\beat_gen.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\metronome.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\perc_env_bank.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_rx.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\play_seq.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\evt_merge.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\looper.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\led_data.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\tlc5916_bank.sv'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\seq_arb.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\drum_gen.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\master_mix.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\drivers\tlc5916_driver.sv'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\drivers\mcp3208_driver.sv'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\drivers\mcp3208_scanner.sv'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\video_timing.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\tmds_encoder.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\tmds_serializer.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\hdmi_clk.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\waveform_scope.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\hdmi_scope.v'
+Compiling module 'top'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":36)
+Extracting RAM for identifier 'as_pos_d'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":3022)
+WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":4874)
+Compiling module 'rst_sync'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\rst_sync.v":27)
+Compiling module 'sync_input(RESET_VAL=1'b1)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\sync_input.v":31)
+Compiling module 'debounce(NKEY=1)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\drivers\debounce.sv":24)
+Compiling module 'clk_gen'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\clk_gen.v":25)
+Compiling module 'uart_rx(BAUD_DIV=100)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_rx.v":81)
+Compiling module 'uart_ui(BAUD=500000)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_ui.v":49)
+Compiling module 'calib_cmd(BAUD=500000)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\calib_cmd.v":70)
+Extracting RAM for identifier 'cmd_tab'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\calib_cmd.v":527)
+WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3a\calib_cmd.v":577)
+Compiling module 'evt_uart_rx(BAUD=500000)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\evt_uart_rx.v":70)
+Compiling module 'uart_tx_fifo'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_tx_fifo.v":54)
+Extracting RAM for identifier 'mem'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_tx_fifo.v":89)
+Compiling module 'uart_tx(BAUD_DIV=100)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_tx.v":56)
+WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\w3c\uart_tx.v":242)
+ERROR (EX3990) : Cannot find port 'scope_mode_i' on this module("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\hdmi_scope.v":33)
+'waveform_scope' is declared here("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\waveform_scope.v":11)
+WARN  (EX3073) : Port 'SCOPE_MODE' remains unconnected for this instance("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\hdmi\hdmi_scope.v":38)
+Module 'top' remains a black box due to errors in its contents("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v":36)
+GowinSynthesis finish

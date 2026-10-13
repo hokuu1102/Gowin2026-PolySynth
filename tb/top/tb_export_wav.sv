@@ -32,6 +32,9 @@ module tb_export_wav;
 
     // ── ⭐ DUT：出声档（⭐ 自检和弦开，源 A 走 seq_arb 手弹）──────────────
     top #(
+        //  ⭐ 2026-10-09：本 tb 只测音频/控制，⛔ 不测 HDMI ⇒ 剪掉李萨如渲染器。
+        //     ⚠️ 必须显式传 0：`top.v` 交付默认已是 SCOPE_MODE=1，否则本 tb 会超时。
+        .SCOPE_MODE        (0),
         .PA_ON_AFTER_RESET (1),        // ⭐ Console 上 1 = 出声
         .DEMO_CHORD_ON     (1),
         .SOURCE_A_SEL      (0),        // ⭐ 走 seq_arb（手弹源）

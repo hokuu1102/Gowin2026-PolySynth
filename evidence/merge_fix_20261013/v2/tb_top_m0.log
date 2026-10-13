@@ -1,0 +1,52 @@
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=20 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=20 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=20 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+VCD info: dumpfile build/sim/tb_top_m0/tb_top_m0.vcd opened for output.
+
+==================== top / M0 顶层验收 ====================
+  A 时基    : HP_BCK 周期 min=16 max=16 clk（期望 16）· 上升沿 4097 个
+              HP_WS  周期 min=1024 max=1024 clk（期望 1024）· 上升沿 64 个
+  B fallback: PA_EN_n NOT-low 0 cyc (expect 0) * trans 0 (expect 0) * rst-bad 0
+  C Console : PA_EN_n high 65536 of 65536 cyc (expect all) * trans 0 * falling 0 (both expect 0)
+  D 心跳    : 翻转 127 次 · 间隔 min=512 max=512 clk（期望 512）
+  G rst_sync: 输入释放拍 9 · 同步输出释放拍 11 · 延迟 2 拍（期望恰好 2）
+  E 静音    : HP_DIN 为 1 的拍数 0（期望 0）
+  F A8      : bck=0 ws=0 din=0 pa=0 hb=0 pa(延时)=0
+  J 外置DAC : I2S2_BCK 周期 min=16 max=16 · I2S2_LRCK 周期 min=1024 max=1024
+              与板载逐拍比对: 65536 拍中有 0 拍不一致（期望 0）
+              上升沿 bck2=4097 lrck2=64 · A8 bck2=0 lrck2=0 din2=0
+  证据      : sim/evidence/top_m0_pa_trace.csv（应只有表头）+ 波形 build/sim/tb_top_m0/
+==========================================================
+  ok : A · HP_BCK 周期恰好 16 clk（3.125 MHz）
+  ok : A · HP_WS 周期恰好 1024 clk（48.828125 kHz）
+  ok : B * NEO-Dock fallback (PA_ON_AFTER_RESET=0) -- PA_EN_n low throughout, 0 transitions
+  ok : C * Console delivery -- PA_EN_n high for all 65536 cycles, 0 edges (SD_MODE=Left => SOUNDS)
+  ok : D · 心跳 LED 活着且半周期恰好 512 clk（127 次翻转）
+  ok : E · 静音是真静音 —— HP_DIN 全程为 0
+  ok : F · A8 无 X/Z 传播（5 个顶层输出 + 延时实例）
+  ok : G · rst_sync 把复位释放延后**恰好 2 拍**（异步输入 → 同步释放）
+  H SD_MODE : PA_EN_n falling edges A=0 (fallback, low) B=0 (Console, high)
+  ok : H * zero falling edges -- Console SD_MODE never leaves Left (would be Shutdown)
+  I default : bare instantiation PA_ON_AFTER_RESET = 1 (1 = Console sounds; 0 = Shutdown)
+  ok : I * delivery default correct -- bare instantiation drives SD_MODE high => board sounds
+  ok : I * explicit PA_ON_AFTER_RESET=0 gives a static-low output (NEO-Dock fallback intact)
+  ok : J · I2S2_BCK 周期恰好 16 clk（3.125 MHz，与板载同档）
+  ok : J · I2S2_LRCK 周期恰好 1024 clk（48.828125 kHz）
+  ok : J * 外置与板载【逐拍完全一致】（65536 拍全等）-- 两路同源同步，无相位漂移
+  J 活动量  : 外置 bck=8193 lrck=127 din=0 ｜ 板载 bck=8193 ws=127 din=0
+  ok : J ** 外置与板载的【活动量相称】（⭐ 时钟线都在动；本档两路 DIN 同为静音）
+  ok : J · A8 外置三根线复位后无 X/Z
+  ok : P0-06 g_silent 档 fault_sticky 有确定值（=0）
+  ok : P0-06 心跳翻转 64 次（活体见证有效）
+
+PASS: M0 top-level acceptance (timebase + SD_MODE polarity + silence-clean + heartbeat + no X + external DAC)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\top\tb_top_m0.sv:570: $finish called at 1310971000 (1ps)

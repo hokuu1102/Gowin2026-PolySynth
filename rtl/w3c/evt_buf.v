@@ -220,10 +220,10 @@ assign high_water_o = hw_r;
             //     📌 语义：⭐ 清掉的只是"已读走的那个标记"，
             //        ⭐ 同拍新丢的会**重新置位** ⇒ ⚠️ **不丢信息** ✅
             if (ovf_clr_i) begin
-                ovf_r  <= 1'b0;
-                drop_r <= 16'd0;
+                ovf_r  <= wr_valid_i && !push_ok;
+                drop_r <= (wr_valid_i && !push_ok) ? 16'd1 : 16'd0;
                 //  ⭐⭐ 2026-10-11：⭐ **高水位与 `ovf` 一起清**（⭐ 共用 `ovf_clr_i` ✅）
-                hw_r   <= 1'b0;
+                hw_r   <= wr_valid_i && (cnt_next >= HIGH_WM);
             end
         end
     end

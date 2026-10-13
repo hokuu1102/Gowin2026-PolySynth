@@ -1,0 +1,63 @@
+== a: source tag observable at EVERY pipeline stage ==
+  INFO a: src=0 fifo=000 head=000 cur=000 mask_x=0 alloc=1 voice=0 drum=0
+  INFO a: src=1 fifo=001 head=001 cur=001 mask_x=0 alloc=1 voice=1 drum=0
+  INFO a: src=2 fifo=010 head=010 cur=010 mask_x=0 alloc=1 voice=2 drum=0
+  INFO a: src=3 fifo=011 head=011 cur=011 mask_x=0 alloc=1 voice=28 drum=1
+  INFO a: src=4 fifo=100 head=100 cur=100 mask_x=0 alloc=1 voice=3 drum=0
+  INFO a: src=5 fifo=101 head=101 cur=101 mask_x=0 alloc=1 voice=29 drum=1
+  INFO a: src=6 fifo=000 head=000 cur=000 mask_x=0 alloc=1 voice=4 drum=0
+  INFO a: src=7 fifo=000 head=000 cur=000 mask_x=0 alloc=1 voice=5 drum=0
+  ok  : a1: src tag is stored in the FIFO entry (stage 1/5)
+  ok  : a2: src tag is visible at the queue head (stage 2/5)
+  ok  : a3: src tag is latched into cur_src (stage 3/5)
+  ok  : a4: pool_mask is x-free and equals the src-derived mask (stage 4/5)
+  ok  : a5: voice_drum_o[alloc] == (src is AUX or KDRUM) (stage 5/5)
+  ok  : a6: every src got a voice, in the pool its source demands
+  ok  : rc code 5 (keyboard drums) => reserved pool + drum=1 + allocated (P1-59)
+  ok  : a8: UNUSED src codes 6/7 behave like hand-play (normal pool, drum=0)
+== b: differential equivalence -- src=0 on axis 14/15 vs axis 0..13 ==
+  INFO b: axis=0 src=0 alloc_voice=0 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=1 src=0 alloc_voice=1 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=2 src=0 alloc_voice=2 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=3 src=0 alloc_voice=3 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=4 src=0 alloc_voice=4 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=5 src=0 alloc_voice=5 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=6 src=0 alloc_voice=6 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=7 src=0 alloc_voice=7 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=8 src=0 alloc_voice=8 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=9 src=0 alloc_voice=9 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=10 src=0 alloc_voice=10 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=11 src=0 alloc_voice=11 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=12 src=0 alloc_voice=12 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=13 src=0 alloc_voice=13 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=14 src=0 alloc_voice=14 normal_pool=1 drum=0 mask_x=0
+  INFO b: axis=15 src=0 alloc_voice=15 normal_pool=1 drum=0 mask_x=0
+  ok  : b1: all 16 live (src=0) presses land in the NORMAL pool (< 28)
+  ok  : b2: voice_drum_o is 0 for all 16 live voices (no key is a drum)
+  ok  : b3: pool_mask is bit-identical for axis 14/15 and axis 0..13 under src=0
+  ok  : b4: the 16 live presses occupy 16 distinct voices
+  ok  : b5: axis 14 (G#3) with src=0 is NOT routed to the reserved pool
+  ok  : b6: axis 15 (A#3) with src=0 is NOT routed to the reserved pool
+  ok  : b7: voice_drum_o is 0 on the axis-14 and axis-15 voices
+== c: dangling note_src_i (z) -- pool_mask must be x-free, no event lost ==
+  INFO c: axis=0 fifo=000(x=0) head=000 cur=000 mask_x=0 alloc=1 voice=0
+  INFO c: axis=7 fifo=000(x=0) head=000 cur=000 mask_x=0 alloc=1 voice=1
+  INFO c: axis=14 fifo=000(x=0) head=000 cur=000 mask_x=0 alloc=1 voice=2
+  ok  : c0 (setup): the note_src_i port of DUT Z really is floating (z)
+  ok  : c1: pool_mask has NO x bit while note_src_i dangles
+  ok  : c2: a dangling tag behaves like hand-play (src=0) -- Z-safe decode
+  ok  : c3: no event is lost while note_src_i dangles (alloc still happens)
+  ok  : c4: all 3 dangling-tag events occupy voices
+== d: end-to-end pitch -- axis 14/15 keep phase_inc and are not drums ==
+  INFO d: ax14 voice=0 inc=00123456 drum=0 | ax15 voice=1 inc=00abcdef drum=0
+  INFO d: ax0  voice=2 inc=00112233 drum=0 | aux(src=3,ax5) voice=28 inc=00223344 drum=1
+  ok  : d1: axis 14 (src=0) keeps phase_inc bit-exact (not rewritten)
+  ok  : d2: axis 15 (src=0) keeps phase_inc bit-exact (not rewritten)
+  ok  : d3: axis 0 control also keeps phase_inc bit-exact
+  ok  : d4: the axis-14/15 voices really carry axis 14/15
+  ok  : d5: axis-14/15 voices are NOT drum voices (pitch drives the wavetable)
+  ok  : d6 (non-vacuous): src=3 raises voice_drum_o (d5 is not trivial)
+  ok  : d7: the src=3 voice also keeps phase_inc bit-exact
+  ok  : d8: the src=3 voice sits in the reserved pool (>= 28)
+PASS: pool-by-source judgements (26.3 a/b/c/d) all held
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\w3b\tb_pool_by_src.sv:636: $finish called at 25960000 (1ps)

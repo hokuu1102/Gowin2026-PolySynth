@@ -1,0 +1,42 @@
+=== tb_pos_probe ===
+== 1: 无请求 ==
+  ok  : 无请求时 push 恒 0
+== 2/3: 一次请求 ==
+  ok  : 正好 8 个字节
+    744: pos=744 -> P00744
+
+  ok  : 744 数值正确
+    0: pos=0 -> P00000
+
+  ok  : 0 数值正确
+    4095: pos=4095 -> P04095
+
+  ok  : 4095 数值正确
+    9: pos=9 -> P00009
+
+  ok  : 9 数值正确
+    2050: pos=2050 -> P02050
+
+  ok  : 2050 数值正确
+== 4: 锁存语义 ==
+  ok  : 回传期间改输入 ⇒ 仍输出锁存的 1234
+    锁存: pos=1234 -> P01234
+
+  ok  : 锁存 数值正确
+== 5: 非空时不开新包（K-126 的教训）==
+  ok  : 非空时一个都不发（⭐ 等，⛔ 不硬塞）
+  ok  : 非空时 busy 为 0（⭐ 还没开始，⛔ 不是忙）
+  ok  : 空了以后请求 ⇒ 7 个字节全发（⭐ 一个没丢）
+    空后: pos=500 -> P00500
+
+  ok  : 空后 数值正确
+== 6: busy 语义 ==
+  ok  : 空闲时 busy 为 0
+  ok  : 回传中 busy 为 1
+  ok  : 回完后 busy 落 0
+== 7: A8 ==
+  ok  : A8: data 无 X/Z
+  ok  : A8: busy 无 X/Z
+
+PASS: pos_probe emits 'P<4 digits>CRLF' on request, latches the reading, and never drops when the sink is busy
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\tb\w3c\tb_pos_probe.sv:219: $finish called at 6050000 (1ps)

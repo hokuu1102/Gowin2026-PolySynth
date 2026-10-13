@@ -1,0 +1,2 @@
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\w3b\tb_nm_reuse_tail.sv:116: warning: Port 9 (note_src_i) of note_manager expects 3 bits, got 2.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261013-6efd069-v2\tb\w3b\tb_nm_reuse_tail.sv:116:        : Padding 1 high bits of the port.

@@ -1,0 +1,2 @@
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v:2143: warning: Port 5 (sample_data_i) of calib_autotare expects 24 bits, got 36.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\rtl\top.v:2143:        : Pruning 12 high bits of the expression.

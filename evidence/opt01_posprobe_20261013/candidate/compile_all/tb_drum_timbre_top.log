@@ -1,0 +1,76 @@
+﻿iverilog.exe : C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\hdmi\hdmi_clk.v:4: warning: time
+scale for hdmi_clk inherited from another file.
+At C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\compile_all.ps1:10 char:15
++ ...   $result = & D:/iverilog/bin/iverilog.exe -g2012 -Wall @defs -s $tes ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\cyx\Do...m another file.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited
+ timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\hdmi\tmds_encoder.v:2: warning: timescale for t
+mds_encoder inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timesca
+le is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\hdmi\tmds_serializer.v:2: warning: timescale fo
+r tmds_serializer inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timesca
+le is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\hdmi\video_timing.v:1: warning: timescale for v
+ideo_timing inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timesca
+le is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\w3c\guide_lamp.v:30: warning: timescale for gui
+de_lamp inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timesca
+le is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\w3c\pos_probe.v:73: warning: timescale for pos_
+probe inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\w3c\play_seq.v:1: ...: The inherited timescale 
+is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\w3c\span_probe.v:71: warning: timescale for spa
+n_probe inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\w3c\seq_arb.v:1: ...: The inherited timescale i
+s here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for u
+art_tx_fifo inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\w3c\uart_tx.v:1: ...: The inherited timescale i
+s here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\top.v:4335: warning: implicit definition of wir
+e 'looper_full'.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\top.v:2455: warning: Port 5 (sample_data_i) of 
+calib_autotare expects 24 bits, got 36.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\top.v:2455:        : Pruning 12 high bits of th
+e expression.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sens
+itive to all 16 words in array 'pc_l1'.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\tb\w3c\tb_drum_timbre_top.sv:95: warning: Instantia
+ting module top with dangling input port 3 (timbre_btn_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\tb\w3c\tb_drum_timbre_top.sv:95: warning: Instantia
+ting module top with dangling input port 11 (pluck_up_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\tb\w3c\tb_drum_timbre_top.sv:95: warning: Instantia
+ting module top with dangling input port 12 (pluck_down_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\tb\w3c\tb_drum_timbre_top.sv:95: warning: Instantia
+ting module top with dangling input port 30 (ctrl_col_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\tb\w3c\tb_drum_timbre_top.sv:95: warning: Instantia
+ting module top with dangling input port 31 (enc_a_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\tb\w3c\tb_drum_timbre_top.sv:95: warning: Instantia
+ting module top with dangling input port 32 (enc_b_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\tb\w3c\tb_drum_timbre_top.sv:95: warning: Instantia
+ting module top with dangling input port 33 (enc_sw_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\tb\w3c\tb_drum_timbre_top.sv:95: warning: Instantia
+ting module top with dangling input port 35 (pedal_sus_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\tb\w3c\tb_drum_timbre_top.sv:95: warning: Instantia
+ting module top with dangling input port 36 (pedal_loop_rec_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\tb\w3c\tb_drum_timbre_top.sv:95: warning: Instantia
+ting module top with dangling input port 37 (pedal_loop_play_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\tb\w3c\tb_drum_timbre_top.sv:95: warning: Instantia
+ting module top with dangling input port 39 (esp_uart_rx_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\tb\w3c\tb_drum_timbre_top.sv:113: warning: Instanti
+ating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\tb\w3c\tb_drum_timbre_top.sv:113: warning: Instanti
+ating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\tb\w3c\tb_drum_timbre_top.sv:117: warning: Instanti
+ating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\tb\w3c\tb_drum_timbre_top.sv:117: warning: Instanti
+ating module mcp3208_model with dangling input port 8 (ch_val_i) floating.

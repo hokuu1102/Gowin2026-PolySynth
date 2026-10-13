@@ -92,6 +92,10 @@ module tb_note_manager_write_share #(
     wire [EVT_LOST_CNT_W-1:0] event_lost_cnt_o, ref_event_lost_cnt_o;
     reg  event_lost_clr_i;
     note_manager #(
+        // This test compares write sharing to the frozen pre-pipeline model
+        // cycle-for-cycle. Production MATCH_PIPE_EN=1 is covered by functional
+        // allocation/source/retrigger tests, not this legacy timing oracle.
+        .MATCH_PIPE_EN(0),
         .POLY_TARGET(POLY_TARGET), .AXIS_W(AXIS_W), .PHASE_W(PHASE_W), .T3_EN(T3_EN), .VEL_W(VEL_W), .TIMBRE_W(TIMBRE_W), .ENV_W(ENV_W), .AGE_W(AGE_W), .RESERVED_N(RESERVED_N), .DEFAULT_VEL(DEFAULT_VEL), .RESERVED_AXIS_BASE(RESERVED_AXIS_BASE), .FIFO_DEPTH(FIFO_DEPTH), .EVT_LOST_CNT_W(EVT_LOST_CNT_W), .IDX_W(IDX_W)
     ) dut (
         .clk_i(clk_i),

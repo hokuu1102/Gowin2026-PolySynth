@@ -16,6 +16,6 @@ VCD info: dumpfile build/sim/tb_perc_env_top/tb_perc_env_top.vcd opened for outp
   ok  : P4 edge_detect_fired_EXACTLY_ONCE (not level-triggered)
   ok  : P5 perc_active_drops_after_decay
 PASS: perc_env_top -- reserved pool is one-shot percussive (K-144 fixed)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_perc_env_top.sv:200: $finish called at 86210000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_perc_env_top.sv:203: $finish called at 86210000 (1ps)
 
 

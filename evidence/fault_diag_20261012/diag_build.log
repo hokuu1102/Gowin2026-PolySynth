@@ -1,0 +1,42 @@
+Reading netlist file: "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\impl\gwsynthesis\Gowin2026.vg"
+Parsing netlist file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\impl\gwsynthesis\Gowin2026.vg" completed
+Processing netlist completed
+Reading constraint file: "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\constr\top.cst"
+WARN  (CT2065) : "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\constr\top.cst":536 | Some locations are invalid in 'R[1:44]C[1:148]'
+Physical Constraint parsed completed
+Running placement......
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_29_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_2_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_30_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_31_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_3_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_4_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_5_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_6_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_7_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_8_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_9_s' can't be placed according to constraint
+[10%] Placement Phase 0 completed
+[20%] Placement Phase 1 completed
+[30%] Placement Phase 2 completed
+[50%] Placement Phase 3 completed
+Running routing......
+[60%] Routing Phase 0 completed
+[70%] Routing Phase 1 completed
+[80%] Routing Phase 2 completed
+WARN  (PR1014) : Generic routing resource will be used to clock signal 'clk_d' by the specified constraint. And then it may lead to the excessive delay or skew
+[90%] Routing Phase 3 completed
+Running timing analysis......
+[95%] Timing analysis completed
+Placement and routing completed
+Bitstream generation in progress......
+Bitstream generation completed
+Running power analysis......
+[100%] Power analysis completed
+Generate file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\impl\pnr\Gowin2026.power.html" completed
+Generate file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\impl\pnr\Gowin2026.pin.html" completed
+Generate file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\impl\pnr\Gowin2026.rpt.html" completed
+Generate file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\impl\pnr\Gowin2026.rpt.txt" completed
+Generate file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\impl\pnr\Gowin2026.tr.html" completed
+Mon Oct 12 22:09:09 2026
+

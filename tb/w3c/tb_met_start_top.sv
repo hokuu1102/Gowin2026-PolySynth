@@ -90,6 +90,9 @@ module tb_met_start_top;
     //        一旦默认值变动，tb 就测了**别的**源，⭐ 而判据是**红的**，
     //        看起来像被测模块坏了（⭐ 本次白查一轮的教训 ✅）
     top #(
+        //  ⭐ 2026-10-09：本 tb 只测音频/控制，⛔ 不测 HDMI ⇒ 剪掉李萨如渲染器。
+        //     ⚠️ 必须显式传 0：`top.v` 交付默认已是 SCOPE_MODE=1，否则本 tb 会超时。
+        .SCOPE_MODE        (0),
         .SEL_DRUM              (0),
         .AUTOTARE_DELAY_CLK    (100_000),
         .SPAN_WAIT_TIMEOUT_CLK (50_000),

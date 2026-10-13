@@ -1,0 +1,9 @@
+﻿iverilog.exe : error: Unable to find the root module "tb_span_probe" in the Verilog source.
+At C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tools\run_q_adc_regression.ps1:19 char:24
++ ... mpileOutput=& $Iverilog -g2012 -DWAVETABLE_BEHAVIORAL -s $testName -o ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (error: Unable t...Verilog source.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+     : Perhaps ``-s tb_span_probe'' is incorrect?
+1 error(s) during elaboration.

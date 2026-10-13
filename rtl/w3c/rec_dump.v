@@ -2,15 +2,15 @@
 // rec_dump.v · ⭐⭐ 2026-10-11：⭐ **录制回传的导出 FSM**（⭐ 用户需求 ✅）
 //
 //   ⭐ **干什么**：⭐ 把 `looper` **已录下的事件**按**线上 9 字节帧**吐给
-//      `u_tx_fifo` ⇒ ⭐ `u_uart_tx_esp` ⇒ ⭐ ESP32 ⇒ BLE ⇒ PC ✅
+//      ready/push 下游；顶层采用独占双 UART ⇒ ESP32/板载接收端。
 //
 //   ⭐ **帧格式（⭐ 与 `evt_uart_rx` 收的完全同构 ⇒ ⭐ 可【直接回灌】✅）**：
 //      `0xA5` ＋ 8 字节【大端】事件字 ✅
 //      `tick[63:44]` · `inc[43:23]` · `axis[22:19]` · `vel[18:11]` ·
 //      `kind[10:9]` · `timbre[8:7]` · `[6:0]` 保留 ✅
 //
-//   ⭐⭐ **为什么"回灌同构"是要紧的**：⭐ 录下来的东西**能原样灌回曲谱口**
-//      ⇒ ⭐ "⭐ **录一段 → 回传 PC → 存成谱子 → 再灌回去**" 这条闭环才成立 ✅
+//   同构只指事件帧布局：音符单位转换有量化损失，并非 32 位无损。
+//   STATUS_ENABLE=1 时附 ASCII footer，PC 提取二进制帧后再回灌。
 //
 //   🔴🔴 **与 `looper` 的握手（⭐ 两个硬约束，⭐ 都在 `looper.v` 那边写明）**：
 //      ① ⭐ **必须占用读口**（`dump_en_o = 1`）——
@@ -24,9 +24,8 @@
 //            因为 `dump_addr_o` 在**给地址的那一拍末尾**才更新，
 //            ⭐ `looper` 在**下一拍**才拿它去读 ⇒ ⚠️ 少等一拍会**读到上一条** ✅
 //
-//   ⭐ **`clip_i`（⭐ 截断标志）**：⭐ `looper` 的导出是 **21 位 `inc`**
-//      ⇒ ⚠️ 实时弹的事件（⭐ `axis_map` 给 32 位全用）**会被截断** ✅
-//      ⇒ ⭐ 本模块**统计截断条数**（`clip_cnt_o`，⭐ 饱和 ✅）
+//   clip_i：Looper 负责量纲转换，标记量化或越界损失。
+//   本模块统计损失条数（clip_cnt_o，饱和），不再次变换 phase_inc。
 //      📌 ⭐ 目的：⭐ 让"**不是原样**"这件事**可见**（⭐ `K-106` ⛔ 不许静默失真 ✅）
 //
 //   ⭐ **`busy_o` / `done_o`**：⭐ 供顶层做可观测（⭐ `K-106` ✅）
@@ -38,7 +37,8 @@ module rec_dump #(
     //  ⭐ 地址/计数位宽（⭐ 与 `looper.CNT_W` 一致 = 16 ✅）
     parameter integer ADDR_W = 16,
     //  ⭐ 帧头（⭐ 与 `evt_uart_rx.HEADER` 一致 ✅）
-    parameter [7:0]   HDR    = 8'hA5
+    parameter [7:0]   HDR    = 8'hA5,
+    parameter integer STATUS_ENABLE = 0
 ) (
     input  wire                  clk_i,
     input  wire                  rst_n_i,
@@ -50,12 +50,13 @@ module rec_dump #(
 
     // ── ⭐ 来自 `looper` 的导出读口 ───────────────────────────────────────
     input  wire [63:0]           data_i,       // ⭐ 线上 64 位（⭐ 同步读，⭐ 2 拍后有效 ✅）
-    input  wire                  clip_i,       // ⭐ 本条被截断过（⭐ `inc` 超 21 位 ✅）
+    input  wire                  clip_i,       // 当前事件有量化或越界损失
+    input  wire [15:0]           reject_count_i,
 
     // ── ⭐ 推给 `u_tx_fifo` ───────────────────────────────────────────────
     input  wire                  ready_i,      // ⭐ 队列未满（⭐ 上游据此节流 ✅）
-    output reg                   push_o,       // ⭐ 推一个字节（⭐ 单周期 ✅）
-    output reg  [7:0]            byte_o,
+    output wire                  push_o,       // 当拍接受的字节，不预约下一拍
+    output wire [7:0]            byte_o,
 
     // ── ⭐ 占用 `looper` 的读口 ───────────────────────────────────────────
     output reg                   dump_en_o,
@@ -74,13 +75,22 @@ module rec_dump #(
                      S_WAIT  = 3'd2,   // ⭐ 地址已可见 ⇒ ⭐ BSRAM 本拍出数 ✅
                      S_LATCH = 3'd3,   // ⭐ 数据有效 ⇒ ⭐ 装进移位器 ✅
                      S_PUSH  = 3'd4,   // ⭐ 逐字节推（⭐ 9 个 ✅）
-                     S_DONE  = 3'd5;
+                     S_DONE  = 3'd5,
+                     S_STATUS_LOAD = 3'd6,
+                     S_STATUS_PUSH = 3'd7;
 
     reg [2:0]        st;
     reg [ADDR_W-1:0] addr_r;      // ⭐ 当前地址
     reg [ADDR_W-1:0] last_r;      // ⭐ 最后一条的地址（⭐ 启动时锁存 ⇒ ⛔ 不怕 `cnt_i` 中途变 ✅）
     reg [71:0]       sr;          // ⭐ `{HDR, word}` ⇒ ⭐ 左移 9 次发完 ✅
     reg [3:0]        bi;          // ⭐ 0..8（⭐ 9 个字节 ✅）
+    reg [111:0] status_sr;
+    function [7:0] hex_ascii;
+        input [3:0] n;
+        begin hex_ascii = (n < 10) ? (8'h30 + {4'd0,n}) : (8'h37 + {4'd0,n}); end
+    endfunction
+    assign push_o = ((st == S_PUSH) || (st == S_STATUS_PUSH)) && ready_i;
+    assign byte_o = (st == S_STATUS_PUSH) ? status_sr[111:104] : sr[71:64];
 
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
@@ -89,8 +99,7 @@ module rec_dump #(
             last_r      <= {ADDR_W{1'b0}};
             sr          <= 72'd0;
             bi          <= 4'd0;
-            push_o      <= 1'b0;
-            byte_o      <= 8'd0;
+            status_sr   <= 112'd0;
             dump_en_o   <= 1'b0;
             dump_addr_o <= {ADDR_W{1'b0}};
             busy_o      <= 1'b0;
@@ -99,7 +108,6 @@ module rec_dump #(
             frame_cnt_o <= 16'd0;
         end else begin
             //  ⭐ 默认：⭐ 脉冲类信号**每拍回落**（⭐ 下面按状态置位 ✅）
-            push_o <= 1'b0;
             done_o <= 1'b0;
 
             case (st)
@@ -144,8 +152,6 @@ module rec_dump #(
                 // ── ⭐ 逐字节推（⭐ `ready_i` 节流 ⇒ ⛔ 不丢字节 ✅）────────
                 S_PUSH: begin
                     if (ready_i) begin
-                        push_o <= 1'b1;
-                        byte_o <= sr[71:64];          // ⭐ 最高字节先发（⭐ 大端 ✅）
                         sr     <= {sr[63:0], 8'd0};   // ⭐ 左移一个字节 ✅
                         if (bi == 4'd8) begin
                             //  ⭐ 9 个字节发完（⭐ `bi` = 0..8 ✅）
@@ -153,7 +159,7 @@ module rec_dump #(
                             if (frame_cnt_o != 16'hFFFF)
                                 frame_cnt_o <= frame_cnt_o + 16'd1;
                             if (addr_r == last_r) begin
-                                st <= S_DONE;
+                                st <= STATUS_ENABLE ? S_STATUS_LOAD : S_DONE;
                             end else begin
                                 addr_r <= addr_r + {{(ADDR_W-1){1'b0}}, 1'b1};
                                 st     <= S_READ;
@@ -164,6 +170,23 @@ module rec_dump #(
                     end
                 end
 
+                // Footer: y + four hex frames/losses/rejects + LF.
+                // Cumulative counters since reset; ASCII cannot contain 0xA5.
+                S_STATUS_LOAD: begin
+                    status_sr <= {8'h79,
+                        hex_ascii(frame_cnt_o[15:12]),hex_ascii(frame_cnt_o[11:8]),hex_ascii(frame_cnt_o[7:4]),hex_ascii(frame_cnt_o[3:0]),
+                        hex_ascii(clip_cnt_o[15:12]),hex_ascii(clip_cnt_o[11:8]),hex_ascii(clip_cnt_o[7:4]),hex_ascii(clip_cnt_o[3:0]),
+                        hex_ascii(reject_count_i[15:12]),hex_ascii(reject_count_i[11:8]),hex_ascii(reject_count_i[7:4]),hex_ascii(reject_count_i[3:0]),8'h0a};
+                    bi <= 0;
+                    st <= S_STATUS_PUSH;
+                end
+                S_STATUS_PUSH: begin
+                    if (ready_i) begin
+                        status_sr <= {status_sr[103:0],8'd0};
+                        if (bi == 13) st <= S_DONE;
+                        else bi <= bi + 1'b1;
+                    end
+                end
                 // ── ⭐ 收尾（⭐ 释放读口 ＋ ⭐ 一个 `done` 脉冲 ✅）──────────
                 S_DONE: begin
                     dump_en_o <= 1'b0;

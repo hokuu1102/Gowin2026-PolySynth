@@ -70,7 +70,8 @@
 
 module span_probe #(
     // ⭐ 一次回传的字节数：'V' + state + axis + rej_hi + rej_lo + CR + LF = 7
-    parameter integer N_BYTES = 7
+    parameter integer N_BYTES = 7,
+    parameter integer QUEUE_WHEN_BLOCKED = 0
 ) (
     input  wire       clk_i,
     input  wire       rst_n_i,
@@ -89,7 +90,8 @@ module span_probe #(
     input  wire       ready_i,
     input  wire       idle_i,       // ⭐ 队列真空了才开新包
 
-    output reg        busy_o
+    output reg        busy_o,
+    output wire       packet_active_o
 );
 
     // ── ⭐ 常量 ───────────────────────────────────────────────────────────
@@ -97,9 +99,11 @@ module span_probe #(
     localparam [1:0] S_SEND = 2'd1;
     // star 2026-09-24: one extra settle cycle so push_o really drops before IDLE
     localparam [1:0] S_DONE = 2'd2;
+    localparam [1:0] S_WAIT_IDLE = 2'd3;
 
     // ── ⭐ 声明（⭐ 全部先于使用 —— `L66`）────────────────────────────────
     reg  [1:0]  state;
+    assign packet_active_o = (state == S_SEND) || (state == S_DONE);
     reg  [3:0]  idx;                // ⭐ 0..6
     reg  [2:0]  st_lat;
     reg  [3:0]  ax_lat;
@@ -147,16 +151,20 @@ module span_probe #(
                 // ── ⭐ 等触发（⭐ 且下游真空）────────────────────────────
                 S_IDLE: begin
                     busy_o <= 1'b0;
-                    if (req_i && idle_i) begin
+                    if (req_i && (idle_i || QUEUE_WHEN_BLOCKED)) begin
                         st_lat <= state_i;
                         ax_lat <= axis_i;
                         rj_lat <= rej_i;
                         idx    <= 4'd0;
-                        state  <= S_SEND;
+                        state  <= idle_i ? S_SEND : S_WAIT_IDLE;
                         busy_o <= 1'b1;
                     end
                 end
 
+                S_WAIT_IDLE: begin
+                    busy_o <= 1'b1;
+                    if (idle_i) state <= S_SEND;
+                end
                 // ── ⭐ 逐个推字节 ────────────────────────────────────────
                 S_SEND: begin
                     busy_o <= 1'b1;

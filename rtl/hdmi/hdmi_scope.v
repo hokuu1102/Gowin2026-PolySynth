@@ -1,6 +1,12 @@
 `timescale 1ns/1ps
-module hdmi_scope (
+//  ⭐ 2026-10-09：新增显示模式参数（⛔ 端口一个没变 ⇒ 对 top.v 的连线零影响）
+//    SCOPE_MODE = 0 → 波形（原行为）· 1 → 李萨如（XY）
+module hdmi_scope #(
+    parameter integer XY_DELAY    = 64,    // Y 取延迟多少个样本（64 ≈ 1.3 ms）
+    parameter integer XY_GAIN     = 8      // XY 增益（图形大小 ∝ 它；台阶 = 它/8 像素）
+) (
     input wire clk, rst_n,
+    input wire SCOPE_MODE,                 // ⭐ 运行时显示模式（串口 'Q' 切换）
     input wire signed [23:0] sample_i,
     input wire valid_i,
     output wire [2:0] tmds_d_p_0, tmds_d_n_0,
@@ -60,7 +66,9 @@ module hdmi_scope (
     //   ⚠️ 它的 `reset_pipe` 是 `[1:0]`（⭐ 2 级）⇒ ⭐ 新写法是 `[2:0]`（⭐ 3 级，⭐ 与串行域一致 ✅）
     video_timing u_timing (.clk(pixel_clk), .rst_n(video_reset_n),
         .x(x), .y(y), .de(de), .hsync(hs), .vsync(vs));
-    waveform_scope u_scope (.sample_clk(clk), .sample_rst_n(rst_n),
+    waveform_scope #(.XY_DELAY(XY_DELAY), .XY_GAIN(XY_GAIN)) u_scope (
+        .sample_clk(clk), .sample_rst_n(rst_n),
+        .SCOPE_MODE(SCOPE_MODE),           // ⭐ 端口连接（⛔ 不是参数表）
         .sample_i(sample_i), .valid_i(valid_i),
         .pixel_clk(pixel_clk), .pixel_rst_n(video_reset_n),
         .x_i(x), .y_i(y), .de_i(de), .hs_i(hs), .vs_i(vs),

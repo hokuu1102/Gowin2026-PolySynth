@@ -1,0 +1,2 @@
+﻿PASS: clear retains a same-cycle new overflow
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_evt_buf_clear_collision.sv:19: $finish called at 160000 (1ps)

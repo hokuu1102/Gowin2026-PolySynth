@@ -1,0 +1,48 @@
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=8 VOTE_N=4 VOTE_TOL=16 REJECT_MAX=2 WAIT_TIMEOUT_CLK=200000)
+=== tb_calib_span ===
+  ok  : no span before start_i (idle is truly idle)
+  ok  : busy_o is low before start_i
+  ok  : need_press_o is low before start_i
+  ok  : need_press_o rises after start_i (prompting the operator)
+  ok  : busy_o is high while calibrating
+  ok  : jittery readings NEVER reach the vote stage (no span emitted)
+  ok  : still busy after jitter (stuck in settle, pending a stable hold)
+  ok  : abort_i returns the FSM to idle (busy_o drops)
+  ok  : abort_i clears need_press_o
+  ok  : abort_i does not assert done_o
+  ok  : abort_i emits no span (no half-pulse escapes)
+  ok  : abort_i clears done_cnt_o (no stale progress)
+  ok  : spread beyond VOTE_TOL is rejected (reject_o pulsed at least once)
+  ok  : rejection emitted no span for the bad sample set
+  ok  : calib.err (with busy NEVER rising) causes rejection, not a hang
+  ok  : calib.err never counts the axis as done (done_cnt_o stays 0)
+  ok  : calib.err within REJECT_MAX keeps the FSM from claiming done
+  ok  : calib.err eventually gives up instead of hanging forever
+  ok  : real calib.err (busy stays 0) is detected BEFORE any timeout
+  ok  : real calib.err never counts the axis as done (done_cnt_o stays 0)
+  ok  : NO samples at all => the FSM times out instead of hanging forever
+  ok  : timeout path reports rejection (observable, not silent)
+  ok  : timeout path never claims a successful calibration
+  ok  : after the timeout scenario, a fresh reset returns to idle
+  ok  : steady frames drive the FSM into the vote stage
+  ok  : frame loss DURING the vote stage times out instead of hanging
+  ok  : vote-stage timeout reports rejection (observable, not silent)
+  ok  : vote-stage timeout never claims a successful calibration
+  [align] ok=8  bad=0  spans=8
+  ok  : every span pulse occurred when sample_ch == cal_ch
+  ok  : span pulses were actually emitted (chain is live)
+  ok  : all axes calibrated => done_o asserted
+  ok  : done_cnt_o == AXIS_TOTAL when done
+  ok  : abort_i from DONE is safe (no span escapes)
+  ok  : abort_i from DONE returns to idle
+      [dbg] P0-09 投票代表值 = 0xb26（应 0xb26 = 2854；回绕会变 0x326 = 806）
+  ok  : P0-09 span_val_o carries the VOTE median (2854), NOT a 12-bit wrapped 806
+      [dbg] P0-10 span_o 曾是 2'b11 的次数 = 0（应为 0）
+  ok  : P0-10 span_o is NEVER 2'b11 (span goes to ONE chip only, per user choice A)
+--- 判据⑨：⭐ `P1-12` —— `S_DONE` 里重发 `start_i` 不许【静默无效】---
+  ok  : P1-12 setup: the span FSM reached DONE again (done_o asserted)
+  ok  : P1-12 setup: busy_o is 0 while sitting in DONE
+  ok  : P1-12 a second start_i after DONE RESTARTS the FSM (busy_o back to 1 -- NOT a silent no-op)
+
+PASS: calib_span gates on stability, rejects bad votes, aligns span with its channel, honours calib.err, and aborts cleanly from any state
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_calib_span.sv:640: $finish called at 24463890000 (1ps)

@@ -39,11 +39,10 @@
 //   ⚠️ **由此推出的硬约束（必须知道，⛔ 不能在 RTL 里"顺手"绕）**：
 //      · 共享 `LE` ⇒ 一次锁存会让**所有片**锁存**同一份 8 bit**。
 //      · ⇒ 任意时刻，**所有板显示的是同一个 8 bit 图案**，靠 `OE` 决定哪块板亮。
-//      · ⇒ **左/右板不能各自显示不同图案**（这是布线决定的，改要改板）。
-//      · 本模块的诚实行为：把"应该亮的所有键"按**或**合并成一张 8 bit 图，
-//        在共享总线上写一次，再用 `OE` 决定点亮哪几块板。
-//        —— 当且仅当"左/右板要亮的键完全一致"时，两侧才逐键对齐；
-//          否则左/右会出现"同一 OUT 位同亮"（这是硬件拓扑的物理后果，非 RTL bug）。
+//      · 左/右板不能全时静态显示不同图案，但可在独立 OE 下分时扫描。
+//      · 2026-10-13 更正：每板写自身快照、锁存后保持 OE 500 us；
+//        然后消隐并写下一板，持续刷新，不能合并图案后同时打开所有 OE。
+//      · 扫描降低平均亮度，需实板验收；不是可调亮度 PWM。
 //
 // ═══════════════════════════════════════════════════════════════════════════
 // ⭐ 设计要点
@@ -51,7 +50,7 @@
 //   1. ⭐ **CH→OUT 用查找表**（`OUT_SEL` 参数，8 项）——⛔ 不用算术（§1.4 铁律）。
 //   2. ⭐ **单 driver 实例**：共享总线只用 1 个 `tlc5916_driver`，逐片轮流写，
 //       写完一片 `LE` 锁存、`OE` 切换，再写下一片。
-//   3. ⭐ **低速提交**：只在 `pattern_commit_i` 那一拍启动一轮重写（⛔ 每拍刷）。
+//   3. 首次提交后持续扫描；新 commit 缓存最新图案，在帧边界整体更新。
 //   4. ⭐ 单时钟域 + Verilog-2001 语法（`K-91`）+ 同步低复位。
 // ─────────────────────────────────────────────────────────────────────────────
 `default_nettype none
@@ -67,7 +66,8 @@ module tlc5916_bank #(
     parameter integer CLK_HZ      = 50_000_000,
     parameter integer DATA_HZ     = 1_000_000,
     // ⭐ 每片 8 bit（TLC5916 固定 8 路，⛔ 不改）。
-    parameter integer CHIP_W      = 8
+    parameter integer CHIP_W      = 8,
+    parameter integer DISPLAY_US  = 500
 ) (
     input  wire                     clk_i,
     input  wire                     rst_n_i,
@@ -166,29 +166,43 @@ module tlc5916_bank #(
     );
 
     // ═══════════════════════════════════════════════════════════════════════
-    // ⭐ 逐片写状态机：IDLE → START → WAIT_BUSY → (下一片 / IDLE)
+    // 逐片写状态机：IDLE → START → WAIT_BUSY → DISPLAY → (下一片 / IDLE)
     //   · 空闲时 `led_oe_n` 全高（全灭，安全态）；
-    //   · `pattern_commit_i` 脉冲触发一轮：先写片0、再片1、再片2；
+    //   · pattern_commit_i 缓存帧；先片0、片1、片2，每板保持后循环刷新；
     //   · ⭐ 握手（关键）：拉 `start` → 等 driver `busy` 拉高（已接受）→ 等 `done`；
     //     ⛔ 不能只拉 1 拍 `start` 就去等 `done` —— driver 复位后有 ~6µs 恢复序列，
     //        其间来的 `start` 只进 `pending`，`done` 要等恢复完才来 ⇒ 丢写。
     // ═══════════════════════════════════════════════════════════════════════
     localparam [2:0] S_IDLE      = 3'd0,
                      S_START     = 3'd1,   // 拉 start，等 driver 接受（busy 拉高）
-                     S_WAIT_BUSY = 3'd2;   // driver 已接受，等 done
+                     S_WAIT_BUSY = 3'd2,
+                     S_DISPLAY   = 3'd3;
 
     reg [2:0]  state;
     reg [1:0]  chip_sel;      // 0/1 = 键灯片，2 = 状态灯片
     reg        drv_start_r;
     reg [CHIP_W-1:0] drv_data_r;
     reg        busy_r;
+    localparam integer DISPLAY_CYC = (CLK_HZ / 1_000_000) * DISPLAY_US;
+    localparam integer DISPLAY_W = $clog2(DISPLAY_CYC + 1);
+    reg [DISPLAY_W-1:0] display_count;
+    reg [23:0] latest_pattern, frame_pattern;
+    reg have_pattern;
+    function [7:0] map_pattern;
+        input [7:0] ch_bits;
+        integer k;
+        begin
+            map_pattern = 0;
+            for(k=0;k<8;k=k+1) map_pattern[ch_to_out(k[2:0])] = ch_bits[k];
+        end
+    endfunction
 
     // 当前要写的数据（按 chip_sel 选）
     always @(*) begin
         case (chip_sel)
-            2'd0: drv_data_r = chip0_out;
-            2'd1: drv_data_r = chip1_out;
-            default: drv_data_r = chip2_out;
+            2'd0: drv_data_r = map_pattern(frame_pattern[7:0]);
+            2'd1: drv_data_r = map_pattern(frame_pattern[15:8]);
+            default: drv_data_r = map_pattern(frame_pattern[23:16]);
         endcase
     end
     assign drv_data = drv_data_r;
@@ -198,7 +212,9 @@ module tlc5916_bank #(
     reg [OE_N-1:0] oe_n_r;
     always @(*) begin
         oe_n_r = {OE_N{1'b1}};              // 默认全灭
-        if (state != S_IDLE && !global_blank_i) begin
+        // All boards blank during shifting/latching; one board holds the
+        // shared latch for a full display window. Never enable all boards.
+        if (state == S_DISPLAY && !global_blank_i) begin
             if (chip_sel == 2'd0)      oe_n_r[0] = 1'b0;
             else if (chip_sel == 2'd1) oe_n_r[1] = 1'b0;
             else                        oe_n_r[4] = 1'b0;  // 状态灯 = 右手板 B = oe[4]
@@ -215,14 +231,25 @@ module tlc5916_bank #(
             chip_sel    <= 2'd0;
             drv_start_r <= 1'b0;
             busy_r      <= 1'b0;
+            display_count <= 0;
+            latest_pattern <= 0;
+            frame_pattern <= 0;
+            have_pattern <= 0;
         end
         else begin
+            if (pattern_commit_i) begin
+                latest_pattern <= pattern_i;
+                have_pattern <= 1;
+            end
             case (state)
                 S_IDLE: begin
                     drv_start_r <= 1'b0;
                     busy_r      <= 1'b0;
                     chip_sel    <= 2'd0;
-                    if (pattern_commit_i) begin
+                    // Commit snapshots the full frame; refreshing continues
+                    // even with no further commits. Busy commits keep latest.
+                    if (have_pattern || pattern_commit_i) begin
+                        frame_pattern <= pattern_commit_i ? pattern_i : latest_pattern;
                         busy_r   <= 1'b1;
                         chip_sel <= 2'd0;
                         state    <= S_START;
@@ -251,7 +278,14 @@ module tlc5916_bank #(
                 S_WAIT_BUSY: begin
                     drv_start_r <= 1'b0;
                     if (!drv_busy && drv_done) begin
-                        // 本片写完 ⇒ 写下一片，或回 IDLE
+                        display_count <= 0;
+                        state <= S_DISPLAY;
+                    end
+                end
+
+                S_DISPLAY: begin
+                    if (display_count == DISPLAY_CYC - 1) begin
+                        display_count <= 0;
                         if (chip_sel == 2'd2) begin
                             chip_sel <= 2'd0;
                             busy_r   <= 1'b0;
@@ -261,7 +295,7 @@ module tlc5916_bank #(
                             chip_sel <= chip_sel + 2'd1;
                             state    <= S_START;
                         end
-                    end
+                    end else display_count <= display_count + 1'b1;
                 end
 
                 default: begin
@@ -278,6 +312,7 @@ module tlc5916_bank #(
 
     // ── 参数自检 ──────────────────────────────────────────────────────────
     initial begin
+        if (DISPLAY_CYC < 25) $display("ERROR [tlc5916_bank] display window too short for safe OE");
         if (KEY_CHIPS + STATUS_CHIPS < 1)
             $display("ERROR [tlc5916_bank] 至少 1 片 TLC5916");
         if (CHIP_W != 8)

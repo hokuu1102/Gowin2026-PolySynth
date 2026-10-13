@@ -80,6 +80,9 @@ module tb_e2e_key_to_sound;
     wire miso_l, miso_r;
 
     top #(
+        //  ⭐ 2026-10-09：本 tb 只测音频/控制，⛔ 不测 HDMI ⇒ 剪掉李萨如渲染器。
+        //     ⚠️ 必须显式传 0：`top.v` 交付默认已是 SCOPE_MODE=1，否则本 tb 会超时。
+        .SCOPE_MODE        (0),
         // ⚠️ **`DEMO_CHORD_ON` 必须保持 1**（⭐ 2026-09-23 试过设 0，🔴 编译失败）
         //   🔴 **原因**：⭐ `top.v` 里 `DEMO_CHORD_ON == 0` 会走 `g_silent` 分支 ——
         //      ⚠️ 那个分支**整条合成链都不例化**（⭐ 结构性静音，见 `top.v` 注释），

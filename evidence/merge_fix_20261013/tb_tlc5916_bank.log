@@ -1,0 +1,19 @@
+﻿VCD info: dumpfile build/sim/tb_tlc5916_bank/tb_tlc5916_bank.vcd opened for output.
+  ok  : reset: OE all high (all blanked)
+  ok  : reset: SDI/CLK/LE all 0
+  ok  : reset: busy 0
+  ok  : CH0 -> OUT7
+  ok  : CH1 -> OUT6
+  ok  : CH2 -> OUT4
+  ok  : CH3 -> OUT5
+  ok  : CH4 -> OUT3
+  ok  : CH5 -> OUT2
+  ok  : CH6 -> OUT1
+  ok  : CH7 -> OUT0
+  ok  : CH2 is NOT bit-reversed (would be OUT5=8'b00100000)
+  ok  : after 3-chip write: OE all high (back to IDLE)
+  ok  : after 3-chip write: busy 0
+  ok  : global_blank: OE stays all high during write
+      [dbg] P0-08 driver.pending 置位次数 = 0（应为 0）
+  ok : P0-08 start 是恰好 1 拍（driver.pending 从未被置位）
+PASS: tlc5916_bank (CH->OUT full-table remap / 3-chip seq / per-board OE / global blank)

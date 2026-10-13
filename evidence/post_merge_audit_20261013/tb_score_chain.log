@@ -1,0 +1,29 @@
+﻿=== tb_score_chain (U-19 缓冲 + play_seq 的【握手链】) ===
+   play_seq 复位默认 tick_inc = 164927（⭐ 应为 120 BPM 的 164927）
+  ok  : 0a reset default tick_inc == 164927 (120 BPM)
+== ①②③④ 未来事件不许提前发 / 同 tick 全发完 / 逐条落对 tick ==
+  ok  : 1a all three events are buffered (cnt == 3)
+  ok  : 1b no overflow for three events
+  ok  : 1c NO event fires before its tick (buffer really holds them)
+  ok  : 2a BOTH same-tick events fire within that one tick
+  ok  : 2b the two same-tick axes are 1 and 2
+  ok  : 2c both carry cur_tick == 5
+  ok  : 3a still nothing new before tick 9
+  ok  : 3b the tick-9 event fired
+  ok  : 3c it is axis 3
+  ok  : 3d it carries cur_tick == 9
+  ok  : 4a evt_cnt == 3 (nothing lost, nothing duplicated)
+  ok  : 4b the buffer drained to empty
+== ⑤ kind=2 换速：⭐ 改速度 + ⭐ 不产生音符 ==
+  ok  : 5a tempo_applied_o is a 1-cycle pulse (already low here)
+  ok  : 5b tick_inc_o became the value from the kind=2 event
+  ok  : 5c tempo_cnt_o == 1 (the change was really applied)
+  ok  : 5d a kind=2 event produces NO note (note count still 3)
+  ok  : 5e evt_cnt counts it (4 events consumed)
+== ⑥ 溢出在这条链上也可观测 ==
+  ok  : 6a overflow is sticky-visible on the chain
+  ok  : 6b drop_cnt == 1 (the 9th event was dropped, NOT silently)
+  ok  : 6c buffer holds exactly DEPTH
+
+PASS: tb_score_chain - 21/21 judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-merge-20261013-f8fb7b3\tb\w3c\tb_score_chain.sv:234: $finish called at 4380000 (1ps)

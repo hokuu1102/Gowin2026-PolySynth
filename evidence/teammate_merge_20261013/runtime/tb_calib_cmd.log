@@ -1,0 +1,84 @@
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=4 BYTE_CLK=500 HEADER=a5 N_CMD=22 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+=== tb_calib_cmd ===
+  ok  : 'T' outside a frame raises tare_req
+  ok  : 'T' does NOT raise span_req or abort_req
+  ok  : 'S' outside a frame raises span_req
+  ok  : 'X' outside a frame raises abort_req
+  ok  : 'M' outside a frame raises test_mode_req
+  ok  : cmd_cnt_o counted all four commands
+  ok  : 'R' outside a frame raises loop_rec_req
+  ok  : 'L' outside a frame raises loop_play_req
+  ok  : 'C' outside a frame raises loop_clear_req
+  ok  : looper letters do NOT cross-fire the older commands
+  ok  : each looper command pulse is exactly ONE cycle wide
+  ok  : cmd_cnt_o counted all SEVEN commands
+  ok  : 'I' outside a frame raises timbre_req
+  ok  : 'I' does NOT cross-fire the older commands
+  ok  : 'I' pulse is exactly ONE cycle wide
+  ok  : cmd_cnt_o counted all EIGHT commands
+  ok  : 'D' outside a frame raises drum_pattern_req
+  ok  : 'D' does NOT cross-fire the older commands
+  ok  : 'D' pulse is exactly ONE cycle wide
+  ok  : cmd_cnt_o counted all NINE commands
+  ok  : each command pulse is exactly ONE cycle wide
+  ok  : 'F' outside a frame raises trans_down_req
+  ok  : 'F' does NOT cross-fire the other new commands
+  ok  : 'F' does NOT cross-fire the older commands
+  ok  : 'G' outside a frame raises trans_up_req
+  ok  : 'G' does NOT cross-fire trans_down_req
+  ok  : 'G' can be sent repeatedly (2nd pulse => cumulative count 2)
+  ok  : 'J' outside a frame raises gear_next_req
+  ok  : 'J' does NOT cross-fire the other new commands
+  ok  : cmd_cnt_o counted 'F' + 'G' + 'G' + 'J'
+  ok  : each new command pulse is exactly ONE cycle wide (F x1, G x2, J x1)
+  ok  : bare 'H' outside a frame arms but raises NO value pulse yet
+  ok  : 'H' + frame: first payload byte is taken as the semitone value
+  ok  : in-frame 'H' payload letters do NOT fire extra value pulses
+  ok  : 'H' does NOT cross-fire the other new commands
+  ok  : the arm is one-shot: an UNARMED frame raises no 2nd value pulse
+  ok  : 'H' value pulse is exactly ONE cycle wide (checked late)
+  ok  : payload of eight 'H' letters raises NO trans_abs_req
+  ok  : payload of eight 'H' letters raises NO other command pulses
+  ok  : cmd_cnt_o did NOT count the in-frame 'H' letters
+  ok  : in_frame_cnt_o counted all 8 in-frame 'H' letters
+  ok  : payload full of T/S/X raises NO tare_req
+  ok  : payload full of T/S/X raises NO span_req
+  ok  : payload full of T/S/X raises NO abort_req
+  ok  : payload full of commands raises NO test_mode_req
+  ok  : payload full of commands raises NO loop_rec_req
+  ok  : payload full of commands raises NO loop_play_req
+  ok  : payload full of commands raises NO loop_clear_req
+  ok  : payload full of commands raises NO timbre_req
+  ok  : cmd_cnt_o did NOT count in-frame letters
+  ok  : in_frame_cnt_o counted all 8 ignored payload letters
+  ok  : idx_o returned to 0 after the frame completed
+  ok  : payload of eight 'D' letters raises NO drum_pattern_req
+  ok  : payload of eight 'D' letters raises NO other command pulses
+  ok  : cmd_cnt_o did NOT count the in-frame 'D' letters
+  ok  : in_frame_cnt_o counted all 8 in-frame 'D' letters
+  ok  : 0xA5 header itself raises no command
+  ok  : non-command bytes outside a frame raise no pulses
+  ok  : non-command bytes are counted in unknown_cnt_o
+  ok  : half frame: payload letters do not fire commands
+  ok  : half frame: idx_o is inside the frame (not 0)
+  ok  : idle gap forces a resync back to idx 0
+  ok  : idle resync was counted (observable, not silent)
+  ok  : after idle resync, a command works again ('X' fires)
+      [dbg] P0-05 chunked: tare=0 span=0 resync=0 idx=0
+  ok  : P0-05 chunked delivery: payload 'T'/'S' inside a frame gap are NOT commands
+  ok  : P0-05 chunked delivery: no mid-frame resync (gap tolerance is 16 byte times)
+  ok  : consecutive T,S,X,M each fire exactly once
+  ok  : consecutive commands: cmd_cnt_o == 4
+  ok  : back-to-back frames with embedded T/S/X/HDR raise no commands
+  ok  : back-to-back frames end with idx_o == 0
+
+--- 判据：⭐ `'Q'` 设置 BPM（⭐ 第 20 条命令）---
+  ok  : 'Q' is accepted as a COMMAND (cmd_cnt_o counts it, not unknown_cnt_o)
+  ok  : 'Q' alone only ARMS -- it must NOT emit the BPM pulse on the command byte itself
+  ok  : 'Q' + payload[0]=140 => bpm_set_req_o pulsed exactly ONCE
+  ok  : 'Q' => bpm_val_o carries that payload byte (140)
+  ok  : after the arm is consumed, a later normal frame must NOT re-emit (arm eats ONE frame)
+  ok  : 'Q' passes the raw byte through (clamping is play_seq's job, not calib_cmd's)
+
+PASS: calib_cmd parses T/S/X/M/F/G/H/J only at frame boundaries, ignores payload letters, counts what it drops, takes the 'H' framed value from the next frame's first payload byte, and self-heals after a half frame
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_calib_cmd.sv:615: $finish called at 93770000 (1ps)

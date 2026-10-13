@@ -37,6 +37,7 @@ module tb_adc_farm;
 
     adc_farm #(
         .N_ADC(3),
+        .FAULT_STARTUP_MS(0), // This test explicitly exercises the detection window, not analogue startup.
         .CLK_HZ(50_000_000),
         .SCLK_HZ(1_000_000),
         .CHANNEL_RATE_HZ(2_000)

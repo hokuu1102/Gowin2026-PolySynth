@@ -1,0 +1,4 @@
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+RESULT reported_frames=2 fifo_drop=4 ovf=1 received_bytes=14 expected=18
+FAIL: real 500kbps dump/FIFO/UART chain loses bytes
+audit_review/tb_dump_uart_backpressure.sv:28: $finish called at 600100000 (1ps)

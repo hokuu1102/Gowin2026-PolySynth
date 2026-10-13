@@ -44,6 +44,9 @@ module tb_top_m0;
     wire I2S2_BCK_a, I2S2_LRCK_a, I2S2_DIN_a;
     wire pluck_up_idle = 1'b0, pluck_down_idle = 1'b0;
     top #(
+        //  ⭐ 2026-10-09：本 tb 只测音频/控制，⛔ 不测 HDMI ⇒ 剪掉李萨如渲染器。
+        //     ⚠️ 必须显式传 0：`top.v` 交付默认已是 SCOPE_MODE=1，否则本 tb 会超时。
+        .SCOPE_MODE        (0),
         .PA_ON_AFTER_RESET (0),
         // ⭐⭐ T57（2026-09-21）：本实例验的是 **M0 安全态 + 真静音**
         //   ⇒ ⛔ **必须显式关掉开机自检音**（默认值是 1 = 出声）。

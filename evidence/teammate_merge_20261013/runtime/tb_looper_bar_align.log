@@ -1,0 +1,47 @@
+== 1: let the DUT measure the bar grid (2 bars) ==
+== 1b: an ARMED record can be cancelled by the next R press ==
+  ok  : bar-align: an armed (pending) record is observable via layer_state_o
+  ok  : bar-align: the armed record is CANCELLED by the next R press
+  ok  : bar-align: after the cancel the bar line does NOT silently start recording
+== 2: take A -- arm record in the MIDDLE of a bar ==
+  ok  : bar-align A: stop at 2.31 bars quantizes DOWN to 2 bars (8 events, not 10)
+== 3: take A replay -- 10 wraps, downbeat must sit ON bar_start ==
+  ok  : bar-align A: at least 8 wraps of the downbeat were replayed (non-vacuous)
+  ok  : bar-align A: the downbeat note_on lands EXACTLY on bar_start on EVERY wrap
+  ok  : bar-align A: the loop period is EXACTLY 2 bars on every wrap (no tick lost)
+  ok  : bar-align A: the events of the TRIMMED half bar are never replayed
+  ok  : bar-align A: a note played BEFORE the bar line is not recorded (record is ARMED)
+  ok  : bar-align A: the held note gets its appended note_off on EVERY wrap (no hang)
+  ok  : bar-align A: every wrap also replays the recorded note_off of the marker
+     [dbg] A: mk_n=11 bad_grid=0 ax5_off=10 ax6=0 ax7=0
+     [dbg] A: wrap[0] grid=0 tick=1344
+     [dbg] A: wrap[1] grid=0 tick=1728
+     [dbg] A: wrap[2] grid=0 tick=2112
+     [dbg] A: wrap[3] grid=0 tick=2496
+     [dbg] A: wrap[4] grid=0 tick=2880
+     [dbg] A: wrap[5] grid=0 tick=3264
+     [dbg] A: wrap[6] grid=0 tick=3648
+     [dbg] A: wrap[7] grid=0 tick=4032
+     [dbg] A: wrap[8] grid=0 tick=4416
+     [dbg] A: wrap[9] grid=0 tick=4800
+     [dbg] A: wrap[10] grid=0 tick=5184
+== 4: take B -- re-record while playing, stop in the SECOND half bar ==
+  ok  : bar-align B: stop at 2.75 bars quantizes UP to 3 bars (8 events, nothing dropped)
+== 5: take B replay -- 10 wraps of a 3-bar loop ==
+  ok  : bar-align B: the downbeat lands EXACTLY on bar_start on EVERY wrap (3-bar loop)
+  ok  : bar-align B: the loop period is EXACTLY 3 bars on every wrap (padded bar)
+  ok  : bar-align B: the note played in the PADDED half bar is kept and replayed
+     [dbg] B: mk_n=11 bad_grid=0 ax4_on=10
+     [dbg] B: wrap[0] grid=0 tick=6336
+     [dbg] B: wrap[1] grid=0 tick=6912
+     [dbg] B: wrap[2] grid=0 tick=7488
+     [dbg] B: wrap[3] grid=0 tick=8064
+     [dbg] B: wrap[4] grid=0 tick=8640
+     [dbg] B: wrap[5] grid=0 tick=9216
+     [dbg] B: wrap[6] grid=0 tick=9792
+     [dbg] B: wrap[7] grid=0 tick=10368
+     [dbg] B: wrap[8] grid=0 tick=10944
+     [dbg] B: wrap[9] grid=0 tick=11520
+     [dbg] B: wrap[10] grid=0 tick=12096
+PASS: looper T41 bar alignment -- arm/quantize/align across 10 wraps
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_looper_bar_align.sv:436: $finish called at 4151220000 (1ps)

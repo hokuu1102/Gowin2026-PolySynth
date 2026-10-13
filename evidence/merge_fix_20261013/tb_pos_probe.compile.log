@@ -1,0 +1,10 @@
+﻿iverilog.exe : C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_pos_probe.sv:44: warning: Po
+rt 5 (ch_i) of pos_probe expects 4 bits, got 3.
+At C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tools\run_q_adc_regression.ps1:19 char:24
++ ... mpileOutput=& $Iverilog -g2012 -DWAVETABLE_BEHAVIORAL -s $testName -o ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\cyx\Do... 4 bits, got 3.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3c\tb_pos_probe.sv:44:        : Padding 1 high bi
+ts of the port.

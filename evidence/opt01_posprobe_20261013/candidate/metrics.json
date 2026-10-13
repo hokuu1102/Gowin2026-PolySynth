@@ -1,0 +1,17 @@
+{
+  "Baseline": "be51774",
+  "SetupViolations": 0,
+  "HoldViolations": 0,
+  "SetupSlack": 0.066,
+  "HoldSlack": 0.134,
+  "RecoverySlack": 1.169,
+  "RemovalSlack": 0.055,
+  "clk_sysFmax": 56.389,
+  "pixel_clkFmax": 41.144,
+  "serial_clkFmax": 290.296,
+  "Logic": 39974,
+  "CLS": 25315,
+  "BSRAM": 69,
+  "DSP": 22,
+  "Keep": true
+}

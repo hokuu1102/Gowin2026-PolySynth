@@ -1,0 +1,4 @@
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=16 BYTE_CLK=500 HEADER=a5 N_CMD=20 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=16 BYTE_CLK=500 HEADER=a5 N_CMD=20 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=45)
+FATAL: C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_calib_cmd_q_y.sv:39: FAIL: command uniqueness table omitted E or Y
+       Time: 80000  Scope: tb_calib_cmd_q_y

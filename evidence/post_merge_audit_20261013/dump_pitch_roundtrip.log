@@ -1,0 +1,8 @@
+RECORDED cnt=3
+EXPORT addr=0 original_inc=2096128 wire_inc=2096128 clip=0
+FEEDBACK valid=1 restored_inc=2146435072 expected=2096128 hz_original=23.830216 hz_restored=24402.141571
+FAIL: recording-to-score pitch roundtrip
+EXPORT addr=1 original_inc=38702809 wire_inc=954073 clip=1
+FEEDBACK valid=1 restored_inc=976970752 expected=38702809 hz_original=439.999997 hz_restored=11106.871534
+FAIL: recording-to-score pitch roundtrip
+audit_review/tb_dump_pitch_roundtrip.sv:54: $finish called at 960000 (1ps)

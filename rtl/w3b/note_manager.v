@@ -100,6 +100,7 @@ module note_manager #(
     //       ⭐ 但**听感延迟不受影响** —— `adsr` 的 `gate` 只在 `sample_tick_i`（每 1024 拍）采样，
     //          22.4 µs 仍在一帧内（见文件头 `K-103` 的同一论证）。
     parameter integer FIFO_DEPTH  = 32,
+    parameter integer MATCH_PIPE_EN = 1, // 0 only for pre-pipeline cycle-reference checks
     // ⭐ 丢弃事件计数位宽（8 bit ⇒ 饱和于 255；⚠️ 饱和而**不回绕**，见下方注释）
     parameter integer EVT_LOST_CNT_W = 8,
     // voice 索引位宽（`alloc_voice_o` 用）
@@ -428,6 +429,7 @@ module note_manager #(
     //     ⭐ 与 `ST_COMMIT2` **完全同构**（⭐ 同一个"选谁(组合) / 写谁(寄存)"分离模式）——
     //     理由见下方 `ST_RETRIG` 段与模块入口寄存器的注释 ✅
     localparam [2:0] ST_RETRIG = 3'd5;   // ⭐ 用寄存后的 `same_idx_r` 写译码器
+    localparam [2:0] ST_MATCH = 3'd6;    // FIFO payload -> match mask -> selection
 
     localparam integer SCAN_LAST = POLY_TARGET - 1;
     //  ⭐⭐ 2026-10-08（`A3` 正确修法）：⭐ 阈值定宽常量（⭐ 与 `oscillator_bank` 同款）✅
@@ -720,7 +722,9 @@ module note_manager #(
                                 && (src_r[sg]  == cur_src);
         end
     endgenerate
-    wire same_valid = |same_hit;
+    (* syn_preserve = 1 *) reg [POLY_TARGET-1:0] same_hit_q;
+    wire [POLY_TARGET-1:0] selected_same_hit = MATCH_PIPE_EN ? same_hit_q : same_hit;
+    wire same_valid = |selected_same_hit;
 
     // 最低索引优先编码（升序扫 + 只在未命中时赋值）
     reg [IDX_W-1:0] same_idx;
@@ -728,7 +732,7 @@ module note_manager #(
     always @(*) begin
         same_idx = {IDX_W{1'b0}};
         for (qi = POLY_TARGET - 1; qi >= 0; qi = qi - 1)
-            if (same_hit[qi]) same_idx = qi;
+            if (selected_same_hit[qi]) same_idx = qi;
     end
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -968,6 +972,7 @@ module note_manager #(
             best_env      <= {ENV_W{1'b0}};
             best_age      <= {AGE_W{1'b0}};
             cur_axis      <= {AXIS_W{1'b0}};
+            same_hit_q    <= {POLY_TARGET{1'b0}};
             cur_inc       <= {PHASE_W{1'b0}};
             cur_vel       <= {VEL_W{1'b0}};
             cur_kind      <= 2'd0;
@@ -1240,10 +1245,16 @@ module note_manager #(
                         cur_timbre_valid <= head_timbre_valid;
                         cur_timbre <= head_timbre;
                         cur_src  <= head_src;      // ⭐ A1：来源与其它 `head_*` 同拍锁存
-                        state    <= ST_DECIDE;
+                        state    <= MATCH_PIPE_EN ? ST_MATCH : ST_DECIDE;
                     end
                 end
 
+                ST_MATCH: begin
+                    // Break BSRAM DO -> 32 comparisons -> reduction/priority
+                    // -> scan/write control. Payload stays fixed; +1 clk/event.
+                    same_hit_q <= same_hit;
+                    state <= ST_DECIDE;
+                end
                 ST_DECIDE: begin
                     if (cur_kind == KIND_OFF) begin
                         // ⭐ `note_off`：清掉**所有**同轴位且 gate 高的 voice

@@ -1,0 +1,108 @@
+NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=48 VOTE_N=4 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+INFO  [tdm_render_mixer] P0-32 交付口径: 基准=64 · OUTPUT_HEADROOM_SH=1 => 单音峰 ≈ 25% FS
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=20 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+=== tb_pos_probe_axis ===
+== P0: non-vacuous precondition ==
+  ok  : P0 af0_pol == 256 (chip0 raw 0xEFF inverted)
+  ok  : P0 af1_pol == 2048 (chip1 raw 0x7FF inverted)
+  ok  : P0 the two chips carry DIFFERENT codes (else b/c are vacuous)
+  ok  : P0 pp_axis_r == 0 right after reset
+== d: first 'P' after reset -> axis 0 ==
+  ok  : d1 first 'P' after reset pushed exactly 8 bytes
+  ok  : d2 first 'P' after reset: ch='0' and pos=0256 (chip 0 code)
+  ok  : d3 pp_axis_r advanced to 1 after one request
+== a/b/c: 16 requests cover both chips ==
+  ok  : a0 16 requests produced 8 bytes each (128 total)
+  ok  : a0b pp_axis_r wrapped back to 0 after 16 requests
+  ok  : a1 16 replies are 'P'+CH+4digits+CRLF with CH = 0..F (P1-���������)
+== b: request 9 (axis 8) must come from chip 1 ==
+  ok  : b1 request 9 pos field == 2048 (chip1 code), NOT 256 (chip0 code)
+  ok  : b2 request 9 is NOT the chip0 code 0256 (the pre-fix wrong answer)
+  ok  : b3 request 1 came from chip 0 (pos == 0256, non-vacuous)
+== c: every reply's pos == the raw code of the chip it selected ==
+  ok  : c1 all 16 replies: ch == axis (hex 0..F) AND pos == the selected chip's code
+    req 0: axis=0 chip=0 expect pos=256 expect ch=0 -> got P00256
+
+
+  ok  : c req 0 pos comes from chip 0
+    req 1: axis=1 chip=0 expect pos=256 expect ch=1 -> got P10256
+
+
+  ok  : c req 1 pos comes from chip 0
+    req 2: axis=2 chip=0 expect pos=256 expect ch=2 -> got P20256
+
+
+  ok  : c req 2 pos comes from chip 0
+    req 3: axis=3 chip=0 expect pos=256 expect ch=3 -> got P30256
+
+
+  ok  : c req 3 pos comes from chip 0
+    req 4: axis=4 chip=0 expect pos=256 expect ch=4 -> got P40256
+
+
+  ok  : c req 4 pos comes from chip 0
+    req 5: axis=5 chip=0 expect pos=256 expect ch=5 -> got P50256
+
+
+  ok  : c req 5 pos comes from chip 0
+    req 6: axis=6 chip=0 expect pos=256 expect ch=6 -> got P60256
+
+
+  ok  : c req 6 pos comes from chip 0
+    req 7: axis=7 chip=0 expect pos=256 expect ch=7 -> got P70256
+
+
+  ok  : c req 7 pos comes from chip 0
+    req 8: axis=8 chip=1 expect pos=2048 expect ch=8 -> got P82048
+
+
+  ok  : c req 8 pos comes from chip 1
+    req 9: axis=9 chip=1 expect pos=2048 expect ch=9 -> got P92048
+
+
+  ok  : c req 9 pos comes from chip 1
+    req 10: axis=10 chip=1 expect pos=2048 expect ch=A -> got PA2048
+
+
+  ok  : c req 10 pos comes from chip 1
+    req 11: axis=11 chip=1 expect pos=2048 expect ch=B -> got PB2048
+
+
+  ok  : c req 11 pos comes from chip 1
+    req 12: axis=12 chip=1 expect pos=2048 expect ch=C -> got PC2048
+
+
+  ok  : c req 12 pos comes from chip 1
+    req 13: axis=13 chip=1 expect pos=2048 expect ch=D -> got PD2048
+
+
+  ok  : c req 13 pos comes from chip 1
+    req 14: axis=14 chip=1 expect pos=2048 expect ch=E -> got PE2048
+
+
+  ok  : c req 14 pos comes from chip 1
+    req 15: axis=15 chip=1 expect pos=2048 expect ch=F -> got PF2048
+
+
+  ok  : c req 15 pos comes from chip 1
+== d: reset clears the rotation ==
+  ok  : d4 after 19 requests pp_axis_r == 3 (non-zero, so d5/d6 are not vacuous)
+  ok  : d5 pp_axis_r == 0 while reset is asserted
+  ok  : d6 pp_axis_r == 0 after reset release
+  ok  : d7 af0_pol is still 256 after the reset
+  ok  : d8 first 'P' after the 2nd reset returns axis 0 / chip 0 code 0256
+== A8: no X/Z ==
+  ok  : A8 pp_data has no X/Z
+  ok  : A8 pp_axis_r has no X/Z
+  ok  : A8 af0_pol/af1_pol have no X/Z
+
+PASS: pos_probe_axis -- 'P' rotates over 16 axes and reports the raw code of the chip selected by axis[3] (chip 1 observable)
+C:\Users\cyx\Documents\ChatGPT\FPGA\opt01-posprobe-20261013-be51774\tb\w3c\tb_pos_probe_axis.sv:439: $finish called at 18870000 (1ps)

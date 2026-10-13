@@ -1,0 +1,16 @@
+﻿VCD info: dumpfile build/sim/tb_led_data/tb_led_data.vcd opened for output.
+  ok  : baseline: pattern all 0 right after reset
+  ok  : baseline: commit is 0 (no spurious commit)
+  ok  : key light: active keys 0,1 are ON (steady)
+  ok  : key light: other keys stay OFF
+  ok  : key light: active keys stay ON even when blink is high (no flicker)
+  ok  : blink: guided key 2 is OFF when blink low
+  ok  : blink: guided key 2 is ON when blink high
+  ok  : blink: guided key 2 is OFF again when blink low
+  ok  : priority: active key 2 stays ON (not blinking) even with blink low
+  ok  : status: upper 8 bits pass through unchanged
+  ok  : commit: no change => commit stays 0
+  ok  : commit: pulses for exactly the change cycle (1st cycle high)
+  ok  : commit: returns to 0 the very next cycle (single-cycle pulse)
+  ok  : commit: blink toggle does NOT trigger commit when only active keys lit
+PASS: led_data (steady active / blinking guide / priority / status passthrough / single-cycle commit)

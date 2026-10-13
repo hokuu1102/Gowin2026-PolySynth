@@ -1,0 +1,10 @@
+﻿iverilog.exe : C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_nm_off_in_hold.sv:107: warni
+ng: Port 9 (note_src_i) of note_manager expects 3 bits, got 2.
+At C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tools\run_q_adc_regression.ps1:19 char:24
++ ... mpileOutput=& $Iverilog -g2012 -DWAVETABLE_BEHAVIORAL -s $testName -o ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\cyx\Do... 3 bits, got 2.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_nm_off_in_hold.sv:107:        : Padding 1 h
+igh bits of the port.

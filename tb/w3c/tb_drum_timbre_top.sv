@@ -84,6 +84,9 @@ module tb_drum_timbre_top;
     //     📌 **纪律**：⭐ 凡"验某一路"的 tb **必须显式声明自己需要的档**，
     //        ⛔ 不依赖顶层默认值（⭐ 本 tb 原来就是靠默认值才促成那次默认档改动 ✅）
     top #(
+        //  ⭐ 2026-10-09：本 tb 只测音频/控制，⛔ 不测 HDMI ⇒ 剪掉李萨如渲染器。
+        //     ⚠️ 必须显式传 0：`top.v` 交付默认已是 SCOPE_MODE=1，否则本 tb 会超时。
+        .SCOPE_MODE        (0),
         .SEL_DRUM              (1),
         .AUTOTARE_DELAY_CLK    (100_000),
         .SPAN_WAIT_TIMEOUT_CLK (50_000),

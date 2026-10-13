@@ -52,7 +52,7 @@
 //  ① ⭐ **`push_o` 是"喂给 `uart_tx_fifo` 的请求"** —— ⚠️ 不是直接喂 `uart_tx`
 //     ⇒ ⭐ 所以要接 `ready_i` ⇒ ⚠️ 对方满了就等，⛔ 别硬塞（⭐ `K-126` 的教训）
 //
-//  ② ⭐ **一次 `probe_req_i` 产生 7 个字节** ⇒ ⭐ 用一个小状态机逐个推
+//  ② 一次 probe_req_i 产生 8 个字节（前缀、通道、四位数字、CR、LF）。
 //
 //  ③ 🔴🔴 **BCD 转换必须【流水化】**（⭐ 2026-09-24 PnR 实测后重写）：
 //     ⚠️ 第一版把"比较 → 减 → 比较 → 减 → 比较 → 减"写成**一整条组合链**
@@ -61,6 +61,8 @@
 //     📌 时序报告原文：⭐ 最差路径就是 `g_sound.u_pos_probe` 的 `pos_lat→d3→r3→d2→r2→d1→d0`
 //     ✅ **修法**：⭐ **每一级各占一个时钟**（⭐ 见 `bcd_stage` 计数器）
 //        ⚠️ 代价：⭐ 转换晚 4 拍 = **80 ns** —— ⭐ 诊断命令，✅ 完全无所谓
+//     2026-10-13 OPT01 更正：上述四拍实现仍产生比较/乘法/减法长链，
+//     改为固定 12 拍 shift-add-3，无乘法；比原转换增加 8 拍 = 160 ns。
 //
 //  ④ ⭐ **用一个 `bcd_stage` 计数器驱动流水**（⭐ 比多写几个状态机清楚）
 //
@@ -79,7 +81,8 @@ module pos_probe #(
     //   · `'N'`(0x4E) = 回 `calib` 后的 **`pos`**（⭐ 判键用的那个数）
     //   📌 为什么提成参数：⭐ 两条命令**必须能从回包前缀区分**，
     //      ⚠️ 否则 PC 侧解析不出"这个数是谁"。⛔ 不改其余逻辑。
-    parameter [7:0]   PREFIX  = 8'h50
+    parameter [7:0]   PREFIX  = 8'h50,
+    parameter integer QUEUE_WHEN_BLOCKED = 0
 ) (
     input  wire        clk_i,
     input  wire        rst_n_i,
@@ -102,7 +105,8 @@ module pos_probe #(
     input  wire        ready_i,      // ⭐ 下游未满（⭐ 来自 `tx_fifo.ready_o`）
     input  wire        idle_i,       // ⭐ **下游彻底空闲**（⭐ 来自 `tx_fifo.idle_o`）
 
-    output reg         busy_o        // ⭐ 正在回传（⭐ 可观测）
+    output reg         busy_o,
+    output wire        packet_active_o
 );
 
     // ── ⭐ 常量 ───────────────────────────────────────────────────────────
@@ -117,66 +121,29 @@ module pos_probe #(
     //      ⭐ 实测：⭐ 发一次 `'P'` ⇒ 板子回 **9 字节** `P52900\r\nP`，
     //         ⚠️ 那个尾巴会**黏在下一次回包前面** ⇒ ⭐ 看起来像"包不完整"。
     localparam [2:0] S_DONE = 3'd3;   // ⭐ 收尾（⭐ 不推字节，⭐ 只把 push_o 拉低）
+    localparam [2:0] S_WAIT_IDLE = 3'd4;
 
     // ── ⭐ 声明（⭐ 全部先于使用 —— `L66`）────────────────────────────────
     reg  [2:0]  state;
-    reg  [2:0]  bcd_stage;           // ⭐ 0..3
-    reg  [3:0]  idx;                 // ⭐ 0..6
-    reg  [11:0] pos_lat;             // ⭐ 锁存的读数
+    assign packet_active_o = (state == S_BCD) || (state == S_SEND) || (state == S_DONE);
+    reg  [3:0]  bcd_stage;           // 0..11, one binary bit per clock
+    reg  [3:0]  idx;                 // 0..7
     reg  [3:0]  ch_lat;              // ⭐ 锁存的通道号/轴号（⭐ 2026-09-27：3→4 位）
-    reg  [11:0] rem;                 // ⭐ BCD 流水里的"剩余值"
+    reg  [11:0] rem;                 // request snapshot, shifted MSB first
     reg  [3:0]  bcd3, bcd2, bcd1, bcd0;
 
-    // ⭐ 组合：⭐ 当前"剩余值"对应的那一位数字（⭐ 纯比较器，⭐ 链很短）
-    //   ⚠️ 注意：⭐ 这个比较器只用于【百 / 十 / 个】三位（⭐ 阈值 100 段）
-    //      🔴 **千位【必须】用单独的比较器**（⭐ 阈值是 1000/2000/3000/4000）——
-    //         ⚠️ 我第一版复用了这里 ⇒ 744 算出 bcd3=7（⭐ 错的）
-    reg [3:0] cur_digit;
-    always @(*) begin
-        if      (rem >= 12'd900) cur_digit = 4'd9;
-        else if (rem >= 12'd800) cur_digit = 4'd8;
-        else if (rem >= 12'd700) cur_digit = 4'd7;
-        else if (rem >= 12'd600) cur_digit = 4'd6;
-        else if (rem >= 12'd500) cur_digit = 4'd5;
-        else if (rem >= 12'd400) cur_digit = 4'd4;
-        else if (rem >= 12'd300) cur_digit = 4'd3;
-        else if (rem >= 12'd200) cur_digit = 4'd2;
-        else if (rem >= 12'd100) cur_digit = 4'd1;
-        else                     cur_digit = 4'd0;
-    end
-
-    // ⭐ 千位比较器（⭐ 阈值 1000 的整数倍）—— ⚠️ **与上面那个分开**
-    reg [3:0] cur_thou;
-    always @(*) begin
-        if      (rem >= 12'd4000) cur_thou = 4'd4;
-        else if (rem >= 12'd3000) cur_thou = 4'd3;
-        else if (rem >= 12'd2000) cur_thou = 4'd2;
-        else if (rem >= 12'd1000) cur_thou = 4'd1;
-        else                      cur_thou = 4'd0;
-    end
-
-    // 🔴 **十位比较器（⭐ 阈值 10 的整数倍）—— 也必须【独立】**
-    //   ⚠️ 我第二版复用了 `cur_digit`（⭐ 100 段）⇒ 🔴 **rem=50 时给 0**
-    //      ⇒ ⭐ 2050 算出 `P2002`（⭐ 十位丢、⭐ 个位拿错）
-    reg [3:0] cur_ten;
-    always @(*) begin
-        if      (rem >= 12'd90) cur_ten = 4'd9;
-        else if (rem >= 12'd80) cur_ten = 4'd8;
-        else if (rem >= 12'd70) cur_ten = 4'd7;
-        else if (rem >= 12'd60) cur_ten = 4'd6;
-        else if (rem >= 12'd50) cur_ten = 4'd5;
-        else if (rem >= 12'd40) cur_ten = 4'd4;
-        else if (rem >= 12'd30) cur_ten = 4'd3;
-        else if (rem >= 12'd20) cur_ten = 4'd2;
-        else if (rem >= 12'd10) cur_ten = 4'd1;
-        else                    cur_ten = 4'd0;
-    end
-
-    // ⭐ 当前该减多少（⭐ 常数移位加法，⛔ 不用乘法器 ⇒ 时序好）
-    //   ⭐ `cur_digit × 100` = `(cur_digit×64) + (cur_digit×32) + (cur_digit×4)`
-    //      ⇒ ⚠️ 但为了**可读性**和**资源**，⭐ 直接用 12 位常数乘法 ——
-    //         ⚠️ Gowin 会用 LUT 拼，⭐ 而它【在寄存器之间】⇒ 不叠在前级比较器上
-    wire [11:0] cur_x100 = {8'd0, cur_digit} * 12'd100;
+    // 2026-10-13 OPT01: replace compare/multiply/subtract BCD with
+    // fixed 12-cycle shift-add-3. Each nibble has only a 4-bit operation;
+    // no multiplier. Packet/queue interface is unchanged (+8 clk conversion).
+    function [3:0] bcd_add3;
+        input [3:0] digit;
+        begin
+            bcd_add3 = (digit >= 4'd5) ? digit + 4'd3 : digit;
+        end
+    endfunction
+    wire [15:0] bcd_adjusted = {bcd_add3(bcd3), bcd_add3(bcd2),
+                               bcd_add3(bcd1), bcd_add3(bcd0)};
+    wire [15:0] bcd_next = {bcd_adjusted[14:0], rem[11]};
 
     // ⭐ 当前该发哪个字节（⭐ 纯组合查表）
     //   ⭐ 0='P' · 1..4=千/百/十/个 · 5=CR · 6=LF
@@ -204,9 +171,8 @@ module pos_probe #(
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
             state     <= S_IDLE;
-            bcd_stage <= 3'd0;
+            bcd_stage <= 4'd0;
             idx       <= 4'd0;
-            pos_lat   <= 12'd0;
             ch_lat    <= 4'd0;
             rem       <= 12'd0;
             bcd3      <= 4'd0;
@@ -234,48 +200,35 @@ module pos_probe #(
                     //      ⇒ ⭐ 包与包之间【干净分开】✅
                     //   📌 `ready_i`（⭐ 未满）⛔ **不够** —— ⚠️ 它只保证"塞得进去"，
                     //      ⛔ 不保证"上一个包发完了"。
-                    if (probe_req_i && idle_i) begin
+                    if (probe_req_i && (idle_i || QUEUE_WHEN_BLOCKED)) begin
                         // 🔴 **锁存读数**（⭐ 否则回传期间读数变了 ⇒ 同一行数字不自洽）
-                        pos_lat   <= pos_i;
                         ch_lat    <= ch_i;   // ⭐ 同拍锁存通道号
-                        rem       <= pos_i;      // ⭐ 流水从"整值"起步
-                        bcd_stage <= 3'd0;
+                        rem       <= pos_i;
+                        bcd_stage <= 4'd0;
+                        bcd3      <= 4'd0;
+                        bcd2      <= 4'd0;
+                        bcd1      <= 4'd0;
+                        bcd0      <= 4'd0;
                         idx       <= 4'd0;
-                        state     <= S_BCD;
+                        state     <= idle_i ? S_BCD : S_WAIT_IDLE;
                         busy_o    <= 1'b1;
                     end
                 end
 
-                // ── ⭐ BCD 流水：⭐ 每拍算一位 ─────────────────────────────
+                S_WAIT_IDLE: begin
+                    busy_o <= 1'b1;
+                    if (idle_i) state <= S_BCD;
+                end
+                // Fixed 12 cycles; downstream backpressure cannot alter digits.
                 //   ⚠️ 本状态【不依赖 `ready_i`】—— ⭐ 它只做算术，⭐ 与下游无关
                 S_BCD: begin
                     busy_o <= 1'b1;
-                    // ⭐ 注意：`rem` 是【上一拍寄存】的值 ⇒ 比较器链很短
-                    case (bcd_stage)
-                        3'd0: begin                       // ⭐ 千位
-                            bcd3 <= cur_thou;
-                            rem  <= rem - ({8'd0, cur_thou} * 12'd1000);
-                            bcd_stage <= 3'd1;
-                        end
-                        3'd1: begin                       // ⭐ 百位
-                            bcd2 <= cur_digit;
-                            rem  <= rem - cur_x100;
-                            bcd_stage <= 3'd2;
-                        end
-                        3'd2: begin                       // ⭐ 十位
-                            bcd1 <= cur_ten;
-                            //   🔴 **位宽必须写够**：⭐ 原来写 `cur_ten * 4'd10`
-                            //      ⇒ ⚠️ 4 位 × 4 位 = **4 位** ⇒ 🔴 `9×10=90` 被截成 `10`
-                            //      ⇒ ✅ 改成 `12'd10` ⇒ ⭐ 结果升到 12 位，⛔ 不丢
-                            rem  <= rem - ({8'd0, cur_ten} * 12'd10);
-                            bcd_stage <= 3'd3;
-                        end
-                        default: begin                    // ⭐ 个位（⭐ 余数就是它）
-                            bcd0 <= rem[3:0];
-                            bcd_stage <= 3'd0;
-                            state <= S_SEND;
-                        end
-                    endcase
+                    {bcd3,bcd2,bcd1,bcd0} <= bcd_next;
+                    rem <= {rem[10:0],1'b0};
+                    if (bcd_stage == 4'd11) begin
+                        bcd_stage <= 4'd0;
+                        state <= S_SEND;
+                    end else bcd_stage <= bcd_stage + 1'b1;
                 end
 
                 // ── ⭐ 逐个推字节（⭐ 只在 `ready_i` 时推进）───────────────

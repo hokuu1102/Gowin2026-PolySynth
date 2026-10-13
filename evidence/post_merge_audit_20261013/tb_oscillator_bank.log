@@ -1,0 +1,36 @@
+﻿== 判据 6: 帧内截止（TDM 固定拍数 << 1024，A6）==
+  ok  : osc_valid ��� 200 ������������
+  ok  : TDM������� ��� LANE������64+2=6����
+  ok  : ������������������TD�������� << 1024
+== 判据 1: 每个 lane 的相位独立前进 ==
+  ok  : 64���� lan��������������������������������������������������������
+     (注：正式通路每 voice 一份 inc ⇒ 同 voice 两 lane 同步；
+      失谐需 test_mode 覆盖或后续加 per-lane detune —— 见 K-95)
+== 判据 2: 每个 lane 的相位增量独立生效（test_mode 通路）==
+  ok  : test_mode: lan������ lane1����������������������������������������
+== 判据 4: 地址 = 相位高 9 位（DDS 正确性）==
+  ok  : lane�������� = 3��2^�����������=����
+  ok  : phase_acc_dbg��������� 10���� = 6
+  ok  : ������� ���������������� = 5��2^�����������=����
+== 判据 4b: ⭐ 真正送 ROM 的地址 = 相位【高】9 位（K-98 补的盲区）==
+  ok  : �等于「上一采样时刻相位的高 9 位」（20 次逐一核对，K-98）
+== 判据 7: 未激活 voice 的相位保持不变（防咔声）==
+  ok  : ������������ voice0 ������������������������������������
+  ok  : ������� voic������������������������
+== 判据 3: TDM 取回 64 个样本，osc_valid 每帧恰好 1 次 ==
+  ok  : ��������� osc_valid ������ 1����
+  ok  : 64 ��� lane����������������������������TDM ������������������������
+== 判据 5: test_mode 覆盖生效（T43 的基础）==
+  ok  : test_mo������ lane0/1/2��������������������������������������������
+  ok  : ������������� la������������������������������������
+== 8: test_mode overrides voice_active ==
+  ok  : test_mode=1 overrides voice_active=0 (lane0 still advances)
+  ok  : and a lane NOT selected stays frozen
+  ok  : test_mode=1 keeps rom_dout on the dedicated clean sine table (rom_test)
+  ok  : and that check is NON-VACUOUS (rom_test != rom_hard was observed)
+== 9: timbre must not depend on velocity ==
+  ok  : velocity 0 and 255 give BIT-IDENTICAL samples (timbre is velocity-free)
+== 10: two attacks at the same depth must be BIT-IDENTICAL (NO reset) ==
+  ok  : two attacks at the same depth are BIT-IDENTICAL (phase returns to the seed)
+PASS: oscillator_bank acceptance (T55) - all judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-merge-20261013-f8fb7b3\tb\w3b\tb_oscillator_bank.sv:513: $finish called at 117540000 (1ps)
