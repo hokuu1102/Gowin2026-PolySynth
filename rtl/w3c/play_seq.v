@@ -77,6 +77,22 @@ module play_seq #(
     // ⭐⭐ 音乐位置复位 —— **必须与 `beat_gen.pos_reset_i` 接同一个信号**
     //    ⚠️ 否则本模块的 `cur_tick_r` 会与 `beat_gen` 的位置**静默错位**
     input  wire                pos_reset_i,
+
+    // ── ⭐⭐ BPM 手动入口（⭐ 2026-10-11 新增 · ⭐ 串口 `'Q'` ＋ ⭐ 将来 EC11）──────
+    //  ⭐ **为什么放在本模块**：⭐ `tick_inc_o` 是**本模块拥有的换速寄存器** ✅
+    //     ⇒ ⭐ 手动改速与曲谱 `kind=2` 事件**写同一个寄存器** ⇒ ⭐ **后写者胜** ✅
+    //     ⇒ ⛔ 不需要仲裁器，⛔ 不会出现"两个速度源打架" ✅
+    //  📌 ⭐ **与信号源无关**（⭐ 这是给 EC11 留的口子 ✅）：
+    //     ⭐ 现在：⭐ 串口 `'Q'` ⇒ `bpm_load_i`/`bpm_i` ✅
+    //     ⭐ 将来：⭐ EC11 的 A/B 解码 ⇒ `bpm_up_i`/`bpm_dn_i` ✅
+    //     ⇒ ⭐ **EC11 只需加解码器 ＋ 一个 OR，⛔ 不用改本模块** ✅
+    //  ⚠️ ⭐ 三个都按**单周期脉冲**用（⭐ 与 `tare_req_o` 等同一约定 ✅）
+    //     ⭐ 同拍多个有效时的优先级：⭐ `bpm_load_i` > `bpm_up_i` > `bpm_dn_i` ✅
+    input  wire                bpm_up_i,         // ⭐ +1 BPM
+    input  wire                bpm_dn_i,         // ⭐ −1 BPM
+    input  wire                bpm_load_i,       // ⭐ 装载 `bpm_i`（⭐ 绝对设置）
+    input  wire [15:0]         bpm_i,            // ⭐ 目标 BPM（⭐ 会被限幅到 40~240 ✅）
+
     output reg  [31:0]         tick_inc_o,       // ⭐⭐ → `beat_gen.tick_inc_i`（**寄存器输出**）
 
     // ── 事件缓冲接口（⭐ 由调用方供给）──────────────────────────────────────
@@ -102,6 +118,56 @@ module play_seq #(
     output reg  [15:0]         tempo_cnt_o,      // ⭐ 已应用的换速次数
     output reg  [19:0]         cur_tick_o        // ⭐ 当前音乐位置（**可观测**，便于上板核对）
 );
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐⭐⭐ 2026-10-11：⭐ **BPM 手动入口的换算**（⭐ 串口 `'Q'` ＋ 将来 EC11 ✅）
+    //
+    //  ⭐ **公式**（⭐ 从 `beat_gen` 的定义反推 ✅）：
+    //     ⭐ `tick_inc = BPM × PPQN × 2^32 / (60 × CLK_HZ)`
+    //     ⭐ 代入 `PPQN = 960`、⭐ `CLK_HZ = 50e6` ⇒ ⭐ 斜率 = `960 × 2^32 / 3e9`
+    //        = **1374.3895…** ✅
+    //     ⭐ 取整数斜率 **1374** ＋ ⭐ 偏置 **47**：
+    //        ⭐ `tick_inc = BPM × 1374 + 47` ✅
+    //     ✅ **验算**：⭐ `120 × 1374 + 47 = 164927` ✅
+    //        ⇒ ⭐ **与现有常量 `TICK_INC_DEFAULT` 逐位相同** ✅
+    //        （⭐ 选 47 就是为了让 120 BPM **精确**落在原值上 ✅）
+    //     📌 ⭐ 40 BPM ⇒ `55007` · ⭐ 240 BPM ⇒ `329807` ✅
+    //
+    //  ⭐ **为什么用移位相加而⛔ 不用乘法**：⭐ `1374 = 1024+256+64+16+8+4+2` ✅
+    //     ⇒ ⭐ 6 个加法器 ✅（⭐ 而 `x * 1374` 会被综合成 **DSP** 🔴 ——
+    //        ⭐ 见 `P1-15`：⭐ `MULT12X12` 就是这么来的 ✅）
+    //     📌 ⭐ 且 `BPM` 只有 40~240 ⇒ ⭐ 位宽很小 ✅
+    // ═══════════════════════════════════════════════════════════════════════
+    localparam integer BPM_MIN     = 40;          // ⭐ 最慢
+    localparam integer BPM_MAX     = 240;         // ⭐ 最快
+    localparam [31:0]  INC_PER_BPM = 32'd1374;    // ⭐ 每 1 BPM 的 `tick_inc` 增量
+    localparam [31:0]  INC_OFFSET  = 32'd47;      // ⭐ 偏置（⭐ 让 120 BPM 精确）
+    localparam [31:0]  INC_MIN     = 32'd55007;   // ⭐ = 40 BPM
+    localparam [31:0]  INC_MAX     = 32'd329807;  // ⭐ = 240 BPM
+
+    //  ⭐ 限幅后的目标 BPM（⭐ 40~240 ✅）
+    wire [15:0] bpm_clamped = (bpm_i < BPM_MIN) ? BPM_MIN[15:0]
+                            : ((bpm_i > BPM_MAX) ? BPM_MAX[15:0] : bpm_i);
+
+    //  ⭐ `BPM × 1374`：⭐ **移位相加**（⭐ 1374 = 1024+256+64+16+8+4+2 ✅）
+    wire [31:0] bpm_x1374 = ({16'd0, bpm_clamped} << 10)
+                          + ({16'd0, bpm_clamped} <<  8)
+                          + ({16'd0, bpm_clamped} <<  6)
+                          + ({16'd0, bpm_clamped} <<  4)
+                          + ({16'd0, bpm_clamped} <<  3)
+                          + ({16'd0, bpm_clamped} <<  2)
+                          + ({16'd0, bpm_clamped} <<  1);
+
+    //  ⭐ 绝对装载值（⭐ `bpm_load_i` 用 ✅）
+    wire [31:0] tick_inc_from_bpm = bpm_x1374 + INC_OFFSET;
+
+    //  ⭐ 相对步进（⭐ `bpm_up_i`/`bpm_dn_i` 用 ✅）—— ⭐ 直接加减，⛔ 不用重算 BPM
+    //     📌 ⭐ 这就是"±1 BPM/格"的等价实现（⭐ 每格正好 `INC_PER_BPM` ✅）
+    //     ⚠️ 必须**限幅** ⇒ ⭐ 否则连按会把速度推出 40~240 ✅
+    wire [31:0] inc_up_raw = tick_inc_o + INC_PER_BPM;
+    wire [31:0] inc_dn_raw = tick_inc_o - INC_PER_BPM;
+    wire [31:0] inc_up     = (inc_up_raw > INC_MAX) ? INC_MAX : inc_up_raw;
+    wire [31:0] inc_dn     = (inc_dn_raw < INC_MIN) ? INC_MIN : inc_dn_raw;
 
     // ── ⭐ 位域（⚠️ 必须与 `tools/mid2evt.py` 逐位一致 —— 契约 §1.1.3 硬约束 1）──
     localparam integer TICK_SH   = 44;
@@ -201,6 +267,42 @@ module play_seq #(
                     //    （⛔ 不静默：调用方看 `tempo_cnt_o` 没涨就知道没应用）
                 end
                 // ⚠️ 音符事件（kind 0/1）**不改速度**
+            end
+
+            // ═══════════════════════════════════════════════════════════════
+            // ⭐⭐ 2026-10-11：⭐ **BPM 手动入口**（⭐ 串口 `'Q'` ＋ 将来 EC11 ✅）
+            //
+            //  📌 ⭐ **为什么放在 `emit_now` 之外**：⭐ 手动改速**与事件流无关** ✅
+            //     ⭐ 曲谱没在放的时候也要能改速 ✅
+            //  📌 ⭐ **同拍冲突的优先级**：⭐ 放在 `emit_now` **之后** ⇒
+            //     ⭐ **手动命令胜**（⭐ 用户刚按的应该被尊重 ✅）
+            //     ⚠️ 但这只在"曲谱 tempo 事件与手动命令**同拍**"时才有差别
+            //        （⭐ 概率极低 ✅）
+            //  📌 ⭐ **三者都写 `tick_inc_o`** ⇒ ⭐ 与 tempo 事件**同一个寄存器** ✅
+            //     ⇒ ⭐ 后写者胜、⛔ 无仲裁器 ✅
+            //  📌 ⭐ 可观测：⭐ 三个分支都拉 `tempo_applied_o` ＋ ⭐ 涨 `tempo_cnt_o` ✅
+            //     （⭐ `K-106`：⭐ 改速**必须可见**，⛔ 不许静默 ✅）
+            // ═══════════════════════════════════════════════════════════════
+            //  ⚠️⚠️ ⭐ **必须用 Z-safe 比较（`=== 1'b1`）** —— 🔴 **实测踩到**：
+            //     ⭐ `tb_play_seq` 的例化**没接这四个新端口**（⭐ 它是**已存在**的 tb ✅）
+            //     ⇒ ⭐ 输入是 **`z`** ⇒ ⚠️ `if (bpm_load_i)` 里是 **`x`**
+            //     ⇒ 🔴 分支**可能成立** ⇒ ⭐ `tick_inc_o <= x` ⇒ 🔴 **音乐时钟崩 ⇒ tb 挂死** ✅
+            //     （⭐ 实测：⭐ 全量回归里 `tb_play_seq` **TIMEOUT after 120 s** ✅）
+            //  ✅ **Z-safe**：⭐ `=== 1'b1` ⇒ ⭐ `z`/`x` **一律当假** ⇒ ⭐ 悬空输入**无害** ✅
+            //     📌 ⭐ 这是**本项目已有的约定**（⭐ 见 `looper` 的 `dump_en_w = (dump_en_i === 1'b1)` ✅）
+            //     📌 ⭐ 而且它**保护所有"没接新端口的 tb"** —— ⚠️ 否则每加一个输入都要改一堆 tb ✅
+            if (bpm_load_i === 1'b1) begin
+                tick_inc_o      <= tick_inc_from_bpm;
+                tempo_applied_o <= 1'b1;
+                tempo_cnt_o     <= tempo_cnt_o + 16'd1;
+            end else if (bpm_up_i === 1'b1) begin
+                tick_inc_o      <= inc_up;
+                tempo_applied_o <= 1'b1;
+                tempo_cnt_o     <= tempo_cnt_o + 16'd1;
+            end else if (bpm_dn_i === 1'b1) begin
+                tick_inc_o      <= inc_dn;
+                tempo_applied_o <= 1'b1;
+                tempo_cnt_o     <= tempo_cnt_o + 16'd1;
             end
 
             cur_tick_o <= cur_tick_r;   // ⭐ 可观测（⚠️ 打一拍，便于上板对照）

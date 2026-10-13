@@ -16,7 +16,6 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v:4252: warning: implicit definition of wire 'looper_full'.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another 
 file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
@@ -29,3 +28,5 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_am_pipe.sv:144: warning: Instantiating module axis_map with dangling inp
+ut port 10 (axis_id_b_i) floating.

@@ -453,6 +453,12 @@ parameter integer FIXED_BLEND_Q     = 0,
             //        （⭐ `sweep_off` 来自**寄存器** ⇒ ⛔ 不产生新的长组合链 ✅）
             wire [PHASE_W-1:0] lane_inc_sweep = lane_inc_s[PHASE_W-1:0] + sweep_off;
 
+            //  ⭐⭐ 2026-10-11（⭐ **P2-37 实验：结论 = 不成立，已回退** ✅）：
+            //     ⭐ 详见 `rtl/w3b/oscillator_bank.v` 同一处的长注释 ✅
+            //     📌 一句话：⭐ 综合器**早就把奇数 lane 那个 mux 折掉了**
+            //        （⭐ `lane_active = 0` 时整条相位更新不执行 ⇒ ⭐ 死逻辑 ✅）
+            //        ⇒ ⭐ 实测 **LUT 一个都没降** ⇒ ⭐ 按审查自己定的判据**不落地** ✅
+            //     ⚠️ ⭐ **本副本必须与 RTL 逐字一致**（⭐ 铁律④ ✅）⇒ ⭐ 一并回退 ✅
             wire [PHASE_W-1:0] lane_inc = test_mode_i
                              ? test_phase_inc_i[g*PHASE_W +: PHASE_W]
                              : lane_inc_sweep;

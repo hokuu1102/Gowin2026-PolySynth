@@ -69,6 +69,8 @@ module tb_calib_span;
     // ⭐ DUT
     // ═══════════════════════════════════════════════════════════════════════
     reg              start_i;
+    //  ⭐⭐ 2026-10-11（⭐ `P1-12`）：⭐ **判据⑨ 用** —— ⭐ 记录 `done_o` 出现过 ✅
+    reg              done_seen = 1'b0;
     reg              abort_i;
     reg              sample_valid;
     reg  [2:0]       sample_ch;
@@ -80,6 +82,8 @@ module tb_calib_span;
     wire             cal_err_i;
     wire             busy_o;
     wire             done_o;
+    //  ⭐⭐ 2026-10-11（⭐ `P1-12`）：⭐ **判据⑨ 的监视器** —— ⭐ `done_o` 一旦出现就记住 ✅
+    always @(posedge clk) if (done_o) done_seen <= 1'b1;
     wire [3:0]       cur_axis_o;
     wire             need_press_o;
     wire             reject_o;
@@ -591,6 +595,40 @@ module tb_calib_span;
         $display("      [dbg] P0-10 span_o 曾是 2'b11 的次数 = %0d（应为 0）", p010_bad);
         chk("P0-10 span_o is NEVER 2'b11 (span goes to ONE chip only, per user choice A)",
             p010_bad == 0);
+
+        // ═══════════════════════════════════════════════════════════════════
+        $display("--- 判据⑨：⭐ `P1-12` —— `S_DONE` 里重发 `start_i` 不许【静默无效】---");
+        // ═══════════════════════════════════════════════════════════════════
+        //  🔴 **缺陷（⭐ 审查 `[P1-12]`）**：⭐ `S_DONE` 是**自锁终态** ——
+        //     ⭐ 唯一的出口是 `abort_i`（⭐ `'X'` ✅）或复位 ✅
+        //     ⇒ ⚠️ 重发 `'S'`（⭐ = `start_i`）**在 `S_DONE` 里没有任何消费者**
+        //     ⇒ 🔴 **静默无效** ✅
+        //     📌 ⭐ **用户视角**：⭐ PC 发 `'S'`、⭐ 收到 `'s'`（⭐ "已受理" ✅）
+        //        ⚠️ **但什么都没发生** ⇒ 🔴 **最难查的那一类**（⭐ `K-106` ✅）
+        //  ✅ **修法**：⭐ `S_DONE` 里收到 `start_i` ⇒ ⭐ **重新开始**（⭐ 回到 `S_PROMPT` ✅）
+        //     📌 ⭐ 等价于"`'X'` 然后 `'S'`"，⭐ 但**少一步**（⭐ 对用户更简单 ✅）
+        //  📌 ⭐ **判据**：⭐ `done_o` 之后重发 `start_i` ⇒ ⭐ **`busy_o` 必须重新为 1** ✅
+        //     🔴 **未修复时**：⭐ `busy_o` 在 `S_DONE` 里**恒 0** ⇒ **必红** ✅
+        //  ⚠️ ⭐ **必须【先跑到 `S_DONE`】** —— 🔴 实测踩到：⭐ 我第一版把本判据放在
+        //     **tb 最末尾**，⭐ 而那里 FSM 已被前面的超时/abort 测试带离 `S_DONE`
+        //     ⇒ ⚠️ `busy_o` 当时已是 1 ⇒ 🔴 **判据空洞**（⭐ 无脑通过 ✅）
+        //     ⇒ ⭐ 所以这里**重跑一遍完整流程**（⭐ 与判据⑧ 同一套 ✅）
+        do_reset();
+        force_err_mode = 1'b0;
+        @(negedge clk); start_i = 1'b1;
+        @(posedge clk); @(negedge clk); start_i = 1'b0;
+        for (k = 0; k < 6000; k = k + 1) begin
+            scan_frame_stable(12'h400);
+            if (done_o) k = 6000;
+        end
+        repeat (4) @(posedge clk);
+        chk("P1-12 setup: the span FSM reached DONE again (done_o asserted)", done_o === 1'b1);
+        chk("P1-12 setup: busy_o is 0 while sitting in DONE", busy_o === 1'b0);
+        @(negedge clk); start_i = 1'b1;
+        @(posedge clk); @(negedge clk); start_i = 1'b0;
+        repeat (2) @(posedge clk);
+        chk("P1-12 a second start_i after DONE RESTARTS the FSM (busy_o back to 1 -- NOT a silent no-op)",
+            busy_o === 1'b1);
 
         $display("");
         if (errors == 0)

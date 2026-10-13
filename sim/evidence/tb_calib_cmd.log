@@ -1,4 +1,4 @@
-﻿NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=4 BYTE_CLK=500 HEADER=a5 N_CMD=19 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+﻿NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=4 BYTE_CLK=500 HEADER=a5 N_CMD=21 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
 === tb_calib_cmd ===
   ok  : 'T' outside a frame raises tare_req
   ok  : 'T' does NOT raise span_req or abort_req
@@ -72,7 +72,15 @@
   ok  : back-to-back frames with embedded T/S/X/HDR raise no commands
   ok  : back-to-back frames end with idx_o == 0
 
+--- 鍒ゆ嵁锛氣瓙 `'Q'` 璁剧疆 BPM锛堚瓙 绗?20 鏉″懡浠わ級---
+  ok  : 'Q' is accepted as a COMMAND (cmd_cnt_o counts it, not unknown_cnt_o)
+  ok  : 'Q' alone only ARMS -- it must NOT emit the BPM pulse on the command byte itself
+  ok  : 'Q' + payload[0]=140 => bpm_set_req_o pulsed exactly ONCE
+  ok  : 'Q' => bpm_val_o carries that payload byte (140)
+  ok  : after the arm is consumed, a later normal frame must NOT re-emit (arm eats ONE frame)
+  ok  : 'Q' passes the raw byte through (clamping is play_seq's job, not calib_cmd's)
+
 PASS: calib_cmd parses T/S/X/M/F/G/H/J only at frame boundaries, ignores payload letters, counts what it drops, takes the 'H' framed value from the next frame's first payload byte, and self-heals after a half frame
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_cmd.sv:557: $finish called at 91850000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_cmd.sv:615: $finish called at 93770000 (1ps)
 
 

@@ -10,7 +10,10 @@ ok : plain: the SAME spike is NOT rejected (clamps to MAX_TRAVEL) -- the counter
 ok : median: a GENUINE move still gets through (out -> 600, the spike does not linger)
 ok : A8: no X/Z on out_val
 ok : A8: no X/Z on med_out_val
-PASS: calib T13 all 11 checks ok
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_calib.sv:298: $finish called at 1802000 (1ps)
+ok : P2-24a (setup) the latched sample is non-zero (else 24c is vacuous)
+ok : P2-24b valid=0 => out_valid is 0 (the output is gated)
+ok : P2-24c valid=0 => the multiplier did NOT run (out_val HOLDS)
+PASS: calib T13 all 14 checks ok
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_calib.sv:315: $finish called at 1870000 (1ps)
 
 

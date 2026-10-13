@@ -694,6 +694,47 @@ module calib_span #(
                 S_DONE: begin
                     need_press_o <= 1'b0;
                     span_o       <= {N_ADC{1'b0}};
+
+                    //  ⭐⭐⭐⭐ 2026-10-11（⭐ **`P1-12`**）：⭐ **`S_DONE` 收到 `start_i` ⇒ 重新开始** ✅
+                    //
+                    //  🔴🔴 **原缺陷**：⭐ `S_DONE` 是**自锁终态** ——
+                    //     ⭐ 唯一的出口是 `abort_i`（⭐ `'X'` ✅）或复位 ✅
+                    //     ⇒ ⚠️ `start_i` **在本状态里没有任何消费者** ✅
+                    //     ⇒ 🔴 **重发 `'S'` 静默无效** ✅
+                    //     📌 ⭐ **用户视角**（⭐ 最难查的那一类 ✅）：
+                    //        ⭐ PC 发 `'S'` ⇒ ⭐ 收到 `'s'`（⭐ "已受理" ✅）
+                    //        ⚠️ **但什么都没发生** ⇒ 🔴 用户会以为"标定又跑了一遍" ✅
+                    //     📌 ⭐ 而 `top.v` 的门控只查 `at_done`（⭐ 自动零点完成 ✅）
+                    //        ⇒ ⭐ 它**放行**了 ✅ ⇒ ⚠️ 于是"放行 + 无人消费" = 静默 ✅
+                    //
+                    //  ✅ **修法**：⭐ 收到 `start_i` ⇒ ⭐ **重新开始**（⭐ 回到 `S_PROMPT` ✅）
+                    //     📌 ⭐ 语义上**等价于**"`'X'`（abort）然后 `'S'`" ✅
+                    //        ⇒ ⭐ 但**少一步**（⭐ 对用户更简单 ✅）
+                    //     📌 ⭐ 清场项**逐条照抄 `abort_i` 那段**（⭐ 见上方 `if (abort_i)` ✅）——
+                    //        ⚠️ 只把 `state` 的目标从 `S_IDLE` 改成 `S_PROMPT` ✅
+                    //        （⭐ `done_o`/`cur_axis`/`reject_cnt`/`done_cnt_o`/`stable_cnt`/
+                    //           `vote_cnt`/`prev_val`/`vmin`/`vmax`/`wait_clk_cnt`/
+                    //           `span_sent_r`/`prompt_phase` 全清 ⇒ ⭐ **不带上次的残留** ✅）
+                    //     📌 ⭐ **判据**：⭐ `tb/w3a/tb_calib_span.sv` 的**判据⑨** ✅
+                    //        （⭐ 跑到 `done_o=1` 后重发 `start_i` ⇒ ⭐ `busy_o` 必须重新为 1 ✅）
+                    if (start_i) begin
+                        state        <= S_PROMPT;
+                        need_press_o <= 1'b0;
+                        done_o       <= 1'b0;
+                        cur_axis     <= 4'd0;
+                        cur_axis_o   <= 4'd0;
+                        reject_cnt   <= 4'd0;
+                        done_cnt_o   <= 4'd0;
+                        stable_cnt   <= 6'd0;
+                        vote_cnt     <= 6'd0;
+                        prev_val     <= 12'hFFF;
+                        vmin         <= 12'hFFF;
+                        vmax         <= 12'd0;
+                        span_o       <= {N_ADC{1'b0}};
+                        wait_clk_cnt <= {WCW{1'b0}};
+                        span_sent_r  <= 1'b0;
+                        prompt_phase <= 1'b0;
+                    end
                 end
 
                 default: state <= S_IDLE;

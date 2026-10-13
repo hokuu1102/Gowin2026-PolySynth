@@ -59,14 +59,26 @@ module tb_right_adc;
 
     mcp3208_model #(.IDVAL(RAW_REST)) u_adc_on0 (
         .cs_n(cs_on[0]), .sclk(sclk_on), .mosi(mosi_on), .miso(m0_on),
-        .ovr_en_i(1'b0), .ovr_val_i(RAW_DOWN), .ch_mask_i(8'h00), .ch_val_i(RAW_DOWN));
+        //  ⭐⭐ 2026-10-11（⭐ `P1-20` 附带）：⭐ **喂 12 位切片** ——
+        //     ⚠️ `RAW_DOWN` 是 `localparam integer`（⭐ 32 位 ✅）而端口是 **12 位** ✅
+        //     ⇒ 🔴 原来每次编译都报 `Pruning (signed) 20 high bits`（⭐ 实测 6 条 ✅）
+        //     📌 ⭐ `RAW_DOWN = 12'h4D9` ⇒ ⭐ **低 12 位就是它的全部值** ⇒ 取切片**值不变** ✅
+        .ovr_en_i(1'b0), .ovr_val_i(RAW_DOWN[11:0]), .ch_mask_i(8'h00), .ch_val_i(RAW_DOWN[11:0]));
     mcp3208_model #(.IDVAL(RAW_REST)) u_adc_on1 (
         .cs_n(cs_on[1]), .sclk(sclk_on), .mosi(mosi_on), .miso(m1_on),
-        .ovr_en_i(1'b0), .ovr_val_i(RAW_DOWN), .ch_mask_i(8'h00), .ch_val_i(RAW_DOWN));
+        //  ⭐⭐ 2026-10-11（⭐ `P1-20` 附带）：⭐ **喂 12 位切片** ——
+        //     ⚠️ `RAW_DOWN` 是 `localparam integer`（⭐ 32 位 ✅）而端口是 **12 位** ✅
+        //     ⇒ 🔴 原来每次编译都报 `Pruning (signed) 20 high bits`（⭐ 实测 6 条 ✅）
+        //     📌 ⭐ `RAW_DOWN = 12'h4D9` ⇒ ⭐ **低 12 位就是它的全部值** ⇒ 取切片**值不变** ✅
+        .ovr_en_i(1'b0), .ovr_val_i(RAW_DOWN[11:0]), .ch_mask_i(8'h00), .ch_val_i(RAW_DOWN[11:0]));
     //  ⭐ 片 2 = 右手板 A（⭐ 只在 `RIGHT_ADC_ENABLE=1` 时才被选中）
     mcp3208_model #(.IDVAL(RAW_REST)) u_adc_on2 (
         .cs_n(cs_on[2]), .sclk(sclk_on), .mosi(mosi_on), .miso(m2_on),
-        .ovr_en_i(1'b0), .ovr_val_i(RAW_DOWN), .ch_mask_i(8'h00), .ch_val_i(RAW_DOWN));
+        //  ⭐⭐ 2026-10-11（⭐ `P1-20` 附带）：⭐ **喂 12 位切片** ——
+        //     ⚠️ `RAW_DOWN` 是 `localparam integer`（⭐ 32 位 ✅）而端口是 **12 位** ✅
+        //     ⇒ 🔴 原来每次编译都报 `Pruning (signed) 20 high bits`（⭐ 实测 6 条 ✅）
+        //     📌 ⭐ `RAW_DOWN = 12'h4D9` ⇒ ⭐ **低 12 位就是它的全部值** ⇒ 取切片**值不变** ✅
+        .ovr_en_i(1'b0), .ovr_val_i(RAW_DOWN[11:0]), .ch_mask_i(8'h00), .ch_val_i(RAW_DOWN[11:0]));
 
     // ── 实例 OFF（RIGHT_ADC_ENABLE = 0）—— ⭐ 反向对照 ────────────────────
     wire [5:0] cs_off;
@@ -97,13 +109,25 @@ module tb_right_adc;
 
     mcp3208_model #(.IDVAL(RAW_REST)) u_adc_off0 (
         .cs_n(cs_off[0]), .sclk(sclk_off), .mosi(mosi_off), .miso(m0_off),
-        .ovr_en_i(1'b0), .ovr_val_i(RAW_DOWN), .ch_mask_i(8'h00), .ch_val_i(RAW_DOWN));
+        //  ⭐⭐ 2026-10-11（⭐ `P1-20` 附带）：⭐ **喂 12 位切片** ——
+        //     ⚠️ `RAW_DOWN` 是 `localparam integer`（⭐ 32 位 ✅）而端口是 **12 位** ✅
+        //     ⇒ 🔴 原来每次编译都报 `Pruning (signed) 20 high bits`（⭐ 实测 6 条 ✅）
+        //     📌 ⭐ `RAW_DOWN = 12'h4D9` ⇒ ⭐ **低 12 位就是它的全部值** ⇒ 取切片**值不变** ✅
+        .ovr_en_i(1'b0), .ovr_val_i(RAW_DOWN[11:0]), .ch_mask_i(8'h00), .ch_val_i(RAW_DOWN[11:0]));
     mcp3208_model #(.IDVAL(RAW_REST)) u_adc_off1 (
         .cs_n(cs_off[1]), .sclk(sclk_off), .mosi(mosi_off), .miso(m1_off),
-        .ovr_en_i(1'b0), .ovr_val_i(RAW_DOWN), .ch_mask_i(8'h00), .ch_val_i(RAW_DOWN));
+        //  ⭐⭐ 2026-10-11（⭐ `P1-20` 附带）：⭐ **喂 12 位切片** ——
+        //     ⚠️ `RAW_DOWN` 是 `localparam integer`（⭐ 32 位 ✅）而端口是 **12 位** ✅
+        //     ⇒ 🔴 原来每次编译都报 `Pruning (signed) 20 high bits`（⭐ 实测 6 条 ✅）
+        //     📌 ⭐ `RAW_DOWN = 12'h4D9` ⇒ ⭐ **低 12 位就是它的全部值** ⇒ 取切片**值不变** ✅
+        .ovr_en_i(1'b0), .ovr_val_i(RAW_DOWN[11:0]), .ch_mask_i(8'h00), .ch_val_i(RAW_DOWN[11:0]));
     mcp3208_model #(.IDVAL(RAW_REST)) u_adc_off2 (
         .cs_n(cs_off[2]), .sclk(sclk_off), .mosi(mosi_off), .miso(m2_off),
-        .ovr_en_i(1'b0), .ovr_val_i(RAW_DOWN), .ch_mask_i(8'h00), .ch_val_i(RAW_DOWN));
+        //  ⭐⭐ 2026-10-11（⭐ `P1-20` 附带）：⭐ **喂 12 位切片** ——
+        //     ⚠️ `RAW_DOWN` 是 `localparam integer`（⭐ 32 位 ✅）而端口是 **12 位** ✅
+        //     ⇒ 🔴 原来每次编译都报 `Pruning (signed) 20 high bits`（⭐ 实测 6 条 ✅）
+        //     📌 ⭐ `RAW_DOWN = 12'h4D9` ⇒ ⭐ **低 12 位就是它的全部值** ⇒ 取切片**值不变** ✅
+        .ovr_en_i(1'b0), .ovr_val_i(RAW_DOWN[11:0]), .ch_mask_i(8'h00), .ch_val_i(RAW_DOWN[11:0]));
 
     // ── 计数：CS 下降沿 / SCLK 边沿 / 心跳 ───────────────────────────────
     integer cs2_on = 0, cs0_on = 0, cs2_off = 0, cs0_off = 0;

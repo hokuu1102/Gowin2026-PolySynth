@@ -192,7 +192,22 @@ module calib_cmd #(
     //        🔴 曲谱帧的**载荷字节是任意的** ⇒ ⚠️ 一个裸单字节触发器
     //        **会被载荷误触发**（⭐ 例如载荷里恰好有 `0x59` ✅）
     //        ⇒ ⭐ 所以触发**必须走命令通道**（⭐ 它天然只在"帧外"接受命令 ✅）
-    parameter [7:0]   CMD_RECDUMP   = 8'h59    // 'Y' ⭐ 录制回传：导出该层已录事件
+    parameter [7:0]   CMD_RECDUMP   = 8'h59,   // 'Y' ⭐ 录制回传：导出该层已录事件
+    //  ⭐⭐ 2026-10-11：⭐ **`'Q'` = 设置 BPM**（⭐ 用户要求"先加串口入口" ✅）
+    //     📌 ⭐ 语义：⭐ **臂化 ＋ 下一帧载荷[0] = BPM**（⭐ 与 `'H'` 同一套路 ✅）
+    //        ⭐ 40~240 只需**一个字节** ⇒ ⛔ 不用两字节 ✅
+    //     📌 ⭐ 为什么不用 `'B'`（节拍器开关）带载荷：⭐ 那样会**改变 `'B'` 的既有语义**
+    //        （⭐ 现在 `'B'` 无载荷 = 开/关切换 ✅）⇒ ⚠️ 会打破既有 PC 脚本 ✅
+    //     📌 ⭐ 为什么 `'Q'`：⭐ 空闲字母（⭐ 已占 `T S X P V M N R L C I B D K F G H J Y` ✅）
+    parameter [7:0]   CMD_BPM      = 8'h51,   // 'Q' ⭐ 设置 BPM（⭐ 臂化 ⇒ 下一帧载荷[0]）
+    //  ⭐⭐ 2026-10-11：⭐ **`'W'` = 滑音开关切换** ✅
+    //     📌 ⭐ 语义：⭐ 与 `'B'`（节拍器）/`'K'`（键盘打鼓）**同构** —— ⭐ **切换** ✅
+    //        ⇒ ⭐ `top.v` 用寄存器记状态 ✅（⭐ ⛔ 本模块只出脉冲 ✅）
+    //     📌 ⭐ **为什么需要它**（⭐ `review/滑音触发规格-20261011.md` ✅）：
+    //        ⭐ 滑音判据**依赖阈值和窗口** ✅ ⇒ ⚠️ 上板调参时**必须能关掉** ✅
+    //        （⭐ 否则一旦误触发，⭐ 会**静默改掉音高** 🔴 —— ⭐ `K-106` 那一类 ✅）
+    //     📌 ⭐ **默认【关】** ⇒ ⭐ 行为与现在**逐位一致** ✅
+    parameter [7:0]   CMD_SLIDE    = 8'h57    // 'W' ⭐ 滑音开/关切换（⭐ 2026-10-11）
 ) (
     input  wire        clk_i,
     input  wire        rst_n_i,        // ⭐ 同步复位、低有效
@@ -236,6 +251,11 @@ module calib_cmd #(
     output reg         gear_next_req_o,  // ⭐ 'J' ⇒ 推子档位 **切下一档**（⭐ 供 `P3`）
     //  ⭐⭐ 2026-10-11：⭐ `'Y'` ⇒ **导出录制内容**（⭐ 单周期脉冲 ✅）
     output reg         recdump_req_o,    // ⭐ 'Y' ⇒ 启动"录制回传"导出
+    //  ⭐⭐ 2026-10-11：⭐ **`'Q'` 设置 BPM**（⭐ 脉冲 ＋ 数据同拍 ✅，与 `'H'` 同约定 ✅）
+    output reg         bpm_set_req_o,    // ⭐ 'Q' ⇒ BPM 值到达的那一拍
+    output reg  [7:0]  bpm_val_o,        // ⭐ 'Q' ⇒ 该帧**第一个载荷字节**（⭐ 40~240 ✅）
+    //  ⭐⭐ 2026-10-11：⭐ **`'W'` 滑音开/关切换** ✅（⭐ 与 `met_req_o` 同构 ✅）
+    output reg         slide_req_o,      // ⭐ 'W' ⇒ 滑音开/关 **切换**（⭐ 单周期脉冲 ✅）
 
     // ── ⭐ 可观测性（`K-106`：⛔ 不许静默失效）────────────────────────────
     output reg  [15:0] cmd_cnt_o,      // ⭐ 已接受的命令数（饱和）
@@ -287,6 +307,11 @@ module calib_cmd #(
     //         ⇒ 🔴 **曲谱灌入时变调值被乱改**（⭐ 与"帧内字母不触发"同一类灾难）✅
     //      ⭐ 另外两条清臂路径：⭐ 复位 · ⭐ 空闲归位（⭐ 半帧作废 ⇒ 臂一起作废，⛔ 不留悬空状态）✅
     reg abs_arm_q;
+    //  ⭐⭐ 2026-10-11：⭐ **`'Q'` 的臂化标志**（⭐ 与 `abs_arm_q` 同一套路 ✅）
+    //     📌 ⭐ 为什么必须是【独立的】标志：⭐ 若与 `'H'` 共用一个 ⇒
+    //        🔴 发 `'Q'` 之后紧跟的**普通事件帧**（⭐ 曲谱 ✅）会被当成 BPM
+    //        ⇒ ⭐ **曲谱一灌进来就把 BPM 改乱** ✅（⭐ 与 `abs_arm_q` 的注释同一灾难 ✅）
+    reg bpm_arm_q;
 
     assign idx_o = idx_q;
 
@@ -323,6 +348,10 @@ module calib_cmd #(
     wire byte_is_gear_next  = (rx_data_i == CMD_GEAR_NEXT);
     //  ⭐⭐ 2026-10-11：⭐ `'Y'`（⭐ 录制回传 ✅）
     wire byte_is_recdump    = (rx_data_i == CMD_RECDUMP);
+    //  ⭐⭐ 2026-10-11：⭐ **`'Q'` 设置 BPM** ✅
+    wire byte_is_bpm        = (rx_data_i == CMD_BPM);
+    //  ⭐⭐ 2026-10-11：⭐ **`'W'` 滑音开关** ✅
+    wire byte_is_slide      = (rx_data_i == CMD_SLIDE);
     // ⭐ 任一命令字母
     wire byte_is_cmd   = byte_is_tare | byte_is_span | byte_is_abort |
                          byte_is_probe | byte_is_vstat | byte_is_posprobe |
@@ -330,6 +359,8 @@ module calib_cmd #(
                          byte_is_loop_rec | byte_is_loop_play | byte_is_loop_clr |
                          byte_is_timbre | byte_is_met | byte_is_drum_pat |
                          byte_is_keydrum |
+                         byte_is_bpm |        // ⭐ 2026-10-11：'Q' 设置 BPM
+                         byte_is_slide |      // ⭐ 2026-10-11：'W' 滑音开关
                          // ⭐ 2026-10-03（`P2`）：⭐ 四个新字母**必须**在这里 ⇒
                          //   ⚠️ 否则**帧内出现它们时 `in_frame_cnt_o` 不计数**
                          //      ⇒ 🔴 "边界跟踪在工作"的**证据就没了**（`K-106` 静默失效）
@@ -390,6 +421,10 @@ module calib_cmd #(
             trans_abs_val_o  <= 8'd0;   // ⭐ 'H' 的载荷值（⭐ 2026-10-03 · P2）
             gear_next_req_o  <= 1'b0;   // ⭐ 'J' 切档（⭐ 2026-10-03 · P2）
             recdump_req_o    <= 1'b0;   // ⭐ 'Y' 录制回传导出（⭐ 2026-10-11）
+            bpm_set_req_o    <= 1'b0;   // ⭐ 'Q' 设置 BPM（⭐ 2026-10-11）
+            slide_req_o      <= 1'b0;   // ⭐ 'W' 滑音开关（⭐ 2026-10-11）
+            bpm_val_o        <= 8'd0;   // ⭐ 'Q' 的载荷值
+            bpm_arm_q        <= 1'b0;   // ⭐ 'Q' 臂化标志
             abs_arm_q        <= 1'b0;   // ⭐ 'H' 臂化标志（⭐ 2026-10-03 · P2）
             cmd_cnt_o      <= 16'd0;
             in_frame_cnt_o <= 16'd0;
@@ -414,6 +449,13 @@ module calib_cmd #(
             trans_down_req_o   <= 1'b0; // ⭐ 'F'（⭐ 2026-10-03 · P2）
             trans_up_req_o     <= 1'b0; // ⭐ 'G'（⭐ 2026-10-03 · P2）
             trans_abs_req_o    <= 1'b0; // ⭐ 'H'（⭐ 2026-10-03 · P2）
+            //  ⭐⭐ 2026-10-11：⭐ **`'Q'` 也必须【每拍清零】** ——
+            //     🔴 **实测踩到**：⭐ 我只加了复位分支、⭐ 漏了这一行
+            //        ⇒ ⭐ `bpm_set_req_o` **一直为高** ⇒ ⭐ tb 的监视器**每拍都数** ✅
+            //     📌 ⭐ 教训：⭐ 本模块的**每个脉冲输出**都必须在**两处**出现
+            //        （⭐ 复位 ✅ ＋ ⭐ 每拍默认清零 ✅）—— ⚠️ 漏一处就变成"电平" ✅
+            bpm_set_req_o      <= 1'b0; // ⭐ 'Q'（⭐ 2026-10-11）
+            slide_req_o        <= 1'b0; // ⭐ 'W'（⭐ 2026-10-11）
             gear_next_req_o    <= 1'b0; // ⭐ 'J'（⭐ 2026-10-03 · P2）
             recdump_req_o      <= 1'b0; // ⭐ 'Y' 录制回传导出（⭐ 2026-10-11）
             //   ⚠️ `trans_abs_val_o` **刻意不在这里清零** ——
@@ -463,6 +505,12 @@ module calib_cmd #(
                         //      📌 所以"发 `'H'` 就立刻变调"是**错的预期**：
                         //         ⭐ 必须 `'H'` ＋ ⭐ 紧跟一帧（`0xA5` + 8 字节）才生效 ✅
                         if (byte_is_trans_abs)  abs_arm_q        <= 1'b1;
+                        //   ⭐⭐ 2026-10-11：⭐ **`'Q'` 也是【臂化】**（⭐ ⛔ 本拍不出脉冲 ✅）
+                        //      ⭐ 值在**下一帧的第一个载荷字节**那一拍才出 ✅
+                        if (byte_is_bpm)        bpm_arm_q        <= 1'b1;
+                        //   ⭐⭐ 2026-10-11：⭐ **`'W'` 滑音开关**（⭐ 切换语义 ⇒ ⭐ 直接出脉冲 ✅）
+                        //      📌 ⭐ 与 `'B'`（节拍器）/`'K'`（键盘打鼓）**同构** ✅
+                        if (byte_is_slide)      slide_req_o      <= 1'b1;
                         cmd_cnt_o <= sat_inc16(cmd_cnt_o);
                         idx_q     <= 4'd0;      // ⭐ 命令不推进帧位置
                     end else begin
@@ -491,6 +539,14 @@ module calib_cmd #(
                         trans_abs_val_o <= rx_data_i;
                         trans_abs_req_o <= 1'b1;
                         abs_arm_q       <= 1'b0;
+                    end
+                    //  ⭐⭐ 2026-10-11：⭐ **`'Q'` 的带帧载荷**（⭐ 与 `'H'` 完全同套路 ✅）
+                    //     ⭐ 位置：⭐ `idx_q == 1` = **第一个载荷字节** ✅
+                    //     ⭐ 取走后**立刻清臂** ⇒ ⭐ 一次臂化只吃一帧 ✅
+                    if ((idx_q == 4'd1) && bpm_arm_q) begin
+                        bpm_val_o     <= rx_data_i;
+                        bpm_set_req_o <= 1'b1;
+                        bpm_arm_q     <= 1'b0;
                     end
                     if (idx_q == IDX_LAST) begin
                         idx_q <= 4'd0;          // ⭐ 本帧结束，回到帧外
@@ -537,7 +593,7 @@ module calib_cmd #(
     //   ⭐ 2026-10-03（`P2`）：⭐ **14 ⇒ 18**（⭐ 新增 `'F'`/`'G'`/`'H'`/`'J'` 四条变调命令）
     //      📌 ⚠️ **忘了加这里 = 查重漏掉新字母** ⇒ 🔴 将来撞字母时**静默遮蔽**
     //         （⭐ 所以本表是"加新命令时的**必改项**"，⭐ 见上方注释 ✅）
-    localparam integer N_CMD = 19;
+    localparam integer N_CMD = 21;
     reg [7:0] cmd_tab [0:N_CMD-1];
     integer   ci, cj;
     reg       letters_ok;
@@ -562,6 +618,8 @@ module calib_cmd #(
         cmd_tab[16] = CMD_TRANS_ABS;   // ⭐ 2026-10-03：⭐ 'H' 变调：带帧绝对量（⭐ P2）
         cmd_tab[17] = CMD_GEAR_NEXT;   // ⭐ 2026-10-03：⭐ 'J' 推子档位切下一档（⭐ P2）
         cmd_tab[18] = CMD_RECDUMP;     // ⭐ 2026-10-11：⭐ 'Y' 录制回传导出（⭐ 查重必改项 ✅）
+        cmd_tab[19] = CMD_BPM;         // ⭐ 2026-10-11：⭐ 'Q' 设置 BPM（⭐ 查重必改项 ✅）
+        cmd_tab[20] = CMD_SLIDE;       // ⭐ 2026-10-11：⭐ 'W' 滑音开关（⭐ 查重必改项 ✅）
 
         if (GAP_BYTES <= 1)
             $display("ERROR [calib_cmd] GAP_BYTES = %0d <= 1 => intra-frame byte gaps would be mistaken for idle, so a half frame resyncs early and payload bytes get treated as commands. PARAM_OK=0.", GAP_BYTES);

@@ -103,6 +103,32 @@ module axis_snapshot #(
     // ═══════════════════════════════════════════════════════════════════════
     integer wi;         // ⭐ 轴遍历（复位与快照搬移共用）
     integer di;         // ⭐ 片遍历（写侧逐片展开）
+
+    //  ⭐⭐⭐⭐ 2026-10-11（⭐ **`P2-27`**）：⭐ **`primed` —— 第 1 帧不出快照** ✅
+    //
+    //  🔴🔴 **原缺陷**：⭐ `first_ch_of_frame` 复位为 **0** ✅
+    //     ⇒ ⭐ 第 1 帧的 `ch0` **不固化 `prev`**（⭐ 见下方 `:151` 的条件 ✅）
+    //     ⇒ ⭐ `prev` 保持**复位值 0** ⇒ 🔴 **第 1 帧 `delta = cur − 0 = cur`** ✅
+    //        （⭐ 最大 **+4095** ✅）
+    //     📌 ⭐ **为什么"现在"才要修**（⭐ 原来无害 ✅）：
+    //        ⭐ 阶段 2 接上**滑音**后，⭐ 双音判据是"`dA ≥ 0` 且 `dB ≥ 0`" ✅
+    //        ⇒ ⭐ 第 1 帧**所有轴**的 `delta` 都是大正数 ⇒ ⭐ 判据**全部成立**
+    //        ⇒ 🔴 **上电 / 重标定后多发一个音** ✅（⭐ `P3-19` 同源 ✅）
+    //
+    //  ⚠️ ⭐ **为什么只改 `first_ch_of_frame` 的复位值【不够】**（⭐ 审查的简写版 🔴）：
+    //     ⭐ 即使复位成 1，⭐ `prev <= cur` 读的是**旧的** `cur`（⭐ 非阻塞赋值 ✅）
+    //     ⇒ ⭐ 那一拍 `prev[ch0]` 拿到的还是 **0** ⇒ 🔴 `delta` **仍然错** ✅
+    //     📌 ⭐ 所以**必须**让第 1 帧**整个不出快照** ⇒ ⭐ 那个错的 `delta` **永远不会被看到** ✅
+    //
+    //  ✅ **改法**：⭐ 加一个 `primed` ✅
+    //     · ⭐ 复位 = **0** ✅
+    //     · ⭐ 第 1 次固化 `prev` 那一拍置 **1** ✅
+    //     · ⭐ `snap_valid_o = last_ch_r & primed` ✅ ⇒ ⭐ **第 1 帧被抑制** ✅
+    //     📌 ⭐ 从**第 2 帧**起：⭐ `prev` = 第 1 帧、⭐ `cur` = 第 2 帧 ⇒ ⭐ **`delta` 语义正确** ✅
+    //  📌 ⭐ **判据**：⭐ `tb/w3a/tb_axis_snapshot.sv` 的 `P2-27` ✅
+    //     （⭐ 喂**位置恒定**的多帧 ⇒ ⭐ 每次快照的 `delta` 必须**全 0** ✅）
+    reg primed;
+
     always @(posedge clk) begin
         if (!rst_n) begin
             for (wi = 0; wi < AXIS_N; wi = wi + 1) begin
@@ -111,6 +137,7 @@ module axis_snapshot #(
             end
             seen <= {AXIS_N{1'b0}};
             first_ch_of_frame <= 1'b0;
+            primed            <= 1'b0;      // ⭐ P2-27：⭐ 尚未"预热"⇒ 第 1 帧不出快照 ✅
         end else begin
             // ── ⭐ 收样本：**逐片写入**（⭐ 每片 = 8 通道 ⇒ 8 个轴）
             if (sample_valid_i) begin
@@ -151,6 +178,10 @@ module axis_snapshot #(
             if (sample_valid_i && (sample_ch_i == 3'd0) && first_ch_of_frame) begin
                 for (wi = 0; wi < AXIS_N; wi = wi + 1)
                     prev[wi] <= cur[wi];
+                //  ⭐⭐ 2026-10-11（⭐ `P2-27`）：⭐ **预热完成** ⇒ ⭐ 从**下一帧**起才出快照 ✅
+                //     📌 ⭐ 即：⭐ 第 1 帧只做"固化"，⭐ 那个 `delta = cur − 0` 的错值
+                //        **永远不会被 `snap_valid_o` 暴露** ✅
+                primed <= 1'b1;
             end
         end
     end
@@ -221,7 +252,10 @@ module axis_snapshot #(
             //  ⭐ 与写侧**同一条件**：⭐ "本拍是一个通道的最后一个样本" ✅
             //     📌 `adc_farm` 是**锁步**的（⭐ 所有片同拍扫同一通道号）⇒ ⭐ `ch==7` 就是本帧最后一个样本 ✅
             last_ch_r    <= sample_valid_i && (sample_ch_i == 3'd7);
-            snap_valid_o <= last_ch_r;
+            //  ⭐⭐ 2026-10-11（⭐ `P2-27`）：⭐ **加 `& primed`** ⇒ ⭐ 第 1 帧不出快照 ✅
+            //     📌 ⭐ 从第 2 帧起 `primed = 1` ⇒ ⭐ 行为与改动前**逐位相同** ✅
+            //     ⚠️ ⭐ 唯一的差别 = ⭐ **首帧那一次快照被抑制** ✅（⭐ 而它的 `delta` 本来就是错的 ✅）
+            snap_valid_o <= last_ch_r & primed;
         end
     end
 

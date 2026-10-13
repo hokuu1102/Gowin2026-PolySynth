@@ -17,8 +17,11 @@
       [dbg] P0-13 蹇収褰撴媿锛氳酱7=0x307锛堟湰甯у簲 0x307锛壜?杞?5=0x407锛堟湰甯у簲 0x407锛?
   ok  : P0-13 last axis 15 in the snapshot is the CURRENT frame value (real producer timing)
   ok  : P0-13 last axis 7 in the snapshot is the CURRENT frame value (real producer timing)
+--- 鍒ゆ嵁锛氣瓙 P2-27 鈥斺€?浣嶇疆涓嶅彉 鈬?姣忔蹇収鐨?delta 蹇呴』銆愬叏 0銆?--
+  ok  : P2-27 (non-vacuous) at least one snapshot happened
+  ok  : P2-27 with a CONSTANT position every snapshot delta is 0 (the first frame must not emit)
 
 PASS: axis_snapshot maps (adc,ch)->axis, commits all chips in one cycle, emits a per-frame pulse, and produces a SIGNED per-axis delta (the raw material for slide/two-note detection)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_axis_snapshot.sv:287: $finish called at 2230000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_axis_snapshot.sv:330: $finish called at 3530000 (1ps)
 
 

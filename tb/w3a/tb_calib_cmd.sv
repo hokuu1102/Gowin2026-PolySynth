@@ -80,6 +80,18 @@ module tb_calib_cmd;
     wire       trans_down_req, trans_up_req, trans_abs_req, gear_next_req;
     wire [7:0] trans_abs_val;                                 // ⭐ 'H' 带出来的半音值
     wire [15:0] cmd_cnt, in_frame_cnt, resync_cnt, unknown_cnt;
+    //  ⭐⭐ 2026-10-11：⭐ `'Q'` 设置 BPM 的观测（⭐ 判据用 ✅）
+    wire        bpm_set_req;
+    wire [7:0]  bpm_val;
+    integer     bpm_req_cnt = 0;
+    reg  [7:0]  bpm_val_r   = 8'd0;
+    integer     n_q;                    // ⭐ 'Q' 判据用：⭐ 命令计数基线 ✅
+    //  ⭐ 监视：⭐ 每次脉冲都记下值 ⇒ ⭐ 可判"脉冲了几次"与"值对不对" ✅
+    always @(posedge clk)
+        if (bpm_set_req) begin
+            bpm_req_cnt = bpm_req_cnt + 1;
+            bpm_val_r   = bpm_val;
+        end
     wire [3:0]  idx_o;
 
     calib_cmd #(
@@ -119,6 +131,9 @@ module tb_calib_cmd;
         .trans_abs_req_o (trans_abs_req),
         .trans_abs_val_o (trans_abs_val),
         .gear_next_req_o (gear_next_req),
+        //  ⭐⭐ 2026-10-11：⭐ `'Q'` 设置 BPM（⭐ 第 20 条命令 ✅）
+        .bpm_set_req_o   (bpm_set_req),
+        .bpm_val_o       (bpm_val),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (in_frame_cnt),
         .resync_cnt_o   (resync_cnt),
@@ -546,6 +561,49 @@ module tb_calib_cmd;
         chk("back-to-back frames with embedded T/S/X/HDR raise no commands",
             tare_seen == 0 && span_seen == 0 && abort_seen == 0 && test_mode_seen == 0);
         chk("back-to-back frames end with idx_o == 0", idx_o === 4'd0);
+
+        $display("");
+        // ═══════════════════════════════════════════════════════════════════
+        $display("--- 判据：⭐ `'Q'` 设置 BPM（⭐ 第 20 条命令）---");
+        // ═══════════════════════════════════════════════════════════════════
+        //  ⭐ **语义**：⭐ 与 `'H'`（变调带帧绝对量）**同一套路** ✅
+        //     · ⭐ 帧外发 `'Q'` ⇒ ⭐ **只臂化**，⛔ 本拍**不出脉冲** ✅
+        //     · ⭐ 下一帧的**第一个载荷字节** ⇒ ⭐ 值到达那一拍出脉冲 ✅
+        //     · ⭐ 取走后**立刻清臂** ⇒ ⭐ **一次臂化只吃一帧** ✅
+        //  🔴 **未实现时必红**（⭐ 本判据的"红"形态 ✅）：
+        //     ⭐ `'Q'` 是**未知字节** ⇒ ⭐ `cmd_cnt_o` **不涨**（⭐ 进 `unknown_cnt_o` ✅）
+        //     ⇒ ⭐ 第一条判据就红 ✅
+        do_reset();
+        repeat (4) @(posedge clk);
+        n_q = cmd_cnt;
+        bpm_req_cnt = 0; bpm_val_r = 8'd0;
+
+        send_byte(8'h51);                       // ⭐ 'Q'（⭐ 臂化）
+        repeat (6) @(posedge clk);
+        chk("'Q' is accepted as a COMMAND (cmd_cnt_o counts it, not unknown_cnt_o)",
+            cmd_cnt == n_q + 16'd1);
+        chk("'Q' alone only ARMS -- it must NOT emit the BPM pulse on the command byte itself",
+            bpm_req_cnt == 0);
+
+        send_frame(8'd140, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0);   // ⭐ 载荷[0] = 140
+        repeat (6) @(posedge clk);
+        chk("'Q' + payload[0]=140 => bpm_set_req_o pulsed exactly ONCE", bpm_req_cnt == 1);
+        chk("'Q' => bpm_val_o carries that payload byte (140)", bpm_val_r == 8'd140);
+
+        //  ⭐ 再发一帧 ⇒ ⭐ 臂已清 ⇒ ⭐ 不许再出脉冲（⭐ "一次臂化只吃一帧" ✅）
+        send_frame(8'd200, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0);
+        repeat (6) @(posedge clk);
+        chk("after the arm is consumed, a later normal frame must NOT re-emit (arm eats ONE frame)",
+            bpm_req_cnt == 1);
+
+        //  ⭐ 边界：⭐ 发一个超范围的 BPM（⭐ 10 ✅）⇒ ⭐ **本模块不判范围**（⭐ 原样回传 ✅）
+        //     📌 ⭐ 限幅在 `play_seq` 里做（⭐ 40~240 ✅）—— ⭐ 本模块只负责"把字节送到" ✅
+        send_byte(8'h51);
+        repeat (4) @(posedge clk);
+        send_frame(8'd10, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0);
+        repeat (6) @(posedge clk);
+        chk("'Q' passes the raw byte through (clamping is play_seq's job, not calib_cmd's)",
+            bpm_req_cnt == 2 && bpm_val_r == 8'd10);
 
         $display("");
         if (errors == 0)

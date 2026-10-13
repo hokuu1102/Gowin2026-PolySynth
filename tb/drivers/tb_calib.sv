@@ -145,6 +145,8 @@ module tb_calib;
 
     integer pass_cnt;
     integer fail_cnt;
+    //  ⭐⭐ 2026-10-11（⭐ `P2-24` ①）：⭐ **判据 ⑧ 用**（⭐ 记下 `valid=0` 之前的 `out_val` ✅）
+    reg [DW-1:0] v_hold;
 
     task automatic check;
         input integer cond;
@@ -286,6 +288,21 @@ module tb_calib;
         // ── ⑦ A8 ────────────────────────────────────────────────────────────
         check(a8_out == 0, "A8: no X/Z on out_val");
         check(a8_med == 0, "A8: no X/Z on med_out_val");
+
+        // ── ⑧ ⭐⭐ 2026-10-11（⭐ `P2-24` ①）：⭐ **`valid = 0` 时乘法必须【不执行】** ──
+        //   🔴 **为什么要单独立这一条**：⭐ "用 `valid` 门控乘法"这个改法
+        //      ⚠️ **功能 tb 看不出来** —— ⭐ 因为 `out_valid = v_r` 已经把输出门控了 ✅
+        //      ⇒ ⭐ 所以必须**直接观测 `prod_r` 的后果** ✅
+        //   ✅ **可观测的判据**：⭐ `valid = 0` 时把 `raw` 换成一个**很不同的**值
+        //      · ⭐ **门控生效** ⇒ ⭐ `prod_r` **保持** ⇒ ⭐ `out_val` **不变** ✅
+        //      · 🔴 **未门控** ⇒ ⭐ `prod_r` 更新 ⇒ ⭐ `out_val` **跟着变** ⇒ **判据红** ✅
+        //   📌 ⭐ 本判据**不需要层次引用** —— ⭐ 只看输出端口 ✅
+        valid = 1'b1; ch = 3'd0; raw = 12'd4000; @(posedge clk); @(posedge clk);
+        v_hold = out_val;
+        check(v_hold != 12'd0, "P2-24a (setup) the latched sample is non-zero (else 24c is vacuous)");
+        valid = 1'b0; raw = 12'd0; @(posedge clk); @(posedge clk);
+        check(out_valid === 1'b0, "P2-24b valid=0 => out_valid is 0 (the output is gated)");
+        check(out_val === v_hold, "P2-24c valid=0 => the multiplier did NOT run (out_val HOLDS)");
 
         // ── 汇总 ─────────────────────────────────────────────────────────────
         if (fail_cnt == 0) begin

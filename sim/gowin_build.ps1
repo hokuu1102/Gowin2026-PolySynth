@@ -559,7 +559,44 @@ if ((Test-Path $sdcPath) -and (Test-Path $htmlPath)) {
 #     · ✅ **改后实测**：⭐ 全部 **≥ 3 次** ✅
 #     📌 ⭐ **反向也有效**：⭐ 若哪天有人把 `ovf_any` 的 OR 删了 ⇒ ⭐ 它们又掉回 2 ⇒ **门报警** ✅
 # ═══════════════════════════════════════════════════════════════════════════════
-$p029Critical = @('ee_ovf', 'ee_lost', 'sa_overflow', 'mg_overflow', 'looper_overflow', 'txf_ovf')
+$p029Critical = @('ee_ovf', 'ee_lost', 'sa_overflow', 'mg_overflow', 'looper_overflow', 'txf_ovf',
+                  #  ⭐⭐ 2026-10-11（⭐ `P1-05`）：⭐ **`autotare` 的"跳过/失败"也纳入本门** ✅
+                  #     🔴 原来它们只有"声明 + 端口映射" 2 处 ⇒ ⭐ 综合**剪掉**
+                  #        ⇒ ⭐ "某个轴被跳过（零点没记）"**完全看不到** ✅（⭐ `K-106` ✅）
+                  #     ✅ 修法：⭐ `top.v` 里 `assign at_fault_w = at_fail | (|at_skip);`
+                  #        ＋ ⭐ 把 `at_fault_w` OR 进 `fault_any_w`（⭐ 心跳灯快闪 ⇒ 上板可见 ✅）
+                  'at_fail', 'at_skip',
+                  #  ⭐⭐ 2026-10-11（⭐ `P1-05` 同族）：⭐ **两个配置告警也纳入本门** ✅
+                  #     🔴 原来 `metronome.cfg_warn_o` / `drum_gen.cfg_warn_o` 在 top.v 里
+                  #        只有"声明 + 端口映射" 2 处 => 综合剪掉 => **参数配错了完全静默** ✅
+                  #     ✅ 修法：⭐ `assign cfg_warn_w = met_cfg_warn | drm_cfg_warn;`
+                  #        ＋ ⭐ 把 `cfg_warn_w` OR 进 `fault_any_w`（⭐ 心跳灯快闪 ✅）
+                  'met_cfg_warn', 'drm_cfg_warn',
+                  #  ⭐⭐ 2026-10-11（⭐ 新目标 ②）：⭐ **滑音开关也纳入本门** ✅
+                  #     ⚠️ `slide_on_r` 是【寄存器】（⛔ 不是 wire）=> 本门"出现次数 > 2"这条
+                  #        对它的约束力【较弱】—— 它自己 always 里的读写就有 3 次 ✅
+                  #     📌 ⭐ **真正的判据**：⭐ 必须 >= 5 次（⭐ 声明 1 + always 里 3 +
+                  #        接进 event_extract.slide_en_i 1）=> 少一次就说明【没接】✅
+                  #     ⭐ 实测：⭐ 5 次 ✅（⭐ 未接线时是 4 次 ✅）
+                  'slide_on_r',
+                  #  ⭐⭐ 2026-10-11（⭐ 目标 ④）：⭐ **`as_seen` 也纳入本门** ✅
+                  #     🔴 原来 `axis_snapshot.axis_seen_o`（16 轴"见过"位图）在 top.v 里
+                  #        只有"声明 + 端口映射" 2 处 => 综合剪掉
+                  #        => "某个轴从来没被采样到"完全看不到（症状：那个键不响）
+                  #     ✅ 修法：⭐ `assign adc_partial_w = (as_seen != 0) & (as_seen != 16'hFFFF);`
+                  #        ＋ ⭐ OR 进 `fault_any_w`（⭐ 心跳灯快闪 ✅）
+                  #     📌 判据设计：⭐ `!= 0` 免上电假警 · ⭐ `!= 全 1` 才报"部分见过" ✅
+                  'as_seen',
+                  #  ⭐⭐ 2026-10-12（⭐ 目标 ④ · ⭐ 第二方案）：⭐ **帧流失步也纳入本门** ✅
+                  #     🔴 原状：`eu_frame_cnt` / `eu_resync_cnt` 只有"声明 + 端口映射" 2 处
+                  #        => 剪掉 => "灌了谱子但不出声"看不到
+                  #     ✅ 修法（⭐ 复用已有计数器，⛔ 不加新 FF ✅）：
+                  #        `assign fault_any_w = ... | ((eu_resync_cnt > 0) & (eu_frame_cnt == 0));`
+                  #     📌 判据设计：⭐ `resync > 0` = "已经活动过" => 免上电假警
+                  #     ⭐ 为什么不用第一方案（eu_active_r & ~eu_synced）：加 1 个 FF
+                  #        => P0-25（HOLD）红了（0.032 < 0.05）；且实测 PnR 是确定性的，重跑无用
+                  #     ⭐ 实测：⭐ 出现 4 / 5 次（⭐ 都 > 2 ✅）· ⭐ CLS 只 +36（对比第一方案 +254）
+                  'eu_resync_cnt', 'eu_frame_cnt')
 $topVPath = "rtl/top.v"
 if (Test-Path $topVPath) {
   $topText = Get-Content $topVPath -Raw
@@ -579,6 +616,42 @@ if (Test-Path $topVPath) {
   Write-Host "OK  P0-29 gate: all $($p029Critical.Count) critical observability wires have a consumer" -ForegroundColor Green
 } else {
   Write-Host "WARN: no rtl/top.v => P0-29 gate skipped" -ForegroundColor Yellow
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# ⭐⭐ 机械门：⭐ **HDL 源码不许有 BOM**（⭐ 2026-10-11 新增 · ⭐ `P1-20` 同族 ✅）
+#
+#   🔴 **为什么**（⭐ 实测踩到，⭐ 代价很大 ✅）：
+#      ⭐ 用 PowerShell 的 `Set-Content -Encoding utf8`（⭐ PS 5.1 ✅）改 `.v` 文件
+#      ⇒ ⭐ **它会静默加上 UTF-8 BOM**（`EF BB BF`）✅
+#      ⇒ 🔴 **iverilog 解析不出该文件的模块** ⇒ ⭐ 那个模块**不存在**
+#      ⇒ 🔴 **所有例化它的 tb** 都报：
+#         `error: Unable to find the root module "<tb 的名字>"`
+#      ⚠️ ⭐ **错的是那个 RTL 文件，⭐ 报的却是 tb 的名字** ⇒ ⭐ 极难定位 ✅
+#      📌 ⭐ 实测：⭐ 给 `play_seq.v` 加 BOM ⇒ ⭐ 所有例化 `play_seq` 的 tb 全挂 ✅
+#
+#   ⚠️ ⭐ **与 `.ps1` 的规则【相反】**（⭐ 容易记反 ✅）：
+#      · ⭐ `.ps1`     ⇒ ⭐ **必须带 BOM**（⭐ 或纯 ASCII ✅）· 门 = `tools/check_ps1_encoding.ps1` ✅
+#      · ⭐ `.v`/`.sv` ⇒ 🔴 **必须【没有】BOM** ✅ · ⭐ 门 = 本段 ✅
+#
+#   📌 ⭐ **为什么放这里（⭐ 而 `check_no_pruning` 不接 ✅）**：
+#      ⭐ 本门扫的是 **HDL 源码本身** ⇒ ⭐ 与"跑没跑回归"无关 ⇒ ⭐ 放构建脚本**永远有效** ✅
+#      ⚠️ 而 `check_no_pruning` 扫的是 **tb 编译日志** ⇒ ⭐ 旧日志会误报 ⇒ ⭐ 保持**手动调用** ✅
+# ═══════════════════════════════════════════════════════════════════════════════
+$bomGate = "tools/check_no_bom.ps1"
+if (Test-Path $bomGate) {
+  & powershell -NoProfile -ExecutionPolicy Bypass -File $bomGate
+  if ($LASTEXITCODE -ne 0) {
+    Write-Host ""
+    Write-Host "ERROR: BOM gate failed -- some HDL file starts with a UTF-8 BOM." -ForegroundColor Red
+    Write-Host "       iverilog will not parse that file's module, and every testbench that" -ForegroundColor Red
+    Write-Host "       instantiates it will report 'Unable to find the root module <tb>'." -ForegroundColor Red
+    Write-Host "       Fix: strip the 3 BOM bytes (byte level) and edit HDL with the edit tool," -ForegroundColor Red
+    Write-Host "            never with Set-Content -Encoding utf8." -ForegroundColor Red
+    exit 11
+  }
+} else {
+  Write-Host "WARN: $bomGate not found => BOM gate skipped" -ForegroundColor Yellow
 }
 
 Write-Host ""
