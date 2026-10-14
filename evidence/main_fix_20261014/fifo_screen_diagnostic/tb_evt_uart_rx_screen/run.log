@@ -1,0 +1,23 @@
+
+==============================================================
+ does a TJC SCREEN frame get mistaken for a SCORE event?
+ (no legal event packet is ever sent here)
+==============================================================
+  [1] TWO screen frames BACK-TO-BACK (gap < 16 byte-times):
+      frame A: 71 01 00 A5 00 FF FF FF FF
+      frame B: 71 02 00 11 00 FF FF FF FF
+      after: n_evt=1  frame_cnt=1  hdr_err=8  resync=0
+  [2] a long continuous screen stream (8 frames, no long gap):
+      after: n_evt=8  frame_cnt=8  hdr_err=10  resync=0
+
+  == summary ==
+   total evt_valid pulses (spurious events) = 8
+   🔴 CONFIRMED: screen data WAS parsed as a score event!
+      last evt_data = 0xa500ffffffff7107
+      => decoded axis = 15  (14/15 = reserved, keyboard can NEVER clear it)
+      => decoded inc  = 0x1fffff
+      => decoded kind = 0 (0=on 1=off)
+   ⚠️  这是模块固有局限；⭐ 门控判据见 tb_evt_uart_rx_gate.sv ✅
+==============================================================
+DIAGNOSTIC_CONFIRMED: bare score parser accepts 8 spurious events from mixed screen bytes
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_closure_source\tb\w3c\tb_evt_uart_rx_screen.sv:181: $finish called at 381760000 (1ps)

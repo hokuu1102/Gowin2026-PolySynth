@@ -1,0 +1,21 @@
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x174 VEL_T2=0x253 DT_MIN=1 DT_MAX=10)
+  ok  : a fast press produces a vel_update
+  ok  : a slow press produces a vel_update
+  ok  : FAST press gives a LARGER velocity than SLOW press (monotonic)
+  [vel] fast=234  slow=64
+  [vel-abs] first=234 (n=1)   after-40-idle-frames=234 (n=1)
+  ok  : both runs produced a vel_update
+  ok  : SAME gap gives the SAME velocity regardless of absolute frame count (proves dt is a DELTA, not an absolute time)
+  ok  : vel_axis_o is valid at a legal axis index
+  ok  : dt ~ 0 saturates to VEL_MAX
+  [vel] dt-min value = 255 (expect 255)
+  ok  : dt >= DT_MAX drops to VEL_MIN
+  [vel] dt-max value = 64 (expect 64)
+  [underflow] events=1  velocity=255 (clamped dt=0 => expect VEL_MAX=255)
+  ok  : an underflowing dt is CLAMPED (32-bit wrap would give VEL_MIN instead)
+  ok  : note_off does NOT start a velocity measurement
+  ok  : pitch_valid_o stays 0 in this version (stage 2 not wired yet)
+  ok  : pitch_value_o is 0 in this version
+
+PASS: param_extract measures velocity from the two-threshold time gap (fast => louder), saturates at both ends, ignores note_off, and keeps the parametric path entirely separate from the note-event path
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3a\tb_param_extract.sv:359: $finish called at 29330000 (1ps)

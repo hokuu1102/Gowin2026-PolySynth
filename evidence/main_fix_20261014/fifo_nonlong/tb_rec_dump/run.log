@@ -1,0 +1,48 @@
+=== tb_rec_dump（录制回传的导出 FSM）===
+== D 正常导出：3 条事件 ⇒ 27 字节 ==
+  ok  : D1 3 events => exactly 27 bytes pushed (9 each)
+  ok  : D2 frame header byte is 0xA5
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D2 frame header byte is 0xA5
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D2 frame header byte is 0xA5
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)
+  ok  : D4 frame_cnt counts 3 frames
+  ok  : D5 clip_cnt counts 1 clipped entry (index 2)
+  ok  : D6 the read port is RELEASED after the dump (dump_en back to 0)
+  ok  : D7 busy is low after the dump
+== E ready_i 节流：中途拉低 ⇒ 一个字节都不许丢 ==
+  ok  : E1 ready_i throttling loses NO byte (4 events => 36 bytes)
+  ok  : E2 the stream still starts with the header after the stall
+== F 两个前提：⭐ 层不空闲 / ⭐ 空层 ⇒ ⛔ 都不许启动 ==
+  ok  : F1 NOT idle => the dump must NOT start (the read port is in use)
+  ok  : F2 ...and dump_en must stay 0
+  ok  : F3 empty layer (cnt=0) => no dump at all
+== G 二次导出：⭐ 必须能重复触发 ==
+  ok  : G1 first dump pushed 18 bytes
+  ok  : G2 the dump can be triggered AGAIN (no stuck state)
+  ok  : G3 the second dump is well-formed too
+
+PASS: tb_rec_dump - 40/40 judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3c\tb_rec_dump.sv:198: $finish called at 7100000 (1ps)

@@ -1,0 +1,6 @@
+WARNING [note_manager] FIFO_DEPTH=8 < 最坏突发 18 (=16 轴 +1 节拍器 +1 鼓机) => 事件会溢出丢弃（⭐ 已由 event_lost_o 指示，但会丢音）
+  ok  : score PIANO timbre survives arb/merge/FIFO into voice0
+  ok  : existing voice keeps its original PIANO timbre
+  ok  : new voice snapshots GUITAR while held voice stays PIANO
+PASS: T31b timbre event path
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3b\tb_timbre_event_path.sv:189: $finish called at 1500000 (1ps)

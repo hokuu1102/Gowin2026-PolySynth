@@ -1,0 +1,10 @@
+{
+  "name": "tb_top_uart_isolation",
+  "compile_exit": 0,
+  "run_exit": 1,
+  "status": "RUN_FAIL",
+  "original_timeout_sec": 120,
+  "timeout_sec": 600,
+  "explicit_pass_verdict": false,
+  "elapsed_sec": 52.078
+}

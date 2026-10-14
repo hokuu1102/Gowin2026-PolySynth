@@ -1,0 +1,29 @@
+{
+  "source": "9f0c8da019e648dc903a260a5cff06889fb62b41",
+  "discovered": 178,
+  "selected": 1,
+  "pass_count": 0,
+  "expected_negative_count": 0,
+  "diagnostic_count": 1,
+  "accepted_count": 0,
+  "fail_count": 0,
+  "skipped": [
+    "tb_at_merge_known_bugs",
+    "tb_export_key_wav",
+    "tb_export_wav"
+  ],
+  "snapshot_blobs_verified": 280,
+  "timeout_override_sec": null,
+  "results": [
+    {
+      "name": "tb_evt_uart_rx_screen",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "DIAGNOSTIC_CONFIRMED",
+      "original_timeout_sec": 120,
+      "timeout_sec": 120,
+      "explicit_pass_verdict": false,
+      "elapsed_sec": 0.672
+    }
+  ]
+}

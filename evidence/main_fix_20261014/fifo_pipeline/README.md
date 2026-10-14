@@ -1,4 +1,4 @@
-# FIFO storage-write timing candidate (not yet physically accepted)
+# FIFO storage-write timing candidate (timing gate passed, not promoted)
 
 Base: d4f4c66, including the independently tested clear/new-drop repair.
 Only hardware module changed: uart_tx_fifo. Accepted address/data/valid are
@@ -15,6 +15,13 @@ Baseline and candidate both PASS. Original FIFO functional regression PASS.
 
 PnR and real top integration are required before retaining this optimization.
 Rollback must keep the d4f4c66 bug fix; it must not restore the clear/drop bug.
+
+Update: PnR completed, timing gate PASS. Setup 0.062 ns / hold 0.084 ns,
+CLS 25383 (versus AY 0.004 / 0.211 ns, CLS 25096). This consumes 287 more CLS
+and reduces hold margin, so it is not a universal timing/resource improvement.
+Raw reports, fresh build log and metrics.json are archived here. The historical
+in-progress snapshot below is retained for chronology; current closure details
+are in ../fifo_uart_isolation/README.md. Main and board remain untouched.
 
 ## Verification snapshot 4f522c4
 

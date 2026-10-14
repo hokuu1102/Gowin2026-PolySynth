@@ -1,0 +1,10 @@
+{
+  "name": "tb_looper_bar_align",
+  "compile_exit": 0,
+  "run_exit": 0,
+  "status": "PASS",
+  "original_timeout_sec": 120,
+  "timeout_sec": 600,
+  "explicit_pass_verdict": true,
+  "elapsed_sec": 2.922
+}

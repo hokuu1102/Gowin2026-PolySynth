@@ -1,0 +1,39 @@
+NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=48 VOTE_N=4 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 交付口径: 基准=64 · OUTPUT_HEADROOM_SH=1 => 单音峰 ≈ 25% FS
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=23 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+VCD info: dumpfile build/sim/tb_vel_top_stream/tb_vel_top_stream.vcd opened for output.
+  ok  : T1: pos=0 (below VEL_TRIG_TH) => NO vel_upd packets
+  ok  : T2a: pos=300 => exactly ONE packet per axis (16 total)
+  ok  : T2b: every packet value == pos_to_vel(300) == 141
+  ok  : T2c: every packet axis == vu_ax_r of that cycle
+  ok  : T3: delta=16 still sends (no deadzone) => packet per axis
+  ok  : T3b: value tracks pos=316
+  ok  : T4a: delta=1 also sends => packet per axis
+  ok  : T4b: value tracks pos=317
+  ok  : T5: pos=64 (NOT > VEL_TRIG_TH) => NO packet even though delta is huge
+  ok  : T6a: pos=65 (just over threshold) => packet per axis
+  ok  : T6b: value == pos_to_vel(65) == 80
+  ok  : T7a: vu_ax_r rotates 0->1->...->15->0 on EVERY tick_audio
+  ok  : T7b: vu_valid_r is exactly a ONE-cycle pulse (never 2 in a row)
+  ok  : T8: all packets had val/axis aligned with the SAME cycle (L70)
+== 9: no deadzone -- a held axis keeps sending ==
+  ok  : T9a: pos below threshold => NO packets at all
+  ok  : T9b: pos held ABOVE threshold => keeps sending (>= 2 per 16 ticks)
+  ok  : T9c: still sending on the NEXT window (no deadzone latch-up)
+  ok  : T9d: releasing (pos -> 0) stops the stream immediately
+== 10: axes 8..15 (second left-hand board) must follow too ==
+  ok  : T10a: BOTH halves at pos=0 => NO packets
+  ok  : T10b: ONLY axes 8..15 over threshold => exactly 8 packets per rotation
+  ok  : T10c: every packet axis is in 8..15 (axes 8..15 ARE scanned)
+  ok  : T10d: every packet value == pos_to_vel(700)
+PASS: vel_top_stream -- the top-level vu_* stream obeys its contract
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3b\tb_vel_top_stream.sv:428: $finish called at 12000000 (1ps)

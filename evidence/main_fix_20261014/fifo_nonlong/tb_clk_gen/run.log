@@ -1,0 +1,35 @@
+VCD info: dumpfile build/sim/tb_clk_gen/tb_clk_gen.vcd opened for output.
+
+================ clk_gen 时基实测 ================
+  窗口        : 8192 个 clk（163840 ns，期望 8 帧）
+  tick_audio  : 8 次 · 间隔 min=1024 max=1024 clk
+  bclk_en     : 512 次 · 间隔 min=16 max=16 clk
+  mclk_en     : 2048 次 · 间隔 min=4 max=4 clk
+  bclk_half_en: 1024 次 · 间隔 min=8 max=8 clk（期望 8）
+  frame_start : 8 次 · 间隔 min=1024 max=1024 clk（期望 1024）
+  相位关系    : bclk_en 缺 half 的拍数 0 · half 缺 bclk_en 的拍数 512
+                frame_start 缺 bclk_en 的拍数 0 · bclk_en∩frame_start 次数 8（= 帧数）
+  lrclk       : 低 4097 / 高 4095 个 clk
+--------------------------------------------------
+  ⇒ fs   = 50 MHz / 1024 = 48.828125 kHz
+  ⇒ BCLK = 50 MHz / 16 = 3.125000 MHz（= 64.0 × fs）
+  ⇒ MCLK = 50 MHz / 4 = 12.500 MHz（= 256 × fs）
+==================================================
+  ok : tick_audio 间隔恰好 1024 clk（fs 精确）
+  ok : bclk_en 间隔恰好 16 clk（BCLK 精确）
+  ok : mclk_en 间隔恰好 4 clk（MCLK 精确）
+  ok : 每帧 64 个 BCLK 使能（8 帧 → 512 次）
+  ok : 每帧 256 个 MCLK 使能
+  ok : lrclk 低/高各占半帧（低 4097 / 高 4095）
+  ok : 帧起点处 lrclk = 低（左声道先发，标准 I2S）
+  ok : A8 无 X/Z 传播
+  ok : bclk_half_en 间隔恰好 8 clk（HP_BCK 翻转节拍精确）
+  ok : 每个 bclk_en 那拍都同时有 bclk_half_en（512 次）
+  ok : bclk_half_en : bclk_en = 2:1（1024 : 512）—— 半周期翻转节拍正确
+  ok : bclk_half_en 中恰好一半不与 bclk_en 同拍（512 次）⇒ 数据窗居中
+  ok : frame_start 间隔恰好 1024 clk（每帧一次）
+  ok : frame_start **必定与 bclk_en 同拍**（i2s_tx 的帧内位对齐前提）
+  ok : 每帧恰好一个 frame_start（8 帧 → 8 次同拍）
+
+PASS: clk_gen 时基全部符合（分频链精确 + 极差为 0 + 相位关系正确 + 无 X）
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\clk_gen\tb_clk_gen.sv:280: $finish called at 164011000 (1ps)

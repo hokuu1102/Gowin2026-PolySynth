@@ -18,7 +18,9 @@ module tb_top_uart_isolation;
    events=events+1;last_event=dut.u_evt_uart_rx.evt_data_o;
   end
  end
- task send_byte;
+ // Two physical senders run concurrently: arguments and bit counters MUST
+ // be per invocation, otherwise the fixture itself corrupts both UARTs.
+ task automatic send_byte;
   input select_esp;
   input [7:0] value;
   integer b;
@@ -33,7 +35,7 @@ module tb_top_uart_isolation;
    repeat(100) @(negedge clk);
   end
  endtask
- task screen_frame;
+ task automatic screen_frame;
   begin
    // Existing uart_ui numeric-return format, arbitrary payload contains A5.
    send_byte(0,8'h71);send_byte(0,8'h01);send_byte(0,8'hA5);
@@ -41,7 +43,7 @@ module tb_top_uart_isolation;
    send_byte(0,8'hFF);send_byte(0,8'hFF);send_byte(0,8'hFF);
   end
  endtask
- task score_frame;
+ task automatic score_frame;
   begin
    send_byte(1,8'hA5);send_byte(1,8'h07);send_byte(1,8'h00);
    send_byte(1,8'h10);send_byte(1,8'h00);send_byte(1,8'h20);
@@ -61,7 +63,8 @@ module tb_top_uart_isolation;
    begin score_frame;end
   join
   repeat(3000) @(negedge clk);
-  if(events!=1 || last_event!==64'h00c8002000100007)
+  // evt_uart_rx's public wire contract assembles the payload big-endian.
+  if(events!=1 || last_event!==64'h070010002000c800)
    $fatal(1,"FAIL: independent ESP frame count/data %0d %016h",events,last_event);
   if(dut.u_uart_ui.frame_cnt_o!==16'd10)
    $fatal(1,"FAIL: simultaneous board frames lost");

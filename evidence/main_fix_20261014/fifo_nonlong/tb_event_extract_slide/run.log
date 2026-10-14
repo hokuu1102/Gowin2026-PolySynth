@@ -1,0 +1,16 @@
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x400 REL_TH=0x300 DELTA_TH=8 REFRACT_N=150)
+VCD info: dumpfile build/sim/tb_event_extract_slide/tb_event_extract_slide.vcd opened for output.
+--- 判据①：⭐ 一减一增 ＋ 相邻 ＋ 在窗口内 ⇒ **必须出滑音** ---
+  ok  : _b_o must name the ADJACENT axis B (4 here), not A+/-1 by number
+  ok  : xis 3 + a tiny press on adjacent axis 4 MUST raise slide_valid_o
+--- 判据②：⭐ 两轴都【在增】⇒ 那是【双音】，⛔ 不许报成滑音 ---
+  ok  : SLIDE-2 two axes BOTH increasing is a TWO-NOTE, NOT a slide
+--- 判据③：⭐ 非相邻轴 ⇒ ⛔ 不许报滑音 ---
+  ok  : ar-apart pair must NOT be reported as a slide (needs |B-A| == 1)
+--- 判据④：⭐ 只有 A 在减、⭐ B 没动 ⇒ ⛔ 不许报滑音 ---
+  ok  : -4 a plain release (no adjacent key forming) must NOT be a slide
+--- 判据⑤：⭐ 非空洞 —— 监视器本身在工作 ---
+  ok  : us) the slide monitor can actually increment (proved by SLIDE-1)
+
+PASS: event_extract slide detection -- release+tiny-adjacent-press within the window is a slide, two-note/far/plain-release are NOT
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3a\tb_event_extract_slide.sv:236: $finish called at 1270000 (1ps)
