@@ -40,19 +40,47 @@ except Exception:
 
 # ---- FPGA 侧权威常量（⛔ 不要改，除非 FPGA 侧通知）------------------------
 # 出处：FPGA 线 2026-10-14 答复 §五 / rtl/w3c/drum_gen.v:180-186
-DRUM_INC = {
+# ⚠️ 下面同时给两套值，⛔ 别混：
+#   PHASE_INC —— FPGA 侧内部的 32 位 phase_inc（rtl/w3c/drum_gen.v:180-186）
+#                ⭐ 只用于"反算频率"与文档，⛔ 不是要发的值
+#   DRUM_INC  —— ⭐ **实际要填进下行 `inc` 字段的值** = `phase_inc >> 10`
+#                依据：FPGA 侧第 3 版答复（rtl/top.v:4575）
+#                  wire [31:0] ps_evt_inc = {1'b0, data[43:23], 10'b0};
+#                ⇒ ⭐ 字段语义 = `phase_inc >> 10`（高 21 位），
+#                  🔴 ⛔ 不是"低 21 位" ⇒ 该发 `>> 10`，⛔ 不是 `& 0x1FFFFF`
+#                📌 我上一轮按 `& 0x1FFFFF` 分析，得出的"21 位装不下"结论
+#                   前提错了 —— FPGA 侧指出那张表整张作废。
+PHASE_INC = {
     "kick":  5368709,
     "snare": 42949673,
     "hihat": 171798691,
     "tom":   17895697,
 }
+IN_INC_SHIFT = 10          # ⭐ 下行字段 = phase_inc >> 10
+def _to_field(phase_inc):
+    """32 位 phase_inc -> 下行 21 位字段值。
+
+    ⭐ 依据 FPGA 侧第 3 版答复（rtl/top.v:4575）：
+        ps_evt_inc = {1'b0, data[43:23], 10'b0}  =>  字段值 = phase_inc >> 10
+
+    ⚠️ 用【四舍五入】而不是截断 —— 与我方乐音的口径保持一致：
+       乐音 midiToPhaseInc() = round(f * 2^32 / 50e6)，而
+       50e6 = 48828.125 × 1024  ⇒ 两种写法数学等价，只差取整。
+       ⭐ 若鼓用截断、乐音用 round，同一套坐标系里会差 1 —— 没必要。
+    📌 kick 实测：5368709/1024 = 5242.88 ⇒ 截断 5242 / round 5243
+       FPGA 侧表格给的是 5243（与 round 一致）。
+    """
+    return int(round(phase_inc / 1024.0))
+
+
+DRUM_INC = {k: _to_field(v) for k, v in PHASE_INC.items()}
 DRUM_AXIS = 15                      # ⭐ 4 件【共用】这个轴（靠 inc 区分）
 DRUM_ORDER = ("kick", "snare", "hihat", "tom")   # 与 step_mask 位序一致
 FS_FPGA = 48828.125                 # f = inc * FS / 2^32
 
 
 def inc_to_hz(inc):
-    return inc * FS_FPGA / 4294967296.0
+    return inc * FS_FPGA / 4294967296.0      # 传 32 位 phase_inc 进来
 
 
 # ---- GM 打击乐音高 -> 我们的 4 件 -----------------------------------------
@@ -129,21 +157,31 @@ def selftest():
         if not cond:
             bad += 1
 
-    # ① 四个 inc 与 FPGA 侧给的权威值一致
-    chk("Kick  inc = 5368709", DRUM_INC["kick"] == 5368709)
-    chk("Snare inc = 42949673", DRUM_INC["snare"] == 42949673)
-    chk("HiHat inc = 171798691", DRUM_INC["hihat"] == 171798691)
-    chk("Tom   inc = 17895697", DRUM_INC["tom"] == 17895697)
+    # ① 四个 phase_inc 与 FPGA 侧给的权威值一致（32 位原值）
+    chk("Kick  phase_inc = 5368709", PHASE_INC["kick"] == 5368709)
+    chk("Snare phase_inc = 42949673", PHASE_INC["snare"] == 42949673)
+    chk("HiHat phase_inc = 171798691", PHASE_INC["hihat"] == 171798691)
+    chk("Tom   phase_inc = 17895697", PHASE_INC["tom"] == 17895697)
 
-    # ② 反算频率与 FPGA 侧给的一致
-    chk("Kick  频率 ≈ 61.0 Hz", abs(inc_to_hz(DRUM_INC["kick"]) - 61.0) < 0.5,
-        "%.2f Hz" % inc_to_hz(DRUM_INC["kick"]))
-    chk("Snare 频率 ≈ 488.3 Hz", abs(inc_to_hz(DRUM_INC["snare"]) - 488.3) < 1.0,
-        "%.2f Hz" % inc_to_hz(DRUM_INC["snare"]))
-    chk("HiHat 频率 ≈ 1953.1 Hz", abs(inc_to_hz(DRUM_INC["hihat"]) - 1953.1) < 2.0,
-        "%.2f Hz" % inc_to_hz(DRUM_INC["hihat"]))
-    chk("Tom   频率 ≈ 203.4 Hz", abs(inc_to_hz(DRUM_INC["tom"]) - 203.4) < 1.0,
-        "%.2f Hz" % inc_to_hz(DRUM_INC["tom"]))
+    # ①b ⭐ 下行字段值 = phase_inc >> 10（FPGA 侧第 3 版答复 rtl/top.v:4575）
+    #     ⚠️ 用 round 而不是截断（与乐音口径一致）
+    FPGA_TABLE = {"kick": 5243, "snare": 41943, "hihat": 167772, "tom": 17476}
+    ok_tbl = all(DRUM_INC[k] == v for k, v in FPGA_TABLE.items())
+    chk("⭐ 四个字段值与他们表格给的 >>10 列一致", ok_tbl,
+        str({k: DRUM_INC[k] for k in FPGA_TABLE}))
+    chk("⭐ 四个字段值全部放得进 21 位（上限 2097151）",
+        all(v <= 2097151 for v in DRUM_INC.values()),
+        str(sorted(DRUM_INC.values())))
+
+    # ② 反算频率（用 32 位 phase_inc）
+    chk("Kick  频率 ≈ 61.0 Hz", abs(inc_to_hz(PHASE_INC["kick"]) - 61.0) < 0.5,
+        "%.2f Hz" % inc_to_hz(PHASE_INC["kick"]))
+    chk("Snare 频率 ≈ 488.3 Hz", abs(inc_to_hz(PHASE_INC["snare"]) - 488.3) < 1.0,
+        "%.2f Hz" % inc_to_hz(PHASE_INC["snare"]))
+    chk("HiHat 频率 ≈ 1953.1 Hz", abs(inc_to_hz(PHASE_INC["hihat"]) - 1953.1) < 2.0,
+        "%.2f Hz" % inc_to_hz(PHASE_INC["hihat"]))
+    chk("Tom   频率 ≈ 203.4 Hz", abs(inc_to_hz(PHASE_INC["tom"]) - 203.4) < 1.0,
+        "%.2f Hz" % inc_to_hz(PHASE_INC["tom"]))
 
     # ③ 用户那份 MIDI 里实际出现的鼓音高，逐个看映射
     #    （36,38,42,45,46,47,48,50,51,53,55,57 —— 实测）

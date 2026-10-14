@@ -89,8 +89,19 @@ const parsed = API.parseMidi(mid.buffer);
 const conv = API.midiToWords(parsed);
 
 // ---- ① 鼓：不再按 GM 音高发声 ----
-chk("鼓的固定 inc 与 FPGA 侧一致（kick=5368709）",
-    API.DRUM_INC.kick === 5368709, String(API.DRUM_INC.kick));
+/* ⭐ 2026-10-14 口径更正（FPGA 侧第 3 版答复）：
+ *   下行 inc 字段的语义是 `phase_inc >> 10`（高 21 位），⛔ 不是 `& 0x1FFFFF`。
+ *   => ⭐ 四个鼓 >> 10 后【全部放得下】（5243/41943/167772/17476，上限 2097151）。
+ *   🔴 我方原先那套"21 位装不下"的判据【整张作废】（前提错了）。
+ *   真因另有其物：曲谱事件被打成 SRC_SCORE，而鼓池只认 SRC_AUX/SRC_KDRUM
+ *   => 被当乐音 ⇒ 推成音高。⭐ 那要 FPGA 侧改（seq_arb 约 5 个 LUT）。 */
+const FPGA_DRUM_TABLE = { kick: 5243, snare: 41943, hihat: 167772, tom: 17476 };
+chk("⭐ 四个鼓的字段值与他们表格的 >>10 列一致",
+    Object.entries(FPGA_DRUM_TABLE).every(([k, v]) => API.DRUM_INC[k] === v),
+    JSON.stringify(API.DRUM_INC));
+chk("⭐ 四个鼓的字段值全部放得进 21 位",
+    Object.values(API.DRUM_INC).every(v => v <= 0x1FFFFF),
+    Object.values(API.DRUM_INC).join(","));
 chk("鼓全部走 axis 15", API.DRUM_AXIS === 15);
 
 const drumWords = [];
@@ -103,22 +114,12 @@ chk("找到鼓事件", drumWords.length > 0, drumWords.length + " 个");
 const drumAxes = new Set(drumWords.map(w => Number((w >> 19n) & 0xFn)));
 const drumIncs = new Set(drumWords.map(w =>
   Number((w >> 23n) & 0x1FFFFFn)));
-/* 🔴🔴 2026-10-14 实测发现一个【协议层硬冲突】，这条判据把它钉住：
- *   下行事件字的 inc 字段只有 21 位（上限 2097151），
- *   而 FPGA 鼓机四件的 phase_inc 全都超过它：
- *     kick 2.56 倍 · snare 20.48 倍 · hihat 81.92 倍 · tom 8.53 倍
- *   => 填进 21 位就被截断，音色必然不对。
- *   ⚠️ 21 位能表示的最高频率只有 23.8 Hz —— 连 kick(61Hz) 都装不下。
- *   📌 已列为【阻塞项】请 FPGA 侧裁定（见 files/20-代码 的追问文档）。
- *   本判据【故意报红】，让这个冲突不会被忘掉。 */
-const INC21 = 0x1FFFFF;
-const overflow = Object.entries(API.DRUM_INC).filter(([k, v]) => v > INC21);
-chk("🔴 钉住：四个鼓的 inc 全部超过下行 21 位字段（⇒ 已知阻塞）",
-    overflow.length === 4,
-    overflow.map(([k, v]) => k + "=" + v).join(" "));
-chk("  截断后的值（就是实际发出去的）与原始值不同",
-    [...drumIncs].every(v => !Object.values(API.DRUM_INC).includes(v)),
-    [...drumIncs].join(","));
+/* ⭐ 2026-10-14 口径更正后：鼓事件里读回的 inc 应【正好等于】DRUM_INC 的值。
+ *   （原判据假设"会被 21 位截断" —— 那是错的前提，已作废。） */
+const wantIncs = new Set(Object.values(API.DRUM_INC));
+chk("⭐ 鼓事件读回的 inc 正好是 DRUM_INC 的值（⛔ 没有被截断）",
+    [...drumIncs].every(v => wantIncs.has(v)),
+    [...drumIncs].join(",") + " vs " + [...wantIncs].join(","));
 chk("鼓事件走的 axis 是 15（这一条是对的）",
     drumAxes.size === 1 && drumAxes.has(15), [...drumAxes].join(","));
 

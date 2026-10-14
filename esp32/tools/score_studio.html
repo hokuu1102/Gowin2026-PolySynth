@@ -268,12 +268,24 @@ const OFF_TICK = 44n, OFF_INC = 23n, OFF_AXIS = 19n, OFF_VEL = 11n,
       OFF_KIND = 9n, OFF_TIMBRE = 7n;
 const M_TICK = 0xFFFFFn, M_INC = 0x1FFFFFn, M_AXIS = 0xFn, M_VEL = 0xFFn,
       M_KIND = 0x3n, M_TIMBRE = 0x3n;
-/* ⚠️ 合成时钟：FPGA 侧是 48 828.125 Hz（= 50 MHz / 1024，见 drum_gen 的换算常数），
- * ⛔ 不是 50 MHz。用错会算出高约 1000 倍的频率 => 音高高约 10 个八度
- * => 屏幕上出现 `C10` 这种不存在的音（MIDI > 127）。
- * 🔴 实测（2026-10-14）：本页原来写 50000000，鼓的截断值算出来是 midi 128.5
- * => 显示成 C10。⭐ 与回传页那个错误同源（回传页已修，本页漏了）。 */
-const F_CLK = 48828.125, TPS120 = 1920.003;
+/* ⚠️⚠️ 本页的 incToHz 口径 = "下行 21 位【字段值】" -> Hz，所以时钟用 **50 MHz**。
+ *
+ * ⭐ 为什么是 50 MHz（而不是 FPGA 的 48 828.125）：
+ *   下行字段存的是 `phase_inc >> 10`；而 FPGA 的 `<<10` 还原后，
+ *   `phase_inc × 48828.125 / 2^32` 恰好等价于 `字段值 × 50e6 / 2^32`
+ *   —— 因为 **50e6 = 48828.125 × 1024**。
+ *   📌 验证：A4 的字段值 37796 => `37796 × 50e6 / 2^32 = 440.00 Hz` ✓
+ *
+ * 🔴 2026-10-14 的教训（我在这里反复了一次）：
+ *   我把本页 F_CLK 改成 48828.125 —— **错了**，那只适用于【回传页】
+ *   （那边收的是 **32 位 phase_inc**，口径不同）。
+ *   ⭐ 两个页面的物理量不同：本页是 21 位字段值，回传页是 32 位 phase_inc。
+ *
+ * ⚠️ 而屏幕上的 `C10`（不存在的音，MIDI>127）**真因不是这个** ——
+ *   是"把 32 位 phase_inc 原值直接填进 21 位字段"：
+ *       kick 填 5368709 => 算成 62500 Hz => midi 154.8 => C10
+ *   ⭐ 改成填 `phase_inc >> 10`（kick => 5243 => 61.04 Hz => midi 34.8）后即消失。 */
+const F_CLK = 50000000, TPS120 = 1920.003;
 
 const SVC  = 0xABF0, CH_RECV = 0xABF1, CH_NOTI = 0xABF2, CH_CMD = 0xABF3, CH_STAT = 0xABF4;
 const CMD_RESET = 0x01, CMD_STAT = 0x02, CMD_PLAY = 0x03, CMD_STOP = 0x04;
@@ -512,12 +524,26 @@ function bpmToTickInc(bpm) {
  *   📌 已列为待 FPGA 侧确认项。
  */
 const DRUM_AXIS = 15;
-const DRUM_INC = {
+/* ⚠️ 下面同时给两套值，⛔ 别混：
+ *   DRUM_PHASE_INC —— FPGA 内部 32 位 phase_inc（只用于反算频率/显示）
+ *   DRUM_INC       —— ⭐ **实际要填进下行 `inc` 字段的值** = phase_inc >> 10
+ * 依据：FPGA 侧第 3 版答复（rtl/top.v:4575）
+ *   wire [31:0] ps_evt_inc = {1'b0, ps_note_data[43:23], 10'b0};
+ * => ⭐ 字段语义 = `phase_inc >> 10`（高 21 位），⛔ 不是"低 21 位"。
+ * 📌 我上一轮按 `& 0x1FFFFF` 分析，得出"21 位装不下"—— 前提错了。 */
+const DRUM_PHASE_INC = {
   kick:  5368709,
   snare: 42949673,
   hihat: 171798691,
   tom:   17895697,
 };
+const DRUM_INC_SHIFT = 10;
+/* ⚠️ 用【四舍五入】而不是截断 —— 与乐音口径一致（见 drum_map.py 的说明）。
+ * kick 实测：5368709/1024 = 5242.88 => 截断 5242 / round 5243
+ * FPGA 侧表格给的是 5243。 */
+const DRUM_INC = Object.fromEntries(
+  Object.entries(DRUM_PHASE_INC).map(
+    ([k, v]) => [k, Math.round(v / Math.pow(2, DRUM_INC_SHIFT))]));
 const GM_DRUM_MAP = {
   35: "kick", 36: "kick",
   37: "snare", 38: "snare", 39: "snare", 40: "snare",

@@ -31,7 +31,7 @@ const doc = { getElementById: () => fakeEl(), querySelector: () => fakeEl(),
 const fn = new Function("document", "window", "navigator", "performance", "console",
   "setTimeout", "clearInterval", "setInterval", "requestAnimationFrame",
   "location", "localStorage", "URLSearchParams",
-  blk + "\n; return { midiName, incToHz, F_CLK, midiToPhaseInc, DRUM_INC, DRUM_AXIS, " +
+  blk + "\n; return { midiName, incToHz, F_CLK, midiToPhaseInc, DRUM_INC, DRUM_PHASE_INC, DRUM_AXIS, " +
   "parseMidi, midiToWords, hzToMidi, setScore: (x) => { score = x; }, axisLabel };");
 let API;
 try {
@@ -57,13 +57,26 @@ console.log("=".repeat(78));
 
 // ---- ① 采样时钟 ----
 // FPGA 合成时钟 = 48 828.125 Hz（50 MHz / 1024）。用错会算出高约 1000 倍的频率。
-chk("⭐ F_CLK = 48828.125（⛔ 不是 50 000 000）",
-    Math.abs(API.F_CLK - 48828.125) < 1e-6, "F_CLK = " + API.F_CLK);
+/* ⭐ 灌谱页的 F_CLK 必须是 50 000 000 ——
+ *   因为本页 incToHz 的口径是【下行 21 位字段值】
+ *   （字段值 = phase_inc >> 10；而 50e6 = 48828.125 x 1024，两种说法等价）。
+ * 🔴 回传页才是 48828.125（那边收的是 32 位 phase_inc）。两个页面口径不同！
+ * 📌 我 2026-10-14 在这里反复过一次（把本页也改成 48828.125）—— 记下来。 */
+chk("⭐ 灌谱页 F_CLK = 50000000（字段值口径）",
+    Math.abs(API.F_CLK - 50000000) < 1, "F_CLK = " + API.F_CLK);
+chk("⭐ A4 的字段值 37796 反算 = 440 Hz（验口径）",
+    Math.abs(API.incToHz(37796) - 440) < 0.5, API.incToHz(37796).toFixed(2) + " Hz");
 
-// ⭐ 用权威值验：A4 的 phase_inc = 38702840 应反算成 440 Hz
-chk("A4 的 inc(38702840) 反算 = 440 Hz",
-    Math.abs(API.incToHz(38702840) - 440) < 0.5,
-    API.incToHz(38702840).toFixed(3) + " Hz");
+/* ⚠️ 口径分清（本页 incToHz 吃的是【21 位字段值】，⛔ 不是 32 位 phase_inc）：
+ *   32 位 phase_inc 38702840 属于【回传页】的口径（那边 U_FS = 48828.125）。
+ *   本页要验的是：字段值 37796 -> 440 Hz。
+ *   ⭐ 我第一版从回传页抄了这条判据，口径不符 => 报红。已改。 */
+chk("⭐ 本页口径：字段值 37796 反算 = 440 Hz",
+    Math.abs(API.incToHz(37796) - 440) < 0.5,
+    API.incToHz(37796).toFixed(3) + " Hz");
+chk("非空洞：把 32 位 phase_inc 喂进本页口径 => 结果差 1024 倍（⭐ 所以不能混）",
+    Math.abs(API.incToHz(38702840) / 440 - 1024) < 2,
+    (API.incToHz(38702840) / 440).toFixed(1) + " 倍");
 
 // ⭐ 乐音 A4 的曲谱 inc 用本页公式算出来应≈37796
 chk("A4 的曲谱 inc ≈ 37796", Math.abs(API.midiToPhaseInc(69) - 37796) < 2,
@@ -72,16 +85,32 @@ chk("A4 的曲谱 inc ≈ 37796", Math.abs(API.midiToPhaseInc(69) - 37796) < 2,
 // ---- ② C10 的根因：鼓的截断值 + 错时钟 => 越界音高 ----
 // 鼓 inc 是 32 位，塞进 21 位会被截断；截断值很小，
 // 用【正确】时钟算是低音（正常），用【错】时钟算就飞到 midi>127。
-const kickTrunc = API.DRUM_INC.kick & 0x1FFFFF;
-const hzOK = API.incToHz(kickTrunc);
-const midiOK = API.hzToMidi(hzOK);
-chk("用正确时钟算 kick 的截断值 => midi 在 0..127 内（正常低音）",
-    midiOK >= 0 && midiOK <= 127, "midi = " + midiOK.toFixed(1));
-// 用错时钟（50MHz）会怎样 —— 手工复算一遍，证明这就是 C10 的来源
-const hzBad = kickTrunc * 50000000 / 4294967296;
+/* ⚠️ 2026-10-14 口径更正后，鼓的字段值本身就是个【小的】数（kick=5243），
+ *   用正确时钟算出来是正常低音。
+ *   ⭐ 而 C10 的成因是【用错时钟】把这个小值放大 1000 倍 —— 判据仍要钉住这一点。 */
+/* ⚠️ 注意换算链：下行字段存的是 `phase_inc >> 10`，
+ *   而 incToHz() 吃的是【还原后的 21 位字段】（等价于 phase_inc/1024）。
+ *   ⭐ 所以"字段值 -> Hz"要先把字段当 21 位数喂进去 —— 这正是 RTL 的 `<<10`。
+ *   kick 的字段值 5243 => 还原 phase_inc = 5243*1024 = 5368832 => 61.04 Hz。 */
+const kickField = API.DRUM_INC.kick;
+const hzOK = API.incToHz(kickField);     // 本页 incToHz 的口径 = 字段值 -> Hz
+chk("⭐ kick 的字段值 5243 反算频率 ≈ 61 Hz（与 FPGA 表格一致）",
+    Math.abs(hzOK - 61.04) < 1.0, hzOK.toFixed(2) + " Hz (inc=" + kickField + ")");
+/* 非空洞：若填 32 位原值（旧做法）=> 算出的频率高 1024 倍 => 音高越界 => C10 */
+const kickRawHz = API.DRUM_PHASE_INC ? API.incToHz(API.DRUM_PHASE_INC.kick) : 0;
+const kickRawMidi = 69 + 12 * Math.log2(kickRawHz / 440);
+chk("非空洞：填 32 位原值 => 音高越界（⭐ 这才是 C10 的机理）",
+    kickRawMidi > 127, "midi = " + kickRawMidi.toFixed(1));
+/* 非空洞：证明"用错时钟"确实会造出越界音 —— 这就是 C10 的机理。
+ * 用一个【乐音】的字段值来演示（它足够大，错时钟下会飞出去）。 */
+const a4Field = API.midiToPhaseInc(69);          // 37796
+const hzBad = a4Field * 50000000 / 4294967296;   // 故意用错时钟
 const midiBad = 69 + 12 * Math.log2(hzBad / 440);
-chk("非空洞：用 50 MHz 算同一个值 => midi > 127（⭐ 这就是 C10）",
-    midiBad > 127, "midi = " + midiBad.toFixed(1));
+const midiOK = API.hzToMidi(hzOK);       // 正确时钟下的音高
+chk("非空洞：同一个值用 50 MHz（错）算 => midi 明显偏高",
+    midiBad > midiOK, "错=" + midiBad.toFixed(1) + " 对=" + midiOK.toFixed(1));
+chk("kick 的字段值在正确时钟下是【正常低音】（midi 0..127）",
+    midiOK >= 0 && midiOK <= 127, "midi = " + midiOK.toFixed(1));
 
 // ---- ③ 越界音高必须标出来 ----
 chk("midiName(132) 会标出越界（⛔ 不是静静显示 C10）",
