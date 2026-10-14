@@ -1066,6 +1066,24 @@ function noteColor(seg) {
   return (tb >= 0 && tb < TIMBRE_COLORS.length) ? TIMBRE_COLORS[tb] : NOTE_COLOR_FALLBACK;
 }
 
+/* ⭐ 图例小色块的颜色 —— 取"该轴上出现最多的音色"的颜色。
+ * 🔴 2026-10-14 补：我上一轮把图例改成 `axisSwatchColor(a)` 却忘了写定义
+ *    ⇒ draw() 每帧抛 ReferenceError ⇒ 图例不画 + 统计面板停在 "-" + 进度条不更新。
+ * ⚠️ 若该轴上混了多种音色，取出现最多的那个（与 axisLabel 的取法一致）。 */
+function axisSwatchColor(a) {
+  if (a === DRUM_AXIS) return DRUM_COLOR;
+  let best = null, bestN = -1;
+  const cnt = new Map();
+  for (const sg of (score.noteSegs || [])) {
+    if (sg.axis !== a) continue;
+    const tb = (sg.timbre === undefined || sg.timbre === null) ? -1 : sg.timbre;
+    cnt.set(tb, (cnt.get(tb) || 0) + 1);
+  }
+  for (const [tb, c] of cnt) { if (c > bestN) { best = tb; bestN = c; } }
+  if (best === null || best < 0) return NOTE_COLOR_FALLBACK;
+  return (best < TIMBRE_COLORS.length) ? TIMBRE_COLORS[best] : NOTE_COLOR_FALLBACK;
+}
+
 const AXIS_COLORS = ["#4ea1ff","#3ddc84","#ffb020","#ff7ab2","#a78bfa","#22d3ee",
                      "#fb923c","#f472b6","#34d399","#facc15","#60a5fa","#c084fc",
                      "#2dd4bf","#f87171","#a3e635","#fcd34d"];
@@ -1509,8 +1527,28 @@ async function disconnect() {
  * ⭐ 修法：所有 GATT 操作走同一个队列，不许并发 —— 结构性修法，
  *   将来新增任何 GATT 调用都自动排队，不会再撞。 */
 let gattQueue = Promise.resolve();
+/* ⚠️ 超时看门狗：GATT 操作最多等这么久，超时抛错。
+ * 🔴 为什么需要：若队列因自嵌套（如 sendCmd 内又入队）卡住，
+ *   UI 会【无声挂住】—— 用户看到的就是"点了没反应、没进度条"（实测踩过）。
+ * ⭐ 超时后这条就抛错，UI 会显示失败而不是静默卡死。 */
+const GATT_SERIAL_TIMEOUT_MS = 15000;
 function gattSerial(fn) {
-  const p = gattQueue.then(fn, fn);      /* 前一个失败也要继续跑下一个 */
+  const runIt = async () => {
+    let timer = null;
+    try {
+      return await Promise.race([
+        (async () => fn())(),
+        new Promise((_, rej) => {
+          timer = setTimeout(() => rej(new Error(
+            "GATT 操作超时（" + GATT_SERIAL_TIMEOUT_MS +
+            "ms）—— 可能上一步没返回，或被 BLE 链路卡住")), GATT_SERIAL_TIMEOUT_MS);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
+  const p = gattQueue.then(runIt, runIt);          /* 前一个失败也要继续跑下一个 */
   gattQueue = p.catch(() => {});
   return p;
 }
@@ -1520,7 +1558,9 @@ async function sendCmd(code) {
   await chCmd.writeValueWithoutResponse(new Uint8Array([code]));
 }
 async function readStat() {
-  await gattSerial(() => sendCmd(CMD_STAT));
+  /* ⚠️ 同 sendCmd：叶子函数，⛔ 不在此处入队（会自嵌套死锁）。
+   * ⭐ 调用方 pollOnce() 已经包了 gattSerial。 */
+  await sendCmd(CMD_STAT);
   await new Promise(r => setTimeout(r, 420));
   const dv = await chStat.readValue();
   const txt = new TextDecoder().decode(dv);

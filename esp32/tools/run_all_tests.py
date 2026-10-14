@@ -292,6 +292,13 @@ def selftest():
         "_drum_track_check.js",   # 鼓转换 + 选轨自检（node 跑，24 项）
         "_display_check.js",      # 网页显示层自检（C10 / 鼓显示成 BASS，node 跑）
         "_chord_axis_check.js",  # 和弦分轴自检（避免 FPGA 的 same_hit 顶音）
+        "_deadlock_check.js",    # 灌谱卡死自检（gattSerial 队列，6 项）
+        "_undef_check.js",       # 未定义函数引用自查（静态精准，6 项）
+        "_axis_dep_check.py",    # 工具是否依赖"固定 axis 分配"（改成动态分配后必须核）
+        "_diag_bpm.js",          # 查一份 MIDI 的 tempo 转换结果（排查用，要 argv）
+        "_diag_chord.js",        # 查和弦是否被正确保留（排查用，要 argv）
+        "_diag_chord5.js",       # 精确重叠测量（排查用，要 argv）
+        "_diag_concurrency.js",  # 峰值并发 / 轴占用（排查用，要 argv）
         "_inspect_midi.js",       # 看一份 MIDI 的轨结构与分类（排查用）
         "_check_user_midi.js",    # 用真实 MIDI 验鼓转换与选轨（排查用）
         # D —— 一次性排查脚本（人工判读结论）
