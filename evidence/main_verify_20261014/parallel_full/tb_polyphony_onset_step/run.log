@@ -1,0 +1,4 @@
+INFO  [tdm_render_mixer] P0-32 交付口径: 基准=64 · OUTPUT_HEADROOM_SH=0 => 单音峰 ≈ 50% FS
+INFO: max note_on step=5998, allowed=11997, baseline=383872
+PASS: polyphony normalization is de-zippered at note_on
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\w3b\tb_polyphony_onset_step.sv:161: $finish called at 34600000 (1ps)

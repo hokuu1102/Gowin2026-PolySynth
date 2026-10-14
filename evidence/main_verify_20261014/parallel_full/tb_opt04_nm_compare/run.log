@@ -1,0 +1,77 @@
+WARNING [note_manager] FIFO_DEPTH=4 < жњЂеќЏзЄЃеЏ‘ 18 (=16 иЅґ +1 иЉ‚ж‹Ќе™Ё +1 йј“жњє) => дє‹д»¶дјљжєўе‡єдёўејѓпј€в­ђ е·Із”± event_lost_o жЊ‡з¤єпјЊдЅ†дјљдёўйџіпј‰
+WARNING [note_manager] FIFO_DEPTH=4 < жњЂеќЏзЄЃеЏ‘ 18 (=16 иЅґ +1 иЉ‚ж‹Ќе™Ё +1 йј“жњє) => дє‹д»¶дјљжєўе‡єдёўејѓпј€в­ђ е·Із”± event_lost_o жЊ‡з¤єпјЊдЅ†дјљдёўйџіпј‰
+== е€¤жЌ® 1: дє‹д»¶ -> voice gateпј€еђ« DEFAULT_VEL / йџіи‰Ій”Ѓе­пј‰==
+  ok  : яяядяяяђЋ 0 яяЄ gate
+  ok  : note_яяяеяяяњ‰ 1 яяЄ gate
+  ok  : яяяеяяя…яяяЅяяяжяяяЅяяяєяяязяяяј• voice0
+  ok  : voice0 яя„ axis = 3
+  ok  : voice0 яя„ phase_inяяя­яяя®
+  ok  : vel=яяя—яяя—яяЁ DEFAULT_VEL(200)
+  ok  : яяяџяяяІяяяея =яяяяяяйяяя‰І(1)
+  ok  : яяя¬яяядяЄ note_яяяеяяяњ‰ 2 яяЄ gate
+  ok  : яяяеяяя…яяя–яяядяяяёяяяЂяяязяяя—І voice1
+  ok  : vяяяйяћ 0яяя¶яяядяяя»яяяј(77)
+  ok  : evt_timbяяяияяя›яяяяяяйяяя‰яяя€Loopяяяжяяя±яяя‰
+  ok  : note_off(axis3яяяђЋ gaяяяеяяяёяяяЄ
+  ok  : яяя«яяязяяяЇ voice0
+  ok  : voicяяядяяяњяяяЌ
+== е€¤жЌ® 2: ж”ЇжЊЃ'ж›ґж–°ењЁе“Ќ voice'пј€vel_update / pitch_updateпј‰==
+  ok  : vel_update takes effect (left the start point, ramping toward 240)
+  ok  : vel_update converges to 240 (ramp completed)
+  ok  : vel_update leaves the released voice0 untouched
+  ok  : pitch_updatяяя”яяя°яяяеяяяљ„ voice1
+  ok  : яяяЇяяяєяяІ axisяяя„яяяжяяяёяяя§яяяжя° voice
+== е€¤жЌ® 6: ж»‘йџідёЌдє§з”џйџіз¬¦пј€е†»з»“иЎЁй“Ѓеѕ‹пј‰==
+  ok  : яяяйяяяёяяя№ gatяяя•яяя€яяяжяяяёяяя§яяяйяяя¬яяя‰
+  ok  : яяя‘яяяеяЋ axis яяяеяяяёяяя
+  ok  : яяяйяяяЎяяяћяяядя† phase_inc
+== е€¤жЌ® 3: еђЊиЅґдЅЌй‡Ќи§¦еЏ‘е¤Ќз”ЁеђЊдёЂ voice ==
+  ok  : яяяияяяЏяяяЋ gatяяя•яяяЌяяяпяяяІяяяљяяѓ voicяяя‰
+  ok  : яяяйяяя§яяя‘яяяияяяњЁ voice1
+  ok  : яяяияяяЏяяяґяяядя† phase_inc
+  ok  : яяя‡яяя¦яяяжяяя–яяя† vel
+== е€¤жЌ® 4: й‡Ќи§¦еЏ‘зњџзљ„и®© ADSR й‡Ќиµ· Attackпј€жњЂж“йќ™й»е¤±ж•€пј‰==
+  ok  : яяя•яяя‘яяяеяяя»яяяЅяяЁ sustain яяяеяяяј€640яяя‰
+  ok  : яяя‡яяя¦яяяеяЋ gate яяяжяяя›яяя€voicяяяеяяя“яяя‰
+  ok  : яяяйяяя§яяя‘яяязяяя№яяяѕяяяйяяяєЋ sustain => Attack яяяеяяя‡яяя·
+  ok  : яяя­ђ gaяяяйяяя–яяя¬яяяжяяяЊяяяњяяє яяя€яя” яяяжяяяЅяяяµяяяияяяЊяяя‰
+  ok  : яяяйяяя§яяя‘яяяеяяя»яяяЌяяяеяяя€° sustaiяяя№яяя°
+== е€¤жЌ® 8: дё“з”Ё voice ж± пј€иЉ‚ж‹Ќе™ЁдёЌеЏ‚дёЋж™®йЂљжЉўеЌ пјЊT33b ењ°еџєпј‰==
+  ok  : яяяеяяяј€srcяяяјяяяґяяяияяяњяяя®яяяжяяяј€< 2яяя‰
+  ok  : €src=0пј‰зљ„иЅґ 14 иђЅењЁгЂђж™®йЂљж± гЂ‘вЂ”вЂ” й”® 14/15 е‡єеЈ°зљ„е€¤жЌ®
+  ok  : яяяєяяяпя€srяяяпяяяђяяяЁяяязяяя±яяя€>= 2яяя‰
+  ok  : яяя¬яяядяяяєђ B яяядяяя№яяяЅяяядяяя”яяя 
+  ok  : яяя¤яяядяяя”Ё voice яяядяяя›яяяЊ
+  ok  : яяя™яяяљяяядяЌ gate яяяеяяяјяяя’яяяеяяя‰яяя‰
+== е€¤жЌ® 5: жЉўеЌ йЎєеєЏпј€ењЁ POLY_TARGET=4 е°Џе®ћдѕ‹дёЉйЄЊпј‰==
+  ok  : 4 яяяияяяЌяяяЎяяядяЄ voice
+  ok  : яяя яяяжяЇ voice0..3
+  ok  : axis яяяеяяя­яяя®
+  ok  : яяяЌяяяЎяяязя¬ 5яяяЄяяядяяяўяяя†яяяпяяяёяяя™яяядяяяџяяя‰
+  ok  : яяя№яяя—яяяжяяяЅяяяўяя• яяяжяяяЌ  voice0
+  ok  : яяядяяяёяяяЄяяяеяяяЅяяяЌ
+  ok  : яяяияяяїяяя‡яяяжяяяђяяяґяяяеяяяўяяяїяя€voiceяяя‰
+  ok  : яяяђяяя„яяяеяяяњяяяЋяяяея• =яяяЉў voice0
+  ok  : яяяўяяяеяЋ voiceяяяЏяяяґяяяпяяя№яяя„яяяжяяя›яяя‰
+  ok  : voice1 яяязяяяЂяяя€яяяияяяЉяяя‰
+  ok  : яяяўяяязяяяяяяЂяяядяяяњяяяЋяяяеяяяљ„ voice1
+  ok  : voice0яяяияяя№яяя»яяяжяяяўяяяў
+  ok  : voice2яяяжяяяўяяяў
+  ok  : яяяеяяя®яяя‹яяяжя  X
+== е€¤жЌ® 7: POLY_TARGET еЏ‚ж•°еЊ–пј€32 жЎЈе·Іе…ЁзЁ‹дЅїз”Ёпј›е†ЌйЄЊ 16 иЅґеЌ ж»Ўпј‰==
+  ok  : яяяжяяяњяяяЋяяяеяяяѕ‹ 0 яяЄ gate
+  ok  : 1яяяёяяяґяя  яяядяЄ voice
+  ok  : яяяеяяяљяяяЇяяядяяяљ„ voice0..15
+  ok  : voice16..яяядяяя©яяяІяя€AXIS_W=4 яяяжя‰ 1яяяЅяяя‰
+  ok  : яяяђяяя¶яяяжяяяёяяя„яяяйяђ =яяяпяяяЏ— AXIS_Wяяяђяяяпяяяќћ POLY_TARGEяяя‰
+== 9: mid-retrigger voice is not stealable ==
+  ok  : section 9: clean slate (0 gates)
+  ok  : section 9: axis 5 owns voice0
+  ok  : section 9: exactly 1 gate before the test
+  ok  : section 9: axis 5 still owns voice0 (hold kept it busy)
+  ok  : section 9: the other axis landed on a DIFFERENT voice
+  ok  : section 9: axis 5 was NOT stolen (still on voice0)
+  ok  : K-106: baseline - event_lost is 0 BEFORE any overflow
+  ok  : K-106: baseline - lost count is 0 BEFORE any overflow
+  ok  : K-106: event_lost asserts after overflowing the queue
+  ok  : K-106: lost count = 7 and 12 =

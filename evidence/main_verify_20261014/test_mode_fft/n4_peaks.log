@@ -1,0 +1,12 @@
+📄 n4_spectrum.csv
+   门限 -40.0 dB（相对最高峰）· 合并间距 17.881 Hz
+   ⭐ 谱峰数 = 4
+      #1       476.84 Hz     -0.00 dBc
+      #2      1174.21 Hz      0.00 dBc
+      #3      1871.59 Hz      0.00 dBc
+      #4      2568.96 Hz     -0.00 dBc
+   相邻峰最小间距 697.37 Hz = 117.00 个 bin
+   ✅ 谱峰表 evidence/main_verify_20261014/test_mode_fft/n4_peaks.csv
+  ok : 谱峰数正好 = 4
+
+PASS: 谱峰计数（期望 4） —— 1/1 项全部符合预期

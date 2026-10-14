@@ -1,0 +1,2 @@
+PASS: wavetable_bank emits the selected CC0 AKWF four-timbre set
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\w3b\tb_akwf_wavetables.sv:69: $finish called at 380000 (1ps)

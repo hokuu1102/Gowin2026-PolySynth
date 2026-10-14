@@ -1,0 +1,22 @@
+[
+  {
+    "ProcessId": 19596,
+    "ParentProcessId": 53652,
+    "Name": "powershell.exe"
+  },
+  {
+    "ProcessId": 49992,
+    "ParentProcessId": 19596,
+    "Name": "powershell.exe"
+  },
+  {
+    "ProcessId": 23108,
+    "ParentProcessId": 49992,
+    "Name": "conhost.exe"
+  },
+  {
+    "ProcessId": 47636,
+    "ParentProcessId": 49992,
+    "Name": "vvp.exe"
+  }
+]

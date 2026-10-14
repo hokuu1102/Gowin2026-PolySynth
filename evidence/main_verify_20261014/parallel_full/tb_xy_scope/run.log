@@ -1,0 +1,16 @@
+== 李萨如（XY）显示验收：SCOPE_MODE=1, XY_DELAY=64 ==
+     [xy] sine  : set=1843  x=[75,564]  y=[11,469]
+  ok  : sine: point cloud spans a wide X range (>=150 px)
+  ok  : sine: point cloud spans a wide Y range (>=100 px)
+  ok  : sine: enough points to form a curve (>=200)
+     [xy] dc    : set=1  x=[381,381]  y=[182,182]
+  ok  : dc: all points collapse (<=4 pixels)
+     [xy] square: set=19  x=[0,639]  y=[0,479]
+  ok  : full-scale square: reaches BOTH Y edges (0 and 479)
+  ok  : full-scale square: reaches BOTH X edges (0 and 639)
+     [xy] fast  : set=357  x=[75,564]  y=[11,469]
+  ok  : fast signal: LINE DRAWING fills gaps (set >= 150; no-line would be ~20)
+     [xy] sine set=1843  vs  dc set=1
+  ok  : non-vacuous: sine point count >> dc point count (>=20x)
+PASS: xy_scope acceptance (8 checks) - all judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\hdmi\tb_xy_scope.sv:186: $finish called at 51560320000 (1ps)

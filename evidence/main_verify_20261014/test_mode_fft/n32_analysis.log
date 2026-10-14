@@ -1,0 +1,6 @@
+📄 test_mode_n32.csv
+   样点 8192 个 · fs 48828.1 Hz · 窗 hann · nfft 8192 · bin 5.96 Hz
+   ⭐ 主峰 7450.5806 Hz  (bin 1250 + -0.000) · 幅度 -30.10 dBFS
+   SNR 67.17 dB（噪声密度中位数法；单 bin 噪声底 -103.3 dBc）
+   杂散（前 3）13726.9 Hz -1.8 dBc · 10240.1 Hz -1.8 dBc · 11634.8 Hz -1.8 dBc
+   ✅ 频谱表 evidence/main_verify_20261014/test_mode_fft/n32_spectrum.csv（4097 行）

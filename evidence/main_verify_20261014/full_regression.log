@@ -1,0 +1,1884 @@
+RTL 68 个 · 模型 11 个 · 检查器 8 个 · tb 169 个
+
+=== 编译 tb_dac_tone_top ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_dac_tone_top ===
+    NOTE [dac_tone_top] FORMAT_SEL=0 FREQ=440 Hz fs=48828 Hz phase_inc=38702908
+=== tb_dac_tone_top ===
+猸?FORMAT_SEL=0 (鏍囧噯 I2S) 路 440 Hz 路 fs=48828 Hz 路 BCK=3125000 Hz
+--------------------------------------------------
+  BCK  缈昏浆=51199  涓婂崌娌?25600  鍛ㄦ湡 min=16 max=16 (鏈熸湜 16)
+  LRCK 缈昏浆=800  鍛ㄦ湡 min=1024 max=1024 (鏈熸湜 1024)
+  DIN  缈昏浆=5928
+  瑙ｅ嚭鏍风偣=399  min=-16384 max=16383  闆跺€?5  鍙樺寲娆℃暟=399
+--------------------------------------------------
+  ok  : 鈶?BCK 鍛ㄦ湡鎭板ソ 16 clk锛?125000 Hz锛?
+  ok  : 鈶?LRCK 鍛ㄦ湡鎭板ソ 1024 clk锛?8828 Hz锛?
+  ok  : 鈶?DIN 鐪熺殑鍦ㄥ姩锛堢炕杞?5928 娆★級
+  ok  : 鈶?瑙ｅ嚭鏈夋晥姝ｅ鸡锛?99 涓牱鐐癸紝399 娆″€煎彉鍖栵級
+  ok  : 鈶?骞呭害鍚堢悊涓斻€愬弻鏋佹€с€戯紙-16384 .. 16383锛屾憜骞?32767锛夆€斺€?姝ｅ鸡姝ｇ‘
+  ok  : 鈶?A8 鏃?X/Z
+PASS: dac_tone_top 杈撳嚭姝ｇ‘鐨?I2S 娴侊紙BCK/LRCK/DIN 鍏ㄥ锛屾寮﹀彲瑙ｏ級
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\bringup\tb_dac_tone_top.sv:247: $finish called at 8192200000 (1ps)
+
+
+
+=== 编译 tb_wavetable_tone_top ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_wavetable_tone_top ===
+    VCD info: dumpfile build/sim/wavetable_tone_top/tb_wavetable_tone_top.vcd opened for output.
+WAVETABLE_TONE frames=620 nonzero=613 crossings=5 period=111..111 avg=111 measured_hz=439
+WAVETABLE_TONE bck_gap=16..16 ws_gap=1024..1024 din_toggles=8720 pa_falls=0
+PASS: Dock wavetable tone top outputs deterministic 440 Hz mono audio
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\bringup\tb_wavetable_tone_top.sv:236: $finish called at 12697771000 (1ps)
+
+
+
+=== 编译 tb_checkers ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_checkers ===
+    VCD info: dumpfile build/sim/tb_checkers/tb_checkers.vcd opened for output.
+--- A8 / A3 骞插噣绐楀彛锛堜笉搴旀湁浠讳綍杩濊锛?--
+ERROR [A3] led_clk 涓?spi_sck 鍚勭炕杞?8/8 娆″嵈鍏ㄧ▼鍙栧€肩浉鍚?鈥斺€?鐤戜技鍚屼竴鏍圭綉绾匡紙鉀?鐏?CLK 涓?SPI SCK 蹇呴』鍚勮嚜鐙珛锛?
+  ok : A8 骞插噣绐楀彛鍐呮棤 X 浼犳挱锛堜笉璇姤锛?
+  ok : A3 涓ゆ牴鐙珛鏃堕挓鏈璇垽涓哄悓涓€鏍圭綉绾?
+  ok : A3 鍚屼竴鏍圭綉绾胯鎶撳埌锛堣礋鍚戞祴璇曪級
+--- A6 姝ｄ緥锛氬抚鍐呭畬鎴?---
+  ok : A6 绗?100 鎷嶅畬鎴愶紙< 1024锛変笉璇姤
+  ok : A6 鏈疆 deadline_fault
+--- A6 鍙嶄緥 1锛氳秴鏃讹紙绗?1500 鎷嶆墠瀹屾垚 > 1024锛?--
+ERROR [A6] tb_top 甯ц秴鏃讹細frame_done 鍦ㄧ 1501 鎷嶏紝瓒呰繃 1024 鎷嶄笂闄?
+  ok : A6 瓒呮椂琚姄鍒帮紙璐熷悜娴嬭瘯锛?
+  ok : A6 瓒呮椂鍚?deadline_fault = 1
+--- A6 鍙嶄緥 2锛氭暣甯т笉缁?frame_done ---
+  ok : A6 杈圭晫璇箟锛氭湭鍒颁笅涓€涓?tick 鍓嶄笉鎶ワ紙鏈抚浠嶅湪杩涜锛?
+ERROR [A6] tb_top 甯ф湭瀹屾垚锛?202 鎷嶅唴鏈鍒?frame_done 灏卞埌浜嗕笅涓€涓?tick
+  ok : A6 鏁村抚鏈畬鎴?鈫?鍦ㄤ笅涓€娆?tick 鏃舵姤鍑猴紙璐熷悜娴嬭瘯锛?
+--- A8 鍙嶄緥锛氭敞鍏?X ---
+ERROR [A8] probe 鍑虹幇 X/Z锛歺xxxxxxx (t=75610000)
+ERROR [A8] probe 鍑虹幇 X/Z锛歺xxxxxxx (t=75630000)
+ERROR [A8] probe 鍑虹幇 X/Z锛歺xxxxxxx (t=75650000)
+ERROR [A8] probe 鍑虹幇 X/Z锛歺xxxxxxx (t=75670000)
+  ok : A8 娉ㄥ叆 X 琚姄鍒帮紙璐熷悜娴嬭瘯锛?
+--- A1 姝ｄ緥锛氬瀹界殑鏈夋晥鑴夊啿锛? 鎷?鈮?4锛?--
+  ok : A1 瀹藉害瓒冲涓嶈鎶?
+--- A1 鍙嶄緥锛氭伆濂?1 鎷嶇殑绐勮剦鍐诧紙K-01 鐨勭湡瀹炴晠闅滃舰鎬侊級---
+ERROR [A1] oe_n 鍑虹幇绐勮剦鍐诧細鏈夋晥鐢靛钩鍙湁 1 涓?clk 鍛ㄦ湡锛堣姹?鈮?4锛?
+  ok : A1 鍗曞懆鏈熺獎鑴夊啿琚姄鍒帮紙璐熷悜娴嬭瘯锛?
+--- A1b 浜氬懆鏈熸瘺鍒猴紙MIN_NS 璺緞锛屽悓姝ユ鏌ョ湅涓嶈鐨勯偅绉嶏級---
+ERROR [A1] glitch_sig 鍑虹幇浜氬懆鏈熸瘺鍒猴細鏈夋晥鐢靛钩鍙湁 3000锛堣姹?鈮?200 ns锛?
+  ok : A1b 猸?浜氬懆鏈熸瘺鍒鸿鐪熷疄鏃堕棿妫€鏌ユ姄鍒帮紙1 娆★級鈥斺€?鍚屾妫€鏌ョ湅涓嶈瀹?
+  ok : A1b 瓒冲瀹界殑鑴夊啿鏈鐪熷疄鏃堕棿妫€鏌ヨ鎶?
+--- A2 姝ｄ緥锛歀E 淇濇寔浣庢椂鐨勭Щ浣?---
+  ok : A2 绉讳綅鏈熼棿 LE 涓轰綆锛屼笉璇姤
+--- A2 鍙嶄緥锛歀E 涓洪珮鏃?SCK 鍑虹幇杈规部锛圞-03锛?--
+ERROR [A2] le 涓洪珮鏃?sck 鍑虹幇杈规部锛坙e=1/1 sck=0鈫?锛夆€斺€?閿佸瓨鑴氬繀椤诲湪绉讳綅鏈熼棿淇濇寔浣?
+ERROR [A2] le 涓洪珮鏃?sck 鍑虹幇杈规部锛坙e=1/1 sck=1鈫?锛夆€斺€?閿佸瓨鑴氬繀椤诲湪绉讳綅鏈熼棿淇濇寔浣?
+  ok : A2 LE 楂樼數骞虫湡闂寸Щ浣嶇殑杈规部琚姄鍒帮紙璐熷悜娴嬭瘯锛?
+--- A4/A5 姝ｄ緥锛氬崟璺湁鏁堛€佷互鍙婂叏鏃犳晥锛堟€荤嚎绌洪棽锛?--
+  ok : A4/A5 鍗曡矾鏈夋晥涓庡叏鏃犳晥閮戒笉璇姤
+--- A4 鍙嶄緥锛氫袱璺墖閫夊悓鏃舵湁鏁?---
+ERROR [A4/A5] adc_cs_n 鍚屾椂鏈?2 璺湁鏁堬紙100锛夆€斺€?鐗囬€夊繀椤讳簰鏂ャ€丮ISO 鍙兘鏈夊崟涓€椹卞姩婧?
+  ok : A4 鐗囬€夊悓鏃舵湁鏁堣鎶撳埌锛堣礋鍚戞祴璇曪級
+--- A5 鍙嶄緥锛歁ISO 涓や釜椹卞姩婧愬悓鏃朵娇鑳?---
+ERROR [A4/A5] miso_drv_en 鍚屾椂鏈?2 璺湁鏁堬紙011锛夆€斺€?鐗囬€夊繀椤讳簰鏂ャ€丮ISO 鍙兘鏈夊崟涓€椹卞姩婧?
+  ok : A5 澶氶┍鍔ㄦ簮琚姄鍒帮紙璐熷悜娴嬭瘯锛?
+--- A4c 杈圭晫锛氫笁璺墖閫夊悓鏃舵湁鏁堬紙涓嶆槸鍙湅涓よ矾锛?--
+ERROR [A4/A5] adc_cs_n 鍚屾椂鏈?3 璺湁鏁堬紙000锛夆€斺€?鐗囬€夊繀椤讳簰鏂ャ€丮ISO 鍙兘鏈夊崟涓€椹卞姩婧?
+  ok : A4c 涓夎矾鍚屾椂鏈夋晥涔熻鎶撳埌锛坋rr 2 娆★紝璁℃暟閫昏緫姝ｇ‘锛?
+--- A4p 姝ｄ緥锛氫笁璺畬鍏ㄤ竴鑷达紙閿佹鎵囧嚭锛変笉璇姤 ---
+  ok : A4p 涓夎矾閫愭媿涓€鑷翠笉璇姤
+--- A4p 鍙嶄緥锛氭煇涓€璺笌涓昏矾涓嶅悓锛堟湭閿佹/涓茬嚎锛?--
+ERROR [A4p] fanout_test 鏌愪竴璺笌绗?0 璺笉涓€鑷达紙001锛夆€斺€?鍚屾簮鎵囧嚭蹇呴』閫愭媿涓€鑷达紙骞惰閲囬泦閿佹锛?
+  ok : A4p 鎵囧嚭涓嶄竴鑷磋鎶撳埌锛堣礋鍚戞祴璇曪級
+--- A7 姝ｄ緥锛氭寜 phase_inc 鍓嶈繘 ---
+  ok : A7 姝ｅ父鍓嶈繘涓嶈鎶?
+--- A7 姝ｄ緥锛氬彉璋冿紙鍙敼 phase_inc锛変笉璇姤 鈥斺€?K-10 鐨勬纭仛娉?---
+  ok : A7 鍙樿皟鍙敼 phase_inc锛堢浉浣嶈繛缁級涓嶈鎶?
+--- A7 鍙嶄緥锛氬彉璋冩椂娓呴浂鐩镐綅锛圞-10 鐨勯敊璇仛娉曪級---
+ERROR [A7] phase_acc 鐩镐綅澧為噺寮傚父锛氬疄娴?4294937296锛屾湡鏈?5000锛堟棫 inc锛夋垨 5000锛堟柊 inc锛夆€斺€?鉀?鍙樿皟鍙鏀?phase_inc锛屼笉璁告竻闆剁浉浣?
+  ok : A7 鐩镐綅娓呴浂琚姄鍒帮紙璐熷悜娴嬭瘯锛?
+--- A7 姝ｄ緥锛氬悎娉曠浉浣嶉噸鍚紙jump_ok=1锛変笉鎶?---
+  ok : A7 鍚堟硶鐨勭浉浣嶉噸鍚紙jump_ok锛夋湭琚鎶?
+
+PASS: A1/A2/A3/A4/A5/A6/A7/A8 缁撴瀯绫绘柇瑷€鍏ㄩ儴鎸夐鏈熷伐浣滐紙鍚礋鍚戞祴璇曪級
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\checkers\tb_checkers.sv:393: $finish called at 78620000 (1ps)
+
+
+    ℹ️ 日志含 16 行 ERROR —— 负向测试的预期结果，不算失败
+
+=== 编译 tb_clk_gen ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_clk_gen ===
+    VCD info: dumpfile build/sim/tb_clk_gen/tb_clk_gen.vcd opened for output.
+
+================ clk_gen 鏃跺熀瀹炴祴 ================
+  绐楀彛        : 8192 涓?clk锛?63840 ns锛屾湡鏈?8 甯э級
+  tick_audio  : 8 娆?路 闂撮殧 min=1024 max=1024 clk
+  bclk_en     : 512 娆?路 闂撮殧 min=16 max=16 clk
+  mclk_en     : 2048 娆?路 闂撮殧 min=4 max=4 clk
+  bclk_half_en: 1024 娆?路 闂撮殧 min=8 max=8 clk锛堟湡鏈?8锛?
+  frame_start : 8 娆?路 闂撮殧 min=1024 max=1024 clk锛堟湡鏈?1024锛?
+  鐩镐綅鍏崇郴    : bclk_en 缂?half 鐨勬媿鏁?0 路 half 缂?bclk_en 鐨勬媿鏁?512
+                frame_start 缂?bclk_en 鐨勬媿鏁?0 路 bclk_en鈭ゝrame_start 娆℃暟 8锛? 甯ф暟锛?
+  lrclk       : 浣?4097 / 楂?4095 涓?clk
+--------------------------------------------------
+  鈬?fs   = 50 MHz / 1024 = 48.828125 kHz
+  鈬?BCLK = 50 MHz / 16 = 3.125000 MHz锛? 64.0 脳 fs锛?
+  鈬?MCLK = 50 MHz / 4 = 12.500 MHz锛? 256 脳 fs锛?
+==================================================
+  ok : tick_audio 闂撮殧鎭板ソ 1024 clk锛坒s 绮剧‘锛?
+  ok : bclk_en 闂撮殧鎭板ソ 16 clk锛圔CLK 绮剧‘锛?
+  ok : mclk_en 闂撮殧鎭板ソ 4 clk锛圡CLK 绮剧‘锛?
+  ok : 姣忓抚 64 涓?BCLK 浣胯兘锛? 甯?鈫?512 娆★級
+  ok : 姣忓抚 256 涓?MCLK 浣胯兘
+  ok : lrclk 浣?楂樺悇鍗犲崐甯э紙浣?4097 / 楂?4095锛?
+  ok : 甯ц捣鐐瑰 lrclk = 浣庯紙宸﹀０閬撳厛鍙戯紝鏍囧噯 I2S锛?
+  ok : A8 鏃?X/Z 浼犳挱
+  ok : bclk_half_en 闂撮殧鎭板ソ 8 clk锛圚P_BCK 缈昏浆鑺傛媿绮剧‘锛?
+  ok : 姣忎釜 bclk_en 閭ｆ媿閮藉悓鏃舵湁 bclk_half_en锛?12 娆★級
+  ok : bclk_half_en : bclk_en = 2:1锛?024 : 512锛夆€斺€?鍗婂懆鏈熺炕杞妭鎷嶆纭?
+  ok : bclk_half_en 涓伆濂戒竴鍗婁笉涓?bclk_en 鍚屾媿锛?12 娆★級鈬?鏁版嵁绐楀眳涓?
+  ok : frame_start 闂撮殧鎭板ソ 1024 clk锛堟瘡甯т竴娆★級
+  ok : frame_start **蹇呭畾涓?bclk_en 鍚屾媿**锛坕2s_tx 鐨勫抚鍐呬綅瀵归綈鍓嶆彁锛?
+  ok : 姣忓抚鎭板ソ涓€涓?frame_start锛? 甯?鈫?8 娆″悓鎷嶏級
+
+PASS: clk_gen 鏃跺熀鍏ㄩ儴绗﹀悎锛堝垎棰戦摼绮剧‘ + 鏋佸樊涓?0 + 鐩镐綅鍏崇郴姝ｇ‘ + 鏃?X锛?
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\clk_gen\tb_clk_gen.sv:280: $finish called at 164011000 (1ps)
+
+
+
+=== 编译 tb_clk_gen_badparam ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_clk_gen_badparam ===
+    ERROR [clk_gen] 鍙傛暟蹇呴』鍏ㄤ负 2 鐨勫箓涓?BCLK_DIV/MCLK_DIV >= 2銆丆LK_PER_SAMPLE >= BCLK_DIV锛欳LK_PER_SAMPLE=1000 BCLK_DIV=12 MCLK_DIV=4锛堝綋鍓嶅疄鐜版妸 $clog2 褰撶Щ浣嶉噺鐢?鈬?闈?2 鐨勫箓浼?*闈欓粯缁欓敊棰戠巼**锛?
+ERROR [clk_gen] CLK_PER_SAMPLE(1000) 涓嶈兘琚?2脳BCLK_DIV(24) 鏁撮櫎 鈬?宸﹀彸鏃堕殭涓嶇瓑闀?
+VCD info: dumpfile build/sim/tb_clk_gen_badparam/tb_clk_gen_badparam.vcd opened for output.
+
+================ clk_gen 鍙傛暟鑷锛堣礋鍚戯級================
+  闈炴硶鍙傛暟瀹炰緥(1000/12/4) 鐨?bclk_en 娆℃暟 = 258
+  鍚堟硶鍙傛暟瀹炰緥(1024/16/4) 鐨?bclk_en 娆℃暟 = 256
+  鈿狅笍 涓婇潰鑻ュ嚭鐜?ERROR [clk_gen] 琛岋紝閭ｆ鏄?*棰勬湡缁撴灉**
+========================================================
+  ok : 闈炴硶鍙傛暟纭疄琚?*闈欓粯鎸?梅16** 澶勭悊锛?58 娆?鈮?256锛夆€斺€?璇佹槑蹇呴』闈?PARAM_OK 鍛婅
+  ok : 鍚堟硶鍙傛暟涓?bclk_en 娆℃暟姝ｅ父锛?56 鈮?256锛?
+
+PASS: clk_gen 鍙傛暟鑷鎸夐鏈熷伐浣滐紙闈炴硶鍙傛暟浼氬憡璀︼紱鍚堟硶鍙傛暟鏃犲憡璀︼紱涓よ€呴兘涓嶅崱姝伙級
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\clk_gen\tb_clk_gen_badparam.sv:104: $finish called at 82091000 (1ps)
+
+
+    ℹ️ 日志含 2 行 ERROR —— 负向测试的预期结果，不算失败
+
+=== 编译 tb_adc_farm ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_farm.sv:53: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_farm.sv:53: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_farm.sv:53: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_farm.sv:53: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_farm.sv:55: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_farm.sv:55: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_farm.sv:55: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_farm.sv:55: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_farm.sv:57: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_farm.sv:57: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_farm.sv:57: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_farm.sv:57: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+=== 运行 tb_adc_farm ===
+    VCD info: dumpfile build/sim/adc_farm/tb_adc_farm.vcd opened for output.
+  -- P1-28: force chip-0 MISO stuck at 0, wait 17 frames --
+  ok  : P1-28 dead chip 0 detected (fault=001), live chips untouched
+PASS: 2 frames + P1-28 dead-chip window (19 frames total), 16 sample_valid, frame period=500000 ns, fanout clean
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_farm.sv:217: $finish called at 9196541000 (1ps)
+
+
+
+=== 编译 tb_adc_fault_window ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_fault_window.sv:15: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_fault_window.sv:15: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_fault_window.sv:23: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_fault_window.sv:23: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_fault_window.sv:26: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_fault_window.sv:26: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_fault_window.sv:29: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_fault_window.sv:29: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_fault_window.sv:29: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_fault_window.sv:29: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+=== 运行 tb_adc_fault_window ===
+    PASS: legal CH0 endpoint is accepted; sustained all-channel endpoint is reported separately
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_adc_fault_window.sv:56: $finish called at 18696740000 (1ps)
+
+
+
+=== 编译 tb_calib ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_calib ===
+    VCD info: dumpfile build/sim/calib/tb_calib.vcd opened for output.
+ok : default: out CLAMPED to MAX_TRAVEL when raw exceeds travel (K-153)
+ok : tare: out = raw - zero = 500 - 100 = 400
+ok : span: divider finished (busy==0)
+ok : span: calibrated full-scale converges to 4095
+ok : err: span code <= zero code is rejected
+ok : underflow: raw < zero -> out clamped to 0
+ok : median: an ISOLATED spike is REJECTED (median DUT keeps 100)
+ok : plain: the SAME spike is NOT rejected (clamps to MAX_TRAVEL) -- the counter-example that keeps the median check non-vacuous
+ok : median: a GENUINE move still gets through (out -> 600, the spike does not linger)
+ok : A8: no X/Z on out_val
+ok : A8: no X/Z on med_out_val
+ok : P2-24a (setup) the latched sample is non-zero (else 24c is vacuous)
+ok : P2-24b valid=0 => out_valid is 0 (the output is gated)
+ok : P2-24c valid=0 => the multiplier did NOT run (out_val HOLDS)
+PASS: calib T13 all 14 checks ok
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_calib.sv:315: $finish called at 1870000 (1ps)
+
+
+
+=== 编译 tb_calib_equivalence ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_calib_equivalence ===
+    PASS: calib cycle-exact equivalence checks=73141 profiles=4 exhaustive_codes=4096 channels=8
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_calib_equivalence.sv:73: $finish called at 1462820000 (1ps)
+
+
+
+=== 编译 tb_debounce ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_debounce ===
+    VCD info: dumpfile build/sim/debounce/tb_debounce.vcd opened for output.
+ok : key0 down: exactly one event after bounce
+ok : key0 level normalized to 1 (pressed)
+ok : key0 up: exactly one event after bounce
+ok : key0 down: still exactly one (no repeat)
+ok : EC11 CW: 8 steps -> enc_cw == 8
+ok : EC11 CW: enc_ccw == 0
+ok : EC11 CW: enc_err == 0
+ok : EC11 CCW: 8 steps -> enc_ccw == 8
+ok : EC11 CCW: enc_cw unchanged at 8
+ok : EC11 illegal: A/B simultaneous -> enc_err fired
+ok : EC11 illegal: no count on illegal step
+ok : A8: no X/Z on key_level/enc_state
+ok : self-check: correct branch is reachable
+PASS: debounce T14 all 13 checks ok
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_debounce.sv:270: $finish called at 20045070000 (1ps)
+
+
+
+=== 编译 tb_mcp3208_driver ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_mcp3208_driver ===
+    VCD info: dumpfile build/sim/mcp3208/mcp3208_driver_tb.vcd opened for output.
+PASS CH0: clocks=24, MOSI=060000, ADC=001
+PASS CH1: clocks=24, MOSI=064000, ADC=123
+PASS CH2: clocks=24, MOSI=068000, ADC=456
+PASS CH3: clocks=24, MOSI=06c000, ADC=789
+PASS CH4: clocks=24, MOSI=070000, ADC=abc
+PASS CH5: clocks=24, MOSI=074000, ADC=a5c
+PASS CH6: clocks=24, MOSI=078000, ADC=def
+PASS CH7: clocks=24, MOSI=07c000, ADC=fff
+PASS: all MCP3208 channels completed
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_mcp3208_driver.sv:214: $finish called at 196611000 (1ps)
+
+
+
+=== 编译 tb_mcp3208_scanner ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_mcp3208_scanner ===
+    VCD info: dumpfile build/sim/mcp3208/mcp3208_scanner_tb.vcd opened for output.
+PASS: 2 frames, 16 samples, frame period=500000 ns
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_mcp3208_scanner.sv:285: $finish called at 696541000 (1ps)
+
+
+
+=== 编译 tb_tlc5916_driver ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_tlc5916_driver ===
+    VCD info: dumpfile build/sim/tlc5916/tlc5916_tb.vcd opened for output.
+PASS: TLC5916 transmitted 00 correctly
+PASS: TLC5916 transmitted a5 correctly
+PASS: TLC5916 transmitted ff correctly
+PASS: TLC5916 transmitted 3c correctly
+PASS: synchronous reset behavior checked
+PASS: TLC5916 transmitted 5a correctly
+--- bit-walk: 8 single-bit patterns (proves bit position + MSB-first order) ---
+PASS: TLC5916 transmitted 01 correctly
+PASS: TLC5916 transmitted 02 correctly
+PASS: TLC5916 transmitted 04 correctly
+PASS: TLC5916 transmitted 08 correctly
+PASS: TLC5916 transmitted 10 correctly
+PASS: TLC5916 transmitted 20 correctly
+PASS: TLC5916 transmitted 40 correctly
+PASS: TLC5916 transmitted 80 correctly
+  ok : 閫愪綅璧版煡 8/8 閫氳繃锛堟瘡涓€浣嶇殑浣嶇疆涓?MSB-first 浣嶅簭閮藉锛?
+--- A1: OE single-cycle glitch must NOT reach the pin ---
+  ok : A1 鍓嶇疆锛歰utputs_enable=1 绋冲畾鍚?tlc_oe_n=0锛圠ED 浣胯兘锛?
+  ok : A1 猸?1 鎷嶇獎鑴夊啿琚ǔ瀹氱獥瀹屽叏婊ゆ帀锛坱lc_oe_n 鏈姩锛?
+--- A1b: OE change during transfer must wait for IDLE ---
+  ok : A1b 猸?浼犺緭鏈熼棿 OE 淇濇寔涓嶅彉锛堝彧鍦?CLK 闈欐 + LE 浣庢椂鎵嶆洿鏂帮級
+  ok : A1b 鍥炲埌 IDLE 鍚?OE 姝ｇ‘鍏虫柇锛坥utputs_enable=0 琚帴鍙楋級
+PASS: A2 LE 鍦ㄧЩ浣嶆湡闂村叏绋嬩负浣庯紙鍚笂闈㈢殑 OE 鐢ㄤ緥鏈熼棿锛?
+PASS: A1 鍏ㄧ▼鏈嚭鐜扮獎鑴夊啿锛圤E/LE 閮借繃浜嗘渶灏忓搴︽鏌ワ級
+--- K-57: OE stable window vs datasheet tw(OE) >= 500 ns ---
+  ok : K-57 OE 绋冲畾绐?= 500 ns锛堚墺 鎵嬪唽 500 ns锛?
+PASS: A8 鏃?X/Z 浼犳挱
+--- K-66: Normal-Mode recovery sequence (datasheet 101 pulse + LE low) ---
+  ok : K-66 猸?`OE` 浣庣獥鍙?*姣忎釜鎭㈠绐楀彛鎭板ソ璺ㄨ繃 1 涓?CLK 涓婂崌娌?*锛? 娆＄獥鍙?/ 2 涓部锛?
+  ok : K-66 猸?鎭㈠鏈熼棿 `LE` **鍏ㄧ▼浣?*锛堚噿 绗?4 涓部蹇呭垽 Normal Mode锛?
+  ok : K-66 猸?`OE` 浣庣數骞冲搴?1000 ns 鈮?鎵嬪唽 tw(OE) 500 ns
+  ok : K-66 鎭㈠搴忓垪鍙戜簡 12 涓?CLK 鍛ㄦ湡锛堚墺5锛岀 4 涓部鑳介噰鍒?LE锛?
+  ok : K-66 鎭㈠搴忓垪**姣忔澶嶄綅鍚庢伆濂借窇涓€娆?*锛堟湰 tb 鏈?2 娆″浣嶉噴鏀?鈬?2 娆★級
+PASS: all TLC5916 tests completed successfully
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\drivers\tb_tlc5916_driver.sv:495: $finish called at 137520000 (1ps)
+
+
+
+=== 编译 tb_demo_stall_diag ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_demo_stall_diag.sv:160: warning: Instantiating module top with dangling input port 30 (ctrl_col_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_demo_stall_diag.sv:160: warning: Instantiating module top with dangling input port 31 (enc_a_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_demo_stall_diag.sv:160: warning: Instantiating module top with dangling input port 32 (enc_b_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_demo_stall_diag.sv:160: warning: Instantiating module top with dangling input port 33 (enc_sw_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_demo_stall_diag.sv:160: warning: Instantiating module top with dangling input port 35 (pedal_sus_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_demo_stall_diag.sv:160: warning: Instantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_demo_stall_diag.sv:160: warning: Instantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_demo_stall_diag.sv:160: warning: Instantiating module top with dangling input port 39 (esp_uart_rx_i) floating.
+=== 运行 tb_demo_stall_diag ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=50000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=48 VOTE_N=4 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=4)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [slide_ramp] PARAM_OK=1 (SHIFT=4 EPS=4096)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=23 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+=== tb_demo_stall_diag : demo chord -> key press, note_manager state trace ===
+  cfg  : N_TICK=96 tick (=98304 clk, window for criterion B)
+  cfg  : N_PRESS=3 per key; KEY_A axis=0 ; KEY_B axis=8
+  cfg  : DEMO_NOTE_DELAY=10000 (board 2_000_000) ; DEMO_HOLD_CYC=20000 (board 50_000_000)
+  cfg  : defparam event_extract.REFRACT_N = 4 (board 60 => 30 ms at 500 us/frame)
+  [FSM  ] t=10000 state 0 -> x  fifo_cnt=x cur_kind=x cur_axis=x cur_src=x best_valid=x
+  [FSM  ] t=30000 state x -> 0  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=0
+  [FSM  ] t=200590000 state 0 -> 6  fifo_cnt=1 cur_kind=0 cur_axis=0 cur_src=2 best_valid=0
+  [FSM  ] t=200610000 state 6 -> 1  fifo_cnt=2 cur_kind=0 cur_axis=0 cur_src=2 best_valid=0
+  [FSM  ] t=200630000 state 1 -> 2  fifo_cnt=2 cur_kind=0 cur_axis=0 cur_src=2 best_valid=0
+  [FSM  ] t=201270000 state 2 -> 3  fifo_cnt=2 cur_kind=0 cur_axis=0 cur_src=2 best_valid=1
+  [FSM  ] t=201290000 state 3 -> 4  fifo_cnt=2 cur_kind=0 cur_axis=0 cur_src=2 best_valid=1
+  [FSM  ] t=201310000 state 4 -> 0  fifo_cnt=2 cur_kind=0 cur_axis=0 cur_src=2 best_valid=1
+  [FSM  ] t=201330000 state 0 -> 6  fifo_cnt=1 cur_kind=0 cur_axis=1 cur_src=2 best_valid=1
+  [FSM  ] t=201350000 state 6 -> 1  fifo_cnt=1 cur_kind=0 cur_axis=1 cur_src=2 best_valid=1
+  [FSM  ] t=201370000 state 1 -> 2  fifo_cnt=1 cur_kind=0 cur_axis=1 cur_src=2 best_valid=0
+  [FSM  ] t=202010000 state 2 -> 3  fifo_cnt=1 cur_kind=0 cur_axis=1 cur_src=2 best_valid=1
+  [FSM  ] t=202030000 state 3 -> 4  fifo_cnt=1 cur_kind=0 cur_axis=1 cur_src=2 best_valid=1
+  [FSM  ] t=202050000 state 4 -> 0  fifo_cnt=1 cur_kind=0 cur_axis=1 cur_src=2 best_valid=1
+  [FSM  ] t=202070000 state 0 -> 6  fifo_cnt=0 cur_kind=0 cur_axis=2 cur_src=2 best_valid=1
+  [FSM  ] t=202090000 state 6 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=2 cur_src=2 best_valid=1
+  [FSM  ] t=202110000 state 1 -> 2  fifo_cnt=0 cur_kind=0 cur_axis=2 cur_src=2 best_valid=0
+  [FSM  ] t=202750000 state 2 -> 3  fifo_cnt=0 cur_kind=0 cur_axis=2 cur_src=2 best_valid=1
+  [FSM  ] t=202770000 state 3 -> 4  fifo_cnt=0 cur_kind=0 cur_axis=2 cur_src=2 best_valid=1
+  [FSM  ] t=202790000 state 4 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=2 cur_src=2 best_valid=1
+  [FSM  ] t=600670000 state 0 -> 6  fifo_cnt=1 cur_kind=1 cur_axis=0 cur_src=2 best_valid=1
+  [FSM  ] t=600690000 state 6 -> 1  fifo_cnt=2 cur_kind=1 cur_axis=0 cur_src=2 best_valid=1
+  [FSM  ] t=600710000 state 1 -> 0  fifo_cnt=2 cur_kind=1 cur_axis=0 cur_src=2 best_valid=1
+  [FSM  ] t=600730000 state 0 -> 6  fifo_cnt=1 cur_kind=1 cur_axis=1 cur_src=2 best_valid=1
+  [FSM  ] t=600750000 state 6 -> 1  fifo_cnt=1 cur_kind=1 cur_axis=1 cur_src=2 best_valid=1
+  [FSM  ] t=600770000 state 1 -> 0  fifo_cnt=1 cur_kind=1 cur_axis=1 cur_src=2 best_valid=1
+  [FSM  ] t=600790000 state 0 -> 6  fifo_cnt=0 cur_kind=1 cur_axis=2 cur_src=2 best_valid=1
+  [FSM  ] t=600810000 state 6 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=2 cur_src=2 best_valid=1
+  [FSM  ] t=600830000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=2 cur_src=2 best_valid=1
+  [tare ] at_done=1 after ~110000 cycles
+  [frame] measured frame period = 25000 clk (500 us); one axis refresh = 1 frame (expected 25000 clk = CLK_HZ/CHANNEL_RATE_HZ)
+  ok  : F measured adc frame period is the real one (~25000 clk = 500 us), not 0 and not a timeout
+  [TAG  ] after reset + autotare
+[DIAG] t=3196791000 ev=6  state=0 fifo_cnt=0 fifo_wr=6 fifo_rd=6
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=2 cur_src=2
+       free_cnt=29 live_cnt=3 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=0 mg_ev_cnt=6 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=2 gate_seen=0x0007 ev_ax=0x0007
+       (x) nm_active=0x00000007 env_active=0x00000007 pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [demo ] demo_fired=1 (demo_step=7) after ~0 cycles; board value = 40 ms + 1 s
+  [TAG  ] mo chord finished (demo_fired=1)
+[DIAG] t=3196792000 ev=6  state=0 fifo_cnt=0 fifo_wr=6 fifo_rd=6
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=2 cur_src=2
+       free_cnt=29 live_cnt=3 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=0 mg_ev_cnt=6 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=2 gate_seen=0x0007 ev_ax=0x0007
+       (x) nm_active=0x00000007 env_active=0x00000007 pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [drain] fifo empty + ST_IDLE reached after 0 clk (drained=1)
+  [TAG  ] after demo tail drain
+[DIAG] t=3196811000 ev=6  state=0 fifo_cnt=0 fifo_wr=6 fifo_rd=6
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=2 cur_src=2
+       free_cnt=29 live_cnt=3 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=0 mg_ev_cnt=6 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=2 gate_seen=0x0007 ev_ax=0x0007
+       (x) nm_active=0x00000007 env_active=0x00000007 pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  ok  : A after demo chord: note_manager fifo_cnt==0 AND state==ST_IDLE
+
+=== press A #1 : axis 0 (chip 0 ch 0) ===
+  [TAG  ] BEFORE press
+[DIAG] t=3196832000 ev=6  state=0 fifo_cnt=0 fifo_wr=6 fifo_rd=6
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=2 cur_src=2
+       free_cnt=29 live_cnt=3 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=0 mg_ev_cnt=6 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=0 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=2 gate_seen=0x0000 ev_ax=0x0007
+       (x) nm_active=0x00000007 env_active=0x00000007 pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=3697090000 state 0 -> 6  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=3697110000 state 6 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=3697130000 state 1 -> 2  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=0
+  [FSM  ] t=3697770000 state 2 -> 3  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=3697790000 state 3 -> 4  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=3697810000 state 4 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [gate ] axis=0 gate_seen=1 first_gate_latency=25040 clk (~25 sample_tick, window=96)
+  [TAG  ] AFTER press (window end)
+[DIAG] t=3697951000 ev=7  state=0 fifo_cnt=0 fifo_wr=7 fifo_rd=7
+       best_valid=1 same_valid=0 cur_kind=0 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=1 mg_ev_cnt=7 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x00000007 pos[0]=744 pos[8]=2 af0_pol=2103 cal0_val=0
+  ok  : B press axis 0 #1 => a voice on that axis got GATED (25040 clk, 25 tick)
+  [TAG  ] during press hold
+[DIAG] t=4697951000 ev=7  state=0 fifo_cnt=0 fifo_wr=7 fifo_rd=7
+       best_valid=1 same_valid=0 cur_kind=0 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=1 mg_ev_cnt=7 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=744 pos[8]=2 af0_pol=2103 cal0_val=0
+  [FSM  ] t=5197090000 state 0 -> 6  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=5197110000 state 6 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=5197130000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [rel  ] axis=0 gate cleared after 24944 clk (25 tick)
+  [TAG  ] after release
+[DIAG] t=5197151000 ev=8  state=0 fifo_cnt=0 fifo_wr=8 fifo_rd=8
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=2 mg_ev_cnt=8 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [refr ] wait axis 0: bound = 200000 clk (= 8 frame x 25000 clk/frame); refr now = 1
+  [refr ] axis 0 refractory cleared after 19986 clk (bound was 200000 clk; REFRACT_N was 4 frames at the press)
+
+=== press A #2 : axis 0 (chip 0 ch 0) ===
+  [TAG  ] BEFORE press
+[DIAG] t=5696892000 ev=8  state=0 fifo_cnt=0 fifo_wr=8 fifo_rd=8
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=2 mg_ev_cnt=8 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=0 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=3 gate_seen=0x0000 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=6197090000 state 0 -> 6  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=6197110000 state 6 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=6197130000 state 1 -> 5  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=6197150000 state 5 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [gate ] axis=0 gate_seen=1 first_gate_latency=25440 clk (~25 sample_tick, window=96)
+  [TAG  ] AFTER press (window end)
+[DIAG] t=6206011000 ev=9  state=0 fifo_cnt=0 fifo_wr=9 fifo_rd=9
+       best_valid=1 same_valid=1 cur_kind=0 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=3 mg_ev_cnt=9 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=744 pos[8]=2 af0_pol=2103 cal0_val=0
+  ok  : B press axis 0 #2 => a voice on that axis got GATED (25440 clk, 25 tick)
+  [TAG  ] during press hold
+[DIAG] t=7206011000 ev=9  state=0 fifo_cnt=0 fifo_wr=9 fifo_rd=9
+       best_valid=1 same_valid=1 cur_kind=0 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=3 mg_ev_cnt=9 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=744 pos[8]=2 af0_pol=2103 cal0_val=0
+  [FSM  ] t=7697090000 state 0 -> 6  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=7697110000 state 6 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=7697130000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [rel  ] axis=0 gate cleared after 24544 clk (24 tick)
+  [TAG  ] after release
+[DIAG] t=7697211000 ev=10  state=0 fifo_cnt=0 fifo_wr=10 fifo_rd=10
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=4 mg_ev_cnt=10 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [refr ] wait axis 0: bound = 200000 clk (= 8 frame x 25000 clk/frame); refr now = 1
+  [refr ] axis 0 refractory cleared after 19983 clk (bound was 200000 clk; REFRACT_N was 4 frames at the press)
+
+=== press A #3 : axis 0 (chip 0 ch 0) ===
+  [TAG  ] BEFORE press
+[DIAG] t=8196892000 ev=10  state=0 fifo_cnt=0 fifo_wr=10 fifo_rd=10
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=4 mg_ev_cnt=10 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=0 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0000 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=8697090000 state 0 -> 6  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=8697110000 state 6 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=8697130000 state 1 -> 5  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=8697150000 state 5 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [gate ] axis=0 gate_seen=1 first_gate_latency=25376 clk (~25 sample_tick, window=96)
+  [TAG  ] AFTER press (window end)
+[DIAG] t=8704731000 ev=11  state=0 fifo_cnt=0 fifo_wr=11 fifo_rd=11
+       best_valid=1 same_valid=1 cur_kind=0 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=5 mg_ev_cnt=11 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=744 pos[8]=2 af0_pol=2103 cal0_val=0
+  ok  : B press axis 0 #3 => a voice on that axis got GATED (25376 clk, 25 tick)
+  [TAG  ] during press hold
+[DIAG] t=9704731000 ev=11  state=0 fifo_cnt=0 fifo_wr=11 fifo_rd=11
+       best_valid=1 same_valid=1 cur_kind=0 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=5 mg_ev_cnt=11 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=744 pos[8]=2 af0_pol=2103 cal0_val=0
+  [FSM  ] t=10197090000 state 0 -> 6  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=10197110000 state 6 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=10197130000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [rel  ] axis=0 gate cleared after 24608 clk (25 tick)
+  [TAG  ] after release
+[DIAG] t=10197211000 ev=12  state=0 fifo_cnt=0 fifo_wr=12 fifo_rd=12
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=6 mg_ev_cnt=12 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [refr ] wait axis 0: bound = 200000 clk (= 8 frame x 25000 clk/frame); refr now = 1
+  [refr ] axis 0 refractory cleared after 19983 clk (bound was 200000 clk; REFRACT_N was 4 frames at the press)
+
+=== press B #1 : axis 8 (chip 1 ch 0) ===
+  [TAG  ] BEFORE press
+[DIAG] t=10696892000 ev=12  state=0 fifo_cnt=0 fifo_wr=12 fifo_rd=12
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=6 mg_ev_cnt=12 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=0 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0000 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=11197250000 state 0 -> 6  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=11197270000 state 6 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=11197290000 state 1 -> 2  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=0
+  [FSM  ] t=11197930000 state 2 -> 3  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=11197950000 state 3 -> 4  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=11197970000 state 4 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [gate ] axis=8 gate_seen=1 first_gate_latency=25040 clk (~25 sample_tick, window=96)
+  [TAG  ] AFTER press (window end)
+[DIAG] t=11198011000 ev=13  state=0 fifo_cnt=0 fifo_wr=13 fifo_rd=13
+       best_valid=1 same_valid=0 cur_kind=0 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=7 mg_ev_cnt=13 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=3 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  ok  : B press axis 8 #1 => a voice on that axis got GATED (25040 clk, 25 tick)
+  [TAG  ] during press hold
+[DIAG] t=12198011000 ev=13  state=0 fifo_cnt=0 fifo_wr=13 fifo_rd=13
+       best_valid=1 same_valid=0 cur_kind=0 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=7 mg_ev_cnt=13 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=3 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=12697250000 state 0 -> 6  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=12697270000 state 6 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=12697290000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [rel  ] axis=8 gate cleared after 24960 clk (25 tick)
+  [TAG  ] after release
+[DIAG] t=12697531000 ev=14  state=0 fifo_cnt=0 fifo_wr=14 fifo_rd=14
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=8 mg_ev_cnt=14 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=3 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [refr ] wait axis 8: bound = 200000 clk (= 8 frame x 25000 clk/frame); refr now = 1
+  [refr ] axis 8 refractory cleared after 19967 clk (bound was 200000 clk; REFRACT_N was 4 frames at the press)
+
+=== press B #2 : axis 8 (chip 1 ch 0) ===
+  [TAG  ] BEFORE press
+[DIAG] t=13196892000 ev=14  state=0 fifo_cnt=0 fifo_wr=14 fifo_rd=14
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=8 mg_ev_cnt=14 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=0 scan_cnt=31 same_en=0 same_idx=3 cmt_en=1 cmt_idx=4 gate_seen=0x0000 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=13697250000 state 0 -> 6  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=13697270000 state 6 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=13697290000 state 1 -> 5  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=13697310000 state 5 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [gate ] axis=8 gate_seen=1 first_gate_latency=25232 clk (~25 sample_tick, window=96)
+  [TAG  ] AFTER press (window end)
+[DIAG] t=13701851000 ev=15  state=0 fifo_cnt=0 fifo_wr=15 fifo_rd=15
+       best_valid=1 same_valid=1 cur_kind=0 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=9 mg_ev_cnt=15 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  ok  : B press axis 8 #2 => a voice on that axis got GATED (25232 clk, 25 tick)
+  [TAG  ] during press hold
+[DIAG] t=14701851000 ev=15  state=0 fifo_cnt=0 fifo_wr=15 fifo_rd=15
+       best_valid=1 same_valid=1 cur_kind=0 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=9 mg_ev_cnt=15 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=15197250000 state 0 -> 6  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=15197270000 state 6 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=15197290000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [rel  ] axis=8 gate cleared after 24768 clk (25 tick)
+  [TAG  ] after release
+[DIAG] t=15197531000 ev=16  state=0 fifo_cnt=0 fifo_wr=16 fifo_rd=16
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=10 mg_ev_cnt=16 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [refr ] wait axis 8: bound = 200000 clk (= 8 frame x 25000 clk/frame); refr now = 1
+  [refr ] axis 8 refractory cleared after 19967 clk (bound was 200000 clk; REFRACT_N was 4 frames at the press)
+
+=== press B #3 : axis 8 (chip 1 ch 0) ===
+  [TAG  ] BEFORE press
+[DIAG] t=15696892000 ev=16  state=0 fifo_cnt=0 fifo_wr=16 fifo_rd=16
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=10 mg_ev_cnt=16 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=0 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0000 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=16197250000 state 0 -> 6  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=16197270000 state 6 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=16197290000 state 1 -> 5  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=16197310000 state 5 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [gate ] axis=8 gate_seen=1 first_gate_latency=25152 clk (~25 sample_tick, window=96)
+  [TAG  ] AFTER press (window end)
+[DIAG] t=16200251000 ev=17  state=0 fifo_cnt=0 fifo_wr=17 fifo_rd=17
+       best_valid=1 same_valid=1 cur_kind=0 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=11 mg_ev_cnt=17 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  ok  : B press axis 8 #3 => a voice on that axis got GATED (25152 clk, 25 tick)
+  [TAG  ] during press hold
+[DIAG] t=17200251000 ev=17  state=0 fifo_cnt=0 fifo_wr=17 fifo_rd=17
+       best_valid=1 same_valid=1 cur_kind=0 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=11 mg_ev_cnt=17 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=17697250000 state 0 -> 6  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=17697270000 state 6 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=17697290000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [rel  ] axis=8 gate cleared after 24848 clk (25 tick)
+  [TAG  ] after release
+[DIAG] t=17697531000 ev=18  state=0 fifo_cnt=0 fifo_wr=18 fifo_rd=18
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=12 mg_ev_cnt=18 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [refr ] wait axis 8: bound = 200000 clk (= 8 frame x 25000 clk/frame); refr now = 1
+  [refr ] axis 8 refractory cleared after 19967 clk (bound was 200000 clk; REFRACT_N was 4 frames at the press)
+  [fifo ] max fifo_cnt seen = 2 (FIFO_DEPTH=32) ; over=0 @ t=0
+  ok  : C1 note_manager fifo_cnt never exceeded FIFO_DEPTH
+  [fifo ] after keys released: c1=0 c2=0 c3=0 (must not grow)
+  ok  : C2 after keys released, fifo_cnt does NOT keep growing
+  [TAG  ] nal (keys released, tail waited)
+[DIAG] t=18360751000 ev=18  state=0 fifo_cnt=0 fifo_wr=18 fifo_rd=18
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=12 mg_ev_cnt=18 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  ok  : C3 after keys released, fifo_cnt DRAINS back to 0
+  [evts ] ee_cnt=12 ev=18 (on=9 off=9) sa_cnt=0 mg_cnt=0 sa_drop=0 mg_drop=0
+  [src  ] seq_arb forwarded: live=12 demo=6 (demo chord = 3 on + 3 off = 6)
+  [axes ] ee_axis=0x0101 ev_axis=0x0107 gate_seen=0x0100
+  ok  : D the hand-play events really flowed (ee_cnt>0 and ev>0) -- non-vacuous
+  ok  : D no upstream event was dropped (sa_drop==0 and mg_drop==0)
+  ok  : D note_manager reported no event loss (event_lost_o==0)
+
+PASS: demo-chord-then-key diagnostic -- the queue drained and every press gated a voice on its own axis
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_demo_stall_diag.sv:710: $finish called at 18361751000 (1ps)
+
+
+
+=== 编译 tb_e2e_key_to_sound ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_e2e_key_to_sound.sv:123: warning: Instantiating module top with dangling input port 3 (timbre_btn_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_e2e_key_to_sound.sv:123: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_e2e_key_to_sound.sv:123: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_e2e_key_to_sound.sv:123: warning: Instantiating module top with dangling input port 30 (ctrl_col_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_e2e_key_to_sound.sv:123: warning: Instantiating module top with dangling input port 31 (enc_a_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_e2e_key_to_sound.sv:123: warning: Instantiating module top with dangling input port 32 (enc_b_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_e2e_key_to_sound.sv:123: warning: Instantiating module top with dangling input port 33 (enc_sw_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_e2e_key_to_sound.sv:123: warning: Instantiating module top with dangling input port 35 (pedal_sus_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_e2e_key_to_sound.sv:123: warning: Instantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_e2e_key_to_sound.sv:123: warning: Instantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\e2e\tb_e2e_key_to_sound.sv:123: warning: Instantiating module top with dangling input port 39 (esp_uart_rx_i) floating.
+=== 运行 tb_e2e_key_to_sound ===
+    ⛔ 超时 900 s（本 tb 预算）—— 判失败（挂死不是通过，见 K-94）
+      [!!] 但日志里已出现 PASS: —— 很可能是【超时预算太紧】而不是真挂死，请人工确认
+    FAIL: TIMEOUT after 900 s -- testbench hung (no verdict is a FAILURE, see K-94)  [!!] 但日志里已出现 PASS: —— 很可能是【超时预算太紧】而不是真挂死，请人工确认
+
+=== 编译 tb_scope_mode_switch ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_scope_mode_switch ===
+    PASS: XY/waveform/XY switch at frame boundaries and waveform displays real samples
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\hdmi\tb_scope_mode_switch.sv:63: $finish called at 4244240000 (1ps)
+
+
+
+=== 编译 tb_waveform_scope ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_waveform_scope ===
+    PASS: startup baseline; unread RAM never leaks into RGB
+PASS: mode=0 full frame exact pixels; green=640 gray=0; live ring overwrite stable
+PASS: mode=1 full frame exact pixels; green=640 gray=640; live ring overwrite stable
+PASS: mode=2 full frame exact pixels; green=7822 gray=613; live ring overwrite stable
+PASS: mode=3 full frame exact pixels; green=10240 gray=608; live ring overwrite stable
+PASS: mode=4 full frame exact pixels; green=306721 gray=1; live ring overwrite stable
+PASS: mode=5 full frame exact pixels; green=20800 gray=547; live ring overwrite stable
+PASS: waveform_scope 2308886 pixel checks, silence/DC/sine/square/fullscale/rounding, wrap, DE/sync, reset
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\hdmi\tb_waveform_scope.sv:157: $finish called at 135683581000 (1ps)
+
+
+
+=== 编译 tb_xy_scope ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_xy_scope ===
+    == 鏉庤惃濡傦紙XY锛夋樉绀洪獙鏀讹細SCOPE_MODE=1, XY_DELAY=64 ==
+     [xy] sine  : set=1843  x=[75,564]  y=[11,469]
+  ok  : sine: point cloud spans a wide X range (>=150 px)
+  ok  : sine: point cloud spans a wide Y range (>=100 px)
+  ok  : sine: enough points to form a curve (>=200)
+     [xy] dc    : set=1  x=[381,381]  y=[182,182]
+  ok  : dc: all points collapse (<=4 pixels)
+     [xy] square: set=19  x=[0,639]  y=[0,479]
+  ok  : full-scale square: reaches BOTH Y edges (0 and 479)
+  ok  : full-scale square: reaches BOTH X edges (0 and 639)
+     [xy] fast  : set=357  x=[75,564]  y=[11,469]
+  ok  : fast signal: LINE DRAWING fills gaps (set >= 150; no-line would be ~20)
+     [xy] sine set=1843  vs  dc set=1
+  ok  : non-vacuous: sine point count >> dc point count (>=20x)
+PASS: xy_scope acceptance (8 checks) - all judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\hdmi\tb_xy_scope.sv:186: $finish called at 51560320000 (1ps)
+
+
+
+=== 编译 tb_latency_m2 ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_latency_m2 ===
+    VCD info: dumpfile build/sim/tb_latency_m2/tb_latency_m2.vcd opened for output.
+
+==================== M2 浣庡欢杩熷疄娴嬶紙50 娆★級====================
+  浜嬩欢      : UP 25 娆?/ DOWN 25 娆★紙鍚堟垚婵€鍔憋紝鉀?涓嶄緷璧栧乏鎵嬫澘瀹炵墿锛?
+  鈶?浜嬩欢鈫掓牱鐐圭畻濂斤紙妗╋紝鏈€蹇儏褰級  : min=3 max=3 clk锛?.060 碌s锛?
+  鈶?猸?浜嬩欢鈫掓澘涓?DAC 鏀跺埌鏁版嵁浣?    : min=325 max=1263 clk
+     = 6.500 ~ 25.260 碌s = 0.3174 ~ 1.2334 闊抽甯?
+     鍧囧€?= 780.820 clk = 0.7625 甯э紙1 甯?= 1024 clk = 20.48 碌s锛?
+  鏋佸樊      : 938 clk = 0.0188 ms锛堝垽鎹?< 0.100 ms锛?
+  猸?杈撳嚭绾у浐鏈夊垎閲忥紙鈶♀垝鈶狅級: 322 ~ 1260 clk = 0.314 ~ 1.230 甯?鈥斺€?甯ч噺鍖?+ 涓茶鍖栵紝鉀?韬蹭笉寮€
+  猸?鐣欑粰鍚堟垚閾撅紙`note_manager`+`voice`+`mixer`锛夌殑浣欓噺 = 2 甯?鈭?鈶℃渶鍧?= 785 clk = 15.700 碌s
+  A8        : din=0 bck=0 ws=0 sample=0
+  璇佹嵁      : sim/evidence/latency_m2_din.log锛?0 琛岋級路 _sample.log锛堣瘖鏂級
+  猸?鏉冨▉鍒ゅ畾锛歱ython tools\latency_stats.py sim\evidence\latency_m2_din.log --unit cycles --expect-count 50
+=============================================================
+  ok : 鏈€澶у欢杩?1263 clk = 1.2334 甯?鈮?2 甯э紙鏁板瓧绔洰鏍囷級
+  ok : 鏋佸樊 938 clk = 0.0188 ms 鈮?0.100 ms锛堢‘瀹氭€ф棤鎶栧姩锛?
+  ok : 缁熻娆℃暟 = 50锛圡2 瑕佹眰 50锛?
+  ok : A8 鏃?X/Z 浼犳挱锛圚P_DIN/HP_BCK/HP_WS/鏍风偣锛?
+
+PASS: M2 鏁板瓧绔欢杩熶笂鐣屼笌鎶栧姩鍧囪揪鏍囷紙50 娆★紝鏋佸樊 < 0.1 ms锛?
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\latency\tb_latency_m2.sv:194: $finish called at 2820771000 (1ps)
+
+
+
+=== 编译 tb_mcp3208_model ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\models\tb_mcp3208_model.sv:23: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\models\tb_mcp3208_model.sv:23: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\models\tb_mcp3208_model.sv:23: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\models\tb_mcp3208_model.sv:23: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+=== 运行 tb_mcp3208_model ===
+    VCD info: dumpfile build/sim/mcp3208_model/tb_mcp3208_model.vcd opened for output.
+PASS CH0: model returned 400
+PASS CH1: model returned 401
+PASS CH7: model returned 407
+PASS: mcp3208_model returns IDVAL+channel correctly
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\models\tb_mcp3208_model.sv:92: $finish called at 72260000 (1ps)
+
+
+
+=== 编译 tb_am_pipe ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_am_pipe.sv:144: warning: Instantiating module axis_map with dangling input port 10 (axis_id_b_i) floating.
+=== 运行 tb_am_pipe ===
+    NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+VCD info: dumpfile build/sim/tb_am_pipe/tb_am_pipe.vcd opened for output.
+== A: 鍩虹嚎 鈥斺€?鍗曚簨浠讹紙閿洏妯″紡锛岃酱 5锛?=
+  ok  : EVT axis=5 mode=0 kind=0 inc=00af92ee == table[5]
+  ok  : A: output event count == 1
+  ok  : A: single event => no pitch mismatch
+== B: 猸?瀵圭収 鈥斺€?涓や釜浜嬩欢銆愭湁绌洪殭銆戯紙杞?5 / 杞?9锛?=
+  ok  : EVT axis=5 mode=0 kind=0 inc=00af92ee == table[5]
+  ok  : EVT axis=9 mode=0 kind=0 inc=0174073a == table[9]
+  ok  : B: output event count == 3 (incl. A)
+  ok  : B: with a GAP between events there is NO mismatch (so the criterion is not a blanket failure)
+== C: 猸愨瓙 鑳岄潬鑳?2 涓簨浠讹紙杞?0 / 杞?1锛夆€斺€?P0-2 姝ｉ ==
+  ok  : EVT axis=0 mode=0 kind=0 inc=00dd3595 == table[0]
+  ok  : EVT axis=1 mode=0 kind=0 inc=00f84c8f == table[1]
+  ok  : C: output event count == 5
+  ok  : C: back-to-back 2 events => mismatch count == 0
+== D: 猸愨瓙 鑳岄潬鑳?3 涓簨浠讹紙杞?2 / 3 / 4锛?=
+  ok  : EVT axis=2 mode=0 kind=0 inc=00ea5cf4 == table[2]
+  ok  : EVT axis=3 mode=0 kind=0 inc=00dd3595 == table[3]
+  ok  : EVT axis=4 mode=0 kind=0 inc=00c51339 == table[4]
+  ok  : D: output event count == 8
+  ok  : D: back-to-back 3 events => mismatch count == 0
+== E: 猸愨瓙 涓変覆鑳岄潬鑳屽悇 2 涓?= 6 涓簨浠讹紙澶嶇幇澶嶅瀹炴祴 events=6锛?=
+  ok  : EVT axis=8 mode=0 kind=0 inc=014b7081 == table[8]
+  ok  : EVT axis=9 mode=0 kind=0 inc=0174073a == table[9]
+  ok  : EVT axis=10 mode=0 kind=0 inc=015f25dc == table[10]
+  ok  : EVT axis=11 mode=0 kind=0 inc=014b7081 == table[11]
+  ok  : EVT axis=12 mode=0 kind=0 inc=0127476d == table[12]
+  ok  : EVT axis=13 mode=0 kind=0 inc=0107104e == table[13]
+  ok  : E: output event count == 14
+  ok  : E: 6 back-to-back events => mismatch count == 0 (pre-fix measured 3)
+== F: 猸愨瓙 鎸囨澘妯″紡锛坢ode=1锛夎儗闈犺儗 3 涓簨浠讹紙杞?8 / 9 / 10锛?=
+  ok  : EVT axis=8 mode=1 kind=0 inc=018a2672 == table[8]
+  ok  : EVT axis=9 mode=1 kind=0 inc=01a1966b == table[9]
+  ok  : EVT axis=10 mode=1 kind=0 inc=0138d653 == table[10]
+  ok  : F: output event count == 17
+  ok  : F: fretboard mode back-to-back => mismatch count == 0
+== 姹囨€?==
+  ok  : event total == expected (criterion is not vacuous)
+  ok  : back-to-back injected event count == 14
+  ok  : P0-2: w3a_evt_inc is in the SAME cycle as w3a_evt_valid (mismatch == 0)
+PASS: am_pipe pitch-tap alignment (P0-2) - all judgements held (events=17 mismatches=0)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_am_pipe.sv:312: $finish called at 2060000 (1ps)
+
+
+
+=== 编译 tb_at_merge_known_bugs ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_at_merge_known_bugs.sv:8: warning: Instantiating module top with dangling input port 3 (timbre_btn_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_at_merge_known_bugs.sv:8: warning: Instantiating module top with dangling input port 30 (ctrl_col_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_at_merge_known_bugs.sv:8: warning: Instantiating module top with dangling input port 31 (enc_a_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_at_merge_known_bugs.sv:8: warning: Instantiating module top with dangling input port 32 (enc_b_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_at_merge_known_bugs.sv:8: warning: Instantiating module top with dangling input port 33 (enc_sw_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_at_merge_known_bugs.sv:8: warning: Instantiating module top with dangling input port 35 (pedal_sus_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_at_merge_known_bugs.sv:8: warning: Instantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_at_merge_known_bugs.sv:8: warning: Instantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_at_merge_known_bugs.sv:8: warning: Instantiating module top with dangling input port 39 (esp_uart_rx_i) floating.
+=== 运行 tb_at_merge_known_bugs ===
+  [skip] tb_at_merge_known_bugs  (工具 tb，默认跳过；用 -Filter tb_at_merge_known_bugs 单独跑)
+
+=== 编译 tb_export_key_wav ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_key_wav.sv:41: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_key_wav.sv:41: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_key_wav.sv:45: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_key_wav.sv:45: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_key_wav.sv:65: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_key_wav.sv:65: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_key_wav.sv:65: warning: Instantiating module top with dangling input port 30 (ctrl_col_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_key_wav.sv:65: warning: Instantiating module top with dangling input port 31 (enc_a_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_key_wav.sv:65: warning: Instantiating module top with dangling input port 32 (enc_b_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_key_wav.sv:65: warning: Instantiating module top with dangling input port 33 (enc_sw_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_key_wav.sv:65: warning: Instantiating module top with dangling input port 35 (pedal_sus_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_key_wav.sv:65: warning: Instantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_key_wav.sv:65: warning: Instantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_key_wav.sv:65: warning: Instantiating module top with dangling input port 39 (esp_uart_rx_i) floating.
+=== 运行 tb_export_key_wav ===
+  [skip] tb_export_key_wav  (工具 tb，默认跳过；用 -Filter tb_export_key_wav 单独跑)
+
+=== 编译 tb_export_wav ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_wav.sv:51: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_wav.sv:51: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_wav.sv:51: warning: Instantiating module top with dangling input port 30 (ctrl_col_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_wav.sv:51: warning: Instantiating module top with dangling input port 31 (enc_a_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_wav.sv:51: warning: Instantiating module top with dangling input port 32 (enc_b_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_wav.sv:51: warning: Instantiating module top with dangling input port 33 (enc_sw_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_wav.sv:51: warning: Instantiating module top with dangling input port 35 (pedal_sus_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_wav.sv:51: warning: Instantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_wav.sv:51: warning: Instantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_export_wav.sv:51: warning: Instantiating module top with dangling input port 39 (esp_uart_rx_i) floating.
+=== 运行 tb_export_wav ===
+  [skip] tb_export_wav  (工具 tb，默认跳过；用 -Filter tb_export_wav 单独跑)
+
+=== 编译 tb_right_adc ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+=== 运行 tb_right_adc ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [slide_ramp] PARAM_OK=1 (SHIFT=4 EPS=4096)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=23 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [slide_ramp] PARAM_OK=1 (SHIFT=4 EPS=4096)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=23 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+=== tb_right_adc (RIGHT_ADC_ENABLE 鍙屽疄渚嬪樊鍒? ===
+      [dbg] ON : cs0=40 cs2=40 sclk=960 hb=600
+      [dbg] OFF: cs0=40 cs2=0
+  ok  : R1 RIGHT_ADC_ENABLE=1 => chip2 IS scanned (cs_n[2] toggles)
+  ok  : R2 RIGHT_ADC_ENABLE=0 => chip2 NOT scanned (cs_n[2] stays high)
+  ok  : R3a =1 config: chip0 still scanned
+  ok  : R3b =0 config: chip0 still scanned
+  ok  : R4 SPI sclk is running
+  ok  : R5 heartbeat toggles (design alive)
+  ok  : R6 unused chip selects (cs_n[5:3]) stay HIGH
+
+PASS: tb_right_adc 鈥?7/7 judgements held (=1 妗ｅ姛鑳介€氳矾鏄椿鐨?
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_right_adc.sv:185: $finish called at 2400400000 (1ps)
+
+
+
+=== 编译 tb_slide_e2e ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_slide_e2e.sv:80: warning: Instantiating module top with dangling input port 3 (timbre_btn_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_slide_e2e.sv:80: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_slide_e2e.sv:80: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_slide_e2e.sv:80: warning: Instantiating module top with dangling input port 30 (ctrl_col_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_slide_e2e.sv:80: warning: Instantiating module top with dangling input port 31 (enc_a_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_slide_e2e.sv:80: warning: Instantiating module top with dangling input port 32 (enc_b_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_slide_e2e.sv:80: warning: Instantiating module top with dangling input port 33 (enc_sw_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_slide_e2e.sv:80: warning: Instantiating module top with dangling input port 35 (pedal_sus_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_slide_e2e.sv:80: warning: Instantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_slide_e2e.sv:80: warning: Instantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_slide_e2e.sv:80: warning: Instantiating module top with dangling input port 39 (esp_uart_rx_i) floating.
+=== 运行 tb_slide_e2e ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=20000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=48 VOTE_N=4 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [slide_ramp] PARAM_OK=1 (SHIFT=4 EPS=4096)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=23 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+  [info] autotare done
+  [info] fb_inc[6]=00c51339  fb_inc[7]=00d0cb35
+  ok  : precondition: fb_inc[6] != fb_inc[7] (the two axes really differ)
+
+=== A) am_mode FORCED to 0 (what the delivery default does) ===
+  ok  : A0: am_mode really is 0 (force took effect)
+  [A] slide pulses = 1 (ax=6 b=7)
+  [A] phase before = 00ba039d  after = 00ba039d
+  ok  : A1: a voice on axis 6 was really allocated (the note started)
+  ok  : A2: the slide DETECTOR still fired with the adjacent pair (6 -> 7)
+  ok  : A3: but the pitch did NOT move (am_mode=0 blocks the slide source)
+
+=== B) am_mode FORCED to 1 (fretboard gate open, same gesture) ===
+  ok  : B0: am_mode really is 1 (force took effect)
+  [B] slide pulses = 2 (ax=6 b=7)
+  [B] phase: before=00cf8ba9  mid=00cdb328  after=00cf5e18   (fb_inc[7]=00d0cb35, ramp steps=58)
+  ok  : B1: a voice on axis 6 was really allocated
+  ok  : B2: the slide detector fired with the adjacent pair (6 -> 7)
+  ok  : B3: and the pitch DID move once the gate was open
+  ok  : B4: GLIDE -- the ramp engine is live inside top and really drove the pitch
+  ok  : B5: GLIDE -- the pitch stayed inside the A..B span (no runaway / no overshoot)
+  [B] note: strict monotonicity + exact landing are proven by tb_slide_ramp (module level)
+
+PASS: slide end-to-end (integration) -- the detector fires on the real top.v for the physically adjacent pair (6->7); with am_mode=0 (the delivery default) the sounding pitch does NOT move; with am_mode=1 the SAME gesture makes the ramp engine run inside top and drive the voice's pitch, staying inside the A..B span. Glide monotonicity and exact landing are proven separately by tb_slide_ramp at module level.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_slide_e2e.sv:294: $finish called at 6016370000 (1ps)
+
+
+
+=== 编译 tb_slide_top_pitch ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+=== 运行 tb_slide_top_pitch ===
+    NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=150)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+
+=== 0) SOURCE PARITY: this replica must match rtl/top.v ===
+  (parity: read 6333 lines; 6/6 exact anchors matched; src prefix hits 1)
+  ok  : 0a: the parity guard actually read rtl/top.v (not zero lines => not vacuous)
+  ok  : 0b: rtl/top.v still gates the slide source with `& am_mode`
+  ok  : 0c: rtl/top.v's slide src tag is 3'd0 (NOT 3'd5 = keyboard drum)
+  ok  : 0d: ALL 6 replica anchors are still present in rtl/top.v (replica not stale)
+
+=== A) slide on a PHYSICALLY ADJACENT pair (6,7) => pitch_upd to B ===
+  upd: axis=6 src=0 value=00d0cb35  table[6]=00c51339
+  ok  : A: a horizontal-adjacent slide produces a pitch_upd
+  ok  : A: pitch_upd axis is A (the axis being voiced), not B
+  ok  : A: pitch_upd src tag is 3'd0 = hand-play (NOT 3'd5, which is SRC_KDRUM)
+  ok  : A: the value handed to pitch_upd equals fb_inc[B] (B's pitch)
+  ok  : A: the slide really resolved B = 7 (neighbour table matched)
+  ok  : A: non-vacuity -- fb_inc[6] != fb_inc[7] so the value check bites
+
+=== B) NON-adjacent pair (1,2) => NO slide (neighbour table is real) ===
+  ok  : B: a non-adjacent pair does NOT produce a slide (over 2 frames)
+  ok  : B: therefore no pitch_upd comes out of the slide path
+  upd: axis=6 src=0 value=00d0cb35  table[6]=00c51339
+  ok  : B: non-vacuity -- the same delta pattern on an ADJACENT pair does fire
+
+=== C) am_mode gate: keyboard mode must NOT emit slide pitch_upd ===
+  ok  : C: keyboard mode suppresses the slide pitch_upd (am_mode gate)
+  ok  : C: non-vacuity -- the detector itself still fired (it is the MUX that is gated, not the detector)
+
+=== D) slide_en gate: 'W' off must suppress the detector entirely ===
+  ok  : D: slide_en=0 suppresses the slide detector
+  ok  : D: therefore no pitch_upd either
+  upd: axis=6 src=0 value=00d0cb35  table[6]=00c51339
+  ok  : D: non-vacuity -- the same stimulus DOES fire once slide_en=1 again
+
+=== E) every adjacent pair in the table maps to the right target ===
+  upd: axis=6 src=0 value=00d0cb35  table[6]=00c51339
+  upd: axis=7 src=0 value=00c51339  table[7]=00d0cb35
+  upd: axis=7 src=0 value=00dd3595  table[7]=00d0cb35
+  upd: axis=0 src=0 value=00d0cb35  table[0]=00dd3595
+  upd: axis=0 src=0 value=00ea5cf4  table[0]=00dd3595
+  upd: axis=1 src=0 value=00dd3595  table[1]=00ea5cf4
+  upd: axis=5 src=0 value=009c6b2a  table[5]=0093a3b6
+  upd: axis=4 src=0 value=0093a3b6  table[4]=009c6b2a
+  upd: axis=4 src=0 value=00a5b841  table[4]=009c6b2a
+  upd: axis=3 src=0 value=009c6b2a  table[3]=00a5b841
+  upd: axis=3 src=0 value=00af92ee  table[3]=00a5b841
+  upd: axis=2 src=0 value=00a5b841  table[2]=00af92ee
+  upd: axis=14 src=0 value=0174073a  table[14]=015f25dc
+  upd: axis=15 src=0 value=015f25dc  table[15]=0174073a
+  upd: axis=15 src=0 value=018a2672  table[15]=0174073a
+  upd: axis=8 src=0 value=0174073a  table[8]=018a2672
+  upd: axis=8 src=0 value=01a1966b  table[8]=018a2672
+  upd: axis=9 src=0 value=018a2672  table[9]=01a1966b
+  upd: axis=13 src=0 value=0116b4ce  table[13]=0107104e
+  upd: axis=12 src=0 value=0107104e  table[12]=0116b4ce
+  upd: axis=12 src=0 value=0127476d  table[12]=0116b4ce
+  upd: axis=11 src=0 value=0116b4ce  table[11]=0127476d
+  upd: axis=11 src=0 value=0138d653  table[11]=0127476d
+  upd: axis=10 src=0 value=0127476d  table[10]=0138d653
+  ok  : E: all 24 directed adjacent slides produced a matching pitch_upd
+  ok  : E: non-vacuity -- every one of the 24 actually fired (not silently skipped)
+
+PASS: a horizontal-adjacent slide drives pitch_upd with A's axis, src tag 3'd0 (hand-play) and B's pitch (fb_inc[B]); non-adjacent pairs are rejected by the neighbour table; keyboard mode and slide_en=0 both suppress it; all 24 directed adjacent pairs match; all 6 replica anchors still match rtl/top.v
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_slide_top_pitch.sv:619: $finish called at 5471000 (1ps)
+
+
+
+=== 编译 tb_sustain_pedal_wire ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+=== 运行 tb_sustain_pedal_wire ===
+    ⛔ 超时 120 s（本 tb 预算）—— 判失败（挂死不是通过，见 K-94）
+      [!!] 但日志里已出现 PASS: —— 很可能是【超时预算太紧】而不是真挂死，请人工确认
+    FAIL: TIMEOUT after 120 s -- testbench hung (no verdict is a FAILURE, see K-94)  [!!] 但日志里已出现 PASS: —— 很可能是【超时预算太紧】而不是真挂死，请人工确认
+
+=== 编译 tb_top_dump_atomic ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:9: warning: Instantiating module top with dangling input port 30 (ctrl_col_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:9: warning: Instantiating module top with dangling input port 31 (enc_a_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:9: warning: Instantiating module top with dangling input port 32 (enc_b_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:9: warning: Instantiating module top with dangling input port 33 (enc_sw_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:9: warning: Instantiating module top with dangling input port 35 (pedal_sus_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:9: warning: Instantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:9: warning: Instantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:14: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:14: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:16: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:16: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:16: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:16: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+=== 运行 tb_top_dump_atomic ===
+    ⛔ 超时 120 s（本 tb 预算）—— 判失败（挂死不是通过，见 K-94）
+    FAIL: TIMEOUT after 120 s -- testbench hung (no verdict is a FAILURE, see K-94)
+
+=== 编译 tb_top_led_strip ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+=== 运行 tb_top_led_strip ===
+    NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [slide_ramp] PARAM_OK=1 (SHIFT=4 EPS=4096)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=23 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=23 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+=== (1) 涓婄數甯?路 g_sound锛圠ED0..LED6 + 灏剧伅鍏ㄧ伃锛?==
+  info: 甯ч暱 = 23808 鎷嶏紙鏈熸湜 23808 = 384 脳 62锛?
+  ok  : (????== NBITS?BIT_???????
+  ok  : (1a) led0 ??=?[led0] = ffffff
+  ok  : (1b) led1???=?[led1] = 000000
+  ok  : (1c) led2 ??=?[led2] = 000000
+  ok  : (1d) led????=?[led3] = 000000
+  ok  : (1e) led4 looper ??[led4] = 000030
+  ok  : (1f) le????煶) =?[led5] = 00ffff
+  ok  : (1g) led????=?[led6] = 00ff00
+  ok  : (1h) led7..led1????彛 defaul?
+=== (3) 闈欓煶妗ｏ紙g_silent锛壜?璺?generate 鍒嗘敮 ===
+  ok  : (3a) led0 ??=??????????[led0] = ffffff
+  ok  : (3b) led4 looper ??[led4] = 000030
+  ok  : (3c) led????=?[led6] = 00ff00
+  ok  : (3d)?led???紙g_silen妸 led_gear_s????[led5] = 000000
+  ok  : (3e) led7..led1??
+=== (2) 娲讳綋锛歎ART 瑁?'I' 鍒囬煶鑹?===
+  ok  : (2??led0 ??0???????[led0] = 00ffff
+  ok  : (2b) le??????????[led1] = 000000
+  ok  : (2c) led2 ??=?[led2] = 000000
+  ok  : (2d) led????=?[led3] = 000000
+  ok  : (2e) led4 looper ??[led4] = 000030
+  ok  : (2f) led?????????[led5] = 00ffff
+  ok  : (2g) led????=?[led6] = 00ff00
+  ok  : (2h) led7..led1??
+=== (5) 棰勭暀鑴?/ UART 绌洪棽鎬?===
+  ok  : (5a) ws_strip_o == 3'b000?????????????
+  ok  : (5b) esp_uart_tx_????UART ?€?
+  ok  : (6) ctrl_ws_o ???X/Z圓?
+PASS: top 鐏甫闆嗘垚 鈥斺€?ctrl_ws_o 浣嶆祦瑙ｅ嚭鐨?7 璺鑹?鐏簭/鍒囩墖/涓ゆ。鍒嗘敮鍏ㄩ儴姝ｇ‘
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_led_strip.sv:298: $finish called at 3106510000 (1ps)
+
+
+
+=== 编译 tb_top_m0 ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:59: warning: Instantiating module top with dangling input port 30 (ctrl_col_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:59: warning: Instantiating module top with dangling input port 31 (enc_a_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:59: warning: Instantiating module top with dangling input port 32 (enc_b_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:59: warning: Instantiating module top with dangling input port 33 (enc_sw_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:59: warning: Instantiating module top with dangling input port 35 (pedal_sus_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:59: warning: Instantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:59: warning: Instantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:59: warning: Instantiating module top with dangling input port 39 (esp_uart_rx_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:90: warning: Instantiating module top with dangling input port 30 (ctrl_col_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:90: warning: Instantiating module top with dangling input port 31 (enc_a_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:90: warning: Instantiating module top with dangling input port 32 (enc_b_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:90: warning: Instantiating module top with dangling input port 33 (enc_sw_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:90: warning: Instantiating module top with dangling input port 35 (pedal_sus_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:90: warning: Instantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:90: warning: Instantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:90: warning: Instantiating module top with dangling input port 39 (esp_uart_rx_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:115: warning: Instantiating module top with dangling input port 30 (ctrl_col_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:115: warning: Instantiating module top with dangling input port 31 (enc_a_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:115: warning: Instantiating module top with dangling input port 32 (enc_b_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:115: warning: Instantiating module top with dangling input port 33 (enc_sw_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:115: warning: Instantiating module top with dangling input port 35 (pedal_sus_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:115: warning: Instantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:115: warning: Instantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:115: warning: Instantiating module top with dangling input port 39 (esp_uart_rx_i) floating.
+=== 运行 tb_top_m0 ===
+    NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=23 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=23 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=23 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+VCD info: dumpfile build/sim/tb_top_m0/tb_top_m0.vcd opened for output.
+
+==================== top / M0 椤跺眰楠屾敹 ====================
+  A 鏃跺熀    : HP_BCK 鍛ㄦ湡 min=16 max=16 clk锛堟湡鏈?16锛壜?涓婂崌娌?4097 涓?
+              HP_WS  鍛ㄦ湡 min=1024 max=1024 clk锛堟湡鏈?1024锛壜?涓婂崌娌?64 涓?
+  B fallback: PA_EN_n NOT-low 0 cyc (expect 0) * trans 0 (expect 0) * rst-bad 0
+  C Console : PA_EN_n high 65536 of 65536 cyc (expect all) * trans 0 * falling 0 (both expect 0)
+  D 蹇冭烦    : 缈昏浆 127 娆?路 闂撮殧 min=512 max=512 clk锛堟湡鏈?512锛?
+  G rst_sync: 杈撳叆閲婃斁鎷?9 路 鍚屾杈撳嚭閲婃斁鎷?11 路 寤惰繜 2 鎷嶏紙鏈熸湜鎭板ソ 2锛?
+  E 闈欓煶    : HP_DIN 涓?1 鐨勬媿鏁?0锛堟湡鏈?0锛?
+  F A8      : bck=0 ws=0 din=0 pa=0 hb=0 pa(寤舵椂)=0
+  J 澶栫疆DAC : I2S2_BCK 鍛ㄦ湡 min=16 max=16 路 I2S2_LRCK 鍛ㄦ湡 min=1024 max=1024
+              涓庢澘杞介€愭媿姣斿: 65536 鎷嶄腑鏈?0 鎷嶄笉涓€鑷达紙鏈熸湜 0锛?
+              涓婂崌娌?bck2=4097 lrck2=64 路 A8 bck2=0 lrck2=0 din2=0
+  璇佹嵁      : sim/evidence/top_m0_pa_trace.csv锛堝簲鍙湁琛ㄥご锛? 娉㈠舰 build/sim/tb_top_m0/
+==========================================================
+  ok : A 路 HP_BCK 鍛ㄦ湡鎭板ソ 16 clk锛?.125 MHz锛?
+  ok : A 路 HP_WS 鍛ㄦ湡鎭板ソ 1024 clk锛?8.828125 kHz锛?
+  ok : B * NEO-Dock fallback (PA_ON_AFTER_RESET=0) -- PA_EN_n low throughout, 0 transitions
+  ok : C * Console delivery -- PA_EN_n high for all 65536 cycles, 0 edges (SD_MODE=Left => SOUNDS)
+  ok : D 路 蹇冭烦 LED 娲荤潃涓斿崐鍛ㄦ湡鎭板ソ 512 clk锛?27 娆＄炕杞級
+  ok : E 路 闈欓煶鏄湡闈欓煶 鈥斺€?HP_DIN 鍏ㄧ▼涓?0
+  ok : F 路 A8 鏃?X/Z 浼犳挱锛? 涓《灞傝緭鍑?+ 寤舵椂瀹炰緥锛?
+  ok : G 路 rst_sync 鎶婂浣嶉噴鏀惧欢鍚?*鎭板ソ 2 鎷?*锛堝紓姝ヨ緭鍏?鈫?鍚屾閲婃斁锛?
+  H SD_MODE : PA_EN_n falling edges A=0 (fallback, low) B=0 (Console, high)
+  ok : H * zero falling edges -- Console SD_MODE never leaves Left (would be Shutdown)
+  I default : bare instantiation PA_ON_AFTER_RESET = 1 (1 = Console sounds; 0 = Shutdown)
+  ok : I * delivery default correct -- bare instantiation drives SD_MODE high => board sounds
+  ok : I * explicit PA_ON_AFTER_RESET=0 gives a static-low output (NEO-Dock fallback intact)
+  ok : J 路 I2S2_BCK 鍛ㄦ湡鎭板ソ 16 clk锛?.125 MHz锛屼笌鏉胯浇鍚屾。锛?
+  ok : J 路 I2S2_LRCK 鍛ㄦ湡鎭板ソ 1024 clk锛?8.828125 kHz锛?
+  ok : J * 澶栫疆涓庢澘杞姐€愰€愭媿瀹屽叏涓€鑷淬€戯紙65536 鎷嶅叏绛夛級-- 涓よ矾鍚屾簮鍚屾锛屾棤鐩镐綅婕傜Щ
+  J 娲诲姩閲? : 澶栫疆 bck=8193 lrck=127 din=0 锝?鏉胯浇 bck=8193 ws=127 din=0
+  ok : J ** 澶栫疆涓庢澘杞界殑銆愭椿鍔ㄩ噺鐩哥О銆戯紙猸?鏃堕挓绾块兘鍦ㄥ姩锛涙湰妗ｄ袱璺?DIN 鍚屼负闈欓煶锛?
+  ok : J 路 A8 澶栫疆涓夋牴绾垮浣嶅悗鏃?X/Z
+  ok : P0-06 g_silent 妗?fault_sticky 鏈夌‘瀹氬€硷紙=0锛?
+  ok : P0-06 蹇冭烦缈昏浆 64 娆★紙娲讳綋瑙佽瘉鏈夋晥锛?
+
+PASS: M0 top-level acceptance (timebase + SD_MODE polarity + silence-clean + heartbeat + no X + external DAC)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_m0.sv:570: $finish called at 1310971000 (1ps)
+
+
+
+=== 编译 tb_top_merge_startup ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_merge_startup.sv:17: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_merge_startup.sv:17: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_merge_startup.sv:17: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_merge_startup.sv:17: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_merge_startup.sv:18: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_merge_startup.sv:18: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_merge_startup.sv:18: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_merge_startup.sv:18: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_merge_startup.sv:19: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_merge_startup.sv:19: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_merge_startup.sv:19: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_merge_startup.sv:19: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+=== 运行 tb_top_merge_startup ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [slide_ramp] PARAM_OK=1 (SHIFT=4 EPS=4096)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=23 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+PASS: healthy ADC startup normal; injected missing-axis mask still gives fault heartbeat
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_merge_startup.sv:50: $finish called at 1400230000 (1ps)
+
+
+
+=== 编译 tb_top_probe_queue ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_probe_queue.sv:10: warning: Instantiating module top with dangling input port 30 (ctrl_col_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_probe_queue.sv:10: warning: Instantiating module top with dangling input port 31 (enc_a_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_probe_queue.sv:10: warning: Instantiating module top with dangling input port 32 (enc_b_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_probe_queue.sv:10: warning: Instantiating module top with dangling input port 33 (enc_sw_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_probe_queue.sv:10: warning: Instantiating module top with dangling input port 35 (pedal_sus_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_probe_queue.sv:10: warning: Instantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_probe_queue.sv:10: warning: Instantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_probe_queue.sv:15: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_probe_queue.sv:15: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_probe_queue.sv:17: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_probe_queue.sv:17: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_probe_queue.sv:17: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_probe_queue.sv:17: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+=== 运行 tb_top_probe_queue ===
+    ⛔ 超时 120 s（本 tb 预算）—— 判失败（挂死不是通过，见 K-94）
+    FAIL: TIMEOUT after 120 s -- testbench hung (no verdict is a FAILURE, see K-94)
+
+=== 编译 tb_top_scope_live ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:10: warning: Instantiating module top with dangling input port 30 (ctrl_col_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:10: warning: Instantiating module top with dangling input port 31 (enc_a_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:10: warning: Instantiating module top with dangling input port 32 (enc_b_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:10: warning: Instantiating module top with dangling input port 33 (enc_sw_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:10: warning: Instantiating module top with dangling input port 35 (pedal_sus_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:10: warning: Instantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:10: warning: Instantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:10: warning: Instantiating module top with dangling input port 39 (esp_uart_rx_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:13: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:13: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:13: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:13: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:14: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:14: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:14: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:14: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:15: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:15: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:15: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:15: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+=== 运行 tb_top_scope_live ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [slide_ramp] PARAM_OK=1 (SHIFT=4 EPS=4096)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=23 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+PASS: real UART E live stream, Q framed BPM=140 and W slide toggle coexist
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_scope_live.sv:80: $finish called at 990840000 (1ps)
+
+
+
+=== 编译 tb_top_sound ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_sound.sv:95: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_sound.sv:95: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_sound.sv:95: warning: Instantiating module top with dangling input port 30 (ctrl_col_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_sound.sv:95: warning: Instantiating module top with dangling input port 31 (enc_a_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_sound.sv:95: warning: Instantiating module top with dangling input port 32 (enc_b_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_sound.sv:95: warning: Instantiating module top with dangling input port 33 (enc_sw_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_sound.sv:95: warning: Instantiating module top with dangling input port 35 (pedal_sus_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_sound.sv:95: warning: Instantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_sound.sv:95: warning: Instantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_sound.sv:95: warning: Instantiating module top with dangling input port 39 (esp_uart_rx_i) floating.
+=== 运行 tb_top_sound ===
