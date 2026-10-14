@@ -588,9 +588,29 @@ function isDrumTrack(tr) {
 }
 /* ---- 轨 -> 音色（⚠️ 启发式：轨名是作者随便起的，猜错很正常）---- */
 function timbreOfTrack(tr) {
+  /* ⭐ 用户覆写优先（2026-10-14）—— 见 buildTrackPicker 里的音色下拉。
+   * ⚠️ 轨名猜错很常见（用户实测被猜错过）⇒ 让用户在网页上直接改，
+   *   ⛔ 不用回去改代码、⛔ 不用重新导文件。 */
+  if (tr._override !== undefined && tr._override !== null) return tr._override;
   const low = (tr.name || "").toLowerCase();
   for (const pair of TIMBRE_HINTS) if (low.indexOf(pair[0]) >= 0) return pair[1];
   return TIMBRE_GUITAR;                            /* 默认（与 mid2evt.py 同）*/
+}
+
+/* ⭐ 带音色覆写的转换（2026-10-14）。
+ * ⚠️ 实现方式：把覆写写进 `parsed.tracks[i]._override`，再调 `midiToWords`。
+ *   ⭐ 为什么不复制一份 midiToWords 的代码：那样一改就两处漂移（C167 同族）。
+ *   ⚠️ `_override` 是【临时属性】，⛔ 不进 words，只是让 timbreOfTrack 读得到。
+ * ⚠️ trackList 里的顺序与 parsed.tracks 不同（鼓优先分组过）——
+ *   所以按 `t.idx`（= parsed.tracks 下标）对齐，⛔ 不按下标。 */
+function midiToWordsWithOverride(parsed, trackList) {
+  for (const t of trackList) {
+    if (timbreOverride.has(t.idx)) {
+      if (parsed.tracks[t.idx]) parsed.tracks[t.idx]._override =
+          timbreOverride.get(t.idx);
+    }
+  }
+  return midiToWords(parsed);
 }
 
 /* ---- MIDI -> 64 位事件字数组 ----
@@ -682,13 +702,23 @@ function midiToWords(parsed) {
      * 为什么：FPGA 侧的四件靠 inc 区分，共用同一个轴；
      *   若给鼓另分轴号，那些轴在 FPGA 侧没有对应的"鼓"语义。 */
     const names = {};
+    /* ⚠️ 计数要先算完再 push —— drumMapped/drumFuzzy 是【数字】（值拷贝），
+     * 在循环里 push 会拷到 push 那一刻的旧值（恒 0）。⭐ 踩过。 */
+    for (const tr of drums) for (const n of tr.notes) {
+      const d = gmToDrum(n.midi);
+      names[d.name] = (names[d.name] || 0) + 1;
+      if (d.exact) drumMapped++; else drumFuzzy++;
+    }
     for (const tr of drums) {
+      /* ⭐ 必须带 idx / drumBreak —— 前者供选轨过滤与音色下拉拿源轨序号，
+       * 后者让日志与图例能显示"四件各多少个"（用户要能看出映射对不对）。 */
       assign.push({ name: tr.name || "(无名)", kind: "鼓", axis: DRUM_AXIS,
-                    timbre: "-", notes: tr.notes.length });
+                    timbre: "-", notes: tr.notes.length, idx: tr._idx,
+                    drumBreak: names, drumMapped: drumMapped, drumFuzzy: drumFuzzy });
       for (const n of tr.notes) {
+        /* ⭐ 计数在【循环外】先做完了（见上面）—— ⛔ 这里不要再累计，
+         * 否则 drumMapped/drumFuzzy 会翻倍，而 names 也会被算两次。 */
         const d = gmToDrum(n.midi);
-        names[d.name] = (names[d.name] || 0) + 1;
-        if (d.exact) drumMapped++; else drumFuzzy++;
         evs.push({ tick: Math.round(n.tick * scale),
                    kind: n.on ? KIND_ON : KIND_OFF,
                    inc: DRUM_INC[d.name],               /* ⭐ 用鼓的固定 inc */
@@ -698,7 +728,12 @@ function midiToWords(parsed) {
                    srcTrack: tr._idx });                /* ⭐ 选轨过滤用 */
       }
     }
-    assign[0].drumBreak = names;   /* 供日志打印"四件各打了多少" */
+    /* ⭐ 日志/图例打印"四件各打了多少"要看这条（⛔ 别删）。
+     * ⚠️ 取【第一条鼓轨】—— 三处调用点（axisLabel / openFile 日志 / 图例）都读它。
+     * ⚠️ 鼓件统计是【所有鼓轨合计】（names 在循环外累计），所以放第一条即可。 */
+    for (const a of assign) {
+      if (a.kind === "鼓") { a.drumBreak = names; break; }
+    }
   }
   /* ⭐⭐ 2026-10-14 修：和弦的每个音必须分到【不同的 axis】。
    *
@@ -791,9 +826,15 @@ function midiToWords(parsed) {
     const used = axesUsedOfTr.get(tr._idx);
     const list = used ? [...used].sort((a, b) => a - b) : [];
     assign.push({ name: tr.name || "(无名)", kind: TIMBRE_NAMES[tb],
+                  /* ⚠️ axis 只是【标签】（FPGA 侧对曲谱事件用它判来源/是不是鼓），
+                   * ⛔ 不决定音高 —— 所以这个值仅供参考，⛔ 不要拿它做逻辑。 */
                   axis: list.length ? (list.length === 1 ? list[0] : list.join(",")) : "-",
                   timbre: TIMBRE_NAMES[tb], notes: tr.notes.length,
-                  axesUsed: list.length });
+                  axesUsed: list.length,
+                  /* ⭐ 2026-10-14：网页上要能改音色 ⇒ 必须带这两个字段
+                   * （⛔ 少带一个，下拉就会拿到 undefined）*/
+                  idx: tr._idx,            /* 源轨序号 = parsed.tracks 的下标 */
+                  timbreIdx: tb });        /* 音色号 = 下拉的当前值 */
   }
 
   /* ③ 排序：先按 tick，再按 kind（⭐ off 必须在 on 之后 —— 同 tick 时先发 off）
@@ -824,6 +865,9 @@ function midiToWords(parsed) {
     }
     return { idx: i, name: tr.name || "(无名)", drum: isDrum,
              timbre: isDrum ? "鼓" : (TIMBRE_NAMES[tb] || "?"),
+             /* ⭐ timbreIdx = 音色号（下拉要读它当"当前值"）。
+              * 🔴 没有它，buildTrackPicker 的下拉永远选中 undefined ⇒ 语音功能是坏的。 */
+             timbreIdx: isDrum ? null : tb,
              axis: ax, notes: tr.notes.length };
   });
   const evTrack = evs.map(e => (e.srcTrack === undefined ? -1 : e.srcTrack));
@@ -848,6 +892,30 @@ function midiToWords(parsed) {
  */
 let trackSel = null;        /* Set<轨序号>；null = 未选过（视作全选） */
 let lastConv = null;        /* 上一次转换结果，供"重新灌谱"用 */
+let lastRawParsed = null;   /* ⭐ parseMidi 的原始结果 —— 音色覆写后重跑转换要用 */
+/* ⭐ 音色覆写表（2026-10-14，用户："希望能直接在网页上修改音轨代表的乐器"）
+ * 🔴 为什么需要：轨名是作者【随便起的】，我方只能【启发式】猜音色 ⇒ 猜错很常见
+ *    （用户实测被猜错过）。⇒ ⭐ 让用户在网页上直接改，⛔ 不用改代码、不用重新导文件。
+ * ⚠️ key = 轨 idx（parsed.tracks 的下标），value = TIMBRE_* 号。*/
+let timbreOverride = new Map();
+
+/* ⭐ 刷新统计面板（事件数/时长/tick 范围/变速点/类型分布/整包字节）。
+ * ⚠️ 抽成函数：音色覆写重建后也要更新它，⛔ 不能让面板停在旧值。 */
+function refreshStatsPanel() {
+  if (!score) return;
+  const s = $;
+  try {
+    if (s("s_n")) $("s_n").textContent = score.words.length;
+    if (s("s_dur")) $("s_dur").textContent = score.duration.toFixed(1) + " s";
+    if (s("s_tick")) $("s_tick").textContent = score.tickMin + " .. " + score.tickMax;
+    if (s("s_tempo")) $("s_tempo").textContent = (score.tempos || []).length + " 个";
+    if (s("s_kind")) $("s_kind").textContent = Object.keys(score.kinds || {})
+        .sort().map(k => k + ":" + score.kinds[k]).join("  ");
+    if (s("s_bytes")) $("s_bytes").textContent =
+        (score.payload ? score.payload.length : 0) + " B / " +
+        Math.ceil((score.payload ? score.payload.length : 0) / 480) + " 包";
+  } catch (e) { /* 面板元素不在就跳过（⛔ 不因为统计失败而中断主流程）*/ }
+}
 
 function buildTrackPicker(conv) {
   const box = $("trackPick");
@@ -859,27 +927,76 @@ function buildTrackPicker(conv) {
   }
   /* 默认全选 —— ⭐ 保持"什么都不动就是全播"的既有行为 */
   trackSel = new Set(conv.trackList.map(t => t.idx));
+  /* ⭐ 音色覆写表（2026-10-14）：key = 轨 idx，value = timbre 号。
+   * ⚠️ 为什么需要：轨名是作者【随便起的】，我方只能【启发式】猜音色
+   *   （用户实测被猜错过）⇒ ⭐ 让用户在网页上直接改，⛔ 不用回去改代码。
+   * ⚠️ 鼓轨不给改 —— 它的 timbre 字段没有语义（FPGA 靠 inc 判是哪个鼓件） */
+  timbreOverride = timbreOverride || new Map();
   box.innerHTML = "";
   for (const t of conv.trackList) {
     const id = "tk_" + t.idx;
     const lab = document.createElement("label");
     lab.style.cssText = "display:flex; align-items:center; gap:6px; padding:3px 0; " +
                         "font-size:12px; cursor:pointer";
+    /* ⭐ 音色下拉。⛔ 鼓轨不给下拉（只读文本）——
+     *   改了也没用：鼓在 FPGA 侧根本不吃 timbre。 */
+    let right;
+    if (t.drum) {
+      right = '<span style="color:var(--dim)">鼓 · ' + t.notes + "</span>";
+    } else {
+      const cur = (timbreOverride.has(t.idx)) ? timbreOverride.get(t.idx) : t.timbreIdx;
+      const opts = TIMBRE_NAMES.map((nm, k) =>
+          '<option value="' + k + '"' + (k === cur ? " selected" : "") + ">" +
+          escapeHtml(nm) + "</option>").join("");
+      right =
+        '<select data-tidx="' + t.idx + '" style="background:var(--panel);' +
+        'color:var(--fg);border:1px solid var(--line);border-radius:4px;' +
+        'font-size:11px;padding:1px 2px">' + opts + "</select>" +
+        '<span style="color:var(--dim)">' + t.notes + "</span>";
+    }
     lab.innerHTML =
       '<input type="checkbox" id="' + id + '" checked style="margin:0">' +
       '<span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">' +
-      escapeHtml(t.name || "(无名)") + "</span>" +
-      '<span style="color:var(--dim)">' +
-      (t.drum ? "鼓" : escapeHtml(t.timbre)) + " · 轴" + t.axis +
-      " · " + t.notes + "</span>";
+      escapeHtml(t.name || "(无名)") + "</span>" + right;
     box.appendChild(lab);
     lab.querySelector("input").onchange = (ev) => {
       if (ev.target.checked) trackSel.add(t.idx); else trackSel.delete(t.idx);
       updateTrackSummary(conv);
     };
+    /* ⭐ 换音色：存覆写 -> 重算谱面 -> 重画
+     * ⚠️ 必须【重建谱面 + 重灌】，⛔ 只改颜色：
+     *   timbre 是要【跟着事件下发】给 FPGA 的（FPGA 侧每个 voice 记住自己的 timbre）。 */
+    const sel = lab.querySelector("select");
+    if (sel) sel.onchange = () => {
+      const v = parseInt(sel.value, 10);
+      timbreOverride.set(t.idx, v);
+      log("轨「" + (t.name || "(无名)") + "」音色改为 " + TIMBRE_NAMES[v] +
+          " —— 已重算并重新灌谱", "ok");
+      rebuildWithOverrides();
+    };
   }
   /* 全选 / 全不选 / 只留选中 —— 常用操作给按钮 */
   updateTrackSummary(conv);
+}
+
+/* ⭐ 音色覆写后重算（2026-10-14）：轴是【动态分配】的，t.timbre 也会跟着变
+ * ⚠️ 所以必须把 trackList 里的 timbreIdx 置为覆写值，再走一遍转换。
+ * ⚠️ conv.trackList[i].timbreIdx 是【转换时】的音色号 —— UI 上呈现的是它，⛔ 不是运行时值。
+ */
+function rebuildWithOverrides() {
+  if (!lastConv || !lastRawParsed) { log("先打开一个 MIDI", "er"); return; }
+  /* ⭐ 按覆写改写"每条轨的临时音色"，再跑一遍转换 */
+  for (const t of lastConv.trackList) {
+    if (timbreOverride.has(t.idx)) t._override = timbreOverride.get(t.idx);
+  }
+  const conv2 = midiToWordsWithOverride(lastRawParsed, lastConv.trackList);
+  score = buildScore(conv2.words, score && score.name);
+  score.conv = conv2;
+  lastConv = conv2;
+  score.payload = buildPayload(score.words);
+  buildTrackPicker(conv2);
+  refreshStatsPanel();
+  draw();
 }
 
 function updateTrackSummary(conv) {
@@ -1057,7 +1174,11 @@ const TIMBRE_COLORS = ["#fb923c",   /* 0 BASS   橙 */
                        "#4ea1ff",   /* 1 GUITAR 蓝 */
                        "#3ddc84",   /* 2 PIANO  绿 */
                        "#ff7ab2"];  /* 3 PAD    粉 */
-const DRUM_COLOR = "#ffb020";       /* 鼓 黄 */
+/* ⭐ 2026-10-14 换色（用户："鼓的颜色换一个吧，不要和本来就有的音色重复"）
+ *   原来用 #ffb020（黄）—— ⚠️ 它与 BASS 的 #fb923c（橙）同色系，暗背景下几乎分不出；
+ *   ⚠️ 而且黄色正好和【变速竖线】的 #ffb020 撞 ⇒ 图上根本分不清。
+ * ⭐ 换成青 #00d5c8：与四个音色都不同色系，且饱和度接近，视觉重量一致。 */
+const DRUM_COLOR = "#00d5c8";             /* 鼓 青 */
 /* 兜底色：拿不到 timbre 时用（⛔ 不用轴的索引，那会退回 10 种颜色） */
 const NOTE_COLOR_FALLBACK = "#8695ab";
 function noteColor(seg) {
@@ -1316,16 +1437,30 @@ function draw() {
    *   ⛔ 不是 FPGA 侧的约定。所以这里只是【显示用】，不影响下发。
    * 📌 音色名来自谱面事件自带的 timbre 字段（不是从轴号猜的）——
    *   同一个轴上如果混了多种 timbre，这里显示出现最多的那个并标 "(混)"。 */
-  const axes = [...new Set(score.notes.map(n => n.axis))].sort((a, b) => a - b);
+  /* ⭐ 音色图例（2026-10-14 改，用户："下方的颜色标识不需要写是哪个轴哪个音，
+   * 只需要给出音色的颜色标识就可以了"）。
+   * ⭐ 所以这里只列【出现过的音色】＋ 鼓，⛔ 不再写"轴N"、⛔ 不写音符数。
+   * ⚠️ 顺序按 timbre 表序固定，⛔ 不按轴号排 —— 轴号现在是动态分配的，
+   *   写出来没意义（用户看不懂，也不会去核）。 */
+  const seenTb = new Set();
+  for (const n of (score.notes || [])) {
+    if (n.axis === DRUM_AXIS) { seenTb.add("drum"); continue; }
+    const tb = (n.timbre === undefined || n.timbre === null) ? -1 : n.timbre;
+    if (tb >= 0 && tb < TIMBRE_NAMES.length) seenTb.add(tb);
+  }
+  const legend = [];
+  for (let tb = 0; tb < TIMBRE_NAMES.length; tb++) {
+    if (seenTb.has(tb)) legend.push({ name: TIMBRE_NAMES[tb], color: TIMBRE_COLORS[tb] });
+  }
+  if (seenTb.has("drum")) legend.push({ name: "鼓", color: DRUM_COLOR });
+
   let lx = PAD.l + 4; ctx.textAlign = "left"; ctx.font = "10px Consolas,monospace";
-  for (const a of axes.slice(0, 14)) {
-    const label = axisLabel(a);
-    /* ⭐ 图例色块按【该轴上的主要音色】上色（与音符块一致）*/
-    ctx.fillStyle = axisSwatchColor(a);
+  for (const it of legend) {
+    ctx.fillStyle = it.color;
     ctx.fillRect(lx, PAD.t + ph + 8, 8, 8);
     ctx.fillStyle = "#8695ab";
-    ctx.fillText(label, lx + 11, PAD.t + ph + 16);
-    lx += Math.max(44, ctx.measureText(label).width + 18);
+    ctx.fillText(it.name, lx + 11, PAD.t + ph + 16);
+    lx += Math.max(44, ctx.measureText(it.name).width + 20);
   }
   // 悬停提示
   if (hover) {
@@ -1764,6 +1899,9 @@ async function openFile(f) {
        * ⚠️ 原来这里是直接抛错让用户去跑 mid2evt.py —— 用户要求改成直接支持。 */
       const buf = await f.arrayBuffer();
       const parsed = parseMidi(buf);
+      /* ⭐ 存原始解析结果 —— 音色覆写后要【重新跑一遍转换】，
+       * ⛔ 没有它就只能在已转换的结果上打补丁（那样轴分配/分组都会错）。 */
+      lastRawParsed = parsed;
       const conv = midiToWords(parsed);
       if (!conv.words.length) throw new Error("这个 MIDI 里没有音符");
       score = buildScore(conv.words, f.name);
