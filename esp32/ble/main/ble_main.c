@@ -54,6 +54,7 @@
 #include "driver/gpio.h"
 
 #include "esp_timer.h"
+#include "esp_random.h"   /* 2026-10-14：每次上电换 BLE 随机地址 */
 
 #include "ble_config.h"
 #include "gatt_svc.h"
@@ -323,11 +324,37 @@ static esp_ble_adv_params_t s_adv_params = {
     .adv_filter_policy  = ADV_FILTER_ALLOW_SCAN_ANY_CON_ANY,
 };
 
-/* 静态随机地址（BLE 规范：最高两位置 1）。
- * 用固定值而不是每次随机，是为了【可复现】—— 重启后地址不变，
- *   便于日志比对；而它和出厂 public 地址不同，足以绕开已有缓存。
- * ⚠️ 若要"每次上电都换"，改成 esp_random() 生成即可（⛔ 但那样就没法复现了）。 */
-static esp_bd_addr_t s_rand_addr = { 0xC2, 0xAA, 0x20, 0x26, 0x00, 0x01 };
+/* BLE 随机静态地址（用户裁定：**每次上电自动换** —— 2026-10-14）。
+ *
+ * ═══ 为什么每次都要换 ═══
+ * Windows 按【MAC 地址】缓存 GATT 服务表；缓存命中时它**不发起服务发现**，
+ * 表现为"连上了但自己的特征一个都看不到"（BleakCharacteristicNotFoundError）。
+ * 🔴 实测：**板子断电重启后**（地址不变）缓存会重新命中 => 又坏了。
+ * => 只有"每次都换"才能稳定绕开。
+ *
+ * ⚠️ 代价（可接受）：
+ *   · 每次上电 PC 都当成新设备 => 配对信息不持久
+ *     （本设备本来也不配对，无影响）
+ *   · 地址不可预期 => 靠【启动日志】保证可复现性：
+ *     每次都会打印 `set_rand_addr XX:XX:... -> ESP_OK`
+ *
+ * ⚠️ 规范要求：**静态随机地址的最高两 bit 必须是 1**
+ *    （第一个字节 bit7|bit6 = 0b11）=> 用 0xC0 掩码。
+ *    ⛔ 不能全随机，否则被控制器拒绝或行为未定义。
+ */
+static esp_bd_addr_t s_rand_addr;
+
+static void ble_gen_rand_addr(void)
+{
+    uint32_t r = esp_random();
+    s_rand_addr[0] = (uint8_t)(0xC0 | (r & 0x3F));   /* 最高两位置 1（规范） */
+    s_rand_addr[1] = (uint8_t)((r >> 6) & 0xFF);
+    s_rand_addr[2] = (uint8_t)((r >> 14) & 0xFF);
+    s_rand_addr[3] = (uint8_t)((r >> 22) & 0xFF);
+    /* 后两字节用固定前缀，便于在扫描列表里一眼认出是本设备 */
+    s_rand_addr[4] = 0x20;
+    s_rand_addr[5] = 0x26;
+}
 
 static void ble_start_advertising(void)
 {
@@ -540,7 +567,7 @@ static void cmd_report_status(void)
          *   而 FPGA 要再等 lead（约 10.4 秒）才出声
          *   => 拿 sent 当进度会让时间轴整体错位。 */
         "pool=%u/%u sent=%lu ovf=%lu late=%lu exp=%lu mm=%lu clamp=%lu run=%d "
-        "play=%lu t0=%lu lead=%lu ttot=%lu pv=%d\n"
+        "play=%lu t0=%lu lead=%lu ttot=%lu pv=%d rate=%lu pum=%lu\n"
         /* ⭐ 上行环：⭐ 水位/容量、入/出、丢弃次数/字节、满次数、高水位、落哪 */
         "ring=%lu/%u in=%lu out=%lu drop=%lu/%lu full=%lu hwm=%lu %s\n"
         /* ⭐ BLE：⭐ 收/发字节、失败、MTU、连接、订阅
@@ -599,6 +626,8 @@ static void cmd_report_status(void)
         (unsigned long)ps.lead_ticks,
         (unsigned long)ps.total_tick,
         (int)ps.pos_valid,
+        (unsigned long)ps.rate_tick_per_s,
+        (unsigned long)ps.pump_period_us,
         (unsigned long)us.level, (unsigned)us.cap,
         (unsigned long)us.in, (unsigned long)us.out,
         (unsigned long)us.drop_ev, (unsigned long)us.drop,
@@ -665,6 +694,8 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
          * ⚠️ 必须在蓝牙协议栈使能之后调（本处在 REG_EVT 里，已使能）。
          * ⭐ 目的见 s_adv_params 上方的注释：绕开 Windows 按 MAC 缓存的 GATT 表。 */
         {
+            /* 每次上电生成一个新地址（见 s_rand_addr 的注释） */
+            ble_gen_rand_addr();
             esp_err_t ra = esp_ble_gap_set_rand_addr(s_rand_addr);
             ESP_LOGI(TAG, "set_rand_addr %02X:%02X:%02X:%02X:%02X:%02X -> %s",
                      s_rand_addr[0], s_rand_addr[1], s_rand_addr[2],

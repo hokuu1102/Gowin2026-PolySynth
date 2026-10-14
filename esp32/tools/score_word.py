@@ -81,6 +81,15 @@ KIND_OFF   = 1
 KIND_TEMPO = 2
 KIND_NAMES = {KIND_ON: "on", KIND_OFF: "off", KIND_TEMPO: "tempo"}
 
+# 音色号（2 bit，0..3）—— 2026-10-14 补。
+# 为什么补：原来本文件只定义位域，没有音色常量 => 每个工具各自写数字，
+#   ⚠️ 迟早会有人写错顺序，而且看不出来。
+# ⭐ 权威出处：mid2evt.py 注明"必须与 RTL 的 TIMBRE_N=4 及
+#   wavetable_bank 的表序一致"。
+TIMBRE_BASS, TIMBRE_GUITAR, TIMBRE_PIANO, TIMBRE_PAD = 0, 1, 2, 3
+TIMBRE_NAMES = {TIMBRE_BASS: "BASS", TIMBRE_GUITAR: "GUITAR",
+                TIMBRE_PIANO: "PIANO", TIMBRE_PAD: "PAD"}
+
 # 旧位域（2026-09-22 修订之前）。
 # 只用于自检里构造反例，禁止出现在任何发送路径上。
 OLD_OFF_INC     = 22

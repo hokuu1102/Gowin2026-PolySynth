@@ -57,7 +57,10 @@ UUID_STAT = "0000abf4-0000-1000-8000-00805f9b34fb"
 DEV = "FPGA2026-Synth"
 # 前缀匹配（改名后备选）：见 _name_matches 的说明
 DEV_PREFIX = "FPGA2026-Synth"
-LOG_PORT = "COM29"
+# ⚠️ 日志口【不要写死】—— 本机端口会漂（实测 COM29 是上机时的临时值，
+#    写死后 --port 传对了也照样去开 COM29，⛔ 必然失败）。
+# ⭐ 改运行时解析：优先 --log-port，其次按 VID 找 ESP32，最后才退回 --port 自己。
+LOG_PORT = None
 
 
 def fake_song(n_events):
@@ -190,7 +193,11 @@ def selftest():
 
 async def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--port", default="COM31", help="USB-TTL 的口（默认 COM31）")
+    ap.add_argument("--port", default="COM31", help="CH340（上行）的口（默认 COM31）")
+    # ⭐ 日志口单独给 —— 它和上行口是【两个不同的口】。
+    #   ⚠️ 不写死：实测写死 COM29 后，--port 传对了也照样开 COM29 => 必失败。
+    ap.add_argument("--log-port", default=None,
+                    help="ESP32 日志口（默认按 VID 303A 自动找；找不到就用 --port 自己）")
     ap.add_argument("--baud", type=int, default=500000)
     ap.add_argument("--events", type=int, default=200)
     ap.add_argument("--hex", default=None,
@@ -222,7 +229,24 @@ async def main():
         return 2
     print("    已打开")
 
-    lg = open_quiet(LOG_PORT, 115200)
+    # ⭐ 解析日志口：--log-port > 按 VID 找 ESP32 > 退回 --port 自己
+    # ⚠️ 它必须在上行口【之后】打开：正常情况两个口都要开，
+    #    但只在 CH340 那侧抓数据，日志口只用来确认"固件真的在处理"。
+    log_port = args.log_port
+    if not log_port:
+        try:
+            from run_all_tests import find_port, VID_ESP32
+            log_port = find_port(VID_ESP32)
+        except Exception:
+            log_port = None
+    if not log_port:
+        log_port = args.port
+        print("⚠️ 没找到 ESP32 日志口（VID 303A），退回 %s —— "
+              "若它不发日志，下面可能抓不到数据" % log_port)
+    else:
+        print("    日志口：%s" % log_port)
+
+    lg = open_quiet(log_port, 115200)
 
     dev = await BleakScanner.find_device_by_filter(
         lambda d, ad: _name_matches(d.name, DEV), timeout=15)

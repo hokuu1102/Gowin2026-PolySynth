@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <title>FPGA2026 · 曲谱上位机</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 2026-10-14：禁止缓存。
+     为什么：用户报告"网页还是说读不了 MIDI，要我用 Python 转"——
+     ⚠️ 而代码早就改成直接支持了 ⇒ 🔴 那是【浏览器缓存】的旧页面。
+     这里显式禁掉，配合页面上的"构建"时间戳，用户一眼能确认版本。 -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <style>
   :root{
     --bg:#0b0e14; --panel:#141a24; --panel2:#1b2330; --line:#26303f;
@@ -78,14 +85,36 @@
   .hint{color:var(--dim); font-size:12px; margin-top:6px}
   .pill{display:inline-block; padding:1px 7px; border-radius:999px; font-size:11px;
         background:var(--panel2); border:1px solid var(--line); color:var(--dim)}
+  /* 2026-10-14：模式切换（灌谱 / 回传） */
+  .modes{display:flex; gap:0; background:var(--panel2); border:1px solid var(--line);
+         border-radius:9px; overflow:hidden}
+  .mode{font:inherit; font-size:12px; padding:6px 14px; border:0; border-radius:0;
+        background:transparent; color:var(--dim); cursor:pointer}
+  .mode:hover:not(.on){background:#233046; color:var(--fg)}
+  .mode.on{background:linear-gradient(180deg,var(--acc),#2f7fd6); color:#04121f;
+           font-weight:700}
+  /* 回传模式下的面板默认隐藏，切到该模式才显示 */
+  .upOnly{display:none}
   #warn{display:none; margin:0 12px 0; padding:10px 14px; border-radius:10px;
         background:#3a2a10; border:1px solid #6b4d16; color:#ffd591; font-size:13px}
 </style>
 </head>
 <body>
 <header>
-  <h1>FPGA2026 · <span>曲谱上位机</span></h1>
+  <h1>FPGA2026 · <span>上位机</span></h1>
+  <!-- 2026-10-14：模式切换 —— 灌谱 / 回传合并在一个页面里。
+       为什么：两个页面各连一次蓝牙很麻烦（而且 BLE 是独占的，
+       切页要先断开再连）⇒ 用户要求整合。 -->
+  <div class="modes" id="modes">
+    <button id="mDown" class="mode on">灌谱（下发）</button>
+    <button id="mUp"   class="mode">回传（上行）</button>
+  </div>
   <span class="pill" id="proto">—</span>
+  <!-- 2026-10-14：显示构建时间 —— 用来一眼确认"我打开的是不是新版本"。
+       为什么需要：用户报"网页还是让我用 Python 转 MIDI"，
+       而代码早就改了 ⇒ 那是浏览器缓存的旧页面。
+       ⭐ 有了这行，用户只要看时间就知道有没有拿到新页面。 -->
+  <span class="pill" id="build">构建 —</span>
   <div class="spacer"></div>
   <span id="connTxt"><i class="dot" id="dot"></i>未连接</span>
   <button id="btnConn" class="primary">连接蓝牙</button>
@@ -109,6 +138,18 @@
       <div class="kv"><b>变速点</b><span id="s_tempo">-</span></div>
       <div class="kv"><b>类型分布</b><span id="s_kind">-</span></div>
       <div class="kv"><b>整包</b><span id="s_bytes">-</span></div>
+    </div>
+
+    <!-- 2026-10-14 新增：选轨播放（用户要求：既可全播，也可只播选定的一轨或多轨）。
+         只对 .mid 有效 —— events.hex 里没有轨信息。 -->
+    <div class="card">
+      <h2>音轨（选哪些灌下去）</h2>
+      <div class="row" style="margin-bottom:6px">
+        <button id="tkAll" style="font-size:11px; padding:5px 8px">全选</button>
+        <button id="tkNone" style="font-size:11px; padding:5px 8px">全不选</button>
+      </div>
+      <div id="trackPick" style="max-height:190px; overflow:auto"></div>
+      <div id="trackSum" class="hint" style="margin-top:6px">（打开 MIDI 后可选）</div>
     </div>
   </div>
 
@@ -162,6 +203,59 @@
   </div>
 </main>
 
+<!-- ═══════════════════════════════════════════════════════════════════════
+     2026-10-14：回传模式（上行）—— 由 upstream_studio.html 整合进来。
+     ⭐ 为什么整合：两个页面各连一次蓝牙很麻烦；而且 BLE 是【独占】的，
+        切页必须先断开再连 => 用户明确要求合并。
+     ⭐ 共用同一个 BLE 连接：连接时【同时】订阅 0xABF2（回传通知），
+        无论当前在哪个模式 —— 这样切模式不用重连。
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div id="upPane" class="upOnly" style="flex:1; display:none; gap:12px; padding:0 12px 12px">
+  <div class="col" style="width:280px; flex:none">
+    <div class="card">
+      <h2>回传统计</h2>
+      <div class="stats" style="grid-template-columns:repeat(2,1fr)">
+        <div><small>字节</small><b id="u_bytes">0</b></div>
+        <div><small>帧</small><b id="u_frames">0</b></div>
+        <div><small>音符</small><b id="u_notes">0</b></div>
+        <div><small>表同步</small><b id="u_tabs">0</b></div>
+        <div><small>坏校验</small><b id="u_bad">0</b></div>
+        <div><small>未知类型</small><b id="u_unk">0</b></div>
+        <div><small>重同步</small><b id="u_resync">0</b></div>
+        <div><small>速率 B/s</small><b id="u_rate">0</b></div>
+      </div>
+      <div class="kv"><b>最后音高</b><span id="u_last">-</span></div>
+    </div>
+    <div class="card">
+      <h2>导出</h2>
+      <div class="row">
+        <button id="u_btnBin" class="primary">导出 .bin</button>
+        <button id="u_btnMid">导出 .mid</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="u_btnClear" class="wide">清空</button>
+      </div>
+      <div class="hint">
+        需要 FPGA 侧先开发送（命令 <b>'O'</b> 0x4F 切实时上行，复位默认关）。
+      </div>
+    </div>
+  </div>
+  <div class="col mid">
+    <div id="u_rollWrap" style="flex:1; min-height:0; position:relative; background:var(--panel);
+         border:1px solid var(--line); border-radius:12px; overflow:hidden">
+      <canvas id="u_roll" style="width:100%; height:100%; display:block"></canvas>
+    </div>
+  </div>
+  <div class="col" style="width:340px; flex:none">
+    <div class="card" style="flex:1; display:flex; flex-direction:column; min-height:0">
+      <h2>事件流</h2>
+      <div id="u_feed" style="flex:1; overflow:auto; font:12px/1.5 Consolas,monospace;
+           color:var(--dim); background:#0e131b; border:1px solid var(--line);
+           border-radius:9px; padding:8px; white-space:pre-wrap"></div>
+    </div>
+  </div>
+</div>
+
 <script>
 "use strict";
 /* ===========================================================================
@@ -174,6 +268,23 @@ const OFF_TICK = 44n, OFF_INC = 23n, OFF_AXIS = 19n, OFF_VEL = 11n,
       OFF_KIND = 9n, OFF_TIMBRE = 7n;
 const M_TICK = 0xFFFFFn, M_INC = 0x1FFFFFn, M_AXIS = 0xFn, M_VEL = 0xFFn,
       M_KIND = 0x3n, M_TIMBRE = 0x3n;
+/* ⚠️⚠️ 本页的 incToHz 口径 = "下行 21 位【字段值】" -> Hz，所以时钟用 **50 MHz**。
+ *
+ * ⭐ 为什么是 50 MHz（而不是 FPGA 的 48 828.125）：
+ *   下行字段存的是 `phase_inc >> 10`；而 FPGA 的 `<<10` 还原后，
+ *   `phase_inc × 48828.125 / 2^32` 恰好等价于 `字段值 × 50e6 / 2^32`
+ *   —— 因为 **50e6 = 48828.125 × 1024**。
+ *   📌 验证：A4 的字段值 37796 => `37796 × 50e6 / 2^32 = 440.00 Hz` ✓
+ *
+ * 🔴 2026-10-14 的教训（我在这里反复了一次）：
+ *   我把本页 F_CLK 改成 48828.125 —— **错了**，那只适用于【回传页】
+ *   （那边收的是 **32 位 phase_inc**，口径不同）。
+ *   ⭐ 两个页面的物理量不同：本页是 21 位字段值，回传页是 32 位 phase_inc。
+ *
+ * ⚠️ 而屏幕上的 `C10`（不存在的音，MIDI>127）**真因不是这个** ——
+ *   是"把 32 位 phase_inc 原值直接填进 21 位字段"：
+ *       kick 填 5368709 => 算成 62500 Hz => midi 154.8 => C10
+ *   ⭐ 改成填 `phase_inc >> 10`（kick => 5243 => 61.04 Hz => midi 34.8）后即消失。 */
 const F_CLK = 50000000, TPS120 = 1920.003;
 
 const SVC  = 0xABF0, CH_RECV = 0xABF1, CH_NOTI = 0xABF2, CH_CMD = 0xABF3, CH_STAT = 0xABF4;
@@ -244,8 +355,735 @@ function parseEventsHex(text) {
   return words;
 }
 
-function buildScore(words, name) {
-  const notes = [], tempos = [], kinds = {};
+/* ======================= MIDI 文件解析 + 转事件字 =======================
+ *
+ * 2026-10-14 新增：浏览器里【直接读 .mid】，⛔ 不再要求先去跑 mid2evt.py。
+ *
+ * ═══ 为什么要有它 ═══
+ * 原来拖 .mid 进来会直接报错："浏览器里读不了 MIDI，请先用 mid2evt.py 转…"
+ * ⭐ 用户要求：网页能直接上传 MIDI 灌谱。
+ *
+ * ═══ 算法必须与 mid2evt.py 一致（⛔ 不许自己发明）═══
+ * 本实现是 `esp32/tools/mid2evt.py` 的 JS 移植，逐条对齐：
+ *   · PPQN = 960（与 beat_gen 一致）
+ *   · phase_inc = round(f * 2^32 / 50e6)，f = 440 * 2^((midi-69)/12)
+ *   · tick_inc  = round((BPM/60 * PPQN) * 2^32 / 50e6)   ← 换速事件用
+ *   · 音色号 0=BASS 1=GUITAR 2=PIANO 3=PAD
+ *     （mid2evt.py 注明"必须与 RTL 的 TIMBRE_N=4 及 wavetable_bank 表序一致"）
+ *   · 鼓：轨名含 drum/perc/kit/cymbal/hat，或 MIDI 通道 10（0-based 9）
+ *
+ * ═══ 轴分配（用户 2026-10-14 裁定：按乐器类型，鼓单独一轨）═══
+ *   ① 鼓轨排在最前（axis 0 起）
+ *   ② 其余轨按【音色类型】分组（bass/guitar/piano/pad 各占一个 axis）
+ *   ③ 同类型的多条轨合并到同一个 axis
+ *   ⚠️ axis 只有 4 bit（0..15）—— 超出就报错，⛔ 不静默丢。
+ */
+const MIDI_PPQN = 960;
+const MIDI_FS = 50000000;
+const MIDI_TWO32 = 4294967296;
+
+/* 音色号与名称（必须与 RTL / mid2evt.py 一致） */
+const TIMBRE_BASS = 0, TIMBRE_GUITAR = 1, TIMBRE_PIANO = 2, TIMBRE_PAD = 3;
+const TIMBRE_NAMES = { 0: "BASS", 1: "GUITAR", 2: "PIANO", 3: "PAD" };
+
+/* 轨名 -> 音色 的关键词表。⚠️ 顺序有意义（先匹配到的先用）。
+ * ⭐ 与 mid2evt.py 的 TIMBRE_HINTS 保持一致。 */
+const TIMBRE_HINTS = [
+  ["bass", TIMBRE_BASS],
+  ["solo", TIMBRE_PIANO], ["lead", TIMBRE_PIANO],
+  ["pad", TIMBRE_PAD],
+  ["piano", TIMBRE_PIANO], ["keys", TIMBRE_PIANO],
+  ["synth", TIMBRE_PAD],
+  ["guitar", TIMBRE_GUITAR], ["gt", TIMBRE_GUITAR], ["str", TIMBRE_GUITAR],
+];
+
+const GM_DRUM_CHANNEL = 9;            /* 0-based ⇒ 人说的第 10 通道 */
+const DRUM_HINTS = ["drum", "perc", "kit", "cymbal", "hat"];
+
+/* ---- 底层：MIDI 文件读取（SMF 格式 0/1）---- */
+function _rdU32(b, i) { return (b[i] << 24 | b[i + 1] << 16 | b[i + 2] << 8 | b[i + 3]) >>> 0; }
+function _rdU16(b, i) { return (b[i] << 8) | b[i + 1]; }
+function _rdStr(b, i, n) {
+  let s = "";
+  for (let k = 0; k < n; k++) s += String.fromCharCode(b[i + k]);
+  return s;
+}
+/* 变长量（VLQ）—— MIDI 的 delta time 用它，⛔ 不能按定长读 */
+function _readVlq(b, p) {
+  let v = 0, n = 0;
+  for (;;) {
+    if (p.i >= b.length) throw new Error("MIDI 文件在变长量中途结束");
+    const c = b[p.i++];
+    v = (v << 7) | (c & 0x7f);
+    if (!(c & 0x80)) break;
+    if (++n > 4) throw new Error("变长量超过 4 字节（文件可能不是 MIDI）");
+  }
+  return v;
+}
+
+/* 解析 MIDI 字节流 -> { division, tracks:[{name,chan:Set,notes:[{tick,midi,vel,on}], tempos:[]}] }
+ * ⭐ 只取我们需要的：note on/off、tempo、轨名、用到的通道。 */
+function parseMidi(buf) {
+  const b = new Uint8Array(buf);
+  if (b.length < 14) throw new Error("文件太小，不是 MIDI");
+  if (_rdStr(b, 0, 4) !== "MThd") throw new Error("不是 MIDI 文件（缺 MThd）");
+  /* ⭐ 全局 tempo 列表（2026-10-14 修）——
+   * 🔴 为什么需要：全局 BPM 的谱子常把 tempo 放在【单独的 tempo 轨】上，
+   *    而那条轨【一个音符都没有】⇒ 原来按"有没有音符"过滤轨时
+   *    tempo 轨被整个丢掉 ⇒ 谱子的 BPM 全丢 ⇒ 兜底成 120。
+   * ⚠️ 本列表在 parse 阶段汇总，⛔ 不受轨过滤影响。
+   * ⚠️ temp0 轨仍不进选轨列表（它没音符可选）。 */
+  const allTempos = [];
+  const hdrLen = _rdU32(b, 4);
+  const fmt = _rdU16(b, 8);
+  const ntrk = _rdU16(b, 10);
+  const division = _rdU16(b, 12);
+  if (division & 0x8000) {
+    throw new Error("这是 SMPTE 时基的 MIDI（本工具只支持 PPQN 时基）");
+  }
+  let p = 8 + hdrLen;
+  const tracks = [];
+  for (let ti = 0; ti < ntrk; ti++) {
+    if (p + 8 > b.length) break;
+    const id = _rdStr(b, p, 4);
+    const len = _rdU32(b, p + 4);
+    p += 8;
+    if (id !== "MTrk") { p += len; continue; }   /* 未知块：跳过 */
+    const end = Math.min(p + len, b.length);
+    const q = { i: p };
+    let tick = 0, running = 0;
+    const tr = { name: "", chan: new Set(), notes: [], tempos: [] };
+    while (q.i < end) {
+      tick += _readVlq(b, q);
+      if (q.i >= end) break;
+      let st = b[q.i];
+      if (st & 0x80) { q.i++; running = st; } else { st = running; }
+      const hi = st & 0xf0, ch = st & 0x0f;
+      if (st === 0xff) {                          /* meta */
+        const type = b[q.i++];
+        const mlen = _readVlq(b, q);
+        if (type === 0x51 && mlen === 3) {        /* set tempo: 3 字节微秒/四分音符 */
+          const usq = (b[q.i] << 16) | (b[q.i + 1] << 8) | b[q.i + 2];
+          tr.tempos.push({ tick: tick, usPerQuarter: usq });
+          allTempos.push({ tick: tick, usPerQuarter: usq });   /* ⭐ 全局也存一份 */
+        } else if (type === 0x03) {               /* track name */
+          let s = "";
+          for (let k = 0; k < mlen; k++) s += String.fromCharCode(b[q.i + k]);
+          if (!tr.name) tr.name = s;
+        } else if (type === 0x2f) {               /* end of track */
+          q.i += mlen; break;
+        }
+        q.i += mlen;
+        continue;
+      }
+      if (st === 0xf0 || st === 0xf7) {           /* sysex */
+        const slen = _readVlq(b, q);
+        q.i += slen;
+        continue;
+      }
+      if (hi === 0x90 && q.i + 1 < end) {         /* note on（vel=0 视为 off） */
+        const midi = b[q.i], vel = b[q.i + 1];
+        q.i += 2;
+        tr.chan.add(ch);
+        tr.notes.push({ tick: tick, midi: midi, vel: vel, on: vel > 0 });
+        continue;
+      }
+      if (hi === 0x80 && q.i + 1 < end) {         /* note off */
+        const midi = b[q.i], vel = b[q.i + 1];
+        q.i += 2;
+        tr.chan.add(ch);
+        tr.notes.push({ tick: tick, midi: midi, vel: 0, on: false });
+        continue;
+      }
+      /* 其它通道消息：按长度跳过（2 字节；0xC0/0xD0 是 1 字节） */
+      q.i += (hi === 0xc0 || hi === 0xd0) ? 1 : 2;
+    }
+    p = end;
+    if (tr.notes.length) tracks.push(tr);
+  }
+  /* ⭐ allTempos 无条件返回（⛔ 不受 tracks 过滤影响）*/
+  return { format: fmt, division: division, tracks: tracks, allTempos: allTempos };
+}
+
+/* ---- 音高换算（⭐ 与 mid2evt.py 的 note_to_phase_inc 一致）---- */
+function midiToPhaseInc(midi) {
+  const f = 440.0 * Math.pow(2, (midi - 69) / 12.0);
+  const v = Math.round(f * MIDI_TWO32 / MIDI_FS);
+  return Math.max(0, Math.min(0x1fffff, v));      /* inc 只有 21 bit */
+}
+/* ⭐ 与 mid2evt.py 的 tick_inc_for_bpm 一致（beat_gen 的口径，50 MHz 时钟） */
+function bpmToTickInc(bpm) {
+  const fTick = (bpm / 60.0) * MIDI_PPQN;
+  return Math.round(fTick * MIDI_TWO32 / MIDI_FS);
+}
+
+/* ---- ⭐ 鼓：GM 音高 -> FPGA 鼓机四件（2026-10-14 新增）----
+ *
+ * 🔴 修之前是什么样（用户实测："上到 fpga 听着怪怪的，是不是把鼓也推成音高了"）：
+ *   鼓轨被当成普通音轨，GM 音高（36/38/42/45...）**直接当乐音发出去**
+ *   => 鼓变成了低音区的音阶。⭐ 用户判断正确。
+ *
+ * ⭐ FPGA 侧的鼓机有【4 件】，各自是固定频率（⛔ 不是 GM 音高）：
+ *     Kick 5368709 · Snare 42949673 · HiHat 171798691 · Tom 17895697
+ *   权威出处：FPGA 线 2026-10-14 答复 §五 / rtl/w3c/drum_gen.v:180-186
+ *   ⚠️ 四件【共用 axis 15】，靠 phase_inc（音高）区分音色。
+ *
+ * ⚠️ GM 音高 -> 四件 的映射：FPGA 侧【没给】，本表按 General MIDI 打击乐
+ *   标准归纳（与 esp32/tools/drum_map.py 同一张表，⛔ 必须同步改）。
+ *   📌 已列为待 FPGA 侧确认项。
+ */
+const DRUM_AXIS = 15;
+/* ⚠️ 下面同时给两套值，⛔ 别混：
+ *   DRUM_PHASE_INC —— FPGA 内部 32 位 phase_inc（只用于反算频率/显示）
+ *   DRUM_INC       —— ⭐ **实际要填进下行 `inc` 字段的值** = phase_inc >> 10
+ * 依据：FPGA 侧第 3 版答复（rtl/top.v:4575）
+ *   wire [31:0] ps_evt_inc = {1'b0, ps_note_data[43:23], 10'b0};
+ * => ⭐ 字段语义 = `phase_inc >> 10`（高 21 位），⛔ 不是"低 21 位"。
+ * 📌 我上一轮按 `& 0x1FFFFF` 分析，得出"21 位装不下"—— 前提错了。 */
+const DRUM_PHASE_INC = {
+  kick:  5368709,
+  snare: 42949673,
+  hihat: 171798691,
+  tom:   17895697,
+};
+const DRUM_INC_SHIFT = 10;
+/* ⚠️ 用【四舍五入】而不是截断 —— 与乐音口径一致（见 drum_map.py 的说明）。
+ * kick 实测：5368709/1024 = 5242.88 => 截断 5242 / round 5243
+ * FPGA 侧表格给的是 5243。 */
+const DRUM_INC = Object.fromEntries(
+  Object.entries(DRUM_PHASE_INC).map(
+    ([k, v]) => [k, Math.round(v / Math.pow(2, DRUM_INC_SHIFT))]));
+const GM_DRUM_MAP = {
+  35: "kick", 36: "kick",
+  37: "snare", 38: "snare", 39: "snare", 40: "snare",
+  41: "tom", 43: "tom", 45: "tom", 47: "tom", 48: "tom", 50: "tom",
+  42: "hihat", 44: "hihat", 46: "hihat",
+  49: "hihat", 51: "hihat", 52: "hihat", 53: "hihat", 54: "hihat",
+  55: "hihat", 56: "hihat", 57: "hihat", 58: "hihat", 59: "hihat",
+  60: "snare", 61: "snare", 62: "snare", 63: "snare", 64: "snare",
+  65: "snare", 66: "snare", 67: "snare", 68: "snare", 69: "snare",
+  70: "snare", 71: "snare", 72: "snare", 73: "snare", 74: "snare",
+  75: "snare", 76: "snare", 77: "snare", 78: "snare", 79: "snare",
+  80: "snare", 81: "snare",
+};
+/* ⚠️ 表外音高按音高分区兜底 —— 丢鼓会让节奏缺失（听得出），
+ *    归到最接近的一件至少保住节奏。⭐ 并会【计数并报出来】，⛔ 不静默。 */
+const GM_DRUM_BANDS = [
+  [0, 37, "kick"], [38, 48, "snare"], [49, 60, "tom"], [61, 127, "hihat"],
+];
+function gmToDrum(midi) {
+  const m = midi | 0;
+  if (GM_DRUM_MAP[m]) return { name: GM_DRUM_MAP[m], exact: true };
+  for (const [lo, hi, name] of GM_DRUM_BANDS) {
+    if (m >= lo && m <= hi) return { name, exact: false };
+  }
+  return { name: "snare", exact: false };
+}
+
+/* ---- 轨分类：是不是鼓 ---- */
+function isDrumTrack(tr) {
+  const nm = (tr.name || "").toLowerCase();
+  for (const h of DRUM_HINTS) if (nm.indexOf(h) >= 0) return true;
+  return tr.chan.has(GM_DRUM_CHANNEL);
+}
+/* ---- 轨 -> 音色（⚠️ 启发式：轨名是作者随便起的，猜错很正常）---- */
+function timbreOfTrack(tr) {
+  /* ⭐ 用户覆写优先（2026-10-14）—— 见 buildTrackPicker 里的音色下拉。
+   * ⚠️ 轨名猜错很常见（用户实测被猜错过）⇒ 让用户在网页上直接改，
+   *   ⛔ 不用回去改代码、⛔ 不用重新导文件。 */
+  if (tr._override !== undefined && tr._override !== null) return tr._override;
+  const low = (tr.name || "").toLowerCase();
+  for (const pair of TIMBRE_HINTS) if (low.indexOf(pair[0]) >= 0) return pair[1];
+  return TIMBRE_GUITAR;                            /* 默认（与 mid2evt.py 同）*/
+}
+
+/* ⭐ 带音色覆写的转换（2026-10-14）。
+ * ⚠️ 实现方式：把覆写写进 `parsed.tracks[i]._override`，再调 `midiToWords`。
+ *   ⭐ 为什么不复制一份 midiToWords 的代码：那样一改就两处漂移（C167 同族）。
+ *   ⚠️ `_override` 是【临时属性】，⛔ 不进 words，只是让 timbreOfTrack 读得到。
+ * ⚠️ trackList 里的顺序与 parsed.tracks 不同（鼓优先分组过）——
+ *   所以按 `t.idx`（= parsed.tracks 下标）对齐，⛔ 不按下标。 */
+function midiToWordsWithOverride(parsed, trackList) {
+  for (const t of trackList) {
+    if (timbreOverride.has(t.idx)) {
+      if (parsed.tracks[t.idx]) parsed.tracks[t.idx]._override =
+          timbreOverride.get(t.idx);
+    }
+  }
+  return midiToWords(parsed);
+}
+
+/* ---- MIDI -> 64 位事件字数组 ----
+ * 返回 { words, report }：report 是给人看的分配明细（⭐ 猜错时能看出来）。 */
+/* 取一条轨里最后一个事件的 tick —— 用于给"未闭合的 on"兜底收尾。 */
+function score_lastTick(tr) {
+  let m = 0;
+  for (const n of tr.notes) if (n.tick > m) m = n.tick;
+  for (const t of tr.tempos) if (t.tick > m) m = t.tick;
+  return m;
+}
+
+function midiToWords(parsed) {
+  const scale = MIDI_PPQN / parsed.division;       /* 把文件的时基缩放到 960 */
+  /* ⚠️ evs 里的每一项都带 srcTrack（源 MIDI 轨序号）——
+   *    选轨播放要按【轨】过滤，⛔ 不能按 axis（多轨可能共用一个 axis）。 */
+  const evs = [];                                  /* {tick,kind,midi,vel,axis,timbre,srcTrack,inc} */
+  const report = [];
+  let axisNext = 0;
+  let tempoCount = 0;
+
+  /* ① tempo：把「微秒/四分音符」换算成 BPM，再转 tick_inc
+   * ⚠️ 只在 tick=0 时写一次 —— FPGA 侧 tick_inc 是全局的，
+   *    中途变 BPM 需要 kind=2 事件，本工具暂只支持恒定速度。 */
+  let bpm = 120;
+  const allTempos = (parsed.allTempos || []).slice();
+  if (!allTempos.length) {
+    for (const tr of parsed.tracks) {
+      for (const t of (tr.tempos || [])) allTempos.push(t);
+    }
+  }
+  allTempos.sort((a, b) => a.tick - b.tick);
+  if (allTempos.length) {
+    const us = allTempos[0].usPerQuarter;
+    if (us > 0) bpm = 60000000 / us;
+  }
+  /* ⚠️ srcTrack = -1 是【公共事件】标记：选轨时永远保留（换速与轨无关，
+   *   缺了它 FPGA 的时基就错）。 */
+  const firstTempoTick = allTempos.length ? Math.round(allTempos[0].tick * scale) : 0;
+  /* ⭐ 兜底帧：tempo 轨若不在 tick 0 起步，先补 tick 0 的一帧 ——
+   *   ⛔ 否则 FPGA 的复位默认（120 BPM）会一路吃到第一个 tempo 为止。 */
+  evs.push({ tick: 0, kind: KIND_TEMPO, inc: bpmToTickInc(bpm), vel: 0,
+             axis: 0, timbre: 0, srcTrack: -1,
+             tempoNote: (firstTempoTick === 0
+                        ? "BPM " + bpm.toFixed(2)
+                        : "兜底（首个 tempo 之前）") });
+  tempoCount++;
+  /* ⭐ 其后的每个 tempo 都发 —— FPGA 侧 play_seq 支持多处 tempo
+   *   （「手动改速与曲谱 kind=2 事件写同一个寄存器 ⇒ 后写者胜」）。
+   * ⚠️ 若第一个 tempo 就在 tick 0，上面那帧已经覆盖了，这里跳过它，
+   *   ⛔ 不要重复发两个同 tick 的 tempo。 */
+  for (const t of allTempos) {
+    if (firstTempoTick === 0 && Math.round(t.tick * scale) === 0) continue;
+    const us = t.usPerQuarter;
+    if (!(us > 0)) continue;              /* 0 微秒/四分音符非法 */
+    const b = 60000000 / us;
+    evs.push({ tick: Math.round(t.tick * scale), kind: KIND_TEMPO,
+               inc: bpmToTickInc(b), vel: 0, axis: 0, timbre: 0,
+               srcTrack: -1, tempoNote: "BPM " + b.toFixed(2) });
+    tempoCount++;
+  }
+  if (allTempos.length > 1) {
+    log("⚠️ 该谱子有 %d 个 tempo 点（变速）—— 已全部转成 kind=2 事件"
+        + "（FPGA 侧 play_seq 支持多处 tempo）", allTempos.length);
+  }
+
+  /* ② 决定轴分配：鼓优先，其余按【音色类型】归组
+   * ⭐ 用户裁定（2026-10-14）：按乐器类型分，鼓单独一轨。
+   *
+   * ⭐⭐ 2026-10-14 修（用户实测："听着怪怪的，是不是把鼓也推成音高了"）：
+   *   原来鼓轨的音高【原样】发出去（GM 的 36/38/42/45...）
+   *   => 被 FPGA 当成乐音 ⇒ 鼓变成了低音区音阶。⭐ 用户判断正确。
+   *   ✅ 现在：鼓音高 -> FPGA 鼓机四件之一的固定 inc，且【全部走 axis 15】
+   *      （FPGA 侧口径：四件共用 axis 15，靠 inc 区分音色）。
+   */
+  const drums = [], tuned = [];
+  /* ⭐ 给每条轨标一个稳定的序号（_idx）—— 选轨过滤按它来。
+   * ⚠️ 用 parsed.tracks 里的下标，⛔ 不用 drums/tuned 的下标
+   *    （那两个数组把顺序打乱了）。 */
+  parsed.tracks.forEach((tr, i) => { tr._idx = i; });
+  for (const tr of parsed.tracks) (isDrumTrack(tr) ? drums : tuned).push(tr);
+
+  const axisOfTimbre = new Map();        /* timbre -> axis（同类型共用一个轴）*/
+  const assign = [];                     /* 供 report 打印 */
+  let drumMapped = 0, drumFuzzy = 0;     /* 鼓映射统计（⭐ 兜底要报出来） */
+
+  if (drums.length) {
+    /* ⚠️ 鼓【不占】普通轴 —— 全部集中在 DRUM_AXIS(15)。
+     * 为什么：FPGA 侧的四件靠 inc 区分，共用同一个轴；
+     *   若给鼓另分轴号，那些轴在 FPGA 侧没有对应的"鼓"语义。 */
+    const names = {};
+    /* ⚠️ 计数要先算完再 push —— drumMapped/drumFuzzy 是【数字】（值拷贝），
+     * 在循环里 push 会拷到 push 那一刻的旧值（恒 0）。⭐ 踩过。 */
+    for (const tr of drums) for (const n of tr.notes) {
+      const d = gmToDrum(n.midi);
+      names[d.name] = (names[d.name] || 0) + 1;
+      if (d.exact) drumMapped++; else drumFuzzy++;
+    }
+    for (const tr of drums) {
+      /* ⭐ 必须带 idx / drumBreak —— 前者供选轨过滤与音色下拉拿源轨序号，
+       * 后者让日志与图例能显示"四件各多少个"（用户要能看出映射对不对）。 */
+      assign.push({ name: tr.name || "(无名)", kind: "鼓", axis: DRUM_AXIS,
+                    timbre: "-", notes: tr.notes.length, idx: tr._idx,
+                    drumBreak: names, drumMapped: drumMapped, drumFuzzy: drumFuzzy });
+      for (const n of tr.notes) {
+        /* ⭐ 计数在【循环外】先做完了（见上面）—— ⛔ 这里不要再累计，
+         * 否则 drumMapped/drumFuzzy 会翻倍，而 names 也会被算两次。 */
+        const d = gmToDrum(n.midi);
+        evs.push({ tick: Math.round(n.tick * scale),
+                   kind: n.on ? KIND_ON : KIND_OFF,
+                   inc: DRUM_INC[d.name],               /* ⭐ 用鼓的固定 inc */
+                   vel: n.on ? (n.vel || 100) : 0,
+                   axis: DRUM_AXIS,                     /* ⭐ 全部 axis 15 */
+                   timbre: TIMBRE_BASS,                 /* 鼓机的音色由 inc 决定 */
+                   srcTrack: tr._idx });                /* ⭐ 选轨过滤用 */
+      }
+    }
+    /* ⭐ 日志/图例打印"四件各打了多少"要看这条（⛔ 别删）。
+     * ⚠️ 取【第一条鼓轨】—— 三处调用点（axisLabel / openFile 日志 / 图例）都读它。
+     * ⚠️ 鼓件统计是【所有鼓轨合计】（names 在循环外累计），所以放第一条即可。 */
+    for (const a of assign) {
+      if (a.kind === "鼓") { a.drumBreak = names; break; }
+    }
+  }
+  /* ⭐⭐ 2026-10-14 修：和弦的每个音必须分到【不同的 axis】。
+   *
+   * 🔴 用户报告："midi 里面同时按下的和弦没有被识别到"。
+   * 根因（FPGA 侧 rtl/w3b/note_manager.v:870 原文）：
+   *     ⭐ 每个 `(axis, src)` 同时【最多只有 1 个在响】的 voice
+   *       （同源 note_on 一定被 `same_hit` 命中 ⇒ 走复用）
+   *   而 `same_hit = (axis_r == cur_axis) && (src_r == cur_src)`
+   *   ⇒ 🔴 **同一 axis 上的多个音会互相顶掉**，只留一个 voice。
+   * ⚠️ 而原来把 Guitar I/II/III 全合并到 axis 0（按音色归组）
+   *   ⇒ 一个 6 音和弦只有 1 个音发声 —— 正是用户听到的。
+   *
+   * ⭐ 修法：把音符配对成【段】，对段做贪心 axis 分配 ——
+   *   不重叠的段可以共用一条 axis，重叠的必须分开。
+   * ✅ 可行性：FPGA 侧 `seq_arb.v:333` 里 `evt_axis_o <= pop_data[AX_O+:AXIS_W]`
+   *   ⇒ axis 对曲谱事件只是【标签】，音高由 inc 字段直接携带
+   *   ⇒ 分到不同 axis ⛔ 不影响音高。
+   * ⚠️ 但 `seq_arb.v:204` 用 `score_axis_i == 4'd15` 判鼓
+   *   ⇒ 分配时【必须避开 15】。
+   */
+  const segsAll = [];
+  for (const tr of tuned) {
+    const tb = timbreOfTrack(tr);
+    const openQ = new Map();                 /* midi -> [t0, ...] 队列 */
+    const notes = tr.notes.slice().sort((a, b) => a.tick - b.tick);
+    for (const n of notes) {
+      if (n.on) {
+        if (!openQ.has(n.midi)) openQ.set(n.midi, []);
+        openQ.get(n.midi).push({ t0: Math.round(n.tick * scale), vel: n.vel || 100 });
+      } else {
+        const q = openQ.get(n.midi);
+        if (q && q.length) {
+          const o = q.shift();
+          segsAll.push({ t0: o.t0, t1: Math.round(n.tick * scale), midi: n.midi,
+                         vel: o.vel, tb: tb, tr: tr._idx, trName: tr.name });
+        }
+      }
+    }
+    /* ⚠️ 未闭合的 on（谱面本身缺 off）：用【最后 tick】兜底收尾 ——
+     * ⛔ 不能只发 on 不发 off，那会挂音（我方 pool_stop 那边已修，但谱面层也要干净）。 */
+    const lastTick = Math.round(score_lastTick(tr) * scale);
+    /* ⚠️ midi 要从【map 的 key】取 —— 队内对象只有 {t0, vel}。
+     * 🔴 我第一版写成 `o.midi`（undefined）⇒ 落成 midiToPhaseInc(0) = 702
+     *    ⇒ 那些音全变成 MIDI 0 的极低音。⭐ 自检当场抓到（实测 inc=702）。 */
+    for (const [midiKey, q] of openQ) {
+      for (const o of q) {
+        segsAll.push({ t0: o.t0, t1: Math.max(lastTick, o.t0 + 1), midi: midiKey,
+                       vel: o.vel, tb: tb, tr: tr._idx, trName: tr.name, dangling: true });
+      }
+    }
+  }
+
+  segsAll.sort((a, b) => a.t0 - b.t0);
+  const lastEnd = new Array(16).fill(-1);
+  lastEnd[DRUM_AXIS] = Infinity;             /* ⭐ 鼓轴不参与（它被鼓独占） */
+  let axisClash = 0;                          /* ⚠️ 抢轴次数（池不够时才会涨） */
+  const axesUsedOfTr = new Map();             /* 轨 -> 用到的 axis 集合 */
+  for (const sg of segsAll) {
+    let pick = -1;
+    for (let a = 0; a < 16; a++) {
+      if (a === DRUM_AXIS) continue;
+      if (lastEnd[a] <= sg.t0) { pick = a; break; }   /* 这条轴已空出来 */
+    }
+    if (pick < 0) {
+      /* ⚠️ 15 条轴全忙 => 只能抢最早结束的（会顶掉一个音，必须报出来） */
+      let best = -1, bestEnd = Infinity;
+      for (let a = 0; a < 16; a++) {
+        if (a === DRUM_AXIS) continue;
+        if (lastEnd[a] < bestEnd) { bestEnd = lastEnd[a]; best = a; }
+      }
+      pick = (best < 0) ? 0 : best;
+      axisClash++;
+    }
+    lastEnd[pick] = Math.max(lastEnd[pick], sg.t1);
+    sg.axis = pick;
+    if (!axesUsedOfTr.has(sg.tr)) axesUsedOfTr.set(sg.tr, new Set());
+    axesUsedOfTr.get(sg.tr).add(pick);
+  }
+
+  /* 出事件：每个段发一对 on/off（同一 axis） */
+  for (const sg of segsAll) {
+    evs.push({ tick: sg.t0, kind: KIND_ON, midi: sg.midi, vel: sg.vel,
+               axis: sg.axis, timbre: sg.tb, srcTrack: sg.tr });
+    evs.push({ tick: sg.t1, kind: KIND_OFF, midi: sg.midi, vel: 0,
+               axis: sg.axis, timbre: sg.tb, srcTrack: sg.tr });
+  }
+  /* 报告：每轨用了哪些轴（用户能看出和弦被摊开了） */
+  for (const tr of tuned) {
+    const tb = timbreOfTrack(tr);
+    const used = axesUsedOfTr.get(tr._idx);
+    const list = used ? [...used].sort((a, b) => a - b) : [];
+    assign.push({ name: tr.name || "(无名)", kind: TIMBRE_NAMES[tb],
+                  /* ⚠️ axis 只是【标签】（FPGA 侧对曲谱事件用它判来源/是不是鼓），
+                   * ⛔ 不决定音高 —— 所以这个值仅供参考，⛔ 不要拿它做逻辑。 */
+                  axis: list.length ? (list.length === 1 ? list[0] : list.join(",")) : "-",
+                  timbre: TIMBRE_NAMES[tb], notes: tr.notes.length,
+                  axesUsed: list.length,
+                  /* ⭐ 2026-10-14：网页上要能改音色 ⇒ 必须带这两个字段
+                   * （⛔ 少带一个，下拉就会拿到 undefined）*/
+                  idx: tr._idx,            /* 源轨序号 = parsed.tracks 的下标 */
+                  timbreIdx: tb });        /* 音色号 = 下拉的当前值 */
+  }
+
+  /* ③ 排序：先按 tick，再按 kind（⭐ off 必须在 on 之后 —— 同 tick 时先发 off）
+   * 为什么 off 优先：同一个 tick 上"关旧音、开新音"是常见写法，
+   *   若先发 on，FPGA 侧可能把同音高的新音挤掉。 */
+  evs.sort((a, b) => (a.tick - b.tick) || (b.kind - a.kind));
+
+  const words = evs.map(e =>
+    /* ⚠️ 鼓事件带的是【inc 直给】（DRUM_INC 之一），乐音带的是 midi。
+     * 用 `e.inc != null` 区分 —— 鼓的 inc 恰好非 0，midi 事件没有 inc 字段。 */
+    packWord(e.tick & 0xfffff,
+             (e.inc != null) ? e.inc : midiToPhaseInc(e.midi || 0),
+             e.axis & 15, e.vel & 0xff, e.kind & 3, (e.timbre || 0) & 3));
+
+  const tickMax = evs.reduce((m, e) => Math.max(m, e.tick), 0);
+
+  /* ⭐ 选轨播放（用户 2026-10-14 要求）：
+   *   trackList —— 给选择器显示（每轨：名字 / 音色 / 轴 / 音符数）
+   *   evTrack   —— 与 words 【一一对应】的源轨序号（-1 = 公共事件，永远保留）
+   * ⚠️ evTrack 必须在 evs 排序【之后】重建，否则下标对不上。
+   *    （events 排序会打乱顺序，所以直接按排序后的 evs 重新映射。） */
+  const trackList = parsed.tracks.map((tr, i) => {
+    const isDrum = drums.indexOf(tr) >= 0;
+    const tb = isDrum ? null : timbreOfTrack(tr);
+    let ax = "?";
+    for (let k = 0; k < evs.length; k++) {
+      if (evs[k].srcTrack === i) { ax = evs[k].axis; break; }
+    }
+    return { idx: i, name: tr.name || "(无名)", drum: isDrum,
+             timbre: isDrum ? "鼓" : (TIMBRE_NAMES[tb] || "?"),
+             /* ⭐ timbreIdx = 音色号（下拉要读它当"当前值"）。
+              * 🔴 没有它，buildTrackPicker 的下拉永远选中 undefined ⇒ 语音功能是坏的。 */
+             timbreIdx: isDrum ? null : tb,
+             axis: ax, notes: tr.notes.length };
+  });
+  const evTrack = evs.map(e => (e.srcTrack === undefined ? -1 : e.srcTrack));
+  return {
+    words: words, bpm: bpm, tempoCount: tempoCount, tickMax: tickMax,
+    assign: assign, drumTracks: drums.length, tunedTracks: tuned.length,
+    drumMapped: drumMapped, drumFuzzy: drumFuzzy,
+    trackList: trackList, evTrack: evTrack,
+  };
+}
+
+/* ═══ 轨选择器（2026-10-14 新增，用户要求）═══
+ *
+ * 需求："既能同时播放多个音轨，也要能播放选定的一个或者多个音轨"。
+ *
+ * ⭐ 做法：解析 MIDI 后，为【每条 MIDI 轨】给一个勾选框；
+ *    灌谱时只发勾中的轨事件的字。
+ * ⚠️ 关键：过滤必须作用在【事件级】，⛔ 不是在 axis 级 ——
+ *    因为多轨可能共用同一个 axis（如同为 GUITAR 的几条轨）。
+ *    ⇒ 所以 evs 里要记 sourceTrack（源轨序号），过滤按它来。
+ * ⭐ 默认【全部勾上】＝ 保持原行为（⛔ 不改变既有使用习惯）。
+ */
+let trackSel = null;        /* Set<轨序号>；null = 未选过（视作全选） */
+let lastConv = null;        /* 上一次转换结果，供"重新灌谱"用 */
+let lastRawParsed = null;   /* ⭐ parseMidi 的原始结果 —— 音色覆写后重跑转换要用 */
+/* ⭐ 音色覆写表（2026-10-14，用户："希望能直接在网页上修改音轨代表的乐器"）
+ * 🔴 为什么需要：轨名是作者【随便起的】，我方只能【启发式】猜音色 ⇒ 猜错很常见
+ *    （用户实测被猜错过）。⇒ ⭐ 让用户在网页上直接改，⛔ 不用改代码、不用重新导文件。
+ * ⚠️ key = 轨 idx（parsed.tracks 的下标），value = TIMBRE_* 号。*/
+let timbreOverride = new Map();
+
+/* ⭐ 刷新统计面板（事件数/时长/tick 范围/变速点/类型分布/整包字节）。
+ * ⚠️ 抽成函数：音色覆写重建后也要更新它，⛔ 不能让面板停在旧值。 */
+function refreshStatsPanel() {
+  if (!score) return;
+  const s = $;
+  try {
+    if (s("s_n")) $("s_n").textContent = score.words.length;
+    if (s("s_dur")) $("s_dur").textContent = score.duration.toFixed(1) + " s";
+    if (s("s_tick")) $("s_tick").textContent = score.tickMin + " .. " + score.tickMax;
+    if (s("s_tempo")) $("s_tempo").textContent = (score.tempos || []).length + " 个";
+    if (s("s_kind")) $("s_kind").textContent = Object.keys(score.kinds || {})
+        .sort().map(k => k + ":" + score.kinds[k]).join("  ");
+    if (s("s_bytes")) $("s_bytes").textContent =
+        (score.payload ? score.payload.length : 0) + " B / " +
+        Math.ceil((score.payload ? score.payload.length : 0) / 480) + " 包";
+  } catch (e) { /* 面板元素不在就跳过（⛔ 不因为统计失败而中断主流程）*/ }
+}
+
+function buildTrackPicker(conv) {
+  const box = $("trackPick");
+  if (!box) return;
+  if (!conv.trackList || !conv.trackList.length) {
+    box.innerHTML = '<div class="hint">（这不是 MIDI，没有轨可选）</div>';
+    trackSel = null;
+    return;
+  }
+  /* 默认全选 —— ⭐ 保持"什么都不动就是全播"的既有行为 */
+  trackSel = new Set(conv.trackList.map(t => t.idx));
+  /* ⭐ 音色覆写表（2026-10-14）：key = 轨 idx，value = timbre 号。
+   * ⚠️ 为什么需要：轨名是作者【随便起的】，我方只能【启发式】猜音色
+   *   （用户实测被猜错过）⇒ ⭐ 让用户在网页上直接改，⛔ 不用回去改代码。
+   * ⚠️ 鼓轨不给改 —— 它的 timbre 字段没有语义（FPGA 靠 inc 判是哪个鼓件） */
+  timbreOverride = timbreOverride || new Map();
+  box.innerHTML = "";
+  for (const t of conv.trackList) {
+    const id = "tk_" + t.idx;
+    const lab = document.createElement("label");
+    lab.style.cssText = "display:flex; align-items:center; gap:6px; padding:3px 0; " +
+                        "font-size:12px; cursor:pointer";
+    /* ⭐ 音色下拉。⛔ 鼓轨不给下拉（只读文本）——
+     *   改了也没用：鼓在 FPGA 侧根本不吃 timbre。 */
+    let right;
+    if (t.drum) {
+      right = '<span style="color:var(--dim)">鼓 · ' + t.notes + "</span>";
+    } else {
+      const cur = (timbreOverride.has(t.idx)) ? timbreOverride.get(t.idx) : t.timbreIdx;
+      const opts = TIMBRE_NAMES.map((nm, k) =>
+          '<option value="' + k + '"' + (k === cur ? " selected" : "") + ">" +
+          escapeHtml(nm) + "</option>").join("");
+      right =
+        '<select data-tidx="' + t.idx + '" style="background:var(--panel);' +
+        'color:var(--fg);border:1px solid var(--line);border-radius:4px;' +
+        'font-size:11px;padding:1px 2px">' + opts + "</select>" +
+        '<span style="color:var(--dim)">' + t.notes + "</span>";
+    }
+    lab.innerHTML =
+      '<input type="checkbox" id="' + id + '" checked style="margin:0">' +
+      '<span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">' +
+      escapeHtml(t.name || "(无名)") + "</span>" + right;
+    box.appendChild(lab);
+    lab.querySelector("input").onchange = (ev) => {
+      if (ev.target.checked) trackSel.add(t.idx); else trackSel.delete(t.idx);
+      updateTrackSummary(conv);
+    };
+    /* ⭐ 换音色：存覆写 -> 重算谱面 -> 重画
+     * ⚠️ 必须【重建谱面 + 重灌】，⛔ 只改颜色：
+     *   timbre 是要【跟着事件下发】给 FPGA 的（FPGA 侧每个 voice 记住自己的 timbre）。 */
+    const sel = lab.querySelector("select");
+    if (sel) sel.onchange = () => {
+      const v = parseInt(sel.value, 10);
+      timbreOverride.set(t.idx, v);
+      log("轨「" + (t.name || "(无名)") + "」音色改为 " + TIMBRE_NAMES[v] +
+          " —— 已重算并重新灌谱", "ok");
+      rebuildWithOverrides();
+    };
+  }
+  /* 全选 / 全不选 / 只留选中 —— 常用操作给按钮 */
+  updateTrackSummary(conv);
+}
+
+/* ⭐ 音色覆写后重算（2026-10-14）：轴是【动态分配】的，t.timbre 也会跟着变
+ * ⚠️ 所以必须把 trackList 里的 timbreIdx 置为覆写值，再走一遍转换。
+ * ⚠️ conv.trackList[i].timbreIdx 是【转换时】的音色号 —— UI 上呈现的是它，⛔ 不是运行时值。
+ */
+function rebuildWithOverrides() {
+  if (!lastConv || !lastRawParsed) { log("先打开一个 MIDI", "er"); return; }
+  /* ⭐ 按覆写改写"每条轨的临时音色"，再跑一遍转换 */
+  for (const t of lastConv.trackList) {
+    if (timbreOverride.has(t.idx)) t._override = timbreOverride.get(t.idx);
+  }
+  const conv2 = midiToWordsWithOverride(lastRawParsed, lastConv.trackList);
+  score = buildScore(conv2.words, score && score.name);
+  score.conv = conv2;
+  lastConv = conv2;
+  score.payload = buildPayload(score.words);
+  buildTrackPicker(conv2);
+  refreshStatsPanel();
+  draw();
+}
+
+function updateTrackSummary(conv) {
+  const el = $("trackSum");
+  if (!el || !conv || !conv.trackList) return;
+  const total = conv.trackList.length;
+  const n = trackSel ? trackSel.size : total;
+  const notes = conv.trackList.filter(t => !trackSel || trackSel.has(t.idx))
+                            .reduce((s, t) => s + t.notes, 0);
+  el.textContent = "已选 " + n + "/" + total + " 轨 · " + notes + " 个音符";
+  el.style.color = (n === 0) ? "var(--err)" : "var(--dim)";
+  if (n === 0) el.textContent += "（⚠️ 一个都没选，灌下去会是空谱）";
+}
+
+/* 简易 HTML 转义 —— 轨名是外来数据，⛔ 不能直接塞进 innerHTML */
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+/* 按当前勾选，从完整词表里挑出要发的字。
+ * ⚠️ 换速事件（kind=2）【永远保留】—— 它不属于任何轨，但没有它 FPGA 的
+ *    时基就错了（BPM 会是默认值）。 */
+function wordsForSelected(words, conv) {
+  if (!conv || !conv.evTrack || !trackSel) return words;   /* 非 MIDI 或没选过 */
+  const keep = [];
+  for (let i = 0; i < words.length; i++) {
+    const src = conv.evTrack[i];
+    if (src === -1) { keep.push(words[i]); continue; }      /* 换速等公共事件 */
+    if (trackSel.has(src)) keep.push(words[i]);
+  }
+  return keep;
+}
+
+/* 轴 -> 显示标签。
+ *
+ * ⭐ 做法：从谱面里【该轴事件自带的 timbre 字段】统计出主要音色，
+ *   而不是"按轴号猜音色" —— ⚠️ 两者不是一回事：
+ *     · `timbre` 是协议里的字段（FPGA 侧按它选音色）
+ *     · `axis` 决定音高查表，与音色正交
+ *   ⭐ 所以显示名只反映"这条轴上实际用了什么音色"，⛔ 不是映射规则。
+ * ⚠️ 一个轴上混了多种 timbre 时，显示最多的那个并标 "(混)"。
+ * 📌 拿不到 timbre（如从 events.hex 读的旧谱面没有该信息）时退回"轴N"。
+ */
+function axisLabel(a) {
+  /* 🔴 2026-10-14 修：鼓轴要显示"鼓"，⛔ 不能显示 timbre。
+   * 原因：鼓事件的 timbre 字段被填成 TIMBRE_BASS（因为"鼓的音色由 inc 决定"，
+   *   timbre 对鼓没意义），而原来这里【只看 timbre】=> 鼓显示成了 BASS。
+   *   用户实测反馈："轴15 那个 BASS 是什么玩意，看不懂"。 */
+  if (a === DRUM_AXIS) {
+    const brk = (score.conv && score.conv.assign && score.conv.assign[0])
+              ? score.conv.assign[0].drumBreak : null;
+    if (brk) {
+      const parts = Object.keys(brk).map(k => k + " " + brk[k]).join(" ");
+      return "鼓(axis" + a + ") " + parts;
+    }
+    return "鼓 · 轴" + a;
+  }
+  const cnt = new Map();
+  for (const n of score.notes) {
+    if (n.axis !== a) continue;
+    const tb = (n.timbre === undefined || n.timbre === null) ? null : n.timbre;
+    if (tb === null) continue;
+    cnt.set(tb, (cnt.get(tb) || 0) + 1);
+  }
+  if (!cnt.size) return "轴" + a;
+  let best = null, bestN = -1;
+  for (const [tb, c] of cnt) { if (c > bestN) { best = tb; bestN = c; } }
+  const name = TIMBRE_NAMES[best] || ("T" + best);
+  return name + (cnt.size > 1 ? "(混)" : "") + " · 轴" + a;
+}
+
+/* 由词表生成【要灌下去的字节流】。
+ * 结构：复位序列 + 总数帧 + 各事件帧。
+ * ⭐ 抽成函数是为了让选轨过滤能复用 —— 过滤后事件数变了，
+ *    总数帧的值也必须跟着变（否则固件的 exp 会对不上）。 */
+function buildPayload(words) {
+  const parts = [resetSequence(), frameTotal(words.length)];
+  for (const w of words) parts.push(frameFromWord(w));
+  let len = 0; for (const p of parts) len += p.length;
+  const out = new Uint8Array(len);
+  let o = 0; for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
+
+function buildScore(words, name) {  const notes = [], tempos = [], kinds = {};
   let tickMax = 0, tickMin = Infinity;
   for (const w of words) {
     const d = unpackWord(w);
@@ -255,7 +1093,14 @@ function buildScore(words, name) {
     if (d.kind === KIND_TEMPO) tempos.push({ tick: d.tick, inc: d.inc, hz: incToHz(d.inc) });
     else if (d.kind === KIND_ON || d.kind === KIND_OFF) {
       const hz = incToHz(d.inc);
-      notes.push({ tick: d.tick, axis: d.axis, midi: hzToMidi(hz), vel: d.vel, kind: d.kind });
+      /* 2026-10-14：把 timbre 也带出来 —— 轴图例要显示音色名。
+       * ⚠️ 原来只存了 tick/axis/midi/vel/kind，图例只能写"轴N"，
+       *    用户看不懂哪条是哪件乐器（实测反馈）。 */
+      notes.push({ tick: d.tick, axis: d.axis, midi: hzToMidi(hz), vel: d.vel,
+                   kind: d.kind, timbre: d.timbre,
+                   /* ⭐ 原始 inc 要带下来 —— 鼓栏靠它反查"是哪个件"
+                    * （鼓的 midi 是无意义的中间值，⛔ 反查不回件）。 */
+                   inc: d.inc });
     }
   }
   // 把 note_on / note_off 配成【有长度的音符段】。
@@ -271,7 +1116,10 @@ function buildScore(words, name) {
     const key = ((n.axis & 15) * 128) + (n.midi & 127);
     if (n.kind === KIND_ON) {
       const seg = { t0: n.tick, t1: null, axis: n.axis, midi: n.midi,
-                    vel: n.vel, axis2: n.axis };
+                    vel: n.vel, axis2: n.axis,
+                    inc: n.inc,          /* ⭐ 鼓栏要按件分行（见 buildScore 的说明） */
+                    timbre: n.timbre,    /* ⭐ 颜色按【音色】上色（用户 2026-10-14 要求）*/
+                    drumInc: (n.axis === DRUM_AXIS) ? n.inc : null };
       segs.push(seg);
       open.set(key, seg);
     } else {
@@ -280,6 +1128,16 @@ function buildScore(words, name) {
       else { orphanOff++; }
     }
   }
+  /* ⭐ 2026-10-14：把【鼓】单独收一栏（用户要求）。
+   * 为什么：鼓的 inc 是"件标识"（kick/snare/hihat/tom），
+   *   被当乐音画会散落在低音区（实测 B1/G3/B4/B6），⛔ 不是鼓的语义。
+   * ⭐ 判据 = axis === DRUM_AXIS（我方转换器把鼓全放这个轴）。 */
+  const drumSegs = [];
+  for (const seg of segs) {
+    if (seg.axis === DRUM_AXIS) drumSegs.push(seg);
+  }
+  const noteSegs = segs.filter(seg => seg.axis !== DRUM_AXIS);
+
   // 收尾：还没闭合的 on
   for (const seg of open.values()) { danglingOn++; }
   if (segs.length) {
@@ -293,18 +1151,60 @@ function buildScore(words, name) {
     }
   }
   const hz0 = tempos.length ? tempos[0].hz : TPS120;
-  const parts = [resetSequence(), frameTotal(words.length)];
-  for (const w of words) parts.push(frameFromWord(w));
-  let len = 0; for (const p of parts) len += p.length;
-  const payload = new Uint8Array(len);
-  let o = 0; for (const p of parts) { payload.set(p, o); o += p.length; }
+  /* 2026-10-14：改用公共的 buildPayload() —— 与"选轨后再灌"走同一条路，
+   * 避免两处各写一遍（写两遍就会漂，同族 C91）。 */
+  const payload = buildPayload(words);
   return { name, words, notes, segs, orphanOff, danglingOn, tempos, kinds,
            tickMax, tickMin,
            duration: (tickMax - (isFinite(tickMin) ? tickMin : 0)) / (hz0 || 1),
-           payload };
+           payload,
+    /* ⭐ 鼓单独一栏（2026-10-14）：鼓段不画进钢琴卷帘，另画在底部。
+     *   drumSegs 里每个 seg 多一个 drumName（kick/snare/hihat/tom），
+     *   由 inc 反查得到（映射表在 DRUM_INC）。 */
+    drumSegs: drumSegs, noteSegs: noteSegs };
 }
 
 /* ============================== 卷帘 ============================== */
+/* ⭐ 音色色板（2026-10-14）—— 颜色按【音色】分，⛔ 不按轴分。
+ * 为什么：上一轮"和弦分轴"修复后会同时用到轴 0~9 十条轴，
+ *   若按轴上色就会出现 10 种颜色（用户报告"为啥有这么多颜色"）。
+ *   ⭐ 音色只有 4 种（BASS/GUITAR/PIANO/PAD）＋ 鼓 1 种 => 最多 5 种颜色。
+ *   ⚠️ 索引 = timbre 字段值，与 RTL 的 TIMBRE_N=4 表序一致。 */
+const TIMBRE_COLORS = ["#fb923c",   /* 0 BASS   橙 */
+                       "#4ea1ff",   /* 1 GUITAR 蓝 */
+                       "#3ddc84",   /* 2 PIANO  绿 */
+                       "#ff7ab2"];  /* 3 PAD    粉 */
+/* ⭐ 2026-10-14 换色（用户："鼓的颜色换一个吧，不要和本来就有的音色重复"）
+ *   原来用 #ffb020（黄）—— ⚠️ 它与 BASS 的 #fb923c（橙）同色系，暗背景下几乎分不出；
+ *   ⚠️ 而且黄色正好和【变速竖线】的 #ffb020 撞 ⇒ 图上根本分不清。
+ * ⭐ 换成青 #00d5c8：与四个音色都不同色系，且饱和度接近，视觉重量一致。 */
+const DRUM_COLOR = "#00d5c8";             /* 鼓 青 */
+/* 兜底色：拿不到 timbre 时用（⛔ 不用轴的索引，那会退回 10 种颜色） */
+const NOTE_COLOR_FALLBACK = "#8695ab";
+function noteColor(seg) {
+  if (seg.drumInc != null) return DRUM_COLOR;
+  const tb = (seg.timbre === undefined || seg.timbre === null) ? -1 : seg.timbre;
+  return (tb >= 0 && tb < TIMBRE_COLORS.length) ? TIMBRE_COLORS[tb] : NOTE_COLOR_FALLBACK;
+}
+
+/* ⭐ 图例小色块的颜色 —— 取"该轴上出现最多的音色"的颜色。
+ * 🔴 2026-10-14 补：我上一轮把图例改成 `axisSwatchColor(a)` 却忘了写定义
+ *    ⇒ draw() 每帧抛 ReferenceError ⇒ 图例不画 + 统计面板停在 "-" + 进度条不更新。
+ * ⚠️ 若该轴上混了多种音色，取出现最多的那个（与 axisLabel 的取法一致）。 */
+function axisSwatchColor(a) {
+  if (a === DRUM_AXIS) return DRUM_COLOR;
+  let best = null, bestN = -1;
+  const cnt = new Map();
+  for (const sg of (score.noteSegs || [])) {
+    if (sg.axis !== a) continue;
+    const tb = (sg.timbre === undefined || sg.timbre === null) ? -1 : sg.timbre;
+    cnt.set(tb, (cnt.get(tb) || 0) + 1);
+  }
+  for (const [tb, c] of cnt) { if (c > bestN) { best = tb; bestN = c; } }
+  if (best === null || best < 0) return NOTE_COLOR_FALLBACK;
+  return (best < TIMBRE_COLORS.length) ? TIMBRE_COLORS[best] : NOTE_COLOR_FALLBACK;
+}
+
 const AXIS_COLORS = ["#4ea1ff","#3ddc84","#ffb020","#ff7ab2","#a78bfa","#22d3ee",
                      "#fb923c","#f472b6","#34d399","#facc15","#60a5fa","#c084fc",
                      "#2dd4bf","#f87171","#a3e635","#fcd34d"];
@@ -333,7 +1233,11 @@ function geom() {
 const PITCH_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 function midiName(m) {
   const i = ((m % 12) + 12) % 12;
-  return PITCH_NAMES[i] + (Math.floor(m / 12) - 1);
+  /* MIDI 音高的合法范围是 0..127。超出时【明确标出来】——
+   * 那说明上游的 inc 换算有问题（实测踩过：用错采样率算出 C10）。
+   * 宁可显示"越界"，也不要让人看到一个不存在的音名。 */
+  const name = PITCH_NAMES[i] + (Math.floor(m / 12) - 1);
+  return (m < 0 || m > 127) ? (name + "(越界)") : name;
 }
 /* 黑键判定（用于钢琴键盘着色） */
 function isBlackKey(m) {
@@ -370,6 +1274,79 @@ function drawPiano(lo, hi, Y, ph) {
     ctx.fillText(midiName(m), PAD.l - 27, y);
   }
 }
+/* 鼓单独一栏（2026-10-14，用户要求）。
+ *
+ * ⭐ 为什么需要：鼓的 `inc` 是【件标识】（kick/snare/hihat/tom），
+ *    ⛔ 不是音高。按音高画会散落在 B1/G3/B4/B6 一带，看着像"低音旋律"——
+ *    用户实测反馈"不应该显示音高，要么单独给他开一栏"。
+ *
+ * ⭐ 画法：底部 4 行固定顺序（与 FPGA 侧 step_mask 位序一致：
+ *    bit0=Kick · bit1=Snare · bit2=HiHat · bit3=Tom），
+ *    行名写在左侧（复用主图 PAD.l 宽度，便于对齐）。
+ * ⚠️ 高度：鼓栏占主图高度的 18%（但不小于 48px，也不大于 120px）；
+ *    主图相应缩小 —— 两者加起来仍是原来的总高。
+ */
+const DRUM_LANE_ORDER = ["kick", "snare", "hihat", "tom"];
+const DRUM_LANE_NAME = { kick: "Kick", snare: "Snare", hihat: "HiHat", tom: "Tom" };
+
+function drumNameOfInc(inc) {
+  for (const k of Object.keys(DRUM_INC)) {
+    if (DRUM_INC[k] === inc) return k;
+  }
+  return null;
+}
+
+function drawDrumLane(X, pw) {
+  const segs = score.drumSegs || [];
+  if (!segs.length) return;                 /* 没有鼓就不占位置 */
+  const { ph } = geom();
+  const laneH = Math.max(48, Math.min(120, ph * 0.18));
+  const top = PAD.t + ph - laneH;
+  const rowH = laneH / DRUM_LANE_ORDER.length;
+
+  /* 背景 + 分隔线 */
+  ctx.fillStyle = "#12181f";
+  ctx.fillRect(PAD.l, top, pw, laneH);
+  ctx.strokeStyle = "#26303f";
+  ctx.strokeRect(PAD.l + .5, top + .5, pw - 1, laneH - 1);
+
+  /* 行名（左侧，与钢琴键盘同一列） */
+  ctx.font = "10px 'Microsoft YaHei UI',sans-serif";
+  ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  DRUM_LANE_ORDER.forEach((k, i) => {
+    const y = top + rowH * (i + 0.5);
+    ctx.fillStyle = "#8695ab";
+    ctx.fillText(DRUM_LANE_NAME[k], PAD.l - 6, y);
+    if (i > 0) {
+      ctx.strokeStyle = "#1e2733"; ctx.beginPath();
+      ctx.moveTo(PAD.l, top + rowH * i); ctx.lineTo(PAD.l + pw, top + rowH * i);
+      ctx.stroke();
+    }
+  });
+
+  /* 音符块：按件分行 */
+  const blockH = Math.max(2, Math.min(rowH * 0.6, 10));
+  const step = segs.length > 12000 ? Math.ceil(segs.length / 12000) : 1;
+  for (let i = 0; i < segs.length; i += step) {
+    const sg = segs[i];
+    const k = drumNameOfInc(sg.drumInc);
+    const row = DRUM_LANE_ORDER.indexOf(k);
+    if (row < 0) continue;                  /* 认不出的件：不画（⛔ 不猜） */
+    const x0 = X(sg.t0), x1 = X(sg.t1);
+    const y = top + rowH * row + rowH / 2 - blockH / 2;
+    ctx.fillStyle = DRUM_COLOR;
+    ctx.globalAlpha = 0.45 + 0.55 * Math.min(1, (sg.vel || 0) / 127);
+    ctx.fillRect(x0, y, Math.max(1.6, x1 - x0), blockH);
+    ctx.globalAlpha = 1;
+  }
+
+  /* 标题 */
+  ctx.fillStyle = "#ffb020";
+  ctx.textAlign = "left"; ctx.textBaseline = "top";
+  ctx.font = "10px 'Microsoft YaHei UI',sans-serif";
+  ctx.fillText("鼓（axis " + DRUM_AXIS + "）· 4 件 · 独立一栏", PAD.l + 4, top + 3);
+}
+
 function draw() {
   const { w, h, pw, ph } = geom();
   ctx.clearRect(0, 0, w, h);
@@ -383,7 +1360,10 @@ function draw() {
     return;
   }
   const tm = Math.max(1, score.tickMax);
-  const mids = score.notes.map(n => n.midi).filter(m => m > 0);
+  /* ⭐ 2026-10-14：音高范围【排除鼓】—— 否则会被拉到 B1~B6 一带，
+   * 把真正的旋律压扁（用户实测反馈"鼓不该显示音高"）。 */
+  const mids = score.notes.filter(n => n.axis !== DRUM_AXIS)
+                          .map(n => n.midi).filter(m => m > 0);
   let lo = mids.length ? Math.min(...mids) - 1 : 0;
   let hi = mids.length ? Math.max(...mids) + 1 : 1;
   if (hi - lo < 6) { lo -= 3; hi += 3; }
@@ -415,8 +1395,9 @@ function draw() {
       lastLabelX = x;
     }
   }
-  // 音符：画成【有长度的色块】（原来只画点，看不出时值）
-  const segs = score.segs || [];
+  /* 音符：画成【有长度的色块】（原来只画点，看不出时值）。
+   * ⭐ 2026-10-14：鼓段【不在这里画】—— 它们另画在底部一栏（见下方 drawDrumLane）。 */
+  const segs = score.noteSegs || (score.segs || []).filter(x => x.axis !== DRUM_AXIS);
   const step = segs.length > 24000 ? Math.ceil(segs.length / 24000) : 1;
   const rowH = ph / (hi - lo);
   const blockH = Math.max(2, Math.min(rowH * 0.72, 12));
@@ -425,12 +1406,20 @@ function draw() {
     const x0 = X(s.t0), x1 = X(s.t1);
     const y = Y(s.midi) - blockH / 2;
     const bw = Math.max(1.6, x1 - x0);      // 极短的音也保证看得见
-    ctx.fillStyle = AXIS_COLORS[s.axis % 16];
+    /* ⭐ 按音色上色（⛔ 不再按轴）—— 用户 2026-10-14 要求 */
+    ctx.fillStyle = noteColor(s);
     // 力度 => 透明度（一眼看出强弱）
     ctx.globalAlpha = 0.45 + 0.55 * Math.min(1, (s.vel || 0) / 127);
     ctx.fillRect(x0, y, bw, blockH);
     ctx.globalAlpha = 1;
   }
+  /* ⭐ 鼓单独一栏（2026-10-14，用户要求）。
+   * 为什么：鼓的 inc 是"件标识"（kick/snare/hihat/tom），
+   *   按音高画会散落在 B1/G3/B4/B6 一带 —— ⛔ 那不是鼓的语义。
+   * ⭐ 画法：底部固定 4 行（Kick/Snare/HiHat/Tom），行名写在左侧，
+   *   时间轴与主图【同一套 X()】，所以垂直对齐。 */
+  drawDrumLane(X, pw);
+
   // 播放游标
   if (playFrac !== null) {
     const x = PAD.l + Math.min(1, Math.max(0, playFrac)) * pw;
@@ -438,13 +1427,40 @@ function draw() {
     ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + ph); ctx.stroke();
     ctx.lineWidth = 1;
   }
-  // 轴图例
-  const axes = [...new Set(score.notes.map(n => n.axis))].sort((a, b) => a - b);
+  /* 轴图例。
+   * 🔴 2026-10-14 修（用户："左下角的那个轴1/2/3还是没改"）：
+   *   原来只画 `轴0` / `轴1` / `轴2` —— 用户看不出哪条是哪件乐器。
+   * ⭐ 现在显示【音色名】（BASS/GUITAR/PIANO/PAD），并注明是哪个轴。
+   * ⚠️ 语义说明（FPGA 侧 2026-10-14 答复 §六 确认）：
+   *   `axis` 与 `timbre` 是【正交】的两个字段 —— axis 决定音高查表，
+   *   timbre 决定音色。⭐ 而"轴号 -> 音色名"是【PC 侧约定】（我方自己定的），
+   *   ⛔ 不是 FPGA 侧的约定。所以这里只是【显示用】，不影响下发。
+   * 📌 音色名来自谱面事件自带的 timbre 字段（不是从轴号猜的）——
+   *   同一个轴上如果混了多种 timbre，这里显示出现最多的那个并标 "(混)"。 */
+  /* ⭐ 音色图例（2026-10-14 改，用户："下方的颜色标识不需要写是哪个轴哪个音，
+   * 只需要给出音色的颜色标识就可以了"）。
+   * ⭐ 所以这里只列【出现过的音色】＋ 鼓，⛔ 不再写"轴N"、⛔ 不写音符数。
+   * ⚠️ 顺序按 timbre 表序固定，⛔ 不按轴号排 —— 轴号现在是动态分配的，
+   *   写出来没意义（用户看不懂，也不会去核）。 */
+  const seenTb = new Set();
+  for (const n of (score.notes || [])) {
+    if (n.axis === DRUM_AXIS) { seenTb.add("drum"); continue; }
+    const tb = (n.timbre === undefined || n.timbre === null) ? -1 : n.timbre;
+    if (tb >= 0 && tb < TIMBRE_NAMES.length) seenTb.add(tb);
+  }
+  const legend = [];
+  for (let tb = 0; tb < TIMBRE_NAMES.length; tb++) {
+    if (seenTb.has(tb)) legend.push({ name: TIMBRE_NAMES[tb], color: TIMBRE_COLORS[tb] });
+  }
+  if (seenTb.has("drum")) legend.push({ name: "鼓", color: DRUM_COLOR });
+
   let lx = PAD.l + 4; ctx.textAlign = "left"; ctx.font = "10px Consolas,monospace";
-  for (const a of axes.slice(0, 14)) {
-    ctx.fillStyle = AXIS_COLORS[a % 16]; ctx.fillRect(lx, PAD.t + ph + 8, 8, 8);
-    ctx.fillStyle = "#8695ab"; ctx.fillText("轴" + a, lx + 11, PAD.t + ph + 16);
-    lx += 44;
+  for (const it of legend) {
+    ctx.fillStyle = it.color;
+    ctx.fillRect(lx, PAD.t + ph + 8, 8, 8);
+    ctx.fillStyle = "#8695ab";
+    ctx.fillText(it.name, lx + 11, PAD.t + ph + 16);
+    lx += Math.max(44, ctx.measureText(it.name).width + 20);
   }
   // 悬停提示
   if (hover) {
@@ -496,40 +1512,180 @@ function setConn(on, txt) {
 let device = null, server = null, chRecv = null, chCmd = null, chStat = null;
 let connected = false, pollTimer = null;
 
+/* 2026-10-14 修：加【状态机 + busy 锁】—— 解决"点断开却又弹出连接窗口"。
+ *
+ * ═══ 原来的 bug（用户实测报告）═══
+ *   按钮 onclick 写的是：`connected ? disconnect() : connect()`
+ *   🔴 缺陷 1：`connect()` 里 `requestDevice()` 是【异步且可能很慢】的
+ *      （用户在系统弹窗里挑设备）。此期间 `connected` 仍是 false
+ *      ⇒ 用户再点一下按钮 ⇒ **又进一次 `connect()`** ⇒ **再弹一个窗口**。
+ *   🔴 缺陷 2：`disconnect()` 立刻把 `connected=false`，而
+ *      `device.gatt.disconnect()` 是异步的 ⇒ 在真正断开前点击
+ *      ⇒ 走 `connect()` 分支 ⇒ 弹出窗口。
+ *   ⭐ 根因同族：**用"当前状态"决定动作，而"状态"与"动作是否完成"不同步**
+ *      （见 C169：判据要打在稳态上）。
+ *
+ * ═══ 修法 ═══
+ *   · `busy`：一次只允许一个连接/断开动作在飞；期间按钮【禁用】并显示进度
+ *   · `connecting`：显式标记"正在连"，断开时也要能取消
+ *   · 按钮文案由状态机统一驱动（`renderConnBtn()`），⛔ 不再靠 onclick 三元式
+ *   · 断开时先置 `device=null` ⇒ 迟到的 `gattserverdisconnected` 事件
+ *     不会再跑去改状态（它检查 `device` 是否已被清） */
+let busy = false;        /* 有连接/断开动作正在执行 */
+let connecting = false;  /* 特别标记"正在连接"（此时 requestDevice 可能挂着） */
+
 function uuid16(x) { return "0000" + x.toString(16).padStart(4, "0") + "-0000-1000-8000-00805f9b34fb"; }
 
+/* 按钮状态统一在这里渲染 —— ⛔ 不许别处直接改 textContent/disabled。
+ * ⭐ 这样"按钮长什么样"与"内部状态"永远一致（结构上不可能不同步）。 */
+function renderConnBtn() {
+  const b = $("btnConn");
+  if (!b) return;
+  if (busy) {
+    b.textContent = connecting ? "连接中…" : "断开中…";
+    b.disabled = true;
+  } else {
+    b.textContent = connected ? "断开" : "连接蓝牙";
+    b.disabled = false;
+  }
+}
+
 async function connect() {
+  if (busy) { log("正在处理上一个操作，请稍候…", "er"); return; }
+  if (connected) { log("已经连上了", "er"); return; }
   if (!navigator.bluetooth) {
     log("这个浏览器不支持 Web Bluetooth —— 请用 Chrome 或 Edge", "er");
     return;
   }
+  busy = true; connecting = true; renderConnBtn();
   try {
     log("请求设备（过滤器：名字含 " + DEV_PREFIX + "）…");
-    device = await navigator.bluetooth.requestDevice({
+    const dev = await navigator.bluetooth.requestDevice({
       filters: [{ namePrefix: "FPGA2026" }],
       optionalServices: [uuid16(SVC)],
     });
-    device.addEventListener("gattserverdisconnected", () => {
-      connected = false; setConn(false, "已断开"); log("蓝牙已断开", "er");
-      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-    });
+    /* ⚠️ 用户可能在弹窗里取消 ⇒ 这里可能拿不到 dev（异常已由 catch 处理） */
+    device = dev;
+    device.addEventListener("gattserverdisconnected", onGattDisconnected);
+    log("已选中 " + (device.name || "(无名)") + "，正在连接…");
     server = await device.gatt.connect();
     const svc = await server.getPrimaryService(uuid16(SVC));
     chRecv = await svc.getCharacteristic(uuid16(CH_RECV));
     chCmd  = await svc.getCharacteristic(uuid16(CH_CMD));
     chStat = await svc.getCharacteristic(uuid16(CH_STAT));
+    /* 2026-10-14：⭐ 连接时【同时】订阅回传通知（0xABF2）——
+     * 这样"灌谱 / 回传"两个模式共用一条连接，切换⛔ 不需要重连。
+     * ⚠️ 订阅失败【不能】让整个连接失败：灌谱功能不依赖它
+     *    （例如设备固件还没实现 0xABF2 时应仍能灌谱）。 */
+    try {
+      const chNoti = await svc.getCharacteristic(uuid16(CH_NOTI));
+      await chNoti.startNotifications();
+      chNoti.addEventListener("characteristicvaluechanged", ev => {
+        const dv = ev.target.value;
+        uPushBytes(new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength));
+      });
+      log("已订阅回传通道 0xABF2（切到「回传」模式即可看）", "ok");
+    } catch (e) {
+      log("⚠️ 订阅回传通道失败（不影响灌谱）：" + (e && e.message ? e.message : e), "er");
+    }
     connected = true;
     setConn(true, "已连接 " + (device.name || ""));
     log("已连接 " + device.name, "ok");
     startPoll();
   } catch (e) {
-    log("连接失败：" + e.message, "er");
+    /* ⚠️ 用户取消选择器也会走到这里（NotFoundError）—— 那是正常操作，⛔ 不算错误 */
+    if (e && e.name === "NotFoundError") {
+      log("已取消选择设备", "");
+    } else {
+      log("连接失败：" + (e && e.message ? e.message : e), "er");
+    }
+    /* ⭐ 清理半成品状态：device 可能已赋值但没连上 */
+    if (device) {
+      try { device.removeEventListener("gattserverdisconnected", onGattDisconnected); } catch (_) {}
+    }
+    device = null; server = null;
+    chRecv = chCmd = chStat = null;
+    connected = false;
+    setConn(false);
+  } finally {
+    busy = false; connecting = false; renderConnBtn();
   }
 }
-function disconnect() {
+
+/* 断开事件可能是【我们主动断】引起的，也可能是【设备掉线】。
+ * ⭐ 用一个函数统一处理，并检查 device 是否已被主动清掉 ——
+ *   否则主动断开后这个"迟到的事件"会再改一次界面（同族：状态被两次写）。 */
+function onGattDisconnected() {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-  if (device && device.gatt.connected) device.gatt.disconnect();
-  connected = false; setConn(false);
+  /* 已经是"未连接"状态（多半是我们主动断的，disconnect() 已处理过）⇒ 不重复动界面 */
+  if (!connected && device === null) return;
+  connected = false;
+  device = null; server = null;
+  chRecv = chCmd = chStat = null;
+  setConn(false, "已断开");
+  log("蓝牙已断开", "er");
+  renderConnBtn();
+}
+
+async function disconnect() {
+  if (busy) { log("正在处理上一个操作，请稍候…", "er"); return; }
+  busy = true; connecting = false; renderConnBtn();
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  const dev = device;
+  /* ⭐ 先清状态再断 —— 这样迟到的 gattserverdisconnected 事件看到
+   *   `device === null` 就知道"是我们主动断的"，不会重复改界面。 */
+  connected = false;
+  device = null; server = null;
+  chRecv = chCmd = chStat = null;
+  try {
+    if (dev) {
+      try { dev.removeEventListener("gattserverdisconnected", onGattDisconnected); } catch (_) {}
+      if (dev.gatt && dev.gatt.connected) dev.gatt.disconnect();
+    }
+    log("已主动断开", "");
+  } catch (e) {
+    log("断开时出错（已忽略）：" + (e && e.message ? e.message : e), "er");
+  } finally {
+    setConn(false);
+    busy = false; renderConnBtn();
+  }
+}
+
+/* GATT 串行化队列（2026-10-14）。
+ *
+ * 🔴 为什么必须：Web Bluetooth 同一时刻只允许【一个】GATT 操作在飞。
+ *   而本页有【三处】会同时发 GATT：
+ *     · 轮询 pollOnce()（每 1.2 s：写 CMD 0x02 + 读 STAT）
+ *     · 灌谱 upload()（连续 writeValueWithoutResponse）
+ *     · 起播/停止/清池（sendCmd）
+ *   ⇒ 并发就报 `GATT operation already in progress`（用户实测报过）。
+ * ⭐ 修法：所有 GATT 操作走同一个队列，不许并发 —— 结构性修法，
+ *   将来新增任何 GATT 调用都自动排队，不会再撞。 */
+let gattQueue = Promise.resolve();
+/* ⚠️ 超时看门狗：GATT 操作最多等这么久，超时抛错。
+ * 🔴 为什么需要：若队列因自嵌套（如 sendCmd 内又入队）卡住，
+ *   UI 会【无声挂住】—— 用户看到的就是"点了没反应、没进度条"（实测踩过）。
+ * ⭐ 超时后这条就抛错，UI 会显示失败而不是静默卡死。 */
+const GATT_SERIAL_TIMEOUT_MS = 15000;
+function gattSerial(fn) {
+  const runIt = async () => {
+    let timer = null;
+    try {
+      return await Promise.race([
+        (async () => fn())(),
+        new Promise((_, rej) => {
+          timer = setTimeout(() => rej(new Error(
+            "GATT 操作超时（" + GATT_SERIAL_TIMEOUT_MS +
+            "ms）—— 可能上一步没返回，或被 BLE 链路卡住")), GATT_SERIAL_TIMEOUT_MS);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
+  const p = gattQueue.then(runIt, runIt);          /* 前一个失败也要继续跑下一个 */
+  gattQueue = p.catch(() => {});
+  return p;
 }
 
 async function sendCmd(code) {
@@ -537,6 +1693,8 @@ async function sendCmd(code) {
   await chCmd.writeValueWithoutResponse(new Uint8Array([code]));
 }
 async function readStat() {
+  /* ⚠️ 同 sendCmd：叶子函数，⛔ 不在此处入队（会自嵌套死锁）。
+   * ⭐ 调用方 pollOnce() 已经包了 gattSerial。 */
   await sendCmd(CMD_STAT);
   await new Promise(r => setTimeout(r, 420));
   const dv = await chStat.readValue();
@@ -597,12 +1755,33 @@ function updateProgress(d) {
   if (playStartWall === null) playStartWall = performance.now();
   const sinceStart = (performance.now() - playStartWall) / 1000;
 
-  /* ---- 播放位置：优先用 ESP32 给的真值，拿不到才退回估算 ---- */
+  /* ---- 播放位置：优先用 ESP32 给的真值，拿不到才退回估算 ----
+   *
+   * 🔴🔴 2026-10-14 修算式：原来是 `play - t0 - lead`，【多减了 t0】。
+   *
+   * ═══ 为什么错（实测踩到）═══
+   * 用真机数据一代就露馅：play=20249, t0=20019, lead=20000
+   *   ⇒ 20249-20019-20000 = -19770（负数）
+   * ⚠️ 但同一时刻 `sent=2` —— 【已经在放水了】⇒ 算式必错。
+   *
+   * 正确：`play - lead`（t0 不参与）。验证：20249-20000 = 249 > 0 ✓
+   *   与"刚开始放水"完全吻合。
+   *
+   * 🔎 根因：`t0` 在【中段换速（tempo 事件）】时会被重锚成一个大位置
+   *    （实测从 0 变成 20019），而 `play` 同时也是累计位置
+   *    ⇒ 两者【不能相减】。
+   * ⭐ 固件侧的门控用的是 `pos_now > s_lead_end`，而
+   *    `s_lead_end = t0_tick + LEAD`（t0 是【那一轮】的快照）——
+   *    对【外部观察者】而言拿不到那个快照，所以最稳的判据就是「play 与 lead 比」。
+   * 📌 同族：本文件同一天在 `_uart1_send_path_check.py` 里踩过【一模一样】的坑。
+   */
   let heardTick = null, totalTick = null;
-  if (d.pv === 1 && d.play != null && d.t0 != null && d.lead != null) {
-    const heard = d.play - d.t0 - d.lead;     // 还没出声时为负
+  if (d.pv === 1 && d.play != null && d.lead != null) {
+    const heard = d.play - d.lead;            // 还没出声时为负
     heardTick = Math.max(0, heard);
     totalTick = (d.ttot && d.ttot > 0) ? d.ttot : null;
+    leadSec = d.lead / 1920;                  // 用固件给的真值换算秒（960PPQN/120BPM）
+    if (!(leadSec > 0) || !isFinite(leadSec)) leadSec = LEAD_SEC_DEFAULT;
   } else if (score && d.tf) {
     // 退回估算：喂食比例 * 总时长 - 提前量
     const fedSec = (d.sent / d.tf) * score.duration;
@@ -634,7 +1813,9 @@ function updateProgress(d) {
 }
 async function pollOnce() {
   if (!connected) return;
-  try { paintStat(await readStat()); } catch (e) { /* 静默 */ }
+  /* ⭐ 也走串行队列 —— 不许和灌谱/起播并发
+   * （那会报 `GATT operation already in progress`，用户 2026-10-14 实测报过）*/
+  try { paintStat(await gattSerial(() => readStat())); } catch (e) { /* 静默 */ }
 }
 function startPoll() {
   if (pollTimer) clearInterval(pollTimer);
@@ -649,29 +1830,64 @@ async function upload() {
   if (!connected) { log("先连接蓝牙", "er"); return; }
   if (uploading) return;
   uploading = true; $("btnUp").disabled = true;
-  const pl = score.payload, total = pl.length, CHUNK = 180;
+
+  /* 2026-10-14：灌谱内容按【当前勾选的轨】动态生成 ——
+   * 用户要求"既能全播，也能只播选定的一轨或多轨"。
+   * 注意：过滤按【源轨序号】，不是按 axis（多轨可能共用一个 axis）。
+   * 换速事件（srcTrack=-1）永远保留：它不属于任何轨，
+   *   但没有它 FPGA 的时基就错（BPM 会是默认值）。 */
+  const selWords = wordsForSelected(score.words, score.conv);
+  const pl = buildPayload(selWords);
+
+  /* ⭐ 包长 480 —— MTU=517 ⇒ 载荷 514；且必须是 9 的整数倍（固件按帧收，
+   *   不跨包缓存）。480 = 9×53 ✓ 且 ≤514 ✅
+   * ⚠️ 原来是 180：同样 129 KB 的谱面要发 719 包，每包 header/ack 开销占比过大
+   *   ⇒ 实测只有 3.6 KB/s。改成 480 后包数降到 1/480。 */
+  const CHUNK = 480;
+  const total = pl.length;
+
+  if (score.conv && selWords.length !== score.words.length) {
+    log("只灌选中的轨：" + selWords.length + " / " + score.words.length + " 个事件", "ok");
+  }
+
+  /* ⭐ 灌谱期间【暂停状态轮询】——
+   * ⛔ 否则 pollOnce()（每 1.2 s：写 CMD + 读 STAT）会与灌谱抢同一条 GATT，
+   *    报 `GATT operation already in progress` 并把速度拖到 3.6 KB/s。
+   * ⚠️ 灌完在 finally 里恢复。 */
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  log("（灌谱期间暂停状态轮询，避免与灌谱抢蓝牙通道）", "");
+
   try {
     log("清池（CMD 0x01）…");
-    await sendCmd(CMD_RESET);
+    await gattSerial(() => sendCmd(CMD_RESET));
     await new Promise(r => setTimeout(r, 800));
+
     let sent = 0; const t0 = performance.now();
     while (sent < total) {
       const n = Math.min(CHUNK, total - sent);
-      await chRecv.writeValueWithoutResponse(pl.subarray(sent, sent + n));
+      /* ⭐ 走串行队列 —— ⛔ 不许和别的 GATT 操作并发 */
+      await gattSerial(() => chRecv.writeValueWithoutResponse(pl.subarray(sent, sent + n)));
       sent += n;
+
       const frac = sent / total, dt = (performance.now() - t0) / 1000;
       $("pb").style.width = (frac * 100).toFixed(1) + "%";
       $("pbTxt").textContent = (sent >> 10) + " / " + (total >> 10) + " KB";
       $("pbRate").textContent = ((sent / 1024) / Math.max(dt, 1e-6)).toFixed(1) + " KB/s";
-      if ((sent / CHUNK) % 40 === 0) await new Promise(r => setTimeout(r, 0));
+      /* ⚠️ 包大了，每 20 包 yield 一次给 UI（原来是 40 包）*/
+      if ((sent / CHUNK) % 20 === 0) await new Promise(r => setTimeout(r, 0));
     }
+
     $("pbTxt").textContent = "上传完成";
-    log("上传完成：" + total + " 字节 / " + score.words.length + " 事件，用时 " +
-        ((performance.now() - t0) / 1000).toFixed(1) + " s", "ok");
-    await pollOnce();
+    const secs = (performance.now() - t0) / 1000;
+    log("上传完成：" + total + " 字节 / " + score.words.length + " 个事件，用时 " +
+        secs.toFixed(1) + " s，" + ((total / 1024) / Math.max(secs, 1e-6)).toFixed(1) + " KB/s", "ok");
   } catch (e) {
     log("上传失败：" + e.message, "er");
-  } finally { uploading = false; $("btnUp").disabled = false; }
+  } finally {
+    uploading = false; $("btnUp").disabled = false;
+    /* ⭐ 恢复轮询 —— ⚠️ 必须在 finally，否则中间抛错就永远不轮询了 */
+    if (connected) startPoll();
+  }
 }
 
 /* ============================== 打开文件 ============================== */
@@ -679,10 +1895,58 @@ async function openFile(f) {
   const name = f.name.toLowerCase();
   try {
     if (name.endsWith(".mid") || name.endsWith(".midi")) {
-      throw new Error("浏览器里读不了 MIDI。请先用 mid2evt.py 转成 events.hex：\n" +
-        "  python FPGA2026/tools/mid2evt.py --in \"" + f.name + "\" --out-dir 输出目录\n" +
-        "然后把生成的 events.hex 拖进来。");
+      /* 2026-10-14：改为【在浏览器里直接解析】。
+       * ⚠️ 原来这里是直接抛错让用户去跑 mid2evt.py —— 用户要求改成直接支持。 */
+      const buf = await f.arrayBuffer();
+      const parsed = parseMidi(buf);
+      /* ⭐ 存原始解析结果 —— 音色覆写后要【重新跑一遍转换】，
+       * ⛔ 没有它就只能在已转换的结果上打补丁（那样轴分配/分组都会错）。 */
+      lastRawParsed = parsed;
+      const conv = midiToWords(parsed);
+      if (!conv.words.length) throw new Error("这个 MIDI 里没有音符");
+      score = buildScore(conv.words, f.name);
+      /* 2026-10-14：把转换结果挂到 score 上 —— 选轨过滤要用它的
+       * evTrack（每帧对应的源轨序号）与 trackList（选择器显示用）。 */
+      score.conv = conv;
+      score.payload = buildPayload(score.words);   /* 全选时的默认 payload */
+      /* ⭐ 必须同步存一份给"全选/全不选"按钮用 ——
+       * 🔴 我第一版只写了 buildTrackPicker(conv)，忘了这里，
+       *    导致 lastConv 永远是 null => 按钮永远报"先打开一个 MIDI"（用户实测）。 */
+      lastConv = conv;
+      $("fname").textContent = f.name;
+      $("s_n").textContent = score.words.length;
+      $("s_dur").textContent = score.duration.toFixed(1) + " s";
+      /* ⭐ 把分配结果打出来 —— 音色是【启发式】猜的，猜错要让人看得见，
+       *    ⛔ 不能"猜错了也不说"（那是静默错误）。 */
+      log("MIDI 解析成功：" + conv.words.length + " 个事件 · BPM " +
+          conv.bpm.toFixed(1) + " · " + parsed.division + " PPQN → 960", "ok");
+      log("轨分配（鼓优先，其余按音色归组）：");
+      for (const a of conv.assign) {
+        log("  " + a.name + "  →  axis " + a.axis + " · " +
+            (a.kind === "鼓" ? "鼓轨" : a.timbre) + " · " + a.notes + " 个音符");
+      }
+      /* ⭐ 鼓的转换结果要报出来 —— 用户报过"鼓被推成音高"，
+       *   所以要能一眼看到"鼓被映射成了四件里的哪些"。 */
+      if (conv.drumTracks) {
+        const brk = conv.assign[0] && conv.assign[0].drumBreak;
+        if (brk) {
+          const parts = Object.keys(brk).map(k => k + " " + brk[k]).join(" · ");
+          log("  鼓已转成鼓机音色（axis " + DRUM_AXIS + "）：" + parts, "ok");
+        }
+        if (conv.drumFuzzy) {
+          log("  ⚠️ 有 " + conv.drumFuzzy + " 个鼓音符走了【音高分区兜底】" +
+              "（不在 GM 映射表内）—— 节奏保住了，音色可能不理想", "er");
+        }
+      }
+      /* ⭐ 轨选择列表（用户要求：既能全播，也能只播选定的一轨或多轨） */
+      buildTrackPicker(conv);
+      log("⚠️ 音色是按【轨名关键词】猜的（与 mid2evt.py 同一套规则）——不对请在 DAW 里改轨名", "");
+      draw();
+      return;
     }
+    /* ⚠️ events.hex 里【没有】轨信息 => 清掉 lastConv，
+     * 免得按钮用上一份 MIDI 的轨列表去操作（那是脏数据）。 */
+    lastConv = null;
     const text = await f.text();
     const words = parseEventsHex(text);
     score = buildScore(words, f.name);
@@ -705,7 +1969,13 @@ async function openFile(f) {
 }
 
 /* ============================== 绑定 ============================== */
-$("btnConn").onclick = () => connected ? disconnect() : connect();
+/* 2026-10-14 修：⛔ 不再用 `connected ? disconnect() : connect()` 这种三元式。
+ * 为什么：`connected` 与"动作是否正在进行"不同步 ⇒ 慢速/连点时会重复进
+ *   `connect()` ⇒ 重复弹出连接窗口（用户实测报告）。
+ * ⭐ 现在只调一个入口，由 `connect()` / `disconnect()` 内部的 busy 锁把关。 */
+$("btnConn").onclick = () => { if (connected) disconnect(); else connect(); };
+/* 初始化按钮外观（由 renderConnBtn 统一渲染，保证与内部状态一致） */
+renderConnBtn();
 $("btnUp").onclick = upload;
 $("btnPlay").onclick = async () => { try { await sendCmd(CMD_PLAY); log("已发 起播"); } catch (e) { log(e.message, "er"); } };
 $("btnStop").onclick = async () => { try { await sendCmd(CMD_STOP); log("已发 停止"); } catch (e) { log(e.message, "er"); } };
@@ -725,9 +1995,406 @@ drop.addEventListener("drop", e => {
 });
 
 /* ============================== 启动 ============================== */
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 2026-10-14：回传模式（上行）—— 由 upstream_studio.html 整合进来
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⭐ 为什么整合：两个页面各连一次蓝牙很麻烦；而 BLE 是【独占】的，
+ *    切页必须先断开再连 ⇒ 用户明确要求合并成一个页面 + 切换按钮。
+ *
+ * ⭐ 关键设计：**共用同一个 BLE 连接**
+ *    连接时【同时】订阅 0xABF2（回传通知）—— 无论当前在哪个模式。
+ *    ⇒ 切换模式【不需要重连】。这是整合的最大价值。
+ *
+ * ⚠️ 上行帧格式（v1.1，与 esp32/tools/evt2midi/frame_format.py 一致）：
+ *    [0]=0xA5 [1]=type [2]=seq [3..6]=tick(32b) [7]=axis
+ *    [8..11]=phase_inc(32b) [12]=vel [13]=XOR 校验（覆盖 [1..12]）
+ *    type: 0x01 note_on · 0x02 note_off · 0x03 calib · 0x04 looper · 0x10 tablesync(68B)
+ */
+const U_HDR = 0xA5;
+const U_T_ON = 0x01, U_T_OFF = 0x02, U_T_CALIB = 0x03, U_T_LOOPER = 0x04, U_T_TAB = 0x10;
+const U_T_TRANSPORT = 0x05;                 // ⭐ v1.1 新增：起播锚点（[8..11] 存 ppqn）
+const U_LEN_NOTE = 14, U_LEN_TAB = 68;
+const U_TAB_ITEMS = 16, U_TAB_OFF = 3, U_TAB_ITEM_BYTES = 4;
+/* ⚠️ 上行 inc -> Hz 的换算。FPGA 侧合成时钟是 48.828125 kHz（= 50 MHz / 1024，
+ *    见 drum_gen 的换算常数），⛔ 不是 50 MHz。
+ *    ⭐ 原来回传页写 F_CLK = 50000000 且 PPQN = 480 —— 两个都不对，
+ *      实测 A4 会算成不是 440 Hz。这里按 FPGA 侧给的 fs 修正。 */
+const U_FS = 48828.125;
+const U_TWO32 = 4294967296;
+const U_PPQN = 960;                          // 与固件 beat_gen 一致（原来是 480，错）
+
+const frameLenFor = t => (t === U_T_TAB ? U_LEN_TAB : U_LEN_NOTE);
+const uXor = b => { let c = 0; for (let i = 0; i < b.length - 1; i++) c ^= b[i]; return c & 0xFF; };
+const uIncToHz = inc => inc * U_FS / U_TWO32;
+const uHzToMidi = hz => hz <= 0 ? 0 : Math.round(69 + 12 * Math.log2(hz / 440));
+function uHzToNote(hz) {
+  if (!(hz > 0)) return "-";
+  const m = Math.round(69 + 12 * Math.log2(hz / 440));
+  return midiName(m) + " (" + hz.toFixed(1) + " Hz)";
+}
+
+/* 回传状态（与灌谱的 score 分开，互不干扰） */
+const U = {
+  buf: new Uint8Array(0), bytes: 0, frames: 0, notes: 0, tabs: 0,
+  bad: 0, unk: 0, resync: 0, lastHz: 0, ppqn: null,
+  events: [],                    /* {tick, type, axis, hz, midi, vel, seq} */
+  tabItems: null, tabNo: null, t0: 0, rateBytes: 0,
+};
+const U_MAX_EVENTS = 20000;
+
+function uReset() {
+  U.buf = new Uint8Array(0); U.bytes = 0; U.frames = 0; U.notes = 0; U.tabs = 0;
+  U.bad = 0; U.unk = 0; U.resync = 0; U.lastHz = 0; U.ppqn = null; U.events = [];
+  U.tabItems = null; U.tabNo = null; U.t0 = performance.now(); U.rateBytes = 0;
+  const el = $("u_feed"); if (el) el.innerHTML = "";
+  uPaint(); uDraw();
+}
+
+function uFeed(cls, txt) {
+  const el = $("u_feed");
+  if (!el) return;
+  const t = new Date().toTimeString().slice(0, 8);
+  el.insertAdjacentHTML("beforeend",
+    '<div><span style="color:#5b6b82">' + t + "</span> " +
+    (cls ? '<span class="' + cls + '">' + txt + "</span>" : txt) + "</div>");
+  el.scrollTop = el.scrollHeight;
+}
+
+/* BLE 通知回调 —— ⭐ 由 connect() 里的订阅调用（见下方 U.onBytes 挂钩） */
+function uPushBytes(u8) {
+  const nb = new Uint8Array(U.buf.length + u8.length);
+  nb.set(U.buf); nb.set(u8, U.buf.length); U.buf = nb;
+  U.bytes += u8.length; U.rateBytes += u8.length;
+  uParse(); uPaint();
+}
+
+function uParse() {
+  let i = 0;
+  while (i < U.buf.length) {
+    if (U.buf[i] !== U_HDR) { U.resync++; i++; continue; }
+    if (i + 2 > U.buf.length) break;
+    const t = U.buf[i + 1];
+    if (t !== U_T_ON && t !== U_T_OFF && t !== U_T_CALIB &&
+        t !== U_T_LOOPER && t !== U_T_TAB && t !== U_T_TRANSPORT) {
+      U.unk++; i++; continue;
+    }
+    const flen = frameLenFor(t);
+    if (i + flen > U.buf.length) break;
+    const fr = U.buf.subarray(i, i + flen);
+    if (uXor(fr) !== fr[flen - 1]) {
+      U.bad++;
+      uFeed("er", "坏校验  type=0x" + t.toString(16) + "  seq=" + fr[2] +
+                  "  期望 0x" + uXor(fr).toString(16) + "  实测 0x" + fr[flen - 1].toString(16));
+      i += flen;                                 /* 校验失败也按帧长前进，保持同步 */
+      continue;
+    }
+    U.frames++;
+    if (t === U_T_TRANSPORT) {
+      /* ⭐ v1.1：起播锚点 —— [8..11] 存 ppqn（⛔ 不是 phase_inc） */
+      U.ppqn = ((fr[8] << 24) | (fr[9] << 16) | (fr[10] << 8) | fr[11]) >>> 0;
+      const tick = ((fr[3] << 24) | (fr[4] << 16) | (fr[5] << 8) | fr[6]) >>> 0;
+      uFeed("ok", "起播锚点  seq=" + fr[2] + "  tick=" + tick + "  ppqn=" + U.ppqn);
+    } else if (t === U_T_TAB) {
+      U.tabs++; U.tabNo = fr[2];
+      const items = [];
+      for (let k = 0; k < U_TAB_ITEMS; k++) {
+        const o = U_TAB_OFF + k * U_TAB_ITEM_BYTES;
+        items.push(((fr[o] << 24) | (fr[o+1] << 16) | (fr[o+2] << 8) | fr[o+3]) >>> 0);
+      }
+      U.tabItems = items;
+      uFeed("ts", "表同步 表号=" + U.tabNo + "  inc[0]=" + items[0] +
+                  " (" + uHzToNote(uIncToHz(items[0])) + ")  inc[15]=" + items[15]);
+    } else {
+      const tick = ((fr[3] << 24) | (fr[4] << 16) | (fr[5] << 8) | fr[6]) >>> 0;
+      const axis = fr[7];
+      const inc = ((fr[8] << 24) | (fr[9] << 16) | (fr[10] << 8) | fr[11]) >>> 0;
+      const vel = fr[12];
+      const hz = uIncToHz(inc);
+      U.notes++; U.lastHz = hz;
+      U.events.push({ tick, type: t, axis, hz, midi: uHzToMidi(hz), vel, seq: fr[2] });
+      if (U.events.length > U_MAX_EVENTS) {
+        U.events.splice(0, U.events.length - U_MAX_EVENTS);
+      }
+      uFeed(t === U_T_ON ? "ok" : "", (t === U_T_ON ? "note_on " : "note_off") +
+            "  seq=" + fr[2] + "  tick=" + tick + "  轴=" + axis +
+            "  " + uHzToNote(hz) + "  力度=" + vel);
+    }
+    i += flen;
+  }
+  if (i > 0) U.buf = U.buf.slice(i);
+  uDraw();
+}
+
+function uPaint() {
+  const set = (id, v, warn) => {
+    const e = $(id); if (!e) return;
+    e.textContent = v;
+    if (warn !== undefined) e.style.color = warn ? "var(--err)" : "var(--fg)";
+  };
+  set("u_bytes", U.bytes); set("u_frames", U.frames); set("u_notes", U.notes);
+  set("u_tabs", U.tabs);
+  set("u_bad", U.bad, !!U.bad); set("u_unk", U.unk, !!U.unk);
+  set("u_resync", U.resync, !!U.resync);
+  set("u_last", U.lastHz ? uHzToNote(U.lastHz) : "-");
+}
+
+/* 速率：每秒刷一次（与时间相关，不能只在收到数据时算） */
+setInterval(() => {
+  const dt = (performance.now() - U.t0) / 1000;
+  const e = $("u_rate");
+  if (e) e.textContent = dt > 0.3 ? Math.round(U.rateBytes / dt) : 0;
+  U.rateBytes = 0; U.t0 = performance.now();
+}, 1000);
+
+/* ---------------- 回传卷帘图 ---------------- */
+const U_AXIS_COLORS = ["#4ea1ff","#3ddc84","#ffb020","#ff7ab2","#a78bfa","#22d3ee",
+                       "#fb923c","#f472b6","#34d399","#facc15","#60a5fa","#c084fc",
+                       "#2dd4bf","#f87171","#a3e635","#fcd34d"];
+
+function uFitCanvas() {
+  const cv = $("u_roll"); if (!cv) return;
+  const r = cv.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.max(1, Math.floor(r.width * dpr));
+  cv.height = Math.max(1, Math.floor(r.height * dpr));
+  cv.style.width = r.width + "px"; cv.style.height = r.height + "px";
+  const c = cv.getContext("2d");
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  uDraw();
+}
+
+function uDraw() {
+  const cv = $("u_roll"); if (!cv) return;
+  const ctx = cv.getContext("2d");
+  const w = cv.clientWidth, h = cv.clientHeight;
+  const PAD = { l: 76, r: 14, t: 14, b: 22 };
+  const pw = Math.max(1, w - PAD.l - PAD.r), ph = Math.max(1, h - PAD.t - PAD.b);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#1b2330"; ctx.fillRect(PAD.l, PAD.t, pw, ph);
+  ctx.strokeStyle = "#26303f"; ctx.strokeRect(PAD.l + .5, PAD.t + .5, pw - 1, ph - 1);
+
+  if (!U.events.length) {
+    ctx.fillStyle = "#8695ab"; ctx.font = "14px 'Microsoft YaHei UI',sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("等回传数据 —— 先在右上角连上蓝牙（会同时订阅回传）", w / 2, h / 2);
+    return;
+  }
+  const win = U.events.slice(-512);
+  const tMin = win[0].tick, tMax = Math.max(win[win.length - 1].tick, tMin + 1);
+  const mids = win.map(e => e.midi).filter(m => m > 0);
+  let lo = mids.length ? Math.min(...mids) - 1 : 0;
+  let hi = mids.length ? Math.max(...mids) + 1 : 1;
+  if (hi - lo < 6) { lo -= 3; hi += 3; }
+  const X = t => PAD.l + ((t - tMin) / (tMax - tMin)) * pw;
+  const Y = m => PAD.t + ph - ((m - lo) / (hi - lo)) * ph;
+  const rowH = ph / (hi - lo);
+  const drawKeys = rowH >= 5;
+
+  ctx.font = "10px Consolas,monospace"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
+    const y0 = Y(m + 0.5), y1 = Y(m - 0.5);
+    const yTop = Math.min(y0, y1), hh = Math.max(1, Math.abs(y1 - y0));
+    ctx.fillStyle = isBlackKey(m) ? "#141a24" : "#e8eefc";
+    ctx.fillRect(0, yTop, PAD.l - 30, hh - (drawKeys ? 1 : 0));
+    if (drawKeys) {
+      ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, yTop + 0.5, PAD.l - 31, Math.max(1, hh - 1));
+    }
+  }
+  ctx.textAlign = "left";
+  for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
+    const y = Y(m);
+    if (y < PAD.t - 2 || y > PAD.t + ph + 2) continue;
+    const isC = (((m % 12) + 12) % 12 === 0);
+    const black = isBlackKey(m);
+    if (!isC && !black && rowH < 9) continue;
+    if (!isC && rowH < 5) continue;
+    ctx.fillStyle = isC ? "#e8eefc" : "#8695ab";
+    ctx.fillText(midiName(m), PAD.l - 27, y);
+  }
+  ctx.textAlign = "right";
+  for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
+    if (((m % 12) + 12) % 12 === 0) {
+      const y = Y(m);
+      ctx.strokeStyle = "#212b3a"; ctx.beginPath();
+      ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l + pw, y); ctx.stroke();
+    }
+  }
+  /* 音符：画成【有长度的色块】—— 与灌谱侧一致。
+   * ⚠️ 上行是【流式】到达的，不能预先配对；滚动窗口也会截断，
+   *    所以配不到的 on 按"最小长度"画（表示正在响）。 */
+  const blockH = Math.max(2, Math.min(rowH * 0.72, 12));
+  const minLen = Math.max(1, (tMax - tMin) / 400);
+  const openMap = new Map();
+  for (const e of win) {
+    const key = ((e.axis & 15) * 128) + (e.midi & 127);
+    if (e.type === U_T_ON) {
+      openMap.set(key, e.tick);
+    } else {
+      const t0 = openMap.get(key);
+      if (t0 !== undefined) {
+        openMap.set(key, undefined);
+        const x0 = X(t0), x1 = X(e.tick);
+        ctx.fillStyle = U_AXIS_COLORS[e.axis % 16];
+        ctx.globalAlpha = 0.5 + 0.5 * Math.min(1, (e.vel || 0) / 127);
+        ctx.fillRect(x0, Y(e.midi) - blockH / 2, Math.max(1.6, x1 - x0), blockH);
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+  // 还没闭合的 on：画个块（正在响）
+  for (const [, t0] of openMap) {
+    if (t0 === undefined) continue;
+    ctx.globalAlpha = 0.75;
+    ctx.fillStyle = "#e8eefc";
+    ctx.fillRect(X(t0), Y(lo + (hi - lo) / 2) - blockH / 2,
+                 Math.max(1.6, X(t0 + minLen) - X(t0)), blockH);
+    ctx.globalAlpha = 1;
+  }
+  // 轴图例
+  const axes = [...new Set(win.map(e => e.axis))].sort((a, b) => a - b);
+  let lx = PAD.l + 4; ctx.textAlign = "left";
+  for (const a of axes.slice(0, 14)) {
+    ctx.fillStyle = U_AXIS_COLORS[a % 16]; ctx.fillRect(lx, PAD.t + ph + 6, 8, 8);
+    ctx.fillStyle = "#8695ab"; ctx.fillText("轴" + a, lx + 11, PAD.t + ph + 14);
+    lx += 44;
+  }
+  if (U.tabItems) {
+    ctx.fillStyle = "#ffb020"; ctx.textAlign = "right";
+    ctx.fillText("表同步：表号 " + U.tabNo + " · inc[0]=" + U.tabItems[0] +
+                 " → " + uHzToNote(uIncToHz(U.tabItems[0])), PAD.l + pw - 6, PAD.t + 10);
+  }
+}
+
+/* ---------------- 导出 ---------------- */
+function uDownload(name, blob) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+/* 上行事件 -> MIDI。
+ * ⚠️ tick 单位：FPGA 侧答复说明 14 B 帧的 tick 是【自由运行计数器】，
+ *    换算要 ppqn（起播锚点帧给）。拿不到 ppqn 时退回 960 并**在日志里说清**。
+ * ⭐ 与 evt2midi.py 的口径一致：先在"音乐 tick"上排，再写成 MIDI。 */
+function uBuildMidi() {
+  const ppqn = U.ppqn || U_PPQN;
+  const evs = U.events.filter(e => e.type === U_T_ON || e.type === U_T_OFF);
+  if (!evs.length) return null;
+  /* 排序：先 tick，再 kind（off 优先 —— 同 tick 时先关旧音再开新音） */
+  const sorted = evs.slice().sort((a, b) =>
+    (a.tick - b.tick) || ((a.type === U_T_ON ? 1 : 0) - (b.type === U_T_ON ? 1 : 0)));
+  const t0 = sorted[0].tick;
+  const out = [];
+  const vlq = n => { const s = [n & 0x7F]; n >>= 7; while (n) { s.unshift((n & 0x7F) | 0x80); n >>= 7; } return s; };
+  let last = 0;
+  for (const e of sorted) {
+    const dt = Math.max(0, e.tick - t0 - last);
+    last = e.tick - t0;
+    out.push(200 & 0);                                    // placeholder（见下）
+    out.pop();
+    const status = (e.type === U_T_ON ? 0x90 : 0x80);
+    out.push(...vlq(dt), status, e.midi & 0x7F,
+             e.type === U_T_ON ? (e.vel & 0x7F) : 0);
+  }
+  out.push(...vlq(0), 0xFF, 0x2F, 0x00);
+  const trackLen = out.length;
+  const hdr = [0x4D,0x54,0x68,0x64, 0,0,0,6, 0,0, 0,1,
+               (ppqn >> 8) & 0xFF, ppqn & 0xFF];
+  const trk = [0x4D,0x54,0x72,0x6B,
+               (trackLen>>>24)&0xFF,(trackLen>>>16)&0xFF,(trackLen>>>8)&0xFF,trackLen&0xFF];
+  return new Blob([new Uint8Array([...hdr, ...trk, ...out])], { type: "audio/midi" });
+}
+
+$("u_btnBin").onclick = () => {
+  if (!U.bytes) { log("还没有回传数据", "er"); return; }
+  uDownload("upstream.bin", new Blob([U.buf.length ? U.buf : new Uint8Array(0)],
+            { type: "application/octet-stream" }));
+};
+$("u_btnMid").onclick = () => {
+  const b = uBuildMidi();
+  if (!b) { log("没有可导出的音符（先连上并让 FPGA 发数据）", "er"); return; }
+  uDownload("upstream.mid", b);
+  log("已导出 upstream.mid —— ⚠️ tick 单位用 ppqn=" + (U.ppqn || U_PPQN) +
+      (U.ppqn ? "（来自起播锚点）" : "（⚠️ 起播锚点帧没收到，退回 960）"), "");
+};
+$("u_btnClear").onclick = () => { uReset(); log("回传数据已清空", ""); };
+
+/* 2026-10-14：轨选择的快捷按钮（全选 / 全不选）。
+ * ⭐ "全不选"之后灌下去会是空谱 —— 所以只清列表，并靠摘要行提示。 */
+$("tkAll").onclick = () => {
+  if (!lastConv || !lastConv.trackList) {
+    log(score ? "当前打开的谱面【没有轨信息】（events.hex 没有轨）—— 请打开 .mid"
+              : "先打开一个 MIDI", "er");
+    return;
+  }
+  trackSel = new Set(lastConv.trackList.map(t => t.idx));
+  lastConv.trackList.forEach(t => {
+    const e = $("tk_" + t.idx); if (e) e.checked = true;
+  });
+  updateTrackSummary(lastConv);
+};
+$("tkNone").onclick = () => {
+  if (!lastConv || !lastConv.trackList) {
+    log(score ? "当前打开的谱面【没有轨信息】（events.hex 没有轨）—— 请打开 .mid"
+              : "先打开一个 MIDI", "er");
+    return;
+  }
+  trackSel = new Set();
+  lastConv.trackList.forEach(t => {
+    const e = $("tk_" + t.idx); if (e) e.checked = false;
+  });
+  updateTrackSummary(lastConv);
+  log("已全部取消 —— 现在灌下去会是空谱（只剩换速事件）", "er");
+};
+
+/* ---------------- 模式切换 ---------------- */
+let uiMode = "down";                 /* "down" = 灌谱 · "up" = 回传 */
+function setMode(m) {
+  uiMode = m;
+  const dn = document.querySelector("main");
+  const up = $("upPane");
+  const bd = $("mDown"), bu = $("mUp");
+  if (m === "up") {
+    if (dn) dn.style.display = "none";
+    if (up) up.style.display = "flex";
+  } else {
+    if (dn) dn.style.display = "flex";
+    if (up) up.style.display = "none";
+  }
+  if (bd) bd.className = "mode" + (m === "down" ? " on" : "");
+  if (bu) bu.className = "mode" + (m === "up" ? " on" : "");
+  /* ⭐ 切换后要重新量画布尺寸 —— 隐藏时量出来是 0，画出来是空白 */
+  setTimeout(() => {
+    try { if (m === "up") { uFitCanvas(); uDraw(); } else { fitCanvas(); draw(); } }
+    catch (e) { /* 画布还没就绪：算了，不影响功能 */ }
+  }, 30);
+}
+$("mDown").onclick = () => setMode("down");
+$("mUp").onclick = () => setMode("up");
+window.addEventListener("resize", () => { if (uiMode === "up") uFitCanvas(); });
+
 (async function boot() {
   const proto = location.protocol;
   $("proto").textContent = proto === "file:" ? "file:// 模式" : (location.host || proto);
+
+  /* 显示本页的构建时间 —— ⭐ 用来确认"打开的是不是新版本"。
+   * 取 document.lastModified（由服务器按文件 mtime 给出）。
+   * ⚠️ 若显示的时间比你改代码的时间早 => 🔴 你拿到的是缓存，按 Ctrl+F5。
+   * ⭐ 这条是给"用户报的 bug 其实是缓存"这种情况兜底的（2026-10-14 踩过）。 */
+  try {
+    const lm = document.lastModified;
+    const d = lm ? new Date(lm) : null;
+    const el = $("build");
+    if (el && d && !isNaN(d.getTime())) {
+      const p = n => String(n).padStart(2, "0");
+      el.textContent = "构建 " + p(d.getMonth() + 1) + "-" + p(d.getDate()) +
+                       " " + p(d.getHours()) + ":" + p(d.getMinutes());
+      el.title = "本页文件的最后修改时间（服务器给出）。若比你预期旧，按 Ctrl+F5 强制刷新。";
+    }
+  } catch (e) { /* 拿不到就算了，⛔ 不影响功能 */ }
+
   if (!navigator.bluetooth) {
     $("warn").style.display = "block";
     $("warn").innerHTML = "⚠️ 这个浏览器没有 Web Bluetooth。请用 <b>Chrome</b> 或 <b>Edge</b> 打开本页。";

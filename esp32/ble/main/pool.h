@@ -57,6 +57,15 @@ typedef struct {
     uint32_t lead_ticks;
     uint32_t total_tick;        /* 本曲总长（末帧 tick）—— 播放进度的分母 */
     uint8_t  pos_valid;         /* 1 = 上面几个值有效（正在放水） */
+
+    /* 2026-10-14 新增：实测放水速率与 pump 周期。
+     * 用途：验证"限流上限是否顶住了音乐速率"。
+     *   限流上限 = MAX_TICK_ADVANCE / P（P = 实际 pump 周期），
+     *   而 vTaskDelay(2ms) 只是"至少 2ms" => P 远大于名义值。
+     *   若上限速率 < 音乐速率（1920 tick/s @120BPM/960PPQN）
+     *   => 固件被顶住 => 必然偏慢（实测慢了约 7 倍）。 */
+    uint32_t rate_tick_per_s;   /* 实测放水速率（tick/s） */
+    uint32_t pump_period_us;    /* 实测 pump 周期（微秒） */
 } pool_stats_t;
 
 /* 复位水池（清空、停表）。每次新曲子前调用。 */

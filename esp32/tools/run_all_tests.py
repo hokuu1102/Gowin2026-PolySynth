@@ -277,6 +277,33 @@ def selftest():
         "uart_rx_check.py",
         "uart_timing_check.py",
         "wrappers_check.py",
+        # C2 —— 2026-10-14：生成器 / JS 自检类。它们【有自检但不进真机清单】，
+        #   因为产物是给 FPGA 侧核对的（不是"跑一次就完"的用例）。
+        #   ⭐ 它们的判据由 selftest_all 覆盖（python 的加 --selftest，JS 的用 node）。
+        "_gen_inc_probe.py",      # 生成"末帧可核对的 inc 探针"（有 --selftest 17 项）
+        "_gen_web_midi_demo.js",  # 生成网页解析器的演示 hex
+        "_inc_scale_probe.py",    # 由权威锚点反推 inc 放大倍率（有 --selftest 7 项）
+        "_lead_model_check.py",   # 提前量模型三版推演（有 --selftest 7 项）
+        "_midi_parse_check.js",   # 网页 MIDI 解析器自检（node 跑，33 项）
+        "_upstream_parse_check.js",  # 回传（上行）解析器自检（node 跑，28 项）
+        "_gen_simul_probe.py",    # 多音色同时探针生成器（有 --selftest 9 项）
+        "drum_map.py",            # GM 鼓音高 -> FPGA 鼓机四件（有 --selftest 16 项）
+        "_drum_inc_options.py",   # 21 位装不下鼓的三条路代价分析（排查用）
+        "_drum_track_check.js",   # 鼓转换 + 选轨自检（node 跑，24 项）
+        "_display_check.js",      # 网页显示层自检（C10 / 鼓显示成 BASS，node 跑）
+        "_chord_axis_check.js",  # 和弦分轴自检（避免 FPGA 的 same_hit 顶音）
+        "_deadlock_check.js",    # 灌谱卡死自检（gattSerial 队列，6 项）
+        "_undef_check.js",       # 未定义函数引用自查（静态精准，6 项）
+        "_axis_dep_check.py",    # 工具是否依赖"固定 axis 分配"（改成动态分配后必须核）
+        "_bidir_check.py",       # 双向验证：四组修复的回归判据【必须能失败】（0.11 §C83）
+        "_doc_cmd_check.py",     # 待上机清单的命令必须【单行可粘贴】+ 参数真实存在
+        "_diag_bpm.js",          # 查一份 MIDI 的 tempo 转换结果（排查用，要 argv）
+        "_diag_timbre_override.js",  # 验"网页改音色"是否真的下发（端到端，要 argv）
+        "_diag_chord.js",        # 查和弦是否被正确保留（排查用，要 argv）
+        "_diag_chord5.js",       # 精确重叠测量（排查用，要 argv）
+        "_diag_concurrency.js",  # 峰值并发 / 轴占用（排查用，要 argv）
+        "_inspect_midi.js",       # 看一份 MIDI 的轨结构与分类（排查用）
+        "_check_user_midi.js",    # 用真实 MIDI 验鼓转换与选轨（排查用）
         # D —— 一次性排查脚本（人工判读结论）
         "_ble_poll_stress.py",    # A/B 探针（静默 vs 轮询）
         "_crash_capture.py",      # 崩溃取证器（出事才用）

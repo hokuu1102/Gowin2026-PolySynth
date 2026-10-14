@@ -197,3 +197,17 @@ CONFIG_SPIRAM_MALLOC_ALWAYSINTERNAL=16384
 #   MANUAL 允许我们用 API 主动发。
 CONFIG_BT_GATTS_SEND_SERVICE_CHANGE_MANUAL=y
 CONFIG_BT_GATTS_SEND_SERVICE_CHANGE_MODE=1
+# ---------------------------------------------------------------------------
+# FreeRTOS tick 率：100 -> 1000 Hz（2026-10-14）
+# ---------------------------------------------------------------------------
+# 为什么改：pump 任务用 vTaskDelay(2ms) 控节奏，而 tick=100Hz 时
+#   1 tick = 10ms => pdMS_TO_TICKS(2) = 0.2 => 取整 0 =>
+#   BLE_DELAY_TICKS_AT_LEAST_1() 兜到 1 tick = 【10ms】。
+#   => 实测 pump 周期 pum=9996us（就是 10ms）。
+#   => 限流上限 = MAX_TICK_ADVANCE(26) / 0.01s = 2600 tick/s，
+#      而音乐需要 1920 tick/s => 只剩 1.35 倍余量 =>
+#      加上日志/写 UART 的开销就被【顶住】=> 放水慢约 6.5 倍。
+# 改到 1000Hz 后：1 tick = 1ms => pump 能真正跑在 ~2ms =>
+#   限流上限回到 ~13000 tick/s，余量充裕。
+# 代价：调度器开销与空闲功耗略升（可接受）。
+CONFIG_FREERTOS_HZ=1000

@@ -133,6 +133,54 @@ static bool      s_running = false;
  * 不参与任何控制逻辑 —— 纯粹是"把内部真值暴露出来"（K-106）。 */
 static uint32_t  s_play_tick = 0;
 
+/* 2026-10-14：实测放水速率与 pump 周期 —— 用来验证"限流上限是否顶住了音乐速率"。
+ *
+ * ═══ 为什么必须有它 ═══
+ * 限流上限 = `BLE_POOL_MAX_TICK_ADVANCE / P`（P = pump 的实际周期），
+ * 而 `vTaskDelay(2ms)` **只是"至少 2 ms"** ⇒ P 远大于名义值。
+ * ⚠️ 若上限速率 < 音乐速率（1920 tick/s @120BPM/960PPQN），
+ *    固件会被上限【顶住】⇒ 必然偏慢。
+ * 🔴 实测（2026-10-14）：sent 44 秒只涨 66 帧 << 期望 11 帧/秒
+ *    ⇒ 明显被顶住。
+ * ⭐ 有了这两个数就能【定量】定参数，⛔ 不靠拍脑袋（AGENTS 0.11 第 3 步）。 */
+static volatile uint32_t s_rate_tick_per_s = 0;   /* 实测放水速率（tick/s） */
+static volatile uint32_t s_pump_period_us  = 0;   /* 实测 pump 周期（微秒） */
+static int64_t           s_rate_last_us    = 0;
+static uint64_t          s_rate_last_pos   = 0;
+
+/* 本曲的提前量（tick）—— 由 pool_compute_lead_ticks() 决定。
+ *
+ * ═══ 2026-10-14：这里连错两次，把失败路径留下来 ═══
+ *
+ * ── 第一版（错）：按谱面密度"填满缓冲" ──
+ *     模型：提前 tick = HIGH_WM / E   （E = 每 tick 平均事件数）
+ *     🔴 实测：demo_scale 的 E=0.0011 => 694393 tick = 【363 秒】
+ *     => 荒谬。根因：把"填满缓冲"当成了目的，
+ *        而提前量的唯一作用是【抗 BLE 抖动】。
+ *
+ * ── 第二版（错）：按"攒够一次停顿的量" ──
+ *     模型：N_min = E × 1920 × STALL_SEC ；lo = N_min / E
+ *     🔴 会计算一下就知道：lo = 1920 × STALL_SEC = 【常数 192 tick】
+ *        —— E 被约掉了，"下界"根本不随谱面变 => 模型没信息。
+ *     ⭐ 离线自检的方向性判据当场抓到（见 _lead_model_check.py）。
+ *
+ * ── 第三版（本实现）：承认它基本是个常数 ──
+ *     提前量 = 抗住一次 BLE 停顿所需的【事件存货】对应的音乐时间。
+ *     而"存货 = 该停顿期间本会消耗的事件数" => 两者恰好抵消
+ *     => ⭐ 结果与谱面密度【无关】，就是个常数（≈ STALL_SEC）。
+ *     只有【极密】谱面（768/E 小于这个常数）才需要往下压 ——
+ *     因为那时的硬约束变成"缓冲装不下"。
+ *
+ * 📌 结论：⭐ 我方原以为的"按谱面密度动态算"是【伪需求】。
+ *    真正该做的是：把固定值 20000（10.4 秒）降到常数级（0.625 秒）。
+ *    20000 之所以历来安全，是因为它按【最密谱面】定的 ——
+ *    对稀疏谱面它只是白白让人多等 10 秒。
+ *
+ * ⚠️ 待验证（下一轮）：这个缩短是否真的不引起 underrun。
+ *    判据：连跑多轮，看 `late` 与 FPGA 侧的 `eb_ovf`/underrun 计数。
+ */
+static uint32_t s_lead_ticks = BLE_POOL_LEAD_MIN_TICKS;
+
 /* 提前量门控的【一次性】阈值（谱面 tick）
  * ---------------------------------------------------------------------------
  * 2026-10-01 修 bug 新增。原来的门控写的是：
@@ -370,6 +418,11 @@ void pool_reset(void)
     s_pool_done     = false;
     s_running       = false;
     s_play_tick     = 0;          /* 播放位置归零，避免上报上一曲的残留 */
+    /* 2026-10-14：实测速率也归零（否则新曲会读到上一曲的残留值） */
+    s_rate_tick_per_s = 0;
+    s_pump_period_us  = 0;
+    s_rate_last_us    = 0;
+    s_rate_last_pos   = 0;
     s_tick_inc      = BLE_POOL_DEFAULT_TICK_INC;
     s_t0_tick       = 0;
     s_t0_us         = 0;
@@ -482,6 +535,65 @@ void pool_mark_done(void)
              (s_expected_frames > 0) ? "" : "  [expected unknown]");
 }
 
+/* 决定本曲的提前量（tick）。
+ *
+ * ═══ 算法（第三版 —— 前两版都错，见 s_lead_ticks 的注释）═══
+ *   base = 抗住一次 BLE 停顿所需的音乐时间
+ *        = TICKS_PER_SEC × STALL_SEC（1920 × 0.1 = 192 tick ≈ 0.1 秒）
+ *   lead = max(BLE_POOL_LEAD_MIN_TICKS, base)      // 下限保护
+ *   若谱面【极密】，使 "768/E" 小于 lead
+ *        => 硬约束变成"缓冲装不下" => lead = 768/E（往下压）
+ *
+ * ⭐ 关键认知：lead 与谱面密度【基本无关】——
+ *    因为"存货事件数"与"该存货对应的音乐时间"恰好抵消。
+ *
+ * ⚠️ 只用【极密判定】才需要算 E，所以这里只在必要时遍历一次池。
+ */
+static uint32_t pool_compute_lead_ticks(void)
+{
+    /* 基准：抗一次 BLE 停顿（换算成音乐时间）。 */
+    uint64_t base = (uint64_t)(BLE_POOL_STALL_SEC * 1000.0f
+                               * (float)BLE_POOL_TICKS_PER_SEC / 1000.0f);
+    uint32_t lead = (base > BLE_POOL_LEAD_MIN_TICKS)
+                  ? (uint32_t)base : BLE_POOL_LEAD_MIN_TICKS;
+
+    if (s_frames == 0) {
+        return lead;                                /* 空池：用基准值 */
+    }
+
+    /* ---- 极密判定：算 E，看 768/E 是否比基准还小 ---- */
+    uint32_t t_first = ev_tick(pool_peek_word(0));
+    uint32_t t_last  = 0;
+    for (uint32_t i = 0; i < s_frames; i++) {
+        uint32_t t = ev_tick(pool_peek_word(i));
+        if (t > t_last) t_last = t;
+    }
+    uint32_t span = (t_last > t_first) ? (t_last - t_first) : 0;
+    if (span == 0) {
+        return lead;                        /* 全挤在一个 tick：用基准值 */
+    }
+
+    /* E 用百万分定点（⚠️ 千分标度会截断成 0，踩过：见 git 历史） */
+    uint32_t e_micro = (uint32_t)(((uint64_t)s_frames * 1000000ull) / span);
+    if (e_micro == 0) e_micro = 1;
+
+    uint64_t hi = ((uint64_t)BLE_FPGA_EVT_BUF_HIGH_WM * 1000000ull) / e_micro;
+
+    if (hi < lead) {
+        /* ⚠️ 太密：连基准的存货都装不下 => 只能按缓冲容量来 */
+        lead = (uint32_t)hi;
+        ESP_LOGW(TAG, "lead: score too DENSE (E=%.6f) -> capped by HIGH_WM: "
+                 "%lu ticks", (double)e_micro / 1000000.0, (unsigned long)lead);
+    } else {
+        ESP_LOGI(TAG, "lead: E=%.6f ev/tick, hi=%lu -> lead=%lu ticks (%.2f s)",
+                 (double)e_micro / 1000000.0, (unsigned long)hi,
+                 (unsigned long)lead,
+                 (double)lead * 60.0 / (120.0 * 960.0));
+    }
+    if (lead < BLE_POOL_LEAD_MIN_TICKS) lead = BLE_POOL_LEAD_MIN_TICKS;
+    return lead;
+}
+
 /* 开始放水（从池内第 0 帧起，谱面时间 0 对齐到当下） */
 void pool_start(void)
 {
@@ -490,11 +602,14 @@ void pool_start(void)
     s_t0_tick  = (uint32_t)ev_tick(pool_peek_word(0));
     s_t0_us    = esp_timer_get_time();
     /* 提前量门控的阈值：只在这里算一次，此后【不随换速重锚而变】 */
-    s_lead_end = (uint64_t)s_t0_tick + (uint64_t)BLE_POOL_LEAD_TICKS;
+    s_lead_ticks = pool_compute_lead_ticks();
+    s_lead_end   = (uint64_t)s_t0_tick + (uint64_t)s_lead_ticks;
     s_running  = true;
     xSemaphoreGive(s_lock);
-    ESP_LOGW(TAG, "pool START from tick=%lu at t0_us=%lld",
-             (unsigned long)s_t0_tick, (long long)s_t0_us);
+    ESP_LOGW(TAG, "pool START from tick=%lu at t0_us=%lld, lead=%lu ticks (%.1f s)",
+             (unsigned long)s_t0_tick, (long long)s_t0_us,
+             (unsigned long)s_lead_ticks,
+             (double)s_lead_ticks * 60.0 / (120.0 * 960.0));
 
     /* ⭐ 允许本曲再打一次收尾遥测（见 pool_pump 末尾的 "feed done"） */
     s_feed_done_logged = false;
@@ -525,11 +640,109 @@ bool pool_take_finished(void)
  * ⚠️ 保留池内容（⛔ 不清空）⇒ 若只是想停，之后仍可重播同一首。 */
 void pool_stop(void)
 {
+    /* 🔴🔴 2026-10-14 修：原来这里【只置标志，不补 note_off】⇒ 挂音。
+     *
+     * ═══ 用户实测报告 ═══
+     *   "在上位机按停止，esp32 好像没有发 note_off，导致最后一个音一直挂着"
+     *   => 查证属实，且这是【我方】缺陷，不是 FPGA 侧没处理：
+     *      FPGA 收到了某音的 note_on，却【永远等不到】配对的 note_off，
+     *      它当然只能一直响（FPGA 复位才停 —— 那是把整颗芯片清了）。
+     *
+     * ═══ 为什么会漏 ═══
+     *   pool_pump() 是【按 tick 顺序】喂帧的：遇到"还没到该发的 tick"就停。
+     *   => 停止那一刻，**已经开始响、但还没到它的 note_off 那一帧**的音，
+     *      就再也没有机会被关闭了。
+     *   ⚠️ 而 due_tick = pos_now - lead 让发送【领先播放】，
+     *      所以"已发出的 on"比"已发出的 off"多 —— 漏的正是它们。
+     *
+     * ═══ 修法（结构性）═══
+     *   停止时【扫一遍已发出的部分】，把"有 on 没 off"的音逐个补一帧 note_off。
+     *   为什么扫而不是维护"当前开着列表"：
+     *     ⭐ 扫是【自证】的 —— 结果只取决于"发过什么"，不取决于"我记得什么"。
+     *     记列表要在起播/换速/池重置多处维护生命周期，每处都可能漏。
+     *   ⚠️ 代价 O(已发帧数)，最坏 2 万帧 —— 停止不是热路径，可接受。
+     */
+    enum { MAX_OPEN = 64 };          /* 比 POLY_TARGET(32) 宽一倍，留余量 */
+    static uint32_t open_inc[MAX_OPEN];
+    static uint8_t  open_axis[MAX_OPEN];
+    uint32_t n_open = 0, dropped = 0, n_fix = 0;
+    uint32_t n_on = 0, n_off = 0, sent_idx = 0, frames = 0;
+
     xSemaphoreTake(s_lock, portMAX_DELAY);
+    if (!s_running) {
+        xSemaphoreGive(s_lock);
+        return;                       /* 本来就没在跑：不重复补 */
+    }
     s_running = false;
+    sent_idx = (s_play_idx < s_frames) ? s_play_idx : s_frames;
+    frames   = s_frames;
+
+    /* 扫已发出的部分，做 on/off 配对（⛔ 不扫没发的） */
+    for (uint32_t i = 0; i < sent_idx; i++) {
+        uint64_t w = pool_peek_word(i);
+        uint32_t k = ev_kind(w);
+        if (k != 0 && k != 1) continue;
+        uint32_t inc  = ev_inc(w);
+        uint8_t  axis = (uint8_t)((w >> 19) & 0xF);   /* AXIS 位域 [22:19] */
+        if (k == 0) {
+            n_on++;
+            bool merged = false;
+            for (uint32_t j = 0; j < n_open; j++) {
+                if (open_inc[j] == inc && open_axis[j] == axis) { merged = true; break; }
+            }
+            if (!merged) {
+                if (n_open < MAX_OPEN) {
+                    open_inc[n_open]  = inc;
+                    open_axis[n_open] = axis;
+                    n_open++;
+                } else {
+                    dropped++;                  /* 表满：计数，不静默 */
+                }
+            }
+        } else {
+            n_off++;
+            for (uint32_t j = 0; j < n_open; j++) {
+                if (open_inc[j] == inc && open_axis[j] == axis) {
+                    open_inc[j]  = open_inc[n_open - 1];
+                    open_axis[j] = open_axis[n_open - 1];
+                    n_open--;
+                    break;
+                }
+            }
+        }
+    }
+
+    /* 补发 note_off：tick 用【最后一个已发帧的 tick】，
+     * ⚠️ 与音乐时间一致 —— FPGA 侧按 tick 排序时不会跑到未来去。 */
+    uint32_t t_last = 0;
+    if (sent_idx > 0) t_last = ev_tick(pool_peek_word(sent_idx - 1));
+    for (uint32_t j = 0; j < n_open; j++) {
+        uint64_t w = ((uint64_t)(t_last & TICK_MASK) << TICK_SHIFT)
+                   | ((uint64_t)(open_inc[j] & INC_MASK) << INC_SHIFT)
+                   | ((uint64_t)(open_axis[j] & 0xF) << 19)
+                   | ((uint64_t)0 << 11)          /* vel = 0 */
+                   | ((uint64_t)1 << KIND_SHIFT); /* kind = 1 (note_off) */
+        uint8_t frame[FRAME_BYTES];
+        frame[0] = FRAME_HDR_EVENT;
+        for (int k = 0; k < 8; k++) {
+            frame[1 + k] = (uint8_t)((w >> (8 * (7 - k))) & 0xFF);
+        }
+        int wr = uart_write_bytes(BLE_UART_PORT, (const char *)frame, FRAME_BYTES);
+        if (wr == FRAME_BYTES) {
+            n_fix++;
+            s_sent_frames++;
+        } else {
+            ESP_LOGE(TAG, "STOP flush: uart_write_bytes short: %d", wr);
+        }
+    }
     xSemaphoreGive(s_lock);
-    ESP_LOGW(TAG, "pool STOP at frame %u/%u",
-             (unsigned)s_play_idx, (unsigned)s_frames);
+
+    ESP_LOGW(TAG, "pool STOP at frame %u/%u (on=%lu off=%lu) "
+             "=> flushed %lu note_off, still_open=%lu, dropped=%lu",
+             (unsigned)sent_idx, (unsigned)frames,
+             (unsigned long)n_on, (unsigned long)n_off,
+             (unsigned long)n_fix, (unsigned long)(n_open - n_fix),
+             (unsigned long)dropped);
 }
 
 /* ⭐ 已放出的帧数（2026-09-30 新增）—— 给"起播触发"打日志用。 */
@@ -575,11 +788,37 @@ void pool_stats(pool_stats_t *out)
      * 消费方算法：heard_tick = play_tick - t0_tick - lead_ticks */
     out->play_tick  = s_play_tick;
     out->t0_tick    = s_t0_tick;
-    out->lead_ticks = (uint32_t)BLE_POOL_LEAD_TICKS;
-    /* 本曲总长 = 末帧的 tick。取不到（池空）就给 0 => 消费方退回别的显示方式。 */
-    out->total_tick = (s_frames > 0)
-                    ? (uint32_t)ev_tick(pool_peek_word(s_frames - 1)) : 0;
+    out->lead_ticks = s_lead_ticks;   /* 2026-10-14：按谱面算出来的，⛔ 不是固定值 */
+    /* 本曲总长 = 池内【所有帧 tick 的最大值】。
+     *
+     * 🔴🔴 2026-10-14 修：原来取的是「末帧的 tick」，那是错的。
+     * ═══ 为什么错（实测踩到）═══
+     * 谱面可以是【多轴交织】的 —— 每个轴是一条独立的时间线，
+     * 交织存放后**整池的 tick 不单调**，末帧未必是时间最晚的那一帧。
+     * 实测（demo_scale.hex，111 帧）：
+     *     axis=0:  31 帧, tick 0 .. 7200
+     *     axis=1:  48 帧, tick 8160 .. 100320     <= 时间最晚的在轴 1
+     *     axis=2:  32 帧, tick 3840 .. 19200      <= 而末帧属于轴 2
+     *   => 末帧 tick = 19200，但全曲真正到 100320（52.25 秒 vs 10 秒）
+     * 🔴 后果：消费方（网页 / 串口屏）拿 19200 当分母
+     *   => 播放进度条【跑飞 / 早早到 100%】——
+     *      这就是"灌谱进度与播放进度对不上"的根因。
+     * ⭐ 取最大值才对：它是"这一曲要播多久"的唯一正确来源。
+     * ⚠️ 代价：O(帧数) 每次 pool_stats() 都扫一遍。
+     *   实测池上限 18204 帧 => 最多 1.8 万次比较，可接受；
+     *   ⭐ 且 pool_stats() 只在客户端轮询时调用（~2 Hz），不是热路径。 */
+    out->total_tick = 0;
+    for (uint32_t i = 0; i < s_frames; i++) {
+        uint32_t t = ev_tick(pool_peek_word(i));
+        if (t > out->total_tick) {
+            out->total_tick = t;
+        }
+    }
     out->pos_valid  = s_running ? 1 : 0;
+
+    /* 2026-10-14：实测速率与周期（见 pool.h 的说明） */
+    out->rate_tick_per_s = s_rate_tick_per_s;
+    out->pump_period_us  = s_pump_period_us;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -643,12 +882,38 @@ void pool_pump(void)
      *   曲长 20 bit/960PPQN 早已超出任何真实曲子 => 不会溢出。 */
     s_play_tick = (uint32_t)pos_now;
 
+    /* 2026-10-14：算【实测速率】与【实测 pump 周期】。
+     * 算法：与上一次调用比，看墙钟过了多少、位置推进了多少。
+     * ⚠️ 只在"位置真的推进了"时更新 —— 否则提前量期间（位置不动但时间在走）
+     *    会把速率算成 0，掩盖真实值。 */
+    {
+        int64_t now_us2 = esp_timer_get_time();
+        if (s_rate_last_us != 0) {
+            int64_t d_us = now_us2 - s_rate_last_us;
+            int64_t d_pos = pos_now - (int64_t)s_rate_last_pos;
+            if (d_us > 0) {
+                /* pump 周期：直接就是两次调用的间隔（滑动一下，避免抖动） */
+                uint32_t p = (uint32_t)d_us;
+                s_pump_period_us = (s_pump_period_us == 0)
+                                 ? p : (uint32_t)((s_pump_period_us * 7u + p) / 8u);
+            }
+            if (d_us > 0 && d_pos > 0) {
+                uint32_t r = (uint32_t)((uint64_t)d_pos * 1000000ull
+                                        / (uint64_t)d_us);
+                s_rate_tick_per_s = (s_rate_tick_per_s == 0)
+                                  ? r : (uint32_t)((s_rate_tick_per_s * 7u + r) / 8u);
+            }
+        }
+        s_rate_last_us  = now_us2;
+        s_rate_last_pos = (uint64_t)pos_now;
+    }
+
     /* 🔴 2026-10-01 修 bug：门控原来写 `elapsed_ticks > s_t0_tick + LEAD`，
      *    把"时长"与"位置"混着比。起播时 s_t0_tick=0 恰好等价，但中段换速
      *    重锚成一个大位置后条件不可满足 => 喂水停住（详见 s_lead_end 的注释）。
      *    ⭐ 现在比【位置】：pos_now > s_lead_end（一次性阈值）。 */
     if (pos_now > (int64_t)s_lead_end) {
-        due_tick   = pos_now - (int64_t)BLE_POOL_LEAD_TICKS;
+        due_tick   = pos_now - (int64_t)s_lead_ticks;
         allow_emit = true;
     } else {
         due_tick   = 0;
@@ -863,7 +1128,7 @@ void task_pool_pump(void *arg)
                 uint32_t tot = (s_frames > 0)
                              ? (uint32_t)ev_tick(pool_peek_word(s_frames - 1)) : 0;
                 hmi_set_play_pos(s_play_tick, s_t0_tick,
-                                 (uint32_t)BLE_POOL_LEAD_TICKS, tot, true);
+                                 (uint32_t)s_lead_ticks, tot, true);
             }
 
             /* 必须【至少 1 tick】—— `BLE_POOL_PUMP_PERIOD_MS = 2`

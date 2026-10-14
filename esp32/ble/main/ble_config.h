@@ -268,6 +268,37 @@
  */
 #define BLE_POOL_LEAD_TICKS      20000u
 
+/* 2026-10-14 新增：提前量的【下限】，以及 FPGA 侧缓冲的水位常量。
+ *
+ * 背景：提前量由固定值改成了【按谱面密度动态算】（见 pool.c 的
+ *   pool_compute_lead_ticks）。算出的值夹在 [MIN, LEAD_TICKS] 之间。
+ *   · LEAD_TICKS（20000）= 上限，按最密谱面定的，别超过
+ *   · MIN = 下限，⚠️ 再稀的谱面也得留一点，否则 BLE 一抖就 underrun
+ */
+#define BLE_POOL_LEAD_MIN_TICKS   1200u    /* 0.625 秒 @120BPM/960PPQN */
+
+/* 抗一次 BLE 停顿所需的【音乐时间】（秒）。
+ * ⭐ 为什么提前量基本就是个常数：
+ *    提前量 = "抗住一次停顿所需的事件存货" 对应的音乐时间，
+ *    而"存货 = 该停顿期间本会消耗的事件数" => 两者恰好抵消
+ *    => 结果与谱面密度【无关】。
+ * ⚠️ 0.1 秒是【我方估的】（BLE 连接间隔通常 << 100 ms），
+ *    ⛔ 不是 FPGA 侧给的。若要更稳，应收紧到实测的最大停顿。
+ * 📌 详见 esp32/tools/_lead_model_check.py（三版模型的推演）。 */
+#define BLE_POOL_STALL_SEC        0.10f
+
+/* 音乐速率（tick/s）@120BPM / PPQN 960 —— 用于把"秒"换算成 tick。
+ * ⚠️ 若将来支持换速，这个值会随 tempo 事件变；本处的提前量只在
+ *    起播时算一次，故用默认速率是合理的（换速时会重锚，不影响提前量）。 */
+#define BLE_POOL_TICKS_PER_SEC    1920.0f
+
+/* FPGA 侧事件缓冲的水位（权威出处：FPGA 线 2026-10-14 答复 §二，
+ *   对应 rtl/w3c/evt_buf.v 的 DEPTH=1024 / LOW_WM=256 / HIGH_WM=768）。
+ * ⚠️ 这三个数【不是我方猜的】—— 是 FPGA 侧给的。改它们前先问 FPGA 侧。 */
+#define BLE_FPGA_EVT_BUF_DEPTH    1024u
+#define BLE_FPGA_EVT_BUF_LOW_WM   256u
+#define BLE_FPGA_EVT_BUF_HIGH_WM  768u    /* 安全提前量上限（事件数） */
+
 /* 默认 tick_inc（120 BPM @ PPQN=960, 50 MHz）= round(2^32*2*960/50e6) */
 #define BLE_POOL_DEFAULT_TICK_INC  164927u
 
