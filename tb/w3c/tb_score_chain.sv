@@ -96,7 +96,9 @@ module tb_score_chain;
         .evt_valid_i(eb_rd_v), .evt_data_i(eb_rd_d), .evt_rd_o(ps_rd),
         .note_valid_o(note_v), .note_data_o(note_d),
         .tempo_applied_o(tempo_ap), .evt_underrun_o(underrun),
-        .evt_cnt_o(evt_cnt), .tempo_cnt_o(tempo_cnt), .cur_tick_o(cur_tick)
+        .evt_cnt_o(evt_cnt), .tempo_cnt_o(tempo_cnt), .cur_tick_o(cur_tick),
+        //  ⭐ 2026-10-14：⭐ 新增 `lead_i` ⇒ **必须显式接 0**（⭐ 悬空 = Z ⇒ X 传播 ✅）
+        .lead_i(20'd0)
     );
 
     // ── ⭐ 打点：⭐ 记录"第几个 tick 上出了哪条事件" ✅ ────────────────────

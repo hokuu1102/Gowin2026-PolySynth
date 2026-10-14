@@ -99,7 +99,9 @@ module tb_play_seq;
         .evt_valid_i(evt_valid_i), .evt_data_i(evt_data_i), .evt_rd_o(evt_rd),
         .note_valid_o(note_valid), .note_data_o(note_data),
         .tempo_applied_o(tempo_applied), .evt_underrun_o(underrun),
-        .evt_cnt_o(evt_cnt), .tempo_cnt_o(tempo_cnt), .cur_tick_o(cur_tick)
+        .evt_cnt_o(evt_cnt), .tempo_cnt_o(tempo_cnt), .cur_tick_o(cur_tick),
+        //  ⭐ 2026-10-14：⭐ 新增 `lead_i` ⇒ **必须显式接 0**（⭐ 悬空 = Z ⇒ X 传播 ✅）
+        .lead_i(20'd0)
     );
 
     // ── A8 ─────────────────────────────────────────────────────────────────

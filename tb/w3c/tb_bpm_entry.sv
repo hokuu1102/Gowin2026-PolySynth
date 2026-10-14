@@ -71,7 +71,11 @@ module tb_bpm_entry;
         .evt_underrun_o (underrun),
         .evt_cnt_o      (evt_cnt),
         .tempo_cnt_o    (tempo_cnt),
-        .cur_tick_o     (cur_tick)
+        .cur_tick_o     (cur_tick),
+        //  ⭐ 2026-10-14：⭐ 新增 `lead_i` ⇒ **必须显式接 0**
+        //     ⚠️ 不接 = 悬空 = `Z` ⇒ 🔴 比较判据变 `X` ⇒ 事件流全乱
+        //        （⭐ 与 `ctrl_col_i` 同族 —— 本轮全量回归刚抓过 ✅）
+        .lead_i         (20'd0)          // ⭐ 0 = 演奏模式（⭐ 逐位不变 ✅）
     );
 
     integer errors = 0;
