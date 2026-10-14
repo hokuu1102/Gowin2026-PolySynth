@@ -22,6 +22,10 @@ Branch: `codex/fix-main-bugs-20261014`. Original audited main: `9d30dd3`. No rem
 - Fresh physical candidate at `build/fix_pnr01`: source `be75440`, empty implementation directory, explicit synthesis then PnR, input byte hashes 73/73 match. Completed, exit 0; sys Fmax 55.361 MHz, hold 0.128 ns passes, but strict setup -1.663 ns / 66 violated endpoints FAIL. See `pnr01/`. Unqualified bitstream archived without replacing main or prior files. Required hold gate remains >= 0.05 ns; original main is 0.047 ns and fails it despite native 0 setup/hold violations.
 - Hardware acceptance: NOT_RUN.
 
+## Subsequent one-module timing experiment
+
+Notice next-state expression only, with no added cycle or protocol change: public UART/SPI/I2S outputs match for 155459 system cycles; original default-speed atomic-export test passes before and after; actual slide E2E passes 14 checks with corrected simulation-only SPI acceleration. Fresh PnR candidate 02 passes unchanged 16.4 ns setup target and hold >= 0.05 ns: setup 0.004 ns, hold 0.211 ns, 0 setup / 0 hold violations, sys Fmax 60.989 MHz, CLS 25096. See `notice_expr/` for raw reports and archive hash. Keep this measured improvement; rollback commit for the notice RTL is its parent. Main and remote unchanged; board and full-suite long regressions remain pending.
+
 ## Protocol scope confirmed by user
 
 Actual `rec_dump.v` emits legacy 9-byte A5+64-bit data frames. ESP32 documentation requests typed/checksummed 11-byte bulk frames and a separate 14-byte live uplink. The latter is not implemented in this version. User explicitly chose: retain the export format, this batch only repairs core and timing. Thus no changes to rec_dump framing, ESP32 protocol or PC replay tools are authorized in this batch. This limitation remains documented, not misreported as repaired.
