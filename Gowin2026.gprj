@@ -171,6 +171,13 @@
         <File path="rtl/w3c/evt_buf.v" type="file.verilog" enable="1"/>
         <!-- U-6: event merge (hand-play + metronome into note_manager's single port) -->
         <File path="rtl/w3c/evt_merge.v" type="file.verilog" enable="1"/>
+        <!-- 2026-10-14: upstream frame v1.1 (14 B real-time note event stream:
+             0xA5, type, seq, tick32, axis, phase_inc32, vel, XOR).  It carries the
+             FULL 32-bit phase_inc, which the old 9 B format truncates to 21 bits.
+             NOTE: never write two consecutive hyphens inside an XML comment.
+             The Gowin parser rejects the whole project with "invalid project
+             file" and no line number, which looks exactly like a broken path. -->
+        <File path="rtl/w3c/evt_upstream.v" type="file.verilog" enable="1"/>
         <!-- 2026-09-29 new: event-domain LOOPER (T37 single-layer record+replay,
              T39 "loop while you play").  Event domain only - it emits events,
              never audio, so there is no new compliance surface.

@@ -74,7 +74,7 @@ module rec_dump #(
                      S_READ  = 3'd1,   // ⭐ 给地址（⭐ 本拍末尾才可见 ✅）
                      S_WAIT  = 3'd2,   // ⭐ 地址已可见 ⇒ ⭐ BSRAM 本拍出数 ✅
                      S_LATCH = 3'd3,   // ⭐ 数据有效 ⇒ ⭐ 装进移位器 ✅
-                     S_PUSH  = 3'd4,   // ⭐ 逐字节推（⭐ 9 个 ✅）
+                     S_PUSH  = 3'd4,   // ⭐ 逐字节推（⭐ 14 个 ✅）
                      S_DONE  = 3'd5,
                      S_STATUS_LOAD = 3'd6,
                      S_STATUS_PUSH = 3'd7;
@@ -82,23 +82,60 @@ module rec_dump #(
     reg [2:0]        st;
     reg [ADDR_W-1:0] addr_r;      // ⭐ 当前地址
     reg [ADDR_W-1:0] last_r;      // ⭐ 最后一条的地址（⭐ 启动时锁存 ⇒ ⛔ 不怕 `cnt_i` 中途变 ✅）
-    reg [71:0]       sr;          // ⭐ `{HDR, word}` ⇒ ⭐ 左移 9 次发完 ✅
-    reg [3:0]        bi;          // ⭐ 0..8（⭐ 9 个字节 ✅）
+    //  ⭐⭐ 2026-10-14：⭐ **帧宽 9 B → 14 B**（⭐ 改成 v1.1 上行格式 ✅）
+    //     🔴 **为什么**：⭐ 原来发 `HDR + 8 B 事件字`（⭐ **9 B**）
+    //        ⇒ ⚠️ **没有类型字节、没有校验字节**
+    //        ⇒ 🔴 **ESP32 的 v1.1 解析器读 `[1]` 得到 `0x00`** ⇒ **未知类型** ⇒ **一直重同步** ✅
+    //     📌 ⭐ **实测**：⭐ 用户 2026-10-14 的串口 dump 正是这个问题
+    //        （⭐ `帧 0 · 未知类型 8 · 重同步 2411` ✅）
+    //     📌 ⭐ 而且那 8 字节**本身是对的** —— ⭐ 逐位解码是合法下行事件字
+    //        （⭐ `tick=149` 单调递增 · `axis=5` · `vel=255` · `kind=1` note_off ✅）
+    //        ⇒ 🔴 **数据对、封装不对** ✅
+    //     ✅ **修法**：⭐ 改成与 `evt_upstream` **同构的 14 B v1.1 帧**：
+    //        `[0]0xA5 [1]type [2]seq [3..6]tick32 [7]axis [8..11]inc32 [12]vel [13]XOR[0..12]`
+    //     📌 ⚠️ **代价（⭐ 如实说）**：⭐ **失去"可直接回灌"**（⭐ 原设计意图）——
+    //        ⚠️ 但那个用途本来就该走 **PC 侧重打包**（⭐ 14 B → 9 B 是一次简单转换 ✅），
+    //        ⭐ 而 14 B 帧带**全 32 位 `inc`** ⇒ ⭐ 保真度反而**更高** ✅
+    //     📌 ⭐ 依据：⭐ `files/20-代码/FPGA侧答复-鼓谱发声与XOR更正-20261014.md` §三 ✅
+    reg [111:0]      sr;          // ⭐ **14 字节**（⭐ 左移 14 次发完 ✅）
+    reg [3:0]        bi;          // ⭐ 0..13（⭐ 14 个字节 ✅）
+    reg [7:0]        seq_r;       // ⭐ 帧序号（⭐ v1.1 的 `[2]` ✅）
     reg [111:0] status_sr;
     function [7:0] hex_ascii;
         input [3:0] n;
         begin hex_ascii = (n < 10) ? (8'h30 + {4'd0,n}) : (8'h37 + {4'd0,n}); end
     endfunction
+    //  ⭐⭐ 2026-10-14：⭐ **v1.1 帧【组合】装配**（⭐ 从 `data_i` 的 64 位下行字导出 ✅）
+    //     📌 ⭐ 字段映射与 `rtl/top.v:4506` 的位域表、以及 `evt_upstream.v` **逐位一致** ✅
+    wire [7:0]  f_type = (data_i[10:9] == 2'd1) ? 8'h02 : 8'h01;   // ⭐ kind==1 ⇒ note_off
+    wire [7:0]  f_seq  = seq_r;
+    wire [31:0] f_tick = {12'd0, data_i[63:44]};                    // ⭐ tick 20 位 ⇒ 零扩展 32 位
+    wire [7:0]  f_axis = {4'd0, data_i[22:19]};
+    wire [31:0] f_inc  = {1'b0, data_i[43:23], 10'b0};              // ⭐ 还原**全 32 位** phase_inc ✅
+    wire [7:0]  f_vel  = data_i[18:11];
+    //  ⭐ 校验 = XOR 覆盖 **[0..12]（⭐ 含帧头 0xA5）** —— ⭐ 与 ESP32 侧同口径 ✅
+    wire [7:0]  f_ck   = HDR ^ f_type ^ f_seq
+                       ^ f_tick[31:24] ^ f_tick[23:16] ^ f_tick[15:8] ^ f_tick[7:0]
+                       ^ f_axis
+                       ^ f_inc[31:24] ^ f_inc[23:16] ^ f_inc[15:8] ^ f_inc[7:0]
+                       ^ f_vel;
+    wire [111:0] f_frame = { HDR, f_type, f_seq,
+                             f_tick[31:24], f_tick[23:16], f_tick[15:8], f_tick[7:0],
+                             f_axis,
+                             f_inc[31:24], f_inc[23:16], f_inc[15:8], f_inc[7:0],
+                             f_vel, f_ck };
+
     assign push_o = ((st == S_PUSH) || (st == S_STATUS_PUSH)) && ready_i;
-    assign byte_o = (st == S_STATUS_PUSH) ? status_sr[111:104] : sr[71:64];
+    assign byte_o = (st == S_STATUS_PUSH) ? status_sr[111:104] : sr[111:104];
 
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
             st          <= S_IDLE;
             addr_r      <= {ADDR_W{1'b0}};
             last_r      <= {ADDR_W{1'b0}};
-            sr          <= 72'd0;
+            sr          <= 112'd0;     // ⭐ 2026-10-14：⭐ 14 字节（⭐ 原来 72 位 = 9 字节 ✅）
             bi          <= 4'd0;
+            seq_r       <= 8'd0;       // ⭐ 2026-10-14：⭐ 帧序号复位 ✅
             status_sr   <= 112'd0;
             dump_en_o   <= 1'b0;
             dump_addr_o <= {ADDR_W{1'b0}};
@@ -140,9 +177,17 @@ module rec_dump #(
                 end
 
                 // ── ⭐ 数据有效 ⇒ ⭐ 装移位器 ─────────────────────────────
+                //  ⭐⭐ 2026-10-14：⭐ **装【14 B v1.1 帧】**（⭐ 组合装配见上面 `f_frame` ✅）
                 S_LATCH: begin
-                    sr <= {HDR, data_i};
+                    sr <= f_frame;
                     bi <= 4'd0;
+                    //  ⭐⭐ 2026-10-14：⭐ **帧序号自增**（⭐ v1.1 的 `[2]` ✅）
+                    //     🔴 **我第一版【漏了这一行】** ⇒ ⚠️ 每帧 `seq` 都是 0
+                    //        ⇒ 🔴 **`tb_rec_dump` 4 条红**（⭐ seq 字节 ＋ 被它带偏的 XOR 字节 ✅）
+                    //     📌 ⭐ **教训**：⭐ 新加一个字段时，
+                    //        ⛔ **别只写"声明 ＋ 复位"** —— ⭐ **真正让它动起来的是自增/赋值那一行** ✅
+                    //        （⭐ 而声明和复位**都在**，所以读代码时很容易以为已经写全了 ✅）
+                    seq_r <= seq_r + 8'd1;
                     st <= S_PUSH;
                     //  ⭐ 截断统计（⭐ 饱和 ✅）
                     if (clip_i && (clip_cnt_o != 16'hFFFF))
@@ -152,9 +197,8 @@ module rec_dump #(
                 // ── ⭐ 逐字节推（⭐ `ready_i` 节流 ⇒ ⛔ 不丢字节 ✅）────────
                 S_PUSH: begin
                     if (ready_i) begin
-                        sr     <= {sr[63:0], 8'd0};   // ⭐ 左移一个字节 ✅
-                        if (bi == 4'd8) begin
-                            //  ⭐ 9 个字节发完（⭐ `bi` = 0..8 ✅）
+                        sr     <= {sr[103:0], 8'd0};  // ⭐ 左移一个字节（⭐ 112 位 = 14 字节 ✅）
+                        if (bi == 4'd13) begin        // ⭐ 14 个字节发完（⭐ `bi` = 0..13 ✅）
                             bi <= 4'd0;
                             if (frame_cnt_o != 16'hFFFF)
                                 frame_cnt_o <= frame_cnt_o + 16'd1;

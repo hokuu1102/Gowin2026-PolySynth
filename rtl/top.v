@@ -588,6 +588,41 @@ parameter integer TEST_MODE_EN       = 1,
         else if (cmd_slide_req) slide_on_r <= ~slide_on_r;
     end
 
+    //  ⭐⭐ 2026-10-14：⭐ **实时上行（14 B v1.1 事件流）的总开关** ✅
+    //     ⭐ `'O'` 切换（⭐ 与 `slide_on_r` **完全同构** ✅）
+    //     📌 **复位 = 关** ⇒ ⭐ 行为与"加上行之前"**逐位一致** ✅
+    //     📌 ⭐ **为什么必须有开关**：⚠️ 上行会**持续占用 TX**（⭐ 每条音符 14 B）
+    //        ⇒ 🔴 常开会把命令回包挤到后面、⭐ 串口助手看到一堆噪声 ✅
+    wire cmd_upstream_req;      // ⭐ 'O' ⇒ 实时上行 开/关切换
+    reg  up_enable_r;
+    always @(posedge clk) begin
+        if (!rst_n_sync)        up_enable_r <= 1'b0;
+        else if (cmd_upstream_req) up_enable_r <= ~up_enable_r;
+    end
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-14：⭐ **`'U'` 指引模式** ✅
+    //     ⭐ 语义：⭐ 灌谱**只亮 LED 指引** ＋ ⭐ **谱面对应的节拍器/鼓机照响**，
+    //        🔴 **但音符不出声** ✅
+    //
+    //  ⭐ **静音点就是 `seq_arb.score_valid_i`**（⭐ 见下面 `u_seq_arb` 的接线 ✅）
+    //     🔴 **为什么正好在那里**：⭐ `guide_lamp`（⭐ LED 指引）读的是**它上游**的
+    //        `ps_note_valid`（⭐ `play_seq` 的原始输出 ✅）
+    //        ⇒ ⭐ **闸住进 `seq_arb` 那一路，⭐ LED 指引照常工作** ✅
+    //     📌 ⭐ 而**节拍器/鼓机走【源 B】（`SRC_AUX`）** ⇒ ⛔ **完全不受影响**
+    //        ⇒ ⭐ 正好是用户要的"**谱面对应的节拍器/鼓机照响**" ✅
+    //
+    //  📌 ⭐ **复位默认 = 0（普通演奏模式）** ⇒ ⛔ **零回归** ✅
+    //  📌 ⭐ 依据：⭐ `files/20-代码/LED指引-实现计划清单-20261014.md` §L1 ✅
+    //  📌 ⭐ 命令 `'U'` 已在 `calib_cmd.v` 加好（⭐ 9 处仪式 ✅）
+    //  ═══════════════════════════════════════════════════════════════════════
+    wire cmd_guide_req;         // ⭐ 'U' ⇒ 指引模式 开/关切换
+    reg  guide_only_r;
+    always @(posedge clk) begin
+        if (!rst_n_sync)        guide_only_r <= 1'b0;
+        else if (cmd_guide_req) guide_only_r <= ~guide_only_r;
+    end
+
     //  ⭐⭐ 2026-09-29 合并（⭐ 队友版 + 方案 B）：⭐ **当前音色寄存器**
     //   ⚠️ **必须声明在【模块层】** —— ⭐ 队友的 `tb\top\tb_top_timbre_button.sv` 用
     //      ⭐ **`dut.timbre_sel_r`**（⭐ 模块层路径）观察它 ⇒ ⚠️ 放在 generate 里**绑不上**
@@ -642,6 +677,91 @@ parameter integer TEST_MODE_EN       = 1,
         .enc_state  (),
         .enc_err    ()
     );
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-14：⭐ **EC11 编码器接进 `top.v`** ✅
+    //     ⭐ 依据：`files/20-代码/控制板16键功能映射-20261013.md` §2.2 ✅
+    //        · ⭐ **旋转** = 改"当前对象"的值（⭐ 相对步进 ✅）
+    //        · ⭐ **按压** = **切换对象**：⭐ `BPM` ⇄ `变调` ✅
+    //     📌 ⭐ `debounce.sv` 里 **EC11 解码是现成的**（⭐ 格雷码 4 步/定位、
+    //        ⭐ 去抖、⭐ 非法跳变报 `enc_err` ✅）⇒ 🔴 **不写新解码器** ✅
+    //     ⚠️ ⭐ **必须先 `sync_input` 打两拍再去抖**（⭐ `K-62` 纪律，
+    //        ⭐ 与上面 `u_timbre_btn_sync` **完全同一条链** ✅）
+    //     📌 ⭐ 三根都过同步：⭐ `debounce` 内部 `enc_norm` 按 `ACTIVE_LOW=1` 取反
+    //        ⇒ ⭐ 上拉输入"松开 = 高"被归一成 0 ✅
+    // ═══════════════════════════════════════════════════════════════════════
+    wire enc_a_s  = (enc_a_i  === 1'b0) ? 1'b0 : 1'b1;   // ⭐ Z-safe
+    wire enc_b_s  = (enc_b_i  === 1'b0) ? 1'b0 : 1'b1;
+    wire enc_sw_s = (enc_sw_i === 1'b0) ? 1'b0 : 1'b1;
+    wire enc_a_sy, enc_b_sy, enc_sw_sy;
+    sync_input #(.W(1), .STAGES(2), .RESET_VAL(1'b1)) u_enc_a_sync (
+        .clk(clk), .rst_n(rst_n_sync), .async_in(enc_a_s),  .sync_out(enc_a_sy));
+    sync_input #(.W(1), .STAGES(2), .RESET_VAL(1'b1)) u_enc_b_sync (
+        .clk(clk), .rst_n(rst_n_sync), .async_in(enc_b_s),  .sync_out(enc_b_sy));
+    sync_input #(.W(1), .STAGES(2), .RESET_VAL(1'b1)) u_enc_sw_sync (
+        .clk(clk), .rst_n(rst_n_sync), .async_in(enc_sw_s), .sync_out(enc_sw_sy));
+
+    wire enc_cw_w, enc_ccw_w, enc_sw_down_w, enc_err_w;
+    debounce #(
+        .NKEY       (1),
+        .CLK_HZ     (50_000_000),
+        .DB_MS      (5),
+        .ACTIVE_LOW (1)
+    ) u_enc_debounce (
+        .clk        (clk),
+        .rst_n      (rst_n_sync),
+        .key_in     (1'b1),          // ⭐ 本实例不接"直连按键"（⛔ 只用编码器那部分）
+        .key_level  (),
+        .key_down   (),
+        .key_up     (),
+        .enc_a      (enc_a_sy),
+        .enc_b      (enc_b_sy),
+        .enc_sw     (enc_sw_sy),
+        .enc_a_lvl  (),
+        .enc_b_lvl  (),
+        .enc_sw_lvl (),
+        .enc_sw_down(enc_sw_down_w),
+        .enc_sw_up  (),
+        .enc_cw     (enc_cw_w),
+        .enc_ccw    (enc_ccw_w),
+        .enc_state  (),
+        .enc_err    (enc_err_w)
+    );
+
+    //  ⭐⭐ **对象切换**：⭐ 按压 ⇒ `BPM` ⇄ `变调` ✅
+    reg enc_obj_r;                   // ⭐ 0 = BPM · 1 = 变调
+    always @(posedge clk) begin
+        if (rst_n_sync !== 1'b1) enc_obj_r <= 1'b0;
+        else if (enc_sw_down_w)  enc_obj_r <= ~enc_obj_r;
+    end
+
+    //  ⭐⭐ **÷4：⭐ 一次"定位"（detent）= 4 个格雷步** ✅
+    //     📌 ⭐ `debounce.v` 原文：*"`enc_cw`/`enc_ccw` 1 周期脉冲：EC11 每走一个
+    //        **格雷步**产生一次（**4 步 / 1 定位**）"* ✅
+    //     🔴 **不分频的后果**：⭐ 转**一格** ⇒ ⭐ **+4 BPM / ±4 半音** ——
+    //        ⚠️ 与映射文档 §2.2.1 的"**一格一个半音**、⭐ 精调 ±1 半音"**不符** ✅
+    //     ✅ **修法**：⭐ 数 **4 个同向脉冲** ⇒ ⭐ 才出一"步" ✅
+    //     📌 ⭐ 上/下计数：⭐ 反向转会把计数**抵回去** ⇒ ⭐ 来回抖动不会累积假步 ✅
+    reg [1:0] enc_div_q;
+    always @(posedge clk) begin
+        if (rst_n_sync !== 1'b1) enc_div_q <= 2'd0;
+        else if (enc_cw_w)       enc_div_q <= enc_div_q + 2'd1;
+        else if (enc_ccw_w)      enc_div_q <= enc_div_q - 2'd1;
+    end
+    wire enc_step_cw_w  = enc_cw_w  & (enc_div_q == 2'd3);   // ⭐ 第 4 个脉冲 = 一步 ✅
+    wire enc_step_ccw_w = enc_ccw_w & (enc_div_q == 2'd0);   // ⭐ 反向同理 ✅
+
+    //  ⭐⭐ **旋转 ⇒ 当前对象 ±1** ✅
+    //     · ⭐ 对象 = BPM  ⇒ `bpm_up_i`/`bpm_dn_i`（⭐ `play_seq` 相对步进 ±1 BPM ✅）
+    //     · ⭐ 对象 = 变调 ⇒ `trans_up_req`/`trans_down_req`（⭐ 与键 `F`/`G` **同一条下游** ✅）
+    //     📌 ⭐ 变调那两条**在下面与 `cc_*`/`km_*` 一起 OR**（⭐ 三来源合流 ✅）
+    //     ⚠️ ⭐ **BPM 这两条不过小节对齐器** —— ⭐ 旋钮是"边转边听"，
+    //        ⛔ 等一小节反而难用；⭐ 而串口 `'Q'` 是"设一个目标值"⇒ ⭐ 对齐 ✅
+    wire enc_bpm_up_w   = enc_step_cw_w  & ~enc_obj_r;
+    wire enc_bpm_dn_w   = enc_step_ccw_w & ~enc_obj_r;
+    wire enc_trans_up_w = enc_step_cw_w  &  enc_obj_r;
+    wire enc_trans_dn_w = enc_step_ccw_w &  enc_obj_r;
+
     always @(posedge clk) begin
         if (rst_n_sync !== 1'b1)
             timbre_sel_r <= 2'd0;                       // ⭐ 上电 = BASS
@@ -1083,6 +1203,50 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     wire cmd_loop_clear_req;    // ⭐ 'C' ⇒ 清空该层
     //  ⭐ `cmd_timbre_req`（'I'）**已在上方模块层声明**（⭐ S2 按键块要用它 ✅）
 
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-14：⭐ **控制板 4×4 矩阵 16 键 接进 `top.v`** ✅
+    //
+    //  ⭐ 依据：`files/20-代码/控制板16键功能映射-20261013.md`（⭐ 定稿表 ✅）
+    //  ⭐ 链路：`u_ctrl_keypad`（⭐ 逐行扫描 + 扫描式去抖 ✅）
+    //          ⇒ `u_ctrl_key_map`（⭐ 16 键 → 命令脉冲 ✅）
+    //     ⚠️ ⭐ **两者【都已写好】、且都被 `tb_ctrl_keypad` 覆盖并 PASS**
+    //        ⇒ 🔴 本轮**只做接线**，⛔ **一行逻辑都不改** ✅
+    //
+    //  ⭐⭐ **接法：与 `calib_cmd` 的输出【OR】**（⭐ 模块头注释的设计意图 ✅）
+    //     📌 为什么 OR 而不是替换：⭐ `calib_cmd` 的下游**只认这一组 `*_req` 脉冲**
+    //        ⇒ ⭐ 串口与实体键**来源解耦** ⇒ ⭐ 加按键**不用动任何下游模块** ✅
+    //     🔴 **必须把 `calib_cmd` 的输出改接到 `cc_*`** ——
+    //        ⚠️ 否则 `cmd_*` 会有**两个驱动源** ⇒ 🔴 综合报**多驱动** ✅
+    //     📌 ⭐ 没被 16 键映射到的命令（⭐ `X`/`P`/`V`/`N`/`R`/`L`/`H`/`Y`/`Q`/`O`）
+    //        **保持原样**（⭐ 它们要数值或属诊断 ⇒ 归串口 ✅）
+    // ═══════════════════════════════════════════════════════════════════════
+    wire cc_tare_req, cc_span_req, cc_test_mode_req, cc_loop_clear_req;
+    wire cc_timbre_req, cc_scope_mode_req, cc_met_req, cc_drum_pattern_req;
+    wire cc_keydrum_req, cc_trans_down_req, cc_trans_up_req, cc_gear_next_req;
+    wire cc_slide_req, cc_mode_sw_req;
+    //  ⭐ 键盘侧（⭐ `u_ctrl_key_map` 的输出 ✅）
+    wire km_tare_req, km_span_req, km_test_mode_req, km_loop_clear_req;
+    wire km_timbre_req, km_scope_mode_req, km_met_req, km_drum_pattern_req;
+    wire km_keydrum_req, km_trans_down_req, km_trans_up_req, km_gear_next_req;
+    wire km_slide_req, km_mode_req, km_fb_piano, km_fx_req;
+    //  ⭐⭐ **串口 OR 实体键** ⇒ ⭐ 下游一个字节都不用改 ✅
+    assign cmd_tare_req         = cc_tare_req         | km_tare_req;
+    assign cmd_span_req         = cc_span_req         | km_span_req;
+    assign cmd_test_mode_req    = cc_test_mode_req    | km_test_mode_req;
+    assign cmd_loop_clear_req   = cc_loop_clear_req   | km_loop_clear_req;
+    assign cmd_timbre_req       = cc_timbre_req       | km_timbre_req;
+    assign cmd_scope_mode_req   = cc_scope_mode_req   | km_scope_mode_req;
+    assign cmd_met_req          = cc_met_req          | km_met_req;
+    assign cmd_drum_pattern_req = cc_drum_pattern_req | km_drum_pattern_req;
+    assign cmd_keydrum_req      = cc_keydrum_req      | km_keydrum_req;
+    assign cmd_trans_down_req   = cc_trans_down_req   | km_trans_down_req   | enc_trans_dn_w;
+    assign cmd_trans_up_req     = cc_trans_up_req     | km_trans_up_req     | enc_trans_up_w;
+    assign cmd_gear_next_req    = cc_gear_next_req    | km_gear_next_req;
+    assign cmd_slide_req        = cc_slide_req        | km_slide_req;
+    //  ⭐ idx 7「模式」键 ⇒ ⭐ 与 `'A'` **同一个下游**（⭐ 两者都是"翻转" ✅）
+    //     ⚠️ `km_fb_piano`（⭐ 目标档）本轮**暂不消费**（⭐ 见接线处的说明 ✅）
+    assign cmd_mode_sw_req      = cc_mode_sw_req      | km_mode_req;
+
     calib_cmd #(
         .CLK_HZ   (50_000_000),
         .BAUD     (500_000),        // ⚠️ 与 `uart_rx.BAUD_DIV=100` 同一档
@@ -1092,35 +1256,35 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
         .rst_n_i        (rst_n_sync),
         .rx_done_i      (ur_done),
         .rx_data_i      (ur_data),
-        .tare_req_o     (cmd_tare_req),
-        .span_req_o     (cmd_span_req),
+        .tare_req_o     (cc_tare_req),
+        .span_req_o     (cc_span_req),
         .abort_req_o    (cmd_abort_req),
         .probe_req_o    (cmd_probe_req),
         .vstat_req_o    (cmd_vstat_req),
         .posprobe_req_o (cmd_posprobe_req),
-        .test_mode_req_o(cmd_test_mode_req),
+        .test_mode_req_o(cc_test_mode_req),
         // ⭐ 2026-09-29：looper 三条命令
         .loop_rec_req_o (cmd_loop_rec_req),
         .loop_play_req_o(cmd_loop_play_req),
-        .loop_clear_req_o(cmd_loop_clear_req),
+        .loop_clear_req_o(cc_loop_clear_req),
         // ⭐ 2026-09-29：⭐ 切音色（⭐ 'I'）
-        .timbre_req_o   (cmd_timbre_req),
+        .timbre_req_o   (cc_timbre_req),
         //  ⭐ 2026-10-10（乙）：⭐ 'Q' 显示模式切换（⭐ 第一步 = 冻结/恢复）
-        .scope_mode_req_o (cmd_scope_mode_req),
-        .met_req_o      (cmd_met_req),
+        .scope_mode_req_o (cc_scope_mode_req),
+        .met_req_o      (cc_met_req),
         // ⭐ 2026-09-29：⭐ 鼓机节奏型切下一个（⭐ 'D'，⭐ 2026-09-29 新增）
-        .drum_pattern_req_o(cmd_drum_pattern_req),
+        .drum_pattern_req_o(cc_drum_pattern_req),
         // ⭐⭐ 2026-10-01：⭐ 键盘打鼓模式（⭐ 'K'）
-        .keydrum_req_o  (cmd_keydrum_req),
+        .keydrum_req_o  (cc_keydrum_req),
         // ⭐⭐ 2026-10-03（P2）：⭐ **T3 变调控制面**（⭐ 'F'/'G'/'H'/'J'）
         //   ⭐ 五根线**都已在模块层声明**（⭐ 见 `cmd_trans_down_req` 那一段 ✅）
         //   ⚠️ `cmd_gear_next_req`（`'J'`）**本轮无人消费**（⭐ `P3` 才接档位状态机）
         //      ⇒ ⭐ 综合会把它剪掉（⭐ 省 LUT），⭐ **⛔ 不是漏接线** ✅
-        .trans_down_req_o(cmd_trans_down_req),
-        .trans_up_req_o  (cmd_trans_up_req),
+        .trans_down_req_o(cc_trans_down_req),
+        .trans_up_req_o  (cc_trans_up_req),
         .trans_abs_req_o (cmd_trans_abs_req),
         .trans_abs_val_o (cmd_trans_abs_val),
-        .gear_next_req_o (cmd_gear_next_req),
+        .gear_next_req_o (cc_gear_next_req),
         //  ⭐⭐ 2026-10-11：⭐ `'Y'` 录制回传导出（⭐ 2026-10-11 新增第 19 条命令 ✅）
         .recdump_req_o   (cmd_recdump_req),
         //  ⭐⭐ 2026-10-11：⭐ `'Q'` 设置 BPM（⭐ 第 20 条命令 ✅）
@@ -1128,16 +1292,79 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
         .bpm_set_req_o   (cmd_bpm_set),
         .bpm_val_o       (cmd_bpm_val),
         //  ⭐⭐ 2026-10-11：⭐ `'W'` 滑音开关（⭐ 第 21 条命令 ✅）
-        .slide_req_o     (cmd_slide_req),
+        .slide_req_o     (cc_slide_req),
         //  ⭐⭐ 2026-10-13：⭐ `'A'` 模式翻转（⭐ 第 23 条命令 ✅）
         //     📌 交付默认是钢琴模式 ⇒ `am_mode = 0` ⇒ 滑音不改音高
         //        ⭐ 本命令是**脱离屏**切到指板模式的唯一入口 ✅
-        .mode_sw_req_o   (cmd_mode_sw_req),
+        .mode_sw_req_o   (cc_mode_sw_req),
+        //  ⭐⭐ 2026-10-14：⭐ `'O'` ⇒ 实时上行 开/关 ✅
+        .upstream_req_o  (cmd_upstream_req),
+        //  ⭐⭐ 2026-10-14：⭐ `'U'` 指引模式开关 ✅
+        .guide_req_o     (cmd_guide_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (cmd_in_frame_cnt),
         .resync_cnt_o   (cmd_resync_cnt),
         .idx_o          (cmd_idx),
         .unknown_cnt_o  (cmd_unknown_cnt)
+    );
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-14：⭐ **控制板 4×4 矩阵 16 键**（⭐ 扫描 ⇒ 映射 ⇒ 命令脉冲 ✅）
+    //     ⭐ 依据：`files/20-代码/控制板16键功能映射-20261013.md`（⭐ 定稿表 ✅）
+    //     📌 ⭐ 两个模块**都已经写好**、都被 `tb/w3a/tb_ctrl_keypad.sv` 覆盖并 **PASS**
+    //        ⇒ 🔴 本轮**只做接线**，⛔ **一行逻辑都不改** ✅
+    //     📌 ⭐ 扫描周期：⭐ `SCAN_DIV=12500` @50 MHz ⇒ **250 µs/行 × 4 = 1 ms/扫描**
+    //        ⭐ 去抖 = `DEB_N=8` 次扫描 ⇒ **8 ms** ✅
+    //     📌 ⭐ 长按保护：⭐ `LONG_MS=2000` ⇒ ⭐ idx12（looper 清空）要长按 2 s，
+    //        ⭐ idx15（标定）短按 = `T` / 长按 = `S` ✅
+    //     🔴 ⭐ **`ctrl_row_o` 的常量驱动行已删**（⭐ 见文件末段 ✅）
+    // ═══════════════════════════════════════════════════════════════════════
+    wire [15:0] km_key_level, km_key_down, km_key_up;
+
+    ctrl_keypad #(
+        .SCAN_DIV(12500),
+        .DEB_N   (8),
+        .CLK_HZ  (50_000_000)
+    ) u_ctrl_keypad (
+        .clk       (clk),
+        .rst_n     (rst_n_sync),
+        .row_o     (ctrl_row_o),      // ⭐ 4×4 矩阵行（⭐ 逐行拉低 ✅）
+        .col_i     (ctrl_col_i),      // ⭐ 4×4 矩阵列（⭐ 上拉、只读 ✅）
+        .key_level (km_key_level),
+        .key_down  (km_key_down),
+        .key_up    (km_key_up)
+    );
+
+    ctrl_key_map #(
+        .CLK_HZ (50_000_000),
+        .LONG_MS(2000)
+    ) u_ctrl_key_map (
+        .clk                (clk),
+        .rst_n              (rst_n_sync),
+        .key_level          (km_key_level),
+        .key_down           (km_key_down),
+        .key_up             (km_key_up),
+        //  ⭐ 输出与 `calib_cmd` 同名 ⇒ ⭐ 上面用 OR 合并（⭐ 见 `cc_*`/`km_*` 那一段 ✅）
+        .met_req_o          (km_met_req),
+        .timbre_req_o       (km_timbre_req),
+        .slide_req_o        (km_slide_req),
+        .scope_mode_req_o   (km_scope_mode_req),
+        .keydrum_req_o      (km_keydrum_req),
+        .gear_next_req_o    (km_gear_next_req),
+        .trans_up_req_o     (km_trans_up_req),
+        .trans_down_req_o   (km_trans_down_req),
+        .drum_pattern_req_o (km_drum_pattern_req),
+        .test_mode_req_o    (km_test_mode_req),
+        .loop_clear_req_o   (km_loop_clear_req),
+        .mode_req_o         (km_mode_req),
+        //  ⚠️ ⭐ `fb_piano_o`（⭐ 模式键的"目标档"）本轮**暂不消费** ✅
+        //     📌 现在模式键与 `'A'` **共用同一个翻转下游**（⭐ 语义一致、最省改动 ✅）
+        //     📌 ⭐ 若将来要做"按键直接指定档位"（⛔ 不是翻转）⇒ ⭐ 再用它 ✅
+        .fb_piano_o         (km_fb_piano),
+        .tare_req_o         (km_tare_req),
+        .span_req_o         (km_span_req),
+        //  ⚠️ ⭐ `fx_req_o` 是**占位**（⭐ 效果器还不存在 ⇒ ⭐ 综合会剪掉它 ✅）
+        .fx_req_o           (km_fx_req)
     );
 
     // ── ⭐ ③ 曲谱事件帧解析（`0xA5` + 8 字节大端 = 64 bit 事件）──────────
@@ -1460,8 +1687,22 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     // Pending Y lets already-started reply producers finish. Actual export
     // starts only after producers AND FIFO/UART are idle, then pauses them.
     wire       normal_tx_ready = txf_ready & ~rd_busy;
-    wire       shared_tx_start = rd_busy ? rd_push : txf_start;
-    wire [7:0] shared_tx_data = rd_busy ? rd_byte : txf_data;
+    //  ⭐⭐ 2026-10-14：⭐ **上行帧 v1.1 的 14 B 实时事件流也走这条 TX** ✅
+    //     📌 **优先级**：⭐ `'Y'` 导出 > 命令回包 > 实时上行 ✅
+    //        ⭐ 回包短且稀有 ⇒ ⛔ 不会被饿死；⭐ 上行只吃**空隙** ✅
+    //     🔴 `up_ready_w` **必须把回包与 UART 都排掉** ——
+    //        ⚠️ 否则上行以为字节被收下、⭐ 实际被抢掉 ⇒ 🔴 **静默丢** ✅
+    //     ⚠️ **这些线必须在【模块级】声明**（⭐ 与 `rd_push`/`rd_byte` **同一个坑**：
+    //        `u_evt_upstream` 在 `g_sound` 里、⭐ 而本块在外 ⇒ ⛔ 作用域不通 ✅）
+    wire        up_busy_w, up_push_w, up_ovf_w;
+    wire [7:0]  up_byte_w;
+    wire [15:0] up_frame_cnt_w, up_drop_cnt_w;
+    wire [7:0]  up_seq_w;
+    wire [31:0] up_tick_w;
+    wire [4:0]  up_level_w;
+    wire        up_ready_w = ~rd_busy & ~txf_start & ~board_uart_busy & ~esp_uart_busy;
+    wire       shared_tx_start = rd_busy ? rd_push : (txf_start ? txf_start : up_push_w);
+    wire [7:0] shared_tx_data  = rd_busy ? rd_byte : (txf_start ? txf_data  : up_byte_w);
     assign txf_busy = board_uart_busy | esp_uart_busy;
 // ⭐⭐ 2026-10-01 BATCH 8.3（⭐ 修 `implicit definition` 警告）：⭐ **`fault_any_w` 必须在【模块级】声明** ⚠️
 //   🔴 **原来错在哪**：⭐ 我把它声明在**心跳灯那段**（⭐ `fault_any_w` 的声明）⚠️，⭐ 而 `assign` 在 `fault_any_w` 的赋值处
@@ -2048,8 +2289,8 @@ wire ovf_any;
             //         ⇒ ⛔ **不用改 `play_seq`** ✅
             //     ⚠️ ⭐ 现在 `bpm_up_i`/`bpm_dn_i` **恒 0**（⭐ 留给 EC11 ✅）
             //        ⇒ ⭐ 相对步进通路**未激活** ⇒ ⭐ 行为零变化 ✅
-            .bpm_up_i       (1'b0),
-            .bpm_dn_i       (1'b0),
+            .bpm_up_i       (enc_bpm_up_w),   // ⭐ 2026-10-14：⭐ EC11 旋钮 ⇒ ±1 BPM ✅
+            .bpm_dn_i       (enc_bpm_dn_w),
             //  ⭐⭐ 2026-10-14：⭐ **改接【对齐到小节线之后】的信号** ✅
             //     🔴 原接线是 `cmd_bpm_set` / `cmd_bpm_val` ⇒ ⭐ **立即生效** ✅
             //     📌 现在手动 `'Q'` 最长等一个小节（⭐ 用户已接受 ✅）
@@ -3137,6 +3378,14 @@ wire ovf_any;
                             | cmd_keydrum_req    // ⭐ 'K' 键盘打鼓切换（⭐ 2026-10-01）
                             | cmd_bpm_set        // ⭐ 'Q' 设置 BPM（⭐ 2026-10-11）
                             | cmd_mode_sw_req    // ⭐ 'A' 模式翻转（⭐ 2026-10-13）
+                            //  ⭐⭐ 2026-10-14：⭐ `'O'` 实时上行开关 —— **必须在这里** ✅
+                            //     ⚠️ 否则回包落到兜底 `8'h78`='x' ⇒ 🔴 上板**分不清**
+                            //        "切成功了"和"命令没被受理"（⭐ 与 `'A'` 那条同一教训 ✅）
+                            | cmd_upstream_req
+                            //  ⭐⭐ 2026-10-14：⭐ `'U'` 指引模式 —— **同样必须在这里** ✅
+                            //     ⚠️ 否则回包落到兜底 `8'h78`='x' ⇒ 🔴 上板分不清
+                            //        "切成功了"和"命令没被受理"（⭐ 与 `'A'`/`'O'` 同一教训 ✅）
+                            | cmd_guide_req
                             | cmd_slide_req;     // ⭐ 'W' 滑音开关（⭐ 2026-10-11）
         wire [7:0] rep_byte = ev_need          ? axis_char        // ⭐ ① 轴号（⭐ 最要紧）
                             : ev_reject        ? rej_why_byte     // 🔴 被拒（⭐ 带原因码，见上）
@@ -3155,6 +3404,10 @@ wire ovf_any;
                             //        ⇒ ⚠️ **上板时无法区分"模式切成功了"和"命令没被受理"** ✅
                             //     ✅ `8'h61` = `'a'`（⭐ 与 `'W'`→`'w'`、`'K'`→`'k'` 同一口径 ✅）
                             : cmd_mode_sw_req  ? 8'h61            // 'a' ⭐ 受理模式翻转（⭐ 2026-10-13）
+                            //  ⭐⭐ 2026-10-14：⭐ `'O'` ⇒ `'o'`（⭐ 与 `'W'`/`'A'` 同一口径 ✅）
+                            : cmd_upstream_req ? 8'h6F            // 'o' ⭐ 受理实时上行切换
+                            //  ⭐⭐ 2026-10-14：⭐ `'U'` ⇒ `'u'`（⭐ 与 `'W'`/`'A'`/`'O'` 同一口径 ✅）
+                            : cmd_guide_req    ? 8'h75            // 'u' ⭐ 受理指引模式切换
                             : cmd_slide_req    ? 8'h77            // 'w' ⭐ 受理滑音开关（⭐ 2026-10-11）
                             :                    8'h78;           // 'x' ⭐ 受理取消
 
@@ -4465,6 +4718,29 @@ wire ovf_any;
         //      ⚠️ 队友的 tb 用 `dut.timbre_sel_r` 观察它 ⇒ ⭐ 必须模块层可见 ✅
         //      📌 本 generate 块**只读**它（⭐ `.default_timbre_i(timbre_sel_r)` 等 ✅）
 
+        //  ⭐⭐ 2026-10-14：⭐ **这两个可观测量的声明【上提】** ✅
+        //     📌 ⭐ 为什么：⭐ 下面"空循环拒绝"要在 `always` 里用 `looper_evt_cnt`
+        //        ⇒ ⚠️ Verilog **先声明后使用** ⇒ ⭐ 必须提到 `always` 之前 ✅
+        wire        looper_layer_state;
+        wire [15:0] looper_evt_cnt;
+        //  ⭐⭐ 2026-10-14：⭐ **"已武装、等小节线"**（⭐ 给指示灯 ✅）
+        //     📌 ⭐ 它驱动 `led_looper_st` 的第 4 态（⭐ 黄快闪）✅
+        wire        lp_recpend_w;
+
+        //  ⭐⭐ 2026-10-14：⭐ **空循环 ⇒ `'L'` 直接拒绝**（⭐ 用户报"L 没回放" ✅）
+        //     🔴 **根因**：⭐ `'L'` 原来**无条件翻转** `loop_play_on_r`
+        //        ⇒ ⚠️ 若 `looper_evt_cnt == 0`（⭐ 录制窗口里**没有手弹事件**）
+        //        ⇒ ⭐ 回放**静默切进去、一片寂静** ⇒ 🔴 用户以为"功能坏了" ✅
+        //     📌 ⭐ **实测（⭐ `tb/e2e/tb_looper_e2e.sv`）**：⭐ `R`→弹音→`R`→`L`
+        //        **功能完全正常**（⭐ `evt_cnt=2`、⭐ `n_play=6` ✅）
+        //        ⇒ ⭐ 所以"没回放"**唯一**的成因就是**没录进去** ✅
+        //     ✅ **修法**：⭐ 与 `'Y'` **同一口径** —— ⭐ 空循环就回 `'!'`（拒绝），
+        //        ⛔ 不许静默切进去 ✅
+        //     📌 ⭐ **只在"开"的方向拒绝**（⭐ `!loop_play_on_r`）——
+        //        ⚠️ 否则**关不掉**回放 ✅
+        wire lp_play_empty_req = cmd_loop_play_req && !loop_play_on_r &&
+                                 (looper_evt_cnt == 0);
+
         always @(posedge clk) begin
             if (!rst_n_sync) begin
                 loop_rec_on_r  <= 1'b0;
@@ -4474,7 +4750,11 @@ wire ovf_any;
                 loop_play_on_r <= 1'b0;
             end else begin
                 if (cmd_loop_rec_req && !rd_lock)  loop_rec_on_r  <= ~loop_rec_on_r;
-                if (cmd_loop_play_req && !rd_lock) loop_play_on_r <= ~loop_play_on_r;
+                //  ⭐⭐ 2026-10-14：⭐ **空循环不许切进去**（⭐ 见上面 `lp_play_empty_req` ✅）
+                //     ⚠️ 但"关"的方向**必须放行**（⭐ 否则回放关不掉 ✅）
+                if (cmd_loop_play_req && !rd_lock &&
+                    (loop_play_on_r || (looper_evt_cnt != 0)))
+                    loop_play_on_r <= ~loop_play_on_r;
             end
         end
 
@@ -4499,8 +4779,8 @@ wire ovf_any;
         wire [7:0]  lp_upd_vel;
         //  ⭐ 可观测（`K-106`：⛔ 不许静默失效）—— ⚠️ **暂未接上板观测口**
         //     📌 待办：⭐ 接到串口回传（⭐ 与 `'P'`/`'N'` 诊断同一套路）⇒ 现在先留线，⛔ 不悬空
-        wire        looper_layer_state;
-        wire [15:0] looper_evt_cnt;
+        //  ⚠️ ⭐ 2026-10-14：⭐ **`looper_layer_state` / `looper_evt_cnt` 的声明已【上提】**
+        //     （⭐ 见上面"空循环拒绝"那一段 —— ⚠️ Verilog **先声明后使用** ✅）
         reg rd_pending_r;
         reg rd_notice_r;
         reg [15:0] rd_reject_r;
@@ -4508,6 +4788,8 @@ wire ovf_any;
                           !pp_busy && !vp_busy && !np_busy && !dp_busy;
         wire rd_reject_event = (cmd_recdump_req &&
             (rd_lock || looper_layer_state || (looper_evt_cnt == 0))) ||
+            //  ⭐⭐ 2026-10-14：⭐ **空循环的 `'L'` 也计入拒绝**（⭐ 回包 `'!'` ✅）
+            lp_play_empty_req ||
             (rd_lock && (cmd_loop_rec_req || cmd_loop_play_req || cmd_loop_clear_req)) ||
             (cmd_probe_req && pp_busy) || (cmd_posprobe_req && np_busy) ||
             (cmd_vstat_req && vp_busy);
@@ -4630,6 +4912,12 @@ wire ovf_any;
             .clear_req_i    (cmd_loop_clear_req & ~rd_lock),
             //  ⭐ 可观测
             .layer_state_o  (looper_layer_state),
+            //  ⭐⭐ 2026-10-14：⭐ **"已武装、等小节线"**（⭐ 给指示灯用 ✅）
+            //     🔴 **为什么需要**：⭐ 按 `R` 后要等**下一个小节线**才真起录
+            //        ⇒ ⚠️ 这段窗口里弹的音**一个都不录**（⭐ 最长一整小节 = 2 秒）
+            //        ⇒ 🔴 **用户感知为"第一个音被吞掉了"** ✅
+            //     ✅ 暴露出来 ⇒ ⭐ 灯上显示第 4 种状态（⭐ 黄快闪 = "在等你，先别弹"）✅
+            .rec_pending_o  (lp_recpend_w),
             .evt_cnt_flat_o (looper_evt_cnt),
             .full_o         (looper_full),
             .drop_cnt_o     (looper_drop_cnt),
@@ -4708,7 +4996,16 @@ wire ovf_any;
         //        （`0 = 空闲 · 1 = 录/放`）⇒ 🔴 **分不出"在录"还是"在放"**
         //        ⇒ ⭐ 满足不了用户要的**三态** ✅
         //     ⚠️ 优先级：⭐ **录音优先**（⭐ `looper` 自己也是"录的时候不放"）
-        assign led_looper_st = loop_rec_on_r  ? 2'd1 :
+        //  ⭐⭐ 2026-10-14：⭐ **加第 4 态 —— "已武装、等小节线"** ✅
+        //     🔴 **为什么加**：⭐ 用户报 *"第一个音被吞掉了"*
+        //        ⇒ ⭐ 根因是**按 `R` 后不是立刻起录**，而是等 `bar_start_i`
+        //           （⭐ 为了让 `loop_len` 是整数小节、⛔ 不与鼓机跑偏 ✅）
+        //        ⇒ ⚠️ **这段窗口里弹的音一个都不录** ⇒ 🔴 用户不知道要等 ✅
+        //     ✅ 黄快闪 = "**在等你，先别弹**" ⇒ ⭐ 等它变红（录音）再弹 ✅
+        //     📌 ⭐ **优先级最高**：⭐ "武装中"和"录音中"必须分得开
+        //        （⚠️ 否则灯在武装期就显示"录音" ⇒ ⭐ 等于没加 ✅）
+        assign led_looper_st = lp_recpend_w   ? 2'd3 :
+                               loop_rec_on_r  ? 2'd1 :
                                loop_play_on_r ? 2'd2 : 2'd0;
 
         seq_arb #(
@@ -4766,7 +5063,10 @@ wire ovf_any;
             //        ⚠️ 与 2026-09-28 那版"禁用曲谱"的语义**逐位一致**）✅
             //  ⭐⭐ 2026-10-11（`U-19`）：⭐ **源 = `play_seq` 的输出**（⛔ 不再是裸 `eu_evt_*`）✅
             //     🔴 改前直连 `evt_uart_rx` ⇒ ⚠️ `tick` 被忽略 ⇒ **事件一到就响** ✅
-            .score_valid_i    (SCORE_UART_ENABLE ? ps_note_valid : 1'b0),
+            //  ⭐⭐ 2026-10-14：⭐ **`'U'` 指引模式 ⇒ 闸住曲谱的【出声】那一路** ✅
+            //     📌 ⭐ `guide_lamp` 读的是【上游】的 `ps_note_valid` ⇒ ⭐ **LED 照常** ✅
+            //     📌 ⭐ 节拍器/鼓机走源 B ⇒ ⛔ 不受影响 ✅
+            .score_valid_i    ((SCORE_UART_ENABLE & ~guide_only_r) ? ps_note_valid : 1'b0),
             .score_axis_i     (SCORE_UART_ENABLE ? ps_evt_axis : 4'd0),
             .score_phase_inc_i(SCORE_UART_ENABLE ? ps_evt_inc  : 32'd0),
             .score_velocity_i (SCORE_UART_ENABLE ? ps_evt_vel  : 8'd0),
@@ -5067,6 +5367,43 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             .merged_cnt_o     (mg_merged_cnt),
             .drop_cnt_o       (mg_drop_cnt),
             .overflow_o       (mg_overflow)
+        );
+
+        // ═══════════════════════════════════════════════════════════════════
+        //  ⭐⭐⭐⭐ 2026-10-14：⭐ **上行帧 v1.1 的 14 B 实时事件流** ✅
+        //     🔴 **为什么必须 32 位 `phase_inc`**：⭐ 旧 9 B 线上格式只给 **21 位**
+        //        ⇒ ⭐ A4 = 38 702 840 > 2²¹ ⇒ 🔴 **音高是垃圾**（⭐ 实测导出 11236 ✅）
+        //        ⇒ ⭐ 本模块走 `mg_evt_inc`（**全宽 32 位**）⇒ ⭐ **音高正确** ✅
+        //     📌 ⭐ 抽头点 = `evt_merge` 的输出 ⇒ ⭐ 与 `note_manager` 看到的是**同一拍** ✅
+        //     📌 ⭐ ESP32 侧解析器**已支持** `0x01`/`0x02` 的 14 B 帧 ⇒ ⛔ 不需跨侧协调 ✅
+        //     📌 ⭐ `tick_step_i = bg_tick`（⭐ 与音乐时钟同源 ✅）
+        //     ⚠️ ⭐ 输出线 `up_*` 在【模块级】声明（⭐ 见 `shared_tx_start` 那里 ✅）
+        // ═══════════════════════════════════════════════════════════════════
+        evt_upstream #(
+            .PHASE_W(32),
+            .AXIS_W (4),
+            .VEL_W  (8),
+            .FIFO_D (16)
+        ) u_evt_upstream (
+            .clk_i           (clk),
+            .rst_n_i         (rst_n_sync),
+            .evt_valid_i     (mg_evt_valid),
+            .evt_axis_i      (mg_evt_axis),
+            .evt_phase_inc_i (mg_evt_inc),
+            .evt_velocity_i  (mg_evt_vel),
+            .evt_kind_i      (mg_evt_kind),
+            .tick_step_i     (bg_tick),
+            .enable_i        (up_enable_r),
+            .ready_i         (up_ready_w),
+            .push_o          (up_push_w),
+            .byte_o          (up_byte_w),
+            .busy_o          (up_busy_w),
+            .frame_cnt_o     (up_frame_cnt_w),
+            .drop_cnt_o      (up_drop_cnt_w),
+            .overflow_o      (up_ovf_w),
+            .seq_o           (up_seq_w),
+            .tick_o          (up_tick_w),
+            .level_o         (up_level_w)
         );
 
         // ═══════════════════════════════════════════════════════════════════
@@ -5546,7 +5883,28 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             .N_PERC     (PERC_N),
             .ENV_W      (16),
             .VEL_W      (8),
-            .DECAY_STEP (67)          // ⭐ 默认：满力度 ≈ 20 ms（见上）
+            //  ⭐⭐ 2026-10-14：⭐ **`DECAY_STEP` 67 → 33**（⭐ 鼓的衰减时长 ×2 ✅）
+            //     🔴 **为什么**：⭐ 用户实测"灌谱时鼓声太小"
+            //        ⚠️ 而**峰值已经很高**：⭐ Kick `VEL_KICK=230` ⇒ 峰值 58880 = **满幅 90%**，
+            //           ⭐ `drum_gen.v` 的注释本就写着"已接近上限，⚠️ 不建议再抬" ✅
+            //        ⇒ ⭐ 所以"听起来小"的真因**不是峰值不够，而是【持续时间太短】**：
+            //           ⚠️ 20 ms 就把能量衰完，⚠️ 而人耳感知的音量 ≈ **能量积分**，
+            //              ⭐ 同样峰值的乐音能响几百 ms（⭐ 有 sustain）⇒ 对比之下鼓显得小 ✅
+            //     ✅ **选【延长时长】而不是【抬峰值】**：
+            //        · ⭐ 峰值再抬 ⇒ 🔴 削顶（⭐ Kick 已 90% FS）＋ ⛔ 违反代码里的告警
+            //        · ⭐ 延长时长 ⇒ ⭐ 能量积分 ×2 ⇒ ⭐ **听感音量明显变大，⛔ 峰值不变（不削顶）**
+            //     📌 **时长表（`DECAY_STEP=33`，⭐ 按各件力度算）**：
+            //        Kick(230)  : 58880/33/48828 = **36.6 ms**（原 17.9 ms）
+            //        Snare(200) : 51200/33/48828 = **31.8 ms**（原 15.7 ms）
+            //        HiHat(140) : 35840/33/48828 = **22.2 ms**（原 10.9 ms）
+            //        Tom(190)   : 48640/33/48828 = **30.2 ms**（原 14.8 ms）
+            //     ⚠️ **代价（如实说）**：⭐ 鼓更"肉"一点（⭐ 衰减慢）
+            //        ⇒ ⭐ 嫌拖尾就把 `33` 调成 `45`（⭐ 约 25 ms ✅）
+            //     ⭐ **零回归（⛔ 关键）**：⭐ 只改**时长**，
+            //        · ⭐ 峰值不变 ⇒ ⛔ 不削顶、⛔ 不动绝对电平判据
+            //        · ⭐ `active_o` 仍精确衰到 0 落低 ⇒ ⛔ **不会挂音**
+            //        · ⭐ 触发语义不变 ⇒ ⛔ 不动 `perc_trig` 通路
+            .DECAY_STEP (33)
         ) u_perc_env_bank (
             .clk_i         (clk),
             .rst_n_i       (rst_n_sync),
@@ -6169,8 +6527,13 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
     //     📌 依据本文件末段 §"接入功能逻辑时"的纪律：⭐ "输入侧还要把它从
     //        `reserved_in_xor` 里摘掉（交给新逻辑消费）" ✅
     //     📌 因此本行从 **11 个** 输入变成 **10 个**（⭐ 下面注释里的数字同步更正 ✅）
-    (* syn_keep = 1 *) wire reserved_in_xor = ^{ctrl_col_i, enc_a_i, enc_b_i, enc_sw_i,
-                                                pedal_loop_rec_i,
+    //  ⭐⭐ 2026-10-14：⭐ **`ctrl_col_i` / `enc_a_i` / `enc_b_i` / `enc_sw_i` 已【全部摘掉】** ✅
+    //     ⭐ 它们现在都有**真消费者**了：
+    //        · ⭐ `ctrl_col_i` ⇒ `u_ctrl_keypad`（⭐ 4×4 矩阵列 ✅）
+    //        · ⭐ `enc_a_i/b_i/sw_i` ⇒ `u_enc_debounce`（⭐ EC11 解码 ✅）
+    //     📌 ⭐ 同一条纪律（⭐ 本文件末段 §"接入功能逻辑时" ✅）
+    //     📌 ⭐ 于是本行从 **4 个** 输入变成 **2 个** ✅
+    (* syn_keep = 1 *) wire reserved_in_xor = ^{pedal_loop_rec_i,
                                                 pedal_loop_play_i};
     //  ⭐⭐ 2026-10-11：⭐ **`esp_uart_rx_i` 已从本行【摘掉】** ✅
     //     ⭐ 依据本文件 `:5390` 自己写明的接入纪律：
@@ -6185,7 +6548,10 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
     end
 
     // ── 9 个预留输出 · 常量驱动（⭐ 明确电平，⛔ 不是 `x`）────────────────────
-    assign ctrl_row_o    = 4'b0000;   // ⭐ 矩阵行全 0 = 不扫描（⛔ 不给高：⚠️ 同列两键会推挽）
+    //  ⭐⭐ 2026-10-14：⭐ **`ctrl_row_o` 的常量驱动行【已删除】** ✅
+    //     ⭐ 它现在由 `u_ctrl_keypad.row_o` 驱动（⭐ 逐行扫描 ✅）
+    //     🔴 **必须删** —— ⚠️ 否则与 `u_ctrl_keypad` **多驱动** ⇒ 综合报错 ✅
+    //     📌 原值 `4'b0000` = "矩阵行全 0 = 不扫描"（⭐ 那是**未接线**时的保活写法 ✅）
     // ⭐ `ctrl_ws_o` 已由 `u_ws2812` 驱动（⭐ 见下方 §WS2812）—— ⛔ 常量驱动行已删除
     //  ⭐⭐ 2026-10-11：⭐ **`esp_uart_tx_o` 的常量驱动行【已删除】** ✅
     //     ⭐ 依据本文件 `:5390` 的接入纪律：*"接入功能逻辑时 ⇒ ⭐ **必须删掉该端口

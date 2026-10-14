@@ -151,6 +151,17 @@ module looper #(
     // ⑤ ⭐⭐ 可观测性（⭐ `K-106`：⛔ 不许静默失效）
     // ══════════════════════════════════════════════════════════════════════
     output wire [LAYERS-1:0]     layer_state_o,   // ⭐ 0 = 空闲 · 1 = 录/放
+    //  ⭐⭐ 2026-10-14：⭐ **"已武装、等小节线"**（⭐ 给指示灯用 ✅）
+    //     🔴 **为什么需要**：⭐ 按下 `R` 后**不是立刻起录**，而是等 `bar_start_i`
+    //        （⭐ 见上面 `ST_RECPEND` 与 `:1156` 的长注释 —— ⭐ 为了 `loop_len` 是整数小节 ✅）
+    //        ⇒ ⚠️ **这一整段窗口里弹的音一个都不录**
+    //        （⭐ 最长 = 一整小节 ⇒ ⭐ 120 BPM 下 **2 秒**）
+    //        ⇒ 🔴 **用户感知为"第一个音被吞掉了"** ✅
+    //     📌 ⭐ `layer_state_o` **只有 1 位**（⭐ `:1518`）
+    //        ⇒ ⚠️ 分不出"在录"和"武装中" ⇒ 🔴 **灯上看不出来** ⇒ ⭐ 用户不知道要等 ✅
+    //     ✅ 所以单开这一根，⭐ 让灯能显示**第 4 种状态**
+    //        （⭐ 见 `top.v` 的 `led_looper_st` 与 `led_indicator.v` 的码 3 ✅）
+    output wire                  rec_pending_o,
     //  ⚠️ Verilog-2001 **不支持数组端口**（⭐ 接口文档 §2.1 第 2 条）
     //     ⇒ ⭐ 必须**展平成一个向量**（每层 16 bit）
     output wire [LAYERS*16-1:0]  evt_cnt_flat_o,
@@ -1141,6 +1152,8 @@ module looper #(
                 rec_bar_cnt_r  <= {CNT_W{1'b0}};
                 rec_aligned_r  <= 1'b1;
                 play_aligned_r <= 1'b0;   // ⭐ 起录 ⇒ 旧的"已对齐"作废（⭐ 录完自然会重新等）
+                //  ⭐⭐ 2026-10-14：⭐ **这里 `state` 进 `ST_REC` ⇒ `rec_pending_o` 自动落回 0** ✅
+                //     📌 ⭐ 所以"武装中"的灯**只在真正等小节线时亮** ✅
             end else if (br_reccancel_w) begin
                 //  ⭐⭐ 2026-09-30（`T41` ①）：⭐ **取消"待起录"**（⭐ 理由见 `br_reccancel_w`）
                 //   ⚠️ ⛔ **不清 `cnt_r`**：⭐ 上一遍录音还在 ⇒ ⭐ 回 `ST_HOLD` 继续可播 ✅
@@ -1516,6 +1529,8 @@ module looper #(
     //     🔴 `K-106` 纪律：⭐ 任何"用户已经按了、但还没生效"的中间态都必须**可观测**
     //     （⭐ 否则"按了 R 没反应"看起来就像**死机**，⭐ 而上板时它是**等小节**）✅
     assign layer_state_o  = {(state == ST_REC) || (state == ST_RECPEND) || playing};
+    //  ⭐⭐ 2026-10-14：⭐ **"已武装、还没到小节线"**（⭐ 见端口处长注释 ✅）
+    assign rec_pending_o  = (state == ST_RECPEND);
     assign evt_cnt_flat_o = cnt_r;
     assign full_o         = {full_r};
     assign drop_cnt_o     = drop_r;

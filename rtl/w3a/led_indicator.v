@@ -165,10 +165,16 @@ module led_indicator #(
         // ── #3 键盘打鼓（开 = 蓝；关 = 灭）──────────────────────────────
         if (keydrum_i) col_c[3] = C_BLUE;
 
-        // ── #4 looper（空闲 / 录音 / 回放）──────────────────────────────
+        // ── #4 looper（空闲 / 录音 / 回放 / ⭐ 武装中）──────────────────
         case (looper_i)
             2'd1: begin col_c[4] = C_RED;   blk_c[4] = BL_FAST; end   // 录音：红快闪
             2'd2: begin col_c[4] = C_GREEN; blk_c[4] = BL_STEADY; end // 回放：绿常亮
+            //  ⭐⭐ 2026-10-14：⭐ **码 3 = "已武装、等小节线"**（⭐ 黄快闪 ✅）
+            //     🔴 **为什么加**：⭐ 按下 `R` 后要等**下一个小节线**才真起录
+            //        ⇒ ⚠️ 这段窗口里弹的音**一个都不录** ⇒ 🔴 用户以为"第一个音被吞了" ✅
+            //     ✅ 黄快闪 = "**在等你，先别弹**" ⇒ ⭐ 等它变红（录音）再弹 ✅
+            //     📌 ⭐ 依据：⭐ `looper.rec_pending_o` ＋ `top.v` 的 `led_looper_st` ✅
+            2'd3: begin col_c[4] = C_YELLOW; blk_c[4] = BL_FAST; end  // ⭐ 武装中：黄快闪
             default: begin
                 col_c[4] = C_DIMBLUE;                                     // 空闲：暗蓝常亮
                 blk_c[4] = BL_STEADY;

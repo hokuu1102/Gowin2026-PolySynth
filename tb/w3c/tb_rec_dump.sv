@@ -110,35 +110,100 @@ module tb_rec_dump;
         end
     endtask
 
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-14：⭐ **按 v1.1 位域【构造/预测】测试字**（⭐ 换成 14 B 帧后新加 ✅）
+    //     📌 ⭐ **为什么必须换测试字**：⭐ 原来那批（`A0A0_…`）**低位几乎全 0**
+    //        ⇒ ⚠️ `axis`/`vel`/`kind`/`inc` 就算映射写错也**测不出来** ⇒ 🔴 **弱判据** ✅
+    //     ✅ 现在每个字段都填**互不相同的非零值** ⇒ ⭐ 映射错了**必红** ✅
+    //     📌 ⭐ 位域与 `rtl/top.v:4506` 的表、`tools/mid2evt.py:124-130` **逐位一致** ✅
+    // ═══════════════════════════════════════════════════════════════════════
+    function [63:0] mk_word;
+        input [19:0] tk;
+        input [20:0] ic;
+        input [3:0]  ax;
+        input [7:0]  vl;
+        input [1:0]  kd;
+        input [1:0]  tb2;
+        begin
+            mk_word = {tk, ic, ax, vl, kd, tb2, 7'b0};
+        end
+    endfunction
+
+    //  ⭐ 预测 14 B 帧的**第 idx 个字节**（⭐ 与 `rec_dump.v` 的 `f_*` **逐位同构** ✅）
+    function [7:0] exp_byte;
+        input [63:0] w;
+        input [7:0]  sq;
+        input [3:0]  idx;
+        reg   [7:0]  ty, ax8, vl8, ck;
+        reg   [31:0] tk32, ic32;
+        begin
+            ty   = (w[10:9] == 2'd1) ? 8'h02 : 8'h01;      // ⭐ [1] 类型
+            tk32 = {12'd0, w[63:44]};                       // ⭐ [3..6] tick32
+            ax8  = {4'd0, w[22:19]};                        // ⭐ [7] axis
+            ic32 = {1'b0, w[43:23], 10'b0};                 // ⭐ [8..11] inc32（⭐ 还原全 32 位）
+            vl8  = w[18:11];                                // ⭐ [12] vel
+            //  ⭐ [13] 校验 = XOR 覆盖 **[0..12]（⭐ 含帧头 ✅）**
+            ck   = 8'hA5 ^ ty ^ sq
+                 ^ tk32[31:24] ^ tk32[23:16] ^ tk32[15:8] ^ tk32[7:0]
+                 ^ ax8 ^ ic32[31:24] ^ ic32[23:16] ^ ic32[15:8] ^ ic32[7:0] ^ vl8;
+            case (idx)
+                4'd0:    exp_byte = 8'hA5;
+                4'd1:    exp_byte = ty;
+                4'd2:    exp_byte = sq;                     // ⭐ 序号随帧号变 ✅
+                4'd3:    exp_byte = tk32[31:24];
+                4'd4:    exp_byte = tk32[23:16];
+                4'd5:    exp_byte = tk32[15:8];
+                4'd6:    exp_byte = tk32[7:0];
+                4'd7:    exp_byte = ax8;
+                4'd8:    exp_byte = ic32[31:24];
+                4'd9:    exp_byte = ic32[23:16];
+                4'd10:   exp_byte = ic32[15:8];
+                4'd11:   exp_byte = ic32[7:0];
+                4'd12:   exp_byte = vl8;
+                default: exp_byte = ck;
+            endcase
+        end
+    endfunction
+
     initial begin
-        //  ⭐ 八条事件，⭐ **值刻意两两不同**（⭐ 这样"读早一拍"必然错 ✅）
-        mem[0] = 64'hA0A0_0000_0000_0001;  clip_mem[0] = 1'b0;
-        mem[1] = 64'hB1B1_0000_0000_0002;  clip_mem[1] = 1'b0;
-        mem[2] = 64'hC2C2_0000_0000_0003;  clip_mem[2] = 1'b1;   // ⭐ 截断
-        mem[3] = 64'hD3D3_0000_0000_0004;  clip_mem[3] = 1'b0;
-        mem[4] = 64'hE4E4_0000_0000_0005;  clip_mem[4] = 1'b1;   // ⭐ 截断
-        mem[5] = 64'hF5F5_0000_0000_0006;  clip_mem[5] = 1'b0;
-        mem[6] = 64'h0606_0000_0000_0007;  clip_mem[6] = 1'b0;
-        mem[7] = 64'h1717_0000_0000_0008;  clip_mem[7] = 1'b0;
+        //  ⭐⭐⭐ 2026-10-14：⭐ **测试字换成"每个字段都非零且互不相同"** ✅
+        //     📌 ⭐ 原来 `A0A0_0000_0000_0001` 这种 ⇒ ⚠️ `inc`/`axis`/`vel`/`kind` 全是 0
+        //        ⇒ 🔴 **字段映射写错也测不出来** ✅
+        //     📌 ⭐ `kind` 刻意一条 `0`（note_on ⇒ `0x01`）一条 `1`（note_off ⇒ `0x02`）✅
+        mem[0] = mk_word(20'h12345, 21'h1ABCD, 4'd5,  8'h5A, 2'd0, 2'd1);  clip_mem[0] = 1'b0;
+        mem[1] = mk_word(20'h6789A, 21'h0FEDC, 4'd10, 8'hC3, 2'd1, 2'd2);  clip_mem[1] = 1'b0;
+        mem[2] = mk_word(20'h0BEEF, 21'h15555, 4'd15, 8'h07, 2'd0, 2'd3);  clip_mem[2] = 1'b1;   // ⭐ 截断
+        mem[3] = mk_word(20'h0CAFE, 21'h1AAAA, 4'd1,  8'hFF, 2'd1, 2'd0);  clip_mem[3] = 1'b0;
+        mem[4] = mk_word(20'h0DEAD, 21'h12345, 4'd8,  8'h11, 2'd0, 2'd2);  clip_mem[4] = 1'b1;   // ⭐ 截断
+        mem[5] = mk_word(20'h0F00D, 21'h1FFFF, 4'd3,  8'h80, 2'd1, 2'd3);  clip_mem[5] = 1'b0;
+        mem[6] = mk_word(20'h01234, 21'h10001, 4'd12, 8'h42, 2'd0, 2'd0);  clip_mem[6] = 1'b0;
+        mem[7] = mk_word(20'h0ABCD, 21'h1F0F0, 4'd7,  8'h99, 2'd1, 2'd1);  clip_mem[7] = 1'b0;
 
         do_reset;
         $display("=== tb_rec_dump（录制回传的导出 FSM）===");
 
         // ═════════════════════════════════════════════════════════════════
-        $display("== D 正常导出：3 条事件 ⇒ 27 字节 ==");
+        $display("== D 正常导出：3 条事件 ⇒ 42 字节（14 × 3 = v1.1 帧）==");
         // ═════════════════════════════════════════════════════════════════
         cnt = 16'd3;
         n_done = 0;
         pulse_req;
         wait_done(4000);
 
-        chk(n_rx == 27, "D1 3 events => exactly 27 bytes pushed (9 each)");
-        //  ⭐ 逐帧验：⭐ `0xA5` ＋ 8 字节【大端】 ✅
+        chk(n_rx == 42, "D1 3 events => exactly 42 bytes pushed (14 each = v1.1 frame)");
+        //  ⭐⭐ 2026-10-14：⭐ **逐字节验 14 B v1.1 帧**（⭐ 头/类型/序号/tick/axis/inc/vel/校验 ✅）
+        //     📌 ⭐ **不匹配时打印"帧号/字节号/实测/期望/源字"** ——
+        //        ⚠️ 否则只报一句 FAIL，⛔ 定位不了是哪个字段 ✅
         for (k = 0; k < 3; k = k + 1) begin
-            chk(rx[k*9] === 8'hA5, "D2 frame header byte is 0xA5");
-            for (b = 0; b < 8; b = b + 1)
-                chk(rx[k*9 + 1 + b] === mem[k][63 - b*8 -: 8],
-                    "D3 payload byte matches mem[k] BIG-ENDIAN (catches a 1-cycle-early read)");
+            for (b = 0; b < 14; b = b + 1) begin
+                if (rx[k*14 + b] !== exp_byte(mem[k], k[7:0], b[3:0])) begin
+                    $display("  MISMATCH frame %0d byte %0d: got %02h expected %02h  (word=%016h)",
+                             k, b, rx[k*14 + b], exp_byte(mem[k], k[7:0], b[3:0]), mem[k]);
+                    fail_cnt = fail_cnt + 1;
+                end else begin
+                    pass_cnt = pass_cnt + 1;
+                end
+            end
         end
         chk(frame_cnt === 16'd3, "D4 frame_cnt counts 3 frames");
         chk(clip_cnt  === 16'd1, "D5 clip_cnt counts 1 clipped entry (index 2)");
@@ -157,7 +222,7 @@ module tb_rec_dump;
         repeat (50) @(negedge clk);
         ready = 1'b1;
         wait_done(4000);
-        chk(n_rx == 36, "E1 ready_i throttling loses NO byte (4 events => 36 bytes)");
+        chk(n_rx == 56, "E1 ready_i throttling loses NO byte (4 events => 56 bytes = 14 x 4)");
         chk(rx[0] === 8'hA5, "E2 the stream still starts with the header after the stall");
 
         // ═════════════════════════════════════════════════════════════════
@@ -184,10 +249,10 @@ module tb_rec_dump;
         do_reset;
         cnt = 16'd2;
         pulse_req; wait_done(4000);
-        chk(n_rx == 18, "G1 first dump pushed 18 bytes");
+        chk(n_rx == 28, "G1 first dump pushed 28 bytes (14 x 2)");
         n_rx = 0;
         pulse_req; wait_done(4000);
-        chk(n_rx == 18, "G2 the dump can be triggered AGAIN (no stuck state)");
+        chk(n_rx == 28, "G2 the dump can be triggered AGAIN (no stuck state)");
         chk(rx[0] === 8'hA5, "G3 the second dump is well-formed too");
 
         $display("");

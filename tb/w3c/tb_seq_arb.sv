@@ -55,6 +55,8 @@ module tb_seq_arb;
     wire [KIND_W-1:0] evt_kd;
     wire              evt_tv;
     wire [TIMBRE_W-1:0] evt_tb;
+    //  ⭐⭐ 2026-10-14：⭐ **来源**（⭐ 给"曲谱里的鼓"判据用 ✅）
+    wire [2:0]        evt_src;
     wire [15:0] coll_cnt, merged_cnt, drop_cnt, live_cnt, score_cnt, demo_cnt;
     wire        overflow;
 
@@ -75,6 +77,8 @@ module tb_seq_arb;
         .evt_valid_o(evt_v), .evt_axis_o(evt_ax), .evt_phase_inc_o(evt_inc),
         .evt_velocity_o(evt_vel), .evt_kind_o(evt_kd),
         .evt_timbre_valid_o(evt_tv), .evt_timbre_o(evt_tb),
+        //  ⭐⭐ 2026-10-14：⭐ **来源**（⭐ 给"曲谱里的鼓"判据用 ✅）
+        .evt_src_o(evt_src),
         .collision_cnt_o(coll_cnt), .merged_cnt_o(merged_cnt), .drop_cnt_o(drop_cnt),
         .overflow_o(overflow),
         .live_cnt_o(live_cnt), .score_cnt_o(score_cnt), .demo_cnt_o(demo_cnt)
@@ -103,6 +107,17 @@ module tb_seq_arb;
             if (evt_inc == LIVE_INC1 || evt_inc == LIVE_INC2)  n_live_seen  = n_live_seen + 1;
             if (evt_inc == SCORE_INC1 || evt_inc == SCORE_INC2) n_score_seen = n_score_seen + 1;
             if (evt_inc == DEMO_INC1)                           n_demo_seen  = n_demo_seen + 1;
+        end
+    end
+
+    //  ⭐⭐ 2026-10-14：⭐ **按轴号抓"来源"**（⭐ 给"曲谱里的鼓"判据用 ✅）
+    //     📌 ⭐ 轴 **15 = 鼓**（⭐ 与 ESP32 侧的约定 ✅）；⭐ 轴 **2 = 普通乐音**（⭐ 对照组）✅
+    reg [2:0] src_of_ax15 = 3'd7;
+    reg [2:0] src_of_ax2  = 3'd7;
+    always @(posedge clk) begin
+        if (rst_n && evt_v) begin
+            if (evt_ax == 4'd15) src_of_ax15 = evt_src;
+            if (evt_ax == 4'd2)  src_of_ax2  = evt_src;
         end
     end
 
@@ -384,6 +399,48 @@ module tb_seq_arb;
         $display("  相撞计数 = %0d · 合流计数 = %0d · 丢弃 = %0d",
                  coll_cnt, merged_cnt, drop_cnt);
         $display("--------------------------------------------------");
+
+        // ═══════════════════════════════════════════════════════════════════════
+        //  ⭐⭐ 2026-10-14：⭐ **曲谱里的鼓（`axis==15`）⇒ `evt_src_o == SRC_KDRUM`** ✅
+        //     ⭐ 依据：⭐ `files/20-代码/FPGA侧答复-鼓谱发声与XOR更正-20261014.md` §二 ✅
+        //     🔴 **为什么必须**：⭐ `note_manager` 的鼓池只认
+        //        `SRC_AUX`（⭐ 源 B = 节拍器/鼓机）**或** `SRC_KDRUM`（⭐ 键盘打鼓）
+        //        ⇒ ⚠️ 若这条不成立 ⇒ 🔴 **PC 灌的鼓会被判成乐音、推成音高** ✅
+        //        （⭐ 这正是用户听到"鼓被推成音高"的根因 ✅）
+        //     📌 ⭐ **两条都要**：⭐ ① 轴 15 必须是鼓；⭐ ② **轴≠15 必须仍是曲谱** ——
+        //        ⚠️ 少了 ② 就分不清"修对了"和"改过头了"（⭐ 把整条曲谱都打成鼓）✅
+        // ═══════════════════════════════════════════════════════════════════════
+        begin : drum_src_blk
+            do_reset;
+            src_of_ax15 = 3'd7;
+            src_of_ax2  = 3'd7;
+
+            // ⭐ ① 轴 15（⭐ 鼓）⇒ 应当是 `SRC_KDRUM`（5）
+            @(negedge clk);
+            score_v = 1'b1; score_ax = 4'd15; score_inc = 32'h0AAA_0001;
+            score_vel = 8'd200; score_kd = 2'd0;
+            @(negedge clk);
+            score_v = 1'b0;
+            repeat (10) @(negedge clk);
+            if (src_of_ax15 !== 3'd5) begin
+                $display("FAIL: score axis==15 came out as src=%0d, expected SRC_KDRUM=5 (the drum pool would reject it)", src_of_ax15);
+                errors = errors + 1;
+            end else
+                $display("  ok  : score axis==15 => SRC_KDRUM (5) -- note_manager puts it in the DRUM pool");
+
+            // ⭐ ② 轴 2（⭐ 普通乐音）⇒ 必须**仍是** `SRC_SCORE`（1）
+            @(negedge clk);
+            score_v = 1'b1; score_ax = 4'd2; score_inc = 32'h0AAA_0002;
+            score_vel = 8'd200; score_kd = 2'd0;
+            @(negedge clk);
+            score_v = 1'b0;
+            repeat (10) @(negedge clk);
+            if (src_of_ax2 !== 3'd1) begin
+                $display("FAIL: score axis==2 came out as src=%0d, expected SRC_SCORE=1 (the drum marker is over-broad)", src_of_ax2);
+                errors = errors + 1;
+            end else
+                $display("  ok  : score axis!=15 still => SRC_SCORE (1) -- the drum marker is NOT over-broad");
+        end
 
         // A1 addition: wait for the independent non-default DEPTH case.
         wait (depth9_done);

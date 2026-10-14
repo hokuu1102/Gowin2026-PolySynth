@@ -179,6 +179,30 @@ module seq_arb #(
     localparam [NW-1:0] SRC_SCORE = 3'd1;
     localparam [NW-1:0] SRC_DEMO  = 3'd2;
 
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-14：⭐ **曲谱里的【鼓】标记 ⇒ `SRC_KDRUM`** ✅
+    //
+    //  🔴 **为什么必须加**（⭐ 用户实测报告 ✅）：
+    //     ⭐ `note_manager` 的**鼓池**只认两个来源（⭐ `note_manager.v:650` / `:1873`）：
+    //        `cur_src == SRC_AUX`（⭐ 源 B = 节拍器/鼓机）
+    //        `cur_src == SRC_KDRUM`（⭐ 键盘打鼓）
+    //     ⚠️ 而**曲谱那一路原来打成 `SRC_SCORE`** ⇒ 🔴 **两个条件都不满足**
+    //        ⇒ ⭐ **PC 灌进来的鼓被判成【乐音】⇒ 被推成音高** ✅
+    //     📌 ⭐ **这正是用户听到"上到 fpga 听着怪怪的、鼓被推成音高"的根因** ✅
+    //     📌 ⭐ **为什么今天才暴露**：⭐ 手弹走 `SRC_LIVE`、⭐ **键盘打鼓走 `SRC_KDRUM`**、
+    //        ⭐ **鼓机走 `SRC_AUX`** ⇒ ⭐ 三条**都自带正确来源**
+    //        ⇒ ⚠️ **只有"PC 灌的谱"走 `SRC_SCORE`** ⇒ ⭐ 这是**第一条**从 PC 来的鼓 ✅
+    //
+    //  ⭐ **判据（⭐ 与 ESP32 侧约定）**：⭐ 曲谱事件里 **`axis == 15` ⇒ 是鼓** ✅
+    //     📌 ⭐ 依据：⭐ `files/20-代码/FPGA侧答复-鼓谱发声与XOR更正-20261014.md` §二 ✅
+    //     ⚠️ **代价（⭐ 如实说）**：⭐ **曲谱里 `axis 15` 从此被鼓占用**
+    //        ⇒ ⛔ **旋律轨别用 15**（⭐ ESP32 侧已经"鼓全走 axis 15" ✅）
+    //     📌 **备选**（⭐ 若将来 15 要留给旋律）：⭐ 用 64 位字里空闲的 `bit[6]` 当鼓标志
+    //        （⭐ 那 7 位 `bits 6..0 reserved` **一直是 0** ⇒ ⛔ 不算改协议 ✅）
+    // ═══════════════════════════════════════════════════════════════════════
+    localparam [NW-1:0] SRC_KDRUM = 3'd5;      // ⚠️ 必须与 `note_manager.v:316` 同值
+    wire [NW-1:0] score_src_w = (score_axis_i == 4'd15) ? SRC_KDRUM : SRC_SCORE;
+
     // ⭐ 事件记录 = {源编号, 轴, 相位增量, 力度, 类型}
     //   📌 ⭐ **把源编号也存进去** ⇒ ⭐ 弹出时才能知道"这条是谁的" ⇒ ⭐ 好统计
     localparam integer ENT2_W = NW + ENT_W;
@@ -321,7 +345,11 @@ module seq_arb #(
                 if (pop_src == SRC_LIVE)
                     live_cnt_o  <= (live_cnt_o  == 16'hFFFF) ? live_cnt_o
                                                              : (live_cnt_o  + 16'd1);
-                else if (pop_src == SRC_SCORE)
+                //  ⭐⭐ 2026-10-14：⭐ **`SRC_KDRUM` 也算【曲谱】统计** ✅
+                //     🔴 **为什么**：⭐ 曲谱里的鼓（⭐ `axis==15`）现在被打成 `SRC_KDRUM`
+                //        （⭐ 见上面 `score_src_w` 的长注释 ✅）
+                //     ⚠️ 若不并进来 ⇒ 🔴 鼓事件会**掉进下面的 `else` ⇒ 被算成 `demo_cnt`** ✅
+                else if ((pop_src == SRC_SCORE) || (pop_src == SRC_KDRUM))
                     score_cnt_o <= (score_cnt_o == 16'hFFFF) ? score_cnt_o
                                                              : (score_cnt_o + 16'd1);
                 else
@@ -340,10 +368,10 @@ module seq_arb #(
                         //    ⭐ 但**保留** ⇒ ⭐ 不给"将来改让位规则"留坑）
                         if (live_first) begin
                             mem[tail_q] <= pack_src(SRC_LIVE,  live_axis_i,  live_phase_inc_i,  live_velocity_i,  live_kind_i,  live_timbre_valid_i,  live_timbre_i);
-                            mem[tail_1] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
+                            mem[tail_1] <= pack_src(score_src_w, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
                             mem[tail_2] <= pack_src(SRC_DEMO,  demo_axis_i,  demo_phase_inc_i,  demo_velocity_i,  demo_kind_i,  demo_timbre_valid_i,  demo_timbre_i);
                         end else begin
-                            mem[tail_q] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
+                            mem[tail_q] <= pack_src(score_src_w, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
                             mem[tail_1] <= pack_src(SRC_LIVE,  live_axis_i,  live_phase_inc_i,  live_velocity_i,  live_kind_i,  live_timbre_valid_i,  live_timbre_i);
                             mem[tail_2] <= pack_src(SRC_DEMO,  demo_axis_i,  demo_phase_inc_i,  demo_velocity_i,  demo_kind_i,  demo_timbre_valid_i,  demo_timbre_i);
                         end
@@ -351,21 +379,21 @@ module seq_arb #(
                         // ⭐ 手弹 + 曲谱同拍（⭐ **最要紧的一种**：⭐ 必须两条都发）
                         if (live_first) begin
                             mem[tail_q] <= pack_src(SRC_LIVE,  live_axis_i,  live_phase_inc_i,  live_velocity_i,  live_kind_i,  live_timbre_valid_i,  live_timbre_i);
-                            mem[tail_1] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
+                            mem[tail_1] <= pack_src(score_src_w, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
                         end else begin
-                            mem[tail_q] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
+                            mem[tail_q] <= pack_src(score_src_w, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
                             mem[tail_1] <= pack_src(SRC_LIVE,  live_axis_i,  live_phase_inc_i,  live_velocity_i,  live_kind_i,  live_timbre_valid_i,  live_timbre_i);
                         end
                     end else if (push_live && push_demo) begin
                         mem[tail_q] <= pack_src(SRC_LIVE, live_axis_i, live_phase_inc_i, live_velocity_i, live_kind_i, live_timbre_valid_i, live_timbre_i);
                         mem[tail_1] <= pack_src(SRC_DEMO, demo_axis_i, demo_phase_inc_i, demo_velocity_i, demo_kind_i, demo_timbre_valid_i, demo_timbre_i);
                     end else if (push_score && push_demo) begin
-                        mem[tail_q] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
+                        mem[tail_q] <= pack_src(score_src_w, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
                         mem[tail_1] <= pack_src(SRC_DEMO,  demo_axis_i,  demo_phase_inc_i,  demo_velocity_i,  demo_kind_i,  demo_timbre_valid_i,  demo_timbre_i);
                     end else if (push_live) begin
                         mem[tail_q] <= pack_src(SRC_LIVE, live_axis_i, live_phase_inc_i, live_velocity_i, live_kind_i, live_timbre_valid_i, live_timbre_i);
                     end else if (push_score) begin
-                        mem[tail_q] <= pack_src(SRC_SCORE, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
+                        mem[tail_q] <= pack_src(score_src_w, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
                     end else begin
                         mem[tail_q] <= pack_src(SRC_DEMO, demo_axis_i, demo_phase_inc_i, demo_velocity_i, demo_kind_i, demo_timbre_valid_i, demo_timbre_i);
                     end

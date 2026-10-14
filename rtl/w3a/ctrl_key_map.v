@@ -87,19 +87,28 @@ module ctrl_key_map #(
     wire clr_at_long = (hold_clr >= LONG_CYC[HW-1:0]);
     wire cal_at_long = (hold_cal >= LONG_CYC[HW-1:0]);
 
+    //  🔴🔴 2026-10-14：⭐ **本块【不再碰】`clr_long_fired` / `cal_long_fired`** ✅
+    //     ⭐ **原缺陷（⭐ 仿真过、综合报错 ✅）**：
+    //        `ERROR (EX2000) : Net 'clr_long_fired' is constantly driven from multiple places`
+    //        `ERROR (EX1999) : Found another driver here`
+    //     🔴 **根因**：⭐ 两个标志在**本块**（复位 ＋ 松手清零）**和下面的命令脉冲块**
+    //        （长按到阈值时置位）里**各写一次** ✅
+    //     📌 ⭐ **一个 reg 只能在一个 always 块里赋值** ——
+    //        ⚠️ iverilog **容忍**（后写者胜）⇒ 🔴 **仿真全绿、综合报错** ✅
+    //     📌 ⭐ 这正是"**仿真过 ≠ 能综合**"（⭐ 本工程 `P1` 的立项理由 ✅）
+    //     📌 ⭐ **为什么现在才发现**：⭐ 本模块**此前从未进过网表** ——
+    //        ⚠️ `top.v` 一直没例化它 ⇒ 🔴 直到 2026-10-14 接线才暴露 ✅
+    //     ✅ **修法**：⭐ 标志**全部归下面的命令脉冲块** ⇒ 本块只管**计数器** ✅
     always @(posedge clk) begin
         if (!rst_n) begin
             hold_clr        <= {HW{1'b0}};
             hold_cal        <= {HW{1'b0}};
-            clr_long_fired  <= 1'b0;
-            cal_long_fired  <= 1'b0;
         end else begin
             // idx 12：按住就计数，松手清零
             if (key_level[12]) begin
                 if (!clr_at_long) hold_clr <= hold_clr + 1'b1;
             end else begin
                 hold_clr       <= {HW{1'b0}};
-                clr_long_fired <= 1'b0;
             end
 
             // idx 15：同上
@@ -107,7 +116,6 @@ module ctrl_key_map #(
                 if (!cal_at_long) hold_cal <= hold_cal + 1'b1;
             end else begin
                 hold_cal       <= {HW{1'b0}};
-                cal_long_fired <= 1'b0;
             end
         end
     end
@@ -132,6 +140,10 @@ module ctrl_key_map #(
             tare_req_o         <= 1'b0;
             span_req_o         <= 1'b0;
             fx_req_o           <= 1'b0;
+            //  ⭐⭐ 2026-10-14：⭐ **两个长按标志的复位【搬到本块】** ✅
+            //     🔴 原缺陷见上面块 1 的注释（⭐ 多驱动 ⇒ 综合报错 ✅）
+            clr_long_fired     <= 1'b0;
+            cal_long_fired     <= 1'b0;
         end else begin
             // 默认全低：单周期脉冲
             met_req_o          <= 1'b0;
@@ -175,6 +187,13 @@ module ctrl_key_map #(
             if (key_down[ 9]) fx_req_o           <= 1'b1;   // 占位
             if (key_down[10]) trans_down_req_o   <= 1'b1;
             if (key_down[11]) test_mode_req_o    <= 1'b1;
+
+            //  ⭐⭐ 2026-10-14：⭐ **松手清标志**（⭐ 从块 1 搬过来 ✅）
+            //     📌 ⭐ 顺序：⭐ 先"松手清"、⭐ 再"阈值置位" ——
+            //        ⚠️ 同一拍两者**不可能同时成立**
+            //        （⭐ 一个要求 `key_level=0`、⭐ 一个要求 `=1` ✅）
+            if (!key_level[12]) clr_long_fired <= 1'b0;
+            if (!key_level[15]) cal_long_fired <= 1'b0;
 
             // 行 3 · looper 清空：长按阈值到达那一刻发一次（且只发一次）
             if (key_level[12] && clr_at_long && !clr_long_fired) begin

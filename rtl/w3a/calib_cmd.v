@@ -217,7 +217,18 @@ module calib_cmd #(
     //     📌 ⭐ 以前只能**靠屏**切（触摸控件 0）⇒ ⭐ 没屏就没法用滑音 ✅
     //     ✅ ⭐ 本命令给出**脱离屏**的入口 ✅（⭐ 语义与屏触摸控件 0 **完全一致** ✅）
     //     ⚠️ ⭐ 字母 `'A'` 是空闲的（⭐ 已用：T S X M R L C I D F G H J Y Q W E ✅）
-    parameter [7:0]   CMD_MODE_SW  = 8'h41    // 'A' ⭐ 模式翻转 指板⇄钢琴（⭐ 2026-10-13）
+    parameter [7:0]   CMD_MODE_SW  = 8'h41,   // 'A' ⭐ 模式翻转 指板⇄钢琴（⭐ 2026-10-13）
+    //  ⭐⭐ 2026-10-14：⭐ **`'O'` 实时上行开关**（⭐ 上行帧 v1.1 的 14 B 事件流 ✅）
+    //     📌 ⭐ 为什么用 `'O'`：⭐ 空闲字母只剩 **`O`/`U`/`Z`**（⭐ 见 `串口命令总表` ✅）
+    //     📌 ⭐ **默认关**（⭐ 见 `top.v` 的 `up_enable_r` 复位值）⇒ ⛔ 不灌串口、⭐ 零回归 ✅
+    parameter [7:0]   CMD_UPSTREAM = 8'h4F,   // 'O' ⭐ 实时上行 开/关切换
+    //  ⭐⭐ 2026-10-14：⭐ **`'U'` 指引模式开关** ✅
+    //     ⭐ 语义：⭐ 灌谱**只亮 LED 指引** ＋ ⭐ **谱面对应的节拍器/鼓机照响**，
+    //        🔴 **但音符不出声** ✅
+    //     📌 ⭐ 为什么用 `'U'`：⭐ 空闲字母只剩 **`U`/`Z`** ✅
+    //     📌 ⭐ **默认关**（⭐ `top.v` 的 `guide_only_r` 复位值 0 = 普通演奏模式）
+    //        ⇒ ⛔ **零回归** ✅
+    parameter [7:0]   CMD_GUIDE    = 8'h55    // 'U' ⭐ 指引模式 开/关切换
 ) (
     input  wire        clk_i,
     input  wire        rst_n_i,        // ⭐ 同步复位、低有效
@@ -270,6 +281,10 @@ module calib_cmd #(
     //  ⭐⭐ 2026-10-13：⭐ `'A'` ⇒ 模式翻转（指板 ⇄ 钢琴）**切换** ✅
     //     ⚠️ 与 `slide_req_o`/`met_req_o` **同构** ⇒ `top.v` 用寄存器记状态
     output reg         mode_sw_req_o,    // ⭐ 'A' ⇒ 模式翻转（⭐ 单周期脉冲 ✅）
+    //  ⭐⭐ 2026-10-14：⭐ `'O'` ⇒ **实时上行 开/关切换**（⭐ 单周期脉冲，⭐ 与 `'W'` 同构 ✅）
+    output reg         upstream_req_o,
+    //  ⭐⭐ 2026-10-14：⭐ `'U'` ⇒ **指引模式 开/关切换**（⭐ 单周期脉冲 ✅）
+    output reg         guide_req_o,
 
     // ── ⭐ 可观测性（`K-106`：⛔ 不许静默失效）────────────────────────────
     output reg  [15:0] cmd_cnt_o,      // ⭐ 已接受的命令数（饱和）
@@ -368,6 +383,10 @@ module calib_cmd #(
     //  ⭐⭐ 2026-10-11：⭐ **`'W'` 滑音开关** ✅
     wire byte_is_slide      = (rx_data_i == CMD_SLIDE);
 wire byte_is_mode_sw    = (rx_data_i == CMD_MODE_SW);   // 2026-10-13 'A' 模式翻转
+    //  ⭐⭐ 2026-10-14：⭐ **`'O'` 实时上行开关** ✅
+    wire byte_is_upstream   = (rx_data_i == CMD_UPSTREAM);
+    //  ⭐⭐ 2026-10-14：⭐ **`'U'` 指引模式开关** ✅
+    wire byte_is_guide      = (rx_data_i == CMD_GUIDE);
     // ⭐ 任一命令字母
     wire byte_is_cmd   = byte_is_tare | byte_is_span | byte_is_abort |
                          byte_is_probe | byte_is_vstat | byte_is_posprobe |
@@ -386,6 +405,12 @@ wire byte_is_mode_sw    = (rx_data_i == CMD_MODE_SW);   // 2026-10-13 'A' 模式
                          //     ⚠️ 漏了 ⇒ 🔴 帧内出现 `0x59` 时 `in_frame_cnt_o` 不计数
                          //        ⇒ ⭐ "边界跟踪在工作"的证据就没了（⭐ 同上面那条 ✅）
                          byte_is_recdump |
+                         //  ⭐⭐ 2026-10-14：⭐ **`'O'`（实时上行）同样必须在这里** ✅
+                         //     🔴 漏了 ⇒ ⭐ 帧内出现 `0x4F` 时 `in_frame_cnt_o` 不计数
+                         //        ⇒ ⭐ "边界跟踪在工作"的证据就没了（⭐ 同上面两条 ✅）
+                         byte_is_upstream |
+                         //  ⭐⭐ 2026-10-14：⭐ **`'U'`（指引模式）同样必须在这里** ✅
+                         byte_is_guide |
                          //  ⭐⭐ 2026-10-13：⭐ **`'A'`（模式翻转）必须在这里** ✅
                          //     🔴🔴 **这就是上板"发 `A` 不回 `a`、模式也不变"的根因** ✅
                          //        ⚠️ 我加了下面 `:547` 那个"出脉冲"的分支，
@@ -449,6 +474,8 @@ wire byte_is_mode_sw    = (rx_data_i == CMD_MODE_SW);   // 2026-10-13 'A' 模式
             bpm_set_req_o    <= 1'b0;   // ⭐ 'Q' 设置 BPM（⭐ 2026-10-11）
             slide_req_o      <= 1'b0;   // ⭐ 'W' 滑音开关（⭐ 2026-10-11）
         mode_sw_req_o    <= 1'b0;   // ⭐ 'A' 模式翻转（⭐ 2026-10-13）
+        upstream_req_o   <= 1'b0;   // ⭐ 'O' 实时上行开关（⭐ 2026-10-14）
+        guide_req_o      <= 1'b0;   // ⭐ 'U' 指引模式开关（⭐ 2026-10-14）
             bpm_val_o        <= 8'd0;   // ⭐ 'Q' 的载荷值
             bpm_arm_q        <= 1'b0;   // ⭐ 'Q' 臂化标志
             abs_arm_q        <= 1'b0;   // ⭐ 'H' 臂化标志（⭐ 2026-10-03 · P2）
@@ -484,6 +511,8 @@ wire byte_is_mode_sw    = (rx_data_i == CMD_MODE_SW);   // 2026-10-13 'A' 模式
             bpm_set_req_o      <= 1'b0; // ⭐ 'Q'（⭐ 2026-10-11）
             slide_req_o        <= 1'b0; // ⭐ 'W'（⭐ 2026-10-11）
         mode_sw_req_o      <= 1'b0; // ⭐ 'A'（⭐ 2026-10-13）
+        upstream_req_o     <= 1'b0; // ⭐ 'O' 实时上行（⭐ 2026-10-14）
+        guide_req_o        <= 1'b0; // ⭐ 'U' 指引模式（⭐ 2026-10-14）
             gear_next_req_o    <= 1'b0; // ⭐ 'J'（⭐ 2026-10-03 · P2）
             recdump_req_o      <= 1'b0; // ⭐ 'Y' 录制回传导出（⭐ 2026-10-11）
             //   ⚠️ `trans_abs_val_o` **刻意不在这里清零** ——
@@ -553,6 +582,11 @@ wire byte_is_mode_sw    = (rx_data_i == CMD_MODE_SW);   // 2026-10-13 'A' 模式
                         //      🔴 **踩过的坑**：⭐ 只加这一行、⛔ 忘了加进 `byte_is_cmd` 总闸
                         //         ⇒ ⭐ `'A'` 连"命令"都不算（⭐ 上板实测症状 ✅）
                         if (byte_is_mode_sw)    mode_sw_req_o    <= 1'b1;
+                        //  ⭐⭐ 2026-10-14：⭐ **`'O'` 实时上行开关**（⭐ "切换"语义 ⇒ 直接出脉冲 ✅）
+                        //     📌 与 `'B'`/`'K'`/`'W'`/`'A'` **同构**（⭐ `top.v` 用寄存器记状态 ✅）
+                        if (byte_is_upstream)   upstream_req_o   <= 1'b1;
+                        //  ⭐⭐ 2026-10-14：⭐ **`'U'` 指引模式开关**（⭐ "切换"语义 ⇒ 直接出脉冲 ✅）
+                        if (byte_is_guide)      guide_req_o      <= 1'b1;
                         cmd_cnt_o <= sat_inc16(cmd_cnt_o);
                         idx_q     <= 4'd0;      // ⭐ 命令不推进帧位置
                     end else begin
@@ -656,7 +690,7 @@ wire byte_is_mode_sw    = (rx_data_i == CMD_MODE_SW);   // 2026-10-13 'A' 模式
     //   ⭐ 2026-10-03（`P2`）：⭐ **14 ⇒ 18**（⭐ 新增 `'F'`/`'G'`/`'H'`/`'J'` 四条变调命令）
     //      📌 ⚠️ **忘了加这里 = 查重漏掉新字母** ⇒ 🔴 将来撞字母时**静默遮蔽**
     //         （⭐ 所以本表是"加新命令时的**必改项**"，⭐ 见上方注释 ✅）
-    localparam integer N_CMD = 23;   // E 显示、Q BPM、W 滑音、A 模式 分别查重
+    localparam integer N_CMD = 25;   // E 显示、Q BPM、W 滑音、A 模式、O 上行、U 指引 分别查重
     reg [7:0] cmd_tab [0:N_CMD-1];
     integer   ci, cj;
     reg       letters_ok;
@@ -685,6 +719,8 @@ wire byte_is_mode_sw    = (rx_data_i == CMD_MODE_SW);   // 2026-10-13 'A' 模式
         cmd_tab[19] = CMD_BPM;         // ⭐ 2026-10-11：⭐ 'Q' 设置 BPM（⭐ 查重必改项 ✅）
         cmd_tab[20] = CMD_SLIDE;       // ⭐ 2026-10-11：⭐ 'W' 滑音开关（⭐ 查重必改项 ✅）
         cmd_tab[22] = CMD_MODE_SW;     // ⭐ 2026-10-13：⭐ 'A' 模式翻转 指板⇄钢琴（⭐ 查重必改项 ✅）
+        cmd_tab[23] = CMD_UPSTREAM;    // ⭐ 2026-10-14：⭐ 'O' 实时上行开关（⭐ 查重必改项 ✅）
+        cmd_tab[24] = CMD_GUIDE;       // ⭐ 2026-10-14：⭐ 'U' 指引模式开关（⭐ 查重必改项 ✅）
 
         if (GAP_BYTES <= 1)
             $display("ERROR [calib_cmd] GAP_BYTES = %0d <= 1 => intra-frame byte gaps would be mistaken for idle, so a half frame resyncs early and payload bytes get treated as commands. PARAM_OK=0.", GAP_BYTES);

@@ -59,6 +59,8 @@ module tb_play_mode_ctrl;
     always @(posedge clk) if (rst_n && evt_valid) begin
         events_axis[event_n] = evt_axis;
         events_kind[event_n] = evt_kind;
+        $display("     [evt #%0d] axis=%0d kind=%0d (depth=%0d)",
+                 event_n, evt_axis, evt_kind, evt_depth);
         event_n = event_n + 1;
     end
 
@@ -130,6 +132,79 @@ module tb_play_mode_ctrl;
         repeat (2) @(posedge clk);
         chk("P0-22 keyboard->fretboard switch: the release still emits note_off (no stuck note)",
             event_n == 2 && events_kind[1] == 2'd1 && events_axis[1] == 4'd5);
+
+        //  ═══ ⭐⭐ 2026-10-14：⭐ **多轴独立跟踪（新功能判据）** ═══
+        //   🔴 **原实现的三个 bug 同一个根因**：⭐ `gate_axis`/`selected_axis` 都是**单个**轴号
+        //      ① ⭐ 交替拨弦覆盖 `gate_axis` ⇒ 🔴 旧音收不到 OFF ⇒ **挂音**
+        //      ② ⭐ `selected_axis` 单个 ⇒ ⭐ 换品挤掉旧轴 ⇒ 🔴 **第二个音出不来**
+        //      ③ ⭐ 一次拨弦只触发"选中的那一个" ⇒ 🔴 **滑音/多轴同时响不了**
+        //   ✅ 新语义：⭐ 位图跟踪；⭐ 拨弦触发"所有已按住的轴"；⭐ 松轴放掉正在响的
+        //  ─────────────────────────────────────────────────────────────────
+        rst_n = 1'b0; repeat (3) @(posedge clk); rst_n = 1'b1;
+        event_n = 0;
+        fretboard_mode = 1'b1;
+        //  ① 同时按住 6 和 9（⭐ 多轴！）
+        axis_evt(4'd6, 2'd0, 12'd900);
+        axis_evt(4'd9, 2'd0, 12'd800);
+        repeat (2) @(posedge clk);
+        chk("M1 two axes held => selection alone is still silent", event_n == 0);
+        //  ② 一次拨弦 ⇒ **触发一个轴**（⭐ 多轴时逐次覆盖，⛔ 不是一次全发 ✅）
+        //     📌 ⭐ **如实记录本版的取舍**：
+        //        ⚠️ 我第一版想"一次拨弦把所有按住的轴都触发"，⚠️ 但与 **P0-22 ①**
+        //           的既有契约冲突（⭐ 那个契约要求"松任意轴 ⇒ 放掉正在响的那一个" ✅）
+        //        ⇒ ⭐ **取舍**：⭐ **保住零回归（⛔ 不许动已验收的行为）**，
+        //           采用"一次拨弦触发一个轴、多轴时逐次覆盖"
+        //        ⇒ 🔴 代价：⭐ "一次拨弦出和弦"做不到
+        //        ⇒ ⭐ 收益：⛔ **零回归** ＋ ✅ **挂音治好**（M4）＋ ✅ **第二音能出**（M3/M4）
+        //     📌 ⭐ 若将来要"一次拨弦出和弦" ⇒ ⭐ 必须**先重谈 P0-22 ① 的契约**，⛔ 不能偷偷改
+        pluck_evt(1'b0);
+        repeat (6) @(posedge clk);
+        chk("M2 ONE pluck triggers ONE axis and it is one of the held axes (6 or 9)",
+            event_n >= 1 && (events_axis[0] == 4'd6 || events_axis[0] == 4'd9)
+            && events_kind[0] == 2'd2);
+        //  ③ ⭐ **再拨一次 ⇒ 另一个轴也能触发**（⭐ "第二个音出不来"的修法 ✅）
+        pluck_evt(1'b1);
+        repeat (6) @(posedge clk);
+        chk("M3 a SECOND pluck makes the OTHER held axis sound too (no 'second note missing')",
+            event_n >= 2 && events_kind[1] == 2'd2
+            && (events_axis[1] == 4'd6 || events_axis[1] == 4'd9)
+            && (events_axis[1] != events_axis[0]));
+        //  ④ ⭐ **松轴 ⇒ 一定放掉一个**（⛔ 不许挂音）
+        axis_evt(4'd6, 2'd1, 12'd0);
+        repeat (6) @(posedge clk);
+        chk("M3b releasing an axis emits a note_off (no hang)",
+            event_n >= 3 && events_kind[2] == 2'd1);
+        //  ④ ⭐ **交替拨弦不挂音（⭐ 用户报告的第一症状 ✅）**
+        //     ⭐ 复位后：⭐ 拨 6 ⇒ 换 9 再拨 ⇒ 交替 3 轮 ⇒ 每次松键都要能放掉
+        rst_n = 1'b0; repeat (3) @(posedge clk); rst_n = 1'b1;
+        event_n = 0;
+        fretboard_mode = 1'b1;
+        axis_evt(4'd6, 2'd0, 12'd900);
+        pluck_evt(1'b0); repeat (2) @(posedge clk);       // ⭐ 拨 6
+        axis_evt(4'd6, 2'd1, 12'd0); repeat (2) @(posedge clk);   // ⭐ 松 6 ⇒ 应 OFF
+        axis_evt(4'd9, 2'd0, 12'd800);
+        pluck_evt(1'b1); repeat (2) @(posedge clk);       // ⭐ 拨 9
+        axis_evt(4'd9, 2'd1, 12'd0); repeat (2) @(posedge clk);   // ⭐ 松 9 ⇒ 应 OFF
+        axis_evt(4'd6, 2'd0, 12'd900);
+        pluck_evt(1'b0); repeat (2) @(posedge clk);       // ⭐ 再拨 6
+        axis_evt(4'd6, 2'd1, 12'd0); repeat (2) @(posedge clk);   // ⭐ 再松 6 ⇒ 应 OFF
+        //  ⭐ 期望：⭐ 3 个 PLUCK + 3 个 OFF 交替（⭐ 一个都不少 ⇒ 不挂音 ✅）
+        chk("M4 alternating pluck/release => every note_on gets its note_off (no stuck note)",
+            event_n == 6
+            && events_kind[0] == 2'd2 && events_kind[1] == 2'd1
+            && events_kind[2] == 2'd2 && events_kind[3] == 2'd1
+            && events_kind[4] == 2'd2 && events_kind[5] == 2'd1);
+        //  ⑤ ⭐ **按住不放 ⇒ 每次拨弦都再触发一次**（⭐ 用户要的"超过阈值就一直保持可触发" ✅）
+        rst_n = 1'b0; repeat (3) @(posedge clk); rst_n = 1'b1;
+        event_n = 0;
+        fretboard_mode = 1'b1;
+        axis_evt(4'd3, 2'd0, 12'd500);                  // ⭐ 按住不放（⛔ 不松）
+        pluck_evt(1'b0); repeat (4) @(posedge clk);      // ⭐ 第 1 次拨
+        pluck_evt(1'b1); repeat (4) @(posedge clk);      // ⭐ 第 2 次拨
+        pluck_evt(1'b0); repeat (4) @(posedge clk);      // ⭐ 第 3 次拨
+        chk("M5 held axis keeps retriggering on every pluck (no one-shot latch)",
+            event_n == 3
+            && events_kind[0] == 2'd2 && events_kind[1] == 2'd2 && events_kind[2] == 2'd2);
 
         if (errors == 0) $display("PASS: play-mode controller enforces keyboard and fretboard semantics");
         else $fatal(1, "FAIL: play_mode_ctrl has %0d error(s)", errors);

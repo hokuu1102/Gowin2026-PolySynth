@@ -89,6 +89,10 @@ module tb_calib_cmd;
     //        ⇒ ⭐ 回归 157/157 全绿也**证明不了 `'A'` 是对的**（⭐ 典型假绿 ✅）
     wire        mode_sw_req;
     integer     msw_seen   = 0;         // ⭐ 出现次数
+    //  ⭐⭐ 2026-10-14：⭐ **`'O'` 实时上行开关**的观测 ✅
+    wire        upstream_req;
+    integer     up_seen    = 0;         // ⭐ 出现次数
+    integer     up_cycles  = 0;         // ⭐ 高电平拍数（⭐ 单周期证明 ✅）
     integer     msw_cycles = 0;         // ⭐ 高电平拍数（⭐ 单周期证明）
     //  ⭐⭐ 2026-10-11：⭐ `'Q'` 设置 BPM 的观测（⭐ 判据用 ✅）
     wire        bpm_set_req;
@@ -98,6 +102,7 @@ module tb_calib_cmd;
     integer     n_q;                    // ⭐ 'Q' 判据用：⭐ 命令计数基线 ✅
     integer     n_bpm;                  // ⭐ 2026-10-14：⭐ BPM 脉冲计数基线 ✅
     integer     n_ta;                   // ⭐ 2026-10-14：⭐ 'H' 臂废掉判据的基线 ✅
+    integer     n_o;                    // ⭐ 2026-10-14：⭐ 'O' 命令计数基线 ✅
     //  ⭐ 监视：⭐ 每次脉冲都记下值 ⇒ ⭐ 可判"脉冲了几次"与"值对不对" ✅
     always @(posedge clk)
         if (bpm_set_req) begin
@@ -148,6 +153,8 @@ module tb_calib_cmd;
         .bpm_val_o       (bpm_val),
         //  ⭐⭐ 2026-10-13：⭐ `'A'` 模式翻转（⭐ 补的判据 ✅）
         .mode_sw_req_o   (mode_sw_req),
+        //  ⭐⭐ 2026-10-14：⭐ `'O'` 实时上行开关（⭐ 第 24 条命令 ✅）
+        .upstream_req_o  (upstream_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (in_frame_cnt),
         .resync_cnt_o   (resync_cnt),
@@ -214,6 +221,7 @@ module tb_calib_cmd;
             if (gear_next_req)  begin gj_seen = gj_seen + 1; gj_cycles = gj_cycles + 1; end
             //  ⭐⭐ 2026-10-13：⭐ `'A'` 模式翻转（⭐ 补的判据 ✅）
             if (mode_sw_req)    begin msw_seen = msw_seen + 1; msw_cycles = msw_cycles + 1; end
+            if (upstream_req)   begin up_seen  = up_seen  + 1; up_cycles  = up_cycles  + 1; end
         end
     end
 
@@ -431,6 +439,35 @@ module tb_calib_cmd;
         //      （⭐ 载荷字节 == 0x41 时⛔ 一个都不能触发 ✅）
         send_frame(A, A, A, A, A, A, A, A);
         chk("'A' INSIDE a frame payload raises NOTHING (frame-safe)", msw_seen == 2);
+
+        // ── ⭐⭐ `'O'` = **实时上行开关**（⭐ 2026-10-14：上行帧 v1.1 的总闸 ✅）────
+        //   ⭐ 语义：⭐ 与 `'B'`/`'K'`/`'W'`/`'A'` **完全同构**（⭐ "切换" ⇒ 直接出脉冲 ✅）
+        //   🔴 **未实现时必红**：⭐ `'O'` 是**未知字节** ⇒ ⭐ `cmd_cnt_o` 不涨
+        //      （⭐ 进 `unknown_cnt_o` ✅）⇒ ⭐ 第一条判据就红 ✅
+        //   📌 ⭐ **本段也覆盖那个头号陷阱**：⭐ 若忘了把 `byte_is_upstream` 加进
+        //      `byte_is_cmd` 总闸 ⇒ ⭐ `cmd_cnt_o` 不涨 ＋ ⭐ 帧内 `0x4F` 不计数 ✅
+        do_reset();
+        repeat (4) @(posedge clk);
+        n_o = cmd_cnt;
+        up_seen = 0; up_cycles = 0;
+        send_byte(8'h4F);                       // ⭐ 'O'
+        repeat (6) @(posedge clk);
+        chk("'O' is accepted as a COMMAND (cmd_cnt_o counts it, not unknown_cnt_o)",
+            cmd_cnt == n_o + 16'd1);
+        chk("'O' raises upstream_req_o exactly once", up_seen == 1);
+        //  ⭐ 再发一次 ⇒ ⭐ 累计 2（⭐ "切换"语义 ⇒ 可反复 ✅）
+        send_byte(8'h4F);
+        repeat (6) @(posedge clk);
+        chk("'O' can be sent repeatedly (2nd pulse => cumulative 2)", up_seen == 2);
+        //  ⭐ 单周期判据**放在过若干拍之后**（⭐ 理由同 `'H'`：⭐ `C83` 假绿 ✅）
+        chk("'O' pulse is exactly ONE cycle wide (checked late)", up_cycles == 2);
+        //  ⭐ 帧内出现的 `'O'`（⭐ 载荷字节 == 0x4F）⛔ 一个都不许触发 ✅
+        ifc0 = in_frame_cnt;
+        send_frame(8'h4F, 8'h4F, 8'h4F, 8'h4F, 8'h4F, 8'h4F, 8'h4F, 8'h4F);
+        chk("'O' INSIDE a frame payload raises NOTHING (frame-safe)", up_seen == 2);
+        chk("in_frame_cnt_o counted all 8 in-frame 'O' letters",
+            (in_frame_cnt - ifc0) == 16'd8);
+        chk("cmd_cnt_o did NOT count the in-frame 'O' letters", cmd_cnt == n_o + 16'd2);
 
         // ── ⭐⭐ `'H'` = **带帧绝对量**（⭐ 复用现有 9 字节帧）────────────────
         //   ⭐ 协议：⭐ 先发**裸 `'H'`**（⭐ 只"臂化"、⛔ 本拍不出值）⇒

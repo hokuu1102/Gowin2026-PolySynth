@@ -41,6 +41,18 @@ module tb_perc_env_top;
     localparam integer RES_BASE = 27;
     localparam integer VTEST    = 1;          // ⭐ 强制力度 1 ⇒ 峰值 256
     localparam integer PEAK      = VTEST << 8;
+    //  ⭐⭐ 2026-10-14：⭐ **时长判据的参数【不在 localparam 里做层次引用】** ✅
+    //     🔴 **原写法编译不过**：`A hierarchical reference (u_top.g_sound.u_perc_env_bank
+    //        .DECAY_STEP) is not allowed in a constant expression`
+    //        ⇒ ⚠️ Verilog-2001 中 `localparam` 的初值必须是**编译期常量**，
+    //           ⭐ 而**层次引用是运行期的** ⇒ 🔴 两者不能混 ✅
+    //     ✅ **修法**：⭐ `localparam` 只留"与 DUT 无关"的量（`PEAK`），
+    //        ⭐ 凡涉及 DUT 参数的一律改成 **`initial` 里的 `integer` 变量**（⭐ 运行期读 ✅）
+    //     📌 ⭐ 好处：⭐ `top.v` 的 `DECAY_STEP` 改成多少，⭐ 判据**自动跟着变** ✅
+    integer PE_STEP;         // ⭐ DUT 的 DECAY_STEP（运行期读）
+    integer PE_TICK;         // ⭐ 期望 tick 数 = ceil(PEAK/STEP)
+    integer PE_BUDGET;       // ⭐ 轮询上限（clock）
+    integer PE_MIN_TICK;     // ⭐ 允许的最少 tick（防"衰得太快"）
 
     reg clk   = 1'b0;
     reg rst_n = 1'b0;
@@ -48,6 +60,21 @@ module tb_perc_env_top;
 
     integer errors = 0;
     integer trig_cnt = 0;
+    //  ⭐⭐ 2026-10-14：⭐ **衰到 0 用了多少个 sample_tick**（⭐ 给 P3b 用 ✅）
+    //     📌 ⚠️ **always 块本体在下方 `lvl_res` 声明之后**
+    //        （⭐ Verilog-2001：先声明后用 ⇒ ⛔ 不能放在 DUT 例化之前 ✅）
+    //         🔴 **本轮连踩三个坑（⭐ 都记下来，⛔ 别再踩）**：
+    //            ① `localparam` 里做**层次引用** ⇒ 🔴 非编译期常量 ⇒ 报错 ✅
+    //               ⇒ ✅ 改成 `initial` 里的 `integer`（运行期读 ✅）
+    //            ② `localparam` 写在 `initial` 块**中间** ⇒ 🔴 声明必须先于语句 ✅
+    //            ③ 读点用了 `perc_level`，⭐ 而本 tb 的 `poll_level` 读的是
+    //               **`u_tdm_render_mixer.env_level_i`** ⇒ 🔴 口径不同 ⇒ 一次都不触发 ✅
+    //               ⇒ ✅ 统一读 `lvl_res` ✅
+    //            ④ 计数器"见到非 0 就每拍 +1" ⇒ ⚠️ 归 0 后永远为 0 ⇒ 🔴 会一直累加 ⇒ 必红 ✅
+    //               ⇒ ✅ 显式三态（`IDLE→RUN→DONE`），**数到第一次归 0 就停** ✅
+    localparam [1:0] Z_IDLE = 2'd0, Z_RUN = 2'd1, Z_DONE = 2'd2;
+    reg [1:0] zero_st = Z_IDLE;
+    integer   zero_ticks = 0;
 
     task chk;
         input [NAME_W-1:0] name;
@@ -116,6 +143,27 @@ module tb_perc_env_top;
     // ═════════════════════════════════════════════════════════════════════════
     wire [15:0] lvl_res  = u_top.g_sound.u_tdm_render_mixer.env_level_i[RES_BASE*16 +: 16];
     wire [15:0] lvl_adsr = u_top.g_sound.env_level[RES_BASE*16 +: 16];      // ADSR（对照）
+
+    // ═════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-14：⭐ **数"实际用了多少 sample_tick 衰到 0"**（⭐ P3b 用 ✅）
+    //     📌 放在这里（`lvl_res` 之后）是因为 Verilog-2001 **先声明后用** ✅
+    //     📌 用 `tick_audio`（`perc_env_bank.sample_tick_i` 同源）当节拍，
+    //        ⭐ 与 `poll_level` 的采样口径完全一致 ✅
+    // ═════════════════════════════════════════════════════════════════════
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            zero_st <= Z_IDLE; zero_ticks <= 0;
+        end else if (u_top.g_sound.u_perc_env_bank.sample_tick_i) begin
+            case (zero_st)
+                Z_IDLE: if (lvl_res != 16'd0) zero_st <= Z_RUN;       // ⭐ 见非 0 ⇒ 开始数
+                Z_RUN:  begin
+                            zero_ticks <= zero_ticks + 1;
+                            if (lvl_res == 16'd0) zero_st <= Z_DONE;  // ⭐ 数到归 0 就收 ✅
+                        end
+                default: ;                                          // Z_DONE：⛔ 不再数
+            endcase
+        end
+    end
     wire        p_active = u_top.g_sound.perc_active[0];
     wire        p_trig   = u_top.g_sound.perc_trig[0];
 
@@ -178,11 +226,40 @@ module tb_perc_env_top;
         chk("P2 perc_slot_attacks_to_PEAK_256 (vel=1 => 1<<8)", ok_peak == 1);
 
         // ── P3：⭐⭐ 峰值之后【必须衰到 0】（"不挂音"的核心契约）──────────
-        //    ⭐ 预算 20000 拍：`256/67 = 4` 个 tick（每 tick 1024 拍）≈ 4096 拍
-        //    🔴 若保留池仍走 ADSR ⇒ 会停在 sustain(64) ⇒ **永远到不了 0** ⇒ 本判据 FAIL
-        poll_level(16'd0, 32'd20000, ok_zero);
+        //    ⭐⭐ 2026-10-14：⭐ **预算改成【按参数算】** ✅
+        //       🔴 **原写法**：`预算 20000 拍：256/67 = 4 个 tick ≈ 4096 拍`
+        //          ⚠️ 而 `top.v:5886` 的 `DECAY_STEP` 已从 **67 改成 33**（⭐ 鼓增益改动 ✅）
+        //          ⇒ ⚠️ 现在应是 `256/33 = 8` 个 tick ≈ 8192 拍
+        //          ⇒ 🔴 **原判据把 67 写死了** ⇒ ⭐ 参数再改也测不出来（⭐ "假绿"风险 ✅）
+        //    ✅ **修法**：⭐ 在 `initial` 里**运行期**读 `DECAY_STEP`，
+        //       ⭐ 预算 = `ceil(峰值/STEP)` 个 tick（每 tick 1024 拍）再留 **2× 余量**
+        //       ⇒ ⭐ 参数怎么变判据都跟着变 ✅
+        //    📌 ⚠️ **必须写在 `initial` 里、⛔ 不能写进 `localparam`**
+        //       （⭐ Verilog-2001：层次引用不是编译期常量 ✅）
+        PE_STEP    = u_top.g_sound.u_perc_env_bank.DECAY_STEP;
+        PE_TICK    = (PEAK + (PE_STEP - 1)) / PE_STEP;    // ⭐ ceil
+        PE_BUDGET  = PE_TICK * 1024 * 2;                  // ⭐ 2× 余量
+        PE_MIN_TICK = (PE_TICK > 1) ? (PE_TICK - 1) : 1;
+        $display("  [perc] DECAY_STEP=%0d peak=%0d => expected %0d tick(s), budget=%0d clk",
+                 PE_STEP, PEAK, PE_TICK, PE_BUDGET);
+        poll_level(16'd0, PE_BUDGET[31:0], ok_zero);
         chk("P3 perc_slot_decays_to_ZERO_after_peak (K-144 no-hang contract)",
             (ok_peak == 1) && (ok_zero == 1));
+        //  ⭐⭐ 附加判据（⭐ 2026-10-14）：⭐ **时长必须与参数一致**
+        //     🔴 **为什么加**：⭐ 只验"能衰到 0"是不够的 —— ⭐ 若有人把 `DECAY_STEP` 改成 1，
+        //        ⭐ 它照样衰到 0（⭐ 只是衰得飞快）⇒ 🔴 P3 仍然绿 ⇒ ⛔ 保护不了时长 ✅
+        //  ⭐⭐ 附加判据（⭐ 2026-10-14）：⭐ **时长必须与参数一致**
+        //     🔴 **为什么加**：⭐ 只验"能衰到 0"是不够的 —— ⭐ 若有人把 `DECAY_STEP` 改成 1，
+        //        ⭐ 它照样衰到 0（⭐ 只是衰得飞快）⇒ 🔴 P3 仍然绿 ⇒ ⛔ 保护不了时长 ✅
+        //     ✅ 数"实际用了多少 tick 衰到 0"，⭐ 与 `ceil(峰值/STEP)` 比
+        //     ⚠️ ⭐ **不要求 `zero_st == Z_DONE`**（⭐ 本轮实测踩到 ✅）：
+        //        ⚠️ `poll_level` 可能在**两次 sample_tick 之间**看到 level==0
+        //        ⇒ ⭐ 那一刻 `zero_st` 还在 `Z_RUN`（⭐ 要等下一个 tick 才转 DONE ✅）
+        //        ⇒ 🔴 强求 DONE 会**假红** ✅
+        chk("P3b decay_length_matches_DECAY_STEP (not just 'reaches zero')",
+            (zero_ticks >= PE_MIN_TICK) && (zero_ticks <= PE_TICK));
+        $display("  [perc] zero_ticks=%0d (expected %0d..%0d), zero_st=%0d (2=DONE)",
+                 zero_ticks, PE_MIN_TICK, PE_TICK, zero_st);
 
         // ── P4：上升沿检测【恰好触发一次】（⛔ 不是电平触发）────────────
         chk("P4 edge_detect_fired_EXACTLY_ONCE (not level-triggered)", trig_cnt == 1);

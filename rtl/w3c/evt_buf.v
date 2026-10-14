@@ -159,7 +159,44 @@ reg              hw_r;
 
     //  ⭐ 读侧输出：⭐ 队头**始终**摆在这里，⭐ 由 `rd_valid_o` 说明它有没有意义 ✅
     assign rd_valid_o = ~empty;
-    assign rd_data_o  = rd_data_r;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-14：⭐ **同址写穿旁路改成"RAM 纯读 ＋ 输出端 mux"** ✅
+    //
+    //  🔴 **为什么必须改**：⭐ 原写法
+    //     `rd_data_r <= rd_wr_same ? wr_data_i : mem[rd_addr];`
+    //     ⚠️ 被综合推断成 **BSRAM 的 write-through 模式（`WRITE_MODE=2'b10`）**，
+    //     🔴 而 **Gowin 的 SDPB 不支持它** ⇒
+    //        `ERROR (PA2122) Not support 'mem_mem_0_0_s'(DPB) WRITE_MODE0 = 2'b10`
+    //     ⇒ 🔴 **整个 PnR 失败**（⭐ 2026-10-14 实测 ✅）
+    //     📌 ⚠️ 它**一直潜伏**（⭐ 2026-10-11 加旁路时就在），⭐ 只是**之前没被推断出来** ✅
+    //
+    //  ✅ **修法**：⭐ RAM 只做**纯读**；⭐ 旁路在**输出端**、⭐ 用**打了一拍的选择信号**做 ✅
+    //
+    //  📌 ⭐ **语义与时序逐拍不变**（⭐ 这是本修法成立的全部理由 ✅）：
+    //     · ⭐ 第 T 拍：`rd_wr_same` 有效 ＋ `wr_data_i` = D
+    //     · ⭐ 第 T+1 拍：`rd_data_r` = `mem[rd_addr]`（⭐ RAM 旧值，⭐ 与改前一样 ✅）
+    //                    `rd_wr_same_d` = 1、`wr_data_d` = D
+    //     ⇒ ⭐ `rd_data_o` = **D** ✅ —— ⭐ 与改前**完全一致** ✅
+    //     📌 且 `rd_wr_same=0` 时 ⭐ 两条路径都输出 `rd_data_r` ⇒ ⭐ 也一致 ✅
+    //
+    //  📌 **代价**：⭐ 一个 `EVT_W` 位 2:1 mux —— ⭐ 与改前那个 mux **同量级** ✅
+    //  📌 **代价（诚实标注）**：⭐ `rd_data_o` 从"纯寄存器输出"变成"**寄存器 + 一个 mux**" ⇒
+    //     ⚠️ 组合路径**多一级 mux**（⭐ 下游 `play_seq.evt_data_i` 本来就组合采样 ✅）
+    // ═══════════════════════════════════════════════════════════════════════
+    reg              rd_wr_same_d;
+    reg [EVT_W-1:0]  wr_data_d;
+    always @(posedge clk_i) begin
+        if (!rst_n_i) begin
+            rd_wr_same_d <= 1'b0;
+            wr_data_d    <= {EVT_W{1'b0}};
+        end else begin
+            rd_wr_same_d <= rd_wr_same;
+            wr_data_d    <= wr_data_i;
+        end
+    end
+
+    assign rd_data_o  = rd_wr_same_d ? wr_data_d : rd_data_r;
 
     //  ⭐ `cnt` 的**唯一**组合表达式（⭐ 学 `uart_tx_fifo.v` 的教训 ✅）
     //     🔴 **原来的坑**：⭐ "取走"写 `cnt <= cnt-1`、"推入"写 `cnt <= cnt+1`
@@ -203,8 +240,12 @@ assign high_water_o = hw_r;
                 rd_ptr <= rd_ptr + ONE;
 
             // ── ③ ⭐ FWFT 预取（⭐ 每拍都读 —— ⭐ 这就是"无空隙"的全部实现 ✅）──
-            //     ⭐⭐ **同址写穿**（⭐ 见 `rd_wr_same` 的长注释 —— ⭐ 那是真 bug 的修法 ✅）
-            rd_data_r <= rd_wr_same ? wr_data_i : mem[rd_addr];
+            //     ⭐⭐ 2026-10-14：⭐ **改成【纯读】** ✅ ——
+            //        🔴 原来掺了同址写穿（⭐ `rd_wr_same ? wr_data_i : ...`）
+            //           ⇒ ⭐ 综合推断 `WRITE_MODE=2'b10` ⇒ 🔴 **PnR 报 `PA2122`** ✅
+            //     📌 ⭐ **旁路没有丢** —— ⭐ 它搬到了**输出端**（⭐ 见 `rd_data_o` 那里 ✅）
+            //     📌 ⭐ **时序逐拍不变**（⭐ RAM 读仍是 1 拍延迟 ✅）
+            rd_data_r <= mem[rd_addr];
 
             // ── ④ ⭐ 计数（⭐ 唯一一次赋值 ✅）────────────────────────────────
             cnt <= cnt_next;
