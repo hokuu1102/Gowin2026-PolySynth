@@ -1,0 +1,18 @@
+{
+  "BaselineCommit": "a42cc32a36bf800973e1ccddc314466034ae17fb",
+  "Baseline": "AO",
+  "Candidate": "AT",
+  "CandidateDirectory": "C:/Users/cyx/Documents/ChatGPT/FPGA/opt08-nm-target164-ao-20261013-a42cc32",
+  "ProductChanges": [
+    "rtl/w3b/note_manager.v",
+    "constr/top.sdc"
+  ],
+  "PhysicalSystemClockMHz": 50,
+  "ImplementationTargetNs": 16.4,
+  "OldDirtyRecordCount": 68,
+  "RollbackBranch": "codex/rollback-pre-at-20261013",
+  "BackupDirectory": "C:/Users/cyx/Documents/ChatGPT/FPGA/rollback-pre-at-20261013",
+  "CandidateBitstreamSHA256": "0D3E4460C8EB64AB14BD6BD949C8FD82E7EB5ED96786713DBF2C99EC9BAEF21C",
+  "BoardAcceptance": "NOT_RUN",
+  "RemotePush": "NOT_RUN"
+}

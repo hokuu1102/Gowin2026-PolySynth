@@ -597,7 +597,7 @@ parameter integer TEST_MODE_EN       = 1,
 
     //  ⭐ 串口 `'I'` 的音色脉冲（⭐ 提前声明 ⇒ ⭐ 下面的按键块要用它 ✅）
     wire cmd_timbre_req;
-    wire cmd_scope_mode_req;   // ⭐ 2026-10-10（乙）：'Q' 显示模式切换
+    wire cmd_scope_mode_req;   // ⭐ 2026-10-13：'E' 显示模式切换（⚠️ 原注释误写 'Q'）
 
     //  ⭐⭐ 2026-09-29 合并（⭐ 队友版 + 方案 B）：⭐ **板载 S2 音色按键**
     //   ⚠️ **必须放在【模块层】** —— ⭐ 队友的 `tb\top\tb_top_timbre_button.sv` 用
@@ -1643,7 +1643,9 @@ wire ovf_any;
     //     ③ 共用 + 波形数据通路桩掉 : ❌ 仍然卡死（隔离实验，2026-10-10）
     //     ⇒ ⭐ 真凶 = 把 `SCOPE_MODE` 变成【运行时信号】这件事本身（5 个宽 mux + 两套 FSM 并存），
     //        ⛔ 不是波形数据通路（减法器/比较器都桩掉了还是卡）。
-    //     `SCOPE_MODE` 恢复为【编译期参数】；串口 `'Q'` 保留【冻结/恢复】语义。
+    //     `SCOPE_MODE` 恢复为【编译期参数】；串口 `'E'` 保留【冻结/恢复】语义。
+    //     ⚠️ 2026-10-13 更正：本行原写 `'Q'` —— 那是**过时注释**（命令已迁到 `'E'`，
+    //        `'Q'` 现在归 BPM）。见 `calib_cmd.v` 的 `CMD_SCOPE_MODE = 8'h45`。
     //     📌 重设计思路见 `files/20-代码/显示模式切换-重新设计-20261010.md`
     reg scope_mode_r;
     always @(posedge clk) begin
@@ -1998,6 +2000,30 @@ wire ovf_any;
         wire [15:0] ps_tempo_cnt;
         wire [19:0] ps_cur_tick;
 
+        //  ⭐⭐ 2026-10-14：⭐ **手动 BPM（`'Q'`）对齐到小节线** ✅
+        //     🔴 **只有手动那一路经过它** —— ⭐ 曲谱 tempo（`kind=2`）仍走
+        //        `play_seq` 内部那条"立即写"的通路（⭐ 用户要求"曲谱不延迟" ✅）
+        //     📌 **依据**：⭐ 曲谱作者**本来就**把 tempo 事件排在小节线上
+        //        ⇒ ⚠️ 若也过对齐 ⇒ 🔴 整首曲子的变速被**推后一个小节** ✅
+        //     📌 **代价**：⭐ 手动改速最长等**一个小节**（120 BPM ⇒ 2 s · 60 BPM ⇒ 4 s）
+        //        —— ⭐ 用户已明确接受这个延迟 ✅
+        //     📌 **不会永久悬挂**：⭐ `beat_gen` 是 free-running（`run_i = 1'b1`）
+        //        ⇒ ⭐ `bar_start_o` 周期性必然到来 ✅
+        wire        bpm_load_aligned;    // ⭐ → `play_seq.bpm_load_i`
+        wire [7:0]  bpm_val_aligned;     // ⭐ → `play_seq.bpm_i`
+        wire        bpm_pending_obs;     // ⭐ 可观测：⭐ "已请求、还没到小节线"
+
+        bpm_bar_quant u_bpm_bar_quant (
+            .clk_i       (clk),
+            .rst_n_i     (rst_n_sync),
+            .set_i       (cmd_bpm_set),      // ⭐ 串口 'Q' 的受理脉冲
+            .val_i       (cmd_bpm_val),
+            .bar_start_i (bg_bar_start),     // ⭐ `beat_gen.bar_start_o`（⭐ 第 2060 行接线）
+            .load_o      (bpm_load_aligned),
+            .val_o       (bpm_val_aligned),
+            .pending_o   (bpm_pending_obs)
+        );
+
         play_seq #(
             .EVT_W(64)
         ) u_play_seq (
@@ -2024,8 +2050,13 @@ wire ovf_any;
             //        ⇒ ⭐ 相对步进通路**未激活** ⇒ ⭐ 行为零变化 ✅
             .bpm_up_i       (1'b0),
             .bpm_dn_i       (1'b0),
-            .bpm_load_i     (cmd_bpm_set),
-            .bpm_i          ({8'd0, cmd_bpm_val}),   // ⭐ 0~255 ⇒ 16 位（⭐ `play_seq` 内部限幅 40~240 ✅）
+            //  ⭐⭐ 2026-10-14：⭐ **改接【对齐到小节线之后】的信号** ✅
+            //     🔴 原接线是 `cmd_bpm_set` / `cmd_bpm_val` ⇒ ⭐ **立即生效** ✅
+            //     📌 现在手动 `'Q'` 最长等一个小节（⭐ 用户已接受 ✅）
+            //     📌 `bpm_up_i`/`bpm_dn_i` 仍恒 0（⭐ 留给 EC11）⇒ ⭐ 它们**不过**对齐器
+            //        —— ⚠️ 将来接 EC11 时若要一起对齐，把两个脉冲也并进 `set_i` 即可 ✅
+            .bpm_load_i     (bpm_load_aligned),
+            .bpm_i          ({8'd0, bpm_val_aligned}), // ⭐ 0~255 ⇒ 16 位（⭐ `play_seq` 内部限幅 40~240 ✅）
             .cur_tick_o     (ps_cur_tick)
         );
 
@@ -3105,6 +3136,7 @@ wire ovf_any;
                             | sp_start_rejected | (at_done & ~at_done_r)
                             | cmd_keydrum_req    // ⭐ 'K' 键盘打鼓切换（⭐ 2026-10-01）
                             | cmd_bpm_set        // ⭐ 'Q' 设置 BPM（⭐ 2026-10-11）
+                            | cmd_mode_sw_req    // ⭐ 'A' 模式翻转（⭐ 2026-10-13）
                             | cmd_slide_req;     // ⭐ 'W' 滑音开关（⭐ 2026-10-11）
         wire [7:0] rep_byte = ev_need          ? axis_char        // ⭐ ① 轴号（⭐ 最要紧）
                             : ev_reject        ? rej_why_byte     // 🔴 被拒（⭐ 带原因码，见上）
@@ -3117,6 +3149,12 @@ wire ovf_any;
                             : cmd_test_mode_req? tm_reply_byte    // M: 4/8/A/B/0
                             : cmd_keydrum_req  ? 8'h6B            // 'k' ⭐ 受理键盘打鼓切换
                             : cmd_bpm_set      ? 8'h71            // 'q' ⭐ 受理设置 BPM（⭐ 2026-10-11）
+                            //  ⭐⭐ 2026-10-13：⭐ **`'A'` 的回包** ✅
+                            //     🔴 **不加这条的后果**（⭐ 实测发现的缺口 ✅）：⭐ 它会落到
+                            //        下面的兜底 `8'h78` = `'x'`（⭐ "受理取消" ✅）
+                            //        ⇒ ⚠️ **上板时无法区分"模式切成功了"和"命令没被受理"** ✅
+                            //     ✅ `8'h61` = `'a'`（⭐ 与 `'W'`→`'w'`、`'K'`→`'k'` 同一口径 ✅）
+                            : cmd_mode_sw_req  ? 8'h61            // 'a' ⭐ 受理模式翻转（⭐ 2026-10-13）
                             : cmd_slide_req    ? 8'h77            // 'w' ⭐ 受理滑音开关（⭐ 2026-10-11）
                             :                    8'h78;           // 'x' ⭐ 受理取消
 

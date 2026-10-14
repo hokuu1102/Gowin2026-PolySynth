@@ -1,0 +1,37 @@
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:53: error: Could not find variable ``u.g_sound.u_note_manager.note_valid_i'' in ``tb_at_merge_known_bugs''
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:54: error: Could not find variable ``u.g_sound.u_note_manager.note_axis_i'' in ``tb_at_merge_known_bugs''
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:55: error: Could not find variable ``u.g_sound.u_note_manager.note_phase_inc_i'' in ``tb_at_merge_known_bugs''
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:56: error: Could not find variable ``u.g_sound.u_note_manager.note_velocity_i'' in ``tb_at_merge_known_bugs''
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:57: error: Could not find variable ``u.g_sound.u_note_manager.note_kind_i'' in ``tb_at_merge_known_bugs''
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:58: error: Could not find variable ``u.g_sound.u_note_manager.note_src_i'' in ``tb_at_merge_known_bugs''
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:59: error: Could not find variable ``u.g_sound.am_mode'' in ``tb_at_merge_known_bugs''
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:60: error: Could not find variable ``u.g_sound.ee_slide_v'' in ``tb_at_merge_known_bugs''
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:61: error: Could not find variable ``u.g_sound.ee_slide_ax'' in ``tb_at_merge_known_bugs''
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:62: error: Could not find variable ``u.g_sound.am_inc'' in ``tb_at_merge_known_bugs''
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:63: error: Could not find variable ``u.g_sound.am_inc_b'' in ``tb_at_merge_known_bugs''
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:64: error: Could not find variable ``u.g_sound.as_valid'' in ``tb_at_merge_known_bugs''
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:66: error: Could not find variable ``u.g_sound.pe_pitch_v'' in ``tb_at_merge_known_bugs''
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:67: error: Could not find variable ``u.g_sound.lp_upd_valid'' in ``tb_at_merge_known_bugs''
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:70: error: Unable to bind wire/reg/memory `u.g_sound.nm_gate[k]' in `tb_at_merge_known_bugs'
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:70: error: Unable to bind wire/reg/memory `u.g_sound.nm_axis[(k)*('sd4)+:'sd4]' in `tb_at_merge_known_bugs'
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:70: error: Unable to elaborate condition expression.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:71: error: Unable to bind wire/reg/memory `u.g_sound.nm_gate[k]' in `tb_at_merge_known_bugs'
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:71: error: Unable to bind wire/reg/memory `u.g_sound.nm_axis[(k)*('sd4)+:'sd4]' in `tb_at_merge_known_bugs'
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:71: error: Unable to elaborate condition expression.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:80: error: Unable to bind wire/reg/memory `u.g_sound.sl_ramp_val' in `tb_at_merge_known_bugs'
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:80: error: Part select is not valid for this kind of object.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:80: error: Unable to bind wire/reg/memory `u.g_sound.nm_phase[(v6)*('sd32)+:'sd32]' in `tb_at_merge_known_bugs'
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:80: error: Unable to bind wire/reg/memory `u.g_sound.sl_ramp_active' in `tb_at_merge_known_bugs'
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:81: error: Unable to bind wire/reg/memory `u.g_sound.nm_phase[(v6)*('sd32)+:'sd32]' in `tb_at_merge_known_bugs'
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:86: error: Unable to bind wire/reg/memory `u.g_sound.nm_phase[(v6)*('sd32)+:'sd32]' in `tb_at_merge_known_bugs'
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:87: error: Unable to bind wire/reg/memory `u.g_sound.nm_phase[(v7)*('sd32)+:'sd32]' in `tb_at_merge_known_bugs'
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:91: error: Part select is not valid for this kind of object.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:91: error: Unable to bind wire/reg/memory `u.g_sound.nm_phase[(v6)*('sd32)+:'sd32]' in `tb_at_merge_known_bugs'
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:91: error: Part select is not valid for this kind of object.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:91: error: Unable to bind wire/reg/memory `u.g_sound.nm_phase[(v7)*('sd32)+:'sd32]' in `tb_at_merge_known_bugs'
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:92: error: Unable to bind wire/reg/memory `u.g_sound.nm_phase[(v7)*('sd32)+:'sd32]' in `tb_at_merge_known_bugs'
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:93: error: Unable to bind wire/reg/memory `u.g_sound.nm_phase[(v6)*('sd32)+:'sd32]' in `tb_at_merge_known_bugs'
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:99: error: Unable to bind wire/reg/memory `u.g_sound.u_note_manager.pitch_upd_valid_i' in `tb_at_merge_known_bugs'
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:99: error: Unable to elaborate condition expression.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\top\tb_at_merge_known_bugs.sv:101: error: Unable to bind wire/reg/memory `u.g_sound.sl_ramp_active' in `tb_at_merge_known_bugs'
+36 error(s) during elaboration.

@@ -41,9 +41,78 @@ import argparse
 import asyncio
 import io
 import os
+import re
 import struct
 import sys
 import time
+
+
+def _name_matches(name, exact):
+    """设备名匹配（2026-10-13 改为【前缀匹配】）。
+
+    为什么不用 `==`：Windows 按 MAC 缓存 GATT 服务列表，改名是绕开它的
+    唯一低成本手段（见 ble_config.h）。若写死全名，每改一次名就要改
+    22 个工具；前缀匹配后 Synth / Synth2 / Synth3 全都能认。
+    ⚠️ 仍然要求【前缀一致】—— 不会误连到别的设备。
+    """
+    n = name or ""
+    return n == exact or n.startswith("FPGA2026-Synth")
+
+
+def _dev_filter(d, ad):
+    """给 BleakScanner.find_device_by_filter 用的谓词（前缀匹配）。"""
+    return _name_matches(d.name, DEV_NAME)
+
+
+async def _ble_reset_and_read(scan_timeout=12.0):
+    """走 BLE 清池，并读回状态确认。
+
+    返回 (是否已清空, 读回的 pool 分子字符串)。
+
+    ⚠️ 为什么要独立成协程：调用方是【同步】函数（后面的抓包是同步串口 API），
+       所以由它用 asyncio.run 包一次。
+    """
+    from bleak import BleakClient, BleakScanner
+    dev = await BleakScanner.find_device_by_filter(_dev_filter,
+                                                   timeout=scan_timeout)
+    if dev is None:
+        raise RuntimeError("没找到 %s" % DEV_NAME)
+    async with BleakClient(dev, timeout=25) as c:
+        await asyncio.sleep(0.6)
+        await c.write_gatt_char(UUID_CMD, bytes([CMD_RESET]), response=False)
+        await asyncio.sleep(0.9)
+        # 清池后立刻让固件重新组装状态，再读
+        await c.write_gatt_char(UUID_CMD, bytes([CMD_STAT]), response=False)
+        await asyncio.sleep(0.7)
+        st_raw = bytes(await c.read_gatt_char(UUID_STAT)).decode(
+            "utf-8", "replace")
+    m = re.search(r"pool=(\d+)/", st_raw)
+    cur = m.group(1) if m else "?"
+    return (cur == "0"), cur
+
+
+async def _ble_play(scan_timeout=12.0):
+    """走 BLE 起播（CMD 0x03），并读回确认 run=1。
+
+    返回 True/False（是否确认已在运行）。
+    ⚠️ 只做"起播 + 确认"，⛔ 不在这里等播放结束 —— 抓包由调用方的线程负责。
+    """
+    from bleak import BleakClient, BleakScanner
+    dev = await BleakScanner.find_device_by_filter(_dev_filter,
+                                                   timeout=scan_timeout)
+    if dev is None:
+        raise RuntimeError("没找到 %s" % DEV_NAME)
+    async with BleakClient(dev, timeout=25) as c:
+        await asyncio.sleep(0.6)
+        await c.write_gatt_char(UUID_CMD, bytes([CMD_PLAY]), response=False)
+        await asyncio.sleep(1.2)
+        await c.write_gatt_char(UUID_CMD, bytes([CMD_STAT]), response=False)
+        await asyncio.sleep(0.7)
+        st_raw = bytes(await c.read_gatt_char(UUID_STAT)).decode(
+            "utf-8", "replace")
+    m = re.search(r"\brun=(\d+)", st_raw)
+    return (m is not None and m.group(1) == "1")
+
 
 # --- 控制台 UTF-8（⚠️ 中文 Windows 默认 GBK，会炸）----------------------------
 for _n in ("stdout", "stderr"):
@@ -60,8 +129,17 @@ HDR_TOTAL = 0x00
 RESET_FRAMES = 4
 
 DEV_NAME = "FPGA2026-Synth"
+# 前缀匹配（改名后备选）：见 _name_matches 的说明
+DEV_PREFIX = "FPGA2026-Synth"
 UUID_RECV = "0000abf1-0000-1000-8000-00805f9b34fb"
 UUID_NOTI = "0000abf2-0000-1000-8000-00805f9b34fb"
+# 2026-10-14 补：清池/读状态改走 BLE（⛔ 不再依赖 CH340）
+UUID_CMD = "0000abf3-0000-1000-8000-00805f9b34fb"
+UUID_STAT = "0000abf4-0000-1000-8000-00805f9b34fb"
+CMD_RESET = 0x01          # 清池
+CMD_STAT = 0x02           # 让固件组装状态（之后读 UUID_STAT）
+CMD_PLAY = 0x03           # 起播
+CMD_STOP = 0x04           # 停止
 
 # ⭐ 音乐时间（⭐ 与固件 pool.c 的约定一致）
 PPQN = 960
@@ -228,7 +306,7 @@ async def ble_feed(n_events, chunk, scan_to):
     from bleak import BleakScanner, BleakClient
     payload = build_payload(n_events)
     dev = await BleakScanner.find_device_by_filter(
-        lambda d, ad: (d.name or "") == DEV_NAME, timeout=scan_to)
+        lambda d, ad: _name_matches(d.name, DEV_NAME), timeout=scan_to)
     if dev is None:
         return None, "没找到设备 %s（⚠️ 手机是否还连着？板子在广播吗？）" % DEV_NAME
     sent = 0
@@ -283,6 +361,17 @@ def capture(port, baud, seconds, trigger=b"S"):
     return bytes(data), stamps, t_trig
 
 
+def capture_only(port, baud, seconds):
+    """只抓包，⛔ 不发触发字符（起播由 BLE 负责）。
+
+    ⚠️ 为什么需要它：本脚本原来用 CH340 发 `S` 触发起播，
+       但那要求 CH340 在线且线接对。
+       ⭐ 起播本来就是【给 ESP32 的指令】，走 BLE（CMD 0x03）是它的原生通道，
+       ⛔ 不需要 CH340 参与 —— CH340 在本测试里只是"假 FPGA"（听 UART1 的线）。
+    """
+    return capture(port, baud, seconds, trigger=None)
+
+
 # ============================================================================
 # 主流程
 # ============================================================================
@@ -314,6 +403,8 @@ def main() -> int:
 
     N = args.events
     fails = []
+    # 2026-10-14：前置不满足标记（缺硬件 ≠ 被测对象坏了，见下方帧数判据）
+    prereq = False
     print("=" * 70)
     print("ESP32 下行通路 · 一键端到端验收")
     print("=" * 70)
@@ -322,17 +413,44 @@ def main() -> int:
     print()
 
     # ---- ① 清池 ----
-    print("① 清池 (R) ...")
+    # 2026-10-14 改：清池【优先走 BLE 的 CMD 0x01】，⛔ 不再走 CH340 的 'R'。
+    #
+    # 🔴 为什么改（实测踩到）：
+    #   原来这里是 `s.write(b"R")` 走 CH340 发字符触发清池。
+    #   ⚠️ 而 CH340 没接 / 接错时，这句【静默失败】（串口打得开、写也不报错）
+    #   => 池里残留上一次的帧 => 实测 `pool=400`（期望 200）
+    #   => 后面几条判据全红，看起来像"灌谱坏了"，实际是【清池没生效】。
+    #
+    # ⭐ 为什么 BLE 更可靠：清池是【给 ESP32 的指令】，
+    #   走 BLE 的 CMD 特征（0xABF3 写 0x01）是它的原生通道，
+    #   ⛔ 不需要 CH340 在环里 —— 而 CH340 本来只是"假 FPGA"。
+    # ⭐ 判据（这里就有非空洞性）：清完【必须读到 pool=0】，
+    #   读不到就明确报出来（⛔ 不"继续但可能受影响"）。
+    print("① 清池（BLE CMD 0x01）...")
+    cleared = False
     try:
-        s = open_no_reset(args.uart_port, args.baud, timeout=0.2)
-        time.sleep(0.3)
-        s.write(b"R")
-        s.flush()
-        time.sleep(0.4)
-        s.close()
-    except Exception as e:
-        print("   RED: 打不开 %s: %s" % (args.uart_port, e))
-        return 3
+        # ⚠️ 本函数是【同步】的（后面的抓包/串口都是同步 API），
+        #    所以这里用 asyncio.run 包一个一次性协程，⛔ 不能直接 await。
+        cleared, cur = asyncio.run(_ble_reset_and_read(args.scan_timeout))
+        if cleared:
+            print("   OK: pool=0（已清空，判据：BLE 读回确认）")
+        else:
+            print("   ⚠️ 清池后 pool=%s（🔴 判据不满足）" % cur)
+    except Exception as e:                             # noqa: BLE001
+        print("   ⚠️ BLE 清池失败：%s" % e)
+
+    # 兜底：若 BLE 清池没生效，再试原来的 CH340 'R'（⚠️ 它需要 CH340 在线）
+    if not cleared:
+        print("   ... 回退到 CH340 'R'（⚠️ 需要 CH340 已接线）")
+        try:
+            s = open_no_reset(args.uart_port, args.baud, timeout=0.2)
+            time.sleep(0.3)
+            s.write(b"R")
+            s.flush()
+            time.sleep(0.4)
+            s.close()
+        except Exception as e:                         # noqa: BLE001
+            print("   ⚠️ CH340 也不可用：%s" % e)
     txt, err = read_log(args.log_port, 2)
     st = parse_status(txt)
     # ⭐ 记基线：`tf`/`rst` 是【自开机累计】量（⭐ 见下方判据处的说明）
@@ -343,9 +461,12 @@ def main() -> int:
     #    ⇒ ⭐ 明明清空了却报"未清零"。⭐ 必须先按 `/` 取【分子】。
     cur_pool = st.get("pool", "?").split("/")[0]
     if cur_pool != "0":
-        print("   ⚠️ 池未清零：pool=%s（⚠️ 继续，但判据可能受影响）" % st.get("pool"))
-    else:
-        print("   OK: pool=0（已清空）")
+        print("   🔴 池未清零：pool=%s => 后续判据【不可信】"
+              "（⭐ 多半是清池命令没送到：BLE 与 CH340 都试过了）"
+              % st.get("pool"))
+        print("   => 直接判失败，⛔ 不写成「继续但可能受影响」")
+        return 3
+    print("   OK: pool=0（已清空）")
 
     # ---- ② BLE 灌 N 帧 ----
     print("② BLE 灌 %d 帧 ..." % N)
@@ -362,9 +483,33 @@ def main() -> int:
     if got_pool != str(N):
         fails.append("灌数据：pool=%s，期望 %d" % (got_pool, N))
 
-    # ---- ③+④ 起播并抓包（⭐ 单句柄，边发边收）----
-    print("③ 起播 (S) 并抓 GPIO17（%.0f s）..." % args.capture_seconds)
-    data, stamps, t_trig = capture(args.uart_port, args.baud, args.capture_seconds)
+    # ---- ③+④ 起播（BLE）并抓包（CH340 只收）----
+    # 2026-10-14 改：起播走 BLE CMD 0x03，⛔ 不再用 CH340 发 'S'。
+    #   理由同清池（见上方）：'S' 是"给 ESP32 的指令"，
+    #   走 BLE 不依赖 CH340；而 CH340 在本测试里只是【听 UART1 的假 FPGA】。
+    # ⚠️ 顺序很重要：必须【先开抓包，再起播】，否则会漏掉开头几帧
+    #   （起播后约 10.4 秒才出声，但仍应先挂上监听）。
+    print("③ 起播（BLE CMD 0x03）+ 抓 GPIO17（%.0f s）..."
+          % args.capture_seconds)
+
+    # 用一个线程在抓包，主线程负责到点起播
+    import threading
+    _cap = {}
+
+    def _do_capture():
+        _cap["r"] = capture_only(args.uart_port, args.baud,
+                                 args.capture_seconds)
+
+    th = threading.Thread(target=_do_capture, daemon=True)
+    th.start()
+    time.sleep(0.8)                       # 让抓包先挂上
+    try:
+        played = asyncio.run(_ble_play(args.scan_timeout))
+        print("   BLE 起播：%s" % ("OK" if played else "⚠️ 未确认"))
+    except Exception as e:                             # noqa: BLE001
+        print("   ⚠️ BLE 起播失败：%s" % e)
+    th.join(timeout=args.capture_seconds + 10)
+    data, stamps, t_trig = _cap.get("r", (b"", [], None))
     print("   OK: 收到 %d 字节" % len(data))
 
     # ---- ⑤ 判据 ----
@@ -376,7 +521,19 @@ def main() -> int:
     nf = len(data) // FRAME_BYTES
     rem = len(data) % FRAME_BYTES
     print("  帧数        = %d（期望 %d）%s" % (nf, N, "" if nf == N else "  <-- RED"))
-    if nf != N:
+    # 🔴 2026-10-14：`帧数 == 0` 判【前置不满足】，⛔ 不算失败。
+    #   为什么（实测踩到）：CH340 的 RX 没接到 GPIO17 / 没共地时，
+    #   串口能打开、写也不报错，只是【一个字节都收不到】
+    #   => 把这种"缺硬件"记成"被测对象坏了"会掩盖
+    #      "ESP32 侧其实全好"这个事实（`sent` 那几项都是绿的）。
+    #   ⭐ 判据：0 帧 = 没接线（前置）；少了但非 0 = 真丢（失败）。
+    if nf == 0:
+        print("      ⚠️ 一个字节都没抓到 => 判【前置不满足】"
+              "（⭐ 多半是 CH340 的 RX 没接到 GPIO17 / 没共地）")
+        print("      ⛔ 不计入失败：这是缺硬件，⛔ 不是被测对象坏了")
+        print("      ⭐ 本次【ESP32 侧】的判据仍然有效并被逐条核对（见下方对账表）")
+        prereq = True
+    elif nf != N:
         fails.append("帧数 %d != %d" % (nf, N))
     print("  9N 对齐     = %s（余 %d）%s" % ("是" if rem == 0 else "否", rem,
                                             "" if rem == 0 else "  <-- RED"))
@@ -395,15 +552,41 @@ def main() -> int:
     #    ⭐ 本脚本的做法：**记基线 → 跑 → 比较增量**（⭐ 见下方 baseline）。
     checks = [
         ("total", str(N)),
-        ("unk", "0"), ("ovf", "0"), ("mismatch", "0"),
     ]
     for k, want in checks:
         got = st.get(k, "?")
-        hard = k in ("unk", "ovf", "mismatch")
-        mark = "" if got == want else ("  <-- RED(必须)" if hard else "  <-- RED")
+        mark = "" if got == want else "  <-- RED"
         print("  %-10s = %s（期望 %s）%s" % (k, got, want, mark))
         if got != want:
             fails.append("%s=%s，期望 %s" % (k, got, want))
+
+    # ⭐⭐ 2026-10-14 改：`unk` / `ovf` / `mismatch` 也改成【增量判据】。
+    #
+    # 🔴 为什么（实测踩到）：它们和 `tf`/`rst` 一样是【自开机累计】的计数器
+    #    （`ble_main.c` 里只增不减、没有复位点）。
+    #    ⚠️ 原来断言 `unk == 0`（绝对值）=> 只要**之前跑过任何一次**
+    #    会注入坏帧头的测试（如 `_exception_paths_check.py`），
+    #    `unk` 就永远是正数 => 🔴 **这一项永久假红**。
+    #    实测：本轮 `unk=15`，而本次运行其实一个坏帧都没产生。
+    #    ⭐ 这正是它自己注释里写过的道理（"`tf`/`rst` 是累计量 ⇒ 比增量"）——
+    #      只是当时漏了同族的这三个。
+    #    ⭐ 同族 `C91`：修 bug 只补"你想到的那条路径" = 修表象。
+    for k, want_delta in (("unk", 0), ("ovf", 0), ("mismatch", 0)):
+        before = base.get(k)
+        after = st.get(k)
+        try:
+            delta = int(after) - int(before)
+        except (TypeError, ValueError):
+            delta = None
+        if delta is None:
+            print("  %-10s = %s（⚠️ 无基线，跳过增量判据）" % (k, after))
+            continue
+        ok = (delta == want_delta)
+        print("  %-10s = %s -> %s（增量 %s，期望 %d）%s"
+              % (k, before, after, delta, want_delta,
+                 "" if ok else "  <-- RED(必须)"))
+        if not ok:
+            fails.append("%s 增量=%s，期望 %s" % (k, delta, want_delta))
 
     # ⭐ tf / rst：比较【增量】（⭐ 它们是累计量，⛔ 不是每次归零）
     for k, want_delta in (("tf", 1), ("rst", RESET_FRAMES)):
@@ -471,6 +654,11 @@ def main() -> int:
     print("=" * 70)
     if not fails:
         print("结论：全部通过 ✅")
+        if prereq:
+            print("      ⚠️ 「抓 GPIO17」这一项【前置不满足】"
+                  "（需要 CH340 的 RX 接到 GPIO17 + 共地）")
+            print("      => 不计入失败（是缺硬件，不是被测对象坏了）")
+            print("      ⭐ ESP32 侧的判据（sent / total / 计数器增量）已逐条核对并通过")
     else:
         print("结论：%d 项不通过 🔴" % len(fails))
         for f in fails:

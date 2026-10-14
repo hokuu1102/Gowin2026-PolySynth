@@ -1,0 +1,2 @@
+FATAL: C:\Users\cyx\Documents\ChatGPT\FPGA\opt08-nm-target-shared-ao-20261013-a42cc32\tb\w3b\tb_note_manager_write_share.sv:239: DIFF vtgt_rep voice=0 cycle=41
+       Time: 406000  Scope: tb_note_manager_write_share

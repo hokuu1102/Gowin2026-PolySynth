@@ -1,0 +1,21 @@
+
+================================================================
+ tb_rot32_diff · ROT32 逐拍逐位差分（新 note_manager vs 改动前副本）
+================================================================
+
+=== A: 静态（⛔ 全程不换档 · base_oct_r 恒 0）20000 拍 ===
+=== B: 换档 0 -> 1（静音：相位表全 0）10000 拍 ===
+=== C: 换档 1 -> 2（静音）10000 拍 ===
+=== D: 换档 2 -> 0（静音）10000 拍 ===
+
+  逐拍比较总拍数 = 50266（静态 20094 ＋ 换档后 30172）
+  phase_inc 不同拍数 = 0
+  其它输出  不同拍数 = 0
+  ok  : D1: voice_phase_inc_o is bit-identical EVERY cycle (static + silent octave switches)
+  ok  : D2: the other 6 output groups are bit-identical EVERY cycle too
+  ok  : D3 non-vacuous: a real number of cycles was compared (> 40000)
+
+================================================================
+PASS: tb_rot32_diff —— 50266 拍逐拍逐位相同，0 处不同
+================================================================
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_opt04_rot32_current_af.sv:331: $finish called at 1005960000 (1ps)

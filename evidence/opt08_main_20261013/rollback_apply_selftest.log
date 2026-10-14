@@ -1,0 +1,5 @@
+Verified: restore two source/constraint files and matching AO impl artifacts.
+Unrelated working files, added tests and Git history will remain untouched.
+Restored AO working source and matching AO impl; hashes verified.
+Git HEAD is not moved. The source reversal remains visible in git diff.
+AO implementation is preserved under backup/ao-impl; AT implementation saved before rollback.

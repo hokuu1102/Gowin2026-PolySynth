@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>FPGA2026 · 链路自检</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{--bg:#0b0e14;--panel:#141a24;--panel2:#1b2330;--line:#26303f;--fg:#e8eefc;
+        --dim:#8695ab;--acc:#4ea1ff;--ok:#3ddc84;--warn:#ffb020;--err:#ff5c5c;}
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;background:radial-gradient(1200px 700px at 15% -10%,#1a2333 0%,var(--bg) 60%);
+       color:var(--fg);font:14px/1.55 "Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;
+       display:flex;flex-direction:column;overflow:hidden}
+  header{display:flex;align-items:center;gap:12px;padding:12px 20px;
+         background:linear-gradient(180deg,#141a24,#111722);border-bottom:1px solid var(--line)}
+  header h1{font-size:17px;margin:0;font-weight:700}
+  header h1 span{color:var(--acc)}
+  .spacer{flex:1}
+  .pill{display:inline-block;padding:2px 9px;border-radius:999px;font-size:11.5px;
+        background:var(--panel2);border:1px solid var(--line);color:var(--dim)}
+  .pill.on{color:var(--ok);border-color:#2c5a40}
+  button{font:inherit;border:1px solid var(--line);border-radius:9px;padding:9px 14px;
+         cursor:pointer;background:var(--panel2);color:var(--fg);transition:.15s}
+  button:hover:not(:disabled){background:#233046;border-color:#33445e}
+  button:disabled{opacity:.42;cursor:not-allowed}
+  button.primary{background:linear-gradient(180deg,var(--acc),#2f7fd6);color:#04121f;
+                 font-weight:700;border:0;box-shadow:0 4px 16px rgba(78,161,255,.3)}
+  button.go{background:linear-gradient(180deg,var(--ok),#25a862);color:#04140c;
+            font-weight:700;border:0;box-shadow:0 4px 16px rgba(61,220,132,.3)}
+  main{flex:1;display:flex;gap:12px;padding:12px;min-height:0}
+  .col{display:flex;flex-direction:column;gap:12px;min-height:0}
+  .side{width:330px;flex:none}
+  .mid{flex:1;min-width:0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;
+        box-shadow:0 6px 24px rgba(0,0,0,.25)}
+  .card h2{margin:0 0 10px;font-size:12px;letter-spacing:1.2px;color:var(--acc);
+           text-transform:uppercase;font-weight:700}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:13px}
+  .kv b{color:var(--dim);font-weight:500}
+  .kv span{font-family:Consolas,ui-monospace,monospace;text-align:right}
+  #steps{display:flex;flex-direction:column;gap:8px}
+  .step{display:flex;gap:11px;align-items:flex-start;padding:11px 13px;border-radius:10px;
+        background:var(--panel);border:1px solid var(--line);transition:.2s}
+  .step .ic{width:22px;height:22px;border-radius:50%;flex:none;display:flex;
+            align-items:center;justify-content:center;font-size:13px;font-weight:700;
+            background:var(--panel2);color:var(--dim);border:1px solid var(--line)}
+  .step.run{border-color:#33507a;background:#16202e}
+  .step.run .ic{background:var(--acc);color:#04121f;border-color:transparent}
+  .step.ok{border-color:#2c5a40}
+  .step.ok .ic{background:var(--ok);color:#04140c;border-color:transparent}
+  .step.bad{border-color:#6b2b2b}
+  .step.bad .ic{background:var(--err);color:#1a0505;border-color:transparent}
+  .step.skip .ic{color:var(--warn);border-color:#6b4d16}
+  .step .body{flex:1;min-width:0}
+  .step .ttl{font-weight:600}
+  .step .det{color:var(--dim);font-size:12.5px;font-family:Consolas,ui-monospace,monospace;
+             margin-top:3px;white-space:pre-wrap;word-break:break-all}
+  #log{flex:1;min-height:0;overflow:auto;font:12px/1.55 Consolas,ui-monospace,monospace;
+       color:var(--dim);background:#0e131b;border:1px solid var(--line);border-radius:9px;padding:9px}
+  #log .ok{color:var(--ok)} #log .er{color:var(--err)} #log .wr{color:var(--warn)}
+  #log .t{color:#5b6b82}
+  #warn{display:none;margin:0 12px;padding:10px 14px;border-radius:10px;background:#3a2a10;
+        border:1px solid #6b4d16;color:#ffd591;font-size:13px}
+  .hint{color:var(--dim);font-size:12px;margin-top:8px}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+  .stats div{background:var(--panel2);border-radius:9px;padding:7px 4px}
+  .stats small{display:block;color:var(--dim);font-size:11px}
+  .stats b{font-family:Consolas,monospace;font-size:15px}
+</style>
+</head>
+<body>
+<header>
+  <h1>FPGA2026 · <span>链路自检</span></h1>
+  <span class="pill" id="pBle">蓝牙 —</span>
+  <span class="pill" id="pFpga">假FPGA串口 —</span>
+  <span class="pill" id="pLog">日志串口 —</span>
+  <div class="spacer"></div>
+  <button id="btnBle" class="primary">① 连接蓝牙</button>
+  <button id="btnFpga">② 接串口(当FPGA)</button>
+  <button id="btnLog">③ 接日志口</button>
+  <button id="btnGo" class="go" disabled>开始全链路自检</button>
+</header>
+
+<div id="warn"></div>
+
+<main>
+  <div class="col mid">
+    <div id="steps"></div>
+    <div class="card" style="flex:1;display:flex;flex-direction:column;min-height:0">
+      <h2>日志</h2>
+      <div id="log"></div>
+    </div>
+  </div>
+  <div class="col side">
+    <div class="card">
+      <h2>实时状态</h2>
+      <div class="stats">
+        <div><small>池 / 容量</small><b id="s_pool">-</b></div>
+        <div><small>已喂帧</small><b id="s_sent">-</b></div>
+        <div><small>总数帧</small><b id="s_tf">-</b></div>
+        <div><small>溢出</small><b id="s_ovf">-</b></div>
+        <div><small>未知帧头</small><b id="s_unk">-</b></div>
+        <div><small>运行</small><b id="s_run">-</b></div>
+      </div>
+      <div class="kv" style="margin-top:8px"><b>BLE 收字节</b><span id="s_rx">-</span></div>
+      <div class="kv"><b>屏上 t1</b><span id="s_t1">-</span></div>
+      <div class="kv"><b>屏上 t2</b><span id="s_t2">-</span></div>
+    </div>
+    <div class="card">
+      <h2>怎么接</h2>
+      <div class="hint" style="margin-top:0">
+        <b>① 蓝牙</b>：ESP32 上电即在广播 <code>FPGA2026-Synth</code>。<br>
+        <b>② 假 FPGA 串口</b>（可选）：CH340 的 <b>TX→GPIO18</b>、GND 共地，
+        用来测上行。<br>
+        <b>③ 日志串口</b>（可选）：ESP32 的 <b>USB 口</b>（COM29），
+        用来读屏的回包。<br>
+        ⚠️ 选串口时会弹浏览器的原生选择框，那是浏览器的安全设计。
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+"use strict";
+/* ===========================================================================
+   常量：与 esp32/tools/score_word.py、evt2midi/frame_format.py 保持一致
+   =========================================================================== */
+const SVC = 0xABF0, CH_RECV = 0xABF1, CH_NOTI = 0xABF2, CH_CMD = 0xABF3, CH_STAT = 0xABF4;
+const CMD_RESET = 0x01, CMD_STAT = 0x02, CMD_PLAY = 0x03, CMD_STOP = 0x04, CMD_RAW = 0x21;
+const DEV_NAME = "FPGA2026-Synth";
+const FRAME_BYTES = 9, HDR_EVENT = 0xA5, HDR_TOTAL = 0x00, RESET_FRAMES = 4;
+const OFF_TICK = 44n, OFF_INC = 23n, OFF_AXIS = 19n, OFF_VEL = 11n,
+      OFF_KIND = 9n, OFF_TIMBRE = 7n;
+const M_TICK = 0xFFFFFn, M_INC = 0x1FFFFFn, M_AXIS = 0xFn, M_VEL = 0xFFn,
+      M_KIND = 0x3n, M_TIMBRE = 0x3n;
+/* 上行帧（FPGA -> ESP32 -> PC）*/
+const U_HDR = 0xA5, U_ON = 0x01, U_OFF = 0x02, U_TAB = 0x10;
+const U_LEN_NOTE = 14, U_LEN_TAB = 68;
+
+const $ = id => document.getElementById(id);
+const uuid16 = x => "0000" + x.toString(16).padStart(4, "0") + "-0000-1000-8000-00805f9b34fb";
+
+/* ===========================================================================
+   自检步骤表
+   =========================================================================== */
+const STEPS = [
+  { id: "ble",   ttl: "① 蓝牙连接",           need: "ble"  },
+  { id: "stat",  ttl: "② 读状态（0xABF4）",    need: "ble"  },
+  { id: "down",  ttl: "③ 下行链路：灌谱并核对", need: "ble"  },
+  { id: "play",  ttl: "④ 起播：帧被喂出去",     need: "ble"  },
+  { id: "up",    ttl: "⑤ 上行链路：串口灌 → BLE 收", need: "ble+fpga" },
+  { id: "screen", ttl: "⑥ 串口屏：get 回包",    need: "ble+log" },
+];
+function renderSteps() {
+  $("steps").innerHTML = STEPS.map(s =>
+    '<div class="step" id="st_' + s.id + '"><div class="ic">·</div><div class="body">' +
+    '<div class="ttl">' + s.ttl + '</div><div class="det" id="dt_' + s.id + '">待运行</div>' +
+    "</div></div>").join("");
+}
+function setStep(id, state, det) {
+  const el = $("st_" + id); if (!el) return;
+  el.className = "step" + (state ? " " + state : "");
+  const ic = el.querySelector(".ic");
+  ic.textContent = { run: "…", ok: "✓", bad: "✗", skip: "–" }[state] || "·";
+  if (det !== undefined) $("dt_" + id).textContent = det;
+}
+function log(msg, cls) {
+  const el = $("log");
+  const t = new Date().toTimeString().slice(0, 8);
+  el.insertAdjacentHTML("beforeend", '<div><span class="t">' + t + "</span> " +
+    (cls ? '<span class="' + cls + '">' + msg + "</span>" : msg) + "</div>");
+  el.scrollTop = el.scrollHeight;
+}
+
+/* ===========================================================================
+   连接
+   =========================================================================== */
+let ble = { device: null, chRecv: null, chCmd: null, chStat: null, on: false, noti: [] };
+let fpga = { port: null, writer: null, on: false };      // 假 FPGA（写 GPIO18）
+let lg   = { port: null, reader: null, buf: "", on: false };  // 日志口（COM29）
+
+async function connectBle() {
+  if (!navigator.bluetooth) { log("这个浏览器没有 Web Bluetooth，请用 Chrome/Edge", "er"); return; }
+  try {
+    const dev = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: "FPGA2026" }], optionalServices: [uuid16(SVC)] });
+    dev.addEventListener("gattserverdisconnected", () => {
+      ble.on = false; pill("pBle", "蓝牙 已断开", false); updateGo(); log("蓝牙断开", "er");
+    });
+    const srv = await dev.gatt.connect();
+    const svc = await srv.getPrimaryService(uuid16(SVC));
+    ble.chRecv = await svc.getCharacteristic(uuid16(CH_RECV));
+    ble.chCmd  = await svc.getCharacteristic(uuid16(CH_CMD));
+    ble.chStat = await svc.getCharacteristic(uuid16(CH_STAT));
+    ble.device = dev; ble.on = true;
+    try {
+      const chNoti = await svc.getCharacteristic(uuid16(CH_NOTI));
+      await chNoti.startNotifications();
+      chNoti.addEventListener("characteristicvaluechanged", ev => {
+        const dv = ev.target.value;
+        ble.noti.push(...new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength));
+      });
+      log("已订阅 0xABF2（上行通知）");
+    } catch (e) { log("订阅 0xABF2 失败（上行步骤会跳过）：" + e.message, "wr"); }
+    pill("pBle", "蓝牙 " + (dev.name || "已连"), true);
+    log("已连接 " + dev.name, "ok");
+  } catch (e) { log("蓝牙连接失败：" + e.message, "er"); }
+  updateGo();
+}
+
+async function pickSerial(which) {
+  if (!navigator.serial) { log("这个浏览器没有 Web Serial，请用 Chrome/Edge", "er"); return; }
+  try {
+    const port = await navigator.serial.requestPort();
+    if (which === "fpga") {
+      await port.open({ baudRate: 500000, dataBits: 8, stopBits: 1, parity: "none" });
+      // U86：open() 会拉 DTR/RTS，可能复位板子 —— 立刻压住
+      try { await port.setSignals({ dataTerminalReady: false, requestToSend: false }); } catch (e) {}
+      fpga.port = port; fpga.writer = port.writable.getWriter(); fpga.on = true;
+      pill("pFpga", "假FPGA 已开", true); log("假 FPGA 串口已开 @500000（TX 应接 GPIO18）", "ok");
+    } else {
+      await port.open({ baudRate: 115200, dataBits: 8, stopBits: 1, parity: "none" });
+      try { await port.setSignals({ dataTerminalReady: false, requestToSend: false }); } catch (e) {}
+      lg.port = port; lg.on = true; lg.buf = "";
+      readLogLoop();
+      pill("pLog", "日志口 已开", true); log("日志串口已开 @115200（应接 ESP32 的 USB 口）", "ok");
+    }
+  } catch (e) { log("串口打开失败：" + e.message, "er"); }
+  updateGo();
+}
+async function readLogLoop() {
+  const dec = new TextDecoder();
+  try {
+    while (lg.on && lg.port.readable) {
+      const reader = lg.port.readable.getReader();
+      try {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          lg.buf += dec.decode(value, { stream: true });
+          if (lg.buf.length > 200000) lg.buf = lg.buf.slice(-100000);
+        }
+      } finally { reader.releaseLock(); }
+    }
+  } catch (e) { if (lg.on) log("日志读取中断：" + e.message, "wr"); }
+}
+function pill(id, txt, on) {
+  const el = $(id); el.textContent = txt;
+  el.className = "pill" + (on ? " on" : "");
+}
+function updateGo() {
+  $("btnGo").disabled = !ble.on;
+  $("btnGo").textContent = ble.on ? "开始全链路自检" : "先连接蓝牙";
+}
+
+/* ===========================================================================
+   基础操作
+   =========================================================================== */
+async function sendCmd(code) {
+  if (!ble.on) throw new Error("蓝牙未连接");
+  await ble.chCmd.writeValueWithoutResponse(new Uint8Array([code]));
+}
+async function stat() {
+  await sendCmd(CMD_STAT);
+  await new Promise(r => setTimeout(r, 450));
+  const t = new TextDecoder().decode(await ble.chStat.readValue());
+  const g = k => { const m = t.match(new RegExp("\\b" + k + "=(\\d+)")); return m ? +m[1] : null; };
+  const pm = t.match(/pool=(\d+)\/(\d+)/);
+  const bm = t.match(/ble=rx(\d+)/);
+  const hm = t.match(/hmi=rx(\d+) touch=(\d+) tx=(\d+)/);
+  return { txt: t, pool: pm ? +pm[1] : null, cap: pm ? +pm[2] : null,
+           sent: g("sent"), ovf: g("ovf"), late: g("late"), mm: g("mm"), run: g("run"),
+           tf: g("tf"), unk: g("unk"), rx: bm ? +bm[1] : null,
+           hmiRx: hm ? +hm[1] : null, hmiTx: hm ? +hm[3] : null,
+           groups: ["V1","pool","ring","ble","uart","hmi","frame","cmd"].filter(k =>
+             new RegExp("(^|\\n)" + k + "[=\\s]").test(t)) };
+}
+function paintStat(d) {
+  $("s_pool").textContent = (d.pool ?? "-") + "/" + (d.cap ?? "-");
+  $("s_sent").textContent = d.sent ?? "-";
+  $("s_tf").textContent   = d.tf ?? "-";
+  $("s_ovf").textContent  = d.ovf ?? "-";
+  $("s_unk").textContent  = d.unk ?? "-";
+  $("s_run").textContent  = d.run === null ? "-" : (d.run ? "运行中" : "已停");
+  $("s_rx").textContent   = d.rx ?? "-";
+  $("s_ovf").style.color = d.ovf ? "var(--err)" : "var(--fg)";
+  $("s_unk").style.color = d.unk ? "var(--err)" : "var(--fg)";
+}
+
+/* 下行帧（与 score_word.py 逐位一致）*/
+function packWord(tick, inc, axis, vel, kind, timbre) {
+  return ((BigInt(tick) & M_TICK) << OFF_TICK) | ((BigInt(inc) & M_INC) << OFF_INC) |
+         ((BigInt(axis) & M_AXIS) << OFF_AXIS) | ((BigInt(vel) & M_VEL) << OFF_VEL) |
+         ((BigInt(kind) & M_KIND) << OFF_KIND) | ((BigInt(timbre) & M_TIMBRE) << OFF_TIMBRE);
+}
+function wordBytes(w) { const b = new Uint8Array(8); for (let i = 7; i >= 0; i--) { b[i] = Number(w & 0xFFn); w >>= 8n; } return b; }
+function evFrame(w) { const f = new Uint8Array(9); f[0] = HDR_EVENT; f.set(wordBytes(w), 1); return f; }
+function buildDown(n) {
+  const parts = [];
+  const rs = new Uint8Array(FRAME_BYTES * RESET_FRAMES); rs.fill(HDR_EVENT); parts.push(rs);
+  const tf = new Uint8Array(9); tf[0] = HDR_TOTAL;
+  let v = BigInt(n); for (let i = 8; i >= 1; i--) { tf[i] = Number(v & 0xFFn); v >>= 8n; }
+  parts.push(tf);
+  for (let i = 0; i < n; i++) parts.push(evFrame(packWord(1000 + i * 37, 164927, i % 16, 100, i % 2, i % 2)));
+  let len = 0; for (const p of parts) len += p.length;
+  const out = new Uint8Array(len); let o = 0;
+  for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
+}
+/* 上行帧（与 frame_format.py 一致）*/
+function uCksum(b) { let c = 0; for (let i = 0; i < b.length - 1; i++) c ^= b[i]; return c & 255; }
+function uFrame(type, seq, tick, axis, inc, vel) {
+  const f = new Uint8Array(U_LEN_NOTE);
+  f[0] = U_HDR; f[1] = type; f[2] = seq & 255;
+  f[3] = (tick >>> 24) & 255; f[4] = (tick >>> 16) & 255; f[5] = (tick >>> 8) & 255; f[6] = tick & 255;
+  f[7] = axis & 15;
+  f[8] = (inc >>> 24) & 255; f[9] = (inc >>> 16) & 255; f[10] = (inc >>> 8) & 255; f[11] = inc & 255;
+  f[12] = vel & 255; f[13] = uCksum(f);
+  return f;
+}
+function splitUp(buf) {
+  const out = []; let i = 0;
+  while (i < buf.length) {
+    if (buf[i] !== U_HDR) { out.push({ ok: null, n: 1 }); i++; continue; }
+    if (i + 2 > buf.length) break;
+    const flen = (buf[i + 1] === U_TAB) ? U_LEN_TAB : U_LEN_NOTE;
+    if (i + flen > buf.length) break;
+    const fr = buf.slice(i, i + flen);
+    out.push({ ok: uCksum(fr) === fr[flen - 1], frame: fr });
+    i += flen;
+  }
+  return out;
+}
+
+/* ===========================================================================
+   全链路自检
+   =========================================================================== */
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+let running = false;
+
+async function runAll() {
+  if (running) return;
+  running = true; $("btnGo").disabled = true;
+  renderSteps();
+  let pass = 0, fail = 0, skip = 0;
+  const done = (id, st) => { setStep(id, st); if (st === "ok") pass++; else if (st === "bad") fail++; else if (st === "skip") skip++; };
+
+  try {
+    /* ① 蓝牙 */
+    setStep("ble", "run", "检查连接…");
+    if (!ble.on) { done("ble", "bad"); setStep("ble", "bad", "未连接"); return; }
+    done("ble", "ok"); setStep("ble", "ok", "已连接 " + (ble.device.name || ""));
+
+    /* ② STAT */
+    setStep("stat", "run", "发 CMD 0x02 并读 0xABF4…");
+    let d0;
+    try { d0 = await stat(); } catch (e) { setStep("stat", "bad", e.message); done("stat", "bad"); return; }
+    paintStat(d0);
+    const need = ["V1","pool","ring","ble","uart","hmi","frame","cmd"];
+    const missing = need.filter(k => !d0.groups.includes(k));
+    if (missing.length) { done("stat", "bad"); setStep("stat", "bad", "缺分组：" + missing.join(",")); }
+    else { done("stat", "ok"); setStep("stat", "ok", "8 组齐全 · 读回 " + d0.txt.length + " 字节 · 池 " + d0.pool + "/" + d0.cap); }
+
+    /* ③ 下行：清池 -> 灌 200 帧 -> 核对守恒 */
+    setStep("down", "run", "清池 → 灌 200 帧 → 读回核对…");
+    await sendCmd(CMD_RESET); await sleep(700);
+    const b3 = await stat();
+    const N = 200, pl = buildDown(N);
+    for (let o = 0; o < pl.length; o += 180) {
+      await ble.chRecv.writeValueWithoutResponse(pl.subarray(o, o + 180));
+      await sleep(4);
+    }
+    await sleep(900);
+    const a3 = await stat(); paintStat(a3);
+    const dRx = (a3.rx - b3.rx) / FRAME_BYTES, dPool = a3.pool - b3.pool;
+    const dUnk = a3.unk - b3.unk, dOvf = a3.ovf - b3.ovf;
+    const det = "发 " + pl.length + " 字节（" + N + " 事件）\n" +
+      "收到 " + dRx + " 帧 = 进池 " + dPool + " + 溢出 " + dOvf + "\n" +
+      "未知帧头 +" + dUnk + "  不匹配 +" + (a3.mm - b3.mm);
+    const ok3 = (dRx === N + 5) && (dPool === N) && (dUnk === 0) && (dOvf === 0);
+    done("down", ok3 ? "ok" : "bad"); setStep("down", ok3 ? "ok" : "bad", det);
+
+    /* ④ 起播：sent 必须涨到 N */
+    setStep("play", "run", "CMD 0x03 起播，等 sent 涨到 " + N + "…");
+    await sendCmd(CMD_PLAY);
+    let last = -1, ok4 = false, tries = 0;
+    while (tries++ < 30) {
+      await sleep(1000);
+      const d = await stat(); paintStat(d);
+      if (d.sent === last && d.sent >= N) break;
+      last = d.sent;
+      if (d.sent >= N) { ok4 = true; break; }
+    }
+    const d4 = await stat(); paintStat(d4);
+    ok4 = ok4 || (d4.sent >= N);
+    const det4 = "sent = " + d4.sent + " / " + N + " · ovf=" + d4.ovf +
+                 " · mm=" + d4.mm + " · run=" + d4.run;
+    done("play", ok4 ? "ok" : "bad"); setStep("play", ok4 ? "ok" : "bad", det4);
+
+    /* ⑤ 上行：串口灌 -> BLE 收 -> 逐字节 */
+    if (!fpga.on) {
+      done("up", "skip");
+      setStep("up", "skip", "未接「假 FPGA」串口 —— 点右上角「② 接串口(当FPGA)」后重跑");
+    } else {
+      setStep("up", "run", "串口灌 302 帧 → BLE 收 → 逐字节比对…");
+      const expect = [];
+      for (let i = 0; i < 300; i++) {
+        expect.push(uFrame(i % 2 === 0 ? U_ON : U_OFF, i & 255, i * 960, i % 16, 37796 + (i % 12) * 2000, 100));
+      }
+      const tab = new Uint8Array(U_LEN_TAB);
+      tab[0] = U_HDR; tab[1] = U_TAB; tab[2] = 0;
+      for (let k = 0; k < 16; k++) {
+        const v = 37796 + k;
+        tab[3 + k * 4] = (v >>> 24) & 255; tab[4 + k * 4] = (v >>> 16) & 255;
+        tab[5 + k * 4] = (v >>> 8) & 255; tab[6 + k * 4] = v & 255;
+      }
+      tab[U_LEN_TAB - 1] = uCksum(tab);
+      expect.push(tab);
+      const stream = new Uint8Array(expect.reduce((s, f) => s + f.length, 0));
+      let o = 0; for (const f of expect) { stream.set(f, o); o += f.length; }
+      ble.noti.length = 0;
+      for (let i = 0; i < stream.length; i += 180) {
+        await fpga.writer.write(stream.subarray(i, i + 180));
+        await sleep(4);
+      }
+      await sleep(2500);
+      const got = Uint8Array.from(ble.noti);
+      const parsed = splitUp(got);
+      const good = parsed.filter(p => p.ok === true);
+      let firstBad = -1;
+      const n = Math.min(good.length, expect.length);
+      for (let i = 0; i < n; i++) {
+        const a = good[i].frame, b = expect[i];
+        if (a.length !== b.length || a.some((v, k) => v !== b[k])) { firstBad = i; break; }
+      }
+      const ok5 = (got.length === stream.length) && (good.length === expect.length) && (firstBad < 0);
+      const det5 = "发出 " + stream.length + " 字节 / " + expect.length + " 帧\n" +
+        "收到 " + got.length + " 字节 · 合法帧 " + good.length +
+        " · 坏校验 " + parsed.filter(p => p.ok === false).length +
+        (firstBad < 0 ? "\n逐帧逐字节一致" : "\n第 " + firstBad + " 帧不一致");
+      done("up", ok5 ? "ok" : "bad"); setStep("up", ok5 ? "ok" : "bad", det5);
+    }
+
+    /* ⑥ 屏：发 get 到屏，从日志口读回包 */
+    if (!lg.on) {
+      done("screen", "skip");
+      setStep("screen", "skip", "未接「日志串口」—— 点「③ 接日志口」后重跑（屏的回包只在 ESP32 串口日志里）");
+    } else {
+      setStep("screen", "run", "发 get t1.txt，等日志里的回包…");
+      const base = lg.buf.length;
+      await ble.chCmd.writeValueWithoutResponse(new Uint8Array([CMD_RAW, ...new TextEncoder().encode("get t1.txt")]));
+      let got1 = null;
+      for (let i = 0; i < 30; i++) {
+        await sleep(200);
+        const seg = lg.buf.slice(base);
+        const m = seg.match(/screen -> ESP32: \d+ B .*?\[([0-9A-Fa-f ]+)\]/);
+        if (m) {
+          let bytes = m[1].trim().split(/\s+/).map(x => parseInt(x, 16));
+          if (bytes.length >= 3 && bytes.slice(-3).join(",") === "255,255,255") bytes = bytes.slice(0, -3);
+          if (bytes[0] === 0x70 || bytes[0] === 0x71) bytes = bytes.slice(1);   // 'p' / 'q'
+          got1 = new TextDecoder().decode(new Uint8Array(bytes));
+          break;
+        }
+      }
+      const ok6 = !!got1 && got1.length > 0;
+      done("screen", ok6 ? "ok" : "bad");
+      setStep("screen", ok6 ? "ok" : "bad",
+        ok6 ? ("屏回了 t1.txt = 「" + got1 + "」") : "30 次轮询没等到回包（查：屏是否上电 5V / GPIO4-5 是否交叉接对 / 共地）");
+    }
+  } catch (e) {
+    log("自检中断：" + e.message, "er");
+  } finally {
+    running = false;
+    $("btnGo").disabled = !ble.on;
+    const sum = "自检结束：通过 " + pass + " · 失败 " + fail + " · 跳过 " + skip;
+    log(sum, fail ? "er" : "ok");
+  }
+}
+
+/* ===========================================================================
+   绑定与启动
+   =========================================================================== */
+$("btnBle").onclick = connectBle;
+$("btnFpga").onclick = () => pickSerial("fpga");
+$("btnLog").onclick = () => pickSerial("log");
+$("btnGo").onclick = runAll;
+
+(function boot() {
+  const proto = location.protocol;
+  renderSteps();
+  log("就绪。顺序：① 连接蓝牙 →（可选）② 接串口当 FPGA →（可选）③ 接日志口 → 开始全链路自检");
+  if (!navigator.bluetooth) {
+    $("warn").style.display = "block";
+    $("warn").innerHTML = "⚠️ 这个浏览器没有 Web Bluetooth。请用 <b>Chrome</b> 或 <b>Edge</b>。";
+  } else if (proto === "file:") {
+    $("warn").style.display = "block";
+    $("warn").innerHTML = "⚠️ <b>file://</b> 模式浏览器会拒绝蓝牙与串口。请双击 " +
+      "<b>start_score_studio.bat</b>，再打开 <b>link_test.html</b>。";
+  }
+  if (!navigator.serial) {
+    log("提示：这个浏览器没有 Web Serial，⑤⑥ 两步会跳过（①~④ 仍可跑）", "wr");
+  }
+  updateGo();
+})();
+</script>
+</body>
+</html>

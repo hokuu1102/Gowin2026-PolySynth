@@ -1,0 +1,17 @@
+{
+  "Baseline": "7fb853d",
+  "SetupViolations": 0,
+  "HoldViolations": 0,
+  "SetupSlack": 0.077,
+  "HoldSlack": 0.187,
+  "RecoverySlack": 1.196,
+  "RemovalSlack": 0.055,
+  "clk_sysFmax": 56.423,
+  "pixel_clkFmax": 41.671,
+  "serial_clkFmax": 332.419,
+  "Logic": 40773,
+  "CLS": 25330,
+  "BSRAM": 69,
+  "DSP": 22,
+  "Keep": true
+}

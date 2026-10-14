@@ -50,6 +50,9 @@ module tb_calib_cmd;
     localparam [7:0] G   = 8'h47;             // 'G' 变调：升 1 半音
     localparam [7:0] H   = 8'h48;             // 'H' 变调：带帧绝对量（⭐ 臂化 ⇒ 下一帧载荷[0]）
     localparam [7:0] J   = 8'h4A;             // 'J' 推子档位：切下一档（⭐ 供 P3）
+    //  ⭐⭐ 2026-10-13：⭐ **`'A'` 模式翻转（指板⇄钢琴）** ✅
+    //     🔴 **上板实测"发 `A` 不回 `a`、模式也不变"** ⇒ ⭐ 补这条判据 ✅
+    localparam [7:0] A   = 8'h41;             // 'A' 模式翻转（⭐ 2026-10-13 新增）
 
     integer errors = 0;
 
@@ -80,12 +83,21 @@ module tb_calib_cmd;
     wire       trans_down_req, trans_up_req, trans_abs_req, gear_next_req;
     wire [7:0] trans_abs_val;                                 // ⭐ 'H' 带出来的半音值
     wire [15:0] cmd_cnt, in_frame_cnt, resync_cnt, unknown_cnt;
+    //  ⭐⭐ 2026-10-13：⭐ **`'A'`（模式翻转）的观测** ✅
+    //     🔴 **为什么必须补**：⭐ 上板实测"发 `A` 不回 `a`、模式也不变" ✅
+    //        ⚠️ 而本 tb 原来**只测 `T/S/X/M/F/G/H/J`** ⇒ ⭐ `'A'` **没有任何判据** ✅
+    //        ⇒ ⭐ 回归 157/157 全绿也**证明不了 `'A'` 是对的**（⭐ 典型假绿 ✅）
+    wire        mode_sw_req;
+    integer     msw_seen   = 0;         // ⭐ 出现次数
+    integer     msw_cycles = 0;         // ⭐ 高电平拍数（⭐ 单周期证明）
     //  ⭐⭐ 2026-10-11：⭐ `'Q'` 设置 BPM 的观测（⭐ 判据用 ✅）
     wire        bpm_set_req;
     wire [7:0]  bpm_val;
     integer     bpm_req_cnt = 0;
     reg  [7:0]  bpm_val_r   = 8'd0;
     integer     n_q;                    // ⭐ 'Q' 判据用：⭐ 命令计数基线 ✅
+    integer     n_bpm;                  // ⭐ 2026-10-14：⭐ BPM 脉冲计数基线 ✅
+    integer     n_ta;                   // ⭐ 2026-10-14：⭐ 'H' 臂废掉判据的基线 ✅
     //  ⭐ 监视：⭐ 每次脉冲都记下值 ⇒ ⭐ 可判"脉冲了几次"与"值对不对" ✅
     always @(posedge clk)
         if (bpm_set_req) begin
@@ -134,6 +146,8 @@ module tb_calib_cmd;
         //  ⭐⭐ 2026-10-11：⭐ `'Q'` 设置 BPM（⭐ 第 20 条命令 ✅）
         .bpm_set_req_o   (bpm_set_req),
         .bpm_val_o       (bpm_val),
+        //  ⭐⭐ 2026-10-13：⭐ `'A'` 模式翻转（⭐ 补的判据 ✅）
+        .mode_sw_req_o   (mode_sw_req),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (in_frame_cnt),
         .resync_cnt_o   (resync_cnt),
@@ -198,6 +212,8 @@ module tb_calib_cmd;
             if (trans_abs_req)  begin ta_seen = ta_seen + 1; ta_cycles = ta_cycles + 1;
                                       ta_val_seen = trans_abs_val; end
             if (gear_next_req)  begin gj_seen = gj_seen + 1; gj_cycles = gj_cycles + 1; end
+            //  ⭐⭐ 2026-10-13：⭐ `'A'` 模式翻转（⭐ 补的判据 ✅）
+            if (mode_sw_req)    begin msw_seen = msw_seen + 1; msw_cycles = msw_cycles + 1; end
         end
     end
 
@@ -387,6 +403,34 @@ module tb_calib_cmd;
         //         （⭐ 在 T/S/X/M/R/L/C/I/D 全部发完之后）**同一手法** ✅
         chk("each new command pulse is exactly ONE cycle wide (F x1, G x2, J x1)",
             (td_cycles == 1) && (tu_cycles == 2) && (gj_cycles == 1));
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 2026-10-13：⭐ **`'A'` = 模式翻转（指板 ⇄ 钢琴）** ✅
+        //
+        //  🔴 **为什么必须补这条**：⭐ 上板实测 ——
+        //     *"发 `A` 不回复 `a`，切过去和钢琴一模一样，不需要比较器就能触发"* ✅
+        //     ⚠️ 而本 tb 原来**只测 `T/S/X/M/F/G/H/J`** ⇒ ⭐ `'A'` **零判据** ✅
+        //     ⇒ ⭐ **回归 157/157 全绿也证明不了 `'A'` 是对的**（⭐ 典型假绿 `C83` ✅）
+        //  📌 本段放在 `'J'` 之后、`'H'` 的 `do_reset()` 之前
+        //     ⇒ ⭐ `cmd_cnt` 基线 = 4（`F`+`G`+`G`+`J`）✅
+        // ═══════════════════════════════════════════════════════════════════
+        send_byte(A);
+        chk("'A' outside a frame raises mode_sw_req exactly once", msw_seen == 1);
+        chk("'A' does NOT cross-fire any other command",
+            (td_seen == 1) && (tu_seen == 2) && (ta_seen == 0) && (gj_seen == 1)
+            && (tare_seen == 0) && (span_seen == 0) && (abort_seen == 0)
+            && (test_mode_seen == 0) && (timbre_seen == 0) && (drum_pat_seen == 0));
+        chk("'A' increments cmd_cnt_o (4 -> 5)", cmd_cnt == 16'd5);
+        //   ⭐ "翻转"语义 ⇒ ⭐ **可连发**（⭐ 与 `'B'`/`'K'`/`'W'` 同构 ✅）
+        send_byte(A);
+        chk("'A' can be sent repeatedly (2nd pulse => cumulative 2)", msw_seen == 2);
+        chk("each 'A' pulse is exactly ONE cycle wide (2 pulses => 2 cycles)",
+            msw_cycles == 2);
+        chk("'A' increments cmd_cnt_o again (5 -> 6)", cmd_cnt == 16'd6);
+        //   ⚠️ **帧内不得触发** —— ⭐ 与其它命令同一安全口径 ✅
+        //      （⭐ 载荷字节 == 0x41 时⛔ 一个都不能触发 ✅）
+        send_frame(A, A, A, A, A, A, A, A);
+        chk("'A' INSIDE a frame payload raises NOTHING (frame-safe)", msw_seen == 2);
 
         // ── ⭐⭐ `'H'` = **带帧绝对量**（⭐ 复用现有 9 字节帧）────────────────
         //   ⭐ 协议：⭐ 先发**裸 `'H'`**（⭐ 只"臂化"、⛔ 本拍不出值）⇒
@@ -605,9 +649,64 @@ module tb_calib_cmd;
         chk("'Q' passes the raw byte through (clamping is play_seq's job, not calib_cmd's)",
             bpm_req_cnt == 2 && bpm_val_r == 8'd10);
 
+        // ═══════════════════════════════════════════════════════════════════
+        $display("--- 判据：⭐ 未兑现的臂【不许永久挂着】（⭐ 2026-10-14 修）---");
+        // ═══════════════════════════════════════════════════════════════════
+        //  🔴 **原缺陷**：⭐ 臂的语义是"**下一个字节就是帧头**"，⚠️ 但旧代码
+        //     只在【空闲归位】时清臂，⭐ 而那个分支要求 `idx_q != 0`
+        //     ⇒ ⭐ 发 ASCII `Q60`（⭐ `'Q'` ＋ `'6'` ＋ `'0'`）时 `idx_q` **恒 0**
+        //        ⇒ 🔴 **空闲分支根本不跑** ⇒ ⭐ 臂**永久挂住**
+        //        ⇒ ⚠️ 之后**任何一帧**的载荷[0] 被静默当成 BPM 吃掉 ✅
+        //  ✅ **修法**：⭐ 任何【非帧头】的帧外字节 ⇒ ⭐ 立刻废掉**两个**臂 ✅
+        //  📌 **判据（改前必红）**：⭐ `'Q'` ⇒ 夹一个**未知字节** ⇒ 再发一帧
+        //     ⇒ ⭐ `bpm_set_req_o` **必须不出脉冲** ✅
+        do_reset();
+        repeat (4) @(posedge clk);
+        n_bpm = bpm_req_cnt;
+        send_byte(8'h51);                       // ⭐ 'Q' ⇒ 臂化
+        repeat (4) @(posedge clk);
+        chk("'Q' armed before the stray-byte test", bpm_req_cnt == n_bpm);
+        send_byte(8'h36);                       // ⭐ '6'（⭐ 未知字节 ⇒ 必须废臂）
+        repeat (4) @(posedge clk);
+        send_frame(8'd60, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0);   // ⭐ 载荷[0]=60
+        repeat (6) @(posedge clk);
+        chk("a STRAY byte after 'Q' voids the arm -- the next frame's payload[0] is NOT eaten as BPM",
+            bpm_req_cnt == n_bpm);
+        //  ⭐ **非空洞**：⭐ 同一帧若**重新臂化** ⇒ ⭐ **必须**出脉冲 ✅
+        //     （⭐ 否则"不出脉冲"可能只是"这条帧根本不会被消费" ⇒ 假绿 ✅）
+        send_byte(8'h51);
+        repeat (4) @(posedge clk);
+        send_frame(8'd60, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0);
+        repeat (6) @(posedge clk);
+        chk("non-vacuous: the SAME frame DOES emit when freshly armed",
+            (bpm_req_cnt == n_bpm + 1) && (bpm_val_r == 8'd60));
+        //  ⭐ 同一类缺陷对 `'H'`（变调绝对量）**同样成立** ⇒ ⭐ 一起覆盖 ✅
+        do_reset();
+        repeat (4) @(posedge clk);
+        n_ta = ta_seen;
+        send_byte(H);                           // ⭐ 'H' ⇒ 臂化
+        repeat (4) @(posedge clk);
+        send_byte(8'h36);                       // ⭐ 未知字节 ⇒ 必须废臂
+        repeat (4) @(posedge clk);
+        send_frame(8'd17, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0);
+        repeat (6) @(posedge clk);
+        chk("the SAME stray-byte rule protects the 'H' arm (transpose is not silently set)",
+            ta_seen == n_ta);
+        //  ⭐ 而"发 `'Q'` ⇒ 停顿 ⇒ 发帧"（⭐ 停顿**不产生字节**）**必须照常工作** ✅
+        //     📌 这条保证修法**没有**把正常用法一起废掉 ✅
+        do_reset();
+        repeat (4) @(posedge clk);
+        n_bpm = bpm_req_cnt;
+        send_byte(8'h51);
+        repeat (40) @(posedge clk);             // ⭐ 停顿（⭐ ⛔ 不发任何字节）
+        send_frame(8'd90, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0, 8'd0);
+        repeat (6) @(posedge clk);
+        chk("a PAUSE (no bytes at all) between 'Q' and the frame still works -- arm survives",
+            (bpm_req_cnt == n_bpm + 1) && (bpm_val_r == 8'd90));
+
         $display("");
         if (errors == 0)
-            $display("PASS: calib_cmd parses T/S/X/M/F/G/H/J only at frame boundaries, ignores payload letters, counts what it drops, takes the 'H' framed value from the next frame's first payload byte, and self-heals after a half frame");
+            $display("PASS: calib_cmd parses T/S/X/M/F/G/H/J only at frame boundaries, ignores payload letters, counts what it drops, takes the 'H' framed value from the next frame's first payload byte, self-heals after a half frame, and voids an unfulfilled arm as soon as any non-header byte breaks the promise");
         else
             $fatal(1, "FAIL: calib_cmd had %0d error(s)", errors);
 

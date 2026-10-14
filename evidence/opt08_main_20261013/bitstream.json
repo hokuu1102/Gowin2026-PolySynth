@@ -1,0 +1,10 @@
+{
+  "Archive": "C:/Users/cyx/Desktop/学习/hdmi_640x480/bitstreams/AU_main_opt08_AT_CANDIDATE_UNVERIFIED_20261014.fs",
+  "SHA256": "7FFC7960C254CD2BF1B47EA39862C1195DE5415D000AA162E75DA67D8C7A6467",
+  "ATConfigurationIdentical": true,
+  "IgnoredDifferences": [
+    "Created Time header",
+    "CRLF/LF"
+  ],
+  "Board": "NOT_RUN"
+}

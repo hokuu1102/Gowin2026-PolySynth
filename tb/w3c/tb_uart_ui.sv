@@ -40,6 +40,12 @@ module tb_uart_ui;
     wire        mode;
     wire [6:0]  base_semi;
     wire        mode_commit;
+    //  ⭐⭐ 2026-10-13：⭐ **外部模式翻转输入**（`mode_sw_req_i`，串口 `'A'` 走这条）✅
+    //     🔴 **为什么补**：⭐ 上板实测"发 `A` 不回 `a`、模式也不变" ✅
+    //        ⚠️ 而本 tb 原来**只测屏触摸那条路** ⇒ ⭐ `mode_sw_req_i` **零判据** ✅
+    //        📌 与 `calib_cmd` 那条合起来才是**完整链路**：
+    //           ⭐ `calib_cmd` 出脉冲（`tb_calib_cmd` 守）+ ⭐ `uart_ui` 翻转（本条守）✅
+    reg         mode_sw = 1'b0;      // ⭐ 初值 0（⛔ 否则从 x 开始，判据会假红）
     wire        base_commit;
     wire        fx_en;
     wire [1:0]  fx_sel;
@@ -85,6 +91,7 @@ module tb_uart_ui;
         .tx_done_i    (tx_done),
         .tx_start_o   (tx_start),
         .tx_data_o    (tx_data),
+        .mode_sw_req_i(mode_sw),      // ⭐ 2026-10-13：外部模式翻转（串口 'A'）
         .mode_o       (mode),
         .base_semi_o  (base_semi),
         .mode_commit_o(mode_commit),
@@ -207,6 +214,35 @@ module tb_uart_ui;
         @(negedge clk);
         chk("再次触摸 -> mode 翻回 (=默认)",
             mode === ((MODE_PIANO_DEFAULT != 0) ? 1'b1 : 1'b0));
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ③b ⭐⭐ 2026-10-13：**外部模式翻转 `mode_sw_req_i`（串口 `'A'` 走这条）** ✅
+        //
+        //  🔴 **为什么必须补**：⭐ 上板实测"发 `A` 不回 `a`、模式也不变" ✅
+        //     ⚠️ 而本 tb 原来**只测屏触摸那条路** ⇒ ⭐ `mode_sw_req_i` **零判据** ✅
+        //  📌 与 `tb_calib_cmd` 那条合起来才是**完整链路**：
+        //     ⭐ `calib_cmd` 出脉冲（那边守）+ ⭐ `uart_ui` 翻转（**本条守**）✅
+        //  📌 语义要求与屏触摸**逐位一致**：⭐ 翻转 `mode_o` + ⭐ 发一拍 `mode_commit` ✅
+        //     ⚠️ 区别：⭐ 它**不经过 UART**，⭐ 是一个**外部单周期脉冲** ✅
+        // ═══════════════════════════════════════════════════════════════════
+        begin : mode_sw_test
+            reg m_before;
+            m_before = mode;
+            mode_sw = 1'b1;
+            @(negedge clk);            // ⭐ 覆盖一个完整 posedge ⇒ DUT 采样到 =1
+            chk("mode_sw_req_i -> mode 翻转（与屏触摸同一语义）", mode === ~m_before);
+            chk("mode_sw_req_i -> mode_commit 出了脉冲", mode_commit === 1'b1);
+            mode_sw = 1'b0;
+            @(negedge clk);
+            chk("mode_sw_req_i 拉低 -> mode_commit 回落", mode_commit === 1'b0);
+            chk("mode_sw_req_i 拉低 -> mode 保持不变（不是电平敏感）", mode === ~m_before);
+            //   ⭐ "切换"语义 ⇒ ⭐ **可连发**（与 `'B'`/`'K'`/`'W'` 同构 ✅）
+            mode_sw = 1'b1;
+            @(negedge clk);
+            chk("mode_sw_req_i 可连发（第二次翻回）", mode === m_before);
+            mode_sw = 1'b0;
+            @(negedge clk);
+        end
 
         // ═══════════════════════════════════════════════════════════════════
         // ④ 数值帧：0x71 + 变量序=1 + 数值=0x18 + FF FF FF → 起始音落地

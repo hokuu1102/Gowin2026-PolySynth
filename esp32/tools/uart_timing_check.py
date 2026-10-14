@@ -66,6 +66,107 @@ def stats_us(vals):
     return s[0], pct(0.50), pct(0.90), pct(0.99), s[-1]
 
 
+def selftest() -> int:
+    """
+    ⭐ 离线自检（⛔ 不需要硬件、不需要串口）。
+
+    ⭐⭐ 为什么需要它（⭐ 2026-10-01 补）：
+      🔴 本工具是【验收工具】—— ⚠️ 它算出来的【帧间时序】结论直接进验收报告
+      ⇒ ⚠️ 它的字节时间换算 / 分位数统计错了，结论就不可信。
+
+    ⭐ 判据两层：① ⭐ 正例（换算/统计都对）② ⭐⭐ 反例（改坏必须判红）
+    """
+    print("=" * 74)
+    print("uart_timing_check.py 离线自检（⛔ 不需要硬件）")
+    print("=" * 74)
+    ok = True
+
+    def chk(name, cond, extra=""):
+        nonlocal ok
+        print("  %-46s %s%s" % (name, "OK" if cond else "RED", extra))
+        ok = ok and cond
+
+    # ---- ① ⭐ byte_time_us：⭐ 拿【独立已知的物理真值】对，⛔ 不是自我循环 ----
+    print("\n[1] ⭐ byte_time_us()：8N1 = 10 bit/字节 ⇒ 1 字节 = 10 / baud 秒")
+    # ⭐ 期望值来自【物理事实】（10 bit / baud），⛔ 不是从 byte_time_us 自己抄出来的。
+    #    ⚠️ 若哪天有人把 10.0 写成 11.0（加校验位），这一组会立刻红。
+    for baud, want_us in ((500000, 20.0), (1000000, 10.0), (115200, 86.80555556)):
+        got = byte_time_us(baud)
+        chk("   %-8d baud -> %.4f µs（真值 %.4f）" % (baud, got, want_us),
+            abs(got - want_us) < 1e-4, "  差 %+.6f" % (got - want_us))
+    # ⭐ 与公式对照（⭐ 公式也是"物理真值"的一种写法，两条独立路径互证）
+    chk("   与 1e6*10/baud 一致（500k）", byte_time_us(500000) == 1e6 * 10 / 500000)
+    chk("   与 1e6*10/baud 一致（1M）", byte_time_us(1000000) == 1e6 * 10 / 1000000)
+    # ⭐ 波特率翻倍 ⇒ 字节时间减半（⭐ 能抓住"乘除写反 / 常数写错"）
+    chk("   波特率翻倍 ⇒ 字节时间减半",
+        abs(byte_time_us(1000000) * 2.0 - byte_time_us(500000)) < 1e-9)
+
+    # ---- ② ⭐ 与项目【真实约束】对齐：FPGA 的 GAP_BYTES = 16 ----
+    print("\n[2] ⭐ 项目真实约束：FPGA 空闲归位门限 GAP_BYTES = 16 字节")
+    chk("   GAP_BYTES = 16（⭐ evt_uart_rx.v:86 冻结值）", GAP_BYTES == 16,
+        "  实测 %d" % GAP_BYTES)
+    # ⭐ 320 µs @500k 是本项目【文档里写死的】数字（见文件头表格）⇒ 拿它当外部真值。
+    gate_500k = byte_time_us(500000) * GAP_BYTES
+    chk("   500 kbaud: 16 字节 = 320.0 µs（容差 1 µs）",
+        abs(gate_500k - 320.0) <= 1.0, "  实测 %.4f µs" % gate_500k)
+    gate_1m = byte_time_us(1000000) * GAP_BYTES
+    chk("   1 Mbaud:   16 字节 = 160.0 µs（容差 1 µs）",
+        abs(gate_1m - 160.0) <= 1.0, "  实测 %.4f µs" % gate_1m)
+
+    # ---- ③ stats_us()：⭐ 空表行为按【源码实际行为】核（源码 return None）----
+    print("\n[3] stats_us() 分位数（⭐ 口径：nearest-rank，下标 = round((n-1)*p)）")
+    chk("   空表 -> None（⭐ 源码就是 return None，⛔ 不是空元组）",
+        stats_us([]) is None)
+    chk("   单元素 -> 五元组全等", stats_us([7]) == (7, 7, 7, 7, 7))
+    vals = list(range(1, 101))                      # ⭐ 1..100 µs
+    s = stats_us(vals)
+    # ⚠️ 防崩：⭐ 若 stats_us 被改坏成"非空也返回 None"，下面每条 s[i] 的
+    #    比较（含 None <= None）都会抛 TypeError ⇒ ⚠️ 那【不是判红，是崩溃】。
+    #    ⇒ ⭐ 用 NaN 当"毒值"兜住：NaN 与任何数比较都是 False ⇒
+    #      ⭐ 每条判据都会老实报 RED，⛔ 自检不会崩。
+    chk("   非空表返回五元组（⭐ 不是 None）",
+        isinstance(s, tuple) and len(s) == 5, "  实测 %r" % (s,))
+    if not (isinstance(s, tuple) and len(s) == 5):
+        s = (float("nan"),) * 5
+    chk("   1..100: min = 1", s[0] == 1, "  实测 %s" % (s[0],))
+    chk("   1..100: p50 = 51（下标 round(99*0.50)=50）", s[1] == 51,
+        "  实测 %s" % s[1])
+    chk("   1..100: p90 = 90（下标 round(99*0.90)=89）", s[2] == 90,
+        "  实测 %s" % s[2])
+    chk("   1..100: p99 = 99（下标 round(99*0.99)=98）", s[3] == 99,
+        "  实测 %s" % s[3])
+    chk("   1..100: max = 100", s[4] == 100, "  实测 %s" % (s[4],))
+    chk("   ⭐ 单调不减 min<=p50<=p90<=p99<=max",
+        s[0] <= s[1] <= s[2] <= s[3] <= s[4])
+
+    # ---- ④ ⭐⭐ 反例（非空洞性）：⭐ 改坏必须能被发现 ----
+    print("\n[4] ⭐⭐ 反例：改坏必须能被发现（⭐ 判据必须能失败）")
+    # ⭐ 4a：⭐ 故意拿【错的期望值】去核 ⇒ ⭐ 必须不等。
+    #        ⚠️ 若这一条变成"相等"，说明上面的正例判据是空洞的（⭐ 见经验 C83）。
+    chk("   错期望值 999 会被判红（⭐ 非空洞）", s[0] != 999)
+    chk("   错期望值 20.5 µs 会被判红（⭐ 非空洞）",
+        abs(byte_time_us(500000) - 20.5) > 1e-9)
+    # ⭐ 4b：倒序输入必须给出【同样的】分位数 ⇒ ⭐ 证明它内部真的排序了
+    #        （⚠️ 谁把 sorted() 删掉，这一条立刻红）
+    rev = stats_us(list(range(100, 0, -1)))
+    chk("   倒序输入的分位数与正序一致（⭐ 证明它排序）", rev == s,
+        "  正序 p50=%s / 倒序 p50=%s" % (s[1], rev[1] if rev else None))
+    # ⭐ 4c：换一组数据 ⇒ ⭐ 分位数必须真的跟着变（⭐ 防"返回常量"的假实现）
+    chk("   换数据分位数必须变（⭐ 不是常量）",
+        stats_us([1, 2, 3, 4, 5]) != stats_us([10, 20, 30, 40, 50]))
+    # ⭐ 4d：⭐ 结论判据本身能红 —— 造一个"帧内间隔超门限"的样本，必须被抓住
+    fake_over = [5.0, 10.0, gate_500k + 1.0]
+    fake_ok = [5.0, 10.0, gate_500k - 1.0]
+    chk("   超门限的帧内间隔会被判红（⭐ 结论判据能失败）",
+        len([g for g in fake_over if g >= gate_500k]) == 1)
+    chk("   未超门限的帧内间隔不会被误判",
+        len([g for g in fake_ok if g >= gate_500k]) == 0)
+
+    print()
+    print("结论：%s" % ("全部通过" if ok else "有失败项"))
+    return 0 if ok else 1
+
+
 def recv_stamped(port, baud, seconds):
     """
     ⭐ 关键：逐字节 read(1) + 打时间戳。
@@ -92,13 +193,22 @@ def recv_stamped(port, baud, seconds):
 
 def main() -> int:
     ap = argparse.ArgumentParser(description="抓 UART 字节流并做帧间时序判据")
-    ap.add_argument("--port", required=True, help="USB-TTL 口，如 COM31")
+    ap.add_argument("--selftest", action="store_true",
+                    help="离线自检（⛔ 不需要硬件/串口）")
+    ap.add_argument("--port", help="USB-TTL 口，如 COM31")
     ap.add_argument("--baud", type=int, default=500000,
                     help="必须与固件 BLE_BAUD / FPGA 侧一致（默认 500000）")
 
     ap.add_argument("--seconds", type=float, default=20.0)
     ap.add_argument("--save", default="", help="原始字节另存")
     args = ap.parse_args()
+
+    # ⭐ 自检优先 —— ⚠️ 不需要 --port（⭐ 便于批量自检统一调用）
+    if args.selftest:
+        return selftest()
+    if not args.port:
+        print("🔴 需要 --port（⚠️ 或用 --selftest）")
+        return 2
 
     try:
         import serial  # noqa: F401

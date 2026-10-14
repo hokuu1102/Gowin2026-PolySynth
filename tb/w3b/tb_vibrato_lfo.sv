@@ -137,6 +137,37 @@ module tb_vibrato_lfo;
             chk("P0-19 depth clamp: |mod| <= 960 with the fader at full travel", peak <= 960);
         end
 
+        // ═══════════════════════════════════════════════════════════════════
+        //  ⭐⭐ 2026-10-13：⭐ **全行程可用判据** ✅
+        //     （⭐ 修上板实测的"颤音推子没感觉"：⭐ *"只要不是在最底下，
+        //       感觉都没什么太大的差别"* ✅）
+        //
+        //  🔴 **改前为什么必红**：⭐ `P0-19` 的止血版是【限幅】——
+        //        `depth_eff = (depth_raw_i > 120) ? 120 : depth_raw_i`
+        //     ⇒ ⭐ `depth_raw = 2048` 会被**限成 120**（⭐ 与 4095 同值 ✅）
+        //     ⇒ 🔴 本判据的"中点必须明显小于满行程"**必然失败** ✅
+        //  ✅ **改后**：⭐ `2048 × 120 / 4096 = 60` ⇒ ⭐ 峰值 ≈ **480**（⭐ 满行程 ≈ 952 ✅）
+        //     ⇒ ⭐ **推子全行程可用**，⛔ 不再是一个开关 ✅
+        // ═══════════════════════════════════════════════════════════════════
+        begin : depth_travel
+            integer k4;
+            integer peak_mid;
+            depth_raw = 12'd2048;          // ⭐ 行程中点
+            commit;
+            repeat (20) @(negedge clk);    // ⭐ 等滞回与 slew 稳定
+            peak_mid = 0;
+            for (k4 = 0; k4 < 64; k4 = k4 + 1) begin
+                @(negedge clk);
+                if (fast_mod > peak_mid) peak_mid = fast_mod;
+                if (-fast_mod > peak_mid) peak_mid = -fast_mod;
+            end
+            $display("      [dbg] full-travel: depth_raw=2048 => |mod| peak = %0d（满行程 ~952）", peak_mid);
+            chk("full-travel usable: mid-fader depth is clearly BELOW full-travel depth",
+                peak_mid < 700);
+            chk("full-travel usable: mid-fader depth is clearly NON-ZERO (fader really does something)",
+                peak_mid > 300);
+        end
+
         if (errors == 0) $display("PASS: vibrato LFO hysteresis, slew and phase continuity");
         else $fatal(1, "FAIL: vibrato LFO has %0d error(s)", errors);
         $finish;

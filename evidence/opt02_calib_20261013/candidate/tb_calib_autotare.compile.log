@@ -1,0 +1,2 @@
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_calib_autotare.sv:52: warning: Port 5 (sample_data_i) of calib_autotare expects 24 bits, got 12.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3a\tb_calib_autotare.sv:52:        : Padding 12 high bits of the port.

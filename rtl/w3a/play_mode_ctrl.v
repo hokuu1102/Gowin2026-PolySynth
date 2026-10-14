@@ -62,8 +62,17 @@ module play_mode_ctrl #(
                     //      ⇒ ⭐ `gate_valid=0` 时**一个 OFF 都发不出去** ✅
                     //   🔴 **复现（⭐ 用户实测过的"挂音几分钟不停"）**：
                     //      · ⭐ 键盘模式按住一个键（⭐ `KIND_ON` ⇒ voice 起音）
-                    //      · ⭐ 切到 PIANO（⭐ `fretboard_mode_i=1`，⭐ 它是**运行期信号**：
-                    //        音色循环 BASS→GUITAR→PIANO→PAD ⇒ ⭐ 不是编译期常量）
+                    //      · ⭐ 切到【指板】模式（⭐ `fretboard_mode_i=1`，⭐ 它是**运行期信号**：
+                    //        `top.v` 的 `play_fretboard_mode = ~ui_mode_piano`
+                    //        ⇒ 串口 `'A'` / 屏触摸控件 0 都能随时翻转 ⇒ ⛔ 不是编译期常量）
+                    //        ⚠️ **2026-10-13 更正**：本行原写 *"切到 PIANO（`fretboard_mode_i=1`）"*
+                    //           —— 🔴 **两处都错**：
+                    //           ① ⭐ 极性反了：`fretboard_mode_i=1` 是**指板**，⛔ 不是 PIANO
+                    //              （⭐ 端口注释就是 `0=keyboard, 1=fretboard` ✅）
+                    //           ② ⭐ `BASS→GUITAR→PIANO→PAD` 是**音色循环**（`'I'`），
+                    //              与**演奏模式**是两回事 —— ⚠️ 原文把两者混了 ✅
+                    //        📌 挂音的机理不受影响：⭐ 关键是"键盘模式起音、切到指板后松键"
+                    //           ⇒ ⭐ 指板分支要 `selected_axis`，⭐ 而键盘模式从没写过它 ✅
                     //      · ⭐ 松键 ⇒ ⭐ 指板分支走 `else if (axis_valid_i)`（⭐ `pluck_valid_i` 为 0）
                     //        ⇒ `axis_i == selected_axis` **不成立**（⭐ 键盘模式从没写过 `selected_axis`）
                     //        ⇒ `gate_valid(0) && …` 为假 ⇒ 🔴 `evt_valid_o` **一拍都不抬**

@@ -334,7 +334,12 @@ module calib #(
     //      ⇒ ⭐ 无论 `gain` 标定与否，`pos` 都不可能超过该轴的真实行程 ✅
     //      ⚠️ `span_r[ch] == 0`（⭐ 该轴从未标定过）⇒ ⭐ **退回硬上界 `MAX_TRAVEL` 夹紧**
     //         （⭐ 即 `dlim = MAXT` —— ⭐ 与紧邻的 `localparam MAXT` 及 `wire dlim` 定义一致）
-    wire [DW:0] dcode  = (raw_f > zero_rd) ? (raw_f - zero_rd) : {(DW+1){1'b0}};
+    // One widened subtract provides both the difference and its borrow.
+    // Known unsigned inputs: borrow => raw_f < zero_rd => saturate to zero.
+    // Equality produces zero too. Ports, latency and calibration state stay
+    // unchanged; avoid a separate wide raw_f > zero_rd comparator.
+    wire [DW+1:0] raw_delta = {2'b0, raw_f} - {1'b0, zero_rd};
+    wire [DW:0] dcode = raw_delta[DW+1] ? {(DW+1){1'b0}} : raw_delta[DW:0];
     //  ⭐⭐ 上界 = `min(MAX_TRAVEL, span_r[ch])`（⭐ `span_r` 未标定 ⇒ 只用 `MAX_TRAVEL`）
     //     ⭐ 这样**两种情形都安全**：⭐ 标定了 ⇒ 用真实行程；⭐ 没标定 ⇒ 用硬上界 ✅
     localparam [DW:0] MAXT = MAX_TRAVEL;

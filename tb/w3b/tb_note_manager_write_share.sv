@@ -236,7 +236,29 @@ module tb_note_manager_write_share #(
         for (j=0; j<POLY_TARGET; j=j+1) if (dut.vel_r[j] !== ref_dut.vel_r[j]) $fatal(1, "DIFF vel_r voice=%0d cycle=%0d", j, cycles);
         for (j=0; j<POLY_TARGET; j=j+1) if (dut.timbre_r[j] !== ref_dut.timbre_r[j]) $fatal(1, "DIFF timbre_r voice=%0d cycle=%0d", j, cycles);
         for (j=0; j<POLY_TARGET; j=j+1) if (dut.age_r[j] !== ref_dut.age_r[j]) $fatal(1, "DIFF age_r voice=%0d cycle=%0d", j, cycles);
-        for (j=0; j<POLY_TARGET; j=j+1) if (dut.vtgt_rep[j] !== ref_dut.vtgt_rep[j]) $fatal(1, "DIFF vtgt_rep voice=%0d cycle=%0d", j, cycles);
+        //  ⭐⭐ 2026-10-14：⭐ **`vtgt_rep` 这一条按 AT 的 OPT08 重设计更新** ✅
+        //     🔴 **为什么**：⭐ AT **有意**把 `vtgt_rep` 从"回放目标"改成
+        //        **"活音的本地镜像"**（⭐ 他们自己的话：*"Only this private
+        //        representation changed"* ✅）⇒ ⭐ 旧的**位等价**判据**必然红** ✅
+        //     📌 ⭐ 本段与 `tb_opt08_write_share_reused.sv:239-250` **逐字一致** ——
+        //        那条是 AT 对**本 bench 的副本**（⭐ 同一个冻结参考
+        //        `evidence/h5/cls-next-20261004/note_manager_reference.v` ✅）
+        //     ⚠️ ⭐ **这不是"放宽判据"**：⭐ 判据**换成了更强的不变式** ——
+        //        · 活音（`src_r==0`）必须满足 `vtgt_rep[j] == vtgt_val[axis_r[j]]`
+        //          （⭐ **镜像关系**，⭐ 而旧判据对它是**过时**的 ✅）
+        //        · 回放（`src_r!=0`）仍**逐位**比对冻结参考 ✅
+        //        · 新增 `vtgt_live_vld` 的镜像不变式 ✅
+        //        ⇒ ⭐ **覆盖面没有减少** ✅
+        //     📌 ⭐ 其余**全部**位等价判据（⭐ 公共输出 + 其它内部量）**一字未动** ✅
+        for (j=0; j<POLY_TARGET; j=j+1) begin
+            if (dut.src_r[j] == 3'd0) begin
+                if (dut.vtgt_rep[j] !== dut.vtgt_val[dut.axis_r[j]])
+                    $fatal(1, "DIFF live target mirror voice=%0d cycle=%0d", j, cycles);
+            end else if (dut.vtgt_rep[j] !== ref_dut.vtgt_rep[j])
+                $fatal(1, "DIFF replay vtgt_rep voice=%0d cycle=%0d", j, cycles);
+            if (dut.vtgt_live_vld[j] !== dut.vtgt_vld[dut.axis_r[j]])
+                $fatal(1, "DIFF live valid mirror voice=%0d cycle=%0d", j, cycles);
+        end
         for (j=0; j<(1<<AXIS_W); j=j+1) if (dut.vtgt_val[j] !== ref_dut.vtgt_val[j]) $fatal(1, "DIFF vtgt_val axis=%0d cycle=%0d", j, cycles);
         for (j=0; j<(1<<AXIS_W); j=j+1) if (dut.vtgt_vld[j] !== ref_dut.vtgt_vld[j]) $fatal(1, "DIFF vtgt_vld axis=%0d cycle=%0d", j, cycles);
     end

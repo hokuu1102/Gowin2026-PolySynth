@@ -1,0 +1,2 @@
+FATAL: tb/w3b/tb_opt08_target_cache.sv:34: AO public output mismatch P=4 cycle=31
+       Time: 711000  Scope: tb_opt08_target_cache.a

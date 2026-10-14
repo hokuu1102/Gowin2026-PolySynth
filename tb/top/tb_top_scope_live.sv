@@ -55,8 +55,19 @@ module tb_top_scope_live;
         send_byte(8'hA5);
         send_byte(8'd140);
         repeat(7) send_byte(8'd0);
-        if(dut.g_sound.u_play_seq.tick_inc_o!==32'd192407)
-            $fatal(1,"FAIL: real UART Q payload did not reach play_seq BPM register");
+        //  ⭐⭐ 2026-10-14：⭐ **手动 BPM 改成【对齐小节线】**（⭐ 用户要求）✅
+        //     ⇒ ⭐ 载荷到达时**只挂起**，⛔ 不许立刻改 `play_seq.tick_inc_o` ✅
+        //     📌 **分工**：⭐ "挂起 ⇒ 到小节线真的生效" 由**聚焦 tb** `tb_bpm_bar_quant`
+        //        穷举验证（⭐ 22 条判据，⭐ 含"`set_i` 单独到达不许装载"这条核心 ✅）
+        //        ⭐ 而**本 tb 负责证明【顶层接线】**：⭐ 真 UART 的载荷确实进了对齐器 ✅
+        //     ⚠️ **为什么这里⛔ 不等一个小节**：⭐ 120 BPM 一小节 ≈ **100M clk ≈ 2 秒**，
+        //        而本 tb 的总预算只有 **2 ms**（`#2000000`）⇒ ⚠️ 差 **1000 倍** ✅
+        //        ⇒ ⭐ 硬等会把"接线正确"与"等够时间"混成一件事，⭐ 反而更难定位 ✅
+        //     📌 复位默认 `tick_inc` = `TICK_INC_DEFAULT` = 164927（= 120 BPM）✅
+        if(dut.g_sound.u_play_seq.tick_inc_o!==32'd164927)
+            $fatal(1,"FAIL: manual Q must NOT change the tempo immediately (bar-aligned since 2026-10-14)");
+        if(dut.g_sound.u_bpm_bar_quant.pending_o!==1'b1)
+            $fatal(1,"FAIL: real UART Q payload did not reach the bar aligner (pending_o)");
         if(dut.u_hdmi.SCOPE_MODE!==1'b1)
             $fatal(1,"FAIL: framed BPM payload switched scope");
         send_byte(8'h57);

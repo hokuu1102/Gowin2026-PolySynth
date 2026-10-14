@@ -1,0 +1,6 @@
+Exception: C:\Users\cyx\Documents\ChatGPT\FPGA\rollback-at-selftest-20261013\tools\rollback_at_local.ps1:12
+Line |
+  12 |          throw "Project input changed after AT; refusing rollback: $($ …
+     |          ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Project input changed after AT; refusing rollback: constr/top.sdc
+

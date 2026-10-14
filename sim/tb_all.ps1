@@ -235,7 +235,16 @@ foreach ($tb in $tbs) {
   #      （⭐ `-Filter` 显式选中时不跳过）
   #   ⚠️ **它们仍要能编译** —— ⭐ 所以⛔ 不是"从工程里删掉"，⭐ 只是不每轮跑。
   # ═══════════════════════════════════════════════════════════════════════════
-  $skipByDefault = @('tb_export_wav', 'tb_export_key_wav')
+  #  ⭐⭐ 2026-10-14：⭐ **`tb_at_merge_known_bugs` 也进本表**（⭐ AT 集成交付带来）✅
+  #     🔴 **为什么**：⭐ 它是**诊断**，⭐ 而且**按设计就失败** ✅ ——
+  #        ⭐ 它自己的文件头原文：*"Known inherited failures are expected.
+  #           Never classify this as a PASS test."* ✅
+  #        ⭐ 且 `n_errors` 非零就 `$fatal` ⇒ ⚠️ 非零退出 ⇒ 🔴 会被算成"失败" ✅
+  #     📌 ⭐ 与 `tb_export_*` **同类**：⭐ 都是"有判据、⛔ 但不是验收"的 tb ✅
+  #        ⚠️ 它复现的是**继承来的已知缺陷**（⭐ AT 交付原文："Not a full-suite
+  #           or board acceptance claim"）⇒ ⭐ 拿它当验收判据会**误报回归** ✅
+  #     📌 **要单独看它**：⭐ `powershell -File sim\tb_all.ps1 -Filter tb_at_merge_known_bugs` ✅
+  $skipByDefault = @('tb_export_wav', 'tb_export_key_wav', 'tb_at_merge_known_bugs')
   if (($Filter -eq "") -and ($skipByDefault -contains $name)) {
     Write-Host ("  [skip] {0}  (工具 tb，默认跳过；用 -Filter {0} 单独跑)" -f $name) -ForegroundColor DarkYellow
     $script:skipped += $name

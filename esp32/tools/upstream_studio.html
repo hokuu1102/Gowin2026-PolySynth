@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>FPGA2026 · 回传可视化上位机</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#0b0e14; --panel:#141a24; --panel2:#1b2330; --line:#26303f;
+    --fg:#e8eefc; --dim:#8695ab; --acc:#4ea1ff; --acc2:#79bcff;
+    --ok:#3ddc84; --warn:#ffb020; --err:#ff5c5c;
+  }
+  *{box-sizing:border-box} html,body{height:100%}
+  body{margin:0;background:radial-gradient(1200px 700px at 80% -10%,#1b2a2a 0%,var(--bg) 60%);
+       color:var(--fg);font:14px/1.5 "Microsoft YaHei UI","Segoe UI",system-ui,sans-serif;
+       display:flex;flex-direction:column;overflow:hidden}
+  header{display:flex;align-items:center;gap:14px;padding:12px 20px;
+         background:linear-gradient(180deg,#141a24,#111722);border-bottom:1px solid var(--line)}
+  header h1{font-size:17px;margin:0;font-weight:700}
+  header h1 span{color:var(--ok)}
+  .spacer{flex:1}
+  .dot{width:9px;height:9px;border-radius:50%;background:var(--err);display:inline-block;
+       margin-right:7px;box-shadow:0 0 10px currentColor;color:var(--err)}
+  .dot.on{background:var(--ok);color:var(--ok)}
+  #connTxt{color:var(--dim);font-size:13px}
+  main{flex:1;display:flex;gap:12px;padding:12px;min-height:0}
+  .col{display:flex;flex-direction:column;gap:12px;min-height:0}
+  .side{width:288px;flex:none}
+  .mid{flex:1;min-width:0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;
+        box-shadow:0 6px 24px rgba(0,0,0,.25)}
+  .card h2{margin:0 0 10px;font-size:12px;letter-spacing:1.2px;color:var(--ok);
+           text-transform:uppercase;font-weight:700}
+  button{font:inherit;border:0;border-radius:9px;padding:9px 14px;cursor:pointer;
+         background:var(--panel2);color:var(--fg);transition:.15s;border:1px solid var(--line)}
+  button:hover:not(:disabled){background:#233046;border-color:#33445e}
+  button:disabled{opacity:.42;cursor:not-allowed}
+  button.primary{background:linear-gradient(180deg,var(--ok),#25a862);color:#04140c;
+                 font-weight:700;border:0;box-shadow:0 4px 16px rgba(61,220,132,.3)}
+  button.primary:hover:not(:disabled){background:linear-gradient(180deg,#63e8a0,#2bbd70)}
+  button.wide{width:100%} .row{display:flex;gap:8px} .row>*{flex:1}
+  .kv{display:flex;justify-content:space-between;gap:10px;padding:3px 0;font-size:13px}
+  .kv b{color:var(--dim);font-weight:500}
+  .kv span{font-family:Consolas,ui-monospace,monospace;text-align:right;word-break:break-all}
+  #rollWrap{flex:1;min-height:0;background:var(--panel);border:1px solid var(--line);
+            border-radius:12px;overflow:hidden;position:relative}
+  #roll{width:100%;height:100%;display:block}
+  #feed{height:150px;overflow:auto;font:11.5px/1.6 Consolas,ui-monospace,monospace;
+        color:var(--dim);background:#0e131b;border:1px solid var(--line);border-radius:9px;padding:8px}
+  #feed .on{color:var(--ok)} #feed .off{color:#ff9ecb} #feed .ts{color:var(--warn)}
+  #feed .bad{color:var(--err)} #feed .t{color:#5b6b82}
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}
+  .stats div{background:var(--panel2);border-radius:9px;padding:8px 4px}
+  .stats small{display:block;color:var(--dim);font-size:11px;margin-bottom:2px}
+  .stats b{font-family:Consolas,monospace;font-size:16px}
+  .hint{color:var(--dim);font-size:12px;margin-top:8px}
+  .pill{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11px;
+        background:var(--panel2);border:1px solid var(--line);color:var(--dim)}
+  #warn{display:none;margin:0 12px;padding:10px 14px;border-radius:10px;background:#3a2a10;
+        border:1px solid #6b4d16;color:#ffd591;font-size:13px}
+  .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:11px;color:var(--dim);margin-top:8px}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:4px}
+</style>
+</head>
+<body>
+<header>
+  <h1>FPGA2026 · <span>回传可视化上位机</span></h1>
+  <span class="pill" id="proto">—</span>
+  <span class="pill">上行 0xABF2</span>
+  <div class="spacer"></div>
+  <span id="connTxt"><i class="dot" id="dot"></i>未连接</span>
+  <button id="btnConn" class="primary">连接并订阅回传</button>
+</header>
+
+<div id="warn"></div>
+
+<main>
+  <div class="col side">
+    <div class="card">
+      <h2>回传统计</h2>
+      <div class="stats">
+        <div><small>字节</small><b id="c_bytes">0</b></div>
+        <div><small>帧</small><b id="c_frames">0</b></div>
+        <div><small>速率 B/s</small><b id="c_rate">0</b></div>
+        <div><small>音符</small><b id="c_notes">0</b></div>
+        <div><small>表同步</small><b id="c_tab">0</b></div>
+        <div><small>坏校验</small><b id="c_bad">0</b></div>
+      </div>
+      <div class="kv" style="margin-top:8px"><b>未知类型</b><span id="c_unk">0</span></div>
+      <div class="kv"><b>重新同步</b><span id="c_resync">0</span></div>
+      <div class="kv"><b>当前音高</b><span id="c_last">-</span></div>
+    </div>
+    <div class="card">
+      <h2>导出</h2>
+      <button class="wide" id="btnBin">保存原始字节 .bin</button>
+      <div style="height:8px"></div>
+      <button class="wide" id="btnMid">导出为 .mid（能直接播放）</button>
+      <div class="hint">MIDI 用 480 PPQN / 120 BPM 换算；音高由 inc 反算（50 MHz 口径）。</div>
+    </div>
+  </div>
+
+  <div class="col mid">
+    <div id="rollWrap"><canvas id="roll"></canvas></div>
+    <div class="card" style="flex:none">
+      <h2 style="margin-bottom:6px">事件流</h2>
+      <div id="feed"></div>
+      <div class="legend">
+        <span><i style="background:#3ddc84"></i>note_on</span>
+        <span><i style="background:#ff9ecb"></i>note_off</span>
+        <span><i style="background:#ffb020"></i>表同步</span>
+        <span><i style="background:#ff5c5c"></i>坏帧</span>
+        <span>帧格式：<b>0xA5</b> + type/seq/tick32/axis/inc32/vel/cksum（14 B）；表同步 68 B</span>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+"use strict";
+/* ===========================================================================
+   上行帧格式（与 esp32/tools/evt2midi/frame_format.py 逐字段一致）
+     [0] 0xA5   帧头
+     [1] 类型   0x01=note_on 0x02=note_off 0x03=calib 0x04=looper 0x10=表同步
+     [2] seq
+     [3..6]  tick  32 位大端
+     [7] axis
+     [8..11] inc   32 位大端
+     [12] vel
+     [13] 校验   = XOR(bytes[0..12])
+   表同步： [0]0xA5 [1]0x10 [2]表号 [3..66] 16x4B 大端 [67] 校验 = 68 B
+   =========================================================================== */
+const HDR = 0xA5;
+const T_ON = 0x01, T_OFF = 0x02, T_CALIB = 0x03, T_LOOPER = 0x04, T_TAB = 0x10;
+const LEN_NOTE = 14, LEN_TAB = 68;
+const TAB_ITEMS = 16, TAB_OFF = 3, TAB_ITEM_BYTES = 4;
+const F_CLK = 50000000, PPQN = 480;
+const SVC = 0xABF0, CH_NOTI = 0xABF2, CH_CMD = 0xABF3;
+const DEV_NAME = "FPGA2026-Synth";
+
+const frameLenFor = t => (t === T_TAB ? LEN_TAB : LEN_NOTE);
+const xorCksum = b => { let c = 0; for (let i = 0; i < b.length - 1; i++) c ^= b[i]; return c & 0xFF; };
+const incToHz = inc => inc * F_CLK / 4294967296;
+function hzToNote(hz) {
+  if (hz <= 0) return "-";
+  const names = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+  const n = Math.round(69 + 12 * Math.log2(hz / 440));
+  return names[((n % 12) + 12) % 12] + (Math.floor(n / 12) - 1);
+}
+const hzToMidi = hz => hz <= 0 ? 0 : 69 + 12 * Math.log2(hz / 440);
+/* 音名（全名 + 八度）与黑键判定 —— 与曲谱上位机保持同一套约定（C4 = 中央 C）。 */
+const PITCH_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+function midiName(m) {
+  const i = ((m % 12) + 12) % 12;
+  return PITCH_NAMES[i] + (Math.floor(m / 12) - 1);
+}
+function isBlackKey(m) {
+  const i = ((m % 12) + 12) % 12;
+  return (i === 1 || i === 3 || i === 6 || i === 8 || i === 10);
+}
+
+/* ============================== 状态 ============================== */
+const S = {
+  buf: new Uint8Array(0), bytes: 0, frames: 0, notes: 0, tabs: 0,
+  bad: 0, unk: 0, resync: 0, lastHz: 0,
+  events: [],          // {tick, type, axis, hz, midi, vel, seq}
+  tabItems: null, tabNo: null,
+  t0: 0, rateBytes: 0,
+};
+const MAX_EVENTS = 20000;
+
+function reset() {
+  S.buf = new Uint8Array(0); S.bytes = 0; S.frames = 0; S.notes = 0; S.tabs = 0;
+  S.bad = 0; S.unk = 0; S.resync = 0; S.lastHz = 0; S.events = [];
+  S.tabItems = null; S.tabNo = null; S.t0 = performance.now(); S.rateBytes = 0;
+  $("feed").innerHTML = ""; paintCounters(); draw();
+}
+
+function pushBytes(u8) {
+  const nb = new Uint8Array(S.buf.length + u8.length);
+  nb.set(S.buf); nb.set(u8, S.buf.length); S.buf = nb;
+  S.bytes += u8.length; S.rateBytes += u8.length;
+  parse();
+  paintCounters();
+}
+
+function parse() {
+  let i = 0;
+  while (i < S.buf.length) {
+    if (S.buf[i] !== HDR) { S.resync++; i++; continue; }
+    if (i + 2 > S.buf.length) break;
+    const t = S.buf[i + 1];
+    if (t !== T_ON && t !== T_OFF && t !== T_CALIB && t !== T_LOOPER && t !== T_TAB) {
+      S.unk++; i++; continue;
+    }
+    const flen = frameLenFor(t);
+    if (i + flen > S.buf.length) break;
+    const fr = S.buf.subarray(i, i + flen);
+    if (xorCksum(fr) !== fr[flen - 1]) {
+      S.bad++;
+      feed('bad', "坏校验  帧头 0xA5 type=0x" + t.toString(16).padStart(2, "0") +
+                  "  seq=" + fr[2] + "  期望 0x" + xorCksum(fr).toString(16).padStart(2, "0") +
+                  "  实测 0x" + fr[flen - 1].toString(16).padStart(2, "0"));
+      i += flen;                                  // 校验失败也按帧长前进，保持同步
+      continue;
+    }
+    S.frames++;
+    if (t === T_TAB) {
+      S.tabs++;
+      S.tabNo = fr[2];
+      const items = [];
+      for (let k = 0; k < TAB_ITEMS; k++) {
+        const o = TAB_OFF + k * TAB_ITEM_BYTES;
+        items.push(((fr[o] << 24) | (fr[o + 1] << 16) | (fr[o + 2] << 8) | fr[o + 3]) >>> 0);
+      }
+      S.tabItems = items;
+      feed('ts', "表同步  表号=" + S.tabNo + "  16 项  inc[0]=" + items[0] +
+                 " (" + hzToNote(incToHz(items[0])) + ")  inc[15]=" + items[15]);
+    } else {
+      const tick = ((fr[3] << 24) | (fr[4] << 16) | (fr[5] << 8) | fr[6]) >>> 0;
+      const axis = fr[7];
+      const inc = ((fr[8] << 24) | (fr[9] << 16) | (fr[10] << 8) | fr[11]) >>> 0;
+      const vel = fr[12];
+      const hz = incToHz(inc);
+      S.notes++;
+      S.lastHz = hz;
+      S.events.push({ tick, type: t, axis, hz, midi: hzToMidi(hz), vel, seq: fr[2] });
+      if (S.events.length > MAX_EVENTS) S.events.splice(0, S.events.length - MAX_EVENTS);
+      feed(t === T_ON ? "on" : "off",
+           (t === T_ON ? "note_on " : "note_off") +
+           "  seq=" + fr[2] + "  tick=" + tick + "  轴=" + axis +
+           "  " + hzToNote(hz) + " (" + hz.toFixed(1) + " Hz)" + "  力度=" + vel);
+    }
+    i += flen;
+  }
+  if (i > 0) S.buf = S.buf.slice(i);
+  draw();
+}
+
+function feed(cls, txt) {
+  const el = $("feed");
+  const t = new Date().toTimeString().slice(0, 8);
+  el.insertAdjacentHTML("beforeend",
+    '<div><span class="t">' + t + '</span> <span class="' + cls + '">' + txt + "</span></div>");
+  while (el.childElementCount > 400) el.removeChild(el.firstChild);
+  el.scrollTop = el.scrollHeight;
+}
+
+const $ = id => document.getElementById(id);
+function paintCounters() {
+  $("c_bytes").textContent = S.bytes;
+  $("c_frames").textContent = S.frames;
+  $("c_notes").textContent = S.notes;
+  $("c_tab").textContent = S.tabs;
+  $("c_bad").textContent = S.bad;
+  $("c_unk").textContent = S.unk;
+  $("c_resync").textContent = S.resync;
+  $("c_last").textContent = S.lastHz ? (hzToNote(S.lastHz) + " / " + S.lastHz.toFixed(1) + " Hz") : "-";
+  $("c_bad").style.color = S.bad ? "var(--err)" : "var(--fg)";
+  $("c_unk").style.color = S.unk ? "var(--err)" : "var(--fg)";
+}
+setInterval(() => {
+  const dt = (performance.now() - S.t0) / 1000;
+  $("c_rate").textContent = dt > 0.3 ? Math.round(S.rateBytes / dt) : 0;
+  S.rateBytes = 0; S.t0 = performance.now();
+}, 1000);
+
+/* ============================== 卷帘 ============================== */
+const cv = $("roll"), ctx = cv.getContext("2d");
+const AXIS_COLORS = ["#4ea1ff","#3ddc84","#ffb020","#ff7ab2","#a78bfa","#22d3ee",
+                     "#fb923c","#f472b6","#34d399","#facc15","#60a5fa","#c084fc",
+                     "#2dd4bf","#f87171","#a3e635","#fcd34d"];
+function fitCanvas() {
+  const r = cv.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.max(1, Math.floor(r.width * dpr));
+  cv.height = Math.max(1, Math.floor(r.height * dpr));
+  cv.style.width = r.width + "px"; cv.style.height = r.height + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  draw();
+}
+window.addEventListener("resize", fitCanvas);
+
+function draw() {
+  const w = cv.clientWidth, h = cv.clientHeight;
+  const PAD = { l: 76, r: 14, t: 14, b: 22 };
+  const pw = Math.max(1, w - PAD.l - PAD.r), ph = Math.max(1, h - PAD.t - PAD.b);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#1b2330"; ctx.fillRect(PAD.l, PAD.t, pw, ph);
+  ctx.strokeStyle = "#26303f"; ctx.strokeRect(PAD.l + .5, PAD.t + .5, pw - 1, ph - 1);
+
+  if (!S.events.length) {
+    ctx.fillStyle = "#8695ab"; ctx.font = "14px 'Microsoft YaHei UI',sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("等回传数据 —— 点右上角「连接并订阅回传」", w / 2, h / 2);
+    return;
+  }
+  // 取最近 512 个事件做滚动窗口
+  const win = S.events.slice(-512);
+  const tMin = win[0].tick, tMax = Math.max(win[win.length - 1].tick, tMin + 1);
+  const mids = win.map(e => e.midi).filter(m => m > 0);
+  let lo = mids.length ? Math.min(...mids) - 1 : 0;
+  let hi = mids.length ? Math.max(...mids) + 1 : 1;
+  if (hi - lo < 6) { lo -= 3; hi += 3; }
+  const X = t => PAD.l + ((t - tMin) / (tMax - tMin)) * pw;
+  const Y = m => PAD.t + ph - ((m - lo) / (hi - lo)) * ph;
+
+  ctx.font = "10px Consolas,monospace"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+
+  // 左侧钢琴键盘 + 音名（与曲谱上位机一致：让"哪个音"一眼可辨）
+  const rowH = ph / (hi - lo);
+  const drawKeys = rowH >= 5;
+  for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
+    const y0 = Y(m + 0.5), y1 = Y(m - 0.5);
+    const yTop = Math.min(y0, y1), hh = Math.max(1, Math.abs(y1 - y0));
+    ctx.fillStyle = isBlackKey(m) ? "#141a24" : "#e8eefc";
+    ctx.fillRect(0, yTop, PAD.l - 30, hh - (drawKeys ? 1 : 0));
+    if (drawKeys) {
+      ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, yTop + 0.5, PAD.l - 31, Math.max(1, hh - 1));
+    }
+  }
+  ctx.textAlign = "left";
+  for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
+    const y = Y(m);
+    if (y < PAD.t - 2 || y > PAD.t + ph + 2) continue;
+    const isC = (((m % 12) + 12) % 12 === 0);
+    const black = isBlackKey(m);
+    if (!isC && !black && rowH < 9) continue;
+    if (!isC && rowH < 5) continue;
+    ctx.fillStyle = isC ? "#e8eefc" : "#8695ab";
+    ctx.fillText(midiName(m), PAD.l - 27, y);
+  }
+  ctx.textAlign = "right";
+  for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
+    if (((m % 12) + 12) % 12 === 0) {
+      const y = Y(m);
+      ctx.strokeStyle = "#212b3a"; ctx.beginPath();
+      ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l + pw, y); ctx.stroke();
+    }
+  }
+  // 连线（同一 axis 相邻事件连起来，看旋律轮廓）
+  ctx.lineWidth = 1;
+  for (let a = 0; a < 16; a++) {
+    ctx.strokeStyle = AXIS_COLORS[a % 16] + "55";
+    ctx.beginPath();
+    let started = false;
+    for (const e of win) {
+      if (e.axis !== a) continue;
+      const x = X(e.tick), y = Y(e.midi);
+      if (!started) { ctx.moveTo(x, y); started = true; } else ctx.lineTo(x, y);
+    }
+    ctx.stroke();
+  }
+  // 音符：画成【有长度的色块】（与曲谱上位机一致，⛔ 不再是孤立的点）
+  // 为什么在 draw 里配对：上行是【流式】到达的，不能预先配对；
+  //   而且滚动窗口会截断 —— 窗口外的 on 配不到 off 时按最小长度画。
+  const blockH = Math.max(2, Math.min(rowH * 0.72, 12));
+  const minLen = Math.max(1, (tMax - tMin) / 400);
+  const openMap = new Map();
+  for (const e of win) {
+    const key = ((e.axis & 15) * 128) + (e.midi & 127);
+    if (e.type === T_ON) {
+      openMap.set(key, e.tick);
+    } else {
+      const t0 = openMap.get(key);
+      if (t0 !== undefined) {
+        openMap.set(key, undefined);
+        const x0 = X(t0), x1 = X(e.tick);
+        ctx.fillStyle = AXIS_COLORS[e.axis % 16];
+        ctx.globalAlpha = 0.5 + 0.5 * Math.min(1, (e.vel || 0) / 127);
+        ctx.fillRect(x0, Y(e.midi) - blockH / 2,
+                     Math.max(1.6, x1 - x0), blockH);
+        ctx.globalAlpha = 1;
+      }
+      // 没配到 on 的 off => 不画（孤儿，计数由别处负责）
+    }
+  }
+  // 还没闭合的 on：画一个最小长度的块（表示"正在响"）
+  for (const [, t0] of openMap) {
+    if (t0 === undefined) continue;
+    ctx.globalAlpha = 0.75;
+    ctx.fillStyle = "#e8eefc";
+    ctx.fillRect(X(t0), Y(lo + (hi - lo) / 2) - blockH / 2,
+                 Math.max(1.6, X(t0 + minLen) - X(t0)), blockH);
+    ctx.globalAlpha = 1;
+  }
+  // 轴图例
+  const axes = [...new Set(win.map(e => e.axis))].sort((a, b) => a - b);
+  let lx = PAD.l + 4; ctx.textAlign = "left";
+  for (const a of axes.slice(0, 14)) {
+    ctx.fillStyle = AXIS_COLORS[a % 16]; ctx.fillRect(lx, PAD.t + ph + 6, 8, 8);
+    ctx.fillStyle = "#8695ab"; ctx.fillText("轴" + a, lx + 11, PAD.t + ph + 14);
+    lx += 44;
+  }
+  // 表同步提示
+  if (S.tabItems) {
+    ctx.fillStyle = "#ffb020"; ctx.textAlign = "right";
+    ctx.fillText("表同步：表号 " + S.tabNo + " · inc[0]=" + S.tabItems[0] +
+                 " → " + hzToNote(incToHz(S.tabItems[0])), PAD.l + pw - 6, PAD.t + 10);
+  }
+}
+
+/* ============================== BLE ============================== */
+let device = null, chNoti = null, connected = false;
+const uuid16 = x => "0000" + x.toString(16).padStart(4, "0") + "-0000-1000-8000-00805f9b34fb";
+
+async function connect() {
+  if (!navigator.bluetooth) { feed("bad", "这个浏览器不支持 Web Bluetooth，请用 Chrome/Edge"); return; }
+  try {
+    device = await navigator.bluetooth.requestDevice({
+      filters: [{ namePrefix: "FPGA2026" }], optionalServices: [uuid16(SVC)] });
+    device.addEventListener("gattserverdisconnected", () => {
+      connected = false; setConn(false, "已断开"); feed("bad", "蓝牙已断开");
+    });
+    const server = await device.gatt.connect();
+    const svc = await server.getPrimaryService(uuid16(SVC));
+    chNoti = await svc.getCharacteristic(uuid16(CH_NOTI));
+    await chNoti.startNotifications();
+    chNoti.addEventListener("characteristicvaluechanged", ev => {
+      const dv = ev.target.value;
+      pushBytes(new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength));
+    });
+    connected = true; setConn(true, "已订阅 " + (device.name || ""));
+    feed("ts", "已连接并订阅 0xABF2 —— 现在让 FPGA（或 PC 当 FPGA）发数据");
+  } catch (e) { feed("bad", "连接失败：" + e.message); }
+}
+function setConn(on, txt) {
+  $("dot").className = "dot" + (on ? " on" : "");
+  $("connTxt").innerHTML = '<i class="dot' + (on ? " on" : "") + '"></i>' + (txt || (on ? "已连接" : "未连接"));
+  $("btnConn").textContent = on ? "断开" : "连接并订阅回传";
+}
+$("btnConn").onclick = () => {
+  if (connected) { try { device.gatt.disconnect(); } catch (e) {} connected = false; setConn(false); }
+  else connect();
+};
+
+/* ============================== 导出 ============================== */
+function download(name, blob) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+$("btnBin").onclick = () => {
+  if (!S.bytes) { feed("bad", "还没有数据"); return; }
+  download("upstream.bin", new Blob([S.buf.length ? S.buf : new Uint8Array(0)], { type: "application/octet-stream" }));
+  feed("ts", "已保存原始字节（当前缓冲 " + S.buf.length + " 字节）");
+};
+$("btnMid").onclick = () => {
+  const evs = S.events;
+  if (!evs.length) { feed("bad", "还没有音符事件"); return; }
+  const blob = buildMidi(evs);
+  download("upstream.mid", blob);
+  feed("ts", "已导出 MIDI：" + evs.length + " 个事件，可直接用播放器打开");
+};
+
+/* 最小 MIDI 写出：格式 1，1 轨，480 PPQN，120 BPM；tick 由 inc 反算的 tick 直接映射 */
+function buildMidi(evs) {
+  const out = [];
+  const push = (...b) => out.push(...b);
+  const be32 = v => push((v >>> 24) & 255, (v >>> 16) & 255, (v >>> 8) & 255, v & 255);
+  const be16 = v => push((v >>> 8) & 255, v & 255);
+  // MThd
+  push(0x4D, 0x54, 0x68, 0x64); be32(6); be16(1); be16(1); be16(PPQN);
+  const track = [];
+  const tp = (...b) => track.push(...b);
+  const vlq = n => { const s = [n & 0x7F]; n >>= 7; while (n) { s.unshift((n & 0x7F) | 0x80); n >>= 7; } tp(...s); };
+  // tempo 120 BPM
+  vlq(0); tp(0xFF, 0x51, 0x03, 0x07, 0xA1, 0x20);
+  // 事件：把上行 tick（自由运行）转成相对时间，按序
+  const sorted = evs.slice().sort((a, b) => a.tick - b.tick);
+  let last = 0;
+  for (const e of sorted) {
+    const d = Math.max(0, Math.round((e.tick - last) * PPQN / 960));   // 上行 tick 按 PPQN=960
+    last = e.tick;
+    vlq(d);
+    const midi = Math.max(0, Math.min(127, Math.round(e.midi)));
+    const vel = Math.max(1, Math.min(127, e.vel || 100));
+    const on = e.type === T_ON;
+    tp(on ? 0x90 : 0x80, midi, on ? vel : 0);
+  }
+  vlq(0); tp(0xFF, 0x2F, 0x00);
+  push(0x4D, 0x54, 0x72, 0x6B); be32(track.length); push(...track);
+  return new Blob([new Uint8Array(out)], { type: "audio/midi" });
+}
+
+/* ============================== 启动 ============================== */
+(async function boot() {
+  const proto = location.protocol;
+  $("proto").textContent = proto === "file:" ? "file:// 模式" : (location.host || proto);
+  if (!navigator.bluetooth) {
+    $("warn").style.display = "block";
+    $("warn").innerHTML = "⚠️ 这个浏览器没有 Web Bluetooth。请用 <b>Chrome</b> 或 <b>Edge</b>。";
+  } else if (proto === "file:") {
+    $("warn").style.display = "block";
+    $("warn").innerHTML = "⚠️ <b>file://</b> 模式浏览器多半会拒绝蓝牙。" +
+      "请双击 <b>start_score_studio.bat</b>，然后打开 <b>upstream_studio.html</b>。";
+  }
+  fitCanvas(); paintCounters(); draw();
+  // ?demo=<bin>：把一段录制好的原始字节喂进同一条解码+绘制路径（演示与自检）
+  const demo = new URLSearchParams(location.search).get("demo");
+  if (demo) {
+    try {
+      const r = await fetch(demo);
+      if (!r.ok) throw new Error("HTTP " + r.status);
+      const ab = await r.arrayBuffer();
+      feed("ts", "demo：载入 " + demo + "（" + ab.byteLength + " 字节）");
+      // 分块喂，模拟流式到达
+      const u8 = new Uint8Array(ab);
+      for (let o = 0; o < u8.length; o += 256) pushBytes(u8.subarray(o, o + 256));
+      feed("ts", "demo：解码完成 —— 帧 " + S.frames + " · 音符 " + S.notes +
+                 " · 表同步 " + S.tabs + " · 坏校验 " + S.bad + " · 未知 " + S.unk);
+    } catch (e) { feed("bad", "demo 载入失败：" + e.message); }
+  }
+})();
+</script>
+</body>
+</html>

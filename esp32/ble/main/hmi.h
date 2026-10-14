@@ -88,8 +88,42 @@ void hmi_set_progress(uint32_t sent, uint32_t total);
 /* 事件计数文本（屏上 t1）。⭐ 与"守恒等式"呼应：它就是丢没丢的现场证据 */
 void hmi_set_events(uint32_t sent, uint32_t total);
 
+/* 播放位置（2026-10-13 新增）—— 让屏上的进度条显示"放到哪了"，⛔ 不是"灌了多少"。
+ *
+ * 为什么需要它：灌完之后 `sent/total` 恒为 100%，进度条就"死"了；
+ *   而用户真正想知道的是播放位置。
+ *
+ * 参数（都是音乐 tick，与谱面同量纲）：
+ *   play_tick  = 此刻应该已经播到的位置（= t0 + elapsed）
+ *   t0_tick    = 起播锚点
+ *   lead_ticks = 提前量（BLE_POOL_LEAD_TICKS）
+ *   total_ticks= 本曲总 tick（分母；⭐ 0 = 未知 => 显示层退回灌谱百分比）
+ *   valid      = 位置是否有效（正在放水）
+ *
+ * 消费方算法：heard = play_tick - t0_tick - lead_ticks（还没出声时 <= 0）。
+ */
+void hmi_set_play_pos(uint32_t play_tick, uint32_t t0_tick, uint32_t lead_ticks,
+                      uint32_t total_ticks, bool valid);
+
 /* 状态字（屏上 t2） */
 void hmi_set_state(hmi_state_t st);
+
+/* ⭐ 读当前状态（⭐ 供"只在某状态下才迁移"的判断用）
+ * ---------------------------------------------------------------------------
+ * ⭐ 为什么需要它：⭐ 状态迁移必须**有条件** ——
+ *    ⚠️ 例："灌完 ⇒ 就绪" 只能在 `LOADING` 时生效，
+ *    ⛔ 否则重播途中收到重发的帧会把 `PLAYING` / `播完` 打回 `就绪`。
+ * ⚠️ 调用方在别的任务里 ⇒ ⭐ 实现内部取锁，⛔ 不返回指针。 */
+hmi_state_t hmi_get_state(void);
+
+/* 某状态【进入过多少次】（2026-10-12 新增）。
+ *
+ * 用途：`断链` 是转瞬即逝的过渡态 —— 重连一成功就被置回 `就绪`，
+ *   而测试必须重连才能读 BLE => 永远读不到它。
+ *   => "断开到底有没有置断链"这件事【不可观测】，判据无从下手。
+ *   本计数器把它变成可事后读的数字（从 0xABF4 的 hmi= 行读）。
+ *   同族 C139：显示层会掩盖内部真值 => 把内部真值暴露成可读字段。 */
+uint32_t hmi_state_enter_count(hmi_state_t st);
 
 /* 蓝牙连接状态（屏上 t3）。⭐ 与状态字分开，两者会交叉 */
 void hmi_set_bt_connected(bool connected);
@@ -105,6 +139,20 @@ esp_err_t hmi_send_raw(const uint8_t *data, size_t len);   /* ⛔ 不补结束�
 
 /* 状态刷新任务（⭐ 由 hmi_init 自动创建；单独暴露便于测试） */
 void hmi_task(void *arg);
+
+/* ---------------------------------------------------------------------------
+ * ⭐⭐ 2026-10-01：屏 → ESP32 方向的【诊断】（⭐ 排查"屏有界面但数字不变"）
+ * ---------------------------------------------------------------------------
+ * 🔴 用途：⭐ **区分**「ESP32 没发」与「接线没通」
+ *    · ⭐ `bytes` 涨 ⇒ 屏→ESP32 通路通 ⇒ 🔴 问题在反方向
+ *    · 🔴 `bytes` 恒 0 ⇒ 屏没送出来 ⇒ ⚠️ 查 `屏 TX → GPIO5` / 共地
+ * ⭐ `touch` = 触摸事件（`0x65`）计数 ⇒ ⭐ 按屏上的键，这里应该涨
+ * ⚠️ 由 `hmi_task` 每轮轮询（⭐ 一个 UART 只能有一个读者）
+ */
+void hmi_poll_rx(void);
+void hmi_rx_stats(uint32_t *bytes, uint32_t *touch, uint8_t *last);
+/* ⭐ 发给屏的命令条数（⭐ 发送侧的本地证据 —— 与屏上现象对照即可定位断点） */
+uint32_t hmi_tx_cmds(void);
 
 #ifdef __cplusplus
 }

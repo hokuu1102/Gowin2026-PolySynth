@@ -31,7 +31,32 @@ typedef struct {
     /* ⭐⭐ 2026-09-23 新增（服务"看得见"） */
     uint32_t expected_frames;   /* ⭐ 应该收多少帧（0 = 未知） */
     uint32_t total_mismatch;    /* 🔴 实收与应到不符的次数（应恒为 0） */
-    uint32_t tick_clamped_cnt;  /* tick 限流截断次数（⚠️ 大 = 老是落后） */
+    uint32_t tick_clamped_cnt;  /* tick 限流截断次数（大 = 老是落后） */
+
+    /* ---- 播放位置（2026-10-13 新增，供 PC / 串口屏显示"播到哪了"）----
+     *
+     * 为什么需要它：`sent_frames` 只是"已喂给 FPGA 的帧数"，
+     *   而放水纪律是「应发到 tick = t0_tick + elapsed - LEAD_TICKS」
+     *   => 起播后 sent 很快冲到接近满，而 FPGA 还要再等约 10.4 秒才出声。
+     *   => 拿 sent/total 当播放进度，游标会瞬间跑到最右边，时间轴必然对不上。
+     *
+     * 本组语义（都是音乐 tick，与谱面 tick 同量纲）：
+     *   play_tick  = 此刻应该已经播到的谱面位置 = t0_tick + elapsed
+     *   t0_tick    = 起播锚点在本曲里的位置
+     *   lead_ticks = 提前量（BLE_POOL_LEAD_TICKS）
+     *
+     * 消费方算法：
+     *   heard_tick = play_tick - t0_tick - lead_ticks   （还没出声时 <= 0）
+     *   进度 = heard_tick / 本曲总 tick
+     *
+     * 注意：这是"主动放水的时间基准"，不是"FPGA 真的放到哪了" ——
+     *   后者 FPGA 不回传，拿不到。两者理论上同步，late_ticks_max 是它的监控。
+     */
+    uint32_t play_tick;
+    uint32_t t0_tick;
+    uint32_t lead_ticks;
+    uint32_t total_tick;        /* 本曲总长（末帧 tick）—— 播放进度的分母 */
+    uint8_t  pos_valid;         /* 1 = 上面几个值有效（正在放水） */
 } pool_stats_t;
 
 /* 复位水池（清空、停表）。每次新曲子前调用。 */
@@ -57,6 +82,13 @@ void   pool_stop(void);
 
 /* 状态查询 */
 bool   pool_is_running(void);
+
+/* ⭐⭐ 取走"这一曲【自然放完】"事件（⭐ 取走即清零 ⇒ 一次性，⛔ 不重复上报）
+ * ---------------------------------------------------------------------------
+ * ⭐ 与 `pool_stop()`（人为停）区分开：⭐ 只有"游标追上了池内帧数"才算本事件。
+ * ⚠️ 消费方是**轮询**的 ⇒ ⭐ 必须用 take 语义，⛔ 不能用"读一个 bool"
+ *    （否则每轮都上报一次）。 */
+bool   pool_take_finished(void);
 size_t pool_frames(void);
 /* ⭐ 已放出的帧数（2026-09-30 新增）—— 给"起播触发"打日志用。 */
 uint32_t pool_frames_sent(void);

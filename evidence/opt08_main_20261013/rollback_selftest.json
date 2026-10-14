@@ -1,0 +1,10 @@
+{
+  "DryRun": "PASS",
+  "ModifiedInputRefusal": "PASS",
+  "ActualIsolatedRestore": "PASS",
+  "RestoredAOInputs": 81,
+  "RestoredAOImplementationFiles": 24,
+  "UnrelatedSentinel": "PRESERVED",
+  "MainATInputsAndBitstream": "UNCHANGED",
+  "Sandbox": "C:/Users/cyx/Documents/ChatGPT/FPGA/rollback-at-selftest-20261013"
+}

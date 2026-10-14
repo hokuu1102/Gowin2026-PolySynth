@@ -30,6 +30,10 @@ bool      hmi_ready(void)                { return false; }
 void      hmi_set_song(const char *n)    { (void)n; }
 void      hmi_set_progress(uint32_t s, uint32_t t) { (void)s; (void)t; }
 void      hmi_set_events(uint32_t s, uint32_t t)   { (void)s; (void)t; }
+void      hmi_set_play_pos(uint32_t pt, uint32_t t0, uint32_t lead,
+                           uint32_t total, bool valid)
+                                       { (void)pt; (void)t0; (void)lead;
+                                         (void)total; (void)valid; }
 void      hmi_set_state(hmi_state_t st)  { (void)st; }
 void      hmi_set_bt_connected(bool c)   { (void)c; }
 void      hmi_set_buffer_pct(uint8_t p)  { (void)p; }
@@ -68,6 +72,15 @@ typedef struct {
     hmi_state_t state;
     bool     bt_conn;
     uint8_t  buf_pct;
+    /* 播放位置（2026-10-13 新增）。
+     * 灌完之后 sent/total 恒为 100%，进度条就"死"了；
+     * 而用户真正想知道的是"放到哪了"。
+     * 消费方算法：heard = play_tick - play_t0 - play_lead（还没出声时 <= 0）。 */
+    uint32_t play_tick;         /* 此刻应播到的谱面 tick */
+    uint32_t play_t0;           /* 起播锚点 */
+    uint32_t play_lead;         /* 提前量（tick） */
+    uint32_t play_total;        /* 本曲总 tick（分母；0 = 未知，退回灌谱百分比） */
+    bool     play_valid;        /* 位置是否有效（正在放水） */
     /* 上次已发送的值（用于变化检测） */
     char     last_song[40];
     uint32_t last_sent;
@@ -75,10 +88,111 @@ typedef struct {
     hmi_state_t last_state;
     int      last_bt_conn;      /* -1 = 未发送过 */
     int      last_buf_pct;
+    int      last_play_pct;     /* -1 = 未发送过；播放进度的变化检测 */
     bool     dirty;
 } hmi_cache_t;
 
 static hmi_cache_t s_c;
+
+/* 状态迁移计数器（2026-10-12 新增）。
+ *
+ * 为什么需要它：`断链` 是一个【转瞬即逝】的过渡态 ——
+ *   断开时置 LINK_LOST，而重连成功后又立刻置 READY。
+ *   测试想验证"断开确实置了断链"，但等它能读到（必须重连）时，
+ *   状态已经变回 `就绪` 了 => 无法区分下面两种可能：
+ *     · 断开时确实置了 `断链`（正确）
+ *     · 断开时根本没置（缺陷）—— 反正重连后都是 `就绪`，看不出来
+ *   => 这是一个【不可观测的中间行为】，判据无从下手。
+ *
+ * 修法：把"进入每个状态各多少次"记下来，事后从 0xABF4 读。
+ *   这样"断开置断链"就有了【独立于读取时机】的判据。
+ *   同族 C139（显示层掩盖内部真值）—— 把内部真值暴露成可读字段。
+ *
+ * 注意：定义必须放在 hmi_init 之前（它在初始化时就要计数）。
+ */
+static uint32_t s_enter_cnt[HMI_ST_COUNT];
+
+/* ===========================================================================
+ * ⭐⭐ 2026-10-01：屏 → ESP32 方向的【诊断计数】（⭐ 用户实测：屏有界面但数字不变）
+ * ===========================================================================
+ * 🔴 **为什么需要它**：⭐ 症状是"屏有界面（⭐ 说明屏有电、工程已下载），
+ *    ⚠️ 但固件发的命令【不生效】" ⇒ 🔴 **无法区分**下面两种原因：
+ *      · ⚠️ ESP32 **没发出去**（⭐ 或发错脚）
+ *      · 🔴 **接线没通**（⭐ 最常见：`TX/RX` 没交叉）
+ *    ⇒ ⭐ 所以必须有一个**独立于"发送"的判据**。
+ *
+ * ⭐ 本计数就是那个判据：⭐ **只要屏发过任何字节，这里就会涨**。
+ *    · ⭐ **涨了** ⇒ 屏→ESP32 通路**通** ⇒ 🔴 问题在**反方向**（ESP32→屏）
+ *    · 🔴 **一直 0** ⇒ 屏根本没送出来 ⇒ ⚠️ 查 `屏 TX → GPIO5` / 共地
+ *
+ * ⭐ 顺带**实装触摸事件**（⭐ `hmi.c:127` 的注释早就提到 `0x65`，⚠️ 但一直没有解析器）：
+ *    TJC 触摸事件格式 = `0x65 <页> <控件> <事件> 0xFF 0xFF 0xFF`
+ *    ⇒ ⭐ 数它有几个，⭐ 就能知道"屏上的按键按下去有没有到 ESP32"。
+ */
+static volatile uint32_t s_rx_bytes  = 0;   /* ⭐ 从屏收到的总字节 */
+static volatile uint32_t s_rx_touch  = 0;   /* ⭐ 收到的触摸事件数（0x65） */
+static volatile uint8_t  s_rx_last   = 0;   /* ⭐ 最后一个字节（⭐ 便于看是什么） */
+static volatile uint32_t s_tx_cmds   = 0;   /* ⭐ 发给屏的命令条数（⭐ 发送侧的本地证据） */
+
+void hmi_rx_stats(uint32_t *bytes, uint32_t *touch, uint8_t *last)
+{
+    if (bytes) { *bytes = s_rx_bytes; }
+    if (touch) { *touch = s_rx_touch; }
+    if (last)  { *last  = s_rx_last; }
+}
+
+uint32_t hmi_tx_cmds(void)
+{
+    return s_tx_cmds;
+}
+
+/* ⭐ 非阻塞收：⭐ 由 `hmi_task` 每轮调用（⛔ 不另开任务 —— ⚠️ 一个 UART 只能有一个读者） */
+void hmi_poll_rx(void)
+{
+    if (!s_ready) {
+        return;
+    }
+    /* ⚠️⚠️ 这个缓冲只有 32 B ⇒ ⭐ **一条长回复会被拆成多行日志**
+     * -----------------------------------------------------------------
+     * 🔴 实测踩过（2026-10-01）：⭐ 用 CMD `0x22` 设了个 60 字符的曲名，
+     *    再 `get g0.txt` 读回 ⇒ ⚠️ 日志里只看到 **31** 个字符
+     *    ⇒ 🔴 **我差点判定"固件把名字截断了"**（⭐ 固件其实没错）。
+     * ⭐ 真因：⭐ `get` 的回复（⭐ `p` + 39 字符 + `FF FF FF`）**长于 32 B**
+     *    ⇒ ⭐ 被拆成 2 段、⭐ 打成了**两行**日志。
+     * ⭐ 判据（⭐ 读日志的人必须知道）：⭐ **回复以 `FF FF FF` 结束** ——
+     *    ⚠️ 没看到结束符就说明**还没读完**，⭐ 要把后续行**拼起来**。
+     * ⚠️ 当前固件**只把收到的字节计数+打日志，⛔ 不解析**
+     *    ⇒ ⭐ 32 B 够用，⛔ **不是 bug**。
+     * 🔴 **但这是个陷阱**：⭐ 将来若要让固件**解析**回复
+     *    （⭐ 例如自己读回 `g0.txt` 做校验），⭐ 32 B 会**静默截断**
+     *    ⇒ ⚠️ 那时必须**先把缓冲放大**，⛔ 不能直接用。
+     * 📌 同族：`C139`（⭐ "显示没变"≠"值没设"）—— ⭐ 都是**测量层**的误判。 */
+    uint8_t buf[32];
+    int n = uart_read_bytes(BLE_HMI_UART_PORT, buf, sizeof(buf), 0);  /* ⚠️ 0 = 不等待 */
+    if (n <= 0) {
+        return;
+    }
+    for (int i = 0; i < n; i++) {
+        s_rx_last = buf[i];
+        if (buf[i] == 0x65) {          /* ⭐ TJC 触摸事件头 */
+            s_rx_touch++;
+        }
+    }
+    s_rx_bytes += (uint32_t)n;
+    /* ⚠️ 只在收到东西时打日志 —— ⭐ 否则每秒刷屏，把有用的信息淹掉
+     * ⭐⭐ 2026-10-01：**同时打 hex** —— 🔴 否则只能看到"收了多少字节"，
+     *    ⚠️ 而 `get` 的答复内容正是排查"控件名对不对"的**唯一证据**
+     *    （⭐ 实测：屏回了 32 B，⚠️ 但不 dump 就不知道回的是什么）。 */
+    {
+        char hex[3 * sizeof(buf) + 1];
+        size_t o = 0;
+        for (int i = 0; i < n && o + 3 < sizeof(hex); i++) {
+            o += (size_t)snprintf(hex + o, sizeof(hex) - o, "%02X ", buf[i]);
+        }
+        ESP_LOGI(TAG, "screen -> ESP32: %d B (total=%lu touch=%lu) [%s]",
+                 n, (unsigned long)s_rx_bytes, (unsigned long)s_rx_touch, hex);
+    }
+}
 
 /* ---------------------------------------------------------------------------
  * 底层发送
@@ -97,6 +211,18 @@ esp_err_t hmi_send_cmd(const char *cmd)
     if (cmd == NULL) {
         return ESP_ERR_INVALID_ARG;
     }
+    /* ⭐⭐ 2026-10-01：**发出去的每条命令都记账 + 打日志**
+     * -----------------------------------------------------------------------
+     * 🔴 为什么必须加：⭐ 实测"屏有界面但数字不变"时，⚠️ **完全无法确认
+     *    ESP32 到底发没发** —— ⭐ 发送路径原来**一个字节都不打日志**
+     *    ⇒ 🔴 只能靠"屏上变没变"这一个**远端**证据，⚠️ 而它分不清
+     *      "没发" / "发错脚" / "屏没收到" / "屏收到但控件名不对"。
+     * ⭐ 现在：⭐ **发送侧有本地证据**（`hmi.tx` 计数 + 每条的原文）
+     *    ⇒ ⭐ 与屏上的现象对照，**一眼定位是哪一段断了**。 */
+    s_tx_cmds++;
+    ESP_LOGI(TAG, "screen <- ESP32: \"%s\" (tx=%lu)", cmd,
+             (unsigned long)s_tx_cmds);
+
     /* ⭐ 命令 + 0xFF 0xFF 0xFF 一次写出去（⛔ 不要分两次 write，
      *    ⚠️ 否则中间若被别的任务插入写操作，屏会把两条命令粘在一起） */
     uint8_t buf[BLE_HMI_CMD_MAX + sizeof(HMI_TAIL)];
@@ -202,6 +328,10 @@ esp_err_t hmi_init(void)
     memset(&s_c, 0, sizeof(s_c));
     snprintf(s_c.song, sizeof(s_c.song), "%s", "----");
     s_c.state     = HMI_ST_IDLE;
+    /* 开机进 IDLE 也要计数 —— 否则 `st.i` 恒 0，看起来像计数器坏了
+     * （⚠️ 这里刻意【不】调 hmi_set_state：那会把 dirty 置 true 并触发
+     *   一次多余的全量刷新，而本函数下面本来就会做初次同步）。 */
+    s_enter_cnt[HMI_ST_IDLE]++;
     s_c.bt_conn   = false;
     s_c.buf_pct   = 0;
     s_c.last_bt_conn = -1;
@@ -223,8 +353,34 @@ bool hmi_ready(void) { return s_ready; }
 void hmi_set_song(const char *name)
 {
     const char *p = (name && *name) ? name : "----";
-    if (strncmp(s_c.song, p, sizeof(s_c.song)) != 0) {
-        snprintf(s_c.song, sizeof(s_c.song), "%s", p);
+    char clean[sizeof(s_c.song)];
+    size_t k = 0;
+
+    /* ⭐⭐ 净化（⭐ 必须在【源头】做，⛔ 不是在拼命令的地方）
+     * -----------------------------------------------------------------
+     * 🔴 为什么必须净化：⭐ 曲名最终会拼成 `g0.txt="<名字>"` ——
+     *    ⚠️ 若名字里含【双引号】⇒ 🔴 **TJC 命令被截断/错位**
+     *    （⭐ 例如名字 `a"b` ⇒ 发出 `g0.txt="a"b"` ⇒ ⭐ 屏收到的字符串是 `a`，
+     *      ⚠️ 而多出来的 `b"` 会被当成**下一条命令的开头** ⇒ 🔴 后面全乱）。
+     * ⚠️ 控制字符（⭐ < 0x20，⭐ 尤其 `FF`）同理 ——
+     *    ⭐ TJC 用 `FF FF FF` 当**结束符** ⇒ 🔴 名字里混进 `FF` 会**提前结束**。
+     * ⭐ 所以：⭐ **丢掉**双引号、反斜杠、`0x7F` 与控制字符；
+     *    ⭐ 其余（⭐ 含 UTF-8 多字节，⭐ 其字节都 ≥ 0x80）原样保留。
+     * 📌 放在这里 ⇒ ⭐ **任何调用方都自动受保护**（⭐ 不是每个调用点各写一遍）。 */
+    for (const unsigned char *q = (const unsigned char *)p;
+         *q && k + 1 < sizeof(clean); q++) {
+        if (*q == '"' || *q == '\\' || *q == 0x7F || *q < 0x20) {
+            continue;
+        }
+        clean[k++] = (char)*q;
+    }
+    clean[k] = '\0';
+    if (k == 0) {
+        snprintf(clean, sizeof(clean), "%s", "----");
+    }
+
+    if (strncmp(s_c.song, clean, sizeof(s_c.song)) != 0) {
+        snprintf(s_c.song, sizeof(s_c.song), "%s", clean);
         s_c.dirty = true;
     }
 }
@@ -244,12 +400,67 @@ void hmi_set_events(uint32_t sent, uint32_t total)
     hmi_set_progress(sent, total);
 }
 
+/* 播放位置（2026-10-13 新增）。
+ *
+ * 为什么单独一个 setter：`sent/total`（灌谱量）与"播放位置"是【两件事】——
+ *   灌完之后前者恒为 100%，只有后者还会继续动。
+ *   ⚠️ 而且它们的变化频率不同：前者很多次，后者每秒都在变
+ *   => 分开设置 + 各自做变化检测，避免刷屏。
+ *
+ * `total` 是本曲总 tick（分母）；传 0 表示未知 => 显示层退回灌谱百分比。
+ */
+void hmi_set_play_pos(uint32_t play_tick, uint32_t t0_tick, uint32_t lead_ticks,
+                      uint32_t total_ticks, bool valid)
+{
+    s_c.play_tick  = play_tick;
+    s_c.play_t0    = t0_tick;
+    s_c.play_lead  = lead_ticks;
+    s_c.play_total = total_ticks;
+    s_c.play_valid = valid;
+    /* 注意：这里【不】置 dirty —— 播放进度是"连续变化量"，
+     *   由刷新任务的周期性节拍驱动（见 hmi_task），
+     *   ⛔ 不用 dirty 触发（否则每来一帧数据就刷一次屏）。 */
+}
+
 void hmi_set_state(hmi_state_t st)
 {
+    /* 计数必须【无条件】做（2026-10-12 修正）。
+     * ---------------------------------------------------------------
+     * 原来写在 `if (s_c.state != st)` 里面 => 记的是【变化次数】，
+     *   而不是【进入次数】。后果（实测踩到）：
+     *     · 开机时 hmi_init 直接赋 IDLE（不走本函数）=> `st.i` 恒 0
+     *     · 断开时若 s_c.state 已经是 LINK_LOST（上次留下的）
+     *       => 本次"断链"【不计数】=> `st.x` 恒 0
+     *   => 🔴 判据 `st.x >= 1` 永远不成立，看起来像"固件没置断链"，
+     *      而日志里明明发了 `t1.txt="断链"` —— 白查了半天。
+     * ⭐ 教训：既然叫"进入次数"，就必须【每次调用都算】；
+     *   想知道"有没有变化"是另一件事（那才是脏标记的职责）。
+     *   ⛔ 不要把两个语义塞进同一个 if。
+     */
+    if ((unsigned)st < (unsigned)HMI_ST_COUNT) {
+        s_enter_cnt[st]++;
+
+    }
     if (s_c.state != st) {
         s_c.state = st;
         s_c.dirty = true;
     }
+}
+
+/* 读某状态的进入次数 —— 供 0xABF4 暴露 */
+uint32_t hmi_state_enter_count(hmi_state_t st)
+{
+    return ((unsigned)st < (unsigned)HMI_ST_COUNT) ? s_enter_cnt[st] : 0;
+}
+/* ⭐ 读当前状态 —— ⭐ 供"只在某状态下才迁移"的判断用
+ * ⚠️ 本文件**没有锁**（⭐ 全文件都是无锁风格，见 grep 无 Semaphore/Mutex）
+ *    ⇒ ⭐ 这里也保持一致：⭐ 单个 enum 字段的读在 ESP32 上是【单字原子】的，
+ *       ⚠️ 不引入锁（⛔ 只给一个 getter 加锁，反而与 setter 不对称）。
+ * ⚠️ 语义提醒：⭐ 读到的值**可能立刻过期**（另一个任务下一秒就改）
+ *    ⇒ ⭐ 只可用于"决定要不要迁移"，⛔ 不可用于任何需要精确同步的场合。 */
+hmi_state_t hmi_get_state(void)
+{
+    return s_c.state;
 }
 
 void hmi_set_bt_connected(bool connected)
@@ -309,6 +520,11 @@ void hmi_task(void *arg)
     for (;;) {
         vTaskDelay(pdMS_TO_TICKS(BLE_HMI_REFRESH_MS));
 
+        /* ⭐⭐ 2026-10-01：每轮先收屏的字节（⭐ 诊断 + 触摸事件）
+         *    ⚠️ 放在 `dirty` 判断【之前】—— ⭐ 收数据与"要不要刷新"无关，
+         *       ⚠️ 否则 dirty 为假时永远不收 ⇒ 🔴 诊断永远看不到东西 */
+        hmi_poll_rx();
+
         if (!s_ready || !s_c.dirty) {
             continue;
         }
@@ -333,11 +549,29 @@ void hmi_task(void *arg)
             if (pct > 100) {
                 pct = 100;
             }
+            /* 播放中：进度条改成显示【播放位置】，⛔ 不再是灌谱百分比。
+             * 为什么这样切：灌完之后 sent/total 恒为 100%，进度条就"死"了；
+             *   而用户真正想知道的是"放到哪了"。
+             * 判据：拿到有效的播放位置（play_valid）就用它，否则退回灌谱百分比。
+             * 语义区分靠 t2（灌谱计数）与 t1（播放中/播完）不变。 */
+            if (s_c.play_valid && s_c.play_total > 0) {
+                uint64_t heard = 0;
+                if (s_c.play_tick > (s_c.play_t0 + s_c.play_lead)) {
+                    heard = (uint64_t)s_c.play_tick - s_c.play_t0 - s_c.play_lead;
+                }
+                if (heard > s_c.play_total) {
+                    heard = s_c.play_total;
+                }
+                pct = (uint32_t)(heard * 100ull / s_c.play_total);
+                if (pct > 100) {
+                    pct = 100;
+                }
+            }
             snprintf(cmd, sizeof(cmd), "j0.val=%u", (unsigned)pct);
             hmi_send_cmd(cmd);
 
             if (s_c.total > 0) {
-                /* ⭐ 屏自己算百分比（省一条我们这边的除法/格式化） */
+                /* 屏自己算百分比（省一条我们这边的除法/格式化） */
                 snprintf(cmd, sizeof(cmd), "n0.val=%u*100/%u",
                          (unsigned)s_c.sent, (unsigned)s_c.total);
             } else {
@@ -347,9 +581,25 @@ void hmi_task(void *arg)
 
             /* ③ 事件计数 -> t2.txt（⭐ 去掉 "事件：" 前缀，省屏宽）
              *    ⚠️ 与蓝牙【分属两个控件】—— 因为 t3.pco 改的是【整个控件】的颜色，
-             *       合并的话数字会跟着一起变红/变绿 */
-            snprintf(cmd, sizeof(cmd), "t2.txt=\"%u/%u\"",
-                     (unsigned)s_c.sent, (unsigned)s_c.total);
+             *       合并的话数字会跟着一起变红/变绿
+             * ⭐⭐ 2026-10-12：⭐ 显示层钳制（⚠️ 这是【兜底】，⛔ 不是修法）
+             * ---------------------------------------------------------------
+             * 🔴 实测症状：屏上显示 **`18704/200`** —— 分子远超分母，毫无意义。
+             * ⭐ 根因已在上游修掉（`frame_parse_total()` 收到总数帧时把"已收"清零；
+             *    ⛔ 原来只靠复位帧清 ⇒ 客户端不发复位帧就跨曲无限累加）。
+             * ⚠️ 但显示层【仍然】不该输出"已收 > 应到"这种自相矛盾的数 ——
+             *    ⭐ 兜底的意义：万一将来又冒出一条"不清零"的路径，
+             *    用户看到的是"封顶的合理值"，⛔ 不是一串荒谬数字。
+             * ⭐ 判据：`已收 > 应到` 时按【应到】显示。
+             * ⚠️ 只影响【显示】，⛔ 不改任何真实计数（真实值仍从 `0xABF4` 可读）。 */
+            {
+                uint32_t shown = s_c.sent;
+                if (s_c.total > 0 && shown > s_c.total) {
+                    shown = s_c.total;
+                }
+                snprintf(cmd, sizeof(cmd), "t2.txt=\"%u/%u\"",
+                         (unsigned)shown, (unsigned)s_c.total);
+            }
             hmi_send_cmd(cmd);
 
             s_c.last_sent  = s_c.sent;

@@ -72,9 +72,41 @@ module vibrato_lfo #(
     //   📌 **代价**：⭐ 1 个 12 位比较 + 1 个 12 位 2:1 mux ≈ **+16 LUT**，⛔ 零 FF、对 Fmax 可忽略 ✅
     //   ⚠️ **结构修法（B，⭐ 未做）**：⭐ 把"绝对偏移"改成"按基频比例"（⭐ 共享乘法器 + 32 拍轮转）
     //      ⇒ ⭐ 代价 1 个 DSP + 1024 FF + 32 拍状态机 ⇒ ⚠️ 给 CLS 78% 的布线加压 ⇒ ⭐ 记入 P1 ✅
-    localparam [11:0] DEPTH_MAX_RAW = 12'd120;   // ⭐ ±50 cents @ A4
-    wire [11:0] depth_eff = (depth_raw_i > DEPTH_MAX_RAW) ? DEPTH_MAX_RAW : depth_raw_i;
-    wire [15:0] depth_target_w = {depth_eff, 3'b000}; // 12-bit -> Q1.15（⭐ 已限幅）
+    localparam [11:0] DEPTH_MAX_RAW = 12'd120;   // ⭐ ±50 cents @ A4（⭐ **设计目标**）
+    //  ⚠️⚠️ **下面那组移位分解【必须】等于 `DEPTH_MAX_RAW`**（⭐ 120 = 64+32+16+8 ✅）
+    //     🔴 **静默陷阱**：⭐ 若只改 `DEPTH_MAX_RAW` 而⛔ 不改移位
+    //        ⇒ ⭐ 实际上限**不会跟着变**，⭐ 而且**没有任何判据会发现** ✅
+    //     ✅ 所以这里放一个**编译期守卫**（⭐ 与其它模块的 `PARAM_OK` 同一套路 ✅）
+    //     📌 若真要改上限：⭐ 先把新值分解成 2 的幂之和（⛔ 别引入乘法器），
+    //        ⭐ 再改下面的移位，⭐ 最后改本守卫 ✅
+    localparam [11:0] DEPTH_SHIFT_EQ = 12'd64 + 12'd32 + 12'd16 + 12'd8;   // ⭐ = 120
+    //  ⭐⭐ 2026-10-13：⭐ **把"限幅"改成"全行程线性映射"**（⭐ 修上板实测的"推子没感觉" ✅）
+    //
+    //  🔴 **上板症状**（⭐ 用户原话）：
+    //     *"颤音的第二个推子没什么用啊，只要不是在最底下，感觉都没什么太大的差别"* ✅
+    //
+    //  🔴 **根因**：⭐ `P0-19`（2026-10-09）的**止血版**用的是**限幅**：
+    //        `depth_eff = (depth_raw_i > 120) ? 120 : depth_raw_i`
+    //     ⇒ ⭐ 推子**只有最底下 2.9%（120/4095）有效** ✅
+    //        ⭐ **2.9% ~ 100% 全部恒定 = 满深度** ⇒ 🔴 **推子等于一个开关** ✅
+    //     📌 它修好了"低音翻负错音"（⭐ 那是对的 ✅），⚠️ 但代价是**浪费 97% 的行程** ✅
+    //
+    //  ✅ **本修法**：⭐ 把 `0..4095` **线性映射**到 `0..120` ⇒ ⭐ **全行程可用** ✅
+    //     `depth_eff = depth_raw_i × 120 / 4096`（⭐ `120 = 64+32+16+8` ⇒ ⛔ **不用乘法器** ✅）
+    //     📌 **三条保证全部保持**：
+    //        · ⭐ 最大深度**仍是 120**（⭐ = ±50 cents @ A4 ✅）⇒ **永不翻负** ✅
+    //        · ⭐ **滞回比较的仍是【原始推子值】**（⭐ 见下方 `depth_raw_i <= DEPTH_OFF` ✅）
+    //          ⇒ ⭐ 死区/门限语义**逐位不变** ✅
+    //        · ⭐ `depth_raw_i = 4095` 时 `depth_eff = 119`（⭐ ≤ 120 ✅）⇒ 上限判据仍绿 ✅
+    //     📌 代价：⭐ 3 个 ~19 位加法器 ≈ **+60 LUT**（⭐ 无 FF、无 DSP ✅）
+    wire [18:0] depth_mul = (depth_raw_i << 6) + (depth_raw_i << 5)
+                          + (depth_raw_i << 4) + (depth_raw_i << 3);   // ⭐ ×120
+    //  ⚠️ **切片必须是 `[18:12]`（= `>>12`）** ✅
+    //     🔴 **我第一版写成 `[18:7]`（= `>>7`）⇒ 深度大了 32 倍** ✅
+    //        ⇒ ⭐ 实测 `depth_raw=4095` 时峰值 **30712**（⭐ 上限 960 ✅）
+    //        ⇒ 🔴 正是判据把它抓住的（⭐ `P0-19 depth clamp` 红 ✅）
+    wire [11:0] depth_eff = depth_mul[18:12];   // ⭐ >>12（⭐ 4096），⭐ 结果 ≤ 119 ✅
+    wire [15:0] depth_target_w = {depth_eff, 3'b000}; // 12-bit -> Q1.15（⭐ 已在限内）
 
     reg              depth_active_r;
     reg [15:0]       depth_q;
@@ -182,6 +214,14 @@ module vibrato_lfo #(
             $display("ERROR [vibrato_lfo] RATE_MAX_INC must be >= RATE_MIN_INC");
         if (CTRL_SLEW_DIV < 1)
             $display("ERROR [vibrato_lfo] CTRL_SLEW_DIV must be >= 1");
+        //  ⭐⭐ 2026-10-13：⭐ **移位分解与设计上限必须一致**（⭐ 防"改了上限却忘了改移位" ✅）
+        //     🔴 这是**静默失效**：⭐ 不一致时上限不会变，⭐ 而且判据也不会红 ✅
+        if (DEPTH_SHIFT_EQ != DEPTH_MAX_RAW)
+            $display("ERROR [vibrato_lfo] DEPTH_MAX_RAW=%0d but the shift decomposition sums to %0d => the real depth ceiling would silently differ from the design target. PARAM_OK=0.",
+                     DEPTH_MAX_RAW, DEPTH_SHIFT_EQ);
+        else
+            $display("NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=%0d DEPTH_ON=%0d DEPTH_MAX_RAW=%0d, shift decomposition matches)",
+                     DEPTH_OFF, DEPTH_ON, DEPTH_MAX_RAW);
     end
 endmodule
 

@@ -1,0 +1,9 @@
+{
+  "Start": "2026-10-14T09:15:45.3418810+08:00",
+  "End": "2026-10-14T09:39:03.2008977+08:00",
+  "ExitCode": 0,
+  "ExplicitSynthesis": true,
+  "SourceCommit": "031cf36",
+  "ImplementationTargetNs": 16.4,
+  "PhysicalSystemClockMHz": 50
+}
