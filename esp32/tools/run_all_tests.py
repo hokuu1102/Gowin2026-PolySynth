@@ -287,6 +287,10 @@ def selftest():
         "_midi_parse_check.js",   # 网页 MIDI 解析器自检（node 跑，33 项）
         "_upstream_parse_check.js",  # 回传（上行）解析器自检（node 跑，28 项）
         "_gen_simul_probe.py",    # 多音色同时探针生成器（有 --selftest 9 项）
+        "drum_map.py",            # GM 鼓音高 -> FPGA 鼓机四件（有 --selftest 16 项）
+        "_drum_track_check.js",   # 鼓转换 + 选轨自检（node 跑，24 项）
+        "_inspect_midi.js",       # 看一份 MIDI 的轨结构与分类（排查用）
+        "_check_user_midi.js",    # 用真实 MIDI 验鼓转换与选轨（排查用）
         # D —— 一次性排查脚本（人工判读结论）
         "_ble_poll_stress.py",    # A/B 探针（静默 vs 轮询）
         "_crash_capture.py",      # 崩溃取证器（出事才用）

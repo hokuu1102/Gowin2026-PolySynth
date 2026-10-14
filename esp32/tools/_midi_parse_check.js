@@ -191,12 +191,17 @@ chk("换速：60BPM 的 tick_inc = 82463",
 // ---- ④ 转换层：轴分配 ----
 const conv = API.midiToWords(parsed);
 chk("转换：产生了事件", conv.words.length > 0, conv.words.length + " 个");
-// 期望：鼓占 axis 0；bass 占 axis 1；piano 占 axis 2
+/* 期望（2026-10-14 改）：
+ *   ⭐ 鼓【全部】走 axis 15（FPGA 侧口径：鼓机四件共用 axis 15，靠 inc 区分）
+ *   ⭐ 其余轨从 axis 0 起，按音色类型归组
+ * ⚠️ 改这里的原因：原来鼓占 axis 0、其余从 1 起；现在鼓不占普通轴了。
+ *    ⛔ 不是缺陷，是设计变更 —— 判据要跟着设计走。 */
 const byAxis = {};
 for (const a of conv.assign) byAxis[a.axis] = a;
-chk("轴分配：鼓在 axis 0", byAxis[0] && byAxis[0].kind === "鼓", JSON.stringify(byAxis[0]));
-chk("轴分配：BASS 在 axis 1", byAxis[1] && byAxis[1].timbre === "BASS", JSON.stringify(byAxis[1]));
-chk("轴分配：PIANO 在 axis 2", byAxis[2] && byAxis[2].timbre === "PIANO", JSON.stringify(byAxis[2]));
+chk("轴分配：鼓在 axis 15（⭐ 四件共用）",
+    byAxis[15] && byAxis[15].kind === "鼓", JSON.stringify(byAxis[15]));
+chk("轴分配：BASS 在 axis 0", byAxis[0] && byAxis[0].timbre === "BASS", JSON.stringify(byAxis[0]));
+chk("轴分配：PIANO 在 axis 1", byAxis[1] && byAxis[1].timbre === "PIANO", JSON.stringify(byAxis[1]));
 
 // 缩放：480 PPQN -> 960 PPQN，所以 tick 翻倍
 // 期望：鼓的 on 在 tick 0 和 480(=240*2)；bass 在 0/960；piano 在 0/1920
@@ -211,22 +216,22 @@ function ticksOf(words, axis, kind) {
   }
   return out;
 }
-chk("缩放：鼓 on 的 tick = 0,480（240×2）",
-    ticksOf(conv.words, 0, API.KIND_ON).join(",") === "0,480",
+chk("缩放：鼓 on 的 tick = 0,480（240×2，⭐ 轴 15）",
+    ticksOf(conv.words, 15, API.KIND_ON).join(",") === "0,480",
+    ticksOf(conv.words, 15, API.KIND_ON).join(","));
+chk("缩放：BASS on 的 tick = 0,960（480×2，⭐ 轴 0）",
+    ticksOf(conv.words, 0, API.KIND_ON).join(",") === "0,960",
     ticksOf(conv.words, 0, API.KIND_ON).join(","));
-chk("缩放：BASS on 的 tick = 0,960（480×2）",
-    ticksOf(conv.words, 1, API.KIND_ON).join(",") === "0,960",
-    ticksOf(conv.words, 1, API.KIND_ON).join(","));
 // ⚠️ Piano 轨【只有一个音】（tick 0 的 on + tick 960 的 off）
 //    => 它的 on 只有一个，就是 tick 0。
 //    🔴 我第一版判据写成 "0,1920" —— 那是把【off 的 tick】当成了第二个 on。
 //    ⭐ 又一次印证：判据必须从【数据】里量，⛔ 不能凭印象写（同族 C112/C169）。
-chk("缩放：PIANO 只有一个 on，tick = 0（off 在 1920）",
-    ticksOf(conv.words, 2, API.KIND_ON).join(",") === "0",
-    ticksOf(conv.words, 2, API.KIND_ON).join(","));
+chk("缩放：PIANO 只有一个 on，tick = 0（off 在 1920，⭐ 轴 1）",
+    ticksOf(conv.words, 1, API.KIND_ON).join(",") === "0",
+    ticksOf(conv.words, 1, API.KIND_ON).join(","));
 chk("非空洞：PIANO 的 off 在 1920（⭐ 证明上一条不是恒真——它确实有两个事件）",
-    ticksOf(conv.words, 2, API.KIND_OFF).join(",") === "1920",
-    ticksOf(conv.words, 2, API.KIND_OFF).join(","));
+    ticksOf(conv.words, 1, API.KIND_OFF).join(",") === "1920",
+    ticksOf(conv.words, 1, API.KIND_OFF).join(","));
 chk("转换：BPM = 120", Math.abs(conv.bpm - 120) < 0.01, conv.bpm);
 
 // tempo 事件存在且 inc 是 tick_inc（不是 phase_inc）
@@ -245,7 +250,7 @@ chk("转换：tempo 事件的 inc = 164927（tick_inc 口径）", tempoOk);
 let pianoInc = null;
 for (const w of conv.words) {
   const axis = Number((w >> 19n) & 0xFn), kind = Number((w >> 9n) & 0x3n);
-  if (axis === 2 && kind === API.KIND_ON) { pianoInc = Number((w >> 23n) & 0x1FFFFFn); break; }
+  if (axis === 1 && kind === API.KIND_ON) { pianoInc = Number((w >> 23n) & 0x1FFFFFn); break; }
 }
 chk("转换：PIANO 第一个音的 inc = C4 的 inc", pianoInc === expectInc(60),
     "实测 " + pianoInc + " 期望 " + expectInc(60));
@@ -276,7 +281,7 @@ const c2 = API.midiToWords(p2);
 let pianoInc2 = null;
 for (const w of c2.words) {
   const axis = Number((w >> 19n) & 0xFn), kind = Number((w >> 9n) & 0x3n);
-  if (axis === 2 && kind === API.KIND_ON) { pianoInc2 = Number((w >> 23n) & 0x1FFFFFn); break; }
+  if (axis === 1 && kind === API.KIND_ON) { pianoInc2 = Number((w >> 23n) & 0x1FFFFFn); break; }
 }
 chk("非空洞：把 C4 改成 D4 => inc 必须变成 D4 的",
     pianoInc2 === expectInc(62), "实测 " + pianoInc2 + " 期望 " + expectInc(62));
@@ -284,7 +289,7 @@ chk("非空洞：把 C4 改成 D4 => inc 必须变成 D4 的",
 // D. 只有鼓的 MIDI => 只占 axis 0，不占别的
 const drumOnly = midiFile(DIV, [trDrum]);
 const dOnly = API.midiToWords(API.parseMidi(drumOnly.buffer));
-chk("非空洞：只有鼓 => 只用 axis 0", dOnly.assign.length === 1 && dOnly.assign[0].axis === 0,
+chk("非空洞：只有鼓 => 只用 axis 15", dOnly.assign.length === 1 && dOnly.assign[0].axis === 15,
     JSON.stringify(dOnly.assign));
 
 console.log();

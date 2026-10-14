@@ -94,8 +94,20 @@ def discover():
                 if not name.startswith("_") or "check" not in name:
                     continue
                 p = os.path.join(full, name)
-                if os.path.isfile(p):
-                    found.append((os.path.relpath(p, HERE), "node"))
+                if not os.path.isfile(p):
+                    continue
+                # ⚠️ 还要排除【需要命令行参数】的排查工具 ——
+                #    它们含 "check" 但不是自检，直接跑会 rc=2（缺参数）。
+                #    🔴 实测踩到：`_check_user_midi.js` 要一个 .mid 路径，
+                #       被误当自检跑 => rc=2 => 全量自检报红。
+                #    ⭐ 判据锚在"它读不读 argv"（结构），⛔ 不看名字。
+                try:
+                    src = open(p, "r", encoding="utf-8", errors="replace").read()
+                except OSError:
+                    continue
+                if re.search(r"process\.argv\[\s*[12]\s*\]", src):
+                    continue        # 需要命令行参数 => 排查工具，不是自检
+                found.append((os.path.relpath(p, HERE), "node"))
                 continue
             if not name.endswith(".py"):
                 continue

@@ -139,6 +139,18 @@
       <div class="kv"><b>类型分布</b><span id="s_kind">-</span></div>
       <div class="kv"><b>整包</b><span id="s_bytes">-</span></div>
     </div>
+
+    <!-- 2026-10-14 新增：选轨播放（用户要求：既可全播，也可只播选定的一轨或多轨）。
+         只对 .mid 有效 —— events.hex 里没有轨信息。 -->
+    <div class="card">
+      <h2>音轨（选哪些灌下去）</h2>
+      <div class="row" style="margin-bottom:6px">
+        <button id="tkAll" style="font-size:11px; padding:5px 8px">全选</button>
+        <button id="tkNone" style="font-size:11px; padding:5px 8px">全不选</button>
+      </div>
+      <div id="trackPick" style="max-height:190px; overflow:auto"></div>
+      <div id="trackSum" class="hint" style="margin-top:6px">（打开 MIDI 后可选）</div>
+    </div>
   </div>
 
   <div class="col mid">
@@ -479,6 +491,55 @@ function bpmToTickInc(bpm) {
   return Math.round(fTick * MIDI_TWO32 / MIDI_FS);
 }
 
+/* ---- ⭐ 鼓：GM 音高 -> FPGA 鼓机四件（2026-10-14 新增）----
+ *
+ * 🔴 修之前是什么样（用户实测："上到 fpga 听着怪怪的，是不是把鼓也推成音高了"）：
+ *   鼓轨被当成普通音轨，GM 音高（36/38/42/45...）**直接当乐音发出去**
+ *   => 鼓变成了低音区的音阶。⭐ 用户判断正确。
+ *
+ * ⭐ FPGA 侧的鼓机有【4 件】，各自是固定频率（⛔ 不是 GM 音高）：
+ *     Kick 5368709 · Snare 42949673 · HiHat 171798691 · Tom 17895697
+ *   权威出处：FPGA 线 2026-10-14 答复 §五 / rtl/w3c/drum_gen.v:180-186
+ *   ⚠️ 四件【共用 axis 15】，靠 phase_inc（音高）区分音色。
+ *
+ * ⚠️ GM 音高 -> 四件 的映射：FPGA 侧【没给】，本表按 General MIDI 打击乐
+ *   标准归纳（与 esp32/tools/drum_map.py 同一张表，⛔ 必须同步改）。
+ *   📌 已列为待 FPGA 侧确认项。
+ */
+const DRUM_AXIS = 15;
+const DRUM_INC = {
+  kick:  5368709,
+  snare: 42949673,
+  hihat: 171798691,
+  tom:   17895697,
+};
+const GM_DRUM_MAP = {
+  35: "kick", 36: "kick",
+  37: "snare", 38: "snare", 39: "snare", 40: "snare",
+  41: "tom", 43: "tom", 45: "tom", 47: "tom", 48: "tom", 50: "tom",
+  42: "hihat", 44: "hihat", 46: "hihat",
+  49: "hihat", 51: "hihat", 52: "hihat", 53: "hihat", 54: "hihat",
+  55: "hihat", 56: "hihat", 57: "hihat", 58: "hihat", 59: "hihat",
+  60: "snare", 61: "snare", 62: "snare", 63: "snare", 64: "snare",
+  65: "snare", 66: "snare", 67: "snare", 68: "snare", 69: "snare",
+  70: "snare", 71: "snare", 72: "snare", 73: "snare", 74: "snare",
+  75: "snare", 76: "snare", 77: "snare", 78: "snare", 79: "snare",
+  80: "snare", 81: "snare",
+};
+/* ⚠️ 表外音高按音高分区兜底 —— 丢鼓会让节奏缺失（听得出），
+ *    归到最接近的一件至少保住节奏。⭐ 并会【计数并报出来】，⛔ 不静默。 */
+const GM_DRUM_BANDS = [
+  [0, 37, "kick"], [38, 48, "snare"], [49, 60, "tom"], [61, 127, "hihat"],
+];
+function gmToDrum(midi) {
+  const m = midi | 0;
+  if (GM_DRUM_MAP[m]) return { name: GM_DRUM_MAP[m], exact: true };
+  for (const [lo, hi, name] of GM_DRUM_BANDS) {
+    if (m >= lo && m <= hi) return { name, exact: false };
+  }
+  return { name: "snare", exact: false };
+}
+
 /* ---- 轨分类：是不是鼓 ---- */
 function isDrumTrack(tr) {
   const nm = (tr.name || "").toLowerCase();
@@ -496,7 +557,9 @@ function timbreOfTrack(tr) {
  * 返回 { words, report }：report 是给人看的分配明细（⭐ 猜错时能看出来）。 */
 function midiToWords(parsed) {
   const scale = MIDI_PPQN / parsed.division;       /* 把文件的时基缩放到 960 */
-  const evs = [];                                  /* {tick, kind, midi, vel, axis, timbre} */
+  /* ⚠️ evs 里的每一项都带 srcTrack（源 MIDI 轨序号）——
+   *    选轨播放要按【轨】过滤，⛔ 不能按 axis（多轨可能共用一个 axis）。 */
+  const evs = [];                                  /* {tick,kind,midi,vel,axis,timbre,srcTrack,inc} */
   const report = [];
   let axisNext = 0;
   let tempoCount = 0;
@@ -512,26 +575,54 @@ function midiToWords(parsed) {
     const us = allTempos[0].usPerQuarter;
     if (us > 0) bpm = 60000000 / us;
   }
+  /* ⚠️ srcTrack = -1 是【公共事件】标记：选轨时永远保留（换速与轨无关，
+   *    但没有它 FPGA 的时基就错）。 */
   evs.push({ tick: 0, kind: KIND_TEMPO, inc: bpmToTickInc(bpm), vel: 0,
-             axis: 0, timbre: 0 });
+             axis: 0, timbre: 0, srcTrack: -1 });
   tempoCount = 1;
 
   /* ② 决定轴分配：鼓优先，其余按【音色类型】归组
-   * ⭐ 用户裁定（2026-10-14）：按乐器类型分，鼓单独一轨。 */
+   * ⭐ 用户裁定（2026-10-14）：按乐器类型分，鼓单独一轨。
+   *
+   * ⭐⭐ 2026-10-14 修（用户实测："听着怪怪的，是不是把鼓也推成音高了"）：
+   *   原来鼓轨的音高【原样】发出去（GM 的 36/38/42/45...）
+   *   => 被 FPGA 当成乐音 ⇒ 鼓变成了低音区音阶。⭐ 用户判断正确。
+   *   ✅ 现在：鼓音高 -> FPGA 鼓机四件之一的固定 inc，且【全部走 axis 15】
+   *      （FPGA 侧口径：四件共用 axis 15，靠 inc 区分音色）。
+   */
   const drums = [], tuned = [];
+  /* ⭐ 给每条轨标一个稳定的序号（_idx）—— 选轨过滤按它来。
+   * ⚠️ 用 parsed.tracks 里的下标，⛔ 不用 drums/tuned 的下标
+   *    （那两个数组把顺序打乱了）。 */
+  parsed.tracks.forEach((tr, i) => { tr._idx = i; });
   for (const tr of parsed.tracks) (isDrumTrack(tr) ? drums : tuned).push(tr);
 
   const axisOfTimbre = new Map();        /* timbre -> axis（同类型共用一个轴）*/
   const assign = [];                     /* 供 report 打印 */
+  let drumMapped = 0, drumFuzzy = 0;     /* 鼓映射统计（⭐ 兜底要报出来） */
 
-  for (const tr of drums) {
-    if (axisNext > 15) throw new Error("axis 超出 0..15（鼓轨太多）");
-    const ax = axisNext++;
-    assign.push({ name: tr.name || "(无名)", kind: "鼓", axis: ax, timbre: "-", notes: tr.notes.length });
-    for (const n of tr.notes) {
-      evs.push({ tick: Math.round(n.tick * scale), kind: n.on ? KIND_ON : KIND_OFF,
-                 midi: n.midi, vel: n.on ? (n.vel || 100) : 0, axis: ax, timbre: TIMBRE_BASS });
+  if (drums.length) {
+    /* ⚠️ 鼓【不占】普通轴 —— 全部集中在 DRUM_AXIS(15)。
+     * 为什么：FPGA 侧的四件靠 inc 区分，共用同一个轴；
+     *   若给鼓另分轴号，那些轴在 FPGA 侧没有对应的"鼓"语义。 */
+    const names = {};
+    for (const tr of drums) {
+      assign.push({ name: tr.name || "(无名)", kind: "鼓", axis: DRUM_AXIS,
+                    timbre: "-", notes: tr.notes.length });
+      for (const n of tr.notes) {
+        const d = gmToDrum(n.midi);
+        names[d.name] = (names[d.name] || 0) + 1;
+        if (d.exact) drumMapped++; else drumFuzzy++;
+        evs.push({ tick: Math.round(n.tick * scale),
+                   kind: n.on ? KIND_ON : KIND_OFF,
+                   inc: DRUM_INC[d.name],               /* ⭐ 用鼓的固定 inc */
+                   vel: n.on ? (n.vel || 100) : 0,
+                   axis: DRUM_AXIS,                     /* ⭐ 全部 axis 15 */
+                   timbre: TIMBRE_BASS,                 /* 鼓机的音色由 inc 决定 */
+                   srcTrack: tr._idx });                /* ⭐ 选轨过滤用 */
+      }
     }
+    assign[0].drumBreak = names;   /* 供日志打印"四件各打了多少" */
   }
   for (const tr of tuned) {
     const tb = timbreOfTrack(tr);
@@ -545,7 +636,8 @@ function midiToWords(parsed) {
                   timbre: TIMBRE_NAMES[tb], notes: tr.notes.length });
     for (const n of tr.notes) {
       evs.push({ tick: Math.round(n.tick * scale), kind: n.on ? KIND_ON : KIND_OFF,
-                 midi: n.midi, vel: n.on ? (n.vel || 100) : 0, axis: ax, timbre: tb });
+                 midi: n.midi, vel: n.on ? (n.vel || 100) : 0, axis: ax, timbre: tb,
+                 srcTrack: tr._idx });                  /* ⭐ 选轨过滤用 */
     }
   }
 
@@ -555,14 +647,155 @@ function midiToWords(parsed) {
   evs.sort((a, b) => (a.tick - b.tick) || (b.kind - a.kind));
 
   const words = evs.map(e =>
-    packWord(e.tick & 0xfffff, e.inc != null ? e.inc : midiToPhaseInc(e.midi || 0),
+    /* ⚠️ 鼓事件带的是【inc 直给】（DRUM_INC 之一），乐音带的是 midi。
+     * 用 `e.inc != null` 区分 —— 鼓的 inc 恰好非 0，midi 事件没有 inc 字段。 */
+    packWord(e.tick & 0xfffff,
+             (e.inc != null) ? e.inc : midiToPhaseInc(e.midi || 0),
              e.axis & 15, e.vel & 0xff, e.kind & 3, (e.timbre || 0) & 3));
 
   const tickMax = evs.reduce((m, e) => Math.max(m, e.tick), 0);
+
+  /* ⭐ 选轨播放（用户 2026-10-14 要求）：
+   *   trackList —— 给选择器显示（每轨：名字 / 音色 / 轴 / 音符数）
+   *   evTrack   —— 与 words 【一一对应】的源轨序号（-1 = 公共事件，永远保留）
+   * ⚠️ evTrack 必须在 evs 排序【之后】重建，否则下标对不上。
+   *    （events 排序会打乱顺序，所以直接按排序后的 evs 重新映射。） */
+  const trackList = parsed.tracks.map((tr, i) => {
+    const isDrum = drums.indexOf(tr) >= 0;
+    const tb = isDrum ? null : timbreOfTrack(tr);
+    let ax = "?";
+    for (let k = 0; k < evs.length; k++) {
+      if (evs[k].srcTrack === i) { ax = evs[k].axis; break; }
+    }
+    return { idx: i, name: tr.name || "(无名)", drum: isDrum,
+             timbre: isDrum ? "鼓" : (TIMBRE_NAMES[tb] || "?"),
+             axis: ax, notes: tr.notes.length };
+  });
+  const evTrack = evs.map(e => (e.srcTrack === undefined ? -1 : e.srcTrack));
   return {
     words: words, bpm: bpm, tempoCount: tempoCount, tickMax: tickMax,
     assign: assign, drumTracks: drums.length, tunedTracks: tuned.length,
+    drumMapped: drumMapped, drumFuzzy: drumFuzzy,
+    trackList: trackList, evTrack: evTrack,
   };
+}
+
+/* ═══ 轨选择器（2026-10-14 新增，用户要求）═══
+ *
+ * 需求："既能同时播放多个音轨，也要能播放选定的一个或者多个音轨"。
+ *
+ * ⭐ 做法：解析 MIDI 后，为【每条 MIDI 轨】给一个勾选框；
+ *    灌谱时只发勾中的轨事件的字。
+ * ⚠️ 关键：过滤必须作用在【事件级】，⛔ 不是在 axis 级 ——
+ *    因为多轨可能共用同一个 axis（如同为 GUITAR 的几条轨）。
+ *    ⇒ 所以 evs 里要记 sourceTrack（源轨序号），过滤按它来。
+ * ⭐ 默认【全部勾上】＝ 保持原行为（⛔ 不改变既有使用习惯）。
+ */
+let trackSel = null;        /* Set<轨序号>；null = 未选过（视作全选） */
+let lastConv = null;        /* 上一次转换结果，供"重新灌谱"用 */
+
+function buildTrackPicker(conv) {
+  const box = $("trackPick");
+  if (!box) return;
+  if (!conv.trackList || !conv.trackList.length) {
+    box.innerHTML = '<div class="hint">（这不是 MIDI，没有轨可选）</div>';
+    trackSel = null;
+    return;
+  }
+  /* 默认全选 —— ⭐ 保持"什么都不动就是全播"的既有行为 */
+  trackSel = new Set(conv.trackList.map(t => t.idx));
+  box.innerHTML = "";
+  for (const t of conv.trackList) {
+    const id = "tk_" + t.idx;
+    const lab = document.createElement("label");
+    lab.style.cssText = "display:flex; align-items:center; gap:6px; padding:3px 0; " +
+                        "font-size:12px; cursor:pointer";
+    lab.innerHTML =
+      '<input type="checkbox" id="' + id + '" checked style="margin:0">' +
+      '<span style="flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap">' +
+      escapeHtml(t.name || "(无名)") + "</span>" +
+      '<span style="color:var(--dim)">' +
+      (t.drum ? "鼓" : escapeHtml(t.timbre)) + " · 轴" + t.axis +
+      " · " + t.notes + "</span>";
+    box.appendChild(lab);
+    lab.querySelector("input").onchange = (ev) => {
+      if (ev.target.checked) trackSel.add(t.idx); else trackSel.delete(t.idx);
+      updateTrackSummary(conv);
+    };
+  }
+  /* 全选 / 全不选 / 只留选中 —— 常用操作给按钮 */
+  updateTrackSummary(conv);
+}
+
+function updateTrackSummary(conv) {
+  const el = $("trackSum");
+  if (!el || !conv || !conv.trackList) return;
+  const total = conv.trackList.length;
+  const n = trackSel ? trackSel.size : total;
+  const notes = conv.trackList.filter(t => !trackSel || trackSel.has(t.idx))
+                            .reduce((s, t) => s + t.notes, 0);
+  el.textContent = "已选 " + n + "/" + total + " 轨 · " + notes + " 个音符";
+  el.style.color = (n === 0) ? "var(--err)" : "var(--dim)";
+  if (n === 0) el.textContent += "（⚠️ 一个都没选，灌下去会是空谱）";
+}
+
+/* 简易 HTML 转义 —— 轨名是外来数据，⛔ 不能直接塞进 innerHTML */
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+  }[c]));
+}
+
+/* 按当前勾选，从完整词表里挑出要发的字。
+ * ⚠️ 换速事件（kind=2）【永远保留】—— 它不属于任何轨，但没有它 FPGA 的
+ *    时基就错了（BPM 会是默认值）。 */
+function wordsForSelected(words, conv) {
+  if (!conv || !conv.evTrack || !trackSel) return words;   /* 非 MIDI 或没选过 */
+  const keep = [];
+  for (let i = 0; i < words.length; i++) {
+    const src = conv.evTrack[i];
+    if (src === -1) { keep.push(words[i]); continue; }      /* 换速等公共事件 */
+    if (trackSel.has(src)) keep.push(words[i]);
+  }
+  return keep;
+}
+
+/* 轴 -> 显示标签。
+ *
+ * ⭐ 做法：从谱面里【该轴事件自带的 timbre 字段】统计出主要音色，
+ *   而不是"按轴号猜音色" —— ⚠️ 两者不是一回事：
+ *     · `timbre` 是协议里的字段（FPGA 侧按它选音色）
+ *     · `axis` 决定音高查表，与音色正交
+ *   ⭐ 所以显示名只反映"这条轴上实际用了什么音色"，⛔ 不是映射规则。
+ * ⚠️ 一个轴上混了多种 timbre 时，显示最多的那个并标 "(混)"。
+ * 📌 拿不到 timbre（如从 events.hex 读的旧谱面没有该信息）时退回"轴N"。
+ */
+function axisLabel(a) {
+  const cnt = new Map();
+  for (const n of score.notes) {
+    if (n.axis !== a) continue;
+    const tb = (n.timbre === undefined || n.timbre === null) ? null : n.timbre;
+    if (tb === null) continue;
+    cnt.set(tb, (cnt.get(tb) || 0) + 1);
+  }
+  if (!cnt.size) return "轴" + a;
+  let best = null, bestN = -1;
+  for (const [tb, c] of cnt) { if (c > bestN) { best = tb; bestN = c; } }
+  const name = TIMBRE_NAMES[best] || ("T" + best);
+  return name + (cnt.size > 1 ? "(混)" : "") + " · 轴" + a;
+}
+
+/* 由词表生成【要灌下去的字节流】。
+ * 结构：复位序列 + 总数帧 + 各事件帧。
+ * ⭐ 抽成函数是为了让选轨过滤能复用 —— 过滤后事件数变了，
+ *    总数帧的值也必须跟着变（否则固件的 exp 会对不上）。 */
+function buildPayload(words) {
+  const parts = [resetSequence(), frameTotal(words.length)];
+  for (const w of words) parts.push(frameFromWord(w));
+  let len = 0; for (const p of parts) len += p.length;
+  const out = new Uint8Array(len);
+  let o = 0; for (const p of parts) { out.set(p, o); o += p.length; }
+  return out;
 }
 
 function buildScore(words, name) {  const notes = [], tempos = [], kinds = {};
@@ -575,7 +808,11 @@ function buildScore(words, name) {  const notes = [], tempos = [], kinds = {};
     if (d.kind === KIND_TEMPO) tempos.push({ tick: d.tick, inc: d.inc, hz: incToHz(d.inc) });
     else if (d.kind === KIND_ON || d.kind === KIND_OFF) {
       const hz = incToHz(d.inc);
-      notes.push({ tick: d.tick, axis: d.axis, midi: hzToMidi(hz), vel: d.vel, kind: d.kind });
+      /* 2026-10-14：把 timbre 也带出来 —— 轴图例要显示音色名。
+       * ⚠️ 原来只存了 tick/axis/midi/vel/kind，图例只能写"轴N"，
+       *    用户看不懂哪条是哪件乐器（实测反馈）。 */
+      notes.push({ tick: d.tick, axis: d.axis, midi: hzToMidi(hz), vel: d.vel,
+                   kind: d.kind, timbre: d.timbre });
     }
   }
   // 把 note_on / note_off 配成【有长度的音符段】。
@@ -613,11 +850,9 @@ function buildScore(words, name) {  const notes = [], tempos = [], kinds = {};
     }
   }
   const hz0 = tempos.length ? tempos[0].hz : TPS120;
-  const parts = [resetSequence(), frameTotal(words.length)];
-  for (const w of words) parts.push(frameFromWord(w));
-  let len = 0; for (const p of parts) len += p.length;
-  const payload = new Uint8Array(len);
-  let o = 0; for (const p of parts) { payload.set(p, o); o += p.length; }
+  /* 2026-10-14：改用公共的 buildPayload() —— 与"选轨后再灌"走同一条路，
+   * 避免两处各写一遍（写两遍就会漂，同族 C91）。 */
+  const payload = buildPayload(words);
   return { name, words, notes, segs, orphanOff, danglingOn, tempos, kinds,
            tickMax, tickMin,
            duration: (tickMax - (isFinite(tickMin) ? tickMin : 0)) / (hz0 || 1),
@@ -758,13 +993,24 @@ function draw() {
     ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + ph); ctx.stroke();
     ctx.lineWidth = 1;
   }
-  // 轴图例
+  /* 轴图例。
+   * 🔴 2026-10-14 修（用户："左下角的那个轴1/2/3还是没改"）：
+   *   原来只画 `轴0` / `轴1` / `轴2` —— 用户看不出哪条是哪件乐器。
+   * ⭐ 现在显示【音色名】（BASS/GUITAR/PIANO/PAD），并注明是哪个轴。
+   * ⚠️ 语义说明（FPGA 侧 2026-10-14 答复 §六 确认）：
+   *   `axis` 与 `timbre` 是【正交】的两个字段 —— axis 决定音高查表，
+   *   timbre 决定音色。⭐ 而"轴号 -> 音色名"是【PC 侧约定】（我方自己定的），
+   *   ⛔ 不是 FPGA 侧的约定。所以这里只是【显示用】，不影响下发。
+   * 📌 音色名来自谱面事件自带的 timbre 字段（不是从轴号猜的）——
+   *   同一个轴上如果混了多种 timbre，这里显示出现最多的那个并标 "(混)"。 */
   const axes = [...new Set(score.notes.map(n => n.axis))].sort((a, b) => a - b);
   let lx = PAD.l + 4; ctx.textAlign = "left"; ctx.font = "10px Consolas,monospace";
   for (const a of axes.slice(0, 14)) {
+    const label = axisLabel(a);
     ctx.fillStyle = AXIS_COLORS[a % 16]; ctx.fillRect(lx, PAD.t + ph + 8, 8, 8);
-    ctx.fillStyle = "#8695ab"; ctx.fillText("轴" + a, lx + 11, PAD.t + ph + 16);
-    lx += 44;
+    ctx.fillStyle = "#8695ab";
+    ctx.fillText(label, lx + 11, PAD.t + ph + 16);
+    lx += Math.max(44, ctx.measureText(label).width + 18);
   }
   // 悬停提示
   if (hover) {
@@ -1093,7 +1339,17 @@ async function upload() {
   if (!connected) { log("先连接蓝牙", "er"); return; }
   if (uploading) return;
   uploading = true; $("btnUp").disabled = true;
-  const pl = score.payload, total = pl.length, CHUNK = 180;
+  /* 2026-10-14：灌谱内容按【当前勾选的轨】动态生成 ——
+   * 用户要求"既能全播，也能只播选定的一轨或多轨"。
+   * 注意：过滤按【源轨序号】，不是按 axis（多轨可能共用一个 axis）。
+   * 换速事件（srcTrack=-1）永远保留：它不属于任何轨，
+   *   但没有它 FPGA 的时基就错（BPM 会是默认值）。 */
+  const selWords = wordsForSelected(score.words, score.conv);
+  const pl = buildPayload(selWords);
+  const total = pl.length, CHUNK = 180;
+  if (score.conv && selWords.length !== score.words.length) {
+    log("只灌选中的轨：" + selWords.length + " / " + score.words.length + " 个事件", "ok");
+  }
   try {
     log("清池（CMD 0x01）…");
     await sendCmd(CMD_RESET);
@@ -1130,6 +1386,10 @@ async function openFile(f) {
       const conv = midiToWords(parsed);
       if (!conv.words.length) throw new Error("这个 MIDI 里没有音符");
       score = buildScore(conv.words, f.name);
+      /* 2026-10-14：把转换结果挂到 score 上 —— 选轨过滤要用它的
+       * evTrack（每帧对应的源轨序号）与 trackList（选择器显示用）。 */
+      score.conv = conv;
+      score.payload = buildPayload(score.words);   /* 全选时的默认 payload */
       $("fname").textContent = f.name;
       $("s_n").textContent = score.words.length;
       $("s_dur").textContent = score.duration.toFixed(1) + " s";
@@ -1142,6 +1402,21 @@ async function openFile(f) {
         log("  " + a.name + "  →  axis " + a.axis + " · " +
             (a.kind === "鼓" ? "鼓轨" : a.timbre) + " · " + a.notes + " 个音符");
       }
+      /* ⭐ 鼓的转换结果要报出来 —— 用户报过"鼓被推成音高"，
+       *   所以要能一眼看到"鼓被映射成了四件里的哪些"。 */
+      if (conv.drumTracks) {
+        const brk = conv.assign[0] && conv.assign[0].drumBreak;
+        if (brk) {
+          const parts = Object.keys(brk).map(k => k + " " + brk[k]).join(" · ");
+          log("  鼓已转成鼓机音色（axis " + DRUM_AXIS + "）：" + parts, "ok");
+        }
+        if (conv.drumFuzzy) {
+          log("  ⚠️ 有 " + conv.drumFuzzy + " 个鼓音符走了【音高分区兜底】" +
+              "（不在 GM 映射表内）—— 节奏保住了，音色可能不理想", "er");
+        }
+      }
+      /* ⭐ 轨选择列表（用户要求：既能全播，也能只播选定的一轨或多轨） */
+      buildTrackPicker(conv);
       log("⚠️ 音色是按【轨名关键词】猜的（与 mid2evt.py 同一套规则）——不对请在 DAW 里改轨名", "");
       draw();
       return;
@@ -1519,6 +1794,26 @@ $("u_btnMid").onclick = () => {
       (U.ppqn ? "（来自起播锚点）" : "（⚠️ 起播锚点帧没收到，退回 960）"), "");
 };
 $("u_btnClear").onclick = () => { uReset(); log("回传数据已清空", ""); };
+
+/* 2026-10-14：轨选择的快捷按钮（全选 / 全不选）。
+ * ⭐ "全不选"之后灌下去会是空谱 —— 所以只清列表，并靠摘要行提示。 */
+$("tkAll").onclick = () => {
+  if (!lastConv || !lastConv.trackList) { log("先打开一个 MIDI", "er"); return; }
+  trackSel = new Set(lastConv.trackList.map(t => t.idx));
+  lastConv.trackList.forEach(t => {
+    const e = $("tk_" + t.idx); if (e) e.checked = true;
+  });
+  updateTrackSummary(lastConv);
+};
+$("tkNone").onclick = () => {
+  if (!lastConv || !lastConv.trackList) { log("先打开一个 MIDI", "er"); return; }
+  trackSel = new Set();
+  lastConv.trackList.forEach(t => {
+    const e = $("tk_" + t.idx); if (e) e.checked = false;
+  });
+  updateTrackSummary(lastConv);
+  log("已全部取消 —— 现在灌下去会是空谱（只剩换速事件）", "er");
+};
 
 /* ---------------- 模式切换 ---------------- */
 let uiMode = "down";                 /* "down" = 灌谱 · "up" = 回传 */
