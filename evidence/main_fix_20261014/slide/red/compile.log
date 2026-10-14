@@ -1,0 +1,5 @@
+tb/w3a/tb_slide_position_ctrl.sv:26: error: Unknown module type: slide_position_ctrl
+2 error(s) during elaboration.
+*** These modules were missing:
+        slide_position_ctrl referenced 1 times.
+***
