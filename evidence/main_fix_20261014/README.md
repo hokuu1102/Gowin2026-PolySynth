@@ -8,7 +8,7 @@ Branch: `codex/fix-main-bugs-20261014`. Original audited main: `9d30dd3`. No rem
 | --- | --- | --- |
 | `79bb70d` | BPM test rejects unknowns and includes A8 in verdict | `bpm/` |
 | `af58c2d` | Exact calibrated position-following slide controller | `slide/red/`, `slide/green/` |
-| `a30ff6f` | Every keyboard voice releases across mode changes | `poly_release/` |
+| `a30ff6f` | Every keyboard voice releases across mode changes | `play_mode/` |
 | `4fb1ea4` | Successive fretboard plucks release; slide owner sustains; pending OFF cancels exactly once | `fret_release/`, `slide_hold/` |
 | `be75440` | Real top slide integration; stable ratio, owned voice and actual UI gate | `slide/top_red/`, `slide/top_green/` |
 | `e678e3b` | Icarus-compatible keypad test, no assertion removed | `keypad/` |
