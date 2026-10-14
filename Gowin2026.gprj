@@ -96,6 +96,8 @@
        NOTE: .sv files must also be type="file.verilog" - there is no
        file.systemverilog type, and a wrong type is skipped WITHOUT error. -->
   <File path="rtl/w3a/slide_ramp.v" type="file.verilog" enable="1"/>
+  <!-- Calibrated position follower; legacy ramp remains for standalone regressions. -->
+  <File path="rtl/w3a/slide_position_ctrl.v" type="file.verilog" enable="1"/>
   <!-- 2026-10-13: control-board 4x4 keypad.  Not yet instantiated by top.v;
        registered now so it cannot be forgotten when it is wired in. -->
   <File path="rtl/w3a/ctrl_keypad.v" type="file.verilog" enable="1"/>
