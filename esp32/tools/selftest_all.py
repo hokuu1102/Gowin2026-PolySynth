@@ -82,6 +82,21 @@ def discover():
         if not os.path.isdir(full):
             continue
         for name in sorted(os.listdir(full)):
+            # 2026-10-14 改：也收录 .js 自检（用 node 跑）。
+            #
+            # 为什么：网页里的 MIDI 解析器是 JS，它的判据只能用 node 跑。
+            #   ⚠️ 原来只扫 .py => 我写的 `_midi_parse_check.js` **永远跑不到**
+            #   => 判据等于白写（同族：`_stress_cycles.py` 那个坑）。
+            # ⭐ 判据锚在"这文件是不是一个能独立跑的自检"，⛔ 不看扩展名：
+            #   文件名以 `_` 开头、且以 `check` 结尾 => 认作自检脚本。
+            #   ⚠️ 不扫全部 .js —— 页面的辅助脚本不该被当自检跑。
+            if name.endswith(".js"):
+                if not name.startswith("_") or "check" not in name:
+                    continue
+                p = os.path.join(full, name)
+                if os.path.isfile(p):
+                    found.append((os.path.relpath(p, HERE), "node"))
+                continue
             if not name.endswith(".py"):
                 continue
             if name in EXCLUDE:
@@ -140,13 +155,24 @@ def count_red(out):
 
 
 def run_one(rel, use_flag):
-    """⭐ 跑一个工具，返回 (rc, ok 数, red 数, 输出)。"""
-    cmd = [sys.executable, rel] + (["--selftest"] if use_flag else [])
+    """⭐ 跑一个工具，返回 (rc, ok 数, red 数, 输出)。
+
+    `use_flag` 的三种取值：
+      True    —— python 脚本，要加 `--selftest`
+      False   —— python 脚本，直接跑（它没有 --selftest 参数）
+      "node"  —— JS 自检，用 node 跑（2026-10-14 新增，见 discover()）
+    """
+    if use_flag == "node":
+        cmd = ["node", rel]
+    else:
+        cmd = [sys.executable, rel] + (["--selftest"] if use_flag else [])
     try:
         r = subprocess.run(cmd, cwd=HERE, capture_output=True, text=True,
                            encoding="utf-8", errors="replace", timeout=300)
         out = (r.stdout or "") + (r.stderr or "")
         rc = r.returncode
+    except FileNotFoundError:
+        return 98, 0, 0, "(找不到 node —— 本机没装 Node.js，跳过 JS 自检)"
     except subprocess.TimeoutExpired:
         return 124, 0, 0, "(超时 300 s)"
     except Exception as e:                       # noqa: BLE001

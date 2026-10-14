@@ -244,8 +244,246 @@ function parseEventsHex(text) {
   return words;
 }
 
-function buildScore(words, name) {
-  const notes = [], tempos = [], kinds = {};
+/* ======================= MIDI 文件解析 + 转事件字 =======================
+ *
+ * 2026-10-14 新增：浏览器里【直接读 .mid】，⛔ 不再要求先去跑 mid2evt.py。
+ *
+ * ═══ 为什么要有它 ═══
+ * 原来拖 .mid 进来会直接报错："浏览器里读不了 MIDI，请先用 mid2evt.py 转…"
+ * ⭐ 用户要求：网页能直接上传 MIDI 灌谱。
+ *
+ * ═══ 算法必须与 mid2evt.py 一致（⛔ 不许自己发明）═══
+ * 本实现是 `esp32/tools/mid2evt.py` 的 JS 移植，逐条对齐：
+ *   · PPQN = 960（与 beat_gen 一致）
+ *   · phase_inc = round(f * 2^32 / 50e6)，f = 440 * 2^((midi-69)/12)
+ *   · tick_inc  = round((BPM/60 * PPQN) * 2^32 / 50e6)   ← 换速事件用
+ *   · 音色号 0=BASS 1=GUITAR 2=PIANO 3=PAD
+ *     （mid2evt.py 注明"必须与 RTL 的 TIMBRE_N=4 及 wavetable_bank 表序一致"）
+ *   · 鼓：轨名含 drum/perc/kit/cymbal/hat，或 MIDI 通道 10（0-based 9）
+ *
+ * ═══ 轴分配（用户 2026-10-14 裁定：按乐器类型，鼓单独一轨）═══
+ *   ① 鼓轨排在最前（axis 0 起）
+ *   ② 其余轨按【音色类型】分组（bass/guitar/piano/pad 各占一个 axis）
+ *   ③ 同类型的多条轨合并到同一个 axis
+ *   ⚠️ axis 只有 4 bit（0..15）—— 超出就报错，⛔ 不静默丢。
+ */
+const MIDI_PPQN = 960;
+const MIDI_FS = 50000000;
+const MIDI_TWO32 = 4294967296;
+
+/* 音色号与名称（必须与 RTL / mid2evt.py 一致） */
+const TIMBRE_BASS = 0, TIMBRE_GUITAR = 1, TIMBRE_PIANO = 2, TIMBRE_PAD = 3;
+const TIMBRE_NAMES = { 0: "BASS", 1: "GUITAR", 2: "PIANO", 3: "PAD" };
+
+/* 轨名 -> 音色 的关键词表。⚠️ 顺序有意义（先匹配到的先用）。
+ * ⭐ 与 mid2evt.py 的 TIMBRE_HINTS 保持一致。 */
+const TIMBRE_HINTS = [
+  ["bass", TIMBRE_BASS],
+  ["solo", TIMBRE_PIANO], ["lead", TIMBRE_PIANO],
+  ["pad", TIMBRE_PAD],
+  ["piano", TIMBRE_PIANO], ["keys", TIMBRE_PIANO],
+  ["synth", TIMBRE_PAD],
+  ["guitar", TIMBRE_GUITAR], ["gt", TIMBRE_GUITAR], ["str", TIMBRE_GUITAR],
+];
+
+const GM_DRUM_CHANNEL = 9;            /* 0-based ⇒ 人说的第 10 通道 */
+const DRUM_HINTS = ["drum", "perc", "kit", "cymbal", "hat"];
+
+/* ---- 底层：MIDI 文件读取（SMF 格式 0/1）---- */
+function _rdU32(b, i) { return (b[i] << 24 | b[i + 1] << 16 | b[i + 2] << 8 | b[i + 3]) >>> 0; }
+function _rdU16(b, i) { return (b[i] << 8) | b[i + 1]; }
+function _rdStr(b, i, n) {
+  let s = "";
+  for (let k = 0; k < n; k++) s += String.fromCharCode(b[i + k]);
+  return s;
+}
+/* 变长量（VLQ）—— MIDI 的 delta time 用它，⛔ 不能按定长读 */
+function _readVlq(b, p) {
+  let v = 0, n = 0;
+  for (;;) {
+    if (p.i >= b.length) throw new Error("MIDI 文件在变长量中途结束");
+    const c = b[p.i++];
+    v = (v << 7) | (c & 0x7f);
+    if (!(c & 0x80)) break;
+    if (++n > 4) throw new Error("变长量超过 4 字节（文件可能不是 MIDI）");
+  }
+  return v;
+}
+
+/* 解析 MIDI 字节流 -> { division, tracks:[{name,chan:Set,notes:[{tick,midi,vel,on}], tempos:[]}] }
+ * ⭐ 只取我们需要的：note on/off、tempo、轨名、用到的通道。 */
+function parseMidi(buf) {
+  const b = new Uint8Array(buf);
+  if (b.length < 14) throw new Error("文件太小，不是 MIDI");
+  if (_rdStr(b, 0, 4) !== "MThd") throw new Error("不是 MIDI 文件（缺 MThd）");
+  const hdrLen = _rdU32(b, 4);
+  const fmt = _rdU16(b, 8);
+  const ntrk = _rdU16(b, 10);
+  const division = _rdU16(b, 12);
+  if (division & 0x8000) {
+    throw new Error("这是 SMPTE 时基的 MIDI（本工具只支持 PPQN 时基）");
+  }
+  let p = 8 + hdrLen;
+  const tracks = [];
+  for (let ti = 0; ti < ntrk; ti++) {
+    if (p + 8 > b.length) break;
+    const id = _rdStr(b, p, 4);
+    const len = _rdU32(b, p + 4);
+    p += 8;
+    if (id !== "MTrk") { p += len; continue; }   /* 未知块：跳过 */
+    const end = Math.min(p + len, b.length);
+    const q = { i: p };
+    let tick = 0, running = 0;
+    const tr = { name: "", chan: new Set(), notes: [], tempos: [] };
+    while (q.i < end) {
+      tick += _readVlq(b, q);
+      if (q.i >= end) break;
+      let st = b[q.i];
+      if (st & 0x80) { q.i++; running = st; } else { st = running; }
+      const hi = st & 0xf0, ch = st & 0x0f;
+      if (st === 0xff) {                          /* meta */
+        const type = b[q.i++];
+        const mlen = _readVlq(b, q);
+        if (type === 0x51 && mlen === 3) {        /* set tempo: 3 字节微秒/四分音符 */
+          const usq = (b[q.i] << 16) | (b[q.i + 1] << 8) | b[q.i + 2];
+          tr.tempos.push({ tick: tick, usPerQuarter: usq });
+        } else if (type === 0x03) {               /* track name */
+          let s = "";
+          for (let k = 0; k < mlen; k++) s += String.fromCharCode(b[q.i + k]);
+          if (!tr.name) tr.name = s;
+        } else if (type === 0x2f) {               /* end of track */
+          q.i += mlen; break;
+        }
+        q.i += mlen;
+        continue;
+      }
+      if (st === 0xf0 || st === 0xf7) {           /* sysex */
+        const slen = _readVlq(b, q);
+        q.i += slen;
+        continue;
+      }
+      if (hi === 0x90 && q.i + 1 < end) {         /* note on（vel=0 视为 off） */
+        const midi = b[q.i], vel = b[q.i + 1];
+        q.i += 2;
+        tr.chan.add(ch);
+        tr.notes.push({ tick: tick, midi: midi, vel: vel, on: vel > 0 });
+        continue;
+      }
+      if (hi === 0x80 && q.i + 1 < end) {         /* note off */
+        const midi = b[q.i], vel = b[q.i + 1];
+        q.i += 2;
+        tr.chan.add(ch);
+        tr.notes.push({ tick: tick, midi: midi, vel: 0, on: false });
+        continue;
+      }
+      /* 其它通道消息：按长度跳过（2 字节；0xC0/0xD0 是 1 字节） */
+      q.i += (hi === 0xc0 || hi === 0xd0) ? 1 : 2;
+    }
+    p = end;
+    if (tr.notes.length) tracks.push(tr);
+  }
+  return { format: fmt, division: division, tracks: tracks };
+}
+
+/* ---- 音高换算（⭐ 与 mid2evt.py 的 note_to_phase_inc 一致）---- */
+function midiToPhaseInc(midi) {
+  const f = 440.0 * Math.pow(2, (midi - 69) / 12.0);
+  const v = Math.round(f * MIDI_TWO32 / MIDI_FS);
+  return Math.max(0, Math.min(0x1fffff, v));      /* inc 只有 21 bit */
+}
+/* ⭐ 与 mid2evt.py 的 tick_inc_for_bpm 一致（beat_gen 的口径，50 MHz 时钟） */
+function bpmToTickInc(bpm) {
+  const fTick = (bpm / 60.0) * MIDI_PPQN;
+  return Math.round(fTick * MIDI_TWO32 / MIDI_FS);
+}
+
+/* ---- 轨分类：是不是鼓 ---- */
+function isDrumTrack(tr) {
+  const nm = (tr.name || "").toLowerCase();
+  for (const h of DRUM_HINTS) if (nm.indexOf(h) >= 0) return true;
+  return tr.chan.has(GM_DRUM_CHANNEL);
+}
+/* ---- 轨 -> 音色（⚠️ 启发式：轨名是作者随便起的，猜错很正常）---- */
+function timbreOfTrack(tr) {
+  const low = (tr.name || "").toLowerCase();
+  for (const pair of TIMBRE_HINTS) if (low.indexOf(pair[0]) >= 0) return pair[1];
+  return TIMBRE_GUITAR;                            /* 默认（与 mid2evt.py 同）*/
+}
+
+/* ---- MIDI -> 64 位事件字数组 ----
+ * 返回 { words, report }：report 是给人看的分配明细（⭐ 猜错时能看出来）。 */
+function midiToWords(parsed) {
+  const scale = MIDI_PPQN / parsed.division;       /* 把文件的时基缩放到 960 */
+  const evs = [];                                  /* {tick, kind, midi, vel, axis, timbre} */
+  const report = [];
+  let axisNext = 0;
+  let tempoCount = 0;
+
+  /* ① tempo：把「微秒/四分音符」换算成 BPM，再转 tick_inc
+   * ⚠️ 只在 tick=0 时写一次 —— FPGA 侧 tick_inc 是全局的，
+   *    中途变 BPM 需要 kind=2 事件，本工具暂只支持恒定速度。 */
+  let bpm = 120;
+  const allTempos = [];
+  for (const tr of parsed.tracks) for (const t of tr.tempos) allTempos.push(t);
+  allTempos.sort((a, b) => a.tick - b.tick);
+  if (allTempos.length) {
+    const us = allTempos[0].usPerQuarter;
+    if (us > 0) bpm = 60000000 / us;
+  }
+  evs.push({ tick: 0, kind: KIND_TEMPO, inc: bpmToTickInc(bpm), vel: 0,
+             axis: 0, timbre: 0 });
+  tempoCount = 1;
+
+  /* ② 决定轴分配：鼓优先，其余按【音色类型】归组
+   * ⭐ 用户裁定（2026-10-14）：按乐器类型分，鼓单独一轨。 */
+  const drums = [], tuned = [];
+  for (const tr of parsed.tracks) (isDrumTrack(tr) ? drums : tuned).push(tr);
+
+  const axisOfTimbre = new Map();        /* timbre -> axis（同类型共用一个轴）*/
+  const assign = [];                     /* 供 report 打印 */
+
+  for (const tr of drums) {
+    if (axisNext > 15) throw new Error("axis 超出 0..15（鼓轨太多）");
+    const ax = axisNext++;
+    assign.push({ name: tr.name || "(无名)", kind: "鼓", axis: ax, timbre: "-", notes: tr.notes.length });
+    for (const n of tr.notes) {
+      evs.push({ tick: Math.round(n.tick * scale), kind: n.on ? KIND_ON : KIND_OFF,
+                 midi: n.midi, vel: n.on ? (n.vel || 100) : 0, axis: ax, timbre: TIMBRE_BASS });
+    }
+  }
+  for (const tr of tuned) {
+    const tb = timbreOfTrack(tr);
+    let ax;
+    if (axisOfTimbre.has(tb)) { ax = axisOfTimbre.get(tb); }
+    else {
+      if (axisNext > 15) throw new Error("axis 超出 0..15（音色种类太多）");
+      ax = axisNext++; axisOfTimbre.set(tb, ax);
+    }
+    assign.push({ name: tr.name || "(无名)", kind: TIMBRE_NAMES[tb], axis: ax,
+                  timbre: TIMBRE_NAMES[tb], notes: tr.notes.length });
+    for (const n of tr.notes) {
+      evs.push({ tick: Math.round(n.tick * scale), kind: n.on ? KIND_ON : KIND_OFF,
+                 midi: n.midi, vel: n.on ? (n.vel || 100) : 0, axis: ax, timbre: tb });
+    }
+  }
+
+  /* ③ 排序：先按 tick，再按 kind（⭐ off 必须在 on 之后 —— 同 tick 时先发 off）
+   * 为什么 off 优先：同一个 tick 上"关旧音、开新音"是常见写法，
+   *   若先发 on，FPGA 侧可能把同音高的新音挤掉。 */
+  evs.sort((a, b) => (a.tick - b.tick) || (b.kind - a.kind));
+
+  const words = evs.map(e =>
+    packWord(e.tick & 0xfffff, e.inc != null ? e.inc : midiToPhaseInc(e.midi || 0),
+             e.axis & 15, e.vel & 0xff, e.kind & 3, (e.timbre || 0) & 3));
+
+  const tickMax = evs.reduce((m, e) => Math.max(m, e.tick), 0);
+  return {
+    words: words, bpm: bpm, tempoCount: tempoCount, tickMax: tickMax,
+    assign: assign, drumTracks: drums.length, tunedTracks: tuned.length,
+  };
+}
+
+function buildScore(words, name) {  const notes = [], tempos = [], kinds = {};
   let tickMax = 0, tickMin = Infinity;
   for (const w of words) {
     const d = unpackWord(w);
@@ -496,23 +734,62 @@ function setConn(on, txt) {
 let device = null, server = null, chRecv = null, chCmd = null, chStat = null;
 let connected = false, pollTimer = null;
 
+/* 2026-10-14 修：加【状态机 + busy 锁】—— 解决"点断开却又弹出连接窗口"。
+ *
+ * ═══ 原来的 bug（用户实测报告）═══
+ *   按钮 onclick 写的是：`connected ? disconnect() : connect()`
+ *   🔴 缺陷 1：`connect()` 里 `requestDevice()` 是【异步且可能很慢】的
+ *      （用户在系统弹窗里挑设备）。此期间 `connected` 仍是 false
+ *      ⇒ 用户再点一下按钮 ⇒ **又进一次 `connect()`** ⇒ **再弹一个窗口**。
+ *   🔴 缺陷 2：`disconnect()` 立刻把 `connected=false`，而
+ *      `device.gatt.disconnect()` 是异步的 ⇒ 在真正断开前点击
+ *      ⇒ 走 `connect()` 分支 ⇒ 弹出窗口。
+ *   ⭐ 根因同族：**用"当前状态"决定动作，而"状态"与"动作是否完成"不同步**
+ *      （见 C169：判据要打在稳态上）。
+ *
+ * ═══ 修法 ═══
+ *   · `busy`：一次只允许一个连接/断开动作在飞；期间按钮【禁用】并显示进度
+ *   · `connecting`：显式标记"正在连"，断开时也要能取消
+ *   · 按钮文案由状态机统一驱动（`renderConnBtn()`），⛔ 不再靠 onclick 三元式
+ *   · 断开时先置 `device=null` ⇒ 迟到的 `gattserverdisconnected` 事件
+ *     不会再跑去改状态（它检查 `device` 是否已被清） */
+let busy = false;        /* 有连接/断开动作正在执行 */
+let connecting = false;  /* 特别标记"正在连接"（此时 requestDevice 可能挂着） */
+
 function uuid16(x) { return "0000" + x.toString(16).padStart(4, "0") + "-0000-1000-8000-00805f9b34fb"; }
 
+/* 按钮状态统一在这里渲染 —— ⛔ 不许别处直接改 textContent/disabled。
+ * ⭐ 这样"按钮长什么样"与"内部状态"永远一致（结构上不可能不同步）。 */
+function renderConnBtn() {
+  const b = $("btnConn");
+  if (!b) return;
+  if (busy) {
+    b.textContent = connecting ? "连接中…" : "断开中…";
+    b.disabled = true;
+  } else {
+    b.textContent = connected ? "断开" : "连接蓝牙";
+    b.disabled = false;
+  }
+}
+
 async function connect() {
+  if (busy) { log("正在处理上一个操作，请稍候…", "er"); return; }
+  if (connected) { log("已经连上了", "er"); return; }
   if (!navigator.bluetooth) {
     log("这个浏览器不支持 Web Bluetooth —— 请用 Chrome 或 Edge", "er");
     return;
   }
+  busy = true; connecting = true; renderConnBtn();
   try {
     log("请求设备（过滤器：名字含 " + DEV_PREFIX + "）…");
-    device = await navigator.bluetooth.requestDevice({
+    const dev = await navigator.bluetooth.requestDevice({
       filters: [{ namePrefix: "FPGA2026" }],
       optionalServices: [uuid16(SVC)],
     });
-    device.addEventListener("gattserverdisconnected", () => {
-      connected = false; setConn(false, "已断开"); log("蓝牙已断开", "er");
-      if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-    });
+    /* ⚠️ 用户可能在弹窗里取消 ⇒ 这里可能拿不到 dev（异常已由 catch 处理） */
+    device = dev;
+    device.addEventListener("gattserverdisconnected", onGattDisconnected);
+    log("已选中 " + (device.name || "(无名)") + "，正在连接…");
     server = await device.gatt.connect();
     const svc = await server.getPrimaryService(uuid16(SVC));
     chRecv = await svc.getCharacteristic(uuid16(CH_RECV));
@@ -523,13 +800,62 @@ async function connect() {
     log("已连接 " + device.name, "ok");
     startPoll();
   } catch (e) {
-    log("连接失败：" + e.message, "er");
+    /* ⚠️ 用户取消选择器也会走到这里（NotFoundError）—— 那是正常操作，⛔ 不算错误 */
+    if (e && e.name === "NotFoundError") {
+      log("已取消选择设备", "");
+    } else {
+      log("连接失败：" + (e && e.message ? e.message : e), "er");
+    }
+    /* ⭐ 清理半成品状态：device 可能已赋值但没连上 */
+    if (device) {
+      try { device.removeEventListener("gattserverdisconnected", onGattDisconnected); } catch (_) {}
+    }
+    device = null; server = null;
+    chRecv = chCmd = chStat = null;
+    connected = false;
+    setConn(false);
+  } finally {
+    busy = false; connecting = false; renderConnBtn();
   }
 }
-function disconnect() {
+
+/* 断开事件可能是【我们主动断】引起的，也可能是【设备掉线】。
+ * ⭐ 用一个函数统一处理，并检查 device 是否已被主动清掉 ——
+ *   否则主动断开后这个"迟到的事件"会再改一次界面（同族：状态被两次写）。 */
+function onGattDisconnected() {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
-  if (device && device.gatt.connected) device.gatt.disconnect();
-  connected = false; setConn(false);
+  /* 已经是"未连接"状态（多半是我们主动断的，disconnect() 已处理过）⇒ 不重复动界面 */
+  if (!connected && device === null) return;
+  connected = false;
+  device = null; server = null;
+  chRecv = chCmd = chStat = null;
+  setConn(false, "已断开");
+  log("蓝牙已断开", "er");
+  renderConnBtn();
+}
+
+async function disconnect() {
+  if (busy) { log("正在处理上一个操作，请稍候…", "er"); return; }
+  busy = true; connecting = false; renderConnBtn();
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  const dev = device;
+  /* ⭐ 先清状态再断 —— 这样迟到的 gattserverdisconnected 事件看到
+   *   `device === null` 就知道"是我们主动断的"，不会重复改界面。 */
+  connected = false;
+  device = null; server = null;
+  chRecv = chCmd = chStat = null;
+  try {
+    if (dev) {
+      try { dev.removeEventListener("gattserverdisconnected", onGattDisconnected); } catch (_) {}
+      if (dev.gatt && dev.gatt.connected) dev.gatt.disconnect();
+    }
+    log("已主动断开", "");
+  } catch (e) {
+    log("断开时出错（已忽略）：" + (e && e.message ? e.message : e), "er");
+  } finally {
+    setConn(false);
+    busy = false; renderConnBtn();
+  }
 }
 
 async function sendCmd(code) {
@@ -597,12 +923,33 @@ function updateProgress(d) {
   if (playStartWall === null) playStartWall = performance.now();
   const sinceStart = (performance.now() - playStartWall) / 1000;
 
-  /* ---- 播放位置：优先用 ESP32 给的真值，拿不到才退回估算 ---- */
+  /* ---- 播放位置：优先用 ESP32 给的真值，拿不到才退回估算 ----
+   *
+   * 🔴🔴 2026-10-14 修算式：原来是 `play - t0 - lead`，【多减了 t0】。
+   *
+   * ═══ 为什么错（实测踩到）═══
+   * 用真机数据一代就露馅：play=20249, t0=20019, lead=20000
+   *   ⇒ 20249-20019-20000 = -19770（负数）
+   * ⚠️ 但同一时刻 `sent=2` —— 【已经在放水了】⇒ 算式必错。
+   *
+   * 正确：`play - lead`（t0 不参与）。验证：20249-20000 = 249 > 0 ✓
+   *   与"刚开始放水"完全吻合。
+   *
+   * 🔎 根因：`t0` 在【中段换速（tempo 事件）】时会被重锚成一个大位置
+   *    （实测从 0 变成 20019），而 `play` 同时也是累计位置
+   *    ⇒ 两者【不能相减】。
+   * ⭐ 固件侧的门控用的是 `pos_now > s_lead_end`，而
+   *    `s_lead_end = t0_tick + LEAD`（t0 是【那一轮】的快照）——
+   *    对【外部观察者】而言拿不到那个快照，所以最稳的判据就是「play 与 lead 比」。
+   * 📌 同族：本文件同一天在 `_uart1_send_path_check.py` 里踩过【一模一样】的坑。
+   */
   let heardTick = null, totalTick = null;
-  if (d.pv === 1 && d.play != null && d.t0 != null && d.lead != null) {
-    const heard = d.play - d.t0 - d.lead;     // 还没出声时为负
+  if (d.pv === 1 && d.play != null && d.lead != null) {
+    const heard = d.play - d.lead;            // 还没出声时为负
     heardTick = Math.max(0, heard);
     totalTick = (d.ttot && d.ttot > 0) ? d.ttot : null;
+    leadSec = d.lead / 1920;                  // 用固件给的真值换算秒（960PPQN/120BPM）
+    if (!(leadSec > 0) || !isFinite(leadSec)) leadSec = LEAD_SEC_DEFAULT;
   } else if (score && d.tf) {
     // 退回估算：喂食比例 * 总时长 - 提前量
     const fedSec = (d.sent / d.tf) * score.duration;
@@ -679,9 +1026,28 @@ async function openFile(f) {
   const name = f.name.toLowerCase();
   try {
     if (name.endsWith(".mid") || name.endsWith(".midi")) {
-      throw new Error("浏览器里读不了 MIDI。请先用 mid2evt.py 转成 events.hex：\n" +
-        "  python FPGA2026/tools/mid2evt.py --in \"" + f.name + "\" --out-dir 输出目录\n" +
-        "然后把生成的 events.hex 拖进来。");
+      /* 2026-10-14：改为【在浏览器里直接解析】。
+       * ⚠️ 原来这里是直接抛错让用户去跑 mid2evt.py —— 用户要求改成直接支持。 */
+      const buf = await f.arrayBuffer();
+      const parsed = parseMidi(buf);
+      const conv = midiToWords(parsed);
+      if (!conv.words.length) throw new Error("这个 MIDI 里没有音符");
+      score = buildScore(conv.words, f.name);
+      $("fname").textContent = f.name;
+      $("s_n").textContent = score.words.length;
+      $("s_dur").textContent = score.duration.toFixed(1) + " s";
+      /* ⭐ 把分配结果打出来 —— 音色是【启发式】猜的，猜错要让人看得见，
+       *    ⛔ 不能"猜错了也不说"（那是静默错误）。 */
+      log("MIDI 解析成功：" + conv.words.length + " 个事件 · BPM " +
+          conv.bpm.toFixed(1) + " · " + parsed.division + " PPQN → 960", "ok");
+      log("轨分配（鼓优先，其余按音色归组）：");
+      for (const a of conv.assign) {
+        log("  " + a.name + "  →  axis " + a.axis + " · " +
+            (a.kind === "鼓" ? "鼓轨" : a.timbre) + " · " + a.notes + " 个音符");
+      }
+      log("⚠️ 音色是按【轨名关键词】猜的（与 mid2evt.py 同一套规则）——不对请在 DAW 里改轨名", "");
+      draw();
+      return;
     }
     const text = await f.text();
     const words = parseEventsHex(text);
@@ -705,7 +1071,13 @@ async function openFile(f) {
 }
 
 /* ============================== 绑定 ============================== */
-$("btnConn").onclick = () => connected ? disconnect() : connect();
+/* 2026-10-14 修：⛔ 不再用 `connected ? disconnect() : connect()` 这种三元式。
+ * 为什么：`connected` 与"动作是否正在进行"不同步 ⇒ 慢速/连点时会重复进
+ *   `connect()` ⇒ 重复弹出连接窗口（用户实测报告）。
+ * ⭐ 现在只调一个入口，由 `connect()` / `disconnect()` 内部的 busy 锁把关。 */
+$("btnConn").onclick = () => { if (connected) disconnect(); else connect(); };
+/* 初始化按钮外观（由 renderConnBtn 统一渲染，保证与内部状态一致） */
+renderConnBtn();
 $("btnUp").onclick = upload;
 $("btnPlay").onclick = async () => { try { await sendCmd(CMD_PLAY); log("已发 起播"); } catch (e) { log(e.message, "er"); } };
 $("btnStop").onclick = async () => { try { await sendCmd(CMD_STOP); log("已发 停止"); } catch (e) { log(e.message, "er"); } };
