@@ -1,0 +1,23 @@
+{
+    "Source":  "be75440",
+    "PhysicalSystemClockMHz":  50,
+    "RequiredHoldNs":  0.05,
+    "SetupViolations":  66,
+    "HoldViolations":  0,
+    "SetupSlack":  -1.663,
+    "HoldSlack":  0.128,
+    "RecoverySlack":  1.177,
+    "RemovalSlack":  0.051,
+    "clk_sysFmax":  55.361,
+    "pixel_clkFmax":  42.557,
+    "serial_clkFmax":  299.138,
+    "Logic":  38362,
+    "CLS":  25410,
+    "Register":  18881,
+    "BSRAM":  69,
+    "DSP":  24,
+    "TimingPass":  false,
+    "NativeBudgetNs":  16.4,
+    "HoldMargin50psGate":  true,
+    "Accepted":  false
+}

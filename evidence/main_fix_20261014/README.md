@@ -19,7 +19,7 @@ Branch: `codex/fix-main-bugs-20261014`. Original audited main: `9d30dd3`. No rem
 - Module boundary: ratio arithmetic/ownership/cancellation/known bits and play-mode release cases pass.
 - Real top boundary: UART A/W + three SPI ADC models + comparator pluck -> original voice and independently decoded I2S, 14 checks pass; original main fails stationary-position criterion under the same fixture.
 - All 174 test entry points elaborate. Directed execution: 18 functional PASS plus 1 exact expected-negative detection. Full-suite execution has NOT been accepted; four long regressions and historical no-verdict diagnostics remain to be resolved/reclassified with actual evidence.
-- Fresh physical candidate at `build/fix_pnr01`: source `be75440`, empty implementation directory, explicit synthesis then PnR, input byte hashes 73/73 match. Still running; no final timing claim or new board-qualified bitstream yet. Required gate remains hold >= 0.05 ns. Original main is 0.047 ns and fails that gate despite native 0 setup/hold violations.
+- Fresh physical candidate at `build/fix_pnr01`: source `be75440`, empty implementation directory, explicit synthesis then PnR, input byte hashes 73/73 match. Completed, exit 0; sys Fmax 55.361 MHz, hold 0.128 ns passes, but strict setup -1.663 ns / 66 violated endpoints FAIL. See `pnr01/`. Unqualified bitstream archived without replacing main or prior files. Required hold gate remains >= 0.05 ns; original main is 0.047 ns and fails it despite native 0 setup/hold violations.
 - Hardware acceptance: NOT_RUN.
 
 ## Pending protocol choice
