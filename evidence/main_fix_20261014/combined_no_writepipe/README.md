@@ -16,10 +16,12 @@ In this combination uart_tx_fifo.v is exactly d4f4c66: no write pipeline,
 but simultaneous clear/drop retains flag=1 and count=1. All other production
 inputs are unchanged from AY. Tests from both alternatives remain available.
 
-This combination requires its OWN fresh synthesis/PnR. AY and FIFO-pipeline
-metrics are historical comparisons, not acceptance of this combination.
-Board acceptance is NOT_RUN. Build and regression results will be recorded
-separately; do not call this a perfect or fully accepted version prematurely.
+This combination has completed its OWN fresh synthesis/PnR and full selected
+regression; see Final result below. AY and FIFO-pipeline metrics are historical
+comparisons, not substituted acceptance evidence. Board acceptance is NOT_RUN;
+do not call this a perfect or board-accepted version.
+
+Chinese release handoff: [RELEASE_NOTES_ZH.md](RELEASE_NOTES_ZH.md).
 
 ## Final result
 

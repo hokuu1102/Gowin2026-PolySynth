@@ -1,5 +1,9 @@
 # Main bug repair status — 2026-10-14
 
+This file records earlier repair stages, not the latest release verdict.
+The final AZ combined candidate and its own completed acceptance are documented
+in [combined_no_writepipe/RELEASE_NOTES_ZH.md](combined_no_writepipe/RELEASE_NOTES_ZH.md).
+
 Branch: `codex/fix-main-bugs-20261014`. Original audited main: `9d30dd3`. No remote push, merge into main or board flashing in this repair run. FFT is paused. All prior bitstreams and rollback commits are retained.
 
 ## Saved fixes
