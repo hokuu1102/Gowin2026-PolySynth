@@ -1,0 +1,24 @@
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=640000)
+=== tb_span_multiaxis_noise ===
+⭐ 多轴连续标定 + 【逐通道帧间噪声】（⭐ 我前面 tb 缺失的变量）
+⭐ STABLE_TOL=48 VOTE_TOL=96 STABLE_NEED=8 VOTE_N=8
+⭐ 通道基值 = 上板实测松手值（ch2=2184 就是被拒那轴）
+
+  噪声 ±0    ⇒  span=16   reject=0    最后被拒轴=15 ����)
+  噪声 ±10   ⇒  span=16   reject=0    最后被拒轴=15 ����)
+  噪声 ±20   ⇒  span=16   reject=0    最后被拒轴=15 ����)
+  噪声 ±40   ⇒  span=16   reject=0    最后被拒轴=15 ����)
+  噪声 ±48   ⇒  span=16   reject=0    最后被拒轴=15 ����)
+  噪声 ±60   ⇒  span=10   reject=9    最后被拒轴=10      
+--------------------------------------------------
+⭐ 解读：
+  · 噪声 < STABLE_TOL(48) ⇒ 应当【全部 16 轴通过】(reject=0)
+  · 噪声 > STABLE_TOL(48) ⇒ 稳定判定过不去 ⇒ 拒绝是【正确行为】
+--------------------------------------------------
+  ok  : 噪声 ±0   (< 48) ⇒ 16 轴全过, 无拒绝
+  ok  : 噪声 ±10  (< 48) ⇒ 16 轴全过, 无拒绝
+  ok  : 噪声 ±20  (< 48) ⇒ 16 轴全过, 无拒绝
+  ok  : 噪声 ±40  (< 48) ⇒ 16 轴全过, 无拒绝
+==================================================
+PASS: 稳定判定阈值行为正确（噪声 < TOL 就能过）
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3a\tb_span_multiaxis_noise.sv:202: $finish called at 115201440000 (1ps)

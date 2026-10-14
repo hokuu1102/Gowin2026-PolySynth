@@ -1,0 +1,13 @@
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=640000)
+=== tb_span_alignment_gap ===
+⭐ 复刻【按住 ch7】的实测值：ch7=2903，其余 2141~2196
+   ⇒ 跨通道极差 = 762（⭐ 远超 STABLE_TOL=48 / VOTE_TOL=96）
+   STABLE_TOL=48 VOTE_TOL=96 TIMEOUT=640000 拍 = 2000 帧（同比例）
+
+结果：span=16  reject=0  state=7  done_cnt=0  rej_cnt=0
+--------------------------------------------------
+ok  : 跨通道极差 762 下，16 轴仍全部标定成功
+      => ✅ 通道过滤【有效】=> 跨通道跳变【不是】根因
+==================================================
+PASS: 正确的通道过滤能隔离跨通道跳变
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3a\tb_span_alignment_gap.sv:155: $finish called at 25600240000 (1ps)

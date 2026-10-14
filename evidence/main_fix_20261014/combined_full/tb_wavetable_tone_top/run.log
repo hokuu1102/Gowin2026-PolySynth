@@ -1,0 +1,5 @@
+VCD info: dumpfile build/sim/wavetable_tone_top/tb_wavetable_tone_top.vcd opened for output.
+WAVETABLE_TONE frames=620 nonzero=613 crossings=5 period=111..111 avg=111 measured_hz=439
+WAVETABLE_TONE bck_gap=16..16 ws_gap=1024..1024 din_toggles=8720 pa_falls=0
+PASS: Dock wavetable tone top outputs deterministic 440 Hz mono audio
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\bringup\tb_wavetable_tone_top.sv:236: $finish called at 12697771000 (1ps)

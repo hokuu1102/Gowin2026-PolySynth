@@ -1,0 +1,2 @@
+PASS: four timbres have distinct ADSR profiles
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3b\tb_timbre_adsr.sv:98: $finish called at 14420261000 (1ps)

@@ -1,0 +1,34 @@
+=== tb_uart_tx_fifo ===
+== 1: 背靠背推 3 个（K-126 的直接判据）==
+    发出 3 个: 0x74 0x73 0x30
+  ok  : 3 个字节全部发出（一个都没丢）
+  ok  : 顺序正确 't'->'s'->'0'
+== 2: 下游忙时推（原来就是这样丢的）==
+    此刻 busy=1 busy_left=17
+  ok  : 第 1 个已在发（busy 高）
+    发出 3 个: 0x41 0x42 0x43
+  ok  : 忙时推的 2 个没丢
+  ok  : 顺序仍是 A->B->C
+== 3: 单拍脉冲（模拟 need_press 那 20 ns）==
+    发出 1 个: 0x5a
+  ok  : 1 拍脉冲也被接住并发出
+== 4/5: 溢出（推 9 个，深度 8）==
+    ovf=1 drop_cnt=1
+  ok  : 溢位置起（不静默）
+  ok  : 丢弃计数 = 1
+    发出 8 个
+  ok  : 前 8 个仍然全部发出（只丢第 9 个）
+  ok  : 发出的是 0..7（丢的是最后那个）
+== 6: ovf_clr_i ==
+  ok  : 清后 ovf 落 0
+  ok  : 清后 drop_cnt 归 0
+== 7: 复位 ==
+  ok  : 复位后 ovf 清 0
+  ok  : 复位后 drop_cnt 清 0
+  ok  : 复位后队列空（ready 高）
+== 8: A8 ==
+  ok  : A8: tx_data 无 X/Z
+  ok  : A8: ovf / drop_cnt 无 X/Z
+
+PASS: uart_tx_fifo queues bytes (never drops while busy), surfaces overflow, and clears on demand
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3c\tb_uart_tx_fifo.sv:235: $finish called at 6710000 (1ps)

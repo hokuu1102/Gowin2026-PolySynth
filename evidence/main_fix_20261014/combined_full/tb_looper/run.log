@@ -1,0 +1,87 @@
+== 1: record ==
+  ok  : record: 8 played + 2 appended note_off = 10 events stored
+== 2: replay two loops ==
+  ok  : replay: exactly 20 events over two loops (10 per loop)
+  ok  : replay: all 10 event payloads come back EXACTLY as recorded
+  ok  : replay: every note_on carries the timbre captured at RECORD time (1,1,1,2,2)
+  ok  : replay: the live timbre is 3 now -- keeps the timbre check NON-VACUOUS
+  ok  : replay: play_timbre_valid_o is asserted on EVERY replayed event
+  ok  : replay: offsets are exactly 2/3/5/5/6/7/9/9/11/11 as recorded
+  ok  : replay: loop 2 offsets are IDENTICAL to loop 1 (period is exact)
+     [dbg] got_n=20  n1=10  n2=10  loop_base=12
+     [dbg] ev[0] tb_tick=14 off=2 kind=0 ax=1
+     [dbg] ev[1] tb_tick=15 off=3 kind=1 ax=1
+     [dbg] ev[2] tb_tick=17 off=5 kind=0 ax=2
+     [dbg] ev[3] tb_tick=17 off=5 kind=0 ax=3
+     [dbg] ev[4] tb_tick=18 off=6 kind=1 ax=2
+     [dbg] ev[5] tb_tick=19 off=7 kind=1 ax=3
+     [dbg] ev[6] tb_tick=21 off=9 kind=0 ax=4
+     [dbg] ev[7] tb_tick=21 off=9 kind=0 ax=15
+     [dbg] ev[8] tb_tick=23 off=11 kind=1 ax=4
+     [dbg] ev[9] tb_tick=23 off=11 kind=1 ax=15
+     [dbg] ev[10] tb_tick=26 off=14 kind=0 ax=1
+     [dbg] ev[11] tb_tick=27 off=15 kind=1 ax=1
+     [dbg] ev[12] tb_tick=29 off=17 kind=0 ax=2
+     [dbg] ev[13] tb_tick=29 off=17 kind=0 ax=3
+     [dbg] ev[14] tb_tick=30 off=18 kind=1 ax=2
+     [dbg] ev[15] tb_tick=31 off=19 kind=1 ax=3
+     [dbg] ev[16] tb_tick=33 off=21 kind=0 ax=4
+     [dbg] ev[17] tb_tick=33 off=21 kind=0 ax=15
+     [dbg] ev[18] tb_tick=35 off=23 kind=1 ax=4
+     [dbg] ev[19] tb_tick=35 off=23 kind=1 ax=15
+  ok  : same-tick: both notes of the tick-5 chord are replayed
+  ok  : no-hang: the unclosed note_on on axis 4 got a note_off
+  ok  : no-hang BOUNDARY: axis 15 is closed too (scan reaches 4'hF)
+== 3: clear ==
+  ok  : clear: the layer reports 0 events
+  ok  : clear: nothing is replayed after clear
+== 4: overflow is visible ==
+  ok  : overflow: the layer stops storing at EVT_MAX (=4)
+  ok  : overflow: full_o is raised (not silent)
+  ok  : overflow: overflow_o is raised (sticky)
+  ok  : overflow: drop_cnt_o counts the dropped events
+== 5: clear during playback must close the sounding note ==
+  ok  : bug1 setup: 1 note_on + 1 appended note_off stored
+  ok  : bug1: clear during playback emits a note_off for the sounding axis
+  ok  : bug1: the layer is empty after the clear-out finishes
+== 6: rec_req during playback must close the sounding note ==
+  ok  : bug1b setup: 1 note_on + 1 appended note_off
+  ok  : bug1b: rec_req during playback emits a note_off for the sounding axis
+== 7: play_en falling must close the sounding note ==
+  ok  : bug1c: play_en falling emits a note_off for the sounding axis
+== 8: light->heavy gesture -- endpoints + interpolation ==
+  ok  : gesture setup: exactly 1 note_on + 1 note_off stored (the note was closed live)
+  ok  : gesture setup: replay emitted interpolated update pulses (non-vacuous)
+  ok  : gesture: the FIRST interpolated value sits BETWEEN start(80) and end(240)
+  ok  : gesture: the LAST interpolated value REACHES the recorded END velocity (240)
+  ok  : gesture: the ramp is a REAL interpolation (>= 8 distinct velocity values)
+  ok  : gesture: every interpolated pulse targets the SAME axis (6)
+  ok  : gesture: the replayed note_off carries the recorded END velocity (240, not 200)
+     [dbg] upd_n=92  first=82  last=240  distinct=92
+     [dbg] got_n=3  off_vel_ok=1
+     [dbg] ep_valid=1 ep_vel=240 ep_tick=186 ep_inc=66660006
+     [dbg] ramp_mask=0000000000000000 ramp_go=0 ramp_sc=0 ramp_vel6=96 rend6=186
+     [dbg] ep0v=1 ep0vel=240 ep0tick=186 on_addr6=0 on_open=0
+== 9: stale on_open_r must not corrupt another note's endpoint ==
+  ok  : stale_on_open setup: clear during record empties the layer
+  ok  : stale_on_open setup: the second take stored 3 events
+  ok  : stale_on_open: replay ramps the NEW note's axis (1) and nothing else
+  ok  : stale_on_open: the replayed endpoint stays its OWN (160) -- not 240
+     [dbg] upd_n=15 last=160 ep0v=1 ep0vel=160 ep0tick=32 on_open0=0
+  ok  : A8: no X/Z on the replay outputs
+== ⑩ ⭐ 2026-10-11：录制回传 · 导出读口（dump_en/addr/data）==
+  ok  : DUMP-a dump_data_o is X-free while dumping
+  ok  : DUMP-b addr 0 == the repacked WIRE-FORMAT word of mem[0]
+  ok  : DUMP-c addr 1 == the repacked wire-format word of mem[1]
+  ok  : DUMP-d (NON-VACUOUS) the two entries differ => the address really selects
+  ok  : DUMP-e axis[22:19] of entry 0 == 3 (as recorded)
+  ok  : DUMP-f axis[22:19] of entry 1 == 9
+  ok  : DUMP-g 0x123456 sample increment exports as clock-unit 0x48d
+  ok  : DUMP-h vel[18:11] of entry 0 == 77
+  ok  : DUMP-i kind[10:9] of entry 0 == 0
+  ok  : DUMP-j nonzero low ten bits report quantization loss
+  ok  : DUMP-k exact multiple of 1024 exports losslessly
+  ok  : DUMP-l sample increment 0x00800000 exports as 8192, not zero
+  ok  : DUMP-m with dump_en=0 the read port is back on the playback pointer (no interference)
+PASS: looper T37 record/replay, no-hang incl. axis 15, clear, same-tick, overflow
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3c\tb_looper.sv:893: $finish called at 187600000 (1ps)

@@ -1,0 +1,8 @@
+FATAL: C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3b\tb_opt04_nm_age_negative.sv:47: split age mismatch width=1 a=1 b=0
+       Time: 3000  Scope: tb_opt04_nm_age_negative.a
+FATAL: C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3b\tb_opt04_nm_age_negative.sv:47: split age mismatch width=7 a=65 b=64
+       Time: 3000  Scope: tb_opt04_nm_age_negative.b
+FATAL: C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3b\tb_opt04_nm_age_negative.sv:47: split age mismatch width=16 a=cde5 b=cde4
+       Time: 3000  Scope: tb_opt04_nm_age_negative.c
+FATAL: C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3b\tb_opt04_nm_age_negative.sv:47: split age mismatch width=17 a=0cde5 b=0cde4
+       Time: 3000  Scope: tb_opt04_nm_age_negative.d

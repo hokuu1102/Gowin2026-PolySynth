@@ -20,3 +20,41 @@ This combination requires its OWN fresh synthesis/PnR. AY and FIFO-pipeline
 metrics are historical comparisons, not acceptance of this combination.
 Board acceptance is NOT_RUN. Build and regression results will be recorded
 separately; do not call this a perfect or fully accepted version prematurely.
+
+## Final result
+
+Fresh synthesis/PnR completed 2026-10-14 16:33:18 Asia/Shanghai, observed
+session exit code 0. 73 frozen product inputs verified. Native sys 16.4 ns
+budget unchanged. Setup 0.004 ns, hold 0.211 ns, recovery 0.866 ns,
+removal 0.123 ns; zero setup/hold violations; hold >=0.05 ns gate PASS.
+System Fmax 60.989 MHz; CLS 25096, BRAM 69, DSP 24. This matches AY's
+reported metrics and uses 287 fewer CLS than the pipelined FIFO alternative;
+it is NOT a claim of generous setup margin (only 4 ps remains).
+
+Own complete regression: 178 discovered, 175 selected; 173 functional PASS,
+one expected negative and one separately confirmed bare-parser diagnostic,
+zero failed/unresolved cases. 280 source blobs verified against a529bbd.
+Three historical/manual fixtures remain skipped as explicitly named in the
+summary; they are NOT credited as passing. No result is borrowed from AY
+or the FIFO-pipeline alternative.
+
+Firmware copied to the user's existing archive, no old file overwritten:
+AZ_combined_core_NO_WRITEPIPE_TIMING_PASS_BOARD_UNVERIFIED_20261014.fs.
+Size 19913047 bytes, source/destination SHA256 identical:
+28C94FE99FF13DBEAED459A1CD2B7F9531B708BA94AF2E768371499F9EC2822B.
+See completion.json, metrics.json, build_exit.json and raw reports.
+Software/timing accepted; board NOT_RUN; main not replaced; no push/flash.
+
+## Suspected hang diagnosis
+
+Read-only process/thread and artifact inspection showed a running compute
+thread, accumulated CPU time increasing, about 1.3 GB private memory and
+about 11 GB system free memory near completion. While inspecting, the router
+advanced, wrote final reports/firmware and exited normally. This definitively
+rules out a persistent hang for this run; CPU growth alone had NOT been treated
+as proof of convergence. Full flow took about 36 minutes, comparable to AY's
+36.5-minute run (other previous runs: 23.5 and 13.6 minutes).
+No process was killed/suspended and no build was restarted.
+Inherited placement/clock-route warnings remain recorded in fresh_build.log;
+do not dismiss them as proof of safe real-board behavior. Monitoring paused
+after successful finalization.

@@ -1,0 +1,2 @@
+PASS: shared-bus three-board refresh, mapping, dwell and safe OE
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3c\tb_tlc5916_refresh.sv:48: $finish called at 3220200000 (1ps)

@@ -1,0 +1,36 @@
+VCD info: dumpfile build/sim/tb_uart_ui/tb_uart_ui.vcd opened for output.
+  ok  : reset: mode=MODE_PIANO_DEFAULT (   М   ┐   щ   Р┤)
+  ok  : reset: base_semi=0 (C4)
+  ok  : reset: hb_ready=0
+  ok  : reset:   а commit    х ▓
+  ok  : reset   Х   Ь   ч   ╜   Т 0
+  ok  : reset: test_mode   Ш   х │
+  ok  :    б  Л 0x88 -> hb_ready=1
+  ok  :    ц   о   е frame_cnt
+  ok  :    б   ф   Ф╣ mode
+  ok  :    ш   С   з  ╢0 -> mode   ╗  м    щ   од)
+  ok  : mode_comm   х   С   Я   х ▓
+  ok  : mode_commit   Е    Л   И   ф   Л   Ю   я Й
+  ok  :    Н   ш   С╕ -> mod   ┐   Ю   щ   од)
+  ok  : mode_sw_req_i -> mod   ┐   м   ф   ▒   ж   х   ╕   н   я Й
+  ok  : mode_sw_req_i -> mode_commi   З   Ж   х ▓
+  ok  : mode_sw_req_   Л   О -> mode_commit    ш ╜
+  ok  : mode_sw_req   ц   ╜О -> mod   ┐   Б   х   ╝   Н   ч   ╣   П   я Й
+  ok  : mode_sw_req_i    ш   П   И   ф   м   ╗   я Й
+  ok  :    ░   х з -> base_semi    х ░ =12
+  ok  : base_comm   х   С   Я   х ▓
+  ok  : base_commit   Е   ц Н
+  ok  :    ц   ╗   ч   ц б -> test_mode=1, n=00(4)
+  ok  : test_mode_comm   х   С   Я   х ▓
+  ok  : test_mode_commit   Е   ц Н
+  ok  :    ф ╢2   м2  б -> n=01(8)
+  ok  :    ц   ╗   ч   ц б -> n=10(16)
+  ok  :    ц   ╗   ч   ц б -> n=11(32)
+  ok  :    ц   ╗   ч   ц б -> 32   Ю   х │
+  ok  :    ф   ┐Ю FF   Н   ц   ╕   Иmode   к   я Й
+  ok  :    х   Э   Ш ->    щ   ╜   Н(resync_cnt>0)
+  ok  :    Ю   ш   Ы   Б -> err_cnt    х Ю
+  ok  :    Ю  Т:   Н   ц   ш   С╕ mode=~   ш д
+  ok  :    Ы   Т: frame_cnt    ш б
+PASS: tb_uart_ui (28 checks)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3c\tb_uart_ui.sv:327: $finish called at 42940000 (1ps)

@@ -1,0 +1,22 @@
+VCD info: dumpfile build/sim/tb_latency_m2/tb_latency_m2.vcd opened for output.
+
+==================== M2 低延迟实测（50 次）====================
+  事件      : UP 25 次 / DOWN 25 次（合成激励，⛔ 不依赖左手板实物）
+  ① 事件→样点算好（桩，最快情形）  : min=3 max=3 clk（0.060 µs）
+  ② ⭐ 事件→板上 DAC 收到数据位     : min=325 max=1263 clk
+     = 6.500 ~ 25.260 µs = 0.3174 ~ 1.2334 音频帧
+     均值 = 780.820 clk = 0.7625 帧（1 帧 = 1024 clk = 20.48 µs）
+  极差      : 938 clk = 0.0188 ms（判据 < 0.100 ms）
+  ⭐ 输出级固有分量（②−①）: 322 ~ 1260 clk = 0.314 ~ 1.230 帧 —— 帧量化 + 串行化，⛔ 躲不开
+  ⭐ 留给合成链（`note_manager`+`voice`+`mixer`）的余量 = 2 帧 − ②最坏 = 785 clk = 15.700 µs
+  A8        : din=0 bck=0 ws=0 sample=0
+  证据      : sim/evidence/latency_m2_din.log（50 行）· _sample.log（诊断）
+  ⭐ 权威判定：python tools\latency_stats.py sim\evidence\latency_m2_din.log --unit cycles --expect-count 50
+=============================================================
+  ok : 最大延迟 1263 clk = 1.2334 帧 ≤ 2 帧（数字端目标）
+  ok : 极差 938 clk = 0.0188 ms ≤ 0.100 ms（确定性无抖动）
+  ok : 统计次数 = 50（M2 要求 50）
+  ok : A8 无 X/Z 传播（HP_DIN/HP_BCK/HP_WS/样点）
+
+PASS: M2 数字端延迟上界与抖动均达标（50 次，极差 < 0.1 ms）
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\latency\tb_latency_m2.sv:194: $finish called at 2820771000 (1ps)

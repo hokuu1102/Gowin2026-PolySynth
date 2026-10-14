@@ -1,0 +1,13 @@
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=8 VOTE_N=4 VOTE_TOL=16 REJECT_MAX=8 WAIT_TIMEOUT_CLK=1000)
+=== tb_span_vote_offbyone 开始（VOTE_N=4 VOTE_TOL=16）===
+  · SETTLE 阶段喂了 6 帧 A=2000，当前 state=3
+  · VOTE 阶段已喂 3 帧 A，当前 state=3
+  · 已喂最后 1 帧 B=2056（离群，超 VOTE_TOL 16）⇒ state=2
+--------------------------------------------------
+  reject 次数 = 1
+  state       = 2
+  发过 span?  = 0
+--------------------------------------------------
+ok   : RTL 正确 —— 最后一帧的离群值【被看见】并拒绝了该组样本
+PASS: 投票窗口覆盖了全部 VOTE_N 帧
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3a\tb_span_vote_offbyone.sv:175: $finish called at 1780000 (1ps)

@@ -1,0 +1,17 @@
+VCD info: dumpfile build/sim/wavetable/tb_wavetable_bank.vcd opened for output.
+  info: noise len=1024 sum=0 min=-26333 max=32767 zcr=498
+  info: sine  zcr=2  noise r1=-0.00226 r2=0.00163  wrap_step=5267 max_step=39790
+  ok  : noise_table_dc_sum_is_zero
+  ok  : noise_table_peak_within_2pct_of_full_scale
+  ok  : noise_table_not_clipped_to_full_scale
+  ok  : sine_table_zcr_is_low
+  ok  : noise_table_zcr_ge_64x_sine_zcr
+  ok  : noise_table_autocorr_lag1_le_0p10
+  ok  : noise_table_autocorr_lag2_le_0p10
+  ok  : noise_table_wrap_step_le_max_interior_step
+  info: drum voice capture zcr: noise_sel=246 (0.481) / noise_sel_off=41 (0.080)
+  ok  : noise_sel_off_capture_is_pitched
+  ok  : drum_voice_reads_broadband_noise
+  ok  : drum_voice_zcr_at_least_3x_pitched_ref
+PASS: wavetable_bank four timbres use deterministic synchronous reads
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3b\tb_wavetable_bank.sv:448: $finish called at 350800000 (1ps)
