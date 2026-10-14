@@ -15,3 +15,26 @@ Baseline and candidate both PASS. Original FIFO functional regression PASS.
 
 PnR and real top integration are required before retaining this optimization.
 Rollback must keep the d4f4c66 bug fix; it must not restore the clear/drop bug.
+
+## Verification snapshot 4f522c4
+
+- `fifo_targeted/summary.json`: all 12 selected tests explicit PASS, 279 source
+  blobs checked against the pinned commit. This is NOT the complete suite.
+- Public top pin trace is identical to AY: 155,459 cycles, 2,331,885 bytes,
+  SHA256 E80E96100E5EC6C8058FEC0A60903324028CC6F4126214702A88D78A79A6CD1E.
+- Real UART/SPI/comparator to I2S slide test: all 14 checks PASS.
+- Deliberately removing read forwarding fails cycle equivalence at cycle 7;
+  `no_forward_negative.log` is an expected failing mutation, NOT a DUT PASS.
+- Fresh `build/fix_pnr03b_fifo`: all 73 product input hashes match. Synthesis
+  completed successfully and PnR is running; no timing verdict or new archived
+  firmware yet. Constraints and GPRJ unchanged. The earlier `fix_pnr03_fifo`
+  attempt failed before synthesis because the file-copy harness rejected the
+  project's nonstandard XML version="1"; it is not RTL evidence.
+- 170 non-long candidate tests are running. Separately, old AY long tests now
+  have explicit PASS for replay tail and transpose; key-to-sound and the repaired
+  output-directory top_sound retry are still running. These are not candidate
+  long-suite verdicts.
+
+Until physical results are evaluated, this remains an experimental branch commit;
+main checkout, remote and board are untouched. No function/protocol reduction,
+no changed hardware ADC speed, and no claim of a perfect/fully accepted version.

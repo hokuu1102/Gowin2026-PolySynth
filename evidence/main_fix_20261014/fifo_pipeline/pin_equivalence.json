@@ -1,0 +1,9 @@
+{
+  "Base": "364f662",
+  "Candidate": "4f522c4",
+  "Bytes": 2331885,
+  "SHA256": "E80E96100E5EC6C8058FEC0A60903324028CC6F4126214702A88D78A79A6CD1E",
+  "Equal": true,
+  "Signals": "UART board/ESP, CS/SCK/MOSI, I2S BCK/WS/DIN",
+  "Board": "NOT_RUN"
+}

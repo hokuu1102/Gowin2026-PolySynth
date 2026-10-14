@@ -1,0 +1,2 @@
+PASS: slide sustains across the original key release and ends exactly once
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3a\tb_play_mode_slide_hold.sv:58: $finish called at 1320000 (1ps)
