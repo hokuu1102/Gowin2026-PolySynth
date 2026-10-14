@@ -385,6 +385,14 @@ const MIDI_TWO32 = 4294967296;
 /* 音色号与名称（必须与 RTL / mid2evt.py 一致） */
 const TIMBRE_BASS = 0, TIMBRE_GUITAR = 1, TIMBRE_PIANO = 2, TIMBRE_PAD = 3;
 const TIMBRE_NAMES = { 0: "BASS", 1: "GUITAR", 2: "PIANO", 3: "PAD" };
+/* ⭐ 同一张表的【数组】形式（2026-10-14 补）。
+ * 🔴 为什么需要：TIMBRE_NAMES 是【对象】（下标访问方便），
+ *   而地图例/音色下拉要【按表序遍历】⇒ 用 .length / .map。
+ *   对象没有这两个 ⇒ 直接拿 TIMBRE_NAMES 调 .map 会抛
+ *   "TIMBRE_NAMES.map is not a function"（用户实测，选 MIDI 就弹这个）。
+ * ⭐ 索引必须与上面一致 = RTL 的 TIMBRE_N=4 表序。
+ * ⚠️ 两处并存但【同一份事实】⇒ 改一个必须同步改另一个（⛔ 别只改一处）。 */
+const TIMBRE_NAMES_ARR = ["BASS", "GUITAR", "PIANO", "PAD"];
 
 /* 轨名 -> 音色 的关键词表。⚠️ 顺序有意义（先匹配到的先用）。
  * ⭐ 与 mid2evt.py 的 TIMBRE_HINTS 保持一致。 */
@@ -945,7 +953,7 @@ function buildTrackPicker(conv) {
       right = '<span style="color:var(--dim)">鼓 · ' + t.notes + "</span>";
     } else {
       const cur = (timbreOverride.has(t.idx)) ? timbreOverride.get(t.idx) : t.timbreIdx;
-      const opts = TIMBRE_NAMES.map((nm, k) =>
+      const opts = TIMBRE_NAMES_ARR.map((nm, k) =>
           '<option value="' + k + '"' + (k === cur ? " selected" : "") + ">" +
           escapeHtml(nm) + "</option>").join("");
       right =
@@ -1249,9 +1257,15 @@ function isBlackKey(m) {
 function drawPiano(lo, hi, Y, ph) {
   const rowH = ph / (hi - lo);
   const drawKeys = rowH >= 5;
+  /* ⭐ 底部鼓栏占的高度 —— 钢琴键盘与音名都【不要画进去】。
+   * 🔴 用户反馈："鼓左边的音高和鼓的音色重叠了，删掉多余的音高"。
+   *   根因：音名按 `y = Y(m)` 画，覆盖 PAD.t 到 PAD.t+ph 整段；
+   *   而鼓栏嵌在 PAD.t+ph-laneH 那一带 ⇒ 两边的字在左侧同一列叠住。 */
+  const noDrawBelow = PAD.t + ph - drumLaneHeight(ph);
   for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
     const y0 = Y(m + 0.5), y1 = Y(m - 0.5);
     const yTop = Math.min(y0, y1), hh = Math.max(1, Math.abs(y1 - y0));
+    if (yTop >= noDrawBelow) continue;         /* ⭐ 落在鼓栏里：整行跳过 */
     ctx.fillStyle = isBlackKey(m) ? "#141a24" : "#e8eefc";
     ctx.fillRect(0, yTop, PAD.l - 30, hh - (drawKeys ? 1 : 0));
     if (drawKeys) {
@@ -1265,6 +1279,8 @@ function drawPiano(lo, hi, Y, ph) {
   for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
     const y = Y(m);
     if (y < PAD.t - 2 || y > PAD.t + ph + 2) continue;
+    /* ⭐ 鼓栏那一带不标音名 —— 那里现在归鼓的 4 个件名，⛔ 不再有音高语义 */
+    if (y >= noDrawBelow) continue;
     const isC = (((m % 12) + 12) % 12 === 0);
     const black = isBlackKey(m);
     // 行太密时只标 C（否则字会糊成一团）
@@ -1273,6 +1289,15 @@ function drawPiano(lo, hi, Y, ph) {
     ctx.fillStyle = isC ? "#e8eefc" : "#8695ab";
     ctx.fillText(midiName(m), PAD.l - 27, y);
   }
+}
+
+/* ⭐ 鼓栏高度 —— 【唯一】算法，drawPiano 与 drawDrumLane 共用。
+ * 🔴 为什么抽出来：两处各写一份，改一处另一处不同步 ⇒ 钢琴"让位"的高度
+ *   与鼓栏真实高度差一格 ⇒ 又重叠回去（这类"两处常量漂移"踩过）。
+ * ⚠️ 没有鼓时返回 0 ⇒ 钢琴照常画满整幅。 */
+function drumLaneHeight(ph) {
+  if (!score || !score.drumSegs || !score.drumSegs.length) return 0;
+  return Math.max(48, Math.min(120, ph * 0.18));
 }
 /* 鼓单独一栏（2026-10-14，用户要求）。
  *
@@ -1300,7 +1325,10 @@ function drawDrumLane(X, pw) {
   const segs = score.drumSegs || [];
   if (!segs.length) return;                 /* 没有鼓就不占位置 */
   const { ph } = geom();
-  const laneH = Math.max(48, Math.min(120, ph * 0.18));
+  /* ⭐ 用 drumLaneHeight() 的同一算法 —— ⛔ 不在这里另写一份常量。
+   * 🔴 两处各写一份 ⇒ 改一处另一处不同步 ⇒ 钢琴"让位"的高度与鼓栏真实高度
+   *    差一格 ⇒ 又重叠回去（用户实测反馈过重叠）。 */
+  const laneH = drumLaneHeight(ph);
   const top = PAD.t + ph - laneH;
   const rowH = laneH / DRUM_LANE_ORDER.length;
 
@@ -1340,11 +1368,12 @@ function drawDrumLane(X, pw) {
     ctx.globalAlpha = 1;
   }
 
-  /* 标题 */
-  ctx.fillStyle = "#ffb020";
+  /* 标题。⚠️ 用 DRUM_COLOR 而不是写死的黄 ——
+   * 黄正好和【变速竖线】的 #ffb020 撞，图上根本分不清（踩过）。*/
+  ctx.fillStyle = DRUM_COLOR;
   ctx.textAlign = "left"; ctx.textBaseline = "top";
   ctx.font = "10px 'Microsoft YaHei UI',sans-serif";
-  ctx.fillText("鼓（axis " + DRUM_AXIS + "）· 4 件 · 独立一栏", PAD.l + 4, top + 3);
+  ctx.fillText("鼓 · 4 件 · 独立一栏", PAD.l + 4, top + 3);
 }
 
 function draw() {
@@ -1446,11 +1475,11 @@ function draw() {
   for (const n of (score.notes || [])) {
     if (n.axis === DRUM_AXIS) { seenTb.add("drum"); continue; }
     const tb = (n.timbre === undefined || n.timbre === null) ? -1 : n.timbre;
-    if (tb >= 0 && tb < TIMBRE_NAMES.length) seenTb.add(tb);
+    if (tb >= 0 && tb < TIMBRE_NAMES_ARR.length) seenTb.add(tb);
   }
   const legend = [];
-  for (let tb = 0; tb < TIMBRE_NAMES.length; tb++) {
-    if (seenTb.has(tb)) legend.push({ name: TIMBRE_NAMES[tb], color: TIMBRE_COLORS[tb] });
+  for (let tb = 0; tb < TIMBRE_NAMES_ARR.length; tb++) {
+    if (seenTb.has(tb)) legend.push({ name: TIMBRE_NAMES_ARR[tb], color: TIMBRE_COLORS[tb] });
   }
   if (seenTb.has("drum")) legend.push({ name: "鼓", color: DRUM_COLOR });
 

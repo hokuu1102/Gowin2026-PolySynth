@@ -299,6 +299,7 @@ def selftest():
         "_doc_cmd_check.py",     # 待上机清单的命令必须【单行可粘贴】+ 参数真实存在
         "_diag_bpm.js",          # 查一份 MIDI 的 tempo 转换结果（排查用，要 argv）
         "_diag_timbre_override.js",  # 验"网页改音色"是否真的下发（端到端，要 argv）
+        "_display_lane_check.js",   # 鼓栏左侧不画音名 + 图例不写轴号（要 argv）
         "_diag_chord.js",        # 查和弦是否被正确保留（排查用，要 argv）
         "_diag_chord5.js",       # 精确重叠测量（排查用，要 argv）
         "_diag_concurrency.js",  # 峰值并发 / 轴占用（排查用，要 argv）
