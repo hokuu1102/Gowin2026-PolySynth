@@ -285,6 +285,8 @@ def selftest():
         "_inc_scale_probe.py",    # 由权威锚点反推 inc 放大倍率（有 --selftest 7 项）
         "_lead_model_check.py",   # 提前量模型三版推演（有 --selftest 7 项）
         "_midi_parse_check.js",   # 网页 MIDI 解析器自检（node 跑，33 项）
+        "_upstream_parse_check.js",  # 回传（上行）解析器自检（node 跑，28 项）
+        "_gen_simul_probe.py",    # 多音色同时探针生成器（有 --selftest 9 项）
         # D —— 一次性排查脚本（人工判读结论）
         "_ble_poll_stress.py",    # A/B 探针（静默 vs 轮询）
         "_crash_capture.py",      # 崩溃取证器（出事才用）

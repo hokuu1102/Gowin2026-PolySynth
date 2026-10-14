@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>FPGA2026 · 回传可视化上位机</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <style>
   :root{
     --bg:#0b0e14; --panel:#141a24; --panel2:#1b2330; --line:#26303f;
@@ -404,14 +405,62 @@ function draw() {
 let device = null, chNoti = null, connected = false;
 const uuid16 = x => "0000" + x.toString(16).padStart(4, "0") + "-0000-1000-8000-00805f9b34fb";
 
+/* 2026-10-14 修：加【状态机 + busy 锁】—— 与 score_studio.html 同一套。
+ *
+ * 🔴 修之前的样子（用户报"点断开却又弹出连接窗口"）：
+ *     $("btnConn").onclick = () => {
+ *       if (connected) { device.gatt.disconnect(); connected = false; setConn(false); }
+ *       else connect();
+ *     };
+ *   两个缺陷叠加：
+ *     ① `connect()` 里 requestDevice() 是异步且慢的（用户在系统弹窗里挑设备），
+ *        此期间 connected 仍是 false => 再点一下 => 又进一次 connect => 再弹窗口。
+ *     ② `gatt.disconnect()` 是异步的，而 connected 立刻置了 false
+ *        => 在真正断开前点击 => 走 connect() 分支 => 弹窗。
+ *   ⚠️ score_studio.html 已修，但【本页漏了】—— 用户实测反馈后才发现。
+ *   📌 教训：同族的两个页面要【一起改】，⛔ 别只改你手上那个（同族 C91）。
+ */
+let busy = false;
+let connecting = false;
+
+/* 按钮状态统一在这里渲染 —— ⛔ 不许别处直接改 textContent/disabled。
+ * ⭐ 这样"按钮长什么样"与"内部状态"永远一致（结构上不可能不同步）。 */
+function renderConnBtn() {
+  const b = $("btnConn");
+  if (!b) return;
+  if (busy) {
+    b.textContent = connecting ? "连接中…" : "断开中…";
+    b.disabled = true;
+  } else {
+    b.textContent = connected ? "断开" : "连接并订阅回传";
+    b.disabled = false;
+  }
+}
+
+/* 断开事件可能是【我们主动断】引起的，也可能是【设备掉线】。
+ * ⭐ 用一个函数统一处理，并检查 device 是否已被主动清掉 ——
+ *   否则主动断开后这个"迟到的事件"会再改一次界面（状态被两次写）。 */
+function onGattDisconnected() {
+  if (!connected && device === null) return;   /* 主动断时已处理过，不重复动界面 */
+  connected = false;
+  device = null; chNoti = null;
+  setConn(false, "已断开");
+  feed("bad", "蓝牙已断开");
+  renderConnBtn();
+}
+
 async function connect() {
-  if (!navigator.bluetooth) { feed("bad", "这个浏览器不支持 Web Bluetooth，请用 Chrome/Edge"); return; }
+  if (busy) { feed("bad", "正在处理上一个操作，请稍候…"); return; }
+  if (connected) { feed("bad", "已经连上了"); return; }
+  if (!navigator.bluetooth) {
+    feed("bad", "这个浏览器不支持 Web Bluetooth，请用 Chrome/Edge"); return;
+  }
+  busy = true; connecting = true; renderConnBtn();
   try {
-    device = await navigator.bluetooth.requestDevice({
+    const dev = await navigator.bluetooth.requestDevice({
       filters: [{ namePrefix: "FPGA2026" }], optionalServices: [uuid16(SVC)] });
-    device.addEventListener("gattserverdisconnected", () => {
-      connected = false; setConn(false, "已断开"); feed("bad", "蓝牙已断开");
-    });
+    device = dev;
+    device.addEventListener("gattserverdisconnected", onGattDisconnected);
     const server = await device.gatt.connect();
     const svc = await server.getPrimaryService(uuid16(SVC));
     chNoti = await svc.getCharacteristic(uuid16(CH_NOTI));
@@ -422,17 +471,55 @@ async function connect() {
     });
     connected = true; setConn(true, "已订阅 " + (device.name || ""));
     feed("ts", "已连接并订阅 0xABF2 —— 现在让 FPGA（或 PC 当 FPGA）发数据");
-  } catch (e) { feed("bad", "连接失败：" + e.message); }
+  } catch (e) {
+    /* ⚠️ 用户取消选择器也会走到这里（NotFoundError）—— 那是正常操作，⛔ 不算错误 */
+    if (e && e.name === "NotFoundError") {
+      feed("ts", "已取消选择设备");
+    } else {
+      feed("bad", "连接失败：" + (e && e.message ? e.message : e));
+    }
+    /* ⭐ 清理半成品状态：device 可能已赋值但没连上 */
+    if (device) {
+      try { device.removeEventListener("gattserverdisconnected", onGattDisconnected); } catch (_) {}
+    }
+    device = null; chNoti = null; connected = false;
+    setConn(false);
+  } finally {
+    busy = false; connecting = false; renderConnBtn();
+  }
 }
+
+async function disconnect() {
+  if (busy) { feed("bad", "正在处理上一个操作，请稍候…"); return; }
+  busy = true; connecting = false; renderConnBtn();
+  const dev = device;
+  /* ⭐ 先清状态再断 —— 这样迟到的 gattserverdisconnected 看到 device===null
+   *   就知道"是我们主动断的"，不会重复改界面。 */
+  connected = false;
+  device = null; chNoti = null;
+  try {
+    if (dev) {
+      try { dev.removeEventListener("gattserverdisconnected", onGattDisconnected); } catch (_) {}
+      if (dev.gatt && dev.gatt.connected) dev.gatt.disconnect();
+    }
+    feed("ts", "已主动断开");
+  } catch (e) {
+    feed("bad", "断开时出错（已忽略）：" + (e && e.message ? e.message : e));
+  } finally {
+    setConn(false);
+    busy = false; renderConnBtn();
+  }
+}
+
 function setConn(on, txt) {
   $("dot").className = "dot" + (on ? " on" : "");
   $("connTxt").innerHTML = '<i class="dot' + (on ? " on" : "") + '"></i>' + (txt || (on ? "已连接" : "未连接"));
-  $("btnConn").textContent = on ? "断开" : "连接并订阅回传";
 }
-$("btnConn").onclick = () => {
-  if (connected) { try { device.gatt.disconnect(); } catch (e) {} connected = false; setConn(false); }
-  else connect();
-};
+/* 2026-10-14 修：⛔ 不再用 `connected ? ... : ...` 这种三元式（见上方说明）。
+ * ⭐ 现在只调一个入口，由 connect() / disconnect() 内部的 busy 锁把关。 */
+$("btnConn").onclick = () => { if (connected) disconnect(); else connect(); };
+/* 初始化按钮外观（由 renderConnBtn 统一渲染） */
+renderConnBtn();
 
 /* ============================== 导出 ============================== */
 function download(name, blob) {

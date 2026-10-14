@@ -640,11 +640,109 @@ bool pool_take_finished(void)
  * ⚠️ 保留池内容（⛔ 不清空）⇒ 若只是想停，之后仍可重播同一首。 */
 void pool_stop(void)
 {
+    /* 🔴🔴 2026-10-14 修：原来这里【只置标志，不补 note_off】⇒ 挂音。
+     *
+     * ═══ 用户实测报告 ═══
+     *   "在上位机按停止，esp32 好像没有发 note_off，导致最后一个音一直挂着"
+     *   => 查证属实，且这是【我方】缺陷，不是 FPGA 侧没处理：
+     *      FPGA 收到了某音的 note_on，却【永远等不到】配对的 note_off，
+     *      它当然只能一直响（FPGA 复位才停 —— 那是把整颗芯片清了）。
+     *
+     * ═══ 为什么会漏 ═══
+     *   pool_pump() 是【按 tick 顺序】喂帧的：遇到"还没到该发的 tick"就停。
+     *   => 停止那一刻，**已经开始响、但还没到它的 note_off 那一帧**的音，
+     *      就再也没有机会被关闭了。
+     *   ⚠️ 而 due_tick = pos_now - lead 让发送【领先播放】，
+     *      所以"已发出的 on"比"已发出的 off"多 —— 漏的正是它们。
+     *
+     * ═══ 修法（结构性）═══
+     *   停止时【扫一遍已发出的部分】，把"有 on 没 off"的音逐个补一帧 note_off。
+     *   为什么扫而不是维护"当前开着列表"：
+     *     ⭐ 扫是【自证】的 —— 结果只取决于"发过什么"，不取决于"我记得什么"。
+     *     记列表要在起播/换速/池重置多处维护生命周期，每处都可能漏。
+     *   ⚠️ 代价 O(已发帧数)，最坏 2 万帧 —— 停止不是热路径，可接受。
+     */
+    enum { MAX_OPEN = 64 };          /* 比 POLY_TARGET(32) 宽一倍，留余量 */
+    static uint32_t open_inc[MAX_OPEN];
+    static uint8_t  open_axis[MAX_OPEN];
+    uint32_t n_open = 0, dropped = 0, n_fix = 0;
+    uint32_t n_on = 0, n_off = 0, sent_idx = 0, frames = 0;
+
     xSemaphoreTake(s_lock, portMAX_DELAY);
+    if (!s_running) {
+        xSemaphoreGive(s_lock);
+        return;                       /* 本来就没在跑：不重复补 */
+    }
     s_running = false;
+    sent_idx = (s_play_idx < s_frames) ? s_play_idx : s_frames;
+    frames   = s_frames;
+
+    /* 扫已发出的部分，做 on/off 配对（⛔ 不扫没发的） */
+    for (uint32_t i = 0; i < sent_idx; i++) {
+        uint64_t w = pool_peek_word(i);
+        uint32_t k = ev_kind(w);
+        if (k != 0 && k != 1) continue;
+        uint32_t inc  = ev_inc(w);
+        uint8_t  axis = (uint8_t)((w >> 19) & 0xF);   /* AXIS 位域 [22:19] */
+        if (k == 0) {
+            n_on++;
+            bool merged = false;
+            for (uint32_t j = 0; j < n_open; j++) {
+                if (open_inc[j] == inc && open_axis[j] == axis) { merged = true; break; }
+            }
+            if (!merged) {
+                if (n_open < MAX_OPEN) {
+                    open_inc[n_open]  = inc;
+                    open_axis[n_open] = axis;
+                    n_open++;
+                } else {
+                    dropped++;                  /* 表满：计数，不静默 */
+                }
+            }
+        } else {
+            n_off++;
+            for (uint32_t j = 0; j < n_open; j++) {
+                if (open_inc[j] == inc && open_axis[j] == axis) {
+                    open_inc[j]  = open_inc[n_open - 1];
+                    open_axis[j] = open_axis[n_open - 1];
+                    n_open--;
+                    break;
+                }
+            }
+        }
+    }
+
+    /* 补发 note_off：tick 用【最后一个已发帧的 tick】，
+     * ⚠️ 与音乐时间一致 —— FPGA 侧按 tick 排序时不会跑到未来去。 */
+    uint32_t t_last = 0;
+    if (sent_idx > 0) t_last = ev_tick(pool_peek_word(sent_idx - 1));
+    for (uint32_t j = 0; j < n_open; j++) {
+        uint64_t w = ((uint64_t)(t_last & TICK_MASK) << TICK_SHIFT)
+                   | ((uint64_t)(open_inc[j] & INC_MASK) << INC_SHIFT)
+                   | ((uint64_t)(open_axis[j] & 0xF) << 19)
+                   | ((uint64_t)0 << 11)          /* vel = 0 */
+                   | ((uint64_t)1 << KIND_SHIFT); /* kind = 1 (note_off) */
+        uint8_t frame[FRAME_BYTES];
+        frame[0] = FRAME_HDR_EVENT;
+        for (int k = 0; k < 8; k++) {
+            frame[1 + k] = (uint8_t)((w >> (8 * (7 - k))) & 0xFF);
+        }
+        int wr = uart_write_bytes(BLE_UART_PORT, (const char *)frame, FRAME_BYTES);
+        if (wr == FRAME_BYTES) {
+            n_fix++;
+            s_sent_frames++;
+        } else {
+            ESP_LOGE(TAG, "STOP flush: uart_write_bytes short: %d", wr);
+        }
+    }
     xSemaphoreGive(s_lock);
-    ESP_LOGW(TAG, "pool STOP at frame %u/%u",
-             (unsigned)s_play_idx, (unsigned)s_frames);
+
+    ESP_LOGW(TAG, "pool STOP at frame %u/%u (on=%lu off=%lu) "
+             "=> flushed %lu note_off, still_open=%lu, dropped=%lu",
+             (unsigned)sent_idx, (unsigned)frames,
+             (unsigned long)n_on, (unsigned long)n_off,
+             (unsigned long)n_fix, (unsigned long)(n_open - n_fix),
+             (unsigned long)dropped);
 }
 
 /* ⭐ 已放出的帧数（2026-09-30 新增）—— 给"起播触发"打日志用。 */

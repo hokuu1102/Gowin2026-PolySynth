@@ -4,6 +4,13 @@
 <meta charset="utf-8">
 <title>FPGA2026 · 曲谱上位机</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 2026-10-14：禁止缓存。
+     为什么：用户报告"网页还是说读不了 MIDI，要我用 Python 转"——
+     ⚠️ 而代码早就改成直接支持了 ⇒ 🔴 那是【浏览器缓存】的旧页面。
+     这里显式禁掉，配合页面上的"构建"时间戳，用户一眼能确认版本。 -->
+<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+<meta http-equiv="Pragma" content="no-cache">
+<meta http-equiv="Expires" content="0">
 <style>
   :root{
     --bg:#0b0e14; --panel:#141a24; --panel2:#1b2330; --line:#26303f;
@@ -78,14 +85,36 @@
   .hint{color:var(--dim); font-size:12px; margin-top:6px}
   .pill{display:inline-block; padding:1px 7px; border-radius:999px; font-size:11px;
         background:var(--panel2); border:1px solid var(--line); color:var(--dim)}
+  /* 2026-10-14：模式切换（灌谱 / 回传） */
+  .modes{display:flex; gap:0; background:var(--panel2); border:1px solid var(--line);
+         border-radius:9px; overflow:hidden}
+  .mode{font:inherit; font-size:12px; padding:6px 14px; border:0; border-radius:0;
+        background:transparent; color:var(--dim); cursor:pointer}
+  .mode:hover:not(.on){background:#233046; color:var(--fg)}
+  .mode.on{background:linear-gradient(180deg,var(--acc),#2f7fd6); color:#04121f;
+           font-weight:700}
+  /* 回传模式下的面板默认隐藏，切到该模式才显示 */
+  .upOnly{display:none}
   #warn{display:none; margin:0 12px 0; padding:10px 14px; border-radius:10px;
         background:#3a2a10; border:1px solid #6b4d16; color:#ffd591; font-size:13px}
 </style>
 </head>
 <body>
 <header>
-  <h1>FPGA2026 · <span>曲谱上位机</span></h1>
+  <h1>FPGA2026 · <span>上位机</span></h1>
+  <!-- 2026-10-14：模式切换 —— 灌谱 / 回传合并在一个页面里。
+       为什么：两个页面各连一次蓝牙很麻烦（而且 BLE 是独占的，
+       切页要先断开再连）⇒ 用户要求整合。 -->
+  <div class="modes" id="modes">
+    <button id="mDown" class="mode on">灌谱（下发）</button>
+    <button id="mUp"   class="mode">回传（上行）</button>
+  </div>
   <span class="pill" id="proto">—</span>
+  <!-- 2026-10-14：显示构建时间 —— 用来一眼确认"我打开的是不是新版本"。
+       为什么需要：用户报"网页还是让我用 Python 转 MIDI"，
+       而代码早就改了 ⇒ 那是浏览器缓存的旧页面。
+       ⭐ 有了这行，用户只要看时间就知道有没有拿到新页面。 -->
+  <span class="pill" id="build">构建 —</span>
   <div class="spacer"></div>
   <span id="connTxt"><i class="dot" id="dot"></i>未连接</span>
   <button id="btnConn" class="primary">连接蓝牙</button>
@@ -161,6 +190,59 @@
     </div>
   </div>
 </main>
+
+<!-- ═══════════════════════════════════════════════════════════════════════
+     2026-10-14：回传模式（上行）—— 由 upstream_studio.html 整合进来。
+     ⭐ 为什么整合：两个页面各连一次蓝牙很麻烦；而且 BLE 是【独占】的，
+        切页必须先断开再连 => 用户明确要求合并。
+     ⭐ 共用同一个 BLE 连接：连接时【同时】订阅 0xABF2（回传通知），
+        无论当前在哪个模式 —— 这样切模式不用重连。
+     ═══════════════════════════════════════════════════════════════════════ -->
+<div id="upPane" class="upOnly" style="flex:1; display:none; gap:12px; padding:0 12px 12px">
+  <div class="col" style="width:280px; flex:none">
+    <div class="card">
+      <h2>回传统计</h2>
+      <div class="stats" style="grid-template-columns:repeat(2,1fr)">
+        <div><small>字节</small><b id="u_bytes">0</b></div>
+        <div><small>帧</small><b id="u_frames">0</b></div>
+        <div><small>音符</small><b id="u_notes">0</b></div>
+        <div><small>表同步</small><b id="u_tabs">0</b></div>
+        <div><small>坏校验</small><b id="u_bad">0</b></div>
+        <div><small>未知类型</small><b id="u_unk">0</b></div>
+        <div><small>重同步</small><b id="u_resync">0</b></div>
+        <div><small>速率 B/s</small><b id="u_rate">0</b></div>
+      </div>
+      <div class="kv"><b>最后音高</b><span id="u_last">-</span></div>
+    </div>
+    <div class="card">
+      <h2>导出</h2>
+      <div class="row">
+        <button id="u_btnBin" class="primary">导出 .bin</button>
+        <button id="u_btnMid">导出 .mid</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button id="u_btnClear" class="wide">清空</button>
+      </div>
+      <div class="hint">
+        需要 FPGA 侧先开发送（命令 <b>'O'</b> 0x4F 切实时上行，复位默认关）。
+      </div>
+    </div>
+  </div>
+  <div class="col mid">
+    <div id="u_rollWrap" style="flex:1; min-height:0; position:relative; background:var(--panel);
+         border:1px solid var(--line); border-radius:12px; overflow:hidden">
+      <canvas id="u_roll" style="width:100%; height:100%; display:block"></canvas>
+    </div>
+  </div>
+  <div class="col" style="width:340px; flex:none">
+    <div class="card" style="flex:1; display:flex; flex-direction:column; min-height:0">
+      <h2>事件流</h2>
+      <div id="u_feed" style="flex:1; overflow:auto; font:12px/1.5 Consolas,monospace;
+           color:var(--dim); background:#0e131b; border:1px solid var(--line);
+           border-radius:9px; padding:8px; white-space:pre-wrap"></div>
+    </div>
+  </div>
+</div>
 
 <script>
 "use strict";
@@ -795,6 +877,21 @@ async function connect() {
     chRecv = await svc.getCharacteristic(uuid16(CH_RECV));
     chCmd  = await svc.getCharacteristic(uuid16(CH_CMD));
     chStat = await svc.getCharacteristic(uuid16(CH_STAT));
+    /* 2026-10-14：⭐ 连接时【同时】订阅回传通知（0xABF2）——
+     * 这样"灌谱 / 回传"两个模式共用一条连接，切换⛔ 不需要重连。
+     * ⚠️ 订阅失败【不能】让整个连接失败：灌谱功能不依赖它
+     *    （例如设备固件还没实现 0xABF2 时应仍能灌谱）。 */
+    try {
+      const chNoti = await svc.getCharacteristic(uuid16(CH_NOTI));
+      await chNoti.startNotifications();
+      chNoti.addEventListener("characteristicvaluechanged", ev => {
+        const dv = ev.target.value;
+        uPushBytes(new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength));
+      });
+      log("已订阅回传通道 0xABF2（切到「回传」模式即可看）", "ok");
+    } catch (e) {
+      log("⚠️ 订阅回传通道失败（不影响灌谱）：" + (e && e.message ? e.message : e), "er");
+    }
     connected = true;
     setConn(true, "已连接 " + (device.name || ""));
     log("已连接 " + device.name, "ok");
@@ -1097,9 +1194,378 @@ drop.addEventListener("drop", e => {
 });
 
 /* ============================== 启动 ============================== */
+/* ═══════════════════════════════════════════════════════════════════════════
+ * 2026-10-14：回传模式（上行）—— 由 upstream_studio.html 整合进来
+ * ═══════════════════════════════════════════════════════════════════════════
+ * ⭐ 为什么整合：两个页面各连一次蓝牙很麻烦；而 BLE 是【独占】的，
+ *    切页必须先断开再连 ⇒ 用户明确要求合并成一个页面 + 切换按钮。
+ *
+ * ⭐ 关键设计：**共用同一个 BLE 连接**
+ *    连接时【同时】订阅 0xABF2（回传通知）—— 无论当前在哪个模式。
+ *    ⇒ 切换模式【不需要重连】。这是整合的最大价值。
+ *
+ * ⚠️ 上行帧格式（v1.1，与 esp32/tools/evt2midi/frame_format.py 一致）：
+ *    [0]=0xA5 [1]=type [2]=seq [3..6]=tick(32b) [7]=axis
+ *    [8..11]=phase_inc(32b) [12]=vel [13]=XOR 校验（覆盖 [1..12]）
+ *    type: 0x01 note_on · 0x02 note_off · 0x03 calib · 0x04 looper · 0x10 tablesync(68B)
+ */
+const U_HDR = 0xA5;
+const U_T_ON = 0x01, U_T_OFF = 0x02, U_T_CALIB = 0x03, U_T_LOOPER = 0x04, U_T_TAB = 0x10;
+const U_T_TRANSPORT = 0x05;                 // ⭐ v1.1 新增：起播锚点（[8..11] 存 ppqn）
+const U_LEN_NOTE = 14, U_LEN_TAB = 68;
+const U_TAB_ITEMS = 16, U_TAB_OFF = 3, U_TAB_ITEM_BYTES = 4;
+/* ⚠️ 上行 inc -> Hz 的换算。FPGA 侧合成时钟是 48.828125 kHz（= 50 MHz / 1024，
+ *    见 drum_gen 的换算常数），⛔ 不是 50 MHz。
+ *    ⭐ 原来回传页写 F_CLK = 50000000 且 PPQN = 480 —— 两个都不对，
+ *      实测 A4 会算成不是 440 Hz。这里按 FPGA 侧给的 fs 修正。 */
+const U_FS = 48828.125;
+const U_TWO32 = 4294967296;
+const U_PPQN = 960;                          // 与固件 beat_gen 一致（原来是 480，错）
+
+const frameLenFor = t => (t === U_T_TAB ? U_LEN_TAB : U_LEN_NOTE);
+const uXor = b => { let c = 0; for (let i = 0; i < b.length - 1; i++) c ^= b[i]; return c & 0xFF; };
+const uIncToHz = inc => inc * U_FS / U_TWO32;
+const uHzToMidi = hz => hz <= 0 ? 0 : Math.round(69 + 12 * Math.log2(hz / 440));
+function uHzToNote(hz) {
+  if (!(hz > 0)) return "-";
+  const m = Math.round(69 + 12 * Math.log2(hz / 440));
+  return midiName(m) + " (" + hz.toFixed(1) + " Hz)";
+}
+
+/* 回传状态（与灌谱的 score 分开，互不干扰） */
+const U = {
+  buf: new Uint8Array(0), bytes: 0, frames: 0, notes: 0, tabs: 0,
+  bad: 0, unk: 0, resync: 0, lastHz: 0, ppqn: null,
+  events: [],                    /* {tick, type, axis, hz, midi, vel, seq} */
+  tabItems: null, tabNo: null, t0: 0, rateBytes: 0,
+};
+const U_MAX_EVENTS = 20000;
+
+function uReset() {
+  U.buf = new Uint8Array(0); U.bytes = 0; U.frames = 0; U.notes = 0; U.tabs = 0;
+  U.bad = 0; U.unk = 0; U.resync = 0; U.lastHz = 0; U.ppqn = null; U.events = [];
+  U.tabItems = null; U.tabNo = null; U.t0 = performance.now(); U.rateBytes = 0;
+  const el = $("u_feed"); if (el) el.innerHTML = "";
+  uPaint(); uDraw();
+}
+
+function uFeed(cls, txt) {
+  const el = $("u_feed");
+  if (!el) return;
+  const t = new Date().toTimeString().slice(0, 8);
+  el.insertAdjacentHTML("beforeend",
+    '<div><span style="color:#5b6b82">' + t + "</span> " +
+    (cls ? '<span class="' + cls + '">' + txt + "</span>" : txt) + "</div>");
+  el.scrollTop = el.scrollHeight;
+}
+
+/* BLE 通知回调 —— ⭐ 由 connect() 里的订阅调用（见下方 U.onBytes 挂钩） */
+function uPushBytes(u8) {
+  const nb = new Uint8Array(U.buf.length + u8.length);
+  nb.set(U.buf); nb.set(u8, U.buf.length); U.buf = nb;
+  U.bytes += u8.length; U.rateBytes += u8.length;
+  uParse(); uPaint();
+}
+
+function uParse() {
+  let i = 0;
+  while (i < U.buf.length) {
+    if (U.buf[i] !== U_HDR) { U.resync++; i++; continue; }
+    if (i + 2 > U.buf.length) break;
+    const t = U.buf[i + 1];
+    if (t !== U_T_ON && t !== U_T_OFF && t !== U_T_CALIB &&
+        t !== U_T_LOOPER && t !== U_T_TAB && t !== U_T_TRANSPORT) {
+      U.unk++; i++; continue;
+    }
+    const flen = frameLenFor(t);
+    if (i + flen > U.buf.length) break;
+    const fr = U.buf.subarray(i, i + flen);
+    if (uXor(fr) !== fr[flen - 1]) {
+      U.bad++;
+      uFeed("er", "坏校验  type=0x" + t.toString(16) + "  seq=" + fr[2] +
+                  "  期望 0x" + uXor(fr).toString(16) + "  实测 0x" + fr[flen - 1].toString(16));
+      i += flen;                                 /* 校验失败也按帧长前进，保持同步 */
+      continue;
+    }
+    U.frames++;
+    if (t === U_T_TRANSPORT) {
+      /* ⭐ v1.1：起播锚点 —— [8..11] 存 ppqn（⛔ 不是 phase_inc） */
+      U.ppqn = ((fr[8] << 24) | (fr[9] << 16) | (fr[10] << 8) | fr[11]) >>> 0;
+      const tick = ((fr[3] << 24) | (fr[4] << 16) | (fr[5] << 8) | fr[6]) >>> 0;
+      uFeed("ok", "起播锚点  seq=" + fr[2] + "  tick=" + tick + "  ppqn=" + U.ppqn);
+    } else if (t === U_T_TAB) {
+      U.tabs++; U.tabNo = fr[2];
+      const items = [];
+      for (let k = 0; k < U_TAB_ITEMS; k++) {
+        const o = U_TAB_OFF + k * U_TAB_ITEM_BYTES;
+        items.push(((fr[o] << 24) | (fr[o+1] << 16) | (fr[o+2] << 8) | fr[o+3]) >>> 0);
+      }
+      U.tabItems = items;
+      uFeed("ts", "表同步 表号=" + U.tabNo + "  inc[0]=" + items[0] +
+                  " (" + uHzToNote(uIncToHz(items[0])) + ")  inc[15]=" + items[15]);
+    } else {
+      const tick = ((fr[3] << 24) | (fr[4] << 16) | (fr[5] << 8) | fr[6]) >>> 0;
+      const axis = fr[7];
+      const inc = ((fr[8] << 24) | (fr[9] << 16) | (fr[10] << 8) | fr[11]) >>> 0;
+      const vel = fr[12];
+      const hz = uIncToHz(inc);
+      U.notes++; U.lastHz = hz;
+      U.events.push({ tick, type: t, axis, hz, midi: uHzToMidi(hz), vel, seq: fr[2] });
+      if (U.events.length > U_MAX_EVENTS) {
+        U.events.splice(0, U.events.length - U_MAX_EVENTS);
+      }
+      uFeed(t === U_T_ON ? "ok" : "", (t === U_T_ON ? "note_on " : "note_off") +
+            "  seq=" + fr[2] + "  tick=" + tick + "  轴=" + axis +
+            "  " + uHzToNote(hz) + "  力度=" + vel);
+    }
+    i += flen;
+  }
+  if (i > 0) U.buf = U.buf.slice(i);
+  uDraw();
+}
+
+function uPaint() {
+  const set = (id, v, warn) => {
+    const e = $(id); if (!e) return;
+    e.textContent = v;
+    if (warn !== undefined) e.style.color = warn ? "var(--err)" : "var(--fg)";
+  };
+  set("u_bytes", U.bytes); set("u_frames", U.frames); set("u_notes", U.notes);
+  set("u_tabs", U.tabs);
+  set("u_bad", U.bad, !!U.bad); set("u_unk", U.unk, !!U.unk);
+  set("u_resync", U.resync, !!U.resync);
+  set("u_last", U.lastHz ? uHzToNote(U.lastHz) : "-");
+}
+
+/* 速率：每秒刷一次（与时间相关，不能只在收到数据时算） */
+setInterval(() => {
+  const dt = (performance.now() - U.t0) / 1000;
+  const e = $("u_rate");
+  if (e) e.textContent = dt > 0.3 ? Math.round(U.rateBytes / dt) : 0;
+  U.rateBytes = 0; U.t0 = performance.now();
+}, 1000);
+
+/* ---------------- 回传卷帘图 ---------------- */
+const U_AXIS_COLORS = ["#4ea1ff","#3ddc84","#ffb020","#ff7ab2","#a78bfa","#22d3ee",
+                       "#fb923c","#f472b6","#34d399","#facc15","#60a5fa","#c084fc",
+                       "#2dd4bf","#f87171","#a3e635","#fcd34d"];
+
+function uFitCanvas() {
+  const cv = $("u_roll"); if (!cv) return;
+  const r = cv.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  cv.width = Math.max(1, Math.floor(r.width * dpr));
+  cv.height = Math.max(1, Math.floor(r.height * dpr));
+  cv.style.width = r.width + "px"; cv.style.height = r.height + "px";
+  const c = cv.getContext("2d");
+  c.setTransform(dpr, 0, 0, dpr, 0, 0);
+  uDraw();
+}
+
+function uDraw() {
+  const cv = $("u_roll"); if (!cv) return;
+  const ctx = cv.getContext("2d");
+  const w = cv.clientWidth, h = cv.clientHeight;
+  const PAD = { l: 76, r: 14, t: 14, b: 22 };
+  const pw = Math.max(1, w - PAD.l - PAD.r), ph = Math.max(1, h - PAD.t - PAD.b);
+  ctx.clearRect(0, 0, w, h);
+  ctx.fillStyle = "#1b2330"; ctx.fillRect(PAD.l, PAD.t, pw, ph);
+  ctx.strokeStyle = "#26303f"; ctx.strokeRect(PAD.l + .5, PAD.t + .5, pw - 1, ph - 1);
+
+  if (!U.events.length) {
+    ctx.fillStyle = "#8695ab"; ctx.font = "14px 'Microsoft YaHei UI',sans-serif";
+    ctx.textAlign = "center"; ctx.textBaseline = "middle";
+    ctx.fillText("等回传数据 —— 先在右上角连上蓝牙（会同时订阅回传）", w / 2, h / 2);
+    return;
+  }
+  const win = U.events.slice(-512);
+  const tMin = win[0].tick, tMax = Math.max(win[win.length - 1].tick, tMin + 1);
+  const mids = win.map(e => e.midi).filter(m => m > 0);
+  let lo = mids.length ? Math.min(...mids) - 1 : 0;
+  let hi = mids.length ? Math.max(...mids) + 1 : 1;
+  if (hi - lo < 6) { lo -= 3; hi += 3; }
+  const X = t => PAD.l + ((t - tMin) / (tMax - tMin)) * pw;
+  const Y = m => PAD.t + ph - ((m - lo) / (hi - lo)) * ph;
+  const rowH = ph / (hi - lo);
+  const drawKeys = rowH >= 5;
+
+  ctx.font = "10px Consolas,monospace"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
+    const y0 = Y(m + 0.5), y1 = Y(m - 0.5);
+    const yTop = Math.min(y0, y1), hh = Math.max(1, Math.abs(y1 - y0));
+    ctx.fillStyle = isBlackKey(m) ? "#141a24" : "#e8eefc";
+    ctx.fillRect(0, yTop, PAD.l - 30, hh - (drawKeys ? 1 : 0));
+    if (drawKeys) {
+      ctx.strokeStyle = "#0b0e14"; ctx.lineWidth = 1;
+      ctx.strokeRect(0.5, yTop + 0.5, PAD.l - 31, Math.max(1, hh - 1));
+    }
+  }
+  ctx.textAlign = "left";
+  for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
+    const y = Y(m);
+    if (y < PAD.t - 2 || y > PAD.t + ph + 2) continue;
+    const isC = (((m % 12) + 12) % 12 === 0);
+    const black = isBlackKey(m);
+    if (!isC && !black && rowH < 9) continue;
+    if (!isC && rowH < 5) continue;
+    ctx.fillStyle = isC ? "#e8eefc" : "#8695ab";
+    ctx.fillText(midiName(m), PAD.l - 27, y);
+  }
+  ctx.textAlign = "right";
+  for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
+    if (((m % 12) + 12) % 12 === 0) {
+      const y = Y(m);
+      ctx.strokeStyle = "#212b3a"; ctx.beginPath();
+      ctx.moveTo(PAD.l, y); ctx.lineTo(PAD.l + pw, y); ctx.stroke();
+    }
+  }
+  /* 音符：画成【有长度的色块】—— 与灌谱侧一致。
+   * ⚠️ 上行是【流式】到达的，不能预先配对；滚动窗口也会截断，
+   *    所以配不到的 on 按"最小长度"画（表示正在响）。 */
+  const blockH = Math.max(2, Math.min(rowH * 0.72, 12));
+  const minLen = Math.max(1, (tMax - tMin) / 400);
+  const openMap = new Map();
+  for (const e of win) {
+    const key = ((e.axis & 15) * 128) + (e.midi & 127);
+    if (e.type === U_T_ON) {
+      openMap.set(key, e.tick);
+    } else {
+      const t0 = openMap.get(key);
+      if (t0 !== undefined) {
+        openMap.set(key, undefined);
+        const x0 = X(t0), x1 = X(e.tick);
+        ctx.fillStyle = U_AXIS_COLORS[e.axis % 16];
+        ctx.globalAlpha = 0.5 + 0.5 * Math.min(1, (e.vel || 0) / 127);
+        ctx.fillRect(x0, Y(e.midi) - blockH / 2, Math.max(1.6, x1 - x0), blockH);
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+  // 还没闭合的 on：画个块（正在响）
+  for (const [, t0] of openMap) {
+    if (t0 === undefined) continue;
+    ctx.globalAlpha = 0.75;
+    ctx.fillStyle = "#e8eefc";
+    ctx.fillRect(X(t0), Y(lo + (hi - lo) / 2) - blockH / 2,
+                 Math.max(1.6, X(t0 + minLen) - X(t0)), blockH);
+    ctx.globalAlpha = 1;
+  }
+  // 轴图例
+  const axes = [...new Set(win.map(e => e.axis))].sort((a, b) => a - b);
+  let lx = PAD.l + 4; ctx.textAlign = "left";
+  for (const a of axes.slice(0, 14)) {
+    ctx.fillStyle = U_AXIS_COLORS[a % 16]; ctx.fillRect(lx, PAD.t + ph + 6, 8, 8);
+    ctx.fillStyle = "#8695ab"; ctx.fillText("轴" + a, lx + 11, PAD.t + ph + 14);
+    lx += 44;
+  }
+  if (U.tabItems) {
+    ctx.fillStyle = "#ffb020"; ctx.textAlign = "right";
+    ctx.fillText("表同步：表号 " + U.tabNo + " · inc[0]=" + U.tabItems[0] +
+                 " → " + uHzToNote(uIncToHz(U.tabItems[0])), PAD.l + pw - 6, PAD.t + 10);
+  }
+}
+
+/* ---------------- 导出 ---------------- */
+function uDownload(name, blob) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+/* 上行事件 -> MIDI。
+ * ⚠️ tick 单位：FPGA 侧答复说明 14 B 帧的 tick 是【自由运行计数器】，
+ *    换算要 ppqn（起播锚点帧给）。拿不到 ppqn 时退回 960 并**在日志里说清**。
+ * ⭐ 与 evt2midi.py 的口径一致：先在"音乐 tick"上排，再写成 MIDI。 */
+function uBuildMidi() {
+  const ppqn = U.ppqn || U_PPQN;
+  const evs = U.events.filter(e => e.type === U_T_ON || e.type === U_T_OFF);
+  if (!evs.length) return null;
+  /* 排序：先 tick，再 kind（off 优先 —— 同 tick 时先关旧音再开新音） */
+  const sorted = evs.slice().sort((a, b) =>
+    (a.tick - b.tick) || ((a.type === U_T_ON ? 1 : 0) - (b.type === U_T_ON ? 1 : 0)));
+  const t0 = sorted[0].tick;
+  const out = [];
+  const vlq = n => { const s = [n & 0x7F]; n >>= 7; while (n) { s.unshift((n & 0x7F) | 0x80); n >>= 7; } return s; };
+  let last = 0;
+  for (const e of sorted) {
+    const dt = Math.max(0, e.tick - t0 - last);
+    last = e.tick - t0;
+    out.push(200 & 0);                                    // placeholder（见下）
+    out.pop();
+    const status = (e.type === U_T_ON ? 0x90 : 0x80);
+    out.push(...vlq(dt), status, e.midi & 0x7F,
+             e.type === U_T_ON ? (e.vel & 0x7F) : 0);
+  }
+  out.push(...vlq(0), 0xFF, 0x2F, 0x00);
+  const trackLen = out.length;
+  const hdr = [0x4D,0x54,0x68,0x64, 0,0,0,6, 0,0, 0,1,
+               (ppqn >> 8) & 0xFF, ppqn & 0xFF];
+  const trk = [0x4D,0x54,0x72,0x6B,
+               (trackLen>>>24)&0xFF,(trackLen>>>16)&0xFF,(trackLen>>>8)&0xFF,trackLen&0xFF];
+  return new Blob([new Uint8Array([...hdr, ...trk, ...out])], { type: "audio/midi" });
+}
+
+$("u_btnBin").onclick = () => {
+  if (!U.bytes) { log("还没有回传数据", "er"); return; }
+  uDownload("upstream.bin", new Blob([U.buf.length ? U.buf : new Uint8Array(0)],
+            { type: "application/octet-stream" }));
+};
+$("u_btnMid").onclick = () => {
+  const b = uBuildMidi();
+  if (!b) { log("没有可导出的音符（先连上并让 FPGA 发数据）", "er"); return; }
+  uDownload("upstream.mid", b);
+  log("已导出 upstream.mid —— ⚠️ tick 单位用 ppqn=" + (U.ppqn || U_PPQN) +
+      (U.ppqn ? "（来自起播锚点）" : "（⚠️ 起播锚点帧没收到，退回 960）"), "");
+};
+$("u_btnClear").onclick = () => { uReset(); log("回传数据已清空", ""); };
+
+/* ---------------- 模式切换 ---------------- */
+let uiMode = "down";                 /* "down" = 灌谱 · "up" = 回传 */
+function setMode(m) {
+  uiMode = m;
+  const dn = document.querySelector("main");
+  const up = $("upPane");
+  const bd = $("mDown"), bu = $("mUp");
+  if (m === "up") {
+    if (dn) dn.style.display = "none";
+    if (up) up.style.display = "flex";
+  } else {
+    if (dn) dn.style.display = "flex";
+    if (up) up.style.display = "none";
+  }
+  if (bd) bd.className = "mode" + (m === "down" ? " on" : "");
+  if (bu) bu.className = "mode" + (m === "up" ? " on" : "");
+  /* ⭐ 切换后要重新量画布尺寸 —— 隐藏时量出来是 0，画出来是空白 */
+  setTimeout(() => {
+    try { if (m === "up") { uFitCanvas(); uDraw(); } else { fitCanvas(); draw(); } }
+    catch (e) { /* 画布还没就绪：算了，不影响功能 */ }
+  }, 30);
+}
+$("mDown").onclick = () => setMode("down");
+$("mUp").onclick = () => setMode("up");
+window.addEventListener("resize", () => { if (uiMode === "up") uFitCanvas(); });
+
 (async function boot() {
   const proto = location.protocol;
   $("proto").textContent = proto === "file:" ? "file:// 模式" : (location.host || proto);
+
+  /* 显示本页的构建时间 —— ⭐ 用来确认"打开的是不是新版本"。
+   * 取 document.lastModified（由服务器按文件 mtime 给出）。
+   * ⚠️ 若显示的时间比你改代码的时间早 => 🔴 你拿到的是缓存，按 Ctrl+F5。
+   * ⭐ 这条是给"用户报的 bug 其实是缓存"这种情况兜底的（2026-10-14 踩过）。 */
+  try {
+    const lm = document.lastModified;
+    const d = lm ? new Date(lm) : null;
+    const el = $("build");
+    if (el && d && !isNaN(d.getTime())) {
+      const p = n => String(n).padStart(2, "0");
+      el.textContent = "构建 " + p(d.getMonth() + 1) + "-" + p(d.getDate()) +
+                       " " + p(d.getHours()) + ":" + p(d.getMinutes());
+      el.title = "本页文件的最后修改时间（服务器给出）。若比你预期旧，按 Ctrl+F5 强制刷新。";
+    }
+  } catch (e) { /* 拿不到就算了，⛔ 不影响功能 */ }
+
   if (!navigator.bluetooth) {
     $("warn").style.display = "block";
     $("warn").innerHTML = "⚠️ 这个浏览器没有 Web Bluetooth。请用 <b>Chrome</b> 或 <b>Edge</b> 打开本页。";
