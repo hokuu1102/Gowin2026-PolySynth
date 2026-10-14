@@ -288,6 +288,7 @@ def selftest():
         "_upstream_parse_check.js",  # 回传（上行）解析器自检（node 跑，28 项）
         "_gen_simul_probe.py",    # 多音色同时探针生成器（有 --selftest 9 项）
         "drum_map.py",            # GM 鼓音高 -> FPGA 鼓机四件（有 --selftest 16 项）
+        "_drum_inc_options.py",   # 21 位装不下鼓的三条路代价分析（排查用）
         "_drum_track_check.js",   # 鼓转换 + 选轨自检（node 跑，24 项）
         "_inspect_midi.js",       # 看一份 MIDI 的轨结构与分类（排查用）
         "_check_user_midi.js",    # 用真实 MIDI 验鼓转换与选轨（排查用）
