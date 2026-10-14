@@ -427,6 +427,13 @@ function parseMidi(buf) {
   const b = new Uint8Array(buf);
   if (b.length < 14) throw new Error("文件太小，不是 MIDI");
   if (_rdStr(b, 0, 4) !== "MThd") throw new Error("不是 MIDI 文件（缺 MThd）");
+  /* ⭐ 全局 tempo 列表（2026-10-14 修）——
+   * 🔴 为什么需要：全局 BPM 的谱子常把 tempo 放在【单独的 tempo 轨】上，
+   *    而那条轨【一个音符都没有】⇒ 原来按"有没有音符"过滤轨时
+   *    tempo 轨被整个丢掉 ⇒ 谱子的 BPM 全丢 ⇒ 兜底成 120。
+   * ⚠️ 本列表在 parse 阶段汇总，⛔ 不受轨过滤影响。
+   * ⚠️ temp0 轨仍不进选轨列表（它没音符可选）。 */
+  const allTempos = [];
   const hdrLen = _rdU32(b, 4);
   const fmt = _rdU16(b, 8);
   const ntrk = _rdU16(b, 10);
@@ -458,6 +465,7 @@ function parseMidi(buf) {
         if (type === 0x51 && mlen === 3) {        /* set tempo: 3 字节微秒/四分音符 */
           const usq = (b[q.i] << 16) | (b[q.i + 1] << 8) | b[q.i + 2];
           tr.tempos.push({ tick: tick, usPerQuarter: usq });
+          allTempos.push({ tick: tick, usPerQuarter: usq });   /* ⭐ 全局也存一份 */
         } else if (type === 0x03) {               /* track name */
           let s = "";
           for (let k = 0; k < mlen; k++) s += String.fromCharCode(b[q.i + k]);
@@ -493,7 +501,8 @@ function parseMidi(buf) {
     p = end;
     if (tr.notes.length) tracks.push(tr);
   }
-  return { format: fmt, division: division, tracks: tracks };
+  /* ⭐ allTempos 无条件返回（⛔ 不受 tracks 过滤影响）*/
+  return { format: fmt, division: division, tracks: tracks, allTempos: allTempos };
 }
 
 /* ---- 音高换算（⭐ 与 mid2evt.py 的 note_to_phase_inc 一致）---- */
@@ -607,18 +616,46 @@ function midiToWords(parsed) {
    * ⚠️ 只在 tick=0 时写一次 —— FPGA 侧 tick_inc 是全局的，
    *    中途变 BPM 需要 kind=2 事件，本工具暂只支持恒定速度。 */
   let bpm = 120;
-  const allTempos = [];
-  for (const tr of parsed.tracks) for (const t of tr.tempos) allTempos.push(t);
+  const allTempos = (parsed.allTempos || []).slice();
+  if (!allTempos.length) {
+    for (const tr of parsed.tracks) {
+      for (const t of (tr.tempos || [])) allTempos.push(t);
+    }
+  }
   allTempos.sort((a, b) => a.tick - b.tick);
   if (allTempos.length) {
     const us = allTempos[0].usPerQuarter;
     if (us > 0) bpm = 60000000 / us;
   }
   /* ⚠️ srcTrack = -1 是【公共事件】标记：选轨时永远保留（换速与轨无关，
-   *    但没有它 FPGA 的时基就错）。 */
+   *   缺了它 FPGA 的时基就错）。 */
+  const firstTempoTick = allTempos.length ? Math.round(allTempos[0].tick * scale) : 0;
+  /* ⭐ 兜底帧：tempo 轨若不在 tick 0 起步，先补 tick 0 的一帧 ——
+   *   ⛔ 否则 FPGA 的复位默认（120 BPM）会一路吃到第一个 tempo 为止。 */
   evs.push({ tick: 0, kind: KIND_TEMPO, inc: bpmToTickInc(bpm), vel: 0,
-             axis: 0, timbre: 0, srcTrack: -1 });
-  tempoCount = 1;
+             axis: 0, timbre: 0, srcTrack: -1,
+             tempoNote: (firstTempoTick === 0
+                        ? "BPM " + bpm.toFixed(2)
+                        : "兜底（首个 tempo 之前）") });
+  tempoCount++;
+  /* ⭐ 其后的每个 tempo 都发 —— FPGA 侧 play_seq 支持多处 tempo
+   *   （「手动改速与曲谱 kind=2 事件写同一个寄存器 ⇒ 后写者胜」）。
+   * ⚠️ 若第一个 tempo 就在 tick 0，上面那帧已经覆盖了，这里跳过它，
+   *   ⛔ 不要重复发两个同 tick 的 tempo。 */
+  for (const t of allTempos) {
+    if (firstTempoTick === 0 && Math.round(t.tick * scale) === 0) continue;
+    const us = t.usPerQuarter;
+    if (!(us > 0)) continue;              /* 0 微秒/四分音符非法 */
+    const b = 60000000 / us;
+    evs.push({ tick: Math.round(t.tick * scale), kind: KIND_TEMPO,
+               inc: bpmToTickInc(b), vel: 0, axis: 0, timbre: 0,
+               srcTrack: -1, tempoNote: "BPM " + b.toFixed(2) });
+    tempoCount++;
+  }
+  if (allTempos.length > 1) {
+    log("⚠️ 该谱子有 %d 个 tempo 点（变速）—— 已全部转成 kind=2 事件"
+        + "（FPGA 侧 play_seq 支持多处 tempo）", allTempos.length);
+  }
 
   /* ② 决定轴分配：鼓优先，其余按【音色类型】归组
    * ⭐ 用户裁定（2026-10-14）：按乐器类型分，鼓单独一轨。
