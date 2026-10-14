@@ -117,6 +117,8 @@ module tb_span_with_real_adc_farm;
 
     integer spans = 0, rejects = 0;
     always @(posedge clk) begin
+        if (rst_n && ((^{sp_span, sp_reject, sp_done_cnt, sp_rej_cnt}) === 1'bx))
+            $fatal(1, "FAIL: unknown public span status");
         if (sp_reject) rejects = rejects + 1;
         if (|sp_span)  spans   = spans + 1;
     end
@@ -197,13 +199,16 @@ module tb_span_with_real_adc_farm;
             $display("NOTE: spans=%0d rejects=%0d state=%0d —— 需要人工判读", spans, rejects, sp_state);
         end
 
+        if (spans <= 0 || rejects != 0)
+            $fatal(1, "FAIL: real SPI ADC calibration made no clean progress");
+        $display("PASS: real SPI ADC calibration makes progress without rejection");
         $finish;
     end
 
     initial begin
         #200_000_000;
         $display("FAIL: tb 自身超时");
-        $finish;
+        $fatal(1, "FAIL: real-ADC watchdog");
     end
 
 endmodule
