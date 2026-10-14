@@ -1,0 +1,80 @@
+
+================================================================
+ tb_transpose · T3 实时变调（步骤①）
+================================================================
+
+=== T1: transpose=0 ⇒ voice_phase_inc_o 逐拍逐位 == note_manager_ref ===
+  -- base_oct_r 档 0（base_semi=0）随机激励 5000 拍 --
+  -- base_oct_r 档 1（base_semi=12）随机激励 5000 拍 --
+  -- base_oct_r 档 2（base_semi=24）随机激励 5000 拍 --
+  比较 15258 拍
+  ok  : T1: transpose=0 => phase_inc bit-identical to note_manager_ref (3 oct x 5000 cyc)
+  ok  : T1: the other 12 output groups are bit-identical to the reference too
+  ok  : T1: the UNCONNECTED-transpose instance is bit-identical too (= top.v case)
+  [非空洞性] 去掉旁路 mux（输出恒走 phase_tr）⇒ 本三条必红
+
+=== 布置：占满 32 个 voice（phase_r 各不相同）===
+  ok  : setup: all 32 voices are allocated (gate all 1)
+  ok  : setup: every voice phase_r is non-zero and pairwise distinct
+
+=== T4: 短滑音 0 ⇒ +12（每 1 ms 一步 = 50000 拍）===
+  step 0: 0 -> 1   gap 48648 clk  (residual phase, not judged)
+  [T3] semi_cur=+1 后 34 拍：32 个 lane 中不一致 0 个
+  step 1: 1 -> 2   gap 50000 clk                              
+  step 2: 2 -> 3   gap 50000 clk                              
+  step 3: 3 -> 4   gap 50000 clk                              
+  step 4: 4 -> 5   gap 50000 clk                              
+  step 5: 5 -> 6   gap 50000 clk                              
+  step 6: 6 -> 7   gap 50000 clk                              
+  step 7: 7 -> 8   gap 50000 clk                              
+  step 8: 8 -> 9   gap 50000 clk                              
+  step 9: 9 -> 10   gap 50000 clk                              
+  step 10: 10 -> 11   gap 50000 clk                              
+  step 11: 11 -> 12   gap 50000 clk                              
+  ok  : T4: semi_cur walks 0->+12 in 12 steps, monotonic, no jump / no backstep
+  ok  : T4: every step interval is EXACTLY 50000 clocks (= 1 ms @ 50 MHz)
+  ok  : T3: within 34 clocks of the first non-zero semi_cur, ALL 32 lanes updated
+
+=== T2: 每档输出 == phase_base × 比例表 >>> 15（容差 1 LSB）===
+  n=+12 oct=0 : 不一致 0 / 32 lane
+  n=+12 oct=1 : 不一致 0 / 32 lane
+  n=+12 oct=2 : 不一致 0 / 32 lane
+  n=7 oct=0 : 不一致 0 / 32 lane
+  n=0 oct=0 : 不一致 0 / 32 lane
+  n=-7 oct=0 : 不一致 0 / 32 lane
+  n=-12 oct=0 : 不一致 0 / 32 lane
+  ok  : T2: 5 semitone settings (+12/+7/0/-7/-12) x 32 lanes match the ratio table (tol 1 LSB)
+  ok  : T2: base_oct_r = 1 and 2 are covered too (octave shift really goes through the multiplier)
+  [T2] 最大偏差 = 0 LSB（判据 ≤ 1）
+
+=== T6: 源门控（src=3/4 不变 · src=0/1/2 跟随）===
+  src=3 lanes 1 · src=4 lanes 1 · src=0/1/2 lanes 30 (mismatch 0) · gated mismatch 0
+  ok  : T6 non-vacuous: pool really has a src=3 voice (>=1)
+  ok  : T6 non-vacuous: pool really has a src=4 voice (>=1)
+  ok  : T6 non-vacuous: pool really has src=0/1/2 voices (>=2)
+  ok  : T6: src=3/4 voices are bit-UNCHANGED (== phase_r, NOT transposed)
+  ok  : T6: src=0/1/2 voices DO follow the transposition (== ratio table)
+  ok  : T6 non-vacuous: gating really blocks a DIFFERENT value (transposed != base)
+  ok  : T6: the rotator DOES compute a transposed value for gated lanes (the select discards it)
+  [非空洞性] 去掉源门控（恒走 phase_tr）⇒ 上面 T6 的判据必红
+
+=== T7: T3_EN=0 交付配置 ⇒ 全程逐拍逐位 == T2 基线（d36cb64^）===
+  全程比较 1815845 拍（⭐ 两条真判据**全程逐拍**）
+  非空洞性探针：T3_EN=1 与基线【出现过】不同 10214 拍（其中 semi!=0 之后 1 拍）
+  ⚠️ 后两个数在【存在性已证】后**停止累加** ⇒ ⭐ 只需 > 0，⛔ 不是总数（见上方「仿真开销」）
+  ok  : T7: T3_EN=0 instance is bit-identical to the T2 baseline for the WHOLE run
+  ok  : T7: the dangling-transpose instance (= top.v today) is bit-identical too
+  ok  : T7 non-vacuous: T3_EN=1 DOES differ from the baseline somewhere
+  ok  : T7 non-vacuous: T3_EN=1 differs AFTER semi became non-zero (= switch really blocks it)
+  [非空洞性] 若 T3_EN 门控没接到输出上（T3_EN=0 仍走变调）⇒ 上面第 1 条必红
+  [非空洞性] 若 T3_EN 门控把 T3_EN=1 也关掉 ⇒ 上面第 3/4 条必红
+
+=== T8: 源 5（键盘打鼓）**不跟变调**（⭐ `P1-59`）===
+  INFO T8: semi_cur=+12 | src0 lane=0 inc=006688aa（⭐ 应【变】）| src5 lane=0 inc=00445566（⭐ 应【不变】）
+  ok  : T8 non-vacuous: src=0 IS transposed while semi_cur=+12
+  ok  : T8: src=5 (keyboard drums) BYPASSES transposition -- P1-59
+
+================================================================
+PASS: tb_transpose —— T1/T2/T3/T4/T6/T7/T8 全部成立（T3_EN=0 交付口径 + T3_EN=1 语义保持）
+================================================================
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_opt04_transpose_current_af.sv:1034: $finish called at 36320980000 (1ps)

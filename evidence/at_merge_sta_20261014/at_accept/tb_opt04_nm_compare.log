@@ -1,0 +1,125 @@
+WARNING [note_manager] FIFO_DEPTH=4 < 最坏突发 18 (=16 轴 +1 节拍器 +1 鼓机) => 事件会溢出丢弃（⭐ 已由 event_lost_o 指示，但会丢音）
+WARNING [note_manager] FIFO_DEPTH=4 < 最坏突发 18 (=16 轴 +1 节拍器 +1 鼓机) => 事件会溢出丢弃（⭐ 已由 event_lost_o 指示，但会丢音）
+== 判据 1: 事件 -> voice gate（含 DEFAULT_VEL / 音色锁存）==
+  ok  : ��������� 0 ��� gate
+  ok  : note_��������� 1 ��� gate
+  ok  : ��������������������������������� voice0
+  ok  : voice0 ��� axis = 3
+  ok  : voice0 ��� phase_in��������
+  ok  : vel=����������� DEFAULT_VEL(200)
+  ok  : �������������� =�������������(1)
+  ok  : ���������� note_��������� 2 ��� gate
+  ok  : ��������������������������������� voice1
+  ok  : v������ 0����������������(77)
+  ok  : evt_timb������������������������Loop������������
+  ok  : note_off(axis3����� ga������������
+  ok  : ������������� voice0
+  ok  : voic������������
+== 判据 2: 支持'更新在响 voice'（vel_update / pitch_update）==
+  ok  : vel_update takes effect (left the start point, ramping toward 240)
+  ok  : vel_update converges to 240 (ramp completed)
+  ok  : vel_update leaves the released voice0 untouched
+  ok  : pitch_updat����������������� voice1
+  ok  : ����������� axis���������������������� voice
+== 判据 6: 滑音不产生音符（冻结表铁律）==
+  ok  : ������������ gat��������������������������������
+  ok  : ���������� axis ������������
+  ok  : ������������������ phase_inc
+== 判据 3: 同轴位重触发复用同一 voice ==
+  ok  : ������������ gat����������������������� voic����
+  ok  : ��������������������� voice1
+  ok  : ������������������ phase_inc
+  ok  : �������������������� vel
+== 判据 4: 重触发真的让 ADSR 重起 Attack（最易静默失效）==
+  ok  : ����������������������� sustain ���������640����
+  ok  : �������������� gate ������������voic������������
+  ok  : ��������������������������������� sustain => Attack ������������
+  ok  : ����� ga��������������������������� ������� ������������������������
+  ok  : ��������������������������������� sustai��������
+== 判据 8: 专用 voice 池（节拍器不参与普通抢占，T33b 地基）==
+  ok  : ���������src�����������������������������< 2����
+  ok  : �src=0）的轴 14 落在【普通池】—— 键 14/15 出声的判据
+  ok  : ����������sr������������������������>= 2����
+  ok  : ������������� B ������������������������
+  ok  : ������������� voice ������������
+  ok  : �������������� gate ������������������������
+== 判据 5: 抢占顺序（在 POLY_TARGET=4 小实例上验）==
+  ok  : 4 ������������������ voice
+  ok  : ���������� voice0..3
+  ok  : axis ������������
+  ok  : �������������� 5����������������������������������������
+  ok  : ����������������������� ��������� voice0
+  ok  : ������������������������
+  ok  : ���������������������������������������voice����
+  ok  : �������������������������� =����� voice0
+  ok  : ���������� voice��������������������������������
+  ok  : voice1 ������������������������
+  ok  : ������������������������������������� voice1
+  ok  : voice0������������������������
+  ok  : voice2������������
+  ok  : ������������������ X
+== 判据 7: POLY_TARGET 参数化（32 档已全程使用；再验 16 轴占满）==
+  ok  : ��������������������� 0 ��� gate
+  ok  : 1����������� ������ voice
+  ok  : ��������������������� voice0..15
+  ok  : voice16..���������������AXIS_W=4 ������ 1��������
+  ok  : �������������������������� =��������� AXIS_W������������� POLY_TARGE����
+== 9: mid-retrigger voice is not stealable ==
+  ok  : section 9: clean slate (0 gates)
+  ok  : section 9: axis 5 owns voice0
+  ok  : section 9: exactly 1 gate before the test
+  ok  : section 9: axis 5 still owns voice0 (hold kept it busy)
+  ok  : section 9: the other axis landed on a DIFFERENT voice
+  ok  : section 9: axis 5 was NOT stolen (still on voice0)
+  ok  : K-106: baseline - event_lost is 0 BEFORE any overflow
+  ok  : K-106: baseline - lost count is 0 BEFORE any overflow
+  ok  : K-106: event_lost asserts after overflowing the queue
+  ok  : K-106: lost count = 7 and 12 = 5 served + 7 lost (conservation holds)
+  ok  : K-106: the burst really did overflow (lost > 0)
+  ok  : K-106: the burst was not entirely lost (served > 0)
+  ok  : K-106: sticky stays set while later events are processed normally
+  ok  : K-106: lost count is unchanged by later normal events
+  ok  : K-106: the events that FIT were still allocated (axis 0 got a voice)
+  ok  : K-106: overflow did NOT wedge the FSM (some gate is active)
+  ok  : K-106: event_lost_clr_i clears the sticky flag
+  ok  : K-106: event_lost_clr_i clears the lost count
+  ok  : K-106: sticky can RE-ASSERT after being cleared (not a one-shot lockout)
+  ok  : K-106: lost count SATURATED at 15 (did not wrap to 0)
+  ok  : K-106: sticky is set under massive overflow too
+  ok  : A1 setup: live note_on on the test axis allocated a gated voice
+  ok  : A1: score note_off must NOT clear a live voice on the same axis
+  ok  : A1: live note_off still clears the live voice on the same axis
+  ok  : A2 setup: live note_on allocated a gated voice on axis 9
+  ok  : A2: a replayed (src=1) vel_upd must NOT move the live (src=0) voice
+  ok  : A2: the live (src=0) vel_upd still drives the live voice
+  ok  : A2 setup: replayed note_on allocated a gated voice on axis 10
+  ok  : A2: a replayed (src=1) vel_upd DOES drive its own (src=1) voice
+  ok  : A2: a live (src=0) vel_upd must NOT move the replayed (src=1) voice
+  INFO: release sample-ticks  live(240)=6  replayed(240)=6  start-only(80)=3
+  ok  : A2: the replayed note's release lasts EXACTLY as long as the live note's
+  ok  : A2: the END velocity really drives the tail (start-only is SHORTER)
+  ok  : A3 setup: live note_on on axis 6 allocated a gated voice
+  ok  : A3 setup: the live voice reached sustain before the replay
+  ok  : A3-A: replayed note_on must NOT take over the live voice
+  ok  : A3-A: live and replayed voices COEXIST on the same axis
+  ok  : A3-A: the live voice keeps its velocity (not retriggered)
+  ok  : A3-A: the live voice keeps its phase_inc (not retriggered)
+  ok  : A3-A: the live voice envelope was NOT reset
+  ok  : A3-B: replayed note_off leaves EXACTLY one voice on the axis
+  ok  : A3-B: the surviving voice is the live one (still gated)
+  ok  : A3-B: the replayed voice was the one cleared
+  ok  : A3-B: live note_off still clears the live voice (tag intact)
+  ok  : A3-C setup: live note_on on axis 6 allocated a gated voice
+  INFO: A3-C fills=31 alloc-ok=31 gated=32 free(live_mask=0)=0 / 32
+  ok  : A3-C setup: the voice pool is COMPLETELY full (no free voice left)
+  ok  : A3-C setup: the live voice is the OLDEST (age > 0, fills are age 0)
+  ok  : A3-C: the replayed note_on still allocated (via preemption)
+  ok  : A3-C: the preemption victim is NOT the live voice on that axis
+  ok  : A3-C: the live voice survives with its OWN velocity (not re-tagged)
+  ok  : K-169 setup: voice live in release tail (gate=0, active=1)
+  ok  : K-169 setup: phase != seed before re-press (non-vacuous)
+  ok  : K-169 setup: the fresh voice is voice0 (probe lane matches)
+  INFO: K-169 phase before re-press = 40505000, after = 40000000
+  ok  : K-169: re-press in release tail reloads the phase seed
+PASS: note_manager acceptance (T54) - all judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\w3b\tb_opt04_nm_compare.sv:1422: $finish called at 5292080000 (1ps)

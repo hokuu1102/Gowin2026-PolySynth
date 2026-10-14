@@ -1,0 +1,13 @@
+{
+  "FocusedRegressions": 13,
+  "Status": "PASS",
+  "StressProfileCycles": 200000,
+  "Profiles": [
+    4,
+    32
+  ],
+  "GoldenCommit": "a42cc32",
+  "NegativeGuard": "PASS_expected_failure",
+  "LegacyOracle": "Preserved_failure_from_V2_private_representation_change",
+  "Board": "NOT_RUN"
+}

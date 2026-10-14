@@ -1,0 +1,3 @@
+Verified: restore two source/constraint files and matching AO impl artifacts.
+Unrelated working files, added tests and Git history will remain untouched.
+Dry run only. Add -Apply to restore. Close Gowin IDE/build processes first.

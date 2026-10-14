@@ -1,0 +1,17 @@
+WARNING [note_manager] FIFO_DEPTH=8 < 最坏突发 18 (=16 轴 +1 节拍器 +1 鼓机) => 事件会溢出丢弃（⭐ 已由 event_lost_o 指示，但会丢音）
+=== tb_note_manager_vel_wrap (P0-01 力度斜坡 8 位回绕) ===
+      [dbg] W1 vel=255 src=0 => vel_of(0)=255 (期望 255)
+  ok  : W1 hand-play vel=255 stays 255 after 1 sample_tick
+      [dbg] W2 vel=248 src=0 => vel_of(0)=248 vel_of(1)=0 (期望 至少一个 248)
+  ok  : W2 hand-play vel=248 stays 248 after 1 sample_tick
+      [dbg] W3 vel=250 src=1 => vel_of(0)=250 (期望 250)
+  ok  : W3 playback vel=250 stays 250 after 1 sample_tick
+      [dbg] W4 tgt=248 from 250 => vel_of(0)=248 (期望 248)
+  ok  : W4 |tgt-cur|=7 <= 8 => snaps to 248 (no slow ramp)
+      [dbg] W5 tgt=100 from 248 => vel_of(0)=240 (期望 240)
+  ok  : W5 descending ramp steps -8 (248 -> 240), no wrap
+      [dbg] W6 tgt=255 from 240 => vel_of(0)=248 (期望 248)
+  ok  : W6 ascending ramp steps +8 (240 -> 248), no wrap
+
+PASS: tb_note_manager_vel_wrap — 6/6 judgements held (P0-01 无回绕)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\w3b\tb_note_manager_vel_wrap.sv:283: $finish called at 2040000 (1ps)

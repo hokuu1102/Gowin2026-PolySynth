@@ -1,0 +1,5 @@
+Verified: restore two source/constraint files and matching AF impl artifacts.
+Unrelated working files, added tests and Git history will remain untouched.
+Restored pre-OPT06 working source and matching AF impl; hashes verified.
+Git HEAD is not moved. The source reversal remains visible in git diff.
+The previous main impl is separately preserved under backup/impl.

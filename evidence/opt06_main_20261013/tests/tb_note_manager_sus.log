@@ -1,0 +1,24 @@
+WARNING [note_manager] FIFO_DEPTH=8 < 最坏突发 18 (=16 轴 +1 节拍器 +1 鼓机) => 事件会溢出丢弃（⭐ 已由 event_lost_o 指示，但会丢音）
+=== tb_note_manager_sus (T5 延音踏板语义) ===
+  ok  : S1a no-pedal: gate=1 while held
+  ok  : S1b no-pedal release => gate=0 (zero-regression)
+  ok  : S1c no-pedal release => level back to 0 (note gone)
+  ok  : S1d no-pedal release => env inactive
+  ok  : S2a pedal+press => gate=1
+  ok  : S2b pedal held: release => gate STILL 1
+  ok  : S2c pedal held: level still HIGH (note not gone)
+  ok  : S2d pedal held: env STILL active
+  ok  : S3a pedal released => gate falls to 0
+  ok  : S3b pedal released => level starts FALLING (release begins)
+  ok  : S3c pedal released => eventually level=0 (note really ends)
+  ok  : S3d pedal released => env inactive
+  ok  : S4a pedal: axis3 held after release
+  ok  : S4b re-press same axis => exactly ONE voice (no stacking)
+  ok  : S4c re-press => gate=1 (retrigger)
+  ok  : S4d pedal still held => gate stays 1
+  ok  : S5 pedal held but src!=0 => gate=0 (not sustained)
+  ok  : S6a released before pedal => gate=0
+  ok  : S6b pedal pressed AFTER release => NO resurrection
+
+PASS: tb_note_manager_sus — 19/19 judgements held (T5 延音踏板语义)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_note_manager_sus.sv:407: $finish called at 1504880000 (1ps)

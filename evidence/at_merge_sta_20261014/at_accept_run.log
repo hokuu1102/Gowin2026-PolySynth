@@ -1,0 +1,15 @@
+PASS tb_opt04_nm_compare
+PASS tb_opt04_nm_compare_values
+PASS tb_note_manager_sus
+PASS tb_note_manager_vel_ramp
+PASS tb_note_manager_vel_wrap
+PASS tb_opt08_write_share_reused
+PASS tb_voice_accept
+PASS tb_top_scope_live
+PASS tb_test_mode_top
+PASS tb_polyphony_onset_step
+PASS tb_tdm_render_mixer
+PASS tb_opt04_rot32_current_af
+PASS tb_opt04_transpose_current_af
+PASS: 13/13 focused regressions
+PASS: cache differential and expected negative failure

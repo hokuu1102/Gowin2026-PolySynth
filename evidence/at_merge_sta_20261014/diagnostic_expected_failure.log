@@ -1,0 +1,6 @@
+Exception: C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tools\run_q_adc_regression.ps1:35
+Line |
+  35 |  … $runOutput -match '^\s*FAIL:')) { throw "Runtime failed: $testName" }
+     |                                      ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+     | Runtime failed: tb_at_merge_known_bugs
+

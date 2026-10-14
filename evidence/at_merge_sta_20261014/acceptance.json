@@ -1,0 +1,15 @@
+{
+  "ProductSource": "031cf36",
+  "SelectedUniqueTestbenchesPass": 20,
+  "ATFocused": 13,
+  "IntegrationFocused": 7,
+  "StressProfileCycles": 200000,
+  "StressProfiles": [
+    4,
+    32
+  ],
+  "NegativeGuard": "PASS_EXPECTED_FAILURE",
+  "KnownBugDiagnostics": "FAIL_7_ASSERTIONS_5_INHERITED_BUGS",
+  "FullSuite": "NOT_CLAIMED",
+  "Board": "NOT_RUN"
+}

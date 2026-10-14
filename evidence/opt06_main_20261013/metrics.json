@@ -1,0 +1,22 @@
+{
+  "Baseline": "3c94561",
+  "SetupViolations": 0,
+  "HoldViolations": 0,
+  "SetupSlack": 0.337,
+  "HoldSlack": 0.198,
+  "RecoverySlack": 1.196,
+  "RemovalSlack": 0.123,
+  "clk_sysFmax": 60.741,
+  "pixel_clkFmax": 37.433,
+  "serial_clkFmax": 343.864,
+  "Logic": 40765,
+  "CLS": 25684,
+  "BSRAM": 69,
+  "DSP": 22,
+  "TimingPass": true,
+  "ComparisonBaseline": "OPT04V2",
+  "NativeBudgetNs": 16.8,
+  "CriticalPeriodGainNs": 0.4331141385238624,
+  "CLSDeltaToBaseline": 0,
+  "ImprovesTiming": true
+}

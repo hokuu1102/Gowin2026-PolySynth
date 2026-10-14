@@ -1,0 +1,32 @@
+{
+  "BaselineAT": [
+    "CT1094",
+    "CT2065",
+    "CV0016",
+    "CV0020",
+    "EX3045",
+    "EX3791",
+    "EX3801",
+    "EX3858",
+    "NL0002",
+    "PR1014"
+  ],
+  "Merged": [
+    "CT1094",
+    "CT2065",
+    "CV0016",
+    "CV0020",
+    "EX3045",
+    "EX3791",
+    "EX3801",
+    "EX3858",
+    "NL0002",
+    "PR1014"
+  ],
+  "NewCategories": [],
+  "SweptModules": [
+    "WARN  (NL0002) : The module \"metronome\" instantiated to \"g_sound.u_metronome\" is swept in optimizing(\"C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\Gowin2026-PolySynth-at-merge-20261014\\rtl\\top.v\":2114)\r",
+    "WARN  (NL0002) : The module \"param_extract\" instantiated to \"g_sound.u_param_extract\" is swept in optimizing(\"C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\Gowin2026-PolySynth-at-merge-20261014\\rtl\\top.v\":4159)\r",
+    "WARN  (NL0002) : The module \"uart_tx\" instantiated to \"u_uart_tx_esp\" is swept in optimizing(\"C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\Gowin2026-PolySynth-at-merge-20261014\\rtl\\top.v\":1560)\r"
+  ]
+}

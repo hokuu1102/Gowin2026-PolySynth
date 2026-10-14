@@ -1,0 +1,2 @@
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\w3b\tb_note_manager_vel_wrap.sv:98: warning: Port 39 (alloc_voice_o) of note_manager expects 1 bits, got 4.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-at-merge-20261014\tb\w3b\tb_note_manager_vel_wrap.sv:98:        : Padding 3 high bits of the expression.

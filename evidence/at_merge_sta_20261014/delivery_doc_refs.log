@@ -1,0 +1,206 @@
+📄 检查了 460 个 Markdown 文件（依据 git 跟踪清单，共 3603 个文件）
+   已跳过扫描：files/历史, tools
+
+❌ 硬错误：173 处 —— 引用指向仓库里不存在的文件/目录
+    assets/third_party/akwf/SOURCES.md:14  →  AKWF--Teensy/AKWF_dbass/AKWF_dbass_0050_256.h
+    assets/third_party/akwf/SOURCES.md:15  →  AKWF--Teensy/AKWF_eguitar/AKWF_eguitar_0015_256.h
+    assets/third_party/akwf/SOURCES.md:16  →  AKWF--Teensy/AKWF_clavinet/AKWF_clavinet_0005_256.h
+    assets/third_party/akwf/SOURCES.md:17  →  AKWF--Teensy/AKWF_eorgan/AKWF_eorgan_0020_256.h
+    bringup/hdmi_640x480/README.md:7  →  ../../rtl/hdmi/video_timing.v
+    bringup/hdmi_640x480/README.md:9  →  ../../rtl/hdmi/tmds_encoder.v
+    bringup/hdmi_640x480/README.md:10  →  ../../rtl/hdmi/tmds_serializer.v
+    bringup/hdmi_640x480/README.md:11  →  ../../rtl/hdmi/hdmi_clk.v
+    bringup/hdmi_640x480/README.md:58  →  ../../rtl/hdmi/hdmi_clk.v
+    bringup/hdmi_640x480/README.md:115  →  ../../rtl/hdmi/tmds_encoder.v
+    bringup/hdmi_640x480/README.md:115  →  src/hdmi2/tmds_channel.sv
+    bringup/hdmi_640x480/SPEC.md:108  →  src/hdmi2/tmds_channel.sv
+    bringup/hdmi_640x480/SPEC.md:166  →  rtl/hdmi_clk.v
+    bringup/hdmi_640x480/evidence-h4/RESULT.md:14  →  rtl/hdmi_h4.v
+    bringup/hdmi_640x480/evidence-h4/RESULT.md:89  →  initial_cli_failure/
+    bringup/hdmi_640x480/evidence-h4/RESULT.md:112  →  h4/
+    bringup/hdmi_640x480/evidence-h4/RESULT.md:112  →  baseline_before/
+    bringup/hdmi_640x480/evidence-h4/RESULT.md:112  →  baseline_after/
+    bringup/hdmi_640x480/evidence-h4/RESULT.md:114  →  tb/tb_hdmi_modes.sv
+    bringup/hdmi_640x480/evidence-h4/spec_research.md:42  →  IDE\doc\CN\SUG283-3.6_Gowin原语用户指南.pdf
+    bringup/hdmi_640x480/evidence-h4/spec_research.md:43  →  IDE\doc\CN\UG289-2.2.1_Gowin可编程通用管脚(GPIO)用户指南.pdf
+    bringup/hdmi_640x480/evidence-h4/spec_research.md:45  →  IDE\data\hardware_core\gw5at\prim_syn.v
+    bringup/hdmi_640x480/tools/README.md:4  →  ../上板调试记录-20260930.md
+    bringup/hdmi_640x480/上板调试记录-20260930.md:22  →  src/hdmi2/serializer.sv
+    bringup/hdmi_640x480/上板调试记录-20260930.md:52  →  bitstreams/
+    evidence/h5/REPORT.md:31  →  ../../rtl/hdmi/README.md
+    evidence/h5/REPORT.md:45  →  baseline-src/
+    evidence/h5/cls-next-20261004/README.md:85  →  cand3-adsr-share-50p035/adsr-shared.v
+    evidence/h5/cls-next-20261004/development-attempts.md:12  →  synth-final/
+    evidence/h5/cls-next-20261004/development-attempts.md:13  →  synth-after/
+    evidence/h5/cls-next-20261004/development-attempts.md:13  →  synth-age-local/
+    evidence/h5/stage2-osc-sweep-share/DESIGN.md:94  →  tb/w3b/tb_oscillator_sweep_share.sv
+    evidence/opt06_main_20261013/README.md:76  →  worktree/
+    evidence/opt06_main_20261013/README.md:79  →  af-impl/
+    files/00-总览/BATCH5-音高判据执行方案-20261001.md:203  →  tb/e2e/tb_e2e_pitch.sv
+    files/00-总览/T3-复核-总合成-20261001.md:127  →  files/00-总览/对外问询清单.md
+    files/00-总览/T3-复核-总合成-20261001.md:127  →  bringup/19-变调音高错乱分析-20260930.md
+    files/00-总览/T3-复核-组1-20261001.md:16  →  tb/w3b/tb_transpose_note_manager.sv
+    files/00-总览/T3-复核-组1-20261001.md:35  →  tb/models/prom_model.v
+    files/00-总览/T3-复核-组1-20261001.md:38  →  tb/w3c/tb_met_btn_top.sv
+    files/00-总览/T3-复核-组1-20261001.md:73  →  tb/w3b/tb_transpose_note_manager.sv
+    files/00-总览/T3-复核-组1-20261001.md:76  →  tb/w3b/tb_transpose_note_manager.sv
+    files/00-总览/T3-复核-组1-20261001.md:88  →  rtl/w3a/uart_ui.v
+    files/00-总览/T3-复核-组1-20261001.md:110  →  tb/w3b/tb_transpose_note_manager.sv
+    files/00-总览/T3-复核-组2-20261001.md:28  →  tb/w3b/tb_transpose_note_manager.sv
+    files/00-总览/T3-复核-组2-20261001.md:30  →  bringup/18-池判据按来源失败分析-20260930.md
+    files/00-总览/T3-复核-组2-20261001.md:181  →  bringup/18-池判据按来源失败分析-20260930.md
+    files/00-总览/T3-复核-组2-20261001.md:295  →  tb/w3b/tb_transpose_note_manager.sv
+    files/00-总览/T3-复核-组3-20261001.md:33  →  bringup/17-….md
+    files/00-总览/T3-复核-组3-20261001.md:35  →  bringup/17-….md
+    files/00-总览/T3-复核-组3-20261001.md:36  →  bringup/17-….md
+    files/00-总览/T3-复核-组3-20261001.md:36  →  bringup/19-变调音高错乱分析-20260930.md
+    files/00-总览/T3-复核-组3-20261001.md:36  →  bringup/19-变调音高错乱分析-20260930.md
+    files/00-总览/T3-复核-组3-20261001.md:36  →  bringup/19-变调音高错乱分析-20260930.md
+    files/00-总览/T3-复核-组3-20261001.md:37  →  tb/w3b/tb_transpose_note_manager.sv
+    files/00-总览/T3-复核-组3-20261001.md:159  →  bringup/19-变调音高错乱分析-20260930.md
+    files/00-总览/T3-复核-组3-20261001.md:175  →  tb/w3b/tb_transpose_note_manager.sv
+    files/00-总览/T3-复核-组3-20261001.md:263  →  bringup/19-变调音高错乱分析-20260930.md
+    files/00-总览/T3-复核-组4-20261001.md:23  →  files/00-总览/对外问询清单.md
+    files/00-总览/T3-复核-组4-20261001.md:23  →  files/00-总览/对外问询清单.md
+    files/00-总览/T3-复核-组4-20261001.md:53  →  .vscode/
+    files/00-总览/T3-复核-组4-20261001.md:53  →  model/step/
+    files/00-总览/T3-复核-组4-20261001.md:69  →  jishi/
+    files/00-总览/T3-复核-组4-20261001.md:316  →  files/00-总览/对外问询清单.md
+    files/00-总览/Worktree处置清单-20261001.md:7  →  .git/info/squash-history.md
+    files/00-总览/交接文档-20260929.md:395  →  tb/w3c/tb_met_btn_top.sv
+    files/00-总览/交接文档-20260929晚.md:5  →  files/00-总览/交接Prompt-20260929晚.md
+    files/00-总览/交接文档-20260929晚.md:133  →  tb_w3b/tb_wavetable_bank_prom.sv
+    files/00-总览/交接文档-20260929晚.md:142  →  tb/models/prom_model.v
+    files/00-总览/交接文档-20260930-补遗.md:137  →  _scratch_k169/
+    files/00-总览/交接文档-20260930-补遗.md:137  →  _scratch_metfix/
+    files/00-总览/交接文档-20260930.md:304  →  _scratch_k169/
+    files/00-总览/交接文档-20260930.md:304  →  _scratch_metfix/
+    files/00-总览/今晚任务书-20260930夜.md:137  →  tb_w3b/tb_vel_pos_follow.sv
+    files/00-总览/今晚任务书-20260930夜.md:138  →  tb_w3c/tb_looper_tail.sv
+    files/00-总览/今晚任务书-20260930夜.md:139  →  tb_e2e/tb_e2e_key_to_sound.sv
+    files/00-总览/今晚任务书-20260930夜.md:140  →  tb_w3a/tb_param_extract.sv
+    files/00-总览/国庆安排-PCB与模型-20261001.md:11  →  model\pcb\右手板.step
+    files/00-总览/未完成工作总账.md:953  →  files/00-总览/交接Prompt-20260929晚.md
+    files/00-总览/未完成工作总账.md:1070  →  tb/models/prom_model.v
+    files/00-总览/未完成工作总账.md:1269  →  tb\w3c\tb_met_btn_top.sv
+    files/00-总览/未完成工作总账.md:1269  →  tb\models\prom_model.v
+    files/00-总览/未完成工作总账.md:1282  →  tb\w3c\tb_met_btn_top.sv
+    files/00-总览/未完成工作总账.md:1377  →  rtl\w3c\event_extract.v
+    files/00-总览/未完成工作总账.md:1551  →  _scratch_bsram/
+    files/00-总览/第三周/第三周计划-v1.md:191  →  rtl/drivers/debounce.v
+    files/00-总览/第三周/第三周计划-v1.md:192  →  rtl/drivers/adc_farm.v
+    files/10-硬件/交接-画板专用对话-20261003.md:34  →  model/
+    files/10-硬件/交接-画板专用对话-20261003.md:34  →  model/pcb/左手板.step
+    files/10-硬件/机械设计总纲-20261002.md:122  →  \______/
+    files/20-代码/ESP32侧再回函-20261001.md:3  →  FPGA2026-deliver/files/20-代码/FPGA侧回应-ESP32回函-20261001.md
+    files/20-代码/ESP32侧回应-FPGA答复-20260930.md:4  →  FPGA2026-deliver/files/20-代码/FPGA侧答复-反向通路对接单-20260930.md
+    files/20-代码/ESP32侧回应-FPGA答复-20260930.md:183  →  FPGA2026-deliver/files/20-代码/FPGA侧答复-反向通路对接单-20260930.md
+    files/20-代码/ESP32侧工作计划-20260930.md:32  →  bridge/
+    files/20-代码/ESP32侧工作计划-20260930.md:123  →  bridge/
+    files/20-代码/ESP32侧详细执行计划-20260930.md:88  →  main/CMakeLists.txt
+    files/20-代码/FPGA侧回应-ESP32再回函-20261001.md:18  →  FPGA2026-esp32/files/20-代码/ESP32侧再回函-20261001.md
+    files/20-代码/FPGA侧回应-ESP32回函-20261001.md:3  →  FPGA2026-esp32/files/20-代码/ESP32侧回应-FPGA答复-20260930.md
+    files/20-代码/FPGA侧答复-ESP32再回函-20261001.md:3  →  FPGA2026-esp32/files/20-代码/ESP32侧再回函-20261001.md
+    files/20-代码/FPGA侧答复-上行帧v1.1确认-20261012.md:3  →  FPGA2026-esp32/files/20-代码/ESP32侧答复-FPGA上行帧v1.1-20261012.md
+    files/20-代码/FPGA侧答复-上行帧v1.1确认-20261012.md:13  →  FPGA2026-esp32/files/20-代码/
+    files/20-代码/FPGA侧答复-反向通路对接单-20260930.md:5  →  FPGA2026-esp32/files/20-代码/反向通路对接单-给FPGA侧-20260930.md
+    files/20-代码/H5显示修复与时序拉锯-记录与方向-20261002.md:668  →  cand3-adsr-share-50p035/
+    files/20-代码/H5显示修复与时序拉锯-记录与方向-20261002.md:668  →  cand3b-nm-velramp-50p138/
+    files/20-代码/H5显示修复与时序拉锯-记录与方向-20261002.md:668  →  exp4-velramp-plus-adsrshare-50p371/
+    files/20-代码/H5显示修复与时序拉锯-记录与方向-20261002.md:668  →  revertA-confirm-52p219/
+    files/20-代码/上机验证说明-合并版-给队友-20261004.md:169  →  triggered-scope-20261002/
+    files/20-代码/上板清单-Z_merged_base_T5-20261008.md:75  →  C-only-55p406/README.md
+    files/20-代码/上板清单-Z_merged_base_T5-20261008.md:152  →  files/00-总览/第三周/第三周组会报告-20261008.md
+    files/20-代码/今晚任务书-20260930.md:64  →  bridge/
+    files/20-代码/今晚任务书-20260930.md:73  →  ble/
+    files/20-代码/今晚任务书-20260930.md:76  →  bridge/
+    files/20-代码/今晚任务书-20260930.md:76  →  bridge/
+    files/20-代码/今晚任务书-20260930.md:178  →  bridge/
+    files/20-代码/今晚任务书-20260930.md:183  →  bridge/main/bridge_config.h
+    files/20-代码/今晚任务书-20260930.md:198  →  bridge/README.md
+    files/20-代码/今晚任务书-20260930.md:220  →  bridge/README.md
+    files/20-代码/优化记录-evt_merge-20261002.md:52  →  pnr-impl/
+    files/20-代码/已知问题与风险清单.md:227  →  IDE/data/device/device_info.csv
+    files/20-代码/延音踏板语义-实施方案-20261004.md:107  →  tb/top/tb_sustain_pedal.sv
+    files/20-代码/控制板16键功能映射-20261013.md:345  →  files/10-硬件/控制板PCB-20261003.md
+    files/20-代码/控制板16键功能映射-20261013.md:346  →  files/10-硬件/控制板PCB-20261003.md
+    files/20-代码/文档取代关系索引.md:104  →  00-总览/README.md
+    files/20-代码/节拍器加回-实施记录-20260928.md:203  →  tb/w3c/tb_met_btn_top.sv
+    files/20-代码/逻辑优化审计-20260930.md:84  →  w3c/perc_env_bank.v
+    files/20-代码/逻辑优化审计-20260930.md:265  →  cmd_cnt_o/
+    review/raw/ANVIL-02.md:476  →  a3-proper-20261008/README.md
+    review/raw/ANVIL-04.md:1141  →  ip/.../wavetable_sine_rom_ip.v
+    review/raw/ANVIL-06.md:517  →  rtl/w3c/note_manager.v
+    review/raw/ANVIL-08.md:131  →  %TEMP%\anvil08_probe\t1.v
+    review/raw/ANVIL-08.md:284  →  %TEMP%\anvil08_probe\t5.v
+    review/raw/ANVIL-08.md:433  →  %TEMP%\anvil08_probe\t2.v
+    review/raw/ANVIL-08.md:537  →  %TEMP%\anvil08_probe\t4.v
+    review/raw/ANVIL-08.md:1059  →  %TEMP%\anvil08_probe\t3.v
+    review/raw/ANVIL-10.md:1063  →  rtl/w3c/hex_char.v
+    review/raw/ANVIL-11.md:140  →  tb/w3c/tb_tlc5916_bank_seq.sv
+    review/raw/ANVIL-11.md:602  →  tb/w3a/tb_ws2812_partial.sv
+    review/raw/ANVIL-11.md:934  →  rtl/w3c/ws2812_driver.v
+    review/raw/ANVIL-12.md:500  →  tb/sync_input/
+    review/raw/ANVIL-12.md:517  →  tb/sync_input/tb_sync_input.sv
+    review/raw/TORCH-1.md:998  →  gate_r/env_active_r/
+    review/raw/TORCH-3.md:261  →  tb/cdc/tb_reset_release_order.sv
+    review/raw/TORCH-3.md:330  →  tb/top/tb_e2e_key_to_sound.sv
+    review/raw/TORCH-3.md:894  →  tb/w3b/tb_note_manager_t3.sv
+    review/raw/TORCH-3.md:1440  →  tb/w3c/tb_uart_calib_chain.sv
+    review/raw/TORCH-4.md:1272  →  final-batch-20261008/
+    review/raw/TORCH-4.md:1272  →  a3-proper-20261008/
+    review/交接文档-20261010.md:15  →  p1-59-20261011/
+    review/交接文档-20261010.md:15  →  esp32-uart-20261011/
+    review/交接文档-20261010.md:16  →  rec-dump-20261011/
+    review/交接文档-20261010.md:372  →  sim/evidence/esp32-uart-20261011/README.md
+    review/时序与逻辑审查-20261009.md:8724  →  rtl/w3a/adc_farm.sv
+    review/时序与逻辑审查-20261009.md:8725  →  rtl/w3a/adc_farm.v
+    review/时序与逻辑审查-20261009.md:8770  →  rtl/w3c/ws2812_driver.v
+    review/时序与逻辑审查-20261009.md:10680  →  sim/evidence/p1-01-20261009/
+    review/时序与逻辑审查-20261009.md:10716  →  sim/evidence/p1-01b-20261009/
+    review/时序与逻辑审查-20261009.md:10774  →  sim/evidence/p1-80-20261009/
+    review/时序与逻辑审查-20261009.md:11204  →  sim/evidence/esp32-uart-20261011/README.md
+    review/时序与逻辑审查-20261009.md:11207  →  files/10-硬件/Console拓展板接线需求-20261003.md
+    review/时序与逻辑审查-20261009.md:11257  →  sim/evidence/esp32-uart-20261011/README.md
+    sim/evidence/a3-drum-raw-20261008/README.md:4  →  ../a3-proper-20261008/README.md
+    sim/evidence/a3-drum-raw-20261008/README.md:42  →  tb/w3b/tb_osc_drum_raw.sv
+    sim/evidence/a3-proper-20261008/README.md:4  →  ../a3-drum-raw-20261008/README.md
+    sim/evidence/a3-proper-20261008/README.md:5  →  ../final-batch-20261008/README.md
+    sim/evidence/bpm-uart-20261011/README.md:137  →  tb/w3c/tb_play_seq_bpm.sv
+    sim/evidence/evt_merge-narrow-20261002/README.md:11  →  pnr-impl/
+    sim/evidence/final-batch-20261008/README.md:5  →  ../rightboard-vibrato-fix-20261008/
+    sim/evidence/final-batch-20261008/README.md:6  →  ../a3-drum-raw-20261008/
+    sim/evidence/final-batch-20261008/README.md:7  →  ../vibrato-pipeline-20261008/
+    sim/evidence/final-batch-20261008/README.md:58  →  ../a3-drum-raw-20261008/README.md
+    sim/evidence/merge-main-20261004/README.md:41  →  triggered-scope-20261002/
+    sim/evidence/p1-15-20261011/README.md:232  →  resource-baseline-20261011/
+    sim/evidence/rightboard-vibrato-fix-20261008/README.md:280  →  tb/w3b/tb_osc_drum_raw.sv
+
+   ⚠️ 注意：这里判断的是【已提交的文件】，不是硬盘上有什么。
+      所以「我本地明明有」不是理由 —— 未 git add 的文件
+      在 CI 的检出里不存在，引用它一样是坏的。
+
+
+ℹ️  提示：3418 处「裸文件名」（缺目录）
+    这不一定是错 —— 索引表的「文件 | 位置」结构里裸名是正确写法。
+    但正文引用建议写全，否则点击时按当前文档目录解析，容易点不开。
+    写法：files/30-方案决策/硬件选型表.md
+      CONTRIBUTING.md:17  →  方案选择档案-过时-中立对比版.md  （仓库里找不到同名文件）
+      CONTRIBUTING.md:17  →  左手区方案-过时-旧完整版.md  （仓库里找不到同名文件）
+      CONTRIBUTING.md:160  →  AI规划代码结构-Prompt.md  （仓库里找不到同名文件）
+      CONTRIBUTING.md:161  →  采集链参数复核.md  （仓库里找不到同名文件）
+      CONTRIBUTING.md:162  →  延迟预算逐段分解.md  （仓库里找不到同名文件）
+      CONTRIBUTING.md:163  →  整体模块框图.md  （仓库里找不到同名文件）
+      CONTRIBUTING.md:164  →  验收计划.md  （仓库里找不到同名文件）
+      CONTRIBUTING.md:165  →  开工指南.md  （仓库里找不到同名文件）
+      CONTRIBUTING.md:166  →  第一周计划.md  （仓库里找不到同名文件）
+      CONTRIBUTING.md:167  →  路线图-0917至0924.md  （仓库里找不到同名文件）
+      CONTRIBUTING.md:168  →  开工任务分配.md  （仓库里找不到同名文件）
+      CONTRIBUTING.md:169  →  硬件结构待讨论清单.md  （仓库里找不到同名文件）
+      CONTRIBUTING.md:295  →  硬件选型表.md  （仓库里找不到同名文件）
+      CONTRIBUTING.md:295  →  产品形态决议清单.md  （仓库里找不到同名文件）
+      CONTRIBUTING.md:295  →  模块决策表.md  （仓库里找不到同名文件）
+      …… 还有 3403 处（提示项不影响结果）
+
+结论：❌ 有 173 处硬错误，需要修。
+参考 files/00-总览/文档地图.md 里的「路径校正表」查正确路径。

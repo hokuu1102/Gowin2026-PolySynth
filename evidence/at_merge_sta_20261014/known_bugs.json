@@ -1,0 +1,13 @@
+{
+  "MergedSource": "031cf36",
+  "RemoteSource": "9bf2de6",
+  "DistinctInheritedBugPatterns": 5,
+  "FailedAssertions": 7,
+  "DiagnosticResult": "EXPECTED_FAILURE_NOT_ACCEPTANCE_PASS",
+  "UART": "Real serial input 500000 baud",
+  "OtherStimuli": "Boundary injection, not physical ADC gesture",
+  "VoiceObservation": "Packed public outputs, 128-clock wait",
+  "TraceIdentical": true,
+  "FixtureSHA256": "475C1F24DD0F7D6A4A1C0C04554D0C6597D3D53A269B2ECAE72020F9475F4617",
+  "ProductRTLChanged": false
+}

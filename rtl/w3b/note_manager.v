@@ -887,12 +887,39 @@ module note_manager #(
 
     // ⭐ "更优"判据（⛔ 只用一级比较；升序扫描 + 严格优于 ⇒ 并列取最低索引）
     wire cand_ok = cand_pool & ~cand_hold & ~cand_foreign;
+    // Compare unsigned envelope levels in parallel halves.  Keep the strict
+    // ordering (ties still select the first scanned voice) without adding a
+    // pipeline stage to event allocation.
+    wire cand_env_less;
+    generate
+        if (ENV_W > 1) begin : g_env_compare_split
+            localparam integer ENV_LO_W = ENV_W / 2;
+            assign cand_env_less =
+                (cand_env[ENV_W-1:ENV_LO_W] < best_env[ENV_W-1:ENV_LO_W])
+                || ((cand_env[ENV_W-1:ENV_LO_W] == best_env[ENV_W-1:ENV_LO_W])
+                    && (cand_env[ENV_LO_W-1:0] < best_env[ENV_LO_W-1:0]));
+        end else begin : g_env_compare_bit
+            assign cand_env_less = (cand_env < best_env);
+        end
+    endgenerate
+    wire cand_age_more;
+    generate
+        if (AGE_W > 1) begin : g_age_compare_split
+            localparam integer AGE_LO_W = AGE_W / 2;
+            assign cand_age_more =
+                (cand_age[AGE_W-1:AGE_LO_W] > best_age[AGE_W-1:AGE_LO_W])
+                || ((cand_age[AGE_W-1:AGE_LO_W] == best_age[AGE_W-1:AGE_LO_W])
+                    && (cand_age[AGE_LO_W-1:0] > best_age[AGE_LO_W-1:0]));
+        end else begin : g_age_compare_bit
+            assign cand_age_more = (cand_age > best_age);
+        end
+    endgenerate
     wire cand_better =
             (~best_valid)
          || (cand_cls < best_cls)
          || ((cand_cls == best_cls) &&
-             ( ((cand_cls == 2'd1) && (cand_env < best_env))
-            || ((cand_cls == 2'd2) && (cand_age > best_age)) ));
+             ( ((cand_cls == 2'd1) && cand_env_less)
+            || ((cand_cls == 2'd2) && cand_age_more) ));
 
     // ── 提交时用的字段（组合取自 best_idx）────────────────────────────────
     wire [VEL_W-1:0]    new_vel    = (cur_vel != {VEL_W{1'b0}}) ? cur_vel : DEFAULT_VEL_V;
@@ -936,6 +963,47 @@ module note_manager #(
     reg [IDX_W-1:0]        same_idx_r;
     //  ⭐ 重触发清零脉冲：**单周期**（每 clk 先清、由 (f)/(g) 两处按需置位）
     reg  [POLY_TARGET-1:0] retrig_reset_r;
+    // Mirror the live axis target beside each voice.  The original axis table
+    // remains authoritative, including targets received before allocation.
+    // This removes replicated dynamic table reads from the sample-tick ramp.
+    reg vtgt_live_vld [0:POLY_TARGET-1];
+    wire live_target_write = vel_upd_valid_i && (vu_src_w == 3'd0);
+    wire live_target_clear_decide = (state == ST_DECIDE) && (cur_src == 3'd0)
+                                    && ((cur_kind == KIND_OFF) || same_valid);
+    wire live_target_clear_commit = (state == ST_COMMIT2) && cmt_en_r
+                                    && (cmt_src_r == 3'd0);
+    wire live_target_clear = live_target_clear_decide || live_target_clear_commit;
+    wire [AXIS_W-1:0] live_target_clear_axis = live_target_clear_commit
+                                                ? cmt_axis_r : cur_axis;
+    wire [AXIS_W-1:0] target_seed_axis = (state == ST_COMMIT2) ? cmt_axis_r : cur_axis;
+    wire target_seed_write = live_target_write && (vel_upd_axis_i == target_seed_axis);
+    wire [VEL_W-1:0] target_seed_val = target_seed_write
+                                        ? vel_upd_value_i : vtgt_val[target_seed_axis];
+    wire alloc_target_write = live_target_write && (vel_upd_axis_i == cmt_axis_r);
+    wire alloc_target_vld = (live_target_clear && (live_target_clear_axis == cmt_axis_r))
+                              ? 1'b0 : (alloc_target_write ? 1'b1 : vtgt_vld[cmt_axis_r]);
+    integer cache_i;
+    always @(posedge clk_i) begin
+        if (!rst_n_i) begin
+            for (cache_i = 0; cache_i < POLY_TARGET; cache_i = cache_i + 1) begin
+                vtgt_live_vld[cache_i] <= 1'b0;
+            end
+        end else begin
+            for (cache_i = 0; cache_i < POLY_TARGET; cache_i = cache_i + 1) begin
+                if (live_target_write && (axis_r[cache_i] == vel_upd_axis_i)) begin
+                    vtgt_live_vld[cache_i] <= 1'b1;
+                end
+                // Original table clears appear later in the main always block
+                // than target writes, so clear wins a same-edge collision.
+                if (live_target_clear && (axis_r[cache_i] == live_target_clear_axis))
+                    vtgt_live_vld[cache_i] <= 1'b0;
+                // Axis reassignment and mirror seeding occur on the same edge.
+                if ((state == ST_COMMIT2) && cmt_en_r && (cmt_idx_r == cache_i)) begin
+                    vtgt_live_vld[cache_i] <= alloc_target_vld;
+                end
+            end
+        end
+    end
     integer i;
 
     always @(posedge clk_i) begin
@@ -1140,6 +1208,10 @@ module note_manager #(
             if (vel_upd_valid_i && (vu_src_w == 3'd0)) begin
                 vtgt_val[vel_upd_axis_i] <= vel_upd_value_i;   // ⭐ 该轴的目标力度
                 vtgt_vld[vel_upd_axis_i] <= 1'b1;              // ⭐ 有效（⛔ 永不清）
+                // Live voices reuse vtgt_rep as the local axis-target mirror.
+                for (i = 0; i < POLY_TARGET; i = i + 1)
+                    if ((src_r[i] == 3'd0) && (axis_r[i] == vel_upd_axis_i))
+                        vtgt_rep[i] <= vel_upd_value_i;
             end
 
             //  ⭐⭐ 非手弹源：⭐ **直接写同源 voice 的每 voice 目标**（⭐ 只动同源 ✅）
@@ -1158,37 +1230,11 @@ module note_manager #(
             //   ⭐⭐ 2026-09-29：⭐ **按源选目标**（⭐ 源 0 查每轴表、⭐ 其它源查每 voice 表）✅
             if (sample_tick_i) begin
                 for (i = 0; i < POLY_TARGET; i = i + 1)
-                    if (gate_mask[i]) begin
-                        if (src_r[i] == 3'd0) begin
-                            //  ⭐ 手弹：⭐ 每轴目标（⭐ `vtgt_vld` 是"该轴收到过目标"）
-                            //  ⭐⭐ 2026-10-09（`P0-01`）：⭐ **比较必须用 9 位** ✅
-                            //   🔴 **原缺陷**：⭐ 原写 `vtgt_val[axis_r[i]] > vel_r[i] + 8'd8`
-                            //      ⚠️ `vel_r` 是 `reg [7:0]`、`8'd8` 是 8 位常量
-                            //      ⇒ ⭐ **加法表达式自定宽度 = 8 位**（IEEE 1364-2001 §5.1.1：
-                            //         **比较不会把操作数加宽到 9 位**）⇒ 🔴 是 **mod 256**：
-                            //         `vel_r=248` ⇒ `248+8 = 0` ⇒ `tgt > 0` **几乎恒真**
-                            //         ⇒ ⭐ `vel_r` 被写成 **0**（⭐ 实测：力度 248 → 0）
-                            //         `vel_r=250` ⇒ `250+8 = 2` ⇒ 被写成 **2**（⭐ 实测）
-                            //      ⇒ 🔴 **任何力度 ≥248 的音瞬间塌到 0~26**（−20 ~ −∞ dB）✅
-                            //   ⭐ **修法**：⭐ 两侧**零扩展到 9 位**再比 ⇒ ⛔ 加法不再截断 ✅
-                            //   📌 **为什么不用钳位**：⭐ 上升支成立的前提是 `tgt > vel_r+8`
-                            //      ⇒ `vel_r+8 < tgt ≤ 255` ⇒ ⭐ 和必 ≤ 254 ⇒ **天然不溢出** ✅
-                            //   📌 **代价**：⭐ 每 voice 每分支 +1 位比较 ≈ +64~128 LUT（⭐ 0.5% T_Lut）
-                            //      ⛔ **不在关键路径上**（⭐ 不在 `timing_paths` 的 Top-25 里）✅
-                            //   📌 **判据**：⭐ `tb/w3b/tb_note_manager_vel_wrap.sv`（6 条）
-                            //      —— ⭐ 改前实测 **1 pass / 5 fail**，⭐ 改后必须 6/6 ✅
-                            if (vtgt_vld[axis_r[i]]) begin
-                                if      ({1'b0, vtgt_val[axis_r[i]]} > {1'b0, vel_r[i]} + 9'd8) vel_r[i] <= vel_r[i] + 8'd8;
-                                else if ({1'b0, vtgt_val[axis_r[i]]} + 9'd8 < {1'b0, vel_r[i]}) vel_r[i] <= vel_r[i] - 8'd8;
-                                else                                                              vel_r[i] <= vtgt_val[axis_r[i]];
-                            end
-                        end else begin
-                            //  ⭐ 非手弹（回放）：⭐ 每 voice 目标（⭐ 与手弹**同一套 ±8 斜坡** ✅）
-                            //  ⭐⭐ 2026-10-09（`P0-01`）：⭐ 同样必须 9 位比较（⭐ 见上方说明）✅
-                            if      ({1'b0, vtgt_rep[i]} > {1'b0, vel_r[i]} + 9'd8) vel_r[i] <= vel_r[i] + 8'd8;
-                            else if ({1'b0, vtgt_rep[i]} + 9'd8 < {1'b0, vel_r[i]}) vel_r[i] <= vel_r[i] - 8'd8;
-                            else                                                      vel_r[i] <= vtgt_rep[i];
-                        end
+                    if (gate_mask[i] && ((src_r[i] != 3'd0) || vtgt_live_vld[i])) begin
+                        // One unchanged +/-8 ramp for live and replay targets.
+                        if      ({1'b0, vtgt_rep[i]} > {1'b0, vel_r[i]} + 9'd8) vel_r[i] <= vel_r[i] + 8'd8;
+                        else if ({1'b0, vtgt_rep[i]} + 9'd8 < {1'b0, vel_r[i]}) vel_r[i] <= vel_r[i] - 8'd8;
+                        else                                                   vel_r[i] <= vtgt_rep[i];
                     end
             end
 
@@ -1382,7 +1428,7 @@ module note_manager #(
                         //    ⭐ 语义：⭐ 起音力度由**这次事件**决定 ⇒ ⛔ 不许残留上一个音的目标 ✅
                         //    📌 与 `ST_COMMIT2`（⭐ 新占 voice ✅）保持**同一条规则** ✅
                         //    📌 该轴的"每轴目标"清位（`vtgt_vld[cur_axis]`）已在 `ST_DECIDE` 做 ✅
-                        vtgt_rep[same_idx_r]   <= new_vel;
+                        vtgt_rep[same_idx_r]   <= (cur_src == 3'd0) ? target_seed_val : new_vel;
                     end
                     state <= ST_IDLE;
                 end
@@ -1500,7 +1546,7 @@ module note_manager #(
                         //  ⭐⭐ 2026-09-29：⭐ **新占 voice ⇒ 每 voice 目标 = 本次事件的起音力度** ✅
                         //    ⭐ 语义：⭐ 新音的第一个"目标"就是它的**起点** ⇒
                         //       ⭐ 回放的插值从起点开始爬（⛔ 不会先被上一个音的残值拉走）✅
-                        vtgt_rep[cmt_idx_r] <= cmt_vel_r;
+                        vtgt_rep[cmt_idx_r] <= (cmt_src_r == 3'd0) ? target_seed_val : cmt_vel_r;
                         alloc_valid_r      <= 1'b1;
                         alloc_voice_r      <= cmt_idx_r;
                     end

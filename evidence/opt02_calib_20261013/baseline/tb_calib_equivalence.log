@@ -1,0 +1,2 @@
+PASS: calib cycle-exact equivalence checks=73141 profiles=4 exhaustive_codes=4096 channels=8
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\drivers\tb_calib_equivalence.sv:73: $finish called at 1462820000 (1ps)

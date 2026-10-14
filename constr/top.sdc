@@ -143,5 +143,7 @@ create_generated_clock -name pixel_clk -source [get_ports {clk}] -master_clock c
 #   ✅ **取 17.8 ns**（56.2 MHz ✅）—— ⭐ 比上限低 ~1 MHz，⭐ 留收敛余量 ✅
 #      ⇒ ⭐ 工具会干到接近极限 ⇒ ⭐ **相对 50 MHz 时钟的真实余量 ≈ 20 − 17.8 = +2.2 ns** ✅
 #   📌 ⭐ 这是**唯一**能真抬余量的杠杆（⭐ PnR 是确定性的 ⇒ ⭐ "重跑抽签"无效 ✅）
-set_max_delay -from [get_clocks {clk_sys}] -to [get_clocks {clk_sys}] 17.8
+# OPT08: placement target only; physical clk_sys remains 50 MHz.
+# Native slack uses 16.4 ns, not the AO 16.8 ns comparison budget.
+set_max_delay -from [get_clocks {clk_sys}] -to [get_clocks {clk_sys}] 16.4
 set_max_delay -from [get_clocks {clk_sys}] -to [get_regs {u_hdmi/u_scope/gray_launch_*_s0 u_hdmi/u_scope/full_launch_s0 u_hdmi/u_scope/mode_launch_s0}] 10.000
