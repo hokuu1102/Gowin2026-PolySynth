@@ -90,6 +90,11 @@ module uart_tx_fifo #(
     reg [AW-1:0] wr_ptr;
     reg [AW-1:0] rd_ptr;
     reg [AW:0]   cnt;               // ⭐ 多一位 ⇒ 能表示 0..DEPTH
+    // Accepted writes are committed one clock later. Forwarding below keeps
+    // the public queue capacity and first-byte launch cycle unchanged.
+    reg          write_pending;
+    reg [AW-1:0] write_addr;
+    reg [7:0]    write_data;
 
     reg          sending;           // ⭐ 正在等 `busy` 落下
     reg          busy_seen;         // ⭐ 本次发送确实开始过
@@ -144,7 +149,16 @@ module uart_tx_fifo #(
             tx_data_o  <= 8'd0;
             ovf_r      <= 1'b0;
             drop_r     <= 8'd0;
+            write_pending <= 1'b0;
+            write_addr <= {AW{1'b0}};
+            write_data <= 8'd0;
         end else begin
+            write_pending <= push_ok;
+            if (push_ok) begin
+                write_addr <= wr_ptr;
+                write_data <= data_i;
+            end
+            if (write_pending) mem[write_addr] <= write_data;
             // ⭐ 默认：`tx_start_o` 是单拍脉冲 ⇒ ⭐ 每拍先拉低
             tx_start_o <= 1'b0;
 
@@ -165,7 +179,8 @@ module uart_tx_fifo #(
             // ═══════════════════════════════════════════════════════════════
             // ── ⭐ ① 启动发送（⭐ 有数据 且 没有在等）───────────────────────
             if (take_now) begin
-                tx_data_o  <= mem[rd_ptr];
+                tx_data_o  <= (write_pending && (rd_ptr == write_addr))
+                              ? write_data : mem[rd_ptr];
                 tx_start_o <= 1'b1;                 // ⭐ 单拍
                 rd_ptr     <= rd_ptr + ONE;
                 sending    <= 1'b1;                 // ⚠️ 等 `busy` 落下再继续
@@ -184,7 +199,6 @@ module uart_tx_fifo #(
             // ── ⭐ ③ 上游推入 ─────────────────────────────────────────────
             if (push_i) begin
                 if (push_ok) begin
-                    mem[wr_ptr] <= data_i;
                     wr_ptr      <= wr_ptr + ONE;
                 end else begin
                     // 🔴 满 ⇒ 丢弃，⭐ 但**必须留痕**（`K-106`）

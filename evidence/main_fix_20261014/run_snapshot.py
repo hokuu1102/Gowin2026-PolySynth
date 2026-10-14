@@ -59,6 +59,12 @@ def run_test(tb, rtl, support, policy, heavy, override=None):
     dst = OUT / name
     dst.mkdir(parents=True, exist_ok=True)
     src = tb.read_text(encoding="utf-8-sig")
+    # Create output directories, not missing read fixtures. Keep all writes in
+    # the isolated snapshot; an absent sim/evidence must not fail RTL at time 0.
+    for target in re.findall(r'\$fopen\s*\(\s*"([^"]+)"\s*,\s*"[wa]"', src):
+        resolved = (ROOT / target).resolve()
+        resolved.relative_to(ROOT.resolve())
+        resolved.parent.mkdir(parents=True, exist_ok=True)
     for dump in re.findall(r'\$dumpfile\s*\(\s*"([^"]+)"', src):
         (ROOT / dump).parent.mkdir(parents=True, exist_ok=True)
     image = dst / (name + ".vvp")
@@ -109,11 +115,15 @@ def main():
     global OUT, ROOT, REVISION
     ap = argparse.ArgumentParser()
     ap.add_argument("--revision", required=True)
+    ap.add_argument("--snapshot-dir", default="repair_regression_source")
     ap.add_argument("--only", nargs="*")
     ap.add_argument("--output", default="parallel_full")
     ap.add_argument("--timeout-override", type=int)
     ap.add_argument("--workers", type=int, default=8)
     options = ap.parse_args()
+    if not re.fullmatch(r"[A-Za-z0-9_-]+", options.snapshot_dir):
+        raise ValueError("Snapshot must be a local ASCII build directory name")
+    ROOT = REPO / "build" / options.snapshot_dir
     REVISION = subprocess.check_output(["git", "rev-parse", "--verify", options.revision + "^{commit}"], cwd=REPO, text=True).strip()
     if not re.fullmatch(r"[A-Za-z0-9_-]+", options.output):
         raise ValueError("Output must be a local ASCII directory name")
