@@ -586,6 +586,14 @@ function timbreOfTrack(tr) {
 
 /* ---- MIDI -> 64 位事件字数组 ----
  * 返回 { words, report }：report 是给人看的分配明细（⭐ 猜错时能看出来）。 */
+/* 取一条轨里最后一个事件的 tick —— 用于给"未闭合的 on"兜底收尾。 */
+function score_lastTick(tr) {
+  let m = 0;
+  for (const n of tr.notes) if (n.tick > m) m = n.tick;
+  for (const t of tr.tempos) if (t.tick > m) m = t.tick;
+  return m;
+}
+
 function midiToWords(parsed) {
   const scale = MIDI_PPQN / parsed.division;       /* 把文件的时基缩放到 960 */
   /* ⚠️ evs 里的每一项都带 srcTrack（源 MIDI 轨序号）——
@@ -655,21 +663,100 @@ function midiToWords(parsed) {
     }
     assign[0].drumBreak = names;   /* 供日志打印"四件各打了多少" */
   }
+  /* ⭐⭐ 2026-10-14 修：和弦的每个音必须分到【不同的 axis】。
+   *
+   * 🔴 用户报告："midi 里面同时按下的和弦没有被识别到"。
+   * 根因（FPGA 侧 rtl/w3b/note_manager.v:870 原文）：
+   *     ⭐ 每个 `(axis, src)` 同时【最多只有 1 个在响】的 voice
+   *       （同源 note_on 一定被 `same_hit` 命中 ⇒ 走复用）
+   *   而 `same_hit = (axis_r == cur_axis) && (src_r == cur_src)`
+   *   ⇒ 🔴 **同一 axis 上的多个音会互相顶掉**，只留一个 voice。
+   * ⚠️ 而原来把 Guitar I/II/III 全合并到 axis 0（按音色归组）
+   *   ⇒ 一个 6 音和弦只有 1 个音发声 —— 正是用户听到的。
+   *
+   * ⭐ 修法：把音符配对成【段】，对段做贪心 axis 分配 ——
+   *   不重叠的段可以共用一条 axis，重叠的必须分开。
+   * ✅ 可行性：FPGA 侧 `seq_arb.v:333` 里 `evt_axis_o <= pop_data[AX_O+:AXIS_W]`
+   *   ⇒ axis 对曲谱事件只是【标签】，音高由 inc 字段直接携带
+   *   ⇒ 分到不同 axis ⛔ 不影响音高。
+   * ⚠️ 但 `seq_arb.v:204` 用 `score_axis_i == 4'd15` 判鼓
+   *   ⇒ 分配时【必须避开 15】。
+   */
+  const segsAll = [];
   for (const tr of tuned) {
     const tb = timbreOfTrack(tr);
-    let ax;
-    if (axisOfTimbre.has(tb)) { ax = axisOfTimbre.get(tb); }
-    else {
-      if (axisNext > 15) throw new Error("axis 超出 0..15（音色种类太多）");
-      ax = axisNext++; axisOfTimbre.set(tb, ax);
+    const openQ = new Map();                 /* midi -> [t0, ...] 队列 */
+    const notes = tr.notes.slice().sort((a, b) => a.tick - b.tick);
+    for (const n of notes) {
+      if (n.on) {
+        if (!openQ.has(n.midi)) openQ.set(n.midi, []);
+        openQ.get(n.midi).push({ t0: Math.round(n.tick * scale), vel: n.vel || 100 });
+      } else {
+        const q = openQ.get(n.midi);
+        if (q && q.length) {
+          const o = q.shift();
+          segsAll.push({ t0: o.t0, t1: Math.round(n.tick * scale), midi: n.midi,
+                         vel: o.vel, tb: tb, tr: tr._idx, trName: tr.name });
+        }
+      }
     }
-    assign.push({ name: tr.name || "(无名)", kind: TIMBRE_NAMES[tb], axis: ax,
-                  timbre: TIMBRE_NAMES[tb], notes: tr.notes.length });
-    for (const n of tr.notes) {
-      evs.push({ tick: Math.round(n.tick * scale), kind: n.on ? KIND_ON : KIND_OFF,
-                 midi: n.midi, vel: n.on ? (n.vel || 100) : 0, axis: ax, timbre: tb,
-                 srcTrack: tr._idx });                  /* ⭐ 选轨过滤用 */
+    /* ⚠️ 未闭合的 on（谱面本身缺 off）：用【最后 tick】兜底收尾 ——
+     * ⛔ 不能只发 on 不发 off，那会挂音（我方 pool_stop 那边已修，但谱面层也要干净）。 */
+    const lastTick = Math.round(score_lastTick(tr) * scale);
+    /* ⚠️ midi 要从【map 的 key】取 —— 队内对象只有 {t0, vel}。
+     * 🔴 我第一版写成 `o.midi`（undefined）⇒ 落成 midiToPhaseInc(0) = 702
+     *    ⇒ 那些音全变成 MIDI 0 的极低音。⭐ 自检当场抓到（实测 inc=702）。 */
+    for (const [midiKey, q] of openQ) {
+      for (const o of q) {
+        segsAll.push({ t0: o.t0, t1: Math.max(lastTick, o.t0 + 1), midi: midiKey,
+                       vel: o.vel, tb: tb, tr: tr._idx, trName: tr.name, dangling: true });
+      }
     }
+  }
+
+  segsAll.sort((a, b) => a.t0 - b.t0);
+  const lastEnd = new Array(16).fill(-1);
+  lastEnd[DRUM_AXIS] = Infinity;             /* ⭐ 鼓轴不参与（它被鼓独占） */
+  let axisClash = 0;                          /* ⚠️ 抢轴次数（池不够时才会涨） */
+  const axesUsedOfTr = new Map();             /* 轨 -> 用到的 axis 集合 */
+  for (const sg of segsAll) {
+    let pick = -1;
+    for (let a = 0; a < 16; a++) {
+      if (a === DRUM_AXIS) continue;
+      if (lastEnd[a] <= sg.t0) { pick = a; break; }   /* 这条轴已空出来 */
+    }
+    if (pick < 0) {
+      /* ⚠️ 15 条轴全忙 => 只能抢最早结束的（会顶掉一个音，必须报出来） */
+      let best = -1, bestEnd = Infinity;
+      for (let a = 0; a < 16; a++) {
+        if (a === DRUM_AXIS) continue;
+        if (lastEnd[a] < bestEnd) { bestEnd = lastEnd[a]; best = a; }
+      }
+      pick = (best < 0) ? 0 : best;
+      axisClash++;
+    }
+    lastEnd[pick] = Math.max(lastEnd[pick], sg.t1);
+    sg.axis = pick;
+    if (!axesUsedOfTr.has(sg.tr)) axesUsedOfTr.set(sg.tr, new Set());
+    axesUsedOfTr.get(sg.tr).add(pick);
+  }
+
+  /* 出事件：每个段发一对 on/off（同一 axis） */
+  for (const sg of segsAll) {
+    evs.push({ tick: sg.t0, kind: KIND_ON, midi: sg.midi, vel: sg.vel,
+               axis: sg.axis, timbre: sg.tb, srcTrack: sg.tr });
+    evs.push({ tick: sg.t1, kind: KIND_OFF, midi: sg.midi, vel: 0,
+               axis: sg.axis, timbre: sg.tb, srcTrack: sg.tr });
+  }
+  /* 报告：每轨用了哪些轴（用户能看出和弦被摊开了） */
+  for (const tr of tuned) {
+    const tb = timbreOfTrack(tr);
+    const used = axesUsedOfTr.get(tr._idx);
+    const list = used ? [...used].sort((a, b) => a - b) : [];
+    assign.push({ name: tr.name || "(无名)", kind: TIMBRE_NAMES[tb],
+                  axis: list.length ? (list.length === 1 ? list[0] : list.join(",")) : "-",
+                  timbre: TIMBRE_NAMES[tb], notes: tr.notes.length,
+                  axesUsed: list.length });
   }
 
   /* ③ 排序：先按 tick，再按 kind（⭐ off 必须在 on 之后 —— 同 tick 时先发 off）
@@ -856,7 +943,10 @@ function buildScore(words, name) {  const notes = [], tempos = [], kinds = {};
        * ⚠️ 原来只存了 tick/axis/midi/vel/kind，图例只能写"轴N"，
        *    用户看不懂哪条是哪件乐器（实测反馈）。 */
       notes.push({ tick: d.tick, axis: d.axis, midi: hzToMidi(hz), vel: d.vel,
-                   kind: d.kind, timbre: d.timbre });
+                   kind: d.kind, timbre: d.timbre,
+                   /* ⭐ 原始 inc 要带下来 —— 鼓栏靠它反查"是哪个件"
+                    * （鼓的 midi 是无意义的中间值，⛔ 反查不回件）。 */
+                   inc: d.inc });
     }
   }
   // 把 note_on / note_off 配成【有长度的音符段】。
@@ -872,7 +962,9 @@ function buildScore(words, name) {  const notes = [], tempos = [], kinds = {};
     const key = ((n.axis & 15) * 128) + (n.midi & 127);
     if (n.kind === KIND_ON) {
       const seg = { t0: n.tick, t1: null, axis: n.axis, midi: n.midi,
-                    vel: n.vel, axis2: n.axis };
+                    vel: n.vel, axis2: n.axis,
+                    inc: n.inc,          /* ⭐ 鼓栏要按件分行（见 buildScore 的说明） */
+                    drumInc: (n.axis === DRUM_AXIS) ? n.inc : null };
       segs.push(seg);
       open.set(key, seg);
     } else {
@@ -881,6 +973,16 @@ function buildScore(words, name) {  const notes = [], tempos = [], kinds = {};
       else { orphanOff++; }
     }
   }
+  /* ⭐ 2026-10-14：把【鼓】单独收一栏（用户要求）。
+   * 为什么：鼓的 inc 是"件标识"（kick/snare/hihat/tom），
+   *   被当乐音画会散落在低音区（实测 B1/G3/B4/B6），⛔ 不是鼓的语义。
+   * ⭐ 判据 = axis === DRUM_AXIS（我方转换器把鼓全放这个轴）。 */
+  const drumSegs = [];
+  for (const seg of segs) {
+    if (seg.axis === DRUM_AXIS) drumSegs.push(seg);
+  }
+  const noteSegs = segs.filter(seg => seg.axis !== DRUM_AXIS);
+
   // 收尾：还没闭合的 on
   for (const seg of open.values()) { danglingOn++; }
   if (segs.length) {
@@ -900,7 +1002,11 @@ function buildScore(words, name) {  const notes = [], tempos = [], kinds = {};
   return { name, words, notes, segs, orphanOff, danglingOn, tempos, kinds,
            tickMax, tickMin,
            duration: (tickMax - (isFinite(tickMin) ? tickMin : 0)) / (hz0 || 1),
-           payload };
+           payload,
+    /* ⭐ 鼓单独一栏（2026-10-14）：鼓段不画进钢琴卷帘，另画在底部。
+     *   drumSegs 里每个 seg 多一个 drumName（kick/snare/hihat/tom），
+     *   由 inc 反查得到（映射表在 DRUM_INC）。 */
+    drumSegs: drumSegs, noteSegs: noteSegs };
 }
 
 /* ============================== 卷帘 ============================== */
@@ -973,6 +1079,79 @@ function drawPiano(lo, hi, Y, ph) {
     ctx.fillText(midiName(m), PAD.l - 27, y);
   }
 }
+/* 鼓单独一栏（2026-10-14，用户要求）。
+ *
+ * ⭐ 为什么需要：鼓的 `inc` 是【件标识】（kick/snare/hihat/tom），
+ *    ⛔ 不是音高。按音高画会散落在 B1/G3/B4/B6 一带，看着像"低音旋律"——
+ *    用户实测反馈"不应该显示音高，要么单独给他开一栏"。
+ *
+ * ⭐ 画法：底部 4 行固定顺序（与 FPGA 侧 step_mask 位序一致：
+ *    bit0=Kick · bit1=Snare · bit2=HiHat · bit3=Tom），
+ *    行名写在左侧（复用主图 PAD.l 宽度，便于对齐）。
+ * ⚠️ 高度：鼓栏占主图高度的 18%（但不小于 48px，也不大于 120px）；
+ *    主图相应缩小 —— 两者加起来仍是原来的总高。
+ */
+const DRUM_LANE_ORDER = ["kick", "snare", "hihat", "tom"];
+const DRUM_LANE_NAME = { kick: "Kick", snare: "Snare", hihat: "HiHat", tom: "Tom" };
+
+function drumNameOfInc(inc) {
+  for (const k of Object.keys(DRUM_INC)) {
+    if (DRUM_INC[k] === inc) return k;
+  }
+  return null;
+}
+
+function drawDrumLane(X, pw) {
+  const segs = score.drumSegs || [];
+  if (!segs.length) return;                 /* 没有鼓就不占位置 */
+  const { ph } = geom();
+  const laneH = Math.max(48, Math.min(120, ph * 0.18));
+  const top = PAD.t + ph - laneH;
+  const rowH = laneH / DRUM_LANE_ORDER.length;
+
+  /* 背景 + 分隔线 */
+  ctx.fillStyle = "#12181f";
+  ctx.fillRect(PAD.l, top, pw, laneH);
+  ctx.strokeStyle = "#26303f";
+  ctx.strokeRect(PAD.l + .5, top + .5, pw - 1, laneH - 1);
+
+  /* 行名（左侧，与钢琴键盘同一列） */
+  ctx.font = "10px 'Microsoft YaHei UI',sans-serif";
+  ctx.textAlign = "right"; ctx.textBaseline = "middle";
+  DRUM_LANE_ORDER.forEach((k, i) => {
+    const y = top + rowH * (i + 0.5);
+    ctx.fillStyle = "#8695ab";
+    ctx.fillText(DRUM_LANE_NAME[k], PAD.l - 6, y);
+    if (i > 0) {
+      ctx.strokeStyle = "#1e2733"; ctx.beginPath();
+      ctx.moveTo(PAD.l, top + rowH * i); ctx.lineTo(PAD.l + pw, top + rowH * i);
+      ctx.stroke();
+    }
+  });
+
+  /* 音符块：按件分行 */
+  const blockH = Math.max(2, Math.min(rowH * 0.6, 10));
+  const step = segs.length > 12000 ? Math.ceil(segs.length / 12000) : 1;
+  for (let i = 0; i < segs.length; i += step) {
+    const sg = segs[i];
+    const k = drumNameOfInc(sg.drumInc);
+    const row = DRUM_LANE_ORDER.indexOf(k);
+    if (row < 0) continue;                  /* 认不出的件：不画（⛔ 不猜） */
+    const x0 = X(sg.t0), x1 = X(sg.t1);
+    const y = top + rowH * row + rowH / 2 - blockH / 2;
+    ctx.fillStyle = AXIS_COLORS[DRUM_AXIS % 16];
+    ctx.globalAlpha = 0.45 + 0.55 * Math.min(1, (sg.vel || 0) / 127);
+    ctx.fillRect(x0, y, Math.max(1.6, x1 - x0), blockH);
+    ctx.globalAlpha = 1;
+  }
+
+  /* 标题 */
+  ctx.fillStyle = "#ffb020";
+  ctx.textAlign = "left"; ctx.textBaseline = "top";
+  ctx.font = "10px 'Microsoft YaHei UI',sans-serif";
+  ctx.fillText("鼓（axis " + DRUM_AXIS + "）· 4 件 · 独立一栏", PAD.l + 4, top + 3);
+}
+
 function draw() {
   const { w, h, pw, ph } = geom();
   ctx.clearRect(0, 0, w, h);
@@ -986,7 +1165,10 @@ function draw() {
     return;
   }
   const tm = Math.max(1, score.tickMax);
-  const mids = score.notes.map(n => n.midi).filter(m => m > 0);
+  /* ⭐ 2026-10-14：音高范围【排除鼓】—— 否则会被拉到 B1~B6 一带，
+   * 把真正的旋律压扁（用户实测反馈"鼓不该显示音高"）。 */
+  const mids = score.notes.filter(n => n.axis !== DRUM_AXIS)
+                          .map(n => n.midi).filter(m => m > 0);
   let lo = mids.length ? Math.min(...mids) - 1 : 0;
   let hi = mids.length ? Math.max(...mids) + 1 : 1;
   if (hi - lo < 6) { lo -= 3; hi += 3; }
@@ -1018,8 +1200,9 @@ function draw() {
       lastLabelX = x;
     }
   }
-  // 音符：画成【有长度的色块】（原来只画点，看不出时值）
-  const segs = score.segs || [];
+  /* 音符：画成【有长度的色块】（原来只画点，看不出时值）。
+   * ⭐ 2026-10-14：鼓段【不在这里画】—— 它们另画在底部一栏（见下方 drawDrumLane）。 */
+  const segs = score.noteSegs || (score.segs || []).filter(x => x.axis !== DRUM_AXIS);
   const step = segs.length > 24000 ? Math.ceil(segs.length / 24000) : 1;
   const rowH = ph / (hi - lo);
   const blockH = Math.max(2, Math.min(rowH * 0.72, 12));
@@ -1034,6 +1217,13 @@ function draw() {
     ctx.fillRect(x0, y, bw, blockH);
     ctx.globalAlpha = 1;
   }
+  /* ⭐ 鼓单独一栏（2026-10-14，用户要求）。
+   * 为什么：鼓的 inc 是"件标识"（kick/snare/hihat/tom），
+   *   按音高画会散落在 B1/G3/B4/B6 一带 —— ⛔ 那不是鼓的语义。
+   * ⭐ 画法：底部固定 4 行（Kick/Snare/HiHat/Tom），行名写在左侧，
+   *   时间轴与主图【同一套 X()】，所以垂直对齐。 */
+  drawDrumLane(X, pw);
+
   // 播放游标
   if (playFrac !== null) {
     const x = PAD.l + Math.min(1, Math.max(0, playFrac)) * pw;
@@ -1438,6 +1628,10 @@ async function openFile(f) {
        * evTrack（每帧对应的源轨序号）与 trackList（选择器显示用）。 */
       score.conv = conv;
       score.payload = buildPayload(score.words);   /* 全选时的默认 payload */
+      /* ⭐ 必须同步存一份给"全选/全不选"按钮用 ——
+       * 🔴 我第一版只写了 buildTrackPicker(conv)，忘了这里，
+       *    导致 lastConv 永远是 null => 按钮永远报"先打开一个 MIDI"（用户实测）。 */
+      lastConv = conv;
       $("fname").textContent = f.name;
       $("s_n").textContent = score.words.length;
       $("s_dur").textContent = score.duration.toFixed(1) + " s";
@@ -1469,6 +1663,9 @@ async function openFile(f) {
       draw();
       return;
     }
+    /* ⚠️ events.hex 里【没有】轨信息 => 清掉 lastConv，
+     * 免得按钮用上一份 MIDI 的轨列表去操作（那是脏数据）。 */
+    lastConv = null;
     const text = await f.text();
     const words = parseEventsHex(text);
     score = buildScore(words, f.name);
@@ -1846,7 +2043,11 @@ $("u_btnClear").onclick = () => { uReset(); log("回传数据已清空", ""); };
 /* 2026-10-14：轨选择的快捷按钮（全选 / 全不选）。
  * ⭐ "全不选"之后灌下去会是空谱 —— 所以只清列表，并靠摘要行提示。 */
 $("tkAll").onclick = () => {
-  if (!lastConv || !lastConv.trackList) { log("先打开一个 MIDI", "er"); return; }
+  if (!lastConv || !lastConv.trackList) {
+    log(score ? "当前打开的谱面【没有轨信息】（events.hex 没有轨）—— 请打开 .mid"
+              : "先打开一个 MIDI", "er");
+    return;
+  }
   trackSel = new Set(lastConv.trackList.map(t => t.idx));
   lastConv.trackList.forEach(t => {
     const e = $("tk_" + t.idx); if (e) e.checked = true;
@@ -1854,7 +2055,11 @@ $("tkAll").onclick = () => {
   updateTrackSummary(lastConv);
 };
 $("tkNone").onclick = () => {
-  if (!lastConv || !lastConv.trackList) { log("先打开一个 MIDI", "er"); return; }
+  if (!lastConv || !lastConv.trackList) {
+    log(score ? "当前打开的谱面【没有轨信息】（events.hex 没有轨）—— 请打开 .mid"
+              : "先打开一个 MIDI", "er");
+    return;
+  }
   trackSel = new Set();
   lastConv.trackList.forEach(t => {
     const e = $("tk_" + t.idx); if (e) e.checked = false;

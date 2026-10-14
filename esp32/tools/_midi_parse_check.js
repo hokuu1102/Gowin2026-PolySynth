@@ -278,13 +278,15 @@ for (let i = 0; i < mid2.length - 3; i++) {
 }
 const p2 = API.parseMidi(mid2.buffer);
 const c2 = API.midiToWords(p2);
-let pianoInc2 = null;
-for (const w of c2.words) {
-  const axis = Number((w >> 19n) & 0xFn), kind = Number((w >> 9n) & 0x3n);
-  if (axis === 1 && kind === API.KIND_ON) { pianoInc2 = Number((w >> 23n) & 0x1FFFFFn); break; }
-}
-chk("非空洞：把 C4 改成 D4 => inc 必须变成 D4 的",
-    pianoInc2 === expectInc(62), "实测 " + pianoInc2 + " 期望 " + expectInc(62));
+/* ⚠️ 2026-10-14 起 axis 是【动态分配】的（为了避开 FPGA 的 same_hit 顶音），
+ * 所以⛔ 不能按"axis == N"找音 —— ⭐ 改成按 inc 找。 */
+const allInc2 = c2.words.map(w => Number((w >> 23n) & 0x1FFFFFn));
+const onInc2 = c2.words.filter(w => Number((w >> 9n) & 0x3n) === API.KIND_ON)
+                       .map(w => Number((w >> 23n) & 0x1FFFFFn));
+chk("非空洞：把 C4 改成 D4 => 输出里出现 D4 的 inc",
+    onInc2.includes(expectInc(62)), "期望 " + expectInc(62));
+chk("非空洞：且【不再】出现 C4 的 inc（⭐ 证明改的确实是那个音）",
+    !onInc2.includes(expectInc(60)), "C4 inc = " + expectInc(60));
 
 // D. 只有鼓的 MIDI => 只占 axis 0，不占别的
 const drumOnly = midiFile(DIV, [trDrum]);
