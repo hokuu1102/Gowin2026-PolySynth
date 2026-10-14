@@ -67,18 +67,20 @@ module tb_top_probe_queue;
         send("Y");send("P");send("N");send("V");send("P");
         send("L");send("R");send("C");send("E");
         repeat(80000) @(negedge clk);
-        // 18 event bytes + 14 footer + four rejection notices + N(8),V(7),P(8).
-        if(count!=59 || bytes[0]!==8'hA5 || bytes[9]!==8'hA5)
+        //  ⭐⭐ 2026-10-14：⭐ **帧宽 9 B → 14 B ⇒ 偏移全部 +10，总数 59 → 69** ✅
+        //     📌 新账：2×14 = 28 事件字节 ＋ 14 尾 ＋ 4 拒绝通知 ＋ N(8) ＋ V(7) ＋ P(8)
+        //        = **69** ✅（⭐ 旧账 2×9 = 18 ⇒ 59 ✅）
+        if(count!=69 || bytes[0]!==8'hA5 || bytes[14]!==8'hA5)
             $fatal(1,"FAIL: queued packet count/framing count=%0d",count);
         for(i=0;i<14;i=i+1)
-            if(bytes[i+18]!==footer[111-i*8 -: 8]) $fatal(1,"FAIL: export footer %0d",i);
-        for(i=32;i<36;i=i+1)
+            if(bytes[i+28]!==footer[111-i*8 -: 8]) $fatal(1,"FAIL: export footer %0d",i);
+        for(i=42;i<46;i=i+1)
             if(bytes[i]!=="!") $fatal(1,"FAIL: rejection notice %0d",i);
-        decimal_packet(36,"N");
-        if({bytes[44],bytes[45],bytes[46],bytes[47],bytes[48],bytes[49],bytes[50]}
+        decimal_packet(46,"N");
+        if({bytes[54],bytes[55],bytes[56],bytes[57],bytes[58],bytes[59],bytes[60]}
            !==56'h56303030300d0a) $fatal(1,"FAIL: V snapshot/packet interleaved got=%h",
-               {bytes[44],bytes[45],bytes[46],bytes[47],bytes[48],bytes[49],bytes[50]});
-        decimal_packet(51,"P");
+               {bytes[54],bytes[55],bytes[56],bytes[57],bytes[58],bytes[59],bytes[60]});
+        decimal_packet(61,"P");
         $display("PASS: atomic export, bounded duplicate rejection, complete ordered N/V/P packets");
         $finish;
     end

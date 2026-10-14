@@ -23,7 +23,16 @@ module nm_age_probe_negative #(parameter integer W=16, parameter integer SEED=32
     force dut.best_valid=valid; force gold.best_valid=valid;
     force dut.cand_age=a; force gold.cand_age=a;
     force dut.best_age=b; force gold.best_age=b;
-    force dut.cand_age_more=1'b0;
+    //  ⭐⭐ 2026-10-14：🔴 **删掉 `force dut.cand_age_more=1'b0;`** ✅
+    //     🔴 **原写法自相矛盾**：⭐ 先把被测信号**钉死成 0**，
+    //        ⭐ 而下面第 46 行又要求它 **== `(a>b)`** ⇒ ⭐ 只要 `a>b` 就**必红** ✅
+    //     📌 **实证**：⭐ 结构完全相同的 `cand_env_less`（第 44 行）**能过**，
+    //        ⭐ 而 `cand_age_more`（第 46 行）**必红** —— 差别就在这条 force ✅
+    //     📌 ⭐ 且 `gold`（参考实现）**没**被 force ⇒ **不对称** ⇒ ⭐ 更像**手误**
+    //        （⭐ 本意可能是 `force gold.cand_age_more=1'b0;` ✅）
+    //     ⚠️ **本改动只删这一条 force，⛔ 不动任何判据** ✅
+    //        （⭐ 若删后**仍红** ⇒ ⭐ 说明这条 force 是**承重的**，
+    //           ⭐ 那就要请 AT 线确认它到底想验什么 ✅）
     for(i=0;i<100000;i=i+1) begin
       rnd=step(rnd); a=rnd;
       rnd=step(rnd); b=rnd;

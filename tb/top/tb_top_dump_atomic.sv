@@ -22,7 +22,7 @@ module tb_top_dump_atomic;
     integer count=0;
     reg capture=0;
     reg [7:0] bytes[0:255];
-    reg [7:0] first_dump[0:17];
+    reg [7:0] first_dump[0:27];   // ⭐ 2026-10-14：⭐ 2×14 = 28（⭐ 原 2×9 = 18 ✅）
     always @(posedge clk) if(rst_n) begin
         if(board_tx!==esp_tx) $fatal(1,"FAIL: UART mirrors disagree");
         if(capture && rx_done) begin
@@ -49,28 +49,55 @@ module tb_top_dump_atomic;
         hall=12'h7c1;repeat(60000) @(negedge clk);
         send("R");repeat(2000) @(negedge clk);
         capture=1;count=0;
+        //  ⭐⭐ 2026-10-14：⭐ **等待从 40000 加到 200000 拍** ✅
+        //     🔴 **为什么**：⭐ `rec_dump` 的帧从 9 B 变成 **14 B**
+        //        ⇒ ⭐ 导出本身变长（⭐ 2 帧从 18 → 28 字节）
+        //        ⇒ ⚠️ 原来 40000 拍只够发到"3 个拒绝通知"，
+        //           🔴 **`'P'` 的探针回复还没排到** ⇒ 判据看不到它 ✅
+        //     📌 ⭐ 实测（⭐ dump 出来的字节）：⭐ 40000 拍时 count=45 =
+        //        28 帧 ＋ 14 尾 ＋ 3 拒绝 ⇒ ⭐ **正好缺那 11 字节的探针回复** ✅
         send("Y");send("P");send("L");send("R");send("C");send("E");
-        repeat(40000) @(negedge clk);
-        if(count!=43 || bytes[0]!==8'hA5 || bytes[9]!==8'hA5)
+        repeat(200000) @(negedge clk);
+        //  ⭐⭐ 2026-10-14：⭐ **帧宽 9 B → 14 B ⇒ dump 帧之后的偏移全部 +10** ✅
+        //     📌 旧账：2×9 = 18 帧字节 ＋ 14 尾 ＋ 11 探针 = **43**
+        //     📌 新账：2×14 = 28 帧字节 ＋ 14 尾 ＋ 11 探针 = **53** ✅
+        //     🔴 **为什么必须改**：⭐ `rec_dump` 已改成 14 B v1.1 帧
+        //        （⭐ 治 ESP32 上行解析器全判"未知类型" ✅）
+        //  ⭐⭐ 2026-10-14：⭐ **不匹配时把实际字节 dump 出来**（⛔ 别猜布局 ✅）
+        //     📌 上一版我按"2×14 + 14 + 11 = 53"算 ⇒ ⚠️ 实测 count=45
+        //        ⇒ 🔴 说明**实际布局与我的假设不同** ⇒ ⭐ 先看数据再改判据 ✅
+        if(count!=53 || bytes[0]!==8'hA5 || bytes[14]!==8'hA5) begin
+            $display("  [dump] count=%0d", count);
+            for(i=0;i<60;i=i+1) $display("    [%0d] = %02h", i, bytes[i]);
             $fatal(1,"FAIL: atomic export absent/corrupt count=%0d",count);
+        end
         for(i=0;i<14;i=i+1)
-            if(bytes[i+18]!==footer[111-i*8 -: 8])
-                $fatal(1,"FAIL: footer/interleaving at %0d got=%02h",i,bytes[i+18]);
-        for(i=0;i<18;i=i+1) first_dump[i]=bytes[i];
+            if(bytes[i+28]!==footer[111-i*8 -: 8])
+                $fatal(1,"FAIL: footer/interleaving at %0d got=%02h",i,bytes[i+28]);
+        for(i=0;i<28;i=i+1) first_dump[i]=bytes[i];
         // Probe reports the chip's live scan value. At rest, every channel in
         // this external ADC model is in 1985..1992 (inverted 2103..2110).
-        if({bytes[32],bytes[33],bytes[34],bytes[35],bytes[36]} !== "!!!P0" ||
-            bytes[41]!=13 || bytes[42]!=10) $fatal(1,"FAIL: deferred probe framing");
+        if({bytes[42],bytes[43],bytes[44],bytes[45],bytes[46]} !== "!!!P0" ||
+            bytes[51]!=13 || bytes[52]!=10) $fatal(1,"FAIL: deferred probe framing");
         probe_value=0;
-        for(i=37;i<=40;i=i+1) begin
+        for(i=47;i<=50;i=i+1) begin
             if(bytes[i]<"0" || bytes[i]>"9") $fatal(1,"FAIL: probe digits");
             probe_value=probe_value*10+bytes[i]-"0";
         end
         if(probe_value<2103 || probe_value>2110) $fatal(1,"FAIL: deferred probe snapshot %0d",probe_value);
         count=0;send("Y");repeat(40000) @(negedge clk);
         if(count<32) $fatal(1,"FAIL: R/L/C changed layer while exporting");
-        for(i=0;i<18;i=i+1)
-            if(bytes[i]!==first_dump[i]) $fatal(1,"FAIL: recording changed at byte %0d",i);
+        //  ⭐⭐ 2026-10-14：⭐ **只比"事件内容"，⛔ 不比传输层的 `seq` 与 XOR** ✅
+        //     🔴 **为什么**：⭐ `seq` 是**自由运行计数器**（⭐ 每次导出继续递增）
+        //        ⇒ ⚠️ 两次导出的 `seq` **天然不同**（⭐ 且 XOR 覆盖 seq ⇒ 也跟着变）
+        //        ⇒ 🔴 原来"28 字节逐字节全比"会**误报"录音变了"** ✅
+        //     📌 ⭐ 帧内偏移（⭐ 14 B）：⭐ 0=头 · 1=类型 · **2=seq（跳过）** ·
+        //        3..6=tick · 7=axis · 8..11=inc · 12=vel · **13=XOR（跳过）** ✅
+        //     📌 ⭐ **本判据的原意没变**：⭐ "导出期间 R/L/C **不许改动录音内容**"
+        //        ⇒ ⭐ 比的是**事件载荷**（⭐ 类型/tick/轴/音高/力度）✅
+        for(i=0;i<28;i=i+1)
+            if((i%14)!=2 && (i%14)!=13)
+                if(bytes[i]!==first_dump[i]) $fatal(1,"FAIL: recording changed at byte %0d",i);
         $display("PASS: real Hall recording, atomic dual UART export, deferred P, rejected R/L/C and unchanged re-export");
         $finish;
     end

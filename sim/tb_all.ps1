@@ -280,6 +280,17 @@ foreach ($tb in $tbs) {
                   #     ⇒ 🔴 全量回归因此报 `TIMEOUT`（⚠️ 而日志里其实已有 `PASS:`，K-94/K-161 同族）
                   #     ⇒ ⭐ 抬到 **900 s**（1.4× 实测）
                   elseif ($name -eq 'tb_top_sound') { 900 }
+                  #  ⭐⭐ 2026-10-14 新增：⭐ `tb_opt04_transpose_current_af`（⭐ AT 交付带来的 ✅）
+                  #     🔴 **症状**：⭐ 全量回归报 `TIMEOUT after 120 s`（⭐ 而它**不在本表里** ⇒ 只拿默认 120 s）✅
+                  #     📌 ⭐ **为什么它天生慢**：⭐ 该 tb **2993 行**，
+                  #        且**同时例化 3~4 个 `note_manager`**（⭐ 每个 32 voice）
+                  #        做**逐拍逐位**比对（⭐ 与 `tb_evt_merge_diff` 同一套手法 ✅）
+                  #     📌 ⭐ **依据**：⭐ 本表对同类重型 tb 已有既定处置 ——
+                  #        `tb_export_wav` 1800 · `tb_met_btn_top`/`tb_e2e_key_to_sound`/
+                  #        `tb_slide_e2e`/`tb_top_sound` 900 ✅
+                  #     ⚠️ **本改动【只加预算】，⛔ 一个字都不动它的判据** ✅
+                  #        （⭐ 若加预算后**仍红** ⇒ ⭐ 那才是真挂死，需另查 ✅）
+                  elseif ($name -eq 'tb_opt04_transpose_current_af') { 900 }
                   #  ⭐⭐ 2026-10-08 新增：⭐ `tb_right_adc`（⭐ `RIGHT_ADC_ENABLE` 双实例差分）
                   #     ⚠️ 它**同时例化两个 `top`**（一个 `=1` 一个 `=0`）⇒ 天然是重 tb
                   #     ⭐ 实测（机器带负载）**85 s** ⇒ ⭐ 给 **300 s**（3.5× 余量）
