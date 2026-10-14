@@ -1,0 +1,2 @@
+FATAL: tb/w3a/tb_play_mode_slide_hold.sv:40: FAIL: owner must sustain while partner remains pressed
+       Time: 360000  Scope: tb_play_mode_slide_hold

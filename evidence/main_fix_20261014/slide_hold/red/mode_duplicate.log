@@ -1,0 +1,2 @@
+FATAL: tb/w3a/tb_play_mode_slide_hold.sv:56: FAIL: mode change duplicated the deferred OFF: 3
+       Time: 1320000  Scope: tb_play_mode_slide_hold

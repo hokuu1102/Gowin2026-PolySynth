@@ -18,6 +18,8 @@ module play_mode_ctrl #(
     input  wire [DEPTH_W-1:0]     axis_depth_i,
     input  wire                   pluck_valid_i,
     input  wire                   pluck_up_i,       // direction retained at capture seam
+    input  wire                   slide_active_i,
+    input  wire [AXIS_W-1:0]       slide_axis_i,
 
     output reg                    evt_valid_o,
     output reg  [AXIS_W-1:0]      evt_axis_o,
@@ -35,6 +37,10 @@ module play_mode_ctrl #(
     reg [AXIS_W-1:0]     gate_axis;
     localparam integer AXIS_COUNT = (1 << AXIS_W);
     reg [AXIS_COUNT-1:0] keyboard_held;
+    reg deferred_off;
+    reg [AXIS_W-1:0] deferred_axis;
+    wire slide_holds_gate = (slide_active_i === 1'b1) && (slide_axis_i == gate_axis);
+    wire slide_holds_axis = (slide_active_i === 1'b1) && (slide_axis_i == axis_i);
 
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
@@ -44,6 +50,8 @@ module play_mode_ctrl #(
             gate_valid     <= 1'b0;
             gate_axis      <= {AXIS_W{1'b0}};
             keyboard_held  <= {AXIS_COUNT{1'b0}};
+            deferred_off <= 1'b0;
+            deferred_axis <= {AXIS_W{1'b0}};
             evt_valid_o    <= 1'b0;
             evt_axis_o     <= {AXIS_W{1'b0}};
             evt_kind_o     <= KIND_ON;
@@ -51,7 +59,21 @@ module play_mode_ctrl #(
         end else begin
             evt_valid_o <= 1'b0;
 
-            if (!fretboard_mode_i) begin
+            // A re-pressed owner withdraws its deferred release. A quiet cycle
+            // drains an ended session without dropping simultaneous axis/pluck
+            // input. Production scans have a bounded idle gap each snapshot.
+            if (axis_valid_i && axis_kind_i == KIND_ON && axis_i == deferred_axis)
+                deferred_off <= 1'b0;
+
+            if (deferred_off && !((slide_active_i === 1'b1) && slide_axis_i == deferred_axis)
+                             && !axis_valid_i && !pluck_valid_i) begin
+                evt_valid_o <= 1'b1;
+                evt_axis_o <= deferred_axis; evt_kind_o <= KIND_OFF;
+                evt_depth_o <= {DEPTH_W{1'b0}};
+                keyboard_held[deferred_axis] <= 1'b0;
+                deferred_off <= 1'b0;
+                if (gate_axis == deferred_axis) gate_valid <= 1'b0;
+            end else if (!fretboard_mode_i) begin
                 // Keyboard: threshold crossing and release are directly musical.
                 if (axis_valid_i) begin
                     evt_valid_o <= 1'b1;
@@ -90,6 +112,7 @@ module play_mode_ctrl #(
                         gate_axis  <= axis_i;
                     end else if (axis_kind_i == KIND_OFF) begin
                         keyboard_held[axis_i] <= 1'b0;
+                        if (deferred_axis == axis_i) deferred_off <= 1'b0;
                         //  ⭐ 只在"放掉的正是正在响的那个"时清 ✅
                         if (axis_i == gate_axis) gate_valid <= 1'b0;
                     end
@@ -103,7 +126,8 @@ module play_mode_ctrl #(
                 evt_depth_o <= selected_depth;
                 gate_valid  <= 1'b1;
                 gate_axis   <= selected_axis;
-                keyboard_held[selected_axis] <= 1'b0;
+                // Track every live hand-play axis, including successive plucks.
+                keyboard_held[selected_axis] <= 1'b1;
             end else if (axis_valid_i) begin
                 if (axis_kind_i == KIND_ON) begin
                     selected_valid <= 1'b1;
@@ -131,19 +155,25 @@ module play_mode_ctrl #(
                     //      ⇒ ⭐ `evt_axis_o` 由 `axis_i` 改成 `gate_axis` **得到同一个值** ⇒ 判据不变 ✅
                     // Every keyboard-origin axis survives a mode change until
                     // its own OFF is forwarded, not only the last gate_axis.
-                    if (keyboard_held[axis_i]) begin
+                    if (keyboard_held[axis_i] && slide_holds_axis) begin
+                        deferred_off <= 1'b1; deferred_axis <= axis_i;
+                    end else if (keyboard_held[axis_i]) begin
                         evt_valid_o <= 1'b1;
                         evt_axis_o <= axis_i;
                         evt_kind_o <= KIND_OFF;
                         evt_depth_o <= {DEPTH_W{1'b0}};
                         keyboard_held[axis_i] <= 1'b0;
+                        if (deferred_axis == axis_i) deferred_off <= 1'b0;
                         if (axis_i == gate_axis) gate_valid <= 1'b0;
-                    end else if (gate_valid && ((axis_i == gate_axis) || (axis_i == selected_axis))) begin
+                    end else if (gate_valid && !slide_holds_gate &&
+                                 ((axis_i == gate_axis) || (axis_i == selected_axis))) begin
                         evt_valid_o <= 1'b1;
                         evt_axis_o  <= gate_axis;    // ⭐ 释放【正在响】的那个轴
                         evt_kind_o  <= KIND_OFF;
                         evt_depth_o <= {DEPTH_W{1'b0}};
                         gate_valid  <= 1'b0;
+                        keyboard_held[gate_axis] <= 1'b0;
+                        if (deferred_axis == gate_axis) deferred_off <= 1'b0;
                     end
                 end
             end
