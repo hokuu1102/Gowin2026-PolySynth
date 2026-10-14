@@ -294,6 +294,62 @@ const dOnly = API.midiToWords(API.parseMidi(drumOnly.buffer));
 chk("非空洞：只有鼓 => 只用 axis 15", dOnly.assign.length === 1 && dOnly.assign[0].axis === 15,
     JSON.stringify(dOnly.assign));
 
+
+/* ---- ⑤⭐ 多 tempo 必须全部发出（2026-10-14 补，双向验证抓到的漏洞）----
+ * 🔴 上一版没有这条 ⇒ 把"每个 tempo 都发"改回"只发第一个"后本自检仍全绿
+ *    ⇒ 那一组修复等于没判据保护。⚠️ 用户真实文件有 7 个 tempo，
+ *    只发一个 ⇒ 中段变速丢失，而现有判据看不出来。
+ * ⚠️ 非空洞性：_bidir_check.py 已验（改回旧写法 ⇒ 本项必须红）。 */
+console.log();
+console.log("---- 多 tempo 全部发出（kind=2 事件数 == tempo 点数）----");
+function tempoMidi(us) {
+  /* us = [微秒/四分音符, ...] —— 每个都会变成一个 tempo 事件
+   * ⭐ 每组单独写清 [delta, 0xFF, 0x51, 0x03, b0, b1, b2]，⛔ 不摊平
+   *   （我第一版摊平了 => 字节流错位 => 一个 tempo 都读不到，实测 allTempos=0）。 */
+  const groups = [];
+  us.forEach((u, i) => {
+    groups.push([i === 0 ? 0 : 480, 0xFF, 0x51, 0x03,
+                 (u >> 16) & 255, (u >> 8) & 255, u & 255]);
+  });
+  /* 配一个音，确保这条轨不会被当成空轨丢掉 */
+  groups.push([0, 0x90, 60, 100]);
+  groups.push([960, 0x80, 60, 0]);
+  const body = [];
+  for (const g of groups) body.push(...vlq(g[0]), ...g.slice(1));
+  body.push(...vlq(0), 0xFF, 0x2F, 0x00);
+  return new Uint8Array([...str("MThd"), ...u32(6), ...u16(1), ...u16(1), ...u16(480),
+                         ...str("MTrk"), ...u32(body.length), ...body]);
+}
+
+{
+  const T = [500000, 600000, 400000];     /* 120 / 100 / 150 BPM */
+  const cT = API.midiToWords(API.parseMidi(tempoMidi(T).buffer));
+  const tempoEvs = [];
+  cT.words.forEach(w => {
+    if (Number((w >> 9n) & 0x3n) === API.KIND_TEMPO) {
+      tempoEvs.push({ tick: Number((w >> 44n) & 0xFFFFFn),
+                      inc: Number((w >> 23n) & 0x1FFFFFn) });
+    }
+  });
+  chk("⭐ 3 个 tempo => 发出 3 个 kind=2 事件（⛔ 不是 1 个）",
+      tempoEvs.length === 3, "实测 " + tempoEvs.length + " 个");
+  chk("⭐ 且它们的 tick 分别是 0 / 960 / 1920（480 PPQN -> 960 已缩放）",
+      tempoEvs.map(e => e.tick).join(",") === "0,960,1920",
+      tempoEvs.map(e => e.tick).join(","));
+  const want = T.map(us => {
+    const bpm = 60000000 / us;
+    return Math.round((bpm / 60) * 960 * 4294967296 / 50000000);
+  });
+  chk("⭐ 且 inc 与三个 tempo 的 tick_inc 一一对应",
+      want.every((v, i) => Math.abs(tempoEvs[i].inc - v) <= 1),
+      "实测 " + tempoEvs.map(e => e.inc).join(",") + " 期望 " + want.join(","));
+
+  /* 非空洞：恒定 BPM（只 1 个 tempo）也要只发 1 个，⛔ 不能变成多发 */
+  const cT1 = API.midiToWords(API.parseMidi(tempoMidi([500000]).buffer));
+  const n1 = cT1.words.filter(w => Number((w >> 9n) & 0x3n) === API.KIND_TEMPO).length;
+  chk("非空洞：只 1 个 tempo => 只发 1 个（⛔ 不能无脑多发）", n1 === 1, "实测 " + n1);
+}
+
 console.log();
 console.log("结论：" + (bad === 0 ? "全部通过" : "有 " + bad + " 项不符"));
 process.exit(bad === 0 ? 0 : 1);

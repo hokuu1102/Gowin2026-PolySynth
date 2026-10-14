@@ -295,6 +295,8 @@ def selftest():
         "_deadlock_check.js",    # 灌谱卡死自检（gattSerial 队列，6 项）
         "_undef_check.js",       # 未定义函数引用自查（静态精准，6 项）
         "_axis_dep_check.py",    # 工具是否依赖"固定 axis 分配"（改成动态分配后必须核）
+        "_bidir_check.py",       # 双向验证：四组修复的回归判据【必须能失败】（0.11 §C83）
+        "_doc_cmd_check.py",     # 待上机清单的命令必须【单行可粘贴】+ 参数真实存在
         "_diag_bpm.js",          # 查一份 MIDI 的 tempo 转换结果（排查用，要 argv）
         "_diag_chord.js",        # 查和弦是否被正确保留（排查用，要 argv）
         "_diag_chord5.js",       # 精确重叠测量（排查用，要 argv）
