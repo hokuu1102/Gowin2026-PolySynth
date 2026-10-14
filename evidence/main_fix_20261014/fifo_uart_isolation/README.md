@@ -48,3 +48,10 @@ recorded separately; original summary is not rewritten to look green.
 Candidate 4f522c4's four long tests are independently running in fifo_long:
 replay tail and transpose PASS; key-to-sound and top_sound pending at this report.
 AY's four passing long cases are NOT substituted for candidate results.
+
+Final closure snapshot e101f63: fifo_closure_final/summary.json reports four
+functional PASS (the three strengthened calibration scenarios and real dual
+UART isolation), one separately confirmed bare-parser diagnostic, zero unresolved
+results. All 280 RTL/TB/IP blobs were verified. Current 73 hardware product inputs
+still match the exact PnR source hashes; no second PnR is inferred or claimed.
+Candidate long suite remains independent and pending its own final summary.
