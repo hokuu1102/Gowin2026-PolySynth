@@ -104,13 +104,15 @@ module play_mode_ctrl #(
     end
     wire pluck_more = pluck_found;    // ⭐ 有按住的轴就能拨 ✅
 
-    //  ⭐ 拨弦沿检测（⭐ 仅用于清"已拨"锁存；⭐ 现由 `rot_q` 取代 ⇒ 保留作诊断 ✅）
-    reg  pluck_d;
-    always @(posedge clk_i) begin
-        if (!rst_n_i) pluck_d <= 1'b0;
-        else           pluck_d <= pluck_valid_i;
-    end
-    wire pluck_end = pluck_d & ~pluck_valid_i;      // ⭐ 下降沿
+    //  ⭐⭐ 2026-10-14：⭐ **`pluck_d`/`pluck_end` 已删除** ✅
+    //     🔴 **原意图**：⭐ 想在 `pluck_valid_i` 下降沿清 `plucked_mask`
+    //     ⚠️ **删因（两条）**：
+    //        · ⭐ `plucked_mask` 已被 `rot_q`（轮转指针）取代 ⇒ ⭐ 不再需要沿检测
+    //        · 🔴 而且它在**独立的 always 块**里写 `pluck_d`，⭐ 主 always 的复位
+    //          也写了 `pluck_d <= 1'b0` ⇒ 🔴 **多驱动 ⇒ 综合报 `EX2000`** ✅
+    //     📌 ⭐ 教训：⭐ **同一个 reg ⛔ 只能有一个 always 块写**
+    //        （⭐ iverilog 容忍、综合不容忍 —— 本项目 §四之二 那条纪律 ✅）
+    wire pluck_end = 1'b0;      // ⭐ 兼容保留（⭐ 现在无人使用 ⇒ 综合会扫掉 ✅）
 
     // ═══════════════════════════════════════════════════════════════════════
     //  ⭐ 松轴时要放掉的轴集合
@@ -150,7 +152,6 @@ module play_mode_ctrl #(
             held_mask      <= {AXIS_N{1'b0}};
             sounding_mask  <= {AXIS_N{1'b0}};
             rot_q          <= {AXIS_W{1'b0}};      // ⭐ 轮转指针归零 ✅
-            pluck_d        <= 1'b0;
             selected_valid <= 1'b0;
             selected_axis  <= {AXIS_W{1'b0}};
             selected_depth <= {DEPTH_W{1'b0}};
