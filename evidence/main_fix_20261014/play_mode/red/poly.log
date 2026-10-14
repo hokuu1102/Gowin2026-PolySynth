@@ -1,0 +1,2 @@
+FATAL: tb/w3a/tb_play_mode_poly_release.sv:32: FAIL: both keyboard voices must release after mode switch, observed=0020
+       Time: 400000  Scope: tb_play_mode_poly_release
