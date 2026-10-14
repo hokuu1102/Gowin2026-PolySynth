@@ -22,6 +22,6 @@ Branch: `codex/fix-main-bugs-20261014`. Original audited main: `9d30dd3`. No rem
 - Fresh physical candidate at `build/fix_pnr01`: source `be75440`, empty implementation directory, explicit synthesis then PnR, input byte hashes 73/73 match. Completed, exit 0; sys Fmax 55.361 MHz, hold 0.128 ns passes, but strict setup -1.663 ns / 66 violated endpoints FAIL. See `pnr01/`. Unqualified bitstream archived without replacing main or prior files. Required hold gate remains >= 0.05 ns; original main is 0.047 ns and fails it despite native 0 setup/hold violations.
 - Hardware acceptance: NOT_RUN.
 
-## Pending protocol choice
+## Protocol scope confirmed by user
 
-Actual `rec_dump.v` emits legacy 9-byte A5+64-bit data frames. ESP32 documentation requests typed/checksummed 11-byte bulk frames and a separate 14-byte live uplink. The latter is not implemented in this version. Changing bulk framing affects PC replay tools; user has been asked whether to include coordinated protocol/tool changes now or retain legacy export during this core/timing repair batch. No silent protocol change has been made.
+Actual `rec_dump.v` emits legacy 9-byte A5+64-bit data frames. ESP32 documentation requests typed/checksummed 11-byte bulk frames and a separate 14-byte live uplink. The latter is not implemented in this version. User explicitly chose: retain the export format, this batch only repairs core and timing. Thus no changes to rec_dump framing, ESP32 protocol or PC replay tools are authorized in this batch. This limitation remains documented, not misreported as repaired.

@@ -1,0 +1,21 @@
+diff --git a/rtl/top.v b/rtl/top.v
+index ac16bb8..57ec4f0 100644
+--- a/rtl/top.v
++++ b/rtl/top.v
+@@ -4531,10 +4531,14 @@ wire ovf_any;
+                     rd_pending_r <= 1;
+                 else if (rd_start_w)
+                     rd_pending_r <= 0;
++                // Equivalent set-dominant pending latch, expressed as its next
++                // data bit rather than a hold/enable mux. No extra pipeline
++                // cycle: reject still wins over a simultaneous accepted notice.
++                rd_notice_r <= rd_reject_event |
++                               (rd_notice_r & (~txf_ready | normal_req_w));
+                 if (rd_reject_event) begin
+-                    rd_notice_r <= 1;
+                     if (rd_reject_r != 16'hffff) rd_reject_r <= rd_reject_r + 1'b1;
+-                end else if (rd_notice_push) rd_notice_r <= 0;
++                end
+             end
+         end
+         //  ⭐⭐ 2026-10-11：⭐ **导出读口的线**（⭐ 录制回传 ✅）

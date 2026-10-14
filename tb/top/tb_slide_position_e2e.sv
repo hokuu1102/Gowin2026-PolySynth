@@ -23,7 +23,9 @@ module tb_slide_position_e2e;
         .HP_BCK(bck),.HP_WS(ws),.HP_DIN(din),.PA_EN_n(pa),
         .spi_sclk(sclk),.spi_mosi(mosi),.spi_cs_n(cs),.spi_miso({3'b111,miso}));
     defparam u_top.g_sound.u_adc_farm.CHANNEL_RATE_HZ=20000;
-    defparam u_top.g_sound.u_adc_farm.SCLK_HZ=10000000;
+    // Five system clocks per half period leave room for MISO synchronization.
+    // Hardware remains at 1 MHz; only this external-model fixture is accelerated.
+    defparam u_top.g_sound.u_adc_farm.SCLK_HZ=5000000;
     mcp3208_model #(.IDVAL(REST)) adc_l(.cs_n(cs[0]),.sclk(sclk),.mosi(mosi),.miso(miso[0]),
         .ovr_en_i(1'b0),.ovr_val_i(12'd0),.ch_mask_i(mask),.ch_val_i(depth));
     mcp3208_model #(.IDVAL(REST)) adc_r(.cs_n(cs[1]),.sclk(sclk),.mosi(mosi),.miso(miso[1]),
