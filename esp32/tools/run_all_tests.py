@@ -290,6 +290,7 @@ def selftest():
         "drum_map.py",            # GM 鼓音高 -> FPGA 鼓机四件（有 --selftest 16 项）
         "_drum_inc_options.py",   # 21 位装不下鼓的三条路代价分析（排查用）
         "_drum_track_check.js",   # 鼓转换 + 选轨自检（node 跑，24 项）
+        "_display_check.js",      # 网页显示层自检（C10 / 鼓显示成 BASS，node 跑）
         "_inspect_midi.js",       # 看一份 MIDI 的轨结构与分类（排查用）
         "_check_user_midi.js",    # 用真实 MIDI 验鼓转换与选轨（排查用）
         # D —— 一次性排查脚本（人工判读结论）

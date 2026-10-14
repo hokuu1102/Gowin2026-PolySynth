@@ -268,7 +268,12 @@ const OFF_TICK = 44n, OFF_INC = 23n, OFF_AXIS = 19n, OFF_VEL = 11n,
       OFF_KIND = 9n, OFF_TIMBRE = 7n;
 const M_TICK = 0xFFFFFn, M_INC = 0x1FFFFFn, M_AXIS = 0xFn, M_VEL = 0xFFn,
       M_KIND = 0x3n, M_TIMBRE = 0x3n;
-const F_CLK = 50000000, TPS120 = 1920.003;
+/* ⚠️ 合成时钟：FPGA 侧是 48 828.125 Hz（= 50 MHz / 1024，见 drum_gen 的换算常数），
+ * ⛔ 不是 50 MHz。用错会算出高约 1000 倍的频率 => 音高高约 10 个八度
+ * => 屏幕上出现 `C10` 这种不存在的音（MIDI > 127）。
+ * 🔴 实测（2026-10-14）：本页原来写 50000000，鼓的截断值算出来是 midi 128.5
+ * => 显示成 C10。⭐ 与回传页那个错误同源（回传页已修，本页漏了）。 */
+const F_CLK = 48828.125, TPS120 = 1920.003;
 
 const SVC  = 0xABF0, CH_RECV = 0xABF1, CH_NOTI = 0xABF2, CH_CMD = 0xABF3, CH_STAT = 0xABF4;
 const CMD_RESET = 0x01, CMD_STAT = 0x02, CMD_PLAY = 0x03, CMD_STOP = 0x04;
@@ -771,6 +776,19 @@ function wordsForSelected(words, conv) {
  * 📌 拿不到 timbre（如从 events.hex 读的旧谱面没有该信息）时退回"轴N"。
  */
 function axisLabel(a) {
+  /* 🔴 2026-10-14 修：鼓轴要显示"鼓"，⛔ 不能显示 timbre。
+   * 原因：鼓事件的 timbre 字段被填成 TIMBRE_BASS（因为"鼓的音色由 inc 决定"，
+   *   timbre 对鼓没意义），而原来这里【只看 timbre】=> 鼓显示成了 BASS。
+   *   用户实测反馈："轴15 那个 BASS 是什么玩意，看不懂"。 */
+  if (a === DRUM_AXIS) {
+    const brk = (score.conv && score.conv.assign && score.conv.assign[0])
+              ? score.conv.assign[0].drumBreak : null;
+    if (brk) {
+      const parts = Object.keys(brk).map(k => k + " " + brk[k]).join(" ");
+      return "鼓(axis" + a + ") " + parts;
+    }
+    return "鼓 · 轴" + a;
+  }
   const cnt = new Map();
   for (const n of score.notes) {
     if (n.axis !== a) continue;
@@ -888,7 +906,11 @@ function geom() {
 const PITCH_NAMES = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
 function midiName(m) {
   const i = ((m % 12) + 12) % 12;
-  return PITCH_NAMES[i] + (Math.floor(m / 12) - 1);
+  /* MIDI 音高的合法范围是 0..127。超出时【明确标出来】——
+   * 那说明上游的 inc 换算有问题（实测踩过：用错采样率算出 C10）。
+   * 宁可显示"越界"，也不要让人看到一个不存在的音名。 */
+  const name = PITCH_NAMES[i] + (Math.floor(m / 12) - 1);
+  return (m < 0 || m > 127) ? (name + "(越界)") : name;
 }
 /* 黑键判定（用于钢琴键盘着色） */
 function isBlackKey(m) {
