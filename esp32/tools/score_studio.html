@@ -964,6 +964,7 @@ function buildScore(words, name) {  const notes = [], tempos = [], kinds = {};
       const seg = { t0: n.tick, t1: null, axis: n.axis, midi: n.midi,
                     vel: n.vel, axis2: n.axis,
                     inc: n.inc,          /* ⭐ 鼓栏要按件分行（见 buildScore 的说明） */
+                    timbre: n.timbre,    /* ⭐ 颜色按【音色】上色（用户 2026-10-14 要求）*/
                     drumInc: (n.axis === DRUM_AXIS) ? n.inc : null };
       segs.push(seg);
       open.set(key, seg);
@@ -1010,6 +1011,24 @@ function buildScore(words, name) {  const notes = [], tempos = [], kinds = {};
 }
 
 /* ============================== 卷帘 ============================== */
+/* ⭐ 音色色板（2026-10-14）—— 颜色按【音色】分，⛔ 不按轴分。
+ * 为什么：上一轮"和弦分轴"修复后会同时用到轴 0~9 十条轴，
+ *   若按轴上色就会出现 10 种颜色（用户报告"为啥有这么多颜色"）。
+ *   ⭐ 音色只有 4 种（BASS/GUITAR/PIANO/PAD）＋ 鼓 1 种 => 最多 5 种颜色。
+ *   ⚠️ 索引 = timbre 字段值，与 RTL 的 TIMBRE_N=4 表序一致。 */
+const TIMBRE_COLORS = ["#fb923c",   /* 0 BASS   橙 */
+                       "#4ea1ff",   /* 1 GUITAR 蓝 */
+                       "#3ddc84",   /* 2 PIANO  绿 */
+                       "#ff7ab2"];  /* 3 PAD    粉 */
+const DRUM_COLOR = "#ffb020";       /* 鼓 黄 */
+/* 兜底色：拿不到 timbre 时用（⛔ 不用轴的索引，那会退回 10 种颜色） */
+const NOTE_COLOR_FALLBACK = "#8695ab";
+function noteColor(seg) {
+  if (seg.drumInc != null) return DRUM_COLOR;
+  const tb = (seg.timbre === undefined || seg.timbre === null) ? -1 : seg.timbre;
+  return (tb >= 0 && tb < TIMBRE_COLORS.length) ? TIMBRE_COLORS[tb] : NOTE_COLOR_FALLBACK;
+}
+
 const AXIS_COLORS = ["#4ea1ff","#3ddc84","#ffb020","#ff7ab2","#a78bfa","#22d3ee",
                      "#fb923c","#f472b6","#34d399","#facc15","#60a5fa","#c084fc",
                      "#2dd4bf","#f87171","#a3e635","#fcd34d"];
@@ -1139,7 +1158,7 @@ function drawDrumLane(X, pw) {
     if (row < 0) continue;                  /* 认不出的件：不画（⛔ 不猜） */
     const x0 = X(sg.t0), x1 = X(sg.t1);
     const y = top + rowH * row + rowH / 2 - blockH / 2;
-    ctx.fillStyle = AXIS_COLORS[DRUM_AXIS % 16];
+    ctx.fillStyle = DRUM_COLOR;
     ctx.globalAlpha = 0.45 + 0.55 * Math.min(1, (sg.vel || 0) / 127);
     ctx.fillRect(x0, y, Math.max(1.6, x1 - x0), blockH);
     ctx.globalAlpha = 1;
@@ -1211,7 +1230,8 @@ function draw() {
     const x0 = X(s.t0), x1 = X(s.t1);
     const y = Y(s.midi) - blockH / 2;
     const bw = Math.max(1.6, x1 - x0);      // 极短的音也保证看得见
-    ctx.fillStyle = AXIS_COLORS[s.axis % 16];
+    /* ⭐ 按音色上色（⛔ 不再按轴）—— 用户 2026-10-14 要求 */
+    ctx.fillStyle = noteColor(s);
     // 力度 => 透明度（一眼看出强弱）
     ctx.globalAlpha = 0.45 + 0.55 * Math.min(1, (s.vel || 0) / 127);
     ctx.fillRect(x0, y, bw, blockH);
@@ -1245,7 +1265,9 @@ function draw() {
   let lx = PAD.l + 4; ctx.textAlign = "left"; ctx.font = "10px Consolas,monospace";
   for (const a of axes.slice(0, 14)) {
     const label = axisLabel(a);
-    ctx.fillStyle = AXIS_COLORS[a % 16]; ctx.fillRect(lx, PAD.t + ph + 8, 8, 8);
+    /* ⭐ 图例色块按【该轴上的主要音色】上色（与音符块一致）*/
+    ctx.fillStyle = axisSwatchColor(a);
+    ctx.fillRect(lx, PAD.t + ph + 8, 8, 8);
     ctx.fillStyle = "#8695ab";
     ctx.fillText(label, lx + 11, PAD.t + ph + 16);
     lx += Math.max(44, ctx.measureText(label).width + 18);
@@ -1439,12 +1461,29 @@ async function disconnect() {
   }
 }
 
+/* GATT 串行化队列（2026-10-14）。
+ *
+ * 🔴 为什么必须：Web Bluetooth 同一时刻只允许【一个】GATT 操作在飞。
+ *   而本页有【三处】会同时发 GATT：
+ *     · 轮询 pollOnce()（每 1.2 s：写 CMD 0x02 + 读 STAT）
+ *     · 灌谱 upload()（连续 writeValueWithoutResponse）
+ *     · 起播/停止/清池（sendCmd）
+ *   ⇒ 并发就报 `GATT operation already in progress`（用户实测报过）。
+ * ⭐ 修法：所有 GATT 操作走同一个队列，不许并发 —— 结构性修法，
+ *   将来新增任何 GATT 调用都自动排队，不会再撞。 */
+let gattQueue = Promise.resolve();
+function gattSerial(fn) {
+  const p = gattQueue.then(fn, fn);      /* 前一个失败也要继续跑下一个 */
+  gattQueue = p.catch(() => {});
+  return p;
+}
+
 async function sendCmd(code) {
   if (!connected) throw new Error("还没连上蓝牙");
   await chCmd.writeValueWithoutResponse(new Uint8Array([code]));
 }
 async function readStat() {
-  await sendCmd(CMD_STAT);
+  await gattSerial(() => sendCmd(CMD_STAT));
   await new Promise(r => setTimeout(r, 420));
   const dv = await chStat.readValue();
   const txt = new TextDecoder().decode(dv);
@@ -1562,7 +1601,9 @@ function updateProgress(d) {
 }
 async function pollOnce() {
   if (!connected) return;
-  try { paintStat(await readStat()); } catch (e) { /* 静默 */ }
+  /* ⭐ 也走串行队列 —— 不许和灌谱/起播并发
+   * （那会报 `GATT operation already in progress`，用户 2026-10-14 实测报过）*/
+  try { paintStat(await gattSerial(() => readStat())); } catch (e) { /* 静默 */ }
 }
 function startPoll() {
   if (pollTimer) clearInterval(pollTimer);
@@ -1577,6 +1618,7 @@ async function upload() {
   if (!connected) { log("先连接蓝牙", "er"); return; }
   if (uploading) return;
   uploading = true; $("btnUp").disabled = true;
+
   /* 2026-10-14：灌谱内容按【当前勾选的轨】动态生成 ——
    * 用户要求"既能全播，也能只播选定的一轨或多轨"。
    * 注意：过滤按【源轨序号】，不是按 axis（多轨可能共用一个 axis）。
@@ -1584,32 +1626,56 @@ async function upload() {
    *   但没有它 FPGA 的时基就错（BPM 会是默认值）。 */
   const selWords = wordsForSelected(score.words, score.conv);
   const pl = buildPayload(selWords);
-  const total = pl.length, CHUNK = 180;
+
+  /* ⭐ 包长 480 —— MTU=517 ⇒ 载荷 514；且必须是 9 的整数倍（固件按帧收，
+   *   不跨包缓存）。480 = 9×53 ✓ 且 ≤514 ✅
+   * ⚠️ 原来是 180：同样 129 KB 的谱面要发 719 包，每包 header/ack 开销占比过大
+   *   ⇒ 实测只有 3.6 KB/s。改成 480 后包数降到 1/480。 */
+  const CHUNK = 480;
+  const total = pl.length;
+
   if (score.conv && selWords.length !== score.words.length) {
     log("只灌选中的轨：" + selWords.length + " / " + score.words.length + " 个事件", "ok");
   }
+
+  /* ⭐ 灌谱期间【暂停状态轮询】——
+   * ⛔ 否则 pollOnce()（每 1.2 s：写 CMD + 读 STAT）会与灌谱抢同一条 GATT，
+   *    报 `GATT operation already in progress` 并把速度拖到 3.6 KB/s。
+   * ⚠️ 灌完在 finally 里恢复。 */
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  log("（灌谱期间暂停状态轮询，避免与灌谱抢蓝牙通道）", "");
+
   try {
     log("清池（CMD 0x01）…");
-    await sendCmd(CMD_RESET);
+    await gattSerial(() => sendCmd(CMD_RESET));
     await new Promise(r => setTimeout(r, 800));
+
     let sent = 0; const t0 = performance.now();
     while (sent < total) {
       const n = Math.min(CHUNK, total - sent);
-      await chRecv.writeValueWithoutResponse(pl.subarray(sent, sent + n));
+      /* ⭐ 走串行队列 —— ⛔ 不许和别的 GATT 操作并发 */
+      await gattSerial(() => chRecv.writeValueWithoutResponse(pl.subarray(sent, sent + n)));
       sent += n;
+
       const frac = sent / total, dt = (performance.now() - t0) / 1000;
       $("pb").style.width = (frac * 100).toFixed(1) + "%";
       $("pbTxt").textContent = (sent >> 10) + " / " + (total >> 10) + " KB";
       $("pbRate").textContent = ((sent / 1024) / Math.max(dt, 1e-6)).toFixed(1) + " KB/s";
-      if ((sent / CHUNK) % 40 === 0) await new Promise(r => setTimeout(r, 0));
+      /* ⚠️ 包大了，每 20 包 yield 一次给 UI（原来是 40 包）*/
+      if ((sent / CHUNK) % 20 === 0) await new Promise(r => setTimeout(r, 0));
     }
+
     $("pbTxt").textContent = "上传完成";
-    log("上传完成：" + total + " 字节 / " + score.words.length + " 事件，用时 " +
-        ((performance.now() - t0) / 1000).toFixed(1) + " s", "ok");
-    await pollOnce();
+    const secs = (performance.now() - t0) / 1000;
+    log("上传完成：" + total + " 字节 / " + score.words.length + " 个事件，用时 " +
+        secs.toFixed(1) + " s，" + ((total / 1024) / Math.max(secs, 1e-6)).toFixed(1) + " KB/s", "ok");
   } catch (e) {
     log("上传失败：" + e.message, "er");
-  } finally { uploading = false; $("btnUp").disabled = false; }
+  } finally {
+    uploading = false; $("btnUp").disabled = false;
+    /* ⭐ 恢复轮询 —— ⚠️ 必须在 finally，否则中间抛错就永远不轮询了 */
+    if (connected) startPoll();
+  }
 }
 
 /* ============================== 打开文件 ============================== */
