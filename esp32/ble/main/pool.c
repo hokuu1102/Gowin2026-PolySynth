@@ -133,6 +133,21 @@ static bool      s_running = false;
  * 不参与任何控制逻辑 —— 纯粹是"把内部真值暴露出来"（K-106）。 */
 static uint32_t  s_play_tick = 0;
 
+/* 2026-10-14：实测放水速率与 pump 周期 —— 用来验证"限流上限是否顶住了音乐速率"。
+ *
+ * ═══ 为什么必须有它 ═══
+ * 限流上限 = `BLE_POOL_MAX_TICK_ADVANCE / P`（P = pump 的实际周期），
+ * 而 `vTaskDelay(2ms)` **只是"至少 2 ms"** ⇒ P 远大于名义值。
+ * ⚠️ 若上限速率 < 音乐速率（1920 tick/s @120BPM/960PPQN），
+ *    固件会被上限【顶住】⇒ 必然偏慢。
+ * 🔴 实测（2026-10-14）：sent 44 秒只涨 66 帧 << 期望 11 帧/秒
+ *    ⇒ 明显被顶住。
+ * ⭐ 有了这两个数就能【定量】定参数，⛔ 不靠拍脑袋（AGENTS 0.11 第 3 步）。 */
+static volatile uint32_t s_rate_tick_per_s = 0;   /* 实测放水速率（tick/s） */
+static volatile uint32_t s_pump_period_us  = 0;   /* 实测 pump 周期（微秒） */
+static int64_t           s_rate_last_us    = 0;
+static uint64_t          s_rate_last_pos   = 0;
+
 /* 提前量门控的【一次性】阈值（谱面 tick）
  * ---------------------------------------------------------------------------
  * 2026-10-01 修 bug 新增。原来的门控写的是：
@@ -370,6 +385,11 @@ void pool_reset(void)
     s_pool_done     = false;
     s_running       = false;
     s_play_tick     = 0;          /* 播放位置归零，避免上报上一曲的残留 */
+    /* 2026-10-14：实测速率也归零（否则新曲会读到上一曲的残留值） */
+    s_rate_tick_per_s = 0;
+    s_pump_period_us  = 0;
+    s_rate_last_us    = 0;
+    s_rate_last_pos   = 0;
     s_tick_inc      = BLE_POOL_DEFAULT_TICK_INC;
     s_t0_tick       = 0;
     s_t0_us         = 0;
@@ -576,10 +596,36 @@ void pool_stats(pool_stats_t *out)
     out->play_tick  = s_play_tick;
     out->t0_tick    = s_t0_tick;
     out->lead_ticks = (uint32_t)BLE_POOL_LEAD_TICKS;
-    /* 本曲总长 = 末帧的 tick。取不到（池空）就给 0 => 消费方退回别的显示方式。 */
-    out->total_tick = (s_frames > 0)
-                    ? (uint32_t)ev_tick(pool_peek_word(s_frames - 1)) : 0;
+    /* 本曲总长 = 池内【所有帧 tick 的最大值】。
+     *
+     * 🔴🔴 2026-10-14 修：原来取的是「末帧的 tick」，那是错的。
+     * ═══ 为什么错（实测踩到）═══
+     * 谱面可以是【多轴交织】的 —— 每个轴是一条独立的时间线，
+     * 交织存放后**整池的 tick 不单调**，末帧未必是时间最晚的那一帧。
+     * 实测（demo_scale.hex，111 帧）：
+     *     axis=0:  31 帧, tick 0 .. 7200
+     *     axis=1:  48 帧, tick 8160 .. 100320     <= 时间最晚的在轴 1
+     *     axis=2:  32 帧, tick 3840 .. 19200      <= 而末帧属于轴 2
+     *   => 末帧 tick = 19200，但全曲真正到 100320（52.25 秒 vs 10 秒）
+     * 🔴 后果：消费方（网页 / 串口屏）拿 19200 当分母
+     *   => 播放进度条【跑飞 / 早早到 100%】——
+     *      这就是"灌谱进度与播放进度对不上"的根因。
+     * ⭐ 取最大值才对：它是"这一曲要播多久"的唯一正确来源。
+     * ⚠️ 代价：O(帧数) 每次 pool_stats() 都扫一遍。
+     *   实测池上限 18204 帧 => 最多 1.8 万次比较，可接受；
+     *   ⭐ 且 pool_stats() 只在客户端轮询时调用（~2 Hz），不是热路径。 */
+    out->total_tick = 0;
+    for (uint32_t i = 0; i < s_frames; i++) {
+        uint32_t t = ev_tick(pool_peek_word(i));
+        if (t > out->total_tick) {
+            out->total_tick = t;
+        }
+    }
     out->pos_valid  = s_running ? 1 : 0;
+
+    /* 2026-10-14：实测速率与周期（见 pool.h 的说明） */
+    out->rate_tick_per_s = s_rate_tick_per_s;
+    out->pump_period_us  = s_pump_period_us;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -642,6 +688,32 @@ void pool_pump(void)
      * 为什么用 32 位：谱面 tick 本身是 32 位（BLE_POOL_LEAD 也是），
      *   曲长 20 bit/960PPQN 早已超出任何真实曲子 => 不会溢出。 */
     s_play_tick = (uint32_t)pos_now;
+
+    /* 2026-10-14：算【实测速率】与【实测 pump 周期】。
+     * 算法：与上一次调用比，看墙钟过了多少、位置推进了多少。
+     * ⚠️ 只在"位置真的推进了"时更新 —— 否则提前量期间（位置不动但时间在走）
+     *    会把速率算成 0，掩盖真实值。 */
+    {
+        int64_t now_us2 = esp_timer_get_time();
+        if (s_rate_last_us != 0) {
+            int64_t d_us = now_us2 - s_rate_last_us;
+            int64_t d_pos = pos_now - (int64_t)s_rate_last_pos;
+            if (d_us > 0) {
+                /* pump 周期：直接就是两次调用的间隔（滑动一下，避免抖动） */
+                uint32_t p = (uint32_t)d_us;
+                s_pump_period_us = (s_pump_period_us == 0)
+                                 ? p : (uint32_t)((s_pump_period_us * 7u + p) / 8u);
+            }
+            if (d_us > 0 && d_pos > 0) {
+                uint32_t r = (uint32_t)((uint64_t)d_pos * 1000000ull
+                                        / (uint64_t)d_us);
+                s_rate_tick_per_s = (s_rate_tick_per_s == 0)
+                                  ? r : (uint32_t)((s_rate_tick_per_s * 7u + r) / 8u);
+            }
+        }
+        s_rate_last_us  = now_us2;
+        s_rate_last_pos = (uint64_t)pos_now;
+    }
 
     /* 🔴 2026-10-01 修 bug：门控原来写 `elapsed_ticks > s_t0_tick + LEAD`，
      *    把"时长"与"位置"混着比。起播时 s_t0_tick=0 恰好等价，但中段换速
