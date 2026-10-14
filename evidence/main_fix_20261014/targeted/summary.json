@@ -1,0 +1,188 @@
+{
+  "source": "e678e3b3cd434428585ada304229055a648768f3",
+  "discovered": 174,
+  "selected": 17,
+  "pass_count": 16,
+  "expected_negative_count": 1,
+  "accepted_count": 17,
+  "fail_count": 0,
+  "skipped": [
+    "tb_at_merge_known_bugs",
+    "tb_export_key_wav",
+    "tb_export_wav"
+  ],
+  "snapshot_blobs_verified": 274,
+  "timeout_override_sec": 240,
+  "results": [
+    {
+      "name": "tb_am_pipe",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 240,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.516
+    },
+    {
+      "name": "tb_axis_map",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 240,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.485
+    },
+    {
+      "name": "tb_bpm_bar_quant",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 240,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.469
+    },
+    {
+      "name": "tb_bpm_entry",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 240,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.531
+    },
+    {
+      "name": "tb_ctrl_keypad",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 240,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.735
+    },
+    {
+      "name": "tb_ee_adj",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 240,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.531
+    },
+    {
+      "name": "tb_event_extract",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 240,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.531
+    },
+    {
+      "name": "tb_event_extract_slide",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 240,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.469
+    },
+    {
+      "name": "tb_opt04_nm_age_negative",
+      "compile_exit": 0,
+      "run_exit": 1,
+      "status": "EXPECTED_NEGATIVE_PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 240,
+      "explicit_pass_verdict": false,
+      "elapsed_sec": 0.735
+    },
+    {
+      "name": "tb_play_mode_ctrl",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 240,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.578
+    },
+    {
+      "name": "tb_play_mode_fret_release",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 240,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.5
+    },
+    {
+      "name": "tb_play_mode_poly_release",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 240,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.531
+    },
+    {
+      "name": "tb_play_mode_slide_hold",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 240,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.547
+    },
+    {
+      "name": "tb_slide_position_ctrl",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 240,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.453
+    },
+    {
+      "name": "tb_slide_ramp",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 240,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.516
+    },
+    {
+      "name": "tb_slide_top_pitch",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 240,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.516
+    },
+    {
+      "name": "tb_vibrato_lfo",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 240,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.5
+    }
+  ]
+}
