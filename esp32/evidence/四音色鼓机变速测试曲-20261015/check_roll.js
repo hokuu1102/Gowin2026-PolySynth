@@ -18,7 +18,7 @@ const fs = require("fs");
 const path = require("path");
 
 const HERE = __dirname;
-const midPath = process.argv[2] || path.join(HERE, "四音色鼓机变速-house-funk-测试曲.mid");
+const midPath = process.argv[2] || path.join(HERE, "四音色鼓机变速-funk-测试曲.mid");
 const PH = Number(process.argv[3] || 677);     // 主图高（截图反推：717 - PAD.t 14 - PAD.b 26）
 const W = Number(process.argv[4] || 1071);     // 画布宽（截图 1607 / DPR 1.5）
 

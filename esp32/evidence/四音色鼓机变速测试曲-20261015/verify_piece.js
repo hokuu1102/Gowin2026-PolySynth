@@ -28,7 +28,7 @@ for (let i = 0; i < args.length; i++) {
   if (args[i] === "--hex") hexOut = args[++i];
   else midPath = args[i];
 }
-if (!midPath) midPath = path.join(HERE, "四音色鼓机变速-house-funk-测试曲.mid");
+if (!midPath) midPath = path.join(HERE, "四音色鼓机变速-funk-测试曲.mid");
 if (!fs.existsSync(midPath)) {
   console.error("找不到 MIDI：" + midPath);
   process.exit(2);
@@ -54,7 +54,7 @@ const doc = { getElementById: () => fakeEl(), querySelector: () => fakeEl(),
 const fn = new Function("document", "window", "navigator", "performance", "console",
   "setTimeout", "clearInterval", "setInterval", "requestAnimationFrame",
   "location", "localStorage", "URLSearchParams",
-  blk + "\n; return { parseMidi, midiToWords, isDrumTrack, timbreOfTrack, " +
+  blk + "\n; return { parseMidi, midiToWords, buildScore, isDrumTrack, timbreOfTrack, " +
   "TIMBRE_NAMES, DRUM_AXIS, KIND_ON, KIND_OFF, KIND_TEMPO, DRUM_INC };");
 const API = fn(doc, { addEventListener() {} }, { bluetooth: null }, { now: () => 0 },
   { log: () => {} }, setTimeout, () => {}, () => 0, () => 0,
@@ -65,6 +65,8 @@ const API = fn(doc, { addEventListener() {} }, { bluetooth: null }, { now: () =>
 const buf = fs.readFileSync(midPath);
 const parsed = API.parseMidi(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length));
 const conv = API.midiToWords(parsed);
+/* ⭐ 判据 ⑨ 要按"段"看跨音色重叠，所以也要 buildScore（配对 + 分栏那一步）。 */
+const score = API.buildScore(conv.words, path.basename(midPath));
 
 // ---- 解码事件字 ----
 const evs = conv.words.map((w, i) => ({
@@ -73,9 +75,10 @@ const evs = conv.words.map((w, i) => ({
   timbre: Number((w >> 7n) & 0x3n), inc: Number((w >> 23n) & 0x1FFFFFn),
 }));
 
-let red = 0;
+let red = 0, nChk = 0;
 const chk = (name, cond, extra) => {
   console.log("  " + (cond ? "[OK] " : "[RED]") + name.padEnd(52) + (extra || ""));
+  nChk++;
   if (!cond) red++;
 };
 
@@ -213,6 +216,43 @@ chk("⑦ 鼓同 tick 多件 = 1 处（第 8 小节第 4 拍那个故意的探针
 chk("⑧ 鼓没有走音高分区兜底（全部来自映射表）", conv.drumFuzzy === 0,
     "兜底 " + conv.drumFuzzy + " 个");
 
+/* ⑨ ⭐ 跨音色【同音高同时响】—— 这是"两个音色没对上"的根因候选。
+ * 为什么是缺陷：两个音色发同一个频率 => 两个 voice 的相位干涉
+ *   （mid2evt.py 的文件头写过：可能变响、变薄、或起音处打拍子，听起来像被敲了两次）。
+ * 用户实测反馈："第一次变速之后怪怪的，好像两个音色没对上"。
+ * => 判据：同一 inc 的两个段若【音色不同】且时间重叠，就是一处。 */
+const segByInc = new Map();
+for (const s of score.noteSegs) {
+  if (!segByInc.has(s.inc)) segByInc.set(s.inc, []);
+  segByInc.get(s.inc).push(s);
+}
+let clash = 0;
+const clashEx = [];
+const clashAt = {};
+for (const [, list] of segByInc) {
+  for (let i = 0; i < list.length; i++) {
+    for (let j = i + 1; j < list.length; j++) {
+      const a = list[i], b = list[j];
+      if (a.timbre === b.timbre) continue;
+      if (Math.min(a.t1, b.t1) <= Math.max(a.t0, b.t0)) continue;   // 不重叠
+      clash++;
+      const bar = Math.floor(Math.min(a.t0, b.t0) / 3840) + 1;
+      clashAt[bar] = (clashAt[bar] || 0) + 1;
+      if (clashEx.length < 4) {
+        clashEx.push(API.TIMBRE_NAMES[a.timbre] + "+" + API.TIMBRE_NAMES[b.timbre] +
+                     " 音高" + (a.midi != null ? Math.round(a.midi) : "?") +
+                     " tick " + Math.min(a.t0, b.t0) + "~" + Math.min(a.t1, b.t1));
+      }
+    }
+  }
+}
+console.log();
+console.log("  跨音色同音高同时响：" + clash + " 处" +
+            (clash ? "（按小节：" + Object.entries(clashAt).map(([k, v]) => "第" + k + "小节 " + v).join(" · ") + "）" : ""));
+if (clashEx.length) console.log("    例：" + clashEx.join(" | "));
+chk("⑨ 没有跨音色同音高同时响（相位干涉 => 听起来像两个音色没对上）", clash === 0,
+    clash ? (clash + " 处") : "");
+
 // ---- 导出 events.hex（与 mid2evt.py 的写法一致：每行 16 位十六进制）----
 if (hexOut) {
   const lines = conv.words.map(w => w.toString(16).padStart(16, "0"));
@@ -222,5 +262,5 @@ if (hexOut) {
 }
 
 console.log();
-console.log("  结论：" + (red === 0 ? "全部通过（" + 8 + " 项）" : ("有 " + red + " 项 RED")));
+console.log("  结论：" + (red === 0 ? "全部通过（" + nChk + " 项）" : ("有 " + red + " 项 RED")));
 process.exit(red === 0 ? 0 : 1);
