@@ -2004,6 +2004,8 @@ let fcSent = 0;                         /* 本次上传已发出字节 */
 let fcAcked = 0;                        /* notify 报的 ESP32 实收字节 */
 let fcNotifySeq = 0;                    /* notify 序号（用来等"新的"一条）*/
 let fcAbort = false;
+let fcWaitedMs = 0;                     /* ⭐ 我方因流控等掉的总毫秒（遥测用）*/
+let fcAckedAtLog = 0, fcLogAtMs = 0;    /* ⭐ 上次打遥测时的基准 */
 
 async function sendChunkWithFlowControl(pl, off, n) {
   /* ⭐ 等窗口腾出来（最多等 FC_WAIT_MS）*/
@@ -2015,6 +2017,7 @@ async function sendChunkWithFlowControl(pl, off, n) {
     await new Promise(r => setTimeout(r, 50));
     if (fcNotifySeq === seq0 && (performance.now() - t0) > FC_WAIT_MS) break;
   }
+  fcWaitedMs += performance.now() - t0;      /* ⭐ 记账：等了多久 */
   await gattSerial(() => chRecv.writeValueWithoutResponse(pl.subarray(off, off + n)));
   fcSent += n;
 }
@@ -2022,6 +2025,7 @@ async function sendChunkWithFlowControl(pl, off, n) {
 /* ⭐ 上传前重置流控状态 */
 function fcReset() {
   fcSent = 0; fcAcked = 0; fcNotifySeq = 0; fcAbort = false;
+  fcWaitedMs = 0; fcAckedAtLog = 0; fcLogAtMs = performance.now();
 }
 
 /* ⭐⭐ notify 回调（2026-10-15）—— 主路径。
@@ -2310,6 +2314,23 @@ async function upload() {
       $("pb").style.width = (frac * 100).toFixed(1) + "%";
       $("pbTxt").textContent = (sent >> 10) + " / " + (total >> 10) + " KB";
       $("pbRate").textContent = ((sent / 1024) / Math.max(dt, 1e-6)).toFixed(1) + " KB/s";
+
+      /* ⭐⭐ 流控遥测（2026-10-15）—— 判"慢是我方等太久，还是 ESP32 收得慢"。
+       * 🔴 用户实测："速度到后面还是很慢，大概 2 KB/s"。
+       *   两个候选原因，遥测能把它们分开：
+       *     ① 我方等太久（窗口太小 / notify 来得稀）=> 等待占比高，而 ESP32 收速不低
+       *     ② ESP32 收得慢（忙于转发，BLE 接收被饿）=> ESP32 收速本身就低
+       * ⭐ 每 40 包打一行，⛔ 不刷屏。 */
+      if ((sent / CHUNK) % 40 === 0) {
+        const nowMs = performance.now();
+        const rxRate = (fcAcked - fcAckedAtLog) / 1024 /
+                       Math.max((nowMs - fcLogAtMs) / 1000, 1e-6);
+        const waitPct = (fcWaitedMs / Math.max(nowMs - t0, 1)) * 100;
+        log("  流控：已发 " + (sent >> 10) + " KB · ESP32 实收 " + (fcAcked >> 10) +
+            " KB · 在途 " + ((fcSent - fcAcked) >> 10) + " KB · ESP32 收速 " +
+            rxRate.toFixed(1) + " KB/s · 我方等待占比 " + waitPct.toFixed(0) + "%", "");
+        fcAckedAtLog = fcAcked; fcLogAtMs = nowMs;
+      }
 
       /* ⭐⭐ 节流（2026-10-14 修，用户实测"最后挂音 / 曲子只有一截"）。
        *
