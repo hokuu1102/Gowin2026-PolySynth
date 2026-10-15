@@ -1981,12 +1981,58 @@ function parseStatText(txt) {
            ttot: g("ttot"), pv: g("pv") };
 }
 
+/* ⭐⭐ 基于 notify 的真流控（2026-10-15）。
+ *
+ * ═══ 为什么需要 ═══
+ * · 无确认写（快）：实测丢 39% —— 发太快，链路缓冲被撑爆，而双方都看不见。
+ * · 带确认写（不丢）：实测 1.1 KB/s —— 每个包等一个 ATT 往返，太慢。
+ * ⇒ ⭐ 两条路都不对。正确做法 = **快速发 + 限制"在途量"**。
+ *
+ * ═══ 怎么限制 ═══
+ * ⭐ 固件每 300 ms 推一次 STAT，里面有 `ble=rxN`（它【实际收到】多少字节）。
+ *   我方记 `fcSent`（发了多少）；每包前看 `fcAcked`（notify 报的 rx）
+ *   是否落后超过窗口 —— 落后就【等下一次 notify】。
+ * ⇒ 在途量 ≤ WINDOW ⇒ 不会撑爆缓冲；窗口内全速 ⇒ 不慢。
+ *
+ * ⚠️ 用 `ble_rx` 而不是 `pool` 做判据：池有 233016 帧、根本填不满，
+ *   拿它当压力指标永远不触发（踩过这个思路）。
+ * ⚠️ 超时兜底：若 3 秒没等到 notify（固件没订阅成功？），就放行继续 ——
+ *   ⛔ 不能因为流控把上传卡死。 */
+const FC_WINDOW_BYTES = 24 * 1024;      /* 在途上限（约 50 包）*/
+const FC_WAIT_MS = 3000;                /* 等 notify 的上限 */
+let fcSent = 0;                         /* 本次上传已发出字节 */
+let fcAcked = 0;                        /* notify 报的 ESP32 实收字节 */
+let fcNotifySeq = 0;                    /* notify 序号（用来等"新的"一条）*/
+let fcAbort = false;
+
+async function sendChunkWithFlowControl(pl, off, n) {
+  /* ⭐ 等窗口腾出来（最多等 FC_WAIT_MS）*/
+  const t0 = performance.now();
+  while (!fcAbort && statNotifyOk &&
+         (fcSent - fcAcked) > FC_WINDOW_BYTES &&
+         (performance.now() - t0) < FC_WAIT_MS) {
+    const seq0 = fcNotifySeq;
+    await new Promise(r => setTimeout(r, 50));
+    if (fcNotifySeq === seq0 && (performance.now() - t0) > FC_WAIT_MS) break;
+  }
+  await gattSerial(() => chRecv.writeValueWithoutResponse(pl.subarray(off, off + n)));
+  fcSent += n;
+}
+
+/* ⭐ 上传前重置流控状态 */
+function fcReset() {
+  fcSent = 0; fcAcked = 0; fcNotifySeq = 0; fcAbort = false;
+}
+
 /* ⭐⭐ notify 回调（2026-10-15）—— 主路径。
  * ⭐ 收到就画，⛔ 不发任何 GATT ⇒ 不可能卡。 */
 function onStatText(txt) {
   lastStatText = txt;
+  fcNotifySeq++;                       /* ⭐ 告诉流控"有新数据了" */
   try {
     const st = parseStatText(txt);
+    /* ⭐ 流控用：ESP32 实际收到的字节（见 sendChunkWithFlowControl）*/
+    if (typeof st.bleRx === "number") fcAcked = st.bleRx;
     gattWedged = 0;
     paintStat(st);
     if (pendingIntegrityCheck) {
@@ -2228,23 +2274,31 @@ async function upload() {
     await gattSerial(() => sendCmd(CMD_RESET));
     await new Promise(r => setTimeout(r, 800));
 
+    /* ⭐ 重置流控状态（每次上传独立）*/
+    fcReset();
     let sent = 0; const t0 = performance.now();
     while (sent < total) {
       const n = Math.min(CHUNK, total - sent);
-      /* ⭐⭐ 2026-10-15：改用【带确认写】writeValue（固件已给 0xABF1 加 WRITE 位）。
+      /* ⭐⭐ 2026-10-15 最终方案：**无确认写 + 基于 notify 的真流控**。
        *
-       * 🔴 原来用 writeValueWithoutResponse（无确认写）—— 实测丢 39% 数据：
-       *     网页交给它的字节 = 170460，而 ESP32 只收到 104640（`ble=rx104640`），
-       *     且 `ble.drop=0` / 上行环空 / `ovf=0` ⇒ 🔴 丢在 BLE 链路层，双方都看不见。
-       *     ⭐ 根因：无确认写"放进队列就 resolve"，链路丢包无人知晓。
+       * ═══ 为什么不用带确认写（试过，太慢）═══
+       * 🔴 用户实测：`writeValue` 卡在 65/166 KB、**1.1 KB/s**（比原来慢十几倍）。
+       *   原因：每次写要等 ESP32 的 ATT 响应，而 ESP32 在灌谱期间忙于往 FPGA 转发
+       *   ⇒ 一个往返约 436 ms ⇒ 480 B / 0.436 s ≈ 1.1 KB/s。
+       * ⭐ 结论：**带确认写适合小数据，不适合批量灌谱**。
        *
-       * ⭐ 带确认写时，浏览器会【等 ESP32 的 ATT 响应】才 resolve
-       *   ⇒ 对端缓冲满就不响应 ⇒ 浏览器自动等待 ⇒ ⭐ **天然的流控**。
-       * ⚠️ 代价：吞吐降低（每次写一个 ATT 往返）。⭐ 可靠 > 快。
-       * 📌 判据：上传后核对 `ble_rx` 是否等于应发字节（见 checkIntegrityFromStat）。
+       * ═══ 为什么也不能"裸的无确认写"（也试过）═══
+       * 🔴 实测丢 39%：网页发 170460 字节，ESP32 只收到 104640（`ble=rx104640`），
+       *   而 `ble.drop=0` / 上行环空 / `ovf=0` ⇒ 丢在链路层，双方都看不见。
        *
-       * ⚠️ 走串行队列 —— ⛔ 不许和别的 GATT 操作并发。*/
-      await gattSerial(() => chRecv.writeValue(pl.subarray(sent, sent + n)));
+       * ═══ ⭐ 所以：快速发 + 用 notify 里的 `ble_rx` 卡住"在途量" ═══
+       * ⭐ 固件现在每 300 ms 推一次 STAT，里面有 `ble=rxN`（它实际收到多少字节）。
+       *   每包发之前检查 `已发 - 已确认` 是否超过窗口；超过就【等下一次 notify】。
+       *   ⇒ ⭐ 在途数据量有上界 ⇒ 不撑爆链路缓冲 ⇒ 不丢；
+       *     而窗口内是全速发的 ⇒ 不慢。
+       * ⚠️ 窗口 24 KB（约 50 包）：够填满一个连接间隔的带宽，
+       *   又远小于任何合理的链路缓冲。 */
+      await sendChunkWithFlowControl(pl, sent, n);
       sent += n;
 
       /* ⭐ 进度条（2026-10-14 补回）。
@@ -2272,7 +2326,10 @@ async function upload() {
        *   ⛔ 不改成"带确认写"—— 固件没给 WRITE 位，改不了（要他们加）。
        *   📌 代价：212 KB 约 9 s。⭐ 可靠性 > 速度。
        *   📌 上传后会自动核对 ovf —— 若仍 >0，把这个数再调大。 */
-      const PACING_MS = 20;
+      /* ⭐ 2026-10-15：节流从 20 ms 降到 2 ms —— 现在有【窗口流控】负责不丢，
+       *   ⛔ 不再需要靠慢慢发来避免溢出（那样太慢）。
+       *   ⚠️ 保留 2 ms 是为了让出事件循环（⛔ 不能把 UI 卡死）。 */
+      const PACING_MS = 2;
       if (PACING_MS > 0) await new Promise(r => setTimeout(r, PACING_MS));
       else if ((sent / CHUNK) % 20 === 0) await new Promise(r => setTimeout(r, 0));
     }
