@@ -80,6 +80,16 @@ chk("核对失败时【明确报错】而不是静默",
     /上传【有丢帧】/.test(html));
 /* ⭐ 上传必须有节流（否则必然溢出 —— 0xABF1 无流控） */
 chk("上传有节流 PACING_MS", /const PACING_MS\s*=\s*\d+/.test(html));
+/* 进度条三件套必须在循环里（我改节流时把它们整段吃掉了，用户实测"没有进度条"）。
+ * 判据：三个赋值都出现在 while 循环体内。 */
+{
+  const iWhile = html.indexOf("while (sent < total)");
+  const iEnd = html.indexOf("上传完成", iWhile);
+  const body = (iWhile >= 0 && iEnd > iWhile) ? html.slice(iWhile, iEnd) : "";
+  chk("上传循环里有进度条（宽度/文本/速率）",
+      /\$\("pb"\)\.style\.width/.test(body) &&
+      /pbTxt/.test(body) && /pbRate/.test(body));
+}
 
 console.log();
 console.log("结论：" + (bad === 0 ? "全部通过" : "有 " + bad + " 项不符"));

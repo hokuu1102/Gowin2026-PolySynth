@@ -2182,6 +2182,16 @@ async function upload() {
       await gattSerial(() => chRecv.writeValueWithoutResponse(pl.subarray(sent, sent + n)));
       sent += n;
 
+      /* ⭐ 进度条（2026-10-14 补回）。
+       * 🔴 我上一版改"节流"时把这几行【一起替换掉了】——
+       *   用户实测："现在上传为什么没有进度条了"。
+       * ⚠️ 教训：⭐ 替换一整段时，必须逐行核对【旧段里有没有别的功能】，
+       *   不能因为"我要改的是节流"就整段吃掉（同族：C91 只改想到的那条路径）。 */
+      const frac = sent / total, dt = (performance.now() - t0) / 1000;
+      $("pb").style.width = (frac * 100).toFixed(1) + "%";
+      $("pbTxt").textContent = (sent >> 10) + " / " + (total >> 10) + " KB";
+      $("pbRate").textContent = ((sent / 1024) / Math.max(dt, 1e-6)).toFixed(1) + " KB/s";
+
       /* ⭐⭐ 节流（2026-10-14 修，用户实测"最后挂音 / 曲子只有一截"）。
        *
        * 🔴 根因：0xABF1 只支持【无确认写】（gatt_svc.c:68-69 只有 WRITE_NR）
