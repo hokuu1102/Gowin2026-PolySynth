@@ -340,6 +340,45 @@ function hzToNote(hz) {
 }
 const hzToMidi = hz => hz <= 0 ? 0 : 69 + 12 * Math.log2(hz / 440);
 
+/* ⭐⭐ tick <-> 秒：必须按 tempo 表【分段积分】。
+ *
+ * 🔴 原来四处都在偷懒，变速谱子全偏（实测，见 check_roll.js 判据 ⑧⑨⑩）：
+ *    · 面板「时长」= (tickMax-tickMin) / 首个 tempo 的 hz   ⇒ 円 偏 +5.9%
+ *    · 总览条 "Ns"  = tick/960（写死 120 BPM）              ⇒ 偏 +69% ~ +178%
+ *    · 游标回退把 secPerTick 当常数                        ⇒ 円 偏 -5.6%
+ *    · 提前量 d.lead/1920 同样写死 120 BPM                 ⇒ 本曲 1920 tick 实际 1.20 s
+ *   ⚠️ tick 与秒在中段变速后【不成线性】⇒ 只能用分段积分，⛔ 不能用任何常数。
+ *
+ * ⚠️ 这里的 `hz` 字段是【每秒多少 tick】（= incToHz(tick_inc)），⛔ 不是音频频率 ——
+ *    同一个 incToHz 同时服务 tempo 与音符，别被字段名骗了。
+ */
+function tickToSec(tick, tempos) {
+  const ts = tempos || (score && score.tempos) || [];
+  if (!ts.length) return tick / TPS120;            /* 没有 tempo 就退回 120 BPM 默认 */
+  let sec = 0;
+  for (let i = 0; i < ts.length; i++) {
+    const t0 = ts[i].tick;
+    if (tick <= t0) break;
+    const t1 = (i + 1 < ts.length) ? ts[i + 1].tick : Infinity;
+    sec += (Math.min(tick, t1) - t0) / (ts[i].hz || TPS120);
+    if (tick <= t1) break;
+  }
+  return sec;
+}
+function secToTick(sec, tempos) {
+  const ts = tempos || (score && score.tempos) || [];
+  if (!ts.length) return sec * TPS120;
+  let acc = 0;
+  for (let i = 0; i < ts.length; i++) {
+    const t0 = ts[i].tick, hz = ts[i].hz || TPS120;
+    const t1 = (i + 1 < ts.length) ? ts[i + 1].tick : Infinity;
+    const segSec = (t1 === Infinity) ? Infinity : (t1 - t0) / hz;
+    if (sec <= acc + segSec) return t0 + (sec - acc) * hz;
+    acc += segSec;
+  }
+  return (score && score.tickMax) || 0;
+}
+
 /* ============================== 谱面 ============================== */
 let score = null;   // {words:[BigInt], notes:[], tempos:[], kinds:{}, tickMax, tickMin, payload:Uint8Array}
 
@@ -1210,13 +1249,17 @@ function buildScore(words, name) {
       if (s.t1 === null) s.t1 = endTick;
     }
   }
-  const hz0 = tempos.length ? tempos[0].hz : TPS120;
+  /* ⭐ tempo 表排好序 —— tickToSec / secToTick 分段积分要求有序（只此一份，同族 C91）。 */
+  tempos.sort((a, b) => a.tick - b.tick);
   /* 2026-10-14：改用公共的 buildPayload() —— 与"选轨后再灌"走同一条路，
    * 避免两处各写一遍（写两遍就会漂，同族 C91）。 */
   const payload = buildPayload(words);
   return { name, words, notes, segs, orphanOff, danglingOn, tempos, kinds,
            tickMax, tickMin,
-           duration: (tickMax - (isFinite(tickMin) ? tickMin : 0)) / (hz0 || 1),
+           /* ⭐ 时长必须按 tempo 表【分段积分】—— 原来拿【首个 tempo】当全程速度
+            *   ⇒ 变速谱子偏（实测 円 +5.9%）。 */
+           duration: tickToSec(tickMax, tempos) -
+                     tickToSec(isFinite(tickMin) ? tickMin : 0, tempos),
            payload,
     /* ⭐ 鼓单独一栏（2026-10-14）：鼓段不画进钢琴卷帘，另画在底部。
      *   drumSegs 里每个 seg 多一个 drumName（kick/snare/hihat/tom），
@@ -1253,6 +1296,10 @@ const AXIS_COLORS = ["#4ea1ff","#3ddc84","#ffb020","#ff7ab2","#a78bfa","#22d3ee"
                      "#2dd4bf","#f87171","#a3e635","#fcd34d"];
 const cv = document.getElementById("roll"), ctx = cv.getContext("2d");
 let playFrac = null, hover = null;
+/* ⭐ 上一帧绘制时的几何（音高范围 / 乐音区高 / 鼓栏顶）—— 悬停命中要用。
+ * ⚠️ 由 draw() 每次更新：悬停是"光标落在哪个格子里"，必须用【画的时候】那套坐标，
+ *    ⛔ 不能另算一份（两处各算一份必然漂，同族 C91）。 */
+let lastView = null;
 
 function fitCanvas() {
   const r = cv.parentElement.getBoundingClientRect();
@@ -1289,14 +1336,17 @@ function isBlackKey(m) {
 }
 /* 左侧钢琴键盘 —— 让"哪个音"一眼可辨，不用去数参考线。
  * 只在行高够的时候画按键细节，否则退化成色带。 */
-function drawPiano(lo, hi, Y, ph) {
-  const rowH = ph / (hi - lo);
+/* ⚠️ 第 4 个参数是【乐音区】的高度（已经把底部鼓栏让出去了），⛔ 不是整个绘图区高度。
+ *    由调用方 draw() 传 melPh —— 见那里的说明。 */
+function drawPiano(lo, hi, Y, melPh) {
+  const rowH = melPh / (hi - lo);
   const drawKeys = rowH >= 5;
-  /* ⭐ 底部鼓栏占的高度 —— 钢琴键盘与音名都【不要画进去】。
+  /* ⭐ 鼓栏那一带不画键盘与音名。
    * 🔴 用户反馈："鼓左边的音高和鼓的音色重叠了，删掉多余的音高"。
    *   根因：音名按 `y = Y(m)` 画，覆盖 PAD.t 到 PAD.t+ph 整段；
-   *   而鼓栏嵌在 PAD.t+ph-laneH 那一带 ⇒ 两边的字在左侧同一列叠住。 */
-  const noDrawBelow = PAD.t + ph - drumLaneHeight(ph);
+   *   而鼓栏嵌在 PAD.t+ph-laneH 那一带 ⇒ 两边的字在左侧同一列叠住。
+   * ⭐ 现在 melPh 已把鼓栏让出去 ⇒ 乐音区的底就是下界。 */
+  const noDrawBelow = PAD.t + melPh;
   for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
     const y0 = Y(m + 0.5), y1 = Y(m - 0.5);
     const yTop = Math.min(y0, y1), hh = Math.max(1, Math.abs(y1 - y0));
@@ -1313,7 +1363,7 @@ function drawPiano(lo, hi, Y, ph) {
   ctx.textAlign = "left"; ctx.textBaseline = "middle";
   for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
     const y = Y(m);
-    if (y < PAD.t - 2 || y > PAD.t + ph + 2) continue;
+    if (y < PAD.t - 2 || y > PAD.t + melPh + 2) continue;
     /* ⭐ 鼓栏那一带不标音名 —— 那里现在归鼓的 4 个件名，⛔ 不再有音高语义 */
     if (y >= noDrawBelow) continue;
     const isC = (((m % 12) + 12) % 12 === 0);
@@ -1436,6 +1486,17 @@ function viewWindow() {
   return { t0: off, t1: off + span, span: span, total: total };
 }
 
+/* ⭐ 总览条点击 -> viewScroll。要满足"点击处成为视口【中点】"：
+ *   off = frac*total - span/2，而 viewWindow 里 off = viewScroll*(total-span)
+ *   => viewScroll = (frac*z - 0.5) / (z - 1)
+ * 🔴 原来内联写 frac - 0.5/z —— 少除了 (1-1/z)，zoom 越大偏越多
+ *   （实测最坏偏 72% 视口宽：zoom 20 点正中会落到视口最右边缘）。
+ * ⭐ 抽成函数是为了能被单测（check_roll.js 判据 ⑫），⛔ 不内联在事件里。 */
+function overviewScrollFor(frac, zoom) {
+  if (!(zoom > 1)) return 0;                    /* 没放大就没有可平移的余量 */
+  return Math.max(0, Math.min(1, (frac * zoom - 0.5) / (zoom - 1)));
+}
+
 /* 滚轮缩放：以鼠标所在的 tick【尽量保持不动】。
  * ⭐ 这是"好用"与"难用"的分界 —— ⭕ 若以左边缘为锚，放大后想看的内容直接被推出屏外。 */
 function zoomAt(px, pw, factor) {
@@ -1478,10 +1539,20 @@ function draw() {
   let hi = mids.length ? Math.max(...mids) + 1 : 1;
   if (hi - lo < 6) { lo -= 3; hi += 3; }
   const X = t => PAD.l + ((t - vw.t0) / vw.span) * pw;
-  const Y = m => PAD.t + ph - ((m - lo) / (hi - lo)) * ph;
+  /* ⭐⭐ 乐音区必须【让出】底部鼓栏的高度。
+   * 🔴 原来 Y() 把音域铺满整个 ph，而鼓栏又嵌在底部、并画一层不透明底色
+   *    ⇒ 音符块先画、鼓栏后画 ⇒ 最低那几个半音【被擦掉】。实测 4 份谱子全中：
+   *      本测试曲 36/183（20%）· 円 1262/9319 · 6.世界悲 342/5030 · 09_Conjurer 535/6019。
+   * ⚠️ drawPiano 有 noDrawBelow 保护，但【音符块这一路没有】——
+   *    保护要加在【几何】上（让出高度），⛔ 不是每一处画之前各写一遍判断（那样迟早漏一处，同族 C91）。 */
+  const laneH = drumLaneHeight(ph);
+  const melPh = Math.max(1, ph - laneH);
+  const laneTop = PAD.t + melPh;              /* 鼓栏顶 = 乐音区底 */
+  lastView = { lo, hi, melPh, laneTop, laneH };   /* 悬停命中要用（见 pickHover） */
+  const Y = m => PAD.t + melPh - ((m - lo) / (hi - lo)) * melPh;
 
   // 左侧钢琴键盘 + 音名
-  drawPiano(lo, hi, Y, ph);
+  drawPiano(lo, hi, Y, melPh);
 
   // 八度参考线（保留：配合键盘看整体位置）
   ctx.font = "10px Consolas,monospace"; ctx.textAlign = "right"; ctx.textBaseline = "middle";
@@ -1509,7 +1580,7 @@ function draw() {
    * ⭐ 2026-10-14：鼓段【不在这里画】—— 它们另画在底部一栏（见下方 drawDrumLane）。 */
   const segs = score.noteSegs || (score.segs || []).filter(x => x.axis !== DRUM_AXIS);
   const step = segs.length > 24000 ? Math.ceil(segs.length / 24000) : 1;
-  const rowH = ph / (hi - lo);
+  const rowH = melPh / (hi - lo);             /* ⭐ 用乐音区高度，⛔ 不是整个 ph */
   const blockH = Math.max(2, Math.min(rowH * 0.72, 12));
   for (let i = 0; i < segs.length; i += step) {
     const s = segs[i];
@@ -1593,17 +1664,24 @@ function draw() {
     ctx.fillText("缩放 " + viewZoom.toFixed(viewZoom < 10 ? 1 : 0) + "x" +
                  "（滚轮缩放 · 拖动平移）", bx0, barY + barH + 2);
     ctx.textAlign = "right";
-    ctx.fillText("视口 " + (vw.t0 / 960).toFixed(0) + "s ~ " +
-                 (vw.t1 / 960).toFixed(0) + "s / 全长 " +
-                 (vw.total / 960).toFixed(0) + "s", bx0 + bw, barY + barH + 2);
+    /* ⭐ 秒数必须走 tickToSec —— 原来写 tick/960（= 假定全程 120 BPM）
+     *   ⇒ 实测总览条比真值大 1.7~2.8 倍（本曲显示 48s，真值 28.5s）。 */
+    ctx.fillText("视口 " + tickToSec(vw.t0).toFixed(0) + "s ~ " +
+                 tickToSec(vw.t1).toFixed(0) + "s / 全长 " +
+                 tickToSec(vw.total).toFixed(0) + "s", bx0 + bw, barY + barH + 2);
     overviewBar = { x0: bx0, y0: barY, w: bw, h: barH };
   }
 
   // 悬停提示
   if (hover) {
-    const txt = "tick " + hover.tick + " · 轴 " + hover.axis + " · " +
-                hzToNote(440 * Math.pow(2, (hover.midi - 69) / 12)) +
-                " · 力度 " + hover.vel + " · " + (hover.kind === KIND_ON ? "on" : "off");
+    /* ⭐ 鼓要显示【件名】，⛔ 不是音名 —— 鼓的 inc 是件标识，
+     *   按音高折算出来是 B6 那种无意义的中间值（用户实测被这个误导过）。 */
+    const what = (hover.drumInc != null)
+      ? (DRUM_LANE_NAME[drumNameOfInc(hover.drumInc)] || "鼓")
+      : ((TIMBRE_NAMES[hover.timbre] || "?") + " " +
+         hzToNote(440 * Math.pow(2, (hover.midi - 69) / 12)));
+    const txt = "tick " + hover.tick + " · 轴 " + hover.axis + " · " + what +
+                " · 力度 " + hover.vel;
     ctx.font = "11px 'Microsoft YaHei UI',sans-serif";
     const tw = ctx.measureText(txt).width;
     let bx = hover.px + 12, by = hover.py - 26;
@@ -1615,20 +1693,53 @@ function draw() {
     ctx.fillText(txt, bx + 7, by + 11);
   }
 }
+/* ⭐⭐ 悬停命中：必须【同时】看时间与音高行。
+ *
+ * 🔴 原实现：`for (const n of score.notes) { d = |n.tick - t| }` —— 只比 tick，
+ *    完全没用 y；而 score.notes 里 note_on 与 note_off 是【混放】的。
+ *    ⇒ 实测（沿时间轴每 2px 扫一个光标位置）：命中 off 79~100%、命中鼓 38~83%
+ *      ⇒ 提示常写成"轴 15 · B6 · 力度 0 · off"，与你指着的那根音毫无关系。
+ * ⭐ 现在：先由 y 定行（乐音行 / 鼓栏某一件），再在这一行里找【覆盖该 tick】的段。
+ */
+function pickHover(px, py) {
+  if (!score || !lastView) return null;
+  const { pw } = geom();
+  const vw = viewWindow();
+  const t = vw.t0 + ((px - PAD.l) / pw) * vw.span;
+  const thr = vw.span * 0.02;          /* 判定阈值也按视口算（放大后要更准） */
+  const { lo, hi, melPh, laneTop, laneH } = lastView;
+  const dist = s => (t < s.t0) ? (s.t0 - t) : (t > s.t1 ? t - s.t1 : 0);
+
+  if (laneH > 0 && py >= laneTop) {    /* 鼓栏：按件分行命中 */
+    const rowH = laneH / DRUM_LANE_ORDER.length;
+    const row = Math.max(0, Math.min(DRUM_LANE_ORDER.length - 1,
+                                     Math.floor((py - laneTop) / Math.max(1, rowH))));
+    const want = DRUM_INC[DRUM_LANE_ORDER[row]];
+    let best = null, bd = Infinity;
+    for (const s of (score.drumSegs || [])) {
+      if (s.drumInc !== want) continue;
+      const d = dist(s); if (d < bd) { bd = d; best = s; }
+    }
+    return (best && bd <= thr) ? { ...best, px: px, py: py } : null;
+  }
+  /* 乐音：先算光标在哪一行（±0.5 半音算同一行），只在这一行里找 */
+  const m = lo + ((PAD.t + melPh - py) / melPh) * (hi - lo);
+  let best = null, bd = Infinity;
+  for (const s of (score.noteSegs || [])) {
+    if (Math.abs(s.midi - m) > 0.5) continue;
+    const d = dist(s); if (d < bd) { bd = d; best = s; }
+  }
+  return (best && bd <= thr) ? { ...best, px: px, py: py } : null;
+}
+
 cv.addEventListener("mousemove", ev => {
   if (!score || !score.notes.length) return;
   const r = cv.getBoundingClientRect();
   const { pw } = geom();
   /* ⭐ 悬停也要走【视口】—— 🔴 若直接用 score.tickMax，
-   * 放大后光标指哪儿、提示的音就会错位（用户会以为图错了）。 */
-  const vw = viewWindow();
-  const px = ev.clientX - r.left;
-  const t = vw.t0 + ((px - PAD.l) / pw) * vw.span;
-  let best = null, bd = Infinity;
-  for (const n of score.notes) { const d = Math.abs(n.tick - t); if (d < bd) { bd = d; best = n; } }
-  /* ⭐ 判定阈值也按视口算（放大后要"更准"，⛔ 不能还是整首的 2%） */
-  hover = (best && bd < vw.span * 0.02)
-    ? { ...best, px: px, py: ev.clientY - r.top } : null;
+   * 放大后光标指哪儿、提示的音就会错位（用户会以为图错了）。
+   * ⭐ 命中逻辑收在 pickHover() 里（可单测），⛔ 不再在这内联一份。 */
+  hover = pickHover(ev.clientX - r.left, ev.clientY - r.top);
   draw();
   /* ⭐ 拖动平移：按住左键移动 => 平移视口（⭕ 不抢 UI，⛔ 不加新 DOM）*/
   if (dragOn) {
@@ -1658,9 +1769,9 @@ cv.addEventListener("click", ev => {
   if (py < overviewBar.y0 - 2 || py > overviewBar.y0 + overviewBar.h + 2) return;
   if (px < overviewBar.x0 || px > overviewBar.x0 + overviewBar.w) return;
   const frac = (px - overviewBar.x0) / Math.max(1, overviewBar.w);
-  /* 让点击处成为视口【中点】—— ⛔ 不作为左边缘（那样点右边看不到右边）*/
-  const theo = frac - 0.5 / viewZoom;
-  viewScroll = Math.max(0, Math.min(1, theo));
+  /* 让点击处成为视口【中点】—— ⛔ 不作为左边缘（那样点右边看不到右边）。
+   * ⚠️ 换算收在 overviewScrollFor() 里（可单测），⛔ 不在这里内联。 */
+  viewScroll = overviewScrollFor(frac, viewZoom);
   draw();
 });
 
@@ -2233,13 +2344,15 @@ function updateProgress(d) {
     const heard = d.play - d.lead;            // 还没出声时为负
     heardTick = Math.max(0, heard);
     totalTick = (d.ttot && d.ttot > 0) ? d.ttot : null;
-    leadSec = d.lead / 1920;                  // 用固件给的真值换算秒（960PPQN/120BPM）
+    leadSec = tickToSec(d.lead);              /* ⭐ 按 tempo 表换算（⛔ 不是写死 /1920：
+                                               *   本曲 1920 tick 实际 1.20 s，不是 1.00 s） */
     if (!(leadSec > 0) || !isFinite(leadSec)) leadSec = LEAD_SEC_DEFAULT;
   } else if (score && d.tf) {
     // 退回估算：喂食比例 * 总时长 - 提前量
     const fedSec = (d.sent / d.tf) * score.duration;
-    const secPerTick = score.duration / Math.max(1, score.tickMax);
-    heardTick = Math.max(0, (fedSec - leadSec)) / (secPerTick || 1);
+    /* ⭐ 秒 -> tick 也必须【分段积分】—— 原来把 secPerTick 当常数，
+     *   而中段变速后 tick 与秒不成线性 ⇒ 游标会漂（实测 円 偏 5.6%）。 */
+    heardTick = secToTick(Math.max(0, fedSec - leadSec));
     totalTick = score.tickMax;
   }
   if (heardTick !== null && totalTick) {
@@ -2490,6 +2603,31 @@ async function upload() {
      *   ⇒ 浏览器永久卡住 ⇒ 之后每个操作都报 `already in progress` ⇒ 循环失败。
      * ⭐ 正确做法：只【挂个标记】，等 4 秒后第一次轮询读到 STAT 时顺便核对
      *   —— 复用同一次读，⛔ 不额外发一次（见 pollOnce）。*/
+    /* ⭐⭐ 2026-10-15：核对前先【等"在途"排空】（修一个假丢帧）。
+     *
+     * 🔴 实测（用户日志）：上传完立刻核对，报"少 860 帧（4.5%）"，
+     *   而 ⭐ 860 × 9 = 7740 字节 ≈ **窗口大小 8 KB** ——
+     *   ⇒ 那不是丢帧，是【最后一包还在蓝牙缓冲里，没到 ESP32】。
+     * ⚠️ 同一把尺子回看更早那次"丢 36%"：当时在途 53 KB，而报的"丢"是 61 KB
+     *   ⇒ ⭐ 绝大部分是同一个假象，⛔ 不全是真丢。
+     *
+     * ⭐ 判据：`fcSent - fcAcked` 就是"在途"。等它归零（最多 5 秒）。
+     * ⚠️ 若 5 秒还没排空 ⇒ 那才是真有问题（丢帧或 ESP32 卡住），
+     *   这时【要说出来】，⛔ 不能把超时当成"通过"（0.12 静默失败禁令）。 */
+    if (connected && statNotifyOk) {
+      const drainT0 = performance.now();
+      while (connected && (fcSent - fcAcked) > 0 &&
+             (performance.now() - drainT0) < 5000) {
+        await new Promise(r => setTimeout(r, 50));
+      }
+      const left = fcSent - fcAcked;
+      if (left > 0) {
+        log("⚠️ 等待排空超时：仍有 " + (left >> 10) +
+            " KB 在途未到达 ESP32 ⇒ ⛔ 下面的帧数核对会偏悲观", "er");
+      } else {
+        log("✅ 在途已排空（" + (fcSent >> 10) + " KB 全部送达 ESP32）", "ok");
+      }
+    }
     pendingIntegrityCheck = true;
   } catch (e) {
     log("上传失败：" + e.message, "er");
