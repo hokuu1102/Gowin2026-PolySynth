@@ -2037,7 +2037,26 @@ function parseStatText(txt) {
 const FC_WINDOW_BYTES = 64 * 1024;
 const FC_WAIT_MS = 3000;                /* 等 notify 的上限 */
 let fcSent = 0;                         /* 本次上传已发出字节 */
-let fcAcked = 0;                        /* notify 报的 ESP32 实收字节 */
+/* 🔴🔴 2026-10-15 关键修正：`ble=rxN` 是【自开机累计】的，⛔ 不是本次上传的！
+ *
+ * ═══ 症状（用户实测，决定性）═══
+ *   "已发 75 KB · ESP32 实收 240 KB · 在途 -166 KB · 收速 805.5 KB/s"
+ *   ⇒ ⭐ 实收【比已发还多】，在途算成【负数】！
+ *
+ * ═══ 根因 ═══
+ *   `s_ble_rx_bytes` 是固件里【自开机累计】的计数器（见 ble_main.c：
+ *   "原来用的是 s_ble_rx_bytes（⭐ 自开机累计）" 那条注释）。
+ *   而我拿它直接减"本次已发" ⇒
+ *     · 累计值 < 已发 时：在途是正数 ⇒ 流控【碰巧有效】
+ *     · 累计值 > 已发 时：在途变负数 ⇒ `在途 > 窗口` 永远不成立
+ *       ⇒ ⭐ **流控彻底失效** ⇒ 全速冲 ⇒ 丢帧 ⇒ 放不出来
+ *   ⇒ 这解释了那个怪现象：一次会话里【前面慢而能放，后面快而放不了】。
+ *
+ * ⭐ 修法：本次上传开始时记一个【基线】，之后一律用增量。
+ *   `fcAcked = bleRx - fcAckedBase`（并夹到 ≥ 0，防累计值回绕/复位）。 */
+let fcAckedBase = 0;                    /* ⭐ 本次上传开始时的累计 bleRx */
+let lastBleRx = 0;                      /* ⭐ 最近一次 notify 报的累计 bleRx */
+let fcAcked = 0;                        /* notify 报的 ESP32 实收字节（增量） */
 let fcNotifySeq = 0;                    /* notify 序号（用来等"新的"一条）*/
 let fcAbort = false;
 let fcWaitedMs = 0;                     /* ⭐ 我方因流控等掉的总毫秒（遥测用）*/
@@ -2059,8 +2078,12 @@ async function sendChunkWithFlowControl(pl, off, n) {
   fcSent += n;
 }
 
-/* ⭐ 上传前重置流控状态 */
+/* ⭐ 上传前重置流控状态。
+ * 🔴 关键：`ble=rxN` 是【自开机累计】⇒ 必须记一个【本次的基线】，
+ *   否则累计值一旦超过"本次已发"，在途就变负数 ⇒ 流控失效（实测踩到）。 */
 function fcReset() {
+  /* ⭐ 基线 = 现在这个累计值（notify 还没来就用 0，之后第一次 notify 会修正）*/
+  fcAckedBase = lastBleRx;
   fcSent = 0; fcAcked = 0; fcNotifySeq = 0; fcAbort = false;
   fcWaitedMs = 0; fcAckedAtLog = 0; fcLogAtMs = performance.now();
 }
@@ -2072,8 +2095,16 @@ function onStatText(txt) {
   fcNotifySeq++;                       /* ⭐ 告诉流控"有新数据了" */
   try {
     const st = parseStatText(txt);
-    /* ⭐ 流控用：ESP32 实际收到的字节（见 sendChunkWithFlowControl）*/
-    if (typeof st.bleRx === "number") fcAcked = st.bleRx;
+    /* ⭐ 流控用：ESP32 实际收到的字节（见 sendChunkWithFlowControl）。
+     * 🔴 必须减基线 —— `ble=rxN` 是自开机累计（见 fcAckedBase 的说明）。
+     * ⚠️ 夹到 ≥ 0：清池（CMD 0x01）会把累计值清零，那时增量会变负。
+     * ⭐ 若累计值【变小】了（说明发生了清池/复位），就把基线跟着挪，
+     *   否则之后的增量会一直偏小 ⇒ 流控误判成"收得慢"。 */
+    if (typeof st.bleRx === "number") {
+      if (st.bleRx < lastBleRx) { fcAckedBase = st.bleRx; }   /* 计数器被清零 */
+      lastBleRx = st.bleRx;
+      fcAcked = Math.max(0, st.bleRx - fcAckedBase);
+    }
     gattWedged = 0;
     paintStat(st);
     if (pendingIntegrityCheck) {
@@ -2464,6 +2495,13 @@ function checkIntegrityFromStat(st) {
       } else {
         log("✅ 帧数核对通过：" + ev + " / " + tf + " 帧全部到齐", "ok");
       }
+    } else {
+      /* 🔴 2026-10-15：解析不到就必须【喊出来】，⛔ 不许静默跳过（0.12 静默失败禁令）。
+       * ⚠️ 实测踩到：这次日志里【没有"帧数核对"那行】，而我一时以为是"没丢帧"——
+       *   其实是【正则没匹配上 ⇒ 整块被跳过】⇒ 我拿不到最关键的那条证据。 */
+      log("⚠️ 状态里没解析到帧数（ev/tf）—— ⛔ 无法核对谱面是否收齐。"
+          + " ⭐ 请把下面这行原文发我（用于修正则）：", "er");
+      log("   " + String(st.txt || "").replace(/\n/g, " ⏎ ").slice(0, 400), "");
     }
   }
   const bleDrop = n(st.bleDrop), ringDrop = n(st.ringDrop), ovf = n(st.ovf);

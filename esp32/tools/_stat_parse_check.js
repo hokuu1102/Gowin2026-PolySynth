@@ -76,6 +76,25 @@ chk("上传后【不自动】恢复轮询（起播后才恢复）",
     !/if \(connected\) startPoll\(POLL_RESUME_DELAY_MS\)/.test(html));
 chk("有 GATT 卡死检测与重连指引",
     /gattWedged/.test(html) && /already in progress/.test(html));
+
+/* ⭐⭐ 2026-10-15 最贵的一条教训：`ble=rxN` 是【自开机累计】的。
+ * 🔴 症状：用户实测 "已发 75 KB · ESP32 实收 240 KB · 在途 -166 KB"
+ *   ⇒ 实收比已发还多、在途算成负数 ⇒ `在途 > 窗口` 永远不成立
+ *   ⇒ ⭐ **流控彻底失效** ⇒ 全速冲 ⇒ 丢帧 ⇒ 放不出来。
+ * ⭐ 修法：本次上传记基线，只用增量（并夹到 ≥ 0，防清池清零）。
+ * ⚠️ 判据必须钉住【减基线】这一步 —— 直接赋值 `fcAcked = st.bleRx` 就是 bug。 */
+chk("⭐ 流控用【增量】而不是累计值（fcAcked = bleRx - 基线）",
+    /fcAcked\s*=\s*Math\.max\(0,\s*st\.bleRx\s*-\s*fcAckedBase\)/.test(html));
+chk("⭐ 上传前记下累计值基线（fcAckedBase = lastBleRx）",
+    /fcAckedBase\s*=\s*lastBleRx/.test(html));
+chk("非空洞：确实没有直接拿累计值当增量用",
+    !/fcAcked\s*=\s*st\.bleRx\s*;/.test(html));
+
+/* ⭐ ev/tf 帧数核对必须存在，且解析不到时【要喊】而不是静默跳过（0.12）。 */
+chk("有 ev/tf 帧数核对（判谱面收齐没有）",
+    /frameEv/.test(html) && /frameTf/.test(html) && /帧数核对通过/.test(html));
+chk("⭐ ev/tf 解析不到时【明确报错】而不是静默跳过",
+    /没解析到帧数/.test(html));
 chk("核对失败时【明确报错】而不是静默",
     /上传【有丢帧】/.test(html));
 /* ⭐ 上传必须有节流（否则必然溢出 —— 0xABF1 无流控）。
