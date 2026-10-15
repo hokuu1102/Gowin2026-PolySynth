@@ -1835,7 +1835,7 @@ async function connect() {
           onStatText(txt);
         });
         statNotifyOk = true;
-        log("已订阅状态通道 0xABF4（每 300 ms 推一次，⛔ 不再主动读）", "ok");
+        log("已订阅状态通道 0xABF4（周期性推送，⛔ 不再主动读）", "ok");
       }
     } catch (e) {
       statNotifyOk = false;
@@ -2088,10 +2088,22 @@ let fcWaitedMs = 0;                     /* ⭐ 我方因流控等掉的总毫秒
 let fcAckedAtLog = 0, fcLogAtMs = 0;    /* ⭐ 上次打遥测时的基准 */
 
 async function sendChunkWithFlowControl(pl, off, n) {
+  /* ⭐⭐ 2026-10-15：断连守卫（修我自己的 bug）。
+   * 🔴 症状（用户实测）："蓝牙已断开" 之后上传循环继续跑 ⇒
+   *   报 `Cannot read properties of null (reading 'writeValueWithoutResponse')`
+   *   —— ⭐ 断连处理器把 chRecv 置成 null 了，而循环还在用。
+   * ⭐ 修法：在【唯一的发送出口】检查，断连就抛一个【说得清】的错误，
+   *   让上传循环干净地停下来（⛔ 不是让它抛一个看不懂的 TypeError）。
+   * ⚠️ 教训：断连是【正常事件】之一，每个异步循环都该问"我还在连吗"。 */
+  if (!connected || !chRecv) {
+    throw new Error("蓝牙已断开，上传中止（已发 " + (fcSent >> 10) +
+                    " KB / 共 " + (pl.length >> 10) + " KB）—— 请重新连接后再上传");
+  }
   /* ⭐ 等窗口腾出来（最多等 FC_WAIT_MS）*/
   const t0 = performance.now();
-  /* ⚠️ 不用通知时【不等待】—— 纯靠 PACING_MS 节流（诊断模式）*/
-  while (USE_STAT_NOTIFY && !fcAbort && statNotifyOk &&
+  /* ⚠️ 不用通知时【不等待】—— 纯靠 PACING_MS 节流（诊断模式）。
+   * ⚠️ 断连时也立刻退出等待（⛔ 别白等 3 秒，那期间用户以为卡住了）。 */
+  while (USE_STAT_NOTIFY && !fcAbort && statNotifyOk && connected &&
          (fcSent - fcAcked) > FC_WINDOW_BYTES &&
          (performance.now() - t0) < FC_WAIT_MS) {
     const seq0 = fcNotifySeq;
