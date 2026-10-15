@@ -2488,6 +2488,12 @@ async function upload() {
   if (!connected) { log("先连接蓝牙", "er"); return; }
   if (uploading) return;
   uploading = true; $("btnUp").disabled = true;
+  /* ⭐ 2026-10-15：上传中同时禁用「起播」「清池」——
+   * 🔴 只禁用上传按钮是不够的：用户实测在上传中途按了起播
+   *   ⇒ 池里只有 12581 / 16041 帧 ⇒ ESP32 报 TOTAL MISMATCH ⇒ 谱面不完整。
+   * ⭐ 判据：⭐ 按钮的 disabled 要覆盖【所有会被破坏的操作】。 */
+  $("btnPlay").disabled = true;
+  $("btnClear").disabled = true;
 
   /* 2026-10-14：灌谱内容按【当前勾选的轨】动态生成 ——
    * 用户要求"既能全播，也能只播选定的一轨或多轨"。
@@ -2641,6 +2647,9 @@ async function upload() {
     log("上传失败：" + e.message, "er");
   } finally {
     uploading = false; $("btnUp").disabled = false;
+    /* ⭐ 恢复上传期间禁用的按钮（与上传开始时成对，⛔ 别只禁不放）*/
+    $("btnPlay").disabled = false;
+    $("btnClear").disabled = false;
     /* ⭐⭐ 上传后【不自动恢复轮询】（2026-10-14 用户日志实测）。
      *
      * 🔴 为什么：读 STAT 用 `readValue()`，而 ESP32 在灌完谱后【长时间忙】
@@ -2832,6 +2841,21 @@ function stopPollFor(ms) {
   }, ms);
 }
 $("btnPlay").onclick = async () => {
+  /* 2026-10-15：上传中【禁止起播】（用户实测踩到）。
+   *
+   * 症状：上传还没完就按起播 => 池里只有 12581 / 16041 帧
+   *   => ESP32 报 `TOTAL MISMATCH: got 12635, expected 16041 (diff -3406)`
+   *   => 谱面不完整（长谱放不了 / 只放一截）。
+   * 根因不在 ESP32 —— 是 UI 【允许】了中途起播。
+   * 修法（改源头，不是在下游解释那个报错）：
+   *   · 上传开始时禁用「起播」「清池」按钮（见 upload 的 finally）
+   *   · 这里再加一道守卫，防其它路径触发
+   * 教训：按钮的 disabled 要覆盖【所有会被破坏的操作】，
+   *   只禁用"发起者"（上传按钮）是不够的。 */
+  if (uploading) {
+    log("⚠️ 正在上传，请等上传完成再起播（否则池里帧不齐，谱面会不完整）", "er");
+    return;
+  }
   stopPollFor(1500);                 /* ⭐ 让起播不排在一堆轮询后面 */
   try { await gattSerial(() => sendCmd(CMD_PLAY)); log("已发 起播"); }
   catch (e) { log(e.message, "er"); }

@@ -1,13 +1,13 @@
 mid2evt report
 ====================================================
-input        : 四音色鼓机变速-funk-测试曲.mid
+input        : 四音色鼓机变速-funk-演示卡.mid
 transpose    : +0 semitones
 
 pitch tracks : 4
-    axis 0  Bass                71 notes
-    axis 1  Guitar              57 notes
-    axis 2  Piano               71 notes
-    axis 3  Pad                 16 notes
+    axis 0  Bass                11 notes
+    axis 1  Guitar              11 notes
+    axis 2  Piano               12 notes
+    axis 3  Pad                  6 notes
 
 TIMBRE assignment (GUESSED from track name -- verify this!):
     axis 0  Bass             -> BASS    (name contains 'bass')
@@ -20,24 +20,24 @@ TIMBRE assignment (GUESSED from track name -- verify this!):
 DRUM tracks (routed to the drum machine, NOT played as pitch):
     Drum (track name contains 'drum')
   rule order: (1) track name, (2) MIDI channel 10
-  drums seen : 130 events (excluded from events.hex)
+  drums seen : 96 events (excluded from events.hex)
 
 EMPTY tracks (no notes; no axis id assigned): 1
     Tempo
   Guitar Pro exports placeholder/duplicate tracks; giving them
   an axis would leave gaps in the numbering for no benefit.
 
-notes kept   : 215
-events       : 430 note records (1 note_on + 1 note_off each)
+notes kept   : 40
+events       : 80 note records (1 note_on + 1 note_off each)
 de-duplicated: 0  (same tick + same pitch collapsed to one;
                 identical pitch means no musical loss, and it
                 avoids two voices beating at the same frequency)
-pitch range  : MIDI 38 .. 83
-length       : 30719 ticks = 8.00 bars (4/4 @ PPQN 960)
+pitch range  : MIDI 45 .. 72
+length       : 26879 ticks = 7.00 bars (4/4 @ PPQN 960)
 
 TEMPO map (from the MIDI set_tempo events -- NOT assumed):
-    tick 0        104.00 BPM  -> tick_inc 142937
-    tick 7680     116.00 BPM  -> tick_inc 159429
+    tick 0        100.00 BPM  -> tick_inc 137439
+    tick 15360    126.00 BPM  -> tick_inc 173173
     tick 23040     92.00 BPM  -> tick_inc 126444
   ⭐ emitted into events.hex as 3 kind=2 record(s)
      => the stream is SELF-CONTAINED: the FPGA no longer needs

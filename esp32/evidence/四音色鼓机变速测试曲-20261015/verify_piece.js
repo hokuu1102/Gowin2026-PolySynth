@@ -28,7 +28,7 @@ for (let i = 0; i < args.length; i++) {
   if (args[i] === "--hex") hexOut = args[++i];
   else midPath = args[i];
 }
-if (!midPath) midPath = path.join(HERE, "四音色鼓机变速-funk-测试曲.mid");
+if (!midPath) midPath = path.join(HERE, "四音色鼓机变速-funk-演示卡.mid");
 if (!fs.existsSync(midPath)) {
   console.error("找不到 MIDI：" + midPath);
   process.exit(2);
@@ -252,6 +252,36 @@ console.log("  跨音色同音高同时响：" + clash + " 处" +
 if (clashEx.length) console.log("    例：" + clashEx.join(" | "));
 chk("⑨ 没有跨音色同音高同时响（相位干涉 => 听起来像两个音色没对上）", clash === 0,
     clash ? (clash + " 处") : "");
+
+/* ⑩ ⭐ 鼓的相邻落点间隔必须 >= 鼓长（480）。
+ * 为什么（FPGA 侧 RTL 查证，note_manager.v:1305-1321）：
+ *   `note_off` 清的是【所有】同轴位且 gate 高的 voice（同源才清）——
+ *     if ((gate_r[i]|retrig_low[i]) && (axis_r[i]==cur_axis) && (src_r[i]==cur_src))
+ *   而四个鼓件【共用 axis 15 且同源 SRC_KDRUM】=> ⭐ 任何一个鼓的 off 会把该轴上
+ *   所有还在响的鼓一起释放 => ⭐ **鼓机实际是单声部**。
+ *   ⇒ 相邻落点比鼓长更近时，后一下会被前一下的 off 掐掉（16 分鼓花就会这样）。
+ * ⚠️ 480 要与 gen_test_piece.py 的 DRUM_DUR 一致；改了那边这里也要改。 */
+const DRUM_DUR = 480;
+/* ⚠️ 先【去重 tick】再量间隔：同一 tick 上敲多件是"探针"那种情况，
+ *    由判据 ⑦ 单独管；这里只管"不同 tick 之间离得太近"。 */
+const drumOn = [...new Set(evs.filter(e => e.axis === API.DRUM_AXIS && e.kind === API.KIND_ON)
+                                .map(e => e.tick))].sort((a, b) => a - b);
+let tooClose = 0, minGap = Infinity;
+const closeEx = [];
+for (let i = 1; i < drumOn.length; i++) {
+  const g = drumOn[i] - drumOn[i - 1];
+  if (g < minGap) minGap = g;
+  if (g < DRUM_DUR) {
+    tooClose++;
+    if (closeEx.length < 3) closeEx.push(drumOn[i - 1] + "→" + drumOn[i] + "（间隔 " + g + "）");
+  }
+}
+console.log();
+console.log("  鼓落点：" + drumOn.length + " 下 · 最小间隔 " + (minGap === Infinity ? "-" : minGap) +
+            " tick（要求 >= " + DRUM_DUR + "）");
+if (closeEx.length) console.log("    太近的：" + closeEx.join(" | "));
+chk("⑩ 鼓的相邻落点间隔 >= 鼓长（否则后一下被前一下的 off 掐掉）",
+    tooClose === 0, tooClose ? (tooClose + " 处太近") : "");
 
 // ---- 导出 events.hex（与 mid2evt.py 的写法一致：每行 16 位十六进制）----
 if (hexOut) {

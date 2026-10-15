@@ -94,6 +94,19 @@ chk("上传后【不自动】恢复轮询（起播后才恢复）",
  * 修法：等 fcSent - fcAcked 归零（最多 5 秒）再核对；超时要【报出来】。 */
 chk("核对前等在途排空（否则把在途误报成丢帧）",
     /在途已排空/.test(html) && /等待排空超时/.test(html));
+/* 2026-10-15：上传中必须禁用「起播」「清池」。
+ * 症状（用户实测）：上传中途按起播 => 池里只有 12581 / 16041 帧
+ *   => ESP32 报 TOTAL MISMATCH (diff -3406) => 谱面不完整。
+ * 根因不在 ESP32 —— 是 UI 允许了中途起播。
+ * 教训：按钮的 disabled 要覆盖【所有会被破坏的操作】，
+ *   只禁用"发起者"（上传按钮）是不够的。 */
+chk("上传中禁用起播/清池（禁与放要成对）",
+    /btnPlay"\)\.disabled = true/.test(html) &&
+    /btnClear"\)\.disabled = true/.test(html) &&
+    /btnPlay"\)\.disabled = false/.test(html) &&
+    /btnClear"\)\.disabled = false/.test(html));
+chk("起播动作本身也守卫 uploading（防其它路径触发）",
+    /if \(uploading\) \{/.test(html) && /请等上传完成再起播/.test(html));
 chk("有 GATT 卡死检测与重连指引",
     /gattWedged/.test(html) && /already in progress/.test(html));
 
