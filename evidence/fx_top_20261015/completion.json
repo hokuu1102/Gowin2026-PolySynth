@@ -1,0 +1,93 @@
+{
+  "Source": "0e98a58a8e69b13d779621de4e756b25707ee056",
+  "RegressionExitCode": 0,
+  "FunctionalAccepted": true,
+  "FunctionalPass": 202,
+  "ExpectedNegative": 1,
+  "SeparateDiagnostic": 1,
+  "FunctionalFailures": 0,
+  "VerifiedSourceBlobs": 323,
+  "AllEffectsPublicTopProbeAccepted": true,
+  "Profiles": {
+    "all": {
+      "Source": "0e98a58a8e69b13d779621de4e756b25707ee056",
+      "Overrides": {
+        "FX_TREM_DEPTH": 128,
+        "FX_EN_MASK": 7
+      },
+      "BuildName": "fx_top_all_pnr01",
+      "ActualToolExitCode": 0,
+      "ToolAccepted": true,
+      "FrozenInputs": 80,
+      "Timing": {
+        "Source": "0e98a58a8e69b13d779621de4e756b25707ee056",
+        "PhysicalSystemClockMHz": 50,
+        "RequiredHoldNs": 0.05,
+        "SetupViolations": 0,
+        "HoldViolations": 0,
+        "SetupSlack": 0.018,
+        "HoldSlack": 0.056,
+        "RecoverySlack": 0.624,
+        "RemovalSlack": 0.321,
+        "clk_sysFmax": 61.041,
+        "pixel_clkFmax": 45.664,
+        "serial_clkFmax": 229.954,
+        "Logic": 44264.0,
+        "CLS": 26480.0,
+        "Register": 22067.0,
+        "BSRAM": 103.0,
+        "DSP": 31.0,
+        "TimingPass": true,
+        "NativeBudgetNs": 16.4,
+        "HoldMargin50psGate": true,
+        "Accepted": true
+      },
+      "TimingAccepted": true
+    },
+    "bypass": {
+      "Source": "0e98a58a8e69b13d779621de4e756b25707ee056",
+      "Overrides": {
+        "FX_TREM_DEPTH": 0,
+        "FX_EN_MASK": 0
+      },
+      "BuildName": "fx_top_bypass_pnr01",
+      "ActualToolExitCode": 0,
+      "ToolAccepted": true,
+      "FrozenInputs": 80,
+      "Timing": {
+        "Source": "0e98a58a8e69b13d779621de4e756b25707ee056",
+        "PhysicalSystemClockMHz": 50,
+        "RequiredHoldNs": 0.05,
+        "SetupViolations": 0,
+        "HoldViolations": 0,
+        "SetupSlack": 0.007,
+        "HoldSlack": 0.124,
+        "RecoverySlack": 1.169,
+        "RemovalSlack": 0.123,
+        "clk_sysFmax": 61.001,
+        "pixel_clkFmax": 43.837,
+        "serial_clkFmax": 148.197,
+        "Logic": 43455.0,
+        "CLS": 26141.0,
+        "Register": 21348.0,
+        "BSRAM": 83.0,
+        "DSP": 23.0,
+        "TimingPass": true,
+        "NativeBudgetNs": 16.4,
+        "HoldMargin50psGate": true,
+        "Accepted": true
+      },
+      "TimingAccepted": true
+    }
+  },
+  "EnabledVsBypassBRAMDelta": 20.0,
+  "EnabledMemoryObserved": true,
+  "Accepted": true,
+  "DefaultCompileBypass": true,
+  "RuntimeControlsAdded": false,
+  "ConstraintsRelaxed": false,
+  "BoardAcceptance": "NOT_RUN",
+  "BJReplaced": false,
+  "FirmwareCopiedToUserArchive": false,
+  "Pushed": false
+}

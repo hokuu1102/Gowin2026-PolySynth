@@ -1,0 +1,14 @@
+{
+  "Source": "0e98a58a8e69b13d779621de4e756b25707ee056",
+  "Session": 11468,
+  "ObservedExitCode": 0,
+  "ObservedAtUTC": "2026-10-15T09:26:39Z",
+  "FixtureSHA256": "96F1F7A6E8D21D92A26D42617AA106B391039E43899427E7DBD25DBCCA540E27",
+  "CompiledSourceDirectory": "build/fx_top_verify_source",
+  "FX_EN_MASK": 7,
+  "FX_TREM_DEPTH": 128,
+  "PublicAudioCycles": 80000,
+  "BoardDifferences": 9280,
+  "ExternalDifferences": 9280,
+  "LiveWetOnes": 19117
+}

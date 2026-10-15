@@ -51,6 +51,19 @@ module top #(
     // 与 `clk_gen` / `i2s_tx` 保持一致的音频参数
     parameter integer SAMPLE_W          = 24,
     parameter integer DATA_BITS         = 16,
+    // Compile-time FX profiles only; UART/key assignments remain unchanged.
+    // Default is exact legacy bypass. Bits 0/1/2: distortion/chorus/delay.
+    // Reverb and the remaining mask bits are placeholders, not implemented effects.
+    parameter [7:0]  FX_EN_MASK          = 8'd0,
+    parameter [1:0]  FX_DIST_SEL         = 2'd0,
+    parameter [15:0] FX_DIST_GAIN        = 16'd16384,
+    parameter [15:0] FX_DIST_TRIM        = 16'd8192,
+    parameter [13:0] FX_DELAY_SAMPLES    = 14'd8192,
+    parameter [10:0] FX_CHORUS_SAMPLES   = 11'd732,
+    parameter [7:0]  FX_MIX              = 8'd128,
+    parameter [7:0]  FX_FEEDBACK         = 8'd96,
+    parameter [7:0]  FX_TREM_DEPTH       = 8'd0,
+    parameter [7:0]  FX_TREM_RATE        = 8'd7,
     // ⭐⭐ T57（2026-09-21）：**开机自检音**（⛔ 不依赖任何传感器）
     //   · `1`（**默认**）= 复位后自动起一个 **3 音和弦**（A4 / C#5 / E5）⇒
     //     ⭐ **上板就能听到声音**，用于证明"整条出声链在真硅片上通了"。
@@ -6002,8 +6015,34 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             .n_active_o       (mx_n_active)
         );
 
+        // FX is after the complete dry mix (live/score/looper/percussion)
+        // and before master volume. No event, UART or key routing changes.
+        // Compile bypass preserves the old sample/valid schedule exactly.
+        // Enabled profiles add the measured 17 clocks, never a whole audio frame.
+        wire signed [SAMPLE_W-1:0] fx_sample;
+        wire                      fx_valid;
+        if ((FX_EN_MASK[2:0] != 3'b000) || (FX_TREM_DEPTH != 8'd0)) begin : g_fx
+            fx_chain #(
+                .SAMPLE_W(SAMPLE_W), .AW(14), .AW_CH(11)
+            ) u_fx (
+                .clk_i(clk), .rst_n_i(rst_n_sync),
+                .valid_i(mx_valid), .sample_i(mx_sample),
+                .en_mask_i(FX_EN_MASK),
+                .dist_sel_i(FX_DIST_SEL), .dist_gain_i(FX_DIST_GAIN), .dist_trim_i(FX_DIST_TRIM),
+                .dly_delay_i(FX_DELAY_SAMPLES), .chor_delay_i(FX_CHORUS_SAMPLES),
+                .dly_mix_i(FX_MIX), .dly_fb_i(FX_FEEDBACK),
+                .trem_depth_i(FX_TREM_DEPTH), .trem_rate_i(FX_TREM_RATE),
+                .valid_o(fx_valid), .sample_o(fx_sample),
+                .en_mask_o(), .dly_active_o(), .chor_active_o(), .dly_primed_o(),
+                .dist_clip_cnt_o(), .trem_lfo_o(), .pipe_o()
+            );
+        end else begin : g_fx_bypass
+            assign fx_valid  = mx_valid;
+            assign fx_sample = mx_sample;
+        end
+
         // ⭐⭐ 主混音 + 数字主音量 + 静音斜坡（master_mix，W3c 出声通路最后一级）
-        //    ⚠️ 位置：`tdm_render_mixer` → `master_mix` → `i2s_tx`
+        //    位置：tdm_render_mixer → FX/compile bypass → master_mix → i2s_tx
         //    ⭐ 增益由 P4 CH1 的 64 点对数 LUT 提供；`RIGHT_ADC_ENABLE=0`
         //       时 `right_analog_ctrl` 输出 0x7FFF，保证旧硬件仍是满音量。
         //    ⭐ 静音斜坡：开机与调节均平滑，避免可闻"啪"声。
@@ -6017,8 +6056,8 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             .clk_i        (clk),
             .rst_n_i      (rst_n_sync),
             .sample_tick_i(tick_audio),
-            .valid_i      (mx_valid),
-            .sample_i     (mx_sample),
+            .valid_i      (fx_valid),
+            .sample_i     (fx_sample),
             .gain_i       (master_gain),
             .valid_o      (mm_valid),
             .sample_o     (mm_sample),

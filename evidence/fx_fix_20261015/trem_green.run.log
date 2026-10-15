@@ -1,0 +1,2 @@
+PASS: fx_trem public stream contract: 773 samples, exact 3-cycle latency, atomic depth/rate/enable, phase wrap and reset
+tb/w3c/tb_fx_trem_stream_contract.sv:75: $finish called at 93320000 (1ps)

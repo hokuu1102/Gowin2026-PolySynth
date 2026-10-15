@@ -1,0 +1,13 @@
+{
+  "Source": "0e98a58a8e69b13d779621de4e756b25707ee056",
+  "FxConfig": "all",
+  "BuildName": "fx_top_all_pnr01",
+  "BuildDirectory": "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\Gowin2026-PolySynth-fx-review-20261015\\build\\fx_top_all_pnr01",
+  "Inputs": 80,
+  "Overrides": {
+    "FX_TREM_DEPTH": 128,
+    "FX_EN_MASK": 7
+  },
+  "Sealed": true,
+  "PreparedAtUTC": "2026-10-15T09:20:47.8737103Z"
+}

@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Module name="fx_chain" T_Register="886(0)" T_Alu="227(0)" T_Lut="423(0)" T_MULTALU27X18="10(0)" T_MULT12X12="1(0)" T_Bsram="20(0)">
+ <SubModule name="u_dist" Register="262" Alu="19" Lut="80" MULTALU27X18="2" T_Register="262(262)" T_Alu="19(19)" T_Lut="80(80)" T_MULTALU27X18="2(2)"/>
+ <SubModule name="u_chorus" Register="258" Alu="111" Lut="158" MULTALU27X18="4" Bsram="2" T_Register="258(258)" T_Alu="111(111)" T_Lut="158(158)" T_MULTALU27X18="4(4)" T_Bsram="2(2)"/>
+ <SubModule name="u_delay" Register="247" Alu="74" Lut="145" MULTALU27X18="3" Bsram="18" T_Register="247(247)" T_Alu="74(74)" T_Lut="145(145)" T_MULTALU27X18="3(3)" T_Bsram="18(18)"/>
+ <SubModule name="u_trem" Register="119" Alu="23" Lut="40" MULTALU27X18="1" MULT12X12="1" T_Register="119(119)" T_Alu="23(23)" T_Lut="40(40)" T_MULTALU27X18="1(1)" T_MULT12X12="1(1)"/>
+</Module>

@@ -1,0 +1,2 @@
+FATAL: tb/w3c/tb_fx_trem_stream_contract.sv:34: FAIL trem LFO cycle=13 expected=0 actual=255
+       Time: 351000  Scope: tb_fx_trem_stream_contract

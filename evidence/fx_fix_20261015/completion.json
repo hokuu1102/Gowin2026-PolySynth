@@ -1,0 +1,30 @@
+{
+  "Source": "92a77bb182077f8ffebac9c4a30512669adaa602",
+  "RegressionExitCode": 0,
+  "SynthesisExitCode": 0,
+  "FunctionalAccepted": true,
+  "FunctionalPass": 200,
+  "ExpectedNegative": 1,
+  "SeparateDiagnostic": 1,
+  "Failures": 0,
+  "VerifiedSourceBlobs": 321,
+  "SynthesisAccepted": true,
+  "RepairVerificationAccepted": true,
+  "ProductionModulesChanged": [
+    "rtl/w3c/fx_dist.v",
+    "rtl/w3c/fx_trem.v",
+    "rtl/w3c/fx_chain.v"
+  ],
+  "EffectArithmeticPreserved": true,
+  "PublicPortWidthsPreserved": true,
+  "DistLatencyCycles": 5,
+  "TremLatencyCycles": 3,
+  "ActualChainLatencyCycles": 17,
+  "ChainMetadataCorrectedFromCycles": 16,
+  "TopIntegrated": false,
+  "IntegratedTiming": "NOT_RUN",
+  "FirmwareGenerated": false,
+  "BoardAcceptance": "NOT_RUN",
+  "BJReplaced": false,
+  "Pushed": false
+}

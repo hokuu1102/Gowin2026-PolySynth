@@ -1,0 +1,8 @@
+NOTE [fx_delay] DEPTH=1024 samples = 20 ms @48828.125Hz | MEM_W=18 => 18432 bit / 18432 bit-per-block = 1 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=1024 samples = 20 ms @48828.125Hz | MEM_W=18 => 18432 bit / 18432 bit-per-block = 1 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=1024 samples = 20 ms @48828.125Hz | MEM_W=18 => 18432 bit / 18432 bit-per-block = 1 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=1024 samples = 20 ms @48828.125Hz | MEM_W=18 => 18432 bit / 18432 bit-per-block = 1 BSRAM block(s) of 118
+sent=4 received dist_bypass=4 dist_active=4 trem_bypass=4 trem_active=4 chain_bypass=4 chain_dist=4
+errors dist_bypass=0 dist_active=0 trem_bypass=0 trem_active=0 chain_bypass=0 chain_dist=0
+PASS public valid/sample contract
+evidence/fx_review_20261015/tb_fx_public_contract.sv:53: $finish called at 6020000 (1ps)

@@ -139,7 +139,6 @@ module fx_dist #(
     reg [GAIN_W-1:0] gain_r;
     reg [TRIM_W-1:0] trim_r;
     reg        [1:0] sel_r;
-    reg              en_r;
 
     assign gain_used_o = gain_r;
     assign trim_used_o = trim_r;
@@ -151,15 +150,18 @@ module fx_dist #(
     reg signed [SUM1_W-1:0]   p1;                   // 乘法 1 结果
     reg signed [SAMPLE_W-1:0] c2;                   // 硬削结果
     reg signed [SUM2_W-1:0]   p3;                   // 乘法 2 结果
+    reg signed [SAMPLE_W-1:0] y4;                  // 饱和后与五拍 valid 对齐
+    reg [TRIM_W-1:0]         trim_s1, trim_s2;     // 补偿参数随同一个样本前进
+    reg [SAMPLE_W-1:0]       peak_s2, peak_s3, peak_s4;
+    reg                      clip_s2, clip_s3, clip_s4;
     reg [PIPE-1:0]            v_sr;                 // valid 移位（v_sr[0] 最新）
     reg [PIPE-1:0]            en_sr;                // en 移位（与样点同拍对齐）
-    reg [PIPE-1:0]            ovf_sr;               // 削波标志移位（对齐到输出拍）
 
     // ═══════════════════════════════════════════════════════════════════════
     // ④ 乘法 1：xg = sample × gain（Q4.12 ⇒ 右移 GAIN_FRAC 位还原）
     // ═══════════════════════════════════════════════════════════════════════
     wire signed [SUM1_W-1:0] prod1 = s0 * $signed({1'b0, gain_r});
-    wire signed [SUM1_W-1:0] shr1  = prod1 >>> GAIN_FRAC;
+    wire signed [SUM1_W-1:0] shr1  = p1 >>> GAIN_FRAC;
 
     //  溢出判断（K-101：逐位比较，⛔ 不用 signed 比较）
     //    右移后，位 [SUM1_W-1 : SAMPLE_W-1] 必须【全部相同】（都等于真符号位），
@@ -183,8 +185,8 @@ module fx_dist #(
     // ═══════════════════════════════════════════════════════════════════════
     // ⑤ 乘法 2：out = clipped × trim（Q1.15 ⇒ 右移 TRIM_FRAC 位）
     // ═══════════════════════════════════════════════════════════════════════
-    wire signed [SUM2_W-1:0] prod2 = c2 * $signed({1'b0, trim_r});
-    wire signed [SUM2_W-1:0] shr2  = prod2 >>> TRIM_FRAC;
+    wire signed [SUM2_W-1:0] prod2 = c2 * $signed({1'b0, trim_s2});
+    wire signed [SUM2_W-1:0] shr2  = p3 >>> TRIM_FRAC;
 
     wire ovf2 = (shr2[SUM2_W-1:SAMPLE_W] != {(SUM2_W-SAMPLE_W){shr2[SAMPLE_W-1]}});
     //  ⚠️ 同 sat1：符号位用【40 位结果的最高位】，⛔ 不用第 SAMPLE_W-1 位
@@ -199,15 +201,19 @@ module fx_dist #(
             gain_r  <= GAIN_DEF;
             trim_r  <= TRIM_DEF;
             sel_r   <= 2'd0;
-            en_r    <= 1'b0;
             s0 <= {SAMPLE_W{1'b0}}; s1 <= {SAMPLE_W{1'b0}};
             s2 <= {SAMPLE_W{1'b0}}; s3 <= {SAMPLE_W{1'b0}}; s4 <= {SAMPLE_W{1'b0}};
             p1 <= {SUM1_W{1'b0}};
             c2 <= {SAMPLE_W{1'b0}};
             p3 <= {SUM2_W{1'b0}};
+            y4 <= {SAMPLE_W{1'b0}};
+            trim_s1 <= TRIM_DEF; trim_s2 <= TRIM_DEF;
+            peak_s2 <= {SAMPLE_W{1'b0}};
+            peak_s3 <= {SAMPLE_W{1'b0}};
+            peak_s4 <= {SAMPLE_W{1'b0}};
+            clip_s2 <= 1'b0; clip_s3 <= 1'b0; clip_s4 <= 1'b0;
             v_sr   <= {PIPE{1'b0}};
             en_sr  <= {PIPE{1'b0}};
-            ovf_sr <= {PIPE{1'b0}};
             valid_o  <= 1'b0;
             sample_o <= {SAMPLE_W{1'b0}};
             peak_o   <= {SAMPLE_W{1'b0}};
@@ -219,42 +225,50 @@ module fx_dist #(
             gain_r <= gain_i;
             trim_r <= trim_i;
             sel_r  <= sel_i;
-            en_r   <= en_i;
 
             // ── stage0（N → N+1）：锁存输入与选通 ───────────────────────
             s0     <= sample_i;
             v_sr   <= {v_sr[PIPE-2:0],   valid_i};
-            en_sr  <= {en_sr[PIPE-2:0],  en_r};
+            // en 与 gain/trim 同属接受输入的这一拍，不取前一拍的 en。
+            en_sr  <= {en_sr[PIPE-2:0],  en_i};
 
             // ── stage1（N+1 → N+2）：乘法 1 ─────────────────────────────
             s1 <= s0;
             p1 <= prod1;
+            trim_s1 <= trim_r;
 
             // ── stage2（N+2 → N+3）：硬削 ───────────────────────────────
             //   ⚠️ 本期 sel 1/2/3 的行为【定义为与 0 相同】（硬削）。
             //      将来填软削/Fuzz 时只改这里的一处 case。
             s2 <= s1;
             c2 <= sat1;
-            ovf_sr <= {ovf_sr[PIPE-2:0], ovf1};
+            trim_s2 <= trim_s1;
+            peak_s2 <= peak1;
+            clip_s2 <= ovf1;
 
             // ── stage3（N+3 → N+4）：乘法 2 ─────────────────────────────
             s3 <= s2;
             p3 <= prod2;
+            peak_s3 <= peak_s2;
+            clip_s3 <= clip_s2;
 
             // ── stage4（N+4 → N+5）：输出 ───────────────────────────────
             s4 <= s3;
+            y4 <= sat2;
+            peak_s4 <= peak_s3;
+            clip_s4 <= clip_s3 | ovf2;
             valid_o  <= v_sr[PIPE-1];
             //  旁路：en = 0 时输出【输入延迟 PIPE 拍】=> 数值逐位等于输入
-            sample_o <= en_sr[PIPE-1] ? sat2 : s4;
+            sample_o <= en_sr[PIPE-1] ? y4 : s4;
             //  峰值：与输出同拍（削波【前】的幅值）
-            peak_o   <= peak1;
+            if (v_sr[PIPE-1]) peak_o <= peak_s4;
 
             // ── 削波计数（K-106：饱和次数必须可观测，且【饱和】不溢出）──
             //  ⚠️ 用 en_sr[PIPE-1]（与输出同拍）门控：旁路时【不算】削波
             //     （否则"关掉效果器计数还在涨"会误导上板诊断）
             //  ⚠️ 两个乘法器的溢出都算：补偿过头也要看得见
             //  ⚠️ 复位与计数【都在本块】—— 一个 reg 只能有一个 always 块写
-            if (en_sr[PIPE-1] && (ovf_sr[PIPE-1] || ovf2)) begin
+            if (v_sr[PIPE-1] && en_sr[PIPE-1] && clip_s4) begin
                 if (clip_cnt_o != 16'hFFFF) clip_cnt_o <= clip_cnt_o + 16'd1;
             end
         end

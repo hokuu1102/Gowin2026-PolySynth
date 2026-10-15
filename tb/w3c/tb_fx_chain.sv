@@ -39,7 +39,7 @@ module tb_fx_chain;
     localparam integer DEPTH_W  = 8;
     localparam integer RATE_W   = 8;
     localparam integer LFO_W    = 16;
-    localparam integer PIPE     = 16;         // dist 5 + chorus 4 + delay 4 + trem 3
+    localparam integer PIPE     = 16;         // legacy diagnostic port width (not cycle count)
 
     reg clk = 1'b0;
     reg rst_n = 1'b0;
@@ -321,7 +321,8 @@ module tb_fx_chain;
         en_mask_i = 8'b0000_0111;
         repeat (3) @(posedge clk);
         chk("C8a en_mask_o echoes the mask", en_mask_o === 8'b0000_0111);
-        chk("C8b pipe_o reports the total pipeline depth", pipe_o === PIPE[PIPE-1:0]);
+        // Independently measured by tb_fx_chain_latency_contract: input n -> output n+17.
+        chk("C8b pipe_o reports the measured 17-cycle pipeline depth", pipe_o === 16'd17);
 
         // ═══════════════════════════════════════════════════════════════════
         //  C11 ⭐⭐ 音量颤音【固定常开】（2026-10-15 用户裁定）
