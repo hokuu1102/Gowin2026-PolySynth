@@ -257,6 +257,32 @@ function updateGo() {
 /* ===========================================================================
    基础操作
    =========================================================================== */
+/* GATT 串行化队列（2026-10-14）。
+ *
+ * 为什么要有：Web Bluetooth 同一时刻只允许【一个】GATT 操作在飞。
+ * 本页虽无轮询，但手快连点按钮 / 灌谱与发命令重叠时仍会撞
+ *   => 报 `GATT operation already in progress`，命令被丢弃。
+ * 修法与 score_studio.html 一致：所有出口走同一个队列。
+ * 注意：sendCmd / stat 是【叶子】函数，故意不自己入队
+ *   （否则与调用方形成自嵌套死锁），由调用方包。 */
+let gattQueue = Promise.resolve();
+function gattSerial(fn) {
+  const runIt = async () => {
+    let timer = null;
+    try {
+      return await Promise.race([
+        (async () => fn())(),
+        new Promise((_, rej) => {
+          timer = setTimeout(() => rej(new Error("GATT 操作超时（15s）")), 15000);
+        }),
+      ]);
+    } finally { if (timer) clearTimeout(timer); }
+  };
+  const pr = gattQueue.then(runIt, runIt);
+  gattQueue = pr.catch(() => {});
+  return pr;
+}
+
 async function sendCmd(code) {
   if (!ble.on) throw new Error("蓝牙未连接");
   await ble.chCmd.writeValueWithoutResponse(new Uint8Array([code]));
@@ -355,7 +381,7 @@ async function runAll() {
     /* ② STAT */
     setStep("stat", "run", "发 CMD 0x02 并读 0xABF4…");
     let d0;
-    try { d0 = await stat(); } catch (e) { setStep("stat", "bad", e.message); done("stat", "bad"); return; }
+    try { d0 = await gattSerial(() => stat()); } catch (e) { setStep("stat", "bad", e.message); done("stat", "bad"); return; }
     paintStat(d0);
     const need = ["V1","pool","ring","ble","uart","hmi","frame","cmd"];
     const missing = need.filter(k => !d0.groups.includes(k));
@@ -364,15 +390,15 @@ async function runAll() {
 
     /* ③ 下行：清池 -> 灌 200 帧 -> 核对守恒 */
     setStep("down", "run", "清池 → 灌 200 帧 → 读回核对…");
-    await sendCmd(CMD_RESET); await sleep(700);
-    const b3 = await stat();
+    await gattSerial(() => sendCmd(CMD_RESET)); await sleep(700);
+    const b3 = await gattSerial(() => stat());
     const N = 200, pl = buildDown(N);
     for (let o = 0; o < pl.length; o += 180) {
-      await ble.chRecv.writeValueWithoutResponse(pl.subarray(o, o + 180));
+      await gattSerial(() => ble.chRecv.writeValueWithoutResponse(pl.subarray(o, o + 180)));
       await sleep(4);
     }
     await sleep(900);
-    const a3 = await stat(); paintStat(a3);
+    const a3 = await gattSerial(() => stat()); paintStat(a3);
     const dRx = (a3.rx - b3.rx) / FRAME_BYTES, dPool = a3.pool - b3.pool;
     const dUnk = a3.unk - b3.unk, dOvf = a3.ovf - b3.ovf;
     const det = "发 " + pl.length + " 字节（" + N + " 事件）\n" +
@@ -383,16 +409,16 @@ async function runAll() {
 
     /* ④ 起播：sent 必须涨到 N */
     setStep("play", "run", "CMD 0x03 起播，等 sent 涨到 " + N + "…");
-    await sendCmd(CMD_PLAY);
+    await gattSerial(() => sendCmd(CMD_PLAY));
     let last = -1, ok4 = false, tries = 0;
     while (tries++ < 30) {
       await sleep(1000);
-      const d = await stat(); paintStat(d);
+      const d = await gattSerial(() => stat()); paintStat(d);
       if (d.sent === last && d.sent >= N) break;
       last = d.sent;
       if (d.sent >= N) { ok4 = true; break; }
     }
-    const d4 = await stat(); paintStat(d4);
+    const d4 = await gattSerial(() => stat()); paintStat(d4);
     ok4 = ok4 || (d4.sent >= N);
     const det4 = "sent = " + d4.sent + " / " + N + " · ovf=" + d4.ovf +
                  " · mm=" + d4.mm + " · run=" + d4.run;
@@ -449,7 +475,7 @@ async function runAll() {
     } else {
       setStep("screen", "run", "发 get t1.txt，等日志里的回包…");
       const base = lg.buf.length;
-      await ble.chCmd.writeValueWithoutResponse(new Uint8Array([CMD_RAW, ...new TextEncoder().encode("get t1.txt")]));
+      await gattSerial(() => ble.chCmd.writeValueWithoutResponse(new Uint8Array([CMD_RAW, ...new TextEncoder().encode("get t1.txt")])));
       let got1 = null;
       for (let i = 0; i < 30; i++) {
         await sleep(200);

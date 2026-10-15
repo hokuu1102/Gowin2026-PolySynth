@@ -301,6 +301,7 @@ def selftest():
         "_diag_timbre_override.js",  # 验"网页改音色"是否真的下发（端到端，要 argv）
         "_display_lane_check.js",   # 鼓栏左侧不画音名 + 图例不写轴号（要 argv）
         "_zoom_check.js",           # 图谱缩放的视口数学（锚点/夹取/裁剪）
+        "_gatt_queue_check.js",     # 所有 GATT 出口是否都走串行队列（叶子 vs 入口）
         "_diag_chord.js",        # 查和弦是否被正确保留（排查用，要 argv）
         "_diag_chord5.js",       # 精确重叠测量（排查用，要 argv）
         "_diag_concurrency.js",  # 峰值并发 / 轴占用（排查用，要 argv）

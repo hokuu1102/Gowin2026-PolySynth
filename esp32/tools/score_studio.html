@@ -561,6 +561,27 @@ const DRUM_INC_SHIFT = 10;
 const DRUM_INC = Object.fromEntries(
   Object.entries(DRUM_PHASE_INC).map(
     ([k, v]) => [k, Math.round(v / Math.pow(2, DRUM_INC_SHIFT))]));
+
+/* ⭐⭐ 鼓的力度 —— 用【鼓机的固定力度】（2026-10-14，用户要求"抬到和鼓机一个量级"）。
+ *
+ * 🔴 原来发 MIDI 原始力度（0..127），而鼓机是 175..235
+ *   ⇒ 灌谱的鼓只有鼓机的一半响，听着"没劲"。
+ *
+ * ⚠️ 取值必须是【生效值】= 模块默认 + `top.v` 的实例化覆盖：
+ *   · `rtl/w3c/drum_gen.v:92-95` 默认  KICK 230 · SNARE 200 · HIHAT 140 · TOM 190
+ *   · `rtl/top.v:2519-2521`     覆盖  SNARE 235 · HIHAT 175 · TOM 220
+ *     （⭐ KICK **未被覆盖** ⇒ 仍用默认 230）
+ *   ⇒ 生效值 **230 / 235 / 175 / 220**
+ * 📌 为什么不用模块默认值：那些被 top.v 覆盖了，⛔ 照抄默认值会对不上。
+ * ⚠️ 若 FPGA 侧改那几个数，这里必须同步（⛔ 否则又对不齐 —— 两处常量漂移）。
+ * 📌 音量 ∝ 力度（`perc_env_bank.v` 的 SHIFT = ENV_W - VEL_W，峰值 = velocity << 8，线性）。
+ */
+const DRUM_VEL = { kick: 230, snare: 235, hihat: 175, tom: 220 };
+function drumVelOf(name) {
+  const v = DRUM_VEL[name];
+  /* ⚠️ 认不出的件给个中间值（⛔ 不给 0 —— 那会静音，比"略轻"更糟）*/
+  return (typeof v === "number") ? v : 200;
+}
 const GM_DRUM_MAP = {
   35: "kick", 36: "kick",
   37: "snare", 38: "snare", 39: "snare", 40: "snare",
@@ -733,7 +754,7 @@ if (allTempos.length > 1) {
         evs.push({ tick: Math.round(n.tick * scale),
                    kind: n.on ? KIND_ON : KIND_OFF,
                    inc: DRUM_INC[d.name],               /* ⭐ 用鼓的固定 inc */
-                   vel: n.on ? (n.vel || 100) : 0,
+                   vel: n.on ? drumVelOf(d.name) : 0,   /* ⭐ 鼓机力度，⛔ 不用 MIDI 原始力度 */
                    axis: DRUM_AXIS,                     /* ⭐ 全部 axis 15 */
                    timbre: TIMBRE_BASS,                 /* 鼓机的音色由 inc 决定 */
                    srcTrack: tr._idx });                /* ⭐ 选轨过滤用 */
@@ -1694,6 +1715,9 @@ function setConn(on, txt) {
 /* ============================== Web Bluetooth ============================== */
 let device = null, server = null, chRecv = null, chCmd = null, chStat = null;
 let connected = false, pollTimer = null;
+/* ⭐ 延迟恢复轮询用的定时器 —— 断开时必须清掉，
+ * ⛔ 否则重连后旧的定时器会再 arm 一次（幽灵轮询）。 */
+let pollResumeTimer = null;
 
 /* 2026-10-14 修：加【状态机 + busy 锁】—— 解决"点断开却又弹出连接窗口"。
  *
@@ -1800,6 +1824,8 @@ async function connect() {
  *   否则主动断开后这个"迟到的事件"会再改一次界面（同族：状态被两次写）。 */
 function onGattDisconnected() {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  /* ⭐ 延迟恢复轮询的定时器也要清 —— ⛔ 否则重连后它会再 arm 一次（幽灵轮询）*/
+  if (pollResumeTimer) { clearTimeout(pollResumeTimer); pollResumeTimer = null; }
   /* 已经是"未连接"状态（多半是我们主动断的，disconnect() 已处理过）⇒ 不重复动界面 */
   if (!connected && device === null) return;
   connected = false;
@@ -1814,6 +1840,8 @@ async function disconnect() {
   if (busy) { log("正在处理上一个操作，请稍候…", "er"); return; }
   busy = true; connecting = false; renderConnBtn();
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  /* ⭐ 延迟恢复轮询的定时器也要清 —— ⛔ 否则断开后它到点还会 arm（幽灵轮询）*/
+  if (pollResumeTimer) { clearTimeout(pollResumeTimer); pollResumeTimer = null; }
   const dev = device;
   /* ⭐ 先清状态再断 —— 这样迟到的 gattserverdisconnected 事件看到
    *   `device === null` 就知道"是我们主动断的"，不会重复改界面。 */
@@ -1848,8 +1876,12 @@ let gattQueue = Promise.resolve();
 /* ⚠️ 超时看门狗：GATT 操作最多等这么久，超时抛错。
  * 🔴 为什么需要：若队列因自嵌套（如 sendCmd 内又入队）卡住，
  *   UI 会【无声挂住】—— 用户看到的就是"点了没反应、没进度条"（实测踩过）。
- * ⭐ 超时后这条就抛错，UI 会显示失败而不是静默卡死。 */
-const GATT_SERIAL_TIMEOUT_MS = 15000;
+ * ⭐ 超时后这条就抛错，UI 会显示失败而不是静默卡死。
+ * 🔴 2026-10-14 从 15s 缩到 4s（用户日志实测）：
+ *   15s 太长 —— ESP32 转发谱面时 readValue 会卡，等 15s 期间
+ *   后续操作全排在后面，UI 像死了一样（实测：30 秒后才一次性炸 7 条错）。
+ *   ⭐ 4s 足够正常读一次 STAT（那本身只要 ~0.5s），卡住也能快速脱身。 */
+const GATT_SERIAL_TIMEOUT_MS = 4000;
 function gattSerial(fn) {
   const runIt = async () => {
     let timer = null;
@@ -1994,16 +2026,48 @@ function updateProgress(d) {
   }
   draw();
 }
+/* ⭐ 轮询【不堆积】（2026-10-14 修，用户日志实测）。
+ *
+ * 🔴 故障现场：上传完 30 秒后【一次性】炸出 7 条
+ *   `GATT operation already in progress`，起播全程无反应。
+ *   根因链：
+ *     ① 上传完 ESP32 还在往 FPGA 转发 141 KB（500 kbaud ≈ 2.8 s）
+ *     ② 此时 readValue 读不到 ⇒ 卡住
+ *     ③ 我加的 gattSerial 队列把【后续 7 次轮询全排在它后面】
+ *     ④ 15 秒看门狗到点，7 条一起失败 ⇒ 起播命令被埋在里面 ⇒ 像死了一样
+ *   ⚠️ 而"最早那几版正常"是因为那时【没有队列】：轮询失败就静默失败，⛔ 不挡起播。
+ *   ⇒ ⭐ 教训：加"串行化"时，必须同时限制【排队长度】，否则一次卡顿会放大成雪崩。
+ *
+ * ⭐ 修法（三条一起）：
+ *   1) 上一次没回来就【跳过这一次】—— ⛔ 不排队（这是关键：队列不再增长）
+ *   2) 看门狗 15s -> 4s（卡住也不该锁死十几秒）
+ *   3) 上传后给 ESP32【转发时间】再恢复轮询（见 upload 的 finally） */
+let pollInFlight = false;
 async function pollOnce() {
   if (!connected) return;
-  /* ⭐ 也走串行队列 —— 不许和灌谱/起播并发
-   * （那会报 `GATT operation already in progress`，用户 2026-10-14 实测报过）*/
-  try { paintStat(await gattSerial(() => readStat())); } catch (e) { /* 静默 */ }
+  if (pollInFlight) return;          /* ⭐ 不堆积：上一次还在飞就跳过 */
+  pollInFlight = true;
+  try { paintStat(await gattSerial(() => readStat())); }
+  catch (e) { /* 静默：轮询失败不该干扰主流程（起播/停止/清池）*/ }
+  finally { pollInFlight = false; }
 }
-function startPoll() {
-  if (pollTimer) clearInterval(pollTimer);
-  pollTimer = setInterval(pollOnce, 1200);
-  pollOnce();
+/* ⭐ 上传后等 ESP32 把数据转给 FPGA 再恢复轮询。
+ * ⚠️ 141 KB @ 500 kbaud ≈ 2.8 s（还没算它自己的处理时间）⇒ 给 4 s 余量。
+ * ⛔ 不等就直接轮询 = 必然读到"忙" ⇒ 卡住（用户实测就是这个）。 */
+const POLL_RESUME_DELAY_MS = 4000;
+function startPoll(delayMs) {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  const arm = () => {
+    if (!connected) return;
+    pollTimer = setInterval(pollOnce, 1200);
+    pollOnce();
+  };
+  if (delayMs > 0) {
+    log("等 ESP32 把谱面转给 FPGA（约 " + Math.round(delayMs / 1000) + " s）后再恢复状态轮询…", "");
+    pollResumeTimer = setTimeout(arm, delayMs);
+  } else {
+    arm();
+  }
 }
 
 /* ============================== 上传 ============================== */
@@ -2068,8 +2132,10 @@ async function upload() {
     log("上传失败：" + e.message, "er");
   } finally {
     uploading = false; $("btnUp").disabled = false;
-    /* ⭐ 恢复轮询 —— ⚠️ 必须在 finally，否则中间抛错就永远不轮询了 */
-    if (connected) startPoll();
+    /* ⭐ 恢复轮询，但【延迟】—— 上传完 ESP32 还要把数据转给 FPGA
+     * （141 KB @ 500 kbaud ≈ 2.8 s）。⛔ 不等就轮询 ⇒ readValue 读不到 ⇒ 卡住
+     *   ⇒ 用户实测"上传完点起播没反应，30 秒后炸一堆 GATT 错"。 */
+    if (connected) startPoll(POLL_RESUME_DELAY_MS);
   }
 }
 
@@ -2165,9 +2231,40 @@ $("btnConn").onclick = () => { if (connected) disconnect(); else connect(); };
 /* 初始化按钮外观（由 renderConnBtn 统一渲染，保证与内部状态一致） */
 renderConnBtn();
 $("btnUp").onclick = upload;
-$("btnPlay").onclick = async () => { try { await sendCmd(CMD_PLAY); log("已发 起播"); } catch (e) { log(e.message, "er"); } };
-$("btnStop").onclick = async () => { try { await sendCmd(CMD_STOP); log("已发 停止"); } catch (e) { log(e.message, "er"); } };
-$("btnClear").onclick = async () => { try { await sendCmd(CMD_RESET); log("已发 清池"); } catch (e) { log(e.message, "er"); } };
+/* ⭐ 起播/停止/清池【也必须入队】——
+ * 🔴 用户实测（2026-10-14）：上传完点起播，报
+ *   `GATT operation already in progress` 且【没反应】。
+ *   根因就是这三个按钮直接 sendCmd，⛔ 没走 gattSerial，
+ *   和 1.2 s 一次的轮询撞在同一瞬间 ⇒ 命令被丢弃、按钮像死的一样。
+ * ⭐ 现在所有 GATT 出口（轮询/灌谱/起播/停止/清池）统一排队。
+ *
+ * ⭐⭐ 2026-10-14 再加一条：起播【先停轮询】——
+ *   用户日志实测：起播被埋在 7 条排队的轮询后面 ⇒ 30 秒都没反应。
+ *   ⚠️ 光靠队列不够，还得让【用户命令】不排在一堆轮询后面。
+ *   ⭐ 起播后 1.5 s 再恢复轮询（那时 FPGA 已经开始放了，读 STAT 正常）。 */
+function stopPollFor(ms) {
+  if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  if (pollResumeTimer) { clearTimeout(pollResumeTimer); pollResumeTimer = null; }
+  pollResumeTimer = setTimeout(() => {
+    pollResumeTimer = null;
+    if (connected) startPoll(0);
+  }, ms);
+}
+$("btnPlay").onclick = async () => {
+  stopPollFor(1500);                 /* ⭐ 让起播不排在一堆轮询后面 */
+  try { await gattSerial(() => sendCmd(CMD_PLAY)); log("已发 起播"); }
+  catch (e) { log(e.message, "er"); }
+};
+$("btnStop").onclick = async () => {
+  stopPollFor(1500);
+  try { await gattSerial(() => sendCmd(CMD_STOP)); log("已发 停止"); }
+  catch (e) { log(e.message, "er"); }
+};
+$("btnClear").onclick = async () => {
+  stopPollFor(1500);
+  try { await gattSerial(() => sendCmd(CMD_RESET)); log("已发 清池"); }
+  catch (e) { log(e.message, "er"); }
+};
 
 const drop = $("drop"), fileIn = $("file");
 drop.onclick = () => fileIn.click();
