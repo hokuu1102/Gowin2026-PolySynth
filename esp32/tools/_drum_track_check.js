@@ -32,7 +32,8 @@ const doc = {
 const fn = new Function("document", "window", "navigator", "performance", "console",
   "setTimeout", "clearInterval", "setInterval", "requestAnimationFrame",
   "location", "localStorage", "URLSearchParams",
-  blk + "\n; return { DRUM_VEL, drumNameOfInc, midiToWords, parseMidi, DRUM_INC, DRUM_AXIS, GM_DRUM_MAP, " +
+  blk + "\n; return { DRUM_VEL, drumNameOfInc, midiToWords, parseMidi, DRUM_INC, " +
+  "isDrumAxis, DRUM_AXIS_OF, DRUM_AXIS_BASE, MELODY_AXIS_MAX, GM_DRUM_MAP, " +
   "gmToDrum, wordsForSelected, buildPayload, TIMBRE_NAMES, midiName, KIND_ON, KIND_OFF, " +
   "setTrackSel: (s) => { trackSel = s; }, getTrackSel: () => trackSel };");
 let API;
@@ -102,7 +103,14 @@ chk("⭐ 四个鼓的字段值与他们表格的 >>10 列一致",
 chk("⭐ 四个鼓的字段值全部放得进 21 位",
     Object.values(API.DRUM_INC).every(v => v <= 0x1FFFFF),
     Object.values(API.DRUM_INC).join(","));
-chk("鼓全部走 axis 15", API.DRUM_AXIS === 15);
+/* ⭐ 2026-10-15 方案 B：四件鼓【各占一条轴】12/13/14/15（原为四件共用 15）。
+ *   判据与 FPGA seq_arb.v:204 一致：axis >= 12 ⇒ 鼓。 */
+chk("方案 B 口径：isDrumAxis(12) 真、isDrumAxis(11) 假",
+    API.isDrumAxis(12) === true && API.isDrumAxis(11) === false);
+chk("方案 B 口径：四件的轴 = 12/13/14/15",
+    API.DRUM_AXIS_OF.kick === 12 && API.DRUM_AXIS_OF.snare === 13 &&
+    API.DRUM_AXIS_OF.hihat === 14 && API.DRUM_AXIS_OF.tom === 15,
+    JSON.stringify(API.DRUM_AXIS_OF));
 
 const drumWords = [];
 for (let i = 0; i < conv.words.length; i++) {
@@ -120,8 +128,28 @@ const wantIncs = new Set(Object.values(API.DRUM_INC));
 chk("⭐ 鼓事件读回的 inc 正好是 DRUM_INC 的值（⛔ 没有被截断）",
     [...drumIncs].every(v => wantIncs.has(v)),
     [...drumIncs].join(",") + " vs " + [...wantIncs].join(","));
-chk("鼓事件走的 axis 是 15（这一条是对的）",
-    drumAxes.size === 1 && drumAxes.has(15), [...drumAxes].join(","));
+chk("⭐ 鼓事件的轴全部落在 12..15（方案 B：一件一轴）",
+    drumAxes.size > 0 && [...drumAxes].every(a => API.isDrumAxis(a)),
+    [...drumAxes].join(","));
+/* ⭐ 非空洞性（比"落在 12..15"强得多）：**逐事件验"件 ↔ 轴"一一对应**。
+ *   ⛔ 只验范围的话，"四件都塞到 12"也能通过 —— 那正是方案 B 要修掉的形态。
+ *   ⚠️ 期望值必须钉【协议字面值】，⛔ 不能取 `API.DRUM_AXIS_OF`
+ *      （那会和被测对象一起变 ⇒ 判据空转；同族 C88「真契约 vs 派生常量」）。 */
+const DRUM_AXIS_PROTO = { kick: 12, snare: 13, hihat: 14, tom: 15 };
+const incToAxis = {};
+for (const [k, ax] of Object.entries(DRUM_AXIS_PROTO)) incToAxis[API.DRUM_INC[k]] = ax;
+const badMap = [];
+for (const w of drumWords) {
+  const inc = Number((w >> 23n) & 0x1FFFFFn);
+  const ax = Number((w >> 19n) & 0xFn);
+  if (incToAxis[inc] !== ax) badMap.push(inc + "→轴" + ax + "(应 " + incToAxis[inc] + ")");
+}
+chk("非空洞：每条鼓事件的轴 = 协议表里该件的轴（inc↔axis 一一对应）",
+    badMap.length === 0, badMap.join(",") || "全部对");
+chk("非空洞：本测试曲用到的 3 件各占一条轴（12/13/14）",
+    drumAxes.size === 3 && [12, 13, 14].every(a => drumAxes.has(a)), [...drumAxes].join(","));
+chk("非空洞：鼓轴【不占】旋律段 0..11",
+    [...drumAxes].every(a => a > API.MELODY_AXIS_MAX), [...drumAxes].join(","));
 
 // ⭐ 非空洞：若还按 GM 音高发，inc 就不该是鼓的固定值
 const gmPitchInc = 48;      // 一个乐音 inc 的量级（远小于 kick 的 5368709）

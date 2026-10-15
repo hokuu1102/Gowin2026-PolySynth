@@ -21,7 +21,7 @@ const doc = { getElementById: () => el(), querySelector: () => el(), querySelect
 const fn = new Function("document", "window", "navigator", "performance", "console",
   "setTimeout", "clearInterval", "setInterval", "requestAnimationFrame",
   "location", "localStorage", "URLSearchParams",
-  blk + "; return { parseMidi, midiToWords, buildScore, KIND_ON, KIND_OFF, DRUM_AXIS, " +
+  blk + "; return { parseMidi, midiToWords, buildScore, KIND_ON, KIND_OFF, isDrumAxis, " +
   "MIDI_PPQN };");
 const API = fn(doc, { addEventListener() {} }, { bluetooth: null }, { now: () => 0 },
   console, setTimeout, () => {}, () => 0, () => 0,

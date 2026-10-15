@@ -93,7 +93,11 @@ def drum_vel(name):
     return DRUM_VEL.get(name, 200)
 
 
-DRUM_AXIS = 15                      # ⭐ 4 件【共用】这个轴（靠 inc 区分）
+# 方案 B（2026-10-15）：四件【各占一条轴】12/13/14/15（原为四件共用 15）。
+#   ⭐ 判据与 rtl/w3c/seq_arb.v:204 一致：axis >= 12 ⇒ 鼓。
+#   ⚠️ 与 score_studio.html / upstream_studio.html 的同名常量必须一致（三处口径）。
+DRUM_AXIS_OF = {"kick": 12, "snare": 13, "hihat": 14, "tom": 15}
+DRUM_AXIS_BASE = 12
 DRUM_ORDER = ("kick", "snare", "hihat", "tom")   # 与 step_mask 位序一致
 FS_FPGA = 48828.125                 # f = inc * FS / 2^32
 
@@ -241,8 +245,14 @@ def selftest():
     chk("方向性：音高 36 => kick（⛔ 不是 hihat）", gm_to_drum(36)[0] == "kick")
     chk("方向性：音高 42 => hihat（⛔ 不是 kick）", gm_to_drum(42)[0] == "hihat")
 
-    # ⑥ 四件共用同一轴
-    chk("四件共用 axis 15（⭐ FPGA 侧的口径）", DRUM_AXIS == 15)
+    # ⑥ 方案 B：四件【各占一条轴】12/13/14/15
+    chk("四件各占一条轴 12/13/14/15（⭐ FPGA 侧 seq_arb 的口径）",
+        DRUM_AXIS_OF == {"kick": 12, "snare": 13, "hihat": 14, "tom": 15},
+        str(DRUM_AXIS_OF))
+    chk("非空洞：轴号【互不相同】（⛔ 若又变回'四件共用一条'这条立刻红）",
+        len(set(DRUM_AXIS_OF.values())) == 4)
+    chk("判据边界：axis >= 12 才是鼓（11 是旋律上限）",
+        DRUM_AXIS_BASE == 12)
     chk("件序与 step_mask 位序一致（kick,snare,hihat,tom）",
         DRUM_ORDER == ("kick", "snare", "hihat", "tom"))
 
@@ -261,7 +271,9 @@ def main():
     for name in DRUM_ORDER:
         print("    %-6s inc = %-10d  ≈ %7.2f Hz"
               % (name, DRUM_INC[name], inc_to_hz(DRUM_INC[name])))
-    print("    ⭐ 四件【共用】axis %d（靠 inc 区分音色）" % DRUM_AXIS)
+    print("    ⭐ 四件【各占一条轴】：" +
+          " ".join("%s=轴%d" % (n, DRUM_AXIS_OF[n]) for n in DRUM_ORDER) +
+          "（判据 axis >= %d）" % DRUM_AXIS_BASE)
     print()
     print("  GM 音高 -> 件：")
     for m in sorted(GM_DRUM_MAP):

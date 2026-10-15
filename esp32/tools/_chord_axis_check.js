@@ -35,7 +35,7 @@ const fn = new Function("document", "window", "navigator", "performance", "conso
   "setTimeout", "clearInterval", "setInterval", "requestAnimationFrame",
   "location", "localStorage", "URLSearchParams",
   blk + "\n; return { parseMidi, midiToWords, midiToPhaseInc, KIND_ON, KIND_OFF, " +
-  "DRUM_AXIS, DRUM_INC, incToHz, hzToMidi, midiName };");
+  "isDrumAxis, DRUM_INC, incToHz, hzToMidi, midiName };");
 const API = fn(doc, { addEventListener() {} }, { bluetooth: null }, { now: () => 0 },
   console, setTimeout, () => {}, () => 0, () => 0,
   { protocol: "http:", host: "x", search: "" },
@@ -95,7 +95,7 @@ console.log("和弦分轴 自检（用户报告：和弦没被识别）");
 console.log("=".repeat(78));
 
 // ---- ① 和弦的 3 个音必须落在不同 axis ----
-const atZero = evs.filter(e => e.tick === 0 && e.kind === API.KIND_ON && e.axis !== API.DRUM_AXIS);
+const atZero = evs.filter(e => e.tick === 0 && e.kind === API.KIND_ON && !API.isDrumAxis(e.axis));
 const axesAtZero = new Set(atZero.map(e => e.axis));
 chk("⭐ 同 tick 的 6 个旋律音（两条轨各 3 个）落在【不同的 axis】",
     axesAtZero.size === atZero.length,
@@ -105,7 +105,7 @@ chk("非空洞：确实有 6 个音（⛔ 不是空集）", atZero.length === 6,
 // ---- ② 每个旋律 axis 上的"真同时"必须 <= 1 ----
 const byAxis = new Map();
 for (const e of evs) {
-  if (e.axis === API.DRUM_AXIS) continue;
+  if (API.isDrumAxis(e.axis)) continue;
   if (!byAxis.has(e.axis)) byAxis.set(e.axis, []);
   byAxis.get(e.axis).push(e);
 }
@@ -126,7 +126,7 @@ chk("⭐ 每个旋律 axis 上真同时 <= 1（⛔ 否则会被 same_hit 顶掉�
     worst <= 1, "最大真同时 = " + worst);
 
 // ---- ③ 鼓仍走 axis 15（⛔ 不能被分配走）----
-const drumEvs = evs.filter(e => e.axis === API.DRUM_AXIS);
+const drumEvs = evs.filter(e => API.isDrumAxis(e.axis));
 chk("⭐ 鼓仍全在 axis 15（seq_arb 靠它判鼓：score_axis_i == 4'd15）",
     drumEvs.length > 0, drumEvs.length + " 个鼓事件");
 const drumIncs = new Set(drumEvs.map(e => e.inc));
@@ -134,11 +134,11 @@ chk("鼓用的是 DRUM_INC 的值（kick=5243）",
     [...drumIncs].every(v => Object.values(API.DRUM_INC).includes(v)),
     [...drumIncs].join(","));
 chk("非空洞：旋律【没有】落在 axis 15 上",
-    evs.filter(e => e.axis === API.DRUM_AXIS).every(e => drumIncs.has(e.inc)));
+    evs.filter(e => API.isDrumAxis(e.axis)).every(e => drumIncs.has(e.inc)));
 
 // ---- ④ 音高没被分轴破坏（3 个音的音高都要对）----
 const wantIncs = [52, 59, 64].map(m => API.midiToPhaseInc(m));
-const gotIncs = evs.filter(e => e.tick === 0 && e.kind === API.KIND_ON && e.axis !== API.DRUM_AXIS)
+const gotIncs = evs.filter(e => e.tick === 0 && e.kind === API.KIND_ON && !API.isDrumAxis(e.axis))
                    .map(e => e.inc);
 chk("⭐ 6 个和弦音的音高都在（分轴⛔ 不影响音高）",
     wantIncs.every(v => gotIncs.includes(v)),

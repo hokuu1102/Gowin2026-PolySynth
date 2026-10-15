@@ -12,8 +12,8 @@
 // 判据（不符合会打 RED）：
 //   ① 四个音色 BASS/GUITAR/PIANO/PAD 全部出现
 //   ② 三个 tempo 点全部转成 kind=2 事件
-//   ③ 鼓轨全部落在 axis 15，且四件都出现（kick/snare/hihat/tom）
-//   ④ 旋律峰值并发 <= 15（可用轴 0..14）
+//   ③ 鼓轨各占 axis 12/13/14/15（方案 B：一件一轴），且四件都出现（kick/snare/hihat/tom）
+//   ④ 旋律峰值并发 <= 12（可用轴 0..11）
 //   ⑤ 没用到 axis 14（节拍器轴）
 //   ⑥ 存在"同一 tick 同音高先关后开"的重击（off 必须排在 on 前）
 //   ⑦ 同 tick 敲多件鼓的地方 = 1 处（第 12 小节那个【故意】的探针）
@@ -28,7 +28,7 @@ for (let i = 0; i < args.length; i++) {
   if (args[i] === "--hex") hexOut = args[++i];
   else midPath = args[i];
 }
-if (!midPath) midPath = path.join(HERE, "四音色鼓机变速-funk-演示卡.mid");
+if (!midPath) midPath = path.join(HERE, "StJamesInfirmary-funk-测试曲.mid");
 if (!fs.existsSync(midPath)) {
   console.error("找不到 MIDI：" + midPath);
   process.exit(2);
@@ -55,7 +55,8 @@ const fn = new Function("document", "window", "navigator", "performance", "conso
   "setTimeout", "clearInterval", "setInterval", "requestAnimationFrame",
   "location", "localStorage", "URLSearchParams",
   blk + "\n; return { parseMidi, midiToWords, buildScore, isDrumTrack, timbreOfTrack, " +
-  "TIMBRE_NAMES, DRUM_AXIS, KIND_ON, KIND_OFF, KIND_TEMPO, DRUM_INC };");
+  "TIMBRE_NAMES, isDrumAxis, DRUM_AXIS_OF, DRUM_AXIS_BASE, KIND_ON, KIND_OFF, " +
+  "KIND_TEMPO, DRUM_INC };");
 const API = fn(doc, { addEventListener() {} }, { bluetooth: null }, { now: () => 0 },
   { log: () => {} }, setTimeout, () => {}, () => 0, () => 0,
   { protocol: "http:", host: "x", search: "" },
@@ -133,7 +134,8 @@ for (let i = 0; i < tEv.length; i++) {
 }
 
 // ---- 并发与轴 ----
-const mel = evs.filter(e => e.axis !== API.DRUM_AXIS)
+/* ⭐ 2026-10-15 方案 B：鼓在 12..15 四条轴上 ⇒ 判据一律用 isDrumAxis（axis >= 12）。 */
+const mel = evs.filter(e => !API.isDrumAxis(e.axis))
   .sort((a, b) => (a.tick - b.tick) || (b.kind - a.kind));
 let cur = 0, peak = 0;
 for (const e of mel) {
@@ -143,7 +145,7 @@ for (const e of mel) {
 const axUsed = [...new Set(mel.map(e => e.axis))].sort((a, b) => a - b);
 
 // ---- 鼓 ----
-const dr = evs.filter(e => e.axis === API.DRUM_AXIS);
+const dr = evs.filter(e => API.isDrumAxis(e.axis));
 const nameOfInc = {};
 for (const k of Object.keys(API.DRUM_INC)) nameOfInc[API.DRUM_INC[k]] = k;
 const drumCount = {};
@@ -200,19 +202,39 @@ const tbs = new Set(parsed.tracks.filter(t => !API.isDrumTrack(t)).map(t => API.
 const wantTb = [0, 1, 2, 3].every(v => tbs.has(v));
 chk("① 四个音色全部出现（BASS/GUITAR/PIANO/PAD）", wantTb,
     "实际 = " + [...tbs].sort().map(v => API.TIMBRE_NAMES[v]).join("/"));
-chk("② 三个 tempo 点全部转成 kind=2", kinds.tempo === 3 && parsed.allTempos.length === 3,
+chk("② 文件里的 tempo 点全部转成 kind=2（且 >= 2 个才算测到变速）",
+    kinds.tempo === parsed.allTempos.length && kinds.tempo >= 2,
     "kind=2 " + kinds.tempo + " 个 / 文件里 " + parsed.allTempos.length + " 个");
-chk("③ 鼓全在 axis 15，且四件都出现", conv.drumTracks === 1 &&
-    dr.every(e => e.axis === API.DRUM_AXIS) &&
+/* ③ ⭐ 方案 B（2026-10-15）：四件鼓【各占一条轴】12/13/14/15（原为四件共用 15）。
+ *   判据与 FPGA `seq_arb.v:204` 一致：`axis >= 12` ⇒ 鼓。 */
+const drumAxesUsed = [...new Set(dr.map(e => e.axis))].sort((a, b) => a - b);
+chk("③ 鼓各占 12..15 且四件都出现（方案 B：一件一轴）", conv.drumTracks === 1 &&
+    dr.every(e => API.isDrumAxis(e.axis)) &&
     ["kick", "snare", "hihat", "tom"].every(k => drumCount[k] > 0),
-    JSON.stringify(drumCount));
-chk("④ 旋律峰值并发 <= 15（可用轴 0..14）", peak <= 15, "峰值 " + peak);
-chk("⑤ 没用到 axis 14（节拍器轴）", !axUsed.includes(14));
+    "用到的鼓轴 " + drumAxesUsed.join(",") + " · " + JSON.stringify(drumCount));
+/* ⭐ 非空洞：每条鼓事件的轴 = 该件应有的轴（⛔ 只验范围的话"四件都塞 12"也能过） */
+{
+  const want = {};
+  for (const [k, ax] of Object.entries(API.DRUM_AXIS_OF)) want[API.DRUM_INC[k]] = ax;
+  const badAx = dr.filter(e => want[e.inc] !== e.axis);
+  chk("③b 非空洞：每条鼓事件的轴 = 该件的轴（inc↔axis 一一对应）",
+      badAx.length === 0, badAx.length ? (badAx.length + " 条对不上") : "全部对");
+}
+chk("④ 旋律峰值并发 <= 12（方案 B：可用轴只剩 0..11）", peak <= 12, "峰值 " + peak);
+chk("⑤ 旋律【不占】鼓轴段 12..15", !axUsed.some(a => a >= API.DRUM_AXIS_BASE),
+    "旋律用到 " + axUsed.join(","));
 chk("⑥ 同 tick 同音高的重击，off 排在 on 前（反向 0 处）",
     restrikeTicks.length >= 1 && badOrder === 0,
     "重击 " + restrikeTicks.length + " 处（tick " + restrikeTicks.join(",") + "）· 顺序错 " + badOrder + " 处");
-chk("⑦ 鼓同 tick 多件 = 1 处（第 8 小节第 4 拍那个故意的探针）", drumSimul.length === 1,
-    drumSimul.length ? ("tick " + drumSimul[0].tick + " 敲 " + drumSimul[0].n + " 件") : "没有");
+/* ⑦ ⭐ 2026-10-15 方案 B：同 tick 敲多件【本来就该支持】——
+ *   四件各占一条轴 ⇒ FPGA 侧 `same_hit`（axis+src 都相同才命中）不会把它们当同一次敲击
+ *   ⇒ ⭐ 这条从"只许 1 处（故意的探针）"改成【允许任意多处】。
+ *   ⚠️ 非空洞：必须【至少有一处】同 tick 多件，否则这条判据等于没测（探针没了也看不出来）。 */
+chk("⑦ 鼓同 tick 多件【允许】（方案 B 的目的）—— 且至少要有 1 处探针",
+    drumSimul.length >= 1,
+    drumSimul.length ? (drumSimul.length + " 处，最多 " +
+      Math.max(...drumSimul.map(s => s.n)) + " 件同时")
+      : "🔴 一处都没有 ⇒ 测不到方案 B 要修的场景");
 chk("⑧ 鼓没有走音高分区兜底（全部来自映射表）", conv.drumFuzzy === 0,
     "兜底 " + conv.drumFuzzy + " 个");
 
@@ -253,35 +275,85 @@ if (clashEx.length) console.log("    例：" + clashEx.join(" | "));
 chk("⑨ 没有跨音色同音高同时响（相位干涉 => 听起来像两个音色没对上）", clash === 0,
     clash ? (clash + " 处") : "");
 
-/* ⑩ ⭐ 鼓的相邻落点间隔必须 >= 鼓长（480）。
- * 为什么（FPGA 侧 RTL 查证，note_manager.v:1305-1321）：
- *   `note_off` 清的是【所有】同轴位且 gate 高的 voice（同源才清）——
- *     if ((gate_r[i]|retrig_low[i]) && (axis_r[i]==cur_axis) && (src_r[i]==cur_src))
- *   而四个鼓件【共用 axis 15 且同源 SRC_KDRUM】=> ⭐ 任何一个鼓的 off 会把该轴上
- *   所有还在响的鼓一起释放 => ⭐ **鼓机实际是单声部**。
- *   ⇒ 相邻落点比鼓长更近时，后一下会被前一下的 off 掐掉（16 分鼓花就会这样）。
+/* ⑩ ⭐ 2026-10-15 方案 B：约束从「全体 >= 480」放宽成「【同一件】 >= 480」。
+ *   ⭐ 为什么跨件可以解除：四件各占一条轴 ⇒ `same_hit` / `note_off` 的判据都是
+ *      `(axis_r[i]==cur_axis) && (src_r[i]==cur_src)`（note_manager.v:720-722 / :1317-1320）
+ *      ⇒ 不同件（不同轴）互不掐。
+ *   ⚠️ 仍存在的限制：**同一件**相邻两次若 < 鼓长，后一下会被前一下的 off 噎掉
+ *      （方案 B 只隔离了跨件，见 FPGA 侧答复 §6.1）。
  * ⚠️ 480 要与 gen_test_piece.py 的 DRUM_DUR 一致；改了那边这里也要改。 */
 const DRUM_DUR = 480;
-/* ⚠️ 先【去重 tick】再量间隔：同一 tick 上敲多件是"探针"那种情况，
- *    由判据 ⑦ 单独管；这里只管"不同 tick 之间离得太近"。 */
-const drumOn = [...new Set(evs.filter(e => e.axis === API.DRUM_AXIS && e.kind === API.KIND_ON)
-                                .map(e => e.tick))].sort((a, b) => a - b);
 let tooClose = 0, minGap = Infinity;
 const closeEx = [];
-for (let i = 1; i < drumOn.length; i++) {
-  const g = drumOn[i] - drumOn[i - 1];
-  if (g < minGap) minGap = g;
-  if (g < DRUM_DUR) {
-    tooClose++;
-    if (closeEx.length < 3) closeEx.push(drumOn[i - 1] + "→" + drumOn[i] + "（间隔 " + g + "）");
+const drumAxesAll = [...new Set(evs.filter(e => API.isDrumAxis(e.axis)).map(e => e.axis))];
+let drumHits = 0;
+for (const ax of drumAxesAll) {
+  /* ⚠️ 先【去重 tick】再量间隔：同一 tick 上敲多件由判据 ⑦ 单独管 */
+  const on = [...new Set(evs.filter(e => e.axis === ax && e.kind === API.KIND_ON)
+                             .map(e => e.tick))].sort((a, b) => a - b);
+  drumHits += on.length;
+  for (let i = 1; i < on.length; i++) {
+    const g = on[i] - on[i - 1];
+    if (g < minGap) minGap = g;
+    if (g < DRUM_DUR) {
+      tooClose++;
+      if (closeEx.length < 3) {
+        closeEx.push("轴" + ax + " " + on[i - 1] + "→" + on[i] + "（间隔 " + g + "）");
+      }
+    }
   }
 }
 console.log();
-console.log("  鼓落点：" + drumOn.length + " 下 · 最小间隔 " + (minGap === Infinity ? "-" : minGap) +
-            " tick（要求 >= " + DRUM_DUR + "）");
+console.log("  鼓落点：" + drumHits + " 下（分 " + drumAxesAll.length + " 条轴）· 同一件最小间隔 " +
+            (minGap === Infinity ? "-" : minGap) + " tick（要求 >= " + DRUM_DUR + "）");
 if (closeEx.length) console.log("    太近的：" + closeEx.join(" | "));
-chk("⑩ 鼓的相邻落点间隔 >= 鼓长（否则后一下被前一下的 off 掐掉）",
+chk("⑩ 同一件鼓的相邻落点间隔 >= 鼓长（⭐ 方案 B：跨件已解除此约束）",
     tooClose === 0, tooClose ? (tooClose + " 处太近") : "");
+
+/* ⑪ ⭐ 节奏骨架：**伴奏声部**要锁在同一个网格上（旋律自由）。
+ * 为什么：用户实测反馈"器乐之间各演各的，听感很混乱" ——
+ *   每件乐器一套自己的节奏型，几条线互不相干。
+ * ⚠️ 但【主旋律】本来就该跳出来 ⇒ 把平均音区最高的那一件当主旋律【豁免】，
+ *    只要求其余伴奏声部（除 PAD 长音）：每小节 >= 2 个共同落点（= 锁在同一骨架上）。
+ * 🔴 上一版这条判据要求"所有音色落点一致"，那等于【禁止写旋律】—— 判据本身错了。 */
+const BAR_T = 3840;
+const perBar = new Map();        // bar -> timbre -> Set(offset)
+const pitchOf = new Map();       // timbre -> [inc...]（用来判谁是主旋律）
+for (const e of evs) {
+  if (e.kind !== API.KIND_ON || API.isDrumAxis(e.axis)) continue;
+  const tb = API.TIMBRE_NAMES[e.timbre] || ("T" + e.timbre);
+  const b = Math.floor(e.tick / BAR_T);
+  if (!perBar.has(b)) perBar.set(b, new Map());
+  const m = perBar.get(b);
+  if (!m.has(tb)) m.set(tb, new Set());
+  m.get(tb).add(e.tick - b * BAR_T);
+  if (!pitchOf.has(tb)) pitchOf.set(tb, []);
+  pitchOf.get(tb).push(e.inc);
+}
+const avgInc = tb => pitchOf.get(tb).reduce((a, c) => a + c, 0) / pitchOf.get(tb).length;
+const lead = [...pitchOf.keys()].filter(t => t !== "PAD")
+                                .sort((a, b) => avgInc(b) - avgInc(a))[0];
+let misaligned = 0;
+const barLines = [];
+for (const b of [...perBar.keys()].sort((x, y) => x - y)) {
+  const m = perBar.get(b);
+  const sets = [...m.entries()].map(([k, s]) => [k, [...s].sort((x, y) => x - y)]);
+  const acc = sets.filter(([k]) => k !== lead && k !== "PAD");   // 伴奏（PAD 是长音，不算节奏）
+  let common = null;
+  if (acc.length >= 2) {
+    common = acc[0][1].filter(o => acc.every(([, s]) => s.indexOf(o) >= 0));
+    if (common.length < 2) misaligned++;
+  }
+  barLines.push("    第" + (b + 1) + "小节 " +
+    sets.map(([k, s]) => k + (k === lead ? "(旋律)" : "") + "[" + s.join(",") + "]").join(" ") +
+    (acc.length >= 2 ? ("  共同落点 " + common.length + " 个" + (common.length < 2 ? " ⚠️" : " ✅"))
+                     : "  （伴奏单件）"));
+}
+console.log();
+console.log("  节奏骨架（主旋律 = " + lead + "，豁免对齐；PAD 是长音铺底不算）");
+barLines.forEach(l => console.log(l));
+chk("⑪ 伴奏声部每小节 >= 2 个共同落点（最多允许 1 小节例外 = 复音阶梯那节）",
+    misaligned <= 1, misaligned ? (misaligned + " 小节不齐") : "");
 
 // ---- 导出 events.hex（与 mid2evt.py 的写法一致：每行 16 位十六进制）----
 if (hexOut) {

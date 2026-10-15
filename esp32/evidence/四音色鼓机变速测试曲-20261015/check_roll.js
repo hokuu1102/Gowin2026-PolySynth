@@ -18,8 +18,17 @@ const fs = require("fs");
 const path = require("path");
 
 const HERE = __dirname;
-const midPath = process.argv[2] || path.join(HERE, "四音色鼓机变速-funk-演示卡.mid");
-const PH = Number(process.argv[3] || 677);     // 主图高（截图反推：717 - PAD.t 14 - PAD.b 26）
+const midPath = process.argv[2] || path.join(HERE, "StJamesInfirmary-funk-测试曲.mid");
+/* ⚠️ 画布高 / 底部留白必须与 score_studio.html 的 PAD 一致 ——
+ * 🔴 原来把主图高写死成 677（= 717 - PAD.t 14 - PAD.b 26），
+ *    2026-10-15 底部条带加高（PAD.b 26 → 60，为时间刻度轴+读数行让位）
+ *    ⇒ 写死的值就【静默对不上】了：模拟出来的几何比真实主图高 34px，
+ *      判据 ④⑤ 的"有没有被鼓栏盖住"会算错。
+ * ⭐ 所以这里只留一个【截图反推的画布高】，主图高由 PAD 反推；
+ *    ⛔ 不写死主图高，并且下面有判据（几何自洽）守着，再改也会立刻变红。 */
+const CANVAS_H = 717;                          /* 用户那张截图的画布高（CSS px）*/
+const PAD_T = 14, PAD_B = 60;                  /* 与 score_studio.html 的 PAD 对齐 */
+const PH = Number(process.argv[3] || (CANVAS_H - PAD_T - PAD_B));   // 主图高
 const W = Number(process.argv[4] || 1071);     // 画布宽（截图 1607 / DPR 1.5）
 
 const src = fs.readFileSync(path.join(HERE, "..", "..", "tools", "score_studio.html"), "utf8");
@@ -58,7 +67,7 @@ const mkEl = (ctx, cw, ch) => new Proxy({
   textContent: "", innerHTML: "", checked: false,
 }, { get: (t, k) => k in t ? t[k] : (typeof k === "string" ? (() => {}) : undefined),
      set: (t, k, v) => { t[k] = v; return true; } });
-const rollEl = mkEl(recCtx, W, PH + 40);          // 画布高 = ph + PAD.t + PAD.b
+const rollEl = mkEl(recCtx, W, PH + PAD_T + PAD_B);   // 画布高 = ph + PAD.t + PAD.b
 const fakeEl = () => mkEl(fakeCtx, 800, 600);
 const doc = { getElementById: id => (id === "roll" ? rollEl : fakeEl()),
   querySelector: () => fakeEl(),
@@ -67,7 +76,8 @@ const fn = new Function("document", "window", "navigator", "performance", "conso
   "setTimeout", "clearInterval", "setInterval", "requestAnimationFrame",
   "location", "localStorage", "URLSearchParams",
   blk + "\n; function __setScore(s){ score = s; }" +
-  "\n; return { parseMidi, midiToWords, buildScore, DRUM_AXIS, KIND_ON, KIND_OFF, " +
+  "\n; return { parseMidi, midiToWords, buildScore, isDrumAxis, DRUM_AXIS_OF, " +
+  "MELODY_AXIS_MAX, KIND_ON, KIND_OFF, " +
   "KIND_TEMPO, DRUM_INC, TIMBRE_NAMES, midiName, PAD, unpackWord, draw, __setScore, " +
   "pickHover, overviewScrollFor, tickToSec, secToTick, __getView: () => lastView };");
 const API = fn(doc, { addEventListener() {} }, { bluetooth: null }, { now: () => 0 },
@@ -95,6 +105,16 @@ const pct = (a, p) => a.length ? a.slice().sort((x, y) => x - y)[Math.min(a.leng
 console.log("=".repeat(84));
 console.log("卷帘核对：" + path.basename(midPath) + "   （主图高 " + PH + "px · 画布宽 " + W + "px）");
 console.log("=".repeat(84));
+
+/* ⭐ 几何自洽（2026-10-15 新增）：本脚本模拟的 PAD 必须与页面源码一致。
+ * 🔴 为什么必须有：主图高原来写死 677，页面把 PAD.b 从 26 改成 60 后
+ *    这里【静默算错 34px】而判据照样全绿 —— 属于"判据在错前提上通过"。
+ * ⭐ 现在对不上立刻红，⛔ 不用人肉记得同步。 */
+chk("几何自洽：PAD.t/PAD.b 与源码一致", PAD_T === API.PAD.t && PAD_B === API.PAD.b,
+    "脚本 " + PAD_T + "/" + PAD_B + " · 源码 " + API.PAD.t + "/" + API.PAD.b);
+chk("几何自洽：主图高 + PAD.t + PAD.b = 画布高",
+    PH + API.PAD.t + API.PAD.b === CANVAS_H,
+    PH + " + " + API.PAD.t + " + " + API.PAD.b + " vs " + CANVAS_H);
 
 // ============================ 一、解析层 ============================
 console.log();
@@ -182,7 +202,7 @@ chk("④ 段长分布不是被'最小长度'兜底拉平的常数", !clampLike,
 console.log();
 console.log("【二】绘制层几何（用页面 draw() 留下的 lastView，⛔ 不是我自己算一份）");
 const LV = API.__getView();
-const mids = score.notes.filter(n => n.axis !== API.DRUM_AXIS).map(n => n.midi).filter(m => m > 0);
+const mids = score.notes.filter(n => !API.isDrumAxis(n.axis)).map(n => n.midi).filter(m => m > 0);
 const lo = LV.lo, hi = LV.hi;
 const rowH = LV.melPh / (hi - lo);
 console.log("  音高范围 lo=" + lo.toFixed(0) + "(" + API.midiName(Math.round(lo)) + ") .. hi=" +

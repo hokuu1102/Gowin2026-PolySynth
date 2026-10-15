@@ -124,11 +124,14 @@
      [1] 类型   0x01=note_on 0x02=note_off 0x03=calib 0x04=looper 0x10=表同步
      [2] seq
      [3..6]  tick  32 位大端
-     [7] axis
+     [7] axis/timbre —— ⭐ 一个字节装两个字段：timbre[5:4] | axis[3:0]
+                      （axis 只需 4 位：0..15，15 = 鼓；高 4 位本来空着）
      [8..11] inc   32 位大端
      [12] vel
      [13] 校验   = XOR(bytes[0..12])
    表同步： [0]0xA5 [1]0x10 [2]表号 [3..66] 16x4B 大端 [67] 校验 = 68 B
+   ⚠️ 与 frame_format.py 的 AXIS_MASK / TIMBRE_SH / TIMBRE_MASK 是同一套口径，
+      ⛔ 两处必须一起改（只改一边 ⇒ 两边解出来的轴号不一样）。
    =========================================================================== */
 const HDR = 0xA5;
 const T_ON = 0x01, T_OFF = 0x02, T_CALIB = 0x03, T_LOOPER = 0x04, T_TAB = 0x10;
@@ -218,17 +221,26 @@ function parse() {
                  " (" + hzToNote(incToHz(items[0])) + ")  inc[15]=" + items[15]);
     } else {
       const tick = ((fr[3] << 24) | (fr[4] << 16) | (fr[5] << 8) | fr[6]) >>> 0;
-      const axis = fr[7];
+      /* ⭐⭐ 2026-10-15：`[7]` 一字节两字段 = `timbre[5:4] | axis[3:0]`
+       * （口径与 frame_format.py 的 AXIS_MASK/TIMBRE_SH/TIMBRE_MASK 一致）。
+       * 🔴 为什么必须掩码：⛔ 不掩码 ⇒ FPGA 一旦把 timbre 填进高 4 位，
+       *    轴号就读成 16..63 ⇒ 🔴 鼓判据（axis=15）、配色（%16）、查表全错，
+       *    而且"看起来只是轴号变大了"（同族 C113：错得看不出来）。
+       * ⚠️ 现状：FPGA 侧 PnR 还没把 timbre 填进来（高 4 位 = 0）
+       *    ⇒ ⭐ 掩码今天不改变任何结果，是为对接做准备。 */
+      const axis = fr[7] & 0x0F;
+      const timbre = (fr[7] >> 4) & 0x03;
       const inc = ((fr[8] << 24) | (fr[9] << 16) | (fr[10] << 8) | fr[11]) >>> 0;
       const vel = fr[12];
       const hz = incToHz(inc);
       S.notes++;
       S.lastHz = hz;
-      S.events.push({ tick, type: t, axis, hz, midi: hzToMidi(hz), vel, seq: fr[2] });
+      S.events.push({ tick, type: t, axis, timbre, hz, midi: hzToMidi(hz), vel, seq: fr[2] });
       if (S.events.length > MAX_EVENTS) S.events.splice(0, S.events.length - MAX_EVENTS);
       feed(t === T_ON ? "on" : "off",
            (t === T_ON ? "note_on " : "note_off") +
            "  seq=" + fr[2] + "  tick=" + tick + "  轴=" + axis +
+           "  音色=" + timbre +
            "  " + hzToNote(hz) + " (" + hz.toFixed(1) + " Hz)" + "  力度=" + vel);
     }
     i += flen;
@@ -267,9 +279,32 @@ setInterval(() => {
 
 /* ============================== 卷帘 ============================== */
 const cv = $("roll"), ctx = cv.getContext("2d");
-const AXIS_COLORS = ["#4ea1ff","#3ddc84","#ffb020","#ff7ab2","#a78bfa","#22d3ee",
-                     "#fb923c","#f472b6","#34d399","#facc15","#60a5fa","#c084fc",
-                     "#2dd4bf","#f87171","#a3e635","#fcd34d"];
+/* ⭐⭐ 2026-10-15（用户："不需要 axis 配色，只用 timbre 配色"）：
+ *   回传卷帘按【音色 timbre】上色，⛔ 不再按 axis 上色。
+ *   ⚠️ 色板必须与 score_studio.html 的 TIMBRE_COLORS / TIMBRE_NAMES_ARR 一致
+ *      （那边是整合后的主页面）—— 两处不一致 ⇒ 同一份数据在两个页面看起来不一样。
+ *   ⚠️ 鼓（axis 12..15）没有 timbre ⇒ ⭐ 单独给 DRUM_COLOR，
+ *      ⛔ 别让它落进"timbre=0 ⇒ BASS 橙"（那会把鼓误标成贝斯）。
+ *   ⚠️ 现状：FPGA 侧 PnR 还没把 timbre 填上来 ⇒ 高 4 位 = 0
+ *      ⇒ ⭐ 今天所有乐音都是 timbre 0（BASS 橙），等 PnR 落地后自动分色。 */
+const TIMBRE_NAMES = ["BASS", "GUITAR", "PIANO", "PAD"];
+const TIMBRE_COLORS = ["#fb923c",   /* 0 BASS   橙 */
+                       "#4ea1ff",   /* 1 GUITAR 蓝 */
+                       "#3ddc84",   /* 2 PIANO  绿 */
+                       "#ff7ab2"];  /* 3 PAD    粉 */
+const DRUM_COLOR = "#00d5c8";             /* 鼓 青（与主页面同色） */
+/* ⭐⭐ 2026-10-15 方案 B：四件鼓【各占一条轴】12/13/14/15（原为四件共用 15）。
+ *   ⭐ 判据与 `rtl/w3c/seq_arb.v:204` 逐字一致：`axis >= 12` ⇒ 鼓。
+ *   ⚠️ 口径必须与 score_studio.html 的同名常量一致（两页各一份，⛔ 改一处会两边不一样）。 */
+const DRUM_AXIS_OF = { kick: 12, snare: 13, hihat: 14, tom: 15 };
+const DRUM_AXIS_BASE = 12;
+const isDrumAxis = a => a >= DRUM_AXIS_BASE;
+const NOTE_COLOR_FALLBACK = "#8695ab";    /* 拿不到 timbre 时的兜底色 */
+function uTimbreColor(e) {
+  if (isDrumAxis(e.axis)) return DRUM_COLOR;
+  const tb = (e.timbre === undefined || e.timbre === null) ? -1 : e.timbre;
+  return (tb >= 0 && tb < TIMBRE_COLORS.length) ? TIMBRE_COLORS[tb] : NOTE_COLOR_FALLBACK;
+}
 function fitCanvas() {
   const r = cv.parentElement.getBoundingClientRect();
   const dpr = window.devicePixelRatio || 1;
@@ -340,9 +375,13 @@ function draw() {
     }
   }
   // 连线（同一 axis 相邻事件连起来，看旋律轮廓）
+  // ⚠️ 分组仍按 axis（那是"同一路音符"的标识，⛔ 不是配色问题）；
+  //    ⭐ 只把【颜色】换成该轴实际用的音色（用户：不用 axis 配色）。
   ctx.lineWidth = 1;
   for (let a = 0; a < 16; a++) {
-    ctx.strokeStyle = AXIS_COLORS[a % 16] + "55";
+    const firstOfAxis = win.find(e => e.axis === a);
+    if (!firstOfAxis) continue;                 /* ⭐ 空轴不画（省掉无用的 stroke）*/
+    ctx.strokeStyle = uTimbreColor(firstOfAxis) + "55";
     ctx.beginPath();
     let started = false;
     for (const e of win) {
@@ -357,18 +396,21 @@ function draw() {
   //   而且滚动窗口会截断 —— 窗口外的 on 配不到 off 时按最小长度画。
   const blockH = Math.max(2, Math.min(rowH * 0.72, 12));
   const minLen = Math.max(1, (tMax - tMin) / 400);
-  const openMap = new Map();
+  const openMap = new Map();     /* key -> { tick, axis, timbre, vel } */
   for (const e of win) {
     const key = ((e.axis & 15) * 128) + (e.midi & 127);
     if (e.type === T_ON) {
-      openMap.set(key, e.tick);
+      /* ⭐⭐ 音色/力度取【note_on 那一刻】的，⛔ 不用 off 的：
+       *   ① off 帧的 vel 通常是 0 ⇒ 原来所有音符透明度恒为 0.5（看不出强弱）
+       *   ② timbre 是"事件自带"字段，⚠️ off 帧不一定带 ⇒ 用 off 上色会时对时错。 */
+      openMap.set(key, { tick: e.tick, axis: e.axis, timbre: e.timbre, vel: e.vel });
     } else {
-      const t0 = openMap.get(key);
-      if (t0 !== undefined) {
+      const o = openMap.get(key);
+      if (o !== undefined) {
         openMap.set(key, undefined);
-        const x0 = X(t0), x1 = X(e.tick);
-        ctx.fillStyle = AXIS_COLORS[e.axis % 16];
-        ctx.globalAlpha = 0.5 + 0.5 * Math.min(1, (e.vel || 0) / 127);
+        const x0 = X(o.tick), x1 = X(e.tick);
+        ctx.fillStyle = uTimbreColor(o);
+        ctx.globalAlpha = 0.5 + 0.5 * Math.min(1, (o.vel || 0) / 127);
         ctx.fillRect(x0, Y(e.midi) - blockH / 2,
                      Math.max(1.6, x1 - x0), blockH);
         ctx.globalAlpha = 1;
@@ -377,21 +419,33 @@ function draw() {
     }
   }
   // 还没闭合的 on：画一个最小长度的块（表示"正在响"）
-  for (const [, t0] of openMap) {
-    if (t0 === undefined) continue;
+  for (const [, o] of openMap) {
+    if (o === undefined) continue;
     ctx.globalAlpha = 0.75;
     ctx.fillStyle = "#e8eefc";
-    ctx.fillRect(X(t0), Y(lo + (hi - lo) / 2) - blockH / 2,
-                 Math.max(1.6, X(t0 + minLen) - X(t0)), blockH);
+    ctx.fillRect(X(o.tick), Y(lo + (hi - lo) / 2) - blockH / 2,
+                 Math.max(1.6, X(o.tick + minLen) - X(o.tick)), blockH);
     ctx.globalAlpha = 1;
   }
-  // 轴图例
-  const axes = [...new Set(win.map(e => e.axis))].sort((a, b) => a - b);
+  /* ⭐⭐ 图例按【音色】列（用户："只用 timbre 配色"）。
+   * ⚠️ 与主页面（score_studio.html）的图例同一套语义：只列【出现过的】音色 + 鼓，
+   *    ⛔ 不写轴号（轴号是动态分配的，写出来没意义）。 */
+  const seenTb = new Set();
+  for (const e of win) {
+    if (isDrumAxis(e.axis)) { seenTb.add("drum"); continue; }
+    const tb = (e.timbre === undefined || e.timbre === null) ? -1 : e.timbre;
+    if (tb >= 0 && tb < TIMBRE_NAMES.length) seenTb.add(tb);
+  }
+  const uLegend = [];
+  for (let tb = 0; tb < TIMBRE_NAMES.length; tb++) {
+    if (seenTb.has(tb)) uLegend.push({ name: TIMBRE_NAMES[tb], color: TIMBRE_COLORS[tb] });
+  }
+  if (seenTb.has("drum")) uLegend.push({ name: "鼓", color: DRUM_COLOR });
   let lx = PAD.l + 4; ctx.textAlign = "left";
-  for (const a of axes.slice(0, 14)) {
-    ctx.fillStyle = AXIS_COLORS[a % 16]; ctx.fillRect(lx, PAD.t + ph + 6, 8, 8);
-    ctx.fillStyle = "#8695ab"; ctx.fillText("轴" + a, lx + 11, PAD.t + ph + 14);
-    lx += 44;
+  for (const it of uLegend.slice(0, 8)) {
+    ctx.fillStyle = it.color; ctx.fillRect(lx, PAD.t + ph + 6, 8, 8);
+    ctx.fillStyle = "#8695ab"; ctx.fillText(it.name, lx + 11, PAD.t + ph + 14);
+    lx += Math.max(44, ctx.measureText(it.name).width + 20);
   }
   // 表同步提示
   if (S.tabItems) {
@@ -564,7 +618,14 @@ function buildMidi(evs) {
     const midi = Math.max(0, Math.min(127, Math.round(e.midi)));
     const vel = Math.max(1, Math.min(127, e.vel || 100));
     const on = e.type === T_ON;
-    tp(on ? 0x90 : 0x80, midi, on ? vel : 0);
+    /* ⭐⭐ 2026-10-15（用户："要分通道"）：按【timbre 分 MIDI 通道】——
+     *   channel = timbre（0..3 ⇒ BASS/GUITAR/PIANO/PAD），
+     *   ⭐ 鼓（axis=15）走 GM 鼓通道 9（⛔ 不占音色通道）。
+     *   ⚠️ 通道号 = status 低 4 位：`0x90|ch` = note_on、`0x80|ch` = note_off。
+     *   ⚠️ 现状：PnR 还没带 timbre ⇒ 高 4 位 = 0 ⇒ 今天所有乐音都落在通道 0。 */
+    const ch = isDrumAxis(e.axis) ? 9
+             : (((e.timbre === undefined || e.timbre === null) ? 0 : e.timbre) & 0x03);
+    tp((on ? 0x90 : 0x80) | ch, midi, on ? vel : 0);
   }
   vlq(0); tp(0xFF, 0x2F, 0x00);
   push(0x4D, 0x54, 0x72, 0x6B); be32(track.length); push(...track);

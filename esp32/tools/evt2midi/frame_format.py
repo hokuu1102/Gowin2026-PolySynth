@@ -122,6 +122,20 @@ OFF_VEL = 12
 LEN_TICK = 4
 LEN_INC = 4
 
+# ---- ⭐⭐ `[7]` 这一个字节装【两个】字段（2026-10-15 起）---------------------
+#   `[7]` = `timbre[5:4] | axis[3:0]`
+#   ⭐ 为什么能这么装：`axis` 只需 4 位（0..15，15 = 鼓），高 4 位本来就空着。
+#   🔴 为什么【必须掩码】：⛔ 不掩码 ⇒ FPGA 一旦把 `timbre` 填进高 4 位，
+#      解析出的 `axis` 就变成 16..63 ⇒ 🔴 鼓判据（`axis == 15`）失效、
+#      音高查表错位，而且"看起来只是轴号变大了"（同族 C113：错得看不出来）。
+#   ⚠️ 现状（2026-10-15）：⭐ FPGA 侧 PnR **还没**把 `timbre` 填进来（高 4 位 = 0）
+#      ⇒ ⭐ 掩码今天不改变任何结果，这一步是**为对接做准备**。
+#   ⚠️ 同一字节在【网页侧】还有第二个解析器（`tools/upstream_studio.html` 的
+#      `fr[7]`）⇒ ⭐ 两处必须用同一套掩码，⛔ 否则上线后两边口径不一致。
+AXIS_MASK = 0x0F
+TIMBRE_SH = 4
+TIMBRE_MASK = 0x03
+
 # ---- 表同步帧的布局 --------------------------------------------------------
 TABLESYNC_DATA_OFF = 3
 TABLESYNC_ITEMS = 16
@@ -327,27 +341,31 @@ def parse_frame(f):
             "tick": int.from_bytes(f[OFF_TICK:OFF_TICK + LEN_TICK], "big"),
             "ppqn": raw48 if raw48 else PPQN_FALLBACK,
             "ppqn_raw": raw48,
-            "axis": f[OFF_AXIS],
+            "axis":   f[OFF_AXIS] & AXIS_MASK,
+            "timbre": (f[OFF_AXIS] >> TIMBRE_SH) & TIMBRE_MASK,
             "vel": f[OFF_VEL],
         }
     return {
         "type": ftype,
         "seq": f[OFF_SEQ],
         "tick": int.from_bytes(f[OFF_TICK:OFF_TICK + LEN_TICK], "big"),
-        "axis": f[OFF_AXIS],
+        "axis":   f[OFF_AXIS] & AXIS_MASK,
+        "timbre": (f[OFF_AXIS] >> TIMBRE_SH) & TIMBRE_MASK,
         "inc": raw48,
         "vel": f[OFF_VEL],
     }
 
 
 def build_frame(ftype, seq=0, tick=0, axis=0, inc=0, vel=0,
-                table=None, items=None, ppqn=None):
+                table=None, items=None, ppqn=None, timbre=0):
     """
     造一个帧（给测试/自检用；也可当"模拟 FPGA"的发包工具）。
 
     表同步帧（`0x10`）走 `table=`/`items=` 参数，不用 tick/axis 那套。
     v1.1 起播锚点（`0x05`）走 `ppqn=` 参数 —— 它会占用 `[8..11]`，
     所以此时 `inc` 被忽略（两者【共用同一段字节】，这是协议定的，不是巧合）。
+    ⭐ 2026-10-15：`axis`/`timbre` 共用 `[7]`（见 `AXIS_MASK`/`TIMBRE_SH` 的说明）
+    ⇒ ⭐ 写侧也在这里打包，⛔ 调用方别自己去 OR 那一位（否则两边必漂，同族 C91）。
     """
     if ftype == T_TABLESYNC:
         f = bytearray(FRAME_LEN_BY_TYPE[T_TABLESYNC])
@@ -368,13 +386,14 @@ def build_frame(ftype, seq=0, tick=0, axis=0, inc=0, vel=0,
         inc = ppqn
         axis = 0
         vel = 0
+        timbre = 0
 
     f = bytearray(FRAME_LEN_DEFAULT)
     f[0] = FRAME_HDR
     f[1] = ftype & 0xFF
     f[OFF_SEQ] = seq & 0xFF
     f[OFF_TICK:OFF_TICK + LEN_TICK] = (tick & 0xFFFFFFFF).to_bytes(LEN_TICK, "big")
-    f[OFF_AXIS] = axis & 0xFF
+    f[OFF_AXIS] = (axis & AXIS_MASK) | ((timbre & TIMBRE_MASK) << TIMBRE_SH)
     f[OFF_INC:OFF_INC + LEN_INC] = (inc & 0xFFFFFFFF).to_bytes(LEN_INC, "big")
     f[OFF_VEL] = vel & 0xFF
     f[-1] = frame_checksum(bytes(f))
@@ -440,7 +459,8 @@ def selftest():
         not (T_TRANSPORT_START in (T_NOTE_ON, T_NOTE_OFF)))
 
     print("\n[2] ⭐ 构造 → 解析 往返（⭐ 音符帧）")
-    fr = build_frame(T_NOTE_ON, seq=5, tick=0x0000B000, axis=9, inc=37796, vel=200)
+    fr = build_frame(T_NOTE_ON, seq=5, tick=0x0000B000, axis=9, inc=37796, vel=200,
+                     timbre=2)
     chk("   长度 14", len(fr) == 14)
     chk("   帧头对", fr[0] == FRAME_HDR)
     chk("   校验对", frame_checksum(fr) == fr[-1])
@@ -449,6 +469,7 @@ def selftest():
     chk("   seq  往返", d["seq"] == 5)
     chk("   tick 往返", d["tick"] == 0x0000B000)
     chk("   axis 往返", d["axis"] == 9)
+    chk("   timbre 往返", d["timbre"] == 2, "timbre=%d" % d["timbre"])
     chk("   inc  往返", d["inc"] == 37796)
     chk("   vel  往返", d["vel"] == 200)
 
@@ -464,18 +485,44 @@ def selftest():
         "tick" not in dt and "axis" not in dt)
 
     print("\n[4] ⭐ 极值 / 边界")
-    mx = build_frame(T_NOTE_ON, seq=255, tick=0xFFFFFFFF, axis=255, inc=0xFFFFFFFF, vel=255)
+    mx = build_frame(T_NOTE_ON, seq=255, tick=0xFFFFFFFF, axis=15, timbre=3,
+                     inc=0xFFFFFFFF, vel=255)
     dm = parse_frame(mx)
     chk("   全 0xFF 往返（tick 32 位）", dm["tick"] == 0xFFFFFFFF)
     chk("   全 0xFF 往返（inc 32 位）", dm["inc"] == 0xFFFFFFFF)
-    chk("   全 0xFF 往返（seq/axis/vel）",
-        dm["seq"] == 255 and dm["axis"] == 255 and dm["vel"] == 255)
+    # ⚠️ 2026-10-15 起 `[7]` 装两个字段 ⇒ ⭐ 它的最大值是 0x3F（axis 15 | timbre 3<<4），
+    #    ⛔ 不再可能是 0xFF。🔴 原来那条 `axis == 255` 的断言是【旧口径】
+    #    （那时整个字节都当 axis 用）。
+    chk("   全 0xFF 往返（seq/vel）", dm["seq"] == 255 and dm["vel"] == 255)
+    chk("   [7] 取满 = axis 15 / timbre 3（⭐ 最大 0x3F，⛔ 不是 0xFF）",
+        dm["axis"] == 15 and dm["timbre"] == 3 and mx[OFF_AXIS] == 0x3F,
+        "axis=%d timbre=%d [7]=0x%02X" % (dm["axis"], dm["timbre"], mx[OFF_AXIS]))
+    # ⭐⭐ 真·垃圾字节（0xFF，连保留位 6..7 也是 1）：⭐ 掩码必须照样把它拆干净。
+    _g = bytearray(build_frame(T_NOTE_ON, axis=1, timbre=1))
+    _g[OFF_AXIS] = 0xFF
+    _g[-1] = frame_checksum(bytes(_g))
+    _dg = parse_frame(bytes(_g))
+    chk("   [7]=0xFF（含保留位）也拆成 axis=15 / timbre=3",
+        _dg["axis"] == 15 and _dg["timbre"] == 3,
+        "axis=%d timbre=%d" % (_dg["axis"], _dg["timbre"]))
     z = parse_frame(build_frame(T_NOTE_ON))
     # ⚠️ 注意：⭐ `type` 字段**不是 0**（⭐ 它就是 T_NOTE_ON）⇒ ⭐ 要排除它再判
     zfields = {k: v for k, v in z.items() if k != "type"}
     chk("   全 0 时【除 type 外】字段全 0", all(v == 0 for v in zfields.values()),
         "  %s" % zfields)
     chk("   type 仍是 T_NOTE_ON", z["type"] == T_NOTE_ON)
+
+    print("\n[4b] ⭐⭐ `[7]` 一字节两字段（axis 低 4 位 / timbre 高 2 位）")
+    _raw = build_frame(T_NOTE_ON, axis=15, timbre=2)
+    _d = parse_frame(_raw)
+    chk("   axis=15 + timbre=2 同时往返", _d["axis"] == 15 and _d["timbre"] == 2,
+        "axis=%d timbre=%d" % (_d["axis"], _d["timbre"]))
+    chk("   写侧确实把 timbre 放进高 4 位（[7]=0x2F）", _raw[OFF_AXIS] == 0x2F,
+        "[7]=0x%02X" % _raw[OFF_AXIS])
+    # ⭐⭐ 非空洞性：⛔ 不掩码的话同一个字节会读成 47 ⇒ 🔴 鼓判据(15)与查表全错。
+    chk("   ⛔ 不掩码就会读成 47（⭐ 证明掩码不是摆设）",
+        _raw[OFF_AXIS] != 15 and _raw[OFF_AXIS] == 47,
+        "裸字节=%d" % _raw[OFF_AXIS])
 
     print("\n[5] ⭐⭐ 反例（非空洞性）：改坏必须被发现")
     bad = bytearray(fr); bad[-1] ^= 0xFF

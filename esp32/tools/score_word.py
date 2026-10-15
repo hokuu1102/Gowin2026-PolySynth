@@ -43,7 +43,8 @@ score_word.py -- 曲谱事件字（64 bit）的【唯一定义处】。
     bit 18..11   vel      8 bit   力度
     bit 10..9    kind     2 bit   0=note_on 1=note_off 2=tempo 3=未使用
     bit  8..7    timbre   2 bit   音色 0..3
-    bit  6..0             7 bit   保留，必须写 0
+    bit  6       guide    1 bit   仅指引(guide)：只做提示，不参与发声
+    bit  5..0             6 bit   保留（必须写 0）
 """
 
 import os
@@ -67,6 +68,7 @@ OFF_AXIS   = 19
 OFF_VEL    = 11
 OFF_KIND   = 9
 OFF_TIMBRE = 7
+OFF_GUIDE  = 6
 
 MASK_TICK   = 0xFFFFF
 MASK_INC    = 0x1FFFFF
@@ -74,7 +76,13 @@ MASK_AXIS   = 0xF
 MASK_VEL    = 0xFF
 MASK_KIND   = 0x3
 MASK_TIMBRE = 0x3
-MASK_RESERVED = 0x7F
+MASK_GUIDE  = 0x1
+
+# 保留位只到 bit5。bit6 自本次修订起是"仅指引(guide)"，不再属于保留位。
+# 为什么必须改：保留位的契约是"必须写 0"，而 bit6 需要能被置 1 表达"仅指引"。
+#   若把 bit6 继续算进保留位，load_events_hex 会把带 bit6 的合法产物判成
+#   "保留位非 0"，即把好产物当坏蛋打。
+MASK_RESERVED = 0x3F
 
 KIND_ON    = 0
 KIND_OFF   = 1
@@ -130,11 +138,15 @@ def unpack_word(word):
         "vel":    (word >> OFF_VEL)    & MASK_VEL,
         "kind":   (word >> OFF_KIND)   & MASK_KIND,
         "timbre": (word >> OFF_TIMBRE) & MASK_TIMBRE,
+        "guide":  (word >> OFF_GUIDE)  & MASK_GUIDE,
     }
 
 
 def reserved_bits(word):
-    """返回保留位（bit 6..0）的值。契约要求恒为 0。"""
+    """返回保留位（bit 5..0）的值。契约要求恒为 0。
+
+    注意：bit6 是"仅指引(guide)"，【不在】本函数的范围内，允许为 0 或 1。
+    """
     return word & MASK_RESERVED
 
 
@@ -180,7 +192,7 @@ def load_events_hex(path):
     本函数做三项校验（不通过就记进 problems，但该行仍然保留，
     让调用方自己决定是拒发还是照发）：
         1. 行长必须是 16（含空白已 strip）
-        2. 保留位 bit[6:0] 必须是 0
+        2. 保留位 bit[5:0] 必须是 0（bit6 是仅指引 guide，允许 0/1，不在此列）
         3. kind 不能是 3（未使用）
     """
     words = []
@@ -248,6 +260,7 @@ def selftest():
     chk("   vel 在 [18:11]（8 bit）", (OFF_VEL, MASK_VEL) == (11, 0xFF))
     chk("   kind 在 [10:9]（2 bit）", (OFF_KIND, MASK_KIND) == (9, 0x3))
     chk("   timbre 在 [8:7]（2 bit）", (OFF_TIMBRE, MASK_TIMBRE) == (7, 0x3))
+    chk("   guide 在 [6]（1 bit，仅指引）", (OFF_GUIDE, MASK_GUIDE) == (6, 0x1))
     chk("   tick 在 [63:44]（20 bit）", (OFF_TICK, MASK_TICK) == (44, 0xFFFFF))
     chk("   六个字段无重叠、无空洞",
         OFF_TICK == 44 and
@@ -257,7 +270,8 @@ def selftest():
         OFF_VEL + 8 == OFF_AXIS and
         OFF_KIND + 2 == OFF_VEL and
         OFF_TIMBRE + 2 == OFF_KIND and
-        MASK_RESERVED == (1 << OFF_TIMBRE) - 1)
+        OFF_GUIDE + 1 == OFF_TIMBRE and
+        MASK_RESERVED == (1 << OFF_GUIDE) - 1)
 
     print("\n[2] 打包 -> 解包 往返（含极值）")
     cases = [
@@ -275,6 +289,8 @@ def selftest():
             "" if same else "  解出=%s" % d)
         chk("   保留位恒为 0（本用例）", reserved_bits(w) == 0,
             "  0x%02X" % reserved_bits(w))
+        chk("   guide 恒为 0（pack_word 不产生仅指引位）", d["guide"] == 0,
+            "  guide=%d" % d["guide"])
 
     print("\n[3] 与【真实产物】逐项对齐（events.hex 的首行 / 第 2 行）")
     # 取自 FPGA2026/build/score/regen/09_Conjurer/events.hex，
@@ -391,6 +407,46 @@ def selftest():
     chk("   统计：tempo 1 条 + on 1 条",
         sm["kinds"].get("tempo") == 1 and sm["kinds"].get("on") == 1,
         "  %s" % sm["kinds"])
+
+    print("\n[7] bit6 = 仅指引(guide)：允许 0/1，[5:0] 必须为 0")
+    # 本次修订的核心：bit6 从"保留"变成"仅指引(guide)"。
+    # 判据必须双向，缺一条就是假绿：
+    #   正向：带 bit6=1 的合法产物必须被【接受】，且 guide 解出来就是 1。
+    #   反向：bit5=1 仍必须被【拒绝】——否则等于把保留位契约整个废掉。
+    g_ok  = "0000001d4b8410c0"   # 与 [6] 的好行同一个字，只把 bit6 置 1
+    g_bad = "0000001d4b8410a0"   # bit5 = 1 => 保留位非 0
+    w_ok  = int(g_ok, 16)
+    w_bad = int(g_bad, 16)
+    chk("   bit6=1 => unpack_word 解出 guide=1",
+        unpack_word(w_ok)["guide"] == 1, "  guide=%d" % unpack_word(w_ok)["guide"])
+    chk("   bit6=1 => 其余字段不受影响（inc=14999 vel=130 timbre=1 kind=0）",
+        (unpack_word(w_ok)["inc"], unpack_word(w_ok)["vel"],
+         unpack_word(w_ok)["timbre"], unpack_word(w_ok)["kind"]) == (14999, 130, 1, 0),
+        "  %s" % {k: unpack_word(w_ok)[k] for k in ("inc", "vel", "timbre", "kind")})
+    chk("   bit6=1 => 不算保留位（reserved_bits == 0）",
+        reserved_bits(w_ok) == 0, "  0x%02X" % reserved_bits(w_ok))
+    chk("   bit6=0 => guide=0",
+        unpack_word(w_ok & ~(1 << OFF_GUIDE))["guide"] == 0)
+    chk("   bit5=1 => 仍被 reserved_bits 抓住（bit5 不是 guide）",
+        reserved_bits(w_bad) == 0x20, "  0x%02X" % reserved_bits(w_bad))
+    chk("   bit5=1 => guide 仍是 0（别把 bit5 当成 guide）",
+        unpack_word(w_bad)["guide"] == 0)
+    with tempfile.TemporaryDirectory() as td:
+        p_ok = os.path.join(td, "guide1.hex")
+        p_bad = os.path.join(td, "resv.hex")
+        with open(p_ok, "w", encoding="utf-8") as f:
+            f.write(g_ok + "\n")
+        with open(p_bad, "w", encoding="utf-8") as f:
+            f.write(g_bad + "\n")
+        ow, opr = load_events_hex(p_ok)
+        xw, xpr = load_events_hex(p_bad)
+    chk("   load_events_hex 接受 bit6=1（1 个字、0 个问题）",
+        len(ow) == 1 and len(opr) == 0, "  words=%d problems=%s" % (len(ow), opr))
+    chk("   load_events_hex 读出的字解出 guide == 1",
+        len(ow) == 1 and unpack_word(ow[0])["guide"] == 1)
+    chk("   load_events_hex 仍拒绝 bit5=1（且点名保留位）",
+        len(xw) == 1 and any("保留位" in p for p in xpr),
+        "  words=%d problems=%s" % (len(xw), xpr))
 
     print()
     print("结论：%s" % ("全部通过" if ok else "有失败项"))

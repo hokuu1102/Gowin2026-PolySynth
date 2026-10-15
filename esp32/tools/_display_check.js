@@ -31,7 +31,8 @@ const doc = { getElementById: () => fakeEl(), querySelector: () => fakeEl(),
 const fn = new Function("document", "window", "navigator", "performance", "console",
   "setTimeout", "clearInterval", "setInterval", "requestAnimationFrame",
   "location", "localStorage", "URLSearchParams",
-  blk + "\n; return { midiName, incToHz, F_CLK, midiToPhaseInc, DRUM_INC, DRUM_PHASE_INC, DRUM_AXIS, " +
+  blk + "\n; return { midiName, incToHz, F_CLK, midiToPhaseInc, DRUM_INC, DRUM_PHASE_INC, " +
+  "isDrumAxis, DRUM_AXIS_OF, DRUM_AXIS_BASE, MELODY_AXIS_MAX, " +
   "parseMidi, midiToWords, hzToMidi, setScore: (x) => { score = x; }, axisLabel };");
 let API;
 try {
@@ -146,11 +147,17 @@ API.setScore({
   conv: conv,
 });
 const label15 = API.axisLabel(15);
-chk("⭐ 轴 15 显示'鼓'（⛔ 不是 BASS）", /鼓/.test(label15), label15);
+const label12 = API.axisLabel(12);
+chk("⭐ 鼓轴显示'鼓'（⛔ 不是 BASS）", /鼓/.test(label15), label15);
 chk("非空洞：轴的标签里【不】出现 'BASS · 轴15'",
     !/BASS\s*·\s*轴15/.test(label15), label15);
-// 鼓的件数应出现在标签里（用户能看出打了哪些鼓）
-chk("轴 15 的标签带件数（kick/snare/...）", /kick|snare|hihat|tom/.test(label15), label15);
+/* ⭐ 2026-10-15 方案 B：一轴一件 ⇒ 标签写【件名】（15=Tom、12=Kick） */
+chk("轴 15 的标签写件名 Tom（方案 B：一件一轴）", /Tom/.test(label15), label15);
+chk("轴 12 的标签写件名 Kick", /Kick/.test(label12), label12);
+chk("非空洞：12 与 15 的标签【不同】（否则说明还在按'四件合计'写）",
+    label12 !== label15, label12 + " vs " + label15);
+chk("轴 11（旋律上限）不是鼓", !API.isDrumAxis(11), "isDrumAxis(11)=" + API.isDrumAxis(11));
+chk("轴 12 是鼓（与 seq_arb 的 axis>=12 逐字一致）", API.isDrumAxis(12));
 
 console.log();
 console.log("结论：" + (bad === 0 ? "全部通过" : "有 " + bad + " 项不符"));

@@ -58,7 +58,8 @@ FIELD LAYOUT (64-bit record) -- REVISED 2026-09-22
     bit 18..11   vel     (8 bit)    velocity
     bit 10..9    kind    (2 bit)    0=note_on, 1=note_off, 2=tempo change
     bit  8..7    timbre  (2 bit)    timbre id 0..3  (TIMBRE_N=4)
-    bit  6..0            (7 bit)    RESERVED -- must be written as 0
+    bit  6       guide   (1 bit)    bit6 = 仅指引（本工具不产生它，只写 0）
+    bit  5..0            (6 bit)    RESERVED -- must be written as 0
 
 TEMPO EVENTS (kind=2)
     The tempo map used to live only in report.txt, so the FPGA had no way to
