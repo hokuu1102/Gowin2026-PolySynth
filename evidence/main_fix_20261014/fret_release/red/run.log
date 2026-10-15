@@ -1,0 +1,2 @@
+FATAL: tb/w3a/tb_play_mode_fret_release.sv:38: FAIL: both plucked axes must release, observed=0200
+       Time: 440000  Scope: tb_play_mode_fret_release

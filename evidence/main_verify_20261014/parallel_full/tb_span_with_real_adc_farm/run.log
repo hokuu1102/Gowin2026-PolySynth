@@ -1,0 +1,14 @@
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+=== tb_span_with_real_adc_farm（真 adc_farm + 真 calib_span）===
+⭐ 帧周期 = 25000 拍 = 500 us（⭐ 真参数 CHANNEL_RATE_HZ=2000）
+⭐ TIMEOUT = 50_000_000 拍 = 1 秒 = 2000 帧（⭐ 真值）
+
+⭐ 复刻上板：片0 的 ch7 被按住 = 2903，其余走 IDVAL+ch（2139~2146）
+   ⇒ 跨通道极差 = 2903 - 2139 = 764（⭐ 与实测 762 同量级）
+--------------------------------------------------
+结果：span=6  reject=0  state=3  axis=6 done_cnt=6 rej_cnt=0
+--------------------------------------------------
+ok  : 真 adc_farm 驱动下，calib_span 能正常标定（span>0, reject=0）
+      => ✅ 说明【真实采样时序】下状态机工作正常
+      => 🔴 上板失败的原因在别处（不是采样时序）
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\w3a\tb_span_with_real_adc_farm.sv:200: $finish called at 60002440000 (1ps)

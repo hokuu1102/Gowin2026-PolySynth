@@ -12,12 +12,17 @@
  *
  *   ⭐ 本工程按语义把特征拆成四个（官方示例只有一个 0xABF1）：
  *       0xABF0  服务
- *       0xABF1  接收  WRITE_NR  ← ⭐ 对端把事件帧写这里
- *       0xABF2  通知  NOTIFY    ← ⭐ 我们 notify 回对端
- *       0xABF3  命令  WRITE_NR
- *       0xABF4  状态  READ（⭐ 客户端【主动读】，⛔ 固件不 notify）
+ *       0xABF1  接收  WRITE + WRITE_NR  ← ⭐ 对端把事件帧写这里
+ *       0xABF2  通知  NOTIFY           ← ⭐ 我们 notify 回对端
+ *       0xABF3  命令  WRITE + WRITE_NR（⭐ 与 0xABF1 共用属性变量）
+ *       0xABF4  状态  READ + NOTIFY（⭐ 2026-10-15 起**周期性 notify**）
  *   ⭐ 为什么拆：语义与 SPP 版一致（收/发/命令/状态），
  *     且手机端用支持自定义 UUID 的现成 BLE 终端 App 即可对接，⛔ 不必自研 App。
+ *   ⭐⭐ 2026-10-15：`0xABF1`/`0xABF3` 由"只有 WRITE_NR"改成
+ *     **"WRITE + WRITE_NR"**（🔴 无确认写实测丢 39% 数据 —— 见 `s_prop_recv` 的注释）✅
+ *   ⭐⭐ 2026-10-15：`0xABF4` 由"只能读"改成**周期性 notify**
+ *     （🔴 客户端 readValue 会在 ESP32 忙时挂住 ⇒ Web Bluetooth 永久卡死
+ *       —— 见 `ESP32侧需求-STAT周期性notify-20261014.md`）✅
  *
  * 🔴 本文件【只提供属性表与句柄索引】——
  *    ⚠️ 事件回调统一在 ble_main.c。ESP-IDF 的 gatts 回调注册是【全局】的，
@@ -64,8 +69,39 @@ static const uint16_t s_uuid_stat = BLE_CHR_STAT_UUID16;
 /* ⭐ 供 ble_main.c 放进广播数据 */
 const uint16_t gatt_service_uuid16 = BLE_SVC_UUID16;
 
-/* 特征属性 */
+/* 特征属性
+ * ---------------------------------------------------------------------------
+ * ⭐⭐ 2026-10-15：**`0xABF1`/`0xABF3` 加 `WRITE`（带确认写）** ✅
+ *   出处：`ESP32侧需求-0xABF1加WRITE位-20261014.md`（ESP32 线提出，🔴 阻塞）
+ *
+ * 🔴 **病因（实测，不是推测）**：原来只有 `WRITE_NR`（无确认写）
+ *    · 网页交给 `writeValueWithoutResponse` 的字节 = **170460**
+ *    · ESP32 实际收到                              = **104640**
+ *    · ⇒ 🔴 **丢 65820 字节 = 39%**（⭐ 曲子"只有一截"）
+ *    ⚠️ 而三条排除项一起说明**丢在链路层**：
+ *        `ble.drop = 0`（⛔ 不是 `ble_buf_push()` 截断）
+ *        上行环 0/163840（⛔ 不是环满）
+ *        `ovf = 0`（⛔ 不是池满 —— 池已从 160 KB 提到 2 MB）
+ *    🔴 **而 `WRITE_NR` 让丢包无法被发现**：浏览器把数据放进队列就
+ *       **立刻 resolve**（⛔ 不等对端）⇒ 链路层丢包时两边都不知道 ✗
+ *       ⇒ 只能靠 `tf=18935` vs `ev=11621` **事后**才发现 ✅
+ *    📌 ESP32 侧已加节流（`PACING_MS=20`，实测 19.5 KB/s —— 对 BLE 很慢）
+ *       ⛔ **仍然丢 39%** ⇒ ⭐ **说明这不是"发太快"，而是"无确认写本身不可靠"** ✅
+ *
+ * ✅ **修法（一行）**：加上 `ESP_GATT_CHAR_PROP_BIT_WRITE`
+ *    ⭐ **`WRITE_NR` 保留** —— 老客户端不受影响，新客户端可选带确认写 ✓
+ *    ⭐ **为什么这一行就够**：带确认写时浏览器要**等 ESP32 的 ATT 响应**
+ *       才 resolve ⇒ ⭐ **天然流控** ⇒ 缓冲区满时对端不响应 ⇒ 浏览器自动等
+ *       ⇒ 🔴 **不可能再丢** ✅
+ *    ⚠️ **代价**：吞吐降一些（每次写等一个 ATT 往返）
+ *       ⭐ 但**可靠 > 快**，而且 ESP32 侧会按"能确认的速率"发，总体更稳 ✅
+ *
+ * 📌 **`0xABF3`（命令）自动一起修好** —— ⭐ 它与 `0xABF1` **共用这个变量**
+ *    （见下方 `IDX_CHAR_CMD_DECL`）⇒ ⛔ 不需要第二处改动 ✅
+ *    ⭐ 而命令正是"1 字节、丢了后果也大"（用户实测出现过"发了起播但没反应"）
+ *    ⇒ 一起加上是**对**的 ✅ */
 static const uint8_t s_prop_recv = ESP_GATT_CHAR_PROP_BIT_READ |
+                                   ESP_GATT_CHAR_PROP_BIT_WRITE |
                                    ESP_GATT_CHAR_PROP_BIT_WRITE_NR;
 static const uint8_t s_prop_noti = ESP_GATT_CHAR_PROP_BIT_READ |
                                    ESP_GATT_CHAR_PROP_BIT_NOTIFY;

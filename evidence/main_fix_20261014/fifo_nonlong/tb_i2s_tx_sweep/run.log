@@ -1,0 +1,32 @@
+ERROR [i2s_tx] 参数不自洽：JUSTIFY=0 SLOT_BITS=16 DATA_BITS=16 MSB_DELAY=1 ⇒ 会有数据位被**静默丢弃**
+VCD info: dumpfile build/sim/tb_i2s_tx_sweep/tb_i2s_tx_sweep.vcd opened for output.
+  [x] (7) #1 got 0x3ffe00 exp 0x3fffff
+  [x] (7) #2 got 0x064400 exp 0x0645e9
+  [x] (7) #3 got 0x3fb000 exp 0x3fb11a
+
+================ i2s_tx parameter sweep ================
+  clk A = 1024 clk/frame (64 BCK) | clk B = 512 clk/frame (32 BCK)
+  (1) default LSBJ right, 32BCK : ok 128 / bad 0
+  (2) left-align MSB_DELAY=1    : ok 128 / bad 0
+  (3)<->(4) left(D=0) vs right, 16BCK : same 69632 / diff 0 clk
+  (4) right-align 16BCK         : ok 128 / bad 0
+  (5) LRCK_POL=1 (L/R swapped)  : ok 128 / bad 0
+  (6) DATA_BITS=8               : ok 128 / bad 0
+  (7) NEGATIVE bad param combo  : ok 62 / bad 66  <- MUST FAIL
+  PARAM_OK self-check           : (1)-(6) = 111111 | (7) = 0 (must be 0)
+  A8 (HP_DIN X/Z)               : default 0 | 16BCK 0 | bad 0
+=======================================================
+  ok : (1) default LSBJ right-align point-by-point match (regression intact)
+  ok : (2) left-align Philips (MSB_DELAY=1, 32BCK) point-by-point match
+  ok : (3)<->(4) left(D=0) and right align produce IDENTICAL bitstream (69632 clk)
+  ok : (4) right-align 16BCK slot point-by-point match (SLOT_BITS parameter works)
+  ok : (5) LRCK_POL=1 point-by-point match with mirrored model
+  ok : (6) DATA_BITS=8 point-by-point match (width param works)
+  ok : (7) NEGATIVE case holds: PARAM_OK flags it AND the compare really fails
+  ok : (1)-(6) parameter self-check all pass
+  ok : A8 no X/Z on all three HP_DIN nets
+  R-14 extreme samples (0x7FFFFF / 0x800000 / 0 / 0xFFFFFF): ok 66 / bad 0
+  ok : R-14 极端样点截断正确（取高 16 位、不溢出；−0.5LSB 直流偏置为已知取舍）
+
+PASS: i2s_tx works in every parameter mode (incl. 16BCK equivalence and the inconsistent-parameter negative proof)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3c\tb_i2s_tx_sweep.sv:419: $finish called at 1392891000 (1ps)

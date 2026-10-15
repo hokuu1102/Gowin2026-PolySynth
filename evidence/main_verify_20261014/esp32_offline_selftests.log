@@ -1,0 +1,70 @@
+==========================================================================
+全工具离线自检（⛔ 不需要硬件）
+==========================================================================
+发现 28 个脚本（⭐ 排除 `_` 开头的辅助脚本）
+
+  RED  rc=1   OK=0    RED=0    _stress_cycles.py
+  OK   rc=0   OK=12   RED=0    _uart1_send_path_check.py
+  RED  rc=1   OK=0    RED=0    _uart1_wire_check.py
+  RED  rc=1   OK=0    RED=0    _upstream_loop_check.py
+  OK   rc=0   OK=29   RED=0    demo_midi_roundtrip.py
+  OK   rc=0   OK=5    RED=0    e2e_accept.py
+  RED  rc=1   OK=0    RED=0    hmi_song_check.py
+  OK   rc=0   OK=9    RED=0    hmi_states_check.py
+  OK   rc=0   OK=4    RED=0    loopback_check.py
+  OK   rc=0   OK=20   RED=0    pool_math_check.py
+  OK   rc=0   OK=21   RED=0    pool_pace_check.py
+  OK   rc=0   OK=35   RED=0    read_log.py
+  OK   rc=0   OK=7    RED=0    regress_live.py
+  RED  rc=1   OK=9    RED=0    run_all_tests.py
+  OK   rc=0   OK=11   RED=0    score_uploader.py
+  OK   rc=0   OK=36   RED=0    score_word.py
+  RED  rc=1   OK=0    RED=0    screen_demo.py
+  OK   rc=0   OK=12   RED=0    send_frames.py
+  OK   rc=0   OK=17   RED=0    send_frames_ble.py
+  OK   rc=0   OK=13   RED=0    stat_read.py
+  OK   rc=0   OK=34   RED=0    trigger_and_capture.py
+  OK   rc=0   OK=18   RED=0    uart_rx_check.py
+  OK   rc=0   OK=24   RED=0    uart_timing_check.py
+  OK   rc=0   OK=7    RED=0    wrappers_check.py
+  OK   rc=0   OK=95   RED=0    evt2midi\evt2midi.py
+  OK   rc=0   OK=88   RED=0    evt2midi\frame_format.py
+  OK   rc=0   OK=41   RED=0    evt2midi\midi_verify.py
+  OK   rc=0   OK=21   RED=0    evt2midi\rec_upstream.py
+
+==========================================================================
+合计：28 个工具（不通过 6 个），568 项 OK，0 项 RED
+结论：6 个工具不通过 🔴
+
+---- _stress_cycles.py (rc=1) ----
+   File "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\esp32\tools\_stress_cycles.py", line 29, in <module>
+   from bleak import BleakClient, BleakScanner
+   ModuleNotFoundError: No module named 'bleak'
+
+---- _uart1_wire_check.py (rc=1) ----
+   File "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\esp32\tools\_uart1_wire_check.py", line 32, in <module>
+   import serial
+   ModuleNotFoundError: No module named 'serial'
+
+---- _upstream_loop_check.py (rc=1) ----
+   File "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\esp32\tools\_upstream_loop_check.py", line 30, in <module>
+   import serial
+   ModuleNotFoundError: No module named 'serial'
+
+---- hmi_song_check.py (rc=1) ----
+   File "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\esp32\tools\hmi_song_check.py", line 37, in <module>
+   import serial
+   ModuleNotFoundError: No module named 'serial'
+
+---- run_all_tests.py (rc=1) ----
+   非空洞：_port_opens(不存在的口) == False                      RED
+   非空洞：_port_opens(空串) == False                         RED
+   _all_ch = [p.device for p in __import__("serial.tools.list_ports",
+   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+   ModuleNotFoundError: No module named 'serial'
+
+---- screen_demo.py (rc=1) ----
+   File "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\esp32\tools\screen_demo.py", line 40, in <module>
+   import serial
+   ModuleNotFoundError: No module named 'serial'
+==========================================================================

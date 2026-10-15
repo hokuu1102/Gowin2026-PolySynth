@@ -13,7 +13,7 @@
 //    led4 looper     : 空闲=暗蓝常亮 · 录音=红快闪 · 回放=绿常亮 · 武装中=黄快闪
 //    led5 EC11+音高  : 变调>0=暖橙 · <0=冷蓝 · =0=灭 · 滑音=青；
 //                      EC11 动过 ⇒ 临时 黄(BPM)/紫(音高)，1 秒后回落
-//    led6 HDMI       : 波形=蓝 · 李萨如=品红
+//    led6 HDMI       : 波形=蓝 · 李萨如=品红 · FFT=绿（⭐ 2026-10-15：三档）
 //    led7 效果器     : 关=灭 · 开=按 sel 分色（失真橙红/合唱青/延迟紫/混响绿）
 //
 //  🔴 **与上一版的语义变化（必须知道）**：
@@ -90,7 +90,7 @@ module tb_led_indicator;
     reg       slide;
     reg       enc_act;
     reg       enc_obj;
-    reg       scope_mode;
+    reg  [1:0] scope_mode;         // ⭐ 2026-10-15：三档（波形/李萨如/FFT）
     reg       fx_en;
     reg [1:0] fx_sel;
 
@@ -182,7 +182,7 @@ module tb_led_indicator;
     task drive_all(input [1:0] t, input fbm, input kd, input [1:0] gr,
                    input m_on, input d_on, input [1:0] dp, input [1:0] lp,
                    input signed [4:0] tr, input sl, input ea, input eo,
-                   input sm, input fe, input [1:0] fs);
+                   input [1:0] sm, input fe, input [1:0] fs);
         begin
             @(negedge clk);
             timbre = t; fb_mode = fbm; keydrum = kd; gear = gr;
@@ -393,6 +393,12 @@ module tb_led_indicator;
         drive_all(2'd0, 1'b0, 1'b0, 2'd3, 1'b0, 1'b0, 2'd0, 2'd0,
                   5'sd0, 1'b0, 1'b0, 1'b0, 1'b1, 1'b0, 2'd0);
         exp_ch("(6h) HDMI lissajous = 品红", col_prod, 6, X_MAGENTA);
+        //  ⭐⭐ 2026-10-15 新增：第三档 FFT
+        //     🔴 这条判据就是为那个【位宽截断 bug】加的 ——
+        //        修之前 scope_mode_i 只有 1 位 ⇒ 2'd2 截断成 0 ⇒ 这里会显示"蓝"⇒ 红 ✅
+        drive_all(2'd0, 1'b0, 1'b0, 2'd3, 1'b0, 1'b0, 2'd0, 2'd0,
+                  5'sd0, 1'b0, 1'b0, 1'b0, 2'd2, 1'b0, 2'd0);
+        exp_ch("(6h2) HDMI FFT = 绿（⛔ 不是波形的蓝）", col_prod, 6, X_GREEN);
 
         drive_idle;
         exp_ch("(6i) fx off = 灭", col_prod, 7, X_OFF);

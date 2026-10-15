@@ -1,0 +1,2 @@
+PASS: all prior keyboard axes release after switching to fretboard
+tb/w3a/tb_play_mode_poly_release.sv:34: $finish called at 400000 (1ps)

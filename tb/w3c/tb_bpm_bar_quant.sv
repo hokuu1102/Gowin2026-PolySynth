@@ -31,6 +31,14 @@ module tb_bpm_bar_quant;
     wire       load;
     wire [7:0] val_o;
     wire       pending;
+    wire [31:0] x_control_errors, x_payload_errors;
+    // Observe only the public contract. Payload is meaningful on load_o.
+    chk_xprop #(.W(2), .NAME("bpm_control")) control_xcheck (
+        .clk(clk), .rst_n(rst_n), .sig({load, pending}),
+        .err_cnt(x_control_errors));
+    chk_xprop #(.W(8), .NAME("bpm_valid_payload")) payload_xcheck (
+        .clk(clk), .rst_n(rst_n), .sig(load ? val_o : 8'd0),
+        .err_cnt(x_payload_errors));
 
     bpm_bar_quant dut (
         .clk_i       (clk),
@@ -58,7 +66,7 @@ module tb_bpm_bar_quant;
         input         cond;
         input [511:0] name;
         begin
-            if (!cond) begin
+            if (cond !== 1'b1) begin
                 $display("FAIL: %0s", name);
                 errors = errors + 1;
             end else
@@ -183,10 +191,12 @@ module tb_bpm_bar_quant;
         chk(load_cnt == 1 && last_val == 8'd240, "endpoint 240 BPM survives the round trip");
 
         $display("");
-        if (errors == 0)
+        if ((errors == 0) && (x_control_errors === 32'd0)
+                          && (x_payload_errors === 32'd0))
             $display("PASS: bpm_bar_quant -- a manual change arms only, lands exactly ONCE on the next bar_start with the latched value, is one-shot, is reset-cleared, and bar_start alone is inert");
         else
-            $fatal(1, "FAIL: tb_bpm_bar_quant had %0d error(s)", errors);
+            $fatal(1, "FAIL: tb_bpm_bar_quant checks=%0d control_X=%0d payload_X=%0d",
+                      errors, x_control_errors, x_payload_errors);
 
         #100;
         $finish;

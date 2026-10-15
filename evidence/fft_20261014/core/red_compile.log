@@ -1,0 +1,5 @@
+tb/hdmi/tb_fft_spectrum_core.sv:12: error: Unknown module type: fft_spectrum_core
+2 error(s) during elaboration.
+*** These modules were missing:
+        fft_spectrum_core referenced 1 times.
+***

@@ -77,6 +77,8 @@ module tb_span_released_stable;
 
     integer spans = 0, rejects = 0;
     always @(posedge clk) begin
+        if (rst_n && ((^{sp_span, sp_reject, sp_done_cnt, sp_rej_cnt}) === 1'bx))
+            $fatal(1, "FAIL: unknown public span status");
         if (sp_reject) rejects = rejects + 1;
         if (|sp_span)  spans   = spans + 1;
     end
@@ -176,13 +178,17 @@ module tb_span_released_stable;
                      ch0_max - ch0_min, STABLE_TOL);
 
         $display("==================================================");
+        if (spans <= 0 || rejects != 0 || n_ch0 <= 0 ||
+            (ch0_max - ch0_min) >= STABLE_TOL)
+            $fatal(1, "FAIL: stable released-input calibration or sample coverage");
+        $display("PASS: real ADC released-input calibration makes progress without rejection");
         $finish;
     end
 
     initial begin
         #200_000_000;
         $display("FAIL: tb 自身超时");
-        $finish;
+        $fatal(1, "FAIL: released-input watchdog");
     end
 
 endmodule

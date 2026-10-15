@@ -1,0 +1,8 @@
+--------------------------------------------------------------
+frames compared      = 3000
+per-cycle bus checks = 108000  (each check covers 32 voices x 16 level bits + 32 active bits)
+voice-observations   = 3456000
+mismatches           = 0
+PASS: shared round-robin envelope_bank is bit-exact vs the 32x ADSR bank
+--------------------------------------------------------------
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3b\tb_p5_adsr_diff.sv:248: $finish called at 2280160000 (1ps)

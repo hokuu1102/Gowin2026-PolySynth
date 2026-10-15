@@ -1,0 +1,21 @@
+  ok  : (6) reset: dout_o is low
+  ok  : (6) reset: busy_o is low
+  ok  : (6) idle: dout_o stays low
+  ok  : (6) idle: busy_o stays low
+  ok  : (5) busy_o asserts after start_i
+  info: bit period over 383 measured bits = 62..62 cycles
+  ok  : (1) bit period is 62..63 cycles for every bit
+  info: all-0x000000 frame: '0' high = 17..17 cycles (want 17+-2)
+  ok  : (2a) '0' code high = 17 +- 2 cycles (all-0x000000 frame)
+  ok  : (5) busy_o drops when the frame is over
+  info: inter-frame LOW = 20081 cycles = 401 us (want >= 15000 / 300 us)
+  ok  : (4) inter-frame reset is >= 300 us (15000 cycles) of LOW
+  info: all-0xFFFFFF frame: '1' high = 35..35 cycles (want 35+-2)
+  ok  : (2b) '1' code high = 35 +- 2 cycles (all-0xFFFFFF frame)
+  info: decoded wire bytes = 80 01 ac (want 80 01 ac = G,R,B)
+  ok  : (3) wire order is GRB with MSB first
+  info: LED1 '1'-coded bits = 24 / 24 (want 24)
+  ok  : (8) per-LED addressing: LED1 is all-ones while LED0 is not
+  ok  : (7) no X/Z on dout_o/busy_o after reset (A8)
+PASS: ws2812_driver -- 1 channel, GRB, 800 kHz, reset gap, busy handshake
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\w3a\tb_ws2812_driver.sv:256: $finish called at 2229970000 (1ps)

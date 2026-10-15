@@ -1,0 +1,35 @@
+# Main bug repair status — 2026-10-14
+
+This file records earlier repair stages, not the latest release verdict.
+The final AZ combined candidate and its own completed acceptance are documented
+in [combined_no_writepipe/RELEASE_NOTES_ZH.md](combined_no_writepipe/RELEASE_NOTES_ZH.md).
+
+Branch: `codex/fix-main-bugs-20261014`. Original audited main: `9d30dd3`. No remote push, merge into main or board flashing in this repair run. FFT is paused. All prior bitstreams and rollback commits are retained.
+
+## Saved fixes
+
+| Commit | Slice | Evidence |
+| --- | --- | --- |
+| `79bb70d` | BPM test rejects unknowns and includes A8 in verdict | `bpm/` |
+| `af58c2d` | Exact calibrated position-following slide controller | `slide/red/`, `slide/green/` |
+| `a30ff6f` | Every keyboard voice releases across mode changes | `play_mode/` |
+| `4fb1ea4` | Successive fretboard plucks release; slide owner sustains; pending OFF cancels exactly once | `fret_release/`, `slide_hold/` |
+| `be75440` | Real top slide integration; stable ratio, owned voice and actual UI gate | `slide/top_red/`, `slide/top_green/` |
+| `e678e3b` | Icarus-compatible keypad test, no assertion removed | `keypad/` |
+| `ca5cea4` | Reject no-verdict false acceptance, distinguish exact injected negative detection | `runner/` |
+
+## Acceptance, not blanket completion
+
+- Module boundary: ratio arithmetic/ownership/cancellation/known bits and play-mode release cases pass.
+- Real top boundary: UART A/W + three SPI ADC models + comparator pluck -> original voice and independently decoded I2S, 14 checks pass; original main fails stationary-position criterion under the same fixture.
+- All 174 test entry points elaborate. Directed execution: 18 functional PASS plus 1 exact expected-negative detection. Full-suite execution has NOT been accepted; four long regressions and historical no-verdict diagnostics remain to be resolved/reclassified with actual evidence.
+- Fresh physical candidate at `build/fix_pnr01`: source `be75440`, empty implementation directory, explicit synthesis then PnR, input byte hashes 73/73 match. Completed, exit 0; sys Fmax 55.361 MHz, hold 0.128 ns passes, but strict setup -1.663 ns / 66 violated endpoints FAIL. See `pnr01/`. Unqualified bitstream archived without replacing main or prior files. Required hold gate remains >= 0.05 ns; original main is 0.047 ns and fails it despite native 0 setup/hold violations.
+- Hardware acceptance: NOT_RUN.
+
+## Subsequent one-module timing experiment
+
+Notice next-state expression only, with no added cycle or protocol change: public UART/SPI/I2S outputs match for 155459 system cycles; original default-speed atomic-export test passes before and after; actual slide E2E passes 14 checks with corrected simulation-only SPI acceleration. Fresh PnR candidate 02 passes unchanged 16.4 ns setup target and hold >= 0.05 ns: setup 0.004 ns, hold 0.211 ns, 0 setup / 0 hold violations, sys Fmax 60.989 MHz, CLS 25096. See `notice_expr/` for raw reports and archive hash. Keep this measured improvement; rollback commit for the notice RTL is its parent. Main and remote unchanged; board and full-suite long regressions remain pending.
+
+## Protocol scope confirmed by user
+
+Actual `rec_dump.v` emits legacy 9-byte A5+64-bit data frames. ESP32 documentation requests typed/checksummed 11-byte bulk frames and a separate 14-byte live uplink. The latter is not implemented in this version. User explicitly chose: retain the export format, this batch only repairs core and timing. Thus no changes to rec_dump framing, ESP32 protocol or PC replay tools are authorized in this batch. This limitation remains documented, not misreported as repaired.

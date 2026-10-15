@@ -1,0 +1,5 @@
+VCD info: dumpfile build/sim/tb_envelope_bank/tb_envelope_bank.vcd opened for output.
+== P1-03：⭐ 多拍 `sample_tick` 必须与单拍【等价】==
+  ok  : P1-03 a 2-cycle sample_tick == a 1-cycle one (env0=32768)
+== P1-03b：⭐ **持续为高**的 `sample_tick`（⭐ 已知缺口，⭐ 本轮【不修】）==
+PASS: envelope_bank keeps per-voice ADSR state independent

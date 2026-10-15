@@ -1,0 +1,9 @@
+VCD info: dumpfile build/sim/tb_bpm_bar_quant/tb_bpm_bar_quant.vcd opened for output.
+PROBE_INJECTION: unknown BPM payload
+  ok  : reset: pending_o is 0
+  ok  : reset: load_o is 0
+  ok  : non-vacuous: bar_start alone (no set_i) NEVER loads
+  ok  : set_i arms pending_o
+  ok  : 'Q' ALONE does NOT load -- no mid-beat tempo change
+FATAL: evidence/main_verify_20261014/tb_bpm_strict_probe.sv:18: STRICT_X_CHECK: unknown valid BPM payload
+       Time: 400000  Scope: tb_bpm_strict_probe

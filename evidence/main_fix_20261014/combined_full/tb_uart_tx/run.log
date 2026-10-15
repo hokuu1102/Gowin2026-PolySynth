@@ -1,0 +1,24 @@
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=50 => 1000000 bps at 50 MHz)
+=== tb_uart_tx (loopback through the real uart_rx) ===
+  ok  : idle tx line is HIGH (UART idle state)
+  ok  : busy_o is low when idle
+  ok  : tx_done_o is low when idle
+  ok  : all 10 loopback bytes arrive EXACTLY (incl. 00/FF/55/AA/80/7F)
+  ok  : all 10 bytes were received (rx_done fired 10 times)
+  ok  : bit order is LSB-first (0x01 stays 0x01, NOT 0x80)
+  ok  : tx_done_o pulses exactly once per byte
+  ok  : tx_done_o is exactly ONE cycle wide (never wider)
+  ok  : tx_done_o stays LOW long after completion (no residual high)
+  ok  : busy_o stays low while idling after a byte
+  [busy] actual=500 expected=500
+  ok  : busy_o spans the whole frame (10 bit times, within 1 bit)
+  ok  : mid-transmission change of tx_data_i does NOT corrupt the byte
+  ok  : 8 back-to-back bytes all arrive exactly (no gap needed)
+  ok  : a start pulsed while busy is IGNORED (first byte survives intact)
+  ok  : busy_o really was high before the reset test
+  ok  : reset returns tx to the idle HIGH level
+  ok  : reset clears busy_o
+  ok  : after reset the transmitter still works (0xC3 round-trips)
+
+PASS: uart_tx sends 8N1 LSB-first, latches its data, spans busy over the frame, pulses done for one cycle, ignores start-while-busy and survives mid-byte data changes -- all verified by loopback through the real uart_rx
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3c\tb_uart_tx.sv:363: $finish called at 863510000 (1ps)

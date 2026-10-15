@@ -1,0 +1,16 @@
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=200)
+=== tb_span_need_press_width ===
+⭐ 目的：测 need_press_o 实际高几拍（⭐ 决定 ev_need 能否可靠触发）
+
+启动前: need_press_o=0 state=0
+--------------------------------------------------
+  S_PROMPT 停留拍数      = 0
+  need_press 最宽        = 0 拍
+  need_press 上升沿次数  = 0  (= top.v 的 ev_need 次数)
+  当前 state             = 0
+--------------------------------------------------
+FAIL: need_press_o 从未上升 ⇒ 🔴 轴号【发不出来】
+NOTE: need_press 高 0 拍
+==================================================
+FATAL: build/tb_span_prompt_no_start.sv:154: FAIL: calibration prompt has no observable rising edge
+       Time: 6240000  Scope: tb_span_need_press_width

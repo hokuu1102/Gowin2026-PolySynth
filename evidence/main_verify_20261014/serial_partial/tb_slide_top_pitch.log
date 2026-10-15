@@ -1,0 +1,67 @@
+﻿NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=150)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+
+=== 0) SOURCE PARITY: this replica must match rtl/top.v ===
+  (parity: read 6333 lines; 6/6 exact anchors matched; src prefix hits 1)
+  ok  : 0a: the parity guard actually read rtl/top.v (not zero lines => not vacuous)
+  ok  : 0b: rtl/top.v still gates the slide source with `& am_mode`
+  ok  : 0c: rtl/top.v's slide src tag is 3'd0 (NOT 3'd5 = keyboard drum)
+  ok  : 0d: ALL 6 replica anchors are still present in rtl/top.v (replica not stale)
+
+=== A) slide on a PHYSICALLY ADJACENT pair (6,7) => pitch_upd to B ===
+  upd: axis=6 src=0 value=00d0cb35  table[6]=00c51339
+  ok  : A: a horizontal-adjacent slide produces a pitch_upd
+  ok  : A: pitch_upd axis is A (the axis being voiced), not B
+  ok  : A: pitch_upd src tag is 3'd0 = hand-play (NOT 3'd5, which is SRC_KDRUM)
+  ok  : A: the value handed to pitch_upd equals fb_inc[B] (B's pitch)
+  ok  : A: the slide really resolved B = 7 (neighbour table matched)
+  ok  : A: non-vacuity -- fb_inc[6] != fb_inc[7] so the value check bites
+
+=== B) NON-adjacent pair (1,2) => NO slide (neighbour table is real) ===
+  ok  : B: a non-adjacent pair does NOT produce a slide (over 2 frames)
+  ok  : B: therefore no pitch_upd comes out of the slide path
+  upd: axis=6 src=0 value=00d0cb35  table[6]=00c51339
+  ok  : B: non-vacuity -- the same delta pattern on an ADJACENT pair does fire
+
+=== C) am_mode gate: keyboard mode must NOT emit slide pitch_upd ===
+  ok  : C: keyboard mode suppresses the slide pitch_upd (am_mode gate)
+  ok  : C: non-vacuity -- the detector itself still fired (it is the MUX that is gated, not the detector)
+
+=== D) slide_en gate: 'W' off must suppress the detector entirely ===
+  ok  : D: slide_en=0 suppresses the slide detector
+  ok  : D: therefore no pitch_upd either
+  upd: axis=6 src=0 value=00d0cb35  table[6]=00c51339
+  ok  : D: non-vacuity -- the same stimulus DOES fire once slide_en=1 again
+
+=== E) every adjacent pair in the table maps to the right target ===
+  upd: axis=6 src=0 value=00d0cb35  table[6]=00c51339
+  upd: axis=7 src=0 value=00c51339  table[7]=00d0cb35
+  upd: axis=7 src=0 value=00dd3595  table[7]=00d0cb35
+  upd: axis=0 src=0 value=00d0cb35  table[0]=00dd3595
+  upd: axis=0 src=0 value=00ea5cf4  table[0]=00dd3595
+  upd: axis=1 src=0 value=00dd3595  table[1]=00ea5cf4
+  upd: axis=5 src=0 value=009c6b2a  table[5]=0093a3b6
+  upd: axis=4 src=0 value=0093a3b6  table[4]=009c6b2a
+  upd: axis=4 src=0 value=00a5b841  table[4]=009c6b2a
+  upd: axis=3 src=0 value=009c6b2a  table[3]=00a5b841
+  upd: axis=3 src=0 value=00af92ee  table[3]=00a5b841
+  upd: axis=2 src=0 value=00a5b841  table[2]=00af92ee
+  upd: axis=14 src=0 value=0174073a  table[14]=015f25dc
+  upd: axis=15 src=0 value=015f25dc  table[15]=0174073a
+  upd: axis=15 src=0 value=018a2672  table[15]=0174073a
+  upd: axis=8 src=0 value=0174073a  table[8]=018a2672
+  upd: axis=8 src=0 value=01a1966b  table[8]=018a2672
+  upd: axis=9 src=0 value=018a2672  table[9]=01a1966b
+  upd: axis=13 src=0 value=0116b4ce  table[13]=0107104e
+  upd: axis=12 src=0 value=0107104e  table[12]=0116b4ce
+  upd: axis=12 src=0 value=0127476d  table[12]=0116b4ce
+  upd: axis=11 src=0 value=0116b4ce  table[11]=0127476d
+  upd: axis=11 src=0 value=0138d653  table[11]=0127476d
+  upd: axis=10 src=0 value=0127476d  table[10]=0138d653
+  ok  : E: all 24 directed adjacent slides produced a matching pitch_upd
+  ok  : E: non-vacuity -- every one of the 24 actually fired (not silently skipped)
+
+PASS: a horizontal-adjacent slide drives pitch_upd with A's axis, src tag 3'd0 (hand-play) and B's pitch (fb_inc[B]); non-adjacent pairs are rejected by the neighbour table; keyboard mode and slide_en=0 both suppress it; all 24 directed adjacent pairs match; all 6 replica anchors still match rtl/top.v
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_slide_top_pitch.sv:619: $finish called at 5471000 (1ps)
+
+

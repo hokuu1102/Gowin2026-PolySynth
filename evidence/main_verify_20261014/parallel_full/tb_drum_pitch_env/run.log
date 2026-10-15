@@ -1,0 +1,23 @@
+== 阶段 2b · 鼓机音高包络（向下扫频）· dut_on=开 / dut_off=关 ==
+== 判据 5/6：鼓 voice @ **真实底鼓音高** INC=5368709（δ=1.280）==
+  info: 底鼓音高 相位增量 早窗=[8582789,9523845]（⭐ 标称 5368709）晚窗=[5368709,5368709]
+  info: 底鼓音高 过零数 早 on=117 off=112 / 晚 on=1002 off=982
+  info: **过零率在此档【饱和】**（0.500 vs 0.499）⇒ 判据改在低音高档测（见下）
+  ok  : drum_voice_onset_phase_step_exceeds_nominal
+  ok  : drum_voice_late_phase_step_equals_nominal_exactly
+== 判据 1/2/4：鼓 voice @ **低音高档** INC=1610612（δ=0.384，⭐ 过零率可分辨）==
+  info: 低音高档 过零 早[192,448) on=86 off=44 | 晚[5120,7168) on=373 off=373
+  info: 每采样过零率(千分) on早=335 on晚=182 off早=171 off晚=182
+  info: 下降比 on早/on晚=1844/1000（⭐ 预演 1.845）· 非空洞 off早/off晚=943/1000（⭐ 预演 0.941）
+  ok  : drum_voice_output_zcr_decreases_over_time
+  ok  : drum_voice_output_zcr_settles_at_nominal_pitch
+  ok  : non_vacuity_same_formula_is_RED_when_sweep_disabled
+== 判据 3a：非鼓 voice（⭐ 底鼓音高）⇒ 相位增量恒等于标称 ==
+  info: 非鼓@底鼓音高 相位增量=[5368709,5368709]（⭐ 必须 == 5368709）过零=1
+  ok  : non_drum_voice_at_kick_pitch_phase_step_is_nominal
+== 判据 3b：非鼓 voice（⭐ 踩镲音高）⇒ 输出过零率恒定 ==
+  info: 非鼓@踩镲音高 过零 早=82 晚=82（⭐ 窗口各 1024 拍）相位增量=[171798691,171798691]
+  ok  : non_drum_voice_output_zcr_stays_constant
+  ok  : non_drum_voice_at_hihat_pitch_phase_step_is_nominal
+PASS: drum pitch envelope (stage 2b) - all judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\w3b\tb_drum_pitch_env.sv:431: $finish called at 4428020000 (1ps)

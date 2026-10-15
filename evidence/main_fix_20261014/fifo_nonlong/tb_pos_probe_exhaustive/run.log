@@ -1,0 +1,2 @@
+PASS: all 4096 values, 16 channel tags, snapshot mutation and blocked queue PREFIX=50
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3c\tb_pos_probe_exhaustive.sv:61: $finish called at 2313140000 (1ps)

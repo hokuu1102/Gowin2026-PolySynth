@@ -1,0 +1,40 @@
+﻿iverilog.exe : C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warn
+ing: timescale for hdmi_clk inherited from another file.
+At C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\sim\tb_all.ps1:123 char:18
++   $compileOut  = & $iverilog @compileArgs 2>&1
++                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\cyx\Do...m another file.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The 
+inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timesc
+ale for tmds_encoder inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherite
+d timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: tim
+escale for tmds_serializer inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherite
+d timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timesc
+ale for video_timing inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherite
+d timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescal
+e for guide_lamp inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherite
+d timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale
+ for pos_probe inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited t
+imescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescal
+e for span_probe inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited ti
+mescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timesc
+ale for uart_tx_fifo inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited ti
+mescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_am_pipe.sv:144: warning: Instant
+iating module axis_map with dangling input port 10 (axis_id_b_i) floating.

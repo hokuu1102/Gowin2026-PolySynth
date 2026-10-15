@@ -1,0 +1,20 @@
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\models\prom_model.sv:1: ...: The inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3b\tb_note_manager_vel_wrap.sv:98: warning: Port 39 (alloc_voice_o) of note_manager expects 1 bits, got 4.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3b\tb_note_manager_vel_wrap.sv:98:        : Padding 3 high bits of the expression.

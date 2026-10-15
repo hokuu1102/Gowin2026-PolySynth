@@ -1,0 +1,38 @@
+==========================================================================
+全工具离线自检（⛔ 不需要硬件）
+==========================================================================
+发现 28 个脚本（⭐ 排除 `_` 开头的辅助脚本）
+
+  OK   rc=0   OK=6    RED=0    _stress_cycles.py
+  OK   rc=0   OK=12   RED=0    _uart1_send_path_check.py
+  OK   rc=0   OK=10   RED=0    _uart1_wire_check.py
+  OK   rc=0   OK=9    RED=0    _upstream_loop_check.py
+  OK   rc=0   OK=29   RED=0    demo_midi_roundtrip.py
+  OK   rc=0   OK=5    RED=0    e2e_accept.py
+  OK   rc=0   OK=23   RED=0    hmi_song_check.py
+  OK   rc=0   OK=9    RED=0    hmi_states_check.py
+  OK   rc=0   OK=4    RED=0    loopback_check.py
+  OK   rc=0   OK=20   RED=0    pool_math_check.py
+  OK   rc=0   OK=21   RED=0    pool_pace_check.py
+  OK   rc=0   OK=35   RED=0    read_log.py
+  OK   rc=0   OK=7    RED=0    regress_live.py
+  OK   rc=0   OK=18   RED=0    run_all_tests.py
+  OK   rc=0   OK=11   RED=0    score_uploader.py
+  OK   rc=0   OK=36   RED=0    score_word.py
+  OK   rc=0   OK=18   RED=0    screen_demo.py
+  OK   rc=0   OK=12   RED=0    send_frames.py
+  OK   rc=0   OK=17   RED=0    send_frames_ble.py
+  OK   rc=0   OK=13   RED=0    stat_read.py
+  OK   rc=0   OK=34   RED=0    trigger_and_capture.py
+  OK   rc=0   OK=18   RED=0    uart_rx_check.py
+  OK   rc=0   OK=24   RED=0    uart_timing_check.py
+  OK   rc=0   OK=7    RED=0    wrappers_check.py
+  OK   rc=0   OK=95   RED=0    evt2midi\evt2midi.py
+  OK   rc=0   OK=88   RED=0    evt2midi\frame_format.py
+  OK   rc=0   OK=41   RED=0    evt2midi\midi_verify.py
+  OK   rc=0   OK=21   RED=0    evt2midi\rec_upstream.py
+
+==========================================================================
+合计：28 个工具（不通过 0 个），643 项 OK，0 项 RED
+结论：全部通过 ✅
+==========================================================================

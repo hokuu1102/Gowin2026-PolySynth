@@ -34,7 +34,7 @@
 //   3  | 节奏          | drum_on/pat ＋ metro_on   | 鼓机 4 型色；鼓机关但节拍器开=绿；节拍器开=每拍暗 100 ms
 //   4  | looper        | looper_i[1:0]             | 空闲=暗蓝 / 录音=红快闪 / 回放=绿 / 武装中=黄快闪
 //   5  | EC11+音高     | transpose/slide/enc_*     | 见下方 ③
-//   6  | HDMI 显示     | scope_mode_i              | 波形=蓝 / 李萨如=品红
+//   6  | HDMI 显示     | scope_mode_i[1:0]         | 波形=蓝 / 李萨如=品红 / FFT=绿
 //   7  | 效果器        | fx_en_i ＋ fx_sel_i[1:0]  | 关=灭；开=按 sel 分色
 //
 //  ⭐ "灭"的编码 = **颜色 0**（不另设使能位）—— WS2812 没有独立使能脚，
@@ -105,7 +105,15 @@ module led_indicator #(
     input  wire        slide_i,        // 滑音开关                      → #5
     input  wire        enc_act_i,      // EC11 刚被动过（脉冲/电平）    → #5 临时色
     input  wire        enc_obj_i,      // EC11 当前对象：0=BPM 1=音高   → #5 临时色
-    input  wire        scope_mode_i,   // HDMI 显示：0=波形 1=李萨如    → #6
+    //  ⭐⭐ 2026-10-15：**1 位 → 2 位**（合并队友 BJ 版时发现的 bug）
+    //     🔴 **病因**：队友把 `top.v` 的 `scope_mode_r` 从 1 位扩成
+    //        `reg [1:0]`（三档：0=波形 · 1=李萨如 · 2=FFT），
+    //        ⚠️ 而本端口还是 1 位 ⇒ Verilog **静默截断取 LSB**
+    //        ⇒ 🔴 **FFT（2'd2）截断成 0 ⇒ 灯 6 把 FFT 显示成"波形"色** ✗
+    //     ⚠️ 位宽不匹配 Verilog 允许 ⇒ 编译不报错、判据也抓不到
+    //        ⇒ 只能靠【人眼过接口】发现 ✅
+    //     ✅ 现在按三档显示：波形=蓝 · 李萨如=品红 · FFT=绿
+    input  wire [1:0]  scope_mode_i,   // HDMI 显示：0=波形 1=李萨如 2=FFT  → #6
     input  wire        fx_en_i,        // 效果器使能                    → #7
     input  wire [1:0]  fx_sel_i,       // 效果器选择 0..3               → #7
 
@@ -269,8 +277,15 @@ module led_indicator #(
             col_c[5] = C_OFF;                             // 变调 = 0
         end
 
-        // ── #6 HDMI 显示（0=波形 1=李萨如）──────────────────────────────
-        col_c[6] = scope_mode_i ? C_MAGENTA : C_BLUE;
+        // ── #6 HDMI 显示（⭐ 2026-10-15：三档，⛔ 不再是两档）────────────────
+        //   ⚠️ 队友的 BJ 版把显示模式扩成三档（波形 / 李萨如 / FFT）
+        //      ⇒ 本灯必须跟着扩，否则 FFT 会被显示成"波形"（位宽截断）✗
+        case (scope_mode_i)
+            2'd0: col_c[6] = C_BLUE;      // 波形
+            2'd1: col_c[6] = C_MAGENTA;   // 李萨如（XY）
+            2'd2: col_c[6] = C_GREEN;     // FFT 频谱（⭐ 2026-10-15 新增）
+            default: col_c[6] = C_OFF;
+        endcase
 
         // ── #7 效果器（关=灭；开=按 sel 分色）────────────────────────────
         if (fx_en_i) begin

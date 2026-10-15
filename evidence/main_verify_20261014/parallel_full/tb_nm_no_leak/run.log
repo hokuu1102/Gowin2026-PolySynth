@@ -1,0 +1,71 @@
+== tb_nm_no_leak: POLY=4 AXIS_W=4 FRAME=40 ROUNDS=40 ==
+-- A: baseline --
+  ok  : A1 reset: no live voice
+  ok  : A2 reset: free count == POLY (pool full)
+  ok  : A3 reset: live == the gate_r|retrig_low|env_active_r definition
+  ok  : A4 reset: free_mask agrees with POLY - live (allocator view)
+  ok  : A5 reset: retrig_low is all zero
+  ok  : A6 reset: no gated voice
+-- B: 40 x same-axis press/release with a fast re-press --
+  round 0: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 1: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 2: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 3: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 4: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 5: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 6: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 7: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 8: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 9: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 10: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 11: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 12: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 13: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 14: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 15: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 16: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 17: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 18: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 19: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 20: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 21: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 22: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 23: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 24: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 25: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 26: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 27: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 28: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 29: free=4/4 live=0 gate=0 retrig=0
+  ok  : B: same-axis round ends with the pool back to full (no leaked voice)
+  round 30: free=4/4 live=0 gate=0 retrig=0
+  o

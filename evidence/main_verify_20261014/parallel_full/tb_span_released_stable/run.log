@@ -1,0 +1,55 @@
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+=== tb_span_released_stable（全部松手，看能不能过）===
+⭐ 复刻实测：8 通道 = 2139..2146（⭐ 松手值），⭐ 模型固有噪声
+⭐ STABLE_TOL=48 VOTE_TOL=96
+
+    [t=410000] state 7 -> 0  (axis=0 rej=0)
+    [t=4450000] state 0 -> 1  (axis=0 rej=0)
+    [t=4490000] state 1 -> 2  (axis=0 rej=0)
+    [t=4524990000] state 2 -> 3  (axis=0 rej=0)
+    [t=8524990000] state 3 -> 4  (axis=0 rej=0)
+    [t=8525010000] state 4 -> 5  (axis=0 rej=0)
+    [t=9024990000] state 5 -> 6  (axis=0 rej=0)
+    [t=9025030000] state 6 -> 1  (axis=0 rej=0)
+    [t=9025070000] state 1 -> 2  (axis=1 rej=0)
+    [t=13549530000] state 2 -> 3  (axis=1 rej=0)
+    [t=17549530000] state 3 -> 4  (axis=1 rej=0)
+    [t=17549550000] state 4 -> 5  (axis=1 rej=0)
+    [t=18049530000] state 5 -> 6  (axis=1 rej=0)
+    [t=18049570000] state 6 -> 1  (axis=1 rej=0)
+    [t=18049610000] state 1 -> 2  (axis=2 rej=0)
+    [t=22574070000] state 2 -> 3  (axis=2 rej=0)
+    [t=26574070000] state 3 -> 4  (axis=2 rej=0)
+    [t=26574090000] state 4 -> 5  (axis=2 rej=0)
+    [t=27074070000] state 5 -> 6  (axis=2 rej=0)
+    [t=27074110000] state 6 -> 1  (axis=2 rej=0)
+    [t=27074150000] state 1 -> 2  (axis=3 rej=0)
+    [t=31598610000] state 2 -> 3  (axis=3 rej=0)
+    [t=35598610000] state 3 -> 4  (axis=3 rej=0)
+    [t=35598630000] state 4 -> 5  (axis=3 rej=0)
+    [t=36098610000] state 5 -> 6  (axis=3 rej=0)
+    [t=36098650000] state 6 -> 1  (axis=3 rej=0)
+    [t=36098690000] state 1 -> 2  (axis=4 rej=0)
+    [t=40623150000] state 2 -> 3  (axis=4 rej=0)
+    [t=44623150000] state 3 -> 4  (axis=4 rej=0)
+    [t=44623170000] state 4 -> 5  (axis=4 rej=0)
+    [t=45123150000] state 5 -> 6  (axis=4 rej=0)
+    [t=45123190000] state 6 -> 1  (axis=4 rej=0)
+    [t=45123230000] state 1 -> 2  (axis=5 rej=0)
+    [t=49647690000] state 2 -> 3  (axis=5 rej=0)
+    [t=53647690000] state 3 -> 4  (axis=5 rej=0)
+    [t=53647710000] state 4 -> 5  (axis=5 rej=0)
+    [t=54147690000] state 5 -> 6  (axis=5 rej=0)
+    [t=54147730000] state 6 -> 1  (axis=5 rej=0)
+    [t=54147770000] state 1 -> 2  (axis=6 rej=0)
+    [t=58672230000] state 2 -> 3  (axis=6 rej=0)
+--------------------------------------------------
+  轴0通道采样次数 = 120
+  轴0 raw 范围     = 1956 .. 1956  (Δ=0)
+  span=6  reject=0  state=3  done_cnt=6
+--------------------------------------------------
+ok  : 松手静止 ⇒ 标定【能通过】（span=6, reject=0）
+      => 🔴 上板被拒【不是】这个场景本身的问题 ⇒ 另有因素
+ok  : 轴0 帧间变化 Δ=0 < STABLE_TOL=48 ⇒ 稳定判定【应能通过】
+==================================================
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\w3a\tb_span_released_stable.sv:179: $finish called at 60004440000 (1ps)

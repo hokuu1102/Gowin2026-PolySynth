@@ -222,6 +222,18 @@ module envelope_bank #(
 
     wire [ENV_W-1:0] sustain_level = sustain_product_r[ENV_W+7:8];
 
+    // BG timing candidate: remove the sustain DSP output -> add -> compare
+    // chain. The decay subtraction is independent of sustain_level, so both
+    // operands of the final clamp comparison arrive in parallel. No register
+    // or service-cycle alignment changes. Retain the original modular-add
+    // semantics for unusually large/negative legacy DECAY_STEP parameters.
+    wire [ENV_W:0] decay_difference = {1'b0, lvl_c} - dec_r;
+    wire decay_hits_sustain =
+        ((DECAY_STEP >= 0) && (DECAY_STEP < (64'd1 << ENV_W)))
+        ? (decay_difference[ENV_W] ||
+           (decay_difference[ENV_W-1:0] <= sustain_level))
+        : ({1'b0, lvl_c} <= {1'b0, sustain_level} + dec_r);
+
     // ═══════════════════════════════════════════════════════════════════════
     // ④ Next state for the voice currently at the head (verbatim from adsr.v,
     //    same priority order: retrig_reset > releasing > gate low > state).
@@ -277,7 +289,7 @@ module envelope_bank #(
                     if (lvl_c <= sustain_level) begin
                         lvl_n = sustain_level;
                         st_n  = ST_SUSTAIN;
-                    end else if ({1'b0, lvl_c} <= {1'b0, sustain_level} + dec_r) begin
+                    end else if (decay_hits_sustain) begin
                         lvl_n = sustain_level;
                         st_n  = ST_SUSTAIN;
                     end else begin
@@ -293,7 +305,7 @@ module envelope_bank #(
                         else
                             lvl_n = lvl_c + atk_r[ENV_W-1:0];
                     end else if (lvl_c > sustain_level) begin
-                        if ({1'b0, lvl_c} <= {1'b0, sustain_level} + dec_r)
+                        if (decay_hits_sustain)
                             lvl_n = sustain_level;
                         else
                             lvl_n = lvl_c - dec_r[ENV_W-1:0];

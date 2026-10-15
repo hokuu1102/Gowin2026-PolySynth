@@ -1,0 +1,104 @@
+=== tb_drum_gen（纯合成鼓机）===
+⭐ 参数：AXIS_ID=15 · PATTERN_ID=0(BASIC) · TICKS_PER_STEP=8
+  ok  : ① transport=0 ⇒ ⛔ 一个事件都没发（停就真停）
+  --- 一小节（BASIC / 型 0）事件统计 ---
+      Kick=4  Snare=2  HiHat=8  Tom=0  总=14
+  ok  : ② 一小节恰好 14 个事件（Kick4/Snare2/HiHat8/Tom0）—— 与用户表(BASIC)吻合
+  ok  : ③⭐ 一'步'多乐器【没被吞】—— step0 的 Kick+HiHat 都发出来了
+  ok  : ④ 全部事件 axis = 15（>= 14 专用池）⛔ 不抢演奏的 voice
+  ok  : ⑤ 不粘滞 —— valid 连续高时数据每拍都在变
+  ok  : ⑩ step 计数有效 = 15（⭐ 4 位数天然在 0~15；本轮停在 15 是【正常的】—— ⭐ 恰好跑满 16 步到边界前）
+  ok  : ⑩b 推进一个 16 分音符 ⇒ step 恰好 +1（15 → 0）
+  ok  : ⑦ 无 PCM —— 本模块【不加载任何文件】（见脚本级静态检查）
+  ok  : ⑪ transport 拉低 ⇒【当拍即停】⛔ 不吐残余（30 拍内 0 个事件）
+  ok  : ⑫ 小节对齐 —— 3 个小节起点 step_cnt 都是 0（⛔ 不漂移）
+  --- ⑬⑭ 小节相位实测（型 0，复位后连跑 4 小节）---
+      bar 0: step_at_bar_start=0  first_evt=0051eb85  second_evt=0a3d70a3
+      bar 1: step_at_bar_start=0  first_evt=0051eb85  second_evt=0a3d70a3
+      bar 2: step_at_bar_start=0  first_evt=0051eb85  second_evt=0a3d70a3
+      bar 3: step_at_bar_start=0  first_evt=0051eb85  second_evt=0a3d70a3
+  ok  : ⑬ 4 个 bar_start 的 step_cnt 全是 0 ⇒ 16 步表的 step 0 落在正拍
+  ok  : ⑭ 正拍第一个事件 = Kick、第二个 = HiHat（= step 0 掩码 0101）
+  --- ⑮ 切到型 1 后的一小节 ---
+      Kick=4  Snare=2  HiHat=4  Tom=2  总=12（Tom 力度异常 0 个）
+  ok  : ⑮ 运行时切型立刻生效（型 1 = Kick4/Snare2/HiHat4/Tom2 = 12，力度 190）
+  --- (16) 4 pattern tables, bit-exact vs the user tables ---
+      mask format: %b = bit3..bit0 = Tom,Cym,Snare,Kick
+      pattern 0 (BASIC):
+        step 01 : expected=0101  observed=0101  ok
+        step 02 : expected=0000  observed=0000  ok
+        step 03 : expected=0100  observed=0100  ok
+        step 04 : expected=0000  observed=0000  ok
+        step 05 : expected=0111  observed=0111  ok
+        step 06 : expected=0000  observed=0000  ok
+        step 07 : expected=0100  observed=0100  ok
+        step 08 : expected=0000  observed=0000  ok
+        step 09 : expected=0101  observed=0101  ok
+        step 10 : expected=0000  observed=0000  ok
+        step 11 : expected=0100  observed=0100  ok
+        step 12 : expected=0000  observed=0000  ok
+        step 13 : expected=0111  observed=0111  ok
+        step 14 : expected=0000  observed=0000  ok
+        step 15 : expected=0100  observed=0100  ok
+        step 16 : expected=0000  observed=0000  ok
+  ok  : drum_pat0_basic_16step_mask_table_bitexact
+      pattern 1 (HOUSE):
+        step 01 : expected=0001  observed=0001  ok
+        step 02 : expected=0000  observed=0000  ok
+        step 03 : expected=0100  observed=0100  ok
+        step 04 : expected=0000  observed=0000  ok
+        step 05 : expected=0011  observed=0011  ok
+        step 06 : expected=0000  observed=0000  ok
+        step 07 : expected=0100  observed=0100  ok
+        step 08 : expected=1000  observed=1000  ok
+        step 09 : expected=0001  observed=0001  ok
+        step 10 : expected=0000  observed=0000  ok
+        step 11 : expected=0100  observed=0100  ok
+        step 12 : expected=0000  observed=0000  ok
+        step 13 : expected=0011  observed=0011  ok
+        step 14 : expected=0000  observed=0000  ok
+        step 15 : expected=0100  observed=0100  ok
+        step 16 : expected=1000  observed=1000  ok
+  ok  : drum_pat1_house_16step_mask_table_bitexact
+      pattern 2 (ROCK):
+        step 01 : expected=0101  observed=0101  ok
+        step 02 : expected=0000  observed=0000  ok
+        step 03 : expected=0100  observed=0100  ok
+        step 04 : expected=0000  observed=0000  ok
+        step 05 : expected=0110  observed=0110  ok
+        step 06 : expected=0000  observed=0000  ok
+        step 07 : expected=0101  observed=0101  ok
+        step 08 : expected=0000  observed=0000  ok
+        step 09 : expected=0101  observed=0101  ok
+        step 10 : expected=0000  observed=0000  ok
+        step 11 : expected=0100  observed=0100  ok
+        step 12 : expected=0000  observed=0000  ok
+        step 13 : expected=0110  observed=0110  ok
+        step 14 : expected=1000  observed=1000  ok
+        step 15 : expected=0101  observed=0101  ok
+        step 16 : expected=0000  observed=0000  ok
+  ok  : drum_pat2_rock_16step_mask_table_bitexact
+      pattern 3 (DANCE_FILL):
+        step 01 : expected=0101  observed=0101  ok
+        step 02 : expected=0000  observed=0000  ok
+        step 03 : expected=0100  observed=0100  ok
+        step 04 : expected=0000  observed=0000  ok
+        step 05 : expected=0111  observed=0111  ok
+        step 06 : expected=0000  observed=0000  ok
+        step 07 : expected=0100  observed=0100  ok
+        step 08 : expected=1001  observed=1001  ok
+        step 09 : expected=0101  observed=0101  ok
+        step 10 : expected=0000  observed=0000  ok
+        step 11 : expected=1100  observed=1100  ok
+        step 12 : expected=0000  observed=0000  ok
+        step 13 : expected=0111  observed=0111  ok
+        step 14 : expected=1000  observed=1000  ok
+        step 15 : expected=1100  observed=1100  ok
+        step 16 : expected=1100  observed=1100  ok
+  ok  : drum_pat3_dance_fill_16step_mask_table_bitexact
+  ok  : ⑧ cfg_warn_o = 0（参数一致：AXIS_ID=15 >= 14, STEPS=16）
+  ok  : ⑨ A8 无 X/Z 传播
+  ok  : ②b transport 拉低后 ⇒ 立刻停发（⛔ 不吐残余）
+--------------------------------------------------
+PASS: drum_gen 一步多乐器不丢、16步=1小节、正拍相位(step0=Kick+HiHat)、专用池、不粘滞、transport 门控、运行时切型+嗵鼓、无 X/Z、4 个节奏型位精确对用户表
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\w3c\tb_drum_gen.sv:728: $finish called at 132860000 (1ps)

@@ -1,0 +1,20 @@
+{
+  "source": "0fe07d2fddc29af05404d229298baa20b4cbfbfe",
+  "build": "build/fft_pnr01",
+  "build_exit": 0,
+  "native_budget_ns": 16.4,
+  "setup_slack_ns": -1.860,
+  "setup_violations": 79,
+  "hold_slack_ns": 0.045,
+  "hold_violations": 0,
+  "recovery_slack_ns": -1.952,
+  "removal_slack_ns": 1.431,
+  "cls": 25274,
+  "bram": 83,
+  "dsp": 30.5,
+  "accepted": false,
+  "board": "NOT_RUN",
+  "firmware_archive": "NOT_CREATED_TIMING_FAILED",
+  "regression": "RUNNING_WITH_ONE_STALE_TWO_MODE_TEST_FAILURE",
+  "followup": "Three-mode UART fixture corrected and separately passed; original frozen run is not rewritten. New candidate changes fft_spectrum_view only among production inputs."
+}

@@ -1,0 +1,15 @@
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=640000)
+=== tb_span_cross_channel ===
+⭐ 用上板实测的 8 通道静态值：2164/2193/2184/2180/2144/2139/2180/2171
+   ⇒ 极差 = 54；⭐ 单通道噪声 = ±3（复刻实测 Δ<=6）
+   STABLE_TOL=48 VOTE_TOL=96；TIMEOUT=640000 拍 = 2000 帧（同比例）
+
+结果：span=16  reject=0  state=7  done_cnt=0  rej_cnt=0
+--------------------------------------------------
+ok  : 跨通道静态值不同（极差 54）下，16 轴仍然全部标定成功
+      ⇒ ✅ 说明'各通道静态值不同'本身【不是】问题
+      ⇒ 🔴 上板失败只剩'采样对齐/接线'一种解释（见定案文档 §四）
+ok  : rej_cnt_o=0 <= REJECT_MAX=8（计数语义自洽）
+==================================================
+PASS: 跨通道静态差异不破坏 span 标定
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3a\tb_span_cross_channel.sv:161: $finish called at 25600240000 (1ps)

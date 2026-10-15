@@ -1,0 +1,9 @@
+{
+  "BaselineSource": "e678e3b (RTL be75440)",
+  "CandidateSource": "04f32ad + notice-expression patch",
+  "BaselineSHA256": "E80E96100E5EC6C8058FEC0A60903324028CC6F4126214702A88D78A79A6CD1E",
+  "CandidateSHA256": "E80E96100E5EC6C8058FEC0A60903324028CC6F4126214702A88D78A79A6CD1E",
+  "BaselineBytes": 2331885,
+  "CandidateBytes": 2331885,
+  "Equal": true
+}

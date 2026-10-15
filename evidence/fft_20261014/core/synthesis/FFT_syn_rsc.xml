@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Module name="fft_spectrum_core" Register="457" Alu="150" Lut="442" MULTALU27X18="5" Bsram="8" T_Register="457(457)" T_Alu="150(150)" T_Lut="442(442)" T_MULTALU27X18="5(5)" T_Bsram="12(8)">
+ <SubModule name="coeff" Bsram="4" T_Bsram="4(4)"/>
+</Module>

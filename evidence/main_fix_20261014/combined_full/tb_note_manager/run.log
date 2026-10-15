@@ -1,0 +1,124 @@
+WARNING [note_manager] FIFO_DEPTH=4 < æœ€åçªå‘ 18 (=16 è½´ +1 èŠ‚æ‹å™¨ +1 é¼“æœº) => äº‹ä»¶ä¼šæº¢å‡ºä¸¢å¼ƒï¼ˆâ­ å·²ç”± event_lost_o æŒ‡ç¤ºï¼Œä½†ä¼šä¸¢éŸ³ï¼‰
+== åˆ¤æ® 1: äº‹ä»¶ -> voice gateï¼ˆå« DEFAULT_VEL / éŸ³è‰²é”å­˜ï¼‰==
+  ok  : ÿÿÿäÿÿÿ 0 ÿÿª gate
+  ok  : note_ÿÿÿåÿÿÿœ‰ 1 ÿÿª gate
+  ok  : ÿÿÿåÿÿÿ…ÿÿÿ½ÿÿÿæÿÿÿ½ÿÿÿºÿÿÿçÿÿÿ¼• voice0
+  ok  : voice0 ÿÿ„ axis = 3
+  ok  : voice0 ÿÿ„ phase_inÿÿÿ­ÿÿÿ®
+  ok  : vel=ÿÿÿ—ÿÿÿ—ÿÿ¨ DEFAULT_VEL(200)
+  ok  : ÿÿÿŸÿÿÿ²ÿÿÿåÿ˜ =ÿÿÿ˜ÿÿÿéÿÿÿ‰²(1)
+  ok  : ÿÿÿ¬ÿÿÿäÿª note_ÿÿÿåÿÿÿœ‰ 2 ÿÿª gate
+  ok  : ÿÿÿåÿÿÿ…ÿÿÿ–ÿÿÿäÿÿÿ¸ÿÿÿ€ÿÿÿçÿÿÿ—² voice1
+  ok  : vÿÿÿéÿ 0ÿÿÿ¶ÿÿÿäÿÿÿ»ÿÿÿ¼(77)
+  ok  : evt_timbÿÿÿèÿÿÿ›ÿÿÿ˜ÿÿÿéÿÿÿ‰ÿÿÿˆLoopÿÿÿæÿÿÿ±ÿÿÿ‰
+  ok  : note_off(axis3ÿÿÿ gaÿÿÿåÿÿÿ¸ÿÿÿª
+  ok  : ÿÿÿ«ÿÿÿçÿÿÿ˜¯ voice0
+  ok  : voicÿÿÿäÿÿÿœÿÿÿ
+== åˆ¤æ® 2: æ”¯æŒ'æ›´æ–°åœ¨å“ voice'ï¼ˆvel_update / pitch_updateï¼‰==
+  ok  : vel_update takes effect (left the start point, ramping toward 240)
+  ok  : vel_update converges to 240 (ramp completed)
+  ok  : vel_update leaves the released voice0 untouched
+  ok  : pitch_updatÿÿÿ”ÿÿÿ°ÿÿÿåÿÿÿš„ voice1
+  ok  : ÿÿÿ¯ÿÿÿºÿÿ² axisÿÿÿ„ÿÿÿæÿÿÿ¸ÿÿÿ§ÿÿÿæÿ° voice
+== åˆ¤æ® 6: æ»‘éŸ³ä¸äº§ç”ŸéŸ³ç¬¦ï¼ˆå†»ç»“è¡¨é“å¾‹ï¼‰==
+  ok  : ÿÿÿéÿÿÿ¸ÿÿÿ¹ gatÿÿÿ•ÿÿÿˆÿÿÿæÿÿÿ¸ÿÿÿ§ÿÿÿéÿÿÿ¬ÿÿÿ‰
+  ok  : ÿÿÿ‘ÿÿÿåÿ axis ÿÿÿåÿÿÿ¸ÿÿÿ˜
+  ok  : ÿÿÿéÿÿÿ¡ÿÿÿÿÿÿäÿ† phase_inc
+== åˆ¤æ® 3: åŒè½´ä½é‡è§¦å‘å¤ç”¨åŒä¸€ voice ==
+  ok  : ÿÿÿèÿÿÿÿÿÿ gatÿÿÿ•ÿÿÿÿÿÿïÿÿÿ²ÿÿÿšÿÿƒ voicÿÿÿ‰
+  ok  : ÿÿÿéÿÿÿ§ÿÿÿ‘ÿÿÿèÿÿÿœ¨ voice1
+  ok  : ÿÿÿèÿÿÿÿÿÿ´ÿÿÿäÿ† phase_inc
+  ok  : ÿÿÿ‡ÿÿÿ¦ÿÿÿæÿÿÿ–ÿÿÿ† vel
+== åˆ¤æ® 4: é‡è§¦å‘çœŸçš„è®© ADSR é‡èµ· Attackï¼ˆæœ€æ˜“é™é»˜å¤±æ•ˆï¼‰==
+  ok  : ÿÿÿ•ÿÿÿ‘ÿÿÿåÿÿÿ»ÿÿÿ½ÿÿ¨ sustain ÿÿÿåÿÿÿ¼ˆ640ÿÿÿ‰
+  ok  : ÿÿÿ‡ÿÿÿ¦ÿÿÿåÿ gate ÿÿÿæÿÿÿ›ÿÿÿˆvoicÿÿÿåÿÿÿ“ÿÿÿ‰
+  ok  : ÿÿÿéÿÿÿ§ÿÿÿ‘ÿÿÿçÿÿÿ¹ÿÿÿ¾ÿÿÿéÿÿÿº sustain => Attack ÿÿÿåÿÿÿ‡ÿÿÿ·
+  ok  : ÿÿÿ­ gaÿÿÿéÿÿÿ–ÿÿÿ¬ÿÿÿæÿÿÿŒÿÿÿœÿÿº ÿÿÿˆÿÿ” ÿÿÿæÿÿÿ½ÿÿÿµÿÿÿèÿÿÿŒÿÿÿ‰
+  ok  : ÿÿÿéÿÿÿ§ÿÿÿ‘ÿÿÿåÿÿÿ»ÿÿÿÿÿÿåÿÿÿˆ° sustaiÿÿÿ¹ÿÿÿ°
+== åˆ¤æ® 8: ä¸“ç”¨ voice æ± ï¼ˆèŠ‚æ‹å™¨ä¸å‚ä¸æ™®é€šæŠ¢å ï¼ŒT33b åœ°åŸºï¼‰==
+  ok  : ÿÿÿåÿÿÿ¼ˆsrcÿÿÿ¼ÿÿÿ´ÿÿÿèÿÿÿœÿÿÿ®ÿÿÿæÿÿÿ¼ˆ< 2ÿÿÿ‰
+  ok  : ˆsrc=0ï¼‰çš„è½´ 14 è½åœ¨ã€æ™®é€šæ± ã€‘â€”â€” é”® 14/15 å‡ºå£°çš„åˆ¤æ®
+  ok  : ÿÿÿºÿÿÿïÿˆsrÿÿÿïÿÿÿÿÿÿ¨ÿÿÿçÿÿÿ±ÿÿÿˆ>= 2ÿÿÿ‰
+  ok  : ÿÿÿ¬ÿÿÿäÿÿÿº B ÿÿÿäÿÿÿ¹ÿÿÿ½ÿÿÿäÿÿÿ”ÿÿÿ 
+  ok  : ÿÿÿ¤ÿÿÿäÿÿÿ”¨ voice ÿÿÿäÿÿÿ›ÿÿÿŒ
+  ok  : ÿÿÿ™ÿÿÿšÿÿÿäÿ gate ÿÿÿåÿÿÿ¼ÿÿÿ’ÿÿÿåÿÿÿ‰ÿÿÿ‰
+== åˆ¤æ® 5: æŠ¢å é¡ºåºï¼ˆåœ¨ POLY_TARGET=4 å°å®ä¾‹ä¸ŠéªŒï¼‰==
+  ok  : 4 ÿÿÿèÿÿÿÿÿÿ¡ÿÿÿäÿª voice
+  ok  : ÿÿÿ ÿÿÿæÿ¯ voice0..3
+  ok  : axis ÿÿÿåÿÿÿ­ÿÿÿ®
+  ok  : ÿÿÿÿÿÿ¡ÿÿÿçÿ¬ 5ÿÿÿªÿÿÿäÿÿÿ¢ÿÿÿ†ÿÿÿïÿÿÿ¸ÿÿÿ™ÿÿÿäÿÿÿŸÿÿÿ‰
+  ok  : ÿÿÿ¹ÿÿÿ—ÿÿÿæÿÿÿ½ÿÿÿ¢ÿÿ• ÿÿÿæÿÿÿ  voice0
+  ok  : ÿÿÿäÿÿÿ¸ÿÿÿªÿÿÿåÿÿÿ½ÿÿÿ
+  ok  : ÿÿÿèÿÿÿ¿ÿÿÿ‡ÿÿÿæÿÿÿÿÿÿ´ÿÿÿåÿÿÿ¢ÿÿÿ¿ÿÿˆvoiceÿÿÿ‰
+  ok  : ÿÿÿÿÿÿ„ÿÿÿåÿÿÿœÿÿÿÿÿÿåÿ• =ÿÿÿŠ¢ voice0
+  ok  : ÿÿÿ¢ÿÿÿåÿ voiceÿÿÿÿÿÿ´ÿÿÿïÿÿÿ¹ÿÿÿ„ÿÿÿæÿÿÿ›ÿÿÿ‰
+  ok  : voice1 ÿÿÿçÿÿÿ€ÿÿÿˆÿÿÿèÿÿÿŠÿÿÿ‰
+  ok  : ÿÿÿ¢ÿÿÿçÿÿÿ˜ÿÿÿ€ÿÿÿäÿÿÿœÿÿÿÿÿÿåÿÿÿš„ voice1
+  ok  : voice0ÿÿÿèÿÿÿ¹ÿÿÿ»ÿÿÿæÿÿÿ¢ÿÿÿ¢
+  ok  : voice2ÿÿÿæÿÿÿ¢ÿÿÿ¢
+  ok  : ÿÿÿåÿÿÿ®ÿÿÿ‹ÿÿÿæÿ  X
+== åˆ¤æ® 7: POLY_TARGET å‚æ•°åŒ–ï¼ˆ32 æ¡£å·²å…¨ç¨‹ä½¿ç”¨ï¼›å†éªŒ 16 è½´å æ»¡ï¼‰==
+  ok  : ÿÿÿæÿÿÿœÿÿÿÿÿÿåÿÿÿ¾‹ 0 ÿÿª gate
+  ok  : 1ÿÿÿ¸ÿÿÿ´ÿÿ  ÿÿÿäÿª voice
+  ok  : ÿÿÿåÿÿÿšÿÿÿ¯ÿÿÿäÿÿÿš„ voice0..15
+  ok  : voice16..ÿÿÿäÿÿÿ©ÿÿÿ²ÿÿˆAXIS_W=4 ÿÿÿæÿ‰ 1ÿÿÿ½ÿÿÿ‰
+  ok  : ÿÿÿÿÿÿ¶ÿÿÿæÿÿÿ¸ÿÿÿ„ÿÿÿéÿ =ÿÿÿïÿÿÿ— AXIS_Wÿÿÿÿÿÿïÿÿÿ POLY_TARGEÿÿÿ‰
+== 9: mid-retrigger voice is not stealable ==
+  ok  : section 9: clean slate (0 gates)
+  ok  : section 9: axis 5 owns voice0
+  ok  : section 9: exactly 1 gate before the test
+  ok  : section 9: axis 5 still owns voice0 (hold kept it busy)
+  ok  : section 9: the other axis landed on a DIFFERENT voice
+  ok  : section 9: axis 5 was NOT stolen (still on voice0)
+  ok  : K-106: baseline - event_lost is 0 BEFORE any overflow
+  ok  : K-106: baseline - lost count is 0 BEFORE any overflow
+  ok  : K-106: event_lost asserts after overflowing the queue
+  ok  : K-106: lost count = 7 and 12 = 5 served + 7 lost (conservation holds)
+  ok  : K-106: the burst really did overflow (lost > 0)
+  ok  : K-106: the burst was not entirely lost (served > 0)
+  ok  : K-106: sticky stays set while later events are processed normally
+  ok  : K-106: lost count is unchanged by later normal events
+  ok  : K-106: the events that FIT were still allocated (axis 0 got a voice)
+  ok  : K-106: overflow did NOT wedge the FSM (some gate is active)
+  ok  : K-106: event_lost_clr_i clears the sticky flag
+  ok  : K-106: event_lost_clr_i clears the lost count
+  ok  : K-106: sticky can RE-ASSERT after being cleared (not a one-shot lockout)
+  ok  : K-106: lost count SATURATED at 15 (did not wrap to 0)
+  ok  : K-106: sticky is set under massive overflow too
+  ok  : A1 setup: live note_on on the test axis allocated a gated voice
+  ok  : A1: score note_off must NOT clear a live voice on the same axis
+  ok  : A1: live note_off still clears the live voice on the same axis
+  ok  : A2 setup: live note_on allocated a gated voice on axis 9
+  ok  : A2: a replayed (src=1) vel_upd must NOT move the live (src=0) voice
+  ok  : A2: the live (src=0) vel_upd still drives the live voice
+  ok  : A2 setup: replayed note_on allocated a gated voice on axis 10
+  ok  : A2: a replayed (src=1) vel_upd DOES drive its own (src=1) voice
+  ok  : A2: a live (src=0) vel_upd must NOT move the replayed (src=1) voice
+  INFO: release sample-ticks  live(240)=6  replayed(240)=6  start-only(80)=3
+  ok  : A2: the replayed note's release lasts EXACTLY as long as the live note's
+  ok  : A2: the END velocity really drives the tail (start-only is SHORTER)
+  ok  : A3 setup: live note_on on axis 6 allocated a gated voice
+  ok  : A3 setup: the live voice reached sustain before the replay
+  ok  : A3-A: replayed note_on must NOT take over the live voice
+  ok  : A3-A: live and replayed voices COEXIST on the same axis
+  ok  : A3-A: the live voice keeps its velocity (not retriggered)
+  ok  : A3-A: the live voice keeps its phase_inc (not retriggered)
+  ok  : A3-A: the live voice envelope was NOT reset
+  ok  : A3-B: replayed note_off leaves EXACTLY one voice on the axis
+  ok  : A3-B: the surviving voice is the live one (still gated)
+  ok  : A3-B: the replayed voice was the one cleared
+  ok  : A3-B: live note_off still clears the live voice (tag intact)
+  ok  : A3-C setup: live note_on on axis 6 allocated a gated voice
+  INFO: A3-C fills=31 alloc-ok=31 gated=32 free(live_mask=0)=0 / 32
+  ok  : A3-C setup: the voice pool is COMPLETELY full (no free voice left)
+  ok  : A3-C setup: the live voice is the OLDEST (age > 0, fills are age 0)
+  ok  : A3-C: the replayed note_on still allocated (via preemption)
+  ok  : A3-C: the preemption victim is NOT the live voice on that axis
+  ok  : A3-C: the live voice survives with its OWN velocity (not re-tagged)
+  ok  : K-169 setup: voice live in release tail (gate=0, active=1)
+  ok  : K-169 setup: phase != seed before re-press (non-vacuous)
+  ok  : K-169 setup: the fresh voice is voice0 (probe lane matches)
+  INFO: K-169 phase before re-press = 40505000, after = 40000000
+  ok  : K-169: re-press in release tail reloads the phase seed
+PASS: note_manager acceptance (T54) - all judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3b\tb_note_manager.sv:1422: $finish called at 5292080000 (1ps)

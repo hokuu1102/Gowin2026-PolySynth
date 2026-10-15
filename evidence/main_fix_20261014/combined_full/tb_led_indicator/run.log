@@ -1,0 +1,59 @@
+=== (0) èŠ‚æ‹å™¨ï¼šå¼€ä½†æ— æ‹ç‚¹ ===
+  ok  : (0b) metro on, no beat yet =ÿÿÿ­ [led1] = 000000
+  ok  : (0b) metro on, no beat yet ÿÿÿ­ (fast) [led1] = 000000
+=== (1) éŸ³è‰² 4 æ¡£ï¼ˆled0ï¼‰===
+  ok  : (1a) timbre 0 [led0] = ffffff
+  ok  : (1b) timbre 1 [led0] = 00ffff
+  ok  : (1c) timbre 2 [led0] = 8000ff
+  ok  : (1d) timbre 3 [led0] = ff8000
+=== (2) å•è·¯ç‹¬ç«‹æ€§ ===
+  ok  : (2a) timbre 0->1 only moves led0 (only led0 changed -> 00ffff)
+  ok  : (2b) metro beat only moves led1 (only led1 changed -> 00ff00)
+  ok  : (2c) drum on only moves led2 (only led2 changed -> ff0000)
+  ok  : (2d) keydrum only moves led3 (only led3 changed -> 0000ff)
+  ok  : (2e) looper play only moves led4 (only led4 changed -> 00ff00)
+  ok  : (2f) gear 3->1 only moves led5 (only led5 changed -> 00ffff)
+  ok  : (2g) fb_mode 0->1 only moves led6 (only led6 changed -> ff8000)
+=== (3) ä¸ƒè·¯ç»„åˆ ===
+  ok  : (3) combo led0 (timbre 3) [led0] = ff8000
+  ok  : (3) combo led1 (metro beat) [led1] = 00ff00
+  ok  : (3) combo led2 (drum 3) [led2] = ff4000
+  ok  : (3) combo led3 (keydrum) [led3] = 0000ff
+  ok  : (3) combo led4 (loop idle) [led4] = 000030
+  ok  : (3) combo led5 (gear 2) [led5] = ffff00
+  ok  : (3) combo led6 (fretboard) [led6] = ff8000
+=== (4) é¼“æœº ===
+  ok  : (4a) drum off [led2] = 000000
+  ok  : (4b) drum pat 0 [led2] = ff0000
+  ok  : (4c) drum pat 1 [led2] = ff00ff
+  ok  : (4d) drum pat 2 [led2] = ffff00
+  ok  : (4e) drum pat 3 [led2] = ff4000
+=== (5) é”®ç›˜æ‰“é¼“ / æ¨å­ / æ¨¡å¼ ===
+  ok  : (5a) keydrum on [led3] = 0000ff
+  ok  : (5b) keydrum off [led3] = 000000
+  ok  : (5c) gear 0 ÿÿÿÿÿÿƒ [led5] = 8000ff
+  ok  : (5d) gear 1 ÿÿÿ¢ÿÿÿ³ [led5] = 00ffff
+  ok  : (5e) gear 2 ÿÿÿ‘ÿÿÿŠÿÿÿ„ÿÿ™) [led5] = ffff00
+  ok  : (5f) gear 3 =ÿÿÿ ÿÿÿ’ÿÿÿ­ [led5] = 000000
+  ok  : (5gÿÿÿŒÿÿÿ¿ÿÿÿåÿ =ÿÿÿ™ [led6] = ff8000
+  ok  : (5hÿÿÿ”ÿÿÿ˜ÿÿÿåÿ =ÿÿÿ¿ [led6] = 00ff00
+=== (6) èŠ‚æ‹å™¨ ===
+  ok  : (6a) metro off =ÿÿÿ­ [led1] = 000000
+  ok  : (6c) beat =ÿÿÿ¿ÿÿÿçÿÿÿÿÿÿ‰ [led1] = 00ff00
+  ok  : (6c) beatÿÿÿçÿÿÿ¼ÿÿÿ‹ÿÿ³, fasÿÿÿ‰ [led1] = 00ff00
+  info: ç”Ÿäº§é»˜è®¤ FLASH_CYC = 5000000 æ‹ï¼ˆ= 100 ms @50 MHzï¼‰
+  info: beat-flash length  fast=20000 (want 20000);  prod still lit after 500000
+  ok  : (6dÿÿÿ‹ÿÿÿ¹ÿÿÿæÿÿÿ•¿ == FLASH_Cÿÿÿ¼ÿÿÿ‚ÿÿÿåÿÿÿ®ÿÿÿ‹ÿÿÿçÿÿÿ¡ÿÿÿ‰
+  ok  : (6ÿÿÿçÿÿÿºÿÿÿÿÿÿèÿÿÿº† 500 k ÿÿÿäÿÿÿ„ÿÿÿ®ÿÿÿ’ÿÿÿ˜ÿÿÿæÿÿÿ¼ÿÿÿ¯ÿÿÿéÿÿÿšÿÿÿ‘
+  ok  : (6f)ÿÿÿ¤ÿÿÿåÿÿÿ•ÿÿÿ–ÿÿÿäÿÿÿ·ÿÿÿ­ÿÿˆprod ÿÿ fastÿÿÿÿÿÿæÿÿÿâÿÿÿåÿÿÿ•ÿÿÿŸÿÿÿçÿÿÿ•ÿÿÿ‰
+=== (7) looper ===
+  ok  : (7a) loopÿÿÿçÿÿÿ—² = ÿÿÿèÿÿÿ¸ÿÿÿ® [led4] = 000030
+  ok  : (7b) loopeÿÿÿ›ÿÿÿ¾ÿÿÿçÿÿÿ¸ÿÿÿ® [led4] = 00ff00
+  info: rec blink: edges=8 on=4096/8192 iv=[1024..1024] (want 1024) other_col=0
+  ok  : (7ÿÿÿåÿÿÿŸ³ = ÿÿÿãÿÿÿ¿ÿÿÿªÿÿÿïÿÿÿ­ÿÿÿ›ÿÿÿ»ÿÿÿåÿÿÿ²ÿÿÿ´ÿÿÿæÿ’ == 2^FAST_DIV
+  ok  : (7d)ÿÿÿ«ÿÿÿåÿÿÿ©ÿÿÿ”ÿÿÿˆ 50%
+  ok  : (7eÿÿÿ½ÿÿÿ³ÿÿÿåÿÿÿœÿÿÿº¢ / ÿÿ­ ÿÿÿçÿÿÿ¢ÿÿÿ²ÿÿÿâÿÿÿäÿÿÿ¸ÿÿÿ«ÿÿÿéÿÿÿ‰ÿÿÿ‰
+  ok  : (7ÿÿÿåÿÿÿŸÿÿÿ¶ÿÿÿçÿÿÿ®ÿÿÿ¨ÿÿÿãÿÿÿ¼ÿÿÿ”ÿÿÿÿÿÿåÿÿÿºÿÿÿ‰
+  ok  : (8) no X/Z on led_col_o after reset (Aÿÿÿäÿÿÿ¸ÿÿÿÿÿ‹)
+PASS: led_indicator -- 7 è·¯è¯­ä¹‰ + å…±äº«å¿«é—ª + æ‹ç‚¹é—ª + å‚æ•°åŒ–é—ªçƒå…¨éƒ¨æˆç«‹
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3a\tb_led_indicator.sv:388: $finish called at 10566240000 (1ps)

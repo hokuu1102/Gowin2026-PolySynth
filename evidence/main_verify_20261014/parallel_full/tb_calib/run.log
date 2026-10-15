@@ -1,0 +1,17 @@
+VCD info: dumpfile build/sim/calib/tb_calib.vcd opened for output.
+ok : default: out CLAMPED to MAX_TRAVEL when raw exceeds travel (K-153)
+ok : tare: out = raw - zero = 500 - 100 = 400
+ok : span: divider finished (busy==0)
+ok : span: calibrated full-scale converges to 4095
+ok : err: span code <= zero code is rejected
+ok : underflow: raw < zero -> out clamped to 0
+ok : median: an ISOLATED spike is REJECTED (median DUT keeps 100)
+ok : plain: the SAME spike is NOT rejected (clamps to MAX_TRAVEL) -- the counter-example that keeps the median check non-vacuous
+ok : median: a GENUINE move still gets through (out -> 600, the spike does not linger)
+ok : A8: no X/Z on out_val
+ok : A8: no X/Z on med_out_val
+ok : P2-24a (setup) the latched sample is non-zero (else 24c is vacuous)
+ok : P2-24b valid=0 => out_valid is 0 (the output is gated)
+ok : P2-24c valid=0 => the multiplier did NOT run (out_val HOLDS)
+PASS: calib T13 all 14 checks ok
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\drivers\tb_calib.sv:315: $finish called at 1870000 (1ps)

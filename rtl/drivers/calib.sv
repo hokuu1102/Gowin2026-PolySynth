@@ -101,8 +101,8 @@ module calib #(
     //   📌 与本项目既有惯用法一致：⭐ `looper` / `note_manager` / `event_extract` /
     //      `evt_merge` / `seq_arb` / `uart_tx_fifo` **全部**用"复位水位 + 读侧判非空"。
     //
-    //   🔴 **纪律（⭐ 必须遵守）**：⭐ 改完之后 `zero_r`/`gain_r`/`span_r`
-    //      **只允许通过下面四个 `*_rd`/`*_cc` 组合线被读**（⛔ 不许在别处直读数组）
+    // Read discipline: zero/gain/span reads must pass their validity bitmap.
+    // This includes the qualified per-channel upper bounds below.
     //      —— ⚠️ 否则水位闸被绕过 ⇒ 缺陷重现。
     // ═══════════════════════════════════════════════════════════════════════
     //   ⭐⭐ **2026-09-30 实测踩坑（⭐ `tb_calib` 2 条 FAIL 的真因）**：
@@ -123,7 +123,7 @@ module calib #(
     reg [NCH-1:0] gain_vld;      // ⭐ 该通道增益是否已知
     reg [NCH-1:0] span_vld;      // ⭐ 该通道行程码是否已标定
 
-    // ⭐ 四个**唯一允许**的读入口（⭐ 未标定 ⇒ 退回与 `initial` 相同的默认值）
+    // Qualified selected-channel read entrances. Uncalibrated entries use defaults.
     //   ⚠️ 用**输入端口 `ch`/`cal_ch`** ⇒ ⭐ 在模块开头就可用，⛔ 不受声明顺序约束 ✅
     wire [DW:0]   zero_rd = zero_vld[ch]     ? zero_r[ch]     : {(DW+1){1'b0}};
     wire [GW-1:0] gain_rd = gain_vld[ch]     ? gain_r[ch]     : (1 << 8);
@@ -345,7 +345,22 @@ module calib #(
     localparam [DW:0] MAXT = MAX_TRAVEL;
     wire [DW:0] dlim = ((span_rd != {(DW+1){1'b0}}) && (span_rd < MAXT))
                      ? span_rd : MAXT;
-    wire [DW:0] dclamp = (dcode > dlim) ? dlim : dcode;
+    // For unsigned ADC codes, clamp(raw-zero,0,limit) is equally:
+    // raw<zero ? 0 : raw>zero+limit ? limit : raw-zero.
+    // Precompute each channel's widened upper threshold independently of ch,
+    // in parallel with the selected subtract, rather than serializing the
+    // channel mux -> subtract -> clamp comparison -> multiplier chain.
+    // No state, extra sample cycle, or calibration command timing is added.
+    wire [DW+1:0] upper_by_channel [0:NCH-1];
+    genvar ui;
+    generate for (ui=0;ui<NCH;ui=ui+1) begin : g_upper_threshold
+        wire [DW:0] z = zero_vld[ui] ? zero_r[ui] : {(DW+1){1'b0}};
+        wire [DW:0] s = span_vld[ui] ? span_r[ui] : {(DW+1){1'b0}};
+        wire [DW:0] limit_code = ((s != {(DW+1){1'b0}}) && (s < MAXT)) ? s : MAXT;
+        assign upper_by_channel[ui] = {1'b0,z} + {1'b0,limit_code};
+    end endgenerate
+    wire [DW+1:0] upper_rd = upper_by_channel[ch];
+    wire [DW:0] dclamp = ({2'b0,raw_f} > upper_rd) ? dlim : dcode;
 
     always @(posedge clk) begin
         if (!rst_n) begin

@@ -1,0 +1,10 @@
+{
+  "Source": "9d30dd3",
+  "Archive": "C:/Users/cyx/Desktop/学习/hdmi_640x480/bitstreams/AW_main_9d30dd3_HOLD_GATE_FAIL_KNOWN_BUGS_UNVERIFIED_20261014.fs",
+  "SHA256": "EB963F9C96D2C8F27323889735C038CDB3A1E0D3793CE3A0B59E01F298924EEB",
+  "Length": 19912631,
+  "Board": "NOT_RUN",
+  "HoldMargin50psGate": "FAIL",
+  "FunctionalKnownBugs": "SLIDE_REPRODUCED",
+  "Release": "NOT_ACCEPTED"
+}

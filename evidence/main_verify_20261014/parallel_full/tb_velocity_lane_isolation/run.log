@@ -1,0 +1,2 @@
+PASS: TDM lanes use their own velocity blend coefficient
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\w3b\tb_velocity_lane_isolation.sv:59: $finish called at 201000 (1ps)

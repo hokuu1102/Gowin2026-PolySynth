@@ -1,0 +1,15 @@
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=300)
+=== tb_span_retry_reemits_axis（守 K-132）===
+⭐ 给【抖动】读数 ⇒ 必定反复超时重试
+⭐ 判据：⭐ 每次进 S_PROMPT 都必须产生一次 need_press 上升沿
+        （⭐ 即 ev_need_cnt 必须 ≈ prompt_entries，⛔ 不是 1）
+
+--------------------------------------------------
+  进 S_PROMPT 次数        = 9
+  ev_need 次数（= 回轴号） = 9
+  reject 次数              = 9
+--------------------------------------------------
+ok  : 每次重试都重新发了轴号（9 次 / 9 次进 PROMPT）
+==================================================
+PASS: 重试时轴号会重新回发（K-132 已修）
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3a\tb_span_retry_reemits_axis.sv:145: $finish called at 120240000 (1ps)

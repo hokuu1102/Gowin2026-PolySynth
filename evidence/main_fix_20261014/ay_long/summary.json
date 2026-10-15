@@ -1,0 +1,58 @@
+{
+  "source": "c47edc714cf5e6ddade404ce5af0a3612b0c4f61",
+  "discovered": 175,
+  "selected": 4,
+  "pass_count": 3,
+  "expected_negative_count": 0,
+  "accepted_count": 3,
+  "fail_count": 1,
+  "skipped": [
+    "tb_at_merge_known_bugs",
+    "tb_export_key_wav",
+    "tb_export_wav"
+  ],
+  "snapshot_blobs_verified": 276,
+  "timeout_override_sec": 7200,
+  "results": [
+    {
+      "name": "tb_e2e_key_to_sound",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 900,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1120.609
+    },
+    {
+      "name": "tb_looper_replay_tail",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 160.594
+    },
+    {
+      "name": "tb_top_sound",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "RUN_FAIL",
+      "original_timeout_sec": 900,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": false,
+      "elapsed_sec": 1.343
+    },
+    {
+      "name": "tb_transpose",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 300,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 524.187
+    }
+  ]
+}

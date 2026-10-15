@@ -2,34 +2,6 @@
 // T15 semantic controller.  It deliberately owns the distinction between
 // selection events and playing events so downstream voice allocation receives
 // one unambiguous note_on/note_off/pluck stream.
-//
-// ═══════════════════════════════════════════════════════════════════════════
-// ⭐⭐ 2026-10-14：⭐ **指板模式重写成【多轴独立跟踪】** ✅
-//
-//   🔴 **原实现的三个 bug 同一个根因**：⭐ `gate_axis` / `selected_axis` 都是**单个**轴号
-//      · ⭐ 交替拨弦时，⭐ 新拨弦**覆盖** `gate_axis` ⇒ 🔴 旧音收不到 OFF ⇒ **挂音**
-//      · ⭐ `selected_axis` 也是单个 ⇒ ⭐ 换品时旧轴被挤掉
-//        ⇒ 🔴 **"第二个音出不来"、滑音失效**
-//      · ⭐ `evt_valid_o` 单周期只能发一个事件
-//        ⇒ ⚠️ "新拨弦"与"旧松键"同拍时 OFF 被挤掉
-//
-//   ✅ **新语义（⭐ 用户拍板）**：
-//        ① ⭐ **上升沿触发**（⭐ 拨弦只认沿到来的那一拍）
-//        ② ⭐ **超过阈值就一直保持可触发** ⇒ ⭐ 触发对象 = 【当前所有已超阈的轴】
-//           （⭐ 一根手指按住不放，⭐ 之后每次拨弦都会再触发它）
-//        ③ ⭐ **每轴独立一位** ⇒ ⭐ **多轴同时响 = 真复音**
-//        ④ ⭐ **单轴松开 ⇒ 放掉该轴**（⭐ 并兼容 P0-22 ① 的"选中的那个"）
-//
-//   ⭐⭐ **零回归设计（⭐ 本改动的生死线 ✅）**：
-//      · ⭐ **键盘分支在最前面** ⇒ ⭐ 转发行为逐位不变
-//      · ⭐ **P0-22 ①（滑品后松手）**：⭐ 原判据期望 `OFF axis=6`
-//        ⚠️ 新逻辑下：⭐ `pluck(6)` ⇒ `sounding=6`；⭐ `ON(9)` ⇒ `held|=9`；
-//                      ⭐ `OFF(9)` ⇒ 若只放 `sounding[9]`（为 0）⇒ ⛔ 不发 OFF ⇒ 🔴 会红！
-//        ✅ 所以：⭐ **松轴时除该轴外，还要放掉"当前选中轴"正在响的那个**
-//           ⇒ ⭐ 精确复刻原 `(axis_i == gate_axis) || (axis_i == selected_axis)` 的双条件 ✅
-//      · ⭐ **P0-22 ②（键盘→指板后松键）**：⭐ 键盘分支现在也写 `sounding_mask`
-//        ⇒ ⭐ 切到指板后松键，⭐ `sounding[axis_i]` 仍真 ⇒ 发 OFF ✅
-// ═══════════════════════════════════════════════════════════════════════════
 `default_nettype none
 
 module play_mode_ctrl #(
@@ -45,189 +17,204 @@ module play_mode_ctrl #(
     input  wire [1:0]             axis_kind_i,      // 0=on, 1=off
     input  wire [DEPTH_W-1:0]     axis_depth_i,
     input  wire                   pluck_valid_i,
-    input  wire                   pluck_up_i,       // ⚠️ 方向：⭐ 端口保留（⭐ 下游暂不用 ✅）
+    input  wire                   pluck_up_i,       // direction retained at capture seam
+    input  wire                   slide_active_i,
+    input  wire [AXIS_W-1:0]       slide_axis_i,
 
     output reg                    evt_valid_o,
-    output reg  [AXIS_W-1:0]     evt_axis_o,
-    output reg  [1:0]            evt_kind_o,       // 0=on, 1=off, 2=pluck
-    output reg  [DEPTH_W-1:0]    evt_depth_o
+    output reg  [AXIS_W-1:0]      evt_axis_o,
+    output reg  [1:0]             evt_kind_o,       // 0=on, 1=off, 2=pluck
+    output reg  [DEPTH_W-1:0]     evt_depth_o
 );
     localparam [1:0] KIND_ON    = 2'd0;
     localparam [1:0] KIND_OFF   = 2'd1;
     localparam [1:0] KIND_PLUCK = 2'd2;
 
-    localparam integer AXIS_N = (1 << AXIS_W);
-
-    // ═══════════════════════════════════════════════════════════════════════
-    //  ⭐ 状态（⭐ 全部【位图】，⛔ 不再是单个轴号 ✅）
-    // ═══════════════════════════════════════════════════════════════════════
-    reg [AXIS_N-1:0] held_mask;        // ⭐ 1 = 该轴【正按住】（⭐ 超过阈值）
-    reg [AXIS_N-1:0] sounding_mask;    // ⭐ 1 = 该轴【已拨响、未放掉】
-    //  ⭐ `plucked_mask` / `rot_q` 在下方"组合辅助"段声明 ✅
-
-    // ⭐ 兼容保留：⭐ `selected_*`（⭐ 键盘分支 + P0-22 ① 需要 ✅）
-    reg              selected_valid;
-    reg [AXIS_W-1:0] selected_axis;
-    reg [DEPTH_W-1:0] selected_depth;
-
-    // ═══════════════════════════════════════════════════════════════════════
-    //  ⭐ 组合辅助：⭐ **环形扫描（⭐ 从上次之后开始，⭐ 扫完一圈回起点）** ⭐
-    //     🔴 **两个实测踩出来的坑（⭐ 都记下来）**：
-    //        ① ⭐ 用 `plucked_mask` 轮转 ⇒ 🔴 非阻塞更新，⭐ 单拍拨弦下下一拍就清了
-    //           ⇒ 🔴 **永远选同一个轴**（⭐ "第二个音出不来" ✅）
-    //        ② ⭐ 用"低位掩码相减"造 `>= rot_q` 的掩码
-    //           ⇒ 🔴 **iverilog 语法报错**（⭐ 位宽/类型混算 ✅）⇒ ⛔ 这条路不通
-    //     ✅ **最终实现**：⭐ **直接 for 环形扫描**（⭐ 从 `rot_q` 起走 `AXIS_N` 步 ✅）
-    //        · ⭐ 找到的第一个置位 = **要拨的轴**
-    //        · ⭐ 若 `rot_q` 之后没有 ⇒ ⭐ 扫描自然绕回 `0` ⇒ ⭐ **单轴也能重复触发** ✅
-    //     📌 ⭐ 代价：⭐ 16 步比较链（⭐ 组合深度 16）
-    //        ⚠️ 但本模块在 `evt_merge` **之前**、⭐ 每拍最多用一次
-    //        ⇒ ⭐ Fmax 61 MHz 下绰绰有余（⭐ 且 PnR 有 P0-25/时序门兜底 ✅）
-    // ═══════════════════════════════════════════════════════════════════════
-    reg [AXIS_W-1:0] rot_q;            // ⭐ 轮转指针 = 上次拨的轴 + 1（⭐ 环形扫描起点 ✅）
-
-    reg              pluck_found;
-    reg  [AXIS_W-1:0] pluck_axis;
-    integer          si;
-    reg  [AXIS_W-1:0] scan_idx;
+    reg                  selected_valid;
+    reg [AXIS_W-1:0]     selected_axis;
+    reg [DEPTH_W-1:0]    selected_depth;
+    reg                  gate_valid;
+    reg [AXIS_W-1:0]     gate_axis;
+    localparam integer AXIS_COUNT = (1 << AXIS_W);
+    reg [AXIS_COUNT-1:0] keyboard_held;
+    reg [AXIS_COUNT-1:0] held_mask;
+    reg [DEPTH_W-1:0] axis_depth [0:AXIS_COUNT-1];
+    reg [AXIS_W-1:0] rot_q;
+    reg pending_pluck;
+    reg pluck_found;
+    reg [AXIS_W-1:0] pluck_axis, scan_axis;
+    integer si, ri;
     always @(*) begin
         pluck_found = 1'b0;
-        pluck_axis  = {AXIS_W{1'b0}};
-        for (si = 0; si < AXIS_N; si = si + 1) begin
-            scan_idx = (rot_q + si[AXIS_W-1:0]);
-            if (scan_idx[AXIS_W-1:0] >= AXIS_N) scan_idx = scan_idx - AXIS_N[AXIS_W-1:0];
-            if (!pluck_found && held_mask[scan_idx[AXIS_W-1:0]]) begin
+        pluck_axis = 0;
+        scan_axis = 0;
+        for (si=0; si<AXIS_COUNT; si=si+1) begin
+            scan_axis = rot_q + si[AXIS_W-1:0];
+            if (!pluck_found && held_mask[scan_axis]) begin
                 pluck_found = 1'b1;
-                pluck_axis  = scan_idx[AXIS_W-1:0];
+                pluck_axis = scan_axis;
             end
         end
     end
-    wire pluck_more = pluck_found;    // ⭐ 有按住的轴就能拨 ✅
-
-    //  ⭐⭐ 2026-10-14：⭐ **`pluck_d`/`pluck_end` 已删除** ✅
-    //     🔴 **原意图**：⭐ 想在 `pluck_valid_i` 下降沿清 `plucked_mask`
-    //     ⚠️ **删因（两条）**：
-    //        · ⭐ `plucked_mask` 已被 `rot_q`（轮转指针）取代 ⇒ ⭐ 不再需要沿检测
-    //        · 🔴 而且它在**独立的 always 块**里写 `pluck_d`，⭐ 主 always 的复位
-    //          也写了 `pluck_d <= 1'b0` ⇒ 🔴 **多驱动 ⇒ 综合报 `EX2000`** ✅
-    //     📌 ⭐ 教训：⭐ **同一个 reg ⛔ 只能有一个 always 块写**
-    //        （⭐ iverilog 容忍、综合不容忍 —— 本项目 §四之二 那条纪律 ✅）
-    wire pluck_end = 1'b0;      // ⭐ 兼容保留（⭐ 现在无人使用 ⇒ 综合会扫掉 ✅）
-
-    // ═══════════════════════════════════════════════════════════════════════
-    //  ⭐ 松轴时要放掉的轴集合
-    //     📌 **原实现的判据**：`gate_valid && ((axis_i == gate_axis) || (axis_i == selected_axis))`
-    //        且 `evt_axis_o <= gate_axis`（⭐ 发"正在响"的那个 ✅）
-    //     ⚠️ **原实现为什么 P0-22 ① 能过**：
-    //        · ⭐ `gate_axis` **只在拨弦时更新** ⇒ ③`ON(9)` 不改它 ⇒ 仍是 6
-    //        · ⭐ ④`OFF(9)` 时 `selected_axis` 已被改成 9
-    //          ⇒ 判据靠 `axis_i(9) == selected_axis(9)` 成立 ⇒ 发 OFF，⭐ 且发 `gate_axis`=6 ✅
-    //     🔴 **我第二版为什么红**：⭐ 我改成 `off_hit = sounding & (1<<axis_i | 1<<selected_axis)`
-    //        ⇒ ⚠️ `selected_axis` 已被 `ON(9)` 改成 9 ⇒ 两个掩码都是 bit9
-    //        ⇒ ⭐ `sounding` 只有 bit6 ⇒ `off_hit = 0` ⇒ 🔴 一个 OFF 都不发 ✅
-    //     ✅ **最终语义（⭐ 更简单也更对）**：
-    //        ⭐ **松任意一个轴 ⇒ 放掉"当前正在响的那一个"**
-    //        理由：⭐ 真实吉他上"抬手指"就是止音
-    //        ⚠️ **多轴同时按住时会误放吗**：⭐ 会 —— 抬 A 会把 B 也放掉。
-    //           🔴 **但这是可接受的折衷**，理由：
-    //             · ⭐ `note_manager` 对同轴重触发有 `same_hit` 纪律 ⇒ ⛔ 不会双重起音
-    //             · ⭐ 若要做"每根手指独立止音" ⇒ ⭐ 需先重谈 P0-22 ① 契约，⛔ 不能偷偷改
-    //        ✅ **所以取舍**：⭐ **保留 P0-22 ① 既有契约（⛔ 不许回归）**，
-    //           采用"松任意轴 ⇒ 放掉当前正在响的那个"
-    //           📌 代价：⭐ 多轴同时响时，⭐ 抬任一根会把正在响的那个放掉
-    //           ⭐ 收益：⛔ **零回归** ＋ ✅ **消挂音**（M4）
-    // ═══════════════════════════════════════════════════════════════════════
-    wire [AXIS_N-1:0] off_hit = sounding_mask;    // ⭐ 放掉"正在响的"那个轴
-    wire              off_more = (off_hit != {AXIS_N{1'b0}});
-    reg  [AXIS_W-1:0] off_axis;
-    integer           oi;
-    always @(*) begin
-        off_axis = {AXIS_W{1'b0}};
-        for (oi = AXIS_N-1; oi >= 0; oi = oi - 1)
-            if (off_hit[oi]) off_axis = oi[AXIS_W-1:0];
-    end
+    reg deferred_off;
+    reg [AXIS_W-1:0] deferred_axis;
+    wire slide_holds_gate = (slide_active_i === 1'b1) && (slide_axis_i == gate_axis);
+    wire slide_holds_axis = (slide_active_i === 1'b1) && (slide_axis_i == axis_i);
 
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
-            held_mask      <= {AXIS_N{1'b0}};
-            sounding_mask  <= {AXIS_N{1'b0}};
-            rot_q          <= {AXIS_W{1'b0}};      // ⭐ 轮转指针归零 ✅
             selected_valid <= 1'b0;
             selected_axis  <= {AXIS_W{1'b0}};
             selected_depth <= {DEPTH_W{1'b0}};
+            gate_valid     <= 1'b0;
+            gate_axis      <= {AXIS_W{1'b0}};
+            keyboard_held  <= {AXIS_COUNT{1'b0}};
+            held_mask <= 0;
+            rot_q <= 0;
+            pending_pluck <= 0;
+            for (ri=0; ri<AXIS_COUNT; ri=ri+1) axis_depth[ri] <= 0;
+            deferred_off <= 1'b0;
+            deferred_axis <= {AXIS_W{1'b0}};
             evt_valid_o    <= 1'b0;
             evt_axis_o     <= {AXIS_W{1'b0}};
             evt_kind_o     <= KIND_ON;
             evt_depth_o    <= {DEPTH_W{1'b0}};
         end else begin
             evt_valid_o <= 1'b0;
+            // Physical keys and sounding voices are independent.
+            if (axis_valid_i && axis_kind_i == KIND_ON) begin
+                held_mask[axis_i] <= 1'b1;
+                axis_depth[axis_i] <= axis_depth_i;
+            end else if (axis_valid_i && axis_kind_i == KIND_OFF)
+                held_mask[axis_i] <= 1'b0;
+            // Save a one-cycle pluck when an axis event occupies the output.
+            if (!fretboard_mode_i) pending_pluck <= 1'b0;
+            else if (pluck_valid_i && axis_valid_i) pending_pluck <= 1'b1;
 
-            // ═════════════════════════════════════════════════════════════
-            //  ⭐ 键盘模式（⭐ 在最前面 ⇒ 优先转发 ⇒ 行为逐位不变 ✅）
-            // ═════════════════════════════════════════════════════════════
-            if (!fretboard_mode_i) begin
+            // A re-pressed owner withdraws its deferred release. A quiet cycle
+            // drains an ended session without dropping simultaneous axis/pluck
+            // input. Production scans have a bounded idle gap each snapshot.
+            if (axis_valid_i && axis_kind_i == KIND_ON && axis_i == deferred_axis)
+                deferred_off <= 1'b0;
+
+            if (deferred_off && !((slide_active_i === 1'b1) && slide_axis_i == deferred_axis)
+                             && !axis_valid_i && !pluck_valid_i) begin
+                evt_valid_o <= 1'b1;
+                evt_axis_o <= deferred_axis; evt_kind_o <= KIND_OFF;
+                evt_depth_o <= {DEPTH_W{1'b0}};
+                keyboard_held[deferred_axis] <= 1'b0;
+                deferred_off <= 1'b0;
+                if (gate_axis == deferred_axis) gate_valid <= 1'b0;
+            end else if (!fretboard_mode_i) begin
+                // Keyboard: threshold crossing and release are directly musical.
                 if (axis_valid_i) begin
                     evt_valid_o <= 1'b1;
                     evt_axis_o  <= axis_i;
                     evt_kind_o  <= axis_kind_i;
                     evt_depth_o <= axis_depth_i;
-                    //  ⭐ 维护位图（⭐ 给 P0-22 ② 用：⭐ 切到指板后还能放掉 ✅）
+                    //  ⭐⭐ 2026-10-09（`P0-22`）：⭐ **键盘模式也必须维护"正在响的轴"** ✅
+                    //   🔴 **原缺陷**：⭐ 键盘分支**从不写 `gate_valid`/`gate_axis`**
+                    //      （⭐ 只有拨弦分支 :66-67 写）⇒ ⭐ 键盘模式下 `gate_valid` **恒 0** ✅
+                    //      ⇒ 🔴 而指板模式下 OFF 事件的**唯一出口**是 `gate_valid && (axis_i == gate_axis)`
+                    //      ⇒ ⭐ `gate_valid=0` 时**一个 OFF 都发不出去** ✅
+                    //   🔴 **复现（⭐ 用户实测过的"挂音几分钟不停"）**：
+                    //      · ⭐ 键盘模式按住一个键（⭐ `KIND_ON` ⇒ voice 起音）
+                    //      · ⭐ 切到【指板】模式（⭐ `fretboard_mode_i=1`，⭐ 它是**运行期信号**：
+                    //        `top.v` 的 `play_fretboard_mode = ~ui_mode_piano`
+                    //        ⇒ 串口 `'A'` / 屏触摸控件 0 都能随时翻转 ⇒ ⛔ 不是编译期常量）
+                    //        ⚠️ **2026-10-13 更正**：本行原写 *"切到 PIANO（`fretboard_mode_i=1`）"*
+                    //           —— 🔴 **两处都错**：
+                    //           ① ⭐ 极性反了：`fretboard_mode_i=1` 是**指板**，⛔ 不是 PIANO
+                    //              （⭐ 端口注释就是 `0=keyboard, 1=fretboard` ✅）
+                    //           ② ⭐ `BASS→GUITAR→PIANO→PAD` 是**音色循环**（`'I'`），
+                    //              与**演奏模式**是两回事 —— ⚠️ 原文把两者混了 ✅
+                    //        📌 挂音的机理不受影响：⭐ 关键是"键盘模式起音、切到指板后松键"
+                    //           ⇒ ⭐ 指板分支要 `selected_axis`，⭐ 而键盘模式从没写过它 ✅
+                    //      · ⭐ 松键 ⇒ ⭐ 指板分支走 `else if (axis_valid_i)`（⭐ `pluck_valid_i` 为 0）
+                    //        ⇒ `axis_i == selected_axis` **不成立**（⭐ 键盘模式从没写过 `selected_axis`）
+                    //        ⇒ `gate_valid(0) && …` 为假 ⇒ 🔴 `evt_valid_o` **一拍都不抬**
+                    //        ⇒ ⭐ **下游永远收不到 `note_off` ⇒ 挂音** ✅
+                    //   ✅ **修法**：⭐ 键盘模式按 `KIND_ON`/`KIND_OFF` 维护 `gate_valid`/`gate_axis`
+                    //      ⇒ ⭐ 切到指板模式后，那个音**仍能被放掉** ✅
+                    //   📌 **零回归**：⭐ 键盘分支在 `if/else if` 链**最前面**，⭐ 仍优先转发
+                    //      ⇒ ⭐ 键盘模式的行为**完全不变**（⭐ 只是多了两个寄存器的影子状态）✅
                     if (axis_kind_i == KIND_ON) begin
-                        held_mask     <= held_mask     | ({{(AXIS_N-1){1'b0}}, 1'b1} << axis_i);
-                        sounding_mask <= sounding_mask | ({{(AXIS_N-1){1'b0}}, 1'b1} << axis_i);
-                        selected_axis <= axis_i;
-                        selected_depth<= axis_depth_i;
-                    end else begin
-                        held_mask     <= held_mask     & ~({{(AXIS_N-1){1'b0}}, 1'b1} << axis_i);
-                        sounding_mask <= sounding_mask & ~({{(AXIS_N-1){1'b0}}, 1'b1} << axis_i);
+                        keyboard_held[axis_i] <= 1'b1;
+                        gate_valid <= 1'b1;
+                        gate_axis  <= axis_i;
+                    end else if (axis_kind_i == KIND_OFF) begin
+                        keyboard_held[axis_i] <= 1'b0;
+                        if (deferred_axis == axis_i) deferred_off <= 1'b0;
+                        //  ⭐ 只在"放掉的正是正在响的那个"时清 ✅
+                        if (axis_i == gate_axis) gate_valid <= 1'b0;
                     end
                 end
-            end
-            // ═════════════════════════════════════════════════════════════
-            //  ⭐ 指板模式 —— 【多轴复音】
-            //     ⚠️⚠️ **分支顺序是生死线（⭐ 本轮实测踩到 ✅）**：
-            //        🔴 我第一版把 `!pluck_valid_i`（清 `plucked_mask`）放在
-            //           `axis_valid_i` 【前面】 ⇒ ⚠️ 稳态下 `pluck_valid_i` 恒 0
-            //           ⇒ `!pluck_valid_i` **恒真** ⇒ 🔴 `axis_valid_i` 分支
-            //           **永远是死代码** ⇒ 指板模式完全不响 ✅
-            //     ✅ 正确顺序：⭐ **轴事件优先**（⭐ 它与拨弦同样重要）⇒
-            //        ⭐ 拨弦只在"本拍没有轴事件"时才发
-            //        ⚠️ 代价：⭐ 若同拍来"拨弦 + 松轴"⇒ ⭐ 本拍发 OFF、⛔ 拨弦被推迟
-            //           ⇒ ⭐ 但**不会丢**（⭐ 拨弦沿持续一拍，⛔ 不是电平 ✅）
-            // ═════════════════════════════════════════════════════════════
-            //  ① 轴事件（选品 / 松开）—— ⭐ 优先
-            else if (axis_valid_i) begin
+            end else if (!axis_valid_i && (pluck_valid_i || pending_pluck) && pluck_found) begin
+                // Fretboard: a pluck is the musical trigger. Direction has
+                // already been resolved by async_pluck_capture (UP priority).
+                evt_valid_o <= 1'b1;
+                evt_axis_o  <= pluck_axis;
+                evt_kind_o  <= KIND_PLUCK;
+                evt_depth_o <= axis_depth[pluck_axis];
+                gate_valid  <= 1'b1;
+                gate_axis   <= pluck_axis;
+                rot_q <= pluck_axis + 1'b1;
+                pending_pluck <= 1'b0;
+                // Track every live hand-play axis, including successive plucks.
+                keyboard_held[pluck_axis] <= 1'b1;
+            end else if (axis_valid_i) begin
                 if (axis_kind_i == KIND_ON) begin
-                    held_mask     <= held_mask | ({{(AXIS_N-1){1'b0}}, 1'b1} << axis_i);
-                    selected_valid<= 1'b1;
-                    selected_axis <= axis_i;
-                    selected_depth<= axis_depth_i;
+                    selected_valid <= 1'b1;
+                    selected_axis  <= axis_i;
+                    selected_depth <= axis_depth_i;
                 end else if (axis_kind_i == KIND_OFF) begin
-                    held_mask <= held_mask & ~({{(AXIS_N-1){1'b0}}, 1'b1} << axis_i);
-                    if (axis_i == selected_axis) selected_valid <= 1'b0;
-                    //  ⭐⭐ 放掉"正在响的"（⭐ 该轴 或 当前选中轴 ⇒ 兼容 P0-22 ① ✅）
-                    if (off_more) begin
-                        evt_valid_o   <= 1'b1;
-                        evt_axis_o    <= off_axis;
-                        evt_kind_o    <= KIND_OFF;
-                        evt_depth_o   <= {DEPTH_W{1'b0}};
-                        sounding_mask <= sounding_mask & ~({{(AXIS_N-1){1'b0}}, 1'b1} << off_axis);
+                    if (axis_i == selected_axis)
+                        selected_valid <= 1'b0;
+                    //  ⭐⭐ 2026-10-09（`P0-22`）：⭐ **换品后松键也要能放掉正在响的音** ✅
+                    //   🔴 **原缺陷**：⭐ 原判据只看 `axis_i == gate_axis` ✅
+                    //      ⚠️ 而 `gate_axis` **只在拨弦那一拍锁存**（⭐ 此后只有再次拨弦才更新）
+                    //      ⇒ ⭐ 而 `selected_axis` 会随**每一次 `KIND_ON`** 更新 ✅
+                    //   🔴 **复现（⭐ 吉他上极常见：滑品不重拨）**：
+                    //      · ⭐ `axis_evt(6, ON)` ⇒ `selected_axis=6`
+                    //      · ⭐ `pluck_evt` ⇒ evt `PLUCK axis=6`，⭐ `gate_axis=6`（⭐ voice 起音）
+                    //      · ⭐ `axis_evt(9, ON)` ⇒ ⭐ `selected_axis=9`（⭐ 而 `gate_axis` 仍是 6）
+                    //      · ⭐ `axis_evt(9, OFF)` ⇒ ⭐ `axis_i(9) == selected_axis(9)` ⇒ 清 `selected_valid`
+                    //        ⚠️ 但 `gate_valid(1) && (9 == 6)` = 假 ⇒ 🔴 **不发 OFF**
+                    //        ⇒ ⭐ **步骤②起的音永远不释放 ⇒ 挂音** ✅
+                    //   ✅ **修法（⭐ 两条）**：
+                    //      ① ⭐ 判据加 `|| (axis_i == selected_axis)` —— ⭐ 松开的正是"当前选中的轴"也算 ✅
+                    //      ② ⭐ `evt_axis_o` 改成发 **`gate_axis`**（⭐ 即**正在响的那个轴**）
+                    //         ⚠️ 原来发的是 `axis_i`（⭐ 被松开的轴）⇒ ⭐ 两者不等时会放错音 ✅
+                    //   📌 **零回归证明**：⭐ 既有场景里 `axis_i == gate_axis`（⭐ 都是 6）
+                    //      ⇒ ⭐ `evt_axis_o` 由 `axis_i` 改成 `gate_axis` **得到同一个值** ⇒ 判据不变 ✅
+                    // Every keyboard-origin axis survives a mode change until
+                    // its own OFF is forwarded, not only the last gate_axis.
+                    if (keyboard_held[axis_i] && slide_holds_axis) begin
+                        deferred_off <= 1'b1; deferred_axis <= axis_i;
+                    end else if (keyboard_held[axis_i]) begin
+                        evt_valid_o <= 1'b1;
+                        evt_axis_o <= axis_i;
+                        evt_kind_o <= KIND_OFF;
+                        evt_depth_o <= {DEPTH_W{1'b0}};
+                        keyboard_held[axis_i] <= 1'b0;
+                        if (deferred_axis == axis_i) deferred_off <= 1'b0;
+                        if (axis_i == gate_axis) gate_valid <= 1'b0;
+                    end else if (gate_valid && !slide_holds_gate &&
+                                 ((axis_i == gate_axis) || (axis_i == selected_axis))) begin
+                        evt_valid_o <= 1'b1;
+                        evt_axis_o  <= gate_axis;    // ⭐ 释放【正在响】的那个轴
+                        evt_kind_o  <= KIND_OFF;
+                        evt_depth_o <= {DEPTH_W{1'b0}};
+                        gate_valid  <= 1'b0;
+                        keyboard_held[gate_axis] <= 1'b0;
+                        if (deferred_axis == gate_axis) deferred_off <= 1'b0;
                     end
                 end
+            end else if (!axis_valid_i && pending_pluck && !pluck_found) begin
+                pending_pluck <= 1'b0;
             end
-            //  ② 拨弦 ⇒ 从轮转指针起，触发第一个"已按住"的轴（⭐ 逐次轮转 ✅）
-            else if (pluck_valid_i && pluck_more) begin
-                evt_valid_o   <= 1'b1;
-                evt_axis_o    <= pluck_axis;
-                evt_kind_o    <= KIND_PLUCK;
-                evt_depth_o   <= selected_depth;
-                sounding_mask <= sounding_mask | ({{(AXIS_N-1){1'b0}}, 1'b1} << pluck_axis);
-                rot_q         <= (pluck_axis == (AXIS_N-1)) ? {AXIS_W{1'b0}}
-                                                            : (pluck_axis + 1'b1);  // ⭐ 下次从它后面起 ✅
-                selected_axis <= pluck_axis;
-            end
-            //  ④ 其它（⭐ 稳态）⇒ ⛔ 什么都不做
-            //     📌 ⭐ `rot_q` 已在拨弦那一拍推进 ⇒ ⭐ 稳态无需清任何东西 ✅
         end
     end
 endmodule
+
+`default_nettype wire

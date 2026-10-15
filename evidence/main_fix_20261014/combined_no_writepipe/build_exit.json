@@ -1,0 +1,7 @@
+{
+  "Source": "a529bbd2b9daa935508d55b7963c6e4258f66f55",
+  "Session": 31390,
+  "ObservedExitCode": 0,
+  "BuildCompletedLocal": "2026-10-14 16:33:18 Asia/Shanghai",
+  "Evidence": "write_stdin returned completed exit_code=0; full syn/PnR/bitstream log completed"
+}

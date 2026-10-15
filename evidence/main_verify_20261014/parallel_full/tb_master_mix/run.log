@@ -1,0 +1,19 @@
+VCD info: dumpfile build/sim/tb_master_mix/tb_master_mix.vcd opened for output.
+  ok  : baseline: output is 0 right after reset (mute-safe), even with a huge input
+  ok  : baseline: valid_o still passes through (chain not stalled)
+  ok  : full gain: ramp has settled to the target
+  ok  : full gain: output == input*0x7FFF>>15 (Q1.15 exact scaling, ~0.99997)
+  ok  : half gain: ramp settled
+  ok  : half gain: output == input>>1 (Q1.15 multiply, >>15)
+  ok  : half gain: exact, not approximate
+  ok  : mute: ramp settled to 0
+  ok  : mute: output is 0 at gain=0
+  ok  : ramp: gain fully reset to 0 before the precise up-ramp measurement
+  ok  : ramp: busy right after a gain step (still ramping)
+  ok  : ramp: still busy at 127 ticks (has NOT overshot or stalled)
+  ok  : ramp: settles at ~129 ticks (16384/128 steps + 1 settle cycle)
+  ok  : ramp: output mid-ramp is NOT the full-gain value (no click)
+  ok  : saturation: max positive sample at unity gain stays valid (no wrap)
+  ok  : saturation: min negative sample at unity gain stays valid (no wrap)
+  ok  : valid: valid_o is asserted the SAME cycle as valid_i (no backpressure)
+PASS: master_mix (mute-safe reset / unity passthrough / exact Q1.15 scaling / smooth ramp / saturation / zero-latency valid)

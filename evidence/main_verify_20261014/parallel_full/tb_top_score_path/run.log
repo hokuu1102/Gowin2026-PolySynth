@@ -1,0 +1,45 @@
+NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=1000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [slide_ramp] PARAM_OK=1 (SHIFT=4 EPS=4096)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 交付口径: 基准=64 · OUTPUT_HEADROOM_SH=1 => 单音峰 ≈ 25% FS
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=23 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+=== tb_top_score_path (曲谱链路【顶层】判据) ===
+   play_seq 复位默认 tick_inc = 164927（⭐ 120 BPM = 164927）
+  ok  : 0a tick_inc default is 120 BPM (beat_gen tempo now comes from play_seq)
+== A 未来事件必须被【缓冲】住（tick=1），⛔ 不许立刻发 ==
+  ok  : Aa the event is sitting in u_evt_buf (rd_valid == 1)
+  ok  : Ab play_seq has emitted NOTHING yet (tick has not arrived) <-- the key change
+  ok  : Ac no note yet
+  ok  : Ad no overflow for a single event
+== B/C/D 到点自己出来 + LED 指引点亮 + 缓冲排空 ==
+   info: 等了 16631 拍（⭐ tick=1 @120 BPM ≈ 26041 拍）
+  ok  : Ba play_seq emitted the event once its tick arrived
+  ok  : Bb exactly ONE note was emitted (no duplicate)
+  ok  : Bc the emitted event carries axis 5 (fields survived the whole chain)
+  ok  : Ca guide_lamp lit axis 5 (the LED guide half is ALIVE) <-- the whole point
+  ok  : Cb other axes are NOT lit (one-hot, no crosstalk)
+  ok  : Da u_evt_buf drained after the event was consumed
+== F kind=2 换速：⭐ 真的进了 beat_gen，⭐ 且不产生音符 ==
+  ok  : Fa tick_inc_o now carries the tempo from the kind=2 event
+  ok  : Fb tempo applied exactly once
+  ok  : Fc a kind=2 event produces NO note (count still 1)
+  ok  : Fd it was still counted as consumed
+== G 两条 UART 必须【各归各】：曲谱只认 ESP32 那一路 ==
+  ok  : Ga the BOARD uart must NOT feed the score receiver (frame_cnt unchanged)
+  ok  : Ga2 no score event was consumed from the board uart
+  ok  : Gb the ESP32 uart TX is ALIVE (a start bit appeared) -- not tied to 1
+== H ⭐⭐ 曲谱音高的【量纲】：inc 必须按【采样率】解释 ==
+   info: 曲谱事件的 inc=38697984 ⇒ 按采样率换算 = 439 Hz（⭐ 期望 440）
+  ok  : H1 the score note's phase_inc yields 440 Hz at the SAMPLE rate (not 50 MHz)
+  ok  : H2 non-vacuity: the value must have been SCALED up past the 21-bit wire field
+
+PASS: tb_top_score_path - 20/20 judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\w3b\tb_top_score_path.sv:324: $finish called at 1136930000 (1ps)

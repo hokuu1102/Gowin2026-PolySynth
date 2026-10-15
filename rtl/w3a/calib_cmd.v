@@ -382,7 +382,13 @@ module calib_cmd #(
     wire byte_is_bpm        = (rx_data_i == CMD_BPM);
     //  ⭐⭐ 2026-10-11：⭐ **`'W'` 滑音开关** ✅
     wire byte_is_slide      = (rx_data_i == CMD_SLIDE);
-wire byte_is_mode_sw    = (rx_data_i == CMD_MODE_SW);   // 2026-10-13 'A' 模式翻转
+    wire byte_is_mode_sw    = (rx_data_i == CMD_MODE_SW);   // 2026-10-13 'A' 模式翻转
+    //  📌 ⭐ **2026-10-15 修**：⭐ 本行原来顶格（`lead=0`），⭐ 而邻居全是 4 空格
+    //     ⇒ ⭐ 就是 `上板问题清单-20261013.md` 的 **P6④**（⭐ 那里记的行号 535 已漂到 385）
+    //     ⚠️ **为什么当初没抓到**：⭐ 用 PowerShell 的 `Get-Content` 读**无 BOM 的
+    //        UTF-8 中文 `.v`** 时按 GBK 解码 ⇒ 🔴 **非 ASCII 序列吃掉换行、行被合并**
+    //        （⭐ 项目 `C72` 记的就是这个）⇒ ⚠️ 行号全错、看不出来 ✅
+    //     ✅ **正确读法**：`[IO.File]::ReadAllLines(...)` 或 `read` 工具 ✅
     //  ⭐⭐ 2026-10-14：⭐ **`'O'` 实时上行开关** ✅
     wire byte_is_upstream   = (rx_data_i == CMD_UPSTREAM);
     //  ⭐⭐ 2026-10-14：⭐ **`'U'` 指引模式开关** ✅

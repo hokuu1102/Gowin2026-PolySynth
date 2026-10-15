@@ -1,0 +1,14 @@
+ERROR [clk_gen] 参数必须全为 2 的幂且 BCLK_DIV/MCLK_DIV >= 2、CLK_PER_SAMPLE >= BCLK_DIV：CLK_PER_SAMPLE=1000 BCLK_DIV=12 MCLK_DIV=4（当前实现把 $clog2 当移位量用 ⇒ 非 2 的幂会**静默给错频率**）
+ERROR [clk_gen] CLK_PER_SAMPLE(1000) 不能被 2×BCLK_DIV(24) 整除 ⇒ 左右时隙不等长
+VCD info: dumpfile build/sim/tb_clk_gen_badparam/tb_clk_gen_badparam.vcd opened for output.
+
+================ clk_gen 参数自检（负向）================
+  非法参数实例(1000/12/4) 的 bclk_en 次数 = 258
+  合法参数实例(1024/16/4) 的 bclk_en 次数 = 256
+  ⚠️ 上面若出现 ERROR [clk_gen] 行，那正是**预期结果**
+========================================================
+  ok : 非法参数确实被**静默按 ÷16** 处理（258 次 ≈ 256）—— 证明必须靠 PARAM_OK 告警
+  ok : 合法参数下 bclk_en 次数正常（256 ≈ 256）
+
+PASS: clk_gen 参数自检按预期工作（非法参数会告警；合法参数无告警；两者都不卡死）
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\clk_gen\tb_clk_gen_badparam.sv:104: $finish called at 82091000 (1ps)

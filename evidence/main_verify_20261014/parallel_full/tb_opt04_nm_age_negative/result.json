@@ -1,0 +1,9 @@
+{
+  "name": "tb_opt04_nm_age_negative",
+  "compile_exit": 0,
+  "run_exit": 1,
+  "status": "RUN_FAIL",
+  "timeout_sec": 120,
+  "explicit_pass_verdict": false,
+  "elapsed_sec": 0.781
+}

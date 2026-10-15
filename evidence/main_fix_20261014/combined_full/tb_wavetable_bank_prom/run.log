@@ -1,0 +1,3 @@
+VCD info: dumpfile build/sim/wavetable_prom/tb_wavetable_bank_prom.vcd opened for output.
+PASS: wavetable_bank generated-table build is deterministic
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3b\tb_wavetable_bank_prom.sv:226: $finish called at 220000 (1ps)

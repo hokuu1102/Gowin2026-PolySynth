@@ -1,0 +1,26 @@
+VCD info: dumpfile build/sim/tb_bpm_bar_quant/tb_bpm_bar_quant.vcd opened for output.
+  ok  : reset: pending_o is 0
+  ok  : reset: load_o is 0
+  ok  : non-vacuous: bar_start alone (no set_i) NEVER loads
+  ok  : set_i arms pending_o
+  ok  : 'Q' ALONE does NOT load -- no mid-beat tempo change
+  ok  : bar_start applies EXACTLY ONE load pulse
+  ok  : the applied value is the latched one (140)
+  ok  : the pending flag clears after applying
+  ok  : one-shot: later bars without a new set_i do not re-load
+  ok  : re-arm keeps pending_o set
+  ok  : re-arm alone still does not load
+  ok  : re-arm then bar => exactly ONE load (not two)
+  ok  : the LAST set_i value wins (200)
+  ok  : same-cycle set+bar: set_i wins, NO load on that cycle
+  ok  : same-cycle set+bar: the request is still pending
+  ok  : same-cycle set+bar applies at the NEXT bar_start
+  ok  : the value applied is the same-cycle one (90)
+  ok  : pending is set before the reset test
+  ok  : reset CLEARS pending_o
+  ok  : r reset a bar alone still does not load (pending really cleared)
+  ok  : endpoint 40 BPM survives the round trip
+  ok  : endpoint 240 BPM survives the round trip
+
+PASS: bpm_bar_quant -- a manual change arms only, lands exactly ONCE on the next bar_start with the latched value, is one-shot, is reset-cleared, and bar_start alone is inert
+tb/w3c/tb_bpm_bar_quant.sv:202: $finish called at 1560000 (1ps)

@@ -138,6 +138,19 @@ static uint16_t s_handle_stat = 0;
 static uint16_t s_handle_noti_cccd = 0;
 static volatile bool s_noti_enabled = false;   /* ⭐ 对端已订阅 0xABF2 */
 
+/* ⭐⭐ 2026-10-15：0xABF4(STAT) 的 CCCD 句柄 + "对端是否已订阅 STAT" 标志
+ * ---------------------------------------------------------------------------
+ * 🔴 为什么需要（出处：ESP32侧需求-STAT周期性notify-20261014.md）：
+ *    STAT 原来只能靠客户端 `readValue()` 取 ⇒ ⚠️ 而 ESP32 在灌谱/播放期间
+ *    忙于往 FPGA 转发，读回调得不到及时服务 ⇒ 🔴 读挂住 ⇒ 而 Web Bluetooth
+ *    **无法取消**已发出的操作 ⇒ ⚠️ 浏览器之后每个操作都报
+ *    `GATT operation already in progress` ⇒ **起播/停止/清池全失效**。
+ * ✅ 改成周期性 notify 之后，客户端**订阅即可、不再读** ⇒ 从根上消除。
+ * ⚠️ 与 `s_noti_enabled`（0xABF2）**分开**：两者是不同的 CCCD，
+ *    客户端可能只订阅其中一个（⭐ 必须各自跟踪，⛔ 不能共用一个标志）。 */
+static uint16_t s_handle_stat_cccd = 0;
+static volatile bool s_stat_enabled = false;   /* ⭐ 对端已订阅 0xABF4 */
+
 /* ⭐ 前向声明：`s_handle_recv`（CMD 0x01 分支）要用它，⛔ 而定义在其后 */
 static void ble_buf_drop_tail(void);
 
@@ -496,7 +509,7 @@ static void ind_set(bool connected)
  *    ⇒ ⚠️ 所以这里**同时打日志** —— 否则分不清
  *      "命令没生效" 与 "生效了但客户端没读"。
  */
-static void cmd_report_status(void)
+static void cmd_report_status(bool verbose)
 {
     /* ⭐⭐ 2026-10-01（任务 2）：从"一行短文本"扩展成**八组完整状态**
      * -----------------------------------------------------------------------
@@ -666,9 +679,57 @@ static void cmd_report_status(void)
         }
         gatt_set_stat((const uint8_t *)buf, (size_t)n);
         /* ⚠️ 日志里**也打一份** —— ⭐ 否则分不清
-         *    "命令没生效" 与 "生效了但客户端没读"（⭐ STAT 是只读的，⛔ 不会主动推） */
-        ESP_LOGW(TAG, "STAT updated (%d B):\n%s", n, buf);
+         *    "命令没生效" 与 "生效了但客户端没读"（⭐ STAT 是只读的，⛔ 不会主动推）
+         * ⭐⭐ 2026-10-15：⭐ **加 `verbose` 开关** —— 因为 `task_status` 现在
+         *    每 `BLE_STAT_NOTIFY_PERIOD_MS`（300 ms）就要重拼一次 STAT 内容来发 notify
+         *    ⇒ ⚠️ 每次都打这一大行会把串口日志刷爆（⭐ 而日志本身就是排查手段）
+         *    ⇒ ⭐ **只有 CMD 0x02（人工请求）才打**，周期刷新走安静模式 ✅ */
+        if (verbose) {
+            ESP_LOGW(TAG, "STAT updated (%d B):\n%s", n, buf);
+        }
     }
+}
+
+/* ⭐⭐ 2026-10-15：⭐ **把当前 STAT 内容用 notify 推给客户端**
+ * ---------------------------------------------------------------------------
+ * 🔴 为什么必须（出处：ESP32侧需求-STAT周期性notify-20261014.md）：
+ *    见 `s_handle_stat_cccd` 的说明 —— 客户端 `readValue()` 会在 ESP32 忙于
+ *    转发时挂住，而 Web Bluetooth 无法取消 ⇒ 🔴 浏览器永久卡死。
+ *    ✅ 改成 notify 之后客户端**订阅即可、不再读** ⇒ 从根上消除。
+ *
+ * ⚠️ 发之前必须满足三个条件（⛔ 缺一个都别发）：
+ *    ① `s_connected`   —— 没连接就没对象
+ *    ② `s_handle_stat` —— 属性表还没建好时它是 0（⭐ 发了会失败）
+ *    ③ `s_stat_enabled`—— ⭐ **客户端写了 STAT 的 CCCD=0x0001**
+ *        （🔴 这是能否发 notify 的【真正前提】，⛔ 不是"已连接"——
+ *          本项目为此栽过一次：连接一建立就放水 ⇒ 数据全丢，见 0xABF2 的注释）
+ *
+ * ⭐ 返回：是否真的发出去了（供调用方记账/诊断）✅ */
+static bool stat_notify_now(void)
+{
+    if (!s_connected || s_handle_stat == 0 || !s_stat_enabled) {
+        return false;
+    }
+    const uint8_t *st = NULL;
+    size_t stn = gatt_get_stat(&st);
+    if (st == NULL || stn == 0) {
+        return false;
+    }
+    /* 🔴 第一个参数必须是【GATTS 接口】`s_gatts_if`，⛔ 不是 `ESP_GATT_IF_NONE`
+     *    （= 0xFF）—— ⭐ 本项目踩过：那样会被当成 conn_id=255 ⇒
+     *    蓝牙栈报 `Unknown connection ID: 255 fail sending notification`。
+     *    📌 同一个坑在 `task_uart_to_ble` 里也踩过（⭐ 见那里的长注释）。 */
+    esp_err_t err = esp_ble_gatts_send_indicate(
+        s_gatts_if, s_conn_id, s_handle_stat, (uint16_t)stn, (uint8_t *)st, false);
+    if (err != ESP_OK) {
+        s_ble_tx_failed++;
+        ESP_LOGW(TAG, "STAT notify failed: %s (if=%d conn=%d h=%u len=%u)",
+                 esp_err_to_name(err), (int)s_gatts_if, (int)s_conn_id,
+                 (unsigned)s_handle_stat, (unsigned)stn);
+        return false;
+    }
+    s_ble_tx_bytes += stn;
+    return true;
 }
 
 /* ===========================================================================
@@ -823,6 +884,10 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
         s_handle_stat = param->add_attr_tab.handles[gatt_idx_stat()];
         /* ⭐ 记下 CCCD 的句柄 —— ⭐ 下方 WRITE_EVT 靠它识别"对端订阅了" */
         s_handle_noti_cccd = param->add_attr_tab.handles[gatt_idx_noti_cccd()];
+        /* ⭐⭐ 2026-10-15：STAT 的 CCCD 句柄（⭐ 见文件上方 `s_handle_stat_cccd` 的说明）
+         * ⚠️ 必须在这里取 —— 属性表创建回调是**唯一**能拿到真实句柄的地方，
+         *    而 WRITE_EVT 靠它识别"对端订阅了 STAT"（⛔ 不能靠"已连接"）。 */
+        s_handle_stat_cccd = param->add_attr_tab.handles[gatt_idx_stat_cccd()];
 
         gatt_log_layout(param->add_attr_tab.handles[0], s_handle_recv,
                         s_handle_noti, s_handle_cmd, s_handle_stat);
@@ -938,6 +1003,10 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
          *    ⇒ 🔴 又把数据发进虚空（⭐ 这正是本次要修的缺陷）。
          * ⭐ 清掉 ⇒ 回到**蓄水**态，⭐ 等新对端订阅后再放水。 */
         s_noti_enabled = false;
+        /* ⭐⭐ 2026-10-15：STAT 的订阅标志**同样随连接失效** ⇒ 必须一起清
+         *    ⚠️ 否则重连后、客户端还没订阅时，`task_status` 会往 STAT
+         *    发 notify ⇒ 🔴 发进虚空（⭐ 与上面 0xABF2 那条同一个道理）。 */
+        s_stat_enabled = false;
         ESP_LOGW(TAG, "BLE DISCONNECTED, reason=0x%02X", param->disconnect.reason);
         /* ⭐ 屏上：蓝牙断开 + 状态字切"断链"
          *    ⚠️ 这正是模式 B 的核心卖点，⭐ 必须让人【看得见】 */
@@ -991,6 +1060,25 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
             break;
         }
 
+        /* ⭐⭐ 2026-10-15：**STAT(0xABF4) 的 CCCD** —— 客户端订阅 STAT 通知
+         * -----------------------------------------------------------------------
+         * 🔴 为什么要单独跟踪：⭐ 它与 0xABF2 是**两个不同的 CCCD**，
+         *    客户端可能只订阅其中一个 ⇒ ⛔ 不能共用 `s_noti_enabled`。
+         * ⚠️ 只有这里置位之后，`task_status` 才会往 STAT 发 notify
+         *    （⭐ 对没订阅的连接发是没意义的，而且会白占带宽）。 */
+        if (h == s_handle_stat_cccd && len >= 2) {
+            uint16_t cccd = (uint16_t)(val[0] | (val[1] << 8));
+            s_stat_enabled = (cccd & 0x0001) != 0;
+            ESP_LOGW(TAG, "CCCD 0xABF4(STAT) = 0x%04X -> periodic notify %s (period %d ms)",
+                     (unsigned)cccd, s_stat_enabled ? "ENABLED" : "disabled",
+                     BLE_STAT_NOTIFY_PERIOD_MS);
+            if (param->write.need_rsp) {
+                esp_ble_gatts_send_response(gatts_if, param->write.conn_id,
+                                            param->write.trans_id, ESP_GATT_OK, NULL);
+            }
+            break;
+        }
+
         /* ⭐⭐ 2026-09-30（B 子集）：**`0xABF3`(CMD) 单独解析** —— ⛔ 不再当曲谱数据
          * -----------------------------------------------------------------
          * 🔴 **原来这里是个真缺陷**：判据写成
@@ -1029,7 +1117,7 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
                     break;
                 case 0x02:                       /* ⭐ 上报状态（写 0xABF4） */
                     ESP_LOGW(TAG, "CMD 0x02: status report requested");
-                    cmd_report_status();
+                    cmd_report_status(true);   /* ⭐ verbose：人工请求 ⇒ 打日志 */
                     s_cmd_ok++;
                     break;
                 /* ⭐⭐ 2026-09-30 夜新增（⭐ 用户 Q1 裁定后【不再被阻塞】）
@@ -1648,8 +1736,31 @@ static void task_status(void *arg)
     /* ⚠️ 只在模式 A 的打印里用来算增量（模式 B 打的是池水位） */
     uint32_t last_rx = 0;
 #endif
+    /* ⭐⭐ 2026-10-15：日志周期与 notify 周期不同 ⇒ 用一个累加器分开
+     *    · notify = `BLE_STAT_NOTIFY_PERIOD_MS`（300 ms，给客户端做流控）
+     *    · 日志   = `BLE_STATUS_PERIOD_MS`（1000 ms，给人看）
+     *    ⚠️ 1000 / 300 不是整数 ⇒ ⛔ 不能靠"数够 N 次"来判日志，
+     *       必须累加实际毫秒数（⭐ 否则日志周期会漂）✅ */
+    uint32_t acc_ms = 0;
     for (;;) {
-        vTaskDelay(pdMS_TO_TICKS(BLE_STATUS_PERIOD_MS));
+        /* ⭐⭐ 2026-10-15：**先按 notify 周期推 STAT** ✅
+         * 🔴 为什么放在最前面：⭐ 它是本任务存在的**首要理由**（⭐ 见
+         *    `stat_notify_now` 与 `s_handle_stat_cccd` 的说明）——
+         *    客户端订阅之后**完全不再 readValue()** ⇒ 从根上消除
+         *    "读挂住 ⇒ Web Bluetooth 永久卡死" ✗
+         * ⚠️ 只在【已订阅】时才重拼内容 —— `cmd_report_status()` 里的
+         *    `pool_stats()` 有个 O(帧数) 循环（池 2 MB ⇒ 约 10 ms）
+         *    ⇒ ⛔ 没订阅就别白花这个开销 ✅ */
+        if (s_connected && s_stat_enabled) {
+            cmd_report_status(false);        /* ⭐ 安静模式：⛔ 不打日志 */
+            (void)stat_notify_now();
+        }
+        vTaskDelay(BLE_DELAY_TICKS_AT_LEAST_1(BLE_STAT_NOTIFY_PERIOD_MS));
+        acc_ms += BLE_STAT_NOTIFY_PERIOD_MS;
+        if (acc_ms < BLE_STATUS_PERIOD_MS) {
+            continue;                        /* ⭐ 还没到日志周期 */
+        }
+        acc_ms = 0;
         uint32_t rx = s_ble_rx_bytes;
 #if BLE_MODE == BLE_MODE_B_POOL
         pool_stats_t ps;

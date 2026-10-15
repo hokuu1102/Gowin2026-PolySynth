@@ -1,0 +1,2 @@
+FATAL: tb/w3c/tb_uart_tx_fifo_pipeline_equiv.sv:20: FAIL: FIFO public outputs differ at cycle 7
+       Time: 131000  Scope: tb_uart_tx_fifo_pipeline_equiv

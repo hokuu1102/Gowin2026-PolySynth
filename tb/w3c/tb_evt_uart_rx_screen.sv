@@ -174,6 +174,10 @@ module tb_evt_uart_rx_screen;
             $display("   ✅ no spurious event: screen data is safely ignored.");
         end
         $display("==============================================================");
+        // Historical bare-parser diagnostic, NOT a top-level safety verdict.
+        if (n_evt != 8)
+            $fatal(1, "FAIL: bare-parser ambiguity diagnostic changed: %0d", n_evt);
+        $display("DIAGNOSTIC_CONFIRMED: bare score parser accepts 8 spurious events from mixed screen bytes");
         $finish;
     end
 

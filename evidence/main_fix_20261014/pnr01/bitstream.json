@@ -1,0 +1,13 @@
+{
+  "SourceCommit": "be75440",
+  "LocalPath": "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\Gowin2026-PolySynth-main-verify-20261014\\build\\fix_pnr01\\impl\\pnr\\Gowin2026.fs",
+  "ArchivedPath": "C:/Users/cyx/Desktop/学习/hdmi_640x480/bitstreams/AX_fix_slide_SETUP_GATE_FAIL_UNVERIFIED_20261014.fs",
+  "Bytes": 20057807,
+  "SHA256": "80E9BBF07CD993E543640D2A4A54C7616FD20A1A930800C90F585DE9877A0AAD",
+  "NativeMaxDelayNs": 16.4,
+  "Accepted": false,
+  "Failure": "66 setup violated endpoints; worst setup -1.663 ns",
+  "HoldNs": 0.128,
+  "Board": "NOT_RUN",
+  "ReplacesMain": false
+}

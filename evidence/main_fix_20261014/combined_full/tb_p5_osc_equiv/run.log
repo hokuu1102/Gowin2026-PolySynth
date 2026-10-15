@@ -1,0 +1,5 @@
+--------------------------------------------------
+  osc frames compared = 322 · mismatches = 0
+  比了：osc_sample_bus_o(64×16) + osc_valid_o + phase_acc_dbg + 64 个 phase_q
+PASS: P5-2 per-voice oscillator_bank is BIT-IDENTICAL to the reference
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3b\tb_p5_osc_equiv.sv:234: $finish called at 528240000 (1ps)

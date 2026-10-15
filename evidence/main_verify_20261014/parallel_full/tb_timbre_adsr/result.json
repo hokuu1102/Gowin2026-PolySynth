@@ -1,0 +1,9 @@
+{
+  "name": "tb_timbre_adsr",
+  "compile_exit": 0,
+  "run_exit": 0,
+  "status": "PASS",
+  "timeout_sec": 120,
+  "explicit_pass_verdict": true,
+  "elapsed_sec": 10.64
+}

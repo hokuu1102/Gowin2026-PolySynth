@@ -1,0 +1,18 @@
+VCD info: dumpfile build/sim/tb_bpm_entry/tb_bpm_entry.vcd opened for output.
+  ok  : reset default tick_inc = 164927 (120 BPM, NOT 0)
+  ok  : bpm_load 140 => tick_inc = 140*1374+47 = 192407
+  ok  : 20 => tick_inc is BIT-IDENTICAL to TICK_INC_DEFAULT (the anchor)
+  ok  : bpm_load 40 => tick_inc = 55007 (the slowest)
+  ok  : bpm_load 240 => tick_inc = 329807 (the fastest)
+  ok  : bpm_load 10 clamps UP to 40 BPM (55007)
+  ok  : bpm_load 250 clamps DOWN to 240 BPM (329807)
+  ok  : bpm_load 0 clamps to 40 BPM (0 would stop the clock)
+  ok  : bpm_up from 120 => +1374 (exactly +1 BPM)
+  ok  : bpm_dn from 121 => back to 164927 (exactly -1 BPM)
+  ok  : bpm_up at 240 BPM stays clamped (no overrun)
+  ok  : bpm_dn at 40 BPM stays clamped (no underrun)
+  ok  : every manual change increments tempo_cnt_o (visible, not silent)
+  ok  : non-vacuous: different BPM really produce different tick_inc
+
+PASS: play_seq BPM entry -- tick_inc = BPM*1374+47, anchored exactly at 120 BPM, clamped to 40..240, and observable
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3c\tb_bpm_entry.sv:204: $finish called at 1330000 (1ps)

@@ -203,8 +203,9 @@ module uart_tx_fifo #(
             //   📌 语义：⭐ 清掉的只是"已读走的那个标记"，
             //      ⭐ 同拍新丢的会【重新置位】⇒ ⚠️ 不丢信息
             if (ovf_clr_i) begin
-                ovf_r  <= 1'b0;
-                drop_r <= 8'd0;
+                // Clear only historical losses; a new rejected push survives.
+                ovf_r  <= push_i & ~push_ok;
+                drop_r <= (push_i & ~push_ok) ? 8'd1 : 8'd0;
             end
         end
     end

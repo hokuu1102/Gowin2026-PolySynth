@@ -1,0 +1,16 @@
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=640000)
+=== tb_span_realistic ===
+STABLE_NEED=8 VOTE_N=8 STABLE_TOL=48 VOTE_TOL=96
+FRAME=40 拍/通道 ⇒ 一帧 320 拍；TIMEOUT=640000 拍 = 2000 帧（⭐ 与上板同比例）
+
+⚠️ 为什么要'同比例'：上板 TIMEOUT=50e6 拍 = 2000 帧。
+   🔴 若把超时缩成几百拍（只够 1 帧），会【人为制造】必超时 ⇒ 结论作废。
+① 零抖动：span=16 reject=0 进VOTE次数=16 state=7 done_cnt=0
+  ok  : ���������������� 16 ������������ -- span=16 (期望 16) reject=0
+② 抖动±30（< TOL 48）：span=16 reject=0 进VOTE次数=16 state=7
+  ok  : ������� ��30�������������������� -- span=16 (期望 16) reject=0
+③ 抖动±60（> TOL 48）：span=16 reject=0 进VOTE次数=16 state=7
+  ok  : VOTE_TOL 96) ⇒ 仍应全标定 -- span=16 (期望 16) reject=0
+==================================================
+PASS: 同比例超时下，calib_span 在稳定/抖动输入都能标定全部 16 轴
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3a\tb_span_realistic.sv:186: $finish called at 76800720000 (1ps)

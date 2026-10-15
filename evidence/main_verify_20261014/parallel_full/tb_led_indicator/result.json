@@ -1,0 +1,9 @@
+{
+  "name": "tb_led_indicator",
+  "compile_exit": 0,
+  "run_exit": 0,
+  "status": "PASS",
+  "timeout_sec": 120,
+  "explicit_pass_verdict": true,
+  "elapsed_sec": 22.531
+}

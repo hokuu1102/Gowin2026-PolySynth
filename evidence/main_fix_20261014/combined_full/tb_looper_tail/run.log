@@ -1,0 +1,61 @@
+== PAD tail: LIVE vs REPLAY over 4 gestures ==
+     [prog] A start ax=0 P=70 R=2 H=100 F=2 s=37
+     [prog] A note_on seen s=134 pos0=70
+     [prog] A note_off seen s=2667
+     [prog] A release window done s=2667
+     [prog] A waveform done s=2763
+     [prog] B start s=2983 cnt=2 loop_len=110 ep_vel=81
+     [prog] B replay note_on seen s=3068
+     [prog] B replay note_off seen s=5601
+  [LIGHT  P70 ] ax=0 P=70 R=2 H=100 F=2 | pos@trig->vel_on=81 off_evt_vel=200
+     LIVE  vel@off=81 env@off=0 tbr=3 rel=0 smp | dur=2533 smp
+     REC   ep_vel=81
+     REPLAY vel@off=81 env@off=0 tbr=3 rel=0 smp | dur=2533 smp | upd_n=0 last=0
+     DELTA vel=0 env=0 rel=0
+     [prog] A start ax=1 P=300 R=2 H=100 F=2 s=5632
+     [prog] A note_on seen s=5704 pos0=150
+     [prog] A note_off seen s=8262
+     [prog] A release window done s=8262
+     [prog] A waveform done s=8358
+     [prog] B start s=8578 cnt=2 loop_len=110 ep_vel=141
+     [prog] B replay note_on seen s=8643
+     [prog] B replay note_off seen s=11201
+  [NORMAL P300] ax=1 P=300 R=2 H=100 F=2 | pos@trig->vel_on=102 off_evt_vel=200
+     LIVE  vel@off=102 env@off=0 tbr=3 rel=0 smp | dur=2558 smp
+     REC   ep_vel=141
+     REPLAY vel@off=141 env@off=0 tbr=3 rel=0 smp | dur=2558 smp | upd_n=103 last=141
+     DELTA vel=39 env=0 rel=0
+     [prog] A start ax=2 P=744 R=4 H=100 F=2 s=11232
+     [prog] A note_on seen s=11304 pos0=186
+     [prog] A note_off seen s=13912
+     [prog] A release window done s=13912
+     [prog] A waveform done s=14008
+     [prog] B start s=14228 cnt=2 loop_len=112 ep_vel=255
+     [prog] B replay note_on seen s=14293
+     [prog] B replay note_off seen s=16901
+  [HARD   P744] ax=2 P=744 R=4 H=100 F=2 | pos@trig->vel_on=111 off_evt_vel=200
+     LIVE  vel@off=159 env@off=0 tbr=3 rel=0 smp | dur=2608 smp
+     REC   ep_vel=255
+     REPLAY vel@off=255 env@off=0 tbr=3 rel=0 smp | dur=2608 smp | upd_n=105 last=255
+     DELTA vel=96 env=0 rel=0
+     [prog] A start ax=3 P=744 R=4 H=100 F=6 s=16932
+     [prog] A note_on seen s=17004 pos0=186
+     [prog] A note_off seen s=19712
+     [prog] A release window done s=19712
+     [prog] A waveform done s=19808
+     [prog] B start s=20028 cnt=2 loop_len=116 ep_vel=255
+     [prog] B replay note_on seen s=20093
+     [prog] B replay note_off seen s=22801
+  [HARD slow-rel] ax=3 P=744 R=4 H=100 F=6 | pos@trig->vel_on=111 off_evt_vel=200
+     LIVE  vel@off=95 env@off=0 tbr=3 rel=0 smp | dur=2708 smp
+     REC   ep_vel=255
+     REPLAY vel@off=255 env@off=0 tbr=3 rel=0 smp | dur=2708 smp | upd_n=109 last=255
+     DELTA vel=160 env=0 rel=0
+== verdict ==
+     [dbg] worst env%=1000  worst rel%=1000
+  ok  : tail: replay vel at note_off equals live vel at note_off (all gestures)
+  ok  : tail: replayed env level at note_off is within 10 percent of the live one
+  ok  : tail: replayed release duration is within 10 percent of the live one
+  ok  : tail: every gesture matched between live and replay
+PASS: looper tail -- replayed PAD note releases like the live one
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3c\tb_looper_tail.sv:601: $finish called at 912210000 (1ps)

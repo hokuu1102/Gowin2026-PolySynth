@@ -22,7 +22,20 @@ module tb_top_dump_atomic;
     integer count=0;
     reg capture=0;
     reg [7:0] bytes[0:255];
-    reg [7:0] first_dump[0:27];   // ⭐ 2026-10-14：⭐ 2×14 = 28（⭐ 原 2×9 = 18 ✅）
+    reg [7:0] first_dump[0:27];
+    // Optional public-pin trace for cycle-exact before/after timing experiments.
+    // No internal register or simulated producer is forced.
+    integer trace_fd=0;
+    reg [4095:0] trace_path;
+    initial begin
+        if($value$plusargs("TRACE_PATH=%s",trace_path)) begin
+            trace_fd=$fopen(trace_path,"w");
+            if(!trace_fd) $fatal(1,"FAIL: cannot open public-pin trace");
+        end
+    end
+    always @(negedge clk) if(rst_n && trace_fd)
+        $fdisplay(trace_fd,"%b%b%b%b%b%b%b%b",board_tx,esp_tx,cs,sck,mosi,
+                  dut.HP_BCK,dut.HP_WS,dut.HP_DIN);
     always @(posedge clk) if(rst_n) begin
         if(board_tx!==esp_tx) $fatal(1,"FAIL: UART mirrors disagree");
         if(capture && rx_done) begin

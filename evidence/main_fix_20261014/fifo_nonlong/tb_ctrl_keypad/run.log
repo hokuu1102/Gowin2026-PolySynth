@@ -1,0 +1,81 @@
+NOTE [ctrl_keypad] PARAM_OK=1 (SCAN_DIV=8 DEB_N=3 CLK_HZ=1000 scan_us=32 db_ms=96)
+NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=1000 LONG_MS=600 LONG_CYC=600 HW=10)
+
+=== 1) scan structure: exactly one row low, all 4 rows visited ===
+  ok  : 1a: exactly ONE row is driven low at any time (never two, never zero)
+  ok  : 1b: non-vacuity -- the check really ran (many samples)
+  ok  : 1c: all 4 rows were driven low (the scan really rotates)
+
+=== 2) no board attached (columns stay high) => nothing pressed ===
+  ok  : 2a: with no key pressed, key_level stays all-zero
+  ok  : 2b: and NO key_down / key_up pulse appears
+  ok  : 2c: and NO command pulse appears either
+
+=== 3) single key: idx = row*4+col is located correctly ===
+  ok  : 3a: pressing (0,0) sets ONLY key_level[0]
+  ok  : 3b: exactly one key_down pulse
+  ok  : 3c: (0,0) maps to met_req, exactly once
+  ok  : 3d: no other command fired
+  ok  : 3e: releasing gives exactly one key_up
+  ok  : 3f: key_level returns to zero
+  ok  : 3g: pressing (2,2) sets ONLY key_level[10]
+  ok  : 3h: (2,2) maps to trans_down_req, exactly once
+
+=== 4) TWO keys in the SAME column: both must be found ===
+  ok  : 4a: same-column pair -> BOTH bits set (idx1 and idx5)
+  ok  : 4b: both commands fired exactly once each
+  ok  : 4c: no crosstalk to other commands
+
+=== 5) debounce: jitter must NOT change key_level ===
+  ok  : 5a: jitter never settled long enough => key_level[3] stays 0
+  ok  : 5b: and the jitter produced NO command pulse
+  ok  : 5c: and no key_down pulse
+  ok  : 5d: non-vacuity -- the SAME key DOES register once held stably
+  ok  : 5e: and fires scope_mode_req exactly once
+  ok  : 5f: exactly one key_down pulse (not one per scan)
+
+=== 6) every mapped key fires its OWN command, once ===
+  ok  : 6: idx 0  -> met_req once
+  ok  : 6x: that key fired exactly ONE command total
+  ok  : 6: idx 1  -> timbre_req once
+  ok  : 6x: that key fired exactly ONE command total
+  ok  : 6: idx 2  -> slide_req once
+  ok  : 6x: that key fired exactly ONE command total
+  ok  : 6: idx 3  -> scope_mode_req once
+  ok  : 6x: that key fired exactly ONE command total
+  ok  : 6: idx 4  -> keydrum_req once
+  ok  : 6x: that key fired exactly ONE command total
+  ok  : 6: idx 5  -> gear_next_req once
+  ok  : 6x: that key fired exactly ONE command total
+  ok  : 6: idx 6  -> trans_up_req once
+  ok  : 6x: that key fired exactly ONE command total
+  ok  : 6: idx 7  -> mode_req once
+  ok  : 6x: that key fired exactly ONE command total
+  ok  : 6: idx 8  -> drum_pattern_req once
+  ok  : 6x: that key fired exactly ONE command total
+  ok  : 6: idx 9  -> fx_req once (placeholder)
+  ok  : 6x: that key fired exactly ONE command total
+  ok  : 6: idx 10 -> trans_down_req once
+  ok  : 6x: that key fired exactly ONE command total
+  ok  : 6: idx 11 -> test_mode_req once
+  ok  : 6x: that key fired exactly ONE command total
+  ok  : 6: spare key fires nothing
+  ok  : 6x: that key fired exactly ONE command total
+  ok  : 6: spare key fires nothing
+  ok  : 6x: that key fired exactly ONE command total
+
+=== 7) looper clear (idx 12) requires a LONG press ===
+  ok  : 7a: a SHORT press of idx12 does NOT clear the looper
+  ok  : 7b: a LONG press fires loop_clear_req exactly once
+  ok  : 7c: holding longer does NOT fire it again (one-shot)
+  ok  : 7d: key_level[12] returns to 0 after release
+
+=== 8) calibration key (idx 15): short = tare, long = span ===
+  ok  : 8a: while still held short, no command yet
+  ok  : 8b: SHORT press -> tare_req once
+  ok  : 8c: SHORT press -> NO span_req (the two are mutually exclusive)
+  ok  : 8d: LONG press -> span_req once
+  ok  : 8e: after a long press, releasing does NOT also fire tare
+
+PASS: ctrl keypad -- one-row-low scan, scan-based debounce (jitter rejected), every key maps to exactly its own command, same-column pairs resolved, long-press protected clear, and calib key short=tare / long=span
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3a\tb_ctrl_keypad.sv:403: $finish called at 337890000 (1ps)

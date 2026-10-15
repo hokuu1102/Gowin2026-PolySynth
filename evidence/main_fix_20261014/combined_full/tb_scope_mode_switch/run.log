@@ -1,0 +1,2 @@
+PASS: XY/waveform/XY switch at frame boundaries and waveform displays real samples
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\hdmi\tb_scope_mode_switch.sv:63: $finish called at 4244240000 (1ps)

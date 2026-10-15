@@ -1,0 +1,16 @@
+VCD info: dumpfile build/sim/debounce/tb_debounce.vcd opened for output.
+ok : key0 down: exactly one event after bounce
+ok : key0 level normalized to 1 (pressed)
+ok : key0 up: exactly one event after bounce
+ok : key0 down: still exactly one (no repeat)
+ok : EC11 CW: 8 steps -> enc_cw == 8
+ok : EC11 CW: enc_ccw == 0
+ok : EC11 CW: enc_err == 0
+ok : EC11 CCW: 8 steps -> enc_ccw == 8
+ok : EC11 CCW: enc_cw unchanged at 8
+ok : EC11 illegal: A/B simultaneous -> enc_err fired
+ok : EC11 illegal: no count on illegal step
+ok : A8: no X/Z on key_level/enc_state
+ok : self-check: correct branch is reachable
+PASS: debounce T14 all 13 checks ok
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\drivers\tb_debounce.sv:270: $finish called at 20045070000 (1ps)

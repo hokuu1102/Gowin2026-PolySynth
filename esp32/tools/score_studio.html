@@ -385,6 +385,14 @@ const MIDI_TWO32 = 4294967296;
 /* 音色号与名称（必须与 RTL / mid2evt.py 一致） */
 const TIMBRE_BASS = 0, TIMBRE_GUITAR = 1, TIMBRE_PIANO = 2, TIMBRE_PAD = 3;
 const TIMBRE_NAMES = { 0: "BASS", 1: "GUITAR", 2: "PIANO", 3: "PAD" };
+/* ⭐ 同一张表的【数组】形式（2026-10-14 补）。
+ * 🔴 为什么需要：TIMBRE_NAMES 是【对象】（下标访问方便），
+ *   而地图例/音色下拉要【按表序遍历】⇒ 用 .length / .map。
+ *   对象没有这两个 ⇒ 直接拿 TIMBRE_NAMES 调 .map 会抛
+ *   "TIMBRE_NAMES.map is not a function"（用户实测，选 MIDI 就弹这个）。
+ * ⭐ 索引必须与上面一致 = RTL 的 TIMBRE_N=4 表序。
+ * ⚠️ 两处并存但【同一份事实】⇒ 改一个必须同步改另一个（⛔ 别只改一处）。 */
+const TIMBRE_NAMES_ARR = ["BASS", "GUITAR", "PIANO", "PAD"];
 
 /* 轨名 -> 音色 的关键词表。⚠️ 顺序有意义（先匹配到的先用）。
  * ⭐ 与 mid2evt.py 的 TIMBRE_HINTS 保持一致。 */
@@ -553,6 +561,31 @@ const DRUM_INC_SHIFT = 10;
 const DRUM_INC = Object.fromEntries(
   Object.entries(DRUM_PHASE_INC).map(
     ([k, v]) => [k, Math.round(v / Math.pow(2, DRUM_INC_SHIFT))]));
+
+/* ⭐⭐ 2026-10-15：⭐ **灌谱鼓的力度映射**（修用户反馈的"灌谱进来的鼓声很小"）✅
+ *
+ *  🔴 病因（实测换算）：
+ *     原来直接把 MIDI 的 velocity 填进去（`vel: n.vel || 100`），
+ *     ⚠️ 而 FPGA 的【鼓机】每件用的是固定高力度：
+ *         rtl/w3c/drum_gen.v   VEL_KICK=230 · VEL_SNARE=200
+ *                              VEL_HIHAT=140 · VEL_TOM=190
+ *     而音量 ∝ 力度、线性（`perc_env_bank` 峰值 = velocity << 8）⇒
+ *         MIDI 常见的 80/255 = 31%   vs   鼓机 230/255 = 90%
+ *         ⇒ 🔴 **差约 9 dB** ⇒ 听着就是"很小" ✗
+ *     📌 与 2026-10-01 键盘打鼓那个问题【同源】
+ *        （`键盘打鼓-实现记录-20261001.md`：原来用键盘力度当鼓力度 ⇒ 轻敲就轻）
+ *
+ *  ✅ 修法：线性放大到鼓机的量级 + 一个下限（让轻击也听得见）
+ *     ⚠️ 鼓的动态本来就不该像旋律那样夸张 ⇒ 压一点动态是【符合预期】的
+ *     📌 改这里要同时改 `tools/mid2evt.py`（PC 那条路，⛔ 口径必须一致）
+ */
+const DRUM_VEL_SCALE = 2.0;   /* 127 × 2.0 ≈ 254 ⇒ 覆盖到满量程 */
+const DRUM_VEL_FLOOR = 150;   /* 轻击保底（≈ 鼓机踩镲 140 的量级） */
+const DRUM_VEL_CEIL  = 255;
+function drumVelocity(midiVel) {
+  const v = Math.round((midiVel || 100) * DRUM_VEL_SCALE);
+  return Math.max(DRUM_VEL_FLOOR, Math.min(DRUM_VEL_CEIL, v));
+}
 const GM_DRUM_MAP = {
   35: "kick", 36: "kick",
   37: "snare", 38: "snare", 39: "snare", 40: "snare",
@@ -672,10 +705,13 @@ function midiToWords(parsed) {
                srcTrack: -1, tempoNote: "BPM " + b.toFixed(2) });
     tempoCount++;
   }
-  if (allTempos.length > 1) {
-    log("⚠️ 该谱子有 %d 个 tempo 点（变速）—— 已全部转成 kind=2 事件"
-        + "（FPGA 侧 play_seq 支持多处 tempo）", allTempos.length);
-  }
+if (allTempos.length > 1) {
+        /* 🔴 原来写成 "...%d 个 tempo 点..." —— JS 的 log() 不做 printf 格式化，
+         * ⇒ `%d` 被原样打印（用户实测："数字没填进去"）。
+         * ⭐ 一律用【字符串拼接】，⛔ 不借 C 的格式化语法。 */
+        log("该谱子有 " + allTempos.length + " 个 tempo 点（变速）—— " +
+            "已全部转成 kind=2 事件（FPGA 侧 play_seq 支持多处 tempo）");
+    }
 
   /* ② 决定轴分配：鼓优先，其余按【音色类型】归组
    * ⭐ 用户裁定（2026-10-14）：按乐器类型分，鼓单独一轨。
@@ -722,7 +758,7 @@ function midiToWords(parsed) {
         evs.push({ tick: Math.round(n.tick * scale),
                    kind: n.on ? KIND_ON : KIND_OFF,
                    inc: DRUM_INC[d.name],               /* ⭐ 用鼓的固定 inc */
-                   vel: n.on ? (n.vel || 100) : 0,
+                   vel: n.on ? drumVelocity(n.vel) : 0,  /* ⭐ 2026-10-15：抬到鼓机量级 */
                    axis: DRUM_AXIS,                     /* ⭐ 全部 axis 15 */
                    timbre: TIMBRE_BASS,                 /* 鼓机的音色由 inc 决定 */
                    srcTrack: tr._idx });                /* ⭐ 选轨过滤用 */
@@ -908,7 +944,17 @@ function refreshStatsPanel() {
     if (s("s_n")) $("s_n").textContent = score.words.length;
     if (s("s_dur")) $("s_dur").textContent = score.duration.toFixed(1) + " s";
     if (s("s_tick")) $("s_tick").textContent = score.tickMin + " .. " + score.tickMax;
-    if (s("s_tempo")) $("s_tempo").textContent = (score.tempos || []).length + " 个";
+    if (s("s_tempo")) {
+      /* ⭐ "变速点"只数 tick > 0 的那些 —— tick 0 那帧是【初始 BPM】，
+       * ⛔ 不是变速。🔴 用户反馈："最开始的设置 BPM 也被算做一个变速点了"。
+       * ⚠️ 为什么⛔ 不写"总数减 1"：那会让"真只有一个变速点"的谱子显示 0
+       *    ⇒ 反而误导（用户以为没变速）。⭐ 按 tick 判，语义才准。 */
+      const ts = score.tempos || [];
+      const nChg = ts.filter(t => t.tick > 0).length;
+      $("s_tempo").textContent = (nChg === 0)
+          ? "恒定（初始 BPM）"
+          : nChg + " 处变速 + 初始";
+    }
     if (s("s_kind")) $("s_kind").textContent = Object.keys(score.kinds || {})
         .sort().map(k => k + ":" + score.kinds[k]).join("  ");
     if (s("s_bytes")) $("s_bytes").textContent =
@@ -945,7 +991,7 @@ function buildTrackPicker(conv) {
       right = '<span style="color:var(--dim)">鼓 · ' + t.notes + "</span>";
     } else {
       const cur = (timbreOverride.has(t.idx)) ? timbreOverride.get(t.idx) : t.timbreIdx;
-      const opts = TIMBRE_NAMES.map((nm, k) =>
+      const opts = TIMBRE_NAMES_ARR.map((nm, k) =>
           '<option value="' + k + '"' + (k === cur ? " selected" : "") + ">" +
           escapeHtml(nm) + "</option>").join("");
       right =
@@ -1083,7 +1129,11 @@ function buildPayload(words) {
   return out;
 }
 
-function buildScore(words, name) {  const notes = [], tempos = [], kinds = {};
+function buildScore(words, name) {
+  /* 换谱面重置视口 —— 不然上一首的缩放/平移套到新谱面上，看着像图坏了。
+   * 必须放函数体内：function 声明不能在外部重赋值。*/
+  viewZoom = 1; viewScroll = 0;
+  const notes = [], tempos = [], kinds = {};
   let tickMax = 0, tickMin = Infinity;
   for (const w of words) {
     const d = unpackWord(w);
@@ -1249,9 +1299,15 @@ function isBlackKey(m) {
 function drawPiano(lo, hi, Y, ph) {
   const rowH = ph / (hi - lo);
   const drawKeys = rowH >= 5;
+  /* ⭐ 底部鼓栏占的高度 —— 钢琴键盘与音名都【不要画进去】。
+   * 🔴 用户反馈："鼓左边的音高和鼓的音色重叠了，删掉多余的音高"。
+   *   根因：音名按 `y = Y(m)` 画，覆盖 PAD.t 到 PAD.t+ph 整段；
+   *   而鼓栏嵌在 PAD.t+ph-laneH 那一带 ⇒ 两边的字在左侧同一列叠住。 */
+  const noDrawBelow = PAD.t + ph - drumLaneHeight(ph);
   for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
     const y0 = Y(m + 0.5), y1 = Y(m - 0.5);
     const yTop = Math.min(y0, y1), hh = Math.max(1, Math.abs(y1 - y0));
+    if (yTop >= noDrawBelow) continue;         /* ⭐ 落在鼓栏里：整行跳过 */
     ctx.fillStyle = isBlackKey(m) ? "#141a24" : "#e8eefc";
     ctx.fillRect(0, yTop, PAD.l - 30, hh - (drawKeys ? 1 : 0));
     if (drawKeys) {
@@ -1265,6 +1321,8 @@ function drawPiano(lo, hi, Y, ph) {
   for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) {
     const y = Y(m);
     if (y < PAD.t - 2 || y > PAD.t + ph + 2) continue;
+    /* ⭐ 鼓栏那一带不标音名 —— 那里现在归鼓的 4 个件名，⛔ 不再有音高语义 */
+    if (y >= noDrawBelow) continue;
     const isC = (((m % 12) + 12) % 12 === 0);
     const black = isBlackKey(m);
     // 行太密时只标 C（否则字会糊成一团）
@@ -1273,6 +1331,15 @@ function drawPiano(lo, hi, Y, ph) {
     ctx.fillStyle = isC ? "#e8eefc" : "#8695ab";
     ctx.fillText(midiName(m), PAD.l - 27, y);
   }
+}
+
+/* ⭐ 鼓栏高度 —— 【唯一】算法，drawPiano 与 drawDrumLane 共用。
+ * 🔴 为什么抽出来：两处各写一份，改一处另一处不同步 ⇒ 钢琴"让位"的高度
+ *   与鼓栏真实高度差一格 ⇒ 又重叠回去（这类"两处常量漂移"踩过）。
+ * ⚠️ 没有鼓时返回 0 ⇒ 钢琴照常画满整幅。 */
+function drumLaneHeight(ph) {
+  if (!score || !score.drumSegs || !score.drumSegs.length) return 0;
+  return Math.max(48, Math.min(120, ph * 0.18));
 }
 /* 鼓单独一栏（2026-10-14，用户要求）。
  *
@@ -1300,7 +1367,10 @@ function drawDrumLane(X, pw) {
   const segs = score.drumSegs || [];
   if (!segs.length) return;                 /* 没有鼓就不占位置 */
   const { ph } = geom();
-  const laneH = Math.max(48, Math.min(120, ph * 0.18));
+  /* ⭐ 用 drumLaneHeight() 的同一算法 —— ⛔ 不在这里另写一份常量。
+   * 🔴 两处各写一份 ⇒ 改一处另一处不同步 ⇒ 钢琴"让位"的高度与鼓栏真实高度
+   *    差一格 ⇒ 又重叠回去（用户实测反馈过重叠）。 */
+  const laneH = drumLaneHeight(ph);
   const top = PAD.t + ph - laneH;
   const rowH = laneH / DRUM_LANE_ORDER.length;
 
@@ -1340,11 +1410,56 @@ function drawDrumLane(X, pw) {
     ctx.globalAlpha = 1;
   }
 
-  /* 标题 */
-  ctx.fillStyle = "#ffb020";
+  /* 标题。⚠️ 用 DRUM_COLOR 而不是写死的黄 ——
+   * 黄正好和【变速竖线】的 #ffb020 撞，图上根本分不清（踩过）。*/
+  ctx.fillStyle = DRUM_COLOR;
   ctx.textAlign = "left"; ctx.textBaseline = "top";
   ctx.font = "10px 'Microsoft YaHei UI',sans-serif";
-  ctx.fillText("鼓（axis " + DRUM_AXIS + "）· 4 件 · 独立一栏", PAD.l + 4, top + 3);
+  ctx.fillText("鼓 · 4 件 · 独立一栏", PAD.l + 4, top + 3);
+}
+
+/* ⭐ 图谱缩放（2026-10-14，用户："能不能加一个 midi 图谱的缩放，
+ * 现在稍微有点不太方便读"）。
+ * ⭐ 只做【横向】（时间轴）缩放：
+ *   · 乐谱要"读"的是时间方向（哪个音在前、时值多长）⇒ 横向放大才看得清
+ *   · ⛔ 不缩放纵向（音高）：纵向一放大就只剩几个音，反而丢失全局观感
+ * ⭐ 交互：
+ *   · 滚轮 = 缩放（以鼠标位置为锚点，⛔ 不以左边缘 —— 否则 zoom 后想看的地方跑掉了）
+ *   · 拖动 = 平移（⭕ 只在图区，不抢 UI）
+ *   · 底部横条 = 总览/滚动条（画在图上，⛔ 不加 DOM 元素 —— 免样式维护）
+ * ⚠️ viewZoom=1 时看整首；20 倍时一屏约 1/20 的时长。
+ * ⚠️ 状态存在模块级变量里 ⇒ 重画不丢；⛔ 换谱面时重置（不然新谱面沿用旧视口会很怪）。 */
+let viewZoom = 1;          /* 1 .. VIEW_ZOOM_MAX */
+let viewScroll = 0;        /* 0 .. 1：视口左边缘在【缩放后总宽】中的位置 */
+const VIEW_ZOOM_MAX = 20;
+
+/* 视口对应的 tick 区间 —— 供 draw()/ 所有坐标换算共用（⛔ 只此一份）。 */
+function viewWindow() {
+  if (!score) return { t0: 0, t1: 1, span: 1 };
+  const total = Math.max(1, score.tickMax);
+  const span = total / viewZoom;              /* 一屏覆盖多少 tick */
+  const maxOff = total - span;
+  const off = Math.max(0, Math.min(maxOff, viewScroll * maxOff));
+  return { t0: off, t1: off + span, span: span, total: total };
+}
+
+/* 滚轮缩放：以鼠标所在的 tick【尽量保持不动】。
+ * ⭐ 这是"好用"与"难用"的分界 —— ⭕ 若以左边缘为锚，放大后想看的内容直接被推出屏外。 */
+function zoomAt(px, pw, factor) {
+  if (!score) return;
+  const before = viewWindow();
+  const frac = Math.max(0, Math.min(1, (px - PAD.l) / Math.max(1, pw)));
+  const anchorTick = before.t0 + frac * before.span;
+  const nz = Math.max(1, Math.min(VIEW_ZOOM_MAX, viewZoom * factor));
+  const total = Math.max(1, score.tickMax);
+  const nspan = total / nz;
+  const maxOff = total - nspan;
+  /* 让 anchorTick 仍落在视口的同一相对位置 */
+  let nt0 = anchorTick - frac * nspan;
+  nt0 = Math.max(0, Math.min(maxOff, nt0));
+  viewZoom = nz;
+  viewScroll = (maxOff > 0) ? (nt0 / maxOff) : 0;
+  draw();
 }
 
 function draw() {
@@ -1360,6 +1475,8 @@ function draw() {
     return;
   }
   const tm = Math.max(1, score.tickMax);
+  /* ⭐ 视口（缩放/平移后的可见 tick 区间）—— ⛔ 不在 X 里各自除一遍 */
+  const vw = viewWindow();
   /* ⭐ 2026-10-14：音高范围【排除鼓】—— 否则会被拉到 B1~B6 一带，
    * 把真正的旋律压扁（用户实测反馈"鼓不该显示音高"）。 */
   const mids = score.notes.filter(n => n.axis !== DRUM_AXIS)
@@ -1367,7 +1484,7 @@ function draw() {
   let lo = mids.length ? Math.min(...mids) - 1 : 0;
   let hi = mids.length ? Math.max(...mids) + 1 : 1;
   if (hi - lo < 6) { lo -= 3; hi += 3; }
-  const X = t => PAD.l + (t / tm) * pw;
+  const X = t => PAD.l + ((t - vw.t0) / vw.span) * pw;
   const Y = m => PAD.t + ph - ((m - lo) / (hi - lo)) * ph;
 
   // 左侧钢琴键盘 + 音名
@@ -1403,6 +1520,10 @@ function draw() {
   const blockH = Math.max(2, Math.min(rowH * 0.72, 12));
   for (let i = 0; i < segs.length; i += step) {
     const s = segs[i];
+    /* ⭐ 视口裁剪：屏外的不画。
+     * 🔴 为什么必须：放大到 20 倍时，若不裁剪就会【每次都遍历全部 1.4 万个段】，
+     *   而且大部分画在屏外 ⇒ 白耗 CPU（用户会觉得"缩放很卡"）。*/
+    if (s.t1 < vw.t0 || s.t0 > vw.t1) continue;
     const x0 = X(s.t0), x1 = X(s.t1);
     const y = Y(s.midi) - blockH / 2;
     const bw = Math.max(1.6, x1 - x0);      // 极短的音也保证看得见
@@ -1446,11 +1567,11 @@ function draw() {
   for (const n of (score.notes || [])) {
     if (n.axis === DRUM_AXIS) { seenTb.add("drum"); continue; }
     const tb = (n.timbre === undefined || n.timbre === null) ? -1 : n.timbre;
-    if (tb >= 0 && tb < TIMBRE_NAMES.length) seenTb.add(tb);
+    if (tb >= 0 && tb < TIMBRE_NAMES_ARR.length) seenTb.add(tb);
   }
   const legend = [];
-  for (let tb = 0; tb < TIMBRE_NAMES.length; tb++) {
-    if (seenTb.has(tb)) legend.push({ name: TIMBRE_NAMES[tb], color: TIMBRE_COLORS[tb] });
+  for (let tb = 0; tb < TIMBRE_NAMES_ARR.length; tb++) {
+    if (seenTb.has(tb)) legend.push({ name: TIMBRE_NAMES_ARR[tb], color: TIMBRE_COLORS[tb] });
   }
   if (seenTb.has("drum")) legend.push({ name: "鼓", color: DRUM_COLOR });
 
@@ -1462,6 +1583,29 @@ function draw() {
     ctx.fillText(it.name, lx + 11, PAD.t + ph + 16);
     lx += Math.max(44, ctx.measureText(it.name).width + 20);
   }
+  /* ⭐ 底部总览/滚动条（画在图上，⛔ 不加 DOM 元素 —— 免样式维护）。
+   * 为什么需要：放大后【看不到自己在整首的哪个位置】⇒ 用户会迷路。
+   * ⭐ 灰色细条 = 整首；亮块 = 当前视口；点它可跳转。 */
+  {
+    const barH = 6;
+    const barY = PAD.t + ph + 22;
+    const bx0 = PAD.l, bw = pw;
+    ctx.fillStyle = "#1b2330";
+    ctx.fillRect(bx0, barY, bw, barH);
+    const v0 = vw.t0 / vw.total, v1 = vw.t1 / vw.total;
+    ctx.fillStyle = "#3a4a63";
+    ctx.fillRect(bx0 + v0 * bw, barY, Math.max(3, (v1 - v0) * bw), barH);
+    ctx.fillStyle = "#8695ab";
+    ctx.font = "9px Consolas,monospace"; ctx.textAlign = "left"; ctx.textBaseline = "top";
+    ctx.fillText("缩放 " + viewZoom.toFixed(viewZoom < 10 ? 1 : 0) + "x" +
+                 "（滚轮缩放 · 拖动平移）", bx0, barY + barH + 2);
+    ctx.textAlign = "right";
+    ctx.fillText("视口 " + (vw.t0 / 960).toFixed(0) + "s ~ " +
+                 (vw.t1 / 960).toFixed(0) + "s / 全长 " +
+                 (vw.total / 960).toFixed(0) + "s", bx0 + bw, barY + barH + 2);
+    overviewBar = { x0: bx0, y0: barY, w: bw, h: barH };
+  }
+
   // 悬停提示
   if (hover) {
     const txt = "tick " + hover.tick + " · 轴 " + hover.axis + " · " +
@@ -1482,14 +1626,78 @@ cv.addEventListener("mousemove", ev => {
   if (!score || !score.notes.length) return;
   const r = cv.getBoundingClientRect();
   const { pw } = geom();
-  const t = (ev.clientX - r.left - PAD.l) / pw * score.tickMax;
+  /* ⭐ 悬停也要走【视口】—— 🔴 若直接用 score.tickMax，
+   * 放大后光标指哪儿、提示的音就会错位（用户会以为图错了）。 */
+  const vw = viewWindow();
+  const px = ev.clientX - r.left;
+  const t = vw.t0 + ((px - PAD.l) / pw) * vw.span;
   let best = null, bd = Infinity;
   for (const n of score.notes) { const d = Math.abs(n.tick - t); if (d < bd) { bd = d; best = n; } }
-  hover = (best && bd < score.tickMax * 0.02)
-    ? { ...best, px: ev.clientX - r.left, py: ev.clientY - r.top } : null;
+  /* ⭐ 判定阈值也按视口算（放大后要"更准"，⛔ 不能还是整首的 2%） */
+  hover = (best && bd < vw.span * 0.02)
+    ? { ...best, px: px, py: ev.clientY - r.top } : null;
+  draw();
+  /* ⭐ 拖动平移：按住左键移动 => 平移视口（⭕ 不抢 UI，⛔ 不加新 DOM）*/
+  if (dragOn) {
+    const pwNow = pw;
+    const dx = px - dragX;
+    const vw2 = viewWindow();
+    const maxOff = vw2.total - vw2.span;
+    if (maxOff > 0) {
+      viewScroll = Math.max(0, Math.min(1, viewScroll - (dx / pwNow) / viewZoom));
+    }
+    dragX = px;
+    draw();
+  }
+});
+
+cv.addEventListener("mouseleave", () => { hover = null; dragOn = false; draw(); });
+
+/* ---- 缩放 / 平移（2026-10-14，用户："加一个 midi 图谱的缩放"）---- */
+let dragOn = false, dragX = 0;
+let overviewBar = null;      /* 底部总览条的矩形 —— 点它可跳转（上次 draw() 时算的）*/
+
+/* ⭐ 点总览条跳转到该处 —— 放大后这是最快的"回到某段"方式。 */
+cv.addEventListener("click", ev => {
+  if (!score || !overviewBar) return;
+  const r = cv.getBoundingClientRect();
+  const px = ev.clientX - r.left, py = ev.clientY - r.top;
+  if (py < overviewBar.y0 - 2 || py > overviewBar.y0 + overviewBar.h + 2) return;
+  if (px < overviewBar.x0 || px > overviewBar.x0 + overviewBar.w) return;
+  const frac = (px - overviewBar.x0) / Math.max(1, overviewBar.w);
+  /* 让点击处成为视口【中点】—— ⛔ 不作为左边缘（那样点右边看不到右边）*/
+  const theo = frac - 0.5 / viewZoom;
+  viewScroll = Math.max(0, Math.min(1, theo));
   draw();
 });
-cv.addEventListener("mouseleave", () => { hover = null; draw(); });
+
+cv.addEventListener("mousedown", ev => {
+  if (!score) return;
+  dragOn = true;
+  dragX = ev.clientX - cv.getBoundingClientRect().left;
+  cv.style.cursor = "grabbing";
+});
+window.addEventListener("mouseup", () => {
+  if (!dragOn) return;
+  dragOn = false;
+  cv.style.cursor = "";
+});
+cv.addEventListener("wheel", ev => {
+  if (!score) return;
+  /* ⭐ 必须 preventDefault —— ⭕ 否则滚轮会连着把【整个页面】滚下去，
+   * 图谱缩放一下、页面跑老远（最常见的一类"难用"）。 */
+  ev.preventDefault();
+  const r = cv.getBoundingClientRect();
+  const { pw } = geom();
+  const px = ev.clientX - r.left;
+  /* deltaY<0 = 滚轮向上 = 放大；factor 取 1.15 让一次滚动约放大 15%（⛔ 不太猛）*/
+  const factor = (ev.deltaY < 0) ? 1.15 : (1 / 1.15);
+  zoomAt(px, pw, factor);
+}, { passive: false });
+
+/* ⭐ 换谱面时重置视口 —— 放在 buildScore 内部（⛔ 不能在外面重赋值 function 声明，
+ * 那会抛 "Assignment to constant variable" 或静默失效）。*/
+const _buildScoreOld = null;
 
 /* ============================== UI 助手 ============================== */
 const $ = id => document.getElementById(id);
@@ -1914,15 +2122,20 @@ async function openFile(f) {
        *    导致 lastConv 永远是 null => 按钮永远报"先打开一个 MIDI"（用户实测）。 */
       lastConv = conv;
       $("fname").textContent = f.name;
-      $("s_n").textContent = score.words.length;
-      $("s_dur").textContent = score.duration.toFixed(1) + " s";
+      /* ⭐ 统计面板【整块刷新】。
+       * 🔴 我第一版只更了 s_n / s_dur 两项 ⇒ 用户实测
+       *   "统计不是一上传谱面就刷新，改一下音轨才刷新"
+       *   （因为改音轨走 rebuildWithOverrides -> refreshStatsPanel 那条路，那里是全量的）。
+       * ⭐ 现在两条路都调同一个函数 ⇒ ⛔ 结构上不可能一处漏字段。 */
+      refreshStatsPanel();
       /* ⭐ 把分配结果打出来 —— 音色是【启发式】猜的，猜错要让人看得见，
        *    ⛔ 不能"猜错了也不说"（那是静默错误）。 */
       log("MIDI 解析成功：" + conv.words.length + " 个事件 · BPM " +
           conv.bpm.toFixed(1) + " · " + parsed.division + " PPQN → 960", "ok");
       log("轨分配（鼓优先，其余按音色归组）：");
       for (const a of conv.assign) {
-        log("  " + a.name + "  →  axis " + a.axis + " · " +
+        /* ⛔ 不写 axis —— 那只是【标签】（音高由 inc 带），写出来误导 */
+        log("  " + a.name + "  →  " +
             (a.kind === "鼓" ? "鼓轨" : a.timbre) + " · " + a.notes + " 个音符");
       }
       /* ⭐ 鼓的转换结果要报出来 —— 用户报过"鼓被推成音高"，

@@ -1,0 +1,65 @@
+NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=48 VOTE_N=4 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 交付口径: 基准=64 · OUTPUT_HEADROOM_SH=1 => 单音峰 ≈ 25% FS
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=23 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+  [tare ] autotare finished (at_done=1) -- safe to test now
+  [demo0] all_quiet=0 nm_gate=0x00000007 demo_step=3 demo_fired=0 env[0]=51140
+  [demo1] all_quiet=0 nm_gate=0x00000007 demo_step=3 demo_fired=0 env[0]=51100
+  [demo2] all_quiet=0 nm_gate=0x00000007 demo_step=3 demo_fired=0 env[0]=51062
+  [demo3] all_quiet=1 nm_gate=0x00000000 demo_step=7 demo_fired=1 env[0]=50988
+  [demo ] demo chord fully settled after 4 round(s) (~8 ms)
+  [idleb] pos[0]=0  nm_gate=0x00000000  normal_held=0  n_on=0  env[0]=50988
+  ok  : no key pressed => W3a starts NO new note (n_on unchanged)
+  [idle ] HP_DIN toggles = 488  (threshold 800)
+  ok  : no key pressed => HP_DIN is essentially quiet (demo tail allowed)
+  [press] HP_DIN toggles = 2881
+  ok  : pressing (left board reads RAW_DOWN) => HP_DIN carries audio
+  [samp ] 4 keys => voices 11/12/13/14  phases 0174073a 0127476d 0107104e 0138d653
+  [samp ] pos[9]=745 pos[12]=748 pos[13]=749 pos[15]=751
+  [B4   ] held voices among my 4 axes = 4 (expect 4), pitch mismatches = 0
+  [B3/1] axis10 DEEP   (pos=746) => voice=15 phase=015f25dc (expect 015f25dc)
+  [samp ] released; refract now counts down during criteria 3~6
+  [vel  ] pos[0]=744  max(vel_r)=255  (pos_to_vel(744)=71)
+  ok  : vel_r FOLLOWS pos end-to-end (press => vel reaches the pos-mapped value)
+  [relA ] env_level[0] = 46890   HP_DIN toggles = 503
+  [relB ] env_level[0] = 44898   HP_DIN toggles = 553
+  [evts ] total note_on=13  note_off=13
+  [gate ] nm_gate[15:0] = 0000000000000000
+  ok  : after note_off the envelope is DECAYING (release path works)
+  [note ] release is ~0.45 s; this tb only waits 80 ms by design
+  ok  : a note_off was produced by the release (distinguishes the two failure modes)
+  [right] HP_DIN toggles = 3025
+  ok  : pressing the right board => also sounds
+  ok  : no X propagated on HP_DIN after reset release
+  [pos  ] idle = 0   pressed = 744
+  [chain] af_data[11:0]=0x4d9  af0_pol=2854  cal0_val=751  at_done=1
+  ok  : with the key released, pos is BELOW REL_TH (reads as 'not pressed')
+  ok  : with the key pressed, pos is ABOVE TRIG_TH (reads as 'pressed')
+  ok  : pos actually DIFFERS between released and pressed (chain can discriminate)
+  [pitch] play_fretboard_mode=0  (0 = piano/keyboard => kb_inc)  refr[9]=0
+  ok  : B0 (precondition): power-on mode is KEYBOARD => axis_map selects kb_inc
+  ok  : B5 (supporting invariant): all 16 u_axis_map.kb_inc[] entries == the CONFIRMED keyboard table
+  [B1   ] axis9 (right CH1, C#4) => voice=11 pos=0 phase=0174073a expect=0174073a (RTL kb_inc[9]=0174073a)
+  ok  : B1a: key axis9 => its voice phase_inc == the CONFIRMED kb_inc[9] LITERAL (C#4)
+  ok  : B1b: ... and == u_axis_map.kb_inc[9] read hierarchically (no wrong value inserted on the path)
+  [B2   ] axes 9/12/13/15 => 0174073a 0127476d 0107104e 0138d653
+  [B2   ] expect           => 0174073a 0127476d 0107104e 0138d653
+  ok  : B2a: 4 DIFFERENT keys (axes 9/12/13/15) => 4 DIFFERENT phase_inc values
+  ok  : B2b: each of the 4 keys => EXACTLY its own confirmed pitch (key-indexed, NOT depth-indexed)
+  ok  : B4a: each held key-axis has exactly ONE voice carrying EXACTLY its own pitch (no off-by-one write / no cross-talk)
+  [refr ] axis 10: refract waited 0 frame(s), refr=0
+  [B3   ] axis10 SHALLOW (pos=374) => voice=15 phase=015f25dc  (DEEP was pos=746 phase=015f25dc)
+  ok  : B3: SAME key (axis10) at HALF depth => SAME pitch (pos does NOT enter the pitch index)
+  [B4   ] after re-press: held voices on axis10 = 1 (expect 1)
+  ok  : B4c: re-pressing the SAME key => EXACTLY ONE voice holds it, with EXACTLY kb_inc[10]
+
+PASS: end-to-end key-to-sound -- with the MCP3208 slave injecting real hall codes, a key press makes HP_DIN carry audio and release returns to silence
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\e2e\tb_e2e_key_to_sound.sv:995: $finish called at 47241190000 (1ps)

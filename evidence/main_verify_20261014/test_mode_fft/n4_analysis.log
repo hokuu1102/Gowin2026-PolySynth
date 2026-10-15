@@ -1,0 +1,6 @@
+📄 test_mode_n4.csv
+   样点 8192 个 · fs 48828.1 Hz · 窗 hann · nfft 8192 · bin 5.96 Hz
+   ⭐ 主峰 1871.5858 Hz  (bin 314 + -0.000) · 幅度 -12.04 dBFS
+   SNR 86.43 dB（噪声密度中位数法；单 bin 噪声底 -122.5 dBc）
+   杂散（前 3）1174.2 Hz -1.8 dBc · 476.8 Hz -1.8 dBc · 2569.0 Hz -1.8 dBc
+   ✅ 频谱表 evidence/main_verify_20261014/test_mode_fft/n4_spectrum.csv（4097 行）
