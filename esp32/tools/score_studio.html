@@ -1998,9 +1998,13 @@ function parseStatText(txt) {
             *   而丢帧计数【看不见空中丢的包】——
             *   实测 frame=total=1 tf=18935 ev=11621（少 7314 帧）却没报错。
             *   ⭐ 用户线索："短音阶能起播，长曲谱不行" ⇒ 正是"收不齐"的表现。 */
-           frameTotal: (txt.match(/\bframe=total=(\d+)/) || [])[1],
-           frameTf: (txt.match(/\bframe=total=\d+ tf=(\d+)/) || [])[1],
-           frameEv: (txt.match(/\bframe=total=\d+ tf=\d+ ev=(\d+)/) || [])[1],
+           /* 🔴 2026-10-15：必须转成【数字】！我第一版漏了 `+` ⇒ 返回字符串
+            *   ⇒ 下游 `n(v)`（要求 typeof === "number"）返回 null ⇒ **整块静默跳过**
+            *   ⇒ 日志里没有"帧数核对"那行，我一度误以为是"没丢帧"（0.12 静默失败）。
+            * ⚠️ 教训：正则捕获组【永远是字符串】，别指望它自动变数字。 */
+           frameTotal: (() => { const m = txt.match(/\bframe=total=(\d+)/); return m ? +m[1] : null; })(),
+           frameTf: (() => { const m = txt.match(/\bframe=total=\d+ tf=(\d+)/); return m ? +m[1] : null; })(),
+           frameEv: (() => { const m = txt.match(/\bframe=total=\d+ tf=\d+ ev=(\d+)/); return m ? +m[1] : null; })(),
            ringDrop: ringM ? +ringM[1] : null,
            ringDropBytes: ringM ? +ringM[2] : null,
            bleDrop: bleM ? +bleM[2] : null,
@@ -2254,6 +2258,22 @@ let pendingIntegrityCheck = false;
 let gattWedged = 0;
 async function pollOnce() {
   if (!connected) return;
+  /* ⭐⭐ 2026-10-15 关键修正：notify 已订阅时【根本不要主动读】。
+   *
+   * 🔴 症状（用户实测）："起播之后要等十几秒才能出声"。
+   * ⭐ 根因：这里原来【无条件】调 `readStat()`，而 `readStat()` 内部是
+   *   `sendCmd(CMD_STAT)` + 420ms + **主动读 STAT 特征**（readValue）。
+   *   而 `readValue` 在 ESP32 忙时【会长时间挂住】（这正是我们改用 notify 的原因）。
+   *   ⇒ 起播命令走同一个 `gattSerial` 队列 ⇒ ⭐ **它排在那个挂住的读后面** ⇒
+   *     十几秒后才被发出 ⇒ 十几秒后才出声。
+   *   ⚠️ 而且它每次还多写一个 CMD（`cmd=ok266` 里有它一份）。
+   *
+   * ⭐ 修法：notify 是【自动推】的（固件每 1500 ms 推一次 STAT，
+   *   收到就走 onStatText ⇒ paintStat）。⇒ ⭐ **数据自己会来，⛔ 不需要问。**
+   *   ⇒ 订阅成功时本函数直接返回 ⇒ 队列里【永远只有用户命令】⇒ 起播立刻生效。
+   * ⚠️ 顺带消灭了"读挂住 ⇒ 卡死蓝牙栈"的整条风险链（没有读，就没有读不回来）。
+   * 📌 老固件（不支持 STAT notify）仍走下面的主动读兜底。 */
+  if (statNotifyOk) return;
   if (pollInFlight) return;          /* ⭐ 不堆积：上一次还在飞就跳过 */
   pollInFlight = true;
   try {

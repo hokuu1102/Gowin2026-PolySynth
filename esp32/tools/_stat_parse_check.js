@@ -74,6 +74,20 @@ chk("gattSerial 支持按调用关掉看门狗",
     /if \(!tmo\) return await fn\(\)/.test(html));
 chk("上传后【不自动】恢复轮询（起播后才恢复）",
     !/if \(connected\) startPoll\(POLL_RESUME_DELAY_MS\)/.test(html));
+/* 2026-10-15：notify 已订阅时，轮询不许主动读。
+ * 症状（用户实测）："起播之后要等十几秒才能出声"。
+ * 根因：pollOnce 无条件调 readStat()（主动读），而主动读在 ESP32 忙时挂住
+ *   => 起播命令排在同一队列的它后面 => 十几秒后才发出。
+ * 修法：notify 是自动推的 => 订阅成功就 return，队列里只剩用户命令。 */
+{
+  const i = html.indexOf("async function pollOnce");
+  const j = html.indexOf("if (pollInFlight) return;", i);
+  const head = (i >= 0 && j > i) ? html.slice(i, j) : "";
+  chk("notify 已订阅时轮询不主动读（否则起播排在读后面）",
+      /if \(statNotifyOk\) return;/.test(head));
+  chk("非空洞：pollOnce 里确实有 pollInFlight 守卫（证明切片位置对）",
+      j > i);
+}
 chk("有 GATT 卡死检测与重连指引",
     /gattWedged/.test(html) && /already in progress/.test(html));
 

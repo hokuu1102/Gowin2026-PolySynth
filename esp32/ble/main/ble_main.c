@@ -120,6 +120,13 @@ static portMUX_TYPE s_buf_mux = portMUX_INITIALIZER_UNLOCKED;
 /* GATT 状态 */
 static esp_gatt_if_t s_gatts_if  = ESP_GATT_IF_NONE;
 static uint16_t s_conn_id        = 0;
+/* ⭐⭐ 2026-10-15：连接参数（供 STAT 暴露 + 排查"灌谱只有 1~4 KB/s"）。
+ * 🔴 为什么要暴露：BLE 吞吐 ≈ 每间隔包数 × 载荷 ÷ 间隔，
+ *   间隔 30ms => 96 KB/s，间隔 500ms => 5.8 KB/s —— 实测正好落在后者。
+ * ⚠️ 本工程此前【从不】记录连接参数 ⇒ 无从判断，只能猜。现在有数据了。 */
+static volatile uint32_t s_conn_int_ms  = 0;   /* 连接间隔（毫秒）*/
+static volatile uint16_t s_conn_latency = 0;   /* 从机延迟 */
+static volatile uint16_t s_conn_timeout = 0;   /* 监督超时（10ms 单位）*/
 static uint16_t s_mtu            = 23;    /* ⚠️ 默认；协商后更新 */
 static volatile bool s_connected = false;
 static bool s_adv_configured     = false;
@@ -415,6 +422,29 @@ static void gap_event_handler(esp_gap_ble_cb_event_t event,
         }
         break;
 
+    case ESP_GAP_BLE_UPDATE_CONN_PARAMS_EVT:
+        /* ⭐⭐ 2026-10-15 新增：记录并打印【连接间隔】。
+         *
+         * 🔴 为什么要它（用户实测 + 算账）：
+         *   灌谱实测只有 1~4 KB/s，而 BLE 正常能到 30~100 KB/s。
+         *   ⭐ BLE 吞吐 ≈ 每间隔包数 × 载荷 ÷ 间隔：
+         *     · 30 ms  => 6×480/0.03 = 96 KB/s
+         *     · 500 ms => 6×480/0.5  = 5.8 KB/s   <= ⭐ 正好落在实测区间！
+         *   ⇒ ⭐ 高度怀疑连接间隔被设得很长（本工程此前【从不】记录也【不】请求）。
+         *   ⚠️ 间隔长还会导致"突发大 => 控制器 RX 缓冲溢出 => 丢包"，
+         *     这与实测"丢了 35% 帧（ev=12261 / tf=18935）"吻合。
+         * 📌 单位是 1.25 ms ⇒ ×1.25 才是毫秒（用 ×125/100 避免浮点）。 */
+        s_conn_int_ms = (uint32_t)param->update_conn_params.conn_int * 125u / 100u;
+        s_conn_latency = param->update_conn_params.latency;
+        s_conn_timeout = param->update_conn_params.timeout;
+        ESP_LOGW(TAG, "conn params: interval=%u (x1.25ms = %u ms) latency=%u timeout=%u status=0x%X",
+                 (unsigned)param->update_conn_params.conn_int,
+                 (unsigned)s_conn_int_ms,
+                 (unsigned)param->update_conn_params.latency,
+                 (unsigned)param->update_conn_params.timeout,
+                 (unsigned)param->update_conn_params.status);
+        break;
+
     default:
         break;
     }
@@ -591,8 +621,7 @@ static void cmd_report_status(bool verbose)
          *       而 `0xABF4` 里【没有任何字段】能解释这个差额
          *       ⇒ 违反"会出错的容量必须看得见"（K-106）。
          *    ⭐ 这里补上，让"收到的字节 = 进池 + 溢出 + 未知 + 复位 + 总数 + 丢"可闭环。 */
-        "ble=rx%lu tx%lu fail=%lu drop=%lu mtu=%u conn=%d sub=%d\n"
-        /* ⭐ UART：⭐ 收字节、触发字符计数 */
+        "ble=rx%lu tx%lu fail=%lu drop=%lu mtu=%u conn=%d sub=%d\n"        /* ⭐ UART：⭐ 收字节、触发字符计数 */
         "uart=rx%lu trig=%lu\n"
         /* ⭐⭐ 2026-10-01：屏 → ESP32 方向（⭐ 诊断"屏有界面但数字不变"）
          *    ⭐ 判读：`hmi.rx` 涨 ⇒ 屏→ESP32 通 ⇒ 🔴 问题在反方向（ESP32→屏）
@@ -901,6 +930,32 @@ static void gatts_event_handler(esp_gatts_cb_event_t event,
         s_connected = true;
         ESP_LOGI(TAG, "BLE CONNECTED conn_id=%d", s_conn_id);
         hmi_set_bt_connected(true);
+        /* ⭐⭐ 2026-10-15 新增：主动请求【快速连接间隔】。
+         *
+         * 🔴 为什么要请求（用户实测 + 算账）：
+         *   灌谱实测只有 1~4 KB/s，而 BLE 正常 30~100 KB/s。
+         *   ⭐ 吞吐 ≈ 每间隔包数 × 载荷 ÷ 间隔：
+         *     30 ms => 96 KB/s；500 ms => 5.8 KB/s（正好是实测区间）。
+         *   ⚠️ 本工程此前【从不】请求连接参数 ⇒ 完全由中心设备（Windows/Chrome）决定，
+         *     而它的默认值可能很保守。
+         *   ⚠️ 间隔长还会"突发大 => 控制器 RX 缓冲溢出 => 丢包"，
+         *     与实测"丢 35% 帧"吻合 ⇒ ⭐ 这一处可能同时解释【慢】和【丢】。
+         *
+         * 📌 参数取 15~30 ms：够快（理论 60~90 KB/s），又不过激
+         *   （⛔ 不要取 7.5 ms：那会挤占其它连接、也更容易被中心设备拒绝）。
+         * ⚠️ 中心设备有权【拒绝】—— 所以下面仍会打印实际生效值（见 GAP 的
+         *   UPDATE_CONN_PARAMS 分支），⭐ 以实测值为准，⛔ 不以"我请求了"为准。 */
+        {
+            esp_ble_conn_update_params_t cp = {0};
+            memcpy(cp.bda, param->connect.remote_bda, sizeof(esp_bd_addr_t));
+            cp.min_int = 12;    /* 12 × 1.25 = 15 ms */
+            cp.max_int = 24;    /* 24 × 1.25 = 30 ms */
+            cp.latency = 0;
+            cp.timeout = 400;   /* 400 × 10ms = 4 s */
+            esp_err_t cerr = esp_ble_gap_update_conn_params(&cp);
+            ESP_LOGW(TAG, "request fast conn params (15~30 ms): %s",
+                     esp_err_to_name(cerr));
+        }
         /* 🔴🔴 2026-10-13：连上就发【GATT 服务变更指示】（0x2A05）。
          *
          * ═══ 为什么必须发（这是"服务发现只有 4 个"的修法）═══
