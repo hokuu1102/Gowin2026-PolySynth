@@ -57,8 +57,14 @@ const full = SAMPLE.match(/\bfull=(\d+)/);
 chk("ring.full 解析 = 1", full && +full[1] === 1, "实测 " + (full ? full[1] : "null"));
 
 /* ⭐ 页面必须有"上传后核对丢帧"这一步（⛔ 不许静默） */
-chk("上传后有 verifyUploadIntegrity() 核对丢帧",
-    /verifyUploadIntegrity\s*\(\)/.test(html));
+chk("上传后挂标记、由轮询复用那次读来核对（不额外发 GATT）",
+    /pendingIntegrityCheck\s*=\s*true/.test(html) &&
+    /checkIntegrityFromStat\(st\)/.test(html));
+chk("核对函数是【纯判读】、自己不读（否则会挂住 -> 浏览器永久卡住）",
+    /function checkIntegrityFromStat\(st\)/.test(html) &&
+    !/async function checkIntegrityFromStat/.test(html));
+chk("有 GATT 卡死检测与重连指引",
+    /gattWedged/.test(html) && /already in progress/.test(html));
 chk("核对失败时【明确报错】而不是静默",
     /上传【有丢帧】/.test(html));
 /* ⭐ 上传必须有节流（否则必然溢出 —— 0xABF1 无流控） */

@@ -2057,18 +2057,46 @@ function updateProgress(d) {
  *   2) 看门狗 15s -> 4s（卡住也不该锁死十几秒）
  *   3) 上传后给 ESP32【转发时间】再恢复轮询（见 upload 的 finally） */
 let pollInFlight = false;
+/* ⭐ 上传后要核对丢帧（见 checkIntegrityFromStat）—— 但【不额外读】，
+ * 只挂标记，等下一次轮询读到 STAT 时顺便核对。 */
+let pendingIntegrityCheck = false;
+/* ⭐ GATT 卡死检测：连续多少次 "already in progress"。
+ * 🔴 为什么要它：Web Bluetooth 【无法取消】已发出的操作 ——
+ *   一旦某个 readValue 挂住，浏览器就永久卡住，之后全报 already in progress。
+ *   ⭐ 此时唯一的恢复手段是【重连】（见下面的指引）。 */
+let gattWedged = 0;
 async function pollOnce() {
   if (!connected) return;
   if (pollInFlight) return;          /* ⭐ 不堆积：上一次还在飞就跳过 */
   pollInFlight = true;
-  try { paintStat(await gattSerial(() => readStat())); }
-  catch (e) { /* 静默：轮询失败不该干扰主流程（起播/停止/清池）*/ }
-  finally { pollInFlight = false; }
+  try {
+    const st = await gattSerial(() => readStat());
+    gattWedged = 0;                  /* ⭐ 成功一次就清卡死计数 */
+    paintStat(st);
+    /* ⭐ 上传后第一次成功读到的 STAT ⇒ 顺便核对完整性（⛔ 不额外发读）*/
+    if (pendingIntegrityCheck) {
+      pendingIntegrityCheck = false;
+      checkIntegrityFromStat(st);
+    }
+  } catch (e) {
+    /* ⭐ 轮询失败不该干扰主流程（起播/停止/清池）—— 静默。
+     * ⚠️ 但"already in progress"连续出现要【说出来】：
+     *   那说明浏览器卡住了，用户只能重连才恢复（⛔ 否则他会一直点、一直失败）。*/
+    const msg = String(e && e.message || e);
+    if (/already in progress/i.test(msg)) {
+      gattWedged++;
+      if (gattWedged === 3) {
+        log("🔴 蓝牙栈卡住了（连续 3 次 GATT operation already in progress）。"
+            + "⚠️ 浏览器【无法取消】已发出的操作 ⇒ 只能【断开再连一次】才能恢复。"
+            + "请点「断开」再「连接蓝牙」。", "er");
+      }
+    }
+  } finally { pollInFlight = false; }
 }
 /* ⭐ 上传后等 ESP32 把数据转给 FPGA 再恢复轮询。
  * ⚠️ 141 KB @ 500 kbaud ≈ 2.8 s（还没算它自己的处理时间）⇒ 给 4 s 余量。
  * ⛔ 不等就直接轮询 = 必然读到"忙" ⇒ 卡住（用户实测就是这个）。 */
-const POLL_RESUME_DELAY_MS = 4000;
+const POLL_RESUME_DELAY_MS = 6000;
 function startPoll(delayMs) {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   const arm = () => {
@@ -2155,11 +2183,15 @@ async function upload() {
     const secs = (performance.now() - t0) / 1000;
     log("上传完成：" + total + " 字节 / " + score.words.length + " 个事件，用时 " +
         secs.toFixed(1) + " s，" + ((total / 1024) / Math.max(secs, 1e-6)).toFixed(1) + " KB/s", "ok");
-    /* ⭐⭐ 上传后【核对丢帧计数】—— 这是判定"谱面是否完整"的唯一硬证据。
-     * 🔴 为什么必须做：无确认写会静默丢帧，而丢帧的表现就是
-     *   "曲子只有一截 / 最后挂音"（用户实测）——
-     *   ⛔ 不核对就等于"错了也不说"（0.12 的静默失败禁令）。 */
-    await verifyUploadIntegrity();
+    /* ⭐⭐ 完整性核对【不在这里立刻读 STAT】——
+     * 🔴 我上一版就是这么写的，结果造成死循环（用户实测）：
+     *   写完最后一包【立刻】readValue ⇒ 而那正是 ESP32 最忙的时候
+     *   （还在往 FPGA 转发 141 KB）⇒ 读挂住
+     *   ⇒ ⚠️ 而看门狗只是【丢弃 Promise】，⛔ 无法取消浏览器里已发出的 GATT 操作
+     *   ⇒ 浏览器永久卡住 ⇒ 之后每个操作都报 `already in progress` ⇒ 循环失败。
+     * ⭐ 正确做法：只【挂个标记】，等 4 秒后第一次轮询读到 STAT 时顺便核对
+     *   —— 复用同一次读，⛔ 不额外发一次（见 pollOnce）。*/
+    pendingIntegrityCheck = true;
   } catch (e) {
     log("上传失败：" + e.message, "er");
   } finally {
@@ -2171,38 +2203,33 @@ async function upload() {
   }
 }
 
-/* ⭐⭐ 上传后核对完整性（2026-10-14）。
+/* ⭐⭐ 核对上传完整性 —— 【纯判读】，吃已有的 STAT，⛔ 不自己发 GATT。
  *
- * 🔴 为什么必须：0xABF1 是【无确认写】⇒ 丢帧是【静默】的。
- *   而丢帧的表现就是用户实测的"曲子只有一截 / 最后挂音"。
- *   ⛔ 不核对 = "错了也不说"（0.12 静默失败禁令）。
+ * 🔴 为什么不自己读：我第一版写成"上传后立刻 readStat"，
+ *   而那正是 ESP32 最忙的时候 ⇒ 读挂住 ⇒ 浏览器永久卡住（用户实测死循环）。
+ * ⭐ 现在由 pollOnce 在【下一次成功轮询】时把 stat 传进来 —— 复用同一次读。
  *
- * ⭐ 判据用【会计等式】（本项目一直用的那条，⛔ 不用"我发了多少帧"）：
- *     ESP32 收到的帧 = 进池 + ovf + unk + rst + total(1) + ble.drop/9
- *   ⇒ 只要等式不成立，就说明有帧在中途没了。
- * ⚠️ 另外直接看三个丢帧计数：ble.drop / ring drop / ovf —— 任一 > 0 就是丢了。
- * 📌 参考：固件 ble_main.c:577 记过「发 18504 帧，差 12~48 帧」的先例。
+ * ⭐ 判据：三个丢帧计数（ble.drop / ring.drop / ovf）任一 > 0 即不完整。
+ *   它们的物理含义（固件 ble_main.c:572-581）：
+ *     · ble.drop  —— BLE 收到的字节里，环满被截断的那部分（既不算进池也不算 ovf）
+ *     · ring.drop —— 上行环丢弃的帧数/字节数
+ *     · ovf       —— 水池溢出
+ *   📌 固件自己记过先例：「发 18504 帧，ble_rx/9 与 进池+ovf 差 12~48 帧」。
  */
-async function verifyUploadIntegrity() {
-  let st = null;
-  try { st = await gattSerial(() => readStat()); }
-  catch (e) {
-    log("⚠️ 上传后没能读到状态（" + e.message + "）—— 无法核对完整性，请人工听一遍", "er");
-    return null;
-  }
+function checkIntegrityFromStat(st) {
   if (!st) return null;
   const n = v => (typeof v === "number" && !isNaN(v)) ? v : null;
   const bleDrop = n(st.bleDrop), ringDrop = n(st.ringDrop), ovf = n(st.ovf);
   const known = [bleDrop, ringDrop, ovf].filter(v => v !== null);
   if (known.length === 0) {
-    log("⚠️ 状态里没解析到丢帧计数（固件较旧？）—— 无法核对，请人工确认听感", "");
+    log("⚠️ 状态里没解析到丢帧计数（固件较旧？）—— 无法核对，请人工听一遍", "");
     return st;
   }
-  const lost = known.some(v => v > 0);
-  if (lost) {
-    log("🔴 上传【有丢帧】：ble.drop=" + bleDrop + " 帧字节 · ring.drop=" + ringDrop +
-        " 帧 · ovf=" + ovf + " ⇒ 谱面不完整，会出现「只有一截 / 最后挂音」。"
-        + "⭐ 处理：把 PACING_MS 再调大（当前见源码），或请 FPGA 侧给 0xABF1 加 WRITE 位。", "er");
+  if (known.some(v => v > 0)) {
+    log("🔴 上传【有丢帧】：ble.drop=" + bleDrop + " · ring.drop=" + ringDrop +
+        " · ovf=" + ovf + " ⇒ 谱面不完整，会出现「只有一截 / 最后挂音」。"
+        + "⭐ 处理：把 PACING_MS 调大（现在 12，可试 20 或 30）"
+        + "，或请 FPGA 侧给 0xABF1 加 WRITE 位（带确认写 = 天然流控）。", "er");
   } else {
     log("✅ 上传完整性核对通过（ble.drop / ring.drop / ovf 全为 0）", "ok");
   }
