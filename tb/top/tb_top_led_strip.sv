@@ -41,8 +41,8 @@
 
 module tb_top_led_strip;
 
-    localparam integer LED_N   = 16;          // ⭐ `top.v` 的 `WS_LED_N`
-    localparam integer NBITS   = LED_N * 24;  // 384
+    localparam integer LED_N   = 8;           // ⭐ `top.v` 的 `WS_LED_N`（2026-10-15：16→8）
+    localparam integer NBITS   = LED_N * 24;  // 192
     localparam integer BIT_CYC = 62;          // ⭐ 位周期（PHY 契约）
     localparam integer SMP_AT  = 26;          // ⭐ 采样点：`17 < 26 < 35` ⇒ 落在"0/1 码高电平"之间
     localparam integer LOW_WAIT= 10000;       // ⭐ 帧间"长低"判据（≥ 10000 拍；驱动给 20000）
@@ -52,6 +52,7 @@ module tb_top_led_strip;
     localparam [23:0] X_WHITE   = 24'hFFFFFF;
     localparam [23:0] X_CYAN    = 24'h00FFFF;
     localparam [23:0] X_GREEN   = 24'h00FF00;
+    localparam [23:0] X_BLUE    = 24'h0000FF;
     localparam [23:0] X_DIMBLUE = 24'h000030;
 
     reg clk   = 1'b0;
@@ -237,34 +238,33 @@ module tb_top_led_strip;
         repeat (8) @(negedge clk);
 
         // ════════════════════════════════════════════════════════════════════
-        // (1) 出声档（`g_sound`）上电帧
+        // (1) 出声档（`g_sound`）上电帧 —— ⭐ 控制板第 3 版的 8 灯灯序
         // ════════════════════════════════════════════════════════════════════
-        $display("=== (1) 上电帧 · g_sound（LED0..LED6 + 尾灯全灭）===");
+        $display("=== (1) 上电帧 · g_sound（LED0..LED7）===");
         decode_frame(0);
         $display("  info: 帧长 = %0d 拍（期望 %0d = %0d × %0d）",
                  (t_frame1 - t_frame0) / 20, NBITS*BIT_CYC, NBITS, BIT_CYC);
         chk("(4) 整帧时长 == NBITS × BIT_CYC（⭐ 位周期契约）",
             ((t_frame1 - t_frame0) / 20) == (NBITS*BIT_CYC));
 
-        exp_led("(1a) led0 音色 = 白",       0, 0, X_WHITE);
-        exp_led("(1b) led1 节拍器 = 灭",     0, 1, X_OFF);
-        exp_led("(1c) led2 鼓机 = 灭",       0, 2, X_OFF);
-        exp_led("(1d) led3 键盘打鼓 = 灭",   0, 3, X_OFF);
-        exp_led("(1e) led4 looper = 暗蓝",   0, 4, X_DIMBLUE);
-        exp_led("(1f) led5 推子(档1 颤音) = 青", 0, 5, X_CYAN);
-        exp_led("(1g) led6 键盘模式 = 绿",   0, 6, X_GREEN);
-        chk_tail_dark("(1h) led7..led15 全灭（⭐ 写口 default）", 0);
+        exp_led("(1a) led0 音色 = 白",              0, 0, X_WHITE);
+        exp_led("(1b) led1 16键行为 = 绿(键盘)",    0, 1, X_GREEN);
+        exp_led("(1c) led2 推子功能 = 青(档1 颤音)", 0, 2, X_CYAN);
+        exp_led("(1d) led3 节奏 = 灭",              0, 3, X_OFF);
+        exp_led("(1e) led4 looper = 暗蓝",          0, 4, X_DIMBLUE);
+        exp_led("(1f) led5 EC11+音高 = 灭(变调0)",  0, 5, X_OFF);
+        exp_led("(1g) led6 HDMI = 蓝(波形)",        0, 6, X_BLUE);
+        exp_led("(1h) led7 效果器 = 灭(未开)",      0, 7, X_OFF);
 
         // ════════════════════════════════════════════════════════════════════
-        // (3) 静音档（`g_silent`）⇒ ⭐ LED5 必须灭（另一分支显式驱动 `led_gear_st=0`）
+        // (3) 静音档（`g_silent`）⇒ 跨 generate 分支的状态线
         // ════════════════════════════════════════════════════════════════════
         $display("=== (3) 静音档（g_silent）· 跨 generate 分支 ===");
         decode_frame(1);
         exp_led("(3a) led0 音色 = 白（模块层信号，两档相同）", 1, 0, X_WHITE);
         exp_led("(3b) led4 looper = 暗蓝",                     1, 4, X_DIMBLUE);
-        exp_led("(3c) led6 键盘模式 = 绿",                     1, 6, X_GREEN);
-        exp_led("(3d) ⭐ led5 推子 = 灭（g_silent 把 led_gear_st 驱动成 0）", 1, 5, X_OFF);
-        chk_tail_dark("(3e) led7..led15 全灭", 1);
+        exp_led("(3c) led1 16键行为 = 绿（模块层）",           1, 1, X_GREEN);
+        exp_led("(3d) ⭐ led2 推子 = 灭（g_silent 把 led_gear_st 驱动成 0）", 1, 2, X_OFF);
 
         // ════════════════════════════════════════════════════════════════════
         // (2) ⭐ 活体：发裸 `'I'`（切音色 0→1）⇒ 下一帧 LED0 必须变青、其余不动
@@ -273,13 +273,13 @@ module tb_top_led_strip;
         send_byte(8'h49);                       // ⭐ 'I'
         decode_frame(0);
         exp_led("(2a) ⭐ led0 音色 0→1 = 青（真的在动）", 0, 0, X_CYAN);
-        exp_led("(2b) led1 节拍器 = 灭（⛔ 没被串动）",   0, 1, X_OFF);
-        exp_led("(2c) led2 鼓机 = 灭",                   0, 2, X_OFF);
-        exp_led("(2d) led3 键盘打鼓 = 灭",               0, 3, X_OFF);
+        exp_led("(2b) led1 16键行为 = 绿（⛔ 没被串动）", 0, 1, X_GREEN);
+        exp_led("(2c) led2 推子 = 青（⛔ 没被串动）",     0, 2, X_CYAN);
+        exp_led("(2d) led3 节奏 = 灭",                   0, 3, X_OFF);
         exp_led("(2e) led4 looper = 暗蓝",               0, 4, X_DIMBLUE);
-        exp_led("(2f) led5 推子 = 青（⛔ 没被串动）",     0, 5, X_CYAN);
-        exp_led("(2g) led6 键盘模式 = 绿",               0, 6, X_GREEN);
-        chk_tail_dark("(2h) led7..led15 全灭", 0);
+        exp_led("(2f) led5 EC11+音高 = 灭",              0, 5, X_OFF);
+        exp_led("(2g) led6 HDMI = 蓝",                   0, 6, X_BLUE);
+        exp_led("(2h) led7 效果器 = 灭",                 0, 7, X_OFF);
 
         // ════════════════════════════════════════════════════════════════════
         // (5) 预留脚：⛔ 本次没做设计 ⇒ 必须仍是常量

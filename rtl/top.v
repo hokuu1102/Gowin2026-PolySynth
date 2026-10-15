@@ -735,6 +735,13 @@ parameter integer TEST_MODE_EN       = 1,
         else if (enc_sw_down_w)  enc_obj_r <= ~enc_obj_r;
     end
 
+    //  ⭐⭐ 2026-10-15：⭐ **EC11 活动指示**（给指示灯第 5 颗用）
+    //     ⭐ 语义：⭐ 转动**或**按压 ⇒ 亮"它现在管什么"的颜色，1 秒后回落成音高状态
+    //     📌 依据：`控制板16键功能映射-20261013.md` §1.3（第 6 颗，方案 A 分时）
+    //     ⚠️ 这里只给**活动脉冲**，超时与配色在 `led_indicator` 里做
+    //        （⛔ 本模块不重复造那个 26 位计数器）
+    wire led_enc_act = enc_cw_w | enc_ccw_w | enc_sw_down_w;
+
     //  ⭐⭐ **÷4：⭐ 一次"定位"（detent）= 4 个格雷步** ✅
     //     📌 ⭐ `debounce.v` 原文：*"`enc_cw`/`enc_ccw` 1 周期脉冲：EC11 每走一个
     //        **格雷步**产生一次（**4 步 / 1 定位**）"* ✅
@@ -1606,11 +1613,15 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     //      ⇒ ⭐ 必须由两个**互斥**分支各自驱动（⛔ 否则 `g_silent` 档悬空成 `x`）
     //   📌 `timbre_sel_r` / `met_on_r` / `key_drum_r` / `drum_pattern_r` /
     //      `play_fretboard_mode` **本来就在模块层** ⇒ ⛔ 不用引线（⭐ 直接读）✅
-    localparam integer NCH_LED = 7;         // ⭐ 指示灯颗数（⭐ 一颗对一个东西）
+    //  ⭐⭐ 2026-10-15：**7 → 8 颗**（按控制板第 3 版重排，用户裁定"灯序一起改"）
+    //     出处：`files/20-代码/控制板16键功能映射-20261013.md`（第 3 版）
+    //     灯序：0=音色 · 1=16键行为 · 2=推子功能 · 3=节奏 · 4=looper
+    //           · 5=EC11+音高 · 6=HDMI · 7=效果器
+    localparam integer NCH_LED = 8;         // ⭐ 指示灯颗数（⭐ 一颗对一个东西）
     wire       led_beat;                    // ⭐ 拍点脉冲（`g_sound` 的 `bg_beat`，⭐ 单周期）
     wire [1:0] led_gear_st;                 // ⭐ 推子档位（`g_sound.u_fader_gear.gear_o`）
-    wire [1:0] led_looper_st;               // ⭐ looper：0=空闲 · 1=录音 · 2=回放
-    wire [NCH_LED*24-1:0] led_col_flat;     // ⭐ 7 颗灯的颜色（⭐ `u_led_indicator` 驱动）
+    wire [1:0] led_looper_st;               // ⭐ looper：0=空闲 · 1=录音 · 2=回放 · 3=武装中
+    wire [NCH_LED*24-1:0] led_col_flat;     // ⭐ 8 颗灯的颜色（⭐ `u_led_indicator` 驱动）
 
     // ═══════════════════════════════════════════════════════════════════════
     //   🔴🔴 **`uart_tx_fifo`：回传的发送队列**（⭐ 2026-09-24 新增，修 `K-126`）
@@ -6629,14 +6640,18 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
     //   ⚠️ `wr_data_i` = `24'hRRGGBB`（⭐ 标准 RGB888）——
     //      ⭐ 到线上的 **GRB** 重排由 `ws2812_driver` 内部做（⭐ 只此一处定义，好测）。
     // ═══════════════════════════════════════════════════════════════════════
-    localparam integer WS_LED_N = 16;     // ⭐ 控制板灯带灯数（⭐ 改灯数只改这一个参数）
+    //  ⭐⭐ 2026-10-15：**16 → 8**（⭐ 控制板第 3 版 = 8 颗；⭐ 之前是"7 颗用 + 9 颗恒灭"）
+    //     📌 为什么之前写 16：⭐ 那时灯数还没定，用 16 留余量
+    //        ⇒ ⚠️ 代价是**每帧多发 8 颗灯的位**（⭐ 每颗 24 位 × 1.25 µs ≈ 30 µs/颗）
+    //        ⇒ ⭐ 改成 8 之后帧更短、刷新更快 ✅
+    localparam integer WS_LED_N = 8;        // ⭐ 控制板灯带灯数（⭐ 改灯数只改这一个参数）
 
     wire        ws_busy;
     wire        ws_start;
     reg  [1:0]  ws_ld_state;
     reg         ws_wr_en;
     reg  [4:0]  ws_wr_addr;
-    reg  [23:0] ws_wr_data;   // ⭐ 2026-10-03：⭐ 改由 `always @*` 从 7 路颜色里选（原来是常量 assign）
+    reg  [23:0] ws_wr_data;   // ⭐ 2026-10-03：⭐ 改由 `always @*` 从 8 路颜色里选（原来是常量 assign）
     wire        ws_dout;
 
     localparam [1:0] WLS_WRITE = 2'd0;
@@ -6684,21 +6699,30 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
     led_indicator #(.N_CH(NCH_LED)) u_led_indicator (
         .clk        (clk),
         .rst_n      (rst_n_sync),
-        .timbre_i   (timbre_sel_r),         // ⭐ 第 1 层：⭐ 全部是**现成**信号
-        .metro_on_i (met_on_r),
+        //  ── 第 1 层：全部是现成信号 ──────────────────────────────────────
+        .timbre_i   (timbre_sel_r),         // #0 音色
+        .fb_mode_i  (play_fretboard_mode),  // #1 16 键行为（1 = 指板 · 0 = 键盘）
+        .keydrum_i  (key_drum_r),           // #1 键盘打鼓（覆盖模式）
+        .gear_i     (led_gear_st),          // #2 推子功能
+        .metro_on_i (met_on_r),             // #3 节奏
         .beat_i     (led_beat),
         .drum_on_i  (led_drum_on),
         .drum_pat_i (drum_pattern_r),
-        .keydrum_i  (key_drum_r),
-        .looper_i   (led_looper_st),
-        .gear_i     (led_gear_st),
-        .fb_mode_i  (play_fretboard_mode),  // ⭐ 1 = 指板 · 0 = 键盘
+        .looper_i   (led_looper_st),        // #4 looper
+        //  ── ⭐ 2026-10-15 新增：第 5/6/7 颗（控制板第 3 版）────────────
+        .transpose_i(transpose_semi),       // #5 变调半音（signed，-12..+12）
+        .slide_i    (slide_on_r),           // #5 滑音开关（优先级高于变调）
+        .enc_act_i  (led_enc_act),          // #5 EC11 刚被动过（临时色）
+        .enc_obj_i  (enc_obj_r),            // #5 EC11 对象：0=BPM · 1=音高
+        .scope_mode_i(scope_mode_r),        // #6 HDMI：0=波形 · 1=李萨如
+        .fx_en_i    (ui_fx_en),             // #7 效果器使能（当前恒 0，留位）
+        .fx_sel_i   (ui_fx_sel),            // #7 效果器选择
         .led_col_o  (led_col_flat)
     );
 
-    // ⭐ 7 路颜色 → 灯带写口（⭐ LED0..LED6）；⭐ LED7..LED15（`WS_LED_N=16`）恒灭
+    // ⭐ 8 路颜色 → 灯带写口（⭐ LED0..LED7）；⭐ LED8..（`WS_LED_N=8` ⇒ 无）恒灭
     //   ⚠️ 为什么用 `case` 而不是"按 `ws_wr_addr*24` 切 `led_col_flat`"：
-    //      ⭐ 那样当地址 ≥ 7 时是**越界选择**（⭐ 仿真出 `x`）⇒ ⚠️ 靠外层三元挡住很脆；
+    //      ⭐ 那样当地址 ≥ 8 时是**越界选择**（⭐ 仿真出 `x`）⇒ ⚠️ 靠外层三元挡住很脆；
     //      ⭐ `case` 的 `default` 把"其余灯"**明确**写成灭 ✅
     always @* begin
         case (ws_wr_addr)
@@ -6709,6 +6733,8 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             5'd4: ws_wr_data = led_col_flat[ 96 +: 24];
             5'd5: ws_wr_data = led_col_flat[120 +: 24];
             5'd6: ws_wr_data = led_col_flat[144 +: 24];
+            //  ⭐⭐ 2026-10-15：⭐ **第 8 颗（效果器）** —— 控制板第 3 版 ✅
+            5'd7: ws_wr_data = led_col_flat[168 +: 24];
             default: ws_wr_data = 24'h000000;
         endcase
     end
