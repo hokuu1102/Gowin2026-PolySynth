@@ -1719,6 +1719,16 @@ let pollResumeTimer = null;
  * 订阅成功后 `statNotifyOk = true` ⇒ ⭐ **永不用 readValue**（从根上不可能卡死）。
  * ⚠️ 订阅失败时退回主动读（老固件兼容）。 */
 let statNotifyOk = false;
+/* ⭐⭐ 2026-10-15 诊断开关（决定性 A/B）。
+ * 🔴 背景：灌谱只有 6.7 KB/s，遥测证明【ESP32 就是只收到 6.7 KB/s】，
+ *   而固件侧唯一新增的是 STAT notify（周期 300->1500 ms 只把 38s 改善到 24.8s）。
+ * ⭐ 把它设 false => 【不订阅 notify】=> 固件不会发通知 => 排除 TX 缓冲占用。
+ *   然后走【纯节流】发（不再依赖 notify 做流控）。
+ * 📌 判读：
+ *    · 设 false 后速度回到 20~30 KB/s => ⭐ 是 notify 的锅，我改成不用通知的流控
+ *    · 设 false 后仍 6~7 KB/s      => ⭐ 与 notify 无关，我继续查固件接收路径
+ * ⚠️ 关掉通知后状态面板不刷新（上传期间），⭐ 这是诊断模式的正常代价。 */
+const USE_STAT_NOTIFY = false;
 /* ⭐ 最近一次 notify 收到的 STAT 文本 —— 供"要不要额外读"的判断与调试 */
 let lastStatText = "";
 
@@ -1808,7 +1818,7 @@ async function connect() {
      * ⚠️ 与 0xABF2 的订阅【各自独立】—— 固件侧也是分开跟踪两个 CCCD 的，
      *    ⛔ 一个订阅失败不该影响另一个。 */
     try {
-      if (chStat) {
+      if (chStat && USE_STAT_NOTIFY) {
         await gattSerial(() => chStat.startNotifications());
         chStat.addEventListener("characteristicvaluechanged", ev => {
           const dv = ev.target.value;
@@ -2018,7 +2028,8 @@ let fcAckedAtLog = 0, fcLogAtMs = 0;    /* ⭐ 上次打遥测时的基准 */
 async function sendChunkWithFlowControl(pl, off, n) {
   /* ⭐ 等窗口腾出来（最多等 FC_WAIT_MS）*/
   const t0 = performance.now();
-  while (!fcAbort && statNotifyOk &&
+  /* ⚠️ 不用通知时【不等待】—— 纯靠 PACING_MS 节流（诊断模式）*/
+  while (USE_STAT_NOTIFY && !fcAbort && statNotifyOk &&
          (fcSent - fcAcked) > FC_WINDOW_BYTES &&
          (performance.now() - t0) < FC_WAIT_MS) {
     const seq0 = fcNotifySeq;
@@ -2358,7 +2369,9 @@ async function upload() {
       /* ⭐ 2026-10-15：节流从 20 ms 降到 2 ms —— 现在有【窗口流控】负责不丢，
        *   ⛔ 不再需要靠慢慢发来避免溢出（那样太慢）。
        *   ⚠️ 保留 2 ms 是为了让出事件循环（⛔ 不能把 UI 卡死）。 */
-      const PACING_MS = 2;
+      /* ⚠️ 诊断模式（不用通知做流控）下退回 12 ms ——
+       *   与 2026-10-14 14:38 那次实测 30.6 KB/s 的同档，便于 A/B 对比。 */
+      const PACING_MS = USE_STAT_NOTIFY ? 2 : 12;
       if (PACING_MS > 0) await new Promise(r => setTimeout(r, PACING_MS));
       else if ((sent / CHUNK) % 20 === 0) await new Promise(r => setTimeout(r, 0));
     }
