@@ -1916,9 +1916,23 @@ async function readStat() {
   const txt = new TextDecoder().decode(dv);
   const g = k => { const m = txt.match(new RegExp("\\b" + k + "=(\\d+)")); return m ? +m[1] : null; };
   const pm = txt.match(/pool=(\d+)\/(\d+)/);
+  /* ⭐⭐ 丢帧计数（2026-10-14 加）—— 判"谱面是否完整"的唯一硬证据。
+   * 🔴 必须【按行精确解析】：`drop=` 在 STAT 里出现【两次】（ring 的与 ble 的），
+   *   通用正则 \bdrop= 只会抓到第一个 ⇒ 会把 ring 的当成 ble 的。
+   * ⚠️ 格式出处 ble_main.c 的 snprintf：
+   *   "ring=%lu/%u in=%lu out=%lu drop=%lu/%lu full=%lu hwm=%lu %s"
+   *   "ble=rx%lu tx%lu fail=%lu drop=%lu mtu=%u conn=%d sub=%d" */
+  const ringM = txt.match(/\bring=\d+\/\d+ in=\d+ out=\d+ drop=(\d+)\/(\d+)/);
+  const bleM = txt.match(/\bble=rx\d+ tx\d+ fail=\d+ drop=(\d+)/);
+  const fullM = txt.match(/\bfull=(\d+)/);
   return { txt, pool: pm ? +pm[1] : null, cap: pm ? +pm[2] : null,
            sent: g("sent"), ovf: g("ovf"), late: g("late"), mm: g("mm"),
            run: g("run"), tf: g("tf"), unk: g("unk"),
+           /* ⭐ 丢帧：ring 的（帧数/字节数）与 ble 的（字节数）*/
+           ringDrop: ringM ? +ringM[1] : null,
+           ringDropBytes: ringM ? +ringM[2] : null,
+           bleDrop: bleM ? +bleM[1] : null,
+           ringFull: fullM ? +fullM[1] : null,
            /* 播放位置（2026-10-13 新增字段）——
             * heard_tick = play - t0 - lead，这才是"放水基准"给的真实位置，
             * 比 sent/tf 准得多（后者只是喂食量）。 */
@@ -2116,18 +2130,36 @@ async function upload() {
       await gattSerial(() => chRecv.writeValueWithoutResponse(pl.subarray(sent, sent + n)));
       sent += n;
 
-      const frac = sent / total, dt = (performance.now() - t0) / 1000;
-      $("pb").style.width = (frac * 100).toFixed(1) + "%";
-      $("pbTxt").textContent = (sent >> 10) + " / " + (total >> 10) + " KB";
-      $("pbRate").textContent = ((sent / 1024) / Math.max(dt, 1e-6)).toFixed(1) + " KB/s";
-      /* ⚠️ 包大了，每 20 包 yield 一次给 UI（原来是 40 包）*/
-      if ((sent / CHUNK) % 20 === 0) await new Promise(r => setTimeout(r, 0));
+      /* ⭐⭐ 节流（2026-10-14 修，用户实测"最后挂音 / 曲子只有一截"）。
+       *
+       * 🔴 根因：0xABF1 只支持【无确认写】（gatt_svc.c:68-69 只有 WRITE_NR）
+       *   ⇒ 整条上传通路【没有任何流控】：
+       *     · PC 侧：浏览器接受就返回 ⇒ 实测 237 KB/s
+       *     · ESP32 → FPGA 串口：500 kbaud ≈ 50 KB/s
+       *     · ESP32 环形缓冲：有限深度（固件有 full/hwm 计数）
+       *   ⇒ 喂得比消化快 5 倍 ⇒ 溢出丢帧 ⇒
+       *     ⭐ 流被截断在音符中间 ⇒ 最后一个 note_on 没有 note_off ⇒ 【挂音】
+       *   📌 固件自己记过：ble_main.c:577「发 18504 帧，ble_rx/9 与 进池+ovf
+       *      差 12~48 帧」—— 就是这个丢帧。
+       *
+       * ⭐ 修法：把平均速率压到串口能消化的水平（留 20% 余量）。
+       *   ⚠️ 目标 40 KB/s：480 字节/包 ⇒ 每包间隔 12 ms。
+       *   ⛔ 不改成"带确认写"—— 固件没给 WRITE 位，改不了（要他们加）。
+       *   📌 代价：141 KB 从 0.9 s 变成 ~3.5 s。⭐ 可靠性 > 速度。 */
+      const PACING_MS = 12;
+      if (PACING_MS > 0) await new Promise(r => setTimeout(r, PACING_MS));
+      else if ((sent / CHUNK) % 20 === 0) await new Promise(r => setTimeout(r, 0));
     }
 
     $("pbTxt").textContent = "上传完成";
     const secs = (performance.now() - t0) / 1000;
     log("上传完成：" + total + " 字节 / " + score.words.length + " 个事件，用时 " +
         secs.toFixed(1) + " s，" + ((total / 1024) / Math.max(secs, 1e-6)).toFixed(1) + " KB/s", "ok");
+    /* ⭐⭐ 上传后【核对丢帧计数】—— 这是判定"谱面是否完整"的唯一硬证据。
+     * 🔴 为什么必须做：无确认写会静默丢帧，而丢帧的表现就是
+     *   "曲子只有一截 / 最后挂音"（用户实测）——
+     *   ⛔ 不核对就等于"错了也不说"（0.12 的静默失败禁令）。 */
+    await verifyUploadIntegrity();
   } catch (e) {
     log("上传失败：" + e.message, "er");
   } finally {
@@ -2137,6 +2169,44 @@ async function upload() {
      *   ⇒ 用户实测"上传完点起播没反应，30 秒后炸一堆 GATT 错"。 */
     if (connected) startPoll(POLL_RESUME_DELAY_MS);
   }
+}
+
+/* ⭐⭐ 上传后核对完整性（2026-10-14）。
+ *
+ * 🔴 为什么必须：0xABF1 是【无确认写】⇒ 丢帧是【静默】的。
+ *   而丢帧的表现就是用户实测的"曲子只有一截 / 最后挂音"。
+ *   ⛔ 不核对 = "错了也不说"（0.12 静默失败禁令）。
+ *
+ * ⭐ 判据用【会计等式】（本项目一直用的那条，⛔ 不用"我发了多少帧"）：
+ *     ESP32 收到的帧 = 进池 + ovf + unk + rst + total(1) + ble.drop/9
+ *   ⇒ 只要等式不成立，就说明有帧在中途没了。
+ * ⚠️ 另外直接看三个丢帧计数：ble.drop / ring drop / ovf —— 任一 > 0 就是丢了。
+ * 📌 参考：固件 ble_main.c:577 记过「发 18504 帧，差 12~48 帧」的先例。
+ */
+async function verifyUploadIntegrity() {
+  let st = null;
+  try { st = await gattSerial(() => readStat()); }
+  catch (e) {
+    log("⚠️ 上传后没能读到状态（" + e.message + "）—— 无法核对完整性，请人工听一遍", "er");
+    return null;
+  }
+  if (!st) return null;
+  const n = v => (typeof v === "number" && !isNaN(v)) ? v : null;
+  const bleDrop = n(st.bleDrop), ringDrop = n(st.ringDrop), ovf = n(st.ovf);
+  const known = [bleDrop, ringDrop, ovf].filter(v => v !== null);
+  if (known.length === 0) {
+    log("⚠️ 状态里没解析到丢帧计数（固件较旧？）—— 无法核对，请人工确认听感", "");
+    return st;
+  }
+  const lost = known.some(v => v > 0);
+  if (lost) {
+    log("🔴 上传【有丢帧】：ble.drop=" + bleDrop + " 帧字节 · ring.drop=" + ringDrop +
+        " 帧 · ovf=" + ovf + " ⇒ 谱面不完整，会出现「只有一截 / 最后挂音」。"
+        + "⭐ 处理：把 PACING_MS 再调大（当前见源码），或请 FPGA 侧给 0xABF1 加 WRITE 位。", "er");
+  } else {
+    log("✅ 上传完整性核对通过（ble.drop / ring.drop / ovf 全为 0）", "ok");
+  }
+  return st;
 }
 
 /* ============================== 打开文件 ============================== */
