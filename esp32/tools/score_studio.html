@@ -1998,7 +1998,15 @@ function parseStatText(txt) {
  *   拿它当压力指标永远不触发（踩过这个思路）。
  * ⚠️ 超时兜底：若 3 秒没等到 notify（固件没订阅成功？），就放行继续 ——
  *   ⛔ 不能因为流控把上传卡死。 */
-const FC_WINDOW_BYTES = 24 * 1024;      /* 在途上限（约 50 包）*/
+/* 🔴 2026-10-15：24 KB -> 64 KB。
+ * 为什么放大：notify 周期从 300 ms 拉到 1500 ms（固件侧，为救接收吞吐）
+ *   ⇒ 窗口必须放大来补偿确认变稀，否则吞吐被 notify 频率卡住
+ *   （24 KB / 1.5 s = 16 KB/s，太慢）。
+ * ⚠️ 64 KB / 1.5 s ≈ 42 KB/s 的上限，而 ESP32 能收 20~30 KB/s
+ *   ⇒ 窗口不再是瓶颈，瓶颈交回 ESP32（⭐ 这才是对的）。
+ * 📌 风险：窗口大了可能重新丢 —— 上传后核对 ble.drop/ring.drop/ovf，
+ *   若不为 0 就把这个数调回小一些。 */
+const FC_WINDOW_BYTES = 64 * 1024;
 const FC_WAIT_MS = 3000;                /* 等 notify 的上限 */
 let fcSent = 0;                         /* 本次上传已发出字节 */
 let fcAcked = 0;                        /* notify 报的 ESP32 实收字节 */
