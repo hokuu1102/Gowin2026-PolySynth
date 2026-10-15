@@ -1188,12 +1188,26 @@ function buildScore(words, name) {
   for (const seg of open.values()) { danglingOn++; }
   if (segs.length) {
     const endTick = Math.max(tickMax, 1);
-    // 用一个"最小可见长度"，免得零长度块完全看不见
-    const minLen = Math.max(1, Math.round((endTick - (isFinite(tickMin) ? tickMin : 0)) / 400));
+    /* ⭐⭐ 2026-10-14 修（用户："卷帘每个音的时值有一点过长了，很多地方重叠在一起"）。
+     *
+     * 🔴 原来这里有一段"最小可见长度"兜底：
+     *      const minLen = Math.max(1, Math.round((endTick - tickMin) / 400));
+     *      s.t1 = Math.max(s.t1, s.t0 + minLen);
+     *   ⚠️ 它是【全曲长度的 1/400】—— 对长曲子是个巨大的值：
+     *      用户那份谱 tickMax = 725760 ⇒ minLen = 1814 tick ≈ 1.9 秒(@120BPM)
+     *      ⇒ 🔴 **每根音都被拉到至少 1.9 秒** ⇒ 时值普遍偏长、大量重叠。
+     *   📌 实测：显示层 p10=p50=p90 = 1814（全是 minLen），
+     *      而【转换器输出】与【原始 MIDI】都是 p50=480 ⇒ ⭐ 转换没错，是这里拉长的。
+     *
+     * ⭐ 为什么可以直接删掉：**绘制层已经保证了最小可见宽度** ——
+     *   · 卷帘：`const bw = Math.max(1.6, x1 - x0)`
+     *   · 鼓栏：`ctx.fillRect(x0, y, Math.max(1.6, x1 - x0), blockH)`
+     *   ⇒ ⭐ 零长度的音也能看见（画成 1.6 px）⇒ 兜底拉伸【完全多余】。
+     *   ⚠️ 而且它改的是【数据】（seg.t1），会连带影响重叠判断与下发，⛔ 不只是显示。
+     *
+     * ⭐ 保留的只有"未闭合的 on 用全曲末尾收尾"（那条是真需要的兜底）。 */
     for (const s of segs) {
       if (s.t1 === null) s.t1 = endTick;
-      if (s.t1 <= s.t0) s.t1 = s.t0 + minLen;
-      s.t1 = Math.max(s.t1, s.t0 + minLen);
     }
   }
   const hz0 = tempos.length ? tempos[0].hz : TPS120;
@@ -1233,23 +1247,6 @@ function noteColor(seg) {
   return (tb >= 0 && tb < TIMBRE_COLORS.length) ? TIMBRE_COLORS[tb] : NOTE_COLOR_FALLBACK;
 }
 
-/* ⭐ 图例小色块的颜色 —— 取"该轴上出现最多的音色"的颜色。
- * 🔴 2026-10-14 补：我上一轮把图例改成 `axisSwatchColor(a)` 却忘了写定义
- *    ⇒ draw() 每帧抛 ReferenceError ⇒ 图例不画 + 统计面板停在 "-" + 进度条不更新。
- * ⚠️ 若该轴上混了多种音色，取出现最多的那个（与 axisLabel 的取法一致）。 */
-function axisSwatchColor(a) {
-  if (a === DRUM_AXIS) return DRUM_COLOR;
-  let best = null, bestN = -1;
-  const cnt = new Map();
-  for (const sg of (score.noteSegs || [])) {
-    if (sg.axis !== a) continue;
-    const tb = (sg.timbre === undefined || sg.timbre === null) ? -1 : sg.timbre;
-    cnt.set(tb, (cnt.get(tb) || 0) + 1);
-  }
-  for (const [tb, c] of cnt) { if (c > bestN) { best = tb; bestN = c; } }
-  if (best === null || best < 0) return NOTE_COLOR_FALLBACK;
-  return (best < TIMBRE_COLORS.length) ? TIMBRE_COLORS[best] : NOTE_COLOR_FALLBACK;
-}
 
 const AXIS_COLORS = ["#4ea1ff","#3ddc84","#ffb020","#ff7ab2","#a78bfa","#22d3ee",
                      "#fb923c","#f472b6","#34d399","#facc15","#60a5fa","#c084fc",
@@ -1718,6 +1715,12 @@ let connected = false, pollTimer = null;
 /* ⭐ 延迟恢复轮询用的定时器 —— 断开时必须清掉，
  * ⛔ 否则重连后旧的定时器会再 arm 一次（幽灵轮询）。 */
 let pollResumeTimer = null;
+/* ⭐⭐ 2026-10-15：固件已让 0xABF4(STAT) 每 300 ms 推一次 notify。
+ * 订阅成功后 `statNotifyOk = true` ⇒ ⭐ **永不用 readValue**（从根上不可能卡死）。
+ * ⚠️ 订阅失败时退回主动读（老固件兼容）。 */
+let statNotifyOk = false;
+/* ⭐ 最近一次 notify 收到的 STAT 文本 —— 供"要不要额外读"的判断与调试 */
+let lastStatText = "";
 
 /* 2026-10-14 修：加【状态机 + busy 锁】—— 解决"点断开却又弹出连接窗口"。
  *
@@ -1786,7 +1789,7 @@ async function connect() {
      *    （例如设备固件还没实现 0xABF2 时应仍能灌谱）。 */
     try {
       const chNoti = await svc.getCharacteristic(uuid16(CH_NOTI));
-      await chNoti.startNotifications();
+      await gattSerial(() => chNoti.startNotifications());
       chNoti.addEventListener("characteristicvaluechanged", ev => {
         const dv = ev.target.value;
         uPushBytes(new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength));
@@ -1794,6 +1797,30 @@ async function connect() {
       log("已订阅回传通道 0xABF2（切到「回传」模式即可看）", "ok");
     } catch (e) {
       log("⚠️ 订阅回传通道失败（不影响灌谱）：" + (e && e.message ? e.message : e), "er");
+    }
+
+    /* ⭐⭐ 2026-10-15：订阅 0xABF4(STAT) 的 notify —— 固件已改成每 300 ms 推一次。
+     *
+     * 🔴 为什么必须订阅：原来只能 `readValue()`，而 ESP32 在灌谱/播放期间忙于
+     *   往 FPGA 转发 ⇒ 读挂住 ⇒ 而 Web Bluetooth 【无法取消】已发出的操作
+     *   ⇒ 浏览器之后每个操作都报 `already in progress` ⇒ 起播/停止/清池全失效。
+     * ⭐ 订阅之后【永不用 readValue】⇒ 从根上不可能卡死。
+     * ⚠️ 与 0xABF2 的订阅【各自独立】—— 固件侧也是分开跟踪两个 CCCD 的，
+     *    ⛔ 一个订阅失败不该影响另一个。 */
+    try {
+      if (chStat) {
+        await gattSerial(() => chStat.startNotifications());
+        chStat.addEventListener("characteristicvaluechanged", ev => {
+          const dv = ev.target.value;
+          const txt = new TextDecoder().decode(new Uint8Array(dv.buffer, dv.byteOffset, dv.byteLength));
+          onStatText(txt);
+        });
+        statNotifyOk = true;
+        log("已订阅状态通道 0xABF4（每 300 ms 推一次，⛔ 不再主动读）", "ok");
+      }
+    } catch (e) {
+      statNotifyOk = false;
+      log("⚠️ 订阅状态通道失败（将退回主动读）：" + (e && e.message ? e.message : e), "er");
     }
     connected = true;
     setConn(true, "已连接 " + (device.name || ""));
@@ -1923,13 +1950,13 @@ async function sendCmd(code) {
   if (!connected) throw new Error("还没连上蓝牙");
   await chCmd.writeValueWithoutResponse(new Uint8Array([code]));
 }
-async function readStat() {
-  /* ⚠️ 同 sendCmd：叶子函数，⛔ 不在此处入队（会自嵌套死锁）。
-   * ⭐ 调用方 pollOnce() 已经包了 gattSerial。 */
-  await sendCmd(CMD_STAT);
-  await new Promise(r => setTimeout(r, 420));
-  const dv = await chStat.readValue();
-  const txt = new TextDecoder().decode(dv);
+/* ⭐⭐ 把 STAT 文本解析成对象（2026-10-15 抽出）。
+ * 🔴 为什么要抽：现在有【两条路】拿到同一份文本 ——
+ *    · notify（新固件，300 ms 推）—— ⭐ 主路径
+ *    · readValue（老固件 / 订阅失败）—— ⚠️ 兜底
+ *   ⛔ 两条路各写一遍解析 = 迟早漂（同族 C91：两处常量/逻辑漂移）。
+ *   ⇒ ⭐ 解析只此一份，两条路都调它。 */
+function parseStatText(txt) {
   const g = k => { const m = txt.match(new RegExp("\\b" + k + "=(\\d+)")); return m ? +m[1] : null; };
   const pm = txt.match(/pool=(\d+)\/(\d+)/);
   /* ⭐⭐ 丢帧计数（2026-10-14 加）—— 判"谱面是否完整"的唯一硬证据。
@@ -1939,22 +1966,48 @@ async function readStat() {
    *   "ring=%lu/%u in=%lu out=%lu drop=%lu/%lu full=%lu hwm=%lu %s"
    *   "ble=rx%lu tx%lu fail=%lu drop=%lu mtu=%u conn=%d sub=%d" */
   const ringM = txt.match(/\bring=\d+\/\d+ in=\d+ out=\d+ drop=(\d+)\/(\d+)/);
-  const bleM = txt.match(/\bble=rx\d+ tx\d+ fail=\d+ drop=(\d+)/);
+  const bleM = txt.match(/\bble=rx(\d+) tx\d+ fail=\d+ drop=(\d+)/);
   const fullM = txt.match(/\bfull=(\d+)/);
   return { txt, pool: pm ? +pm[1] : null, cap: pm ? +pm[2] : null,
            sent: g("sent"), ovf: g("ovf"), late: g("late"), mm: g("mm"),
            run: g("run"), tf: g("tf"), unk: g("unk"),
-           /* ⭐ 丢帧：ring 的（帧数/字节数）与 ble 的（字节数）*/
+           /* ⭐ ble_rx —— 判"固件到底收到多少字节"用（带确认写的验收判据）*/
+           bleRx: bleM ? +bleM[1] : null,
            ringDrop: ringM ? +ringM[1] : null,
            ringDropBytes: ringM ? +ringM[2] : null,
-           bleDrop: bleM ? +bleM[1] : null,
+           bleDrop: bleM ? +bleM[2] : null,
            ringFull: fullM ? +fullM[1] : null,
-           /* 播放位置（2026-10-13 新增字段）——
-            * heard_tick = play - t0 - lead，这才是"放水基准"给的真实位置，
-            * 比 sent/tf 准得多（后者只是喂食量）。 */
            play: g("play"), t0: g("t0"), lead: g("lead"),
            ttot: g("ttot"), pv: g("pv") };
 }
+
+/* ⭐⭐ notify 回调（2026-10-15）—— 主路径。
+ * ⭐ 收到就画，⛔ 不发任何 GATT ⇒ 不可能卡。 */
+function onStatText(txt) {
+  lastStatText = txt;
+  try {
+    const st = parseStatText(txt);
+    gattWedged = 0;
+    paintStat(st);
+    if (pendingIntegrityCheck) {
+      pendingIntegrityCheck = false;
+      checkIntegrityFromStat(st);
+    }
+  } catch (e) { /* notify 解析失败不该影响主流程 */ }
+}
+
+async function readStat() {
+  /* ⚠️ 同 sendCmd：叶子函数，⛔ 不在此处入队（会自嵌套死锁）。
+   * ⭐ 调用方 pollOnce() 已经包了 gattSerial。
+   * ⚠️ 这条路是【兜底】—— 只在 0xABF4 notify 订阅失败时用（老固件）。
+   *    ⭐ 新固件走 onStatText（notify），⛔ 不读 ⇒ 不可能卡死。 */
+  await sendCmd(CMD_STAT);
+  await new Promise(r => setTimeout(r, 420));
+  const dv = await chStat.readValue();
+  /* ⭐ 解析只此一份（parseStatText）—— ⛔ 不在这里再写一遍（两处必漂，同族 C91）*/
+  return parseStatText(new TextDecoder().decode(dv));
+}
+
 function paintStat(d) {
   $("st_pool").textContent = (d.pool ?? "-") + "/" + (d.cap ?? "-");
   $("st_sent").textContent = d.sent ?? "-";
@@ -2178,8 +2231,20 @@ async function upload() {
     let sent = 0; const t0 = performance.now();
     while (sent < total) {
       const n = Math.min(CHUNK, total - sent);
-      /* ⭐ 走串行队列 —— ⛔ 不许和别的 GATT 操作并发 */
-      await gattSerial(() => chRecv.writeValueWithoutResponse(pl.subarray(sent, sent + n)));
+      /* ⭐⭐ 2026-10-15：改用【带确认写】writeValue（固件已给 0xABF1 加 WRITE 位）。
+       *
+       * 🔴 原来用 writeValueWithoutResponse（无确认写）—— 实测丢 39% 数据：
+       *     网页交给它的字节 = 170460，而 ESP32 只收到 104640（`ble=rx104640`），
+       *     且 `ble.drop=0` / 上行环空 / `ovf=0` ⇒ 🔴 丢在 BLE 链路层，双方都看不见。
+       *     ⭐ 根因：无确认写"放进队列就 resolve"，链路丢包无人知晓。
+       *
+       * ⭐ 带确认写时，浏览器会【等 ESP32 的 ATT 响应】才 resolve
+       *   ⇒ 对端缓冲满就不响应 ⇒ 浏览器自动等待 ⇒ ⭐ **天然的流控**。
+       * ⚠️ 代价：吞吐降低（每次写一个 ATT 往返）。⭐ 可靠 > 快。
+       * 📌 判据：上传后核对 `ble_rx` 是否等于应发字节（见 checkIntegrityFromStat）。
+       *
+       * ⚠️ 走串行队列 —— ⛔ 不许和别的 GATT 操作并发。*/
+      await gattSerial(() => chRecv.writeValue(pl.subarray(sent, sent + n)));
       sent += n;
 
       /* ⭐ 进度条（2026-10-14 补回）。

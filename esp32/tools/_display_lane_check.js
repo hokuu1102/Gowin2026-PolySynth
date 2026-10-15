@@ -62,7 +62,8 @@ const fn = new Function("document", "window", "navigator", "performance", "conso
   "setTimeout", "clearInterval", "setInterval", "requestAnimationFrame",
   "location", "localStorage", "URLSearchParams",
   blk + "; return { parseMidi, midiToWords, buildScore, drawPiano, drawDrumLane, " +
-  "drumLaneHeight, geom, PAD, DRUM_LANE_NAME, setScore: (x) => { score = x; } };");
+  "drumLaneHeight, geom, PAD, DRUM_LANE_NAME, KIND_ON, KIND_OFF, " +
+  "setScore: (x) => { score = x; } };");
 const API = fn(doc, { addEventListener() {} }, { bluetooth: null }, { now: () => 0 },
   console, setTimeout, () => {}, () => 0, () => 0,
   { protocol: "http:", host: "x", search: "" },
@@ -101,6 +102,38 @@ const maxPitchY = pitches.length ? Math.max.apply(null, pitches.map(c => c.y)) :
 chk("音名都不落在鼓栏那一带", maxPitchY < minLaneY,
     "音名最大 y=" + maxPitchY.toFixed(0) + "（鼓栏件名最小 y=" +
     minLaneY.toFixed(0) + (pitches.length ? "" : "，本谱无音名被画") + "）");
+
+/* ---- ⭐ 时值必须与转换器一致（2026-10-14 用户报"时值过长、重叠"）----
+ * 🔴 曾经有个"最小可见长度"兜底：minLen = (endTick - tickMin)/400
+ *   => 对长曲子 minLen 高达 1814 tick（1.9 秒）=> 每根音被拉到至少那么长
+ *   => 显示层 p50 从 480 变成 1814，大量重叠。
+ * ⭐ 修法：删掉那个兜底（绘制层已有 Math.max(1.6, x1-x0) 保证可见）。
+ * ⚠️ 判据：显示层的中位时值必须等于转换器的中位时值。 */
+{
+  const convDurs = [];
+  {
+    const q = new Map();
+    const evs = conv.words.map((w) => ({
+      tick: Number((w >> 44n) & 0xFFFFFn), kind: Number((w >> 9n) & 0x3n),
+      axis: Number((w >> 19n) & 0xFn), inc: Number((w >> 23n) & 0x1FFFFFn),
+    }));
+    for (const e of evs.slice().sort((a, b) => (a.tick - b.tick) || (b.kind - a.kind))) {
+      const k = e.axis + "|" + e.inc;
+      if (e.kind === API.KIND_ON) { if (!q.has(k)) q.set(k, []); q.get(k).push(e.tick); }
+      else if (e.kind === API.KIND_OFF) {
+        const a = q.get(k);
+        if (a && a.length) convDurs.push(e.tick - a.shift());
+      }
+    }
+  }
+  const segDurs = (sc.noteSegs || []).concat(sc.drumSegs || [])
+                    .filter(s => s.t1 != null).map(s => s.t1 - s.t0);
+  const med = (a) => { const b = a.slice().sort((x, y) => x - y); return b[Math.floor(b.length / 2)]; };
+  chk("⭐ 显示层的中位时值 == 转换器的中位时值（没有被兜底拉长）",
+      segDurs.length > 0 && med(segDurs) === med(convDurs),
+      "显示层 " + med(segDurs) + " vs 转换器 " + med(convDurs));
+  chk("非空洞：转换器确实有样本", convDurs.length > 0, convDurs.length + " 个");
+}
 
 console.log();
 console.log("结论：" + (bad === 0 ? "全部通过" : "有 " + bad + " 项不符"));

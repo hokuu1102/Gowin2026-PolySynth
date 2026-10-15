@@ -13,8 +13,7 @@ const KEYWORDS = new Set(("if for while switch catch return typeof new function 
   "await async of in var let const class delete void throw try finally yield import " +
   "export default case break continue this super extends instanceof").split(" "));
 /* JS + 浏览器 + node 内置（按名字白名单，⛔ 不精确到签名）*/
-const BUILTIN = new Set(("console window document navigator location performance fetch URL " +
-  "URLSearchParams Blob TextDecoder TextEncoder ArrayBuffer DataView Uint8Array Int8Array " +
+const BUILTIN = new Set(("console window document navigator location performance fetch URL " +  "URLSearchParams Blob TextDecoder TextEncoder ArrayBuffer DataView Uint8Array Int8Array " +
   "Uint16Array Uint32Array Float32Array BigInt64Array Object Array Set Map WeakMap WeakSet " +
   "Math JSON Number String Boolean Symbol Date RegExp Error TypeError RangeError Promise " +
   "isNaN parseInt parseFloat encodeURIComponent decodeURIComponent structuredClone " +
@@ -71,9 +70,19 @@ for (const f of FILES) {
   for (const m of stripped.matchAll(/([A-Za-z_$][\w$]*)\s*:/g)) defined.add(m[1]);
 
   /* ③ 找顶层调用 foo( ... ) */
+  /* ⚠️ 只在【正则字面量里】出现、被误当成函数调用的名字（见下方过滤处的说明）*/
+  const REGEX_WORDS = new Set(["rx", "tx", "drop", "pool", "sent", "ovf", "ring"]);
   const missing = new Map();     /* name -> 第一次出现的上下文 */
   for (const m of stripped.matchAll(/([A-Za-z_$][\w$]*)\s*\(/g)) {
     const name = m[1];
+    /* ⚠️ 只在【正则字面量里】出现、被误当成函数调用的名字。
+     * 2026-10-15：STAT 解析里有 /ble=rx(\d+)/ ⇒ `rx(` 被误报成未定义函数。
+     * 🔴 为什么不改成"剥正则字面量"：试过 —— 剥得太激进会把真代码也吃掉
+     *   ⇒ **判据失去非空洞性**（把 axisSwatchColor 改名后不再变红 = 判据废掉）。
+     * ⭐ 教训：**"能失败"比"不误报"重要** ⇒ 宁可误报，不可失效。
+     * ⚠️ 往这里加名字前必须确认它【只】出现在正则里，
+     *   ⛔ 别把它当成"消除误报"的垃圾桶（那会悄悄降低覆盖率）。 */
+    if (REGEX_WORDS.has(name)) continue;
     if (KEYWORDS.has(name) || BUILTIN.has(name) || defined.has(name)) continue;
     /* 前一个非空字符是 . 或 ?. 或 new => 成员/构造，跳过 */
     const before = stripped.slice(Math.max(0, m.index - 20), m.index);
