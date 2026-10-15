@@ -2030,15 +2030,36 @@ function parseStatText(txt) {
  *   拿它当压力指标永远不触发（踩过这个思路）。
  * ⚠️ 超时兜底：若 3 秒没等到 notify（固件没订阅成功？），就放行继续 ——
  *   ⛔ 不能因为流控把上传卡死。 */
-/* 🔴 2026-10-15：24 KB -> 64 KB。
- * 为什么放大：notify 周期从 300 ms 拉到 1500 ms（固件侧，为救接收吞吐）
- *   ⇒ 窗口必须放大来补偿确认变稀，否则吞吐被 notify 频率卡住
- *   （24 KB / 1.5 s = 16 KB/s，太慢）。
- * ⚠️ 64 KB / 1.5 s ≈ 42 KB/s 的上限，而 ESP32 能收 20~30 KB/s
- *   ⇒ 窗口不再是瓶颈，瓶颈交回 ESP32（⭐ 这才是对的）。
- * 📌 风险：窗口大了可能重新丢 —— 上传后核对 ble.drop/ring.drop/ovf，
- *   若不为 0 就把这个数调回小一些。 */
-const FC_WINDOW_BYTES = 64 * 1024;
+/* 🔴🔴 2026-10-15：64 KB -> 【8 KB】，并把 notify 周期从 1500 ms 压到 100 ms。
+ *
+ * ═══ 实测证据（决定性）═══
+ *   窗口 64 KB + notify 1500 ms 时：上传 25.5 s / 6.5 KB/s，
+ *   而且 ⭐ **丢帧 36.1%**（ev=12101 / tf=18935）。
+ *   ⭐ 关键在【丢帧的时间分布】—— 前面丢得极狠，后面几乎不丢：
+ *       已发 75 KB  -> 实收 11 KB    （这一步就丢了 85%！）
+ *       已发 93 KB  -> 实收 46 KB
+ *       已发 150 KB -> 实收 96 KB
+ *
+ * ═══ 机制 ═══
+ *   上传【开头】在途 = 0 ⇒ 流控不拦 ⇒ ⭐ 一口气把【整个 64 KB 窗口】
+ *   全灌进链路 ⇒ 蓝牙控制器的 RX 缓冲瞬间爆掉 ⇒ 巨量丢帧。
+ *   等 in-flight 堆到窗口才开始限流 —— 但前面那些已经丢了。
+ *   ⇒ ⭐ 所以"窗口大"本身就是丢帧的成因，⛔ 不是"能收多快"的上限。
+ *
+ * ═══ 为什么原来会设 64 KB ═══
+ *   ⚠️ 因为 notify 是 1500 ms，窗口小了吞吐就被通知频率卡住
+ *   （8 KB / 1.5 s = 5.3 KB/s）。
+ *   ⇒ 🔴 那是在【错误前提】下的补偿：我当时以为"ESP32 只能收 4~7 KB/s"，
+ *     而那个结论是在【累计值 bug】下测的（见 fcAckedBase 的说明）⇒ ⚠️ 无效。
+ *
+ * ═══ 正确配置（两个必须一起改）═══
+ *   · notify 周期 1500 -> **100 ms**（固件，细粒度反馈）
+ *   · 窗口 64 KB -> **8 KB**（小突发，控制器缓冲扛得住）
+ *   ⇒ 上限 = 8 KB / 0.1 s = **80 KB/s**（远高于链路能力 ⇒ 窗口不再是瓶颈）
+ *     而突发只有 8 KB ⇒ 不爆缓冲 ⇒ 不丢。
+ * ⚠️ 这两个数【互相依赖】：只改一个都不对
+ *   （小窗口 + 慢通知 = 很慢；大窗口 + 快通知 = 照样丢）。 */
+const FC_WINDOW_BYTES = 8 * 1024;
 const FC_WAIT_MS = 3000;                /* 等 notify 的上限 */
 let fcSent = 0;                         /* 本次上传已发出字节 */
 /* 🔴🔴 2026-10-15 关键修正：`ble=rxN` 是【自开机累计】的，⛔ 不是本次上传的！
@@ -2074,7 +2095,7 @@ async function sendChunkWithFlowControl(pl, off, n) {
          (fcSent - fcAcked) > FC_WINDOW_BYTES &&
          (performance.now() - t0) < FC_WAIT_MS) {
     const seq0 = fcNotifySeq;
-    await new Promise(r => setTimeout(r, 50));
+    await new Promise(r => setTimeout(r, 10));
     if (fcNotifySeq === seq0 && (performance.now() - t0) > FC_WAIT_MS) break;
   }
   fcWaitedMs += performance.now() - t0;      /* ⭐ 记账：等了多久 */

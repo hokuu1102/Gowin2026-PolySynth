@@ -31,24 +31,44 @@ if (!mLane) { console.error("RED: 没从源码里认出 drumLaneHeight 的公式
 const LANE_MIN = +mLane[1], LANE_MAX = +mLane[2], LANE_FRAC = +mLane[3];
 const laneH = Math.max(LANE_MIN, Math.min(LANE_MAX, PH * LANE_FRAC));
 
+/* 记录 draw() 真正发出的每个 fillRect —— 用来【证明】"音符被鼓栏盖掉"，
+ * 而不是靠读代码猜。假 canvas 的 fillStyle 也要记（靠它认出鼓栏底色）。 */
+const rects = [];
+let curStyle = null;
+const recCtx = new Proxy({}, {
+  get: (t, k) => {
+    if (k === "canvas") return { width: 1, height: 1 };
+    if (k === "measureText") return () => ({ width: 10 });
+    return (...a) => {
+      if (k === "fillRect") rects.push({ style: curStyle, x: a[0], y: a[1], w: a[2], h: a[3] });
+    };
+  },
+  set: (t, k, v) => { if (k === "fillStyle") curStyle = v; return true; },
+});
 const fakeCtx = new Proxy({}, {
   get: (t, k) => k === "canvas" ? { width: 1, height: 1 }
     : (k === "measureText" ? () => ({ width: 1 }) : (() => {})), set: () => true });
-const fakeEl = () => new Proxy({
-  style: {}, classList: { add() {}, remove() {} }, getContext: () => fakeCtx,
+const mkEl = (ctx, cw, ch) => new Proxy({
+  style: {}, classList: { add() {}, remove() {} }, getContext: () => ctx,
+  clientWidth: cw, clientHeight: ch, width: cw, height: ch,
+  parentElement: { getBoundingClientRect: () => ({ width: cw, height: ch }) },
   querySelectorAll: () => [], querySelector: () => null, addEventListener() {},
   appendChild() {}, insertAdjacentHTML() {},
-  getBoundingClientRect: () => ({ left: 0, top: 0, width: 8, height: 6 }),
+  getBoundingClientRect: () => ({ left: 0, top: 0, width: cw, height: ch }),
   textContent: "", innerHTML: "", checked: false,
 }, { get: (t, k) => k in t ? t[k] : (typeof k === "string" ? (() => {}) : undefined),
      set: (t, k, v) => { t[k] = v; return true; } });
-const doc = { getElementById: () => fakeEl(), querySelector: () => fakeEl(),
+const rollEl = mkEl(recCtx, W, PH + 40);          // 画布高 = ph + PAD.t + PAD.b
+const fakeEl = () => mkEl(fakeCtx, 800, 600);
+const doc = { getElementById: id => (id === "roll" ? rollEl : fakeEl()),
+  querySelector: () => fakeEl(),
   querySelectorAll: () => [], addEventListener() {}, createElement: () => fakeEl(), body: fakeEl() };
 const fn = new Function("document", "window", "navigator", "performance", "console",
   "setTimeout", "clearInterval", "setInterval", "requestAnimationFrame",
   "location", "localStorage", "URLSearchParams",
-  blk + "\n; return { parseMidi, midiToWords, buildScore, DRUM_AXIS, KIND_ON, KIND_OFF, " +
-  "KIND_TEMPO, DRUM_INC, TIMBRE_NAMES, midiName, PAD, unpackWord };");
+  blk + "\n; function __setScore(s){ score = s; }" +
+  "\n; return { parseMidi, midiToWords, buildScore, DRUM_AXIS, KIND_ON, KIND_OFF, " +
+  "KIND_TEMPO, DRUM_INC, TIMBRE_NAMES, midiName, PAD, unpackWord, draw, __setScore };");
 const API = fn(doc, { addEventListener() {} }, { bluetooth: null }, { now: () => 0 },
   { log: () => {} }, setTimeout, () => {}, () => 0, () => 0,
   { protocol: "http:", host: "x", search: "" },
@@ -194,6 +214,123 @@ chk("⑥ 悬停命中的是 note_on（⛔ 不是 off，否则提示写「力度 
     nOff === 0, "命中 off 的比例 " + pctOf(nOff));
 chk("⑦ 在乐音区悬停不会命中鼓事件（鼓有自己的栏）",
     nDrum === 0, "命中鼓的比例 " + pctOf(nDrum));
+
+// ============================ 三、秒数换算 ============================
+// tick -> 秒【必须按 tempo 表分段积分】。页面里有三处偷懒用固定速度：
+//   buildScore 的 duration = (tickMax-tickMin)/首个 tempo 的 hz
+//   总览条的 "s" 标签      = tick/960（写死 120 BPM）
+//   游标回退路径           = 用 duration/tickMax 当常数 secPerTick
+console.log();
+console.log("【三】秒数换算（tick -> 秒）");
+const tps = score.tempos.slice().sort((a, b) => a.tick - b.tick);
+let trueSec = 0;
+for (let i = 0; i < tps.length; i++) {
+  const t0 = tps[i].tick;
+  const t1 = (i + 1 < tps.length) ? tps[i + 1].tick : score.tickMax;
+  trueSec += Math.max(0, t1 - t0) / (tps[i].hz || 1);
+}
+const hz0 = tps.length ? tps[0].hz : 1920.003;
+const panelSec = (score.tickMax - score.tickMin) / hz0;
+const barSec = score.tickMax / 960;
+const relErr = (a, b) => (100 * (a - b) / b).toFixed(1) + "%";
+console.log("  tempo 表：" + tps.map(t => "tick " + t.tick + " = " +
+            (t.hz / 1920.003 * 120).toFixed(0) + " BPM").join(" · "));
+console.log("  真实时长（分段积分）              = " + trueSec.toFixed(2) + " s");
+console.log("  面板「时长」（只用首个 tempo）     = " + panelSec.toFixed(2) + " s  -> 面板显示 " + panelSec.toFixed(1) + " s");
+console.log("  总览条「全长」（tick/960 写死 120BPM）= " + barSec.toFixed(2) + " s");
+console.log("  误差：面板 " + relErr(panelSec, trueSec) + " · 总览条 " + relErr(barSec, trueSec));
+/* 游标回退路径的漂移：真实播到 T 秒时，它算出的 tick 偏多少 */
+const secPerTick = panelSec / Math.max(1, score.tickMax);
+let tickAtTrueSec = 0, acc = 0;
+for (const t of tps) {
+  const t1 = (tps.indexOf(t) + 1 < tps.length) ? tps[tps.indexOf(t) + 1].tick : score.tickMax;
+  const segSec = (t1 - t.tick) / (t.hz || 1);
+  if (acc + segSec >= trueSec) { tickAtTrueSec = t.tick + (trueSec - acc) * t.hz; break; }
+  acc += segSec;
+}
+const guessedTick = trueSec / secPerTick;
+console.log("  游标回退路径：真实播完时它算出的 tick = " + guessedTick.toFixed(0) +
+            "，真值 " + score.tickMax + "（偏 " + (100 * (guessedTick - score.tickMax) / score.tickMax).toFixed(1) + "%）");
+console.log("  提前量显示：代码写 d.lead/1920（假定 120BPM）—— 本曲 1920 tick 实际是 " +
+            (1920 / hz0).toFixed(2) + " s，不是 1.00 s");
+console.log();
+console.log("  判据：");
+chk("⑧ 面板时长与真实时长一致（误差 < 1%）", Math.abs(panelSec - trueSec) / trueSec < 0.01,
+    "面板 " + panelSec.toFixed(2) + "s vs 真值 " + trueSec.toFixed(2) + "s（" + relErr(panelSec, trueSec) + "）");
+chk("⑨ 总览条秒数与真实时长一致（误差 < 1%）", Math.abs(barSec - trueSec) / trueSec < 0.01,
+    "总览条 " + barSec.toFixed(2) + "s vs 真值 " + trueSec.toFixed(2) + "s（" + relErr(barSec, trueSec) + "）");
+chk("⑩ 游标回退路径不漂（偏差 < 1%）",
+    Math.abs(guessedTick - score.tickMax) / score.tickMax < 0.01,
+    "偏 " + (100 * (guessedTick - score.tickMax) / score.tickMax).toFixed(1) + "%");
+
+// ============================ 四、绘制仿真 ============================
+// 真的调一次 draw()，把每个 fillRect 记下来。判据：
+//   乐音块（按音色上色）有没有落在鼓栏底色矩形【下面】—— 那就会被后画的鼓栏擦掉。
+console.log();
+console.log("【四】绘制仿真（真跑 draw()，记录每个 fillRect）");
+let drawErr = null;
+try {
+  API.__setScore(score);
+  rects.length = 0;
+  API.draw();
+} catch (e) { drawErr = e; }
+if (drawErr) {
+  console.log("  RED: draw() 抛异常：" + drawErr.message);
+  red++;
+} else {
+  const NOTE_COLORS = ["#fb923c", "#4ea1ff", "#3ddc84", "#ff7ab2", "#8695ab"];
+  const laneBg = rects.find(r => r.style === "#12181f");           // 鼓栏底色
+  const laneTop = laneBg ? laneBg.y : (API.PAD.t + PH);
+  const plotBottom = API.PAD.t + PH;
+  /* ⚠️ 不要按宽度过滤：长谱子里大多数音块就是最小宽度 1.6px（`Math.max(1.6, x1-x0)`），
+   *    按 w>1.7 滤会把它们全丢掉（实测 円.mid 只剩 348/9319）。图例色块靠 y 过滤排除。 */
+  const noteBlocks = rects.filter(r => NOTE_COLORS.indexOf(r.style) >= 0 && r.y < plotBottom - 0.5);
+  const drumBlocks = rects.filter(r => r.style === "#00d5c8" && r.y < plotBottom - 0.5);
+  const covered = noteBlocks.filter(r => r.y + r.h > laneTop + 0.5);
+  console.log("  本次 draw() 共发出 " + rects.length + " 个 fillRect");
+  console.log("  鼓栏底色矩形：y=" + laneTop.toFixed(0) + " 高 " + (laneBg ? laneBg.h.toFixed(0) : "-") +
+              "（画布底 " + plotBottom.toFixed(0) + "）");
+  console.log("  画出来的乐音块 " + noteBlocks.length + " 个 · 鼓块 " + drumBlocks.length + " 个");
+  console.log("  其中落在鼓栏区域（会被底色擦掉）的乐音块 = " + covered.length +
+              "（占 " + (100 * covered.length / Math.max(1, noteBlocks.length)).toFixed(0) + "%）");
+  if (covered.length) {
+    const ys = covered.map(r => r.y.toFixed(0));
+    console.log("  它们的 y 范围：" + Math.min(...covered.map(r => r.y)).toFixed(0) + " ~ " +
+                Math.max(...covered.map(r => r.y + r.h)).toFixed(0) +
+                "（全部 >= 鼓栏顶 " + laneTop.toFixed(0) + "）");
+  }
+  console.log();
+  console.log("  判据：");
+  chk("⑪ 画出来的乐音块没有一个落在鼓栏区域", covered.length === 0,
+      covered.length ? (covered.length + " 个乐音块被鼓栏底色盖掉") : "");
+}
+
+// ============================ 五、总览条跳转 ============================
+// 代码自己的注释（:1661）写的是"让点击处成为视口【中点】"。
+// 实现：theo = frac - 0.5/viewZoom；而 viewWindow 里 off = viewScroll*(total-span)
+//   => 要让点击处落在中点，viewScroll 应是 (frac*total - span/2)/(total-span)
+//      = (frac*z - 0.5)/(z - 1)
+console.log();
+console.log("【五】总览条点击跳转（缩放后导航）");
+console.log("  代码注释的意图：点击处成为视口【中点】");
+let worstJump = 0, worstCase = "";
+for (const z of [2, 4, 8, 20]) {
+  const span = score.tickMax / z;
+  const maxOff = score.tickMax - span;
+  for (const frac of [0.25, 0.5, 0.75]) {
+    const theo = Math.max(0, Math.min(1, frac - 0.5 / z));      // 页面算法
+    const off = theo * maxOff;
+    const centerTick = off + span / 2;
+    const errSpan = Math.abs(centerTick - frac * score.tickMax) / span;  // 以视口宽为单位
+    if (errSpan > worstJump) { worstJump = errSpan; worstCase = "zoom " + z + " · 点击 " + (frac * 100) + "% 处"; }
+  }
+}
+console.log("  点击处偏离视口中点最坏 = " + (worstJump * 100).toFixed(0) + "% 视口宽（" + worstCase + "）");
+console.log("  即：放大 20 倍时点总览条正中，落点跑到视口【最右边缘】附近，而不是中间");
+console.log();
+console.log("  判据：");
+chk("⑫ 总览条点击后，点击处落在视口中点附近（偏差 < 25% 视口宽）", worstJump < 0.25,
+    "最坏偏 " + (worstJump * 100).toFixed(0) + "%（" + worstCase + "）");
 
 console.log();
 console.log("  结论：" + (red === 0 ? "全部通过" : ("有 " + red + " 项 RED")));
