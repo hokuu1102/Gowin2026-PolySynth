@@ -18,7 +18,7 @@ const fs = require("fs");
 const path = require("path");
 
 const HERE = __dirname;
-const midPath = process.argv[2] || path.join(HERE, "四音色鼓机变速-测试曲.mid");
+const midPath = process.argv[2] || path.join(HERE, "四音色鼓机变速-house-funk-测试曲.mid");
 const PH = Number(process.argv[3] || 677);     // 主图高（截图反推：717 - PAD.t 14 - PAD.b 26）
 const W = Number(process.argv[4] || 1071);     // 画布宽（截图 1607 / DPR 1.5）
 
@@ -68,7 +68,8 @@ const fn = new Function("document", "window", "navigator", "performance", "conso
   "location", "localStorage", "URLSearchParams",
   blk + "\n; function __setScore(s){ score = s; }" +
   "\n; return { parseMidi, midiToWords, buildScore, DRUM_AXIS, KIND_ON, KIND_OFF, " +
-  "KIND_TEMPO, DRUM_INC, TIMBRE_NAMES, midiName, PAD, unpackWord, draw, __setScore };");
+  "KIND_TEMPO, DRUM_INC, TIMBRE_NAMES, midiName, PAD, unpackWord, draw, __setScore, " +
+  "pickHover, overviewScrollFor, tickToSec, secToTick, __getView: () => lastView };");
 const API = fn(doc, { addEventListener() {} }, { bluetooth: null }, { now: () => 0 },
   { log: () => {} }, setTimeout, () => {}, () => 0, () => 0,
   { protocol: "http:", host: "x", search: "" },
@@ -79,6 +80,10 @@ const buf = fs.readFileSync(midPath);
 const parsed = API.parseMidi(buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.length));
 const conv = API.midiToWords(parsed);
 const score = API.buildScore(conv.words, path.basename(midPath));
+/* ⭐ 先把谱面交给页面并画一帧：pickHover 依赖 draw() 留下的 lastView
+ *   （悬停 = 光标落在哪个格子里，必须用【画的时候】那套坐标，⛔ 不能另算一份）。 */
+API.__setScore(score);
+API.draw();
 
 let red = 0;
 const chk = (name, cond, extra) => {
@@ -107,18 +112,50 @@ const evs = conv.words.map(w => {
   const d = API.unpackWord(w);
   return { tick: d.tick, kind: d.kind, axis: d.axis, inc: d.inc, vel: d.vel };
 });
+/* ⚠️ 这里也必须是 FIFO 队列 —— 原来写成单槽（open.set 覆盖），
+ *    与刚修掉的页面 bug 一模一样：同音高重叠时会配错。
+ *    （这条是"核对器自己也踩同一个坑"的活例子。） */
 const truth = new Set();
 {
   const open = new Map();
   for (const e of evs) {
     if (e.kind === API.KIND_TEMPO) continue;
     const k = e.axis * 0x2000000 + e.inc;
-    if (e.kind === API.KIND_ON) open.set(k, e.tick);
-    else if (open.has(k)) { truth.add(open.get(k) + "|" + e.tick + "|" + e.inc); open.delete(k); }
+    if (e.kind === API.KIND_ON) {
+      if (!open.has(k)) open.set(k, []);
+      open.get(k).push(e.tick);
+    } else {
+      const q = open.get(k);
+      if (q && q.length) {
+        truth.add(q.shift() + "|" + e.tick + "|" + e.inc);
+        if (!q.length) open.delete(k);
+      }
+    }
   }
 }
 const badPair = score.noteSegs.filter(s => !truth.has(s.t0 + "|" + s.t1 + "|" + s.inc));
 const badDrum = score.drumSegs.filter(s => !truth.has(s.t0 + "|" + s.t1 + "|" + s.inc));
+/* ⚠️ 配不上的段要看清是"配错"还是"被兜底拉到全曲末"——
+ *    buildScore 用的是【单槽】open（`open.set(key, seg)` 覆盖），
+ *    同轴同音高的 on 若【重叠】（前一个还没 off 就又来一个 on），
+ *    前一个 seg 就永远拿不到 t1 ⇒ 被兜底成 endTick ⇒ 画出一根【到曲末的长条】。
+ *    这与用户报过的"时值过长、重叠"是同一族，必须量出来。 */
+/* 判据要精确：t1 正好落在【全曲末】且又不是真的一对 (on,off) ⇒ 是兜底拉出来的。
+ * ⚠️ 不能只看"长度 > 全曲 25%"—— 6.世界悲 那根只有 65280 tick（≈68 s）会漏掉。 */
+const stretched = score.segs.filter(s => s.t1 === Math.max(score.tickMax, 1) &&
+                                        !truth.has(s.t0 + "|" + s.t1 + "|" + s.inc));
+const showSeg = s => "t0=" + s.t0 + " t1=" + s.t1 + " 长 " + (s.t1 - s.t0) +
+                     " axis=" + s.axis + " midi=" + (s.midi != null ? s.midi.toFixed(1) : "-");
+if (badDrum.length) {
+  console.log("  鼓段对不上的前 3 个：" + badDrum.slice(0, 3).map(showSeg).join(" | "));
+}
+if (badPair.length) {
+  console.log("  乐音段对不上的前 3 个：" + badPair.slice(0, 3).map(showSeg).join(" | "));
+}
+if (stretched.length) {
+  console.log("  🔴 被兜底拉到全曲末的长条 = " + stretched.length + " 根：" +
+              stretched.slice(0, 3).map(showSeg).join(" | "));
+}
 
 const tbCount = {};
 for (const s of score.noteSegs) {
@@ -131,9 +168,9 @@ console.log("  判据：");
 chk("① 乐音段全部能在 hex 里找到对应的 (on,off) 对", badPair.length === 0,
     badPair.length ? (badPair.length + " 段对不上，例 " + JSON.stringify(badPair[0])) : "");
 chk("② 鼓段同样能对上", badDrum.length === 0, badDrum.length + " 段对不上");
-chk("③ orphanOff = 0 且 danglingOn = 0",
-    score.orphanOff === 0 && score.danglingOn === 0,
-    "orphan " + score.orphanOff + " · dangling " + score.danglingOn);
+chk("③ 没有兜底长条（重叠 on 被单槽 open 覆盖）+ 未闭合 on = 0",
+    stretched.length === 0 && score.danglingOn === 0,
+    "长条 " + stretched.length + " 根 · orphanOff " + score.orphanOff + "（只报告）· danglingOn " + score.danglingOn);
 // 全曲 1/400 的"最小长度"兜底会造出一个恒定的大段长（实测 1814）
 const span = score.tickMax - score.tickMin;
 const clampLike = pct(durs, 0.5) === Math.max(1, Math.round(span / 400)) ||
@@ -143,77 +180,76 @@ chk("④ 段长分布不是被'最小长度'兜底拉平的常数", !clampLike,
 
 // ============================ 二、绘制层 ============================
 console.log();
-console.log("【二】绘制层（draw / drawPiano / drawDrumLane）");
+console.log("【二】绘制层几何（用页面 draw() 留下的 lastView，⛔ 不是我自己算一份）");
+const LV = API.__getView();
 const mids = score.notes.filter(n => n.axis !== API.DRUM_AXIS).map(n => n.midi).filter(m => m > 0);
-let lo = Math.round(Math.min(...mids)) - 1, hi = Math.round(Math.max(...mids)) + 1;
-if (hi - lo < 6) { lo -= 3; hi += 3; }
-const Y = m => API.PAD.t + PH - ((m - lo) / (hi - lo)) * PH;
-const noDrawBelow = API.PAD.t + PH - laneH;
-const rowH = PH / (hi - lo);
-console.log("  音高范围 lo=" + lo + "(" + API.midiName(lo) + ") .. hi=" + hi + "(" + API.midiName(hi) + ")" +
-            "  共 " + (hi - lo) + " 行 · 行高 " + rowH.toFixed(1) + "px");
-console.log("  鼓栏高 " + laneH.toFixed(0) + "px（源码常数 " + LANE_MIN + "/" + LANE_MAX + "/" + LANE_FRAC +
-            "）=> noDrawBelow = " + noDrawBelow.toFixed(0) + "px");
-const hidden = [];
-for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) if (Y(m) >= noDrawBelow) hidden.push(m);
-const coveredSegs = score.noteSegs.filter(s => Y(s.midi) >= noDrawBelow);
-console.log("  被鼓栏盖住的音高：" + (hidden.length ? hidden.map(m => API.midiName(m)).join(",") : "无") +
-            "（" + hidden.length + " 个半音 = 音域的 " + (100 * hidden.length / (hi - lo)).toFixed(0) + "%）");
-console.log("  被盖住的乐音段：" + coveredSegs.length + " / " + score.noteSegs.length +
-            "（占 " + (100 * coveredSegs.length / score.noteSegs.length).toFixed(0) + "%）");
-const byTb = {};
-for (const s of coveredSegs) {
-  const n = API.TIMBRE_NAMES[s.timbre] || ("T" + s.timbre);
-  byTb[n] = (byTb[n] || 0) + 1;
-}
-if (coveredSegs.length) {
-  console.log("  被盖住的是哪些音色：" + Object.entries(byTb).map(([k, v]) => k + " " + v).join(" · "));
-}
+const lo = LV.lo, hi = LV.hi;
+const rowH = LV.melPh / (hi - lo);
+console.log("  音高范围 lo=" + lo.toFixed(0) + "(" + API.midiName(Math.round(lo)) + ") .. hi=" +
+            hi.toFixed(0) + "(" + API.midiName(Math.round(hi)) + ")  共 " + (hi - lo).toFixed(0) +
+            " 行 · 行高 " + rowH.toFixed(1) + "px");
+console.log("  乐音区高 melPh = " + LV.melPh.toFixed(0) + "px · 鼓栏高 = " + LV.laneH.toFixed(0) +
+            "px（源码常数 " + LANE_MIN + "/" + LANE_MAX + "/" + LANE_FRAC + "）");
+console.log("  鼓栏顶 laneTop = " + LV.laneTop.toFixed(0) + "px（= PAD.t + melPh = " +
+            (API.PAD.t + LV.melPh).toFixed(0) + "）");
+/* 对照：按【旧几何】（音域铺满 ph、鼓栏叠在底部）本来会盖住哪些音高 */
+const oldY = m => API.PAD.t + PH - ((m - lo) / (hi - lo)) * PH;
+const oldBottom = API.PAD.t + PH - laneH;
+const oldHidden = [];
+for (let m = Math.ceil(lo); m <= Math.floor(hi); m++) if (oldY(m) >= oldBottom) oldHidden.push(m);
+console.log("  对照（旧几何会盖住的音高）：" +
+            (oldHidden.length ? oldHidden.map(m => API.midiName(m)).join(",") : "无") +
+            "（" + oldHidden.length + " 个半音）");
+/* ⚠️ 这个数是"如果还用旧几何会看不见多少根音"—— 修复前的实测值就是它 */
+const oldCovered = score.noteSegs.filter(s => oldY(s.midi) >= oldBottom).length;
+console.log("  对照（旧几何会盖住的乐音块）：" + oldCovered + " / " + score.noteSegs.length +
+            "（" + (100 * oldCovered / Math.max(1, score.noteSegs.length)).toFixed(0) + "%）");
 console.log();
 console.log("  判据：");
-chk("⑤ 没有乐音段落在鼓栏区域（否则会被鼓栏底色盖掉）", coveredSegs.length === 0,
-    coveredSegs.length ? (coveredSegs.length + " 段看不见：" + Object.entries(byTb).map(([k, v]) => k + " " + v).join(" · ")) : "");
+chk("⑤ 乐音区已让出鼓栏高度（melPh+laneH=绘图区高，且 laneTop=PAD.t+melPh）",
+    Math.abs(LV.melPh + LV.laneH - PH) < 1.5 &&
+    Math.abs(LV.laneTop - (API.PAD.t + LV.melPh)) < 0.01,
+    "melPh " + LV.melPh.toFixed(0) + " + laneH " + LV.laneH.toFixed(0) + " = " +
+    (LV.melPh + LV.laneH).toFixed(0) + "（绘图区 " + PH + "）");
 
-// ---- 悬停命中：只看时间不看音高（复刻 mousemove 里的那段）----
+// ---- 悬停命中：直接调页面里的 pickHover()（⛔ 不是复刻一份）----
 const pw = W - API.PAD.l - 14;
-const X = t => API.PAD.l + (t / Math.max(1, score.tickMax)) * pw;
-const tickAt = px => ((px - API.PAD.l) / pw) * Math.max(1, score.tickMax);
-function hoverPick(px) {                       // ← 与 mousemove 里的循环逐行一致
-  const t = tickAt(px);
-  let best = null, bd = Infinity;
-  for (const n of score.notes) { const d = Math.abs(n.tick - t); if (d < bd) { bd = d; best = n; } }
-  return (best && bd < Math.max(1, score.tickMax) * 0.02) ? { best, t, bd } : null;
-}
-/* ⭐ 扫描：沿 x 横扫一遍，看悬停会选中什么。
- *   mousemove 里【只比较 n.tick】—— 完全没用 y ⇒ 同一条竖线上，
- *   光标在 C5 行还是在 A2 行，提示【一模一样】。这是"看行"这件事做不到的直接证据。 */
-let nHit = 0, nOff = 0, nDrum = 0, nNone = 0;
-const samples = [];
+const Yof = m => API.PAD.t + LV.melPh - ((m - LV.lo) / (LV.hi - LV.lo)) * LV.melPh;
+const pctOf = (n, d) => (100 * n / Math.max(1, d)).toFixed(0) + "%";
+
+/* 乐音行扫描：取一根真实存在的最高音行 */
+const topMidi = Math.max(...score.noteSegs.map(s => s.midi));
+const yMel = Yof(topMidi);
+let mHit = 0, mNone = 0, mDrum = 0, mWrongRow = 0;
 for (let px = API.PAD.l + 1; px < API.PAD.l + pw; px += 2) {
-  const p = hoverPick(px);
-  if (!p) { nNone++; continue; }
-  nHit++;
-  if (p.best.kind === API.KIND_OFF) nOff++;
-  if (p.best.axis === API.DRUM_AXIS) nDrum++;
-  if (samples.length < 6 && p.best.axis === API.DRUM_AXIS) {
-    samples.push("x=" + px.toFixed(0) + " → 轴15(" + (API.TIMBRE_NAMES[p.best.timbre] || "?") +
-                 ") tick " + p.best.tick + " " + (p.best.kind === API.KIND_OFF ? "off" : "on"));
-  }
+  const p = API.pickHover(px, yMel);
+  if (!p) { mNone++; continue; }
+  mHit++;
+  if (p.drumInc != null) mDrum++;
+  if (Math.abs(p.midi - topMidi) > 0.5) mWrongRow++;
 }
-const pctOf = n => (100 * n / Math.max(1, nHit)).toFixed(0) + "%";
+/* 鼓栏扫描：光标放在 Kick 行中心 */
+const yKick = LV.laneTop + LV.laneH * (0.5 / 4);
+let dHit = 0, dWrong = 0, dNone = 0;
+for (let px = API.PAD.l + 1; px < API.PAD.l + pw; px += 2) {
+  const p = API.pickHover(px, yKick);
+  if (!p) { dNone++; continue; }
+  dHit++;
+  if (p.drumInc !== API.DRUM_INC.kick) dWrong++;
+}
 console.log();
-console.log("  悬停扫描（沿时间轴每 2px 取一个光标位置，共 " + (nHit + nNone) + " 个点）：");
-console.log("    命中 off 事件（提示会写「力度 0 · off」）：" + nOff + " / " + nHit + " = " + pctOf(nOff));
-console.log("    命中鼓事件（提示会写「轴 15」）：" + nDrum + " / " + nHit + " = " + pctOf(nDrum));
-console.log("    一个都没命中（超出 2% 阈值）：" + nNone);
-if (samples.length) console.log("    在乐音区横扫时命中鼓的例子：" + samples.join(" · "));
-console.log("    ⚠️ 提示与光标的【音高行】无关：mousemove 只比较 n.tick，⛔ 不比较 y");
+console.log("  悬停扫描（沿时间轴每 2px 一个光标位置，直接调页面的 pickHover）：");
+console.log("    光标放在 " + API.midiName(Math.round(topMidi)) + " 行：" +
+            mHit + " 命中 · " + mNone + " 没命中 · 串到别的行 " + mWrongRow + " · 命中鼓 " + mDrum);
+console.log("    光标放在 Kick 行：" + dHit + " 命中 · " + dNone + " 没命中 · 不是 kick 的 " + dWrong);
+console.log("    ⚠️ 判定阈值 = 视口宽 2%，且长音中间也算命中（段覆盖该 tick）");
 console.log();
 console.log("  判据：");
-chk("⑥ 悬停命中的是 note_on（⛔ 不是 off，否则提示写「力度 0 · off」）",
-    nOff === 0, "命中 off 的比例 " + pctOf(nOff));
-chk("⑦ 在乐音区悬停不会命中鼓事件（鼓有自己的栏）",
-    nDrum === 0, "命中鼓的比例 " + pctOf(nDrum));
+chk("⑥ 悬停命中与光标所在【行】一致，且不串到鼓",
+    mWrongRow === 0 && mDrum === 0,
+    "串行 " + mWrongRow + "（" + pctOf(mWrongRow, mHit) + "）· 命中鼓 " + mDrum);
+chk("⑦ 鼓栏悬停命中的是那一行的鼓件（Kick 行 -> kick）",
+    dHit > 0 && dWrong === 0, "命中 " + dHit + " 次，其中不是 kick 的 " + dWrong);
 
 // ============================ 三、秒数换算 ============================
 // tick -> 秒【必须按 tempo 表分段积分】。页面里有三处偷懒用固定速度：
@@ -230,29 +266,21 @@ for (let i = 0; i < tps.length; i++) {
   trueSec += Math.max(0, t1 - t0) / (tps[i].hz || 1);
 }
 const hz0 = tps.length ? tps[0].hz : 1920.003;
-const panelSec = (score.tickMax - score.tickMin) / hz0;
-const barSec = score.tickMax / 960;
+const panelSec = score.duration;                 // ← 页面实际给面板的值
+const barSec = API.tickToSec(score.tickMax);     // ← 页面总览条实际用的算法
 const relErr = (a, b) => (100 * (a - b) / b).toFixed(1) + "%";
 console.log("  tempo 表：" + tps.map(t => "tick " + t.tick + " = " +
             (t.hz / 1920.003 * 120).toFixed(0) + " BPM").join(" · "));
-console.log("  真实时长（分段积分）              = " + trueSec.toFixed(2) + " s");
-console.log("  面板「时长」（只用首个 tempo）     = " + panelSec.toFixed(2) + " s  -> 面板显示 " + panelSec.toFixed(1) + " s");
-console.log("  总览条「全长」（tick/960 写死 120BPM）= " + barSec.toFixed(2) + " s");
+console.log("  真实时长（本核对器自己分段积分，作参照）= " + trueSec.toFixed(2) + " s");
+console.log("  面板「时长」（页面 score.duration）    = " + panelSec.toFixed(2) + " s  -> 面板显示 " + panelSec.toFixed(1) + " s");
+console.log("  总览条「全长」（页面 tickToSec）       = " + barSec.toFixed(2) + " s");
 console.log("  误差：面板 " + relErr(panelSec, trueSec) + " · 总览条 " + relErr(barSec, trueSec));
-/* 游标回退路径的漂移：真实播到 T 秒时，它算出的 tick 偏多少 */
-const secPerTick = panelSec / Math.max(1, score.tickMax);
-let tickAtTrueSec = 0, acc = 0;
-for (const t of tps) {
-  const t1 = (tps.indexOf(t) + 1 < tps.length) ? tps[tps.indexOf(t) + 1].tick : score.tickMax;
-  const segSec = (t1 - t.tick) / (t.hz || 1);
-  if (acc + segSec >= trueSec) { tickAtTrueSec = t.tick + (trueSec - acc) * t.hz; break; }
-  acc += segSec;
-}
-const guessedTick = trueSec / secPerTick;
+/* 游标回退路径的漂移：真实播到末尾时，它算出的 tick 偏多少 */
+const guessedTick = API.secToTick(trueSec);      // ← 页面游标回退实际用的算法
 console.log("  游标回退路径：真实播完时它算出的 tick = " + guessedTick.toFixed(0) +
             "，真值 " + score.tickMax + "（偏 " + (100 * (guessedTick - score.tickMax) / score.tickMax).toFixed(1) + "%）");
-console.log("  提前量显示：代码写 d.lead/1920（假定 120BPM）—— 本曲 1920 tick 实际是 " +
-            (1920 / hz0).toFixed(2) + " s，不是 1.00 s");
+console.log("  提前量：固件给 1920 tick，页面 tickToSec(1920) = " +
+            API.tickToSec(1920).toFixed(2) + " s（⛔ 原来写死 /1920 = 1.00 s）");
 console.log();
 console.log("  判据：");
 chk("⑧ 面板时长与真实时长一致（误差 < 1%）", Math.abs(panelSec - trueSec) / trueSec < 0.01,
@@ -306,10 +334,8 @@ if (drawErr) {
 }
 
 // ============================ 五、总览条跳转 ============================
-// 代码自己的注释（:1661）写的是"让点击处成为视口【中点】"。
-// 实现：theo = frac - 0.5/viewZoom；而 viewWindow 里 off = viewScroll*(total-span)
-//   => 要让点击处落在中点，viewScroll 应是 (frac*total - span/2)/(total-span)
-//      = (frac*z - 0.5)/(z - 1)
+// 直接调页面里的 overviewScrollFor()（⛔ 不是复刻一份公式）。
+// 判据：点击处应落在视口【中点】（页面注释自己写的意图）。
 console.log();
 console.log("【五】总览条点击跳转（缩放后导航）");
 console.log("  代码注释的意图：点击处成为视口【中点】");
@@ -318,15 +344,15 @@ for (const z of [2, 4, 8, 20]) {
   const span = score.tickMax / z;
   const maxOff = score.tickMax - span;
   for (const frac of [0.25, 0.5, 0.75]) {
-    const theo = Math.max(0, Math.min(1, frac - 0.5 / z));      // 页面算法
+    const theo = API.overviewScrollFor(frac, z);                // ← 页面算法
     const off = theo * maxOff;
     const centerTick = off + span / 2;
     const errSpan = Math.abs(centerTick - frac * score.tickMax) / span;  // 以视口宽为单位
     if (errSpan > worstJump) { worstJump = errSpan; worstCase = "zoom " + z + " · 点击 " + (frac * 100) + "% 处"; }
   }
 }
-console.log("  点击处偏离视口中点最坏 = " + (worstJump * 100).toFixed(0) + "% 视口宽（" + worstCase + "）");
-console.log("  即：放大 20 倍时点总览条正中，落点跑到视口【最右边缘】附近，而不是中间");
+console.log("  点击处偏离视口中点最坏 = " + (worstJump * 100).toFixed(0) + "% 视口宽" +
+            (worstCase ? "（" + worstCase + "）" : ""));
 console.log();
 console.log("  判据：");
 chk("⑫ 总览条点击后，点击处落在视口中点附近（偏差 < 25% 视口宽）", worstJump < 0.25,

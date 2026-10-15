@@ -2,26 +2,48 @@
 # -*- coding: utf-8 -*-
 """四音色 + 鼓机 + 变速 的测试小段子（生成 .mid）。
 
+风格：house 律动（四踩底鼓 / 反拍踩镲 / 反拍钢琴 stab）+ funk 吉他 riff。
+长度：8 小节，约 17 秒 —— 尽量短，但每一小节都在测东西。
+
 用途
     给「曲谱上位机」（esp32/tools/score_studio.html）做一次灌谱验证。
-    一段 12 小节的小曲子，一次把四件事都测到：
+    一次把五件事都测到：
 
       1. 四个音色同时出声 —— BASS / GUITAR / PIANO / PAD
       2. 鼓机四件都响     —— Kick / Snare / HiHat / Tom
-      3. 变速             —— 100 -> 140 -> 80 BPM，三个 tempo 点
+      3. 变速             —— 100 -> 126 -> 108 BPM，三个 tempo 点
       4. 和弦             —— 同一时刻多个音，逼上位机把音摊到多条轴
+      5. 复音             —— 第 7 小节【每半拍加一个音】，最后 10 个音同时响
+                             （音高互不重复 => 能一个一个数出来；这是本曲最"吵"的地方）
+
+编曲（一小节一个和弦：Am7 Dm7 Fmaj7 E7 Am7 Dm7 Fmaj7 Am7）
+
+    小节  速度    Pad   Bass   Piano  Guitar  鼓
+    1     100     ✓     -      -      -       kick+hat          <- 起速
+    2     100     ✓     ✓      -      -       kick+hat
+    3     126     ✓     ✓      ✓      -       全鼓（提速 drop）
+    4     126     ✓     ✓      ✓      ✓       全鼓
+    5     126     ✓     ✓      ✓      ✓       全鼓
+    6     126     ✓     ✓      ✓      ✓       全鼓 + tom 过门
+    7     108     └──── 复音阶梯：每半拍进一个音，最后 10 个音同时响 ────┘  kick+hat
+    8     108     ✓     ✓      ✓      ✓       收尾 + 鼓探针
+
+    => 四个音色同框在小节 4/5/6/7/8；鼓机四件在 3~6 与 8；变速在 1/3/7 小节头；
+       复音峰值 10 声（第 7 小节末），可用轴 0..14 够用。
 
 为什么给 .mid 而不是 events.hex
     上位机从 2026-10-14 起能【直接在浏览器里读 .mid】，
-    所以给 .mid 最省事；同时同目录的 verify_piece.js 会用
+    所以给 .mid 最省事；同目录的 verify_piece.js 会用
     【网页自己的解析器】把它转成 events.hex，Python 那条路也能用。
 
 有意避开 / 有意保留
     避开：鼓的【不同件】在【同一 tick】同时敲 —— 已知未解决项
           （same_hit 复用，见
            files/20-代码/ESP32侧追问-同时敲多个鼓与same_hit-20261014.md）
-          => 主 groove 里 hihat 只打反拍，不与 kick / snare 撞 tick。
-    保留：第 12 小节【故意】让 kick + snare + hihat 同 tick 敲一下，
+          => 主 groove 里 kick / snare / hat 的落点【互不相同】。
+          ⚠️ 这也解释了为什么底鼓不是"四踩"：底鼓踩满四拍时，
+             snare 落 2/4 拍必然与底鼓同 tick => 会踩到那个已知问题。
+    保留：第 8 小节第 4 拍【故意】让 kick + snare + hihat 同 tick 敲一下，
           当作该已知问题的探针。预期见 README。
 
 用法
@@ -34,7 +56,7 @@ import os
 import struct
 import sys
 
-# 控制台按 UTF-8 输出（Windows 默认 GBK，遇到中文注释里的符号会 UnicodeEncodeError）
+# 控制台按 UTF-8 输出（Windows 默认 GBK，遇到中文里的符号会 UnicodeEncodeError）
 try:
     sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 except Exception:
@@ -43,6 +65,8 @@ except Exception:
 PPQN = 960                 # 与 FPGA 的 beat_gen / 上位机 MIDI_PPQN 一致
 BEAT = PPQN
 BAR = 4 * BEAT
+E8 = 480                   # 八分音符
+S16 = 240                  # 十六分音符
 
 
 def bar(n):
@@ -50,19 +74,80 @@ def bar(n):
     return (n - 1) * BAR
 
 
-# 音名 -> MIDI 号（只为了让下面的谱子好读）
-N = {
-    "F2": 41, "G2": 43, "A2": 45,
-    "C3": 48, "D3": 50, "E3": 52, "F3": 53, "G3": 55, "A3": 57, "B3": 59,
-    "C4": 60, "D4": 62, "E4": 64, "F4": 65, "G4": 67, "A4": 69, "B4": 71,
-    "C5": 72,
+# --------------------------------------------------------------------------- #
+# 谱面数据（改曲子只动这一块）
+# --------------------------------------------------------------------------- #
+# 和弦表：pad 长音三音 / piano stab 三音 / bass 根音 / guitar riff 六个音
+# ⚠️ 音区分工（避免糊在一起）：
+#     bass  110~175 Hz · pad 220~392 Hz · piano 262~440 Hz · guitar 330~700 Hz
+CH = {
+    "Am7":   {"pad": (57, 64, 67), "stab": (60, 64, 67), "root": 45,
+              "gtr": (69, 72, 76, 72, 69, 64)},
+    "Dm7":   {"pad": (57, 62, 65), "stab": (62, 65, 69), "root": 50,
+              "gtr": (69, 74, 77, 74, 69, 65)},
+    "Fmaj7": {"pad": (57, 60, 65), "stab": (60, 65, 69), "root": 53,
+              "gtr": (69, 72, 77, 72, 69, 65)},
+    "E7":    {"pad": (56, 59, 64), "stab": (59, 62, 64), "root": 52,
+              "gtr": (68, 71, 76, 71, 68, 64)},
 }
+PROG = ["Am7", "Dm7", "Fmaj7", "E7", "Am7", "Dm7", "Fmaj7", "Am7"]
 
-# 和弦进行（A 小调）：Am - F - C - G
-PAD_AM = [57, 60, 64, 69]      # A3 C4 E4 A4
-PAD_F = [53, 57, 60, 65]       # F3 A3 C4 F4
-PAD_C = [55, 60, 64, 67]       # G3 C4 E4 G4
-PAD_G = [55, 59, 62, 67]       # G3 B3 D4 G4
+TEMPO_PLAN = ((1, 100), (3, 126), (7, 108))     # 小节 -> BPM
+
+# house/funk 贝斯：反拍为主 + 十六分推音（全部根音，不糊）
+BASS_HITS = ((480, 280), (720, 180), (1440, 280), (1920, 280),
+             (2400, 280), (3120, 180))
+# house 钢琴 stab：四个反拍
+PIANO_HITS = (480, 1440, 2400, 3360)
+# funk 吉他：十六分切分（避开钢琴的落点，两者互相穿插而不是叠在一起）
+GTR_POS = (240, 720, 1440, 2160, 2640, 3120)
+
+# 鼓（GM 音高）：36 Kick · 38 Snare · 42 HiHat · 45 Tom
+KICK, SNARE, HIHAT, TOM = 36, 38, 42, 45
+DRUM_DUR = 480
+DRUM_VEL = {KICK: 122, SNARE: 116, HIHAT: 100, TOM: 112}
+# ⚠️ 每一档里【同一 tick 只允许出现一件】—— 见文件头的"有意避开"
+DRUM_BARS = {
+    1: {"kick": (0, 1920), "snare": (), "hat": (480, 1440, 2400, 3360), "tom": ()},
+    2: {"kick": (0, 1920), "snare": (), "hat": (480, 1440, 2400, 3360), "tom": ()},
+    3: {"kick": (0, 1920, 3120), "snare": (960, 2880),
+        "hat": (480, 1440, 2400, 3360), "tom": ()},
+    4: {"kick": (0, 1920, 3120), "snare": (960, 2880),
+        "hat": (480, 1440, 2400, 3360), "tom": ()},
+    5: {"kick": (0, 1920, 3120), "snare": (960, 2880),
+        "hat": (480, 1440, 2400, 3360), "tom": ()},
+    # 第 6 小节后半：tom 过门（把 snare/hat 让开，⛔ 不与 tom 撞 tick）
+    6: {"kick": (0, 1920), "snare": (960,), "hat": (480, 1440),
+        "tom": (2400, 2640, 2880, 3120, 3360)},
+    # 第 7 小节：breakdown，鼓只留 kick + hat
+    7: {"kick": (0, 1920), "snare": (), "hat": (480, 1440, 2400, 3360), "tom": ()},
+    # 第 8 小节：⭐ 第 4 拍（2880）kick+snare+hihat 同 tick —— 已知问题的探针
+    8: {"kick": (0, 1920, 2880), "snare": (960, 2880),
+        "hat": (480, 1440, 2400, 2880), "tom": (3360,)},
+}
+# 音色轨只在这些小节出现（其余留白 => 听得清每件乐器是什么时候进来的）
+# ⚠️ 第 7 小节【不走常规织体】—— 它整小节是"复音阶梯"，由 LADDER 单独生成。
+BASS_BARS = (2, 3, 4, 5, 6, 8)
+PIANO_BARS = (3, 4, 5, 6, 8)
+GTR_BARS = (4, 5, 6, 8)
+
+# ⭐ 复音阶梯（第 7 小节，Fmaj7）：每半拍（480 tick）进一个音，
+#    全部【撑到小节末】=> 最后 10 个音同时响。
+#    为什么这样设计：
+#      · 一个一个进 => 耳朵能听出"又加了一个声部"，能【数】
+#      · 音高【互不重复】（Fmaj7 的十个不同音）=> 不会因同音高相位干涉而听糊
+#      · 10 声 < 可用轴 15 条 => 不会抢轴，也不会顶到 FPGA 的 32 voice 上限
+#    (半拍序号, 轨, 音高)；同一序号里的多个音是一起进的
+LADDER = (
+    (0, "pad",    (57, 60, 65)),   # A3 C4 F4 —— 铺底三音一起进
+    (0, "bass",   41),             # F2 —— 低音撑住
+    (1, "piano",  64),             # E4
+    (2, "piano",  69),             # A4
+    (3, "guitar", 72),             # C5
+    (4, "guitar", 76),             # E5
+    (5, "bass",   53),             # F3
+    (6, "piano",  77),             # F5  => 此刻 10 个音同时在响
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -148,150 +233,76 @@ def compose():
     pad = Track("Pad", 3)
     drum = Track("Drum", 9)              # 通道 10（1-based）= GM 打击乐
 
-    # ---------------- 变速表（三个 tempo 点）----------------
-    tempo.tempo(bar(1), 100)             # 第 1~4 小节：100 BPM
-    tempo.tempo(bar(5), 140)             # 第 5~8 小节：140 BPM
-    tempo.tempo(bar(9), 80)              # 第 9~12 小节：80 BPM
+    for b, bpm in TEMPO_PLAN:
+        tempo.tempo(bar(b), bpm)
 
-    # ---------------- 第 1~4 小节：只有 Pad + Bass，第 3 小节钢琴进 ----------------
-    for b, ch in ((1, PAD_AM), (2, PAD_F), (3, PAD_C), (4, PAD_G)):
-        pad.chord(bar(b), ch, 70, BAR - 1)          # 整小节长音
-    for b, root in ((1, "A2"), (2, "F2"), (3, "C3"), (4, "G2")):
+    # ---- Pad：整曲铺底（长音，力度压低，别盖住别的音色）----
+    # ⚠️ 第 7 小节的 pad 音在 LADDER 里（作为阶梯的第一级），这里跳过。
+    for i, name in enumerate(PROG):
+        if i == 6:
+            continue
+        pad.chord(bar(i + 1), CH[name]["pad"], 62, BAR - 1)
+
+    # ---- Bass：反拍律动 ----
+    for b in BASS_BARS:
         t = bar(b)
-        bass.note(t, N[root], 96, 1800)             # 半音符（留一点缝）
-        bass.note(t + 2 * BEAT, N[root], 90, 1800)
-    p = bar(3)
-    pno.note(p, N["E4"], 88, 900)
-    pno.note(p + BEAT, N["G4"], 88, 900)
-    pno.note(p + 2 * BEAT, N["A4"], 92, 1800)
-    p = bar(4)
-    pno.note(p, N["G4"], 88, 900)
-    pno.note(p + BEAT, N["D4"], 88, 900)
-    pno.note(p + 2 * BEAT, N["B3"], 92, 1800)
+        root = CH[PROG[b - 1]]["root"]
+        for off, dur in BASS_HITS:
+            bass.note(t + off, root, 100, dur)
 
-    # ---------------- 第 5~8 小节：四音色 + 鼓机全上 ----------------
-    # (小节, 吉他琶音四个音, Pad 和弦, 贝斯根音名)
-    S2 = (
-        (5, [45, 52, 57, 52], PAD_AM, "A2"),
-        (6, [41, 48, 53, 48], PAD_F, "F2"),
-        (7, [48, 55, 60, 55], PAD_C, "C3"),
-        (8, [43, 50, 55, 50], PAD_G, "G2"),
-    )
-    for b, gch, pch, root in S2:
+    # ---- Piano：house stab（三音和弦，短促）----
+    for b in PIANO_BARS:
         t = bar(b)
-        pad.chord(t, pch, 66, BAR - 1)
-        for k in range(8):
-            bass.note(t + k * 480, N[root] + (12 if k % 2 else 0), 94, 400)
-            gtr.note(t + k * 480, gch[k % 4], 80, 400)
+        for off in PIANO_HITS:
+            pno.chord(t + off, CH[PROG[b - 1]]["stab"], 88, 240)
 
-    p = bar(5)
-    pno.note(p, N["A4"], 92, 900)
-    pno.note(p + BEAT, N["C5"], 92, 900)
-    pno.note(p + 2 * BEAT, N["B4"], 84, 420)
-    pno.note(p + 2 * BEAT + 480, N["A4"], 84, 420)
-    pno.note(p + 3 * BEAT, N["G4"], 90, 1800)
-    p = bar(6)
-    pno.note(p, N["F4"], 90, 900)
-    pno.note(p + BEAT, N["A4"], 90, 900)
-    pno.note(p + 2 * BEAT, N["C5"], 92, 900)
-    pno.note(p + 3 * BEAT, N["A4"], 92, 900)
-    p = bar(7)
-    pno.note(p, N["G4"], 90, 900)
-    pno.note(p + BEAT, N["E4"], 90, 900)
-    pno.note(p + 2 * BEAT, N["G4"], 90, 900)
-    pno.note(p + 3 * BEAT, N["C5"], 94, 900)
-    p = bar(8)
-    pno.note(p, N["B4"], 92, 900)
-    pno.note(p + BEAT, N["A4"], 90, 900)
-    pno.note(p + 2 * BEAT, N["G4"], 92, 1800)
-
-    KICK, SNARE, HIHAT, TOM = 36, 38, 42, 45
-    DRUM_DUR = 480                       # 鼓给八分音符的长度（别太短，怕被 off 切掉）
-    for b in (5, 6, 7):
+    # ---- Guitar：funk riff（十六分切分）----
+    for b in GTR_BARS:
         t = bar(b)
-        drum.note(t, KICK, 120, DRUM_DUR)               # 拍 1
-        drum.note(t + 2 * BEAT, KICK, 118, DRUM_DUR)    # 拍 3
-        drum.note(t + BEAT, SNARE, 118, DRUM_DUR)       # 拍 2
-        drum.note(t + 3 * BEAT, SNARE, 118, DRUM_DUR)   # 拍 4
-        for k in (1, 3, 5, 7):                          # HiHat 只打反拍
-            drum.note(t + k * 480, HIHAT, 100, DRUM_DUR)
-    t = bar(8)                                          # 第 8 小节：加 tom 过门
-    drum.note(t, KICK, 120, DRUM_DUR)
-    drum.note(t + 2 * BEAT, KICK, 118, DRUM_DUR)
-    drum.note(t + BEAT, SNARE, 118, DRUM_DUR)
-    drum.note(t + 3 * BEAT, SNARE, 118, DRUM_DUR)
-    drum.note(t + 480, HIHAT, 100, DRUM_DUR)
-    drum.note(t + 1440, HIHAT, 100, DRUM_DUR)
-    drum.note(t + 2400, TOM, 112, DRUM_DUR)             # 拍 3.5
-    drum.note(t + 3360, TOM, 112, DRUM_DUR)             # 拍 4.5
+        for off, midi in zip(GTR_POS, CH[PROG[b - 1]]["gtr"]):
+            gtr.note(t + off, midi, 84, 200)
 
-    # ---------------- 第 9~12 小节：慢下来，收尾 ----------------
-    S3 = (
-        (9, PAD_AM, [45, 52, 57, 52], "A2"),
-        (10, PAD_F, [41, 48, 53, 48], "F2"),
-        (11, PAD_G, [43, 50, 55, 50], "G2"),
-        (12, PAD_AM, [45, 52, 57, 52], "A2"),
-    )
-    for b, pch, gch, root in S3:
+    # ---- 第 7 小节：复音阶梯（每半拍进一个音，最后 10 个音同时响）----
+    t7 = bar(7)
+    for slot, who, pitch in LADDER:
+        t0 = t7 + slot * E8
+        dur = BAR - slot * E8            # ⭐ 全部撑到小节末 => 一起收，末尾 10 声齐鸣
+        if who == "pad":
+            pad.chord(t0, pitch, 62, dur)
+        elif who == "bass":
+            bass.note(t0, pitch, 96, dur)
+        elif who == "piano":
+            pno.note(t0, pitch, 86, dur)
+        else:
+            gtr.note(t0, pitch, 82, dur)
+
+    # ---- 鼓机 ----
+    for b in range(1, 9):
         t = bar(b)
-        pad.chord(t, pch, 64, BAR - 1)
-        for k in range(4):
-            bass.note(t + k * BEAT, N[root] + (12 if k % 2 else 0), 92, 800)
-            gtr.note(t + k * BEAT, gch[k], 78, 800)
-
-    p = bar(9)
-    pno.note(p, N["A4"], 90, 1800)
-    pno.note(p + 2 * BEAT, N["C5"], 90, 1800)
-    p = bar(10)
-    pno.note(p, N["A4"], 90, 1800)
-    pno.note(p + 2 * BEAT, N["F4"], 90, 1800)
-    p = bar(11)
-    pno.note(p, N["G4"], 90, 1800)
-    pno.note(p + 2 * BEAT, N["B4"], 90, 900)
-    # 下面这个 A4 的【结束 tick 正好落在第 12 小节起点】，
-    # 而第 12 小节第一个音也是 A4 => 同一 tick 上 off 必须先于 on
-    pno.note(p + 3 * BEAT, N["A4"], 90, 960)
-    p = bar(12)
-    pno.note(p, N["A4"], 92, 1800)
-    pno.note(p + 2 * BEAT, N["E4"], 88, 1800)
-
-    for b in (9, 10, 11):
-        t = bar(b)
-        drum.note(t, KICK, 118, DRUM_DUR)
-        drum.note(t + 2 * BEAT, KICK, 116, DRUM_DUR)
-        drum.note(t + BEAT, SNARE, 116, DRUM_DUR)
-        drum.note(t + 3 * BEAT, SNARE, 116, DRUM_DUR)
-        drum.note(t + 480, HIHAT, 96, DRUM_DUR)
-        drum.note(t + 1440, HIHAT, 96, DRUM_DUR)
-    # 第 12 小节：故意同 tick 敲三件（已知 same_hit 问题的探针）
-    t = bar(12)
-    drum.note(t, KICK, 120, DRUM_DUR)
-    drum.note(t, SNARE, 118, DRUM_DUR)
-    drum.note(t, HIHAT, 100, DRUM_DUR)
-    drum.note(t + BEAT, HIHAT, 100, DRUM_DUR)
-    drum.note(t + 2 * BEAT, TOM, 112, DRUM_DUR)
+        spec = DRUM_BARS[b]
+        for name, pitch in (("kick", KICK), ("snare", SNARE),
+                            ("hat", HIHAT), ("tom", TOM)):
+            for off in spec[name]:
+                drum.note(t + off, pitch, DRUM_VEL[pitch], DRUM_DUR)
 
     return [tempo, bass, gtr, pno, pad, drum]
 
 
 def summarize(tracks):
     print("=" * 74)
-    print("四音色 + 鼓机 + 变速 测试小段子")
+    print("四音色 + 鼓机 + 变速 · house/funk 测试小段子（8 小节）")
     print("=" * 74)
     tot = 0
     for tk in tracks:
         n_note = sum(1 for e in tk.ev if e[2][0] & 0xF0 in (0x90, 0x80))
         n_on = sum(1 for e in tk.ev if e[2][0] & 0xF0 == 0x90)
         tot += n_note
-        extra = ""
-        if isinstance(tk, Conductor):
-            extra = "  tempo 点 = %d" % len(tk.ev)
+        extra = "  tempo 点 = %d" % len(tk.ev) if isinstance(tk, Conductor) else ""
         print("  %-8s ch=%-3s 音符 %3d（on/off 共 %3d）%s"
               % (tk.name, "-" if tk.channel is None else (tk.channel + 1),
                  n_on, n_note, extra))
     print("  MIDI 事件总数（含 off 与 tempo）= %d" % tot)
-    print("  长度 = 12 小节 = %d tick（%.2f 小节 @ 4/4 PPQN %d）"
-          % (12 * BAR, 12 * BAR / float(BAR), PPQN))
+    print("  长度 = 8 小节 = %d tick" % (8 * BAR))
 
 
 def main(argv=None):
@@ -300,7 +311,7 @@ def main(argv=None):
     args = ap.parse_args(argv)
 
     here = os.path.dirname(os.path.abspath(__file__))
-    out = args.out or os.path.join(here, "四音色鼓机变速-测试曲.mid")
+    out = args.out or os.path.join(here, "四音色鼓机变速-house-funk-测试曲.mid")
 
     tracks = compose()
     summarize(tracks)

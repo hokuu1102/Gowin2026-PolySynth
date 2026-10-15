@@ -28,7 +28,7 @@ for (let i = 0; i < args.length; i++) {
   if (args[i] === "--hex") hexOut = args[++i];
   else midPath = args[i];
 }
-if (!midPath) midPath = path.join(HERE, "四音色鼓机变速-测试曲.mid");
+if (!midPath) midPath = path.join(HERE, "四音色鼓机变速-house-funk-测试曲.mid");
 if (!fs.existsSync(midPath)) {
   console.error("找不到 MIDI：" + midPath);
   process.exit(2);
@@ -208,7 +208,7 @@ chk("⑤ 没用到 axis 14（节拍器轴）", !axUsed.includes(14));
 chk("⑥ 同 tick 同音高的重击，off 排在 on 前（反向 0 处）",
     restrikeTicks.length >= 1 && badOrder === 0,
     "重击 " + restrikeTicks.length + " 处（tick " + restrikeTicks.join(",") + "）· 顺序错 " + badOrder + " 处");
-chk("⑦ 鼓同 tick 多件 = 1 处（第 12 小节那个故意的探针）", drumSimul.length === 1,
+chk("⑦ 鼓同 tick 多件 = 1 处（第 8 小节第 4 拍那个故意的探针）", drumSimul.length === 1,
     drumSimul.length ? ("tick " + drumSimul[0].tick + " 敲 " + drumSimul[0].n + " 件") : "没有");
 chk("⑧ 鼓没有走音高分区兜底（全部来自映射表）", conv.drumFuzzy === 0,
     "兜底 " + conv.drumFuzzy + " 个");

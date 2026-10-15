@@ -1195,7 +1195,14 @@ function buildScore(words, name) {
   //   匹配不上 off 的 on => 用最后 tick 或下一个事件兜底（标注为悬空）。
   //   匹配不上 on 的 off => 丢弃（孤儿 off，不计入）。
   const segs = [];
-  const open = new Map();          // key = axis*128+midi  ->  {seg, idx}
+  /* ⚠️ key = axis*128+midi -> 【队列】，⛔ 不是单个 seg。
+   * 🔴 原来是单槽（`open.set(key, seg)` 直接覆盖）：同轴同音高的 on 一旦【重叠】
+   *    （前一个还没 off，就又来一个 on —— 鼓的重复敲击、同音重击最常见），
+   *    前一个 seg 就永远拿不到 t1 ⇒ 被下面的"未闭合兜底"拉成【到曲末的长条】。
+   *    实测：09_Conjurer 有一根 247680 tick（≈4.3 分钟）的踩镲长条、
+   *          6.世界悲 有一根 65280 tick（≈68 秒）。
+   * ⭐ 与 mid2evt.py 的口径一致（那边就是 pending[note].append / pop(0) 的 FIFO）。 */
+  const open = new Map();          // key -> [seg, ...]（FIFO）
   let orphanOff = 0, danglingOn = 0;
   for (const n of notes) {
     const key = ((n.axis & 15) * 128) + (n.midi & 127);
@@ -1206,10 +1213,11 @@ function buildScore(words, name) {
                     timbre: n.timbre,    /* ⭐ 颜色按【音色】上色（用户 2026-10-14 要求）*/
                     drumInc: (n.axis === DRUM_AXIS) ? n.inc : null };
       segs.push(seg);
-      open.set(key, seg);
+      if (!open.has(key)) open.set(key, []);
+      open.get(key).push(seg);
     } else {
-      const seg = open.get(key);
-      if (seg) { seg.t1 = n.tick; open.delete(key); }
+      const q = open.get(key);
+      if (q && q.length) { q.shift().t1 = n.tick; if (!q.length) open.delete(key); }
       else { orphanOff++; }
     }
   }
@@ -1223,8 +1231,8 @@ function buildScore(words, name) {
   }
   const noteSegs = segs.filter(seg => seg.axis !== DRUM_AXIS);
 
-  // 收尾：还没闭合的 on
-  for (const seg of open.values()) { danglingOn++; }
+  // 收尾：还没闭合的 on（队列可能不止一个）
+  for (const q of open.values()) { danglingOn += q.length; }
   if (segs.length) {
     const endTick = Math.max(tickMax, 1);
     /* ⭐⭐ 2026-10-14 修（用户："卷帘每个音的时值有一点过长了，很多地方重叠在一起"）。

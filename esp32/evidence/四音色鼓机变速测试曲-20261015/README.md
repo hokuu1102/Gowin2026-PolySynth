@@ -1,12 +1,19 @@
-# 四音色 + 鼓机 + 变速 · 测试小段子（2026-10-15）
+# 四音色 + 鼓机 + 变速 + 复音 · house/funk 测试小段子（2026-10-15）
 
 **这是什么**：给「曲谱上位机」（`esp32/tools/score_studio.html`）灌谱用的一小段曲子。
-12 小节、约 28.5 秒，**一次把四件事都测到**：
+**8 小节、约 17 秒** —— 尽量短，但每一小节都在测东西。
 
-1. **四个音色同时出声** —— BASS / GUITAR / PIANO / PAD
-2. **鼓机四件都响** —— Kick / Snare / HiHat / Tom
-3. **变速** —— 100 → 140 → 80 BPM（三个 tempo 点）
-4. **和弦** —— 同一时刻多个音，逼上位机把音摊到多条轴
+一次把**五件事**都测到：
+
+| # | 测点 | 在曲子里的位置 |
+|---|---|---|
+| 1 | **四个音色**同时出声（BASS / GUITAR / PIANO / PAD） | 第 4~8 小节 |
+| 2 | **鼓机四件**都响（Kick / Snare / HiHat / Tom） | 第 3~6、8 小节 |
+| 3 | **变速**（100 → 126 → 108 BPM，三个 tempo 点） | 第 1 / 3 / 7 小节头 |
+| 4 | **和弦**（同一时刻多个音，逼上位机把音摊到多条轴） | 第 3 小节起，钢琴每半拍一个三音和弦 |
+| 5 | **复音**（能一个一个数出来） | **第 7 小节：每半拍进一个音，最后 10 个音同时响** |
+
+风格：house 律动（反拍踩镲 / 反拍钢琴 stab）+ funk 吉他 riff。
 
 ---
 
@@ -14,71 +21,81 @@
 
 | 文件 | 用途 |
 |---|---|
-| `四音色鼓机变速-测试曲.mid` | **交付物**。直接拖进上位机就能灌 |
-| `gen_test_piece.py` | 生成上面那份 `.mid`（只用 Python 标准库，可改谱重生成） |
-| `verify_piece.js` | **用网页自己的解析器**核对，并导出 `events.hex` |
-| `events.hex` | 网页解析器的产物（479 个字），给 `score_uploader.py` 那条路用 |
-| `试听-无鼓-预览.wav` | 用 `tools/evt2wav.py` 渲染的试听（**只有旋律，没有鼓**，见下） |
+| `四音色鼓机变速-house-funk-测试曲.mid` | **交付物**。直接拖进上位机就能灌 |
+| `gen_test_piece.py` | 生成上面那份 `.mid`（只用 Python 标准库，改曲子只动 `compose()` 与数据表） |
+| `verify_piece.js` | 核对**转换层**（8 项判据）：用网页自己的解析器转一遍 |
+| `check_roll.js` | 核对**卷帘显示层**（12 项判据）：真调页面的 `draw()` / `pickHover()` 等 |
+| `events.hex` | 网页解析器的产物（435 个字），给 `score_uploader.py` 那条路用 |
+| `试听-无鼓-预览.wav` | `tools/evt2wav.py` 渲染的试听（**只有旋律，没有鼓**） |
 | `_mid2evt对比/` | `tools/mid2evt.py`（Python 路）的产物，用来对比两条路的差异 |
+| `卷帘核对报告-20261015.md` | 卷帘那 6 个缺陷的核对与修复报告 |
 
 > **哪两个文件不在 git 里**：`.mid` 与 `.wav` 都是**生成物**。
 > `esp32/.gitignore:32` 的 `*.mid` 规则就是为「evt2midi 的产物不入库」写的
 > （二进制进 git 后无法回收），本曲的 `.mid` 同属生成物，故**不强制入库**。
-> clone 之后跑一次 `python -X utf8 gen_test_piece.py` 即可重建 `.mid`；
-> `.wav` 按第三节的命令重建。
+> clone 之后跑一次 `python -X utf8 gen_test_piece.py` 即可重建 `.mid`。
 
 ---
 
-## 二、这段曲子测什么、在哪一段
+## 二、编曲（一小节一个和弦：Am7 Dm7 Fmaj7 E7 Am7 Dm7 Fmaj7 Am7）
 
-| # | 测点 | 位置 | 预期 |
+| 小节 | 速度 | Pad | Bass | Piano | Guitar | 鼓 |
+|---|---|---|---|---|---|---|
+| 1 | 100 | ✓ | - | - | - | kick + hat |
+| 2 | 100 | ✓ | ✓ | - | - | kick + hat |
+| 3 | 126 | ✓ | ✓ | ✓ | - | 全鼓（提速 drop） |
+| 4 | 126 | ✓ | ✓ | ✓ | ✓ | 全鼓 |
+| 5 | 126 | ✓ | ✓ | ✓ | ✓ | 全鼓 |
+| 6 | 126 | ✓ | ✓ | ✓ | ✓ | 全鼓 + tom 过门 |
+| **7** | 108 | └── **复音阶梯：每半拍进一个音** ──┘ | | | | kick + hat |
+| 8 | 108 | ✓ | ✓ | ✓ | ✓ | 收尾 + 鼓探针 |
+
+音区分工（避免糊在一起）：bass 87~175 Hz · pad 220~392 Hz · piano 262~440 Hz · guitar 330~700 Hz。
+
+### 复音阶梯（第 7 小节）——怎么数
+
+每半拍（480 tick）进一个音，**全部撑到小节末**，所以最后 10 个音**同时响**：
+
+| 进来的时刻 | 轨 | 音 | 累计同时在响 |
 |---|---|---|---|
-| 1 | 四音色并发 | 第 5~8 小节四条轨同时进行 | 四个音色都听得出，不是只有一种 |
-| 2 | 鼓机四件 | 第 5~12 小节 | Kick/Snare/HiHat/Tom 四件都有声音 |
-| 3 | 变速 | tick 0 / 15360 / 30720 | 明显变快再明显变慢，**不是全程一个速度** |
-| 4 | 和弦 | 第 1~12 小节每小节的 Pad 都是 4 个音同起 | 四个音**同时**响（不是只响一个） |
-| 5 | 同音高重击 | tick 42240（第 11→12 小节交界） | 上一个 A4 正常收掉、新 A4 正常起（不吞音） |
-| 6 | 鼓同 tick 多件 | 第 12 小节第 1 拍 | **已知问题探针**，见第五节 |
+| 拍 1 | Pad | A3 C4 F4（三音一起） | 3 |
+| 拍 1 | Bass | F2 | 4 |
+| 拍 1.5 | Piano | E4 | 5 |
+| 拍 2 | Piano | A4 | 6 |
+| 拍 2.5 | Guitar | C5 | 7 |
+| 拍 3 | Guitar | E5 | 8 |
+| 拍 3.5 | Bass | F3 | 9 |
+| 拍 4 | Piano | F5 | **10** |
 
-### 曲式（A 小调，4/4，PPQN 960）
-
-| 小节 | 速度 | 内容 |
-|---|---|---|
-| 1~4 | 100 BPM | Pad 长和弦 + Bass 半音符；第 3 小节 Piano 进 |
-| 5~8 | 140 BPM | 四音色 + 鼓机全上；第 8 小节有 tom 过门 |
-| 9~12 | 80 BPM | 慢下来收尾；第 12 小节全奏 + 鼓探针 |
-
-和弦进行：Am – F – C – G（第 12 小节回到 Am）。
+- 十个音**音高互不重复** ⇒ 不会因同音高相位干涉而听糊，可以一个一个数。
+- 10 声 < 可用轴 15 条 ⇒ 不抢轴；也远低于 FPGA 的 32 voice 上限。
+- 想单独验复音：**只听第 7 小节**，从 1 数到 10。
 
 ---
 
-## 三、离线核对结果（已跑，8 项全过）
+## 三、离线核对结果（已跑，全过）
 
 ```powershell
 cd C:\Users\hokuu\Desktop\FPGA\FPGA2026-esp32\esp32\evidence\四音色鼓机变速测试曲-20261015
-python -X utf8 gen_test_piece.py                       # 生成 .mid
-node verify_piece.js --hex events.hex                  # 用网页解析器核对
+python -X utf8 gen_test_piece.py                 # 生成 .mid
+node verify_piece.js --hex events.hex            # 转换层 8 项
+node check_roll.js                               # 卷帘显示层 12 项
 ```
 
 | 项 | 实测 |
 |---|---|
 | 轨 | 6 条（1 条只有 tempo + 5 条有音符） |
-| 音符轨 | Bass 112 · Guitar 96 · Piano 62 · Pad 96 · Drum 110（on+off 各半） |
-| 音色分配 | axis0=BASS · axis1=GUITAR · axis2=PIANO · axis3=PAD（两条路**结果一致**） |
-| 鼓 | 全在 axis 15；kick 15 · snare 15 · hihat 22 · tom 3；**兜底 0 个** |
-| 变速 | 3 个 tempo 点 → 3 个 `kind=2` 事件（tick_inc 137439 / 192415 / 109951） |
-| 事件 | 479 个字（on 238 · off 238 · tempo 3） |
-| 时长 | tick 最大 46079 ≈ **28.5 秒**（按变速分段算） |
-| 组包 | 479×9 = 4311 B + 总数帧 9 B + 复位序列 36 B = **4356 B / 484 帧** |
-| 并发 | 旋律峰值 8；用到轴 0~7（**没用到 axis 14**） |
-| 重击 | tick 42240 一处，`off` 排在 `on` 前（反向 0 处） |
-
-判据（`verify_piece.js` 会自己判，不符合打 RED）：
-① 四个音色齐全 ② 三个 tempo 点全转 ③ 鼓全在 axis 15 且四件齐
-④ 峰值并发 ≤ 15 ⑤ 没用到 axis 14 ⑥ 重击顺序对 ⑦ 鼓同 tick 多件 = 1 处 ⑧ 鼓没走兜底
+| 事件 | **435 个字**（on 216 · off 216 · tempo 3） |
+| 时长 | tick 最大 30720 = **16.86 秒**（按变速分段积分） |
+| 变速 | tick 0 → 100 BPM · tick 7680 → 126 BPM · tick 23040 → 108 BPM |
+| 音色 | axis0=BASS · 1=GUITAR · 2=PIANO · 3=PAD（两条转换路结果一致） |
+| 鼓 | 全在 axis 15；kick 20 · snare 9 · hihat 30 · tom 6；**兜底 0 个** |
+| **复音** | **旋律峰值并发 = 10**（第 7 小节末）；用到轴 0~9，**未用 axis 14** |
+| 重击 | 7 处同 tick 同音高（`off` 均排在 `on` 前，反向 0 处） |
+| 组包 | 435×9 = 3915 B + 总数帧 9 B + 复位序列 36 B = **3960 B / 440 帧** |
 
 **独立复核**：`python esp32/tools/evt2midi/midi_verify.py --in <文件>`
-按 MIDI 规范读回 —— format 1 · 6 轨 · PPQN 960 · 音符 476 · tempo 100 BPM，通过。
+按 MIDI 规范读回 —— format 1 · 6 轨 · PPQN 960，通过。
 
 **试听（不含鼓）**：
 
@@ -87,8 +104,7 @@ python tools\evt2wav.py "esp32\evidence\四音色鼓机变速测试曲-20261015\
 ```
 
 `evt2wav.py` 自己不渲染鼓（它按 `inc` 当乐音），所以预览用的是**没有鼓的那份 hex**。
-实测：48828 Hz · 29.7 s · 峰值 18837 · RMS 3027（有声音、不削顶）。
-用途：上板前先听一遍**旋律与变速对不对**，上板后再和板子的声音对比。
+用途：上板前先听一遍**旋律 / 变速 / 复音**对不对，上板后再和板子的声音对比。
 
 ---
 
@@ -97,14 +113,16 @@ python tools\evt2wav.py "esp32\evidence\四音色鼓机变速测试曲-20261015\
 ### A. 网页上位机（推荐，**鼓能出声**）
 
 1. 双击 `esp32/tools/start_score_studio.bat`
-2. 开 `http://127.0.0.1:8777/score_studio.html`，`Ctrl+F5` 强刷
+2. 开 `http://127.0.0.1:8777/score_studio.html`，**`Ctrl+F5` 强刷**
+   （卷帘有 6 处修复，不刷会看到旧行为）
 3. 点**连接蓝牙** → 选 `FPGA2026-Synth*`
-4. 把 `四音色鼓机变速-测试曲.mid` **拖进去**，看日志：
-   - `MIDI 解析成功：479 个事件 · BPM 100.0 · 960 PPQN`
+4. 把 `四音色鼓机变速-house-funk-测试曲.mid` **拖进去**，看日志：
+   - `MIDI 解析成功：435 个事件 · BPM 100.0 · 960 PPQN`
    - `该谱子有 3 个 tempo 点（变速）—— 已全部转成 kind=2 事件`
    - 轨分配 5 行：Bass→BASS / Guitar→GUITAR / Piano→PIANO / Pad→PAD / Drum→鼓
    - 左下角图例应是 **5 种颜色**（四个音色 + 鼓）
-5. 点**一键上传** → 进度条走到 `4356 B / 484 帧`
+   - 底部总览条应显示 **全长 17s**（⛔ 不是 32s —— 那是修复前的 120BPM 假定）
+5. 点**一键上传** → 进度条走到 `3960 B / 440 帧`
 6. 点**起播** → 听（判据见下）
 
 ### B. Python 路（`score_uploader.py`）—— **注意：鼓会被丢掉**
@@ -114,30 +132,32 @@ python esp32\tools\score_uploader.py --autotest "esp32\evidence\四音色鼓机�
 ```
 
 `events.hex` 是**用网页解析器**导出的（含鼓），可以喂给这条路。
-但若改用 `tools/mid2evt.py` 自己转，**鼓会被整条丢掉**（见下）——那是
-`mid2evt.py` 的已知局限，不是这份曲子的问题。
+但若改用 `tools/mid2evt.py` 自己转，**鼓会被整条丢掉**（实测 `drums_excluded=130`）——
+那是 `mid2evt.py` 的已知局限，不是这份曲子的问题。
 
 ---
 
 ## 五、已知问题的探针（结果要按这个读）
 
-### 1. 鼓同时敲（第 12 小节第 1 拍）
+### 1. 鼓同时敲（第 8 小节第 4 拍）
 
-主 groove 里 HiHat **只打反拍**，不与 Kick/Snare 撞 tick。
-只有**第 12 小节第 1 拍**故意让 `kick + snare + hihat` 同 tick 一起敲。
+主 groove 里 kick / snare / hat 的落点**互不相同**，不与那个已知问题撞车；
+只有**第 8 小节第 4 拍**故意让 `kick + snare + hihat` 同 tick 一起敲。
 
 - 该处听到**三件都响** ⇒ 问题已修
 - 只听到**一件** ⇒ 就是 `same_hit` 复用那条未解决项
   （`files/20-代码/ESP32侧追问-同时敲多个鼓与same_hit-20261014.md`）
 
+> ⚠️ 这也是为什么底鼓不是"四踩"：底鼓踩满四拍时，snare 落 2/4 拍**必然**与底鼓同 tick。
+
 ### 2. 两条转换路的差异（实测）
 
-| 路 | 四音色 | 变速 | 鼓 |
-|---|---|---|---|
-| 网页 `score_studio.html`（本曲的判据） | 4 个都对 | 3 个 tempo 点 | **有**（axis 15） |
-| `tools/mid2evt.py`（Python） | 4 个都对 | 3 个 tempo 点 | **整条丢掉**（`drums_excluded=110`） |
+| 路 | 四音色 | 变速 | 复音 | 鼓 |
+|---|---|---|---|---|
+| 网页 `score_studio.html`（本曲判据） | 4 个都对 | 3 个 tempo 点 | 峰值 10 | **有**（axis 15） |
+| `tools/mid2evt.py`（Python） | 4 个都对 | 3 个 tempo 点 | 峰值 10 | **整条丢掉**（`drums_excluded=130`） |
 
-⇒ **要测鼓就必须走网页那条**。`_mid2evt对比/` 里留着那条路的产物作证据。
+⇒ **要测鼓就必须走网页那条**。
 
 ---
 
@@ -145,35 +165,30 @@ python esp32\tools\score_uploader.py --autotest "esp32\evidence\四音色鼓机�
 
 | 项 | 预期 | 实测 |
 |---|---|---|
-| 上传进度 | 4356 B / 484 帧，不卡死 | |
+| 上传进度 | 3960 B / 440 帧，不卡死 | |
 | 起播后前 0.6 秒 | 屏/日志开始动 | |
 | 四个音色 | 都听得出，音色互不相同 | |
 | 鼓四件 | Kick/Snare/HiHat/Tom 都有 | |
 | 变速 | 100 → 明显变快 → 明显变慢 | |
-| 和弦 | Pad 四个音同时响 | |
-| 第 12 小节鼓 | 三件都响 / 只响一件 | |
-| 重击（tick 42240） | 不吞音、不挂音 | |
+| 和弦 | 钢琴 stab 是**三音同响**，不是一个音 | |
+| **复音** | **第 7 小节能从 1 数到 10 个音** | |
+| 第 8 小节第 4 拍 | 三件鼓都响 / 只响一件 | |
+| 重击（同 tick 同音高 7 处） | 不吞音、不挂音 | |
 
 ---
 
 ## 七、想改这段曲子
 
-改 `gen_test_piece.py` 里的 `compose()`（音符是 `(tick, midi, vel, dur)` 的直白写法，
-音名表在文件开头的 `N`），然后：
+改 `gen_test_piece.py` 顶部的数据表（`CH` / `PROG` / `TEMPO_PLAN` / `BASS_HITS` /
+`PIANO_HITS` / `GTR_POS` / `DRUM_BARS` / `LADDER`），然后：
 
 ```powershell
-python -X utf8 gen_test_piece.py && node verify_piece.js --hex events.hex
+python -X utf8 gen_test_piece.py && node verify_piece.js --hex events.hex && node check_roll.js
 ```
 
-改完**必须重跑 `verify_piece.js`** —— 它判的是"上位机会把它转成什么"，
-不是"我打算写什么"。轨名决定音色（`bass`/`guitar`/`piano`/`pad` 关键词），
+**改完必须重跑这两个核对** —— 它们判的是"上位机会把它转成/画成什么"，
+⛔ 不是"我打算写什么"。轨名决定音色（`bass`/`guitar`/`piano`/`pad` 关键词），
 改轨名会改音色；鼓轨靠轨名含 `drum` 或走 MIDI 通道 10 识别。
 
----
-
-## 八、已知的工具小毛病（与本曲无关）
-
-`esp32/tools/_inspect_midi.js` 和 `_diag_concurrency.js` 在 node 里跑时，
-末尾会抛 `cv.parentElement.getBoundingClientRect is not a function`
-（假 DOM 少一个 `parentElement`）—— 用现有的演示 MIDI 跑同样会抛，
-**是工具本身的问题，不是曲子的问题**；报告在抛错前已经打完，可以照看。
+⚠️ **复音上限**：可用轴是 `0..14`（15 条，15 是鼓轴），所以同时发声的音**别超过 15 个**；
+`check_roll.js` 与 `verify_piece.js` 都会报峰值并发。
