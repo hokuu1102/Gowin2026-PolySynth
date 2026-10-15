@@ -63,6 +63,17 @@ chk("上传后挂标记、由轮询复用那次读来核对（不额外发 GATT�
 chk("核对函数是【纯判读】、自己不读（否则会挂住 -> 浏览器永久卡住）",
     /function checkIntegrityFromStat\(st\)/.test(html) &&
     !/async function checkIntegrityFromStat/.test(html));
+/* ⭐⭐ 2026-10-14 最值钱的一条：轮询必须【不超时】。
+ * 看门狗到点会解除 pollInFlight => 下一次轮询又发一个读（前一个还在飞）
+ *   => already in progress => 浏览器永久卡住（用户实测 14:41:59）。
+ * 不超时 + pollInFlight => 同一时刻最多一个读在飞 => 结构上不可能堆积。*/
+chk("轮询用【不超时】的 gattSerial（第二个参数 0）",
+    /gattSerial\(\(\) => readStat\(\), 0\)/.test(html));
+chk("gattSerial 支持按调用关掉看门狗",
+    /function gattSerial\(fn, timeoutMs\)/.test(html) &&
+    /if \(!tmo\) return await fn\(\)/.test(html));
+chk("上传后【不自动】恢复轮询（起播后才恢复）",
+    !/if \(connected\) startPoll\(POLL_RESUME_DELAY_MS\)/.test(html));
 chk("有 GATT 卡死检测与重连指引",
     /gattWedged/.test(html) && /already in progress/.test(html));
 chk("核对失败时【明确报错】而不是静默",

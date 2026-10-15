@@ -1876,22 +1876,38 @@ let gattQueue = Promise.resolve();
 /* ⚠️ 超时看门狗：GATT 操作最多等这么久，超时抛错。
  * 🔴 为什么需要：若队列因自嵌套（如 sendCmd 内又入队）卡住，
  *   UI 会【无声挂住】—— 用户看到的就是"点了没反应、没进度条"（实测踩过）。
- * ⭐ 超时后这条就抛错，UI 会显示失败而不是静默卡死。
- * 🔴 2026-10-14 从 15s 缩到 4s（用户日志实测）：
- *   15s 太长 —— ESP32 转发谱面时 readValue 会卡，等 15s 期间
- *   后续操作全排在后面，UI 像死了一样（实测：30 秒后才一次性炸 7 条错）。
- *   ⭐ 4s 足够正常读一次 STAT（那本身只要 ~0.5s），卡住也能快速脱身。 */
+ *
+ * 🔴🔴 2026-10-14 重大修正：看门狗对【轮询】有害，必须能关掉。
+ *
+ *   实测机制（用户日志 + 算账）：
+ *     23558 帧 × 9 字节 = 212 KB，串口 50 KB/s ⇒ 至少 4.2 s；
+ *     但 FPGA 的 evt_buf 只有 1024 深、且【按音乐速度消耗】（约 131 帧/秒）
+ *     ⇒ 23558 帧要整首放完才转得完 ⇒ ESP32 在【整个播放期间】都忙于转发
+ *     ⇒ 这期间 `readValue()` 读不到 ⇒ 挂住。
+ *
+ *   🔴 而看门狗制造了雪崩：
+ *     4 s 到点 → 丢弃 Promise → pollInFlight 被解除
+ *       → 下一次轮询【又发一个读】（而前一个还在飞）
+ *         → already in progress → 重复 → 浏览器永久卡住。
+ *   ⭐ 也就是说：`pollInFlight` 本来能防住，是【看门狗把它提前解除了】。
+ *
+ * ⭐ 修法：`gattSerial(fn, timeoutMs)` —— timeoutMs = 0 表示【不超时】。
+ *   · 轮询传 0：读慢就慢慢读，⛔ 不发第二个（pollInFlight 会一直挡着）
+ *     ⇒ 结构上不可能堆积、不可能卡死。
+ *   · 用户命令（起播/停止/清池/灌谱）仍给 4 s：卡住要尽快让 UI 有反馈。 */
 const GATT_SERIAL_TIMEOUT_MS = 4000;
-function gattSerial(fn) {
+function gattSerial(fn, timeoutMs) {
+  const tmo = (timeoutMs === undefined) ? GATT_SERIAL_TIMEOUT_MS : timeoutMs;
   const runIt = async () => {
     let timer = null;
     try {
+      if (!tmo) return await fn();          /* ⭐ 不超时（轮询走这条）*/
       return await Promise.race([
         (async () => fn())(),
         new Promise((_, rej) => {
           timer = setTimeout(() => rej(new Error(
-            "GATT 操作超时（" + GATT_SERIAL_TIMEOUT_MS +
-            "ms）—— 可能上一步没返回，或被 BLE 链路卡住")), GATT_SERIAL_TIMEOUT_MS);
+            "GATT 操作超时（" + tmo +
+            "ms）—— 可能上一步没返回，或被 BLE 链路卡住")), tmo);
         }),
       ]);
     } finally {
@@ -2070,7 +2086,15 @@ async function pollOnce() {
   if (pollInFlight) return;          /* ⭐ 不堆积：上一次还在飞就跳过 */
   pollInFlight = true;
   try {
-    const st = await gattSerial(() => readStat());
+    /* ⭐⭐ 轮询【不设超时】（第二个参数 0）—— 这是本轮最关键的修正。
+     * 🔴 原因：ESP32 在整个播放期间忙于往 FPGA 转发（见 gattSerial 的算账），
+     *   `readValue()` 要等它腾出手才回。若给 4 s 看门狗：
+     *     到点丢弃 Promise → pollInFlight 被解除
+     *       → 下一次轮询又发一个读（前一个还在飞）→ already in progress
+     *         → 重复 → 浏览器永久卡住（用户实测 14:41:59 就是这样）。
+     * ⭐ 不超时 + pollInFlight ⇒ 同一时刻最多一个读在飞 ⇒ 结构上不可能堆积。
+     * ⚠️ 代价：读慢时状态面板不刷新（但页面不卡、起播照常）。*/
+    const st = await gattSerial(() => readStat(), 0);
     gattWedged = 0;                  /* ⭐ 成功一次就清卡死计数 */
     paintStat(st);
     /* ⭐ 上传后第一次成功读到的 STAT ⇒ 顺便核对完整性（⛔ 不额外发读）*/
@@ -2101,7 +2125,7 @@ function startPoll(delayMs) {
   if (pollTimer) { clearInterval(pollTimer); pollTimer = null; }
   const arm = () => {
     if (!connected) return;
-    pollTimer = setInterval(pollOnce, 1200);
+    pollTimer = setInterval(pollOnce, 2000);   /* 2026-10-14: 1.2s -> 2s（读慢，密了没意义）*/
     pollOnce();
   };
   if (delayMs > 0) {
