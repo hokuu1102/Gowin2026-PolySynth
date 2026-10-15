@@ -1,0 +1,20 @@
+﻿VCD info: dumpfile build/sim/tb_play_seq_bpm/tb_play_seq_bpm.vcd opened for output.
+  ok  : ck_inc = 164927 (120 BPM, NOT 0)
+  ok  :  tick_inc = 140*1374+47 = 192407
+  ok  : to TICK_INC_DEFAULT (the anchor)
+  ok  : > tick_inc = 55007 (the slowest)
+  ok  :  tick_inc = 329807 (the fastest)
+  ok  : d 10 clamps UP to 40 BPM (55007)
+  ok  :  clamps DOWN to 240 BPM (329807)
+  ok  : owed -- it would stop the clock)
+  ok  : om 120 => +1374 (exactly +1 BPM)
+  ok  :  back to 164927 (exactly -1 BPM)
+  ok  : 0 BPM stays clamped (no overrun)
+  ok  :  BPM stays clamped (no underrun)
+  ok  : empo_cnt_o (visible, not silent)
+  ok  : eally produce different tick_inc
+
+PASS: play_seq BPM entry -- tick_inc = BPM*1374+47, anchored exactly at 120 BPM, clamped to 40..240, and observable
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_play_seq_bpm.sv:206: $finish called at 1330000 (1ps)
+
+

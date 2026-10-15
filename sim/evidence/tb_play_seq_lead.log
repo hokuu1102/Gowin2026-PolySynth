@@ -1,0 +1,17 @@
+﻿  ok  : L1a lead=0: the event WAS emitted
+  ok  : L1b lead=0: emitted at cur_tick == evt_tick (exactly, not early)
+  ok  : L2a lead=960: the event WAS emitted
+  ok  : L2b lead=960: emitted EXACTLY 960 ticks early (cur_tick == evt_tick - 960)
+  ok  : L3a all three events were emitted
+  ok  : L3b #0 emitted at evt_tick-960
+  ok  : L3c #1 emitted at evt_tick-960
+  ok  : L3d #2 emitted at evt_tick-960
+  ok  : L3e the events kept their own ticks (not shifted in the payload)
+  ok  : L4a due_limit is computed in 21 bits (0xFFFFF + 960 = 1049535, not 959)
+  ok  : L4b the 20-bit truncation would have given 959 (so L4a is non-vacuous)
+  ok  : L5a tempo event is NOT emitted as a note (kind=2 never drives note_valid_o)
+  ok  : L5b tempo was applied (tempo_applied_o pulsed)
+PASS: play_seq lead -- 0 is bit-exact, 960 is exact, no 20-bit wrap
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_play_seq_lead.sv:216: $finish called at 455470000 (1ps)
+
+

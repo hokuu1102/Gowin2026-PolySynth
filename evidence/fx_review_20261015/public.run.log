@@ -1,0 +1,16 @@
+NOTE [fx_delay] DEPTH=1024 samples = 20 ms @48828.125Hz | MEM_W=18 => 18432 bit / 18432 bit-per-block = 1 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=1024 samples = 20 ms @48828.125Hz | MEM_W=18 => 18432 bit / 18432 bit-per-block = 1 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=1024 samples = 20 ms @48828.125Hz | MEM_W=18 => 18432 bit / 18432 bit-per-block = 1 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=1024 samples = 20 ms @48828.125Hz | MEM_W=18 => 18432 bit / 18432 bit-per-block = 1 BSRAM block(s) of 118
+MISMATCH trem depth0 expected=100000 actual=0
+MISMATCH dist active expected=100000 actual=0
+MISMATCH trem depth0 expected=200000 actual=0
+MISMATCH dist active expected=200000 actual=0
+MISMATCH trem depth0 expected=300000 actual=0
+MISMATCH dist active expected=300000 actual=0
+MISMATCH trem depth0 expected=400000 actual=0
+MISMATCH dist active expected=400000 actual=0
+sent=4 received dist_bypass=4 dist_active=4 trem_bypass=4 trem_active=4 chain_bypass=4 chain_dist=4
+errors dist_bypass=0 dist_active=4 trem_bypass=0 trem_active=4 chain_bypass=0 chain_dist=4
+FATAL: build/fx_review/tb_fx_public_contract.sv:52: FAIL public valid/sample contract: invalid-cycle sample changes corrupt valid output
+       Time: 6020000  Scope: tb_fx_public_contract

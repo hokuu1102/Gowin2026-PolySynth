@@ -1,0 +1,6 @@
+﻿PASS cache stress P=4 cycles=100000 overlap=25205 alloc=7901 clear=4942
+PASS cache stress P=32 cycles=100000 overlap=9878 alloc=2219 clear=2896
+PASS: AO/cache differential 200000 profile-cycles
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_opt08_target_cache.sv:83: $finish called at 2001700000 (1ps)
+
+

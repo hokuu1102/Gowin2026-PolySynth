@@ -1,0 +1,2059 @@
+{
+  "source": "0e98a58a8e69b13d779621de4e756b25707ee056",
+  "discovered": 207,
+  "selected": 204,
+  "pass_count": 202,
+  "expected_negative_count": 1,
+  "diagnostic_count": 1,
+  "accepted_count": 203,
+  "fail_count": 0,
+  "skipped": [
+    "tb_at_merge_known_bugs",
+    "tb_export_key_wav",
+    "tb_export_wav"
+  ],
+  "snapshot_blobs_verified": 323,
+  "timeout_override_sec": 7200,
+  "results": [
+    {
+      "name": "tb_adc_farm",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 21.187
+    },
+    {
+      "name": "tb_adc_fault_window",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 29.047
+    },
+    {
+      "name": "tb_adsr",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.563
+    },
+    {
+      "name": "tb_akwf_wavetables",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.687
+    },
+    {
+      "name": "tb_am_pipe",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.5
+    },
+    {
+      "name": "tb_async_pluck_capture",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.563
+    },
+    {
+      "name": "tb_axis_map",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.609
+    },
+    {
+      "name": "tb_axis_snapshot",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.547
+    },
+    {
+      "name": "tb_base_semi",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.766
+    },
+    {
+      "name": "tb_beat_gen",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 117.437
+    },
+    {
+      "name": "tb_bg_envelope_cycle_equiv",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 137.141
+    },
+    {
+      "name": "tb_bg_mixer_cycle_equiv",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 35.969
+    },
+    {
+      "name": "tb_bpm_bar_quant",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.531
+    },
+    {
+      "name": "tb_bpm_entry",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.547
+    },
+    {
+      "name": "tb_calib",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.625
+    },
+    {
+      "name": "tb_calib_autotare",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.546
+    },
+    {
+      "name": "tb_calib_cmd",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.656
+    },
+    {
+      "name": "tb_calib_cmd_q_y",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.61
+    },
+    {
+      "name": "tb_calib_equivalence",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 11.219
+    },
+    {
+      "name": "tb_calib_span",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 300,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 10.187
+    },
+    {
+      "name": "tb_calib_span_err",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.609
+    },
+    {
+      "name": "tb_calib_still_guard",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.641
+    },
+    {
+      "name": "tb_checkers",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.89
+    },
+    {
+      "name": "tb_clk_gen",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.656
+    },
+    {
+      "name": "tb_clk_gen_badparam",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.578
+    },
+    {
+      "name": "tb_ctrl_keypad",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.813
+    },
+    {
+      "name": "tb_dac_tone_top",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 3.297
+    },
+    {
+      "name": "tb_dds_wavetable_core",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.593
+    },
+    {
+      "name": "tb_debounce",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 32.969
+    },
+    {
+      "name": "tb_demo_stall_diag",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 600,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 510.296
+    },
+    {
+      "name": "tb_drum_gen",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.609
+    },
+    {
+      "name": "tb_drum_gen_posreset",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 101.844
+    },
+    {
+      "name": "tb_drum_pitch_env",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 13.891
+    },
+    {
+      "name": "tb_drum_sweep_window",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.64
+    },
+    {
+      "name": "tb_drum_timbre_top",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 4.453
+    },
+    {
+      "name": "tb_e2e_key_to_sound",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 900,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1374.844
+    },
+    {
+      "name": "tb_ee_adj",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.531
+    },
+    {
+      "name": "tb_envelope_bank",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.531
+    },
+    {
+      "name": "tb_event_extract",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.562
+    },
+    {
+      "name": "tb_event_extract_slide",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.531
+    },
+    {
+      "name": "tb_evt_buf",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.656
+    },
+    {
+      "name": "tb_evt_buf_clear_collision",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.532
+    },
+    {
+      "name": "tb_evt_merge",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 5.188
+    },
+    {
+      "name": "tb_evt_merge_diff",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 7.718
+    },
+    {
+      "name": "tb_evt_uart_rx",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1.36
+    },
+    {
+      "name": "tb_evt_uart_rx_gate",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.625
+    },
+    {
+      "name": "tb_evt_uart_rx_screen",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "DIAGNOSTIC_CONFIRMED",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": false,
+      "elapsed_sec": 0.594
+    },
+    {
+      "name": "tb_evt_upstream",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.578
+    },
+    {
+      "name": "tb_evt_upstream_queue",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.578
+    },
+    {
+      "name": "tb_fader_gear",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.672
+    },
+    {
+      "name": "tb_fft_color_bars",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 18.593
+    },
+    {
+      "name": "tb_fft_header_digits",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 13.875
+    },
+    {
+      "name": "tb_fft_height_floor",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.75
+    },
+    {
+      "name": "tb_fft_outline",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1.515
+    },
+    {
+      "name": "tb_fft_outline_x2",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1.75
+    },
+    {
+      "name": "tb_fft_spectrum_2048",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 71.203
+    },
+    {
+      "name": "tb_fft_spectrum_core",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.625
+    },
+    {
+      "name": "tb_fft_spectrum_overrun",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.437
+    },
+    {
+      "name": "tb_fft_spectrum_view",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.485
+    },
+    {
+      "name": "tb_fft_top_modes",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 123.703
+    },
+    {
+      "name": "tb_fft_view_backpressure",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.609
+    },
+    {
+      "name": "tb_fft_zoom_modes",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.719
+    },
+    {
+      "name": "tb_fx_chain",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 4.422
+    },
+    {
+      "name": "tb_fx_chain_latency_contract",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.657
+    },
+    {
+      "name": "tb_fx_delay_production",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1.234
+    },
+    {
+      "name": "tb_fx_dist",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.578
+    },
+    {
+      "name": "tb_fx_dist_stream_contract",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.547
+    },
+    {
+      "name": "tb_fx_trem",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.609
+    },
+    {
+      "name": "tb_fx_trem_stream_contract",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.578
+    },
+    {
+      "name": "tb_guide_lamp",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.578
+    },
+    {
+      "name": "tb_i2s_tx",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 6.469
+    },
+    {
+      "name": "tb_i2s_tx_prbs",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 300,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 11.625
+    },
+    {
+      "name": "tb_i2s_tx_sweep",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 3.454
+    },
+    {
+      "name": "tb_i2s_tx_timing",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.469
+    },
+    {
+      "name": "tb_integration_consts",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1.563
+    },
+    {
+      "name": "tb_key_drum",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 2.421
+    },
+    {
+      "name": "tb_latency_m2",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 300,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 2.656
+    },
+    {
+      "name": "tb_led_data",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.328
+    },
+    {
+      "name": "tb_led_indicator",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 28.453
+    },
+    {
+      "name": "tb_looper",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.422
+    },
+    {
+      "name": "tb_looper_bar_align",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 3.375
+    },
+    {
+      "name": "tb_looper_e2e",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 64.109
+    },
+    {
+      "name": "tb_looper_replay_tail",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 135.016
+    },
+    {
+      "name": "tb_looper_tail",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 9.609
+    },
+    {
+      "name": "tb_looper_wire_pitch",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.562
+    },
+    {
+      "name": "tb_master_mix",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.625
+    },
+    {
+      "name": "tb_mcp3208_driver",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.562
+    },
+    {
+      "name": "tb_mcp3208_model",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.484
+    },
+    {
+      "name": "tb_mcp3208_scanner",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.859
+    },
+    {
+      "name": "tb_met_start_top",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 23.344
+    },
+    {
+      "name": "tb_metronome",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 50.312
+    },
+    {
+      "name": "tb_nm_no_leak",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 300,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 522.5
+    },
+    {
+      "name": "tb_nm_off_in_hold",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 8.594
+    },
+    {
+      "name": "tb_nm_reuse_tail",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 12.813
+    },
+    {
+      "name": "tb_note_manager",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 300,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 82.968
+    },
+    {
+      "name": "tb_note_manager_sus",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 3.64
+    },
+    {
+      "name": "tb_note_manager_vel_ramp",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1.516
+    },
+    {
+      "name": "tb_note_manager_vel_wrap",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.656
+    },
+    {
+      "name": "tb_note_manager_write_share",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 34.141
+    },
+    {
+      "name": "tb_opt04_nm_age_negative",
+      "compile_exit": 0,
+      "run_exit": 1,
+      "status": "EXPECTED_NEGATIVE_PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": false,
+      "elapsed_sec": 0.828
+    },
+    {
+      "name": "tb_opt04_nm_compare",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 118.547
+    },
+    {
+      "name": "tb_opt04_nm_compare_values",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 13.797
+    },
+    {
+      "name": "tb_opt04_rot32_current_af",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 19.36
+    },
+    {
+      "name": "tb_opt04_transpose_current_af",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 900,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 611.796
+    },
+    {
+      "name": "tb_opt08_target_cache",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 106.328
+    },
+    {
+      "name": "tb_opt08_write_share_reused",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 34.547
+    },
+    {
+      "name": "tb_osc_drum_cls",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.844
+    },
+    {
+      "name": "tb_oscillator_bank",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1.234
+    },
+    {
+      "name": "tb_p5_adsr_diff",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 23.063
+    },
+    {
+      "name": "tb_p5_osc_equiv",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 11.703
+    },
+    {
+      "name": "tb_param_extract",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.563
+    },
+    {
+      "name": "tb_perc_env_bank",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.688
+    },
+    {
+      "name": "tb_perc_env_top",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 6.468
+    },
+    {
+      "name": "tb_pitch_shift_accept",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 15.516
+    },
+    {
+      "name": "tb_play_mode_ctrl",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.563
+    },
+    {
+      "name": "tb_play_mode_fret_release",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.625
+    },
+    {
+      "name": "tb_play_mode_merge_collision",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.532
+    },
+    {
+      "name": "tb_play_mode_merge_release",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.563
+    },
+    {
+      "name": "tb_play_mode_poly_release",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.532
+    },
+    {
+      "name": "tb_play_mode_slide_hold",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.593
+    },
+    {
+      "name": "tb_play_seq",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 25.516
+    },
+    {
+      "name": "tb_play_seq_lead",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.687
+    },
+    {
+      "name": "tb_polyphony_onset_step",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.61
+    },
+    {
+      "name": "tb_pool_by_src",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.953
+    },
+    {
+      "name": "tb_pos_probe",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.61
+    },
+    {
+      "name": "tb_pos_probe_axis",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 2.14
+    },
+    {
+      "name": "tb_pos_probe_exhaustive",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1.5
+    },
+    {
+      "name": "tb_rec_dump",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.578
+    },
+    {
+      "name": "tb_rec_dump_status",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.812
+    },
+    {
+      "name": "tb_rec_dump_uart",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.891
+    },
+    {
+      "name": "tb_retrig_reset_span",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.782
+    },
+    {
+      "name": "tb_right_adc",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 300,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 158.0
+    },
+    {
+      "name": "tb_right_analog_ctrl",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.532
+    },
+    {
+      "name": "tb_rot32_diff",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 23.016
+    },
+    {
+      "name": "tb_scope_mode_switch",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1.125
+    },
+    {
+      "name": "tb_score_chain",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.594
+    },
+    {
+      "name": "tb_score_looper_coexist",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.781
+    },
+    {
+      "name": "tb_seq_arb",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.625
+    },
+    {
+      "name": "tb_slide_e2e",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 900,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 92.828
+    },
+    {
+      "name": "tb_slide_position_ctrl",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.547
+    },
+    {
+      "name": "tb_slide_position_e2e",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 900,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 93.093
+    },
+    {
+      "name": "tb_slide_ramp",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.625
+    },
+    {
+      "name": "tb_slide_top_pitch",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.594
+    },
+    {
+      "name": "tb_soft_hard_blend",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.671
+    },
+    {
+      "name": "tb_span_alignment_gap",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 7.906
+    },
+    {
+      "name": "tb_span_axis_over_uart",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 6.703
+    },
+    {
+      "name": "tb_span_cross_channel",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 7.844
+    },
+    {
+      "name": "tb_span_multiaxis_noise",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 300,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 36.406
+    },
+    {
+      "name": "tb_span_need_press_width",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.563
+    },
+    {
+      "name": "tb_span_realistic",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 300,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 26.593
+    },
+    {
+      "name": "tb_span_released_stable",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 69.687
+    },
+    {
+      "name": "tb_span_retry_reemits_axis",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.594
+    },
+    {
+      "name": "tb_span_vote_offbyone",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.531
+    },
+    {
+      "name": "tb_span_with_real_adc_farm",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 65.531
+    },
+    {
+      "name": "tb_sustain_pedal_wire",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 177.438
+    },
+    {
+      "name": "tb_tdm_render_mixer",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.657
+    },
+    {
+      "name": "tb_test_mode_ctrl",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.625
+    },
+    {
+      "name": "tb_test_mode_fft",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 300,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 204.797
+    },
+    {
+      "name": "tb_test_mode_top",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 10.187
+    },
+    {
+      "name": "tb_timbre_adsr",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 11.703
+    },
+    {
+      "name": "tb_timbre_event_path",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.578
+    },
+    {
+      "name": "tb_tlc5916_bank",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 2.344
+    },
+    {
+      "name": "tb_tlc5916_driver",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.688
+    },
+    {
+      "name": "tb_tlc5916_refresh",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1.64
+    },
+    {
+      "name": "tb_top_ctrl_wire",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 42.141
+    },
+    {
+      "name": "tb_top_dump_atomic",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 348.562
+    },
+    {
+      "name": "tb_top_fx_audio",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 161.219
+    },
+    {
+      "name": "tb_top_led_strip",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 102.781
+    },
+    {
+      "name": "tb_top_m0",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 84.11
+    },
+    {
+      "name": "tb_top_merge_startup",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 43.204
+    },
+    {
+      "name": "tb_top_notice_equiv",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 389.281
+    },
+    {
+      "name": "tb_top_probe_queue",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 257.906
+    },
+    {
+      "name": "tb_top_scope_live",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 38.578
+    },
+    {
+      "name": "tb_top_score_path",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 300,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 36.735
+    },
+    {
+      "name": "tb_top_sound",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 900,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1286.141
+    },
+    {
+      "name": "tb_top_t15",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1.5
+    },
+    {
+      "name": "tb_top_test_mode_pipe",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1.703
+    },
+    {
+      "name": "tb_top_timbre_button",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 111.859
+    },
+    {
+      "name": "tb_top_uart_isolation",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 63.359
+    },
+    {
+      "name": "tb_transpose",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 300,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 559.25
+    },
+    {
+      "name": "tb_uart_calib_chain",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 300,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.797
+    },
+    {
+      "name": "tb_uart_rx",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.75
+    },
+    {
+      "name": "tb_uart_tx",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.718
+    },
+    {
+      "name": "tb_uart_tx_fifo",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.562
+    },
+    {
+      "name": "tb_uart_tx_fifo_clear_drop",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.516
+    },
+    {
+      "name": "tb_uart_tx_fifo_pipeline_equiv",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1.235
+    },
+    {
+      "name": "tb_uart_ui",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.609
+    },
+    {
+      "name": "tb_vel_pos_follow",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1.313
+    },
+    {
+      "name": "tb_vel_top_stream",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 2.047
+    },
+    {
+      "name": "tb_velocity_headroom",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 8.312
+    },
+    {
+      "name": "tb_velocity_lane_isolation",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.734
+    },
+    {
+      "name": "tb_velocity_tone_decoupling",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.641
+    },
+    {
+      "name": "tb_vibrato_lfo",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.578
+    },
+    {
+      "name": "tb_vibrato_top",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 49.14
+    },
+    {
+      "name": "tb_voice_accept",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 2.063
+    },
+    {
+      "name": "tb_voice_i2s_chain",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 24.765
+    },
+    {
+      "name": "tb_w1_interfaces",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.843
+    },
+    {
+      "name": "tb_waveform_scope",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 58.578
+    },
+    {
+      "name": "tb_wavetable_bank",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1.61
+    },
+    {
+      "name": "tb_wavetable_bank_prom",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 300,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.719
+    },
+    {
+      "name": "tb_wavetable_timbres",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.641
+    },
+    {
+      "name": "tb_wavetable_tone_top",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 19.406
+    },
+    {
+      "name": "tb_ws2812_driver",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.875
+    },
+    {
+      "name": "tb_xy_scope",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 7200,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 25.031
+    }
+  ]
+}

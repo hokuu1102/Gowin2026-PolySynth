@@ -96,6 +96,8 @@ module tb_ctrl_keypad;
     wire met_req, timbre_req, slide_req, scope_req, keydrum_req, gear_req;
     wire trans_up_req, trans_dn_req, drum_pat_req, testmode_req, loop_clr_req;
     wire mode_req, fb_piano, tare_req, span_req, fx_req;
+    //  ⭐⭐ 2026-10-15：⭐ idx 14（列 2 / 行 3）= 一键恢复默认音高 ✅
+    wire trans_reset_req;
 
     ctrl_key_map #(
         .CLK_HZ  (CLK_HZ),
@@ -114,6 +116,8 @@ module tb_ctrl_keypad;
         .gear_next_req_o   (gear_req),
         .trans_up_req_o    (trans_up_req),
         .trans_down_req_o  (trans_dn_req),
+        //  ⭐⭐ 2026-10-15：⭐ idx 14（列 2 / 行 3）⇒ ⭐ 一键恢复默认音高 ✅
+        .trans_reset_req_o (trans_reset_req),
         .drum_pattern_req_o(drum_pat_req),
         .test_mode_req_o   (testmode_req),
         .loop_clear_req_o  (loop_clr_req),
@@ -128,6 +132,8 @@ module tb_ctrl_keypad;
     integer n_met, n_timbre, n_slide, n_scope, n_keydrum, n_gear;
     integer n_up, n_dn, n_dpat, n_tmode, n_lclr, n_mode, n_tare, n_span, n_fx;
     integer n_kdown, n_kup;
+    //  ⭐ 2026-10-15：⭐ idx 14「音高归零」的脉冲计数 ✅
+    integer n_treset;
 
     always @(posedge clk) begin
         if (rst_n) begin
@@ -146,6 +152,7 @@ module tb_ctrl_keypad;
             if (tare_req)      n_tare    = n_tare    + 1;
             if (span_req)      n_span    = n_span    + 1;
             if (fx_req)        n_fx      = n_fx      + 1;
+            if (trans_reset_req) n_treset = n_treset  + 1;
             if (key_down != 16'd0) n_kdown = n_kdown + 1;
             if (key_up   != 16'd0) n_kup   = n_kup   + 1;
         end
@@ -155,7 +162,7 @@ module tb_ctrl_keypad;
         begin
             n_met=0; n_timbre=0; n_slide=0; n_scope=0; n_keydrum=0; n_gear=0;
             n_up=0; n_dn=0; n_dpat=0; n_tmode=0; n_lclr=0; n_mode=0;
-            n_tare=0; n_span=0; n_fx=0; n_kdown=0; n_kup=0;
+            n_tare=0; n_span=0; n_fx=0; n_kdown=0; n_kup=0; n_treset=0;
         end
     endtask
 
@@ -246,7 +253,7 @@ module tb_ctrl_keypad;
         chk("2b: and NO key_down / key_up pulse appears", (n_kdown == 0) && (n_kup == 0));
         chk("2c: and NO command pulse appears either",
             (n_met+n_timbre+n_slide+n_scope+n_keydrum+n_gear+n_up+n_dn+n_dpat
-             +n_tmode+n_lclr+n_mode+n_tare+n_span+n_fx) == 0);
+             +n_tmode+n_lclr+n_mode+n_tare+n_span+n_fx+n_treset) == 0);
 
         // ═════════════════════════════════════════════════════════════════
         $display("");
@@ -339,11 +346,18 @@ module tb_ctrl_keypad;
                     9:  chk("6: idx 9  -> fx_req once (placeholder)", n_fx == 1);
                     10: chk("6: idx 10 -> trans_down_req once",   n_dn == 1);
                     11: chk("6: idx 11 -> test_mode_req once",    n_tmode == 1);
-                    default: chk("6: spare key fires nothing", 1'b1);
+                    //  ⭐⭐ 2026-10-15：⭐ idx 14 = 列 2 / 行 3 ⇒ ⭐ 一键恢复默认音高 ✅
+                    //     📌 ⭐ 本 tb 只验"映射出了脉冲"（⭐ 端到端"回到 0"由
+                    //        `tb/top/tb_top_ctrl_wire.sv` 判据 ⑪ 验 ✅）
+                    14: chk("6: idx 14 -> trans_reset_req once (pitch reset)", n_treset == 1);
+                    //  ⭐ idx 13（列 1 / 行 3）是**唯一剩下的备用位** ⇒ ⭐ 必须真的什么都不发 ✅
+                    default: chk("6: idx 13 (the last spare) -> fires NOTHING at all",
+                        (n_met+n_timbre+n_slide+n_scope+n_keydrum+n_gear+n_up+n_dn
+                         +n_dpat+n_tmode+n_lclr+n_mode+n_tare+n_span+n_fx+n_treset) == 0);
                 endcase
                 chk("6x: that key fired exactly ONE command total",
                     (n_met+n_timbre+n_slide+n_scope+n_keydrum+n_gear+n_up+n_dn
-                     +n_dpat+n_tmode+n_lclr+n_mode+n_tare+n_span) <= 1);
+                     +n_dpat+n_tmode+n_lclr+n_mode+n_tare+n_span+n_treset) <= 1);
                 release_all;
                 end
             end

@@ -334,14 +334,23 @@ def parse_frame(f):
         "type": ftype,
         "seq": f[OFF_SEQ],
         "tick": int.from_bytes(f[OFF_TICK:OFF_TICK + LEN_TICK], "big"),
-        "axis": f[OFF_AXIS],
+        #  ⭐⭐ 2026-10-15：⭐ `[7]` 现在装**两样东西**（⭐ 帧长不变）✅
+        #     布局：bit[7:6]=0（留位）· bit[5:4]=**音色** · bit[3:0]=**轴号**
+        #     🔴 **为什么加音色**：⭐ 要把上行事件转成 MIDI ⇒ ⭐ MIDI 需要
+        #        **program change** ⇒ ⚠️ 而帧里原来没有这个字段
+        #     ✅ **向后兼容**：⭐ 音色 = 0（BASS）时 `[7]` 与原来**完全相同** ✅
+        #     🔴 **必须与 FPGA 侧同时改**（⭐ `rtl/w3c/evt_upstream.v` 的 `b_axis`）
+        #        ⇒ ⚠️ 只烧一边会出现"音高全乱" ✅
+        #     📌 音色映射：⭐ 0=BASS · 1=GUITAR · 2=PIANO · 3=PAD ✅
+        "axis":   f[OFF_AXIS] & 0x0F,
+        "timbre": (f[OFF_AXIS] >> 4) & 0x03,
         "inc": raw48,
         "vel": f[OFF_VEL],
     }
 
 
 def build_frame(ftype, seq=0, tick=0, axis=0, inc=0, vel=0,
-                table=None, items=None, ppqn=None):
+                table=None, items=None, ppqn=None, timbre=0):
     """
     造一个帧（给测试/自检用；也可当"模拟 FPGA"的发包工具）。
 
@@ -374,7 +383,7 @@ def build_frame(ftype, seq=0, tick=0, axis=0, inc=0, vel=0,
     f[1] = ftype & 0xFF
     f[OFF_SEQ] = seq & 0xFF
     f[OFF_TICK:OFF_TICK + LEN_TICK] = (tick & 0xFFFFFFFF).to_bytes(LEN_TICK, "big")
-    f[OFF_AXIS] = axis & 0xFF
+    f[OFF_AXIS] = ((timbre & 0x03) << 4) | (axis & 0x0F)
     f[OFF_INC:OFF_INC + LEN_INC] = (inc & 0xFFFFFFFF).to_bytes(LEN_INC, "big")
     f[OFF_VEL] = vel & 0xFF
     f[-1] = frame_checksum(bytes(f))
@@ -464,12 +473,23 @@ def selftest():
         "tick" not in dt and "axis" not in dt)
 
     print("\n[4] ⭐ 极值 / 边界")
-    mx = build_frame(T_NOTE_ON, seq=255, tick=0xFFFFFFFF, axis=255, inc=0xFFFFFFFF, vel=255)
+    mx = build_frame(T_NOTE_ON, seq=255, tick=0xFFFFFFFF, axis=15, inc=0xFFFFFFFF, vel=255)
     dm = parse_frame(mx)
     chk("   全 0xFF 往返（tick 32 位）", dm["tick"] == 0xFFFFFFFF)
     chk("   全 0xFF 往返（inc 32 位）", dm["inc"] == 0xFFFFFFFF)
-    chk("   全 0xFF 往返（seq/axis/vel）",
-        dm["seq"] == 255 and dm["axis"] == 255 and dm["vel"] == 255)
+    #  ⭐⭐ 2026-10-15：⭐ `axis` 从 **255 改成 15**（⭐ 因为 `[7]` 现在被拆成两半）✅
+    #     🔴 **为什么**：⭐ `[7]` 的布局是 `bit[5:4]=音色 · bit[3:0]=轴号`
+    #        ⇒ ⭐ **轴号只装得下 4 位**（0..15）⇒ ⭐ `axis=255` 现在会被掩成 15 ✅
+    #     📌 ⚠️ **这不是功能退化**：⭐ FPGA 侧 `axis` 本来就只有 4 位（0..15）
+    #        ⇒ ⭐ 原来"能往返 255"只是**测试写宽了**（⭐ 它测的是一个不存在的取值）✅
+    chk("   极值往返（seq/axis/vel）",
+        dm["seq"] == 255 and dm["axis"] == 15 and dm["vel"] == 255)
+    #  ⭐ 非空洞：⭐ 音色也要能往返（⭐ 用最大值 3）
+    mt = parse_frame(build_frame(T_NOTE_ON, axis=7, timbre=3))
+    chk("   音色往返（timbre 3 + axis 7）", mt["timbre"] == 3 and mt["axis"] == 7)
+    m0 = parse_frame(build_frame(T_NOTE_ON, axis=7, timbre=0))
+    chk("   音色 0 时与旧格式逐位一致（向后兼容）",
+        m0["timbre"] == 0 and m0["axis"] == 7)
     z = parse_frame(build_frame(T_NOTE_ON))
     # ⚠️ 注意：⭐ `type` 字段**不是 0**（⭐ 它就是 T_NOTE_ON）⇒ ⭐ 要排除它再判
     zfields = {k: v for k, v in z.items() if k != "type"}

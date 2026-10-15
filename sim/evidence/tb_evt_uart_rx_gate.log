@@ -6,6 +6,6 @@
   ok  : G2 a LEGAL score packet (sent between frames) still produces exactly 1 event
 
 PASS: tb_evt_uart_rx_gate 鈥?3/3 judgements held (P0-02 闂ㄦ帶鍙屽悜楠岃瘉)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_gate.sv:228: $finish called at 445440000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_gate.sv:238: $finish called at 445440000 (1ps)
 
 

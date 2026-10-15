@@ -1,0 +1,4 @@
+﻿PASS: six real-input FFT frames match independent direct DFT, exact ordering and no drops
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\hdmi\tb_fft_spectrum_core.sv:53: $finish called at 1028040000 (1ps)
+
+

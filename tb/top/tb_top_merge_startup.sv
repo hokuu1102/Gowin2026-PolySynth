@@ -18,6 +18,22 @@ module tb_top_merge_startup;
     mcp3208_model #(.IDVAL(12'h800)) a1(.cs_n(cs[1]),.sclk(sclk),.mosi(mosi),.miso(miso[1]));
     mcp3208_model #(.IDVAL(12'h800)) a2(.cs_n(cs[2]),.sclk(sclk),.mosi(mosi),.miso(miso[2]));
     assign miso[5:3]=3'b111;
+
+    // ⭐⭐ 2026-10-15：⭐ **心跳灯新语义 = "摇杆在中位 ⇒ 常亮"** ✅
+    //   📌 依据：⭐ `top.v` 的 `assign led_heartbeat = pluck_center_w ? 1'b1 : hb;`
+    //      （⭐ 用户明确要求：⭐ 中位常亮 = **现场判据**，⭐ 见 `tb/top/tb_top_hb_center.sv`）
+    //   🔴 **本 tb 原来把 `pluck_up_i/pluck_down_i` 都接 `1'b0`** = **中位**
+    //      ⇒ ⚠️ 不处理的话 `hb` 会**恒 1** ⇒ 🔴 下面两条判据**全红**：
+    //         · `edges < 300`（"心跳覆盖空洞"）
+    //         · `fast_edges < 10`（"缺轴告警的快闪被删了"）
+    //      —— ⭐ 而那是**假失败**（⭐ 故障快闪逻辑没错，⭐ 是"中位"前提变了 ✅）
+    //   ✅ **处置**：⭐ 这里**显式模拟"摇杆离开中位"** —— ⭐ 那才是"心跳该闪"的条件 ✅
+    //      📌 ⭐ 用 `force` 而⛔ 不是把输入拉高：⭐ 后者会在启动时**伪造一次拨弦事件** ✅
+    //   📌 判据语义**不变**：⭐ 仍然是"**健康启动 ⇒ 慢闪（半周期恰 100 拍）**"
+    //      ＋ "**注入缺轴 ⇒ 快闪（12 拍）**"（⭐ 见 `rtl/top.v` 的 `hb_div_eff`）✅
+    initial begin
+        force dut.pluck_center_w = 1'b0;
+    end
     integer cycles=0, last_edge=0, edges=0, fast_edges=0;
     reg expect_fault=0;
     reg hb_prev=0;

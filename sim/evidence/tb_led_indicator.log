@@ -1,6 +1,6 @@
-﻿=== (0) 鑺傛媿鍣細寮€浣嗘棤鎷嶇偣 ===
-  ok  : (0b) metro on, no beat yet =?[led1] = 000000
-  ok  : (0b) metro on, no beat yet 伃 (fast) [led1] = 000000
+﻿=== (0) 鑺傛媿鍣細甯哥豢 + 姣忔媿鏆椾竴涓嬶紙绗?3 鐗堣涔夛級===
+  ok  : (0a) metro on, no beat yet =????[led3] = 00ff00
+  ok  : (0b) metro off =?[led3] = 000000
 === (1) 闊宠壊 4 妗ｏ紙led0锛?==
   ok  : (1a) timbre 0 [led0] = ffffff
   ok  : (1b) timbre 1 [led0] = 00ffff
@@ -8,54 +8,70 @@
   ok  : (1d) timbre 3 [led0] = ff8000
 === (2) 鍗曡矾鐙珛鎬?===
   ok  : (2a) timbre 0->1 only moves led0 (only led0 changed -> 00ffff)
-  ok  : (2b) metro beat only moves led1 (only led1 changed -> 00ff00)
-  ok  : (2c) drum on only moves led2 (only led2 changed -> ff0000)
-  ok  : (2d) keydrum only moves led3 (only led3 changed -> 0000ff)
+  ok  : (2b) fb_mode 0->1 only moves led1 (only led1 changed -> ff8000)
+  ok  : (2c) gear 3->1 only moves led2 (only led2 changed -> 00ffff)
+  ok  : (2d) drum on only moves led3 (only led3 changed -> ff0000)
   ok  : (2e) looper play only moves led4 (only led4 changed -> 00ff00)
-  ok  : (2f) gear 3->1 only moves led5 (only led5 changed -> 00ffff)
-  ok  : (2g) fb_mode 0->1 only moves led6 (only led6 changed -> ff8000)
-=== (3) 涓冭矾缁勫悎 ===
+  ok  : (2f) transpose 0->+3 only moves led5 (only led5 changed -> ff8000)
+  ok  : (2g) scope_mode 0->1 only moves led6 (only led6 changed -> ff00ff)
+  ok  : (2h) fx_en 0->1 only moves led7 (only led7 changed -> ff4000)
+=== (3) 鍏矾缁勫悎 ===
   ok  : (3) combo led0 (timbre 3) [led0] = ff8000
-  ok  : (3) combo led1 (metro beat) [led1] = 00ff00
-  ok  : (3) combo led2 (drum 3) [led2] = ff4000
-  ok  : (3) combo led3 (keydrum) [led3] = 0000ff
+  ok  : (3) combo led1 (fretboard) [led1] = ff8000
+  ok  : (3) combo led2 (gear 2) [led2] = ffff00
+  ok  : (3) combo led3 (drum 3) [led3] = ff4000
   ok  : (3) combo led4 (loop idle) [led4] = 000030
-  ok  : (3) combo led5 (gear 2) [led5] = ffff00
-  ok  : (3) combo led6 (fretboard) [led6] = ff8000
-=== (4) 榧撴満 ===
-  ok  : (4a) drum off [led2] = 000000
-  ok  : (4b) drum pat 0 [led2] = ff0000
-  ok  : (4c) drum pat 1 [led2] = ff00ff
-  ok  : (4d) drum pat 2 [led2] = ffff00
-  ok  : (4e) drum pat 3 [led2] = ff4000
-=== (5) 閿洏鎵撻紦 / 鎺ㄥ瓙 / 妯″紡 ===
-  ok  : (5a) keydrum on [led3] = 0000ff
-  ok  : (5b) keydrum off [led3] = 000000
-  ok  : (5c) gear 0 ??[led5] = 8000ff
-  ok  : (5d) gear 1 ??[led5] = 00ffff
-  ok  : (5e) gear 2 ???? [led5] = ffff00
-  ok  : (5f) gear 3 =???[led5] = 000000
-  ok  : (5g????=?[led6] = ff8000
-  ok  : (5h????=?[led6] = 00ff00
-=== (6) 鑺傛媿鍣?===
-  ok  : (6a) metro off =?[led1] = 000000
-  ok  : (6c) beat =????[led1] = 00ff00
-  ok  : (6c) beat???? fas?[led1] = 00ff00
+  ok  : (3) combo led5 (transpose -2) [led5] = 0080ff
+  ok  : (3) combo led6 (lissajous) [led6] = ff00ff
+  ok  : (3) combo led7 (fx sel 2) [led7] = 8000ff
+=== (4) 榧撴満锛坙ed3锛?==
+  ok  : (4a) drum off [led3] = 000000
+  ok  : (4b) drum pat 0 [led3] = ff0000
+  ok  : (4c) drum pat 1 [led3] = ff00ff
+  ok  : (4d) drum pat 2 [led3] = ffff00
+  ok  : (4e) drum pat 3 [led3] = ff4000
+  ok  : (4f) drum+metro: base is still the pattern colour [led3] = ff00ff
+=== (5) 16 閿涓?/ 鎺ㄥ瓙 / looper ===
+  ok  : (5a) keydrum on =?[led1] = 0000ff
+  ok  : (5b) keydrum OVERRIDES the mode (still blue) [led1] = 0000ff
+  ok  : (5c) keyboard mode =?[led1] = 00ff00
+  ok  : (5d) gear 0 ??[led2] = 8000ff
+  ok  : (5e) gear 1 ??[led2] = 00ffff
+  ok  : (5f) gear 2 = ???????? [led2] = ffff00
+  ok  : (5g) gear 3 =???[led2] = 000000
+  ok  : (5h) loop?棽 = ???[led4] = 000030
+  ok  : (5i) loope?????[led4] = 00ff00
+  ok  : (5j) loop??????? (7?[led4] = ffff00
+=== (6) led5 闊抽珮 / led6 HDMI / led7 鏁堟灉鍣?===
+  ok  : (6a) transpose 0 =?[led5] = 000000
+  ok  : (6b) transpose > 0 ??[led5] = ff8000
+  ok  : (6c) transpose < 0 ??[led5] = 0080ff
+  ok  : (6d) slide OVERRIDES transpose =?[led5] = 00ffff
+  ok  : (6e) EC11 active, obj=BPM =?[led5] = ffff00
+  ok  : (6f) EC11 active, obj=pitch =?[led5] = 8000ff
+  ok  : (6g) HDMI waveform =?[led6] = 0000ff
+  ok  : (6h) HDMI lissajous ??[led6] = ff00ff
+  ok  : (6h2) HDMI FFT =????????[led6] = 00ff00
+  ok  : (6i) fx off =?[led7] = 000000
+  ok  : (6j) fx on sel=0 (?? ??[led7] = ff4000
+  ok  : (6k) fx on sel=?敱) =?[led7] = 00ffff
+  ok  : (6l) fx on sel=?繜) =?[led7] = 8000ff
+  ok  : (6m) fx on sel=3???綅) =?[led7] = 00ff00
+=== (7) 闂儊 ===
+  ok  : (7a) beat???? 3 ???[led3] = 000000
+  ok  : (7a) beat???? fas?[led3] = 000000
   info: 鐢熶骇榛樿 FLASH_CYC = 5000000 鎷嶏紙= 100 ms @50 MHz锛?
-  info: beat-flash length  fast=20000 (want 20000);  prod still lit after 500000
-  ok  : (6d???暱 == FLASH_C????????
-  ok  : (6????簡 500 k ???????????
-  ok  : (6f)???????坧rod ?fast?????????
-=== (7) looper ===
-  ok  : (7a) loop?棽 = ???[led4] = 000030
-  ok  : (7b) loope?????[led4] = 00ff00
+  info: beat-dark length  fast=20000 (want 20000);  prod still dark after 500000
+  ok  : (7b???暱 == FLASH_C????????
+  ok  : (7????簡 500 k ???????????
+  ok  : (7d????????坧rod ?fast?????????
   info: rec blink: edges=8 on=4096/8192 iv=[1024..1024] (want 1024) other_col=0
-  ok  : (7?煶 = ????????????== 2^FAST_DIV
-  ok  : (7d)?????50%
-  ok  : (7e????孩 / ???????????
-  ok  : (7?????????????
+  ok  : (7?煶 = ???????????== 2^FAST_DIV
+  ok  : (7f)?????50%
+  ok  : (7g????孩 / ??????????
+  ok  : (7h)??????????
   ok  : (8) no X/Z on led_col_o after reset (A????
-PASS: led_indicator -- 7 璺涔?+ 鍏变韩蹇棯 + 鎷嶇偣闂?+ 鍙傛暟鍖栭棯鐑佸叏閮ㄦ垚绔?
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_led_indicator.sv:388: $finish called at 10566240000 (1ps)
+PASS: led_indicator -- 8 璺涔夛紙鎺у埗鏉跨 3 鐗堬級+ 鍏变韩蹇棯 + 鎷嶇偣闂?+ 鍙傛暟鍖栭棯鐑佸叏閮ㄦ垚绔?
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_led_indicator.sv:496: $finish called at 10567080000 (1ps)
 
 

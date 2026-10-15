@@ -845,8 +845,104 @@ module note_manager #(
     //      ⇒ ⭐ 即使 `scan_sel` 被工具重编码/被毛刺，⭐ **也不会把 A 的 env/age 写到 B 身上** ✅
     //   ⚠️ ⭐ `(scan_cnt * ENV_W)` 的表达式宽度 = max(5, 32) = **32 位** ✅（⭐ `ENV_W` 是 integer ✅）
     //      ⇒ ⛔ **不会溢出**（⭐ 31×16 = 496 ✅）
-    assign cand_env = env_level_r[(scan_cnt * ENV_W) +: ENV_W];
-    assign cand_age = age_r[scan_cnt];
+    //
+    //  ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-15（时序 · `TREEBREAKER`）：⭐ **把这条 32:1 旁路 mux 拆成【两级】** ✅
+    //
+    //  🔴 **实测证据**（⭐ `impl/pnr/Gowin2026_tr_content.html` · `Path13`，⭐ 逐节点 ✅）：
+    //     · ⭐ `scan_cnt_0_s3/Q` 的 **FANOUT = 352**，⭐ 且它在 **R31C123**，
+    //       而这条 mux 的 LUT 全在 **R5~R13**（⭐ 同一列 99~129 ✅）
+    //       ⇒ ⭐ **第一跳就是 2.300 ns 的纯布线**（⭐ 0.331 tC2Q + 2.300 tNET）✅
+    //     · ⭐ 整条 `cand_env` mux = **6 级**
+    //       （`cand_env_15_s49` → `_14_s62` → `_11_s57` → `_11_s49` → `_11_s37` → `_11_s33`）
+    //       ⇒ ⭐ **4.473 → 14.931 ns = 10.458 ns 全花在这一个 mux 上** ✅
+    //       ⇒ ⭐ 占 16.564 ns 数据路径的 **63%**（⭐ route 11.84~11.99 ns 主要就是它 ✅）
+    //     · ⭐ 后段（⭐ 比较 + `cand_better` + `CE`）只占 **5.775 ns**（14.931 → 20.706）✅
+    //
+    //  ✅ **修法**：⭐ **一拍内拆成两级**（⭐ 与 `scan_group`/`scan_merge` 的"8 路一组"
+    //     同一思路，⛔ 但**另起一套信号**，⭐ ⛔ **一个字都不动** `scan_group`/`scan_merge`）：
+    //     · ⭐ **组内 8:1**（⭐ 选择位 = `scan_cnt[2:0]`，⭐ 局部于每组 8 个 voice ✅）
+    //     · ⭐ **组间归并**（⭐ 选择位 = `scan_cnt` 的**高位**，⭐ 负载从 352 降到 ~32 ✅）
+    //     ⇒ ⭐ `scan_cnt[3]`/`scan_cnt[4]` **只喂顶层那 4:1**
+    //       ⇒ ⭐ 顶层 mux 可以被摆在**比较器旁边** ⇒ ⭐ **那 2.300 ns 的第一跳消失** ✅
+    //
+    //  📌 **零代价**：⭐ 同面积的 mux，⭐ 只是**重排连接** ⇒ ⛔ **不加 FF / 不加 LUT** ✅
+    //     ⚠️ 这一条在当下**很关键**：⭐ `impl/pnr/Gowin2026.rpt.txt` 实测
+    //        **CLS 26366/29952 = 88%**、Logic 74% ⇒ ⭐ **布线是"挤"出来的**（⭐ route 73.9%）
+    //     ⇒ ⭐ ⛔ **不能为了省 0.4 ns 再往里加面积**（⭐ 那只会让全局更挤 ✅）
+    //
+    //  📌 **语义逐位不变**：⭐ `scan_cnt` = `8*组号 + 组内偏移`
+    //     ⇒ ⭐ 两级合起来就是 `env_level_r[scan_cnt*ENV_W +: ENV_W]` / `age_r[scan_cnt]` ✅
+    //     ⇒ ⭐ **索引与载荷仍【同源】**（⭐ `P1-01` 那条纪律照旧成立 ✅）
+    //     ⇒ ⭐ `tb_opt04_nm_compare`（⭐ 逐拍比 `note_manager_af_reference`）等**全部逐位等价** ✅
+    //
+    //  ⚠️ ⛔ **没有删除/改动任何【已有的】`(* syn_preserve *)` / `(* syn_keep *)`** ✅
+    //     📌 ⭐ 本段**新增**的 `(* syn_keep = 1 *)` 只加在**新信号** `env_grp`/`age_grp` 上，
+    //        ⭐ 目的是保住**新引入的组边界** —— ⭐ 与 `scan_group`（⭐ 第 773 行）
+    //        被 `syn_keep` 保住"8 voice 组边界"是**同一个用途** ✅
+    //        （⭐ 若没有它，⭐ 综合器可能把两级重新拍平 ⇒ ⭐ 本刀变成空操作 ✅）
+    //
+    //  ⚠️ **通用性**：⭐ 组数 `SCAN_GROUPS = ceil(POLY_TARGET/8)`；
+    //     ⭐ 交付档 `POLY_TARGET=32` ⇒ 4 组（⭐ 顶层 4:1 ✅）；
+    //     ⭐ 16 档 ⇒ 2 组 · 8 档及以下 ⇒ 1 组（⭐ 退化成单个 8:1 ✅）；
+    //     ⭐ 其余组数**保留原式**（⭐ 语义完全等价 ✅）
+    //  ═══════════════════════════════════════════════════════════════════════
+    //  ⭐ 选择向量**零扩展**到 ≥5 位 ⇒ ⭐ 小实例（`POLY_TARGET ≤ 8`）下
+    //     `scan_i[2]`/`scan_i[3]`/`scan_i[4]` **依然合法**（⭐ 补 0，⛔ 不越界、⛔ 不出 `x`）✅
+    localparam integer SCN_W = (SW < 5) ? 5 : SW;
+    wire [SCN_W-1:0] scan_i = scan_cnt;
+    (* syn_keep = 1 *) wire [ENV_W-1:0] env_grp [0:SCAN_GROUPS-1];
+    (* syn_keep = 1 *) wire [AGE_W-1:0] age_grp [0:SCAN_GROUPS-1];
+    genvar eg, el;
+    generate
+        for (eg = 0; eg < SCAN_GROUPS; eg = eg + 1) begin : g_env_age_grp
+            wire [ENV_W-1:0] ev [0:7];
+            wire [AGE_W-1:0] av [0:7];
+            for (el = 0; el < 8; el = el + 1) begin : g_env_age_leaf
+                if (eg*8+el < POLY_TARGET) begin : g_present2
+                    assign ev[el] = env_level_r[(eg*8+el)*ENV_W +: ENV_W];
+                    assign av[el] = age_r[eg*8+el];
+                end else begin : g_padding2
+                    assign ev[el] = {ENV_W{1'b0}};
+                    assign av[el] = {AGE_W{1'b0}};
+                end
+            end
+            //  ⭐ 组内 8:1：⭐ `scan_i[0]` 在**最里层**（⭐ 高位选择位留在组外 ✅）
+            //  ⚠️ ⭐ **嵌套顺序 = 位序**（⭐ `scan_i[2]` 最外 · `scan_i[0]` 最内）——
+            //     🔴 ⛔ 写反了就是**位反转索引**（⭐ 实测：⭐ `best_age` 在第 96 拍就分叉 ✅）
+            //     📌 ⭐ 这条不是空话：⭐ 我第一版正是写反了，⭐ 被
+            //        `tb_note_manager_write_share`（`DIFF internal best_age cycle=96`）
+            //        与 `tb_opt04_nm_compare`（`AF comparison diverged`）**当场抓住** ✅
+            assign env_grp[eg] = scan_i[2]
+                ? ( scan_i[1] ? ( scan_i[0] ? ev[7] : ev[6] )
+                              : ( scan_i[0] ? ev[5] : ev[4] ) )
+                : ( scan_i[1] ? ( scan_i[0] ? ev[3] : ev[2] )
+                              : ( scan_i[0] ? ev[1] : ev[0] ) );
+            assign age_grp[eg] = scan_i[2]
+                ? ( scan_i[1] ? ( scan_i[0] ? av[7] : av[6] )
+                              : ( scan_i[0] ? av[5] : av[4] ) )
+                : ( scan_i[1] ? ( scan_i[0] ? av[3] : av[2] )
+                              : ( scan_i[0] ? av[1] : av[0] ) );
+        end
+    endgenerate
+    generate
+        if (SCAN_GROUPS <= 1) begin : g_env_age_mux1
+            assign cand_env = env_grp[0];
+            assign cand_age = age_grp[0];
+        end else if (SCAN_GROUPS == 2) begin : g_env_age_mux2
+            assign cand_env = scan_i[3] ? env_grp[1] : env_grp[0];
+            assign cand_age = scan_i[3] ? age_grp[1] : age_grp[0];
+        end else if (SCAN_GROUPS == 4) begin : g_env_age_mux4
+            assign cand_env = scan_i[4] ? (scan_i[3] ? env_grp[3] : env_grp[2])
+                                        : (scan_i[3] ? env_grp[1] : env_grp[0]);
+            assign cand_age = scan_i[4] ? (scan_i[3] ? age_grp[3] : age_grp[2])
+                                        : (scan_i[3] ? age_grp[1] : age_grp[0]);
+        end else begin : g_env_age_muxN
+            //  ⭐ 通用回退（⭐ ⛔ 交付档不走这里）：⭐ 与原写法**逐字相同** ✅
+            assign cand_env = env_level_r[(scan_cnt * ENV_W) +: ENV_W];
+            assign cand_age = age_r[scan_cnt];
+        end
+    endgenerate
     wire cand_rel = (~cand_gate) & cand_active;
     //  ⭐⭐ **2026-09-29（A3' 续）⭐ 抢占候选也必须【按来源】排除** ✅
     //

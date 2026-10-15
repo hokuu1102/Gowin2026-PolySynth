@@ -1,0 +1,4 @@
+﻿PASS: production 2048 FFT, 128 colored filled bars, exact 3+1 gaps, both ranges, atomic frames
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\hdmi\tb_fft_color_bars.sv:85: $finish called at 15392240000 (1ps)
+
+

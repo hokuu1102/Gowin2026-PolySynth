@@ -14,6 +14,9 @@ module tb_evt_upstream_queue;
  evt_upstream #(.FIFO_D(4)) dut(.clk_i(clk),.rst_n_i(rst),
   .evt_valid_i(valid),.evt_axis_i(axis),.evt_phase_inc_i(32'd38702840),
   .evt_velocity_i(8'd100),.evt_kind_i(2'd0),.tick_step_i(tick_step),
+  /*  ⭐⭐ 2026-10-15：⭐ 音色进 `[7]` 的高 4 位（⭐ 给 ESP32 转 MIDI）
+   *     ⚠️ 本 tb 用 0（BASS）⇒ ⭐ 帧内容与改动前**逐位相同** ⇒ ⛔ 判据不用改 ✅ */
+  .evt_timbre_i(2'd0),
   .enable_i(1'b1),.ready_i(ready),.push_o(push),.byte_o(data),
   .busy_o(busy),.frame_cnt_o(frames),.drop_cnt_o(drops),
   .overflow_o(overflow),.seq_o(seq),.tick_o(ticks),.level_o(level));

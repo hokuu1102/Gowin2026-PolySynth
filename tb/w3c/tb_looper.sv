@@ -886,8 +886,72 @@ module tb_looper;
         chk(dump_d === repack(dut.mem[dut.rd_ptr_r]),
             "DUMP-m with dump_en=0 the read port is back on the playback pointer (no interference)");
 
+        // ══════════════════════════════════════════════════════════════════
+        //  ⭐⭐ 判据 ⑫（⭐ 2026-10-16）：⭐ **`clear_req_i` 打一拍后仍"恰好一次"** ✅
+        //   🔴 **为什么加**：⭐ 本轮为修 setup 违例（⭐ 起点
+        //      `u_ctrl_key_map/loop_clear_req_o_s0/Q` ⇒ ⭐ 终点
+        //      `g_sound.u_looper/ep_mem_ep_mem_0_4_s/ADA[8]`、⭐ slack **-1.009 ns** ✅）
+        //      在 `looper` **入口**给 `clear_req_i` 加了一拍流水（⭐ 见 `rtl/w3c/looper.v:737` ✅）
+        //      ⇒ ⭐ **必须证明**：⭐ ① 单拍脉冲 **⛔ 不许丢** ✅
+        //                      ⭐ ② **⛔ 不许变成"清两次"**（⭐ 即⛔ 不许被展宽成电平 ✅）
+        //   ⭐ **非空洞性（⭐ 两条都推演过"能红" ✅）**：
+        //      · ⭐ 把 `clear_pipe_r` 的赋值改成 `1'b0`（⭐ 丢脉冲 ✅）
+        //        ⇒ ⭐ `e`/`f` **必红** ✅
+        //      · ⭐ 把它改成直通（⭐ `<= clear_req_i[0]`，⭐ 等于没打拍 ✅）
+        //        ⇒ ⭐ `c`/`d` 的"脉冲宽度 1 拍"**必红** ✅
+        //   📌 ⭐ **脉冲源那一侧**的判据在 `tb/w3a/tb_ctrl_keypad.sv:366-383`
+        //      （⭐ `7a` 短按⛔ 不清 · ⭐ `7b` 长按**恰好一次** · ⭐ `7c` 继续按住⛔ 不再发 ✅）
+        //      ⇒ ⭐ 两段合起来 = ⭐ **"长按 key12 仍只清一次、且仍能清"** 的完整证据链 ✅
+        // ══════════════════════════════════════════════════════════════════
+        $display("== 9: CLEARPIPE -- one-cycle clear pulse in => exactly one clear out ==");
+        transport_i = 1'b0; play_en_i = 1'b0;
+        pulse_clr;
+        repeat (8) @(negedge clk);
+        chk(evt_cnt_flat_o == 16'd0, "CLEARPIPE-a setup: the layer starts empty");
+
+        //  ⭐ ① 录一条（⭐ 与判据 ⑩ 同一套路：⭐ 停录会补发 `note_off` ⇒ ⭐ 恰好 2 条 ✅）
+        pulse_rec;
+        idle_ticks(2);
+        live_evt(KIND_ON, 4'd9, 32'h9999_0009, 8'd100);
+        idle_ticks(28);
+        pulse_stop;
+        repeat (40) @(negedge clk);
+        chk(evt_cnt_flat_o == 16'd2, "CLEARPIPE-b setup: 2 events stored => the layer is non-empty");
+
+        //  ⭐ ② **恰好一拍**的清空脉冲 ⇒ ⭐ 先经流水、⭐ 再真的清掉 ✅
+        //  ⚠️ ⭐ **采样点**：⭐ `pulse_clr` 返回时正好在"把 `clear_req_i` 拉回 0"的
+        //     那个 negedge 上 ⇒ ⭐ 此刻流水寄存器**刚捕获完**（⭐ 还在 1 ✅）；
+        //     ⭐ 再等一个 negedge ⇒ ⭐ 中间已经过了一个 posedge ⇒ ⭐ 已清回 0 ✅
+        pulse_clr;
+        chk(dut.clear_pipe_r === 1'b1,
+            "CLEARPIPE-c (PIPE) the pulse sits in the pipeline register for exactly 1 cycle");
+        @(negedge clk);
+        chk(dut.clear_pipe_r === 1'b0,
+            "CLEARPIPE-d (PIPE) and it is gone again => the pulse is NOT stretched into a level");
+        repeat (8) @(negedge clk);
+        chk(evt_cnt_flat_o == 16'd0,
+            "CLEARPIPE-e (NON-VACUOUS) a SINGLE-cycle pulse still clears the layer after the pipeline");
+
+        //  ⭐ ③ **"恰好一次"**：⭐ 再录一遍 ⇒ ⭐ 必须**稳定保持**非空 ✅
+        //     🔴 若清空被"补做第二次"（⭐ 脉冲被展宽 / ⭐ FSM 反复回清空态 ✅）
+        //        ⇒ ⭐ 这次重录会被再清掉 ⇒ ⭐ 本条**必红** ✅
+        pulse_rec;
+        idle_ticks(2);
+        live_evt(KIND_ON, 4'd9, 32'h9999_0009, 8'd100);
+        idle_ticks(28);
+        pulse_stop;
+        repeat (40) @(negedge clk);
+        chk(evt_cnt_flat_o == 16'd2,
+            "CLEARPIPE-f the clear fired EXACTLY ONCE: a later recording is not wiped again");
+        repeat (60) @(negedge clk);
+        chk(evt_cnt_flat_o == 16'd2,
+            "CLEARPIPE-g ... and it is still there 60 cycles later (no lingering second clear)");
+
+        pulse_clr;                                  // ⭐ 收尾：⭐ 把层清干净 ✅
+        repeat (8) @(negedge clk);
+
         if (fail_cnt == 0)
-            $display("PASS: looper T37 record/replay, no-hang incl. axis 15, clear, same-tick, overflow");
+            $display("PASS: looper T37 record/replay, no-hang incl. axis 15, clear, same-tick, overflow, clear-pipeline one-shot");
         else
             $display("FAIL: looper T37 -- %0d check(s) failed", fail_cnt);
         $finish;

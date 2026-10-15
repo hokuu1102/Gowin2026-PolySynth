@@ -313,6 +313,52 @@ module tb_top_ctrl_wire;
             release dut.ps_note_valid;
         end
 
+        // ══ 判据 ⑪：⭐⭐ 2026-10-15：⭐ **键 idx 14（列 2 / 行 3）⇒ 一键恢复默认音高** ══
+        //     ⭐ 用户需求：*"矩阵键盘加一个键：一键恢复默认音高"* ✅
+        //     ⭐ 为什么放在**本 tb**（⭐ 而不是 `tb_ctrl_keypad`）：
+        //        ⭐ 本 tb 跑的是**真 `top.v`** ⇒ ⭐ 验的是**接线**（⭐ OR ＋ mux ✅）
+        //        ⭐ 而 `tb_ctrl_keypad` 只能验"模块本身出了脉冲"（⭐ 到不了 `fader_gear` ✅）
+        //     ⭐ 链路：⭐ 键 14 ⇒ `u_ctrl_key_map.trans_reset_req_o`
+        //        ⇒ ⭐ `top.v` 把它 OR 进 `u_fader_gear.trans_abs_i`、⭐ 并选值 `8'd12`
+        //        ⇒ ⭐ `enc_r = 12` ⇒ ⭐ `transpose_semi_o = 12 − 12 = 0` ✅
+        //     🔴 **必须能红**（⭐ 三条，⛔ 缺任一条就是空洞判据）：
+        //        ① ⭐ **非空洞前置**：⭐ 先按 idx 6（变调升 `G`）3 次
+        //           ⇒ ⭐ `transpose_semi` **必须先离开 0** ——
+        //           ⚠️ 否则"按 14 之后是 0"**毫无信息量**（⭐ 本来就可能是 0 ✅）
+        //        ② ⭐ 按 idx 14 ⇒ ⭐ **恰好回到 0**（⭐ 不是"变小了"✅）
+        //        ③ ⭐ 换个偏移**再来一次** ⇒ ⭐ 还是 0（⭐ 排除"碰巧"✅）
+        //     📌 ⭐ 观测点 = **模块级 `dut.transpose_semi`** ——
+        //        ⭐ 它直接喂 `note_manager.transpose_semi_i` ⇒ ⭐ 是"下游真正看到的那个值" ✅
+        //        （⭐ 若只想盯寄存器，⭐ `dut.g_sound.u_fader_gear.enc_r === 5'd12` 亦可 ✅）
+        begin : key14_pitch_reset_blk
+            // ⭐ ① 先让它偏离 0
+            press_key(6); release_all;
+            press_key(6); release_all;
+            press_key(6); release_all;
+            repeat (200) @(negedge clk);
+            chk(dut.transpose_semi !== 5'sd0,
+                "*** non-vacuity: key idx 6 (transpose UP x3) really moved transpose_semi OFF zero ***");
+
+            // ⭐ ② 按 idx 14 ⇒ ⭐ 回默认音高
+            press_key(14); release_all;
+            repeat (200) @(negedge clk);
+            chk(dut.transpose_semi === 5'sd0,
+                "*** key idx 14 (col2/row3) RESETS the pitch to DEFAULT: transpose_semi == 0 ***");
+            chk(dut.g_sound.u_fader_gear.enc_r === 5'd12,
+                "*** and the underlying encoding is exactly 12 (= no transposition) ***");
+
+            // ⭐ ③ 换个偏移再来一次 ⇒ ⭐ 仍是 0（⭐ 排除"碰巧"✅）
+            press_key(6); release_all;
+            press_key(6); release_all;
+            repeat (200) @(negedge clk);
+            chk(dut.transpose_semi === 5'sd2,
+                "*** two more UP presses => transpose_semi is exactly +2 (the counter really works) ***");
+            press_key(14); release_all;
+            repeat (200) @(negedge clk);
+            chk(dut.transpose_semi === 5'sd0,
+                "*** key idx 14 resets AGAIN from a DIFFERENT offset (not a one-off coincidence) ***");
+        end
+
         $display("");
         if (errors == 0)
             $display("PASS: control-board wiring -- the 4x4 keypad really toggles the downstream state, the serial path is preserved alongside it, and the EC11 routes to BPM or transpose depending on the selected object");

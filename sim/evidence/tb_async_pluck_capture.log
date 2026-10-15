@@ -1,11 +1,20 @@
 ﻿  ok  : UP edge produces exactly one pluck
   ok  : UP edge is labelled UP
+  ok  : H10 armed_o is ALWAYS 1'b1 (post-gate semantics: only refractory throttles)
   ok  : refractory suppresses a second immediate edge
   ok  : edge is accepted again after refractory
   ok  : DOWN edge is labelled DOWN
   ok  : simultaneous UP and DOWN create one event
   ok  : simultaneous UP and DOWN chooses UP
-PASS: async pluck capture synchronizes edges, prioritizes UP, and applies refractory
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_async_pluck_capture.sv:89: $finish called at 980000 (1ps)
+  ok  : alternating pluck: a genuine DOWN stroke fires (no position gate in the way)
+  ok  : alternating pluck: the following genuine UP stroke ALSO fires (no extra restriction)
+  ok  : both_low_o still reports the centred state after both strokes settle
+  ok  : H9 setup: both_low_o is FALSE while the UP line is held (so a position gate could never re-arm)
+  ok  : H9 a genuine DOWN edge fires even though both_low_o is NEVER true (no position gate)
+  ok  : H10b armed_o is still 1'b1 while both_low_o is false (no gate to disarm it)
+  ok  : H9b setup: both_low_o is FALSE while the DOWN line is held
+  ok  : H9b a genuine UP edge fires even though both_low_o is NEVER true (no position gate)
+PASS: async pluck capture synchronizes edges, prioritizes UP, applies refractory, and imposes no position restriction on a genuine pluck
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_async_pluck_capture.sv:196: $finish called at 3530000 (1ps)
 
 

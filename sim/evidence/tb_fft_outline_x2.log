@@ -1,0 +1,4 @@
+﻿PASS: independent-bin sharp outline, no fill, connected flank, full-band and atomic backpressure
+./tb/hdmi/tb_fft_outline.sv:98: $finish called at 2640760000 (1ps)
+
+

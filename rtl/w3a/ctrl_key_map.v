@@ -21,8 +21,18 @@
 //    11   2,3     Test Mode 进/出             test_mode_req_o  （'M'）
 //    12   3,0     looper 清空（长按）          loop_clear_req_o （'C'）
 //    13   3,1     备用                         （无）
-//    14   3,2     备用                         （无）
+//    14   3,2     音高归零（恢复默认音高）      trans_reset_req_o（⭐ 2026-10-15 新增）
 //    15   3,3     标定 短按=T / 长按=S         tare_req_o / span_req_o
+//
+//  ⭐⭐ 2026-10-15 新增 idx 14「音高归零」：
+//    ⭐ 用户需求：*"矩阵键盘加一个键：一键恢复默认音高"*，⭐ 位置 = 列 2 / 行 3 ✅
+//    ⭐ 语义落位：⭐ 列 2 = 音高组（滑音 / 变调升 / 变调降）⇒ ⭐ 行 3 列 2 原来是「备用 2」
+//       ⇒ ⭐ **不占用任何现有功能**、⭐ 也不与 key 9（`fx_req_o` 占位）冲突 ✅
+//    ⭐ 实现：⭐ 本模块**只出脉冲**，⛔ 不持有音高状态 ——
+//       ⭐ 由 `top.v` 把它 OR 进 `fader_gear.trans_abs_i`、⭐ 并选值 `8'd12`
+//          （⭐ `fader_gear` 内部编码 `12` = 不调 ⇒ ⭐ `transpose_semi_o = 0` ✅）
+//       📌 为什么复用 `trans_abs_i` 通路：⭐ `fader_gear` **已经**有"带帧绝对量"入口
+//          ⇒ ⭐ **一行 RTL 都不用改 `fader_gear.v`** ✅（⭐ 最省、⭐ 零回归风险）
 //
 //  长按保护（破坏性/低频操作）：
 //    · idx 12 looper 清空：必须**长按** LONG_MS 才发脉冲（防误触）
@@ -57,6 +67,13 @@ module ctrl_key_map #(
     output reg         gear_next_req_o,
     output reg         trans_up_req_o,
     output reg         trans_down_req_o,
+    //  ⭐⭐ 2026-10-15：⭐ idx 14（列 2 / 行 3）= 一键恢复默认音高 ✅
+    //     🔴 **本 reg 只在【命令脉冲块】（下面的块 2）里赋值** ——
+    //        ⚠️ 本模块曾因"同一 reg 在两个 always 块里赋值"在综合报
+    //        `ERROR (EX2000) : Net ... is constantly driven from multiple places`
+    //        （⭐ 而 iverilog 仿真全绿 ⇒ 🔴 "仿真过 ≠ 能综合"）✅
+    //     ⭐ 所以：⭐ 复位清零 / 默认清零 / 置位 **三处都在块 2 内** ✅
+    output reg         trans_reset_req_o,
     output reg         drum_pattern_req_o,
     output reg         test_mode_req_o,
     output reg         loop_clear_req_o,
@@ -132,6 +149,7 @@ module ctrl_key_map #(
             gear_next_req_o    <= 1'b0;
             trans_up_req_o     <= 1'b0;
             trans_down_req_o   <= 1'b0;
+            trans_reset_req_o  <= 1'b0;   // ⭐ idx 14（⭐ 与其余脉冲同一块、同一口径 ✅）
             drum_pattern_req_o <= 1'b0;
             test_mode_req_o    <= 1'b0;
             loop_clear_req_o   <= 1'b0;
@@ -154,6 +172,7 @@ module ctrl_key_map #(
             gear_next_req_o    <= 1'b0;
             trans_up_req_o     <= 1'b0;
             trans_down_req_o   <= 1'b0;
+            trans_reset_req_o  <= 1'b0;   // ⭐ idx 14（⭐ 单周期脉冲的默认低 ✅）
             drum_pattern_req_o <= 1'b0;
             test_mode_req_o    <= 1'b0;
             loop_clear_req_o   <= 1'b0;
@@ -187,6 +206,13 @@ module ctrl_key_map #(
             if (key_down[ 9]) fx_req_o           <= 1'b1;   // 占位
             if (key_down[10]) trans_down_req_o   <= 1'b1;
             if (key_down[11]) test_mode_req_o    <= 1'b1;
+
+            // 行 3 · 音高组（⭐ 2026-10-15 新增）：⭐ idx 14 = 列 2 / 行 3 ✅
+            //   ⭐ 用户需求：*"矩阵键盘加一个键：一键恢复默认音高"* ✅
+            //   ⭐ 语义：⭐ 列 2 是音高组（滑音 / 变调升 / 变调降）⇒ ⭐ 归零键落在这里最自然 ✅
+            //   📌 ⭐ 本模块**只出脉冲**（⭐ 与 `trans_up_req_o`/`trans_down_req_o` 完全同构）——
+            //      ⭐ 音高状态在 `fader_gear` 里，⛔ 本模块不持有 ⇒ ⛔ 不引入第二个状态源 ✅
+            if (key_down[14]) trans_reset_req_o  <= 1'b1;
 
             //  ⭐⭐ 2026-10-14：⭐ **松手清标志**（⭐ 从块 1 搬过来 ✅）
             //     📌 ⭐ 顺序：⭐ 先"松手清"、⭐ 再"阈值置位" ——

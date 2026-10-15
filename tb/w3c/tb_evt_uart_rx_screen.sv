@@ -178,6 +178,29 @@ module tb_evt_uart_rx_screen;
         if (n_evt != 8)
             $fatal(1, "FAIL: bare-parser ambiguity diagnostic changed: %0d", n_evt);
         $display("DIAGNOSTIC_CONFIRMED: bare score parser accepts 8 spurious events from mixed screen bytes");
+        /*  ⭐⭐ 2026-10-15：⭐ **补一个显式判据**（⭐ 否则驱动器判它"没有结论"）✅
+         *  ---------------------------------------------------------------------------
+         *  🔴 **为什么会缺**：⭐ 队友这次给 `sim/tb_all.ps1` 加了一条新规则 ——
+         *      *"exit 0 without an explicit PASS is not acceptance"*（⭐ `K-97`）✅
+         *      ⚠️ 而本 tb 原来只打 `DIAGNOSTIC_CONFIRMED:`（⛔ 不含 `PASS`）
+         *      ⇒ 🔴 **被新规则判成 `INCONCLUSIVE` ⇒ 算失败** ✅
+         *      📌 合并前驱动器**没有**这条规则 ⇒ ⭐ 所以以前"能过"是**规则没覆盖**，
+         *        ⛔ 不是本 tb 真的给了结论 ✅
+         *
+         *  ⭐ **为什么补判据而不是加进 `$skipByDefault`**：
+         *      本 tb 上面那条 `if (n_evt != 8) $fatal(...)` 是一个**真的行为锁** ——
+         *      ⭐ 它锁住"裸解析器在这种混合字节流下恰好误判 8 次"这个**特征** ✅
+         *      ⇒ ⚠️ 若把它跳过，⭐ 这个锁就**没了**（⭐ 将来行为漂了也不会有人知道）✗
+         *
+         *  ⚠️ **语义边界（必须写清，⛔ 不要误读成"安全性通过"）**：
+         *      · 本 tb 通过 = **"已记录的特征没有变"**（⭐ characterization）
+         *      · ⛔ **不等于**"串口屏数据是安全的" —— 🔴 它恰恰证明了裸解析器
+         *        **会**被屏幕数据注入伪事件（⭐ 这是模块固有局限 ✅）
+         *      · ⭐ **真正的安全性判据在** `tb/w3c/tb_evt_uart_rx_gate.sv`
+         *        （⭐ 集成级、双向往返，验的是**顶层门控**）✅ */
+        $display("PASS: bare-parser characterization unchanged -- %0d spurious events, as documented", n_evt);
+        $display("      (CHARACTERIZATION of a known module-level limitation, NOT a safety verdict;");
+        $display("       the safety criterion lives in tb/w3c/tb_evt_uart_rx_gate.sv)");
         $finish;
     end
 

@@ -1,0 +1,4 @@
+﻿PASS: six real-input FFT frames match independent direct DFT, exact ordering and no drops
+./tb/hdmi/tb_fft_spectrum_core.sv:53: $finish called at 254279880000 (1ps)
+
+

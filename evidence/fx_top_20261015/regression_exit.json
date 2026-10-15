@@ -1,0 +1,11 @@
+{
+  "Source": "0e98a58a8e69b13d779621de4e756b25707ee056",
+  "Session": 9811,
+  "ObservedExitCode": 0,
+  "ObservedAtUTC": "2026-10-15T10:04:47Z",
+  "FunctionalPassCount": 202,
+  "ExpectedNegativeCount": 1,
+  "DiagnosticCount": 1,
+  "FailCount": 0,
+  "SnapshotBlobsVerified": 323
+}

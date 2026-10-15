@@ -1,0 +1,66 @@
+﻿iverilog.exe : C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom in
+herited from another file.
+At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:124 char:18
++   $compileOut  = & $iverilog @compileArgs 2>&1
++                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\hokuu\...m another file.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file
+.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from anot
+her file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited fro
+m another file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from anot
+her file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another 
+file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another fi
+le.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another 
+file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
+her file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_referen
+ce inherited from another file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_upstream.v:177: warning: @* is sensitive to all 16 words in array 'mem
+'.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 
+'pc_l1'.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_probe_queue.sv:10: warning: Instantiating module top with dangling i
+nput port 30 (ctrl_col_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_probe_queue.sv:10: warning: Instantiating module top with dangling i
+nput port 31 (enc_a_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_probe_queue.sv:10: warning: Instantiating module top with dangling i
+nput port 32 (enc_b_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_probe_queue.sv:10: warning: Instantiating module top with dangling i
+nput port 33 (enc_sw_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_probe_queue.sv:10: warning: Instantiating module top with dangling i
+nput port 35 (pedal_sus_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_probe_queue.sv:10: warning: Instantiating module top with dangling i
+nput port 36 (pedal_loop_rec_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_probe_queue.sv:10: warning: Instantiating module top with dangling i
+nput port 37 (pedal_loop_play_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_probe_queue.sv:15: warning: Instantiating module mcp3208_model with 
+dangling input port 5 (ovr_en_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_probe_queue.sv:15: warning: Instantiating module mcp3208_model with 
+dangling input port 6 (ovr_val_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_probe_queue.sv:17: warning: Instantiating module mcp3208_model with 
+dangling input port 5 (ovr_en_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_probe_queue.sv:17: warning: Instantiating module mcp3208_model with 
+dangling input port 6 (ovr_val_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_probe_queue.sv:17: warning: Instantiating module mcp3208_model with 
+dangling input port 7 (ch_mask_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_probe_queue.sv:17: warning: Instantiating module mcp3208_model with 
+dangling input port 8 (ch_val_i) floating.

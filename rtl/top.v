@@ -51,6 +51,19 @@ module top #(
     // 与 `clk_gen` / `i2s_tx` 保持一致的音频参数
     parameter integer SAMPLE_W          = 24,
     parameter integer DATA_BITS         = 16,
+    // Compile-time FX profiles only; UART/key assignments remain unchanged.
+    // Default is exact legacy bypass. Bits 0/1/2: distortion/chorus/delay.
+    // Reverb and the remaining mask bits are placeholders, not implemented effects.
+    parameter [7:0]  FX_EN_MASK          = 8'd0,
+    parameter [1:0]  FX_DIST_SEL         = 2'd0,
+    parameter [15:0] FX_DIST_GAIN        = 16'd16384,
+    parameter [15:0] FX_DIST_TRIM        = 16'd8192,
+    parameter [13:0] FX_DELAY_SAMPLES    = 14'd8192,
+    parameter [10:0] FX_CHORUS_SAMPLES   = 11'd736,   // ⭐ 2026-10-15 修：736 = 23×32（⭐ 在串口 ×32 格点上；原 732 = 22.875×32 不在格点 ⇒ 上电默认值写不回来）；差 4 采样 = 82 µs
+    parameter [7:0]  FX_MIX              = 8'd128,
+    parameter [7:0]  FX_FEEDBACK         = 8'd96,
+    parameter [7:0]  FX_TREM_DEPTH       = 8'd0,
+    parameter [7:0]  FX_TREM_RATE        = 8'd7,
     // ⭐⭐ T57（2026-09-21）：**开机自检音**（⛔ 不依赖任何传感器）
     //   · `1`（**默认**）= 复位后自动起一个 **3 音和弦**（A4 / C#5 / E5）⇒
     //     ⭐ **上板就能听到声音**，用于证明"整条出声链在真硅片上通了"。
@@ -616,6 +629,18 @@ parameter integer TEST_MODE_EN       = 1,
     //  📌 ⭐ **复位默认 = 0（普通演奏模式）** ⇒ ⛔ **零回归** ✅
     //  📌 ⭐ 依据：⭐ `files/20-代码/LED指引-实现计划清单-20261014.md` §L1 ✅
     //  📌 ⭐ 命令 `'U'` 已在 `calib_cmd.v` 加好（⭐ 9 处仪式 ✅）
+    //
+    //  ⭐⭐ 2026-10-15：⭐ **再叠一层【逐事件】的"只亮灯不出声"**（⭐ 保留位 `bit6` ✅）
+    //     ⭐ 需求：⭐ `files/20-代码/ESP32侧需求-引导模式改成上位机逐事件控制-20261015.md`
+    //     ⭐ 于是本模式**不再是唯一的指引入口** —— 上位机可以**不按 `'U'`**、
+    //        ⭐ 直接在**每条事件**上用 `bit6` 指定（⭐ 逐事件控制 ✅）
+    //     📌 ⭐ **两条并存**（⭐ 用户建议 · ⭐ 本项目采用 ✅）：
+    //        · ⭐ `guide_only_r = 1` ⇒ ⭐ **整条流**不出声（⭐ 本模式的既有语义 ✅）
+    //        · ⭐ `bit6 = 1`        ⇒ ⭐ **那一条**不出声（⭐ 新模式 ✅）
+    //        · ⭐ 两者**同时开**时语义一致（⭐ 都是"不出声 + 亮灯"）✅
+    //     📌 ⭐ **本模式（`guide_only_r`）的行为【逐位不变】** ——
+    //        ⭐ 出声那一路仍**恒 0**、⭐ LED 仍**全亮**、⭐ `ps_lead` 仍是 `LEAD_ONE_BEAT`
+    //        （⭐ 见 `u_seq_arb.score_valid_i` / `u_guide_lamp.note_valid_i` 两处 ✅）
     //  ═══════════════════════════════════════════════════════════════════════
     wire cmd_guide_req;         // ⭐ 'U' ⇒ 指引模式 开/关切换
     reg  guide_only_r;
@@ -1132,8 +1157,25 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     wire        ui_mode_piano;
     wire [6:0]  ui_base_semi;
     wire        ui_mode_commit, ui_base_commit;
-    wire        ui_fx_en;
-    wire [1:0]  ui_fx_sel;
+    //  ⭐⭐ 2026-10-15：⭐ 效果器参数改成【运行时寄存器】（⭐ 由串口帧写）✅
+    //     🔴 **为什么**：⭐ 原来是 `parameter`（编译期常量）⇒ 🔴 **上板调不了**，
+    //        每改一个值都要重新综合 + 重新 PnR（几十分钟一轮）✗
+    //     ✅ **现在**：⭐ 串口发一帧就改一个参数，⭐ **当场可听** ✅
+    //     📌 帧格式与串口屏同一套：`71 <变量号> <值> FF FF FF`
+    //        变量号 0x10..0x18（⭐ 见 `uart_ui.v` 的端口注释表）✅
+    wire [7:0]  ui_fx_mask;
+    wire [15:0] ui_fx_gain;
+    wire [15:0] ui_fx_trim;
+    wire [7:0]  ui_fx_mix;
+    wire [7:0]  ui_fx_fb;
+    wire [7:0]  ui_fx_depth;
+    wire [7:0]  ui_fx_rate;
+    wire [13:0] ui_fx_dlylen;
+    wire [10:0] ui_fx_chorlen;
+    wire        ui_fx_commit;
+    //  ⭐ 灯 7 的显示量（⭐ `led_indicator` 的接口是 1+2 位，⛔ 不改它）✅
+    wire        ui_fx_en  = |ui_fx_mask[2:0];  // 🔴 2026-10-15 修：只或 bit0/1/2 —— ⭐ bit4 空闲（`fx_chain.v` 明写"bit4 空闲"），原 `|ui_fx_mask` 会让 `mask=0x10` 点亮灯 7 却什么都不做（显示撒谎）✗
+    wire [1:0]  ui_fx_sel = ui_fx_mask[1:0];  // ⭐ 显示前两个效果（失真/合唱）
     wire        ui_test_mode, ui_test_mode_commit;
     wire [1:0]  ui_test_mode_n;
     wire [15:0] ui_frame_cnt, ui_resync_cnt, ui_err_cnt;
@@ -1153,7 +1195,20 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
         //         ⇒ ⭐ 轴事件直接产生 `evt_valid_o` ✅
         //      🔴 **为什么必须改**：⭐ 原来硬编码默认指板 ⇒ ⚠️ 上板**按了没声音**
         //         （⭐ 指板模式要等 P4 的 LM393 拨弦比较器，⭐ 不接就永远不触发）
-        .MODE_PIANO_DEFAULT(1)
+        .MODE_PIANO_DEFAULT(1),
+        //  ⭐⭐ 2026-10-15：⭐ **效果器的上电初值**（⭐ 运行时仍可由串口帧改）✅
+        //     📌 透传 `FX_*` 参数 ⇒ ⭐ 队友的 `tb_top_fx_audio` **照旧编译期覆盖**
+        //        （⭐ 例如 `FX_EN_MASK=8'hFF` 做全开档验收）⇒ ⛔ 判据不用重写 ✅
+        //     📌 默认全关 ⇒ ⭐ 上电与"没有效果器"**逐样本相同**（零回归）✅
+        .FX_MASK_DEF    (FX_EN_MASK),
+        .FX_GAIN_DEF    (FX_DIST_GAIN),
+        .FX_TRIM_DEF    (FX_DIST_TRIM),
+        .FX_MIX_DEF     (FX_MIX),
+        .FX_FB_DEF      (FX_FEEDBACK),
+        .FX_DEPTH_DEF   (FX_TREM_DEPTH),
+        .FX_RATE_DEF    (FX_TREM_RATE),
+        .FX_DLYLEN_DEF  (FX_DELAY_SAMPLES),
+        .FX_CHORLEN_DEF (FX_CHORUS_SAMPLES)
     ) u_uart_ui (
         .clk_i         (clk),
         .rst_n_i       (rst_n_sync),
@@ -1172,8 +1227,19 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
         .base_semi_o   (ui_base_semi),
         .mode_commit_o (ui_mode_commit),
         .base_commit_o (ui_base_commit),
-        .fx_en_o       (ui_fx_en),
-        .fx_sel_o      (ui_fx_sel),
+        //  ⭐⭐ 2026-10-15：⭐ 效果器参数（⭐ 运行时，⭐ 由串口帧 `71 <序号> <值> FF FF FF` 写）✅
+        //     📌 帧格式与串口屏**同一套协议** ⇒ ⭐ 屏和串口助手**走同一条路径**，
+        //        ⛔ 不需要"二选一"，⛔ 也不占用那唯一剩下的字母 'Z' ✅
+        .fx_mask_o     (ui_fx_mask),      // ⭐ 0x10 开关掩码（bit0=失真 bit1=合唱 bit2=延迟 · ⚠️ bit4 空闲，⛔ 不是颤音 ⇒ 全开 = 0x07）
+        .fx_gain_o     (ui_fx_gain),      // ⭐ 0x11 失真增益（字节×256 ⇒ Q4.12，64 ⇒ 4.0 倍）
+        .fx_trim_o     (ui_fx_trim),      // ⭐ 0x12 失真补偿（字节×256 ⇒ Q1.15，32 ⇒ 0.25）
+        .fx_mix_o      (ui_fx_mix),       // ⭐ 0x13 延迟/合唱混合（Q0.8）
+        .fx_fb_o       (ui_fx_fb),        // ⭐ 0x14 延迟反馈（Q0.8）
+        .fx_depth_o    (ui_fx_depth),     // ⭐ 0x15 颤音深度（0 = 数值恒等）
+        .fx_rate_o     (ui_fx_rate),      // ⭐ 0x16 颤音速率
+        .fx_dlylen_o   (ui_fx_dlylen),    // ⭐ 0x17 延迟长度（字节×128 采样）
+        .fx_chorlen_o  (ui_fx_chorlen),   // ⭐ 0x18 合唱长度（字节×32 采样）
+        .fx_commit_o   (ui_fx_commit),    // ⭐ 参数已更新（单周期脉冲，⭐ 可观测）
         .test_mode_o   (ui_test_mode),
         .test_mode_n_o (ui_test_mode_n),
         .test_mode_commit_o(ui_test_mode_commit),
@@ -1237,6 +1303,13 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     wire km_timbre_req, km_scope_mode_req, km_met_req, km_drum_pattern_req;
     wire km_keydrum_req, km_trans_down_req, km_trans_up_req, km_gear_next_req;
     wire km_slide_req, km_mode_req, km_fb_piano, km_fx_req;
+    //  ⭐⭐ 2026-10-15：⭐ **idx 14（列 2 / 行 3）= 一键恢复默认音高** ✅
+    //     ⭐ 用户需求：*"矩阵键盘加一个键：一键恢复默认音高"* ✅
+    //     📌 ⭐ 依据：⭐ `files/20-代码/控制板16键功能映射-20261013.md` §二 ⇒ ⭐ 该格原是「备用 2」
+    //        ⇒ ⭐ **不占用任何现有功能**（⭐ 也不碰 key 9 的 `fx_req_o` 占位、
+    //        ⭐ 更不碰 key 12/15 那两条**长按**功能 ✅）
+    //     📌 ⭐ 本线**只承载脉冲**，⭐ 音高状态仍在 `u_fader_gear.enc_r` 里（⭐ 单一状态源 ✅）
+    wire km_trans_reset_req;
     //  ⭐⭐ **串口 OR 实体键** ⇒ ⭐ 下游一个字节都不用改 ✅
     assign cmd_tare_req         = cc_tare_req         | km_tare_req;
     assign cmd_span_req         = cc_span_req         | km_span_req;
@@ -1388,6 +1461,12 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
         .gear_next_req_o    (km_gear_next_req),
         .trans_up_req_o     (km_trans_up_req),
         .trans_down_req_o   (km_trans_down_req),
+        //  ⭐⭐ 2026-10-15：⭐ idx 14（列 2 / 行 3）⇒ ⭐ **一键恢复默认音高** ✅
+        //     📌 ⭐ 它⛔ **不参与**上面那一组 `cc_* | km_*` 的 OR ——
+        //        ⚠️ 因为 `fader_gear` 的绝对量入口是**两个信号同拍**的一对
+        //        （`trans_abs_i` ＋ `trans_abs_val_i`）⇒ ⭐ 必须在**例化处成对 mux** ✅
+        //        （⭐ 见 `u_fader_gear` 的 `.trans_abs_i`/`.trans_abs_val_i` ✅）
+        .trans_reset_req_o  (km_trans_reset_req),
         .drum_pattern_req_o (km_drum_pattern_req),
         .test_mode_req_o    (km_test_mode_req),
         .loop_clear_req_o   (km_loop_clear_req),
@@ -1529,6 +1608,82 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     wire        ps_evt_rd;        // ⭐ `play_seq.evt_rd_o`（→ 缓冲的 `rd_ack_i`）
     wire        ps_note_valid;    // ⭐ `play_seq.note_valid_o`（→ `seq_arb` ＋ `guide_lamp`）
     wire [63:0] ps_note_data;     // ⭐ `play_seq.note_data_o`
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-15：⭐ **逐事件"只亮灯不出声"标志 = 保留位 `bit6`** ✅
+    //
+    //  ⭐ **需求**（⭐ 用户 2026-10-15 拍板）：
+    //     ⭐ `files/20-代码/ESP32侧需求-引导模式改成上位机逐事件控制-20261015.md`
+    //     ⇒ ⭐ 把"**哪些音符只亮灯不出声**"从【FPGA 全局开关 `'U'`】
+    //        改成【**上位机逐事件用保留位 `bit6` 指定**】✅
+    //
+    //  ⭐ **位域**（⭐ `bit[6:0]` 是保留位 ⇒ ⭐ **FPGA 以前一直忽略它** ✅）：
+    //     `bit 63..44 tick(20)` · `43..23 inc(21)` · `22..19 axis(4)` · `18..11 vel(8)`
+    //     · `10..9 kind(2)` · `8..7 timbre(2)` · ⭐ **`[6:0]` 保留** ✅
+    //  📌 ⭐ **依据**：⭐ `rtl/w3c/seq_arb.v:200-201` 的注释**逐字写着**
+    //     *"那 7 位 `bits 6..0 reserved` **一直是 0**"* ✅
+    //     ⇒ ⭐ **用它⛔ 不算改协议**（⭐ 旧上位机不置位 ⇒ ⭐ 行为逐位不变 ✅）
+    //
+    //  ⚠️ **为什么声明在【模块层】**（⛔ 不是 `g_sound` 里）：
+    //     ⭐ 消费者横跨两个作用域 ——
+    //       · ⭐ `u_seq_arb`（`g_sound` 内 · ⭐ 出声那一路）
+    //       · ⭐ `u_guide_lamp`（**模块级** · ⭐ LED 那一路）
+    //     ⇒ ⭐ 与 `ps_note_valid` / `ps_note_data` **同一手法**（⭐ 模块级中间量 ✅）
+    //     📌 ⭐ 依据：⭐ `top.v:1588-1592` 那段"作用域"注释 ✅
+    //
+    //  ⭐ **切片位置**：⭐ 与 `g_sound` 里 `ps_evt_*` 那组**同一处风格**
+    //     （⭐ `ps_note_data[22:19]` / `[43:23]` / `[18:11]` / `[10:9]` / `[8:7]` ✅）
+    //     ⇒ ⭐ 只是它在**模块层**、⭐ 那组在 `g_sound` 里 ✅
+    // ═══════════════════════════════════════════════════════════════════════
+    wire        evt_guide_only = ps_note_data[6];   // ⭐ 1 = 只亮灯不出声（保留位 bit6）✅
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-15（收尾 · CLOSER）：⭐ **"逐事件模式已启用"的粘滞标志** ✅
+    //
+    //  🔴 **为什么必须加它**（⭐ 两条既有判据【直接冲突】，⭐ 必须有第三个自由度）：
+    //     · ⭐ `tb/w3b/tb_top_score_path.sv` 判据 **`Ca`**（⭐ 2026-10-11 的验收 tb）：
+    //        ⭐ 一条 **`bit6=0`** 的曲谱音符 ⇒ ⭐ **`guide_key_o[axis]` 必须【亮】**
+    //        （⭐ 原文：*"the LED guide half is ALIVE <-- the whole point"* ✅）
+    //     · ⭐ `tb/w3c/tb_top_guide_bit6.sv` 判据 **`2e` / `3g`**（⭐ 2026-10-15 的新 tb）：
+    //        ⭐ 一条 **`bit6=0`** 的事件 ⇒ ⭐ **`guide_key_o[axis]` 必须【不亮】**
+    //        （⭐ 原文：*"LED guides only marked tracks"* ✅）
+    //     ⇒ ⭐ **同一个输入（`bit6=0`）被两条判据要求【相反的结果】** ✅
+    //        ⇒ ⚠️ 所以「LED 恒显示所有音符」（⭐ 裸 `ps_note_valid`）
+    //           与「LED 只显示 `bit6=1`」（⭐ 需求原文 `& evt_guide_only`）
+    //           **各必红一条** —— ⚠️ **不存在"什么都不做"的零回归选项** ✅
+    //
+    //  ⭐ **本标志给出的第三个自由度**：⭐ **"这条流到底用没用 `bit6`"** ✅
+    //     · ⭐ 整条流**从未**出现过 `bit6=1`（⭐ 老上位机 / 旧协议 / 既有 tb）
+    //        ⇒ ⭐ **退化成裸 `ps_note_valid`** ⇒ ⭐ **与 2026-10-15 改动【之前】逐位相同**
+    //        ⇒ ⭐ `Ca` 绿 ✅（⭐ 零回归由【构造】保证，⛔ 不靠运气 ✅）
+    //     · ⭐ 出现过 `bit6=1`（⭐ 上位机已按新协议置位 ⇒ ⭐ 逐事件模式真的在用）
+    //        ⇒ ⭐ **切到"LED 只指引被标记的那一轨"** ⇒ ⭐ 需求 §2.2 的意图 ✅
+    //        ⇒ ⭐ `2e` / `3g` 绿 ✅
+    //
+    //  ⚠️ **代价（⭐ 必须写清楚，⛔ 不许含糊）**：
+    //     ⭐ 本标志是**会话级粘滞**的（⭐ 只有 `rst_n_sync` 清它 ✅）
+    //     ⇒ ⚠️ 若一次上电里**先**灌过带 `bit6` 的引导轨、**再**灌一条**全 `bit6=0`** 的
+    //        普通曲谱 ⇒ ⭐ 那条普通曲谱的 LED 指引**不会亮**（⭐ 仍在逐事件模式 ✅）
+    //     📌 ⭐ 缓解：⭐ 复位（⭐ 重新上电 / `rst_n`）即可回到"显示所有音符" ✅
+    //     📌 ⭐ 这是【有意的】取舍：⭐ 两条既有判据都不改、⭐ 两种真实场景各自正确 ✅
+    //     📌 ⭐ 成本：⭐ **1 个 FF ＋ 1 个与门**（⭐ 不碰任何既有信号的语义 ✅）
+    //
+    //  ⚠️⚠️ **仍需用户裁定**（⭐ 需求文档 §三 问题 2 原文就是"请你们裁定" ✅）：
+    //     ⭐ "`guide_lamp` 的输入要不要保留【所有音符】" —— ⭐ 用户尚未拍板。
+    //     ⭐ 若用户裁定"**LED 也要显示别的轨**（⭐ 当看谱用）"
+    //        ⇒ ⭐ 把下面 `note_valid_i` 的第三项 `| ~evt_guide_seen_r` 改成**恒真**
+    //           （⭐ 即裸 `ps_note_valid`）⇒ ⭐ 但那时 `2e`/`3g` **要按契约变更改** ✅
+    //     ⭐ 若用户裁定"**LED 只指引导轨**"
+    //        ⇒ ⭐ 去掉 `| ~evt_guide_seen_r`（⭐ 变成需求原文）
+    //           ⇒ ⭐ 但那时 `Ca` **要按契约变更改** ✅
+    //     ⇒ ⭐ **本标志是"用户裁定之前"唯一能让两边都绿的接法** ✅
+    //  ═══════════════════════════════════════════════════════════════════════
+    reg evt_guide_seen_r;
+    always @(posedge clk) begin
+        if (!rst_n_sync)                          evt_guide_seen_r <= 1'b0;
+        else if (ps_note_valid && evt_guide_only) evt_guide_seen_r <= 1'b1;
+    end
+
     wire        eb_ovf;           // ⭐ 缓冲溢出（sticky）
     wire [15:0] eb_drop;          // ⭐ 丢弃计数（饱和）
     wire [15:0] eb_cnt;           // ⭐ 当前深度
@@ -1752,6 +1907,24 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
 //   📌 **作用域要点**：⭐ 本信号由 `g_sound` 块内的 `assign` 驱动（⭐ 那里 `af_fault`/`mx_fault` 可见 ✅），
 //      ⭐ 而心跳灯逻辑（⭐ 模块级）**只读它** ⇒ ⭐ 两边都能看到 ✅
 wire       fault_any_w;
+
+//  ⭐⭐ 2026-10-15：⭐ **"摇杆在中位"的观测量**（⭐ 接到心跳灯 ⇒ **现场判据**）✅
+//   ⭐ **语义**：⭐ `1` = 两路比较器都低 = **摇杆在中位（静止）** ✅
+//      📌 硬件依据：⭐ 静止点 **1.737 V** 落在 `DOWN_REF` **1.24 V** 与 `UP_REF` **2.24 V**
+//         **之间** ⇒ ⭐ 静止时 UP/DOWN **两路都低**（⭐ 见 `rtl/w3a/async_pluck_capture.v` 文件头 ✅）
+//   🔴 **为什么必须声明在【模块级】、且在 `generate` 之前** —— ⭐ 照 `fault_any_w` 的先例：
+//      · ⭐ **源在 `g_sound` 块里**（⭐ `u_async_pluck_capture.both_low_o` ⇒ `pluck_both_low`）
+//      · ⭐ **消费者在模块级**（⭐ 心跳灯那段在 `generate` 区**之外**）
+//      ⇒ 🔴 若声明在心跳灯那段 = **声明晚于使用** ⇒ ⭐ 工具**隐式创建**这条 wire
+//         ⇒ ⚠️ `warning: implicit definition`（⭐ `default_nettype none` 下会变**硬错误**）
+//      ⇒ ⭐ 所以：⭐ **模块级声明** ＋ ⭐ `g_sound` 里 `assign` ＋ ⭐ 心跳灯处**只读** ✅
+//   📌 **为什么需要它（⭐ 本轮真正的目的）**：⭐ 项目已用**网表**证明 ——
+//      🔴 **无消费者的信号会被综合剪掉，⭐ 而 `syn_keep` 无效**
+//      （⭐ 实证：`eb_hw` 在网表里 **0 次**；⭐ `reserved_in_xor` 的输入被报 **unused**）
+//      ⇒ ⭐ **唯一有效的保命办法 = 给它一个【真消费者】** ✅
+//      ⇒ ⭐ 于是 `pluck_both_low`（⭐ 以及它背后 `u_async_pluck_capture` 那一锥）
+//         **在交付位流里必然存活**，⭐ 而且**上板肉眼可读** ✅
+wire       pluck_center_w;
 
 //  ⭐⭐ 2026-10-09（`P0-27`）：⭐ **`event_extract.key_on[]` 的打包版**（⭐ 跨作用域）✅
 //   📌 **作用域要点（⭐ 与上面 `fault_any_w` 同一手法）**：
@@ -2010,6 +2183,14 @@ wire ovf_any;
         //   📌 **代价**：⭐ 1 行、**0 资源** ✅
         //   📌 **机械旁证**：⭐ `Select-String 'assign\s+fault_any_w'` **必须返回 2 行**（两分支各 1）✅
         assign fault_any_w   = 1'b0;
+        //  ⭐⭐ 2026-10-15：⭐ **静音档也必须显式驱动 `pluck_center_w`** ✅
+        //   📌 与上面 `fault_any_w` **同一条纪律**（⭐ 两个互斥分支各自显式驱动，
+        //      ⛔ 不留悬空 —— ⭐ 悬空 = `z` ⇒ 🔴 心跳灯变 `x`）
+        //   ⭐ 取值 `1'b0` = "**不是中位**"：⭐ 静音档**没有** `async_pluck_capture`
+        //      ⇒ ⭐ **没有"中位"这个概念** ⇒ ⭐ 心跳灯**照常闪**（⛔ 不是常亮）
+        //      📌 理由：⭐ 静音档本来就没有拨弦通路 ⇒ ⭐ 强行常亮是**说谎**
+        //         （⭐ 而"照常闪"至少保留 M0 的**活体见证** ＋ 故障快闪 ✅）
+        assign pluck_center_w = 1'b0;
         //  ⭐⭐ 2026-10-09（`P0-27`）：⭐ 静音档没有 `event_extract` ⇒ ⭐ 按键状态恒 0 ✅
         //   📌 与上面 `fault_any_w` 同一条纪律：⭐ **两个互斥分支各自显式驱动** ✅
         assign ee_key_on     = 16'd0;
@@ -2337,12 +2518,51 @@ wire ovf_any;
         localparam [19:0] LEAD_ONE_BEAT = 20'd960;      // ⭐ = PPQN（1 拍）
         wire [19:0] ps_lead = guide_only_r ? LEAD_ONE_BEAT : 20'd0;
 
+        // ═══════════════════════════════════════════════════════════════════════
+        //  ⭐⭐ 2026-10-15：⭐ **逐事件的提前一拍**（⭐ 保留位 `bit6` ⇒ `lead_sel_i` ✅）
+        //
+        //  🔴 **为什么必须逐事件**：⭐ `ps_lead`（上面那行）是**全局**的 ——
+        //     ⚠️ 它由 `guide_only_r` 决定 ⇒ ⭐ **整条流**都提前 / ⭐ 都不提前 ✅
+        //     ⭐ 而"只亮灯不出声"现在**逐事件**由 `bit6` 指定
+        //     ⇒ ⚠️ 若提前量仍是全局的 ⇒ 🔴 **"灯比声音早一拍"在逐事件模式下会消失** ✅
+        //        （⭐ 用户裁定 **A**：⭐ `bit6=1` 的事件**也要吃这个提前一拍** ✅）
+        //
+        //  ⭐ **语义（⭐ 与 `ps_lead` 两条【相加】）**：
+        //     ⭐ `play_seq` 的 `due_limit = cur_tick_r + lead_i + (lead_sel_i ? 960 : 0)` ✅
+        //     ⇒ ⭐ 于是**两种机制并存**：
+        //        · ⭐ 全局 `'U'`（`guide_only_r`）⇒ ⭐ `ps_lead = 960` ⇒ **整条流**提前 ✅
+        //        · ⭐ 逐事件 `bit6`               ⇒ ⭐ `ps_lead_evt` ⇒ **只有被标记的**提前 ✅
+        //        · ⚠️ 两者**同时开** ⇒ ⭐ 相加（⭐ 1920 = 两拍）——
+        //           ⭐ 语义上"全局指引 + 逐事件标记"**本来就该叠**（⭐ 都是"再早一点"）✅
+        //
+        //  📌 ⭐ **喂的是【队头】的 `bit6`**（⭐ `eb_rd_data[6]`）—— ⚠️ **不是** `ps_note_data[6]` ✅
+        //     🔴 **为什么关键**：⭐ `play_seq` 要在**发出之前**就按 `bit6` 决定"什么时候发"，
+        //        ⚠️ 而 `ps_note_data` 是**发出之后**才锁存的（⭐ 那时已经晚了）✅
+        //     ⭐ `eb_rd_data` = `evt_buf` 的 **FWFT 队头**（⭐ 与 `evt_valid_i` 同拍有效 ✅）
+        //        ⇒ ⭐ **它就是 `play_seq.evt_data_i`** ⇒ ⭐ 两者**必然同拍一致** ✅
+        //     📌 ⭐ 空缓冲时 `eb_rd_data` 是垃圾 ⇒ ⚠️ 但 `evt_valid_i = 0`
+        //        ⇒ ⭐ `evt_due = 0` ⇒ ⭐ **提前量根本不被使用**（⭐ 无副作用 ✅）
+        //
+        //  ⚠️ **为什么⛔ 不改 `ps_lead` 的语义**（⭐ 保持 `lead_i` 原样、⭐ 新增一条）：
+        //     🔴 那样会**破坏 `tb/w3c/tb_play_seq_lead.sv`** ——
+        //        ⭐ 它**只**驱动 `lead_i`（⭐ 没接新端口）⇒ ⚠️ 提前量会**静默消失**
+        //        ⇒ 🔴 **已有判据变空**（⭐ 这正是 `C83` 探针假绿族 ✅）
+        //     ✅ 两条相加 ⇒ ⭐ 老通路**逐位不变**（⭐ 零回归 ✅）＋ ⭐ 新通路可判 ✅
+        //
+        //  📌 ⭐ **代价**：⭐ 一个 20 位 2:1 mux ＋ 一个 21 位加法器（⭐ 与既有那条同量级 ✅）
+        // ═══════════════════════════════════════════════════════════════════════
+        wire ps_lead_evt = eb_rd_data[6];     // ⭐ 队头的"只亮灯不出声"标记（⭐ 保留位 bit6 ✅）
+
         play_seq #(
             .EVT_W(64)
         ) u_play_seq (
             .clk_i          (clk),
             .rst_n_i        (rst_n_sync),
             .lead_i         (ps_lead),        // ⭐ 0 = 演奏（逐位不变）· 960 = 指引提前一拍 ✅
+            //  ⭐⭐ 2026-10-15：⭐ **逐事件提前一拍**（⭐ 见上面 `ps_lead_evt` 的长注释 ✅）
+            //     ⭐ 只有**被 `bit6` 标记**的事件会再早 960 tick 发出（⭐ = 1 拍 ✅）
+            //     📌 ⭐ 于是"**灯比声音早一拍**"在**逐事件模式**下也成立 ✅
+            .lead_sel_i     (ps_lead_evt),
             .tick_i         (bg_tick),        // ⭐ 与 `beat_gen.tick_o` **同源** ✅
             .run_i          (1'b1),           // ⭐ **必须与 `beat_gen.run_i` 相同**（见上）
             .pos_reset_i    (met_start),      // ⭐ **与 `beat_gen.pos_reset_i` 同一个信号** ✅
@@ -2736,8 +2956,46 @@ wire ovf_any;
             .ch3_i            (vib_rate_raw),
             .trans_down_i     (cmd_trans_down_req),
             .trans_up_i       (cmd_trans_up_req),
-            .trans_abs_i      (cmd_trans_abs_req),
-            .trans_abs_val_i  (cmd_trans_abs_val),
+            //  ═══════════════════════════════════════════════════════════════
+            //  ⭐⭐ 2026-10-15：⭐ **绝对量入口 = `'H'`（串口）OR 键 14（音高归零）** ✅
+            //
+            //  ⭐ 需求：*"矩阵键盘加一个键：一键恢复默认音高"*（⭐ 列 2 / 行 3 = key 14 ✅）
+            //
+            //  ⭐ **为什么复用 `trans_abs_i` 通路（⛔ 不动 `fader_gear.v`）**：
+            //     ⭐ `fader_gear` **本来就有**"带帧绝对量"入口
+            //        ⇒ ⭐ 送编码 `12`（⭐ 模块内 `12` = 不调 ✅）
+            //        ⇒ ⭐ `enc_r <= 12` ⇒ ⭐ `transpose_semi_o = 12 − 12 = 0` ✅
+            //     📌 ⭐ 与"改 `fader_gear` 加一个 reset 端口"相比：
+            //        ⭐ 这里**一行 RTL 都不改** `fader_gear.v` ⇒ ⭐ 零回归风险 ✅
+            //
+            //  🔴🔴 **时序契约（⭐ 必须论证，⭐ 这是本改动的唯一风险点）**：
+            //     ⭐ `fader_gear.v` 端口注释写明
+            //        *"`trans_abs_i` = 'H' ⇒ 带帧绝对量（**与 val 同拍**）"* ✅
+            //     ⇒ ⭐ 即：⭐ `trans_abs_i` 拉高的**那一拍**，`trans_abs_val_i` 必须**已经是**该值 ✅
+            //
+            //     ⭐ **为什么本写法【结构上】保证同拍**（⭐ 三条）：
+            //       ① ⭐ 两个表达式**都是纯组合**（`|` 与 `?:`，⭐ 直接挂在例化端口上，
+            //          ⛔ 没有 `always @(posedge)`、⛔ 没有中间寄存器）——
+            //          ⭐ 综合出来就是**一级门**，⛔ 不产生任何一拍延迟 ✅
+            //       ② ⭐ **两者引用的是同一个驱动源**：⭐ 置位的那一拍 `km_trans_reset_req = 1`
+            //          ⇒ ⭐ 同一拍 `trans_abs_i = 1`（OR 的结果）**且**
+            //             `trans_abs_val_i = 8'd12`（mux 选中的常量）
+            //          ⇒ ⭐ 两者由**同一个 net 的同一个电平**决定 ⇒ ⭐ **不可能错拍** ✅
+            //       ③ ⭐ 上游 `km_trans_reset_req` 是 `ctrl_key_map` 里
+            //          `key_down[14]` 打的**单周期脉冲**，⭐ 而 `key_down` 与
+            //          `key_level` 在 `ctrl_keypad` 里**同一拍产生**
+            //          ⇒ ⭐ 脉冲与"该送的值"**本来就是同一拍的一对** ✅
+            //          （⭐ 而值 `8'd12` 是**常量**，⭐ 更不存在"值晚到"的可能 ✅）
+            //
+            //     ⚠️ **同时到达的仲裁**（⭐ 诚实标注，⛔ 不是新风险）：
+            //        ⭐ 若串口 `'H'` 与键 14 **恰好同一拍** ⇒ ⭐ 本 mux **让键 14 赢**
+            //        （⭐ 值 = `8'd12`），⭐ 而 `trans_abs_i` 那一拍**只发一次** ⇒
+            //        ⚠️ 串口那一帧的绝对值**被丢掉**（⚠️ 概率极低：⭐ 需同拍且都命中）
+            //        📌 ⭐ **语义上可接受**：⭐ "音高归零"是**用户手按的显式意图**，
+            //           ⭐ 且**后续命令/推子即可再改**（⛔ 不锁死、⛔ 不产生持久错态 ✅）
+            // ═══════════════════════════════════════════════════════════════
+            .trans_abs_i      (cmd_trans_abs_req | km_trans_reset_req),
+            .trans_abs_val_i  (km_trans_reset_req ? 8'd12 : cmd_trans_abs_val),
             .gear_o           (led_gear_st),   // ⭐ 2026-10-03：⭐ 引出给指示层 led5
             .transpose_semi_o (transpose_semi),
             .vibrato_depth_o  (vib_depth_sel),
@@ -2884,6 +3142,37 @@ wire ovf_any;
         end
         //   ⭐ 延迟后仍要求 `at_done` 为 1（⭐ 移位链满 ⇒ 连续 16 拍都为 1）
         wire at_en_ready = at_done_dly[AT_EN_DELAY-1];
+
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 2026-10-15：⭐ **`at_en_ready` 的【掉沿】脉冲**（⭐ 清 `play_mode_ctrl` 的脏位）✅
+        //
+        //   🔴 **为什么需要**：⭐ `at_en_ready` 落 0 ⇒ `event_extract` 在
+        //      `enable_i === 1'b0` 期间**静默清 `key_on[]`、⛔ 不发 OFF**
+        //      （⭐ `event_extract.v:396-403`）
+        //      ⇒ ⭐ 此刻**按住的**轴在 `play_mode_ctrl.held_mask` 里
+        //         **留下一个永久脏位**（⭐ 它的 `KIND_OFF` 永远不会来）
+        //      ⇒ 🔴 一次拨弦发 `popcount(held_mask)` 条 ⇒ **"一次拨弦出两个音"** ✅
+        //   ⭐ **触发场景**：⭐ 串口 `'T'`（重 tare）⇒ `calib_autotare` 回 `ST_SWEEP`
+        //      ⇒ `done_o` 落 0 ⇒ `at_done_dly` 逐拍落 ⇒ ⭐ `at_en_ready` 落 0 ✅
+        //
+        //   ⭐ **修法**：⭐ 把这一沿**打一拍**变成脉冲，引到 `play_mode_ctrl.axis_clr_i`
+        //      ⇒ ⭐ 那里**同拍**清 `held_mask`（⭐ 无握手，一拍足够）✅
+        //      ⭐ 自愈：⭐ `event_extract` 的 `key_on` 已被清 ⇒ ⭐ **仍按着的键会在
+        //         1 帧（500 µs）内重发 ON** ⇒ ⭐ `held_mask` 自动重建 ✓
+        //      📌 完整机理 + 副作用（`same_hit` 重触发）+ 为什么不踩 `T38`
+        //         ⇒ ⭐ 见 `rtl/w3a/play_mode_ctrl.v` 的 `axis_clr_i` 端口注释 ✅
+        //
+        //   ⚠️ **上电不会误清**：⭐ 上电时 `at_en_ready` 一直是 0 ⇒ `at_en_ready_d` 也是 0
+        //      ⇒ ⛔ 不产生掉沿（⭐ 而且那时 `held_mask` 本来就是空的）✅
+        //   ⚠️ **复位**：⭐ `at_en_ready_d` 必须跟着 `rst_n_sync` 清
+        //      ⇒ ⛔ 否则复位后可能出现一次假掉沿（⭐ 无害但没必要）✅
+        // ═══════════════════════════════════════════════════════════════════
+        reg at_en_ready_d;
+        always @(posedge clk) begin
+            if (!rst_n_sync) at_en_ready_d <= 1'b0;
+            else             at_en_ready_d <= at_en_ready;
+        end
+        wire at_en_fall = at_en_ready_d & ~at_en_ready;
 
         // ═══════════════════════════════════════════════════════════════════
         // ⭐⭐ `calib_span` 的端口信号 —— 🔴 **必须在 `u_autotare` 【之前】声明**
@@ -4376,6 +4665,28 @@ wire ovf_any;
         //   选音、异步采样与模式语义在此合流，之后的音高映射只看统一事件流。
         wire       pluck_valid;
         wire       pluck_up;
+        //  ⭐⭐ 2026-10-15：⭐ **把 `async_pluck_capture` 的门控状态引到顶层** ✅
+        //  🔴 **为什么**：⭐ 这两个输出**原来悬空** ⇒ ⚠️ 综合会把整锥**剪掉**
+        //     ⇒ ⭐ 上板时"为什么这一拨没响"**无法定位**（⭐ 分不清"门关着"
+        //        与"沿没来"）✅
+        //  ⭐ 照 `eb_hw` 的先例（⭐ 本文件 `(* syn_keep = 1 *) wire eb_hw;`）✅
+        //  ⚠️⚠️ **如实说明**：⭐ `syn_keep` 保的是**网线**（⭐ 防被优化掉），
+        //     🔴 **但真正让它【能读】仍需要一个【消费者】**
+        //     —— ⭐ 先例就是 `eb_drop`：⭐ 它 OR 进 `ovf_any` ⇒ ⭐ 心跳灯快闪
+        //        （⭐ 于是它在网表里**必然存活**且**可观测**）✅
+        //     ⇒ 🔴 **本轮只做到"网表里存在"**，⛔ **还没接消费者**；
+        //        ⭐ 若要在**现场可定位**，⭐ 需另接**探针通路**（⭐ 下一步）✅
+        (* syn_keep = 1 *) wire pluck_armed;
+        //  🔴 **诚实标注（⭐ 2026-10-15，⛔ 未删）**：⭐ `pluck_armed` 现在**恒 `1'b1`**
+        //     （⭐ `armed_q` 回中门控已整个删除 ⇒ ⭐ 见 `rtl/w3a/async_pluck_capture.v` 的 `:82`）
+        //     ⇒ ⭐ 它**仍然是一根【死网线】**：⭐ 除本声明与那个端口连接之外，
+        //        🔴 **没有任何消费者** ⇒ ⭐ 综合会把它（连同 `armed_o`）一起剪掉 ✅
+        //     📌 而 `(* syn_keep = 1 *)` **救不了它** —— ⭐ 项目已用网表证明 `syn_keep` 无效 ✅
+        //     ⚠️ **本轮【故意不删】**：⭐ 删它要同时动 `top.v` ＋ `async_pluck_capture.v`
+        //        ⇒ ⭐ 那是**另一个待拍板的事**（⭐ 本任务只负责给 `pluck_both_low` 接消费者）✅
+        //     ✅ **对照**：⭐ `pluck_both_low` 本轮**已经**经 `pluck_center_w` 接上心跳灯
+        //        ⇒ ⭐ 它**不再是死网线** ✅
+        (* syn_keep = 1 *) wire pluck_both_low;
         wire       pm_valid;
         wire [3:0] pm_axis;
         wire [1:0] pm_kind;
@@ -4391,8 +4702,20 @@ wire ovf_any;
             .pluck_up_async_i  (pluck_up_i),
             .pluck_down_async_i(pluck_down_i),
             .pluck_valid_o     (pluck_valid),
-            .pluck_up_o        (pluck_up)
+            .pluck_up_o        (pluck_up),
+            //  ⭐ 2026-10-15：⭐ 门控状态引出（⭐ `syn_keep` 防剪 —— ⭐ 见上方声明处
+            //     ⚠️ **注意**：⭐ 这两根网线**目前还没有消费者** ⇒
+            //        ⭐ 只是"**网表里存在**"，⛔ 不等于"现场可读" ✅）
+            .armed_o           (pluck_armed),
+            .both_low_o        (pluck_both_low)
         );
+
+        //  ⭐⭐ 2026-10-15：⭐ **把"摇杆在中位"接出来**（⭐ 跨到模块级 ⇒ 心跳灯）✅
+        //   ⭐ 源 = `u_async_pluck_capture.both_low_o`（⭐ 两路都低 = 中位 ✅）
+        //   📌 ⭐ `pluck_center_w` 在**模块级**声明（⭐ 见 `fault_any_w` 旁边那一段）——
+        //      ⚠️ ⛔ **不能在这里声明**：⭐ 心跳灯那段在**模块级**，
+        //         它**看不到 `g_sound` 块里的名字**（⭐ 作用域不可见）✅
+        assign pluck_center_w = pluck_both_low;
 
         play_mode_ctrl #(
             .AXIS_W (4),
@@ -4407,6 +4730,10 @@ wire ovf_any;
             .axis_depth_i     (ee_depth),
             .pluck_valid_i    (pluck_valid),
             .pluck_up_i       (pluck_up),
+            //  ⭐⭐ 2026-10-15：⭐ **`enable_i` 的掉沿 ⇒ 清脏位**（⭐ 见上方 `at_en_fall` 段）✅
+            //     🔴 **不接的后果**：⭐ 重 tare（串口 `'T'`）期间按住的轴
+            //        ⇒ ⭐ `held_mask` 永久脏位 ⇒ 🔴 **一次拨弦出两个音** ✅
+            .axis_clr_i       (at_en_fall),
             .slide_active_i   (slide_on_r & play_fretboard_mode & (sl_ramp_active | ee_slide_v)),
             .slide_axis_i     (sl_ramp_active ? sl_owner_axis : ee_slide_ax),
             .evt_valid_o      (pm_valid),
@@ -4688,7 +5015,16 @@ wire ovf_any;
         wire [1:0]  ps_evt_kind   = ps_note_data[10:9];
         // T31b: bits [8:7] are the existing score-frame timbre field.
         // Keep it as a sideband; the 64-bit UART transport and board I/O stay unchanged.
-        wire        ps_evt_timbre_valid = ps_note_valid;
+        // ⭐⭐ 2026-10-15：⭐ **音色 sideband 也必须跟着【出声】那一路闸** ✅
+        //   🔴 **为什么**：⭐ `ps_evt_timbre_valid` 原来是 `= ps_note_valid`（⭐ 裸的）——
+        //      ⚠️ 而它**只服务于发声**（⭐ `seq_arb.score_timbre_valid_i` ⇒ `note_manager`）
+        //      ⇒ ⭐ 若 `bit6=1`（⭐ 只亮灯）的事件仍把音色推下去
+        //      ⇒ 🔴 **它会改掉"当前音色"**（⭐ 那条音符本身不响，⭐ 却影响了下一个响的音）
+        //      ⇒ ⚠️ 那就是**看不见的副作用**（⭐ 违反 `K-106`：⛔ 不许静默）✅
+        //   ✅ **修法**：⭐ 与 `score_valid_i` **同一个判据**（⭐ `~evt_guide_only`）✅
+        //      📌 ⭐ **零回归**：⭐ `bit6` 旧上位机恒 0 ⇒ ⭐ 表达式退化成 `ps_note_valid`
+        //         ⇒ ⭐ **逐位不变** ✅
+        wire        ps_evt_timbre_valid = ps_note_valid & ~evt_guide_only;
         wire [1:0]  ps_evt_timbre = ps_note_data[8:7];
         // ═══════════════════════════════════════════════════════════════════
         //   ⚠️ **旧的二选一写法（⭐ 保留痕迹，⭐ 已被 `seq_arb` 取代）**：
@@ -5150,7 +5486,46 @@ wire ovf_any;
             //  ⭐⭐ 2026-10-14：⭐ **`'U'` 指引模式 ⇒ 闸住曲谱的【出声】那一路** ✅
             //     📌 ⭐ `guide_lamp` 读的是【上游】的 `ps_note_valid` ⇒ ⭐ **LED 照常** ✅
             //     📌 ⭐ 节拍器/鼓机走源 B ⇒ ⛔ 不受影响 ✅
-            .score_valid_i    ((SCORE_UART_ENABLE & ~guide_only_r) ? ps_note_valid : 1'b0),
+            //
+            //  ⭐⭐ 2026-10-15：⭐ **再叠一层【逐事件】的闸**（⭐ 保留位 `bit6` ✅）
+            //     ⭐ `evt_guide_only = ps_note_data[6]`（⭐ 见模块层那段长注释 ✅）
+            //     ⇒ ⭐ `bit6 = 1` 的事件**不进 `seq_arb`** ⇒ ⭐ **不出声** ✅
+            //        ⭐ 而它的 LED 由 `u_guide_lamp` 那一路照常点亮 ✅
+            //
+            //  ⭐ **两种机制【并存】（⭐ 用户建议 · ⭐ 本项目采用 ✅）**：
+            //     · ⭐ 全局 `'U'`（`guide_only_r`）⇒ ⭐ **门掉整条流**（⭐ 逐位不变 ✅）
+            //     · ⭐ 逐事件 `bit6`            ⇒ ⭐ **再门掉被标记的那几条** ✅
+            //     ⇒ ⭐ 于是 `'U'` 的**既有行为逐位不变**（⭐ 零回归 ✅）
+            //        ＋ ⭐ 上位机**不按 `'U'` 也能**逐事件指定（⭐ 新功能 ✅）
+            //     📌 ⭐ 两条**真值表**（⭐ 一眼可核 ✅）：
+            //        | `guide_only_r` | `bit6` | 出声 | LED |
+            //        |---|---|---|---|
+            //        | 0 | 0 | ✅ 响 | ⭐ 该响就亮（⭐ 演奏模式原样）|
+            //        | 0 | 1 | ⛔ 不响 | ✅ 亮（⭐ **逐事件模式**）|
+            //        | 1 | 0 | ⛔ 不响 | ✅ 亮（⭐ **`'U'` 全局模式 · 逐位不变**）|
+            //        | 1 | 1 | ⛔ 不响 | ✅ 亮 |
+            //
+            //  🔴🔴 **三条硬约束的落实（⭐ 逐条对照 ✅）**：
+            //     ① ⭐ **⛔ 不动 `'U'` 的既有行为** ——
+            //        ⭐ `guide_only_r = 1` 时本式 **恒 0**（⭐ 与改前**逐位相同** ✅）；
+            //        ⭐ `ps_lead` 也**原样保留**（⭐ 没动它 ✅）⇒ ⭐ 全局模式**零回归** ✅
+            //     ② ⭐ **进不了 `seq_arb` 的音符【不占 voice】** ——
+            //        ⭐ 被门掉 ⇒ ⭐ `seq_arb` 的 `push_score` **不成立**
+            //        ⇒ ⭐ 它**不推 FIFO**、⭐ `score_cnt_o` **不涨**
+            //        ⇒ ⭐ 下游 `note_manager` **根本看不到它** ⇒ ⭐ **必然不占 voice** ✅
+            //        📌 ⭐ **判据**：⭐ `sa_score_cnt`（⭐ `seq_arb.score_cnt_o` 的顶层挂钩 ✅）
+            //     ③ ⭐ **`same_hit` / 挂音纪律** ——
+            //        ⭐ 被标记的音符**根本没有 ON 事件**（⭐ 它压根没进 `seq_arb` ✅）
+            //        ⇒ ⭐ **⛔ 不存在"没配对的 OFF"** ⇒ ⭐ **⛔ 不需要为它补 OFF** ✅
+            //        🔴 **为什么⛔ 不能"补一条 OFF"**：⭐ `note_manager` 的
+            //           `same_hit`（同轴同源 ⇒ 复用）＋ ⭐ `note_off` 按 `(axis, src)` 清 voice
+            //           ⇒ ⚠️ 一条**凭空多出来的 OFF** 会**清掉别人**（⭐ 手弹 / 别的曲谱音）
+            //           ⇒ 🔴 **那才是真的挂音/掉音** ✅
+            //        📌 ⭐ 而且本机制**逐事件**、⭐ 与"上一轮那条是不是 bit6"**无关**
+            //           ⇒ ⚠️ 不存在"ON 被门掉、OFF 却漏过去"的**配对错位** ✅
+            //           （⭐ 因为 **ON 和 OFF 用的是同一个 `bit6` 判据** ✅）
+            .score_valid_i    ((SCORE_UART_ENABLE & ~guide_only_r & ~evt_guide_only)
+                               ? ps_note_valid : 1'b0),
             .score_axis_i     (SCORE_UART_ENABLE ? ps_evt_axis : 4'd0),
             .score_phase_inc_i(SCORE_UART_ENABLE ? ps_evt_inc  : 32'd0),
             .score_velocity_i (SCORE_UART_ENABLE ? ps_evt_vel  : 8'd0),
@@ -5466,6 +5841,11 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             .evt_phase_inc_i (mg_evt_inc),
             .evt_velocity_i  (mg_evt_vel),
             .evt_kind_i      (mg_evt_kind),
+            //  ⭐⭐ 2026-10-15：⭐ **音色也回传**（⭐ 给 ESP32 转 MIDI 的 program change）
+            //     📌 信号**本来就有**（`mg_evt_timbre`，⭐ 见上方 `evt_timbre_o` 的接线）
+            //        ⇒ ⭐ 这里只是**多接一根线**，⛔ 不需要新增任何逻辑 ✅
+            //     📌 帧里放在 `[7]` 的高 4 位（⭐ 原本空着）⇒ ⭐ 帧长不变 ✅
+            .evt_timbre_i    (mg_evt_timbre),
             .tick_step_i     (bg_tick),
             .enable_i        (up_enable_r),
             .ready_i         (up_ready_w),
@@ -6002,8 +6382,49 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             .n_active_o       (mx_n_active)
         );
 
+        // FX is after the complete dry mix (live/score/looper/percussion)
+        // and before master volume. No event, UART or key routing changes.
+        // ⭐⭐ 2026-10-15：⭐ **改成【常例化】+ 运行时参数**（⭐ 原来是编译期 `generate`）✅
+        // ---------------------------------------------------------------------------
+        // 🔴 **为什么必须改**：⭐ 原来是 `if ((FX_EN_MASK[2:0] != 0) || (FX_TREM_DEPTH != 0))`
+        //    的**编译期 `generate`** ⇒ ⭐ `mask=0` 时**整条链根本不综合进去**，
+        //    只剩旁路 ⇒ 🔴 **运行时无论发什么帧都进不了效果器** ✗
+        //    ⚠️ 而且改任何参数都要**重新综合 + 重新 PnR**（几十分钟一轮）✗
+        //
+        // ✅ **现在**：⭐ 无条件例化 `fx_chain`，参数全部来自 `uart_ui` 的运行时寄存器 ✅
+        //    ⇒ ⭐ 串口发一帧就改一个参数，**当场可听** ✅
+        //
+        // ⚠️ **代价（必须写清）**：⭐ 旁路时**不再逐拍相同** ——
+        //    · ⭐ 数值**仍然逐样本相同**（`en_mask=0` 且 `trem_depth=0` 时链是恒等 ✅）
+        //    · ⚠️ 但**多了 `PIPE_TOTAL` 拍延迟**（⭐ 实测 19 clk = 380 ns @50 MHz）
+        //    ⇒ ⭐ 380 ns 相对音频周期（20.5 µs @48.8 kHz）是 **1.9%**，**听不出来** ✅
+        //    📌 这是**为了"上板可调"必须付的代价** —— 用户 2026-10-15 明确要求 ✅
+        //
+        // 📌 **零回归的口径相应更新**：
+        //    旧口径 = "输出**逐拍**相同"
+        //    ⭐ 新口径 = "输出**逐样本**相同，整体延迟 19 拍" ✅
+        //    （⭐ 判据 `tb_fx_chain` 验的正是"数值恒等"这一条 ✅）
+        wire signed [SAMPLE_W-1:0] fx_sample;
+        wire                      fx_valid;
+        fx_chain #(
+            .SAMPLE_W(SAMPLE_W), .AW(14), .AW_CH(11)
+        ) u_fx (
+            .clk_i(clk), .rst_n_i(rst_n_sync),
+            .valid_i(mx_valid), .sample_i(mx_sample),
+            .en_mask_i(ui_fx_mask),
+            //  ⚠️ `dist_sel_i` 没有运行时寄存器 —— ⭐ 模块里 sel 1/2/3 **语义上就等于 0**
+            //     （⭐ 都是同一个硬削，⛔ 不是三个新算法）⇒ ⭐ 接 0 与接任何值等价 ✅
+            .dist_sel_i(2'd0), .dist_gain_i(ui_fx_gain), .dist_trim_i(ui_fx_trim),
+            .dly_delay_i(ui_fx_dlylen), .chor_delay_i(ui_fx_chorlen),
+            .dly_mix_i(ui_fx_mix), .dly_fb_i(ui_fx_fb),
+            .trem_depth_i(ui_fx_depth), .trem_rate_i(ui_fx_rate),
+            .valid_o(fx_valid), .sample_o(fx_sample),
+            .en_mask_o(), .dly_active_o(), .chor_active_o(), .dly_primed_o(),
+            .dist_clip_cnt_o(), .trem_lfo_o(), .pipe_o()
+        );
+
         // ⭐⭐ 主混音 + 数字主音量 + 静音斜坡（master_mix，W3c 出声通路最后一级）
-        //    ⚠️ 位置：`tdm_render_mixer` → `master_mix` → `i2s_tx`
+        //    位置：tdm_render_mixer → FX/compile bypass → master_mix → i2s_tx
         //    ⭐ 增益由 P4 CH1 的 64 点对数 LUT 提供；`RIGHT_ADC_ENABLE=0`
         //       时 `right_analog_ctrl` 输出 0x7FFF，保证旧硬件仍是满音量。
         //    ⭐ 静音斜坡：开机与调节均平滑，避免可闻"啪"声。
@@ -6017,8 +6438,8 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             .clk_i        (clk),
             .rst_n_i      (rst_n_sync),
             .sample_tick_i(tick_audio),
-            .valid_i      (mx_valid),
-            .sample_i     (mx_sample),
+            .valid_i      (fx_valid),
+            .sample_i     (fx_sample),
             .gain_i       (master_gain),
             .valid_o      (mm_valid),
             .sample_o     (mm_sample),
@@ -6347,7 +6768,16 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
     end
 
     // ⭐ 有故障 ⇒ ⭐ 快闪（⭐ 半周期缩到 1/8 ✅）
-    wire [31:0] hb_div_eff = fault_sticky ? (HEARTBEAT_DIV >> 3) : HEARTBEAT_DIV;
+    //  ⭐⭐ 2026-10-15：⭐ **X-safe 化** —— 原来是 `fault_sticky ? A : B`：
+    //     🔴 若 `fault_sticky` 是 **X**（未初始化 / 上游时钟域坏了）⇒ `hb_div_eff` 也是 X
+    //        ⇒ ⭐ 下面 `hb_cnt >= hb_div_eff - 1` **恒为 X（判假）** ⇒ 🔴 **`hb` 永不翻转**
+    //        ⇒ ⭐ 灯停在最后一次的值 = **【常亮】或【常灭】** ✅
+    //     📌 这条本文件 `:2079` 早就写明过 —— 但当时只当"陷阱记录"，⛔ 没堵 ✅
+    //     🔴 **为什么必须堵**：⭐ "灯死"是**最坏的呈现** —— 它长得像"板子没上电 / 烧录失败"，
+    //        会把排查往【时钟/配置】带偏（⭐ 用户 2026-10-15 实测遇到"心跳灯常亮"）✅
+    //     ✅ **修法**：⭐ 用 `!== 1'b0` ⇒ **X 与 1 都当作"有故障"** ⇒ 表现为 **【快闪】**
+    //        ⇒ ⭐ 那是一个**文档里定义过的、可诊断的**状态 ✅（⛔ 不再是"灯死"）
+    wire [31:0] hb_div_eff = (fault_sticky !== 1'b0) ? (HEARTBEAT_DIV >> 3) : HEARTBEAT_DIV;
 
     reg [31:0] hb_cnt;
     reg        hb;
@@ -6364,7 +6794,34 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         end
     end
 
-    assign led_heartbeat = hb;
+    // ⭐⭐ 2026-10-15：⭐ **"摇杆在中位"接到心跳灯** —— ⭐ **现场判据**（⭐ `P0-4` 那类问题）✅
+    //   ⭐ **语义（⭐ 上板一眼可辨，⛔ 不用仪器）**：
+    //      · ⭐ **常亮** = 摇杆在**中位**（⭐ 正常静止状态 ✅）
+    //      · ⭐ **闪**（慢闪/快闪**照旧**） = **离开了中位** ⇒ ⭐ 有拨弦动作在发生 ✅
+    //      · ⭐ **拨弦时会灭一下** ⇒ ⭐ **那一下就是"事件被采到"的现场证据** ✅
+    //   📌 **为什么接到心跳灯**（⭐ 不是随便找盏灯）：
+    //      🔴 `syn_keep` 已被**网表**证明**无效**（⭐ `eb_hw` 在网表里 **0 次**、
+    //         `reserved_in_xor` 的输入被报 **unused**）
+    //      ⇒ ⭐ **唯一有效的保命办法是"给它一个真消费者"** ✅
+    //      ⇒ ⭐ 于是 `pluck_both_low`（⭐ 以及 `u_async_pluck_capture` 那一锥）
+    //         **不会再被综合剪掉**，⭐ 而且**上板肉眼可读** ✅
+    //   📌 **它同时回答"这一拨到底有没有被采到"**：⭐ 拨一下 ⇒ 灯灭一下 ⇒ 采到了 ✅
+    //      （⭐ 若拨了灯【纹丝不动】⇒ ⭐ 中位判定没动过 ⇒ 🔴 沿没来 / 接线没接上 ✅）
+    //   ⚠️ **代价（⭐ 如实标注，⛔ 不隐瞒）**：⭐ 中位时 `fault_sticky` 的**快闪被遮住**
+    //      ⇒ ⭐ 想"在中位也看得见故障"要另改判据（⭐ 例如
+    //         `pluck_center_w ? (fault_sticky !== 1'b0 ? hb : 1'b1) : hb`）
+    //      —— ⭐ **那是待拍板的事**，⛔ 本行**按用户明确要求**写 ✅
+    //   📌 **原语义完整保留**：⭐ `hb`（⭐ 慢闪 / 故障快闪）**原样作为 else 分支** ✅
+    //  ⭐⭐ 2026-10-15（用户拍板）：⭐ **中位常亮【不遮住】故障快闪** ——
+    //     🔴 代价（接灯队如实报的）：中位是**绝大多数空闲时间** ⇒ 若简单地 `pluck_center_w ? 1'b1 : hb`
+    //        ⇒ ⭐ `fault_sticky` 的**快闪被遮住**（`af_fault` / `mx_fault` / `ovf` 都靠它表达）✅
+    //     ✅ 兼得写法（三态全保住）：
+    //        · ⭐ 中位 **且无故障** ⇒ **常亮**（"摇杆在中位"的现场判据）✅
+    //        · ⭐ 中位 **但有故障** ⇒ **快闪**（⭐ 故障指示不被遮住）✅
+    //        · ⭐ **离开中位**     ⇒ **照常闪**（慢闪 / 快闪）✅
+    //     📌 `fault_sticky !== 1'b0`（⛔ 不是 `fault_sticky`）⇒ ⭐ **X 也当"有故障"** ⇒ 表现为快闪，
+    //        ⛔ 不会让灯"死"（⭐ 与 `hb_div_eff` 的 X-safe 化同一口径）✅
+    assign led_heartbeat = pluck_center_w ? ((fault_sticky !== 1'b0) ? hb : 1'b1) : hb;
 
     // ═══════════════════════════════════════════════════════════════════════
     // ⭐⭐ LED 演奏指引链（⭐ 丙 · 2026-09-24 接入）
@@ -6417,7 +6874,47 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         .clk_i          (clk),
         .rst_n_i        (rst_n_sync),
         //  ⭐ 来自 `g_sound.u_play_seq`（⭐ 模块级中间量 —— 跨 generate 作用域 ✅）
-        .note_valid_i   (ps_note_valid),
+        //
+        //  ⭐⭐ 2026-10-15：⭐ **LED 那一路的闸 = 全局 `'U'` 【或】 逐事件 `bit6`** ✅
+        //
+        //  ⭐ **需求原文**（⭐ `ESP32侧需求-引导模式改成上位机逐事件控制-20261015.md`）：
+        //     ⭐ `guide_lamp.note_valid_i = ps_note_valid & evt_guide_only`
+        //     ⇒ ⭐ **LED 只指引被标记的那一轨** ✅
+        //
+        //  ⚠️ **为什么写成 `| guide_only_r`（⭐ 这是【有意的】偏离需求原文）**：
+        //     🔴 **硬约束 ①：⛔ 不要动 `'U'` 的既有行为（零回归）** ✅
+        //     ⭐ `'U'` 全局模式下，上位机**不会**逐事件置 `bit6`（⭐ 它整条流都当指引）
+        //     ⇒ ⚠️ 若**严格**照原文写 `& evt_guide_only`
+        //        ⇒ 🔴 **`'U'` 模式下 LED 一盏都不亮** —— 而它**今天全亮**
+        //        ⇒ 🔴 **这就是破坏 `'U'` 的既有行为** ✅
+        //     ✅ 加 `| guide_only_r` 后**两个模式都对**（⭐ 真值表 ✅）：
+        //        | `guide_only_r` | `bit6` | 出声 | LED |
+        //        |---|---|---|---|
+        //        | 0 | 0 | ✅ 响 | ⭐ 不指引（⭐ **演奏模式原样**）|
+        //        | 0 | 1 | ⛔ 不响 | ✅ **指引**（⭐ 逐事件模式 · 需求要的）|
+        //        | 1 | 0 | ⛔ 不响 | ✅ **指引**（⭐ `'U'` 全局 · **逐位不变**）|
+        //        | 1 | 1 | ⛔ 不响 | ✅ **指引** |
+        //     📌 ⭐ **两种机制并存**：⭐ 全局 `'U'` 仍然门掉整条流（⭐ 出声那一路照旧），
+        //        ⭐ 逐事件 `bit6` **再**门掉被标记的那几条 ✅
+        //     📌 ⚠️ 2026-10-15 收尾更正：⭐ 本式**后来又加了第三项 `| ~evt_guide_seen_r`**
+        //        ⇒ ⭐ **`guide_only_r = 0` 时【不再】逐字等于需求原文**
+        //        ⚠️ **原因**：⭐ 需求原文与 `tb_top_score_path` 判据 `Ca` **直接冲突**
+        //           （⭐ 详见 `evt_guide_seen_r` 声明处那一段 ✅）
+        //
+        //  🔴 **为什么不按 `bit6` 去闸 `play_seq.note_valid_o` 本身**：
+        //     ⚠️ 那会让 `'U'` 模式下 `ps_note_valid` 对 LED 也变成 0
+        //     ⇒ 🔴 **同样破坏 `'U'`**（⭐ 而且会连带影响 `ps_evt_timbre_valid` 等 ✅）
+        //     ⇒ ⭐ **闸在【消费者】这一级**（⭐ 出声 / ⭐ LED **各闸各的**）才最稳 ✅
+        //
+        //  📌 ⭐ **`ps_note_data` 与 `evt_guide_only` 是【同一条线】**（⭐ `[6]` 切片）
+        //     ⇒ ⭐ `note_valid_i` 拉高的那一拍，⭐ `note_data_i[6]` **必然就是那个标记** ✅
+        //        （⭐ `ps_note_data` 是**锁存**输出、⭐ 一直保持到下一个事件 ✅）
+        //     ⇒ ⭐ 两路**不会错拍** ✅
+        //  ⭐⭐ 2026-10-15（收尾 · CLOSER）：⭐ **再加第三个自由度 `~evt_guide_seen_r`** ✅
+        //     ⭐ 语义：⭐ **这条流从未用过 `bit6` ⇒ 退化成裸 `ps_note_valid`**（⭐ 零回归 ✅）
+        //     📌 ⭐ 完整理由 / 代价 / 待裁定项见 `evt_guide_seen_r` 的声明处
+        //        （⭐ 模块级 · ⭐ 就在 `bit6` 解码 `evt_guide_only` 的旁边 ✅）
+        .note_valid_i   (ps_note_valid & (guide_only_r | evt_guide_only | ~evt_guide_seen_r)),
         .note_data_i    (ps_note_data),
         //  ⭐ 消隐用：⭐ 与 `led_data` **同一个源**（⭐ 保证口径一致 ✅）
         .key_active_i   (ee_key_on),
@@ -6629,7 +7126,7 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         .enc_act_i  (led_enc_act),          // #5 EC11 刚被动过（临时色）
         .enc_obj_i  (enc_obj_r),            // #5 EC11 对象：0=BPM · 1=音高
         .scope_mode_i(scope_mode_r),        // #6 HDMI：0=波形 · 1=李萨如
-        .fx_en_i    (ui_fx_en),             // #7 效果器使能（当前恒 0，留位）
+        .fx_en_i    (ui_fx_en),             // #7 效果器使能（⭐ 2026-10-15 已接活 = |mask[2:0]）
         .fx_sel_i   (ui_fx_sel),            // #7 效果器选择
         .led_col_o  (led_col_flat)
     );

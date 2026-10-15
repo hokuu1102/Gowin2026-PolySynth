@@ -1,4 +1,4 @@
-﻿NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=4 BYTE_CLK=500 HEADER=a5 N_CMD=21 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+﻿NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=4 BYTE_CLK=500 HEADER=a5 N_CMD=25 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
 === tb_calib_cmd ===
   ok  : 'T' outside a frame raises tare_req
   ok  : 'T' does NOT raise span_req or abort_req
@@ -31,6 +31,20 @@
   ok  : 'J' does NOT cross-fire the other new commands
   ok  : cmd_cnt_o counted 'F' + 'G' + 'G' + 'J'
   ok  : each new command pulse is exactly ONE cycle wide (F x1, G x2, J x1)
+  ok  : 'A' outside a frame raises mode_sw_req exactly once
+  ok  : 'A' does NOT cross-fire any other command
+  ok  : 'A' increments cmd_cnt_o (4 -> 5)
+  ok  : 'A' can be sent repeatedly (2nd pulse => cumulative 2)
+  ok  : each 'A' pulse is exactly ONE cycle wide (2 pulses => 2 cycles)
+  ok  : 'A' increments cmd_cnt_o again (5 -> 6)
+  ok  : 'A' INSIDE a frame payload raises NOTHING (frame-safe)
+  ok  : 'O' is accepted as a COMMAND (cmd_cnt_o counts it, not unknown_cnt_o)
+  ok  : 'O' raises upstream_req_o exactly once
+  ok  : 'O' can be sent repeatedly (2nd pulse => cumulative 2)
+  ok  : 'O' pulse is exactly ONE cycle wide (checked late)
+  ok  : 'O' INSIDE a frame payload raises NOTHING (frame-safe)
+  ok  : in_frame_cnt_o counted all 8 in-frame 'O' letters
+  ok  : cmd_cnt_o did NOT count the in-frame 'O' letters
   ok  : bare 'H' outside a frame arms but raises NO value pulse yet
   ok  : 'H' + frame: first payload byte is taken as the semitone value
   ok  : in-frame 'H' payload letters do NOT fire extra value pulses
@@ -79,8 +93,14 @@
   ok  : 'Q' => bpm_val_o carries that payload byte (140)
   ok  : after the arm is consumed, a later normal frame must NOT re-emit (arm eats ONE frame)
   ok  : 'Q' passes the raw byte through (clamping is play_seq's job, not calib_cmd's)
+--- 鍒ゆ嵁锛氣瓙 鏈厬鐜扮殑鑷傘€愪笉璁告案涔呮寕鐫€銆戯紙猸?2026-10-14 淇級---
+  ok  : 'Q' armed before the stray-byte test
+  ok  : a STRAY byte after 'Q' voids the arm -- the next frame's payload[0] is NOT eaten as BPM
+  ok  : non-vacuous: the SAME frame DOES emit when freshly armed
+  ok  : the SAME stray-byte rule protects the 'H' arm (transpose is not silently set)
+  ok  : a PAUSE (no bytes at all) between 'Q' and the frame still works -- arm survives
 
-PASS: calib_cmd parses T/S/X/M/F/G/H/J only at frame boundaries, ignores payload letters, counts what it drops, takes the 'H' framed value from the next frame's first payload byte, and self-heals after a half frame
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_cmd.sv:615: $finish called at 93770000 (1ps)
+PASS: calib_cmd parses T/S/X/M/F/G/H/J only at frame boundaries, ignores payload letters, counts what it drops, takes the 'H' framed value from the next frame's first payload byte, self-heals after a half frame, and voids an unfulfilled arm as soon as any non-header byte breaks the promise
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_cmd.sv:751: $finish called at 99050000 (1ps)
 
 

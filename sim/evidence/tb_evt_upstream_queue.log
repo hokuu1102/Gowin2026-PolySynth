@@ -1,0 +1,4 @@
+﻿PASS: upstream full queue preserves accepted events and capture timestamps
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_upstream_queue.sv:49: $finish called at 4680000 (1ps)
+
+

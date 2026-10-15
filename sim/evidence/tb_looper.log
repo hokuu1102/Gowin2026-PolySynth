@@ -76,14 +76,22 @@
   ok  : DUMP-d (NON-VACUOUS) the two entries differ => the address really selects
   ok  : DUMP-e axis[22:19] of entry 0 == 3 (as recorded)
   ok  : DUMP-f axis[22:19] of entry 1 == 9
-  ok  : DUMP-g inc[43:23] of entry 0 == 0x123456 (fits in 21 bits, so lossless)
+  ok  : DUMP-g 0x123456 sample increment exports as clock-unit 0x48d
   ok  : DUMP-h vel[18:11] of entry 0 == 77
   ok  : DUMP-i kind[10:9] of entry 0 == 0
-  ok  : DUMP-j no clip flag for the two small-inc entries (lossless)
-  ok  : DUMP-k (NON-VACUOUS) a >21-bit inc DOES raise the clip flag
-  ok  : DUMP-l ...and the 21-bit field keeps only the low bits (the truncation is real)
+  ok  : DUMP-j nonzero low ten bits report quantization loss
+  ok  : DUMP-k exact multiple of 1024 exports losslessly
+  ok  : DUMP-l sample increment 0x00800000 exports as 8192, not zero
   ok  : DUMP-m with dump_en=0 the read port is back on the playback pointer (no interference)
-PASS: looper T37 record/replay, no-hang incl. axis 15, clear, same-tick, overflow
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:893: $finish called at 187600000 (1ps)
+== 9: CLEARPIPE -- one-cycle clear pulse in => exactly one clear out ==
+  ok  : CLEARPIPE-a setup: the layer starts empty
+  ok  : CLEARPIPE-b setup: 2 events stored => the layer is non-empty
+  ok  : CLEARPIPE-c (PIPE) the pulse sits in the pipeline register for exactly 1 cycle
+  ok  : CLEARPIPE-d (PIPE) and it is gone again => the pulse is NOT stretched into a level
+  ok  : CLEARPIPE-e (NON-VACUOUS) a SINGLE-cycle pulse still clears the layer after the pipeline
+  ok  : CLEARPIPE-f the clear fired EXACTLY ONCE: a later recording is not wiped again
+  ok  : CLEARPIPE-g ... and it is still there 60 cycles later (no lingering second clear)
+PASS: looper T37 record/replay, no-hang incl. axis 15, clear, same-tick, overflow, clear-pipeline one-shot
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:957: $finish called at 206860000 (1ps)
 
 

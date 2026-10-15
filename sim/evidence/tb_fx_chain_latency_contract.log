@@ -1,0 +1,9 @@
+﻿NOTE [fx_delay] DEPTH=2048 samples = 41 ms @48828.125Hz | MEM_W=18 => 36864 bit / 18432 bit-per-block = 2 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=2048 samples = 41 ms @48828.125Hz | MEM_W=18 => 36864 bit / 18432 bit-per-block = 2 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118
+OBSERVED_CHAIN_LATENCY=19 metadata=19
+PASS: fx_chain public latency contract: 128 samples, dry and clipping path, production RAM parameters, exact 19-cycle valid and metadata
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_fx_chain_latency_contract.sv:58: $finish called at 21280000 (1ps)
+
+

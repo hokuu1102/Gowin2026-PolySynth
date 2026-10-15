@@ -84,6 +84,52 @@ module tb_seq_arb;
         .live_cnt_o(live_cnt), .score_cnt_o(score_cnt), .demo_cnt_o(demo_cnt)
     );
 
+    // ══════════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-15（方案 B · 任务 3）：⭐ **四件鼓的 `inc` 常量【单一来源】** ✅
+    //
+    //  🔴 **为什么必须新增这一段**（⭐ 裂空发现的真缺口）：
+    //     ⭐ 四件鼓的**身份全靠 `inc`**（⭐ `note_manager` 按 `inc` 分档 + `oscillator_bank`
+    //        按 `inc` 选扫频深度），⚠️ 而原来的 `drum_src_blk` **只验 `evt_src_o`**（源标签）
+    //     ⇒ 🔴 **ESP32 若把 axis↔inc 配错**（如 Kick 的轴 12 配了 Snare 的 `inc`）
+    //        ⇒ ⭐ **FPGA 侧全绿，上板四件音色全错** ✅
+    //     ⇒ ⭐ 本段 + 下面 4 条 `inc` 判据把这个缺口堵上 ✅
+    //
+    //  ⭐ **单一来源**：⭐ 照 `tb_key_drum.sv:87-92` 的做法 ——
+    //     ⭐ **层次引用 `drum_gen` 的 `localparam INC_*`**，⛔ 不在这里抄一遍数字
+    //     （⚠️ 抄错一个数就静默变乐器 —— ⭐ 那正是 `tb_key_drum.sv` 当年立的纪律）
+    //  ⚠️ **必须用 `wire` 而⛔ 不是 `localparam`** —— ⭐ 层次引用不能出现在常量表达式里 ✅
+    //  📌 **本实例【不参与激励】**：⭐ `tick_i=0` / `transport_i=0` / `pos_reset_i=0`
+    //     ⇒ ⭐ 它**永远不发事件** ⇒ ⚠️ 对下面所有判据零影响（⭐ 只是把常量带进来）✅
+    // ══════════════════════════════════════════════════════════════════════════
+    wire        dg_evt_valid;
+    wire [3:0]  dg_evt_axis;
+    wire [31:0] dg_evt_inc;
+    wire [7:0]  dg_evt_vel;
+    wire [1:0]  dg_evt_kind;
+    wire [15:0] dg_evt_cnt;
+    wire [3:0]  dg_step_cnt;
+    wire [3:0]  dg_hit_cnt;
+    wire [15:0] dg_step_evt_cnt;
+    wire        dg_cfg_warn;
+    drum_gen u_drum_gen_ref (
+        .clk_i(clk), .rst_n_i(rst_n),
+        .pattern_id_i(2'd0),
+        .tick_i(1'b0), .tick_cnt_i(16'd0), .bar_start_i(1'b0),
+        .transport_i(1'b0), .pos_reset_i(1'b0),
+        .evt_valid_o(dg_evt_valid), .evt_axis_o(dg_evt_axis),
+        .evt_phase_inc_o(dg_evt_inc), .evt_velocity_o(dg_evt_vel),
+        .evt_kind_o(dg_evt_kind), .evt_cnt_o(dg_evt_cnt),
+        .step_cnt_o(dg_step_cnt), .hit_cnt_o(dg_hit_cnt),
+        .step_evt_cnt_o(dg_step_evt_cnt), .cfg_warn_o(dg_cfg_warn)
+    );
+    //  ⭐ 四件鼓的"身份"常量（⭐ `drum_gen.v:180-186`）——
+    //     ⭐ **方案 B 的轴↔件映射（⭐ 与 ESP32 侧约定）**：
+    //        ⭐ 轴 **12 = Kick** · ⭐ **13 = Snare** · ⭐ **14 = HiHat** · ⭐ **15 = Tom** ✅
+    wire [31:0] REF_KICK  = u_drum_gen_ref.INC_KICK;
+    wire [31:0] REF_SNARE = u_drum_gen_ref.INC_SNARE;
+    wire [31:0] REF_HIHAT = u_drum_gen_ref.INC_HIHAT;
+    wire [31:0] REF_TOM   = u_drum_gen_ref.INC_TOM;
+
     // ── 收集出口事件（⭐ 用"轴"当身份，⭐ 各源用不同轴号便于识别）────────────
     integer n_out = 0;
     reg [AXIS_W-1:0] out_ax [0:127];
@@ -114,10 +160,35 @@ module tb_seq_arb;
     //     📌 ⭐ 轴 **15 = 鼓**（⭐ 与 ESP32 侧的约定 ✅）；⭐ 轴 **2 = 普通乐音**（⭐ 对照组）✅
     reg [2:0] src_of_ax15 = 3'd7;
     reg [2:0] src_of_ax2  = 3'd7;
+    //  ⭐⭐ 2026-10-15（**方案 B**）：⭐ 新增 4 路捕获 ——
+    //     axis 12/13/14 = 四件鼓的另外三个轴 · axis 11 = ⭐ **边界非空洞性**
+    reg [2:0] src_of_ax12 = 3'd7;
+    reg [2:0] src_of_ax13 = 3'd7;
+    reg [2:0] src_of_ax14 = 3'd7;
+    reg [2:0] src_of_ax11 = 3'd7;
+    //  ⭐⭐ 2026-10-15（方案 B · 任务 3）：⭐ **四件鼓的 `inc` 捕获**（⭐ 与 `src` 分开存）
+    //     🔴 **为什么必须单独抓 `inc`**：⭐ 四件鼓的**身份全靠 `inc`** ——
+    //        ⭐ `src_of_axNN` 只能证明"这条被判成鼓"，⛔ **证明不了"是哪一件鼓"** ✅
+    //     ⭐ 哨兵值 `INC_NONE`：⭐ 与任何真实 `INC_*` 都不同 ⇒
+    //        ⚠️ **事件没出来就停在哨兵值** ⇒ ⭐ 判据必红（⛔ 不会"什么都没验到还绿"）✅
+    localparam [31:0] INC_NONE = 32'hDEAD_BEEF;
+    reg [31:0] inc_of_ax15 = INC_NONE;
+    reg [31:0] inc_of_ax12 = INC_NONE;
+    reg [31:0] inc_of_ax13 = INC_NONE;
+    reg [31:0] inc_of_ax14 = INC_NONE;
     always @(posedge clk) begin
         if (rst_n && evt_v) begin
             if (evt_ax == 4'd15) src_of_ax15 = evt_src;
             if (evt_ax == 4'd2)  src_of_ax2  = evt_src;
+            if (evt_ax == 4'd12) src_of_ax12 = evt_src;
+            if (evt_ax == 4'd13) src_of_ax13 = evt_src;
+            if (evt_ax == 4'd14) src_of_ax14 = evt_src;
+            if (evt_ax == 4'd11) src_of_ax11 = evt_src;
+            //  ⭐⭐ 任务 3：⭐ **同时抓 `inc`** —— ⭐ 轴 ⇒ 件 的映射就在这里被钉住 ✅
+            if (evt_ax == 4'd15) inc_of_ax15 = evt_inc;
+            if (evt_ax == 4'd12) inc_of_ax12 = evt_inc;
+            if (evt_ax == 4'd13) inc_of_ax13 = evt_inc;
+            if (evt_ax == 4'd14) inc_of_ax14 = evt_inc;
         end
     end
 
@@ -401,23 +472,76 @@ module tb_seq_arb;
         $display("--------------------------------------------------");
 
         // ═══════════════════════════════════════════════════════════════════════
-        //  ⭐⭐ 2026-10-14：⭐ **曲谱里的鼓（`axis==15`）⇒ `evt_src_o == SRC_KDRUM`** ✅
+        //  ⭐⭐ 2026-10-14：⭐ **曲谱里的鼓（`axis >= 12`，即 12/13/14/15）⇒ `evt_src_o == SRC_KDRUM`** ✅
         //     ⭐ 依据：⭐ `files/20-代码/FPGA侧答复-鼓谱发声与XOR更正-20261014.md` §二 ✅
         //     🔴 **为什么必须**：⭐ `note_manager` 的鼓池只认
         //        `SRC_AUX`（⭐ 源 B = 节拍器/鼓机）**或** `SRC_KDRUM`（⭐ 键盘打鼓）
         //        ⇒ ⚠️ 若这条不成立 ⇒ 🔴 **PC 灌的鼓会被判成乐音、推成音高** ✅
         //        （⭐ 这正是用户听到"鼓被推成音高"的根因 ✅）
-        //     📌 ⭐ **两条都要**：⭐ ① 轴 15 必须是鼓；⭐ ② **轴≠15 必须仍是曲谱** ——
+        //     📌 ⭐ **两条都要**：⭐ ① 轴 12/13/14/15 必须是鼓；⭐ ② **轴 ≤ 11 必须仍是曲谱** ——
         //        ⚠️ 少了 ② 就分不清"修对了"和"改过头了"（⭐ 把整条曲谱都打成鼓）✅
-        // ═══════════════════════════════════════════════════════════════════════
+        //  ⭐⭐ 2026-10-15（方案 B · 任务 3）：⭐ **再加 4 条 `inc` 判据** ——
+        //     🔴 **为什么**：⭐ 四件鼓的**身份全靠 `inc`**（⭐ `note_manager` 按 `inc` 分档），
+        //        ⚠️ 而上面那些判据**只验 `evt_src_o`（源标签）** ⇒
+        //        🔴 **`inc` 字段若在 `seq_arb` 里被截断 / 串位 ⇒ FPGA 侧全绿、上板四件音色全错** ✅
+        //     ⭐ 轴↔件（⭐ 与 ESP32 侧约定）：⭐ **12=Kick · 13=Snare · 14=HiHat · 15=Tom** ✅
+        //     ⭐ `inc` 常量取 `drum_gen.INC_*`（⭐ 单一来源，⛔ 不抄数字）✅
+        //     📌 ⭐ **语义核对**：⭐ `seq_arb` 的 `evt_phase_inc_o` 是 **整字透传**
+        //        （⭐ `pack_src` 存 `inc`，弹出时 `pop_data[IN_O +: PHASE_W]` 原样出）
+        //        ⇒ ⭐ 本判据钉的是 **`seq_arb` 出口**，⛔ 不是 `top.v:4844` 那级 `<<10` ✅
+        //
+        //  ⭐⭐⭐ 2026-10-15（清道夫 SWEEPER）：⭐ **判据口径【收窄】—— 必须诚实** ✅
+        //  ---------------------------------------------------------------------------
+        //  🔴 **原来这里的口径是错的**（⭐ 磐石逐行核实）：⭐ 上面那句
+        //     "ESP32 若把 axis↔inc 配错 ⇒ FPGA 侧全绿、上板四件音色全错" **暗示**
+        //     这 4 条能验"**ESP32 的 axis↔inc 配对**" ⇒ ⚠️ **实际上验不了**：
+        //        · ⭐ 本 tb **自己**把 `score_axis` 与 `score_inc` **一起**驱动进去
+        //          （⭐ `score_inc = REF_KICK` …）⇒ ⭐ **配对是 tb 喂的，⛔ 不是被测对象** ✗
+        //        · ⭐ 它真正钉住的只有一件事：⭐ **`seq_arb` 把 `inc` 字段原样透传** ✅
+        //  ⭐ **修正后的口径**：⭐ **本判据只验 `seq_arb` 的【字段切片透传】**，
+        //     ⛔ **不验 ESP32 的 axis↔inc 配对**（⭐ 那需要 PC/ESP32 侧的真帧）✅
+        //
+        //  🔴 **并且：`INC_*` 的【满量程值】在生产链路上【不可达】—— 必须写明**：
+        //     ⭐ 曲谱通路在 `top.v` 先做了一级 `<<10` 量化：
+        //        `top.v:4844  wire [31:0] ps_evt_inc = {1'b0, ps_note_data[43:23], 10'b0};`
+        //        （⭐ = **21 位字段 << 10** ⇒ ⭐ **低 10 位恒 0**）
+        //     ⇒ ⭐ 生产链路上 `score_phase_inc_i` 只能是 **`(INC_* >> 10) << 10`**：
+        //        · Kick  `5368709`  ⇒ `5367808`（⭐ 差 **901**）
+        //        · Snare `42949673` ⇒ `42949632`（⭐ 差 **41**）
+        //        · HiHat `171798691`⇒ `171798528`（⭐ 差 **163**）
+        //        · Tom   `17895697` ⇒ `17895424`（⭐ 差 **273**）
+        //     ⇒ 🔴 **"生产值 == `INC_*`"这条期望在本 tb 里【不可达】** ——
+        //        ⚠️ 因为本 tb 把 `INC_*` **直接**灌进 `seq_arb`（⭐ 绕过了 `top.v` 那一级）
+        //        ⇒ ⭐ **本判据【不覆盖】那一级量化** ✅
+        //  📌 **未覆盖的缺口（⭐ 留档，⛔ 不假装已覆盖）**：⭐ "`top.v` 的 `<<10` 量化
+        //     是否把四件鼓的 `inc` 压成同一个值 / 是否越出 `note_manager` 的分档边界"
+        //     ⇒ 🔴 **本轮【没有】判据**（⭐ 要验它得在 `tb_top_*` 层灌真曲谱帧）✅
+        //  ═══════════════════════════════════════════════════════════════════════
         begin : drum_src_blk
+            //  ═══════════════════════════════════════════════════════════════════
+            //  ⭐⭐ 2026-10-15（方案 B · 任务 2）：⭐ **每条判据【激励之前】各自复位捕获寄存器**
+            //
+            //  🔴 **为什么必须逐条复位**（⭐ 原来只在块首复位一次）：
+            //     ⚠️ 若某条判据的**事件根本没出来** ⇒ 捕获寄存器会**保留上一条的值** ⇒
+            //        🔴 而上一条恰好是对的 ⇒ ⭐ **"什么都没验到"却依然绿** ✗
+            //     ⇒ ⭐ 逐条复位（哨兵 `3'd7` / `INC_NONE`）把两种失败**分开**：
+            //        ⭐ ① **寄存器是死的**（一直停在哨兵）⇒ 判据红
+            //        ⭐ ② **事件没出来**（也停在哨兵）⇒ 判据红
+            //        ⇒ ⭐ **不可能"什么都没验到还绿"** ✅
+            //  ═══════════════════════════════════════════════════════════════════
             do_reset;
-            src_of_ax15 = 3'd7;
+            src_of_ax15 = 3'd7;  inc_of_ax15 = INC_NONE;
             src_of_ax2  = 3'd7;
+            src_of_ax12 = 3'd7;  inc_of_ax12 = INC_NONE;
+            src_of_ax13 = 3'd7;  inc_of_ax13 = INC_NONE;
+            src_of_ax14 = 3'd7;  inc_of_ax14 = INC_NONE;
+            src_of_ax11 = 3'd7;
 
-            // ⭐ ① 轴 15（⭐ 鼓）⇒ 应当是 `SRC_KDRUM`（5）
+            // ⭐ ① 轴 15（⭐ 鼓 · ⭐ **Tom**）⇒ 应当是 `SRC_KDRUM`（5）
+            src_of_ax15 = 3'd7;              // ⭐ 任务 2：⭐ 本条【自己】复位
+            inc_of_ax15 = INC_NONE;
             @(negedge clk);
-            score_v = 1'b1; score_ax = 4'd15; score_inc = 32'h0AAA_0001;
+            score_v = 1'b1; score_ax = 4'd15; score_inc = REF_TOM;
             score_vel = 8'd200; score_kd = 2'd0;
             @(negedge clk);
             score_v = 1'b0;
@@ -427,8 +551,127 @@ module tb_seq_arb;
                 errors = errors + 1;
             end else
                 $display("  ok  : score axis==15 => SRC_KDRUM (5) -- note_manager puts it in the DRUM pool");
+            //  ⭐⭐ 任务 3（2026-10-15）：⭐ **轴 15 ⇒ Tom 的 `inc`**（⭐ 身份，⛔ 不只是"是鼓"）
+            //     🔴 为什么必须单立一条：⭐ 四件鼓的**身份全靠 `inc`** ——
+            //        ⭐ `evt_src_o` 只证明"被判成鼓"，⛔ 证明不了"是哪一件鼓" ✅
+            //        ⇒ ⭐ `inc` 若在 `seq_arb` 里被截断/串位 ⇒ **FPGA 侧全绿、上板四件音色全错** ✅
+            //     ⚠️ **口径（⭐ 2026-10-15 修正）**：⭐ 本条只验 **`seq_arb` 的字段切片透传**，
+            //        ⛔ **不验 ESP32 的 axis↔inc 配对**（⭐ 配对是 tb 自己喂的，⭐ 见块首长注释）✅
+            if (inc_of_ax15 !== REF_TOM) begin
+                $display("FAIL: score axis==15 inc=%0d, expected TOM inc=%0d -- seq_arb field-slice passthrough BROKEN (this check does NOT verify the ESP32 axis<->inc pairing)", inc_of_ax15, REF_TOM);
+                errors = errors + 1;
+            end else
+                $display("  ok  : score axis==15 => TOM inc (%0d) -- seq_arb field slice passthrough only, NOT ESP32 pairing", inc_of_ax15);
 
-            // ⭐ ② 轴 2（⭐ 普通乐音）⇒ 必须**仍是** `SRC_SCORE`（1）
+            // ⭐⭐ ②（**方案 B** 2026-10-15）轴 12 / 13 / 14 ⇒ ⭐ **必须都是 `SRC_KDRUM`（5）**
+            //     🔴 为什么：⭐ 四件鼓分四轴 `12/13/14/15` ⇒ 四件**都**要被判成鼓，
+            //        否则轴 12/13/14 会落进 `SRC_SCORE` ⇒ ⭐ 鼓的 `inc` 被当【音高】发声 = 电子音。
+            //     ⭐ 依据：`files/20-代码/FPGA侧答复-鼓机多声部方案B-20261015.md`
+            src_of_ax12 = 3'd7;              // ⭐ 任务 2：⭐ 本条【自己】复位
+            inc_of_ax12 = INC_NONE;
+            @(negedge clk);
+            score_v = 1'b1; score_ax = 4'd12; score_inc = REF_KICK;
+            score_vel = 8'd200; score_kd = 2'd0;
+            @(negedge clk);
+            score_v = 1'b0;
+            repeat (10) @(negedge clk);
+            if (src_of_ax12 !== 3'd5) begin
+                $display("FAIL: score axis==12 came out as src=%0d, expected SRC_KDRUM=5 (方案B: 四件鼓分四轴)", src_of_ax12);
+                errors = errors + 1;
+            end else
+                $display("  ok  : score axis==12 => SRC_KDRUM (5) -- Kick");
+            //  ⭐⭐ 任务 3：⭐ **轴 12 ⇒ Kick 的 `inc`**（⭐ 口径同上：只验字段透传）✅
+            if (inc_of_ax12 !== REF_KICK) begin
+                $display("FAIL: score axis==12 inc=%0d, expected KICK inc=%0d -- seq_arb field-slice passthrough BROKEN (this check does NOT verify the ESP32 axis<->inc pairing)", inc_of_ax12, REF_KICK);
+                errors = errors + 1;
+            end else
+                $display("  ok  : score axis==12 => KICK inc (%0d) -- seq_arb field slice passthrough only, NOT ESP32 pairing", inc_of_ax12);
+
+            //  ⭐⭐⭐ 2026-10-15（清道夫 SWEEPER）：⭐ **鼓的 `note_off`（`kind=1`）也必须带
+            //     `SRC_KDRUM`** —— ⭐ 这是本轮【新增】的判据 ✅
+            //  🔴 **为什么必须单立一条**：⭐ 本块里**上面全部判据**都只驱动 `kind=0`（`note_on`）
+            //     ⇒ 🔴 **"鼓的 OFF 走哪条源标记"完全没人验** ✗
+            //  🔴 **若 OFF 被标成 `SRC_SCORE`**：⭐ `note_manager.v:1320` 的 `note_off` 按
+            //     **`(轴, 源)` 双条件**匹配 ⇒ ⭐ **匹配不上 ⇒ 鼓的 voice 永久 held**
+            //     ⇒ 🔴 **保留池（`RESERVED_N = 5`）被慢慢耗尽 ⇒ 鼓越敲越不响** ✅
+            //  ⭐ **现状**：⭐ `seq_arb.v` 的 `score_src_w = (score_axis_i >= 4'd12) ? SRC_KDRUM
+            //     : SRC_SCORE` **只看轴、⛔ 不看 `kind`** ⇒ ⭐ ON/OFF **同源** ✅
+            //     ⇒ ⭐ 本条把这个**不变量**钉死（⭐ 谁哪天给 `kind` 加条件，这里立刻红）✅
+            //  ⭐ **能红实证**：⭐ 能 —— ⭐ 把 `score_src_w` 改成
+            //     `(score_axis_i >= 4'd12) && (score_kind_i == 2'd0)` ⇒ ⭐ 本条必红 ✅
+            src_of_ax12 = 3'd7;              // ⭐ 本条【自己】复位（⛔ 不吃上一条的残留）
+            @(negedge clk);
+            score_v = 1'b1; score_ax = 4'd12; score_inc = REF_KICK;
+            score_vel = 8'd200; score_kd = 2'd1;     // ⭐ `kind = 1` ⇒ `note_off`
+            @(negedge clk);
+            score_v = 1'b0;
+            repeat (10) @(negedge clk);
+            if (src_of_ax12 !== 3'd5) begin
+                $display("FAIL: score axis==12 kind=1(note_off) came out as src=%0d, expected SRC_KDRUM=5 -- the drum voice would stay HELD forever (reserved-pool exhaustion)", src_of_ax12);
+                errors = errors + 1;
+            end else
+                $display("  ok  : score axis==12 kind=1(note_off) => SRC_KDRUM (5) -- the drum voice can be released");
+
+            src_of_ax13 = 3'd7;              // ⭐ 任务 2：⭐ 本条【自己】复位
+            inc_of_ax13 = INC_NONE;
+            @(negedge clk);
+            score_v = 1'b1; score_ax = 4'd13; score_inc = REF_SNARE;
+            score_vel = 8'd200; score_kd = 2'd0;
+            @(negedge clk);
+            score_v = 1'b0;
+            repeat (10) @(negedge clk);
+            if (src_of_ax13 !== 3'd5) begin
+                $display("FAIL: score axis==13 came out as src=%0d, expected SRC_KDRUM=5", src_of_ax13);
+                errors = errors + 1;
+            end else
+                $display("  ok  : score axis==13 => SRC_KDRUM (5) -- Snare");
+            //  ⭐⭐ 任务 3：⭐ **轴 13 ⇒ Snare 的 `inc`**（⭐ 口径同上：只验字段透传）✅
+            if (inc_of_ax13 !== REF_SNARE) begin
+                $display("FAIL: score axis==13 inc=%0d, expected SNARE inc=%0d -- seq_arb field-slice passthrough BROKEN (this check does NOT verify the ESP32 axis<->inc pairing)", inc_of_ax13, REF_SNARE);
+                errors = errors + 1;
+            end else
+                $display("  ok  : score axis==13 => SNARE inc (%0d) -- seq_arb field slice passthrough only, NOT ESP32 pairing", inc_of_ax13);
+
+            src_of_ax14 = 3'd7;              // ⭐ 任务 2：⭐ 本条【自己】复位
+            inc_of_ax14 = INC_NONE;
+            @(negedge clk);
+            score_v = 1'b1; score_ax = 4'd14; score_inc = REF_HIHAT;
+            score_vel = 8'd200; score_kd = 2'd0;
+            @(negedge clk);
+            score_v = 1'b0;
+            repeat (10) @(negedge clk);
+            if (src_of_ax14 !== 3'd5) begin
+                $display("FAIL: score axis==14 came out as src=%0d, expected SRC_KDRUM=5", src_of_ax14);
+                errors = errors + 1;
+            end else
+                $display("  ok  : score axis==14 => SRC_KDRUM (5) -- HiHat");
+            //  ⭐⭐ 任务 3：⭐ **轴 14 ⇒ HiHat 的 `inc`**（⭐ 口径同上：只验字段透传）✅
+            if (inc_of_ax14 !== REF_HIHAT) begin
+                $display("FAIL: score axis==14 inc=%0d, expected HIHAT inc=%0d -- seq_arb field-slice passthrough BROKEN (this check does NOT verify the ESP32 axis<->inc pairing)", inc_of_ax14, REF_HIHAT);
+                errors = errors + 1;
+            end else
+                $display("  ok  : score axis==14 => HIHAT inc (%0d) -- seq_arb field slice passthrough only, NOT ESP32 pairing", inc_of_ax14);
+
+            // ⭐⭐ ③ ⭐ **边界非空洞性**（方案 B 新增，⭐ 这一条是本轮的关键判据）：
+            //     ⭐ **轴 11 必须【仍是】`SRC_SCORE`（1）** ——
+            //     🔴 为什么必须有它：⭐ 原来的"轴 2"离边界（12）**太远** ⇒
+            //        阈值写成 `>= 4` 甚至 `>= 2` 它**照样绿** ⇒ ⭐ 判据空洞 ✗
+            //     ✅ 有了轴 11 ⇒ ⭐ **阈值写成 `>= 11` 时这一条必红** ✓
+            src_of_ax11 = 3'd7;              // ⭐ 任务 2：⭐ 本条【自己】复位
+            @(negedge clk);
+            score_v = 1'b1; score_ax = 4'd11; score_inc = 32'h0AAA_0011;
+            score_vel = 8'd200; score_kd = 2'd0;
+            @(negedge clk);
+            score_v = 1'b0;
+            repeat (10) @(negedge clk);
+            if (src_of_ax11 !== 3'd1) begin
+                $display("FAIL: score axis==11 came out as src=%0d, expected SRC_SCORE=1 (the >=12 boundary is OFF BY ONE!)", src_of_ax11);
+                errors = errors + 1;
+            end else
+                $display("  ok  : score axis==11 => SRC_SCORE (1) -- the >=12 boundary is exact");
+
+            // ⭐ ④ 轴 2（⭐ 普通乐音，⭐ 离边界更远的第二道保险）⇒ 必须**仍是** `SRC_SCORE`（1）
+            src_of_ax2 = 3'd7;               // ⭐ 任务 2：⭐ 本条【自己】复位
             @(negedge clk);
             score_v = 1'b1; score_ax = 4'd2; score_inc = 32'h0AAA_0002;
             score_vel = 8'd200; score_kd = 2'd0;
@@ -439,7 +682,7 @@ module tb_seq_arb;
                 $display("FAIL: score axis==2 came out as src=%0d, expected SRC_SCORE=1 (the drum marker is over-broad)", src_of_ax2);
                 errors = errors + 1;
             end else
-                $display("  ok  : score axis!=15 still => SRC_SCORE (1) -- the drum marker is NOT over-broad");
+                $display("  ok  : score axis==2 still => SRC_SCORE (1) -- the drum marker is NOT over-broad");
         end
 
         // A1 addition: wait for the independent non-default DEPTH case.

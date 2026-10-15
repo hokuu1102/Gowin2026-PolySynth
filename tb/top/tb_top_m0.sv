@@ -126,6 +126,27 @@ module tb_top_m0;
         .uart_rx (1'b1), .uart_tx ()
     );
 
+    // ═══════════════════════════════════════════════════════════════
+    // ⭐⭐ 2026-10-15：⭐ **心跳灯新语义 = "摇杆在中位 ⇒ 常亮"** ✅
+    //   📌 依据：⭐ `top.v` 的 `assign led_heartbeat = pluck_center_w ? 1'b1 : hb;`
+    //      （⭐ 用户明确要求：⭐ 中位常亮 = **现场判据**，⭐ 见 `tb/top/tb_top_hb_center.sv`）
+    //   🔴 **本 tb 三个实例都把 `pluck_up_idle/pluck_down_idle` 接 `1'b0`** = **中位**
+    //      ⇒ ⚠️ 不处理的话 `led_heartbeat` 会**恒 1** ⇒ 🔴 下面
+    //         **D 判据**（`hb_a_trans >= 8`）与 **P0-06 判据**（`hb_toggles >= 2`）
+    //         **两条全红** —— ⭐ 而那是**假失败**（⭐ RTL 没错，⭐ 是 tb 的"中位"前提变了 ✅）
+    //   ✅ **处置**：⭐ 这里**显式模拟"摇杆离开中位"** —— ⭐ 那才是"心跳该闪"的条件 ✅
+    //      📌 ⭐ 用 `force` 而⛔ **不是**把 `pluck_*_idle` 拉高：⭐ 后者会在启动时
+    //         **伪造一次拨弦事件** ⇒ ⚠️ 那是本 tb 判据**之外**的副作用 ✅
+    //      📌 ⭐ 也⛔ 不是"改去观测内部 `hb`"：⭐ 那会**丢掉端口级覆盖**
+    //         （⭐ `A8` 的 X/Z 判据看的正是端口 ✅）
+    //   ⚠️ ⭐ 若将来把心跳灯改成"中位也看得见故障"，⭐ 本 force 仍成立（⭐ 那时也还是闪）✅
+    // ═══════════════════════════════════════════════════════════════
+    initial begin
+        force u_top_safe.pluck_center_w    = 1'b0;
+        force u_top_default.pluck_center_w = 1'b0;
+        force u_top_on.pluck_center_w      = 1'b0;
+    end
+
     // ── F · A8：X/Z 传播（声明必须放在例化之前）──────────────────────
     wire [31:0] a8_bck, a8_ws, a8_din, a8_pa_a, a8_hb, a8_pa_b;
     chk_xprop #(.W(1), .NAME("HP_BCK"))        u_a8_bck  (.clk(clk), .rst_n(rst_n), .sig(HP_BCK_a),      .err_cnt(a8_bck));

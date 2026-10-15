@@ -68,6 +68,18 @@ module evt_upstream #(
     input  wire [PHASE_W-1:0]    evt_phase_inc_i,
     input  wire [VEL_W-1:0]      evt_velocity_i,
     input  wire [1:0]            evt_kind_i,      // ⭐ 1 = off；⭐ 其余（on/pluck）都算 note_on
+    //  ⭐⭐ 2026-10-15：⭐ **音色**（⭐ 给 ESP32 回传 MIDI 用 ✅）
+    //     🔴 **为什么加**：⭐ ESP32 侧要把上行事件转成 MIDI ⇒ ⭐ MIDI 需要
+    //        **program change**（音色）⇒ ⚠️ 而帧里原来**没有这个字段**
+    //        （⭐ `rec_dump.v` 的原话："Timbre is not carried by this upstream frame."）
+    //     ✅ **怎么加（零代价）**：⭐ 帧的 `[7]` 字节是 `axis`（⭐ 只用低 4 位）
+    //        ⇒ ⭐ **高 4 位本来就空着** ⇒ ⭐ 拿 2 位放音色
+    //        ⇒ **帧长 / 帧类型 / 帧头 / 校验逻辑全不变** ✅
+    //     ⚠️ **向后兼容**：⭐ 音色 = 0（BASS）时 `[7]` 与原来**完全相同** ✅
+    //     🔴 **协调要求**：⭐ ESP32 侧必须**同时**改成 `axis = f[7] & 0x0F`
+    //        （⭐ 见 `esp32/tools/evt2midi/frame_format.py`）
+    //        ⇒ ⚠️ **只烧一边会出现"音高全乱"** ✅
+    input  wire [1:0]            evt_timbre_i,    // ⭐ 0=BASS 1=GUITAR 2=PIANO 3=PAD
 
     // ── ⭐ 音乐 tick（⭐ 自由运行 32 位计数器的步进脉冲 = `beat_gen.tick_o`）────
     input  wire                  tick_step_i,
@@ -226,7 +238,12 @@ module evt_upstream #(
     // ⭐ 类型：⭐ 只有 `kind==1` 是 note_off；⭐ on(0)/pluck(2) 都算 note_on ✅
     wire [7:0] b_type = (kd == 2'd1) ? 8'h02 : 8'h01;
     wire [7:0] b_seq  = seq_q;
-    wire [7:0] b_axis = {4'd0, ax};
+    //  ⭐⭐ 2026-10-15：⭐ `[7]` 字节 = `{2'b0, timbre[1:0], axis[3:0]}` ✅
+    //     ⚠️ **原来是 `{4'd0, ax}`** —— ⭐ 高 4 位硬写 0，白白空着 ✅
+    //     📌 布局：bit[7:6]=0（⭐ 再留 2 位）· bit[5:4]=音色 · bit[3:0]=轴号 ✅
+    //     ⭐ **`axis` 只有 4 位**（0..15）⇒ ⭐ 低 4 位就是全部信息，⛔ 不损失 ✅
+    //     ⚠️ 本字节参与 XOR 校验 ⇒ ⭐ 值变了校验自然跟着变，⛔ 校验逻辑不用动 ✅
+    wire [7:0] b_axis = {2'b0, evt_timbre_i, ax};
     wire [7:0] b_vel  = vl;
 
     //  ⭐⭐ 2026-10-14：⭐ **XOR 覆盖范围【改为含帧头 0xA5】**（⭐ 与 ESP32 侧对齐 ✅）

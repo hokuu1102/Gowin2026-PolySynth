@@ -293,6 +293,34 @@ foreach ($tb in $tbs) {
                   #     ⚠️ **本改动【只加预算】，⛔ 一个字都不动它的判据** ✅
                   #        （⭐ 若加预算后**仍红** ⇒ ⭐ 那才是真挂死，需另查 ✅）
                   elseif ($name -eq 'tb_opt04_transpose_current_af') { 900 }
+                  #  ⭐⭐ 2026-10-15 新增：⭐ 合并队友 BJ 冻结版之后，
+                  #     ⭐ 这三个【顶层】tb 都撞了 120 s 默认预算 ✅
+                  #     🔴 **症状**：⭐ 全量回归报 `TIMEOUT after 120 s`，
+                  #        而其中两个的驱动器提示**"日志里已出现 PASS:"** ✅
+                  #        （⭐ 即：⭐ **判据已经全过，只是进程没在 120 s 内退干净**）
+                  #     📌 ⭐ **为什么变慢**：⭐ 队友带来了 FFT 三件套
+                  #        （`fft_coeff_rom` / `fft_spectrum_core` / `fft_spectrum_view`，
+                  #         例化在 `hdmi_scope` 里）＋ `slide_position_ctrl`
+                  #        ⇒ ⭐ 顶层仿真规模变大 ⇒ 这三个 tb 的仿真时间超了默认值 ✅
+                  #     📌 ⭐ **依据**：⭐ 与 `tb_opt04_transpose_current_af` /
+                  #        `tb_top_sound` / `tb_slide_e2e` **同一处置**（都给 900）✅
+                  #     ⚠️ **本改动【只加预算】，⛔ 一个字都不动判据** ✅
+                  #        （⭐ 若加预算后**仍红** ⇒ ⭐ 那才是真挂死，需另查 ✅）
+                  elseif ($name -eq 'tb_top_dump_atomic')   { 900 }
+                  elseif ($name -eq 'tb_top_probe_queue')   { 900 }
+                  elseif ($name -eq 'tb_top_notice_equiv')  { 900 }
+                  #  ⭐⭐ 2026-10-15：⭐ `tb_transpose` 从 `$heavyTb` 的 300 s 抬到 900 ✅
+                  #     🔴 **症状**：⭐ 本轮全量回归报 `TIMEOUT after 300 s`，
+                  #        而驱动器提示 **"日志里已出现 PASS:"** ✅
+                  #        （⭐ 即：⭐ **判据已经全过，只是没在 300 s 内退干净**）
+                  #     📌 ⭐ **为什么变慢**：⭐ 合并队友 BJ 版之后设计变大
+                  #        （FFT 三件套 ＋ `slide_position_ctrl`）⇒ 顶层仿真更慢 ✅
+                  #        ⚠️ 它在 `$heavyTb` 里的备注写"实测 159 s" ⇒
+                  #        🔴 **那是【合并前】的数** ⇒ 现在超了 300 ✗
+                  #     📌 ⭐ **依据**：⭐ 与 `tb_top_sound` / `tb_slide_e2e` /
+                  #        `tb_opt04_transpose_current_af` **同一处置**（都给 900）✅
+                  #     ⚠️ **只加预算，⛔ 一个字都不动判据** ✅
+                  elseif ($name -eq 'tb_transpose')         { 900 }
                   #  ⭐⭐ 2026-10-08 新增：⭐ `tb_right_adc`（⭐ `RIGHT_ADC_ENABLE` 双实例差分）
                   #     ⚠️ 它**同时例化两个 `top`**（一个 `=1` 一个 `=0`）⇒ 天然是重 tb
                   #     ⭐ 实测（机器带负载）**85 s** ⇒ ⭐ 给 **300 s**（3.5× 余量）

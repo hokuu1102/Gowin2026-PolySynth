@@ -1,0 +1,11 @@
+{
+  "source_commit": "92a77bb182077f8ffebac9c4a30512669adaa602",
+  "session": 83499,
+  "observed_exit_code": 0,
+  "observed_at_utc": "2026-10-15T08:58:47Z",
+  "functional_pass": 200,
+  "expected_negative_pass": 1,
+  "separate_diagnostic": 1,
+  "failures": 0,
+  "snapshot_blobs_verified": 321
+}

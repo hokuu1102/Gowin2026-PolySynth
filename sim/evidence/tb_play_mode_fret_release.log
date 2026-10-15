@@ -1,0 +1,4 @@
+﻿PASS: a new pluck cannot strand the prior axis
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_play_mode_fret_release.sv:40: $finish called at 440000 (1ps)
+
+

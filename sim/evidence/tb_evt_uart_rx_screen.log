@@ -19,6 +19,10 @@
       => decoded kind = 0 (0=on 1=off)
    鈿狅笍  杩欐槸妯″潡鍥烘湁灞€闄愶紱猸?闂ㄦ帶鍒ゆ嵁瑙?tb_evt_uart_rx_gate.sv 鉁?
 ==============================================================
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_screen.sv:177: $finish called at 381760000 (1ps)
+DIAGNOSTIC_CONFIRMED: bare score parser accepts 8 spurious events from mixed screen bytes
+PASS: bare-parser characterization unchanged -- 8 spurious events, as documented
+      (CHARACTERIZATION of a known module-level limitation, NOT a safety verdict;
+       the safety criterion lives in tb/w3c/tb_evt_uart_rx_gate.sv)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_screen.sv:204: $finish called at 381760000 (1ps)
 
 

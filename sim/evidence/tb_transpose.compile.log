@@ -1,12 +1,15 @@
-﻿iverilog.exe : C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited fr
-om another file.
-At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:123 char:18
+﻿iverilog.exe : C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom in
+herited from another file.
+At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:124 char:18
 +   $compileOut  = & $iverilog @compileArgs 2>&1
 +                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     + CategoryInfo          : NotSpecified: (C:\Users\hokuu\...m another file.:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
  
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file
+.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
@@ -18,8 +21,8 @@ her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another 
 file.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_uart_rx.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:71: warning: timescale for pos_probe inherited from another fi
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another fi
 le.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another 
@@ -28,11 +31,14 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_transpose.sv:187: warning: Instantiating module note_manager with dangli
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_referen
+ce inherited from another file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_transpose.sv:198: warning: Instantiating module note_manager with dangli
 ng input port 26 (sus_pedal_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_transpose.sv:225: warning: Instantiating module note_manager with dangli
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_transpose.sv:237: warning: Instantiating module note_manager with dangli
 ng input port 25 (transpose_semi_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_transpose.sv:225: warning: Instantiating module note_manager with dangli
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_transpose.sv:237: warning: Instantiating module note_manager with dangli
 ng input port 26 (sus_pedal_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_transpose.sv:263: warning: Instantiating module note_manager with dangli
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_transpose.sv:276: warning: Instantiating module note_manager with dangli
 ng input port 26 (sus_pedal_i) floating.

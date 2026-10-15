@@ -37,6 +37,8 @@ module tb_evt_upstream;
     reg  [PHASE_W-1:0] evt_inc  = 32'd0;
     reg  [VEL_W-1:0]   evt_vel  = 8'd0;
     reg  [1:0]         evt_kind = 2'd0;
+    //  ⭐⭐ 2026-10-15：⭐ 音色（⭐ `[7]` 的高 4 位）—— ⚠️ 默认 0 = BASS
+    reg  [1:0]         evt_timbre = 2'd0;
     reg        tick_step = 1'b0;
     reg        enable    = 1'b0;
     reg        ready     = 1'b1;
@@ -60,6 +62,10 @@ module tb_evt_upstream;
         .evt_phase_inc_i(evt_inc),
         .evt_velocity_i(evt_vel),
         .evt_kind_i    (evt_kind),
+        //  ⭐⭐ 2026-10-15：⭐ 音色也进帧（⭐ `[7]` 的高 4 位，⭐ 给 ESP32 转 MIDI）
+        //     ⚠️ 本 tb 用 0（BASS）⇒ ⭐ `[7]` 与改动前**逐位相同**
+        //        ⇒ ⭐ 下面那些 `rx[7] === 8'h05` 的判据**一个字都不用改** ✅
+        .evt_timbre_i  (evt_timbre),
         .tick_step_i   (tick_step),
         .enable_i      (enable),
         .ready_i       (ready),
@@ -181,7 +187,14 @@ module tb_evt_upstream;
         chk(rx[0] === 8'hA5, "byte[0] is the 0xA5 header");
         chk(rx[1] === 8'h01, "kind=0 (note_on) maps to type 0x01");
         chk(rx[2] === 8'd0,  "first frame carries seq 0");
-        chk(rx[7] === 8'h05, "byte[7] carries axis 5");
+        /*  ⭐⭐ 2026-10-15：⭐ `[7]` 现在**装两样东西**（⭐ 帧长不变）✅
+         *     布局：bit[7:6]=0（留位）· bit[5:4]=**音色** · bit[3:0]=**轴号** ✅
+         *  🔴 **为什么加音色**：⭐ ESP32 要把上行事件转 MIDI ⇒ ⭐ MIDI 需要
+         *     **program change** ⇒ ⚠️ 而帧里原来没有这个字段 ✅
+         *  ⚠️ **注意本判据的轴号检查**：⭐ 上面那次 `send_evt` 时 `evt_timbre = 0`
+         *     （⭐ 复位值）⇒ ⭐ `[7]` 就是 `8'h05`，⭐ **与改动前逐位相同** ✅
+         *     📌 音色 ≠ 0 的**非空洞**判据在下面判据 ⑪ ✅ */
+        chk(rx[7] === 8'h05, "byte[7] carries axis 5 (timbre is 0 here => byte unchanged)");
         chk(rx[12] === 8'd200,"byte[12] carries velocity 200");
 
         // ══ 判据 ⑤：🔴 **本模块存在的理由 —— `inc` 必须是全宽 32 位** ══
@@ -232,6 +245,27 @@ module tb_evt_upstream;
         ready = 1'b1;
         repeat (400) @(negedge clk);
         chk(busy === 1'b0, "after draining, busy_o returns low");
+
+        /*  ⭐⭐ 2026-10-15 新增 · 判据 ⑪：⭐ **音色进 `[7]` 的高 4 位**（非空洞）✅
+         *  ===========================================================================
+         *  ⭐ 上面判据 ④ 用的是音色 0（复位值）⇒ ⭐ 它**只证明"没弄坏旧行为"** ✅
+         *  ⚠️ 而**新功能本身**需要一条**非空洞**的判据 ——
+         *     ⭐ 设一个**非零音色**，⭐ 要求 `[7]` 的 `[5:4]` **真的变** ✅
+         *  🔴 **为什么这条重要**：⭐ 若把音色写错了位（⭐ 或根本没接上 `evt_timbre_i`）
+         *     ⇒ ⭐ 判据 ④ 仍然全绿（⭐ 因为音色 0 时字节不变）⇒ 🔴 **假绿** ✗
+         *     ⭐ 本判据就是为了堵这个洞 ✅
+         *  📌 期望值：⭐ 音色 2（PIANO）· 轴 5 ⇒ `[7] = (2<<4)|5 = 8'h25` ✅ */
+        evt_timbre = 2'd2;                 // ⭐ PIANO
+        rx_n = 0; base = 0;
+        send_evt(4'd5, A4_INC, 8'd77, 2'd0);
+        wait_bytes(14);
+        repeat (4) @(negedge clk);
+        chk(rx[7] === 8'h25, "*** timbre=2 + axis=5 => byte[7] = 0x25 (timbre in bits [5:4]) ***");
+        chk((rx[7] & 8'h0F) === 8'h05, "byte[7] low nibble still carries the axis (5)");
+        chk(((rx[7] >> 4) & 8'h03) === 8'h02, "byte[7] bits [5:4] carry the timbre (2)");
+        chk(rx[13] === ck_of(0), "checksum follows the new byte[7] (logic unchanged)");
+        chk(rx_n == 14, "non-vacuity: the timbre did NOT change the frame length (still 14 B)");
+        evt_timbre = 2'd0;                 // ⭐ 还原，⛔ 不影响后面
 
         // ══ 判据 ⑪：⛔ 关闭后不许再发（⭐ 且 FIFO 已排空 ✅）══
         repeat (200) @(negedge clk);

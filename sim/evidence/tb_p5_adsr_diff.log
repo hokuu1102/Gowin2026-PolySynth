@@ -5,6 +5,6 @@ voice-observations   = 3456000
 mismatches           = 0
 PASS: shared round-robin envelope_bank is bit-exact vs the 32x ADSR bank
 --------------------------------------------------------------
-C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-t31b-main\tb\w3b\tb_p5_adsr_diff.sv:248: $finish called at 2280160000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_p5_adsr_diff.sv:248: $finish called at 2280160000 (1ps)
 
 

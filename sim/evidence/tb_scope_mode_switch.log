@@ -1,0 +1,4 @@
+﻿PASS: XY/waveform/XY switch at frame boundaries and waveform displays real samples
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\hdmi\tb_scope_mode_switch.sv:63: $finish called at 4244240000 (1ps)
+
+

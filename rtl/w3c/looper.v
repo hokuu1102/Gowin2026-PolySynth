@@ -733,15 +733,76 @@ module looper #(
     //  📌 **等价性**：⭐ 三个写入点的**条件与数据与原实现逐条相同**，
     //     只是把"地址/数据"从 FSM 里搬到组合逻辑 ⇒ ⭐ 时序与语义**完全不变** ✅
     // ══════════════════════════════════════════════════════════════════════
+    //  ══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-16：⭐ **`clear_req_i` 进 FSM 前先打一拍**（⭐ 修 setup 违例 ✅）
+    //
+    //  🔴 **违例现场**（⭐ `impl/pnr/Gowin2026.timing_paths` 第 1 条 ✅）：
+    //     · ⭐ 起点 `u_ctrl_key_map/loop_clear_req_o_s0/Q`
+    //     · 🔴 终点 `g_sound.u_looper/ep_mem_ep_mem_0_4_s/ADA[8]`（⭐ **BSRAM 写地址** ✅）
+    //     · 🔴 slack = **-1.009 ns**（⭐ arrival 21.614 / required 20.604 ✅）
+    //     · ⭐ 数据路径 **17.018 ns**、⭐ 逻辑级数 **7** ✅
+    //     · 🔴 同一条路径**扇出 19 个端点**（⭐ `ep_mem` 的 `ADA` × 12、
+    //        ⭐ `mem` 的 `CEA` × 2、⭐ `vel_max_r` 的 `CE` × 1、⭐ 其余同锥 ✅）
+    //        ⇒ ⭐ clk_sys 的 TNS **-11.524** 里它一条就占 **-9.7** ✅
+    //
+    //  ⭐ **判性质 = 真长链、⛔ 不是布局噪声**（⭐ 判据 = **逻辑级数** ✅）：
+    //     ⭐ RTL 上从 `clear_req_i[0]` 到 BSRAM 写口就是这一条：
+    //        `clear_req_i[0]` → `br_leave_w`（⭐ `:742` ✅）
+    //        → `br_clear_w`（⭐ `:744` ✅）→ `br_recst_w`/`br_close_w`（⭐ `:761`/`:763` ✅）
+    //        → `ep_w_off_w`/`ep_w_on_w`/`ep_w_cls_w`（⭐ `:793`/`:797`/`:800` ✅）
+    //        → `ep_we_w`/`ep_wa_w`（⭐ `:806`/`:807` ✅）→ `ep_mem` 写口 ✅
+    //     ⭐ 实测级数 = **7**（⭐ `cnt_r_15_s5 → rec_bar_tick_r_19_s3 → n7347_s3
+    //        → n14630_s3 → ep_wd_w_59_s4 → ep_wa_w_5_s3 → ep_wa_w_5_s2` ✅）
+    //     ⭐ **> 6 级 ⇒ 真长链**（⭐ 布局噪声典型 ≤ 3~4 级 ✅）
+    //     📌 ⭐ 其中**前 2 级（4.253 ns）在 `top.v`**（⭐ 就是
+    //        `cmd_loop_clear_req = cc | km` 与 `& ~rd_lock` 那一小段 ✅）
+    //        ⇒ ⭐ 光靠重跑布局**救不回来**（⭐ 结构性 ✅）
+    //
+    //  ✅ **修法（⭐ 二选一里挑【最小改动、最低风险】的那条 ✅）**：
+    //     ⭐ 在**本模块入口**把 `clear_req_i` 打一拍 ⇒ ⭐ 长链**从这一拍重新起算** ✅
+    //     · ⭐ 砍掉：⭐ `ctrl_key_map` → `top.v` 门控 → 本模块入口那 **4.253 ns**
+    //        （⭐ 含跨模块长走线 ✅）
+    //     · ⭐ 新路径 = ⭐ 本拍 Q → `br_leave_w` → … → BSRAM（⭐ 约 12.8 ns ✅）
+    //        ⇒ ⭐ 预估 slack 由 **-1.009** 回到 **+3 ~ +4 ns** ✅
+    //     📌 ⭐ **为什么不改 `top.v`**：⭐ 本轮 `top.v` 被多个 agent 并发改
+    //        （⭐ 另有 bit6 引导路由在动 ✅）⇒ ⭐ 改动落在本文件**零冲突** ✅
+    //        📌 ⭐ 而且落在**本模块入口**⇒ ⭐ `calib_cmd`（串口 `'C'`）那条**一起修好** ✅
+    //     📌 ⭐ **为什么不拆 `ep_mem` 写口那条组合链**（⭐ 备选 (b) ✅）：
+    //        ⭐ 那条三选一 mux 是**BSRAM 只认一个地址表达式**的硬要求
+    //        （⭐ 见 `:708-735` 的长注释 ✅）⇒ 🔴 一拆 ⇒ ⭐ 综合**推不出 BSRAM**、
+    //        ⭐ 退回 DFF 阵列 ⇒ ⭐ `IF0008`（⭐ 124928 > 60780 ✅）⇒ 🔴 **整个 PnR 失败** ✅
+    //        ⇒ ⭐ 本文件里"拆链"这条路**是死的** ✅
+    //
+    //  ⚠️ **语义代价（⭐ 逐条核对过 ✅）**：
+    //     · ⭐ `clear_req_i` 是**单拍脉冲**（⭐ `ctrl_key_map:226` 长按阈值那一刻置 1、
+    //        ⭐ 下一拍 `:178` 默认清零 ✅；⭐ `calib_cmd:558` 同构 ✅）
+    //        ⇒ ⭐ 打一拍**只把"清空"整体推后 20 ns**（⭐ 对 2 s 长按手感**零影响** ✅）
+    //     · 🔴 **⛔ 不会"清两次"**：⭐ 本拍是**寄存器**、⛔ 不是电平展宽
+    //        ⇒ ⭐ 一个脉冲进 ⇒ **恰好一个脉冲出** ✅
+    //        （⭐ 判据 = `tb/w3c/tb_looper.sv` 的 `CLEARPIPE` 段 ✅）
+    //     · ⭐ `:1113` 的 `leave_to_r <= clear_req_i[0] ? …` 与 `:742`/`:744`
+    //        **必须同源** ⇒ ⭐ 三处**一起换成** `clear_req_w` ✅
+    //        （🔴 否则 `br_leave_w` 用新值、`leave_to_r` 用旧值 ⇒ ⭐ 语义漂移 ✅）
+    //     · ⭐ 复位用 `rst_n_i` 同步清零（⭐ 与 `:903` 的主 FSM 同口径 ✅）
+    //     · ⭐ `z` 安全（⭐ 与 `:611` 的 `dump_en_w` 同套路 ✅）：⭐ 老例化不接
+    //        `clear_req_i` ⇒ ⭐ 该位是 `z` ⇒ ⭐ `=== 1'b1` 解码成 **0**（⭐ 而非 `x` ✅）
+    //  ══════════════════════════════════════════════════════════════════════
+    reg  clear_pipe_r;
+    always @(posedge clk_i) begin
+        if (!rst_n_i) clear_pipe_r <= 1'b0;
+        else          clear_pipe_r <= (clear_req_i[0] === 1'b1);
+    end
+    wire clear_req_w = clear_pipe_r;      // ⭐ 唯一消费者 = 下面三条（⭐ 同源 ✅）
+
     //  ── ⭐ FSM 分支译码（⭐ 与下方 `always` 块的优先级链【逐条同式】）──────────
     //   🔴 **为什么抽出来**：⭐ 写口在 FSM **之外** ⇒ ⚠️ 它必须知道"本拍走哪条分支"
     //      ⇒ ⭐ 把这套优先级**定义一次、两处共用** ⇒ ⛔ 不会漂移 ✅
     //   📌 `br_*_w` 与 FSM 里原来的条件**代数等价**：⭐ 链上前面都为假时
     //      `br_recst_w ≡ (state == ST_REC)`、`br_close_w ≡ (state == ST_CLOSE)`
     //      ⇒ ⭐ 逐位行为不变 ✅
-    wire br_leave_w = ((clear_req_i[0]) || (rec_req_i[0] && (state != ST_REC)))
+    wire br_leave_w = ((clear_req_w) || (rec_req_i[0] && (state != ST_REC)))
                       && (state == ST_HOLD) && (play_active_r != 16'd0);
-    wire br_clear_w = ~br_leave_w && clear_req_i[0];
+    wire br_clear_w = ~br_leave_w && clear_req_w;
     //  ⭐⭐ 2026-09-30（`T41` ①）：⭐ **"待起录"等到小节起点 ⇒ 真起录**
     //   ⚠️ 排在 `br_rec_w` **之前** ⇒ ⭐ 同一个 `bar_start` 拍上不会再被 `rec_req` 抢走 ✅
     wire br_recpend_w = ~br_leave_w && ~br_clear_w && (state == ST_RECPEND)
@@ -1110,7 +1171,8 @@ module looper #(
                 //  ⭐⭐ **唯一出口**：⭐ 先逐轴补发，⭐ 补完按 `leave_to_r` 去对应状态 ✅
                 close_mask_r <= play_active_r;
                 close_scan_r <= 4'd0;
-                leave_to_r   <= clear_req_i[0] ? LEAVE_IDLE : LEAVE_REC;
+                //  ⚠️ 与 `:742`/`:744` **同源**（⭐ 都用打了一拍的 `clear_req_w` ✅）
+                leave_to_r   <= clear_req_w ? LEAVE_IDLE : LEAVE_REC;
                 state        <= ST_LCLOSE;
             end else if (br_clear_w) begin
                 //  ⭐ 没有音在响 ⇒ ⭐ 直接清（⭐ 与旧行为一致）

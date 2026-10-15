@@ -17,7 +17,8 @@
 //   ⭐ 延迟线：单时钟 BSRAM（写口 + 寄存读口），环形寻址
 //     · 写：`mem[wr] <= x[n] + fb × wet`     （⭐ 反馈 = 回声能"重复"的原因）
 //     · 读：`wet = mem[(wr − D) mod DEPTH]`  （⭐ D = 延迟样点数）
-//     · 出：`y = (x×(2^MIX_W − mix) + wet×mix) >> MIX_W`（⭐ 干湿比）
+//     · 出：`y = x + (wet×mix) >>> MIX_W`（⭐⭐ send/return：干声恒 1.0，
+//            `mix` **只调湿声** ⇒ 推 mix 不会让干声掉下去，⛔ 不再"响两下"）
 //   ⭐ 合唱：读地址 = `wr − D − mod(LFO)`，⭐ 用**线性插值**取小数延迟
 //     （⛔ 不插值就会有"台阶噪声" —— 地址每跳 1 个样点都"咔"一下）
 //
@@ -32,15 +33,20 @@
 //      ⇒ ⚠️ 18 bit 的量化底噪 ≈ −108 dBFS，⭐ 远低于 DAC 本身 ⇒ **不值得**。
 //   📌 上面的数字在 `initial` 里**由参数自动算出来并打印**（⛔ 不靠人手抄）。
 //
-// ── ⭐ 流水线（4 级，⛔ 单样本链不反压）─────────────────────────────────────
+// ── ⭐ 流水线（5 级，⛔ 单样本链不反压）─────────────────────────────────────
 //   | 拍 | 动作 |
 //   |---|---|
 //   | N   | `valid_i`：捕获干声/参数，算 tap0 地址送存储器 |
 //   | N+1 | 取回 **tap0**；把 **tap1 = tap0+1** 的地址送存储器 |
 //   | N+2 | 取回 **tap1** |
-//   | N+3 | 插值/混音/反馈**组合**算完；写存储器、写指针 +1 |
-//   | N+4 | `valid_o = 1`，`sample_o` 有效 |
+//   | N+3 | ⭐ **插值到此为止**（`d_tap → ×frac → >>8 → +tap0_f → 饱和`）⇒ 锁进 `wet_r` |
+//   | N+4 | ⭐ **混音 / 反馈两个乘法 + 三处饱和 + 写存储器（`mem[wr_s3]`）+ 写指针 +1**；`valid_o = 1` |
 //   ⚠️ ⇒ ⭐ `valid_i` 必须是**脉冲**且**间距 ≥ 4 clk**（⭐ 真实链路每 1024 clk 一个样点）
+//      ⭐ 这是本模块**假设的下界**（⛔ 不是"随手取的保守值"）：`S = 4` 时 `stage0`
+//         （`wr_s0 <= wr_ptr`）与上一样本的 `stage4`（`wr_ptr <= wr_ptr + 1`）**同沿**
+//         ⇒ 非阻塞赋值下 `wr_s0` 拿到**自增前**的旧指针 ⇒ 相邻样点会共用槽位。
+//      📌 真实链路 S = 1024 ⇒ 余量 256 倍，⛔ 不会被踩到；
+//         ⭐ 要改小这个数，必须先补一条"间距边界"判据（⛔ 本轮没做）。
 //
 // ── ⛔ 纪律（本项目血泪）────────────────────────────────────────────────────
 //   · ⭐ **Verilog-2001 语法**（`K-91`：用 SV 专有构造 ⇒ 整模块被静默丢弃而仿真全绿）
@@ -59,7 +65,8 @@ module fx_delay #(
     parameter integer MEM_W    = 18,
     // ⭐ 延迟线**地址位宽** ⇒ 深度 = 2^AW 个样点（AW=14 ⇒ 16384 样点 ⇒ 335.5 ms）
     parameter integer AW       = 14,
-    // 干湿比位宽（Q0.MIX_W；`mix_i = 2^MIX_W` 才是"全湿"，⚠️ 8 位最大只能到 255/256）
+    // 干湿比位宽（Q0.MIX_W；send/return 下 `mix_i = 2^MIX_W` 才是"全湿"，
+    //   ⚠️ 8 位最大只能到 255/256 ⇒ ⭐ 实际最湿 = 干声 + 湿声×0.996，⛔ 到不了全湿）
     parameter integer MIX_W    = 8,
     // 反馈量位宽（Q0.FB_W；`fb_i` 最大 255/256 ≈ 0.996 ⇒ ⭐ 仍 < 1，⛔ 不自激）
     parameter integer FB_W     = 8,
@@ -79,8 +86,12 @@ module fx_delay #(
     // ── 控制（⭐ 全部来自 `top.v` 的寄存器；⛔ 本模块不解析串口）──────────
     input  wire                        en_i,        // ⭐ 0 = 硬旁路（输出 == 输入）
     input  wire [1:0]                  sel_i,       // ⭐ 0 = delay · 1 = chorus · 其余按 delay
-    input  wire [AW-1:0]               delay_i,     // ⭐ 延迟样点数（⭐ 被夹到 [2, DEPTH-1]）
-    input  wire [MIX_W-1:0]            mix_i,       // ⭐ 干湿比（0 = 全干 ⇒ 逐位等于输入）
+    input  wire [AW-1:0]               delay_i,     // ⭐ 延迟样点数（⭐ **按模式**被夹：
+                                                    //    ⭐ 延迟 = `[DLY_MIN, DEPTH-1]` = `[2, DEPTH-1]`
+                                                    //    ⭐ 合唱 = `[DLY_MIN_CH, DEPTH-1]` = `[MOD+1, DEPTH-1]`）
+    input  wire [MIX_W-1:0]            mix_i,       // ⭐ 干湿比（send/return：只作用于【湿声】）
+                                                    //   0 = 无湿声 ⇒ 逐位等于输入；
+                                                    //   255 = 干声 + 湿声×0.996，**不再等于全湿**
     input  wire [FB_W-1:0]             fb_i,        // ⭐ 反馈量（Q0.FB_W）
 
     // ── 输出 ──────────────────────────────────────────────────────────────
@@ -159,11 +170,44 @@ module fx_delay #(
     //   · chorus：`addr = (wr − D) << 8 + mod_Q8`（⭐ 带小数 ⇒ 线性插值）
     // ═══════════════════════════════════════════════════════════════════════
     wire          chorus_s0   = (sel_i == 2'd1);
-    wire          dly_clamped = (delay_i < DLY_MIN);
-    wire [AW-1:0] dly_c       = dly_clamped ? DLY_MIN : delay_i;
+    //  ⭐⭐ 2026-10-15 修（合唱绕回）：⭐ 下界必须【按模式】取，而且合唱下界是 **MOD + 1** ——
+    //     🔴 原写法对合唱也用 `DLY_MIN = 2` ⇒ 当 `D < 调制深度(128)` 时，
+    //        `m > D` 的那半个 LFO 周期里读地址 `wr−D+m` 落在**写指针前面**
+    //        ⇒ 环回读上一圈 ⇒ ⭐ 有效延迟从几十采样【跳到 ≈ 2048−(m−D) ≈ 39 ms】，
+    //          每 0.67 s 来回跳一次（⭐ 听感：周期性爆音/音色跳变）。
+    //     ⭐⭐ **正确推导**（⛔ 不是经验值，⛔ 也不是早先写过的 133/134）：
+    //        · 不变量：读基址 ≡ **本样本自己的写地址**（`wr_s0` 与 `rd0_s0` **同沿同源**）
+    //          ⇒ 上一样本的写地址 = **基址 − 1**
+    //        · tap0 读（`T_k`）    ：落在 `基址 − D + f`     ⇒ 需 `D ≥ f + 1`
+    //        · tap1 读（`T_k + 1`）：落在 `基址 − D + f + 1` ⇒ 需 `D ≥ f + 2`
+    //          （⭐ "可见"要求该槽**已经写完**：`mem` 写口在 `T + 4`，而 tap1 在
+    //            `T + 2` 读出 ⇒ 落在【基址】就是**本样本正在写的槽**，读到上一圈）
+    //        · `f = floor(mod_Q8 / 256)`，`mod_Q8 ∈ [−32768, +32666]` ⇒ `f ∈ [−128, +127]`
+    //        ⇒ ⭐⭐ **合唱下界 = MOD + 1 = 129**（⛔ 不是 `MOD = 128`）
+    //     🔴 **下界 = 128 的后果**（⭐ 这就是"周期性爆音"没修干净的原因）：
+    //        `D = 128, m = +127` 时 tap1 恰好落在【基址】（本样本正在写的槽）
+    //        ⇒ 读到【上一圈】（≈ 2048 个样点前）⇒ 插值权重 254/256
+    //        ⇒ **湿声几乎全是错值**；⭐ 触发窗口 = 每 LFO 周期（0.67 s）**64 个样点**
+    //        ⇒ ⭐ **周期性爆音仍在**（只是窗口从"半个周期"缩到"64 个样点"）。
+    //     📌 延迟模式仍是 `DLY_MIN = 2`（⭐ 语义逐位不变 ⇒ 零回归）。
+    //     ⭐ 零代价：两份实例的 `sel_i` 都是**编译期常量**（`fx_chain.v:246` 接 `2'd1`、
+    //        `:280` 接 `2'd0`）⇒ 这个 mux 会被综合**直接折叠掉**，⛔ 不新增任何逻辑。
+    //     ⚠️ `CHORUS_MOD_SAMPLES` 是 `integer` ⇒ ⛔ 不能位选（`K-91`）；
+    //        这里用"整数表达式赋给定宽 localparam"的写法（合法且无位选）。
+    //     📌 判据：`tb/w3c/tb_fx_delay_chorus_floor.sv`（C14 —— 直连本模块、
+    //        `LFO_INC=2048` 让 LFO 走到三角峰 `f = +127` ⇒ 下界差 1 立刻红）。
+    localparam [AW-1:0] DLY_MIN_CH =
+        ((CHORUS_MOD_SAMPLES + 1) < DEPTH) ? (CHORUS_MOD_SAMPLES + 1) : (DEPTH - 1);
+    wire [AW-1:0] dly_lo      = chorus_s0 ? DLY_MIN_CH : DLY_MIN;
+    wire          dly_clamped = (delay_i < dly_lo);
+    wire [AW-1:0] dly_c       = dly_clamped ? dly_lo : delay_i;
 
-    //   ⭐ 为什么 D ≥ 2：读地址是 `wr−D` 与 `wr−D+1`，⚠️ 若 D==1 则第二个抽头
-    //      正好落在**本拍要写的那个位置** ⇒ 🔴 读到"半新半旧"的数据。
+    //   ⭐ 为什么**延迟模式**的 `D ≥ 2`（⭐ 已核实安全，⛔ 数值不改）：
+    //      · `f = 0`（延迟模式恒为 0）⇒ tap1 的偏移 = 1 ⇒ 该槽由**上一采样**在
+    //        `T_{k−1} + 4 ≤ T_k` 写入 ⇒ ⭐ tap1 读（`T_k + 2`）时**可见** ✓
+    //      · 只有 `D = 1` 才坏：tap1 偏移 = 0 ⇒ 落在【基址】= **本样本的写槽**
+    //        （⚠️ 写口在 `T + 4`，⛔ 不是"本拍要写"）⇒ 🔴 读到上一圈 ✗
+    //      · ⭐ 合唱模式下界不同（= `MOD + 1`）—— 理由见上面 ⑤ 的推导 ✓
     wire signed [TAP_W-1:0] wr_q8   = {{(TAP_W-AW-8){1'b0}}, wr_ptr, 8'b0};
     wire signed [TAP_W-1:0] dly_q8  = {{(TAP_W-AW-8){1'b0}}, dly_c,  8'b0};
     wire signed [TAP_W-1:0] mod_ext = {{(TAP_W-18){mod_Q8[17]}}, mod_Q8};
@@ -178,18 +222,30 @@ module fx_delay #(
     // ═══════════════════════════════════════════════════════════════════════
     // ⑥ 流水线寄存器（⭐ 声明放在"用它们的组合逻辑"之前 —— 本项目踩过 bind 错误）
     // ═══════════════════════════════════════════════════════════════════════
-    reg                       valid_s0, valid_s1, valid_s2;
-    reg signed [SAMPLE_W-1:0] dry_s0, dry_s1, dry_s2;
-    reg [MIX_W-1:0]           mix_s0, mix_s1, mix_s2;
-    reg [FB_W-1:0]            fb_s0,  fb_s1,  fb_s2;
-    reg [AW-1:0]              wr_s0,  wr_s1,  wr_s2;
+    reg                       valid_s0, valid_s1, valid_s2, valid_s3;
+    reg signed [SAMPLE_W-1:0] dry_s0, dry_s1, dry_s2, dry_s3;
+    reg [MIX_W-1:0]           mix_s0, mix_s1, mix_s2, mix_s3;
+    reg [FB_W-1:0]            fb_s0,  fb_s1,  fb_s2,  fb_s3;
+    reg [AW-1:0]              wr_s0,  wr_s1,  wr_s2,  wr_s3;
     reg [7:0]                 frac_s0, frac_s1, frac_s2;
-    reg                       en_s0,  en_s1,  en_s2;
+    reg                       en_s0,  en_s1,  en_s2,  en_s3;
     reg [AW-1:0]              rd0_s0;
     reg [MEM_W-1:0]           tap0_r, tap1_r;
+    //  ⭐⭐ 2026-10-15：**第 5 级**（拆锥）——
+    //     🔴 原把「插值乘法 → 饱和 → mix/feedback 两个乘法 → 饱和 → RAM 写口」
+    //        全塞在一拍 ⇒ 实测 `slack 0.022 / arrival 21.028 / required 21.050`
+    //        （⭐ 22 ps 余量，且占全设计最差 setup 路径 6 条；改成运行时参数后
+    //         两个乘法不再能常量折叠 ⇒ 恶化到 **TNS −306.8 ns / 133 条违例**）。
+    //     ✅ 修法：在 `wet_f` 之后**插一级寄存器 `wet_r`** ⇒ 两个乘法分到两拍，
+    //        每拍 ≈10 ns。⭐ 代价：本模块 4→5 拍 ⇒ `fx_chain` **17→19 拍**
+    //        （⭐ 链上**两个** `fx_delay` 实例各 +1 ⇒ 合计 +2；实测见
+    //         `tb/w3c/tb_fx_chain_latency_contract.sv` = 19 clk = 380 ns），
+    //        ⛔ 不花一块 BSRAM。
+    reg signed [SAMPLE_W-1:0] wet_r;          // ⭐ stage3 的插值结果（送 stage4 做乘法）
+    reg                       sat_w_s3;       // ⭐ stage3 的插值饱和标志（延迟到 stage4 记账）
 
     // ═══════════════════════════════════════════════════════════════════════
-    // ⑦ 存储读地址（⭐ 每拍给一个地址；时序见文件头"4 级流水"）
+    // ⑦ 存储读地址（⭐ 每拍给一个地址；时序见文件头"5 级流水"）
     //   · cycle N   （`valid_i`）：给 **tap0** 地址 ⇒ posedge N+1 得到 tap0
     //   · cycle N+1（`valid_s0`）：给 **tap1 = tap0+1** ⇒ posedge N+2 得到 tap1
     //   ⚠️ 其余拍给什么地址都无所谓（读出来没人用），但**必须有确定值** ⇒ 给 tap0。
@@ -218,14 +274,33 @@ module fx_delay #(
     wire signed [SAMPLE_W-1:0] wet_f = primed_r ? wet_lin : {SAMPLE_W{1'b0}};
 
     // ═══════════════════════════════════════════════════════════════════════
-    // ⑨ 干湿混合 `y = (x×(2^MIX_W − mix) + wet×mix) >> MIX_W`
+    // ⑨ 干湿混合（⭐⭐ send/return）`y = x + (wet×mix) >>> MIX_W`
+    //   ⭐ 干声系数恒 `2^MIX_W`（= 1.0）⇒ `mix` **只调湿声**，⛔ 不动干声。
     //   ⭐ `mix = 0` 时 `y = (x×256)>>8 = x` ⇒ **逐位等于输入**（⭐ 判据用它）
+    //      ⚠️ 注意这条在 `en = 1` 下也成立（湿声项被 mix=0 归零，干声恒 1.0）
+    //   ⭐ 与**纯 send/return 形式**的等价关系（⭐ 逐位证明见下方 `dry_w` 处）：
+    //      `(dry×256 + wet×mix) >>> 8 ≡ dry + ((wet×mix) >>> 8)`
+    //      ⚠️ 这是「硬件写法 ≡ 数学意图」，⛔ **不是**"和旧 crossfade 版等价"
     // ═══════════════════════════════════════════════════════════════════════
-    wire [MIX_W:0] mix_u = {1'b0, mix_s2};
-    wire [MIX_W:0] dry_w = ONE_Q - mix_u;              // 2^MIX_W − mix ∈ [1, 256]
+    wire [MIX_W:0] mix_u = {1'b0, mix_s3};             // ⭐ 拆锥后：stage4 用 s3
+    //   ⭐⭐ 2026-10-15：**干湿律从 crossfade 改成 send/return** ——
+    //      🔴 用户实测原 crossfade 版"延迟突兀地响两下"：`mix` 一动，
+    //         **干声跟着变小**（`dry = 1 − mix`）⇒ 推 mix 时先听见干声掉、
+    //         再听见湿声进来 ⇒ 听感是"响两下"，⛔ 不是平滑的 send/return。
+    //      ✅ send/return：**干声恒 1.0**，`mix` **只调湿声**（= 真机的 FX send 量）。
+    //   ⭐ 等价性证明（⛔ 不是"近似"，是**逐位相同**）—— 证明的是
+    //      「本模块保留的硬件形式 ≡ **纯 send/return 形式**」：
+    //      `(dry×256 + wet×mix) >>> 8  ≡  dry + ((wet×mix) >>> 8)`
+    //      ⭐ 因为 `dry×256` 是 256 的**整数倍**，而 `>>>` 对负数就是 `floor(÷256)`
+    //         ⇒ `floor((A + B)/256) = A/256 + floor(B/256)`（A 整除 256）✓
+    //      ⇒ ⭐ **所以只需改 `dry_w` 这一处**：`×256` 与 `>>>8` 原样保留，
+    //         ⛔ 不用动 `p_dry`/`mix_sum`/`mix_sh`，也⛔ 不会引入舍入差异。
+    //   ⭐ 附带收益（综合）：`dry_w` 变成**常量** ⇒ `p_dry = dry_s3 << 8`
+    //      ⇒ **少一个 24×9 乘法器**（原 `dry_s3 * dry_w` 是变量乘法）。
+    wire [MIX_W:0] dry_w = ONE_Q;                      // ⭐ send/return：干声系数恒 1.0
 
-    wire signed [SUM_W-1:0] p_dry   = dry_s2 * $signed({1'b0, dry_w});
-    wire signed [SUM_W-1:0] p_wet   = wet_f  * $signed({1'b0, mix_u});
+    wire signed [SUM_W-1:0] p_dry   = dry_s3 * $signed({1'b0, dry_w});
+    wire signed [SUM_W-1:0] p_wet   = wet_r  * $signed({1'b0, mix_u});
     wire signed [SUM_W-1:0] mix_sum = p_dry + p_wet;
     wire signed [SUM_W-1:0] mix_sh  = mix_sum >>> MIX_W;
 
@@ -244,8 +319,8 @@ module fx_delay #(
     //        ⇒ 开效果的一瞬间**爆音**。
     //   ⭐ 饱和（`K-101` 写法）⇒ 反馈再大也只是**限幅**，⛔ 不会回绕成怪声
     // ═══════════════════════════════════════════════════════════════════════
-    wire signed [SUM_W-1:0] p_fb   = wet_f * $signed({1'b0, fb_s2});
-    wire signed [SUM_W-1:0] fb_sum = dry_s2 + (p_fb >>> FB_W);
+    wire signed [SUM_W-1:0] p_fb   = wet_r * $signed({1'b0, fb_s3});
+    wire signed [SUM_W-1:0] fb_sum = dry_s3 + (p_fb >>> FB_W);
 
     wire over_pos_f = ~fb_sum[SUM_W-1] && (|fb_sum[SUM_W-2 : SAMPLE_W-1]);
     wire over_neg_f =  fb_sum[SUM_W-1] && ~(&fb_sum[SUM_W-2 : SAMPLE_W-1]);
@@ -253,19 +328,20 @@ module fx_delay #(
                                       : over_neg_f ? {1'b1, {(SAMPLE_W-1){1'b0}}}
                                       : fb_sum[SAMPLE_W-1:0];
 
-    wire signed [SAMPLE_W-1:0] wr_full = en_s2 ? fb_sat : dry_s2;
+    wire signed [SAMPLE_W-1:0] wr_full = en_s3 ? fb_sat : dry_s3;
     //   ⭐ 存进 BSRAM 的是**高 MEM_W 位**（⭐ 有符号截断 ⇒ 误差 ≤ 1 LSB@18bit）
     wire [MEM_W-1:0]           wr_mem  = wr_full[SAMPLE_W-1 : SH];
 
     // ⭐ 三处饱和的合并判据（⭐ 只做"记账"，⛔ 不参与数据通路）
-    wire sat_any = over_pos_w | over_neg_w | over_pos_m | over_neg_m | over_pos_f | over_neg_f;
+    //   📌 拆锥后：插值饱和（`over_*_w`）在 stage3 产生 ⇒ 用 `sat_w_s3` 延迟到 stage4 记账
+    wire sat_any = sat_w_s3 | over_pos_m | over_neg_m | over_pos_f | over_neg_f;
 
     // ═══════════════════════════════════════════════════════════════════════
     // ⑪ 硬旁路：`en = 0` ⇒ 输出**逐位等于**输入（⭐ 判据 (d)）
     //   ⚠️ 注意：旁路只改**样本值**，⛔ 不改 valid 的时序（⭐ 流水线照走）
     //      ⇒ ⭐ 与 `master_mix` 的"valid 与数据严格配对"约定一致。
     // ═══════════════════════════════════════════════════════════════════════
-    wire signed [SAMPLE_W-1:0] fx_out = en_s2 ? mix_sat : dry_s2;
+    wire signed [SAMPLE_W-1:0] fx_out = en_s3 ? mix_sat : dry_s3;
 
     assign wr_ptr_o = wr_ptr;
     assign primed_o = primed_r;
@@ -282,17 +358,22 @@ module fx_delay #(
     endfunction
 
     // ═══════════════════════════════════════════════════════════════════════
-    // ⑬ 主时序（4 级流水）
+    // ⑬ 主时序（5 级流水）
     // ═══════════════════════════════════════════════════════════════════════
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
-            valid_s0 <= 1'b0; valid_s1 <= 1'b0; valid_s2 <= 1'b0;
+            valid_s0 <= 1'b0; valid_s1 <= 1'b0; valid_s2 <= 1'b0; valid_s3 <= 1'b0;
             dry_s0 <= {SAMPLE_W{1'b0}}; dry_s1 <= {SAMPLE_W{1'b0}}; dry_s2 <= {SAMPLE_W{1'b0}};
+            dry_s3 <= {SAMPLE_W{1'b0}};
             mix_s0 <= {MIX_W{1'b0}}; mix_s1 <= {MIX_W{1'b0}}; mix_s2 <= {MIX_W{1'b0}};
+            mix_s3 <= {MIX_W{1'b0}};
             fb_s0  <= {FB_W{1'b0}};  fb_s1  <= {FB_W{1'b0}};  fb_s2  <= {FB_W{1'b0}};
+            fb_s3  <= {FB_W{1'b0}};
             wr_s0  <= {AW{1'b0}};    wr_s1  <= {AW{1'b0}};    wr_s2  <= {AW{1'b0}};
+            wr_s3  <= {AW{1'b0}};
             frac_s0<= 8'd0;          frac_s1<= 8'd0;          frac_s2<= 8'd0;
-            en_s0  <= 1'b0;          en_s1  <= 1'b0;          en_s2  <= 1'b0;
+            en_s0  <= 1'b0;          en_s1  <= 1'b0;          en_s2  <= 1'b0;  en_s3 <= 1'b0;
+            wet_r  <= {SAMPLE_W{1'b0}};   sat_w_s3 <= 1'b0;
             rd0_s0 <= {AW{1'b0}};
             tap0_r <= {MEM_W{1'b0}}; tap1_r <= {MEM_W{1'b0}};
             wr_ptr <= {AW{1'b0}};
@@ -344,9 +425,25 @@ module fx_delay #(
                 frac_s2 <= frac_s1;
             end
 
-            // ── stage3（写回 + 出结果）────────────────────────────────────
-            //   ⭐ 写指针只在**有样本时**走一步 ⇒ ⛔ 空闲拍不会"吃掉"延迟长度
+            // ── stage3（⭐ 拆锥新增）：**插值到此为止** ⇒ 结果与饱和标志打进 `wet_r` ──
+            //   🔴 原实现把插值、两个乘法、三处饱和、RAM 写口全挤在一拍 ⇒ 21.028 ns。
+            //   ✅ 现在这一拍只做：`d_tap → ×frac → >>8 → +tap0_f → 饱和 → primed mux`
+            //      ⇒ 只剩 **1 个乘法**；`wet_r` 之后那一拍才做 mix/feedback 两个乘法。
+            valid_s3 <= valid_s2;
             if (valid_s2) begin
+                wet_r    <= wet_f;
+                sat_w_s3 <= over_pos_w | over_neg_w;
+                dry_s3   <= dry_s2;
+                mix_s3   <= mix_s2;
+                fb_s3    <= fb_s2;
+                wr_s3    <= wr_s2;
+                en_s3    <= en_s2;
+            end
+
+            // ── stage4（写回 + 出结果）────────────────────────────────────
+            //   ⭐ 写指针只在**有样本时**走一步 ⇒ ⛔ 空闲拍不会"吃掉"延迟长度
+            //   📌 与 RAM 写口（`mem[wr_s3] <= wr_mem`）**同拍** ⇒ 地址与数据严格配对
+            if (valid_s3) begin
                 wr_ptr <= wr_ptr + 1'b1;
                 if (prime_cnt != DEPTH_M1[AW:0])
                     prime_cnt <= prime_cnt + 1'b1;
@@ -357,18 +454,20 @@ module fx_delay #(
                     sat_cnt_o <= sat_inc16(sat_cnt_o);
             end
 
-            // ── 输出寄存（⭐ 与 `valid_s2` 严格配对 ⇒ ⛔ 不会"valid 与数据错拍"）──
-            valid_o  <= valid_s2;
+            // ── 输出寄存（⭐ 与 `valid_s3` 严格配对 ⇒ ⛔ 不会"valid 与数据错拍"）──
+            valid_o  <= valid_s3;
             sample_o <= fx_out;
         end
     end
 
     // ═══════════════════════════════════════════════════════════════════════
-    // ⑭ 存储器（⭐ 写口 + 寄存读口；⚠️ 地址不冲突由 `D ≥ 2` 保证）
+    // ⑭ 存储器（⭐ 写口 + 寄存读口；⚠️ 地址不冲突由**按模式的下界**保证 ——
+    //     延迟 `D ≥ 2` · 合唱 `D ≥ MOD+1`（⭐ 见 ⑤ 的推导；⛔ 写口在 `T+4`，
+    //     而 tap1 在 `T+2` 读出 ⇒ "同一沿"⛔ 不是判据，"写没写完"才是））
     // ═══════════════════════════════════════════════════════════════════════
     always @(posedge clk_i) begin
-        if (valid_s2)
-            mem[wr_s2] <= wr_mem;
+        if (valid_s3)
+            mem[wr_s3] <= wr_mem;
         mem_r <= mem[mem_raddr];
     end
 
@@ -389,6 +488,10 @@ module fx_delay #(
             $display("ERROR [fx_delay] LFO_INC=%0d < 1 => the chorus LFO never moves, so chorus silently degrades to a plain fixed delay. PARAM_OK=0.", LFO_INC);
         if (CHORUS_MOD_SAMPLES < 1)
             $display("ERROR [fx_delay] CHORUS_MOD_SAMPLES=%0d < 1 => zero chorus depth (no modulation at all). PARAM_OK=0.", CHORUS_MOD_SAMPLES);
+        //  ⭐ 2026-10-15 新增：合唱下界现在是 `MOD+1` ⇒ 若它顶到 `DEPTH-1`，
+        //     那个"下界"就**不再是下界**（tap 会读上一圈）而**没有任何报错** ⇒ 必须自检。
+        if ((CHORUS_MOD_SAMPLES + 1) >= DEPTH)
+            $display("ERROR [fx_delay] CHORUS_MOD_SAMPLES=%0d + 1 >= DEPTH=%0d => the chorus floor DLY_MIN_CH collapses to DEPTH-1, so the modulated tap reads lap-around data. PARAM_OK=0.", CHORUS_MOD_SAMPLES, DEPTH);
 
         // ⭐⭐ 存储预算：**由参数自动算**（⭐ 报告里的块数就是这一行）
         $display("NOTE [fx_delay] DEPTH=%0d samples = %0d ms @48828.125Hz | MEM_W=%0d => %0d bit / 18432 bit-per-block = %0d BSRAM block(s) of 118",

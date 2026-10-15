@@ -1,0 +1,2 @@
+FATAL: tb/w3c/tb_fx_dist_stream_contract.sv:49: FAIL dist peak index=0 expected=100000 actual=8388607
+       Time: 331000  Scope: tb_fx_dist_stream_contract

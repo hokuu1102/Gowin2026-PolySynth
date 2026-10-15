@@ -1,0 +1,72 @@
+FPGA2026 full regression -- close-out record, 2026-10-14
+=========================================================
+
+Command : powershell -NoProfile -ExecutionPolicy Bypass -File sim\tb_all.ps1
+Started : 2026-10-14 01:16
+Ended   : 2026-10-14 02:00  (last evidence log written 02:00:26)
+Wall    : ~44 minutes  (NOTE: the handover and AGENTS.md say "~15 minutes".
+                        Observed rate was ~3.6 tb/min over 159 tbs, so budget
+                        ~45 min for a full serial run on this machine.)
+
+VERDICT (verbatim tail of the run)
+----------------------------------
+================ 汇总 ================
+通过 157 / 共 157
+跳过（工具 tb，非验收）: tb_export_key_wav, tb_export_wav
+  ⭐ 要跑它: powershell -File sim\tb_all.ps1 -Filter tb_export_key_wav
+✅ 全部通过（证据在 sim/evidence/）
+
+=> pass count == total count. Acceptance criterion MET.
+
+WHY THIS RUN EXISTS
+-------------------
+The handover (review/交接文档-20261014.md) recorded that the last full
+regression (157/157, tb_all_boardfix_20261013.log) PREDATED two changes:
+
+  rtl/w3b/vibrato_lfo.v   -- compile-time guard DEPTH_SHIFT_EQ == DEPTH_MAX_RAW
+  tb/w3c/tb_uart_ui.sv    -- 5 criteria for mode_sw_req_i (the 'A' command)
+
+So the working tree had no regression record covering them. This run closes
+that gap: the tree now has a full-regression record that includes both.
+
+CORRECTION to the handover's "30-second state"
+---------------------------------------------
+The handover said HEAD=83a4fd9, 2 commits ahead, and those two files still
+uncommitted. Actual state: both changes are COMMITTED in b55c278, so HEAD is
+b55c278 and the branch is 3 commits ahead of origin/main (9bf2de6).
+git status shows NO modification to rtl/ or tb/ -- only regenerated
+sim/evidence/*.log noise. So this run covers committed content, not a
+dirty tree.
+
+EVIDENCE THAT THE TWO NEW CHANGES ARE ACTUALLY EXERCISED
+--------------------------------------------------------
+vibrato guard (appears in every tb that instantiates top):
+  NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96
+       DEPTH_MAX_RAW=120, shift decomposition matches)
+
+tb_uart_ui (the 'A' end-to-end criteria):
+  PASS: tb_uart_ui (28 checks)
+  -> the 5 added mode_sw_req_i criteria are among them and are green.
+
+ENCODING GATES (run the same session, both exit 0)
+--------------------------------------------------
+tools\check_ps1_encoding.ps1 : OK, 44 scripts checked, none violate
+tools\check_no_bom.ps1       : OK, 0 BOM in 261 HDL files
+
+BITSTREAM (unchanged; NOT reflashed -- board is off USB)
+--------------------------------------------------------
+impl/pnr/Gowin2026.fs
+  size   = 20490143
+  built  = 2026-10-14 00:20:19
+  sha256 = 90C65DF6DB5E9C0F259B2F117274C3DE62A08199B884AABBE98BDA34F1FA59C4
+Still valid: the vibrato change is a localparam constant plus an
+initial $display inside the pre-existing self-check block -- neither is
+synthesizable, so the netlist is unchanged. No re-PnR is needed before
+flashing; only the flash step itself is outstanding.
+
+NOT DONE (deferred, board unavailable / user said stop)
+-------------------------------------------------------
+  T2 flash      -- board off USB (all VID_0403 devices Status=Unknown)
+  T3 on-board 'A' verification
+  T4 P2b vibrato decision (needs on-board listening)
+  T5 push       -- user asked to hold the push until after on-board test

@@ -1,4 +1,6 @@
-﻿  ok  : dead-zone below ON threshold keeps vibrato disabled
+﻿NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+  ok  : dead-zone below ON threshold keeps vibrato disabled
   ok  : depth reaches ON threshold and enables vibrato
   ok  : hysteresis holds enabled inside OFF..ON band
   ok  : depth at OFF threshold disables vibrato
@@ -11,9 +13,12 @@
   ok  : triangle crosses zero at half-cycle
   ok  : triangle negative three-quarter-cycle
   ok  : triangle returns to zero continuously
-      [dbg] P0-19 depth_raw=4095 => |mod| peak = 960锛堜笂闄?960锛?
+      [dbg] P0-19 depth_raw=4095 => |mod| peak = 952锛堜笂闄?960锛?
   ok  : P0-19 depth clamp: |mod| <= 960 with the fader at full travel
+      [dbg] full-travel: depth_raw=2048 => |mod| peak = 480锛堟弧琛岀▼ ~952锛?
+  ok  : full-travel usable: mid-fader depth is clearly BELOW full-travel depth
+  ok  : full-travel usable: mid-fader depth is clearly NON-ZERO (fader really does something)
 PASS: vibrato LFO hysteresis, slew and phase continuity
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vibrato_lfo.sv:142: $finish called at 1200000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vibrato_lfo.sv:173: $finish called at 2070000 (1ps)
 
 

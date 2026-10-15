@@ -55,6 +55,29 @@ if (-not (Test-Path $GwSh)) {
 
 Push-Location $root
 
+# ---- GUARD: PnR algorithm options must be the project defaults (0/0) ----
+#   WHY (2026-10-15): impl/Gowin2026_process_config.json was silently changed to
+#   Place_Option=2 / Route_Option=2 -- a "timing-first" algorithm this project has
+#   ALREADY measured as unusable (3906 unrouted nets in a 97-minute run).  The build
+#   then took 53m19s and produced 676 unrouted nets (ERROR PR0004) with no obvious
+#   cause, because this .json is NOT wiped by this script and the .gprj does not
+#   carry these fields.  They are ALGORITHM choices, not random seeds; defaults are
+#   0/0.  Fail fast here instead of burning an hour.
+$pcPath = Join-Path $root "impl\Gowin2026_process_config.json"
+if (Test-Path $pcPath) {
+  $pcRaw   = [IO.File]::ReadAllText($pcPath)
+  $pcPlace = [regex]::Match($pcRaw, '"Place_Option"\s*:\s*"([^"]*)"').Groups[1].Value
+  $pcRoute = [regex]::Match($pcRaw, '"Route_Option"\s*:\s*"([^"]*)"').Groups[1].Value
+  if (($pcPlace -ne "0") -or ($pcRoute -ne "0")) {
+    Write-Host "ERROR: impl/Gowin2026_process_config.json has Place_Option='$pcPlace' Route_Option='$pcRoute' -- must be 0/0" -ForegroundColor Red
+    Write-Host "       Non-default algorithm options caused 676 unrouted nets (PR0004) on 2026-10-15." -ForegroundColor Red
+    exit 3
+  }
+  Write-Host "OK  PnR options are the project defaults (Place_Option=$pcPlace Route_Option=$pcRoute)"
+} else {
+  Write-Host "NOTE: impl/Gowin2026_process_config.json absent -- Gowin will use its own defaults (0/0)"
+}
+
 # ---- ⭐ GUARD: files instantiated by top.v must be registered in the .gprj ----
 #   WHY (2026-09-22): play_seq.v was created, its tb passed, the regression was
 #   green -- and the PnR run silently did NOT include it, so the timing evidence

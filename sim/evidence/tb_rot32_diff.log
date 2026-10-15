@@ -18,6 +18,6 @@
 ================================================================
 PASS: tb_rot32_diff 鈥斺€?50266 鎷嶉€愭媿閫愪綅鐩稿悓锛? 澶勪笉鍚?
 ================================================================
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_rot32_diff.sv:331: $finish called at 1005960000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_rot32_diff.sv:339: $finish called at 1005960000 (1ps)
 
 

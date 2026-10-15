@@ -129,7 +129,6 @@ module fx_trem #(
     // ═══════════════════════════════════════════════════════════════════════
     reg [DEPTH_W-1:0] depth_r;
     reg [RATE_W-1:0]  rate_r;
-    reg               en_r;
 
     assign depth_used_o = depth_r;
     assign rate_used_o  = rate_r;
@@ -164,6 +163,11 @@ module fx_trem #(
     wire [DEPTH_W-1:0]  att    = att_f[15:8];                      // >>8 ⇒ Q0.8
     wire [DEPTH_W:0]    gain_w = ONE_Q - {1'b0, att};              // 256 − att
 
+    // 接受样本时使用同拍深度；后续控制变化不能串入在途样本。
+    wire [DEPTH_W+7:0] sample_att_f = depth_i * inv_t;
+    wire [DEPTH_W-1:0] sample_att = sample_att_f >> 8;
+    wire [DEPTH_W:0] sample_gain = ONE_Q - {1'b0, sample_att};
+
     assign gain_o = gain_w;
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -176,9 +180,10 @@ module fx_trem #(
     reg  [PIPE-1:0]             v_sr;
     reg  [PIPE-1:0]             en_sr;
     reg  signed [SUM_W-1:0]     p1;
+    reg  signed [SAMPLE_W-1:0]  y2;        // 有效数据与三拍 valid 对齐
 
     wire signed [SUM_W-1:0] prod = s0 * $signed({1'b0, g0});
-    wire signed [SUM_W-1:0] shr  = prod >>> DEPTH_W;
+    wire signed [SUM_W-1:0] shr  = p1 >>> DEPTH_W;
 
     //  溢出判断（K-101：逐位比较）
     //  ⚠️ 符号位取【真符号位】= 结果的最高位（不是第 SAMPLE_W-1 位）
@@ -194,7 +199,6 @@ module fx_trem #(
         if (!rst_n_i) begin
             depth_r <= DEPTH_DEF;
             rate_r  <= RATE_DEF;
-            en_r    <= 1'b0;
             phase   <= {LFO_W{1'b0}};
             g0      <= {DEPTH_W+1{1'b0}};
             s0      <= {SAMPLE_W{1'b0}};
@@ -203,22 +207,22 @@ module fx_trem #(
             v_sr    <= {PIPE{1'b0}};
             en_sr   <= {PIPE{1'b0}};
             p1      <= {SUM_W{1'b0}};
+            y2      <= {SAMPLE_W{1'b0}};
             valid_o  <= 1'b0;
             sample_o <= {SAMPLE_W{1'b0}};
         end else begin
             // ── 参数（每拍都收）────────────────────────────────────────
             depth_r <= depth_i;
             rate_r  <= rate_i;
-            en_r    <= en_i;
 
             // ── LFO 只在有样点时推进（速率与采样率绑定）─────────────────
-            if (valid_i) phase <= phase + {{(LFO_W-RATE_W){1'b0}}, rate_r};
+            if (valid_i) phase <= phase + {{(LFO_W-RATE_W){1'b0}}, rate_i};
 
             // ── stage0（N → N+1）：锁存样点与增益 ───────────────────────
             s0 <= sample_i;
-            g0 <= gain_w;
+            g0 <= sample_gain;
             v_sr  <= {v_sr[PIPE-2:0],  valid_i};
-            en_sr <= {en_sr[PIPE-2:0], en_r};
+            en_sr <= {en_sr[PIPE-2:0], en_i};
 
             // ── stage1（N+1 → N+2）：乘法 ───────────────────────────────
             s1 <= s0;
@@ -226,9 +230,10 @@ module fx_trem #(
 
             // ── stage2（N+2 → N+3）：输出 ───────────────────────────────
             s2 <= s1;
+            y2 <= sat;
             valid_o  <= v_sr[PIPE-1];
             //  旁路：en = 0 时输出【输入延迟 PIPE 拍】=> 数值逐位等于输入
-            sample_o <= en_sr[PIPE-1] ? sat : s2;
+            sample_o <= en_sr[PIPE-1] ? y2 : s2;
         end
     end
 

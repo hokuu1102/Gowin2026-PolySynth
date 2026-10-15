@@ -1,0 +1,4 @@
+﻿PASS: BG envelope equivalence every clock, 32 voices, four timbres and fallback boundaries
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_bg_envelope_cycle_equiv.sv:66: $finish called at 31080080000 (1ps)
+
+

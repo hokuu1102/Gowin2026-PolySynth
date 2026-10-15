@@ -1,0 +1,4 @@
+﻿PASS: calib cycle-exact equivalence checks=73141 profiles=4 exhaustive_codes=4096 channels=8
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_calib_equivalence.sv:73: $finish called at 1462820000 (1ps)
+
+

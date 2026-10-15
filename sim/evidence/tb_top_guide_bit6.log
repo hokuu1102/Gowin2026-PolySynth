@@ -1,0 +1,50 @@
+﻿NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=1000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
+NOTE [fx_delay] DEPTH=2048 samples = 41 ms @48828.125Hz | MEM_W=18 => 36864 bit / 18432 bit-per-block = 2 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=25 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [ctrl_keypad] PARAM_OK=1 (SCAN_DIV=12500 DEB_N=8 CLK_HZ=50000000 scan_us=0 db_ms=8)
+NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=50000000 LONG_MS=2000 LONG_CYC=100000000 HW=27)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+=== tb_top_guide_bit6 (閫愪簨浠?bit6 = 鍙寒鐏笉鍑哄０) ===
+   play_seq 澶嶄綅榛樿 tick_inc = 164927锛堚瓙 120 BPM = 164927锛?
+  ok  : 0a tick_inc default is 120 BPM (beat_gen tempo comes from play_seq)
+  ok  : 0b global 'U' guide mode is OFF -- we are testing the PER-EVENT path
+  ok  : 0c bit6 decode is 0 at reset
+== 1  bit6=1  =>  LED 浜?+ 涓嶅嚭澹帮紙涓嶈繘 seq_arb锛?=
+  ok  : 1a the bit6=1 event fired (the per-event 1-beat lead actually reached play_seq)
+  ok  : 1b exactly one note event was emitted by play_seq (the LED half sees it)
+  ok  : 1c the emitted event really carries bit6=1 (fields survived the whole chain)
+  ok  : 1d guide_lamp LIT axis 5  <-- the LED guide half is ALIVE for bit6=1
+  ok  : 1e seq_arb.score_valid_i was NEVER high  <-- bit6=1 did NOT reach the audio path
+  ok  : 1f seq_arb score_cnt_o is still 0  <-- bit6=1 did NOT occupy a voice
+  ok  : 1h nothing at all came out of the arbiter yet (no dangling note to release)
+  ok  : 1i the buffer is drained (the event was consumed exactly once)
+== 2  bit6=0  =>  鐓у父鍑哄０锛堟病鎶婃暣鏉℃祦闂ㄦ帀锛?=
+  ok  : 2a the bit6=0 event fired
+  ok  : 2b exactly two note events emitted so far
+  ok  : 2c seq_arb.score_valid_i WAS high once  <-- bit6=0 DID reach the audio path
+  ok  : 2d seq_arb score_cnt_o is now 1  <-- it DID occupy a voice (normal note)
+  ok  : 2e the bit6=0 note did NOT light the GUIDE lamp (LED guides only marked tracks)
+== 3  mixed stream: bit6=1 / bit6=0 alternating ==
+  ok  : 3a all five events were consumed (the stream itself was NOT blocked)
+  ok  : 3b five note events emitted by play_seq
+  ok  : 3c three of them carried bit6=1 (2 from the mixed batch + 1 from phase 1)
+  ok  : 3d ONLY the bit6=0 ones reached seq_arb (2 total: 1 in phase 2 + 1 in the mix)
+  ok  : 3e ONLY the bit6=0 ones took a voice (score_cnt_o == 2)
+  ok  : 3f the LAST bit6=1 event (axis 9) still lit its LED  <-- guide survives in a mix
+  ok  : 3g the bit6=0 event (axis 8) did NOT light the GUIDE lamp  <-- per-event is per-event
+  ok  : 3h no evt_buf overflow for the whole stream
+
+PASS: tb_top_guide_bit6 - 24/24 judgements held
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_top_guide_bit6.sv:325: $finish called at 1605730000 (1ps)
+
+

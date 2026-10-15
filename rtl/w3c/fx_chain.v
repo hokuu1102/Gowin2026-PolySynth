@@ -25,7 +25,8 @@
 //     · 合唱线只要 **2048 样点（AW_CH=11）** ⇒ 42 ms 足够
 //       （合唱的调制抽头典型 10~30 ms，深度 ±2.6 ms）
 //     · 延迟线 16384 样点（AW=14）⇒ 335 ms
-//     ⇒ BSRAM 合计 **18 块**（2 + 16）⇒ 69 + 18 = 87/118 = 74% ✅ 放得下
+//     ⇒ 理想存储预算 18 块（2+16）；BJ 基线已是 83 块，不能再按旧69块相加。
+//        具体物理块数及完整工程是否放得下必须重新综合、布局布线核验。
 //
 //  📌 若将来嫌 BSRAM 紧：可以退回"共用一条线 + 两个抽头"（省 2 块），
 //     但**要接受并联拓扑**（延迟回声里不带合唱）⚠️
@@ -45,7 +46,9 @@
 //    ⇒ 也是**逐位等于输入** ✓
 //  ⇒ ⭐ **掩码 = 0（且颤音深度 = 0）⇒ 输出与今天的通路【数值逐位相同】** ✓
 //  ⚠️ 如实说明：旁路走的是【同一条流水线】，所以数值相同但时序差
-//     PIPE_TOTAL 拍（dist 5 + chorus 4 + delay 4 + trem 3 = **16 拍** = 320 ns @50 MHz）。
+//     实测 19 拍 = 380 ns @50 MHz（⭐ 分级账见下面"流水线"表：
+//     5+4+4+0+3 拍模块延迟 + 3 拍级间接收；⭐ 拆锥后链上**两个** `fx_delay`
+//     各 +1 拍 ⇒ 17→19；⭐ 逐拍核对见 `tb/w3c/tb_fx_chain_latency_contract.sv`）。
 //     相对本项目 10 ms 的延迟预算可忽略 ✓
 //
 // ---------------------------------------------------------------------------
@@ -67,16 +70,17 @@
 //     · 音量颤音（音频域，本模块最后一级）：作用于**全部输出** ⇒ 含回声
 //
 // ---------------------------------------------------------------------------
-// 流水线（PIPE_TOTAL = 16 拍）
+// 流水线（公开输入接收到公开输出有效：19 拍）
 // ---------------------------------------------------------------------------
 //  | 级 | 拍数 | 依据 |
 //  |----|------|------|
 //  | 失真   | 5 | `fx_dist.v` 的 PIPE |
-//  | 合唱   | 4 | `fx_delay.v` 的流水线（N..N+4） |
-//  | 延迟   | 4 | 同上（各自独立的实例） |
+//  | 合唱   | 4 | `fx_delay.v` 公开接受边沿 N 到输出边沿 N+4（⭐ 2026-10-15 拆锥 +1） |
+//  | 延迟   | 4 | 同上（各自独立的实例）⇒ ⭐ **两个实例各 +1 ⇒ 合计 +2** |
 //  | 混响   | 0 | 留位直通 |
 //  | 音量颤音 | 3 | `fx_trem.v` 的 PIPE |
-//  ⚠️ `valid_i` 的脉冲间距必须 ≥ **各单级**的要求（最严的是延迟的 4 拍）。
+//  | 级间接收 | 3 | 四个寄存模块之间的三次接收，总和19拍 |
+//  ⚠️ `valid_i` 的脉冲间距必须满足各单级声明的要求（保守采用 ≥5拍）。
 //     真实链路每 1024 拍一个样点，够。
 //
 // ---------------------------------------------------------------------------
@@ -94,7 +98,7 @@ module fx_chain #(
     //   ⭐ 2026-10-15：延迟与合唱【各有自己的一条线】
     //      · AW    = 14 ⇒ 16384 样点 ⇒ 335 ms ⇒ 16 块 BSRAM
     //      · AW_CH = 11 ⇒  2048 样点 ⇒  42 ms ⇒  2 块 BSRAM
-    //      ⚠️ 两者都必须 >= 8（`fx_delay.v:169` 的 `TAP_W-18` 会变负）
+    //      ⚠️ 两者都必须 >= 8（`fx_delay.v:213` 的 `TAP_W-18` 会变负）
     parameter integer AW       = 14,
     parameter integer AW_CH    = 11,
     parameter integer MIX_W    = 8,
@@ -106,8 +110,8 @@ module fx_chain #(
     parameter integer DEPTH_W  = 8,
     parameter integer RATE_W   = 8,
     parameter integer LFO_W    = 16,
-    //  总流水线拍数（可观测，供上层核对延迟预算）
-    //    dist 5 + chorus 4 + delay 4 + trem 3 = 16
+    //  兼容已有调用者的诊断总线位宽；不通过本参数改变实际流水。
+    //  实际公开端口延迟为 19 拍，pipe_o 报告真实值，端口位宽保持不变。
     parameter integer PIPE_TOTAL = 16
 ) (
     input  wire                        clk_i,
@@ -130,9 +134,9 @@ module fx_chain #(
 
     // ── 延迟/合唱参数 ─────────────────────────────────────────────────────
     input  wire [AW-1:0]               dly_delay_i,  // 延迟时间（样点数）
-    input  wire [AW_CH-1:0]            chor_delay_i, // ⭐ 合唱基础延迟（样点数，典型 732 = 15 ms）
+    input  wire [AW_CH-1:0]            chor_delay_i, // ⭐ 合唱基础延迟（样点数，典型 736 = 15 ms，⭐ = 23 × 32 在串口格点上）
     input  wire [MIX_W-1:0]            dly_mix_i,    // 干湿比（两级共用）
-    input  wire [FB_W-1:0]             dly_fb_i,     // 反馈量（两级共用）
+    input  wire [FB_W-1:0]             dly_fb_i,     // ⭐ 反馈量（**延迟专用** —— 合唱恒 0 反馈，见 ③）
 
     // ── 音量颤音参数 ──────────────────────────────────────────────────────
     input  wire [DEPTH_W-1:0]          trem_depth_i, // Q0.8
@@ -153,7 +157,22 @@ module fx_chain #(
 );
 
     assign en_mask_o = en_mask_i;
-    assign pipe_o    = PIPE_TOTAL[PIPE_TOTAL-1:0];
+    //  ⭐ 真实拍数（⭐ 实测 = `tb/w3c/tb_fx_chain_latency_contract.sv` 的 19 clk = 380 ns @50 MHz）
+    localparam integer PIPE_TRUE = 19;
+    localparam [PIPE_TOTAL-1:0] PIPE_CYCLES = PIPE_TRUE;
+    assign pipe_o    = PIPE_CYCLES;
+    //  ⭐⭐ 参数守卫（⭐ 照 `fx_delay.v` ⑮ 的先例 —— 原来这里**完全没有守卫**）：
+    //     ⚠️ `PIPE_TOTAL` 只决定**诊断端口位宽**，但它一旦装不下 `PIPE_TRUE`，
+    //        `PIPE_CYCLES` 会被**静默截断**（如 `PIPE_TOTAL=4` ⇒ `19 & 4'hF = 3`）
+    //        ⇒ `pipe_o` **谎报**流水线深度，且**没有任何报错**（`K-106`）。
+    //     📌 今天两处调用都用默认/显式 **16**（`top.v` 用默认 · `tb_fx_chain.sv:100` 传 16）
+    //        ⇒ `1<<16 = 65536 > 19` ⇒ ⭐ **不触发** ✓
+    //     ⚠️ **如实说明**：`$display` 在**综合期被忽略**（`EX3858` —— 见
+    //        `review/效果器运行时-肌肉集团审查-20261015.md` 的 **P2-36**）
+    //        ⇒ ⭐ 这条守卫只对**仿真**有效；综合期要挡住它得另想办法（⛔ 本轮没做）。
+    initial if ((1 << PIPE_TOTAL) <= PIPE_TRUE)
+        $display("ERROR [fx_chain] PIPE_TOTAL=%0d cannot hold PIPE_CYCLES=%0d (1<<PIPE_TOTAL=%0d <= %0d) => pipe_o would be truncated and LIE about the pipeline depth. PARAM_OK=0.",
+                 PIPE_TOTAL, PIPE_TRUE, (1 << PIPE_TOTAL), PIPE_TRUE);
 
     // ═══════════════════════════════════════════════════════════════════════
     // ① 各级的 enable / 模式（组合，从掩码解出来）
@@ -217,6 +236,10 @@ module fx_chain #(
     wire [15:0]                d2_sat_cnt;
     wire [15:0]                d2_clamp_cnt;
 
+    //   ⭐⭐ 2026-10-15：合唱的 **fb 硬接 0**（⛔ 不再共用 `dly_fb_i`）——
+    //      🔴 合唱线只有 ~15 ms 且被 LFO 调制 ⇒ 一旦加反馈，抽头就变成
+    //         **共振梳状滤波器**（`FX_FB_DEF=96` 上电即如此）⇒ 音色发金属声。
+    //      ✅ 真机 chorus **没有反馈**；反馈只属于 delay（见 ④）✓
     fx_delay #(
         .SAMPLE_W (SAMPLE_W),
         .AW       (AW_CH),
@@ -226,8 +249,14 @@ module fx_chain #(
         .clk_i(clk_i), .rst_n_i(rst_n_i),
         .valid_i(d1_valid), .sample_i(d1_sample),
         .en_i(chor_active), .sel_i(2'd1),        // sel=1 ⇒ 合唱（调制读地址）
-        .delay_i(chor_delay_i), .mix_i(dly_mix_i), .fb_i(dly_fb_i),
+        .delay_i(chor_delay_i), .mix_i(dly_mix_i), .fb_i({FB_W{1'b0}}),   // ⭐ 合唱无反馈
         .valid_o(d2_valid), .sample_o(d2_sample),
+        //  🔴 **可观测性缺口（`K-106`，⭐ 本轮只记不改）**：下面 4 个输出
+        //     （`d2_wr_ptr` / `d2_primed` / `d2_sat_cnt` / `d2_clamp_cnt`）
+        //     **接出来之后从不被任何消费者读** ⇒ ⭐ 综合会把它们**剪掉**。
+        //     ⇒ 🔴 后果：**"合唱的延迟被夹到下界（129）"这个事件全系统不可观测**
+        //        —— ⭐ 而下界正是本轮修的那个数（`DLY_MIN_CH`）。
+        //     ⛔ 本轮**不改接线**（⭐ 那是另一个待拍板的事：要不要把 `clamp_cnt` 上报串口）。
         .wr_ptr_o(d2_wr_ptr), .primed_o(d2_primed),
         .sat_cnt_o(d2_sat_cnt), .clamp_cnt_o(d2_clamp_cnt)
     );

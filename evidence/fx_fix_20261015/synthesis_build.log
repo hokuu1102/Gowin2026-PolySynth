@@ -1,0 +1,40 @@
+*** GOWIN Tcl Command Line Console  *** 
+Open project C:/Users/cyx/Documents/ChatGPT/FPGA/Gowin2026-PolySynth-fx-review-20261015/build/fx_fix_syn/FxSmoke.gprj finished
+GowinSynthesis start
+Running parser ...
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\fx_dist.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\fx_delay.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\fx_trem.v'
+Analyzing Verilog file 'C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\fx_chain.v'
+Compiling module 'fx_chain'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\fx_chain.v":93)
+Compiling module 'fx_dist'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\fx_dist.v":76)
+Compiling module 'fx_delay(AW=11)'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\fx_delay.v":55)
+Extracting RAM for identifier 'mem'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\fx_delay.v":122)
+WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\fx_delay.v":395)
+WARN  (EX3791) : Expression size 19 truncated to fit in target size 18("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\fx_delay.v":154)
+Compiling module 'fx_delay'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\fx_delay.v":55)
+Extracting RAM for identifier 'mem'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\fx_delay.v":122)
+WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\fx_delay.v":395)
+WARN  (EX3791) : Expression size 19 truncated to fit in target size 18("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\fx_delay.v":154)
+Compiling module 'fx_trem'("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\fx_trem.v":74)
+NOTE  (EX0101) : Current top module is "fx_chain"
+[5%] Running netlist conversion ...
+WARN  (CV0016) : Input dist_sel_i is unused("C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\fx_chain.v":129)
+Running device independent optimization ...
+[10%] Optimizing Phase 0 completed
+[15%] Optimizing Phase 1 completed
+[25%] Optimizing Phase 2 completed
+Running inference ...
+[30%] Inferring Phase 0 completed
+[40%] Inferring Phase 1 completed
+[50%] Inferring Phase 2 completed
+[55%] Inferring Phase 3 completed
+Running technical mapping ...
+[60%] Tech-Mapping Phase 0 completed
+[65%] Tech-Mapping Phase 1 completed
+[75%] Tech-Mapping Phase 2 completed
+[80%] Tech-Mapping Phase 3 completed
+[90%] Tech-Mapping Phase 4 completed
+[95%] Generate netlist file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\impl\gwsynthesis\FxSmoke.vg" completed
+[100%] Generate report file "C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-fx-review-20261015\build\fx_fix_syn\impl\gwsynthesis\FxSmoke_syn.rpt.html" completed
+GowinSynthesis finish

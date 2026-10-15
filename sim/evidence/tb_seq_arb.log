@@ -16,8 +16,19 @@
   鍑哄彛浜嬩欢鎬绘暟 = 7锛堟墜寮?3 路 鏇茶氨 2 路 婕旂ず 2锛?
   鐩告挒璁℃暟 = 0 路 鍚堟祦璁℃暟 = 7 路 涓㈠純 = 0
 --------------------------------------------------
+  ok  : score axis==15 => SRC_KDRUM (5) -- note_manager puts it in the DRUM pool
+  ok  : score axis==15 => TOM inc (17895697) -- seq_arb field slice passthrough only, NOT ESP32 pairing
+  ok  : score axis==12 => SRC_KDRUM (5) -- Kick
+  ok  : score axis==12 => KICK inc (5368709) -- seq_arb field slice passthrough only, NOT ESP32 pairing
+  ok  : score axis==12 kind=1(note_off) => SRC_KDRUM (5) -- the drum voice can be released
+  ok  : score axis==13 => SRC_KDRUM (5) -- Snare
+  ok  : score axis==13 => SNARE inc (42949673) -- seq_arb field slice passthrough only, NOT ESP32 pairing
+  ok  : score axis==14 => SRC_KDRUM (5) -- HiHat
+  ok  : score axis==14 => HIHAT inc (171798691) -- seq_arb field slice passthrough only, NOT ESP32 pairing
+  ok  : score axis==11 => SRC_SCORE (1) -- the >=12 boundary is exact
+  ok  : score axis==2 still => SRC_SCORE (1) -- the drum marker is NOT over-broad
 PASS: A1 DEPTH9 width and behavioral queue checks=656 full=142 reject=67 triple=43 wraps=72
 PASS: seq_arb 澶氭簮鍚屾媿涓嶄涪銆佹紨绀鸿浣嶃€佹孩鍑哄彲瑙併€佸崟鍛ㄦ湡銆佹棤 X/Z
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_seq_arb.sv:396: $finish called at 13120000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_seq_arb.sv:696: $finish called at 13120000 (1ps)
 
 
