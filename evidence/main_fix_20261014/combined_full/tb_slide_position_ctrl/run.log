@@ -1,0 +1,14 @@
+PASS_CHECK: first complete 60:40 snapshot is 1400 on original axis6
+PASS_CHECK: without new snapshot there is no autonomous pitch movement
+PASS_CHECK: stationary next snapshot retains 1400
+PASS_CHECK: reverse pair preserves original voice owner6 and follows 80:20
+PASS_CHECK: A-only endpoint is exact
+PASS_CHECK: B-only endpoint is emitted, not lost when calculation ends
+PASS_CHECK: both released cancels session without divide-by-zero
+PASS_CHECK: new independent pair starts a new owner8
+PASS_CHECK: W off aborts an in-flight result and suppresses valid
+PASS_CHECK: re-enable does not revive a cancelled session
+PASS_CHECK: unsigned 32-bit endpoints use a full-width weighted sum
+PASS_CHECK: A8 detects no unknown public output
+PASS: position slide follows calibrated ratios, owns its voice, and cancels atomically
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3a\tb_slide_position_ctrl.sv:93: $finish called at 20720000 (1ps)

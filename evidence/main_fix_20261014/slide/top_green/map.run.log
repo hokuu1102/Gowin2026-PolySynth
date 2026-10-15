@@ -1,0 +1,3 @@
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+PASS: real map and position follower, 12 physical pairs
+tb/top/tb_slide_top_pitch.sv:59: $finish called at 21700000 (1ps)

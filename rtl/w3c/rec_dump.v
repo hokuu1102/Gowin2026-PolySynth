@@ -1,16 +1,15 @@
 // ═══════════════════════════════════════════════════════════════════════════
 // rec_dump.v · ⭐⭐ 2026-10-11：⭐ **录制回传的导出 FSM**（⭐ 用户需求 ✅）
 //
-//   ⭐ **干什么**：⭐ 把 `looper` **已录下的事件**按**线上 9 字节帧**吐给
+//   ⭐ **干什么**：⭐ 把 `looper` **已录下的事件**按**上行 14 字节 v1.1 帧**吐给
 //      ready/push 下游；顶层采用独占双 UART ⇒ ESP32/板载接收端。
 //
-//   ⭐ **帧格式（⭐ 与 `evt_uart_rx` 收的完全同构 ⇒ ⭐ 可【直接回灌】✅）**：
-//      `0xA5` ＋ 8 字节【大端】事件字 ✅
-//      `tick[63:44]` · `inc[43:23]` · `axis[22:19]` · `vel[18:11]` ·
-//      `kind[10:9]` · `timbre[8:7]` · `[6:0]` 保留 ✅
+//   Format: A5/type/seq/tick32/axis/inc32/velocity/XOR[0..12].
+//   This is NOT the 9-byte downlink format; direct replay is not supported.
 //
-//   同构只指事件帧布局：音符单位转换有量化损失，并非 32 位无损。
-//   STATUS_ENABLE=1 时附 ASCII footer，PC 提取二进制帧后再回灌。
+//   Stored inc is quantized to 21 bits; exporting restores its scale, not
+//   its discarded low bits. Timbre is not carried by this upstream frame.
+//   STATUS_ENABLE=1 appends an ASCII footer after the binary frames.
 //
 //   🔴🔴 **与 `looper` 的握手（⭐ 两个硬约束，⭐ 都在 `looper.v` 那边写明）**：
 //      ① ⭐ **必须占用读口**（`dump_en_o = 1`）——

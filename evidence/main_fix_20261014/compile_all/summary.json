@@ -1,0 +1,698 @@
+[
+  {
+    "Name": "tb_dac_tone_top",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_wavetable_tone_top",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_checkers",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_clk_gen_badparam",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_clk_gen",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_adc_farm",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_adc_fault_window",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_calib_equivalence",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_calib",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_debounce",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_mcp3208_driver",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_mcp3208_scanner",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_tlc5916_driver",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_demo_stall_diag",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_e2e_key_to_sound",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_scope_mode_switch",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_waveform_scope",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_xy_scope",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_latency_m2",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_mcp3208_model",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_am_pipe",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_at_merge_known_bugs",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_export_key_wav",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_export_wav",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_right_adc",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_slide_e2e",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_slide_position_e2e",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_slide_top_pitch",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_sustain_pedal_wire",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_top_dump_atomic",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_top_led_strip",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_top_m0",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_top_merge_startup",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_top_probe_queue",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_top_scope_live",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_top_sound",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_top_t15",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_top_timbre_button",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_pitch_shift_accept",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_voice_accept",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_voice_i2s_chain",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_async_pluck_capture",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_axis_map",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_axis_snapshot",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_calib_autotare",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_calib_cmd_q_y",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_calib_cmd",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_calib_span_err",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_calib_span",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_calib_still_guard",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_ctrl_keypad",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_ee_adj",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_event_extract_slide",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_event_extract",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_fader_gear",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_led_indicator",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_param_extract",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_play_mode_ctrl",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_play_mode_fret_release",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_play_mode_poly_release",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_play_mode_slide_hold",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_right_analog_ctrl",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_slide_position_ctrl",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_slide_ramp",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_span_alignment_gap",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_span_axis_over_uart",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_span_cross_channel",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_span_multiaxis_noise",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_span_need_press_width",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_span_realistic",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_span_released_stable",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_span_retry_reemits_axis",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_span_vote_offbyone",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_span_with_real_adc_farm",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_uart_calib_chain",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_ws2812_driver",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_adsr",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_akwf_wavetables",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_base_semi",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_dds_wavetable_core",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_drum_pitch_env",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_drum_sweep_window",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_envelope_bank",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_integration_consts",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_nm_no_leak",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_nm_off_in_hold",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_nm_reuse_tail",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_note_manager_sus",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_note_manager_vel_ramp",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_note_manager_vel_wrap",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_note_manager_write_share",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_note_manager",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_opt04_nm_age_negative",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_opt04_nm_compare_values",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_opt04_nm_compare",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_opt04_rot32_current_af",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_opt04_transpose_current_af",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_opt08_target_cache",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_opt08_write_share_reused",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_osc_drum_cls",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_oscillator_bank",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_p5_adsr_diff",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_p5_osc_equiv",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_polyphony_onset_step",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_pool_by_src",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_retrig_reset_span",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_rot32_diff",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_soft_hard_blend",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_tdm_render_mixer",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_test_mode_ctrl",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_test_mode_fft",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_test_mode_top",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_timbre_adsr",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_timbre_event_path",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_top_score_path",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_top_test_mode_pipe",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_transpose",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_vel_pos_follow",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_vel_top_stream",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_velocity_headroom",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_velocity_lane_isolation",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_velocity_tone_decoupling",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_vibrato_lfo",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_vibrato_top",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_w1_interfaces",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_wavetable_bank_prom",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_wavetable_bank",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_wavetable_timbres",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_beat_gen",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_bpm_bar_quant",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_bpm_entry",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_drum_gen_posreset",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_drum_gen",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_drum_timbre_top",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_evt_buf_clear_collision",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_evt_buf",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_evt_merge_diff",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_evt_merge",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_evt_uart_rx_gate",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_evt_uart_rx_screen",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_evt_uart_rx",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_guide_lamp",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_i2s_tx_prbs",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_i2s_tx_sweep",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_i2s_tx_timing",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_i2s_tx",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_key_drum",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_led_data",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_looper_bar_align",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_looper_replay_tail",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_looper_tail",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_looper_wire_pitch",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_looper",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_master_mix",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_met_start_top",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_metronome",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_perc_env_bank",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_perc_env_top",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_play_seq",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_pos_probe_axis",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_pos_probe_exhaustive",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_pos_probe",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_rec_dump_status",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_rec_dump_uart",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_rec_dump",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_score_chain",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_score_looper_coexist",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_seq_arb",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_tlc5916_bank",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_tlc5916_refresh",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_uart_rx",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_uart_tx_fifo",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_uart_tx",
+    "CompileExit": 0
+  },
+  {
+    "Name": "tb_uart_ui",
+    "CompileExit": 0
+  }
+]

@@ -1,0 +1,3 @@
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+PASS: two complete 9-byte frames through real FIFO and 500kbps UART
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3c\tb_rec_dump_uart.sv:40: $finish called at 600100000 (1ps)

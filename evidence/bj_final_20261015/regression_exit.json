@@ -1,0 +1,10 @@
+{
+  "source_commit": "2723b8da7ce46a880d5c67d82b36b448ef232fdd",
+  "session": 33771,
+  "observed_exit_code": 0,
+  "functional_pass": 193,
+  "expected_negative_pass": 1,
+  "separate_diagnostic": 1,
+  "functional_failures": 0,
+  "snapshot_blobs_verified": 310
+}

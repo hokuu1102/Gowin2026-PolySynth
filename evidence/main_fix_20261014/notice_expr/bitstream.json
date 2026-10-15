@@ -1,0 +1,14 @@
+{
+  "SourceCommit": "364f6621a1137acf44f5e55ffb2f418533542da8",
+  "LocalPath": "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\Gowin2026-PolySynth-main-verify-20261014\\build\\fix_pnr02_notice\\impl\\pnr\\Gowin2026.fs",
+  "ArchivedPath": "C:/Users/cyx/Desktop/学习/hdmi_640x480/bitstreams/AY_fix_core_notice_TIMING_PASS_BOARD_UNVERIFIED_20261014.fs",
+  "Bytes": 19913047,
+  "SHA256": "BDDC59FEB3F245DDB4B99E0B9376EBA11769F6E2745AE87F512118A877EB4E80",
+  "NativeMaxDelayNs": 16.4,
+  "NativeTimingPass": true,
+  "SetupNs": 0.004,
+  "HoldNs": 0.211,
+  "Board": "NOT_RUN",
+  "FullRegression": "NOT_ACCEPTED",
+  "ReplacesMain": false
+}

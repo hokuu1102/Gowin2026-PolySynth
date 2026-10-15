@@ -1,0 +1,41 @@
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x400 REL_TH=0x300 DELTA_TH=8 REFRACT_N=4)
+
+==============================================================
+ event_extract FIFO watermark: ADJACENT axes (1,2,3) same frame
+==============================================================
+    c=82 scan=0 scanng=0 qcnt=0 qwr=0 qrd=0 | ev=0 ax=0 kd=0
+    c=84 scan=0 scanng=0 qcnt=0 qwr=0 qrd=0 | ev=0 ax=0 kd=0
+    c=84 scan=0 scanng=1 qcnt=0 qwr=0 qrd=0 | ev=0 ax=0 kd=0
+    c=86 scan=1 scanng=1 qcnt=0 qwr=0 qrd=0 | ev=0 ax=0 kd=0
+    c=86 scan=2 scanng=1 qcnt=1 qwr=1 qrd=0 | ev=0 ax=0 kd=0
+    c=88 scan=3 scanng=1 qcnt=1 qwr=2 qrd=1 | ev=1 ax=1 kd=0
+    c=88 scan=4 scanng=1 qcnt=1 qwr=3 qrd=2 | ev=1 ax=2 kd=0
+    c=90 scan=5 scanng=1 qcnt=0 qwr=3 qrd=3 | ev=1 ax=3 kd=0
+    c=90 scan=6 scanng=1 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+    c=92 scan=7 scanng=1 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+    c=92 scan=8 scanng=1 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+    c=94 scan=9 scanng=1 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+    c=94 scan=10 scanng=1 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+    c=96 scan=11 scanng=1 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+    c=96 scan=12 scanng=1 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+    c=98 scan=13 scanng=1 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+    c=98 scan=14 scanng=1 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+    c=100 scan=15 scanng=1 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+    c=100 scan=0 scanng=0 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+    c=102 scan=0 scanng=0 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+    c=102 scan=0 scanng=0 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+    c=104 scan=0 scanng=0 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+    c=104 scan=0 scanng=0 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+    c=106 scan=0 scanng=0 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+    c=106 scan=0 scanng=0 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+    c=108 scan=0 scanng=0 qcnt=0 qwr=3 qrd=3 | ev=0 ax=3 kd=0
+
+  == RESULT ==
+   events emitted = 3   (expected 3)
+     ev[0] axis=1 kind=0  (note_on)
+     ev[1] axis=2 kind=0  (note_on)
+     ev[2] axis=3 kind=0  (note_on)
+   overflow=0 lost_cnt=0
+   ✅ PASS: all three adjacent axes emitted
+==============================================================
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3a\tb_ee_adj.sv:141: $finish called at 2960000 (1ps)

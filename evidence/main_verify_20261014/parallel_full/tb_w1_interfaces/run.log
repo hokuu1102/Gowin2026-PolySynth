@@ -1,0 +1,4 @@
+ERROR [tdm_render_mixer] LANE_W0/W1 = (16,0) but the shift/add identity implements (9,7) => THE PARAMETERS HAVE NO EFFECT, update the code (see the LANE_W0 comment)
+INFO  [tdm_render_mixer] P0-32 交付口径: 基准=64 · OUTPUT_HEADROOM_SH=0 => 单音峰 ≈ 50% FS
+PASS: W3b interfaces elaborate at 32x1 and Test Mode selects 32 voices
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\w3b\tb_w1_interfaces.sv:127: $finish called at 200000 (1ps)

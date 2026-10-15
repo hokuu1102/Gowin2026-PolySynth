@@ -1,0 +1,92 @@
+WARNING [note_manager] FIFO_DEPTH=8 < 最坏突发 18 (=16 轴 +1 节拍器 +1 鼓机) => 事件会溢出丢弃（⭐ 已由 event_lost_o 指示，但会丢音）
+=== tb_base_semi: T2 base note (octave shift) ===
+  DBG: state 0 -> x (kind=x axis=x scan=x best_v=x)
+  DBG: state x -> 0 (kind=0 axis=0 scan=0 best_v=0)
+  DBG: posedge note_valid=1 rst_n=1 fifo_push=1 full=0 cnt=0
+  DBG: state 0 -> 6 (kind=0 axis=0 scan=0 best_v=0)
+  DBG: state 6 -> 1 (kind=0 axis=0 scan=0 best_v=0)
+  DBG: state 1 -> 2 (kind=0 axis=0 scan=0 best_v=0)
+  DBG: state 2 -> 3 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 3 -> 4 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 4 -> 0 (kind=0 axis=0 scan=31 best_v=1)
+  INFO: after press -> gate=0b00000000000000000000000000000001 alloc=0 inc=0x00001234 | fifo_cnt=0 empty=1 state=0
+  DBG: posedge note_valid=1 rst_n=1 fifo_push=1 full=0 cnt=0
+  DBG: state 0 -> 6 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: state 6 -> 1 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: state 1 -> 0 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: posedge note_valid=1 rst_n=1 fifo_push=1 full=0 cnt=0
+  DBG: state 0 -> 6 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 6 -> 1 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 1 -> 2 (kind=0 axis=0 scan=0 best_v=0)
+  DBG: state 2 -> 3 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 3 -> 4 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 4 -> 0 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: posedge note_valid=1 rst_n=1 fifo_push=1 full=0 cnt=0
+  DBG: state 0 -> 6 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: state 6 -> 1 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: state 1 -> 0 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: posedge note_valid=1 rst_n=1 fifo_push=1 full=0 cnt=0
+  DBG: state 0 -> 6 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 6 -> 1 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 1 -> 2 (kind=0 axis=0 scan=0 best_v=0)
+  DBG: state 2 -> 3 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 3 -> 4 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 4 -> 0 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: posedge note_valid=1 rst_n=1 fifo_push=1 full=0 cnt=0
+  DBG: state 0 -> 6 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: state 6 -> 1 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: state 1 -> 0 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: posedge note_valid=1 rst_n=1 fifo_push=1 full=0 cnt=0
+  DBG: state 0 -> 6 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 6 -> 1 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 1 -> 2 (kind=0 axis=0 scan=0 best_v=0)
+  DBG: state 2 -> 3 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 3 -> 4 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 4 -> 0 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: posedge note_valid=1 rst_n=1 fifo_push=1 full=0 cnt=0
+  DBG: state 0 -> 6 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: state 6 -> 1 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: state 1 -> 0 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: posedge note_valid=1 rst_n=1 fifo_push=1 full=0 cnt=0
+  DBG: state 0 -> 6 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 6 -> 1 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 1 -> 2 (kind=0 axis=0 scan=0 best_v=0)
+  DBG: state 2 -> 3 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 3 -> 4 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 4 -> 0 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: posedge note_valid=1 rst_n=1 fifo_push=1 full=0 cnt=0
+  DBG: state 0 -> 6 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: state 6 -> 1 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: state 1 -> 0 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: posedge note_valid=1 rst_n=1 fifo_push=1 full=0 cnt=0
+  DBG: state 0 -> 6 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 6 -> 1 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 1 -> 2 (kind=0 axis=0 scan=0 best_v=0)
+  DBG: state 2 -> 3 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 3 -> 4 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 4 -> 0 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: posedge note_valid=1 rst_n=1 fifo_push=1 full=0 cnt=0
+  DBG: state 0 -> 6 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: state 6 -> 1 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: state 1 -> 0 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: posedge note_valid=1 rst_n=1 fifo_push=1 full=0 cnt=0
+  DBG: state 0 -> 6 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 6 -> 1 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 1 -> 2 (kind=0 axis=0 scan=0 best_v=0)
+  DBG: state 2 -> 3 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 3 -> 4 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 4 -> 0 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: posedge note_valid=1 rst_n=1 fifo_push=1 full=0 cnt=0
+  DBG: state 0 -> 6 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: state 6 -> 1 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: state 1 -> 0 (kind=1 axis=0 scan=31 best_v=1)
+  DBG: posedge note_valid=1 rst_n=1 fifo_push=1 full=0 cnt=0
+  DBG: state 0 -> 6 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 6 -> 1 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 1 -> 2 (kind=0 axis=0 scan=0 best_v=0)
+  DBG: state 2 -> 3 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 3 -> 4 (kind=0 axis=0 scan=31 best_v=1)
+  DBG: state 4 -> 0 (kind=0 axis=0 scan=31 best_v=1)
+PASS: base_semi -- octave shift is exact, bypassed at 0, and rejects illegal values
+INFO: checks=10 errors=0
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\w3b\tb_base_semi.sv:350: $finish called at 19470000 (1ps)

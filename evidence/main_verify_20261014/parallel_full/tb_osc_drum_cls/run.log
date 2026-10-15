@@ -1,0 +1,14 @@
+=== tb_osc_drum_cls (A3 正确修法: 参数门控的鼓分类) ===
+      [dbg] A(参数=1): base=tom(15M) cls=kick => is_kick=1 is_tom=0
+  ok  : A1 DRUM_CLS_EXT=1 => is_kick follows drum_cls_i (NOT the transposed bv)
+  ok  : A2 DRUM_CLS_EXT=1 => is_tom is 0 (it judged the external class)
+      [dbg] B(参数=0): base=tom(15M) cls=kick => is_kick=0 is_tom=1
+  ok  : B1 DRUM_CLS_EXT=0 => parameter gate works: it did NOT listen to drum_cls_i
+  ok  : B2 DRUM_CLS_EXT=0 => fell back to the internal comparator (base = tom)
+      [dbg] A': base=kick(8M) cls=tom => is_kick=0 is_tom=1
+      [dbg] B': base=kick(8M) cls=tom => is_kick=1 is_tom=0
+  ok  : A3 swap: DRUM_CLS_EXT=1 still follows the external class (tom)
+  ok  : B3 swap: DRUM_CLS_EXT=0 still follows bv (kick)
+
+PASS: tb_osc_drum_cls — 6/6 judgements held (A3 参数门控 + 零窗口)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\w3b\tb_osc_drum_cls.sv:175: $finish called at 1000000 (1ps)

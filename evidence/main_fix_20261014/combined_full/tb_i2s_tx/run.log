@@ -1,0 +1,23 @@
+VCD info: dumpfile build/sim/tb_i2s_tx/tb_i2s_tx.vcd opened for output.
+  · 左 #0 解串=0 期望=0（高 16 位一致）
+  · 左 #1 解串=410880 期望=411113（高 16 位一致）
+  · 左 #2 解串=818176 期望=818268（高 16 位一致）
+  · 左 #3 解串=1217536 期望=1217542（高 16 位一致）
+
+================ i2s_tx / S2 解串实测 ================
+  帧数        : 收到左 260 / 右 260 个样点（期望 256）
+  逐点一致    : 左 256 对 / 0 错 · 右 256 对 / 0 错
+  HP_BCK 周期 : min=16 max=16 clk（期望 16 = 3.125 MHz）
+  HP_WS  周期 : min=1024 max=1024 clk（期望 1024 = 48.828125 kHz）
+  HP_WS  占空 : 低 133122 / 高 133118 clk
+  样点 CSV    : sim/evidence/i2s_tx_l.csv / _r.csv（交给 tools/csv_fft.py）
+=====================================================
+  ok : 左声道解串样点与激励**逐点一致**（256 点）
+  ok : 右声道解串样点与激励**逐点一致**（256 点）
+  ok : HP_BCK 周期恰好 16 clk（3.125 MHz）
+  ok : HP_WS 周期恰好 1024 clk（48.828125 kHz）
+  ok : HP_WS 低 = 左声道（260 个帧起点处均为低）
+  ok : A8 无 X/Z 传播（HP_BCK/HP_WS/HP_DIN）
+
+PASS: i2s_tx + S2 解串逐点一致（M1 的核心判据通过）
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3c\tb_i2s_tx.sv:222: $finish called at 5325051000 (1ps)

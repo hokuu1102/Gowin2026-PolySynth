@@ -147,3 +147,6 @@ create_generated_clock -name pixel_clk -source [get_ports {clk}] -master_clock c
 # Native slack uses 16.4 ns, not the AO 16.8 ns comparison budget.
 set_max_delay -from [get_clocks {clk_sys}] -to [get_clocks {clk_sys}] 16.4
 set_max_delay -from [get_clocks {clk_sys}] -to [get_regs {u_hdmi/u_scope/gray_launch_*_s0 u_hdmi/u_scope/full_launch_s0 u_hdmi/u_scope/mode_launch_s0}] 10.000
+# FFT publication/selection also launches on sys falling edges. Preserve the
+# real half-cycle budget; do not hide any FFT/video crossing behind false paths.
+set_max_delay -from [get_clocks {clk_sys}] -to [get_regs {u_hdmi/g_fft.select_launch_s0 u_hdmi/g_fft.u_fft/publish_launch_s0 u_hdmi/g_fft.u_fft/bank_launch_s0 u_hdmi/g_fft.u_fft/frame_launch_*_s0 u_hdmi/g_fft.u_fft/n_launch_*_s0}] 10.000

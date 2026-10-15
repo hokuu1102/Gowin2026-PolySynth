@@ -74,6 +74,7 @@ if ($tbs.Count -eq 0) {
 Write-Host ("RTL " + $rtl.Count + " 个 · 模型 " + $models.Count + " 个 · 检查器 " + $chk.Count + " 个 · tb " + $tbs.Count + " 个") -ForegroundColor DarkGray
 
 $pass = 0
+$script:negativePassed = 0
 $fail = @()
 #   ⭐ 2026-09-26：被【默认跳过】的 tb（⭐ 工具 tb，⛔ 不是失败）—— ⭐ 汇总结算时不计入总数
 $skipped = @()
@@ -272,6 +273,7 @@ foreach ($tb in $tbs) {
                   #             ⭐ 端到端只证明"斜坡接进通路、音高真的在动" ✅）
                   #     ⇒ ⭐ 给 900 s（与 `tb_e2e_key_to_sound` **同一处置** ✅）
                   elseif ($name -eq 'tb_slide_e2e') { 900 }
+                  elseif ($name -eq 'tb_slide_position_e2e') { 900 }
                   #  ⭐⭐ 2026-09-29 同日：⭐ `tb_top_sound` 的注释实测值是 **93 s**，
                   #     ⚠️ 但同一轮回归里实测**已耗 CPU 155 s**（⭐ 机器负载 ✅）
                   #     ⇒ ⭐ 300 s 的余量只剩 ~2× ⚠️ ⇒ ⭐ 与 `tb_e2e` / `tb_met_btn_top` **同一处置**：给 600 s ✅
@@ -390,7 +392,30 @@ foreach ($tb in $tbs) {
   #       而 `[^A-Za-z]*` 既允许 `⛔ FAIL:`（装饰符）又排除 `MUST FAIL`（字母）。
   $failRx   = [regex]"(?m)^[ \t]*[^A-Za-z]*FAIL:"
   $errLines = ([regex]::Matches($txt, "(?m)^[ \t]*ERROR")).Count
-  if ($runExit -ne 0 -or $failRx.IsMatch($txt)) {
+  # The comparator negative fixture deliberately forces an incorrect age bit.
+  # Require the precise four expected detections AND exit 1, never arbitrary fatal.
+  $expectedNegative = $false
+  if ($name -eq 'tb_opt04_nm_age_negative') {
+    $expectedNegative = ($runExit -eq 1) -and
+        ($txt -notmatch 'timeout|selection mismatch|split compare mismatch') -and
+        ($txt -notmatch '(?m)^.*\bPASS(?:[: ]|$)') -and
+        (([regex]::Matches($txt, '(?m)^FATAL:')).Count -eq 4) -and
+        (([regex]::Matches($txt, '(?m)^FATAL:.*split age mismatch width=(1|7|16|17)\b')).Count -eq 4)
+    foreach ($width in @(1,7,16,17)) {
+      if ($txt -notmatch ('split age mismatch width=' + $width + '\b')) {
+        $expectedNegative = $false
+      }
+    }
+  }
+  $hasPass = $txt -match '(?m)^.*\bPASS(?:[: ]|$)'
+  if ($expectedNegative) {
+    Write-Host '    EXPECTED_NEGATIVE_PASS: all four injected comparator errors detected'
+    $pass++
+    $script:negativePassed++
+  } elseif ($runExit -ne 0 -or $failRx.IsMatch($txt) -or -not $hasPass) {
+    if ($runExit -eq 0 -and -not $failRx.IsMatch($txt) -and -not $hasPass) {
+      Write-Host '    INCONCLUSIVE: exit 0 without an explicit PASS is not acceptance'
+    }
     if ($errLines -gt 0) { Write-Host ("    （日志另有 " + $errLines + " 行 ERROR，属诊断信息）") -ForegroundColor DarkGray }
     $fail += $name
   } else {
@@ -413,6 +438,9 @@ Write-Host "`n================ 汇总 ================" -ForegroundColor Yellow
 #      📌 判据口径：⭐ **通过数 / 实际跑的个数**（⭐ 跳过的单独列出）。
 $ranCount = $tbs.Count - $skipped.Count
 Write-Host ("通过 " + $pass + " / 共 " + $ranCount)
+if ($script:negativePassed) {
+  Write-Host ("其中预期负向检出: " + $script:negativePassed + " (not functional PASS)")
+}
 if ($skipped.Count) {
   Write-Host ("跳过（工具 tb，非验收）: " + ($skipped -join ", ")) -ForegroundColor DarkYellow
   Write-Host ("  ⭐ 要跑它: powershell -File sim\tb_all.ps1 -Filter " + $skipped[0]) -ForegroundColor DarkGray

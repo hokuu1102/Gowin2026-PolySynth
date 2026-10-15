@@ -1,0 +1,29 @@
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=50 => 1000000 bps at 50 MHz)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=16 BYTE_CLK=500 HEADER=a5 N_CMD=23 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=8 VOTE_N=4 VOTE_TOL=16 REJECT_MAX=2 WAIT_TIMEOUT_CLK=200000)
+NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=200 STILL_EN=0 STILL_TOL=8 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+=== tb_uart_calib_chain (serial -> calib_cmd -> calib_span) ===
+  ok  : before any command: calib_span is idle
+  ok  : calib_cmd counted no commands yet
+  ok  : cmd_cnt_o counted the serial 'S' command
+  ok  : 'S' through the SERIAL PORT starts calib_span (busy_o high)
+  ok  : calib_span raised start_i exactly once
+  ok  : after start, need_press_o is high (waiting for the operator)
+  ok  : cmd_cnt_o counted the 'X' command
+  ok  : 'X' through the SERIAL PORT cancels the calibration (busy_o low)
+  ok  : after abort, need_press_o is cleared
+  ok  : payload full of 'S' does NOT start calibration
+  ok  : payload 'S' bytes were counted as ignored, not as commands
+  ok  : frame completed and idx_o returned to 0
+  ok  : commands raised NO event in evt_uart_rx (no false frame)
+  ok  : evt_uart_rx header-error counter DID advance (expected, not a fault)
+  ok  : autotare finished before the 'T' test
+  ok  : cmd_cnt_o counted the 'T' command
+  [retrig] tare pulses after 'T' = 8 (expect 8)
+  ok  : 'T' through the SERIAL PORT re-ran autotare over ALL 8 channels
+  ok  : while autotare is BUSY, 'S' is IGNORED (no calibration started)
+  ok  : the interlock did not swallow the command itself (cmd still counted)
+  ok  : after autotare goes idle, 'S' DOES start calibration (interlock recovers)
+
+PASS: a serial 'S' really starts calib_span, 'X' really cancels it, 'T' really re-runs autotare, in-frame letters are payload, commands never fake an event, and the busy interlock blocks (then releases) 'S'
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\w3a\tb_uart_calib_chain.sv:420: $finish called at 210190000 (1ps)

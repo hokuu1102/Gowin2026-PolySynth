@@ -1,0 +1,2 @@
+PASS: stalled video preserves complete FFT bank and N; drops only display frames
+tb/hdmi/tb_fft_view_backpressure.sv:53: $finish called at 736720000 (1ps)

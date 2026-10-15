@@ -1,0 +1,9 @@
+{
+  "name": "tb_top_score_path",
+  "compile_exit": 0,
+  "run_exit": 0,
+  "status": "PASS",
+  "timeout_sec": 300,
+  "explicit_pass_verdict": true,
+  "elapsed_sec": 32.812
+}

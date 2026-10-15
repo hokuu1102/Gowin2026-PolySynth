@@ -1,0 +1,69 @@
+{
+  "source": "e101f63f63a36f7c212d3812cd5946d67c2a897a",
+  "discovered": 178,
+  "selected": 5,
+  "pass_count": 4,
+  "expected_negative_count": 0,
+  "diagnostic_count": 1,
+  "accepted_count": 4,
+  "fail_count": 0,
+  "skipped": [
+    "tb_at_merge_known_bugs",
+    "tb_export_key_wav",
+    "tb_export_wav"
+  ],
+  "snapshot_blobs_verified": 280,
+  "timeout_override_sec": 600,
+  "results": [
+    {
+      "name": "tb_evt_uart_rx_screen",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "DIAGNOSTIC_CONFIRMED",
+      "original_timeout_sec": 120,
+      "timeout_sec": 600,
+      "explicit_pass_verdict": false,
+      "elapsed_sec": 0.641
+    },
+    {
+      "name": "tb_span_need_press_width",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 600,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.484
+    },
+    {
+      "name": "tb_span_released_stable",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 600,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 45.89
+    },
+    {
+      "name": "tb_span_with_real_adc_farm",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 600,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 42.984
+    },
+    {
+      "name": "tb_top_uart_isolation",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 600,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 35.922
+    }
+  ]
+}

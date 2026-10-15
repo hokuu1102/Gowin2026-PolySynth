@@ -132,7 +132,8 @@ module evt_upstream #(
     //     🔴 **为什么必须有**：⭐ 一帧 14 B @ 500 kbps = **280 µs ≈ 14000 拍**
     //        ⚠️ 而事件可以**同拍连来** ⇒ 没有 FIFO 时后到的事件**全丢** ✅
     // ═══════════════════════════════════════════════════════════════════════
-    reg [FW-1:0] mem [0:FIFO_D-1];
+    // Timestamp travels with its event while the UART applies backpressure.
+    reg [FW+31:0] mem [0:FIFO_D-1];
     //  ⭐⭐ 2026-10-14：⭐ **复位清数组的循环变量**（⭐ 见下面复位段 ✅）
     integer mi;
     reg [AW_W:0] cnt_q;
@@ -156,16 +157,17 @@ module evt_upstream #(
     //        ⇒ ⭐ 综合看到的是 **`FIFO_D` 个寄存器 ＋ 一个 mux**，⛔ **不是 RAM** ✅
     //     📌 ⭐ 本 FIFO 只有 `16 × 46 = 736 bit` ⇒ ⭐ 用寄存器**本来就更划算** ✅
     //     📌 ⭐ 代价：⭐ 组合深度 = 一级比较 + 一级 mux（⭐ 与原变量下标读**同量级** ✅）
-    reg  [FW-1:0] head;
+    reg  [FW+31:0] head;
     integer       hi;
     always @(*) begin
-        head = {FW{1'b0}};
+        head = {(FW+32){1'b0}};
         for (hi = 0; hi < FIFO_D; hi = hi + 1)
             if (rd_q == hi) head = mem[hi];
     end
 
     // ⭐ 写侧：⭐ 使能时才收（⭐ 关掉时⛔ 不占 FIFO、⛔ 不计数、⛔ 不报溢出 ✅）
     wire do_wr = enable_i && evt_valid_i;
+    wire accept_wr = do_wr && (!fifo_full || pop_w);
 
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
@@ -182,7 +184,7 @@ module evt_upstream #(
             //     📌 ⭐ **一个 BSRAM 无法一拍清空** ⇒ ⭐ 带清空的数组**只能**是分布式 RAM ✅
             //     📌 ⭐ 本 FIFO 只有 `16 × 46 = 736 bit` ⇒ ⭐ 用 LUT **本来就比 BSRAM 划算** ✅
             //     📌 ⭐ **依据**：⭐ `note_manager.v:1029` **同一手法** ✅
-            for (mi = 0; mi < FIFO_D; mi = mi + 1) mem[mi] <= {FW{1'b0}};
+            for (mi = 0; mi < FIFO_D; mi = mi + 1) mem[mi] <= {(FW+32){1'b0}};
             //  ⭐⭐ 2026-10-14：⭐ **溢出/丢弃计数的复位放在【本块】** ✅
             //     🔴 **为什么**：⭐ 综合报 `drop_cnt_o[15] constantly driven from
             //        multiple places` —— ⚠️ 因为原来 **FSM 的复位块也写了它们** ✅
@@ -194,19 +196,19 @@ module evt_upstream #(
         end else begin
             //  ⭐ 读：⭐ 由 FSM 在 `S_IDLE` 那一拍抬 `pop_q` ✅
             if (pop_w) begin
-                mem[rd_q] <= {FW{1'b0}};          // ⭐ 清掉（⭐ 便于波形辨认 ✅）
+                mem[rd_q] <= {(FW+32){1'b0}};
                 rd_q      <= rd_q + {{(AW_W-1){1'b0}}, 1'b1};
             end
             //  ⭐ 写
-            if (do_wr) begin
-                mem[wr_q] <= {evt_kind_i, evt_velocity_i, evt_axis_i, evt_phase_inc_i};
+            if (accept_wr) begin
+                mem[wr_q] <= {tick_q, evt_kind_i, evt_velocity_i, evt_axis_i, evt_phase_inc_i};
                 wr_q      <= wr_q + {{(AW_W-1){1'b0}}, 1'b1};
             end
             //  ⭐ 计数（⭐ 同拍读写 ⇒ 不变 ✅）
-            if (do_wr && !pop_w)      cnt_q <= cnt_q + {{AW_W{1'b0}}, 1'b1};
-            else if (!do_wr && pop_w) cnt_q <= cnt_q - {{AW_W{1'b0}}, 1'b1};
+            if (accept_wr && !pop_w)      cnt_q <= cnt_q + {{AW_W{1'b0}}, 1'b1};
+            else if (!accept_wr && pop_w) cnt_q <= cnt_q - {{AW_W{1'b0}}, 1'b1};
             //  ⭐ 溢出：⭐ 丢弃 + **饱和计数 + sticky**（⭐ `K-106` ⛔ 不许静默 ✅）
-            if (do_wr && fifo_full) begin
+            if (do_wr && !accept_wr) begin
                 overflow_o <= 1'b1;
                 if (drop_cnt_o != 16'hFFFF) drop_cnt_o <= drop_cnt_o + 16'd1;
             end
@@ -281,8 +283,8 @@ module evt_upstream #(
                     if (enable_i && !fifo_empty) begin
                         //  ⭐ 本拍把队头**打进 `hold_q`** 并弹出（⭐ 组合读 ✅）
                         //  ⭐ 同时**锁存 tick** ⇒ ⭐ 时间戳是"事件发生那一刻" ✅
-                        hold_q    <= head;
-                        tick_ev_q <= tick_q;
+                        hold_q    <= head[FW-1:0];
+                        tick_ev_q <= head[FW+31:FW];
                         pop_q     <= 1'b1;
                         st_q      <= S_LOAD;
                         busy_o    <= 1'b1;   // ⭐ 立刻占住 TX（⭐ 顶层据此让路 ✅）

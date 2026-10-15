@@ -1,0 +1,8 @@
+{
+  "source_commit": "0fe07d2fddc29af05404d229298baa20b4cbfbfe",
+  "build_directory": "build/fft_pnr01",
+  "session_id": 52197,
+  "observed_exit_code": 0,
+  "build_log_end_local": "2026-10-14 17:44:34",
+  "timing_acceptance": "NOT_IMPLIED_BY_EXIT_CODE"
+}

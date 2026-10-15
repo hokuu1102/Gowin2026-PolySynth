@@ -1,0 +1,2 @@
+PASS: slide sustains across the original key release and ends exactly once
+tb/w3a/tb_play_mode_slide_hold.sv:45: $finish called at 600000 (1ps)

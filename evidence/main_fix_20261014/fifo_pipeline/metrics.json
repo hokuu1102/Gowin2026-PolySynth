@@ -1,0 +1,23 @@
+{
+  "Source": "4f522c408f1a3cbb44281566c7de333ae2a27b56",
+  "PhysicalSystemClockMHz": 50,
+  "RequiredHoldNs": 0.05,
+  "SetupViolations": 0,
+  "HoldViolations": 0,
+  "SetupSlack": 0.062,
+  "HoldSlack": 0.084,
+  "RecoverySlack": 0.956,
+  "RemovalSlack": 0.055,
+  "clk_sysFmax": 61.207,
+  "pixel_clkFmax": 42.847,
+  "serial_clkFmax": 573.661,
+  "Logic": 38352,
+  "CLS": 25383,
+  "Register": 18892,
+  "BSRAM": 69,
+  "DSP": 24,
+  "TimingPass": true,
+  "NativeBudgetNs": 16.4,
+  "HoldMargin50psGate": true,
+  "Accepted": true
+}

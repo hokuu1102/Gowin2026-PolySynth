@@ -1,0 +1,17 @@
+NOTE [dac_tone_top] FORMAT_SEL=0 FREQ=440 Hz fs=48828 Hz phase_inc=38702908
+=== tb_dac_tone_top ===
+⭐ FORMAT_SEL=0 (标准 I2S) · 440 Hz · fs=48828 Hz · BCK=3125000 Hz
+--------------------------------------------------
+  BCK  翻转=51199  上升沿=25600  周期 min=16 max=16 (期望 16)
+  LRCK 翻转=800  周期 min=1024 max=1024 (期望 1024)
+  DIN  翻转=5928
+  解出样点=399  min=-16384 max=16383  零值=5  变化次数=399
+--------------------------------------------------
+  ok  : ① BCK 周期恰好 16 clk（3125000 Hz）
+  ok  : ② LRCK 周期恰好 1024 clk（48828 Hz）
+  ok  : ③ DIN 真的在动（翻转 5928 次）
+  ok  : ④ 解出有效正弦（399 个样点，399 次值变化）
+  ok  : ⑤ 幅度合理且【双极性】（-16384 .. 16383，摆幅 32767）—— 正弦正确
+  ok  : ⑦ A8 无 X/Z
+PASS: dac_tone_top 输出正确的 I2S 流（BCK/LRCK/DIN 全对，正弦可解）
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\bringup\tb_dac_tone_top.sv:247: $finish called at 8192200000 (1ps)

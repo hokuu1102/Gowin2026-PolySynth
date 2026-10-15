@@ -827,6 +827,25 @@ module tdm_render_mixer #(
                                     ? (sh_norm_w - LIM_TH_W) : {(ACC_W+16){1'b0}};
     wire signed [ACC_W+15:0] exc_neg = (sh_norm_w < -LIM_TH_W)
                                     ? ((-LIM_TH_W) - sh_norm_w) : {(ACC_W+16){1'b0}};
+    // Only 0 <= excess < 2^20 participates in the quadratic knee. Larger
+    // excess selects the unchanged ceiling below, independently of its square.
+    // Preserve every contributing product bit with a 20x20 -> 40-bit multiply.
+    // This is algebraic dead-range elimination, not reduced audio precision.
+    // Narrow legacy accumulators retain their original modular product rules.
+    wire signed [ACC_W+15:0] exc_pos_square_w, exc_neg_square_w;
+    generate
+        if ((ACC_W+16) > 40) begin : g_bounded_knee_square
+            wire [19:0] ep = exc_pos[19:0];
+            wire [19:0] en = exc_neg[19:0];
+            wire [39:0] ep_squared = ep * ep;
+            wire [39:0] en_squared = en * en;
+            assign exc_pos_square_w = ep_squared >> 21;
+            assign exc_neg_square_w = en_squared >> 21;
+        end else begin : g_legacy_knee_square
+            assign exc_pos_square_w = (exc_pos * exc_pos) >>> 21;
+            assign exc_neg_square_w = (exc_neg * exc_neg) >>> 21;
+        end
+    endgenerate
     // Register the expensive square separately from the knee/mux/saturation
     // network.  Without this cut Gowin placed the whole chain in one cycle
     // (26.13 ns in the detune-off diagnostic build, 25 setup violations).
@@ -848,12 +867,14 @@ module tdm_render_mixer #(
             exc_pos_d    <= exc_pos;
             exc_neg_d    <= exc_neg;
             sh_norm_d    <= sh_norm_w;
-            exc_pos_sq_d <= (exc_pos * exc_pos) >>> 21;
-            exc_neg_sq_d <= (exc_neg * exc_neg) >>> 21;
+            exc_pos_sq_d <= exc_pos_square_w;
+            exc_neg_sq_d <= exc_neg_square_w;
         end
     end
     //  ⭐ 软膝（C1 连续）：out = T + e − e²/(2W)；`e ≥ W` ⇒ 天花板 T + W/2
-    //     ⚠️ `exc * exc` 在 Verilog 里按【全宽】求值（80 位）后再移位 ⇒ 截到 40 位安全
+    // The contributing square is exact in 40 unsigned bits. Its original
+    // signed container must exceed 40 bits; narrower legacy cases above keep
+    // their original arithmetic-shift and modular-product semantics.
     //  ⭐ 软膝宽度 W = 2^20（12.5% FS）⇒ 2W = 2^21 ⇒ 纯移位
     //  ⭐ 天花板 = T + W/2 = 7/8 + 1/16 = 【15/16 FS = 93.75%】⇒ ⛔ 低于硬饱和点
     localparam signed [ACC_W+15:0] KNEE_W = {{(ACC_W-8){1'b0}}, 24'sh100000};   // W = 2^20

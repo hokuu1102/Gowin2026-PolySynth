@@ -1,0 +1,138 @@
+{
+  "source": "4f522c408f1a3cbb44281566c7de333ae2a27b56",
+  "discovered": 177,
+  "selected": 12,
+  "pass_count": 12,
+  "expected_negative_count": 0,
+  "accepted_count": 12,
+  "fail_count": 0,
+  "skipped": [
+    "tb_at_merge_known_bugs",
+    "tb_export_key_wav",
+    "tb_export_wav"
+  ],
+  "snapshot_blobs_verified": 279,
+  "timeout_override_sec": null,
+  "results": [
+    {
+      "name": "tb_bpm_entry",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 120,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.547
+    },
+    {
+      "name": "tb_ee_adj",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 120,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1.031
+    },
+    {
+      "name": "tb_play_mode_ctrl",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 120,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.578
+    },
+    {
+      "name": "tb_play_mode_fret_release",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 120,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.5
+    },
+    {
+      "name": "tb_play_mode_poly_release",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 120,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.594
+    },
+    {
+      "name": "tb_play_mode_slide_hold",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 120,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.469
+    },
+    {
+      "name": "tb_slide_position_ctrl",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 120,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.563
+    },
+    {
+      "name": "tb_slide_position_e2e",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 900,
+      "timeout_sec": 900,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 85.437
+    },
+    {
+      "name": "tb_top_notice_equiv",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 120,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 90.218
+    },
+    {
+      "name": "tb_uart_tx_fifo",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 120,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.5
+    },
+    {
+      "name": "tb_uart_tx_fifo_clear_drop",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 120,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 0.531
+    },
+    {
+      "name": "tb_uart_tx_fifo_pipeline_equiv",
+      "compile_exit": 0,
+      "run_exit": 0,
+      "status": "PASS",
+      "original_timeout_sec": 120,
+      "timeout_sec": 120,
+      "explicit_pass_verdict": true,
+      "elapsed_sec": 1.203
+    }
+  ]
+}

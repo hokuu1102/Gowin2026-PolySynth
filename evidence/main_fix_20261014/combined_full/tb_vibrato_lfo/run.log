@@ -1,0 +1,22 @@
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+  ok  : dead-zone below ON threshold keeps vibrato disabled
+  ok  : depth reaches ON threshold and enables vibrato
+  ok  : hysteresis holds enabled inside OFF..ON band
+  ok  : depth at OFF threshold disables vibrato
+  ok  : rate slew first step is bounded
+  ok  : rate slew second step is bounded
+  ok  : rate slew converges without a jump
+  ok  : rate update never clears LFO phase
+  ok  : P0-30 rate target exact value: rate_raw=2048 => 100 + (2048*100)>>12 == 150
+  ok  : triangle positive quarter-cycle
+  ok  : triangle crosses zero at half-cycle
+  ok  : triangle negative three-quarter-cycle
+  ok  : triangle returns to zero continuously
+      [dbg] P0-19 depth_raw=4095 => |mod| peak = 952（上限 960）
+  ok  : P0-19 depth clamp: |mod| <= 960 with the fader at full travel
+      [dbg] full-travel: depth_raw=2048 => |mod| peak = 480（满行程 ~952）
+  ok  : full-travel usable: mid-fader depth is clearly BELOW full-travel depth
+  ok  : full-travel usable: mid-fader depth is clearly NON-ZERO (fader really does something)
+PASS: vibrato LFO hysteresis, slew and phase continuity
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3b\tb_vibrato_lfo.sv:173: $finish called at 2070000 (1ps)

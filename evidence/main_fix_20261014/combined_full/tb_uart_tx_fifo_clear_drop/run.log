@@ -1,0 +1,2 @@
+PASS: concurrent clear/drop preserves new loss, plain clear empties history
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3c\tb_uart_tx_fifo_clear_drop.sv:22: $finish called at 320000 (1ps)

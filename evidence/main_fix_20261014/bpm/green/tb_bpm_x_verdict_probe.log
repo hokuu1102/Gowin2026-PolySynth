@@ -1,0 +1,32 @@
+VCD info: dumpfile build/sim/tb_bpm_bar_quant/tb_bpm_bar_quant.vcd opened for output.
+PROBE_INJECTION: DUT val_o forced to X after reset
+  ok  : reset: pending_o is 0
+  ok  : reset: load_o is 0
+  ok  : non-vacuous: bar_start alone (no set_i) NEVER loads
+  ok  : set_i arms pending_o
+  ok  : 'Q' ALONE does NOT load -- no mid-beat tempo change
+ERROR [A8] bpm_valid_payload 出现 X/Z：xxxxxxxx (t=410000)
+  ok  : bar_start applies EXACTLY ONE load pulse
+FAIL: the applied value is the latched one (140)
+  ok  : the pending flag clears after applying
+  ok  : one-shot: later bars without a new set_i do not re-load
+  ok  : re-arm keeps pending_o set
+  ok  : re-arm alone still does not load
+ERROR [A8] bpm_valid_payload 出现 X/Z：xxxxxxxx (t=730000)
+  ok  : re-arm then bar => exactly ONE load (not two)
+FAIL: the LAST set_i value wins (200)
+  ok  : same-cycle set+bar: set_i wins, NO load on that cycle
+  ok  : same-cycle set+bar: the request is still pending
+ERROR [A8] bpm_valid_payload 出现 X/Z：xxxxxxxx (t=890000)
+  ok  : same-cycle set+bar applies at the NEXT bar_start
+FAIL: the value applied is the same-cycle one (90)
+  ok  : pending is set before the reset test
+  ok  : reset CLEARS pending_o
+  ok  : r reset a bar alone still does not load (pending really cleared)
+ERROR [A8] bpm_valid_payload 出现 X/Z：xxxxxxxx (t=1310000)
+FAIL: endpoint 40 BPM survives the round trip
+ERROR [A8] bpm_valid_payload 出现 X/Z：xxxxxxxx (t=1430000)
+FAIL: endpoint 240 BPM survives the round trip
+
+FATAL: tb/w3c/tb_bpm_bar_quant.sv:198: FAIL: tb_bpm_bar_quant checks=5 control_X=0 payload_X=5
+       Time: 1460000  Scope: tb_bpm_x_verdict_probe.upstream

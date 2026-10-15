@@ -1,0 +1,10 @@
+INFO  [tdm_render_mixer] P0-32 交付口径: 基准=64 · OUTPUT_HEADROOM_SH=1 => 单音峰 ≈ 25% FS
+INFO: timbre=0 velocity=64 samples=700 osc=32767 env=16384 max_abs=362752 (43/1000 FS) knee=0 rail=0
+INFO: timbre=0 velocity=128 samples=700 osc=32767 env=32768 max_abs=731200 (87/1000 FS) knee=0 rail=0
+INFO: timbre=0 velocity=160 samples=700 osc=32767 env=40960 max_abs=916416 (109/1000 FS) knee=0 rail=0
+INFO: timbre=0 velocity=200 samples=700 osc=32767 env=51200 max_abs=1147904 (136/1000 FS) knee=0 rail=0
+INFO: timbre=1 velocity=200 samples=700 osc=32767 env=51200 max_abs=1540672 (183/1000 FS) knee=0 rail=0
+INFO: timbre=2 velocity=200 samples=700 osc=32767 env=51200 max_abs=1467328 (174/1000 FS) knee=0 rail=0
+INFO: timbre=3 velocity=200 samples=700 osc=32767 env=31455 max_abs=354176 (42/1000 FS) knee=0 rail=0
+PASS: velocity headroom stays below the digital limiter for all timbres
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3b\tb_velocity_headroom.sv:157: $finish called at 4900700000 (1ps)

@@ -1,0 +1,49 @@
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 дє¤д»еЏЈеѕ„: еџєе‡†=64 В· OUTPUT_HEADROOM_SH=1 => еЌ•йџіеі° в‰€ 25% FS
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=23 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=23 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+=== (1) дёЉз”µеё§ В· g_soundпј€LED0..LED6 + е°ѕзЃЇе…ЁзЃ­пј‰===
+  info: её§й•ї = 23808 ж‹Ќпј€жњџжњ› 23808 = 384 Г— 62пј‰
+  ok  : (яяяжяяяёяяя¶яяї == NBITSяя— BIT_яяяпяяя­яяяЅяяяЁяяяеяяяєяяя‰
+  ok  : (1a) led0 яяяияІ =яяяЅ [led0] = ffffff
+  ok  : (1b) led1яяя‚яяяеяЁ =яяя­ [led1] = 000000
+  ok  : (1c) led2 яяяжяє =яяя­ [led2] = 000000
+  ok  : (1d) ledяяя”яяяяяяйя“ =яяя­ [led3] = 000000
+  ok  : (1e) led4 looper яяяљяяяќ [led4] = 000030
+  ok  : (1f) leяяяжяяя­яяяЎяяяйяяяџі) =яяя’ [led5] = 00ffff
+  ok  : (1g) ledяяя”яяяяяяеяЏ =яяяї [led6] = 00ff00
+  ok  : (1h) led7..led1яяя…яяя­яяявяяяеяяяЏЈ defaulяяя‰
+=== (3) йќ™йџіжЎЈпј€g_silentпј‰В· и·Ё generate е€†ж”Ї ===
+  ok  : (3a) led0 яяяияІ =яяяЅяяяжяяяќяяя‚яяяеяяяјяяя¤яяязяяяђяяя‰ [led0] = ffffff
+  ok  : (3b) led4 looper яяяљяяяќ [led4] = 000030
+  ok  : (3c) ledяяя”яяяяяяеяЏ =яяяї [led6] = 00ff00
+  ok  : (3d)яяяђ ledяяяЋяяяђяяязяяяј€g_silenяяяЉЉ led_gear_sяяя©яяяЁяяђ яяя‰ [led5] = 000000
+  ok  : (3e) led7..led1яяя…яяя­
+=== (2) жґ»дЅ“пјљUART иЈё 'I' е€‡йџіи‰І ===
+  ok  : (2яяявяђ led0 яяяияІ 0яя’1яяяйяяяјяяяџяяяеяяяЉяяя‰ [led0] = 00ffff
+  ok  : (2b) leяяяияяя‹яяяЁяяязяяяјяяя”яяяЎяяядяяяЉяяя‰ [led1] = 000000
+  ok  : (2c) led2 яяяжяє =яяя­ [led2] = 000000
+  ok  : (2d) ledяяя”яяяяяяйя“ =яяя­ [led3] = 000000
+  ok  : (2e) led4 looper яяяљяяяќ [led4] = 000030
+  ok  : (2f) ledяяяЋяяяђяяяйяяяјяяя”яяяЎяяядяяяЉяяя‰ [led5] = 00ffff
+  ok  : (2g) ledяяя”яяяяяяеяЏ =яяяї [led6] = 00ff00
+  ok  : (2h) led7..led1яяя…яяя­
+=== (5) йў„з•™и„љ / UART з©єй—ІжЂЃ ===
+  ok  : (5a) ws_strip_o == 3'b000яяяжяяя±яяяїяяяияяяўяяя™яяявяяяжяяя¬яяяЄяяяияяя®яяя‰
+  ok  : (5b) esp_uart_tx_яяяЃяяяяяявяђ UART яяяйяяяЂяяя‰
+  ok  : (6) ctrl_ws_o яяядяяяђяяя  X/Zяя€Aяяя‰
+PASS: top зЃЇеё¦й›†ж€ђ вЂ”вЂ” ctrl_ws_o дЅЌжµЃи§Је‡єзљ„ 7 и·Їйўњи‰І/зЃЇеєЏ/е€‡з‰‡/дё¤жЎЈе€†ж”Їе…ЁйѓЁж­ЈзЎ®
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\top\tb_top_led_strip.sv:298: $finish called at 3106510000 (1ps)

@@ -1,0 +1,6 @@
+PASS: actual NM comparator width=1 comparisons=100000
+PASS: actual NM comparator width=7 comparisons=100000
+PASS: actual NM comparator width=16 comparisons=100000
+PASS: actual NM comparator width=17 comparisons=100000
+PASS: comparator boundary/random checks 400000
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3b\tb_opt04_nm_compare_values.sv:60: $finish called at 100000000 (1ps)

@@ -1,0 +1,5 @@
+VCD info: dumpfile build/sim/adc_farm/tb_adc_farm.vcd opened for output.
+  -- P1-28: force chip-0 MISO stuck at 0, wait 17 frames --
+  ok  : P1-28 dead chip 0 detected (fault=001), live chips untouched
+PASS: 2 frames + P1-28 dead-chip window (19 frames total), 16 sample_valid, frame period=500000 ns, fanout clean
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\drivers\tb_adc_farm.sv:217: $finish called at 9196541000 (1ps)

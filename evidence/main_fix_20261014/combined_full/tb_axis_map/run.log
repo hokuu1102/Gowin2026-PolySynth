@@ -1,0 +1,29 @@
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+  ok  : KB: same axis, any pos => SAME pitch (no depth dependence)
+  [KB] axes differing from axis0 : 14 / 15
+  ok  : KB: pitch VARIES with axis (not all-identical => the bug is fixed)
+  ok  : KB: at least 14 distinct pitches across 16 axes (E#/B# duplicates allowed)
+  ok  : KB: interpolation is OFF (frac=0)
+  ok  : KB: phase_inc is NEVER zero across all 16 axes
+  ok  : valid deasserts in the same cycle as data (combinational)
+  ok  : valid asserts in the same cycle as data (combinational)
+  ok  : phase_inc is NEVER zero across the full position range
+  [fret] axis=0 -> 0x00dd3595 (0 Hz)
+  [fret] axis=1 -> 0x00ea5cf4 (0 Hz)
+  [fret] axis=2 -> 0x00af92ee (0 Hz)
+  [fret] axis=3 -> 0x00a5b841 (0 Hz)
+  [fret] axis=15 -> 0x0174073a (-1 Hz)
+  ok  : fretboard: all 16 axes give DIFFERENT pitches (the actual bug)
+  ok  : fretboard axis 0 == E3 (0x00DD_3595) [left board upper row col3]
+  ok  : fretboard axis 15 == C#4 (0x0174_073A) [right board upper row col2]
+  [mode] axes where kb != fb : 13 / 16
+  ok  : mode_i really switches the table (kb != fb on at least one axis)
+  ok  : axis_id is passed through to the output
+  ok  : fretboard table: all 16 axes match the confirmed string/fret pitches
+  ok  : keyboard table: all 16 axes match the confirmed keyboard pitches
+--- 判据⑧：⭐ 第二查表口 `phase_inc_b_o`（⭐ 滑音音高通路用 ✅）---
+  ok  : FB: port B equals port A when fed the SAME axis id (all 16 axes)
+  ok  : FB: port B is NOT a constant (axis 0 vs axis 7 differ => the check above is not vacuous)
+
+PASS: axis_map selects phase_inc by AXIS ID in both modes (keyboard + fretboard), with interpolation disabled; 16 fretboard axes and 16 keyboard axes each map to their confirmed pitch tables, phase_inc is never zero, and valid stays in the same cycle as data
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3a\tb_axis_map.sv:482: $finish called at 4579000 (1ps)

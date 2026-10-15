@@ -1,0 +1,10 @@
+{
+  "name": "tb_evt_uart_rx_screen",
+  "compile_exit": 0,
+  "run_exit": 0,
+  "status": "DIAGNOSTIC_CONFIRMED",
+  "original_timeout_sec": 120,
+  "timeout_sec": 120,
+  "explicit_pass_verdict": false,
+  "elapsed_sec": 0.672
+}

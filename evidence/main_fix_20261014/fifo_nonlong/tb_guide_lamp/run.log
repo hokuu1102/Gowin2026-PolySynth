@@ -1,0 +1,20 @@
+VCD info: dumpfile build/sim/tb_guide_lamp/tb_guide_lamp.vcd opened for output.
+  ok  : baseline: guide all 0 right after reset
+  ok  : baseline: commit is 0 (no spurious)
+  ok  : note_on axis=3 -> guide[3] lit
+  ok  : note_on axis=3 -> one-hot (only bit3)
+  ok  : note_on axis=3 -> commit pulsed
+  ok  : note_off axis=3 -> guide[3] off
+  ok  : note_off axis=3 -> all 0 again
+  ok  : tempo ignored -> guide stays 0
+  ok  : tempo ignored -> no commit
+  ok  : non-vacuity: every axis 0..15 lights its own lamp
+  ok  : commit high on change
+  ok  : commit falls back to 0 next cycle
+  ok  : multi: axis 0 and 15 both lit
+  ok  : multi: only those two bits
+  ok  : P0-28 a PRESSED key is blanked: guide_key[3]=1 but guide_vis[3]=0
+  ok  : P0-28 blanking does not disturb other axes: guide_vis == guide_key & ~key_active
+  ok  : P0-28 after release the guide bit is visible again
+PASS: tb_guide_lamp (16 checks)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3c\tb_guide_lamp.sv:197: $finish called at 972000 (1ps)

@@ -1,0 +1,18 @@
+
+==============================================================
+ B2: re-pressing during the RELEASE TAIL -- voice reuse?
+   (expect 1 live voice on the axis; 2 => duplicate => BUG)
+==============================================================
+  case 0: wait   2 frames -> env_before=1 live_before=1 live_after=1 ok
+  case 1: wait   5 frames -> env_before=0 live_before=0 live_after=1 ok
+  case 2: wait  10 frames -> env_before=0 live_before=0 live_after=1 ok
+  case 3: wait  20 frames -> env_before=0 live_before=0 live_after=1 ok
+  case 4: wait  40 frames -> env_before=0 live_before=0 live_after=1 ok
+  case 5: wait  60 frames -> env_before=0 live_before=0 live_after=1 ok
+
+  == summary ==
+   reuse=6  DUPLICATE=0
+  ok  : B2 non-vacuity: at wait=2 frames the tail is still alive (env_active=1 on the axis)
+  ok  : B2: release-tail re-press never allocates a 2nd same-axis voice
+PASS: B2 release-tail re-press reuses the SAME voice (no duplicate same-axis voice)
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\w3b\tb_nm_reuse_tail.sv:326: $finish called at 2842140000 (1ps)

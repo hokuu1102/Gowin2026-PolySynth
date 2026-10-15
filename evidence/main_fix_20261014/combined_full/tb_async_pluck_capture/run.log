@@ -1,0 +1,9 @@
+  ok  : UP edge produces exactly one pluck
+  ok  : UP edge is labelled UP
+  ok  : refractory suppresses a second immediate edge
+  ok  : edge is accepted again after refractory
+  ok  : DOWN edge is labelled DOWN
+  ok  : simultaneous UP and DOWN create one event
+  ok  : simultaneous UP and DOWN chooses UP
+PASS: async pluck capture synchronizes edges, prioritizes UP, and applies refractory
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3a\tb_async_pluck_capture.sv:89: $finish called at 980000 (1ps)

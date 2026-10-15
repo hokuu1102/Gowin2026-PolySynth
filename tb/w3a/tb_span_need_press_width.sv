@@ -78,6 +78,8 @@ module tb_span_need_press_width;
 
     always @(posedge clk) begin
         if (rst_n) begin
+            if ((^{need_press_o, state_o}) === 1'bx)
+                $fatal(1, "FAIL: unknown public calibration status");
             // ⭐ 统计 need_press 的连续高度
             if (need_press_o) begin
                 np_width = np_width + 1;
@@ -148,13 +150,16 @@ module tb_span_need_press_width;
             $display("NOTE: need_press 高 %0d 拍", np_max);
 
         $display("==================================================");
+        if (np_rises < 1 || np_max < 1)
+            $fatal(1, "FAIL: calibration prompt has no observable rising edge");
+        $display("PASS: calibration prompt rising edge and nonzero width observed");
         $finish;
     end
 
     initial begin
         #5000000;
         $display("FAIL: tb 自身超时");
-        $finish;
+        $fatal(1, "FAIL: prompt-width watchdog");
     end
 
 endmodule

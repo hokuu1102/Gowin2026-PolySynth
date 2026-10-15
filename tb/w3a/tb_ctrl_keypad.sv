@@ -322,7 +322,8 @@ module tb_ctrl_keypad;
         begin : sweep
             integer kk;
             for (kk = 0; kk < 16; kk = kk + 1) begin
-                if (kk == 12 || kk == 15) continue;   // 长按键单独在 7) / 8) 测
+                // Icarus-compatible guard; long-press keys are tested in 7/8.
+                if (kk != 12 && kk != 15) begin
                 zero_counters;
                 press_key(kk);
                 case (kk)
@@ -344,6 +345,7 @@ module tb_ctrl_keypad;
                     (n_met+n_timbre+n_slide+n_scope+n_keydrum+n_gear+n_up+n_dn
                      +n_dpat+n_tmode+n_lclr+n_mode+n_tare+n_span) <= 1);
                 release_all;
+                end
             end
         end
 

@@ -1,0 +1,9 @@
+{
+  "name": "tb_demo_stall_diag",
+  "compile_exit": 0,
+  "run_exit": 0,
+  "status": "PASS",
+  "timeout_sec": 600,
+  "explicit_pass_verdict": true,
+  "elapsed_sec": 530.047
+}

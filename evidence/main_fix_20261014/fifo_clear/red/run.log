@@ -1,0 +1,2 @@
+FATAL: tb/w3c/tb_uart_tx_fifo_clear_drop.sv:19: FAIL: clear must retain this cycle's NEW drop, got flag=0 count=0
+       Time: 300000  Scope: tb_uart_tx_fifo_clear_drop

@@ -1,0 +1,3 @@
+VCD info: dumpfile build/sim/dds_wavetable_core/tb_dds_wavetable_core.vcd opened for output.
+PASS: DDS wavetable core preserves phase across phase_inc changes
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3b\tb_dds_wavetable_core.sv:88: $finish called at 440000 (1ps)

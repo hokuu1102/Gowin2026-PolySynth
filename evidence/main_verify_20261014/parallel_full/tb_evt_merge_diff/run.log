@@ -1,0 +1,5 @@
+
+=== evt_merge 逐拍差分：DEPTH 2/3/4/6/9 × 20000 拍 ===
+    比较次数 = 100330   不一致 = 0
+PASS: 新旧 evt_merge 在 5 种 DEPTH 下逐拍逐位相同（12 组输出）
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\w3c\tb_evt_merge_diff.sv:143: $finish called at 401320000 (1ps)

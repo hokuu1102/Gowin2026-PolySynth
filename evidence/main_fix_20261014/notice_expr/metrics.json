@@ -1,0 +1,23 @@
+{
+    "Source":  "04f32ad+notice_expression_patch",
+    "PhysicalSystemClockMHz":  50,
+    "RequiredHoldNs":  0.05,
+    "SetupViolations":  0,
+    "HoldViolations":  0,
+    "SetupSlack":  0.004,
+    "HoldSlack":  0.211,
+    "RecoverySlack":  0.866,
+    "RemovalSlack":  0.123,
+    "clk_sysFmax":  60.989,
+    "pixel_clkFmax":  41.468,
+    "serial_clkFmax":  451.671,
+    "Logic":  38331,
+    "CLS":  25096,
+    "Register":  18881,
+    "BSRAM":  69,
+    "DSP":  24,
+    "TimingPass":  true,
+    "NativeBudgetNs":  16.4,
+    "HoldMargin50psGate":  true,
+    "Accepted":  true
+}

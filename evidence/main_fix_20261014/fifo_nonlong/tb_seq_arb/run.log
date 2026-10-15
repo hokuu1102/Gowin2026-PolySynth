@@ -1,0 +1,21 @@
+=== tb_seq_arb（源 A 三级仲裁）===
+  ok  : ① 无输入 ⇒ 不发任何事件
+  ok  : ④ 单源（手弹）⇒ 恰好 1 条，内容正确
+  ok  : ②⭐ 手弹+曲谱同拍 ⇒ 【两条都出来了】(live=1 score=1)
+  ok  : ⑦ 演示让位 —— 手弹在发时演示【不参与】(live=1 demo=0)
+  ok  : ④b 演示单独（无别源）⇒ 正常发 1 条
+  ok  : ⑧ 连发 20 条 ⇒ 出来 20 条（不丢不多）
+  ok  : ⑤ 不粘滞 —— valid 连续高时数据每拍都在变（最长连续 2 拍，正常）
+  ok  : ⑨ 溢出【可见】—— overflow=1, drop_cnt=114（⛔ 不静默丢）
+  ok  : ③ 三源同拍 ⇒ 手弹+曲谱 2 条（⭐ 演示按设计让位）
+  ok  : ⑥ 数据与 valid 同拍（⭐ 按 inc 认身份全部认到了）
+  ok  : ⑩ A8 无 X/Z 传播
+      分源计数: live=3(期望3) score=2(期望2) demo=2(期望2)
+  ok  : ⑪ 三个分源计数【都真的在数】（⭐ 上板可据此看'谁在发'）
+--------------------------------------------------
+  出口事件总数 = 7（手弹 3 · 曲谱 2 · 演示 2）
+  相撞计数 = 0 · 合流计数 = 7 · 丢弃 = 0
+--------------------------------------------------
+PASS: A1 DEPTH9 width and behavioral queue checks=656 full=142 reject=67 triple=43 wraps=72
+PASS: seq_arb 多源同拍不丢、演示让位、溢出可见、单周期、无 X/Z
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\fifo_regression_source\tb\w3c\tb_seq_arb.sv:396: $finish called at 13120000 (1ps)

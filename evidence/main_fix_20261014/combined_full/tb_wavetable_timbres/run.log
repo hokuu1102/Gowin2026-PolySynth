@@ -1,0 +1,2 @@
+PASS: T31b four timbre wavetable public interface
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\combined_regression_source\tb\w3b\tb_wavetable_timbres.sv:108: $finish called at 260000 (1ps)

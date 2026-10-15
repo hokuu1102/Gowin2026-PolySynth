@@ -1,0 +1,3 @@
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+PASS: atomic record frames and public frame/loss/reject footer
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\build\verification_source\tb\w3c\tb_rec_dump_status.sv:31: $finish called at 720100000 (1ps)

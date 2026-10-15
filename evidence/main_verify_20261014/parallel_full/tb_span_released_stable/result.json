@@ -1,0 +1,9 @@
+{
+  "name": "tb_span_released_stable",
+  "compile_exit": 0,
+  "run_exit": 0,
+  "status": "RUN_FAIL",
+  "timeout_sec": 120,
+  "explicit_pass_verdict": false,
+  "elapsed_sec": 68.766
+}

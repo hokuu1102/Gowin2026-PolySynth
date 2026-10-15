@@ -1,0 +1,66 @@
+﻿iverilog.exe : C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_clk.v:4: warn
+ing: timescale for hdmi_clk inherited from another file.
+At C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\sim\tb_all.ps1:123 char:18
++   $compileOut  = & $iverilog @compileArgs 2>&1
++                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (C:\Users\cyx\Do...m another file.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\drivers\tlc5916_driver.sv:1: ...: The 
+inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_encoder.v:2: warning: timesc
+ale for tmds_encoder inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherite
+d timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\tmds_serializer.v:2: warning: tim
+escale for tmds_serializer inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherite
+d timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\video_timing.v:1: warning: timesc
+ale for video_timing inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\hdmi\hdmi_scope.v:1: ...: The inherite
+d timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\guide_lamp.v:30: warning: timescal
+e for guide_lamp inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\evt_uart_rx.v:1: ...: The inherite
+d timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\pos_probe.v:73: warning: timescale
+ for pos_probe inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\play_seq.v:1: ...: The inherited t
+imescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\span_probe.v:71: warning: timescal
+e for span_probe inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\seq_arb.v:1: ...: The inherited ti
+mescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx_fifo.v:54: warning: timesc
+ale for uart_tx_fifo inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3c\uart_tx.v:1: ...: The inherited ti
+mescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\rtl\w3b\tdm_render_mixer.v:541: warning: @
+* is sensitive to all 16 words in array 'pc_l1'.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:9: warning: I
+nstantiating module top with dangling input port 30 (ctrl_col_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:9: warning: I
+nstantiating module top with dangling input port 31 (enc_a_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:9: warning: I
+nstantiating module top with dangling input port 32 (enc_b_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:9: warning: I
+nstantiating module top with dangling input port 33 (enc_sw_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:9: warning: I
+nstantiating module top with dangling input port 35 (pedal_sus_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:9: warning: I
+nstantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:9: warning: I
+nstantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:14: warning: 
+Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:14: warning: 
+Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:16: warning: 
+Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:16: warning: 
+Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:16: warning: 
+Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\Gowin2026-PolySynth-main-verify-20261014\tb\top\tb_top_dump_atomic.sv:16: warning: 
+Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
