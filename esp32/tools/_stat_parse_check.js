@@ -78,8 +78,10 @@ chk("有 GATT 卡死检测与重连指引",
     /gattWedged/.test(html) && /already in progress/.test(html));
 chk("核对失败时【明确报错】而不是静默",
     /上传【有丢帧】/.test(html));
-/* ⭐ 上传必须有节流（否则必然溢出 —— 0xABF1 无流控） */
-chk("上传有节流 PACING_MS", /const PACING_MS\s*=\s*\d+/.test(html));
+/* ⭐ 上传必须有节流（否则必然溢出 —— 0xABF1 无流控）。
+ * ⚠️ 2026-10-15：值可能是三元表达式（诊断开关），所以只要求"有定义"，
+ *   ⛔ 不要求右边是字面数字。 */
+chk("上传有节流 PACING_MS", /const PACING_MS\s*=/.test(html));
 /* 进度条三件套必须在循环里（我改节流时把它们整段吃掉了，用户实测"没有进度条"）。
  * 判据：三个赋值都出现在 while 循环体内。 */
 {

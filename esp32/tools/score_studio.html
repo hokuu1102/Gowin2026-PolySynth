@@ -1983,6 +1983,15 @@ function parseStatText(txt) {
            run: g("run"), tf: g("tf"), unk: g("unk"),
            /* ⭐ ble_rx —— 判"固件到底收到多少字节"用（带确认写的验收判据）*/
            bleRx: bleM ? +bleM[1] : null,
+           /* ⭐⭐ 2026-10-15 补：判"帧收齐没有"（格式见 ble_main.c：
+            *   "frame=total=%lu tf=%lu ev=%lu rst=%lu unk=%lu"）。
+            * 🔴 为什么必须补：我原来的完整性检查【只看三个丢帧计数】，
+            *   而丢帧计数【看不见空中丢的包】——
+            *   实测 frame=total=1 tf=18935 ev=11621（少 7314 帧）却没报错。
+            *   ⭐ 用户线索："短音阶能起播，长曲谱不行" ⇒ 正是"收不齐"的表现。 */
+           frameTotal: (txt.match(/\bframe=total=(\d+)/) || [])[1],
+           frameTf: (txt.match(/\bframe=total=\d+ tf=(\d+)/) || [])[1],
+           frameEv: (txt.match(/\bframe=total=\d+ tf=\d+ ev=(\d+)/) || [])[1],
            ringDrop: ringM ? +ringM[1] : null,
            ringDropBytes: ringM ? +ringM[2] : null,
            bleDrop: bleM ? +bleM[2] : null,
@@ -2428,6 +2437,26 @@ async function upload() {
 function checkIntegrityFromStat(st) {
   if (!st) return null;
   const n = v => (typeof v === "number" && !isNaN(v)) ? v : null;
+  /* ⭐⭐ 主判据：收到的帧数必须等于总数帧（2026-10-15 补）。
+   * 🔴 这条【比丢帧计数重要】—— 丢帧计数看不见"空中丢的包"：
+   *   实测 frame=total=1 tf=18935 ev=11621（少 7314 帧）而 ble.drop=0。
+   *   ⭐ 用户线索："短音阶能起播，长曲谱不行" ⇒ 正是"收不齐"的表现
+   *     （短谱帧少、全收齐 ⇒ 能放；长谱丢帧 ⇒ 放不了）。
+   * ⚠️ 格式出处 ble_main.c："frame=total=%lu tf=%lu ev=%lu rst=%lu unk=%lu" */
+  {
+    const ev = n(st.frameEv), tf = n(st.frameTf);
+    if (ev !== null && tf !== null && tf > 0) {
+      if (ev < tf) {
+        const miss = tf - ev;
+        log("🔴 谱面【不完整】：应到 " + tf + " 帧，实到 " + ev + " 帧，少 " + miss +
+            " 帧（" + (miss / tf * 100).toFixed(1) + "%）"
+            + " ⇒ ⭐ 短谱能放、长谱放不了/只放一截。"
+            + "⚠️ 这些帧是在【BLE 链路层】丢的 ⇒ 所以 ble.drop 也看不见。", "er");
+      } else {
+        log("✅ 帧数核对通过：" + ev + " / " + tf + " 帧全部到齐", "ok");
+      }
+    }
+  }
   const bleDrop = n(st.bleDrop), ringDrop = n(st.ringDrop), ovf = n(st.ovf);
   const known = [bleDrop, ringDrop, ovf].filter(v => v !== null);
   if (known.length === 0) {
