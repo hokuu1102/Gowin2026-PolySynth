@@ -2161,20 +2161,19 @@ async function upload() {
       /* ⭐⭐ 节流（2026-10-14 修，用户实测"最后挂音 / 曲子只有一截"）。
        *
        * 🔴 根因：0xABF1 只支持【无确认写】（gatt_svc.c:68-69 只有 WRITE_NR）
-       *   ⇒ 整条上传通路【没有任何流控】：
-       *     · PC 侧：浏览器接受就返回 ⇒ 实测 237 KB/s
-       *     · ESP32 → FPGA 串口：500 kbaud ≈ 50 KB/s
-       *     · ESP32 环形缓冲：有限深度（固件有 full/hwm 计数）
-       *   ⇒ 喂得比消化快 5 倍 ⇒ 溢出丢帧 ⇒
-       *     ⭐ 流被截断在音符中间 ⇒ 最后一个 note_on 没有 note_off ⇒ 【挂音】
-       *   📌 固件自己记过：ble_main.c:577「发 18504 帧，ble_rx/9 与 进池+ovf
-       *      差 12~48 帧」—— 就是这个丢帧。
+       *   ⇒ 整条上传通路【没有任何流控】。
+       *   ⭐ 实测定位（2026-10-14 用户日志，决定性）：
+       *     ble.drop=0 · ring.drop=0 · ovf=244
+       *     ⇒ 传输【零丢】，丢在【水池溢出】—— 喂得比 ESP32 消化得快。
+       *   📌 反算：23558 帧 / 6.8 s ≈ 3464 帧/s 是吸收上限；
+       *     当时发 30.6 KB/s 正好压在这条线上 ⇒ 只丢 1%（244 帧）。
        *
-       * ⭐ 修法：把平均速率压到串口能消化的水平（留 20% 余量）。
-       *   ⚠️ 目标 40 KB/s：480 字节/包 ⇒ 每包间隔 12 ms。
+       * ⭐ 修法：压到吸收上限【以下】留余量。
+       *   ⚠️ 480 字节/包，PACING_MS=20 ⇒ 名义 24 KB/s（比 30.6 低约 20%）。
        *   ⛔ 不改成"带确认写"—— 固件没给 WRITE 位，改不了（要他们加）。
-       *   📌 代价：141 KB 从 0.9 s 变成 ~3.5 s。⭐ 可靠性 > 速度。 */
-      const PACING_MS = 12;
+       *   📌 代价：212 KB 约 9 s。⭐ 可靠性 > 速度。
+       *   📌 上传后会自动核对 ovf —— 若仍 >0，把这个数再调大。 */
+      const PACING_MS = 20;
       if (PACING_MS > 0) await new Promise(r => setTimeout(r, PACING_MS));
       else if ((sent / CHUNK) % 20 === 0) await new Promise(r => setTimeout(r, 0));
     }
@@ -2196,10 +2195,22 @@ async function upload() {
     log("上传失败：" + e.message, "er");
   } finally {
     uploading = false; $("btnUp").disabled = false;
-    /* ⭐ 恢复轮询，但【延迟】—— 上传完 ESP32 还要把数据转给 FPGA
-     * （141 KB @ 500 kbaud ≈ 2.8 s）。⛔ 不等就轮询 ⇒ readValue 读不到 ⇒ 卡住
-     *   ⇒ 用户实测"上传完点起播没反应，30 秒后炸一堆 GATT 错"。 */
-    if (connected) startPoll(POLL_RESUME_DELAY_MS);
+    /* ⭐⭐ 上传后【不自动恢复轮询】（2026-10-14 用户日志实测）。
+     *
+     * 🔴 为什么：读 STAT 用 `readValue()`，而 ESP32 在灌完谱后【长时间忙】
+     *   （要把整份谱面转给 FPGA）⇒ 读会【挂住】。
+     *   ⚠️ 而 Web Bluetooth 【无法取消】已发出的操作 ⇒ 浏览器永久卡住
+     *   ⇒ 之后每个操作都报 `already in progress`（用户实测：6 秒延迟也不够，
+     *     14:38:11 灌完 -> 14:38:17 恢复轮询 -> 14:38:29 就卡死了）。
+     * ⭐ 所以：上传完【先不轮询】，等用户点起播 —— 那时 ESP32 已进入稳态，
+     *   读 STAT 正常（play 的 stopPollFor(1500) 之后会自动恢复轮询）。
+     * 📌 代价：上传完到起播前，状态面板不刷新。⭐ 这比"卡死蓝牙栈"划算得多。
+     * 📌 要立刻看状态：点起播/停止/清池任一（它们都会恢复轮询）。 */
+    pendingIntegrityCheck = true;
+    if (connected) {
+      log("上传完成。⭐ 已暂停状态轮询（ESP32 正在把谱面转给 FPGA，"
+          + "此时读状态会卡住蓝牙栈）—— 点「起播」后自动恢复。", "ok");
+    }
   }
 }
 
