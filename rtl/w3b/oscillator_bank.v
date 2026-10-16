@@ -625,7 +625,27 @@ parameter integer FIXED_BLEND_Q     = 0,
             //     （⭐ `tb_oscillator_bank` 直接驱动奇数 lane 的 `test_phase_inc_i` 非 0 ✅）
             //     ⇒ ⭐ 审查那句"在生产接线下是编译期常量 0"**只对顶层接线成立**，
             //        ⚠️ **对模块级不成立** ✅ ⇒ ⭐ **又一条"不落地"的理由** ✅
-            wire [PHASE_W-1:0] lane_inc = test_mode_i
+            //  ⭐⭐⭐⭐ 2026-10-17（🔴 **T1 实验 · 只跑综合定案**）：
+            //     ⭐ 把 test 覆盖**由 `test_lane_active_i[g]` 门控** ✅
+            //     📌 **与上面 P2-37 的改法【不同】**（⭐ 那个用 `(test_mode_i && (OSC_IDX==0))`）：
+            //        · P2-37：⭐ 只让 `OSC_IDX==0` 的 lane 拿 test 值 ⇒ ⚠️ **改了模块级契约**
+            //        · T1：⭐ 用 `test_lane_active_i[g]` ⇒ ⭐ **与 `lane_active` 同源**
+            //          （⭐ `:532-534` `lane_active ≡ test_mode_i ? test_lane_active_i[g] : ...`）
+            //          ⇒ ⭐ `test_mode_i=1` 时新条件**恒等于 `lane_active`**
+            //          ⇒ ⭐ 两者只在 `lane_active=0`（⭐ 寄存器不更新）时不同
+            //          ⇒ ⭐ **对任意输入组合输出逐位相同** ⇒ ⛔ **不改模块级契约** ✅
+            //     🔴 **为什么值得再试一次**（⭐ 只读审计 P 的网表实测，⭐ 03:32 那版）：
+            //        ⭐ `\gen_lane[odd].lane_inc_*_s2` 有 **992 个 `LUT2`（`INIT=4'h4`，
+            //        输入 `{tm_enable_q_16, inc_det_w[i]}`）** 确实在**顶层网表**里 ✅
+            //        ⇒ ⭐ **与 P2-37 的"逐字节不变"矛盾** ⇒ 只能实测定案 ✅
+            //     📌 **判据（⭐ P 给的，⭐ 只跑综合、⛔ 不跑 PnR）**：
+            //        ⭐ ① `Gowin2026.vg` 里 `\gen_lane[\d*[13579]]\.lane_inc_\d+_s2` 的
+            //             实例数 **992 → 0**；
+            //        ⭐ ② `_syn_rsc.xml` 里 `u_oscillator_bank` 的 `Lut` **6279 → ≈5287**；
+            //        ⭐ ③ 顶层 `T_Lut` 降幅 **≥500 ⇒ 落地；否则【回退】** ✅
+            //     ⚠️ **回退**：把条件改回 `test_mode_i`（⭐ 一行 ✓）
+            //     ⚠️ **若落地**：⭐ 必须同步 `tb/models/oscillator_bank_ref.v` ✅
+            wire [PHASE_W-1:0] lane_inc = (test_mode_i && test_lane_active_i[g])
                              ? test_phase_inc_i[g*PHASE_W +: PHASE_W]
                              : lane_inc_base;
 

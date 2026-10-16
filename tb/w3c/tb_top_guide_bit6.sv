@@ -373,6 +373,53 @@ module tb_top_guide_bit6;
         chk(dut.u_guide_lamp.guide_key_o[4] === 1'b0,
             "4d the lamp is NOT stuck: an unmarked note_off cleared it  <-- no hanging lamp");
 
+        // ═════════════════════════════════════════════════════════════════
+        //  ⭐⭐ 判据 ⑤：⭐ **重播（节拍器中途不关）时，示范段仍必须能亮灯** ✅
+        //     （⭐ 2026-10-17 · ESP32 侧回函点名要求的那条"能红的判据" ✅）
+        //
+        //  🔴 **缺陷**（`top.v:1000` / `:1797`）：
+        //     ```verilog
+        //     wire met_start = met_on_r & ~met_on_r_d;      // ⭐ 节拍器【开】的那一拍脉冲
+        //     else if (met_start) evt_guide_seen_r <= 1'b0; // ⭐ 唯一清路
+        //     ```
+        //     ⇒ ⭐ `met_start` 是"**节拍器被打开**"那一拍，⛔ **不是每次起播** ✅
+        //     ⇒ 🔴 节拍器一直开着、用户只是**重播** ⇒ 脉冲不会再来
+        //        ⇒ `evt_guide_seen_r` 卡在 1（⭐ 判据 ④ 的 bit6=1 ON 已把它置 1）
+        //        ⇒ ⭐ `note_valid_i` 的四个或项
+        //           （`guide_only_r | evt_guide_only | ~evt_guide_seen_r | ps_is_note_off`）
+        //           对 **bit6=0 的 note_on 全为 0** ⇒ 🔴 **拿不到灯** ✅
+        //
+        //  📌 **场景**：判据 ④ 刚发过一条 bit6=1 的 ON ⇒ 闩锁已置 1
+        //     ⭐ 然后【直接】再发一条 bit6=0 的 ON（= 重播，⛔ 全程不碰节拍器）
+        //
+        //  ⚠️ **本判据今天必红** —— 它钉的就是那个缺陷（⭐ 这正是它存在的意义）✅
+        //     ✅ **修法**（`top.v`）：⭐ 清路改挂【真正的起播】（如曲谱流重启 /
+        //        `evt_buf` 写侧新一批的首字），⛔ 而不是 `met_start` ✅
+        //     📌 判据 ①~④ 不受影响（⭐ 它们各自独立发帧）✅
+        // ═════════════════════════════════════════════════════════════════
+        $display("== 5  a REPLAY (metronome left ON) must still light bit6=0 events ==");
+        chk(dut.evt_guide_seen_r === 1'b1,
+            "5a the latch is set by the earlier bit6=1 event (replay precondition)");
+        //  ── ⭐ 重播的"新谱开始"：发一条【谱头 tempo 帧】（kind=2, tick=0）──────
+        //     ⭐ 这是 `top.v` 里 `ps_new_score` 的触发条件（⭐ 见 `evt_guide_seen_r` 声明处）✅
+        //     ⚠️ `inc` 填**当前默认 tick_inc**（164927 = 120 BPM，⭐ 见判据 0a）
+        //        ⇒ ⭐ **速度不变**（⛔ 不影响后面 `wait_evt` 的时序）✅
+        send_frame(pack(20'd0, 21'd164927, 4'd0, 8'd0, 2'd2, 5'd0, 1'b0), 1'b0);
+        repeat (4) @(posedge clk);
+        chk(dut.evt_guide_seen_r === 1'b0,
+            "5b' the head tempo frame (kind=2, tick=0) cleared the latch  <-- the fix");
+        send_frame(pack(20'd2, 21'd37791, 4'd4, 8'd200, 2'd0, 5'd5, 1'b0), 1'b0);  // ⭐ 重播：未标记的 ON
+        //  ⚠️ **tick 必须用小值** —— 本 tb 的既有帧用的是 `960 / 2 / 500 / 2 / 3 / 960 / 0`
+        //     （⭐ 见 `:243/:278/:317-319/:363/:369`）⇒ ⭐ 内部 tick 计数器是**小步推进**的 ✅
+        //     🔴 **我第一版写了 `1440`** ⇒ ⚠️ 事件在 `wait_evt` 的 150 000 拍窗口内**永不到期**
+        //        ⇒ 🔴 **5b 假红**（⭐ 不是闩锁的问题，是"事件根本没播"）✅
+        //     📌 ⭐ 这正是本项目的老陷阱：**红也要红对原因**（⭐ 否则修完 5b 还是红）✅
+        wait_evt(16'd9, 150_000);
+        repeat (2) @(posedge clk);
+        chk(dut.g_sound.u_play_seq.evt_cnt_o === 16'd9, "5c the replayed bit6=0 note_on fired");
+        chk(dut.u_guide_lamp.guide_key_o[4] === 1'b1,
+            "5d a REPLAY still lit key 4  <-- RED before the fix: the clear was on met_start only");
+
         $display("");
         if (fail_cnt == 0)
             $display("PASS: tb_top_guide_bit6 - %0d/%0d judgements held", pass_cnt, pass_cnt + fail_cnt);

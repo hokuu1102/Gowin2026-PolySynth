@@ -58,7 +58,12 @@ FIELD LAYOUT (64-bit record) -- REVISED 2026-09-22
     bit 18..11   vel     (8 bit)    velocity
     bit 10..9    kind    (2 bit)    0=note_on, 1=note_off, 2=tempo change
     bit  8..7    timbre  (2 bit)    timbre id 0..3  (TIMBRE_N=4)
-    bit  6..0            (7 bit)    RESERVED -- must be written as 0
+    bit  6               (1 bit)    guide_only -- 1 = 只亮灯不出声
+bit  5               (1 bit)    is_drum    -- 1 = 鼓（FPGA 的 ps_is_drum）
+bit  4..0            (5 bit)    note5      -- note_off5 = MIDI - 45（0..30）· 31 = 哨兵（不参与 LED 指引）
+                                 ⭐ 2026-10-17 新增（移植自 ESP32 侧 feat/s3-ble）
+                                 🔴 旧口径 "bit 6..0 RESERVED -- must be written as 0" 已【作废】
+                                    （bit[6]/bit[5] 早已在用，bit[4:0] 现在也用上了 ⇒ 一位不剩）
 
 TEMPO EVENTS (kind=2)
     The tempo map used to live only in report.txt, so the FPGA had no way to
@@ -127,7 +132,48 @@ AXIS_W, AXIS_SH = 4, 19
 VEL_W,  VEL_SH  = 8, 11
 KIND_W, KIND_SH = 2, 9
 TIMBRE_W, TIMBRE_SH = 2, 7        # ⭐ 音色号 0..3（TIMBRE_N=4）
-# bits 6..0 reserved
+
+#  ⭐⭐⭐⭐ 2026-10-17（🔴 **移植自 ESP32 侧 `feat/s3-ble`**）：
+#     `bit[4:0] = note_off5` = 音符号 − 45（⭐ 给 FPGA 的 LED 曲目指引用）✅
+#
+#  🔴 **为什么必须移植**：⭐ `rtl/w3c/guide_lamp.v` 的"**按音高指键**"读的就是这个字段
+#     （⭐ `rtl/top.v:1714` `ps_note_off5 = ps_note_data[4:0]`）
+#     ⚠️ 而**本仓库 `main` 的 `mid2evt.py` 从不写它** ⇒ 恒 0
+#     ⇒ 🔴 **钢琴模式一盏灯都不亮**；指板模式**恒亮键 5**且灯跟变调走 ✅
+#     📌 实测：4 首真曲 `events.hex` 的 `bit[4:0]` 全 0 ✅
+#
+#  🔴 **⛔ 不要用 `(midi − 45) & 0x1F`**（⭐ 我第一版写错过，ESP32 侧回函指出）：
+#     那是【回绕】不是【钳位】—— 它把越界音**映射成另一个真实存在的键**：
+#       MIDI 30 ⇒ (−15)&0x1F = 17 ⇒ 被当成 MIDI 62 ⇒ 🔴 点亮 62 的灯
+#       MIDI 88 ⇒  43&0x1F = 11 ⇒ 被当成 MIDI 56 ⇒ 🔴 点亮 56 的灯
+#     ⚠️ 而 FPGA 的 `in_range = (note_tr >= 0) && (note_tr <= 31)` **只挡 0..31 之外**
+#        ⇒ `& 0x1F` 的结果永远在 0..31 内 ⇒ ⛔ **结构上挡不住** ✅
+#
+#  ✅ **正确口径（与 ESP32 侧逐字一致）**：⭐ **越界一律写哨兵 31** ✅
+#     ⭐ 而 FPGA 侧的灯位表**最后一个显式表项是 offset 18（MIDI 63）**，
+#        `default → KEY_NONE` ⇒ **offset 19..31 全部不点灯** ⇒ 哨兵 31 安全 ✅
+#     🔴 **硬约定**：⭐ `bit[4:0] = 31` **永久保留为"本事件不参与 LED 指引"**
+#        ⇒ **灯位表里永远不许放 offset 31（= MIDI 76）**，否则所有越界音会一起指到 76 ✅
+NOTE5_W, NOTE5_SH = 5, 0          # ⭐ bits[4:0]
+BASE_NOTE = 45                    # ⭐ 基准 A2（与 FPGA 灯位表的口径一致）
+NOTE5_MAX = (1 << NOTE5_W) - 1    # ⭐ 31
+NOTE5_SENTINEL = NOTE5_MAX        # ⭐ 31 = 不参与 LED 指引
+NOTE5_PITCH_MIN, NOTE5_PITCH_MAX = BASE_NOTE, BASE_NOTE + NOTE5_MAX - 1   # 45..75
+
+
+def note_off5_for(midi):
+    """⭐ 旋律的 `note_off5`：可弹音域内 = `midi − 45`（0..30），否则 **哨兵 31** ✅
+
+    ⚠️ 音域上界是 **75**（⛔ 不是 76）—— 因为 76 会映射到哨兵值 31 本身 ✅
+    ⚠️ **鼓 / tempo 一律写 0**（⛔ 不是哨兵）—— 它们没有音高 ✅
+    """
+    m = int(midi)
+    if NOTE5_PITCH_MIN <= m <= NOTE5_PITCH_MAX:
+        return m - BASE_NOTE
+    return NOTE5_SENTINEL
+
+# ⭐ 2026-10-17：⭐ `bit[6:0]` **一位保留位都不剩**（⭐ 旧注释 "bits 6..0 reserved" 已作废）：
+#    `bit[6]` = guide_only · `bit[5]` = is_drum · `bit[4:0]` = note5 ✅
 
 TICK_MAX = (1 << TICK_W) - 1    # 1048575 ticks = 273 bars @ 4/4 PPQN 960
 INC_MAX = (1 << INC_W) - 1      # 2097151 > MIDI 127 (1077509), with headroom
@@ -423,11 +469,11 @@ def build_events(tracks, division, tempos, transpose=0, overrides=None):
             t0 = int(round(s * scale))
             events.append({"tick": t0, "inc": inc, "vel": vel,
                            "axis": axis, "kind": KIND_ON, "midi": midi,
-                           "timbre": timbre})
+                           "timbre": timbre, "note5": note_off5_for(midi)})
             # a note_off is ALWAYS emitted: without it the note hangs (T38)
             events.append({"tick": t0 + dur, "inc": inc, "vel": vel,
                            "axis": axis, "kind": KIND_OFF, "midi": midi,
-                           "timbre": timbre})
+                           "timbre": timbre, "note5": note_off5_for(midi)})
             stats["notes"] += 1
             stats["min_midi"] = min(stats["min_midi"], midi)
             stats["max_midi"] = max(stats["max_midi"], midi)
@@ -442,7 +488,8 @@ def build_events(tracks, division, tempos, transpose=0, overrides=None):
         ti_ = tick_inc_for_bpm(bpm)
         t0 = int(round(tk * scale))
         events.append({"tick": t0, "inc": ti_, "vel": 0, "axis": 0,
-                       "kind": KIND_TEMPO, "midi": -1, "timbre": 0})
+                       "kind": KIND_TEMPO, "midi": -1, "timbre": 0,
+                       "note5": 0})    # ⭐ tempo 没有音高 ⇒ 0（⭐ FPGA 只为 kind 0/1 拉 ps_note_valid）
         stats["tempo_events"] += 1
         stats["max_tick_inc"] = max(stats["max_tick_inc"], ti_)
         stats["max_tick"] = max(stats["max_tick"], t0)
@@ -505,13 +552,23 @@ def pack_event(e):
         raise SystemExit("ERROR: kind %d does not fit 2 bits" % e["kind"])
     if e["timbre"] > 0x3:
         raise SystemExit("ERROR: timbre %d does not fit 2 bits" % e["timbre"])
+    #  ⭐ 2026-10-17：`note5` 越界必须**显式报错**（⛔ 不静默回绕 —— 那会点亮错的灯）
+    if not (0 <= e.get("note5", 0) <= NOTE5_MAX):
+        raise SystemExit(
+            "ERROR: note5 %d does not fit %d bits (0..%d). "
+            "Out-of-range pitches must be written as NOTE5_SENTINEL=%d, "
+            "NOT wrapped with & 0x1F -- a wrap maps the note onto a DIFFERENT real key."
+            % (e.get("note5", 0), NOTE5_W, NOTE5_MAX, NOTE5_SENTINEL))
     return ((tick            << TICK_SH)
             | (inc           << INC_SH)
             | (e["axis"]     << AXIS_SH)
             | (e["vel"]      << VEL_SH)
             | (e["kind"]     << KIND_SH)
-            | (e["timbre"]   << TIMBRE_SH))
-    # bits 6..0 stay 0 (reserved)
+            | (e["timbre"]   << TIMBRE_SH)
+            | (e.get("note5", 0) << NOTE5_SH))
+    # ⭐ 2026-10-17：⭐ 上面已把 `bit[4:0]` 全部用掉 ⇒ **⛔ 不再是 "bits 6..0 stay 0 (reserved)"** ✅
+    #    📌 现在 7 位的归属：`bit[6]` = guide_only · `bit[5]` = is_drum · `bit[4:0]` = note5 ✅
+    #    ⚠️ 本函数只写 `bit[4:0]`；`bit[6]`/`bit[5]` 由上层（`is_drum` / guide 轨）另行置位 ✅
 
 
 def unpack_event(w):
@@ -523,6 +580,7 @@ def unpack_event(w):
         "vel":    (w >> VEL_SH)    & 0xFF,
         "kind":   (w >> KIND_SH)   & 0x3,
         "timbre": (w >> TIMBRE_SH) & 0x3,
+        "note5":  (w >> NOTE5_SH)  & NOTE5_MAX,
     }
 
 
@@ -543,7 +601,11 @@ def verify_hex_roundtrip(events, path):
     for i, (ln, e) in enumerate(zip(lines, events)):
         got = unpack_event(int(ln, 16))
         want = {"tick": e["tick"], "inc": e["inc"], "axis": e["axis"],
-                "vel": e["vel"], "kind": e["kind"], "timbre": e["timbre"]}
+                "vel": e["vel"], "kind": e["kind"], "timbre": e["timbre"],
+                #  ⭐ 2026-10-17：⭐ 加 `note5` —— ⚠️ 这个 round-trip 自检**抓到了我漏改它**
+                #     （⭐ 解出来的 `got` 有 `note5`、而 `want` 没有 ⇒ 全部 11865 条报错）✅
+                #     📌 这正是它该干的事：⭐ "改了字段布局就必须同步改自检" ✅
+                "note5": e.get("note5", 0)}
         if got != want:
             if bad < 3:
                 print("ERROR: events.hex record %d decodes to %r, expected %r"

@@ -297,8 +297,30 @@ module tdm_render_mixer #(
     //      ✅ **正确**：⭐ `cnt_sel(k) = k`（⛔ 不动）＋ ⭐ 窗口 `[2, CNT_LAST+1]`
     //         ⇒ ⭐ cycle j 累加的是 voice `j−2` ⇒ ⭐ 恰好覆盖 0..31 ✅
     //      📌 ⭐ 教训（⭐ 已记档）：**"插流水 ⇒ 谁该挪"必须逐拍对账，⛔ 不能靠"读值晚一拍"这种直觉** ✅
-    reg signed [SUM_W-1:0] vs_c_r;
-    reg        [ENV_W-1:0] env_c_r;
+    //  ⭐⭐ 2026-10-17（🔴 **时序修复 · 本轮 PnR 新暴露的 #1 热点**）：
+    //     ⭐ 给这两个寄存器加 `syn_preserve`，⭐ **⛔ 不让综合器把它们吸进 DSP 的输入寄存器** ✅
+    //
+    //  🔴 **实测证据**（`impl/pnr/Gowin2026_tr_content.html`，2026-10-17 02:05 那次）：
+    //     ⭐ 最差 25 条 setup 路径里 **14 条**落在本模块，而且 **全部同源**：
+    //        `FROM g_sound.u_tdm_render_mixer/cnt_3_s0/Q`
+    //        `TO   g_sound.u_tdm_render_mixer/prod_c_0_s/A[25..11]`
+    //        ⇒ ⭐ **`cnt[3]` 一位扇出到 DSP 的 14 个 A 口位** ⇒ slack **−0.886**（全片最差）
+    //     🔴 **机理**：⭐ 本模块本来就有 `vs_c_r`/`env_c_r` 这一级寄存器（⭐ `:302-310`），
+    //        但 ⚠️ Gowin 会把"寄存器 → 乘法器"这一对**吸进 `MULTALU` 的 AREG/BREG**
+    //        ⇒ 🔴 于是 `cnt → 32:1 mux(vs_c/env_c) → DSP.A` **变成一条纯组合路** ✅
+    //        （⭐ 与 calib 那条 `span_r → 夹紧 → DSP.A` 是**同一类**吸收问题 ✅）
+    //
+    //  ✅ **修法**：⭐ `syn_preserve = 1` 强制把这两个寄存器**留在 LUT/FF 里** ✅
+    //     📌 **零功能改动**：⭐ 逐位、逐拍完全不变（⭐ 只是不让工具做那个吸收）✅
+    //     📌 **先例**：⭐ 本工程 `note_manager.v:725` 的 `(* syn_preserve = 1 *) same_hit_q`
+    //        （⭐ 同一手法，已在用）✅
+    //     ⚠️ **若本次仍不够**（⭐ 综合器可能换个方式吸收）⇒ 退路是**再加一级流水**
+    //        （⭐ 把 mux 结果寄存一次再进 DSP）—— ⚠️ 但那会**整体后移一拍**
+    //        ⇒ 必须同步改 `:353` 的累加窗口 `[2,33]` 与 `CNT_TOTAL`，⭐ 并重跑
+    //        `tb_tdm_render_mixer`（⭐ 它的绝对电平/拍数判据是契约）✅
+    //  📌 判据：⭐ `tb_tdm_render_mixer` 必须逐位不变（本修法**不该**影响任何数值）✅
+    (* syn_preserve = 1 *) reg signed [SUM_W-1:0] vs_c_r;
+    (* syn_preserve = 1 *) reg        [ENV_W-1:0] env_c_r;
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
             vs_c_r  <= {SUM_W{1'b0}};
