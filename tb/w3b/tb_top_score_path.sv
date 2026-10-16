@@ -85,14 +85,19 @@ module tb_top_score_path;
     endtask
 
     // ── ⭐ 事件打包（⭐ 与 `mid2evt.py` / `play_seq` 位域逐位一致 ✅）──────────
+    //  ⭐⭐ 2026-10-16（指北 COMPASS）：⭐ **低 7 位不再是"全 0"** ✅
+    //     ⭐ 新位域：`bit6` = 只亮灯不出声 · `bit5` = `is_drum` ·
+    //        ⭐ **`bit[4:0]` = `note_off5` = `MIDI − 45`**（⭐ **灯位由它决定** ✅）
+    //     📌 ⭐ 详见 `rtl/w3c/guide_lamp.v` 头部 §音高语义 ✅
     function [63:0] pack;
         input [19:0] tk;
         input [20:0] inc;
         input [3:0]  ax;
         input [7:0]  vel;
         input [1:0]  knd;
+        input [4:0]  p5;          // ⭐ `note_off5`（⭐ 灯位依据）
         begin
-            pack = {tk, inc, ax, vel, knd, 2'b00, 7'b0};
+            pack = {tk, inc, ax, vel, knd, 2'b00, 1'b0, 1'b0, p5};
         end
     endfunction
 
@@ -181,7 +186,7 @@ module tb_top_score_path;
         // ═════════════════════════════════════════════════════════════════
         $display("== A 未来事件必须被【缓冲】住（tick=%0d），⛔ 不许立刻发 ==", TICK_AT);
         // ═════════════════════════════════════════════════════════════════
-        send_frame(pack(20'd1, 21'd37791, 4'd5, 8'd200, 2'd0), 1'b0);
+        send_frame(pack(20'd1, 21'd37791, 4'd5, 8'd200, 2'd0, 5'd3), 1'b0);
         @(negedge clk);
         chk(dut.eb_rd_valid === 1'b1, "Aa the event is sitting in u_evt_buf (rd_valid == 1)");
         chk(dut.g_sound.u_play_seq.evt_cnt_o === 16'd0,
@@ -210,10 +215,17 @@ module tb_top_score_path;
         chk(dut.g_sound.u_play_seq.note_data_o[22:19] === 4'd5,
             "Bc the emitted event carries axis 5 (fields survived the whole chain)");
         //  ⭐⭐ **LED 指引**：⭐ 这一位就是"**该按哪个键**" ✅
+        //  ⭐⭐ 2026-10-16（指北 COMPASS）：⭐ **灯位依据已从 `axis` 改成【音高】** ✅
+        //     ⭐ 本条事件：⭐ `axis = 5`（⭐ **轨号**，⛔ 与灯无关）＋
+        //        ⭐ `note_off5 = 3` ⇒ ⭐ MIDI 48 = **C3** ⇒ ⭐ **键盘表：C3 = 键 5** ✅
+        //     📌 ⭐ 所以"**点亮键 5**"这件事**同时**证明：
+        //        ⭐ ① `guide_lamp` 还活着 · ⭐ ② **音高字段真的走到了灯那一路** ✅
+        //     ⚠️ ⭐ 若 `note_off5` 丢了（⭐ 例如 `top.v` 忘了接 `ps_note_off5`）
+        //        ⇒ 🔴 `Ca` **必红**（⭐ offset 0 = A2 = 键盘表无此项 ⇒ 不点灯 ✅）
         chk(dut.u_guide_lamp.guide_key_o[5] === 1'b1,
-            "Ca guide_lamp lit axis 5 (the LED guide half is ALIVE) <-- the whole point");
+            "Ca guide_lamp lit key 5 (C3's key -- the LED guide half is ALIVE) <-- the whole point");
         chk(dut.u_guide_lamp.guide_key_o[4] === 1'b0,
-            "Cb other axes are NOT lit (one-hot, no crosstalk)");
+            "Cb other keys are NOT lit (one-hot, no crosstalk)");
         @(negedge clk);
         chk(dut.eb_rd_valid === 1'b0, "Da u_evt_buf drained after the event was consumed");
 
@@ -221,7 +233,7 @@ module tb_top_score_path;
         $display("== F kind=2 换速：⭐ 真的进了 beat_gen，⭐ 且不产生音符 ==");
         // ═════════════════════════════════════════════════════════════════
         //  ⭐ 60 BPM 的 `tick_inc` = 82463（⭐ 契约 §1.3 速查表 ✅）
-        send_frame(pack(20'd0, 21'd82463, 4'd0, 8'd0, 2'd2), 1'b0);
+        send_frame(pack(20'd0, 21'd82463, 4'd0, 8'd0, 2'd2, 5'd0), 1'b0);
         @(negedge clk);
         spin = 0;
         while ((dut.g_sound.u_play_seq.tempo_cnt_o === 16'd0) && (spin < 200_000)) begin
@@ -248,7 +260,7 @@ module tb_top_score_path;
         ga_fr0  = dut.eu_frame_cnt;
         ga_evt0 = dut.g_sound.u_play_seq.evt_cnt_o;
         ga_buf0 = dut.eb_rd_valid;
-        send_frame(pack(20'd1, 21'd1_111_111, 4'd7, 8'd150, 2'd0), 1'b1);   // ⭐ 发在【板载口】
+        send_frame(pack(20'd1, 21'd1_111_111, 4'd7, 8'd150, 2'd0, 5'd0), 1'b1);   // ⭐ 发在【板载口】
         @(negedge clk);
         //  🔴🔴 **`Ga` 的第一版查的是 `eb_rd_valid` —— ⚠️ 而变异体实测它【会假绿】** ✅
         //     ⭐ 原因：⭐ `tick = 1` 的事件**早已到期** ⇒ ⭐ `play_seq` 会**立刻把它取走**

@@ -27,8 +27,8 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : Ba play_seq emitted the event once its tick arrived
   ok  : Bb exactly ONE note was emitted (no duplicate)
   ok  : Bc the emitted event carries axis 5 (fields survived the whole chain)
-  ok  : Ca guide_lamp lit axis 5 (the LED guide half is ALIVE) <-- the whole point
-  ok  : Cb other axes are NOT lit (one-hot, no crosstalk)
+  ok  : Ca guide_lamp lit key 5 (C3's key -- the LED guide half is ALIVE) <-- the whole point
+  ok  : Cb other keys are NOT lit (one-hot, no crosstalk)
   ok  : Da u_evt_buf drained after the event was consumed
 == F kind=2 鎹㈤€燂細猸?鐪熺殑杩涗簡 beat_gen锛屸瓙 涓斾笉浜х敓闊崇 ==
   ok  : Fa tick_inc_o now carries the tempo from the kind=2 event
@@ -45,6 +45,6 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : H2 non-vacuity: the value must have been SCALED up past the 21-bit wire field
 
 PASS: tb_top_score_path - 20/20 judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_top_score_path.sv:324: $finish called at 1136930000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_top_score_path.sv:336: $finish called at 1136930000 (1ps)
 
 

@@ -100,6 +100,25 @@ module seq_arb #(
     input  wire                  score_timbre_valid_i,
     input  wire [TIMBRE_W-1:0]   score_timbre_i,
 
+    //  ── ⭐⭐ 2026-10-16：⭐ **"这条曲谱事件是不是鼓"的【显式标志】** ─────────────
+    //     🔴 **为什么必须【从外面】送进来**（⭐ 用户拍板的红线 1：
+    //        *"旋律线【绝对不能】变成鼓"*）：
+    //        ⚠️ 原来的判据是 **`score_axis_i >= 4'd12`** —— 🔴 **靠轴号猜"是不是鼓"** ✅
+    //        ⇒ ⭐ **旋律轨只要用到轴 12..15 就必被读成鼓**（⭐ "退到 0..11"只是个
+    //           **约定**，⭐ ⛔ 没有任何机械保证）⇒ 🔴 **旋律变鼓声** ✅
+    //     ✅ **新接口**：⭐ `score_is_drum_i`（⭐ 1 = 鼓）＋ `score_drum_type_i`
+    //        （⭐ 2 位：0=Kick · 1=Snare · 2=HiHat · 3=Tom ⇒ ⭐ 决定用哪个 `INC_*`）✅
+    //        ⇒ ⭐ **轴号彻底退出判定**（⭐ `score_axis_i` 只剩"事件轴号"这一个用途，
+    //           ⭐ 与 `evt_axis_o` 一起原样透传 ✅）
+    //     📌 ⭐ **位域来源**（⭐ `top.v` 的 `ps_is_drum` / `ps_drum_type`）：
+    //        ⭐ **`bit5` = `is_drum`** · ⭐ **`bit[8:7]` = `drum_type`**（⭐ 复用 timbre 字段）
+    //        ⛔ **`axis[22:19]` 一个字节都不动** ⇒ ⭐ 旧上位机写的轨号
+    //        **不会再被误读成鼓**（⭐ 这是本改动的全部目的）✅
+    //     ⚠️ **必须与 `score_valid_i`【同一拍】**（⭐ 否则判定与事件错拍 ⇒
+    //        🔴 会拿"下一条的鼓标志"去判"这一条" ✅）
+    input  wire                  score_is_drum_i,
+    input  wire [1:0]            score_drum_type_i,
+
     // ── ⭐ 源 3：演示（`DEMO_CHORD_ON` 自检和弦）—— ⭐ 最低优先 ─────────────
     input  wire                  demo_valid_i,
     input  wire [AXIS_W-1:0]     demo_axis_i,
@@ -112,6 +131,24 @@ module seq_arb #(
     // ── 仲裁后的唯一出口（→ `evt_merge` 的源 A）────────────────────────────
     output reg                   evt_valid_o,
     output reg  [AXIS_W-1:0]     evt_axis_o,
+    //  ⭐⭐ 2026-10-16（🔴 修 P0-1/P0-2）：⭐ **上行专用的"鼓标记"轴**（⭐ 只给上行帧）✅
+    //     🔴 **原缺陷**：⭐ 我直接把 `evt_axis_o` 改成"鼓回传 drum_type、其余回传 0"⇒
+    //        ⚠️ 而 `evt_axis_o` 有【两个消费者】（⭐ `top.v` 里）：
+    //          · `top.v:5968` `.evt_axis_i(mg_evt_axis)`   ← 上行回传帧（⭐ 要鼓标记 ✅）
+    //          · `top.v:6052` `.note_axis_i(mg_evt_axis)`  ← 下行 note_manager 的
+    //            【voice 定位键】（⭐ 按 (axis, src) 配对 note_on/off ✅）
+    //        ⇒ 🔴 改一处 = 同时改两边 ⇒ 两个 P0：
+    //          · **P0-1**：⭐ 下行轴被压成 0/1/2/3 ⇒ `top.v:5688 key_drum_sel =
+    //            src_a_axis[3:2]` 恒 0 ⇒ ⭐ **鼓垫四件退化成一件** ✅
+    //            且灌谱鼓落 (0/1/2/3, src=SRC_KDRUM) 与鼓机鼓 (12/13/14/15, src=SRC_AUX)
+    //            ⇒ ⭐ **同一件鼓三条来路三个身份、永不重触发** ✅
+    //          · **P0-2**：⭐ 鼓的 note_off 轴来源从"帧 axis[22:19]"换成"帧 [8:7]"⇒
+    //            ⚠️ 而上位机【没有义务】在 off 帧也填同样的 [8:7] ⇒ on/off 轴不同
+    //            ⇒ ⭐ **note_off 匹配不上 ⇒ 鼓 voice 永久 held ⇒ RESERVED_N=5 保留池耗尽** ✅
+    //     ✅ **修法**：⭐ 上下行【拆开两条独立输出】，`evt_axis_o` 逐位恢复"原样透传"✅
+    //        ⇒ ⭐ 下行定位键回到改动前（⭐ 零回归）· ⭐ 上行仍拿到鼓标记 ✅
+    //     📌 端口加在 `evt_axis_o` 旁边，⛔ 不移动其它端口（⭐ 否则老例化全错位 ✅）
+    output reg  [AXIS_W-1:0]     evt_up_axis_o,
     output reg  [PHASE_W-1:0]    evt_phase_inc_o,
     output reg  [VEL_W-1:0]      evt_velocity_o,
     output reg  [KIND_W-1:0]     evt_kind_o,
@@ -193,24 +230,43 @@ module seq_arb #(
     //        ⭐ **鼓机走 `SRC_AUX`** ⇒ ⭐ 三条**都自带正确来源**
     //        ⇒ ⚠️ **只有"PC 灌的谱"走 `SRC_SCORE`** ⇒ ⭐ 这是**第一条**从 PC 来的鼓 ✅
     //
-    //  ⭐ **判据（⭐ 与 ESP32 侧约定）**：⭐ 曲谱事件里 **`axis >= 12`（= 12/13/14/15）⇒ 是鼓** ✅
-    //     ⚠️ 2026-10-15（方案B）：原为 `== 15`，四件鼓分四轴后放宽到 `>= 12`
-    //     📌 ⭐ 依据：⭐ `files/20-代码/FPGA侧答复-鼓谱发声与XOR更正-20261014.md` §二 ✅
-    //     ⚠️ **代价（⭐ 如实说）**：⭐ **曲谱里 `axis 12..15` 从此被鼓占用**
-    //        ⇒ ⛔ **旋律轨退到 `0..11`**
-    //     📌 **备选**（⭐ 若将来 15 要留给旋律）：⭐ 用 64 位字里空闲的 `bit[6]` 当鼓标志
-    //        （⭐ 那 7 位 `bits 6..0 reserved` **一直是 0** ⇒ ⛔ 不算改协议 ✅）
-    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐⭐ 2026-10-16：⭐ **判据从【轴号】改成【显式标志】**（⭐ 本轮核心改动）✅
+    //  -----------------------------------------------------------------------
+    //  🔴 **旧判据（已整个删掉）：`(score_axis_i >= 4'd12)`** ——
+    //     ⚠️ 它是"⭐ **靠轴号猜是不是鼓**" ⇒ 🔴 **旋律轨用到轴 12..15 就必被读成鼓** ✅
+    //     📌 **历史**：⭐ 2026-10-14 立的是 `axis == 15`；⭐ 2026-10-15（方案B）
+    //        为"四件鼓各自独立 voice"放宽到 `>= 12`（⭐ 依据
+    //        `files/20-代码/FPGA侧答复-鼓机多声部方案B-20261015.md`）——
+    //        ⚠️ 那个做法的**代价**是"旋律轨退到 `0..11`"，🔴 而它**只是个约定**：
+    //        ⭐ ESP32 侧一越界，🔴 **FPGA 侧【静默】把旋律灌进鼓池**（⭐ 用户听到的
+    //        "旋律线变成鼓"正是这个）✅
+    //  ✅ **新判据**：⭐ `score_is_drum_i` —— ⭐ 由 `top.v` 从帧的**保留位 `bit5`**
+    //     显式解码（⭐ `ps_is_drum`），⛔ **与轴号无关** ⇒ ⭐ **轴号彻底退出判定** ✅
+    //     ⭐ **机械保证**：⭐ `is_drum = 0` ⇒ ⭐ **无论轴号取 0..15 里的哪个值**
+    //        本模块都给 `SRC_SCORE` ⇒ ⭐ 判据见 `tb/w3c/tb_seq_arb.sv`
+    //        §"旋律绝不变鼓"（⭐ 轴 12/13/14/15 逐个断言）✅
     localparam [NW-1:0] SRC_KDRUM = 3'd5;      // ⚠️ 必须与 `note_manager.v:316` 同值
-    //  ⭐⭐ 2026-10-15（**方案 B**）：⭐ 判据从 `== 15` 放宽到 **`>= 12`** ——
-    //     🔴 **为什么**：⭐ 四件鼓（Kick/Snare/HiHat/Tom）**共用 `axis 15` + 同源**
-    //        ⇒ `note_manager` 的 `same_hit`（同轴同源 ⇒ 复用）命中 ⇒ 🔴 **同时只能响一件**；
-    //        且任一鼓的 `note_off` 会**清掉所有同轴同源**的 voice ⇒ 把别的鼓一起掐掉。
-    //     ✅ **修法**：⭐ **四件鼓分到四个轴 `12/13/14/15`**（⭐ 与 ESP32 侧约定，见
-    //        `files/20-代码/FPGA侧答复-鼓机多声部方案B-20261015.md`）⇒ 各自独立 voice ✅
-    //     📌 **代价**：⭐ 曲谱旋律轨退到 **`0..11`**（12 条；⭐ ESP32 实测峰值并发 11 ⇒ 够）✅
-    //     📌 **进池不受影响**：⭐ `pool_mask` 按【来源】选池（`note_manager.v:650`）⇒ 换轴零影响 ✅
-    wire [NW-1:0] score_src_w = (score_axis_i >= 4'd12) ? SRC_KDRUM : SRC_SCORE;
+
+    //  ⭐⭐ 四件鼓的 `phase_inc` —— ⭐ **与 `drum_gen` 共用同一份常量**（⭐ 2026-10-16）✅
+    //     🔴 **为什么必须共用**（⭐ 用户拍板的硬约束 2）：⭐ *"鼓就是鼓的发声
+    //        —— 与键盘打鼓同一个 inc 表、同一个池子"* ✅
+    //        ⚠️ 若 `seq_arb` 还沿用帧里的 `score_phase_inc_i`（⭐ 那是**旋律音高**），
+    //           🔴 灌谱的鼓与键盘打鼓的鼓**就会是两种音色** ⇒ ⭐ 违反硬约束 ✅
+    //     📌 ⭐ **单一来源**：⭐ `rtl/w3c/drum_inc_defs.vh`（⭐ `drum_gen` 也 include 它）✅
+    //     ⚠️ ⭐ **必须放在 module 体内、且路径带仓库根前缀** ——
+    //        🔴 `localparam` 在 module 外不是合法 Verilog-2001；
+    //        🔴 而 `iverilog` 的 `` `include `` **只搜当前工作目录**（⭐ 实测）✅
+    //        📌 两条依据都写在 `drum_inc_defs.vh` 的头部"用法"里 ✅
+    `include "rtl/w3c/drum_inc_defs.vh"
+    //  ⭐ `drum_type` 四选一：⭐ 0=Kick · 1=Snare · 2=HiHat · 3=Tom（⭐ 与 `drum_gen.inc_of` 同序）
+    //     ⚠️ 纯组合 ⇒ ⭐ 综合出来是**一级 4 选 1 mux**（⭐ 约 32 LUT，⭐ 时序可接受）✅
+    wire [31:0] drum_inc_by_type = (score_drum_type_i == 2'd0) ? INC_KICK  :
+                                   (score_drum_type_i == 2'd1) ? INC_SNARE :
+                                   (score_drum_type_i == 2'd2) ? INC_HIHAT : INC_TOM;
+    //  ⭐ 真正进队列的 `inc`：⭐ **鼓 ⇒ 鼓自己的表**（⛔ 忽略帧里的音高）·
+    //     ⭐ **旋律 ⇒ 帧里的 `inc` 原样透传**（⭐ 逐位不变）✅
+    wire [31:0] score_inc_eff = score_is_drum_i ? drum_inc_by_type : score_phase_inc_i;
+    wire [NW-1:0] score_src_w = score_is_drum_i ? SRC_KDRUM : SRC_SCORE;
 
     // ⭐ 事件记录 = {源编号, 轴, 相位增量, 力度, 类型}
     //   📌 ⭐ **把源编号也存进去** ⇒ ⭐ 弹出时才能知道"这条是谁的" ⇒ ⭐ 好统计
@@ -315,6 +371,18 @@ module seq_arb #(
         if (!rst_n_i) begin
             evt_valid_o     <= 1'b0;
             evt_axis_o      <= {AXIS_W{1'b0}};
+            //  🔴🔴 2026-10-16（`CALIBRATE-R`）：⭐ **`evt_up_axis_o` 必须【一起】复位** ✅
+            //     ⚠️ 它是 2026-10-16 新加的端口，⛔ **当时漏在复位块之外** ⇒
+            //        🔴 **它在本模块里【唯一的赋值语句】在 `pop_now` 分支内**
+            //           （⭐ `seq_arb.v` 的 `evt_up_axis_o <= ...`）✅
+            //        ⇒ ⭐ 于是**复位后的第一个 `pop_now` 之前**，它一直停在 `x`
+            //        ⇒ 🔴 **X 传播**（⭐ 顺着 `sa_up_axis` 进 `evt_upstream` 的 FIFO，
+            //           ⚠️ 并出现在**第一帧**的 `byte[7]` 低半字节上 ✅）✅
+            //     📌 ⭐ **这正是本文件 A8 纪律（⛔ 不许留 X）的直接违反** ——
+            //        ⚠️ 而 `tb_top_upstream_timbre` 的**第一条帧**恰好踩在这一段 ✅
+            //     📌 ⭐ 其余输出（`evt_axis_o`/`evt_kind_o`/`evt_src_o`…）都在复位块里
+            //        ⇒ ⭐ 本行就是补齐同一条纪律，⛔ 不新增任何逻辑 ✅
+            evt_up_axis_o   <= {AXIS_W{1'b0}};
             evt_phase_inc_o <= {PHASE_W{1'b0}};
             evt_velocity_o  <= {VEL_W{1'b0}};
             evt_kind_o      <= {KIND_W{1'b0}};
@@ -339,7 +407,16 @@ module seq_arb #(
             // ══ ① 弹出并输出（⭐ 弹出优先，先腾位置）════════════════════════
             if (pop_now) begin
                 evt_valid_o     <= 1'b1;
+                //  ⭐ 下行定位键：⭐ **原样透传**（⭐ 逐位恢复改动前，⭐ 见端口注释的 P0-1/P0-2 ✅）
                 evt_axis_o      <= pop_data[AX_O +: AXIS_W];
+                //  ⭐⭐ 上行专用"鼓标记"（⭐ 只给上行帧，⛔ 不碰下行 ✅）
+                //     · 鼓（`pop_src == SRC_KDRUM`）⇒ 回传 `drum_type`（⭐ 存在 timbre 字段 ✅）
+                //     · 其余一切来源 ⇒ 回传 **0** ⇒ ⭐ 上行帧里 `axis != 0` 等价于"这是鼓" ✅
+                //     📌 ⭐ 为什么⛔ 不能用 `score_is_drum_i`：⭐ `pop_now` 弹出的可能是
+                //        几拍前的事件 ⇒ 用当前下行帧的标志会【错配到别的音上】✅
+                evt_up_axis_o   <= (pop_src == SRC_KDRUM)
+                                    ? {2'b0, pop_data[0 +: TIMBRE_W]}
+                                    : {AXIS_W{1'b0}};
                 evt_phase_inc_o <= pop_data[IN_O +: PHASE_W];
                 evt_velocity_o  <= pop_data[VE_O +: VEL_W];
                 evt_kind_o      <= pop_data[TV_O + 1 +: KIND_W];
@@ -355,8 +432,10 @@ module seq_arb #(
                     live_cnt_o  <= (live_cnt_o  == 16'hFFFF) ? live_cnt_o
                                                              : (live_cnt_o  + 16'd1);
                 //  ⭐⭐ 2026-10-14：⭐ **`SRC_KDRUM` 也算【曲谱】统计** ✅
-                //     🔴 **为什么**：⭐ 曲谱里的鼓（⭐ `axis>=12`）现在被打成 `SRC_KDRUM`
-                //        （⭐ 见上面 `score_src_w` 的长注释 ✅）
+                //     🔴 **为什么**：⭐ 曲谱里的鼓（⭐ 现在由 **`score_is_drum_i`** 判定，
+                //        ⚠️ 2026-10-16 之前是 `axis>=12` —— ⭐ 判定依据已改成显式标志，
+                //        ⭐ 见上面 `score_src_w` 的长注释 ✅）
+                //        ⇒ ⭐ 它被打成 `SRC_KDRUM`（⭐ 好让 `note_manager` 推进**鼓池**）✅
                 //     ⚠️ 若不并进来 ⇒ 🔴 鼓事件会**掉进下面的 `else` ⇒ 被算成 `demo_cnt`** ✅
                 else if ((pop_src == SRC_SCORE) || (pop_src == SRC_KDRUM))
                     score_cnt_o <= (score_cnt_o == 16'hFFFF) ? score_cnt_o
@@ -377,10 +456,10 @@ module seq_arb #(
                         //    ⭐ 但**保留** ⇒ ⭐ 不给"将来改让位规则"留坑）
                         if (live_first) begin
                             mem[tail_q] <= pack_src(SRC_LIVE,  live_axis_i,  live_phase_inc_i,  live_velocity_i,  live_kind_i,  live_timbre_valid_i,  live_timbre_i);
-                            mem[tail_1] <= pack_src(score_src_w, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
+                            mem[tail_1] <= pack_src(score_src_w, score_axis_i, score_inc_eff, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
                             mem[tail_2] <= pack_src(SRC_DEMO,  demo_axis_i,  demo_phase_inc_i,  demo_velocity_i,  demo_kind_i,  demo_timbre_valid_i,  demo_timbre_i);
                         end else begin
-                            mem[tail_q] <= pack_src(score_src_w, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
+                            mem[tail_q] <= pack_src(score_src_w, score_axis_i, score_inc_eff, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
                             mem[tail_1] <= pack_src(SRC_LIVE,  live_axis_i,  live_phase_inc_i,  live_velocity_i,  live_kind_i,  live_timbre_valid_i,  live_timbre_i);
                             mem[tail_2] <= pack_src(SRC_DEMO,  demo_axis_i,  demo_phase_inc_i,  demo_velocity_i,  demo_kind_i,  demo_timbre_valid_i,  demo_timbre_i);
                         end
@@ -388,21 +467,21 @@ module seq_arb #(
                         // ⭐ 手弹 + 曲谱同拍（⭐ **最要紧的一种**：⭐ 必须两条都发）
                         if (live_first) begin
                             mem[tail_q] <= pack_src(SRC_LIVE,  live_axis_i,  live_phase_inc_i,  live_velocity_i,  live_kind_i,  live_timbre_valid_i,  live_timbre_i);
-                            mem[tail_1] <= pack_src(score_src_w, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
+                            mem[tail_1] <= pack_src(score_src_w, score_axis_i, score_inc_eff, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
                         end else begin
-                            mem[tail_q] <= pack_src(score_src_w, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
+                            mem[tail_q] <= pack_src(score_src_w, score_axis_i, score_inc_eff, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
                             mem[tail_1] <= pack_src(SRC_LIVE,  live_axis_i,  live_phase_inc_i,  live_velocity_i,  live_kind_i,  live_timbre_valid_i,  live_timbre_i);
                         end
                     end else if (push_live && push_demo) begin
                         mem[tail_q] <= pack_src(SRC_LIVE, live_axis_i, live_phase_inc_i, live_velocity_i, live_kind_i, live_timbre_valid_i, live_timbre_i);
                         mem[tail_1] <= pack_src(SRC_DEMO, demo_axis_i, demo_phase_inc_i, demo_velocity_i, demo_kind_i, demo_timbre_valid_i, demo_timbre_i);
                     end else if (push_score && push_demo) begin
-                        mem[tail_q] <= pack_src(score_src_w, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
+                        mem[tail_q] <= pack_src(score_src_w, score_axis_i, score_inc_eff, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
                         mem[tail_1] <= pack_src(SRC_DEMO,  demo_axis_i,  demo_phase_inc_i,  demo_velocity_i,  demo_kind_i,  demo_timbre_valid_i,  demo_timbre_i);
                     end else if (push_live) begin
                         mem[tail_q] <= pack_src(SRC_LIVE, live_axis_i, live_phase_inc_i, live_velocity_i, live_kind_i, live_timbre_valid_i, live_timbre_i);
                     end else if (push_score) begin
-                        mem[tail_q] <= pack_src(score_src_w, score_axis_i, score_phase_inc_i, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
+                        mem[tail_q] <= pack_src(score_src_w, score_axis_i, score_inc_eff, score_velocity_i, score_kind_i, score_timbre_valid_i, score_timbre_i);
                     end else begin
                         mem[tail_q] <= pack_src(SRC_DEMO, demo_axis_i, demo_phase_inc_i, demo_velocity_i, demo_kind_i, demo_timbre_valid_i, demo_timbre_i);
                     end

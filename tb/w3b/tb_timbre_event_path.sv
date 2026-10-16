@@ -50,6 +50,10 @@ module tb_timbre_event_path;
         .live_kind_i(live_kind), .live_timbre_valid_i(1'b0),
         .live_timbre_i({TIMBRE_W{1'b0}}),
         .score_valid_i(score_valid), .score_axis_i(score_axis),
+        //  ⭐ 2026-10-16：⭐ `seq_arb` 新增两个【显式鼓标志】输入 ——
+        //     ⚠️ 本 tb 走的是"**旋律**"路径（⭐ 判的是音色 sideband 穿透）
+        //     ⇒ ⭐ 恒接 0（⭐ 以前它也**从不**用 `axis>=12` ⇒ 行为逐位不变）✅
+        .score_is_drum_i(1'b0), .score_drum_type_i(2'd0),
         .score_phase_inc_i(score_inc), .score_velocity_i(score_vel),
         .score_kind_i(score_kind), .score_timbre_valid_i(score_timbre_valid),
         .score_timbre_i(score_timbre),

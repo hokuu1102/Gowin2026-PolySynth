@@ -1,22 +1,39 @@
 ﻿VCD info: dumpfile build/sim/tb_guide_lamp/tb_guide_lamp.vcd opened for output.
+=== tb_guide_lamp (鐏綅 = 闊抽珮鏌ヨ〃 + 杩愯鏈熷彉璋? ===
+   kb: E3=52 F#3=54 C3=48 B3=59 A3=57 | fb: A2=45 D4=62
   ok  : baseline: guide all 0 right after reset
   ok  : baseline: commit is 0 (no spurious)
-  ok  : note_on axis=3 -> guide[3] lit
-  ok  : note_on axis=3 -> one-hot (only bit3)
-  ok  : note_on axis=3 -> commit pulsed
-  ok  : note_off axis=3 -> guide[3] off
-  ok  : note_off axis=3 -> all 0 again
+  ok  : note_on C3(kb) -> guide[5] lit (key 5, NOT the axis)
+  ok  : note_on C3(kb) -> one-hot (only bit5)
+  ok  : note_on C3(kb) -> commit pulsed
+  ok  : note_off C3(kb) -> guide[5] off
+  ok  : note_off C3(kb) -> all 0 again
   ok  : tempo ignored -> guide stays 0
   ok  : tempo ignored -> no commit
-  ok  : non-vacuity: every axis 0..15 lights its own lamp
+  ok  : non-vacuity: every physical key 0..15 is reachable & lights its own lamp
   ok  : commit high on change
   ok  : commit falls back to 0 next cycle
-  ok  : multi: axis 0 and 15 both lit
+  ok  : multi: two different PITCHES light two lamps
   ok  : multi: only those two bits
+  ok  : multi: both cleared -> all 0
+  ok  : table inverse: all 2 modes x 32 offsets match axis_map's forward table
+  ok  : 9a transpose=0 : A3 (off 12) -> key 12
+  ok  : 9b transpose=+2 : A3+2 = B3 -> key 8  <-- the pitch moved, not the key index
+  ok  : 9b' transpose=+2 did NOT just shift the key index (12+2=14 must be dark)
+  ok  : 9c transpose=-2 : A3-2 = G3 -> key 13
+  ok  : 9d transpose=+1 : E3+1 = F3 -> key 2  (NOT key 0+1=1)
+  ok  : 9e out of range (off 31 + 12) -> NOTHING lit
+  ok  : 9e' out of range -> no commit
+  ok  : 9f out of range (off 0 - 12) -> NOTHING lit
+  ok  : 9g in range but unmapped (kb C#5) -> NOTHING lit
+  ok  : 10a unmapped pitch (kb A2) lights NOTHING
+  ok  : 10b unmapped pitch must NOT light key 0 (sentinel is 5'd16, not 0)
+  ok  : 10c unmapped pitch (kb B2) lights NOTHING
+  ok  : 10d the SAME pitch in fretboard mode -> key 5 (mode really selects the table)
   ok  : P0-28 a PRESSED key is blanked: guide_key[3]=1 but guide_vis[3]=0
   ok  : P0-28 blanking does not disturb other axes: guide_vis == guide_key & ~key_active
   ok  : P0-28 after release the guide bit is visible again
-PASS: tb_guide_lamp (16 checks)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_guide_lamp.sv:197: $finish called at 972000 (1ps)
+PASS: tb_guide_lamp (32 checks)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_guide_lamp.sv:534: $finish called at 3891000 (1ps)
 
 

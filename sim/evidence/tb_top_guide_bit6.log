@@ -23,7 +23,7 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : 1a the bit6=1 event fired (the per-event 1-beat lead actually reached play_seq)
   ok  : 1b exactly one note event was emitted by play_seq (the LED half sees it)
   ok  : 1c the emitted event really carries bit6=1 (fields survived the whole chain)
-  ok  : 1d guide_lamp LIT axis 5  <-- the LED guide half is ALIVE for bit6=1
+  ok  : 1d guide_lamp LIT key 5 (C3)  <-- the LED guide half is ALIVE for bit6=1
   ok  : 1e seq_arb.score_valid_i was NEVER high  <-- bit6=1 did NOT reach the audio path
   ok  : 1f seq_arb score_cnt_o is still 0  <-- bit6=1 did NOT occupy a voice
   ok  : 1h nothing at all came out of the arbiter yet (no dangling note to release)
@@ -33,18 +33,23 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : 2b exactly two note events emitted so far
   ok  : 2c seq_arb.score_valid_i WAS high once  <-- bit6=0 DID reach the audio path
   ok  : 2d seq_arb score_cnt_o is now 1  <-- it DID occupy a voice (normal note)
-  ok  : 2e the bit6=0 note did NOT light the GUIDE lamp (LED guides only marked tracks)
+  ok  : 2e the bit6=0 note did NOT light the GUIDE lamp (key 6 stays dark)
 == 3  mixed stream: bit6=1 / bit6=0 alternating ==
   ok  : 3a all five events were consumed (the stream itself was NOT blocked)
   ok  : 3b five note events emitted by play_seq
   ok  : 3c three of them carried bit6=1 (2 from the mixed batch + 1 from phase 1)
   ok  : 3d ONLY the bit6=0 ones reached seq_arb (2 total: 1 in phase 2 + 1 in the mix)
   ok  : 3e ONLY the bit6=0 ones took a voice (score_cnt_o == 2)
-  ok  : 3f the LAST bit6=1 event (axis 9) still lit its LED  <-- guide survives in a mix
-  ok  : 3g the bit6=0 event (axis 8) did NOT light the GUIDE lamp  <-- per-event is per-event
+  ok  : 3f the LAST bit6=1 event (C#4 => key 9) still lit its LED  <-- guide survives in a mix
+  ok  : 3g the bit6=0 event (B3 => key 8) did NOT light the GUIDE lamp  <-- per-event is per-event
   ok  : 3h no evt_buf overflow for the whole stream
+== 4  an UNMARKED note_off must still clear the lamp ==
+  ok  : 4a the bit6=1 note_on fired
+  ok  : 4b the bit6=1 note_on lit key 4's guide lamp (D3)
+  ok  : 4c the unmarked note_off was consumed
+  ok  : 4d the lamp is NOT stuck: an unmarked note_off cleared it  <-- no hanging lamp
 
-PASS: tb_top_guide_bit6 - 24/24 judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_top_guide_bit6.sv:325: $finish called at 1605730000 (1ps)
+PASS: tb_top_guide_bit6 - 28/28 judgements held
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_top_guide_bit6.sv:381: $finish called at 1981650000 (1ps)
 
 

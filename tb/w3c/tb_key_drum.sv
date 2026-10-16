@@ -8,20 +8,36 @@
 //      ① `src_a_src` 变 `SRC_KDRUM(5)`（⭐ ⇒ 进保留池 + 走 perc 包络
 //         ＋ ⭐ **与源 B（节拍器/鼓机）标签不同 ⇒ 不互相抢音** ✅ —— ⭐ `P1-59` ✅）
 //      ② `src_a_inc` 换成 4 件乐器之一的**鼓频率**
-//      ③ `src_a_timbre` 换成**固定的** `DRUM_TIMBRE`（⭐ 与键盘当前音色解耦）
+//      ③ `src_a_timbre` 换成该件的 **`drum_type`**
+//         ⭐⭐ **2026-10-16（统一鼓轴）**：⭐ 原来这里是**固定的 `DRUM_TIMBRE`**，
+//            🔴 而灌谱鼓把 `drum_type` 写进 `timbre[8:7]` ⇒ **同一件鼓两条来路
+//            回传给 ESP32 的 timbre 不同** ⇒ ✅ 现在**与灌谱逐位同口径**
+//            ⚠️ **对音色零影响**：⭐ 打鼓 `src == SRC_KDRUM` ⇒ 恒判成鼓 ⇒
+//               走**噪声表**（⭐ 与 timbre 取值无关 ✅）
+//      ④ `src_a_axis` 变成 `12 + drum_type`
+//         ⭐⭐ **2026-10-16（统一鼓轴 · 审鼓队 P1）**：⭐ 原来是**键盘物理轴**（0~15）
+//            ⇒ 🔴 **同一件鼓三条来路落三个轴** ⇒ `same_hit`（同轴同源才复用）
+//               永不命中 ⇒ **各占一个 voice** ⇒ ✅ 现在统一到 12/13/14/15
 //      ⇒ ⭐ 关闭后**一切恢复原样**（⭐ 正常发音高）
 //
-//   ⭐⭐ **判据（6 条）**
+//   ⭐⭐ **判据（10 组）**
 //      T1 ⭐ 默认（关）⇒ 按键**原样通过**（`inc` 不被改、`src` 仍是手弹 0）
-//      T2 ⭐ 打鼓（开）⇒ `src_a_src == 3`（⭐ **"进鼓池"的充要条件**）
+//      T2 ⭐ 打鼓（开）⇒ `src_a_src == SRC_KDRUM(5)`（⭐ **"进鼓池"的充要条件**）
 //      T3 ⭐⭐ **4 件乐器逐件比对** —— `src_a_inc` 必须**等于 `drum_gen` 里那一件的常量**
 //            （⭐ 轴 0~3⇒嗵鼓 · 4~7⇒底鼓 · 8~11⇒军鼓 · 12~15⇒踩镲）
 //            🔴 **本 tb 最要紧的一条**：⭐ "是不是鼓、是哪件鼓"靠 **`phase_inc` 频率范围**判
 //               （`oscillator_bank.v:379-381`）⇒ ⭐ `top.v` 那 4 个常量是**有意重复**的
 //               ⇒ 🔴 **抄错一个数就静默变乐器** ⇒ ⭐ 本判据拿 `u_drum_gen.INC_*` 当**单一来源**
-//      T4 ⭐ 打鼓 ⇒ `timbre_valid == 1` 且 `timbre == DRUM_TIMBRE`（⭐ 解耦）
+//      T4 ⭐ 打鼓 ⇒ `timbre_valid == 1`
+//      T4' ⭐⭐ **`timbre` 逐件 = 该件的 `drum_type`**（0=Kick 1=Snare 2=HiHat 3=Tom）
 //      T5 ⭐ 串口 `'K'` ⇒ ① 回 `'k'` ② `key_drum_r` **翻转**（⭐ 再发一次 ⇒ 翻回）
 //      T6 ⭐ 关闭后**恢复**（⭐ 回到 T1 的行为）
+//      T9 ⭐⭐ **四件的【事件轴】= 12/13/14/15** ＝ `12 + drum_type`（⭐⭐ 2026-10-16）
+//            底鼓 12 · 军鼓 13 · 踩镲 14 · 嗵鼓 15 ⇒ ⭐ 与 `drum_gen.evt_axis_r`
+//            及灌谱鼓**同一套轴号约定** ⇒ `note_manager.same_hit`（同轴同源才复用）
+//            ⇒ ⭐ **三条来路同一件鼓天然重触发、⛒ 不叠 voice** ✅
+//      T9b ⭐ **`key_drum_sel` 仍取【物理轴】**（⭐ 防"轴号 mux 自指"的唯一判据 ✅）
+//      T9c ⭐ **`key_drum_dtype` 换算表**（⭐ 物理轴映射 ⇒ `drum_type` ✅）
 //
 //   ⚠️⚠️ **两条实测踩到的坑（⭐ 写在这里防复发）**
 //      ① ⭐ **`force` 必须"持续到检查之后"** —— 🔴 我第一版把 `release` 写在 `chk` **之前**，
@@ -83,6 +99,14 @@ module tb_key_drum;
     wire        sa_tv_o  = u_top.g_sound.src_a_timbre_valid;
     wire [1:0]  sa_t_o   = u_top.g_sound.src_a_timbre;
     wire [7:0]  sa_vel_o = u_top.g_sound.src_a_vel;      // ⭐ T7：力度下限判据用
+    //  ⭐⭐ 2026-10-16（⭐⭐ 统一鼓轴）：⭐ **事件轴**判据（⭐ `T9`）✅
+    //     ⚠️ 与 `sa_axis`（⭐ `seq_arb` 的输出）**必须分开看** —— 本判据钉的是
+    //        `src_a_axis`（⭐ 打鼓模式下已被压成 12~15 的那个 ✅）
+    wire [3:0]  sa_ax_o  = u_top.g_sound.src_a_axis;
+    //     ⭐ 底下的 `key_drum_sel` / `key_drum_dtype` —— ⭐ 顺手钉住"物理轴映射没被改"
+    //        （⭐ 它俩是"轴号 mux 会不会自指"的唯一判据 ✅）
+    wire [1:0]  kd_sel   = u_top.g_sound.key_drum_sel;
+    wire [1:0]  kd_dtype = u_top.g_sound.key_drum_dtype;
 
     //   ⭐⭐ **单一来源**：⭐ 直接引用 `drum_gen` 的常量（⛔ 不在这里抄一遍）
     //      ⚠️ 用 `wire` 而⛔ 不是 `localparam` —— ⭐ 层次引用**不能出现在常量表达式里** ✅
@@ -277,9 +301,98 @@ module tb_key_drum;
                 2'd2: chk("T3c: axis 8-11  => SNARE inc", sa_inc_o === REF_SNARE);
                 2'd3: chk("T3d: axis 12-15 => HIHAT inc", sa_inc_o === REF_HIHAT);
             endcase
-            // ⭐ T4：⭐ 固定音色（⭐ 与键盘当前音色解耦）
+            //  ═══════════════════════════════════════════════════════════════
+            //  ⭐⭐⭐⭐ T9（⭐⭐ 2026-10-16 统一鼓轴 · 审鼓队 P1）
+            //
+            //  🔴 **原缺陷**：⭐ `src_a_axis` 打鼓模式下 = **键盘物理轴**（0~15）⇒
+            //     · 内部鼓机（`drum_gen`）落 **12/13/14/15**
+            //     · 灌谱鼓（`seq_arb`）落 **12/13/14/15**
+            //     · 键盘打鼓（本处）落 **0~15 全占**（⭐ 物理轴）
+            //     ⇒ ⭐ 而 `note_manager.v:720-722` 的 `same_hit` 要求 `(axis, src)` **都等**
+            //        ⇒ 🔴 **三条来路的同一件鼓永不重触发、各占一个 voice** ✅
+            //     ⇒ ⭐ 用户实测：「为什么键盘打鼓 / 内部鼓机 / 灌谱不是一套」✅
+            //
+            //  ✅ **修法**：⭐ `轴 = 12 + drum_type`（⭐ 与 `drum_gen` 的
+            //     `evt_axis_r <= 4'd12 + {2'b00, drum_idx}` **逐字同一口径** ✅）
+            //     ⇒ ⭐ 同一件鼓在所有来路落同一个轴 ⇒ ⭐ 天然互相重触发、不叠 voice ✅
+            //     ⇒ ⭐ 而且四件各占一个轴 ⇒ ⭐ **内部鼓机也能一次响多件** ✅
+            //
+            //  ⚠️⚠️ **T9b 是"防自指"的判据**（⭐⭐ 本改动的头号陷阱 ✅）：
+            //     ⚠️ 原写法 `key_drum_sel = src_a_axis[3:2]` ⇒ 一旦 `src_a_axis` 被压成
+            //        12~15 ⇒ `[3:2]` **恒为 `2'b11`** ⇒ 🔴 **四件鼓全退化成踩镲**
+            //        （⭐ 且 inc / vel 跟着一起错 ⇒ **静默换音色** ✅）
+            //     ✅ 现在 `key_drum_sel` 取 `sa_axis[3:2]`（⭐ 物理轴）⇒ **T9b 逐件钉住它** ✅
+            case (ax[3:2])
+                2'd0: begin   // ⭐ 嗵鼓
+                    chk("T9a1: TOM   lands on axis 15", sa_ax_o === 4'd15);
+                    chk("T9b1: TOM   key_drum_sel is still 0 (physical, not self-fed)",
+                        kd_sel === 2'd0);
+                    chk("T9c1: TOM   drum_type = 3",      kd_dtype === 2'd3);
+                end
+                2'd1: begin   // ⭐ 底鼓
+                    chk("T9a2: KICK  lands on axis 12", sa_ax_o === 4'd12);
+                    chk("T9b2: KICK  key_drum_sel is still 1 (physical, not self-fed)",
+                        kd_sel === 2'd1);
+                    chk("T9c2: KICK  drum_type = 0",      kd_dtype === 2'd0);
+                end
+                2'd2: begin   // ⭐ 军鼓
+                    chk("T9a3: SNARE lands on axis 13", sa_ax_o === 4'd13);
+                    chk("T9b3: SNARE key_drum_sel is still 2 (physical, not self-fed)",
+                        kd_sel === 2'd2);
+                    chk("T9c3: SNARE drum_type = 1",      kd_dtype === 2'd1);
+                end
+                2'd3: begin   // ⭐ 踩镲
+                    chk("T9a4: HIHAT lands on axis 14", sa_ax_o === 4'd14);
+                    chk("T9b4: HIHAT key_drum_sel is still 3 (physical, not self-fed)",
+                        kd_sel === 2'd3);
+                    chk("T9c4: HIHAT drum_type = 2",      kd_dtype === 2'd2);
+                end
+            endcase
+            //  ═══════════════════════════════════════════════════════════════
+            //  ⭐⭐⭐ T4'（⭐⭐ 2026-10-16 统一鼓轴）—— **timbre 字段 = `drum_type`**
+            //
+            //  🔴 **原状**：⭐ 打鼓写 `DRUM_TIMBRE`(=2)，⭐ 而**灌谱鼓**把 `drum_type`
+            //     写进 `timbre[8:7]` ⇒ 🔴 **同一件鼓两条来路回传给 ESP32 的 timbre 不同** ✅
+            //  ✅ **现在与灌谱同口径** ⇒ ⭐ 键盘打鼓的四件也带 `drum_type` 回传 ✅
+            //  🔴 **对音色零影响**（⭐ 这条必须验，⛒ 否则就是回归 ✅）：
+            //     ⭐ 打鼓 `src == SRC_KDRUM` ⇒ `voice_drum_o` 恒判成鼓 ⇒
+            //        `oscillator_bank` 走**噪声表** `rom_noise` ⇒ **与 timbre 取值无关** ✅
+            //        （⭐ 所以 `timbre` 对鼓本来就是空字段 ✅）
+            case (ax[3:2])
+                2'd0: chk("T4'a: TOM   timbre field = drum_type 3", sa_t_o === 2'd3);
+                2'd1: chk("T4'b: KICK  timbre field = drum_type 0", sa_t_o === 2'd0);
+                2'd2: chk("T4'c: SNARE timbre field = drum_type 1", sa_t_o === 2'd1);
+                2'd3: chk("T4'd: HIHAT timbre field = drum_type 2", sa_t_o === 2'd2);
+            endcase
+            // ⭐ T4a：⭐ `timbre_valid == 1`（⭐ 与键盘当前音色解耦 ✅）
             chk("T4a: mode ON => timbre_valid == 1",   sa_tv_o === 1'b1);
-            chk("T4b: mode ON => timbre == DRUM_TIMBRE", sa_t_o === REF_TIMBRE);
+            //  ═══════════════════════════════════════════════════════════════
+            //  ⭐⭐ T4b（⭐⭐ 2026-10-16 统一鼓轴）—— ⭐ **原"恒 DRUM_TIMBRE"判据已被 T4' 取代**
+            //
+            //  🔴 **为什么改判据**（⭐ 不是"放松"，⭐ 是**口径变了**）：
+            //     ⭐ 原判据 `sa_t_o === DRUM_TIMBRE(2)` 钉的是"鼓用固定音色、不跟键盘走"
+            //        ⭐ 而 2026-10-16 起打鼓这一路的 timbre 字段**换成 `drum_type`**
+            //           （⭐⭐ 与灌谱鼓同口径 ⇒ 同源两路回传的 timbre 逐位一致 ✅）
+            //        ⇒ 🔴 老判据在**非踩镲**那三件上**必然红**（⭐ 它们 = 3/0/1 ≠ 2 ✅）
+            //        ⚠️ 而"**与键盘音色解耦**"那条**并没有失效** —— 它现在由
+            //           **`T4e`**（⭐ 键盘音色怎么变，鼓的 timbre 都不变 ✅）接管 ✅
+            //
+            //  ✅ **T4b 的新口径**：⭐ 钉住"鼓的 timbre 与键盘**当前音色**无关"
+            //     ⚠️ 用 `sa_t_o === key_drum_dtype`（⭐ 与 `T4'` 同一个真值，
+            //        但**角度不同**：⭐ `T4'` 逐件钉常量，⭐ `T4b` 钉"不跟随键盘" ✅）
+            chk("T4b: mode ON => timbre is the drum's own (drum_type), NOT the keyboard's",
+                sa_t_o === kd_dtype);
+            //  ⭐⭐ **T4e**：⭐⭐ "与键盘音色解耦"的**真·判据**（⭐ 老 T4b 的接棒者 ✅）
+            //     🔴 **为什么必须真的去改键盘音色**（⭐ 而不是只比常量）：
+            //        ⭐ `timbre_sel_r` 是**键盘当前音色**；⭐ 老 `DRUM_TIMBRE` 是**常量** ⇒
+            //           **天然不可能跟随** ⇒ ⭐ 所以老判据"比常量"其实**没有证明解耦** ✅
+            //        ⭐ 而 `drum_type` **也是常量** ⇒ 同样的问题 ⇒ ✅ **必须强制改
+            //           `timbre_sel_r` 再比一次**，⭐ 才真正钉住"不跟随" ✅
+            force u_top.timbre_sel_r = 2'd3;         // ⭐ 键盘改成 PAD（⭐ 与四件都不同）
+            #1;
+            chk("T4e: keyboard timbre forced to PAD(3) does NOT change the drum timbre",
+                sa_t_o === kd_dtype);
+            release u_top.timbre_sel_r;
             key_end();
         end
 
@@ -363,9 +476,23 @@ endmodule
 //   |---|---|---|
 //   | M1 | `top.v` 三处 `key_drum_r ? ... :` 全改成恒选原值 | 🔴 T2/T3/T4 **FAIL** |
 //   | M2 | `key_drum_inc` 的 4 个常量任意**互换两个** | 🔴 T3 **FAIL**（⭐ 逐件比对抓到） |
-//   | M3 | `src_a_src` 的 `3'd3` 改成 `3'd0` | 🔴 T2 **FAIL** |
-//   | M4 | `src_a_timbre` 的 `DRUM_TIMBRE` 改成 `2'd0` | 🔴 T4b **FAIL** |
+//   | M3 | `src_a_src` 的 `3'd5` 改成 `3'd0` | 🔴 T2 **FAIL** |
+//   | M4 | `src_a_timbre` 的 `key_drum_dtype` 改成 `2'd0` | 🔴 T4'b/c/d **FAIL** |
 //   | M5 | `calib_cmd.v` 的 `byte_is_keydrum` 去掉 | 🔴 T5a/T5c **FAIL** |
 //   | M6 | 回复字节 `8'h6B` 改成别的 | 🔴 T5b **FAIL** |
 //   ⚠️ **M1 是"功能有没有接线"的总闸**，⭐ M2 是"常量抄没抄错"的**唯一**判据 ✅
+//
+//   ⭐⭐ **2026-10-16 追加（⭐⭐ 统一鼓轴 · 审鼓队 P1）**
+//
+//   | ⭐ 变异 | ⭐ 改法 | ⭐ 期望 |
+//   |---|---|---|
+//   | M7 | `src_a_axis` 退回**原样透传**（⭐ 删掉 `key_drum_axis` mux）| 🔴 T9a 全 4 件 **FAIL** |
+//   | M8 | `key_drum_dtype` 4 选 1 里**互换两个**（⭐ 如 Kick↔Snare）| 🔴 T9a/T9c 对应件 **FAIL** |
+//   | M9 | **`key_drum_sel` 改回 `src_a_axis[3:2]`**（⭐ 轴号 mux **自指**）| 🔴 **T9b1~4 全 FAIL**<br>（⭐ 这才是"四件全退化成踩镲"那条 ✅）|
+//   | M10 | `key_drum_axis` 的 `4'd12` 改成 `4'd0` | 🔴 T9a 全 4 件 **FAIL** |
+//   | M11 | `src_a_timbre` 改回 `DRUM_TIMBRE`（⭐ 2026-10-16 之前的值）| 🔴 T4' 全 4 件 **FAIL** |
+//   ⚠️ **M9 是"自指陷阱"的专属判据** —— ⭐ 它红的不是"轴号错"，⭐ 而是
+//      "**sel 跟着被压扁后的 axis 走**" ⇒ 四件的 inc / vel / timbre **一起错** ✅
+//   ⚠️ **M7/M8/M10 红在 `T9a`，⭐ 但根因各不相同**（⭐ 未接线 / 换算表错 / 基址错）
+//      ⇒ ⭐ 查的时候必须看**`T9b`/`T9c` 是否同时红**来区分 ✅
 // ═══════════════════════════════════════════════════════════════════════════

@@ -1638,6 +1638,82 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     wire        evt_guide_only = ps_note_data[6];   // ⭐ 1 = 只亮灯不出声（保留位 bit6）✅
 
     // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐⭐ 2026-10-16：⭐ **"这是鼓"的【显式标志】= 保留位 `bit5`** ✅
+    //
+    //  🔴 **为什么非改不可**（⭐ 用户拍板的红线 1：*"旋律线【绝对不能】变成鼓"*）：
+    //     ⚠️ 原来的判据在 `seq_arb.v` 里：⭐ **`score_axis_i >= 4'd12`** ——
+    //        🔴 **靠【轴号】猜"是不是鼓"** ⇒ ⭐ **旋律轨一旦用到轴 12..15
+    //        就【必被读成鼓】** ⇒ ⭐ `note_manager` 把它推进**鼓池**
+    //        ⇒ 🔴 **旋律线变成鼓声**（⭐ 这正是用户现场听到的那个 bug）✅
+    //
+    //  ⭐ **位域（⭐ 用户 2026-10-16 拍板）**：
+    //     · ⭐ **`bit 5`      = `is_drum`**（⭐ 1 = 这条是鼓）
+    //     · ⭐ **`bit[8:7]`   = `drum_type`**（⭐ **复用既有 timbre 字段**）——
+    //          0 = Kick · 1 = Snare · 2 = HiHat · 3 = Tom
+    //          📌 ⭐ **为什么可以复用 timbre**：⭐ 鼓的**音色本来就由"是哪件鼓"决定**
+    //             （⭐ `oscillator_bank` 按 `inc` 分档、⭐ 波形一律取噪声表）
+    //             ⇒ ⚠️ timbre 对鼓**没有意义** ⇒ ⭐ 拿它当 `drum_type` 是**零代价** ✅
+    //     · ⛔ **`axis[22:19]` 一个字节都不动**（⭐ `inc[43:23]` 同样不动）✅
+    //
+    //  🔴🔴 **为什么 `is_drum` 放在 `bit5`、⛔ 不放 `axis` 的最高位**（⭐ 实测过的雷）：
+    //     ⚠️ 曾考虑 `bit22 = is_drum`（⭐ 即 axis 的 `bit3`）——
+    //        🔴 而**旧 ESP32 工具写的 `axis` 就是轨序号** ⇒ ⭐ **轨号 8..15 的 `bit22` 全是 1**
+    //        ⇒ 🔴 **那些旋律轨会被读成鼓** ⇒ ⚠️ **还是"旋律变鼓"，而且更隐蔽**（⭐ 更难查）✅
+    //     ✅ **`bit[6:0]` 一直是保留位**（⭐ `tools/mid2evt.py` 自己写着
+    //        *"bit 6..0 保留，必须写 0"*）⇒ ⭐ **旧上位机恒写 0** ⇒
+    //        ⭐ **零回归**（⭐ 老帧的行为逐位不变，⭐ 只是"没有鼓"）✅
+    //     📌 ⭐ 位域依据：⭐ `rtl/top.v` 上面那段"`[6:0]` 保留"的长注释
+    //        ＋ ⭐ `rtl/w3c/seq_arb.v:200-201` 的 *"bits 6..0 reserved 一直是 0"* ✅
+    //
+    //  ⚠️ **与 `ps_note_valid` 的关系**：⭐ 本切片**与 `ps_note_data` 同源、同拍**
+    //     （⭐ 它就是同一个字的两个位）⇒ ⭐ 天然与 `ps_note_valid` 对齐，
+    //     ⛔ **不需要再打拍**（⭐ 打拍反而会**错拍** ⇒ 🔴 拿"下一条的鼓标志"
+    //     去判"这一条"）✅
+    //  📌 ⭐ **消费者**：⭐ `u_seq_arb` 的两个新端口
+    //     （`.score_is_drum_i` / `.score_drum_type_i` ⇒ ⭐ 判定 ＋ 鼓的 `inc`）✅
+    // ═══════════════════════════════════════════════════════════════════════
+    wire        ps_is_drum   = ps_note_data[5];      // ⭐ 1 = 这条曲谱事件是鼓 ✅
+    wire [1:0]  ps_drum_type = ps_note_data[8:7];    // ⭐ 0=Kick 1=Snare 2=HiHat 3=Tom ✅
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-16（点灯 LIGHTER）：⭐ **`note_off` 的解码（⭐ 给 LED 那一路放行用）** ✅
+    //
+    //  🔴 **为什么需要它**：⭐ 见 `u_guide_lamp.note_valid_i` 那一段（⭐ LED 的闸门必须
+    //     【不对称】：⭐ **`note_on` 才门控 · ⭐ `note_off` 一律放行**）✅
+    //     ⇒ ⭐ 否则一条**没被 `bit6` 标记的 `note_off`** 会被闸掉
+    //        ⇒ 🔴 **那一盏指引灯【永久亮着】**（⭐ 只有复位才灭）✅
+    //  📌 ⭐ 位域：⭐ `kind` 在 `[10:9]`（⭐ 与 `play_seq.v` / `guide_lamp.v` 逐位一致）✅
+    //     ⭐ `0 = note_on` · ⭐ `1 = note_off` · ⭐ `2 = tempo`
+    //  📌 ⭐ `ps_note_valid` **只为 `kind 0/1` 拉高**（⭐ `play_seq.v:315`）⇒ ⭐ 本项
+    //     与 `ps_note_valid` 相与**不会**误放行 `tempo` ✅
+    // ═══════════════════════════════════════════════════════════════════════
+    wire        ps_is_note_off = (ps_note_data[10:9] == 2'd1);   // ⭐ kind=1 ⇒ 松键 ✅
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐⭐⭐ 2026-10-16（指北 COMPASS）：⭐ **音高字段 `note_off5` = 帧 `bit[4:0]`** ✅
+    //
+    //  ⭐ **用户拍板的需求**：*"LED 指引要**跟着音高走**，而且【变调之后】不许指错键"* ✅
+    //  🔴 **原缺陷**：⭐ `guide_lamp` 拿 `axis`（= **轨号**，⭐ 一条轨一个值）当键位用
+    //     ⇒ ⭐ **整场只闪一盏灯**（⭐ 用户报 *"很多都只闪 C3 这一个灯"* ✅）
+    //     📌 ⭐ 详见 `rtl/w3c/guide_lamp.v` 头部的 §轴号语义 ✅
+    //
+    //  ⭐ **新契约（⭐ 用户 2026-10-16 拍板）**：
+    //     ⭐ 帧的 **`bit[4:0]` = `note_off5` = `MIDI 音符号 − BASE_NOTE(45)`**
+    //        （⭐ 无符号 0..31 ⇒ ⭐ 覆盖 MIDI 45(A2)..76(E5) ✅）
+    //     ⭐ `guide_lamp` 侧：⭐ `note_after = 45 + note_off5 + transpose_semi`
+    //        ⇒ ⭐ **再查表**「音符号 → 键位」⇒ ⭐ 点亮那个键 ✅
+    //     ⭐⭐ **变调在【查表之前】** ⇒ ⭐ **变调后仍指对键**（⭐ 这就是用户要的那一条 ✅）
+    //  📌 ⭐ `bit[6:5]` 已被占用（`bit6` = 只亮灯 · `bit5` = is_drum），
+    //     ⭐ **`bit[4:0]` 正是剩下那 5 位保留位** ⇒ ⭐ 与既有位域⛔ 不冲突 ✅
+    //  📌 ⭐ **零回归**：⭐ 旧上位机 `bit[4:0]` 恒 0 ⇒ ⭐ 一直查 offset 0（⭐ A2）
+    //     ⇒ ⭐ 在键盘表里是哨兵 ⇒ ⭐ **不点灯**（⛔ 不会乱点键 0）✅
+    //  ⚠️ ⭐ **与 `ps_note_valid` 【同一拍】**：⭐ `ps_note_data` 是**锁存输出**、
+    //     ⭐ 一直保持到下一个事件 ⇒ ⭐ `note_valid` 拉高那一拍 `[4:0]` **必然就是它的值**
+    //     （⭐ 与 `evt_guide_only` 同一手法、⭐ 不会错拍 ✅）
+    // ═══════════════════════════════════════════════════════════════════════
+    wire [4:0]  ps_note_off5 = ps_note_data[4:0];   // ⭐ MIDI − 45（⭐ 查表用）✅
+
+    // ═══════════════════════════════════════════════════════════════════════
     //  ⭐⭐ 2026-10-15（收尾 · CLOSER）：⭐ **"逐事件模式已启用"的粘滞标志** ✅
     //
     //  🔴 **为什么必须加它**（⭐ 两条既有判据【直接冲突】，⭐ 必须有第三个自由度）：
@@ -5035,6 +5111,10 @@ wire ovf_any;
 
         wire        sa_valid;
         wire [3:0]  sa_axis;
+        //  ⭐⭐ 2026-10-16：⭐ **上行专用**的鼓标记轴（⭐ 只给上行回传帧 ✅）
+        //     📌 `sa_axis` 是【下行 voice 定位键】（⭐ 经 `mg_evt_axis` 到 `note_manager`）
+        //        ⇒ ⛔ 不能拿来当鼓标记（⭐ 否则鼓垫四件退化 + 鼓 voice 永久 held ✅）
+        wire [3:0]  sa_up_axis;
         wire [31:0] sa_inc;
         wire [7:0]  sa_vel;
         wire [1:0]  sa_kind;
@@ -5527,6 +5607,22 @@ wire ovf_any;
             .score_valid_i    ((SCORE_UART_ENABLE & ~guide_only_r & ~evt_guide_only)
                                ? ps_note_valid : 1'b0),
             .score_axis_i     (SCORE_UART_ENABLE ? ps_evt_axis : 4'd0),
+            //  ⭐⭐⭐ 2026-10-16：⭐ **"这条曲谱事件是不是鼓" = 显式标志 `bit5`** ✅
+            //     🔴 **改动本身**：⭐ `seq_arb` 的判据从 **`score_axis_i >= 4'd12`**
+            //        （⭐ 靠轴号猜）换成 **`score_is_drum_i`**（⭐ 帧里的显式位）
+            //        ⇒ ⭐ **轴号彻底退出判定**（⭐ 用户拍板的硬约束 4）✅
+            //     📌 ⭐ 位域与理由：⭐ 见**模块层**那段长注释
+            //        （⭐ `wire ps_is_drum = ps_note_data[5];` ✅）
+            //     ⚠️ ⭐ **必须用【同一拍】的数据** ——
+            //        `ps_is_drum` / `ps_drum_type` 与 `ps_note_valid` / `ps_evt_axis`
+            //        是**同一个 64 位字的切片**（⭐ `ps_note_data`）⇒ ⭐ 天然同拍 ✅
+            //        🔴 ⛔ **不许换成任何"打了一拍"的寄存版本**（⭐ 那样会与事件错拍）✅
+            //     ⚠️ ⭐ **`drum_type` 复用 `[8:7]`（timbre 字段）** ——
+            //        ⭐ 鼓的音色本来就由"是哪件鼓"决定 ⇒ ⚠️ timbre 对鼓无意义 ✅
+            //     📌 ⭐ 与 `score_valid_i` 用**同一个开关**（`SCORE_UART_ENABLE`）——
+            //        ⚠️ 关掉曲谱 UART 时，鼓标志也一起归零（⭐ 语义一致，⛔ 不留悬空）✅
+            .score_is_drum_i  (SCORE_UART_ENABLE ? ps_is_drum   : 1'b0),
+            .score_drum_type_i(SCORE_UART_ENABLE ? ps_drum_type : 2'd0),
             .score_phase_inc_i(SCORE_UART_ENABLE ? ps_evt_inc  : 32'd0),
             .score_velocity_i (SCORE_UART_ENABLE ? ps_evt_vel  : 8'd0),
             .score_kind_i     (SCORE_UART_ENABLE ? ps_evt_kind : 2'd0),
@@ -5547,6 +5643,12 @@ wire ovf_any;
             // ── 仲裁出口 → `evt_merge` 源 A ────────────────────────────────
             .evt_valid_o      (sa_valid),
             .evt_axis_o       (sa_axis),
+            //  ⭐⭐ 2026-10-16（🔴 修 P0-1/P0-2）：⭐ 上行专用"鼓标记"轴 ✅
+            //     ⚠️ `sa_axis` 会经 `mg_evt_axis` 有【两个消费者】：⭐ 上行回传帧与
+            //        下行 `note_manager` 的 (axis, src) 定位键 ⇒ 🔴 不能把它改成鼓标记 ✅
+            //     ✅ 拆开后：⭐ 下行用 `sa_axis`（⭐ 原样透传，逐位恢复改动前 ✅）
+            //               ⭐ 上行用 `sa_up_axis`（⭐ 鼓回传 drum_type、其余回传 0 ✅）
+            .evt_up_axis_o    (sa_up_axis),
             .evt_phase_inc_o  (sa_inc),
             .evt_velocity_o   (sa_vel),
             .evt_kind_o       (sa_kind),
@@ -5567,7 +5669,43 @@ wire ovf_any;
         // ⭐⭐ 旧 `SOURCE_A_SEL = 1` 的**强制档**（⭐ 保 `T57` 的 `tb_top_sound`）
         //   ⚠️ 它**绕过** `seq_arb`（⭐ 直接拿演示和弦）⇒ ⭐ 行为与改动前【完全一致】。
         wire        src_a_valid = (SOURCE_A_SEL == 1) ? demo_note_valid : sa_valid;
-        wire [3:0]  src_a_axis  = (SOURCE_A_SEL == 1) ? demo_note_axis  : sa_axis;
+        //  ═══════════════════════════════════════════════════════════════════
+        //  ⭐⭐⭐ 2026-10-16（⭐⭐ 统一鼓轴 · 审鼓队 P1）：⭐ **打鼓模式改用【鼓机/曲谱那套轴号】**
+        //
+        //  🔴 **原缺陷（⭐ 已实测定位）**：⭐ 这里原来是 `src_a_axis` **裸透传**
+        //     （⭐ 打鼓模式下 = 键盘的【物理轴】0~15）⇒ 🔴 **同一件鼓在三条来路落三个轴**：
+        //
+        //     | ⭐ 来路 | ⭐ 轴号 | ⭐ `src` |
+        //     |---|---|---|
+        //     | 内部鼓机（`drum_gen`） | `12 + drum_idx`（⭐ 底12 军13 镲14 嗵15）| `SRC_AUX(3)` |
+        //     | 灌谱鼓（`seq_arb`）  | 帧里的 `axis`（⭐ ESP32 按一件一轴写 12~15）| `SRC_KDRUM(5)` |
+        //     | 键盘打鼓（本处）      | 🔴 **物理轴** `axis[3:2]` 派生 ⇒ 0~15 全占 | `SRC_KDRUM(5)` |
+        //
+        //     ⭐ 而 `note_manager.v:720-722` 的 `same_hit` 要求 **`(axis, src)` 都等**
+        //        ⇒ 🔴 **三条来路的同一件鼓永不重触发、各占一个 voice** ✅
+        //        （⭐ 用户实测：「为什么键盘打鼓 / 内部鼓机 / 灌谱不是一套」）
+        //
+        //  ✅ **修法**：⭐ `轴 = 12 + drum_type`（⭐ 与 `drum_gen.evt_axis_r <= 4'd12 +
+        //     {2'b00, drum_idx}` 【逐字同一口径】）⇒ ⭐ **同一件鼓在所有来路落同一个轴**
+        //     ⇒ ⭐ `same_hit` 命中 ⇒ ⭐ **天然互相重触发、⛔ 不叠 voice** ✅
+        //     📌 ⭐ 而且四件各占一个轴 ⇒ ⭐ **内部鼓机也能一次响多件**（⭐ 用户要求 ✅）
+        //
+        //  🔴🔴 **为什么 mux 放在 `src_a_axis` 而⛔ 不是塞进 `key_drum_axis` 之后再透传**：
+        //     ⚠️ 两者等价 —— ⭐ 放这里的唯一好处是 `SOURCE_A_SEL == 1`（⭐ 演示和弦档）
+        //        与 `key_drum_r` 的优先级**一眼可见**：⭐ **打鼓覆盖演示**（⭐ 与
+        //        `src_a_inc`/`src_a_vel`/`src_a_src` 那三条 `key_drum_r ? ... :` 同一优先级 ✅）。
+        //
+        //  🔴🔴 **`key_drum_sel` 必须取【物理轴】⛒ 不能取 `src_a_axis`**（⭐ 这是本改动的
+        //      **头号陷阱**，⭐ 已实测过一次）：
+        //     ⚠️ 改之前它是 `wire [1:0] key_drum_sel = src_a_axis[3:2];`
+        //     ⇒ 🔴 一旦 `src_a_axis` 被本 mux 压成 **12~15** ⇒ `[3:2]` **恒为 `2'b11`**
+        //     ⇒ 🔴 **四件鼓全退化成踩镲**（⭐ 且 inc / vel 跟着一起错 ⇒ 静默换音色 ✅）
+        //     ✅ **现在**：⭐ 直接取【鼓垫物理轴】的两个源（⭐ `sa_axis` / `demo_note_axis`）
+        //        ⇒ ⭐ **与本 mux 的输入【互不依赖】** ⇒ 🔴 结构上不可能自指 ✅
+        //  ⚠️ **为什么 mux 写在下面（⭐ `key_drum_*` 声明之后）**：
+        //     ⭐ Verilog-2001 要求**声明先于使用** ⇒ ⭐ `iverilog` 直接报
+        //       `Unable to bind wire/reg 'key_drum_axis'`（⭐ 2026-10-16 实测过一次 ✅）
+        //     ✅ **现在同一条 generate 块里【先声明 `key_drum_sel/dtype/axis`、再用】✅
         // ⭐⭐ 2026-10-01：⭐ **键盘打鼓模式**（⭐ `key_drum_r`，⭐ 串口 `'K'` 切换）
         //   ⭐ **布局依据**：⭐ `files/10-硬件/鼓垫.drawio.svg`（⭐ 用户提供的鼓垫图）
         //      ⭐ 16 键 = **2 板 × 8 通道**，⭐ 每板 2 行 × 4 列 ⇒ ⭐ **4 件乐器各占一个 2×2 块** ✅
@@ -5588,20 +5726,85 @@ wire ovf_any;
         //      （⭐ `oscillator_bank.v` 用 `base_inc` 就地分档：`<10M` 底鼓 · `10M~15M` 嗵鼓 · `≥15M` 军鼓/踩镲）
         //      ⇒ 🔴 **抄错一个数就静默变成另一件乐器** ⚠️
         //      ⇒ ⭐ **判据**：⭐ `tb/w3c/tb_key_drum.sv` 直接拿 `drum_gen` 的**实际输出**逐件比对 ✅
-        //   📌 **本处是【有意重复】的常量** —— ⚠️ 单一来源修法（⭐ 把 `INC_*` 提成形参）留待后续；
-        //      ⭐ 本轮用"**能红的判据**"守住一致性（⭐ 比静默重复安全）✅
-        //   ⭐ **新值（⭐ 2026-10-01 拉开，⭐ 相邻音程 14.3 / 19 / 32 个半音）**：
+        //   ⭐⭐ 2026-10-16（⭐ 审鼓队 P1 修法）：⭐ **第三份硬编码 inc 表已消掉** ✅
+        //      📌 原来这里**又抄了一遍** 4 个 `phase_inc` 字面量（⭐ 即"第三份表"）——
+        //         ⚠️ 而它的件序是 **Tom / Kick / Snare / HiHat**，
+        //         🔴 与 `.vh`（⭐ 也是 `drum_gen.inc_of` / `seq_arb.drum_inc_by_type` 的口径）
+        //         **Kick / Snare / HiHat / Tom** 的【件序不同】
+        //         ⇒ 🔴 **任一侧重排 ⇒ 静默换音色**（⚠️ 而仿真可能查不出来 ✅）
+        //      ✅ **现在**：⭐ 改为 `include` **单一来源**（⭐ 与 `drum_gen` / `seq_arb` 同一份 ✅）
+        //         📌 ⚠️ 路径**必须带仓库根前缀** —— 详见 `drum_inc_defs.vh` 头部"用法"三条 ✅
+        `include "rtl/w3c/drum_inc_defs.vh"
+        //   ⭐ 新值（⭐ 2026-10-01 拉开，⭐ 相邻音程 14.3 / 19 / 32 个半音）
         //      ⚠️🔴 **必须与 `rtl/w3c/drum_gen.v` 的 `INC_*` 逐字一致**（⭐ 否则鼓机与键盘鼓不同音）
         //      ⭐ 判据：⭐ `tb_key_drum.sv` 直接拿 `u_drum_gen.INC_*` 当**单一来源**比对 ✅
-        wire [1:0]  key_drum_sel = src_a_axis[3:2];
+        //   ⭐⭐ 2026-10-16（⭐⭐ 统一鼓轴）：⭐ `key_drum_sel` 改取【物理轴】⛔ 不再取 `src_a_axis`
+        //      🔴 **为什么必须改**（⭐ 本改动的头号陷阱，⭐ 见 `src_a_axis` 那段长注释 ✅）：
+        //         ⚠️ 原来这里是 `wire [1:0] key_drum_sel = src_a_axis[3:2];`
+        //         ⚠️ 而 `src_a_axis` **本拍已被压成 12~15**（⭐ 统一鼓轴的 mux）
+        //         ⇒ 🔴 `[3:2]` 恒为 `2'b11` ⇒ 🔴 **四件鼓全退化成踩镲**
+        //         ⇒ 🔴 inc / vel 跟着一起错 ⇒ **静默换音色**（⭐ 而仿真若只查 axis 就查不出来 ✅）
+        //      ✅ **现在**：⭐ 直接取【鼓垫物理轴】的两个源（⭐ `sa_axis` / `demo_note_axis`）
+        //         ⇒ ⭐ 与 `src_a_axis` 里的那个 mux **输入互不依赖** ⇒ 🔴 结构上不可能自指 ✅
+        //      📌 ⭐ **物理轴映射保持不变**（⭐ `sel 0 = Tom · 1 = Kick · 2 = Snare · 3 = HiHat`
+        //         ⇒ ⭐ 鼓垫图定的手感，⛔ 不改 ✅）
+        wire [1:0]  key_drum_sel = (SOURCE_A_SEL == 1) ? demo_note_axis[3:2] : sa_axis[3:2];
+        //   ⭐⭐ 2026-10-16（⭐⭐ 统一鼓轴）：⭐ **键盘打鼓的事件轴 = `12 + drum_type`** ✅
+        //      ⭐ 与 `drum_gen.evt_axis_r <= 4'd12 + {2'b00, drum_idx}` **逐字同一口径**
+        //         ⇒ ⭐ 底鼓 12 · 军鼓 13 · 踩镲 14 · 嗵鼓 15
+        //      ⭐ **`drum_type` 口径**（⭐ `.vh` / `drum_gen.inc_of` / `seq_arb.drum_inc_by_type`
+        //        同源）：`0 = Kick · 1 = Snare · 2 = HiHat · 3 = Tom`
+        //      ⚠️ **下面这条 4 选 1 mux 就是"物理轴映射 → `drum_type`"的换算表**
+        //         （⭐ 约 4 LUT，⭐ 纯组合 ⇒ 零新增 FF ✅）
+        //      📌 ⭐ 为什么⛒ 不能直接用 `key_drum_sel`：⭐ 物理轴的件序是
+        //         `0=Tom 1=Kick 2=Snare 3=HiHat`，⭐ 而 `drum_type` 的件序是
+        //         `0=Kick 1=Snare 2=HiHat 3=Tom` ⇒ ⭐ **两套编号必须换算一次** ✅
+        //             | ⭐ `key_drum_sel` | ⭐ 乐器 | ⭐ `drum_type` | ⭐ 统一后的轴 |
+        //             |---|---|---|---|
+        //             | `2'd0` | 嗵鼓 | `2'd3` | **15** |
+        //             | `2'd1` | 底鼓 | `2'd0` | **12** |
+        //             | `2'd2` | 军鼓 | `2'd1` | **13** |
+        //             | `2'd3` | 踩镲 | `2'd2` | **14** |
+        //      🔴 **判据**：⭐ `tb/w3c/tb_key_drum.sv` 的 **`T9`**（⭐ 逐件断言轴号 ✅）
+        //  ⚠️ **声明顺序**：⭐ `key_drum_dtype` 必须在【前】（⭐ `key_drum_axis` 要用它）
+        //     ⇒ 🔴 Verilog-2001 **声明先于使用**（⭐ 2026-10-16 实测踩过两次 ✅）
+        wire [1:0]  key_drum_dtype = (key_drum_sel == 2'd0) ? 2'd3    // ⭐ 嗵鼓 ⇒ Tom
+                                   : (key_drum_sel == 2'd1) ? 2'd0    // ⭐ 底鼓 ⇒ Kick
+                                   : (key_drum_sel == 2'd2) ? 2'd1    // ⭐ 军鼓 ⇒ Snare
+                                   :                          2'd2;   // ⭐ 踩镲 ⇒ HiHat
+        wire [3:0]  key_drum_axis = 4'd12 + {2'b00, key_drum_dtype};
+        //  ═══════════════════════════════════════════════════════════════════
+        //  ⭐⭐⭐ 2026-10-16（⭐⭐ 统一鼓轴 · 审鼓队 P1）：⭐ **打鼓模式的事件轴 = `key_drum_axis`**
+        //     ⭐ 即 `12 + drum_type`（⭐ 上面刚声明 ⇒ 此处才可以用 ✅）
+        //  🔴 **原缺陷**：⭐ 原来是 `src_a_axis` **裸透传**（⭐ 打鼓模式下 = 键盘物理轴
+        //     0~15）⇒ 🔴 **同一件鼓三条来路落三个轴**：
+        //        · 内部鼓机（`drum_gen`）⇒ `12 + drum_idx`（⭐ 底12 军13 镲14 嗵15）
+        //        · 灌谱鼓（`seq_arb`）  ⇒ 帧里的 `axis`（⭐ ESP32 一件一轴写 12~15）
+        //        · 键盘打鼓（本处）     ⇒ 🔴 **物理轴**（0~15 全占）
+        //     ⭐ 而 `note_manager.v:720-722` 的 `same_hit` 要求 `(axis, src)` **都等**
+        //        ⇒ 🔴 **三条来路的同一件鼓永不重触发、各占一个 voice** ✅
+        //     ✅ **现在**：⭐ 键盘打鼓也落 12/13/14/15 ⇒ ⭐ **同一件鼓在所有来路同一个轴**
+        //        ⇒ `same_hit` 命中 ⇒ ⭐ **天然互相重触发、⛒ 不叠 voice** ✅
+        //        ⇒ ⭐ 且四件各占一个轴 ⇒ ⭐ **内部鼓机也能一次响多件**（⭐ 用户要求 ✅）
+        //  ⚠️ **优先级**：⭐ `key_drum_r` 覆盖 `SOURCE_A_SEL == 1`（⭐ 演示和弦）——
+        //     ⭐ 与 `src_a_inc`/`src_a_vel`/`src_a_src`/`src_a_timbre` 那四条
+        //     `key_drum_r ? ... :` **同一优先级**（⭐ 五条必须一起看才不误判 ✅）
+        wire [3:0]  src_a_axis  = key_drum_r ? key_drum_axis
+                                             : ((SOURCE_A_SEL == 1) ? demo_note_axis : sa_axis);
         //   ⭐⭐ **2026-10-01 二次拉开**（⭐ 用户："通鼓和底鼓感觉还差一点点区分度"）：
         //      ⭐ 底鼓 70 ⇒ **60 Hz** · ⭐ 嗵鼓 160 ⇒ **200 Hz** ⇒ ⭐ 比 **3.33×**（⭐ 原 2.29×）
         //      ⚠️ **嗵鼓 200 Hz 的前提**：⭐ 见下方 `u_oscillator_bank` 的
         //         `.DRUM_TOM_MAX(20_000_000)` 覆盖（⭐ 否则 17.9M 会被判成"军鼓/踩镲"档）✅
-        wire [31:0] key_drum_inc = (key_drum_sel == 2'd0) ? 32'd17_895_697    // ⭐ 嗵鼓 ≈200 Hz
-                                 : (key_drum_sel == 2'd1) ? 32'd5_368_709     // ⭐ 底鼓 ≈60 Hz
-                                 : (key_drum_sel == 2'd2) ? 32'd42_949_673    // ⭐ 军鼓 ≈480 Hz
-                                 :                          32'd171_798_691;  // ⭐ 踩镲 ≈1920 Hz
+        //   ⚠️⚠️ **件序（⭐ 2026-10-16）**：⭐ 下面这条 mux 按 **`key_drum_sel` 的物理轴映射**排：
+        //      `sel 0 = Tom · 1 = Kick · 2 = Snare · 3 = HiHat`
+        //      🔴 **⛔ 不要改物理轴映射**（⭐ 它是鼓垫图定的手感，⭐ 改了就是换手）
+        //      ✅ **而是让【inc 的选取顺序】去匹配 `key_drum_sel`**
+        //         ⇒ ⭐ 与 `.vh` 的 `drum_type` 口径（`0=Kick 1=Snare 2=HiHat 3=Tom`）**语义对齐**
+        //            （⚠️ 只是"编号 ↔ 乐器"的对应表不同，⭐ **数值完全同一份** ✅）
+        wire [31:0] key_drum_inc = (key_drum_sel == 2'd0) ? INC_TOM      // ⭐ 嗵鼓 ≈200 Hz
+                                 : (key_drum_sel == 2'd1) ? INC_KICK     // ⭐ 底鼓 ≈60 Hz
+                                 : (key_drum_sel == 2'd2) ? INC_SNARE    // ⭐ 军鼓 ≈480 Hz
+                                 :                          INC_HIHAT;   // ⭐ 踩镲 ≈1920 Hz
         //   ⭐⭐ 2026-10-01：⭐ **每件乐器的【基础力度】**（⭐ 用户裁定："各自基础力度 ＋ 键盘只往上加"）
         //      🔴 **为什么需要**（⭐ 用户上板："声音也有点小"）：
         //         ⭐ 原来直接拿**键盘力度**当鼓的力度 ⇒ ⚠️ 轻敲就轻
@@ -5610,6 +5813,16 @@ wire ovf_any;
         //         ⇒ ⭐ ① 轻敲也够响 ② ⭐ 重敲能到 255 ③ ⭐ **力度跟随保留** ✅
         //      📌 取值依据：⭐ 参照鼓机的 `VEL_*`（⭐ 底鼓 230 / 军鼓 200 / 嗵鼓 190 / 踩镲 140）
         //         ⚠️ 其中**踩镲 140 明显偏轻** ⇒ ⭐ 抬到 **175** ✅（⭐ 用户："背景要更响" ✅）
+        //   ⚠️⚠️ **2026-10-16（⭐ 审鼓队 P1）：本表【保持硬编码】，⛔ 不强行合并** ⭐
+        //      📌 **对齐口径**：⭐ `rtl/top.v` 例化 `u_drum_gen` 时**按名覆盖**了 `VEL_*` 形参
+        //         ⇒ ⭐ 鼓机实际生效的力度 = **Tom 220 / Kick 230 / Snare 235 / HiHat 175**
+        //         （⭐ `drum_gen.v` 的**模块默认**是 `KICK 230 / SNARE 200 / HIHAT 140 / TOM 190`
+        //          ⚠️ 抬的那三件的依据见上方 `u_drum_gen` 例化处的长注释 ✅）
+        //      🔴 **为什么不能也改成 `include` 单一来源**：⭐ `drum_gen` 的 `VEL_*` 是
+        //         **`#(...)` 形参**而⛔ 不是 `localparam`
+        //         ⇒ ⭐ `` `include `` 进来的东西**没有端口覆盖的语义** ⇒ 🔴 强行合并会**改行为** ✅
+        //      ⭐ 所以本表是"**击垫力度上抬**"这张独立的表：
+        //         ⭐ 军鼓 210（⚠️ 与鼓机 235 不同 —— 击垫是**下限**，⚠️ 重敲仍由键盘力度决定）✅
         wire [7:0]  key_drum_base_vel = (key_drum_sel == 2'd0) ? 8'd200    // ⭐ 嗵鼓
                                       : (key_drum_sel == 2'd1) ? 8'd230    // ⭐ 底鼓（⭐ 最重）
                                       : (key_drum_sel == 2'd2) ? 8'd210    // ⭐ 军鼓
@@ -5623,11 +5836,23 @@ wire ovf_any;
         wire [7:0]  src_a_vel   = (key_drum_r && (src_a_vel_raw < key_drum_base_vel))
                                 ? key_drum_base_vel : src_a_vel_raw;
         wire [1:0]  src_a_kind  = (SOURCE_A_SEL == 1) ? demo_note_kind  : sa_kind;
-        //  ⭐⭐ 2026-10-01：⭐ 打鼓模式下用**固定的** `DRUM_TIMBRE`（⭐ 与源 B 同一手法）
-        //     ⇒ ⭐ 鼓的音色与"键盘当前音色"**彻底解耦** ✅（⭐ 判据见 `tb_key_drum.sv`）
+        //  ⭐⭐ 2026-10-16（⭐⭐ 统一鼓轴）：⭐ 打鼓模式的 `timbre` 字段 = **`drum_type`** ✅
+        //     🔴 **为什么要改**（⭐ 原来是 `DRUM_TIMBRE`）：⭐ 灌谱那一路（`seq_arb`）把
+        //        `drum_type` 写进 `timbre[8:7]`（⭐ `ps_drum_type = ps_note_data[8:7]` ⇒
+        //        `.score_timbre_i`），⭐ 而 `seq_arb` 的上行帧正是**从 timbre 字段把它捞回来**：
+        //        `evt_up_axis_o <= (pop_src == SRC_KDRUM) ? {2'b0, pop_data[0 +: TIMBRE_W]} : 0;`
+        //        ⇒ 🔴 原来打鼓这一路写 `DRUM_TIMBRE`(=2) ⇒ **同一件鼓两条来路回传不同东西** ✅
+        //     ✅ **现在与灌谱同一口径** ⇒ ⭐ 键盘打鼓的四件也带 `drum_type` 回传 ✅
+        //     🔴🔴 **对【音色/发声】零影响**（⭐ 逐条核过 ✅）：⭐ 打鼓 `src == SRC_KDRUM` ⇒
+        //        `voice_drum_o` 恒判成鼓 ⇒ `oscillator_bank` 走**噪声表** `rom_noise`
+        //        （⭐ 与 `timbre` 取值无关 ✅）⇒ 🔴 **timbre 对鼓本来就是空字段** ✅
+        //        （⭐ 与"复用 timbre 字段当 drum_type"是同一个理由 ✅）
+        //  ⚠️ **唯一的行为变化**：⭐ 上行帧 `[7]` 的 `[5:4]` 由恒 `2` 变成 `drum_type`
+        //     ⇒ ⭐ 这是本条的目的，⛒ 不是副作用 ✅
+        //  📌 **判据**：⭐ `tb/w3c/tb_key_drum.sv` 的 **`T4'`**（⭐ 逐件断言 = drum_type ✅）
         wire        src_a_timbre_valid = key_drum_r ? 1'b1
                                        : ((SOURCE_A_SEL == 1) ? 1'b0 : sa_timbre_valid);
-        wire [1:0]  src_a_timbre = key_drum_r ? DRUM_TIMBRE
+        wire [1:0]  src_a_timbre = key_drum_r ? key_drum_dtype
                                  : ((SOURCE_A_SEL == 1) ? 2'd0 : sa_timbre);
         //  ⭐⭐ 2026-09-29（A1）：⭐ **源 A 的来源标记**
         //     ⚠️ 必须**跟着上面那个 mux 一起选** —— `SOURCE_A_SEL == 1` 时源 A 是
@@ -5828,6 +6053,82 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             .overflow_o       (mg_overflow)
         );
 
+        //  ⭐⭐⭐⭐ 2026-10-16：🔴 **修"ESP32 回传收不到音色"** ——
+        //     ⭐ **回传的音色必须是"发声实际用的那个音色"**，⛔ 不是事件裸带的那个 ✅
+        //
+        //  🔴 **原缺陷（⭐ 已实测定位）**：⭐ 这里原来直接接 `.evt_timbre_i(mg_evt_timbre)`
+        //     ⇒ ⚠️ 而**手弹那一路**（⭐ 源 A / `seq_arb` 的 `live_*`）的音色是**硬接死的**：
+        //        `top.v` 的 `u_seq_arb` ⇒ `.live_timbre_valid_i(1'b0)` · `.live_timbre_i(2'd0)`
+        //        ⇒ ⭐ `sa_timbre = 0` ⇒ ⭐ `src_a_timbre = 0`（⭐ 非鼓、`SOURCE_A_SEL==0`）
+        //        ⇒ ⭐ `evt_merge` 里 `a_timbre_i = 0`
+        //        ⇒ ⭐ `mg_evt_timbre = 0` **恒为 0** ⇒ 🔴 **帧 `[7]` 的 `[5:4]` 恒为 0** ✅
+        //     ⇒ ⭐ 症状：⭐ **ESP32 永远解出 `timbre = 0`（BASS）** ⇒ ⭐ 用户报
+        //        *"回传依旧收不到音色"* ✅
+        //
+        //  ⭐ **为什么声音是好的、只有回传坏**：⭐ `note_manager.v:1025` 自己有一条兜底
+        //     ```verilog
+        //     wire [TIMBRE_W-1:0] new_timbre = cur_timbre_valid ? cur_timbre : default_timbre_i;
+        //     ```
+        //     ⭐ 而 `default_timbre_i = timbre_sel_r`（⭐ 键盘当前音色）
+        //     ⇒ ⭐ **发声侧靠兜底拿对了音色**，⭐ 而**回传侧没有这条兜底** ⇒ 🔴 两边不一致 ✅
+        //
+        //  ✅ **修法（⭐ 在回传接线这一处补齐同一条兜底，⛔ 不动 `note_manager`）**：
+        //     ⭐ `mg_evt_timbre_valid ? mg_evt_timbre : timbre_sel_r`
+        //     —— ⭐ **与 `note_manager` 的判据【逐字同构】** ⇒ ⭐ 回传的音色
+        //        与"这个音**实际发声**用的音色"**必然一致** ✅
+        //     📌 ⭐ 各路行为（⭐ 逐条核对过，⛔ 无一退化）：
+        //        · ⭐ **手弹**（`valid=0`）⇒ 取 `timbre_sel_r` ✅ **← 本修法的目标**
+        //        · ⭐ **鼓垫**（`key_drum_r`）⇒ `valid=1` ⇒ 取 `drum_type` ⭐ **2026-10-16 起**
+        //           （⭐⭐ 统一鼓轴：⭐ 与灌谱鼓同一个值 ⇒ ⭐ 同源两路回传的 `timbre`
+        //            字段**逐位一致** ✅）
+        //        · ⭐ **曲谱**（`ps_evt_timbre_valid`）⇒ `valid=1` ⇒ 取谱面音色 ✅ 不变
+        //        · ⭐ **looper 回放**⇒ `valid=1` ⇒ 取录制时存的音色 ✅ 不变
+        //        · ⭐ **节拍器/鼓机**（源 B）⇒ `valid=1` ⇒ 取 `DRUM_TIMBRE` ✅ 不变
+        //     ⚠️ **时序**：⭐ `mg_evt_timbre*` 与 `mg_evt_valid` **同一拍**（⭐ `evt_merge` 里
+        //        同一条 `pop_now` 分支打的 ✅）⇒ ⭐ 而 `evt_upstream` 现在**在写侧锁存**
+        //        （⭐ 见 `evt_upstream.v` 的 FIFO 写）⇒ ⭐ 锁到的就是**本事件那一拍**的值 ✅
+        //     📌 ⭐ `timbre_sel_r` 声明在**模块级**（⭐ 见 `top.v:657`）⇒
+        //        本 `generate` 块**只读**它，⭐ 与 `.default_timbre_i(timbre_sel_r)` 同款 ✅
+        wire [1:0] up_timbre_w = mg_evt_timbre_valid ? mg_evt_timbre : timbre_sel_r;
+
+        //  ═══════════════════════════════════════════════════════════════════════
+        //  ⭐⭐⭐⭐ 2026-10-16（🔴 修 `[3:0]` 鼓标记只覆盖灌谱鼓）：**三路鼓统一标记**
+        //
+        //  🔴 **缺陷**（ESP32 侧 2026-10-16 回函 §二 确认）：上行帧 `byte[7][3:0]` 原来接
+        //     `sa_up_axis`（⭐ = `seq_arb.evt_up_axis_o`），而那是
+        //       `evt_up_axis_o <= (pop_src == SRC_KDRUM) ? {2'b0, pop_data[0 +: TIMBRE_W]} : 4'd0;`
+        //     ⇒ ⭐ **只有【灌谱鼓】带得上 `drum_type`**（因为只有 `score_src_w` 会成 `SRC_KDRUM`）
+        //     ⇒ 🔴 **键盘打鼓**走 `live_*`、`pop_src` 恒 `SRC_LIVE` ⇒ `[3:0] = 0`
+        //        ⇒ ⭐ 被 ESP32 解成"旋律"（⭐ 而 `[5:4]` 那时装的是 `drum_type`）
+        //     ⇒ 🔴 **内部鼓机**走源 B、**完全不经过 `seq_arb`** ⇒ `sa_up_axis` 是
+        //        **上一次 pop 的陈旧值**（⭐ 可能取到 4..15 这种越界值）
+        //
+        //  ⭐ **关键洞察**：**三路鼓的事件轴号都等于 `12 + drum_type`**（12 = `4'b1100`）
+        //     ⇒ ⭐ **`drum_type = mg_evt_axis[1:0]`**（⭐ 减 12 就是取低 2 位）
+        //     · 灌谱鼓：`src_a_axis = sa_axis`（⭐ ESP32 按一件一轴写 12~15）
+        //     · 键盘打鼓：`src_a_axis = key_drum_axis = 12 + key_drum_dtype`（⭐ `:5775`）
+        //     · 内部鼓机：`src_b_axis = drm_evt_axis = 12 + drum_idx`（⭐ `drum_gen.v:554`）
+        //
+        //  ⭐ **为什么用 `mg_evt_*`（evt_merge 的下游）而⛔ 不用 `key_drum_dtype`**：
+        //     🔴 `key_drum_dtype`(`:5771`) ← `key_drum_sel`(`:5751`) ← **`sa_axis`**
+        //        （⭐ = `u_seq_arb.evt_axis_o`，⭐ 见 `:5645`）
+        //     ⇒ ⭐ 若把它接回 `u_seq_arb` 的入队口 ⇒ **组合环穿过 `seq_arb`** 🔴
+        //     ⇒ ✅ 本做法**全程只用 `evt_merge` 之后的信号** ⇒ ⭐ **结构上不可能成环** ✅
+        //     📌 且 `mg_evt_src`（⭐ `:5952`）**已经带来源标记**（⭐ `src_a_src`/`b_src_i`）
+        //        ⇒ ⛔ **不需要新增任何端口、⛔ 不动 `seq_arb`** ✅
+        //
+        //  ⭐ **为什么不再 OR 上 `sa_up_axis`**：⚠️ 它是**寄存器**、只在 `pop_now` 那拍更新
+        //     ⇒ ⭐ 对**源 B / 源 C** 的事件它是**陈旧值** ⇒ 🔴 OR 进来 = 把陈旧值注入
+        //     ⇒ ✅ 本式**完全取代**它（⭐ 灌谱鼓也由 `mg_evt_axis` 覆盖，⭐ 两者取值相同）✅
+        //     📌 ⇒ ⭐ 顺带修掉"鼓机发陈旧值"那半边缺陷 ✅
+        //
+        //  📌 **判据**：`tb/top/tb_top_upstream_timbre.sv`（端到端 14 B 帧）
+        //     ＋ 上板看 ESP32 侧 `mark_out_of_range` / `axis_out_of_range` 计数是否为 0 ✅
+        //  ═══════════════════════════════════════════════════════════════════════
+        wire        up_is_drum_w  = (mg_evt_src == 3'd5)                  // ⭐ 灌谱鼓 + 键盘打鼓
+                                  | ((mg_evt_src == 3'd3) & sel_drum);    // ⭐ 内部鼓机（⭐ 节拍器不算）
+        wire [3:0]  up_drum_mark_w = up_is_drum_w ? {2'b0, mg_evt_axis[1:0]} : 4'd0;
+
         evt_upstream #(
             .PHASE_W(32),
             .AXIS_W (4),
@@ -5837,7 +6138,15 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             .clk_i           (clk),
             .rst_n_i         (rst_n_sync),
             .evt_valid_i     (mg_evt_valid),
-            .evt_axis_i      (mg_evt_axis),
+            //  ⭐⭐ 2026-10-16（🔴 修 P0-1）：⭐ 上行回传帧用【鼓标记轴】✅
+            //     ⚠️ 原来这里接 `mg_evt_axis`（⭐ 与下行定位键共用一根）⇒
+            //        🔴 为给 ESP32 加鼓标记而改 `evt_axis_o` ⇒ 下行同时崩 ✅
+            //     ⭐⭐ 2026-10-16 晚（🔴 修"只覆盖灌谱鼓"）：改接 **`up_drum_mark_w`**
+            //        ⚠️ 中间那版接的是 `sa_up_axis`（⭐ `seq_arb.evt_up_axis_o`）⇒
+            //           🔴 **只有灌谱鼓带得上 `drum_type`**（⭐ 键盘打鼓发 0、鼓机发陈旧值）
+            //        ✅ 现在由 `up_drum_mark_w` 统一（⭐ 三路鼓都按 `12 + drum_type` 反推）
+            //           📌 详见上方 `up_drum_mark_w` 声明处的长注释 ✅
+            .evt_axis_i      (up_drum_mark_w),
             .evt_phase_inc_i (mg_evt_inc),
             .evt_velocity_i  (mg_evt_vel),
             .evt_kind_i      (mg_evt_kind),
@@ -5845,7 +6154,11 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             //     📌 信号**本来就有**（`mg_evt_timbre`，⭐ 见上方 `evt_timbre_o` 的接线）
             //        ⇒ ⭐ 这里只是**多接一根线**，⛔ 不需要新增任何逻辑 ✅
             //     📌 帧里放在 `[7]` 的高 4 位（⭐ 原本空着）⇒ ⭐ 帧长不变 ✅
-            .evt_timbre_i    (mg_evt_timbre),
+            //     🔴🔴 2026-10-16：⭐ **⛔ 不能直接接 `mg_evt_timbre`** ——
+            //        ⚠️ 手弹那一路恒为 0 ⇒ 🔴 回传音色永远是 0 ✅
+            //        ✅ 改接 `up_timbre_w`（⭐ = 与 `note_manager` 同构的兜底 ✅）
+            //        📌 根因与逐路核对见上方 `up_timbre_w` 声明处的长注释 ✅
+            .evt_timbre_i    (up_timbre_w),
             .tick_step_i     (bg_tick),
             .enable_i        (up_enable_r),
             .ready_i         (up_ready_w),
@@ -6865,6 +7178,34 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
     //  📌 ⭐ **闪烁**由 `led_data` 自己做（⭐ `blink_keys & blink_i`）——
     //     ⚠️ `guide_lamp` 的 `blink_i` 端口**已删**（⭐ `P0-28`：⭐ 两处都做会变成 25% 占空比 ✅）
     // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐⭐⭐ §轴号语义（⭐ 2026-10-16 · 点灯 LIGHTER 实测定位）——
+    //     🔴 **"只闪一盏灯"的【根因】在【上游】，⛔ 不在本模块** ✅
+    //
+    //  ⭐ **事实**：⭐ 事件里的 `axis[3:0]` 是【**轨号**（track id）】，⛔ **不是键位/音高** ✅
+    //     · ⭐ 生成侧：`tools/mid2evt.py:359` `axis_of[ti] = nxt`（**一条非鼓轨 = 一个轴号**）
+    //       ＋ ⭐ `:390` `axis = axis_of[ti] & 0xF`（⭐ 该轨的**所有**音符共用这一个轴号）✅
+    //     · ⭐ **音高在 `inc[43:23]`**（⭐ 与 `axis` 完全独立）✅
+    //     · ⭐ 而本模块（`guide_lamp`）把 `axis` 当**键位**用 ⇒ ⭐ **一盏灯 = 一条轨** ✅
+    //
+    //  ⭐ **实测证据（⭐ 三首真实曲子的 `events.hex` 逐字统计）**：
+    //     | 曲子 | 事件数 | **出现过的轴号** | 开头连续同轴 |
+    //     |---|---|---|---|
+    //     | `夜洋风景` | 11564 | **只有 0..5** | ⭐ **62 条** |
+    //     | `09_Conjurer` | 11858 | **只有 0..4** | ⭐ **192 条** |
+    //     | `6.世界悲` | 9778 | **只有 0..3** | ⭐ **78 条** |
+    //     ⇒ ⭐ ① 整曲最多只有 **4~6 盏灯**会被用到（⭐ 而 16 键有 16 盏）✅
+    //        ⭐ ② 任一乐段**通常只有一条轨在响** ⇒ 🔴 **只有一盏灯在闪** ✅
+    //     📌 ⭐ 复现方法（⭐ 只读，⛔ 不改任何文件）：
+    //        `axis = (word >> 19) & 0xF`（⭐ 逐行扫 `build/score/*/events.hex`）✅
+    //
+    //  ⭐ **与 `bit6` 叠加后**：⭐ 闸门把 LED 收窄到**被标记的那一轨**
+    //     ⇒ ⭐ **整场就只剩那一盏灯**（⭐ 需求 §2.2 的意图 ✅，⭐ 但用户看到的就是"只闪一盏"）✅
+    //  ⇒ ⭐⭐ **结论**：⭐ 用户报的 *"很多都只闪 C3 这一个灯"* **⛔ 不是 LED 通路的缺陷**；
+    //     ⭐ 是 **`axis` 的语义（轨 ≠ 键）** ＋ ⭐ **`bit6` 逐轨门控** 的**必然结果** ✅
+    //     ⭐ 若要让灯跟着**音高**走（⭐ "指到该按的那个键"）⇒
+    //     🔴 **必须在上游把"键位"写进 `axis`**（⭐ 或让 `guide_lamp` 用 `inc` 反查键位表）
+    //     —— ⚠️ **那是契约级改动，须用户裁定，⛔ 本轮不动** ✅
+    // ═══════════════════════════════════════════════════════════════════════
     wire [15:0] gl_guide_vis;
 
     guide_lamp #(
@@ -6914,10 +7255,77 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         //     ⭐ 语义：⭐ **这条流从未用过 `bit6` ⇒ 退化成裸 `ps_note_valid`**（⭐ 零回归 ✅）
         //     📌 ⭐ 完整理由 / 代价 / 待裁定项见 `evt_guide_seen_r` 的声明处
         //        （⭐ 模块级 · ⭐ 就在 `bit6` 解码 `evt_guide_only` 的旁边 ✅）
-        .note_valid_i   (ps_note_valid & (guide_only_r | evt_guide_only | ~evt_guide_seen_r)),
+        //
+        //  ⭐⭐⭐⭐ 2026-10-16（点灯 LIGHTER）：⭐ **第四个自由度 `| ps_is_note_off`** ✅
+        //     ⇒ ⭐ **本闸门【不对称】：⭐ `note_on` 门控 · ⭐ `note_off` 一律放行** ✅
+        //
+        //  🔴 **原缺陷（⭐ 本轮 `bit6` 改动引入的【副作用】）**：
+        //     ⚠️ 闸门对 `note_on` / `note_off` **一视同仁** ⇒ ⭐ 一条**没被标记**的
+        //        `note_off` **进不来** ⇒ 🔴 **它要熄灭的那盏灯【灭不掉】** ✅
+        //     ⇒ ⭐ 症状（⭐ 用户实测）：🔴 **整场只有一盏灯在闪，而且【永远不换、永远不灭】**
+        //        （⭐ 因为被标记的那一轨**只有它自己的轴**，⭐ 而它的 `OFF` 又被闸掉）
+        //        —— ⭐ 这正是用户报的 *"很多都只闪 C3 这一个灯"* 里
+        //        **"只闪一盏 + 不换灯"** 那一半的机理 ✅
+        //     📌 ⭐ **触发条件**：⭐ 上位机**只在 `note_on` 上置 `bit6`**（⭐ 很自然的一种实现：
+        //        "给某条音符置 bit6" ⇒ ⭐ 只置起始那一条 ✅）
+        //        ⇒ ⚠️ 而本模块的契约是 **`note_on` 亮 / `note_off` 灭**（⭐ `guide_lamp.v:16-19`）
+        //        ⇒ 🔴 **契约被闸门单方面破坏** ⇒ ⭐ 灯**挂住**（⭐ 与"挂音"同族 ✅）
+        //
+        //  ✅ **修法（⭐ 只放行 `note_off`，⛔ 不放行未标记的 `note_on`）**：
+        //     ⭐ 于是三种情形都正确 ——
+        //        | 事件 | `bit6` | 闸门 | 结果 |
+        //        |---|---|---|---|
+        //        | `note_on`  | 1 | ✅ 过 | ⭐ **点亮**（⭐ 需求要的 ✅）|
+        //        | `note_on`  | 0 | ⛔ 挡 | ⭐ **不指引**（⭐ `2e`/`3g` 仍绿 ✅）|
+        //        | `note_off` | 1 | ✅ 过 | ⭐ **熄灭**（⭐ 原行为，⛔ 不变 ✅）|
+        //        | `note_off` | 0 | ✅ 过 | ⭐ **熄灭**（⭐ **本修法** ⇒ ⛔ 不再挂灯 ✅）|
+        //     📌 ⭐ **为什么这样改是【安全的】**：⭐ 放行一条 `note_off` **只可能【清掉】**
+        //        它自己那个轴（⭐ `guide_lamp.v:105`）⇒
+        //        ⭐ ① 若那盏灯本来就没亮 ⇒ **空操作** ✅
+        //        ⭐ ② 若它亮着 ⇒ **本来就该灭**（⭐ 契约）✅
+        //        ⇒ ⭐ **不存在"误点亮"的可能**（⭐ 与 `note_on` 的方向相反）✅
+        //     📌 ⭐ **零回归**：⭐ `bit6` 恒 0（⭐ 旧上位机 / 现有 `score_word.py` 的工具链
+        //        **禁止**写 `bit6`，⭐ 见 `esp32/tools/score_word.py:46`）⇒
+        //        ⭐ `~evt_guide_seen_r` 恒 1 ⇒ ⭐ **本式仍逐位等于裸 `ps_note_valid`** ✅
+        //     📌 ⭐ **代价**：⭐ 0 资源（⭐ 只是 OR 进一项，⭐ 而 `ps_is_note_off` 是 1 个比较器
+        //        ＋ ⭐ 综合后与 `guide_lamp` 里已有的 kind 解码**共享**）✅
+        //     🔴 ⚠️ **本修法⛔ 不改变"一轨一灯"** —— ⭐ 那是**上游语义**（⭐ 见下方 §轴号语义 ✅）
+        .note_valid_i   (ps_note_valid & (guide_only_r | evt_guide_only
+                                          | ~evt_guide_seen_r | ps_is_note_off)),
         .note_data_i    (ps_note_data),
+        //  ⭐⭐⭐⭐ 2026-10-16（指北 COMPASS）：⭐ **灯位改由【音高】决定** ✅
+        //     ⭐ `note_off5_i` = 帧 `bit[4:0]`（⭐ 与 `ps_note_valid` **同一拍**的锁存值 ✅）
+        //     ⭐ `transpose_i` = `transpose_semi`（⭐ **与 `u_note_manager` 同一个源**
+        //        —— ⭐ 保证"**听到的音高**"和"**指的键**"用的是**同一个变调量** ✅）
+        //        📌 ⭐ 源：⭐ `g_sound.u_fader_gear.transpose_semi_o`
+        //           → ⭐ 模块层 `transpose_semi`（⭐ `top.v:969` `wire signed [4:0]`）
+        //           → ⭐ 本处 ＋ ⭐ `u_note_manager`（⭐ `top.v:6003` 一带 ✅）
+        //     ⭐ `fb_mode_i` = `play_fretboard_mode`（⭐ 1 = 指板表 · 0 = 键盘表 ✅）
+        //        📌 ⭐ 与 `axis_map`（`top.v:4814` 的 `.mode_i(am_mode)`）**同一口径** ✅
+        //     ⚠️ ⭐ **为什么变调必须接到这里**：🔴 若 `guide_lamp` 用**未变调**的音高
+        //        ⇒ ⭐ 变调后**灯指的还是原调的键** ⇒ 🔴 **正是用户不许的那种"指错键"** ✅
+        .note_off5_i    (ps_note_off5),
+        .transpose_i    (transpose_semi),
+        .fb_mode_i      (play_fretboard_mode),
         //  ⭐ 消隐用：⭐ 与 `led_data` **同一个源**（⭐ 保证口径一致 ✅）
         .key_active_i   (ee_key_on),
+        //  ⭐⭐⭐⭐ 2026-10-16（灭灯 LAMPKILL）：⭐ **"曲谱还在走"标志**（⭐ 超时取反源 ✅）
+        //     ⭐ `stream_alive_i = eb_rd_valid | ps_note_valid`：
+        //       · ⭐ `eb_rd_valid`  = **缓冲里还有事件没播**（⭐ 模块级 wire，⭐ 见 `U-19` ✅）
+        //       · ⭐ `ps_note_valid` = **这一拍正在吐一条事件** ✅
+        //     🔴 **为什么必须两项都有**（⭐ 实测数据，⛣ 不是拍的 ✅）：
+        //        · ⭐ 真曲曲中**最长休止 = 26880 tick**（⭐ `09_Conjurer` @120BPM = **28 s** ✅）
+        //        · ⭐ 最长**音符 = 8160 tick**（⭐ `6.世界悲` @120BPM = **8.5 s** ✅）
+        //        ⇒ ⚠️ 只取 `ps_note_valid` ⇒ 🔴 **休止 28 s 内一盏灯都不亮**
+        //           （⭐ 用户会报"怎么不指了" ✅）
+        //        ⇒ ⭐ 加上 `eb_rd_valid` ⇒ ⭐ **曲中静默时缓冲非空 ⇒ 不算停 ⇒ 不攒超时** ✅
+        //     ⭐ **于是超时只在真·停播才触发**：⭐ 没灌谱 / ⭐ 灌完 / ⭐ 灌断 ✅
+        //     📌 ⭐ **治的正是"挂灯"**（⭐ 头部 ③M1/M2/M3 ✅）：⭐ 上游缺 `note_off`、
+        //        ⭐ 或演奏中切钢琴/指板导致 ON/OFF 不同表 ⇒ ⭐ 灯会挂住 ⇒ ⭐ **1 秒后整片清** ✅
+        //     📌 ⭐ **零回归**（⭐ 逐位论证 ✅）：⭐ `guide_key_o` 的**每条既有清除路径**
+        //        都没动，⭐ 本项只是**新增**一条"停播整片清" ⇒ ⭐ 正在进行的曲谱里
+        //        `eb_rd_valid` 恒 1 ⇒ ⭐ 计数器恒 0 ⇒ ⭐ **超时永远不可能触发** ✅
+        .stream_alive_i (eb_rd_valid | ps_note_valid),
         //  ⚠️ 未消隐的原图**无消费者** ⇒ ⭐ 留空（⭐ 消隐后的那根才是要接的 ✅）
         .guide_key_o    (),
         .guide_commit_o (),

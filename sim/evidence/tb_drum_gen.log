@@ -5,7 +5,7 @@
       Kick=4  Snare=2  HiHat=8  Tom=0  鎬?14
   ok  : 鈶?涓€灏忚妭鎭板ソ 14 涓簨浠讹紙Kick4/Snare2/HiHat8/Tom0锛夆€斺€?涓庣敤鎴疯〃(BASIC)鍚诲悎
   ok  : 鈶⑩瓙 涓€'姝?澶氫箰鍣ㄣ€愭病琚悶銆戔€斺€?step0 鐨?Kick+HiHat 閮藉彂鍑烘潵浜?
-  ok  : 鈶?鍏ㄩ儴浜嬩欢 axis = 15锛?= 14 涓撶敤姹狅級鉀?涓嶆姠婕斿鐨?voice
+  ok  : 鈶?鍏ㄩ儴浜嬩欢 axis = 12锛?= 14 涓撶敤姹狅級鉀?涓嶆姠婕斿鐨?voice
   ok  : 鈶?涓嶇矘婊?鈥斺€?valid 杩炵画楂樻椂鏁版嵁姣忔媿閮藉湪鍙?
   ok  : 鈶?step 璁℃暟鏈夋晥 = 15锛堚瓙 4 浣嶆暟澶╃劧鍦?0~15锛涙湰杞仠鍦?15 鏄€愭甯哥殑銆戔€斺€?猸?鎭板ソ璺戞弧 16 姝ュ埌杈圭晫鍓嶏級
   ok  : 鈶゜ 鎺ㄨ繘涓€涓?16 鍒嗛煶绗?鈬?step 鎭板ソ +1锛?5 鈫?0锛?
@@ -101,6 +101,6 @@
   ok  : 鈶 transport 鎷変綆鍚?鈬?绔嬪埢鍋滃彂锛堚洈 涓嶅悙娈嬩綑锛?
 --------------------------------------------------
 PASS: drum_gen 涓€姝ュ涔愬櫒涓嶄涪銆?6姝?1灏忚妭銆佹鎷嶇浉浣?step0=Kick+HiHat)銆佷笓鐢ㄦ睜銆佷笉绮樻粸銆乼ransport 闂ㄦ帶銆佽繍琛屾椂鍒囧瀷+鍡甸紦銆佹棤 X/Z銆? 涓妭濂忓瀷浣嶇簿纭鐢ㄦ埛琛?
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_gen.sv:728: $finish called at 132860000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_gen.sv:733: $finish called at 132860000 (1ps)
 
 

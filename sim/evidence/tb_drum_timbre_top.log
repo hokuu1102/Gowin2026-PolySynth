@@ -21,12 +21,13 @@ VCD info: dumpfile build/sim/tb_drum_timbre_top/tb_drum_timbre_top.vcd opened fo
   ok  : T1 drum machine emitted Kick+HiHat at the bar start
   ok  : T2 every merged drum event carries timbre_valid=1 (non-vacuous)
   ok  : T3 every merged drum event carries timbre = DRUM_TIMBRE(2)
-  info: drum voice 27  axis=f  timbre=2  phase_inc=0a3d70a3  (keyboard timbre=3)
-  info: voices with axis=15 and gate high = 1  (2 drum events were emitted)
+  info: drum voice 27  axis=c  timbre=2  phase_inc=0051eb85  (keyboard timbre=3)
+  info: drum voice 28  axis=e  timbre=2  phase_inc=0a3d70a3  (keyboard timbre=3)
+  info: voices with axis=15 and gate high = 2  (2 drum events were emitted)
   ok  : T4 note_manager latched a voice for the drum (axis 15, gate high)
   ok  : T4b the drum voice timbre is DRUM_TIMBRE(2), NOT the keyboard's 3
   ok  : T5 after the keyboard timbre changed, the drum timbre is STILL 2
 PASS: drum_timbre_top -- the drum machine keeps its own timbre when the keyboard timbre changes
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_timbre_top.sv:275: $finish called at 85330000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_timbre_top.sv:280: $finish called at 85330000 (1ps)
 
 

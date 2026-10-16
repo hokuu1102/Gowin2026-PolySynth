@@ -152,6 +152,10 @@ module tb_score_looper_coexist;
         .live_kind_i(lv_kind), .live_timbre_valid_i(1'b0),
         .live_timbre_i({TIMBRE_W{1'b0}}),
         .score_valid_i(sc_valid), .score_axis_i(sc_axis),
+        //  ⭐ 2026-10-16：⭐ `seq_arb` 新增两个【显式鼓标志】输入 ——
+        //     ⚠️ 本 tb 只验"曲谱 vs looper 并存"，⭐ 两条都是**旋律**
+        //     ⇒ ⭐ 恒接 0（⭐ 本 tb 的轴号也从不 ≥12 ⇒ 行为逐位不变）✅
+        .score_is_drum_i(1'b0), .score_drum_type_i(2'd0),
         .score_phase_inc_i(sc_inc), .score_velocity_i(sc_vel),
         .score_kind_i(sc_kind), .score_timbre_valid_i(sc_tv),
         .score_timbre_i(sc_tb),

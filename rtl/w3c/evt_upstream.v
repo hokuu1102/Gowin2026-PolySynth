@@ -50,6 +50,8 @@ module evt_upstream #(
     parameter integer PHASE_W = 32,
     parameter integer AXIS_W  = 4,
     parameter integer VEL_W   = 8,
+    //  ⭐⭐ 2026-10-16：⭐ **音色位宽**（⭐ 与 `note_manager.TIMBRE_W` 同口径 = 2 ✅）
+    parameter integer TIMBRE_W = 2,
     parameter integer FIFO_D  = 16,          // ⭐ 事件 FIFO 深度
     parameter [7:0]   HDR     = 8'hA5,
     //  ⭐ 帧长 = 1 帧头 + 1 类型 + 1 seq + 4 tick + 1 axis + 4 inc + 1 vel + 1 校验
@@ -103,7 +105,15 @@ module evt_upstream #(
 );
     //  ⚠️ `AW_W` 要先算出来（⭐ `K-91`：⛔ 不对 `integer` 参数做位选）
     localparam integer AW_W = (FIFO_D <= 1) ? 1 : $clog2(FIFO_D);
-    localparam integer FW   = 2 + VEL_W + AXIS_W + PHASE_W;    // = 46
+    //  ⭐⭐ 2026-10-16：⭐ **音色也随事件进 FIFO** ⇒ `FW` 46 → 48 ✅
+    //     🔴 **为什么必须进 FIFO**：⭐ 原来 `b_axis` 是**组帧那一拍**直接读 `evt_timbre_i`
+    //        ⇒ ⚠️ 而组帧发生在 `S_LOAD`，⭐ 距事件发生**可能隔了整整一帧**
+    //        （⭐ 一帧 14 B @ 500 kbps = 280 µs ≈ 14000 拍 ✅）
+    //        ⇒ 🔴 **连来两个事件时，第二条会盖上第一条的音色** ✅
+    //     ✅ 现在音色与 `tick`/`axis`/`inc` **一样在写侧锁存** ⇒ ⭐ 与事件严格配对 ✅
+    //     📌 ⭐ 插入位置在 `axis` 与 `inc` 之间 ⇒ ⭐ `inc` 仍稳居 `[PHASE_W-1:0]`
+    //        ⇒ ⭐ 原来的 `kd`/`vl`/`ax`/`inc` 四条切片**一个字都不用改** ✅
+    localparam integer FW   = 2 + VEL_W + AXIS_W + TIMBRE_W + PHASE_W;    // = 48
     //  🔴 `K-91`：⭐ **⛔ 绝不对 `integer` 参数做位选**（`FIFO_D[AW_W:0]` 这种）
     //     ⚠️ 本模块第一版就写了 `FIFO_D[AW_W:0]` ⇒ 🔴 位选对 `integer` **无效**
     //     ⇒ ⭐ 先落到**定宽 localparam** 再参与比较 ✅
@@ -213,7 +223,10 @@ module evt_upstream #(
             end
             //  ⭐ 写
             if (accept_wr) begin
-                mem[wr_q] <= {tick_q, evt_kind_i, evt_velocity_i, evt_axis_i, evt_phase_inc_i};
+                //  ⭐⭐ 2026-10-16：⭐ **音色在【写侧】锁存**（⭐ 与 `tick_q` 同一手法 ✅）
+                //     🔴 原来这里**没有 `evt_timbre_i`** ⇒ ⚠️ 音色根本没跟着事件走 ✅
+                mem[wr_q] <= {tick_q, evt_kind_i, evt_velocity_i, evt_axis_i,
+                              evt_timbre_i, evt_phase_inc_i};
                 wr_q      <= wr_q + {{(AW_W-1){1'b0}}, 1'b1};
             end
             //  ⭐ 计数（⭐ 同拍读写 ⇒ 不变 ✅）
@@ -233,6 +246,8 @@ module evt_upstream #(
     wire [1:0]         kd  = hold_q[FW-1 -: 2];
     wire [VEL_W-1:0]   vl  = hold_q[FW-3 -: VEL_W];
     wire [AXIS_W-1:0]  ax  = hold_q[FW-3-VEL_W -: AXIS_W];
+    //  ⭐⭐ 2026-10-16：⭐ **本事件自带的音色**（⭐ 写侧锁存、⭐ 读侧取出 ✅）
+    wire [TIMBRE_W-1:0] tm = hold_q[FW-3-VEL_W-AXIS_W -: TIMBRE_W];
     wire [PHASE_W-1:0] inc = hold_q[PHASE_W-1:0];
 
     // ⭐ 类型：⭐ 只有 `kind==1` 是 note_off；⭐ on(0)/pluck(2) 都算 note_on ✅
@@ -243,7 +258,10 @@ module evt_upstream #(
     //     📌 布局：bit[7:6]=0（⭐ 再留 2 位）· bit[5:4]=音色 · bit[3:0]=轴号 ✅
     //     ⭐ **`axis` 只有 4 位**（0..15）⇒ ⭐ 低 4 位就是全部信息，⛔ 不损失 ✅
     //     ⚠️ 本字节参与 XOR 校验 ⇒ ⭐ 值变了校验自然跟着变，⛔ 校验逻辑不用动 ✅
-    wire [7:0] b_axis = {2'b0, evt_timbre_i, ax};
+    //     ⭐⭐ 2026-10-16：⭐ **音色改用 `tm`（⭐ 随事件锁存的那个）** ——
+    //        🔴 原来用**裸的 `evt_timbre_i`** ⇒ ⚠️ 组帧那一拍的值可能已是**下一条事件**的 ✅
+    //        📌 ⭐ 本 tb 判据 ⑪ 覆盖"音色真的进 `[5:4]`"（⭐ 非空洞 ✅）
+    wire [7:0] b_axis = {2'b0, tm, ax};
     wire [7:0] b_vel  = vl;
 
     //  ⭐⭐ 2026-10-14：⭐ **XOR 覆盖范围【改为含帧头 0xA5】**（⭐ 与 ESP32 侧对齐 ✅）

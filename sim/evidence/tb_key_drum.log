@@ -17,7 +17,7 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
 === tb_key_drum: keyboard-as-drums ===
   INFO: byte[0] = 0x6b (got=1)
 PASS: key_drum -- keyboard-as-drums maps 4 instruments by axis[3:2] and stays decoupled
-INFO: checks=101 errors=0
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:347: $finish called at 77270000 (1ps)
+INFO: checks=181 errors=0
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_key_drum.sv:460: $finish called at 77270000 (1ps)
 
 

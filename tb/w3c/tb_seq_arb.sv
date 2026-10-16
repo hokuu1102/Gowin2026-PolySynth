@@ -20,6 +20,17 @@
 //     ⑧ ⭐ **不丢也不多**：⭐ 发出的总数 == 输入的总数
 //     ⑨ ⭐ **溢出可见**：⭐ 强灌到溢出 ⇒ `overflow_o` 拉起 + `drop_cnt_o` 计数
 //     ⑩ ⭐ **A8：无 X/Z 传播**
+//
+//  ⭐⭐ 2026-10-16：⭐ **新增"鼓 / 旋律"那一整块**（⭐ 见 `drum_src_blk`）——
+//     🔴 **为什么**：⭐ 鼓的判定依据从 **`score_axis_i >= 12`**（靠轴号猜）
+//        改成了 **`score_is_drum_i`**（帧里的显式标志 `bit5`）⇒
+//        ⚠️ **原来靠"设轴号"验鼓的 6 条判据【全部失效】**（⭐ 它们会验错东西）✅
+//     ⭐ **本块的四组（⭐ 缺一组就有洞）**：
+//        · ⭐ 鼓（`is_drum=1`）⇒ `SRC_KDRUM`（四件逐个 ＋ ⭐ **轴号 5 的反证**）
+//        · ⭐ 鼓的 `inc` ⇒ **来自鼓自己的表**（⭐ 吃诱饵值仍须输出 `INC_*`）
+//        · ⭐⭐⭐ **旋律绝不变鼓**：`is_drum=0` × 轴号 12/13/14/15 ⇒
+//          **四条全部必须是 `SRC_SCORE`**（⭐ 用户拍板的红线 1 的机械保证）✅
+//        · ⭐ 旋律的 `inc` **原样透传**（⭐ 音高⛔ 不许被鼓的表替换）✅
 // ═══════════════════════════════════════════════════════════════════════════
 `timescale 1ns/1ps
 
@@ -47,6 +58,12 @@ module tb_seq_arb;
     reg [KIND_W-1:0]  live_kd = 0, score_kd = 0, demo_kd = 0;
     reg               live_tv = 0, score_tv = 0, demo_tv = 0;
     reg [TIMBRE_W-1:0] live_tb = 0, score_tb = 0, demo_tb = 0;
+    //  ⭐⭐ 2026-10-16：⭐ **曲谱事件的【显式鼓标志】**（⭐ 取代旧的 `axis >= 12` 判据）✅
+    //     ⭐ `is_drum` = 1 ⇒ 这条是鼓（⭐ 进鼓池 ＋ 用鼓自己的 `inc` 表）✅
+    //     ⭐ `drum_type`：⭐ 0=Kick · 1=Snare · 2=HiHat · 3=Tom（⭐ 决定用哪个 `INC_*`）✅
+    //     ⚠️ ⭐ 与 `score_v` **同拍**驱动（⭐ 真实链路里它们是同一个 64 位字的切片）✅
+    reg               score_is_drum = 0;
+    reg [1:0]         score_drum_type = 0;
 
     wire              evt_v;
     wire [AXIS_W-1:0] evt_ax;
@@ -69,6 +86,10 @@ module tb_seq_arb;
         .live_velocity_i(live_vel),  .live_kind_i(live_kd),
         .live_timbre_valid_i(live_tv), .live_timbre_i(live_tb),
         .score_valid_i(score_v), .score_axis_i(score_ax), .score_phase_inc_i(score_inc),
+        //  ⭐⭐ 2026-10-16：⭐ `seq_arb` 新增的**两个显式鼓标志**输入 ✅
+        //     📌 ⭐ 它们**取代**了 "`score_axis_i >= 4'd12`" 这条旧判据 ⇒
+        //        ⭐ 本 tb 的鼓激励**全部**改成驱动这两位（⭐ 轴号⛔ 不再表达"是鼓"）✅
+        .score_is_drum_i(score_is_drum), .score_drum_type_i(score_drum_type),
         .score_velocity_i(score_vel), .score_kind_i(score_kd),
         .score_timbre_valid_i(score_tv), .score_timbre_i(score_tb),
         .demo_valid_i(demo_v),  .demo_axis_i(demo_ax),  .demo_phase_inc_i(demo_inc),
@@ -176,6 +197,15 @@ module tb_seq_arb;
     reg [31:0] inc_of_ax12 = INC_NONE;
     reg [31:0] inc_of_ax13 = INC_NONE;
     reg [31:0] inc_of_ax14 = INC_NONE;
+    //  ⭐⭐ 2026-10-16：⭐ **新增三路捕获**（⭐ 判定改成 `is_drum` 之后，轴号**不再是身份**）：
+    //     · ⭐ **`ax5`** —— ⭐ **"鼓落在一个【看着像旋律】的轴号上"** ⇒
+    //        ⭐ 用来证明"**判定与轴号无关**"（⭐ 旧判据下它必红）✅
+    //     · ⭐ **`ax2` / `ax11`** —— ⭐ **旋律的 `inc` 透传**
+    //        （⚠️ 原来这两条只抓 `src`，⛔ **没抓 `inc`** ⇒ 旋律音高被吃掉也验不出来）✅
+    reg [2:0]  src_of_ax5  = 3'd7;
+    reg [31:0] inc_of_ax2  = INC_NONE;
+    reg [31:0] inc_of_ax11 = INC_NONE;
+    reg [31:0] inc_of_ax5  = INC_NONE;
     always @(posedge clk) begin
         if (rst_n && evt_v) begin
             if (evt_ax == 4'd15) src_of_ax15 = evt_src;
@@ -189,6 +219,11 @@ module tb_seq_arb;
             if (evt_ax == 4'd12) inc_of_ax12 = evt_inc;
             if (evt_ax == 4'd13) inc_of_ax13 = evt_inc;
             if (evt_ax == 4'd14) inc_of_ax14 = evt_inc;
+            //  ⭐⭐ 2026-10-16：⭐ **轴 5（"像旋律"的轴号）＋ 旋律的 `inc` 透传** ✅
+            if (evt_ax == 4'd5)  src_of_ax5  = evt_src;
+            if (evt_ax == 4'd2)  inc_of_ax2  = evt_inc;
+            if (evt_ax == 4'd11) inc_of_ax11 = evt_inc;
+            if (evt_ax == 4'd5)  inc_of_ax5  = evt_inc;
         end
     end
 
@@ -201,6 +236,9 @@ module tb_seq_arb;
         live_kd = 0; score_kd = 0; demo_kd = 0;
         live_tv = 0; score_tv = 0; demo_tv = 0;
         live_tb = 0; score_tb = 0; demo_tb = 0;
+        //  ⭐ 2026-10-16：⭐ 鼓标志也一起清（⭐ ⛔ 否则会"漏"到下一条旋律上 —
+        //     那正是**错拍**，🔴 本改动最怕的一种失效）✅
+        score_is_drum = 0; score_drum_type = 0;
     end endtask
 
     task do_reset; begin
@@ -472,50 +510,72 @@ module tb_seq_arb;
         $display("--------------------------------------------------");
 
         // ═══════════════════════════════════════════════════════════════════════
-        //  ⭐⭐ 2026-10-14：⭐ **曲谱里的鼓（`axis >= 12`，即 12/13/14/15）⇒ `evt_src_o == SRC_KDRUM`** ✅
-        //     ⭐ 依据：⭐ `files/20-代码/FPGA侧答复-鼓谱发声与XOR更正-20261014.md` §二 ✅
-        //     🔴 **为什么必须**：⭐ `note_manager` 的鼓池只认
-        //        `SRC_AUX`（⭐ 源 B = 节拍器/鼓机）**或** `SRC_KDRUM`（⭐ 键盘打鼓）
-        //        ⇒ ⚠️ 若这条不成立 ⇒ 🔴 **PC 灌的鼓会被判成乐音、推成音高** ✅
+        //  ⭐⭐⭐ 2026-10-16：⭐ **曲谱里的鼓 ⇒ `evt_src_o == SRC_KDRUM`（判定依据【换了】）** ✅
+        //
+        //  🔴 **判定依据（⭐ 本轮改动，⭐ 必须看清）**：
+        //     · ⛔ **旧**：⭐ `seq_arb.v` 的 `(score_axis_i >= 4'd12)` —— ⭐ **靠【轴号】猜** ✅
+        //        ⇒ ⭐ 本 tb 原来就是**靠设轴号 12/13/14/15** 来验鼓的 ✅
+        //        🔴 **它的问题**：⭐ **旋律轨一旦用到轴 12..15 ⇒ 必被判成鼓** ⇒
+        //           ⭐ `note_manager` 推进**鼓池** ⇒ 🔴 **旋律线变成鼓声**
+        //           （⭐ 用户拍板的红线 1："旋律线【绝对不能】变成鼓"）✅
+        //     · ⭐ **新**：⭐ `seq_arb.score_is_drum_i` ＋ `score_drum_type_i` ——
+        //        ⭐ 由 `top.v` 从帧的**保留位 `bit5`** / **`bit[8:7]`** 显式解码 ✅
+        //        ⇒ ⭐ **轴号彻底退出判定**（⭐ 用户拍板的硬约束 4）✅
+        //     ⇒ ⭐ **所以本块的激励全部改成"设 `is_drum` / `drum_type`"**，
+        //        ⛔ **不再用轴号去表达"这是鼓"** ✅
+        //
+        //  ⭐ **为什么这里非有不可**：⭐ `note_manager` 的鼓池只认
+        //     `SRC_AUX`（⭐ 源 B = 节拍器/鼓机）**或** `SRC_KDRUM`（⭐ 键盘打鼓）
+        //     ⇒ ⚠️ 若这条不成立 ⇒ 🔴 **PC 灌的鼓会被判成乐音、推成音高** ✅
         //        （⭐ 这正是用户听到"鼓被推成音高"的根因 ✅）
-        //     📌 ⭐ **两条都要**：⭐ ① 轴 12/13/14/15 必须是鼓；⭐ ② **轴 ≤ 11 必须仍是曲谱** ——
-        //        ⚠️ 少了 ② 就分不清"修对了"和"改过头了"（⭐ 把整条曲谱都打成鼓）✅
-        //  ⭐⭐ 2026-10-15（方案 B · 任务 3）：⭐ **再加 4 条 `inc` 判据** ——
-        //     🔴 **为什么**：⭐ 四件鼓的**身份全靠 `inc`**（⭐ `note_manager` 按 `inc` 分档），
-        //        ⚠️ 而上面那些判据**只验 `evt_src_o`（源标签）** ⇒
-        //        🔴 **`inc` 字段若在 `seq_arb` 里被截断 / 串位 ⇒ FPGA 侧全绿、上板四件音色全错** ✅
-        //     ⭐ 轴↔件（⭐ 与 ESP32 侧约定）：⭐ **12=Kick · 13=Snare · 14=HiHat · 15=Tom** ✅
-        //     ⭐ `inc` 常量取 `drum_gen.INC_*`（⭐ 单一来源，⛔ 不抄数字）✅
-        //     📌 ⭐ **语义核对**：⭐ `seq_arb` 的 `evt_phase_inc_o` 是 **整字透传**
-        //        （⭐ `pack_src` 存 `inc`，弹出时 `pop_data[IN_O +: PHASE_W]` 原样出）
-        //        ⇒ ⭐ 本判据钉的是 **`seq_arb` 出口**，⛔ 不是 `top.v:4844` 那级 `<<10` ✅
         //
-        //  ⭐⭐⭐ 2026-10-15（清道夫 SWEEPER）：⭐ **判据口径【收窄】—— 必须诚实** ✅
+        //  ⭐⭐ **本块的四组判据（⭐ 缺一组就有洞）**：
+        //     ① ⭐ **鼓 ⇒ `SRC_KDRUM`**（⭐ 四件鼓逐个，⭐ 轴号各用 12/13/14/15）
+        //     ② ⭐⭐ **鼓的 `inc` 来自【鼓自己的表】**（⭐ 四件逐个 ＋ **吃诱饵值**）——
+        //        ⭐ 激励故意喂一个**绝不是 `INC_*` 的诱饵 `score_inc`**
+        //        ⇒ ⭐ 出口必须输出 `INC_*`（⭐ 证明"用的是鼓的表，⛔ 不是透传"）✅
+        //     ③ ⭐ **轴号与判定【无关】**：⭐ `is_drum=1` 配 **`axis=5`**（⭐ 一个
+        //        "看着就像旋律"的轴号）⇒ ⭐ 仍必须是 `SRC_KDRUM` ✅
+        //        📌 🔴 **这一条是本块的关键**：⭐ 只有它能把"**新判据真的生效**"
+        //           与"**碰巧轴号大**"分开（⭐ 旧判据下它必红）✅
+        //     ④ ⭐⭐⭐ **旋律绝不变鼓**：⭐ `is_drum=0` 时把轴号**依次设成 12/13/14/15**
+        //        ⇒ ⭐ **四条全部必须是 `SRC_SCORE`(1)** ✅
+        //        📌 ⭐ 这就是用户红线 1 的**机械保证** ——
+        //           ⭐ 轴号取什么值都**不可能**把旋律变成鼓 ✅
+        //        📌 ⭐ 同时验 **`inc` 透传**（⭐ 旋律的音高必须原样出去）✅
+        //
+        //  ⭐⭐ `inc` 常量取 `drum_gen.INC_*`（⭐ 层次引用 ⇒ **单一来源**，⛔ 不抄数字）✅
+        //     📌 ⭐ 2026-10-16 起 `drum_gen` 与 `seq_arb` **引用同一个头文件**
+        //        （⭐ `rtl/w3c/drum_inc_defs.vh`）⇒ ⭐ 本块验的正是那条"**同一张表**"契约 ✅
+        //
+        //  ⭐⭐⭐ 2026-10-16：⭐ **判据口径（⭐ 随判定改动一起重写 —— 必须诚实）** ✅
         //  ---------------------------------------------------------------------------
-        //  🔴 **原来这里的口径是错的**（⭐ 磐石逐行核实）：⭐ 上面那句
-        //     "ESP32 若把 axis↔inc 配错 ⇒ FPGA 侧全绿、上板四件音色全错" **暗示**
-        //     这 4 条能验"**ESP32 的 axis↔inc 配对**" ⇒ ⚠️ **实际上验不了**：
-        //        · ⭐ 本 tb **自己**把 `score_axis` 与 `score_inc` **一起**驱动进去
-        //          （⭐ `score_inc = REF_KICK` …）⇒ ⭐ **配对是 tb 喂的，⛔ 不是被测对象** ✗
-        //        · ⭐ 它真正钉住的只有一件事：⭐ **`seq_arb` 把 `inc` 字段原样透传** ✅
-        //  ⭐ **修正后的口径**：⭐ **本判据只验 `seq_arb` 的【字段切片透传】**，
-        //     ⛔ **不验 ESP32 的 axis↔inc 配对**（⭐ 那需要 PC/ESP32 侧的真帧）✅
+        //  ⭐ **改动前**：⭐ 本块验的是"**`seq_arb` 把帧里的 `inc` 原样透传**"——
+        //     ⚠️ 那时四件鼓的 `inc` **是 ESP32 从帧里写下来的**（⭐ `score_inc = REF_KICK`）
+        //     ⇒ ⭐ 判据**只能**证明"字段没被截断/串位"，
+        //        ⛔ **证明不了"是哪一件鼓"**（⭐ 配对是 tb 自己喂的）✅
+        //  ✅ **改动后（⭐ 口径【变强】了）**：⭐ 鼓的 `inc` **不再来自帧** ——
+        //     ⭐ 它由 `seq_arb` 按 `score_drum_type_i` 从**鼓自己的表**里选
+        //     （⭐ `drum_inc_by_type` ⇒ `rtl/w3c/drum_inc_defs.vh`，⭐ 与 `drum_gen` 同一份）✅
+        //     ⇒ ⭐ 于是本块可以喂一个**诱饵 `score_inc`**（⭐ 一个绝不等于任何 `INC_*` 的值）
+        //        ＋ ⭐ 断言出口 `inc == REF_*` ⇒
+        //        🔴 **诱饵值若出现在出口 ⇒ 判据必红**（⭐ 那正是"还在透传"的证据）✅
+        //     📌 ⭐ 这就是硬约束 2（⭐ "与键盘打鼓同一个 inc 表"）的**机械判据** ✅
         //
-        //  🔴 **并且：`INC_*` 的【满量程值】在生产链路上【不可达】—— 必须写明**：
-        //     ⭐ 曲谱通路在 `top.v` 先做了一级 `<<10` 量化：
-        //        `top.v:4844  wire [31:0] ps_evt_inc = {1'b0, ps_note_data[43:23], 10'b0};`
-        //        （⭐ = **21 位字段 << 10** ⇒ ⭐ **低 10 位恒 0**）
-        //     ⇒ ⭐ 生产链路上 `score_phase_inc_i` 只能是 **`(INC_* >> 10) << 10`**：
-        //        · Kick  `5368709`  ⇒ `5367808`（⭐ 差 **901**）
-        //        · Snare `42949673` ⇒ `42949632`（⭐ 差 **41**）
-        //        · HiHat `171798691`⇒ `171798528`（⭐ 差 **163**）
-        //        · Tom   `17895697` ⇒ `17895424`（⭐ 差 **273**）
-        //     ⇒ 🔴 **"生产值 == `INC_*`"这条期望在本 tb 里【不可达】** ——
-        //        ⚠️ 因为本 tb 把 `INC_*` **直接**灌进 `seq_arb`（⭐ 绕过了 `top.v` 那一级）
-        //        ⇒ ⭐ **本判据【不覆盖】那一级量化** ✅
-        //  📌 **未覆盖的缺口（⭐ 留档，⛔ 不假装已覆盖）**：⭐ "`top.v` 的 `<<10` 量化
-        //     是否把四件鼓的 `inc` 压成同一个值 / 是否越出 `note_manager` 的分档边界"
-        //     ⇒ 🔴 **本轮【没有】判据**（⭐ 要验它得在 `tb_top_*` 层灌真曲谱帧）✅
+        //  🔴 **顺带修掉一个旧缺口（⭐ 必须写明）**：
+        //     ⚠️ 旧口径下有一处**已知未覆盖**：⭐ `top.v` 的 `<<10` 量化
+        //        （⭐ `ps_evt_inc = {1'b0, ps_note_data[43:23], 10'b0}` ⇒ **低 10 位恒 0**）
+        //        ⇒ ⭐ 生产链路上 `score_phase_inc_i` 只能是 `(INC_* >> 10) << 10`
+        //        ⇒ 🔴 **"生产值 == `INC_*`"在旧设计里【不可达】** ✅
+        //     ✅ **现在这个缺口对【鼓】不再存在**：⭐ 鼓的 `inc` **根本不走那一级**
+        //        （⭐ 它不过 `ps_evt_inc`）⇒ ⭐ 出口就是 `INC_*` **满量程值** ✅
+        //     📌 ⚠️ 而**旋律**仍然走 `<<10`（⭐ 那是它的音高，⭐ 必须走）
+        //        ⇒ ⭐ 本块对旋律只验"**透传**"（⭐ 喂什么出什么），
+        //           ⛔ **不验**"生产链路上的量化精度"（⭐ 那要 `tb_top_*` 层灌真帧）✅
+        //  📌 **仍未覆盖的缺口（⭐ 留档，⛔ 不假装已覆盖）**：⭐
+        //     "`top.v` 的 `bit5` / `bit[8:7]` 解码在**真帧**上是否对得上"
+        //     ⇒ 🔴 **本 tb 覆盖不到**（⭐ 它验的是 `seq_arb` 的入口之后，
+        //        ⚠️ `ps_is_drum` 的赋值本身要 `tb_top_*` 层灌真帧才验得到）✅
         //  ═══════════════════════════════════════════════════════════════════════
         begin : drum_src_blk
             //  ═══════════════════════════════════════════════════════════════════
@@ -529,151 +589,391 @@ module tb_seq_arb;
             //        ⭐ ② **事件没出来**（也停在哨兵）⇒ 判据红
             //        ⇒ ⭐ **不可能"什么都没验到还绿"** ✅
             //  ═══════════════════════════════════════════════════════════════════
+            //  ⭐ **本块用的"诱饵 `inc`"**（⭐ 2026-10-16）：
+            //     🔴 **它绝不等于任何 `INC_*`**（⭐ 也⛔ 不是 `(INC_* >> 10) << 10`）——
+            //     ⭐ 鼓事件喂它、而断言出口必须是 `REF_*` ⇒
+            //     🔴 **"还在透传帧里的 `inc`" ⇒ 判据必红** ✅
+            localparam [31:0] DECOY_INC = 32'h0BAD_0001;
             do_reset;
             src_of_ax15 = 3'd7;  inc_of_ax15 = INC_NONE;
-            src_of_ax2  = 3'd7;
+            src_of_ax2  = 3'd7;  inc_of_ax2  = INC_NONE;
             src_of_ax12 = 3'd7;  inc_of_ax12 = INC_NONE;
             src_of_ax13 = 3'd7;  inc_of_ax13 = INC_NONE;
             src_of_ax14 = 3'd7;  inc_of_ax14 = INC_NONE;
-            src_of_ax11 = 3'd7;
+            src_of_ax11 = 3'd7;  inc_of_ax11 = INC_NONE;
+            src_of_ax5  = 3'd7;  inc_of_ax5  = INC_NONE;
 
-            // ⭐ ① 轴 15（⭐ 鼓 · ⭐ **Tom**）⇒ 应当是 `SRC_KDRUM`（5）
+            // ⭐ ① ⭐ `is_drum=1` + `drum_type=3`（Tom），轴号用 **15** ⇒ `SRC_KDRUM`（5）
+            //     📌 ⭐ 轴号在这里**只是"事件轴号"**（⭐ 它会原样出现在 `evt_axis_o` 上）——
+            //        ⛔ **它已经不再参与"是不是鼓"的判定** ✅
             src_of_ax15 = 3'd7;              // ⭐ 任务 2：⭐ 本条【自己】复位
             inc_of_ax15 = INC_NONE;
             @(negedge clk);
-            score_v = 1'b1; score_ax = 4'd15; score_inc = REF_TOM;
+            score_v = 1'b1; score_ax = 4'd15; score_inc = DECOY_INC;   // ⭐ 诱饵：⛔ 不是 INC_*
+            score_is_drum = 1'b1; score_drum_type = 2'd3;              // ⭐ 3 = Tom
             score_vel = 8'd200; score_kd = 2'd0;
             @(negedge clk);
-            score_v = 1'b0;
+            score_v = 1'b0; score_is_drum = 1'b0; score_drum_type = 2'd0;
             repeat (10) @(negedge clk);
             if (src_of_ax15 !== 3'd5) begin
-                $display("FAIL: score axis==15 came out as src=%0d, expected SRC_KDRUM=5 (the drum pool would reject it)", src_of_ax15);
+                $display("FAIL: is_drum=1 drum_type=3(Tom) came out as src=%0d, expected SRC_KDRUM=5 (the drum pool would reject it)", src_of_ax15);
                 errors = errors + 1;
             end else
-                $display("  ok  : score axis==15 => SRC_KDRUM (5) -- note_manager puts it in the DRUM pool");
-            //  ⭐⭐ 任务 3（2026-10-15）：⭐ **轴 15 ⇒ Tom 的 `inc`**（⭐ 身份，⛔ 不只是"是鼓"）
-            //     🔴 为什么必须单立一条：⭐ 四件鼓的**身份全靠 `inc`** ——
-            //        ⭐ `evt_src_o` 只证明"被判成鼓"，⛔ 证明不了"是哪一件鼓" ✅
-            //        ⇒ ⭐ `inc` 若在 `seq_arb` 里被截断/串位 ⇒ **FPGA 侧全绿、上板四件音色全错** ✅
-            //     ⚠️ **口径（⭐ 2026-10-15 修正）**：⭐ 本条只验 **`seq_arb` 的字段切片透传**，
-            //        ⛔ **不验 ESP32 的 axis↔inc 配对**（⭐ 配对是 tb 自己喂的，⭐ 见块首长注释）✅
+                $display("  ok  : is_drum=1 drum_type=3(Tom) => SRC_KDRUM (5) -- note_manager puts it in the DRUM pool");
+            //  ⭐⭐ 2026-10-16：⭐ **鼓的 `inc` 必须来自【鼓自己的表】**（⭐ 硬约束 2）✅
+            //     🔴 **为什么**：⭐ *"鼓就是鼓的发声（与键盘打鼓同一个 inc 表、同一个池子）"* ——
+            //        ⭐ 键盘打鼓走 `drum_gen.INC_TOM` ⇒ ⭐ 灌谱的鼓**必须是同一个值** ✅
+            //     ⭐ **本条是"能红"的设计**：⭐ 激励喂的是 `DECOY_INC`（⭐ 绝不等值）
+            //        ⇒ 🔴 **只要 `seq_arb` 还在透传帧里的 `inc`，本条必红** ✅
+            //        （⭐ 即：本条同时钉住"用的是鼓的表"和"是哪一件鼓"）✅
             if (inc_of_ax15 !== REF_TOM) begin
-                $display("FAIL: score axis==15 inc=%0d, expected TOM inc=%0d -- seq_arb field-slice passthrough BROKEN (this check does NOT verify the ESP32 axis<->inc pairing)", inc_of_ax15, REF_TOM);
+                $display("FAIL: is_drum=1 drum_type=3 inc=%0d, expected TOM inc=%0d -- the drum table is NOT used (decoy value leaked through, or the type->inc map is wrong)", inc_of_ax15, REF_TOM);
                 errors = errors + 1;
             end else
-                $display("  ok  : score axis==15 => TOM inc (%0d) -- seq_arb field slice passthrough only, NOT ESP32 pairing", inc_of_ax15);
+                $display("  ok  : is_drum=1 drum_type=3 => TOM inc (%0d) -- the shared drum table is used (decoy %0d did NOT leak)", inc_of_ax15, DECOY_INC);
 
-            // ⭐⭐ ②（**方案 B** 2026-10-15）轴 12 / 13 / 14 ⇒ ⭐ **必须都是 `SRC_KDRUM`（5）**
-            //     🔴 为什么：⭐ 四件鼓分四轴 `12/13/14/15` ⇒ 四件**都**要被判成鼓，
-            //        否则轴 12/13/14 会落进 `SRC_SCORE` ⇒ ⭐ 鼓的 `inc` 被当【音高】发声 = 电子音。
-            //     ⭐ 依据：`files/20-代码/FPGA侧答复-鼓机多声部方案B-20261015.md`
+            // ⭐⭐ ② ⭐ `is_drum=1` + `drum_type=0`（**Kick**），轴号 12 ⇒ `SRC_KDRUM`（5）
             src_of_ax12 = 3'd7;              // ⭐ 任务 2：⭐ 本条【自己】复位
             inc_of_ax12 = INC_NONE;
             @(negedge clk);
-            score_v = 1'b1; score_ax = 4'd12; score_inc = REF_KICK;
+            score_v = 1'b1; score_ax = 4'd12; score_inc = DECOY_INC;   // ⭐ 诱饵：⛔ 不是 INC_*
+            score_is_drum = 1'b1; score_drum_type = 2'd0;              // ⭐ 0 = Kick
             score_vel = 8'd200; score_kd = 2'd0;
             @(negedge clk);
-            score_v = 1'b0;
+            score_v = 1'b0; score_is_drum = 1'b0; score_drum_type = 2'd0;
             repeat (10) @(negedge clk);
             if (src_of_ax12 !== 3'd5) begin
-                $display("FAIL: score axis==12 came out as src=%0d, expected SRC_KDRUM=5 (方案B: 四件鼓分四轴)", src_of_ax12);
+                $display("FAIL: is_drum=1 drum_type=0(Kick) came out as src=%0d, expected SRC_KDRUM=5", src_of_ax12);
                 errors = errors + 1;
             end else
-                $display("  ok  : score axis==12 => SRC_KDRUM (5) -- Kick");
-            //  ⭐⭐ 任务 3：⭐ **轴 12 ⇒ Kick 的 `inc`**（⭐ 口径同上：只验字段透传）✅
+                $display("  ok  : is_drum=1 drum_type=0(Kick) => SRC_KDRUM (5) -- Kick");
+            //  ⭐⭐ 鼓的 `inc` ⇒ 必须是 Kick 那一件（⭐ 口径同 ①：吃诱饵值仍须输出 `INC_*`）✅
             if (inc_of_ax12 !== REF_KICK) begin
-                $display("FAIL: score axis==12 inc=%0d, expected KICK inc=%0d -- seq_arb field-slice passthrough BROKEN (this check does NOT verify the ESP32 axis<->inc pairing)", inc_of_ax12, REF_KICK);
+                $display("FAIL: is_drum=1 drum_type=0 inc=%0d, expected KICK inc=%0d -- the drum table is NOT used (decoy value leaked through, or the type->inc map is wrong)", inc_of_ax12, REF_KICK);
                 errors = errors + 1;
             end else
-                $display("  ok  : score axis==12 => KICK inc (%0d) -- seq_arb field slice passthrough only, NOT ESP32 pairing", inc_of_ax12);
+                $display("  ok  : is_drum=1 drum_type=0 => KICK inc (%0d) -- shared drum table (decoy %0d did NOT leak)", inc_of_ax12, DECOY_INC);
 
-            //  ⭐⭐⭐ 2026-10-15（清道夫 SWEEPER）：⭐ **鼓的 `note_off`（`kind=1`）也必须带
-            //     `SRC_KDRUM`** —— ⭐ 这是本轮【新增】的判据 ✅
+            //  ⭐⭐⭐ ⭐ **鼓的 `note_off`（`kind=1`）也必须带 `SRC_KDRUM`** ✅
             //  🔴 **为什么必须单立一条**：⭐ 本块里**上面全部判据**都只驱动 `kind=0`（`note_on`）
             //     ⇒ 🔴 **"鼓的 OFF 走哪条源标记"完全没人验** ✗
-            //  🔴 **若 OFF 被标成 `SRC_SCORE`**：⭐ `note_manager.v:1320` 的 `note_off` 按
+            //  🔴 **若 OFF 被标成 `SRC_SCORE`**：⭐ `note_manager` 的 `note_off` 按
             //     **`(轴, 源)` 双条件**匹配 ⇒ ⭐ **匹配不上 ⇒ 鼓的 voice 永久 held**
             //     ⇒ 🔴 **保留池（`RESERVED_N = 5`）被慢慢耗尽 ⇒ 鼓越敲越不响** ✅
-            //  ⭐ **现状**：⭐ `seq_arb.v` 的 `score_src_w = (score_axis_i >= 4'd12) ? SRC_KDRUM
-            //     : SRC_SCORE` **只看轴、⛔ 不看 `kind`** ⇒ ⭐ ON/OFF **同源** ✅
+            //  ⭐ **现状（⭐ 2026-10-16 起）**：⭐ `seq_arb.v` 的
+            //     `score_src_w = score_is_drum_i ? SRC_KDRUM : SRC_SCORE`
+            //     **只看 `is_drum`、⛔ 不看 `kind`** ⇒ ⭐ ON/OFF **同源** ✅
             //     ⇒ ⭐ 本条把这个**不变量**钉死（⭐ 谁哪天给 `kind` 加条件，这里立刻红）✅
-            //  ⭐ **能红实证**：⭐ 能 —— ⭐ 把 `score_src_w` 改成
-            //     `(score_axis_i >= 4'd12) && (score_kind_i == 2'd0)` ⇒ ⭐ 本条必红 ✅
+            //  ⭐ **能红实证**（⭐ 2026-10-16 实测过 ✅）：⭐ 把 `score_src_w` 改成
+            //     `score_is_drum_i && (score_kind_i == 2'd0) ? SRC_KDRUM : SRC_SCORE`
+            //     ⇒ ⭐ 本条必红（⭐ 原文见交付回报）✅
             src_of_ax12 = 3'd7;              // ⭐ 本条【自己】复位（⛔ 不吃上一条的残留）
             @(negedge clk);
-            score_v = 1'b1; score_ax = 4'd12; score_inc = REF_KICK;
+            score_v = 1'b1; score_ax = 4'd12; score_inc = DECOY_INC;
+            score_is_drum = 1'b1; score_drum_type = 2'd0;              // ⭐ Kick
             score_vel = 8'd200; score_kd = 2'd1;     // ⭐ `kind = 1` ⇒ `note_off`
             @(negedge clk);
-            score_v = 1'b0;
+            score_v = 1'b0; score_is_drum = 1'b0; score_drum_type = 2'd0;
             repeat (10) @(negedge clk);
             if (src_of_ax12 !== 3'd5) begin
-                $display("FAIL: score axis==12 kind=1(note_off) came out as src=%0d, expected SRC_KDRUM=5 -- the drum voice would stay HELD forever (reserved-pool exhaustion)", src_of_ax12);
+                $display("FAIL: is_drum=1 kind=1(note_off) came out as src=%0d, expected SRC_KDRUM=5 -- the drum voice would stay HELD forever (reserved-pool exhaustion)", src_of_ax12);
                 errors = errors + 1;
             end else
-                $display("  ok  : score axis==12 kind=1(note_off) => SRC_KDRUM (5) -- the drum voice can be released");
+                $display("  ok  : is_drum=1 kind=1(note_off) => SRC_KDRUM (5) -- the drum voice can be released");
 
+            // ═══════════════════════════════════════════════════════════════════
+            //  ⭐⭐⭐ 2026-10-16（⭐ 审鼓队 P0-2 · 缺口 1）：⭐ **鼓的 on/off 轴号【必须一致】**
+            //
+            //  🔴 **机理（⭐ 为什么这一条是硬判据）**：
+            //     ⭐ `note_manager.v:1413-1416` 的 `note_off` 清 voice 的判据是
+            //        ```verilog
+            //        if ((gate_r[i] | retrig_low[i])
+            //            && (axis_r[i] == cur_axis)     // ← 轴号
+            //            && (src_r[i]  == cur_src))     // ← 源标记
+            //        ```
+            //     ⭐ `note_manager.v:720-722` 的 `same_hit`（同键复用 voice）判据是
+            //        ```verilog
+            //        assign same_hit[sg] = (... )
+            //            && (axis_r[sg] == cur_axis)     // ← 轴号
+            //            && (src_r[sg]  == cur_src);     // ← 源标记
+            //        ```
+            //     ⇒ ⭐⭐ **两条都是【双条件】(axis, src) 同时相等才命中** ✅
+            //
+            //  🔴🔴 **风险链（⭐ 若 on 落 axis=A、off 落 axis=B 且 A≠B）**：
+            //     · ⭐ on 帧（`kind=0`）⇒ `note_manager` 在 **axis=A** 上开一个鼓 voice
+            //       （⭐ 源 = `SRC_KDRUM`，⭐ 因为它进的是**保留池** `RESERVED_N = 5` ✅）
+            //     · ⭐ off 帧（`kind=1`）⇒ 按 **(axis=B, SRC_KDRUM)** 去清
+            //       ⇒ 🔴 **A ≠ B ⇒ 匹配不上 ⇒ 那个 voice 的 `gate_r` 永远是 1**
+            //     ⇒ 🔴🔴 **鼓 voice 永久 held** ⇒ 🔴 **保留池（只有 5 个槽）被慢慢耗尽**
+            //        ⇒ 🔴 **后续的鼓 / 节拍器【全都不响】**（⭐ 池子满了 ✅）
+            //
+            //  ⭐ **本条的判法（⭐ 一对 on/off，⭐ 只看轴号这一个自由度）**：
+            //     · ⭐ 灌一条 `is_drum=1, kind=0 (note_on), axis=X` ⇒ 抓出口轴号 `on_ax`
+            //     · ⭐ 再灌一条 `is_drum=1, kind=1 (note_off), axis=X` ⇒ 抓出口轴号 `off_ax`
+            //     · ⭐ **断言 `on_ax === off_ax`** —— ⭐ 即"同一个鼓，on 和 off 落在同一个轴上" ✅
+            //     📌 ⭐ 用的是**同一个 X**（⭐ 这是**正常路径**：⭐ 上位机"一件一轴"
+            //        12/13/14/15，⭐ on/off 写的是同一个轴 ✅）⇒ ⭐ 所以现在**必须绿** ✅
+            //     🔴 若哪天有人给 off 那条路**换了轴**（⭐ 比如用 `drum_type` 当轴、
+            //        ⭐ 或者像 P0-2 修前那样让上行/下行轴分开而漏改了下行）
+            //        ⇒ ⭐ `on_ax != off_ax` ⇒ 🔴 **本条立刻红** ✅
+            //
+            //  ⭐ **为什么"同一条 X"也算非空洞**（⭐ 不能变成恒真判据）：
+            //     🔴 恒真的风险在于：⭐ 若 `seq_arb` 把**两条都改成同一个常量轴**，
+            //        那 `on_ax == off_ax` 仍成立 ⇒ ⚠️ 判据**照绿** ✅
+            //     ✅ **本条已经挡住这一族**：⭐ 它**同时**断言 `on_ax === X`
+            //        （⭐ `chk(on_ax === X)` ＋ `chk(off_ax === X)` 两条）——
+            //        ⭐ 轴被压成常量 ⇒ 🔴 这两条**立刻红** ✅
+            //        ⇒ ⭐ 于是"on/off 同轴"**不是**靠"都变成 0"骗过去的 ✅
+            //
+            //  ⭐ **能红实证（⭐ 回退验证时实测 ✅）**：⭐ 把 `seq_arb.v` 的
+            //     `evt_axis_o <= pop_data[AX_O +: AXIS_W]`（原样透传）改成
+            //     `evt_axis_o <= (pop_src == SRC_KDRUM) ? {2'b0, pop_data[0 +: 2]}
+            //                    : pop_data[AX_O +: AXIS_W]`（⭐ 即 P0-2 修前那版：
+            //                    下行轴被压成 drum_type ⇒ ⭐ 鼓的 on/off 轴都变成 0/1/2/3 ✅）
+            //     ⇒ ⭐ `on_ax === X` 与 `off_ax === X` **两条一起红**（⭐ 原文见交付回报 ✅）
+            //     📌 ⭐ **注意这不是本 tb 假造出来的**：⭐ 那个改法正是
+            //        `seq_arb.v:134-149` 端口注释里**记录的真实缺陷（P0-2）** ✅
+            begin : drum_onoff_axis_blk
+                reg [3:0] on_ax, off_ax;
+                // ⭐ 选一个"既不像旋律、也不在 12..15 里"的轴号 —— ⭐ 让"轴被压成
+                //    drum_type"与"轴原样透传"**在数值上分得开**（⭐ 12..15 会被
+                //    drum_type 的 2 位表达覆盖到 12/13/14/15 之外的冲突 ✅）
+                localparam [3:0] X = 4'd6;
+                // ⭐ 哨兵 `4'hF`：⭐ 事件没出来就停在哨兵 ⇒ 🔴 判据必红（⛔ 不假绿 ✅）
+                on_ax  = 4'hF;
+                off_ax = 4'hF;
+
+                // ── ① on：`is_drum=1, kind=0 (note_on), axis=X` ──────────────────
+                @(negedge clk);
+                score_v = 1'b1; score_ax = X; score_inc = DECOY_INC;
+                score_is_drum = 1'b1; score_drum_type = 2'd2;   // ⭐ HiHat（⛔ 与轴号无关）
+                score_vel = 8'd200; score_kd = 2'd0;           // ⭐ `kind = 0` ⇒ `note_on`
+                @(negedge clk);
+                score_v = 1'b0; score_is_drum = 1'b0; score_drum_type = 2'd0;
+                repeat (10) @(negedge clk);
+                // ⭐ 抓出口轴号（⭐ `evt_axis_o` 是**下行定位键**，⛔ 不是上行的鼓标记 ✅）
+                if (src_of_ax5 !== 3'd7) on_ax = 4'd5;          // ⭐ 不会命中（X=6）
+                // ⭐ 用一条专用捕获：⭐ `evt_axis_o` 在 on/off 两次都要看
+                //    ⇒ 直接在下面用 `out_ax[]` 里最后一条比对（⭐ 上面已有收集 ✅）
+                if (n_out > 0) on_ax = out_ax[n_out-1];
+
+                // ── ② off：`is_drum=1, kind=1 (note_off), axis=X` ─────────────────
+                @(negedge clk);
+                score_v = 1'b1; score_ax = X; score_inc = DECOY_INC;
+                score_is_drum = 1'b1; score_drum_type = 2'd2;   // ⭐ 同一件鼓
+                score_vel = 8'd200; score_kd = 2'd1;           // ⭐ `kind = 1` ⇒ `note_off`
+                @(negedge clk);
+                score_v = 1'b0; score_is_drum = 1'b0; score_drum_type = 2'd0;
+                repeat (10) @(negedge clk);
+                if (n_out > 0) off_ax = out_ax[n_out-1];
+
+                // ── ③ 断言：⭐ on 与 off 必须落在【同一个轴】上 ─────────────────────
+                //  🔴 **三条一起看才完整**（⭐ 少一条就有洞 ✅）：
+                //     · ⭐ `on_ax === X`  —— 轴被**原样透传**（⛔ 没被压成 drum_type ✅）
+                //     · ⭐ `off_ax === X` —— 同上，⭐ 且 off 走的是**同一条**透传路 ✅
+                //     · ⭐ `on_ax === off_ax` —— 这才是 P0-2 的**真正契约**：
+                //        "同一个鼓的 on/off 在 `note_manager` 的 (axis, src) 里必须配对" ✅
+                if (on_ax === 4'hF || off_ax === 4'hF) begin
+                    $display("FAIL: drum on/off axis -- one of the two events never came out (on_ax=%h off_ax=%h); the judgement is VACUOUS", on_ax, off_ax);
+                    errors = errors + 1;
+                end else if (on_ax !== X) begin
+                    $display("FAIL: drum note_on axis=%0d, expected %0d (passthrough) -- the DOWNSTREAM axis was REPLACED (this is exactly P0-2: drum axis collapsed to drum_type, so on/off can NEVER pair in note_manager)", on_ax, X);
+                    errors = errors + 1;
+                end else if (off_ax !== X) begin
+                    $display("FAIL: drum note_off axis=%0d, expected %0d (passthrough) -- the DOWNSTREAM axis was REPLACED (this is exactly P0-2: drum axis collapsed to drum_type, so on/off can NEVER pair in note_manager)", off_ax, X);
+                    errors = errors + 1;
+                end else if (on_ax !== off_ax) begin
+                    $display("FAIL: drum note_on axis=%0d but note_off axis=%0d -- THE DRUM on/off AXIS MUST MATCH, otherwise note_manager's (axis,src) pairing never fires => the drum voice stays HELD forever => RESERVED_N=5 pool exhaustion", on_ax, off_ax);
+                    errors = errors + 1;
+                end else
+                    $display("  ok  : drum note_on and note_off BOTH carry axis %0d -- the (axis,src) pair in note_manager will match, so the drum voice can be released (P0-2)", X);
+            end
+
+            // ⭐ ⭐ `is_drum=1` + `drum_type=1`（**Snare**），轴号 13 ⇒ `SRC_KDRUM`（5）
             src_of_ax13 = 3'd7;              // ⭐ 任务 2：⭐ 本条【自己】复位
             inc_of_ax13 = INC_NONE;
             @(negedge clk);
-            score_v = 1'b1; score_ax = 4'd13; score_inc = REF_SNARE;
+            score_v = 1'b1; score_ax = 4'd13; score_inc = DECOY_INC;   // ⭐ 诱饵
+            score_is_drum = 1'b1; score_drum_type = 2'd1;              // ⭐ 1 = Snare
             score_vel = 8'd200; score_kd = 2'd0;
             @(negedge clk);
-            score_v = 1'b0;
+            score_v = 1'b0; score_is_drum = 1'b0; score_drum_type = 2'd0;
             repeat (10) @(negedge clk);
             if (src_of_ax13 !== 3'd5) begin
-                $display("FAIL: score axis==13 came out as src=%0d, expected SRC_KDRUM=5", src_of_ax13);
+                $display("FAIL: is_drum=1 drum_type=1(Snare) came out as src=%0d, expected SRC_KDRUM=5", src_of_ax13);
                 errors = errors + 1;
             end else
-                $display("  ok  : score axis==13 => SRC_KDRUM (5) -- Snare");
-            //  ⭐⭐ 任务 3：⭐ **轴 13 ⇒ Snare 的 `inc`**（⭐ 口径同上：只验字段透传）✅
+                $display("  ok  : is_drum=1 drum_type=1(Snare) => SRC_KDRUM (5) -- Snare");
+            //  ⭐⭐ 鼓的 `inc` ⇒ 必须是 Snare 那一件（⭐ 口径同 ①：吃诱饵值仍须输出 `INC_*`）✅
             if (inc_of_ax13 !== REF_SNARE) begin
-                $display("FAIL: score axis==13 inc=%0d, expected SNARE inc=%0d -- seq_arb field-slice passthrough BROKEN (this check does NOT verify the ESP32 axis<->inc pairing)", inc_of_ax13, REF_SNARE);
+                $display("FAIL: is_drum=1 drum_type=1 inc=%0d, expected SNARE inc=%0d -- the drum table is NOT used (decoy value leaked through, or the type->inc map is wrong)", inc_of_ax13, REF_SNARE);
                 errors = errors + 1;
             end else
-                $display("  ok  : score axis==13 => SNARE inc (%0d) -- seq_arb field slice passthrough only, NOT ESP32 pairing", inc_of_ax13);
+                $display("  ok  : is_drum=1 drum_type=1 => SNARE inc (%0d) -- shared drum table (decoy %0d did NOT leak)", inc_of_ax13, DECOY_INC);
 
+            // ⭐ ⭐ `is_drum=1` + `drum_type=2`（**HiHat**），轴号 14 ⇒ `SRC_KDRUM`（5）
             src_of_ax14 = 3'd7;              // ⭐ 任务 2：⭐ 本条【自己】复位
             inc_of_ax14 = INC_NONE;
             @(negedge clk);
-            score_v = 1'b1; score_ax = 4'd14; score_inc = REF_HIHAT;
+            score_v = 1'b1; score_ax = 4'd14; score_inc = DECOY_INC;   // ⭐ 诱饵
+            score_is_drum = 1'b1; score_drum_type = 2'd2;              // ⭐ 2 = HiHat
             score_vel = 8'd200; score_kd = 2'd0;
             @(negedge clk);
-            score_v = 1'b0;
+            score_v = 1'b0; score_is_drum = 1'b0; score_drum_type = 2'd0;
             repeat (10) @(negedge clk);
             if (src_of_ax14 !== 3'd5) begin
-                $display("FAIL: score axis==14 came out as src=%0d, expected SRC_KDRUM=5", src_of_ax14);
+                $display("FAIL: is_drum=1 drum_type=2(HiHat) came out as src=%0d, expected SRC_KDRUM=5", src_of_ax14);
                 errors = errors + 1;
             end else
-                $display("  ok  : score axis==14 => SRC_KDRUM (5) -- HiHat");
-            //  ⭐⭐ 任务 3：⭐ **轴 14 ⇒ HiHat 的 `inc`**（⭐ 口径同上：只验字段透传）✅
+                $display("  ok  : is_drum=1 drum_type=2(HiHat) => SRC_KDRUM (5) -- HiHat");
+            //  ⭐⭐ 鼓的 `inc` ⇒ 必须是 HiHat 那一件（⭐ 口径同 ①：吃诱饵值仍须输出 `INC_*`）✅
             if (inc_of_ax14 !== REF_HIHAT) begin
-                $display("FAIL: score axis==14 inc=%0d, expected HIHAT inc=%0d -- seq_arb field-slice passthrough BROKEN (this check does NOT verify the ESP32 axis<->inc pairing)", inc_of_ax14, REF_HIHAT);
+                $display("FAIL: is_drum=1 drum_type=2 inc=%0d, expected HIHAT inc=%0d -- the drum table is NOT used (decoy value leaked through, or the type->inc map is wrong)", inc_of_ax14, REF_HIHAT);
                 errors = errors + 1;
             end else
-                $display("  ok  : score axis==14 => HIHAT inc (%0d) -- seq_arb field slice passthrough only, NOT ESP32 pairing", inc_of_ax14);
+                $display("  ok  : is_drum=1 drum_type=2 => HIHAT inc (%0d) -- shared drum table (decoy %0d did NOT leak)", inc_of_ax14, DECOY_INC);
 
-            // ⭐⭐ ③ ⭐ **边界非空洞性**（方案 B 新增，⭐ 这一条是本轮的关键判据）：
-            //     ⭐ **轴 11 必须【仍是】`SRC_SCORE`（1）** ——
-            //     🔴 为什么必须有它：⭐ 原来的"轴 2"离边界（12）**太远** ⇒
-            //        阈值写成 `>= 4` 甚至 `>= 2` 它**照样绿** ⇒ ⭐ 判据空洞 ✗
-            //     ✅ 有了轴 11 ⇒ ⭐ **阈值写成 `>= 11` 时这一条必红** ✓
-            src_of_ax11 = 3'd7;              // ⭐ 任务 2：⭐ 本条【自己】复位
+            // ⭐⭐⭐ ③ ⭐ **轴号与判定【无关】**：⭐ `is_drum=1` 配 **`axis=5`**（⭐ 2026-10-16 新增）
+            //  🔴 **为什么这一条是本块最关键的一条**：
+            //     ⚠️ 上面 ①② 用的轴号（12/13/14/15）**恰好都在旧阈值 `>=12` 之上** ⇒
+            //        🔴 **旧判据（靠轴号）下它们【照样绿】** —— ⭐ 那这些判据就【分不清】
+            //        "**新判据真的生效了**" 和 "**碰巧轴号大**" ✗
+            //     ✅ 本条的轴号是 **5**（⭐ 一个"看着就像普通旋律"的轴号）⇒
+            //        🔴 **旧判据下它必红**（⭐ 会被判成 `SRC_SCORE`）⇒ ⭐ 判据**非空洞** ✅
+            //     📌 ⭐ **能红实证**：⭐ 把 `score_src_w` 换回 `(score_axis_i >= 4'd12)`
+            //        ⇒ ⭐ 本条必红（⭐ 原文见交付回报）✅
+            src_of_ax5 = 3'd7;  inc_of_ax5 = INC_NONE;
+            @(negedge clk);
+            score_v = 1'b1; score_ax = 4'd5; score_inc = DECOY_INC;    // ⭐ 诱饵
+            score_is_drum = 1'b1; score_drum_type = 2'd3;              // ⭐ 3 = Tom
+            score_vel = 8'd200; score_kd = 2'd0;
+            @(negedge clk);
+            score_v = 1'b0; score_is_drum = 1'b0; score_drum_type = 2'd0;
+            repeat (10) @(negedge clk);
+            if (src_of_ax5 !== 3'd5) begin
+                $display("FAIL: is_drum=1 on axis==5 came out as src=%0d, expected SRC_KDRUM=5 -- the drum flag is NOT what decides (axis number still rules)", src_of_ax5);
+                errors = errors + 1;
+            end else
+                $display("  ok  : is_drum=1 on axis==5 (a 'melody-looking' axis) => SRC_KDRUM (5) -- the AXIS NUMBER does NOT decide");
+            if (inc_of_ax5 !== REF_TOM) begin
+                $display("FAIL: is_drum=1 drum_type=3 on axis==5 inc=%0d, expected TOM inc=%0d (decoy leaked or type map wrong)", inc_of_ax5, REF_TOM);
+                errors = errors + 1;
+            end else
+                $display("  ok  : is_drum=1 on axis==5 => TOM inc (%0d) -- the drum table follows the FLAG, not the axis", inc_of_ax5);
+
+            // ⭐⭐⭐ ④ ⭐ **旋律绝不变鼓**（⭐ 2026-10-16 新增 —— ⭐ **本改动的核心判据**）✅
+            //  🔴 **为什么必须有它**（⭐ 用户拍板的红线 1：⭐ *"旋律线【绝对不能】变成鼓"*）：
+            //     ⚠️ 旧判据是 `axis >= 12` ⇒ ⭐ **旋律轨用到轴 12..15 就被读成鼓** ⇒
+            //        🔴 进鼓池 ⇒ ⭐ **旋律线变成鼓声** ✅
+            //     ✅ 新判据是显式 `is_drum` ⇒ ⭐ **`is_drum=0` ⇒ 无论轴号取什么值
+            //        都必须是 `SRC_SCORE`** ⇒ ⭐ 这就是那条**机械保证** ✅
+            //  ⭐ **本条把"无论轴号取什么值"里【最危险的那四个】逐个钉死**：
+            //     ⭐ **12 / 13 / 14 / 15** —— ⭐ 正是旧判据会误判成鼓的那四个轴号 ✅
+            //     📌 ⭐ 同时验 **`inc` 透传**（⭐ 旋律的音高必须原样出去，⛔ 不许被鼓的表替换）✅
+            //  ⭐ **能红实证**（⭐ 2026-10-16 实测过 ✅）：⭐ 把 `score_src_w` 改回
+            //     `(score_axis_i >= 4'd12)` ⇒ ⭐ 这四条**全部必红**（⭐ 原文见交付回报）✅
+            begin : melody_never_drum
+                integer m;
+                for (m = 12; m <= 15; m = m + 1) begin
+                    // ⭐ 逐条复位（⭐ 哨兵）：⛔ 不吃上一条的残留
+                    case (m)
+                        12: begin src_of_ax12 = 3'd7; inc_of_ax12 = INC_NONE; end
+                        13: begin src_of_ax13 = 3'd7; inc_of_ax13 = INC_NONE; end
+                        14: begin src_of_ax14 = 3'd7; inc_of_ax14 = INC_NONE; end
+                        default: begin src_of_ax15 = 3'd7; inc_of_ax15 = INC_NONE; end
+                    endcase
+                    @(negedge clk);
+                    // ⭐ **旋律**：（⭐ `is_drum` 恒 0 ＋ ⭐ 轴号故意取旧阈值之上的值）
+                    //     ⚠️ ⭐ 用 `score_ax = m` 直接赋整数值 ——
+                    //        ⛔ **不对 `integer` 做位选**（`m[3:0]`）⇒ ⭐ `K-91` 同族纪律 ✅
+                    score_v = 1'b1; score_ax = m; score_inc = 32'h0AAA_0000 + m;
+                    score_is_drum = 1'b0; score_drum_type = 2'd0;
+                    score_vel = 8'd200; score_kd = 2'd0;
+                    @(negedge clk);
+                    score_v = 1'b0;
+                    repeat (10) @(negedge clk);
+                    case (m)
+                        12: begin
+                            if (src_of_ax12 !== 3'd1) begin
+                                $display("FAIL: MELODY on axis==12 (is_drum=0) came out as src=%0d, expected SRC_SCORE=1 -- A MELODY LINE TURNED INTO A DRUM", src_of_ax12);
+                                errors = errors + 1;
+                            end else
+                                $display("  ok  : MELODY axis==12 is_drum=0 => SRC_SCORE (1) -- melody can NEVER become a drum");
+                            if (inc_of_ax12 !== (32'h0AAA_0000 + 32'd12)) begin
+                                $display("FAIL: MELODY axis==12 inc=%0h, expected %0h (passthrough) -- the melody pitch was REPLACED", inc_of_ax12, 32'h0AAA_0000 + 32'd12);
+                                errors = errors + 1;
+                            end else
+                                $display("  ok  : MELODY axis==12 inc passes through unchanged (%0h)", inc_of_ax12);
+                        end
+                        13: begin
+                            if (src_of_ax13 !== 3'd1) begin
+                                $display("FAIL: MELODY on axis==13 (is_drum=0) came out as src=%0d, expected SRC_SCORE=1 -- A MELODY LINE TURNED INTO A DRUM", src_of_ax13);
+                                errors = errors + 1;
+                            end else
+                                $display("  ok  : MELODY axis==13 is_drum=0 => SRC_SCORE (1) -- melody can NEVER become a drum");
+                            if (inc_of_ax13 !== (32'h0AAA_0000 + 32'd13)) begin
+                                $display("FAIL: MELODY axis==13 inc=%0h, expected %0h (passthrough) -- the melody pitch was REPLACED", inc_of_ax13, 32'h0AAA_0000 + 32'd13);
+                                errors = errors + 1;
+                            end else
+                                $display("  ok  : MELODY axis==13 inc passes through unchanged (%0h)", inc_of_ax13);
+                        end
+                        14: begin
+                            if (src_of_ax14 !== 3'd1) begin
+                                $display("FAIL: MELODY on axis==14 (is_drum=0) came out as src=%0d, expected SRC_SCORE=1 -- A MELODY LINE TURNED INTO A DRUM", src_of_ax14);
+                                errors = errors + 1;
+                            end else
+                                $display("  ok  : MELODY axis==14 is_drum=0 => SRC_SCORE (1) -- melody can NEVER become a drum");
+                            if (inc_of_ax14 !== (32'h0AAA_0000 + 32'd14)) begin
+                                $display("FAIL: MELODY axis==14 inc=%0h, expected %0h (passthrough) -- the melody pitch was REPLACED", inc_of_ax14, 32'h0AAA_0000 + 32'd14);
+                                errors = errors + 1;
+                            end else
+                                $display("  ok  : MELODY axis==14 inc passes through unchanged (%0h)", inc_of_ax14);
+                        end
+                        default: begin
+                            if (src_of_ax15 !== 3'd1) begin
+                                $display("FAIL: MELODY on axis==15 (is_drum=0) came out as src=%0d, expected SRC_SCORE=1 -- A MELODY LINE TURNED INTO A DRUM", src_of_ax15);
+                                errors = errors + 1;
+                            end else
+                                $display("  ok  : MELODY axis==15 is_drum=0 => SRC_SCORE (1) -- melody can NEVER become a drum");
+                            if (inc_of_ax15 !== (32'h0AAA_0000 + 32'd15)) begin
+                                $display("FAIL: MELODY axis==15 inc=%0h, expected %0h (passthrough) -- the melody pitch was REPLACED", inc_of_ax15, 32'h0AAA_0000 + 32'd15);
+                                errors = errors + 1;
+                            end else
+                                $display("  ok  : MELODY axis==15 inc passes through unchanged (%0h)", inc_of_ax15);
+                        end
+                    endcase
+                end
+            end
+
+            // ⭐ ⑤ ⭐ **普通旋律轴（11 / 2）⇒ 必须仍是 `SRC_SCORE`（1）**
+            //     ⭐ 2026-10-16：⭐ **本条的【非空洞性】判据搬去 ③ 了** ——
+            //        ⚠️ 旧版这里考的是"`axis>=12` 这个阈值有没有写成 `>=11`"，
+            //        ⭐ 而阈值已经不存在 ⇒ ⭐ 它现在只当"**普通旋律照旧**"的回归保险 ✅
+            //     ⭐ **新增**：⭐ 同时验 `inc` **原样透传**（⭐ 旧版只抓 `src`，⛔ 没抓 `inc`）✅
+            src_of_ax11 = 3'd7;  inc_of_ax11 = INC_NONE;
             @(negedge clk);
             score_v = 1'b1; score_ax = 4'd11; score_inc = 32'h0AAA_0011;
+            score_is_drum = 1'b0; score_drum_type = 2'd0;
             score_vel = 8'd200; score_kd = 2'd0;
             @(negedge clk);
             score_v = 1'b0;
             repeat (10) @(negedge clk);
             if (src_of_ax11 !== 3'd1) begin
-                $display("FAIL: score axis==11 came out as src=%0d, expected SRC_SCORE=1 (the >=12 boundary is OFF BY ONE!)", src_of_ax11);
+                $display("FAIL: score axis==11 came out as src=%0d, expected SRC_SCORE=1 (plain melody must stay melody)", src_of_ax11);
                 errors = errors + 1;
             end else
-                $display("  ok  : score axis==11 => SRC_SCORE (1) -- the >=12 boundary is exact");
+                $display("  ok  : score axis==11 => SRC_SCORE (1) -- plain melody stays melody");
+            if (inc_of_ax11 !== 32'h0AAA_0011) begin
+                $display("FAIL: score axis==11 inc=%0h, expected 0AAA0011 (passthrough) -- the melody pitch was REPLACED", inc_of_ax11);
+                errors = errors + 1;
+            end else
+                $display("  ok  : score axis==11 inc passes through unchanged (%0h)", inc_of_ax11);
 
-            // ⭐ ④ 轴 2（⭐ 普通乐音，⭐ 离边界更远的第二道保险）⇒ 必须**仍是** `SRC_SCORE`（1）
-            src_of_ax2 = 3'd7;               // ⭐ 任务 2：⭐ 本条【自己】复位
+            // ⭐ ⑥ ⭐ 轴 2（⭐ 离"旧边界"更远的第二道保险）⇒ 必须**仍是** `SRC_SCORE`（1）
+            src_of_ax2 = 3'd7;  inc_of_ax2 = INC_NONE;
             @(negedge clk);
             score_v = 1'b1; score_ax = 4'd2; score_inc = 32'h0AAA_0002;
+            score_is_drum = 1'b0; score_drum_type = 2'd0;
             score_vel = 8'd200; score_kd = 2'd0;
             @(negedge clk);
             score_v = 1'b0;
@@ -683,6 +983,11 @@ module tb_seq_arb;
                 errors = errors + 1;
             end else
                 $display("  ok  : score axis==2 still => SRC_SCORE (1) -- the drum marker is NOT over-broad");
+            if (inc_of_ax2 !== 32'h0AAA_0002) begin
+                $display("FAIL: score axis==2 inc=%0h, expected 0AAA0002 (passthrough) -- the melody pitch was REPLACED", inc_of_ax2);
+                errors = errors + 1;
+            end else
+                $display("  ok  : score axis==2 inc passes through unchanged (%0h)", inc_of_ax2);
         end
 
         // A1 addition: wait for the independent non-default DEPTH case.
@@ -724,6 +1029,10 @@ module seq_arb_depth9_case(output reg done = 1'b0);
         .live_valid_i(lv), .live_axis_i(4'd1), .live_phase_inc_i(tag),
         .live_velocity_i(8'd101), .live_kind_i(2'd0), .live_timbre_valid_i(1'b1), .live_timbre_i(2'd1),
         .score_valid_i(sv), .score_axis_i(4'd2), .score_phase_inc_i(tag + 32'd1),
+        //  ⭐ 2026-10-16：⭐ `seq_arb` 新增的【显式鼓标志】——
+        //     ⚠️ 本用例是 **`DEPTH` 宽度/环绕契约**（⭐ 与鼓无关）
+        //     ⇒ ⭐ 恒接 0（⭐ 且 `axis=4'd2` 在旧判据下也从不 ≥12 ⇒ 行为逐位不变）✅
+        .score_is_drum_i(1'b0), .score_drum_type_i(2'd0),
         .score_velocity_i(8'd202), .score_kind_i(2'd2), .score_timbre_valid_i(1'b0), .score_timbre_i(2'd2),
         .demo_valid_i(dv), .demo_axis_i(4'd3), .demo_phase_inc_i(tag + 32'd2),
         .demo_velocity_i(8'd33), .demo_kind_i(dk), .demo_timbre_valid_i(1'b1), .demo_timbre_i(2'd3),

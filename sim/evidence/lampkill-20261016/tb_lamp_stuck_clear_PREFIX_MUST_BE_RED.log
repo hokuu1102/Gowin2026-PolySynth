@@ -1,0 +1,9 @@
+﻿=== tb_lamp_stuck_clear  [PRE_FIX build: no timeout exists in DUT] ===
+VCD info: dumpfile build/sim/tb_lamp_stuck_clear/tb_lamp_stuck_clear.vcd opened for output.
+== 1  a note_on with NO matching note_off (the upstream defect) ==
+  ok  : 1a the note_on really lit key 5 (the stimulus is not vacuous)
+  ok  : 1b guide_key_o[5] is the lit lamp
+== 2  the stream is still alive => the lamp must NOT be cleared ==
+FAIL: tb_lamp_stuck_clear TIMEOUT
+C:\Users\hokuu\AppData\Local\Temp\lamppkill_red\tb_lamp_stuck_clear.sv:255: $finish called at 5000000 (1ps)
+

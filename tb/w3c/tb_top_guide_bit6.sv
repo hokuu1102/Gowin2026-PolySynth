@@ -16,16 +16,21 @@
 //    📌 ⭐ **做法**：⭐ 在**真 `top.v`** 上、⭐ 用**真串口帧**灌谱
 //       （⭐ `0xA5` ＋ 8 字节大端 ⇒ ⭐ `evt_uart_rx ⇒ u_evt_buf ⇒ u_play_seq` ✅）
 //
-// ⭐ **判据清单（⭐ 三条，⭐ 与任务书逐条对应）**：
+// ⭐ **判据清单（⭐ 四条，⭐ 与任务书逐条对应）**：
 //    · ⭐ **① `bit6=1` ⇒ LED 指引亮 ＋ 不出声**（⭐ `score_valid_i` 从未拉高、
 //      ⭐ `seq_arb` 的 `score_cnt_o` **不涨** ⇒ ⭐ **不占 voice** ✅）
 //    · ⭐ **② `bit6=0` ⇒ 照常出声**（⭐ 证明没把**整条流**门掉 ✅）
 //    · ⭐ **③ 混流**：⭐ 同一帧流里 `bit6=1` / `bit6=0` 交替
 //      ⇒ ⭐ **只有 `bit6=1` 的不出声**（⭐ 计数逐条对上 ✅）
+//    · ⭐⭐ **④ 没被标记的 `note_off` 也必须能熄灯**（⭐ 2026-10-16 · 点灯 LIGHTER 新增）
+//      —— ⭐ 闸门**必须【不对称】**：⭐ `note_on` 门控 · ⭐ `note_off` 一律放行
+//      ⇒ 🔴 **否则被标记的那盏灯【永远灭不掉】**（⭐ 用户报的"只闪一盏、不换灯"）✅
+//      📌 ⭐ 回退 `top.v` 的 `| ps_is_note_off` ⇒ 🔴 **4d 必红** ✅
 //
 // ⭐ **非空洞性（⭐ `C83` 探针假绿纪律）**：
-//    ⭐ 三条判据都**直接看"有没有进 `seq_arb`"**（⭐ `score_hits` 计数器 ＋
+//    ⭐ ①②③ 都**直接看"有没有进 `seq_arb`"**（⭐ `score_hits` 计数器 ＋
 //       ⭐ `sa_score_cnt` 顶层挂钩 ⇒ ⭐ **单调计数器，⛔ 不会侥幸通过** ✅）
+//    ⭐ ④ 直接看 `guide_key_o[4]`（⭐ 闸门两侧的**同一个位**，⭐ 一进一出 ✅）
 //    📌 ⭐ 回退 `top.v` 的那一行（⭐ 去掉 `& ~evt_guide_only`）
 //       ⇒ ⭐ `bit6=1` 的事件**照样进 `seq_arb`** ⇒ 🔴 **①②③ 全部必红** ✅
 //
@@ -91,9 +96,17 @@ module tb_top_guide_bit6;
     // ═══════════════════════════════════════════════════════════════════════
     //  ⭐ 事件打包（⭐ 与 `mid2evt.py` / `play_seq` 位域逐位一致 ✅）
     //     ⭐⭐ 2026-10-15：⭐ **多一个 `bit6`（⭐ 逐事件"只亮灯不出声"）** ✅
-    //        `{tick(20), inc(21), axis(4), vel(8), kind(2), timbre(2), bit6, 6'b0}`
+    //        `{tick(20), inc(21), axis(4), vel(8), kind(2), timbre(2), bit6, bit5, off5(5)}`
     //     📌 ⭐ 依据：⭐ `rtl/w3c/seq_arb.v:200-201` 写着 `bits 6..0 reserved` **一直是 0**
     //        ⇒ ⭐ 用 `bit6` **不算改协议** ✅
+    //     ⭐⭐ 2026-10-16（指北 COMPASS）：⭐ **`bit[4:0]` = `note_off5` = `MIDI − 45`** ✅
+    //        ⇒ ⭐ **灯位由【音高】决定**（⛔ 不再由 `axis` 决定）——
+    //           ⭐ 详见 `rtl/w3c/guide_lamp.v` 头部 §音高语义 ✅
+    //        📌 ⭐ 因此下面每条事件的**期望灯位**都按 `note_off5` 算：
+    //           ⭐ 键盘表（⭐ 顶层默认钢琴 · `MODE_PIANO_DEFAULT=1`）——
+    //           · ⭐ C3  (off  3) ⇒ **键 5**   · ⭐ C#3 (off  4) ⇒ **键 6**
+    //           · ⭐ G#3 (off 11) ⇒ **键 14**  · ⭐ B3  (off 14) ⇒ **键 8**
+    //           · ⭐ C#4 (off 16) ⇒ **键 9**   · ⭐ D3  (off  5) ⇒ **键 4**
     // ═══════════════════════════════════════════════════════════════════════
     function [63:0] pack;
         input [19:0] tk;
@@ -101,9 +114,10 @@ module tb_top_guide_bit6;
         input [3:0]  ax;
         input [7:0]  vel;
         input [1:0]  knd;
+        input [4:0]  p5;          // ⭐ `note_off5` = MIDI − 45（⭐ 灯位依据）
         input        gonly;
         begin
-            pack = {tk, inc, ax, vel, knd, 2'b00, gonly, 6'b0};
+            pack = {tk, inc, ax, vel, knd, 2'b00, gonly, 1'b0, p5};
         end
     endfunction
 
@@ -225,7 +239,8 @@ module tb_top_guide_bit6;
         //        ⚠️ 若 `lead_sel_i` 没接 / 没生效 ⇒ 🔴 本事件要等 **960 × 26041 拍**
         //        ⇒ ⭐ 自旋会**跑满上限** ⇒ ⭐ 判据 `1b` **必红**（⭐ 时间上不可能侥幸 ✅）
         $display("== 1  bit6=1  =>  LED 亮 + 不出声（不进 seq_arb）==");
-        send_frame(pack(20'd960, 21'd37791, 4'd5, 8'd200, 2'd0, 1'b1), 1'b0);
+        //  ⭐⭐ 2026-10-16：⭐ 音高 = **C3**（⭐ `note_off5 = 3`）⇒ ⭐ 键盘表 ⇒ **键 5** ✅
+        send_frame(pack(20'd960, 21'd37791, 4'd5, 8'd200, 2'd0, 5'd3, 1'b1), 1'b0);
         wait_evt(16'd1, 150_000);
         repeat (2) @(posedge clk);          // ⭐ 等 `guide_lamp` 锁存（⭐ 与既有 tb 同口径 ✅）
         chk(dut.g_sound.u_play_seq.evt_cnt_o === 16'd1,
@@ -235,7 +250,7 @@ module tb_top_guide_bit6;
         chk(guided_note === 1,
             "1c the emitted event really carries bit6=1 (fields survived the whole chain)");
         chk(dut.u_guide_lamp.guide_key_o[5] === 1'b1,
-            "1d guide_lamp LIT axis 5  <-- the LED guide half is ALIVE for bit6=1");
+            "1d guide_lamp LIT key 5 (C3)  <-- the LED guide half is ALIVE for bit6=1");
         chk(score_hits === 0,
             "1e seq_arb.score_valid_i was NEVER high  <-- bit6=1 did NOT reach the audio path");
         //  ⭐ `score_cnt_o` = `seq_arb` **自己**记的"曲谱源推了几条"
@@ -258,7 +273,9 @@ module tb_top_guide_bit6;
         //  ⭐ `tick = 2` ＋ ⭐ `bit6 = 0` ⇒ ⭐ 等 `cur_tick_r` 走到 2 才发（⭐ ≈ 5.2 万拍 ✅）
         //     📌 ⭐ 若闸门写错成"**整条流都门掉**"（⭐ 例如漏了 `~`）⇒ 🔴 `2c/2d` **必红** ✅
         $display("== 2  bit6=0  =>  照常出声（没把整条流门掉）==");
-        send_frame(pack(20'd2, 21'd37791, 4'd6, 8'd200, 2'd0, 1'b0), 1'b0);
+        //  ⭐⭐ 2026-10-16：⭐ 音高 = **C#3**（⭐ `note_off5 = 4`）⇒ ⭐ 键盘表 ⇒ **键 6** ✅
+        //     📌 ⭐ **这样 `2e` 才有非空洞性**：⭐ 若闸门写错成"恒亮" ⇒ 🔴 键 6 会亮 ⇒ 必红 ✅
+        send_frame(pack(20'd2, 21'd37791, 4'd6, 8'd200, 2'd0, 5'd4, 1'b0), 1'b0);
         wait_evt(16'd2, 120_000);
         wait_score_hits(1, 120_000);
         repeat (2) @(posedge clk);
@@ -276,7 +293,7 @@ module tb_top_guide_bit6;
         //     🔴 **本条同时是判据 ① 的【对照】**：⭐ 只有 `bit6` 能决定 LED 指引
         //        ⇒ ⭐ 若闸门写错成"**恒亮**"（⭐ 例如漏了 `&`）⇒ 🔴 **本条必红** ✅
         chk(dut.u_guide_lamp.guide_key_o[6] === 1'b0,
-            "2e the bit6=0 note did NOT light the GUIDE lamp (LED guides only marked tracks)");
+            "2e the bit6=0 note did NOT light the GUIDE lamp (key 6 stays dark)");
 
         //  ⭐ 判据 ①② 已经**各自跑完、各自报过**（⭐ 红原文里两条都在 ✅）
         //     ⇒ ⭐ 现在才允许"**别再等了**"：⭐ 判据 ③ 的混流若注定要等，就别耗看门狗 ✅
@@ -293,9 +310,13 @@ module tb_top_guide_bit6;
         //        ⭐ `score_hits` **只涨 1**（⭐ 只有那条 `bit6=0` ✅）
         //        ⭐ `sa_score_cnt` **只涨 1**（⭐ 2 → …）✅
         $display("== 3  mixed stream: bit6=1 / bit6=0 alternating ==");
-        send_frame(pack(20'd500, 21'd37791, 4'd7, 8'd200, 2'd0, 1'b1), 1'b0);
-        send_frame(pack(20'd2,   21'd37791, 4'd8, 8'd200, 2'd0, 1'b0), 1'b0);
-        send_frame(pack(20'd3,   21'd37791, 4'd9, 8'd200, 2'd0, 1'b1), 1'b0);
+        //  ⭐⭐ 2026-10-16（指北 COMPASS）：⭐ **音高按【期望灯位】选**（⭐ 键盘表）✅
+        //     · ⭐ G#3（off 11）⇒ 键 **14**  · ⭐ B3（off 14）⇒ 键 **8**  · ⭐ C#4（off 16）⇒ 键 **9**
+        //     📌 ⭐ 这样 `3f`（⭐ 被标记的那条 ⇒ 亮）与 `3g`（⭐ 没标记的那条 ⇒ ⛔ 不亮）
+        //        **各自非空洞**（⭐ 只要闸门写错一条就必红 ✅）
+        send_frame(pack(20'd500, 21'd37791, 4'd7, 8'd200, 2'd0, 5'd11, 1'b1), 1'b0);
+        send_frame(pack(20'd2,   21'd37791, 4'd8, 8'd200, 2'd0, 5'd14, 1'b0), 1'b0);
+        send_frame(pack(20'd3,   21'd37791, 4'd9, 8'd200, 2'd0, 5'd16, 1'b1), 1'b0);
         wait_evt(16'd5, 120_000);
         wait_score_hits(2, 120_000);
         repeat (2) @(posedge clk);
@@ -309,13 +330,48 @@ module tb_top_guide_bit6;
         chk(dut.g_sound.u_seq_arb.score_cnt_o === 16'd2,
             "3e ONLY the bit6=0 ones took a voice (score_cnt_o == 2)");
         chk(dut.u_guide_lamp.guide_key_o[9] === 1'b1,
-            "3f the LAST bit6=1 event (axis 9) still lit its LED  <-- guide survives in a mix");
-        //  ⭐ **对照**：⭐ 混流里那条 `bit6=0`（⭐ axis 8）**⛔ 不点亮指引灯** ✅
+            "3f the LAST bit6=1 event (C#4 => key 9) still lit its LED  <-- guide survives in a mix");
+        //  ⭐ **对照**：⭐ 混流里那条 `bit6=0`（⭐ B3 ⇒ 键 8）**⛔ 不点亮指引灯** ✅
         //     📌 ⭐ 这两条（`3f` / `3g`）**合起来**才证明"**逐事件**"是真的逐事件 ——
         //        ⚠️ 若 `bit6` 解码接错（⭐ 例如接到 `bit5`）⇒ 🔴 两条**必红** ✅
         chk(dut.u_guide_lamp.guide_key_o[8] === 1'b0,
-            "3g the bit6=0 event (axis 8) did NOT light the GUIDE lamp  <-- per-event is per-event");
+            "3g the bit6=0 event (B3 => key 8) did NOT light the GUIDE lamp  <-- per-event is per-event");
         chk(dut.eb_ovf === 1'b0, "3h no evt_buf overflow for the whole stream");
+
+        // ═════════════════════════════════════════════════════════════════
+        //  ⭐⭐ 判据 ④：⭐ **没被 `bit6` 标记的 `note_off` 也必须能熄灯** ✅
+        //     （⭐ 2026-10-16 · 点灯 LIGHTER 新增 —— ⭐ 这是 `top.v` 闸门
+        //      **必须【不对称】** 的那一条判据 ✅）
+        //
+        //  🔴 **为什么必须有它**：⭐ 闸门原来对 `note_on` / `note_off` **一视同仁** ⇒
+        //     ⭐ 若上位机**只在 `note_on` 上置 `bit6`**（⭐ "给某条音符置 `bit6`"
+        //        最自然的实现 ⇒ ⭐ 只置起始那一条）⇒
+        //     🔴 **那一盏灯【永远灭不掉】**（⭐ 只有复位才灭）
+        //     ⇒ ⭐ 症状：⭐ **整场只有一盏灯在闪、永远不换、永远不灭** ✅
+        //     📌 ⭐ 这正是用户实测 *"很多都只闪 C3 这一个灯"* 里
+        //        **"只闪一盏 + 不换灯"** 那一半的机理 ✅
+        //  ✅ **修法**：⭐ `top.v` 的 `u_guide_lamp.note_valid_i` 加 `| ps_is_note_off`
+        //     ⇒ ⭐ **`note_on` 门控 · ⭐ `note_off` 一律放行** ✅
+        //  📌 ⭐ **能红实证**：⭐ 去掉那一项（⭐ = 回到 2026-10-15 的写法）
+        //     ⇒ 🔴 **4c 必红**（⭐ `guide_key_o[4]` 停在 1，⭐ 灯挂住）✅
+        //  ⚠️ ⭐ **本条⛔ 不削弱 2e/3g**：⭐ 那两条验的是 `note_on`，⭐ 而本修法
+        //     **⛔ 不放行未标记的 `note_on`** ⇒ ⭐ 它们**照样绿** ✅
+        // ═════════════════════════════════════════════════════════════════
+        $display("== 4  an UNMARKED note_off must still clear the lamp ==");
+        //  ⭐⭐ 2026-10-16：⭐ 音高 = **D3**（⭐ `note_off5 = 5`）⇒ ⭐ 键盘表 ⇒ **键 4** ✅
+        //     📌 ⭐ **OFF 必须用【同一个 `note_off5`】**（⭐ 否则它要灭的是**另一盏灯** ✅）
+        send_frame(pack(20'd960, 21'd37791, 4'd4, 8'd200, 2'd0, 5'd5, 1'b1), 1'b0);   // ⭐ 标记的 ON
+        wait_evt(16'd6, 150_000);
+        repeat (2) @(posedge clk);
+        chk(dut.g_sound.u_play_seq.evt_cnt_o === 16'd6, "4a the bit6=1 note_on fired");
+        chk(dut.u_guide_lamp.guide_key_o[4] === 1'b1,
+            "4b the bit6=1 note_on lit key 4's guide lamp (D3)");
+        send_frame(pack(20'd0, 21'd37791, 4'd4, 8'd200, 2'd1, 5'd5, 1'b0), 1'b0);     // ⭐ 未标记的 OFF
+        wait_evt(16'd7, 150_000);
+        repeat (2) @(posedge clk);
+        chk(dut.g_sound.u_play_seq.evt_cnt_o === 16'd7, "4c the unmarked note_off was consumed");
+        chk(dut.u_guide_lamp.guide_key_o[4] === 1'b0,
+            "4d the lamp is NOT stuck: an unmarked note_off cleared it  <-- no hanging lamp");
 
         $display("");
         if (fail_cnt == 0)

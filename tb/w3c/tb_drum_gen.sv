@@ -157,8 +157,13 @@ module tb_drum_gen;
                 // ⭐⭐ 力度也要核 —— ⚠️ 光把音高改了、力度还是旧值（180）也算没过
                 if (evt_vel !== VEL_TOM) n_tom_bad_vel = n_tom_bad_vel + 1;
             end
-            // ⭐ 专用池检查（⭐ RESERVED_AXIS_BASE = 14）
-            if (evt_ax < 4'd14) n_bad_axis = n_bad_axis + 1;
+            // ⭐ 专用池检查（⭐ 2026-10-16 统一后：保留带 = 轴 12..15）
+            //   🔴 旧判据写 `evt_ax < 4'd14`（⭐ 基于【已过时】的 RESERVED_AXIS_BASE=14）
+            //      ⇒ 四件鼓分轴 12/13/14/15 后，底鼓(12)与军鼓(13)会被【误判】成抢演奏 voice ✅
+            //   📌 `drum_gen.v:48` 自己的注释已写明：**"进不进保留池由【来源】决定，⛔ 不按轴号"**
+            //      ⇒ 这条轴号判据只是"鼓事件必须落在保留带内"的粗筛 ✅
+            //   ⭐ 新口径：保留带 = 12..15（与 `seq_arb` 的灌谱鼓轴【完全一致】）✅
+            if (evt_ax < 4'd12) n_bad_axis = n_bad_axis + 1;
             // ⭐ 粘滞：⭐ 连续两拍且数据完全一样
             if (evt_v_d && (evt_inc === last_inc)) n_stuck = n_stuck + 1;
             last_inc = evt_inc;
@@ -324,7 +329,7 @@ module tb_drum_gen;
         if (n_bad_axis == 0)
             $display("  ok  : ④ 全部事件 axis = %0d（>= 14 专用池）⛔ 不抢演奏的 voice", out_ax[0]);
         else begin
-            $display("FAIL: ④ 有 %0d 个事件落在普通池（axis < 14）—— 会抢演奏 voice", n_bad_axis);
+            $display("FAIL: ④ 有 %0d 个事件落在普通池（axis < 12）—— 会抢演奏 voice", n_bad_axis);
             errors = errors + 1;
         end
 

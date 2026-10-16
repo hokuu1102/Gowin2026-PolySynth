@@ -177,13 +177,18 @@ module drum_gen #(
     //         从 **15M 抬到 20M**（⭐ 否则 200 Hz = 17.9M 会被判成"军鼓/踩镲"档 ⚠️）✅
     //      ⚠️ **并同时把嗵鼓的扫频调浅**（⭐ `DRUM_TOM_SWEEP_SH` 2 → **3**）
     //         ⇒ ⭐ 嗵鼓"音高下滑"更少 ⇒ ⭐ 与底鼓（⭐ **全深度** `>>0`）的包络差更远 ✅
-    localparam [31:0] INC_KICK  = 32'd5_368_709;    // ⭐ ≈ 60 Hz（⭐ 原 70 ⇒ 更深）
-    localparam [31:0] INC_SNARE = 32'd42_949_673;   // ⭐ ≈ 480 Hz
-    localparam [31:0] INC_HIHAT = 32'd171_798_691;  // ⭐ ≈ 1920 Hz
-    // ⭐⭐ 2026-09-29：⭐ `INC_CLAP`（≈1000 Hz）⇒ **`INC_TOM`** ✅
-    //   ⭐ **为什么是"有音高的鼓"**：⭐ 嗵鼓的听感特征就是**有明确音高**
-    //      —— ⚠️ 1000 Hz 那一档（⭐ 原 Clap）在鼓组里听着像"敲铁皮" ✅
-    localparam [31:0] INC_TOM   = 32'd17_895_697;   // ⭐ ≈ 200 Hz（⭐ 原 160 ⇒ 更高）
+    //  ⭐⭐ 2026-10-16：⭐ **那 4 个常量搬去了 `rtl/w3c/drum_inc_defs.vh`** ✅
+    //     🔴 **为什么必须搬**（⭐ 用户拍板的硬约束 2）：⭐ *"鼓就是鼓的发声
+    //        —— 与键盘打鼓同一个 inc 表、同一个池子"* ⇒ ⭐ 灌谱的鼓（`seq_arb`）
+    //        与键盘打鼓（本模块）**必须引用同一份常量** ✅
+    //     ⚠️ 原来两边各有一份 ⇒ 🔴 **抄错一个数就静默变乐器**（⭐ 听感全错而仿真全绿）✅
+    //     📌 ⭐ 数值**逐字节照抄**（⭐ `INC_KICK`/`INC_SNARE`/`INC_HIHAT`/`INC_TOM`，
+    //        ⭐ 含各自的说明注释）⇒ ⚠️ **本模块的行为逐位不变** ✅
+    //     📌 ⭐ `INC_CLAP` **本来就没有定义**（⭐ 2026-09-29 已改名成 `INC_TOM`）——
+    //        ⚠️ 只在上面那段注释里作为"历史"被提到 ⛔ 不是活代码 ✅
+    //     ⚠️ ⭐ 路径带**仓库根前缀**是必须的（⭐ `iverilog` 只搜当前工作目录）——
+    //        📌 详见 `drum_inc_defs.vh` 头部的"用法"三条 ✅
+    `include "rtl/w3c/drum_inc_defs.vh"
 
     // ⭐ 每件乐器的力度：⭐ **已提到上面的 `#(...)` 形参表**（⭐ 2026-10-01）
     //   🔴 **为什么不在体内写 `localparam` 了**：⚠️ 体内 `parameter` 的按名覆盖
@@ -384,10 +389,40 @@ module drum_gen #(
     //         ⭐ 小节回绕（`959 → 0`）永远走 `step_zero_align`，⛔ 走不到这里 ✅
     reg  [15:0] tick_at_step_q;
     reg  [3:0]  step_q;
-    //   ⭐ 步进脉冲（⭐ 只在 transport 有效时推进；⭐ 且 **不许后退**）
+    //   ⭐⭐ 2026-10-16（🔴 "鼓机很碎/器件没对齐"的真因）：
+    //     ⚠️ `step_advance` 原来【只看节拍 tick 到点】就推进，⛔ **不等 `pending_q` 发完** ⇒
+    //        · 一步里 2~4 件鼓要逐件发（`fire` 每拍只发一件 ✅）
+    //        · tick 到点 ⇒ `pending_q` 被 `mask_next` **整片覆盖** ⇒ 🔴 **没发完的件被丢掉**
+    //        · 更糟：🔴 **发剩的件与下一步的件混在一起** ⇒ 听感"碎、对不齐"✅
+    //     📌 **为什么以前听不出来**：⭐ 四件鼓原来【共用轴 15】⇒ 后一件把前一件
+    //        【重触发掉】⇒ 丢件被掩盖 ✅ 现在四件分轴（12/13/14/15）⇒ 每件都真响
+    //        ⇒ 丢件/乱序【立刻暴露】✅
+    //     ✅ **修法**：⭐ 推进前要求 `pending_q` 已空（本步发完）——
+    //        ⭐ `TPS = 240` tick 远超 4 件（4 拍怎么都发完了）⇒ ⭐ 正常节拍【不受影响】✅
+    //     ⚠️ 例外：⭐ `step_zero_align`（小节线）优先级更高 ⇒ 小节回绕仍可强制对齐 ✅
+    // ── ⭐⭐ 待发列表（⭐ 关键点：一步可能多件乐器，必须逐个发）────────────────
+    reg  [3:0]  pending_q;                  // ⭐ one-hot：本步还要发哪几件
+    //  ⭐⭐ 2026-10-16（🔴 "鼓机很碎/器件没对齐"的真因）：
+    //     ⚠️ 原来 `step_advance` 【只看节拍 tick 到点】就推进，⛔ 不等 `pending_q` 发完 ⇒
+    //        · 一步里 2~4 件鼓要逐件发（`fire` 每拍只发一件 ✅）
+    //        · tick 到点 ⇒ `pending_q` 被 `mask_next` 【整片覆盖】⇒ 🔴 丢件
+    //        · 更糟：🔴 发剩的件与下一步的件混在一起 ⇒ 听感"碎、对不齐"✅
+    //     📌 为什么以前听不出来：⭐ 四件鼓原来【共用轴 15】⇒ 后一件把前一件【重触发掉】
+    //        ⇒ 丢件被掩盖 ✅ 现在四件分轴（12/13/14/15）⇒ 丢件/乱序【立刻暴露】✅
+    //     ✅ **修法**：⭐ 推进前要求本步已发完 —— ⭐ `TPS = 240` tick 远超 4 拍 ⇒
+    //        ⭐ 正常节拍【不受影响】✅
+    //     ⚠️ 例外：⭐ `step_zero_align`（小节线）优先级更高 ⇒ 小节回绕仍可强制对齐 ✅
+    //     🔴 **`pending_q` 与 `step_done` 必须声明在 `step_advance` 【之前】**：
+    //        ⭐ Verilog 要求"先声明后使用" ⇒ 否则隐式建 1 位网线 ⇒ 【绑定失败】
+    //        （⭐ 2026-10-16 连踩两次：`Unable to bind pending_q` / `Unable to bind step_done`）✅
+    wire        step_done = (pending_q == 4'd0);
+    //   ⭐ 步进脉冲（⭐ 只在 transport 有效时推进；⭐ 且 **不许后退**；⭐ 且 **本步已发完**）
     wire        step_advance = transport_i
                              & (tick_cnt_i >= tick_at_step_q)
-                             & ((tick_cnt_i - tick_at_step_q) >= TPS_C);
+                             & ((tick_cnt_i - tick_at_step_q) >= TPS_C)
+                             & step_done;
+    //     🔴 **必须放在 `pending_q` 声明【之后】**：⭐ 否则 Verilog 隐式建 1 位网线
+    //        ⇒ 【绑定失败】（⭐ 2026-10-16 实测踩到，编译报 `Unable to bind pending_q`）✅
     //   ⭐ 小节起点强制对齐到 step 0（⭐ 保证与鼓机/节拍器【不错拍】）
     wire        step_zero_align = transport_i & bar_start_i;
     //   ⭐⭐ 2026-10-11（`P1-18`）：⭐ **位置复位**（⭐ Z-safe 解码 ✅）
@@ -395,9 +430,6 @@ module drum_gen #(
     //        ⭐ 老例化**不接**本端口 ⇒ 该位是 `z` ⇒ ⚠️ 用普通 `if` 会得到 `x`
     //        ⇒ 🔴 判据真假不定 ✅（⭐ 与 `oscillator_bank.voice_phase_rst_i` 同一个坑 ✅）
     wire        pos_rst = (pos_reset_i === 1'b1);
-
-    // ── ⭐⭐ 待发列表（⭐ 关键点：一步可能多件乐器，必须逐个发）────────────────
-    reg  [3:0]  pending_q;                  // ⭐ one-hot：本步还要发哪几件
     //   ⭐⭐ 节奏型选择：⭐ **运行时输入**（⭐ 2026-09-29 起，⭐ 原来是编译期参数）
     //      ⚠️ `step_mask_of` 的 `pid` 是 **3 位**（⭐ 表里有 4 个型 + default）
     //      ⇒ ⭐ 必须**显式补 0 扩展到 3 位**（⛔ 不能把 2 位直接接上去 ——
@@ -430,11 +462,28 @@ module drum_gen #(
     //      ⚠️ 最阴的是：⭐ **计数却是对的** ⇒ 现象是
     //         "计数说发了强拍、声音却是弱拍" ⇒ ⭐ 极难查
     //   ⭐ 修法：⭐ **把字段在同一拍锁存**（与 `valid` 同源、同拍）
+    //   ⭐⭐ 2026-10-16（⭐ 统一鼓轴）：⭐ `evt_axis_r` —— ⭐ **与 `inc`/`vel` 同拍锁存**
+    //     🔴 **原状（⭐ 缺陷）**：⭐ `assign evt_axis_o = AXIS_ID`（⭐ **常量 15**）
+    //        ⇒ ⭐ **四件鼓共用同一个 (轴=15, 源)** ⇒ 🔴 任一件的 `note_off` 会清掉【全部四件】
+    //        ⇒ 🔴 新来一件会**重触发**掉上一件 ⇒ 🔴 **内部鼓机同时只能响一件鼓**
+    //        （⭐ `drum_gen.v:259` 的注释自己都写着"三件共用 AXIS_ID 的抢 voice"）✅
+    //     ⭐ **为什么必须寄存、⛔ 不能直接组合跟随 `drum_idx`**：
+    //        ⚠️ `evt_inc_r`/`evt_vel_r` 是【寄存】的（⭐ 与 `evt_valid_o` 同拍）
+    //        ⇒ 若 `evt_axis_o` 组合跟随 `drum_idx`，⭐ 轴变了而 inc 还是上一件的
+    //        ⇒ 🔴 **轴与 inc 错配**（⭐ 会比出"该件的轴 + 另一件的音高"）✅
+    //     ✅ **修法**：⭐ 与 `inc`/`vel` **同一拍**锁存 ⇒ 🔴 结构上不可能错配 ✅
+    //     📌 ⭐ **代价**：⭐ 只加 **4 个 FF**（⭐ `AXIS_W = 4`）· ⭐ **零 LUT** ✅
+    //     📌 ⭐ **轴号约定与灌谱那一路【完全一致】**（⭐ 用户裁定：三条来路统一）：
+    //        底鼓 12 · 军鼓 13 · 踩镲 14 · 嗵鼓 15
+    //        ⇒ ⭐ 同一件鼓在三处来路（⭐ 键盘打鼓 / 内部鼓机 / 灌谱）落【同一个 (轴, 源)】
+    //        ⇒ ⭐ 天然互相【重触发】、⛔ 不叠成两个 voice ✅
+    //        ⇒ ⭐ 而且四件各占一个轴 ⇒ ⭐ **内部鼓机也能同时响多件** ✅
     reg [PHASE_W-1:0] evt_inc_r;
     reg [VEL_W-1:0]   evt_vel_r;
+    reg [AXIS_W-1:0]  evt_axis_r;
 
-    assign evt_axis_o      = AXIS_ID[AXIS_W-1:0];   // ⭐ 常量 ⇒ 无需寄存
-    assign evt_kind_o      = EVT_KIND;              // ⭐ 常量 ⇒ 无需寄存
+    assign evt_axis_o      = evt_axis_r;                 // ⭐ 寄存后（与 inc/vel 严格同拍）
+    assign evt_kind_o      = EVT_KIND;                   // ⭐ 常量 ⇒ 无需寄存
     assign evt_phase_inc_o = evt_inc_r;             // ⭐ 寄存后（与 valid 严格同拍）
     assign evt_velocity_o  = evt_vel_r;             // ⭐ 寄存后（与 valid 严格同拍）
 
@@ -448,6 +497,7 @@ module drum_gen #(
             evt_valid_o    <= 1'b0;
             evt_inc_r      <= {PHASE_W{1'b0}};
             evt_vel_r      <= {VEL_W{1'b0}};
+            evt_axis_r     <= AXIS_ID[AXIS_W-1:0];   // ⭐ 复位值沿用 AXIS_ID(=15)
             evt_cnt_o      <= 16'd0;
             hit_cnt_o      <= 4'd0;
             step_evt_cnt_o <= 16'd0;
@@ -500,6 +550,8 @@ module drum_gen #(
                 evt_valid_o    <= 1'b1;
                 evt_inc_r      <= inc_of({1'b0, drum_idx});
                 evt_vel_r      <= vel_of({1'b0, drum_idx});
+                // ⭐ 与 inc/vel 【同一拍】锁存轴 ⇒ 永不错配（⭐ 见上面 evt_axis_r 那段注释）
+                evt_axis_r     <= 4'd12 + {2'b00, drum_idx};
                 pending_q      <= pending_q & ~drum_sel;   // ⭐ 发一件、清一件
                 evt_cnt_o      <= (evt_cnt_o == 16'hFFFF) ? evt_cnt_o
                                                           : (evt_cnt_o + 16'd1);

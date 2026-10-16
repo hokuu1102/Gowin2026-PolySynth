@@ -63,17 +63,27 @@ Push-Location $root
 #   cause, because this .json is NOT wiped by this script and the .gprj does not
 #   carry these fields.  They are ALGORITHM choices, not random seeds; defaults are
 #   0/0.  Fail fast here instead of burning an hour.
+#
+#   ⭐⭐ 2026-10-16（⭐ 补漏）：⭐ **`Map_Option` 也必须钉住** ✅
+#      🔴 **原 guard 只挡了 Place/Route 两个**，漏了第三个算法选项 `Map_Option`
+#         （⭐ 即 `set_option -tm`，Technology Mapping Option）✅
+#      🔴 **实测**：当前那份 json 里 `Map_Option = "1"`（⛔ 非 0），
+#         而这份 json 是 Gowin 自己写的、本脚本从不擦它 ⇒ ⭐ 它会一直生效 ✅
+#      📌 三个 PnR 算法选项（`Map` / `Place` / `Route`）必须【一起】钉住：
+#         ⛔ 只钉两个 = 留一个后门 ⇒ 又是"静默非默认算法"✅
 $pcPath = Join-Path $root "impl\Gowin2026_process_config.json"
 if (Test-Path $pcPath) {
   $pcRaw   = [IO.File]::ReadAllText($pcPath)
+  $pcMap   = [regex]::Match($pcRaw, '"Map_Option"\s*:\s*"([^"]*)"').Groups[1].Value
   $pcPlace = [regex]::Match($pcRaw, '"Place_Option"\s*:\s*"([^"]*)"').Groups[1].Value
   $pcRoute = [regex]::Match($pcRaw, '"Route_Option"\s*:\s*"([^"]*)"').Groups[1].Value
-  if (($pcPlace -ne "0") -or ($pcRoute -ne "0")) {
-    Write-Host "ERROR: impl/Gowin2026_process_config.json has Place_Option='$pcPlace' Route_Option='$pcRoute' -- must be 0/0" -ForegroundColor Red
+  if (($pcMap -ne "0") -or ($pcPlace -ne "0") -or ($pcRoute -ne "0")) {
+    Write-Host "ERROR: impl/Gowin2026_process_config.json has Map='$pcMap' Place='$pcPlace' Route='$pcRoute' -- all three must be 0" -ForegroundColor Red
     Write-Host "       Non-default algorithm options caused 676 unrouted nets (PR0004) on 2026-10-15." -ForegroundColor Red
+    Write-Host "       Map_Option = set_option -tm (Technology Mapping) -- it was NOT guarded before 2026-10-16." -ForegroundColor Red
     exit 3
   }
-  Write-Host "OK  PnR options are the project defaults (Place_Option=$pcPlace Route_Option=$pcRoute)"
+  Write-Host "OK  PnR options are the project defaults (Map=$pcMap Place=$pcPlace Route=$pcRoute)"
 } else {
   Write-Host "NOTE: impl/Gowin2026_process_config.json absent -- Gowin will use its own defaults (0/0)"
 }

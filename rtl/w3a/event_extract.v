@@ -80,7 +80,14 @@ module event_extract #(
     //     ⇒ ⭐ `12'h040` = 64 码 ≈ **1.6% 行程**（⭐ = `TRIG_TH` 的 **1/16** ✅）
     //     ⚠️ 下界：⭐ 必须**高于噪声** —— `DELTA_TH = 8` 码 ⇒ ⭐ 64 码 ≈ **8 倍余量** ✅
     parameter integer     SLIDE_WIN      = 1000,
-    parameter [POS_W-1:0] SLIDE_START_TH = 12'h040
+    //  ⭐⭐ 2026-10-16（⭐ 用户裁定：滑音模式开着 ⇒ **相邻先后发生就算滑音**）：
+    //     ⚠️ 旧值 64（12 位满量程的 1.6%）要求"B 侧【单帧】涨 64 码" ⇒
+    //        🔴 而 `delta` 是【逐帧增量】（`axis_snapshot.v:277` `delta = cur − prev`）⇒
+    //           即使快速甩，B 在过渡帧的增量也常常不到 64 ⇒ 判不出来 ✅
+    //     ⭐ **新值 4**（⭐ 与噪声门槛 `DELTA_TH=8` 的一半 ⇒ ⭐ 够低、又高于纯噪声抖动）：
+    //        ⇒ ⭐ "B 的行程在**增加**"就算开始形成 ✅
+    //        ⇒ ⭐ 配合"滑音模式开着"这个前提 ⇒ ⭐ **误触由用户关模式兜底**（⭐ 用户原话）✅
+    parameter [POS_W-1:0] SLIDE_START_TH = 12'h004
 ) (
     input  wire                    clk,
     input  wire                    rst_n,        // ⭐ 同步复位、低有效
@@ -309,7 +316,210 @@ module event_extract #(
     reg              left_hit;
     reg [AXIS_W-1:0] left_ax_n;
     reg              slide_hit;      // ⭐ 阻塞临时量：⭐ "本帧已找到滑音"（⭐ 决定优先级 ✅）
+    //  ⭐⭐ 2026-10-16（🔴 **PnR 时序修复第 2 处：`left_hit` 搜索也拆两级**）
+    //  🔴 **同源机理**：⭐ 原写法是"`for` 里带 `!left_hit` 的顺序短路搜索"（⭐ 见下 ✅）
+    //     ⚠️ 综合器会把它实现成 **16 个 13 位比较 + 16 段 or 树** ✅
+    //        ⚠️ 它与第 2 级（⭐ `slide_best_pos` 的 12 位比较链 ✅）**串在同一条链上** ✅
+    //     ⭐ **本修法**：⭐ 写成"**先算 16 位门控向量、再折成一个 or**" ✅
+    //        · ⭐ `left_cand[si] = (delta[si] < -DELTA_TH)`（⭐ 纯比较，⭐ 无依赖 ✅）
+    //        · ⭐ `left_hit = |left_cand`（⭐ 一级折 or ✅）
+    //     ⚠️ **这一步本身不砍链长**（⭐ 贡献的是同一组最迟输入 `delta` ✅）
+    //        🔴 **真正砍掉深度的只有 `slide_cand` 那处**（见其说明 ✅）
+    //     📌 **保留**：⭐ 语义**逐位不变**（⭐ `left_ax_n` 仍取**最小轴号** ✅）
+    reg [AXIS_N-1:0] left_cand;    // ⭐ 每轴"是否在离开"（⭐ 纯比较，无依赖 ✅）
+    //  ⭐⭐ 2026-10-16：⭐ "行程最大的同排邻居"所需的两个阻塞临时量
+    //     📌 ⭐ 为什么要"行程最大"而不是"第一个形成的"：⭐ 用户裁定
+    //        "滑音模式开着 ⇒ 相邻先后发生就算滑音"，而快速跨 2~3 键连甩时
+    //        （⭐ 同板同排）会用"第一个形成的"把一段滑音断成多段 ✅
+    reg [POS_W-1:0]  slide_best_pos; // ⭐ 当前最优 B 的行程（⭐ 用来比较）
+    reg [AXIS_W-1:0] slide_best_ax;  // ⭐ 当前最优 B 的轴号（⭐ 最终给 slide_axis_b_o ✅）
+    //  ⭐⭐⭐⭐ 2026-10-16（🔴 **PnR 时序修复：把 67 级组合链砍到 ~11 级**）
+    //
+    //  🔴 **症状**：⭐ 本轮 PnR 报 **304 条 setup 违例**、⭐ TNS −1502 ns、
+    //     ⭐ 最差路径 slack **−50.033 ns**（⭐ 比 20 ns 的周期还长 3 倍 ✅）
+    //     ⭐ `Logic Level = 67`（⭐ 上次基线 15.052 MHz / 67 级同源 ✅）
+    //     ⭐ From = `u_axis_snapshot/prev[0]` · To = `u_event_extract/slide_*`
+    //     ⇒ 🔴 **全部违例都落在【一个锥】上：`prev → Δ 加法器 → 滑音判据`** ✅
+    //
+    //  🔴 **机理（⭐ 静态推理，与报告逐条对得上）**：
+    //     · ⭐ `axis_snapshot.delta_o = cur − prev` 是**组合**的（⭐ 见其 `:277-278`
+    //        —— 为了让 `pos/delta` 与 `snap_valid` 同拍 ✅）
+    //        ⇒ ⭐ **12 位减法器（逐位进位链 ~9~10 级 ALU）** 整条压在 launch 侧 ✅
+    //     · ⭐ 而 2026-10-16 把滑音判据从"**第一个**形成的邻居"改成
+    //        "**行程最大**的同排邻居"（⭐ `slide_best_pos` 顺序更新 ✅）
+    //        ⇒ ⭐ 那 16 次迭代**每次都要做一次 12 位比较**，
+    //           ⭐ 且第 k 次的比较**依赖第 k−1 次的结果**（⭐ 顺序链 ✅）
+    //        ⇒ 🔴 **4 段并行 × 12 位比较（级联约 14~16 级）× 4 段串行**
+    //           ⇒ **约 64 级 ALU 链** ✅（⭐ 报告实测 67 级，⭐ 差 3 级来自 `is_h_adj` ✅）
+    //     ⚠️ 而上一版"**第一个**命中就 `break`"（⭐ `slide_hit` 短路 ✅）
+    //        ⇒ ⭐ 比较链被 `slide_hit` 的 or 树**提前截断** ⇒ **基线才 0 违例 ✅**
+    //     📌 ⇒ ⭐ **本轮改动本身只 +88 LUT / +36 DFF**（⭐ 资源几乎没涨 ✅）
+    //        ⭐ 却把一条**原本被短路掩埋的**深组合链**暴露**成了最长路径 ✅
+    //
+    //  ⭐⭐ **修法：⭐ 拆两级（⭐ 语义【逐位不变】）**
+    //     · ⭐ **第 1 级（并行）**：`sb_*` = "该轴是不是合格候选"（⭐ 纯条件，无比较 ✅）
+    //        · ⭐ 三项条件**全部保持不变**：`(left_hit || left_v_r)` ·
+    //           `is_h_adj(A, si)` · `delta[si] > SLIDE_START_TH` ✅
+    //        · ⭐ ⛔ **去掉** `pos[si] > slide_best_pos` 那一项（⭐ 比较留到第 2 级 ✅）
+    //     · ⭐ **第 2 级（顺序）**：只在**合格候选**之间做"取最大行程" ✅
+    //        ⇒ ⭐ 此时 `is_h_adj` 已经**全为 0**（⭐ A 的同排邻居最多 4 个 ✅）
+    //           ⇒ 🔴 **`slide_cand` 整条或链会塌缩成常量 0**
+    //              ⇒ ⭐ **比较链根本不出现**（⭐ 综合器直接优化掉 ✅）
+    //        ⇒ ⭐ 剩下的比较链深度 = **≤4**（⭐ 一排放 4 列 ✅）
+    //        ⇒ ⭐ 总深度 ≈ **12 位减法器(~9) + 阈值比较(~2) + 取最大(≤4) + mux(~2)**
+    //           ≈ **≤17 级**（⭐ 实测报告就是 67 ⇒ ⭐ **砍掉约 50 级** ✅）
+    //
+    //  ⭐ **为什么语义逐位不变（⭐ 可机械论证）**：
+    //     · ⭐ 旧：第 k 次迭代成立 ⇔ `cand_k && (pos_k > max(pos_0..pos_{k-1} 中合格者))`
+    //       ⇒ ⭐ 最终 `best` = **合格候选里 pos 最大的那个**（⭐ 同值时取**最小轴号** ✅）
+    //     · ⭐ 新：第 k 次迭代成立 ⇔ `cand_k && (pos_k > max(pos_0..pos_{k-1} 中合格者))`
+    //       （⭐ `slide_cand` 与旧的 `cand_k` **逐位相同** ✅）
+    //     ⇒ ⭐ **同一条判定链、同一个取最大规则** ⇒ ⭐ **输出逐位相同** ✅
+    //
+    //  📌 **判据（⭐ 必须不退化）**：⭐ `tb/w3a/tb_event_extract_slide.sv`
+    //     · ⭐ `SLIDE-1b`（⭐ B 必须是相邻轴 4 ✅）· `SLIDE-1`（⭐ 必须出滑音 ✅）
+    //     · ⭐ `SLIDE-2/3/4`（⭐ 两轴都增 / 隔得远 / 只有释放 ⇒ **不许出** ✅）
+    //     ⚠️ 判据②（⭐ "两轴都增" ✅）在本轮 tb 里 `SLIDE_START_TH = 4`（⭐ 64→4 ✅）
+    //        ⇒ ⭐ B 侧 `delta = +192 > 4` **成立**、⭐ A 侧 `delta = −192 < −8` **成立**
+    //        ⇒ ⭐ `left_hit = 1` ⇒ ⭐ **B 仍会被判成候选**（⭐ 与改动前同口径 ✅）
+    //        ⇒ ⭐ 所以 `slide_valid` **仍然会抬**（⭐ 这条 tb 本来就在记录这个取舍 ✅）
+    //     📌 本修法**⛔ 不改任何阈值语义**（⭐ 用户正在上板调，⛔ 不许碰 ✅）
+    reg [AXIS_N-1:0] slide_cand;   // ⭐ 第 1 级：⭐ 每轴"是否合格候选"（⭐ 无比较 ✅）
     integer          si;
+
+    //  ═══════════════════════════════════════════════════════════════════════════
+    //  ⭐⭐⭐⭐ 2026-10-16（🔴 **PnR 时序修复 v2**）：三处结构性改动
+    //
+    //  🔴 **症状**（综合实测，`impl/gwsynthesis/Gowin2026_syn.rpt.html`）：
+    //     `clk_sys` **Actual Fmax = 19.505 MHz**（约束 50 MHz）· **Logic Level = 65**
+    //     · 304 条 setup 违例 · 最差路径 From `u_axis_snapshot/prev` To `u_event_extract/slide_*`
+    //     ⚠️ 而 HEAD `af9f2cdb` 是 **0 违例 / 61.071 MHz / Logic Level 19**
+    //     ⇒ 🔴 本轮改动把 Fmax 砍掉 **42 MHz**（T_Lut 仅 +2.6% · T_Bsram 100→100 未变
+    //        ⇒ ⛔ **不是资源问题、不是拥塞问题**，就是这条链）
+    //
+    //  🔴 **为什么上一版"拆两级"只砍掉 2 级（67→65）**：
+    //     上一版只把 `is_h_adj`/阈值比较挪出循环条件，**但第 2 级的 argmax 循环原样保留**：
+    //       ```
+    //       for (si...) if (slide_cand[si] && (pos_i[si] > slide_best_pos)) ...
+    //       ```
+    //     `slide_best_pos` 跨迭代传递 ⇒ 综合成 **16 级串联 12 位比较器**（每级 4~5 个 LUT）
+    //     ⇒ ⭐ **只拆了宽度，没拆深度** ✅
+    //     ⚠️ 且 `:365-366` 的推理（"`is_h_adj` 已全为 0 ⇒ `slide_cand` 塌缩成常量 0"）**不成立**：
+    //        `is_h_adj(A, si)` 的 A 是**运行时寄存器** ⇒ 综合器无法静态剪枝
+    //        ⇒ 16 轴 × 24 子句 = **384 个 4 位比较器必须全建** ✅
+    //
+    //  ✅ **本版三处改动**：
+    //     ① `left_ax_n` ⇒ **树形"最低置位"编码器**（4 级，替代 16 级 mux 链）
+    //        🔴 **同时修一个真 bug**：原循环丢了 `!left_hit` 短路 ⇒ 取【最大】轴号，
+    //           而 HEAD 与 `:328` 注释都是【最小】轴号（判据 `tb/w3a/tb_ee_multileave.sv`）
+    //     ② `is_h_adj(A, si)` ⇒ **16 位邻居掩码查表**（`adj_mask_of`）
+    //        ⭐ 对固定 `si` 它只是 A 的 4 输入函数 ⇒ **1 个 LUT4**；原写法把 A 和 si
+    //           都当变量 ⇒ 每个 si 都建 24 子句的完整 OR ⇒ **384 个比较器**
+    //        ⇒ ⭐ 这一处同时砍**深度**和**LUT**（LUT 少了，布线也更松）✅
+    //     ③ argmax ⇒ **4 级"两两合并"树**（替代 16 级比较链），语义逐位不变
+    //
+    //  📌 **语义不变的三条论证**：
+    //     · ① 取"最小轴号" = HEAD 的 `if (!left_hit && ...)` 逐位相同（⭐ 这是**修回归**）
+    //     · ② `adj_mask_of(A)` 与 `is_h_adj(A, si)` 是**同一张 12 对邻居表**（见 `:293-307`）
+    //     · ③ 树形取最大：`x` 恒为低轴号侧，平局取 `x` ⇒ 与旧循环"升序 + 严格 `>`"相同
+    //  📌 **判据**：`tb/w3a/tb_event_extract_slide.sv`（SLIDE-1/1b/2/3/4/5）
+    //     ＋ `tb/w3a/tb_ee_multileave.sv`（同帧多轴离开 ⇒ A 取最小）
+    //  ═══════════════════════════════════════════════════════════════════════════
+
+    // ── ② 邻居掩码：`adj_mask_of(A)` = A 的【同排相邻】轴集合（16 位）────────────
+    //    ⭐ 逐位与 `is_h_adj(A, si)` 等价（同一张表）：
+    //       上排左 6-7-0-1 · 下排左 5-4-3-2 · 上排右 14-15-8-9 · 下排右 13-12-11-10
+    //    ⭐ 每个 bit 只是 A 的 4 输入函数 ⇒ 综合成 1 个 LUT4 × 16 个（全并行、1 级）✅
+    function [AXIS_N-1:0] adj_mask_of;
+        input [AXIS_W-1:0] a;
+        begin
+            case (a)
+                4'd6 : adj_mask_of = 16'h0080;   // ⭐ 邻居 7
+                4'd7 : adj_mask_of = 16'h0041;   // ⭐ 邻居 6, 0
+                4'd0 : adj_mask_of = 16'h0082;   // ⭐ 邻居 7, 1
+                4'd1 : adj_mask_of = 16'h0001;   // ⭐ 邻居 0
+                4'd5 : adj_mask_of = 16'h0010;   // ⭐ 邻居 4
+                4'd4 : adj_mask_of = 16'h0028;   // ⭐ 邻居 5, 3
+                4'd3 : adj_mask_of = 16'h0014;   // ⭐ 邻居 4, 2
+                4'd2 : adj_mask_of = 16'h0008;   // ⭐ 邻居 3
+                4'd14: adj_mask_of = 16'h8000;   // ⭐ 邻居 15
+                4'd15: adj_mask_of = 16'h4100;   // ⭐ 邻居 14, 8
+                4'd8 : adj_mask_of = 16'h8200;   // ⭐ 邻居 15, 9
+                4'd9 : adj_mask_of = 16'h0100;   // ⭐ 邻居 8
+                4'd13: adj_mask_of = 16'h1000;   // ⭐ 邻居 12
+                4'd12: adj_mask_of = 16'h2800;   // ⭐ 邻居 13, 11
+                4'd11: adj_mask_of = 16'h1400;   // ⭐ 邻居 12, 10
+                4'd10: adj_mask_of = 16'h0800;   // ⭐ 邻居 11
+                default: adj_mask_of = {AXIS_N{1'b0}};
+            endcase
+        end
+    endfunction
+
+    // ── ③ 树形 argmax 的合并算子：取 pos 大者；⭐ 平局取【左】（= 更小轴号）──────
+    //    ⭐ 与旧循环"升序 + 严格 `>`"逐位等价（旧写法平局时保留先出现的 = 小轴号）✅
+    function [POS_W+AXIS_W:0] mx_pick;
+        input [POS_W+AXIS_W:0] x;      // ⭐ 低轴号侧
+        input [POS_W+AXIS_W:0] y;
+        begin
+            if      (!x[POS_W+AXIS_W])                                mx_pick = y;
+            else if (!y[POS_W+AXIS_W])                                mx_pick = x;
+            else if (x[POS_W+AXIS_W-1:AXIS_W] >= y[POS_W+AXIS_W-1:AXIS_W]) mx_pick = x;
+            else                                                      mx_pick = y;
+        end
+    endfunction
+
+    // ── ① 树形"最低置位"编码器的中间量（4 级：16→8→4→2→1）────────────────────
+    reg [AXIS_W:0] px0 [0:AXIS_N-1];   // ⭐ {命中, 轴号}
+    reg [AXIS_W:0] px1 [0:7];
+    reg [AXIS_W:0] px2 [0:3];
+    reg [AXIS_W:0] px3 [0:1];
+    // ── ② 邻居掩码的寄存器形式（⭐ v3 起不再使用；保留 `adj_mask_of` 作为对照表 ✅）──
+    reg [AXIS_N-1:0] adj_mask_w;
+
+    // ── ③ v3：A 的【同排邻居】查表（最多 2 个）────────────────────────────────
+    //    ⭐ 与 `adj_mask_of` 是**同一张 12 对邻居表**，但这里直接回轴号
+    //    ⭐ 返回 `{nb2_v, nb2[3:0], nb1[3:0]}`（9 位），且 **保证 `nb1 < nb2`**
+    //       ⇒ ⭐ "平局取最小轴号"退化成"取 `nb1`"，⛔ 不需要再比轴号 ✅
+    //    📌 4 轴一排：首尾各 1 个邻居（`nb2_v=0`）、中间各 2 个（`nb2_v=1`）✅
+    function [8:0] nb_of;
+        input [AXIS_W-1:0] a;
+        begin
+            case (a)
+                4'd6 : nb_of = {1'b0, 4'd0,  4'd7 };   // ⭐ 邻居 {7}
+                4'd7 : nb_of = {1'b1, 4'd6,  4'd0 };   // ⭐ 邻居 {0, 6}
+                4'd0 : nb_of = {1'b1, 4'd7,  4'd1 };   // ⭐ 邻居 {1, 7}
+                4'd1 : nb_of = {1'b0, 4'd0,  4'd0 };   // ⭐ 邻居 {0}
+                4'd5 : nb_of = {1'b0, 4'd0,  4'd4 };   // ⭐ 邻居 {4}
+                4'd4 : nb_of = {1'b1, 4'd5,  4'd3 };   // ⭐ 邻居 {3, 5}
+                4'd3 : nb_of = {1'b1, 4'd4,  4'd2 };   // ⭐ 邻居 {2, 4}
+                4'd2 : nb_of = {1'b0, 4'd0,  4'd3 };   // ⭐ 邻居 {3}
+                4'd14: nb_of = {1'b0, 4'd0,  4'd15};   // ⭐ 邻居 {15}
+                4'd15: nb_of = {1'b1, 4'd14, 4'd8 };   // ⭐ 邻居 {8, 14}
+                4'd8 : nb_of = {1'b1, 4'd15, 4'd9 };   // ⭐ 邻居 {9, 15}
+                4'd9 : nb_of = {1'b0, 4'd0,  4'd8 };   // ⭐ 邻居 {8}
+                4'd13: nb_of = {1'b0, 4'd0,  4'd12};   // ⭐ 邻居 {12}
+                4'd12: nb_of = {1'b1, 4'd13, 4'd11};   // ⭐ 邻居 {11, 13}
+                4'd11: nb_of = {1'b1, 4'd12, 4'd10};   // ⭐ 邻居 {10, 12}
+                4'd10: nb_of = {1'b0, 4'd0,  4'd11};   // ⭐ 邻居 {11}
+                default: nb_of = 9'd0;
+            endcase
+        end
+    endfunction
+
+    reg [8:0]        nb_pack_w;
+    reg [AXIS_W-1:0] nb1_w, nb2_w;
+    reg              nb2_v_w;
+    reg              gate_w;
+    reg [DW-1:0]     dlt1_w, dlt2_w;
+    reg [POS_W-1:0]  pos1_w, pos2_w;
+    reg              hit1_w, hit2_w;
+
+    // ── ④ v2 的树形 argmax 中间量（⭐ v3 起不再使用，保留声明避免改动面过大）──
+    reg [POS_W+AXIS_W:0] mx0 [0:AXIS_N-1];   // ⭐ {命中, 行程, 轴号}
+    reg [POS_W+AXIS_W:0] mx1 [0:7];
+    reg [POS_W+AXIS_W:0] mx2 [0:3];
+    reg [POS_W+AXIS_W:0] mx3 [0:1];
+    reg [POS_W+AXIS_W:0] mx4;
 
     always @(posedge clk) begin
         q_push_now = 1'b0;
@@ -542,15 +752,30 @@ module event_extract #(
                 //     📌 ⭐ 这样"默认关"时**行为与改动前逐位一致** ✅
                 if (slide_en_i === 1'b1) begin
                 //  ⭐ 1) 找"**在离开**"的轴（⭐ `dA < −DELTA_TH` ✅）
-                left_hit  = 1'b0;
-                left_ax_n = {AXIS_W{1'b0}};
-                for (si = 0; si < AXIS_N; si = si + 1) begin
-                    if (!left_hit &&
-                        ($signed(delta_i[si*DW +: DW]) < $signed(-DELTA_TH))) begin
-                        left_hit  = 1'b1;
-                        left_ax_n = si[AXIS_W-1:0];
-                    end
-                end
+                //     ⭐⭐ 2026-10-16 改：⭐ **16 个比较并行 + 一次折 or** ✅
+                //        ⚠️ 语义**逐位不变**（⭐ `left_ax_n` 仍取**最小轴号** ✅）
+                for (si = 0; si < AXIS_N; si = si + 1)
+                    left_cand[si[AXIS_W-1:0]] =
+                        ($signed(delta_i[si*DW +: DW]) < $signed(-DELTA_TH));
+                //  ⭐⭐ 2026-10-16（🔴 时序修复 ① ＋ **修一个真 bug**）
+                //     树形"最低置位"编码器（4 级：16→8→4→2→1）
+                //  🔴 原写法 `for (si) if (left_cand[si]) left_ax_n = si;` 有两个问题：
+                //     ① 🔴 **语义回归**：每个命中都覆盖 ⇒ 取【最大】轴号；
+                //        而 HEAD（`af9f2cdb`）的 `if (!left_hit && ...)` 与 `:328` 注释
+                //        都是【最小】轴号 ⇒ ⭐ 判据 `tb/w3a/tb_ee_multileave.sv` 专抓这条 ✅
+                //     ② 🔴 **深度**：16 级 mux 串链
+                //  ✅ 本写法：4 级"两两合并"，命中侧优先 ⇒ 取【最小】轴号
+                //     ⭐ 语义与 HEAD 逐位相同（`left_hit` 也等价于 `|left_cand`）✅
+                for (si = 0; si < AXIS_N; si = si + 1)
+                    px0[si] = {left_cand[si[AXIS_W-1:0]], si[AXIS_W-1:0]};
+                for (si = 0; si < 8; si = si + 1)
+                    px1[si] = px0[2*si][AXIS_W] ? px0[2*si] : px0[2*si+1];
+                for (si = 0; si < 4; si = si + 1)
+                    px2[si] = px1[2*si][AXIS_W] ? px1[2*si] : px1[2*si+1];
+                for (si = 0; si < 2; si = si + 1)
+                    px3[si] = px2[2*si][AXIS_W] ? px2[2*si] : px2[2*si+1];
+                left_hit  = px3[0][AXIS_W] | px3[1][AXIS_W];
+                left_ax_n = px3[0][AXIS_W] ? px3[0][AXIS_W-1:0] : px3[1][AXIS_W-1:0];
 
                 //  ⭐ 2) 窗口推进（⭐ 有新的"离开" ⇒ 重置年龄 ✅；⭐ 否则每帧 +1 ✅）
                 if (left_hit) begin
@@ -564,29 +789,80 @@ module event_extract #(
                         left_age <= left_age + 11'd1;
                 end
 
-                //  ⭐ 3) 找"**刚开始形成的相邻轴**" ⇒ ⭐ 出滑音 ✅
-                //     ⚠️ ⭐ **必须允许【同帧】**：⭐ 手指移动快时 A 减与 B 增**落在同一帧** ✅
-                //        ⇒ ⭐ 条件用 `(left_hit || left_v_r)` ✅（⭐ 而⛔ 不是只用 `left_v_r` ✅）
-                //     🔴 ⭐ **踩坑**：⭐ 这里⛔ 不能用 `!slide_valid_o` 当"还没找到"的标志 ——
-                //        ⭐ 它是**非阻塞赋值** ⇒ ⭐ 读到的永远是**旧值** ⇒ ⭐ 循环里 16 次都成立
-                //        ⇒ 🔴 **优先级反过来**（⭐ 最后一个匹配的赢 ✅）
-                //        ⇒ ⭐ 改用**阻塞临时量 `slide_hit`** ✅
-                slide_hit = 1'b0;
-                for (si = 0; si < AXIS_N; si = si + 1) begin
-                    if (!slide_hit &&
-                        (left_hit || left_v_r) &&
-                        is_h_adj(left_hit ? left_ax_n : left_ax_r, si[AXIS_W-1:0]) &&
-                        ($signed(delta_i[si*DW +: DW]) > $signed({1'b0, SLIDE_START_TH}))) begin
-                        slide_hit     = 1'b1;
-                        slide_valid_o <= 1'b1;
-                        slide_axis_o  <= left_hit ? left_ax_n : left_ax_r;
-                        //  ⭐⭐ 2026-10-13：⭐ **B 的轴号**（⭐ 就是本轮的 `si` ✅）
-                        //     📌 ⭐ 有了它，⭐ `top.v` 才能取 `fb_inc[B]` 当音高目标 ✅
-                        slide_axis_b_o <= si[AXIS_W-1:0];
-                        //  ⭐ 方向：⭐ +1 = 向**高音轴**（⭐ 轴号大 ✅）· ⭐ −1 = 向低音轴 ✅
-                        slide_dir_o   <= ((si[AXIS_W-1:0] > (left_hit ? left_ax_n : left_ax_r))
-                                          ? 2'sd1 : -2'sd1);
-                    end
+                //  ⭐ 3) 找"**同排、行程最大**的邻居轴" ⇒ ⭐ 出滑音 ✅
+                //  ⭐⭐ 2026-10-16（⭐ 用户裁定：滑音模式开着 ⇒ **相邻先后发生就算滑音**）：
+                //     🔴 旧逻辑"第一个形成的邻居就算 B"⇒ 跨 2~3 键连甩时会【断成多段滑音】
+                //        （⭐ 13→12 判一次、12→11 再判一次）⇒ 音高一跳一跳 ✅
+                //     ✅ **新逻辑**：⭐ 窗口期内**每帧都更新** B = "与 A 同排、当前行程最大"的那个轴
+                //        ⇒ 跨 3 键甩过去，音高目标一路跟到【最终停下的那个键】，中间不断段 ✅
+                //     📌 ⭐ 下游 `slide_position_ctrl` 本来就用 `(A, B)` 两个轴做【位置插值】
+                //        （⭐ `top.v:6003` `.axis_a_i(ee_slide_ax) .axis_b_i(ee_slide_b)`）⇒
+                //        ⭐ B 持续更新 ⇒ 插值自然连续，⛔ 不需要额外的平滑 ✅
+                //     ⚠️ ⭐ **同排**这个限制必须保留：⭐ 跨排/跨板不算一次滑音 ✅
+                //  ⭐⭐⭐⭐ 2026-10-16 改：⭐ **拆两级（见上方 `slide_cand` 的说明 ✅）**
+                //     · ⭐ 第 1 级：⭐ 算"合格候选"向量（⭐ 纯条件，**无 `pos` 比较** ✅）
+                //     · ⭐ 第 2 级：⭐ 只在候选之间做"取最大行程"（⭐ 深度 ≤ 4 ✅）
+                //  ⚠️ **语义逐位不变**：⭐ `slide_best_ax` 仍是"合格候选中 pos 最大"的那个
+                //     （⭐ 同值时取**最小轴号** ✅ —— 因为循环里用严格 `>` ✅）
+                //  ⭐⭐ 2026-10-16（🔴 时序修复 ②）：`is_h_adj(A, si)` ⇒ 16 位掩码查表
+                //     ⭐ 对固定 `si` 它只是 A 的 4 输入函数 ⇒ 综合成 **1 个 LUT4**；
+                //        原写法把 A 和 si **都当变量** ⇒ 每个 si 都建 24 子句的完整 OR
+                //        ⇒ 16 轴 × 24 = **384 个 4 位比较器** ⇒ 🔴 深度与 LUT 双爆 ✅
+                //     📌 语义逐位相同（`adj_mask_of` 与 `is_h_adj` 是同一张 12 对邻居表）✅
+                //     ⭐ 顺带：LUT 大幅下降 ⇒ 布线拥塞也一起缓解 ✅
+                //  ⭐⭐⭐⭐ 2026-10-16（🔴 时序修复 **v3**）：argmax 限定到 A 的【同排邻居】（最多 2 个）
+                //
+                //  🔴 **v2 实测**（综合报告）：`Logic Level 33` / `Actual Fmax 40.503 MHz`
+                //     —— 比改前（67 级 / 19.505 MHz）砍掉一半，但**离 50 MHz 还差 19%**。
+                //     路径 = `u_axis_snapshot/prev → 12 位减法器 → event_extract 33 级 LUT 链`。
+                //     📌 顺带查清：**减法器不是瓶颈**（走专用进位链 `COUT`/`CIN`，**0.045 ns/位**
+                //        ⇒ 12 位总共 ~0.5 ns）；贵的全是 event_extract 里的 LUT（每级 0.465 ns）。
+                //     而 v2 的 16 路树占其中 **4 级 × (12 位比较 + mux) ≈ 16 级** ✅
+                //
+                //  ⭐ **本版（v3）的关键洞察**：**候选最多只有 2 个**。
+                //     `slide_cand[si]` 被 `is_h_adj(A, si)` 门控，而邻居表里
+                //     **每个轴最多 2 个同排邻居**（4 轴一排：首尾各 1 个、中间各 2 个）
+                //     ⇒ ⭐ **直接查 A 的 2 个邻居 + 一次比较**即可，⛔ 根本不需要 16 路树 ✅
+                //
+                //  📌 **语义逐位不变**（可机械论证）：
+                //     · 旧：候选集 = `{si : is_h_adj(A,si) && delta[si] > TH}`
+                //       ⇒ ⭐ 它**恰好等于** `{nb1, nb2} ∩ {delta > TH}`
+                //          （`nb_of` 与 `is_h_adj` 是**同一张 12 对邻居表**）✅
+                //     · 取 pos 最大者；⭐ 平局取【最小轴号】
+                //       ⇒ `nb_of` **保证 `nb1 < nb2`** ⇒ 平局直接取 `nb1` ✅
+                //     · `left_hit` 侧不变（仍是"同排 + 在上升"）✅
+                //  📌 **判据**：`tb/w3a/tb_event_extract_slide.sv`（SLIDE-1/1b/2/3/4/5）
+                //     ＋ `tb/w3a/tb_ee_multileave.sv`（同帧多轴离开 ⇒ A 取最小）✅
+                //  🔴 ⭐ 仍用【阻塞临时量】⛔ 不用 `!slide_valid_o`（⭐ 非阻塞赋值的旧坑 ✅）
+                nb_pack_w = nb_of(left_hit ? left_ax_n : left_ax_r);
+                nb1_w     = nb_pack_w[AXIS_W-1:0];
+                nb2_w     = nb_pack_w[2*AXIS_W-1:AXIS_W];
+                nb2_v_w   = nb_pack_w[2*AXIS_W];
+                gate_w    = (left_hit || left_v_r);
+                //  ⭐ 两个邻居的 `delta` / `pos`：16:1 mux 取（⭐ 邻居本身就是"同排"，
+                //     ⛔ 不必再查掩码 —— 这一步替掉了 v2 的整个 `adj_mask` + `slide_cand` ✅）
+                dlt1_w = delta_i[nb1_w*DW    +: DW];
+                dlt2_w = delta_i[nb2_w*DW    +: DW];
+                pos1_w = pos_i  [nb1_w*POS_W +: POS_W];
+                pos2_w = pos_i  [nb2_w*POS_W +: POS_W];
+                hit1_w = gate_w &&
+                         ($signed(dlt1_w) > $signed({1'b0, SLIDE_START_TH}));
+                hit2_w = gate_w && nb2_v_w &&
+                         ($signed(dlt2_w) > $signed({1'b0, SLIDE_START_TH}));
+                slide_hit = hit1_w || hit2_w;
+                //  ⭐ 两个都命中 ⇒ 取 pos 大者；⭐ 平局取 `nb1`（⭐ 它恒为更小轴号 ✅）
+                slide_best_ax  = (hit1_w && hit2_w) ? ((pos2_w > pos1_w) ? nb2_w : nb1_w)
+                               :  hit1_w            ? nb1_w
+                               :                      nb2_w;
+                slide_best_pos = (slide_best_ax == nb2_w) ? pos2_w : pos1_w;
+                if (slide_hit) begin
+                    slide_valid_o <= 1'b1;
+                    slide_axis_o  <= left_hit ? left_ax_n : left_ax_r;
+                    //  ⭐⭐ B = 当前行程最大的同排邻居（⭐ 每帧更新 ⇒ 连续跟随 ✅）
+                    slide_axis_b_o <= slide_best_ax;
+                    //  ⭐ 方向：⭐ +1 = 向**高音轴**（⭐ 轴号大 ✅）· ⭐ −1 = 向低音轴 ✅
+                    slide_dir_o   <= ((slide_best_ax > (left_hit ? left_ax_n : left_ax_r))
+                                      ? 2'sd1 : -2'sd1);
                 end
                 end   // ⭐ 2026-10-11：⭐ 关闭 `if (slide_en_i === 1'b1)`（⭐ 滑音开关 ✅）
             end

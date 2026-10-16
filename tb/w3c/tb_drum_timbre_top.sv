@@ -135,7 +135,10 @@ module tb_drum_timbre_top;
     integer n_drm_kick   = 0;
     integer n_drm_hih    = 0;
     reg [31:0] drm_inc_first = 32'hDEAD_BEEF;
-    //   ⭐ 只统计 **axis = 15**（鼓机）的合流事件 —— ⚠️ 源 A（演示和弦）也在同一条口上
+    //   ⭐ 只统计 **axis 在 12..15**（鼓机）的合流事件 —— ⚠️ 源 A（演示和弦）也在同一条口上
+    //   ⭐ 2026-10-16 轴号统一：⭐ 鼓机的四件分轴 12/13/14/15（⭐ 与灌谱那一路同一约定）
+    //      ⇒ ⭐ 旧判据写 `mg_ax === 4'hF`（⭐ 只认嗵鼓）⇒ 🔴 改成 12..15 区间
+    //      ⇒ ⚠️ 否则只有嗵鼓进统计 ⇒ 判据【变空洞】（⭐ 实测踩到）✅
     integer n_mg_drum    = 0;
     integer n_mg_tv_bad  = 0;      // ⭐ `timbre_valid` 不为 1 的个数
     integer n_mg_t_bad   = 0;      // ⭐ `timbre` 不等于 `DRUM_T` 的个数
@@ -148,7 +151,7 @@ module tb_drum_timbre_top;
                 if (drm_inc == INC_KICK)  n_drm_kick = n_drm_kick + 1;
                 if (drm_inc == INC_HIHAT) n_drm_hih  = n_drm_hih  + 1;
             end
-            if (mg_v && (mg_ax === 4'hF)) begin
+            if (mg_v && (mg_ax >= 4'd12) && (mg_ax <= 4'd15)) begin
                 n_mg_drum = n_mg_drum + 1;
                 if (mg_tv !== 1'b1)   n_mg_tv_bad = n_mg_tv_bad + 1;
                 if (mg_t !== DRUM_T)  n_mg_t_bad  = n_mg_t_bad  + 1;
@@ -223,7 +226,8 @@ module tb_drum_timbre_top;
         //    ⭐ 这才是"**上板听得见**"的那一环（⭐ 音色最终由 `voice_timbre_o` 决定）
         n_axis15_voice = 0; n_axis15_timbre = 0;
         for (i = 0; i < 32; i = i + 1) begin
-            if ((u_top.g_sound.u_note_manager.axis_r[i] === 4'hF) &&
+            if ((u_top.g_sound.u_note_manager.axis_r[i] >= 4'd12) &&
+                (u_top.g_sound.u_note_manager.axis_r[i] <= 4'd15) &&
                 (u_top.g_sound.u_note_manager.gate_r[i] === 1'b1)) begin
                 n_axis15_voice = n_axis15_voice + 1;
                 if (u_top.g_sound.u_note_manager.timbre_r[i] === DRUM_T)
@@ -253,7 +257,8 @@ module tb_drum_timbre_top;
         one_bar_start();                          // ⭐ 再敲一个小节
         n_axis15_voice = 0; n_axis15_timbre = 0;
         for (i = 0; i < 32; i = i + 1) begin
-            if ((u_top.g_sound.u_note_manager.axis_r[i] === 4'hF) &&
+            if ((u_top.g_sound.u_note_manager.axis_r[i] >= 4'd12) &&
+                (u_top.g_sound.u_note_manager.axis_r[i] <= 4'd15) &&
                 (u_top.g_sound.u_note_manager.gate_r[i] === 1'b1)) begin
                 n_axis15_voice = n_axis15_voice + 1;
                 if (u_top.g_sound.u_note_manager.timbre_r[i] === DRUM_T)
