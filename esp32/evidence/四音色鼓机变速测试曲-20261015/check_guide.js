@@ -21,7 +21,8 @@
 //             met-tom-tight / ui-drum-leak / ui-throw /
 //             solo-nofilter / all-drop-bg / drum-met-keep / drum-track-keep /
 //             drum-both-drop / met-tr-minus1 / payload-count /
-//             visible-ignore-sel / visible-ignore-guide / guide-subset-guard
+//             visible-ignore-sel / visible-ignore-guide / guide-subset-guard /
+//             drum-inc-not0 / drum-off-type / melody-isdrum（后三个 = 2026-10-16 新口径）
 //
 // 判据 ①..⑧：
 //   ① 引导轨的字 bit6=1，且数量 == 该轨音符数 × 2（on/off 成对、落点与该轨音符一致）
@@ -47,6 +48,34 @@
 //   ⑬ 非空洞 + 反向证伪：solo -> all 必须【变长】（相等即红）；guideOn=false 必须【原样返回】
 //   ⑭ 选轨 × 引导裁剪：只选 [引导轨, 鼓轨] 时 visibleWords 仍然正确（抓"两个过滤器串联 ⇒ 下标错位"
 //      这个实测坑：全选正常，只选 [吉他,鼓] 时引导轨置位数从 72 掉到 45、鼓轴字数变 185）
+//
+// 判据 ⑮..⑲（2026-10-16 鼓与旋律彻底分离 —— 手册 §二 / §4.1-7 校验器 / §7.3 机械检查）：
+//   ⑮ 鼓事件（is_drum=1）的 inc 全 0 · 旋律事件（is_drum=0 且排除 kind=2 tempo）的 inc 全非 0 ·
+//      is_drum=0 的事件里轴号落 12..15 的必须 0 条 · 可见字里"is_drum 字数 == 轴=12+dt 的字数"
+//   ⑯ 鼓的每个 kind=0 都有配对 kind=1（按 (axis, drum_type)），OFF 也带 is_drum=1 与同一 drum_type
+//      （手册点名"漏了会挂音/耗尽鼓池"）+ is_drum=1 时 note_off5 必须为 0
+//   ⑰ 鼓件【按 drum_type 认件】（2 位 = timbre[8:7]，4 件）：四件齐全 +
+//      轴 == 12 + drum_type（axis-12 == dt）+ 两条 dt 读取路径一致 + 页面表与手册【独立写死的表】一致
+//   ⑱ 旋律 note_off5 口径：可弹(MIDI 45..75) => MIDI-45；越界 => 31 哨兵（⛔ 不许钳到 0）
+//   ⑲（本轮新增）镲族 8 个音高（46/49/51/52/53/55/57/59）在页面 GM 表里必须【显式列出】-> hihat
+//   ⑳（第三轮回退 4 件口径）鼓力度逐件定值：Kick 230 · Snare 235 · HiHat 175 · Tom 220；鼓 OFF 写 0
+//      （与 esp32/tools/check_drum_split.py 判据⑧ 同口径；⛔ 上一轮 8 件新增的四件力度已随扩位删掉）
+//   ⚠️ ⑮⑯⑰⑱⑲ 全程按 unpackWord 出来的字段判；⛔ 不再拿"轴号落 12..15"当鼓的标志
+//      —— 那正是本次要拆掉的老口径（鼓的识别 = bit5 + drum_type）。
+//
+// 2026-10-16【第三轮 · 回到 4 件】的口径（本脚本独立写死，⛔ 不读页面的表当期望值）：
+//   FPGA 线收回了"扩到 8 件"（他们只有 4 件鼓音色，那几个新 inc 是同一纯音引擎的高频音高）。
+//   drum_type = timbre[8:7]（2 位，⛔ 不读 bit19）= kick0 snare1 hihat2 tom3（镲族显式归 hihat）
+//   鼓的轴 = 12 + drum_type = kick 12 · snare 13 · hihat 14 · tom 15（一件一轴）
+//   ⛔ 上一轮的 dt 键（((dt&3)<<1)|(dt>>2) = 0/2/4/6/1/3/5/7）与"8..15"两套旧写法都作废。
+//   旋律仍用 0..11（与鼓的 12..15 分开：note_off 按 (axis, src) 两维匹配，src 不同）。
+//   鼓力度：Kick 230 · Snare 235 · HiHat 175 · Tom 220；鼓的 OFF 写 0。
+//   note_off5：可弹(45..75) => MIDI-45（0..30）；越界 => 31 哨兵（不点灯）；⛔ 不许钳到 0。
+//     ⚠️ 哨兵只作用于【旋律】；鼓的 note_off5 恒 0（判据⑯，本轮不回退）。
+//
+// 独立位提取（rawOf）必须同步认识 bit5（is_drum）与 bits[4:0]（note_off5）：
+//   ⛔ 不许改成"直接信页面 unpackWord"（那是拿被验者验自己 = 假绿，经验库 C83）。
+//   判据⑦ 拿它与页面的 unpackWord 逐字段比，并用【独立编码器】往返验"一个位域都没漏"。
 //
 // 2026-10-16 页面接口（判据按这个口径写）：
 //   · 主 API = visibleWords(conv)：【一趟】循环里同时做"选轨 + 引导裁剪"（唯一来源 = 所见即所灌）
@@ -92,7 +121,25 @@ if (!fs.existsSync(midPath)) { console.error("找不到 MIDI：" + midPath); pro
    =========================================================================== */
 const WANT_BAR  = 3840;                 // 一小节 = 960 PPQN × 4（4/4）
 const WANT_GAP  = 480;                  // 同一件鼓相邻落点下限（方案 B 口径）
+/* 2026-10-16 第三轮（FPGA 线收回 8 件）：鼓件的识别口径回到
+ * drum_type = timbre[8:7]（2 位，⛔ 不读 bit19），共 4 件。
+ * 轴口径：鼓的 axis = 12 + drum_type（一件一轴）= kick 12 · snare 13 · hihat 14 · tom 15。
+ * ⛔ 上一轮的 dt 键（((dt&3)<<1)|(dt>>2) = 0/2/4/6/1/3/5/7）与"8..15"两套旧写法都作废。
+ * ⛔ 不再按 inc 认件 —— 鼓的 inc 恒为 0（FPGA 按 drum_type 从 drum_gen 的表里自己取）。 */
+const WANT_TYPE = { kick: 0, snare: 1, hihat: 2, tom: 3 };
+const WANT_TYPE_NAME = { 0: "kick", 1: "snare", 2: "hihat", 3: "tom" };
+const WANT_AXIS_KEY = { 0: 12, 1: 13, 2: 14, 3: 15 };   // dt -> axis（独立写死）
 const WANT_AXIS = { kick: 12, snare: 13, hihat: 14, tom: 15 };
+const WANT_BASE_TYPES = [0, 1, 2, 3];   // 四件（§7.3-3 要求都有）
+const WANT_DRUM_AXIS_BASE = 12, WANT_DRUM_AXIS_MAX = 15;   // 鼓轴段（独立写死）
+/* 鼓力度逐件定值（判据⑳；与 esp32/tools/check_drum_split.py 判据⑧ 同口径）。
+   生效值 = drum_gen.v 默认 + top.v 覆盖：Kick 未被覆盖仍 230 · Snare 235 · HiHat 175 · Tom 220。
+   ⛔ 上一轮给"扩到 8 件"新增的四件力度（openhat/crash/ride/splash）已随扩位一起删掉。 */
+const WANT_DRUM_VEL = { 0: 230, 1: 235, 2: 175, 3: 220 };
+/* 镲族：必须【显式列出】指向 hihat（判据⑲；⛔ 不靠表外兜底 -> tom） */
+const WANT_CYMBAL_GMS = [46, 49, 51, 52, 53, 55, 57, 59];
+const WANT_MELODY_BAN_AXIS_MIN = 12;    // §7.3-1：旋律不许占 12..15（独立写死，⛔ 不取页面常数）
+const AXIS_KEY_TXT = [0, 1, 2, 3].map(t => t + "->" + WANT_AXIS_KEY[t]).join(" ");
 const WANT_BEAT = {                     // 需求单给的 beat 音型
   beats: [["kick", 0], ["tom", 960], ["snare", 1920], ["tom", 2880]],
   hats:  [0, 960, 1920, 2880],
@@ -152,6 +199,10 @@ const MUTATIONS = {
                           "④的灵敏度改由 avoid-invert 突变 + 它自己的合成反控来证" },
   "avoid-invert": { find: "const near = (takenByInc[inc] || []).some(t => Math.abs(t - tick) < DRUM_DUR_TICK);",
                     repl: "const near = !(takenByInc[inc] || []).some(t => Math.abs(t - tick) < DRUM_DUR_TICK);",
+                    /* ⭐ 2026-10-16：页面把避让键从 inc 改成了 drum_type（手册 §二口径）
+                     *   ⇒ 主锚失效，补一个备用锚（alt 机制：取第一个出现次数正好符合要求的）。 */
+                    alt: [{ find: "const near = (takenByType[dt] || []).some(t => Math.abs(t - tick) < DRUM_DUR_TICK);",
+                            repl: "const near = !(takenByType[dt] || []).some(t => Math.abs(t - tick) < DRUM_DUR_TICK);" }],
                     expect: "③",
                     note: "避让判据取反（该避让的不避让）。这份曲子的同件碰撞【全是同 tick 重合】，" +
                           "去重后不产生新间隔 => 打不到④，只有③能抓" },
@@ -208,6 +259,19 @@ const MUTATIONS = {
                           expect: "⑭",
                           note: "guideScopedWords 的长度守卫被去掉 ⇒ 喂子集会按下标错位（踩过的坑）——" +
                                 "⑭ 的长度守卫核对必须抓" },
+
+  /* ⭐⭐ 2026-10-16 新增（鼓与旋律分离 / 手册 §二 · §4.1-7）：新位域与件名口径的突变自证。
+     ⚠️ 锚点取的是页面里【那一句核心口径】；页面换写法就会"出现 0 次"⇒ 直接报错退出（⛔ 不假装跑过）。 */
+  "drum-inc-not0": { find: "const inc = isDrum ? 0", repl: "const inc = isDrum ? 5243",
+                     expect: "⑮",
+                     note: "鼓事件的 inc 写回非 0（撞上「21 位装不下 26/28 位 inc」的老毛病 ⇒ 又变电子音）" },
+  "melody-isdrum": { find: "const isDrum = e.isDrum ? 1 : 0;", repl: "const isDrum = 1;",
+                     expect: "⑮",
+                     note: "所有事件都标 is_drum=1（旋律全被当成鼓 —— 正是手册 §〇 第 1 条要防的「旋律变鼓」）" },
+  "drum-off-type": { find: "timbre: DRUM_TYPE_OF[d.name] & 3,",
+                     repl: "timbre: n.on ? (DRUM_TYPE_OF[d.name] & 3) : ((DRUM_TYPE_OF[d.name] + 1) & 3),",
+                     expect: "⑯",
+                     note: "鼓的 OFF 带错 drum_type（ON/OFF 配不上 ⇒ 鼓 voice 永久 held ⇒ 保留池耗尽）" },
 };
 let mutated = null;
 {
@@ -296,7 +360,22 @@ const APPEND =
      ⇒ 得像 check_roll.js 的 __setScore 那样把谱面交给页面。 */
   "\n; function __setLastConv(c) { lastConv = c; }" +
   "\n; return { parseMidi, midiToWords, buildScore, isDrumTrack, timbreOfTrack, TIMBRE_NAMES," +
-  " isDrumAxis, DRUM_AXIS_OF, DRUM_AXIS_BASE, MELODY_AXIS_MAX, DRUM_INC, MIDI_PPQN," +
+  " isDrumAxis, DRUM_AXIS_OF, " +
+  /* ⚠️ DRUM_AXIS_BASE：2026-10-16 第三轮页面【回退到 4 件】后鼓就占 12..15（一件一轴），
+     这个常量在页面里已删除（不再需要"预留段起点"这个概念）。
+     typeof 保护：页面没有它就导出 null、判据直接跳过该项（⛔ 不当成页面出错）；
+     ⛔ 也【不再】断言"12..15 保留段空出"—— 第三轮鼓就在 12..15，那条断言已作废。
+     本判据的 §7.3-1 期望值（旋律不许占 12..15）由 WANT_MELODY_BAN_AXIS_MIN 独立写死，
+     ⛔ 不依赖这个页面常量。 */
+  " DRUM_AXIS_BASE: (typeof DRUM_AXIS_BASE === 'number') ? DRUM_AXIS_BASE : null, " +
+  "MELODY_AXIS_MAX, DRUM_INC, MIDI_PPQN," +
+  /* ⭐ 2026-10-16（手册 §二）：把页面自己的鼓件口径表也带出来 ——
+     判据③/⑰ 拿它与手册 §二/§4.3【独立写死的表】对照（⛔ 不是拿页面的表验页面的表）。
+     typeof 保护：页面还没写出来时导出 null，判据会明确报缺，⛔ 不抛 ReferenceError。 */
+  " DRUM_TYPE_OF: (typeof DRUM_TYPE_OF === 'object') ? DRUM_TYPE_OF : null," +
+  /* 2026-10-16 第三轮：GM 音高 -> 鼓件名的表也要带出来 —— 判据⑲ 核对
+     "镲族 8 个音高必须【显式列出】-> hihat"（⛔ 不靠表外兜底 -> tom）。 */
+  " GM_DRUM_MAP: (typeof GM_DRUM_MAP === 'object') ? GM_DRUM_MAP : null," +
   " KIND_ON, KIND_OFF, KIND_TEMPO, packWord, unpackWord, wordToBytes, frameFromWord," +
   " buildMetronome, MET_PATTERNS, MET_STYLE_NAME, BAR_TICK, DRUM_DUR_TICK," +
   " buildTrackPicker, updateGuideSummary, __setLastConv," +
@@ -433,24 +512,52 @@ const avoidBoth = true;    // both 档 ⇒ 谱面鼓会响 ⇒ 避让
    解码与通用工具
    =========================================================================== */
 const unpack = w => API.unpackWord(w);
-/* 独立位提取（不复用页面的 unpackWord）—— 判据⑦用它来验页面的解码器 */
+/* 独立位提取（不复用页面的 unpackWord）—— 判据⑦用它来验页面的解码器。
+ * ⭐⭐ 2026-10-16（手册 §二）：必须同步认识 bit5（is_drum）与 bits[4:0]（note_off5）——
+ *   否则"新位域写错了"这件事在本核对器里【看不见】（旧版只提到 bit6，正好漏掉这两个）。
+ * ⛔ 不许改成"直接信页面 unpackWord"：那是拿被验者验自己 = 假绿（经验库 C83）。 */
 const rawOf = w => ({
   tick:   Number((w >> 44n) & 0xFFFFFn), inc:    Number((w >> 23n) & 0x1FFFFFn),
   axis:   Number((w >> 19n) & 0xFn),     vel:    Number((w >> 11n) & 0xFFn),
   kind:   Number((w >> 9n)  & 0x3n),     timbre: Number((w >> 7n)  & 0x3n),
   guide:  Number((w >> 6n)  & 0x1n),
+  /* 2026-10-16 第三轮：bit19 【不再】是 drum_type 的 MSB —— 它只是 axis 字段的 bit0。
+   * ⛔ 这里不再单独提取 bit19（上一轮的"共享位"读法已随"扩到 8 件"一起作废）。 */
+  isDrum: Number((w >> 5n)  & 0x1n),     note5:  Number(w & 0x1Fn),
 });
-const FIELDS = ["tick", "inc", "axis", "vel", "kind", "timbre", "guide"];
+const FIELDS = ["tick", "inc", "axis", "vel", "kind", "timbre", "guide", "isDrum", "note5"];
 const diffFields = (a, b) => FIELDS.filter(f => a[f] !== b[f]);
+/* ⭐ 独立编码器（⛔ 不用页面的 packWord）：判据⑦ 用它往返验"独立提取没漏任何位域"。
+ *   覆盖全部 64 位：tick20 + inc21 + axis4 + vel8 + kind2 + timbre2 + guide1 + isDrum1 + note5 5 = 64 */
+const mkWord = o =>
+  ((BigInt(o.tick || 0) & 0xFFFFFn) << 44n) | ((BigInt(o.inc || 0) & 0x1FFFFFn) << 23n) |
+  ((BigInt(o.axis || 0) & 0xFn) << 19n)     | ((BigInt(o.vel || 0) & 0xFFn) << 11n) |
+  ((BigInt(o.kind || 0) & 0x3n) << 9n)      | ((BigInt(o.timbre || 0) & 0x3n) << 7n) |
+  ((BigInt(o.guide || 0) & 0x1n) << 6n)     | ((BigInt(o.isDrum || 0) & 0x1n) << 5n) |
+  (BigInt(o.note5 || 0) & 0x1Fn);
 
-const nameOfInc = {};
-for (const nm of Object.keys(API.DRUM_INC)) nameOfInc[API.DRUM_INC[nm]] = nm;
+/* 2026-10-16 第三轮（FPGA 线收回 8 件）：鼓件名 = drum_type = {bit19, timbre[8:7]} 改为
+ *   【2 位 timbre[8:7]】（kick=0 · snare=1 · hihat=2 · tom=3；镲族全部归 hihat）。
+ *   ⛔ 删掉原来的 nameOfInc（按 inc 反查件名）：鼓的 inc 恒为 0，按 inc 反查会全认成"inc0"。 */
+const DRUM_TYPE_NAME = { 0: "kick", 1: "snare", 2: "hihat", 3: "tom" };
+const nameOfType = t => DRUM_TYPE_NAME[t & 3] || ("type" + (t & 3));
+/* drum_type 两位读取的两条【独立】路径（判据⑦/⑰ 拿它们互证）：
+ *   dtOf 走页面 unpackWord 给出的 timbre（被验者的解码结果）；
+ *   dtOfRaw 走本文件的独立位提取（原始位 bit 8..7）。 */
+const dtOf = o => (o.timbre & 3);
+const dtOfRaw = o => (o.timbre & 3);
+/* 上一轮（8 件）的三位读法 {bit19, timbre[8:7]}：只用来做判据⑰ 的【反控】——
+ *   证明"多读一位"在本产物上是能被抓到的（轴 13/15 的事件 bit19=1）。 */
+const dtOfLegacy3 = o => (((o.axis & 1) << 2) | (o.timbre & 3));
 
 /* 节拍器字的判定。
    ⭐ 2026-10-16 需求单：节拍器字的源轨号从 -1 改成 -2 ⇒ 这里必须认 -2。
    ⚠️ 同时仍认 -1（旧口径）—— 因为"认得出节拍器"只影响【报告与③④的取材】，
-      真正"源轨号必须是 -2"的硬判据放在 pred3 / pred3gen 里用 WANT_MET_TR 卡死。 */
-const isMetWord = (d, tr) => ((tr === WANT_MET_TR || tr === WANT_TEMPO_TR) && API.isDrumAxis(d.axis));
+      真正"源轨号必须是 -2"的硬判据放在 pred3 / pred3gen 里用 WANT_MET_TR 卡死。
+   ⭐⭐ 2026-10-16【鼓与旋律分离】：鼓的身份改成【is_drum=1】（手册 §二），
+      ⛔ 不再用"轴号落 12..15"猜。这同时是一条隐式硬判据：节拍器字若漏了 is_drum=1，
+      它就【认不出来】⇒ 判据③ 的落点核对立刻报"该响没响"。 */
+const isMetWord = (d, tr) => ((tr === WANT_MET_TR || tr === WANT_TEMPO_TR) && d.isDrum === 1);
 const decWords = conv => conv.words.map((w, i) => ({ i, w, d: unpack(w), tr: conv.evTrack[i] }));
 
 /* ===========================================================================
@@ -520,7 +627,7 @@ function pred2(words, evTrack, idx) {
       `guideOn && guideDrum === "met"`（谱面鼓轨马上会被丢掉）时节拍器【不再避让】谱面鼓；
       track / both 档才按"同一件 >= 480"避让。
       ⇒ avoid 由【本脚本按状态独立判定】后传进来，⛔ 不读页面的 scoreDrumsDropped。 */
-function pred3(metOns, metOffs, metCount, metSkipped, bars, scoreTicksByInc, avoid) {
+function pred3(metOns, metOffs, metCount, metSkipped, bars, scoreTicksByType, avoid) {
   const bad = [];
   /* 期望落点表：偏移 -> 该偏移上应有的鼓名 */
   const offsetNames = new Map();
@@ -547,11 +654,22 @@ function pred3(metOns, metOffs, metCount, metSkipped, bars, scoreTicksByInc, avo
   }
   if (API.BAR_TICK !== WANT_BAR) bad.push("页面 BAR_TICK = " + API.BAR_TICK + " != " + WANT_BAR);
   if (API.DRUM_DUR_TICK !== WANT_GAP) bad.push("页面 DRUM_DUR_TICK = " + API.DRUM_DUR_TICK + " != " + WANT_GAP);
+  /* 鼓件口径表自检：页面的 DRUM_TYPE_OF / DRUM_AXIS_OF 必须与手册 §二/§4.3 独立表一致 */
+  for (const nm of ["kick", "snare", "hihat", "tom"]) {
+    if (API.DRUM_TYPE_OF && API.DRUM_TYPE_OF[nm] !== WANT_TYPE[nm]) {
+      bad.push("页面 DRUM_TYPE_OF." + nm + " = " + API.DRUM_TYPE_OF[nm] + " != " + WANT_TYPE[nm]);
+    }
+    if (API.DRUM_AXIS_OF && API.DRUM_AXIS_OF[nm] !== WANT_AXIS[nm]) {
+      bad.push("页面 DRUM_AXIS_OF." + nm + " = " + API.DRUM_AXIS_OF[nm] + " != " + WANT_AXIS[nm]);
+    }
+  }
   /* 逐条核对已响的落点 */
   const present = new Set();
   for (const m of metOns) {
-    const nm = nameOfInc[m.inc];
-    if (nm === undefined) { bad.push("节拍器用了未知 inc " + m.inc); continue; }
+    /* ⭐⭐ 2026-10-16：件名 = drum_type（timbre[8:7] & 3），⛔ 不再按 inc 反查
+     *   （新位域下鼓的 inc 恒为 0 ⇒ 旧口径会把四件全认成"inc0"）。 */
+    const nm = nameOfType(m.type);
+    if (WANT_TYPE[nm] === undefined) { bad.push("节拍器用了越界的 drum_type " + m.type); continue; }
     const b = Math.floor(m.tick / WANT_BAR);
     const off = m.tick - b * WANT_BAR;
     const names = offsetNames.get(off);
@@ -573,8 +691,8 @@ function pred3(metOns, metOffs, metCount, metSkipped, bars, scoreTicksByInc, avo
       for (const nm of names) {
         const tick = b * WANT_BAR + off;
         const key = tick + "|" + nm;
-        const inc = API.DRUM_INC[nm];
-        const hits = scoreTicksByInc[inc] || [];
+        /* ⭐ 避让对照按【drum_type】索引（⛔ 不是 inc）—— 与页面的 takenByType 同口径 */
+        const hits = scoreTicksByType[WANT_TYPE[nm]] || [];
         const near = hits.filter(t => Math.abs(t - tick) < WANT_GAP);
         if (present.has(key)) { if (detail) detail.push({ tick: tick, off: off, nm: nm, on: true }); continue; }
         if (avoid && near.length) {
@@ -594,8 +712,8 @@ function pred3(metOns, metOffs, metCount, metSkipped, bars, scoreTicksByInc, avo
   const wrongEmit = [];
   if (avoid) {
     for (const m of metOns) {
-      const nm = nameOfInc[m.inc]; if (nm === undefined) continue;
-      const hits = scoreTicksByInc[API.DRUM_INC[nm]] || [];
+      const nm = nameOfType(m.type); if (WANT_TYPE[nm] === undefined) continue;
+      const hits = scoreTicksByType[WANT_TYPE[nm]] || [];
       const near = hits.filter(t => Math.abs(t - m.tick) < WANT_GAP);
       if (near.length) wrongEmit.push("tick " + m.tick + " " + nm + "（谱面同件在 " + near[0] + "）");
     }
@@ -612,14 +730,18 @@ function pred3(metOns, metOffs, metCount, metSkipped, bars, scoreTicksByInc, avo
   if (metOns.length !== metCount) {
     bad.push("实际节拍器 on 字数 " + metOns.length + " != 页面报的 metCount " + metCount);
   }
-  /* on/off 成对：off 应在 on + 480，同件同轴 */
-  const offSet = new Set(metOffs.map(o => o.tick + "|" + o.inc + "|" + o.axis));
+  /* on/off 成对：off 应在 on + 480，且同件（drum_type）同轴 ——
+   * ⭐ 手册点名的死线：OFF 也带 is_drum=1 与同一个 drum_type，否则鼓 voice 永久 held。
+   * ⚠️ 配对键本来就是 (tick, drum_type, axis)：新位域下鼓的 inc 恒为 0，
+   *    若按 inc 配对会把四件混成一个键（判据变弱）。 */
+  const offSet = new Set(metOffs.map(o => o.tick + "|" + o.type + "|" + o.axis));
   let offMiss = 0;
-  for (const m of metOns) if (!offSet.has((m.tick + WANT_GAP) + "|" + m.inc + "|" + m.axis)) offMiss++;
-  if (offMiss) bad.push(offMiss + " 个节拍器 on 没有对应的 off（应 = tick + " + WANT_GAP + "）");
+  for (const m of metOns) if (!offSet.has((m.tick + WANT_GAP) + "|" + m.type + "|" + m.axis)) offMiss++;
+  if (offMiss) bad.push(offMiss + " 个节拍器 on 没有对应的 off（应 = tick + " + WANT_GAP +
+                        "，且 drum_type 与轴都相同）");
   /* 逐件统计 */
   const perDrum = {};
-  for (const m of metOns) { const nm = nameOfInc[m.inc] || ("inc" + m.inc); perDrum[nm] = (perDrum[nm] || 0) + 1; }
+  for (const m of metOns) { const nm = nameOfType(m.type); perDrum[nm] = (perDrum[nm] || 0) + 1; }
   const cap = { kick: bars, snare: bars, tom: bars * 2, hihat: bars * 4 };
   for (const nm of Object.keys(perDrum)) {
     if (perDrum[nm] > cap[nm]) bad.push(nm + " 响了 " + perDrum[nm] + " 下，超过每小节上限（共 " + cap[nm] + "）");
@@ -643,13 +765,18 @@ function pred3gen(met, bars) {
   const per = {};
   const tickSet = new Set();
   for (const e of ons) {
-    const nm = nameOfInc[e.inc];
-    if (nm === undefined) { bad.push("未知 inc " + e.inc); continue; }
+    /* 2026-10-16 第三轮：件名 = drum_type = timbre[8:7]（2 位，4 件），
+     * ⛔ 不再按 inc 反查（鼓的 inc 恒为 0 ⇒ 四件会全成"inc0"）。 */
+    const nm = nameOfType(dtOf(e));
     per[nm] = (per[nm] || 0) + 1;
     tickSet.add(e.tick + "|" + nm);
-    if (e.axis !== WANT_AXIS[nm]) bad.push(nm + " 轴 = " + e.axis + " != " + WANT_AXIS[nm]);
+    if (e.axis !== WANT_AXIS[nm]) bad.push(nm + " 轴 = " + e.axis + " != " + WANT_AXIS[nm] + "（12+dt）");
     if (e.srcTrack !== WANT_MET_TR) bad.push("节拍器 srcTrack 应 = " + WANT_MET_TR + "，实际 " + e.srcTrack);
     if (e.guide) bad.push("节拍器 guide 应为假，实际 " + e.guide);
+    /* 新位域（手册 §二 / §三"鼓"通路）：节拍器是鼓 ⇒ is_drum=1 · inc=0 · note_off5=0 */
+    if (e.isDrum !== 1) bad.push("节拍器事件必须带 is_drum=1，实际 " + e.isDrum);
+    if (e.inc !== 0) bad.push("节拍器（鼓）的 inc 必须为 0，实际 " + e.inc);
+    if (e.note5 !== 0) bad.push("节拍器（鼓）的 note_off5 必须为 0，实际 " + e.note5);
   }
   const cap = { kick: bars, snare: bars, tom: bars * 2, hihat: bars * 4 };
   for (const nm of Object.keys(cap)) {
@@ -668,24 +795,28 @@ function pred3gen(met, bars) {
   for (const k of want) if (!tickSet.has(k)) miss++;
   for (const k of tickSet) if (!want.has(k)) extra++;
   if (miss || extra) bad.push("落点与独立音型不符：缺 " + miss + " 个 / 多 " + extra + " 个");
-  const offSet = new Set(offs.map(e => e.tick + "|" + e.inc));
+  /* ⚠️ 2026-10-16：配对键从 (tick, inc) 改成 (tick, drum_type, axis) ——
+   *    新位域下鼓的 inc 恒为 0，旧键会把四件混成一个键（判据变弱）。 */
+  const offSet = new Set(offs.map(e => e.tick + "|" + dtOf(e) + "|" + e.axis));
   let offMiss = 0;
-  for (const e of ons) if (!offSet.has((e.tick + WANT_GAP) + "|" + e.inc)) offMiss++;
-  if (offMiss) bad.push(offMiss + " 个 on 没有 tick+" + WANT_GAP + " 的 off");
+  for (const e of ons) if (!offSet.has((e.tick + WANT_GAP) + "|" + dtOf(e) + "|" + e.axis)) offMiss++;
+  if (offMiss) bad.push(offMiss + " 个 on 没有 tick+" + WANT_GAP + " 的 off（同 drum_type 同轴）");
   return { ok: bad.length === 0, bad: bad, per: per, n: ons.length, expect: expect };
 }
 
 /* 判据④的谓词 */
 function pred4(ons, gap) {
-  const byInc = new Map();
+  /* ⭐⭐ 2026-10-16（手册 §二）："同一件"按【drum_type】分组，
+   *   ⛔ 不再按 inc —— 新位域下鼓的 inc 恒为 0，按 inc 分组会把四件当成同一件（假红）。 */
+  const byType = new Map();
   for (const o of ons) {
-    if (!byInc.has(o.inc)) byInc.set(o.inc, new Set());
-    byInc.get(o.inc).add(o.tick);
+    if (!byType.has(o.type)) byType.set(o.type, new Set());
+    byType.get(o.type).add(o.tick);
   }
   const per = {};
   let viol = 0, nGap = 0, minAll = Infinity;
   const ex = [];
-  for (const [inc, set] of byInc) {
+  for (const [type, set] of byType) {
     const ts = [...set].sort((a, b) => a - b);
     let mn = Infinity;
     for (let i = 1; i < ts.length; i++) {
@@ -695,10 +826,10 @@ function pred4(ons, gap) {
       if (g < minAll) minAll = g;
       if (g < gap) {
         viol++;
-        if (ex.length < 4) ex.push((nameOfInc[inc] || ("inc" + inc)) + " " + ts[i - 1] + "->" + ts[i] + "（间隔 " + g + "）");
+        if (ex.length < 4) ex.push(nameOfType(type) + " " + ts[i - 1] + "->" + ts[i] + "（间隔 " + g + "）");
       }
     }
-    per[nameOfInc[inc] || ("inc" + inc)] = { n: ts.length, min: (mn === Infinity ? null : mn) };
+    per[nameOfType(type)] = { n: ts.length, min: (mn === Infinity ? null : mn) };
   }
   const bad = [];
   if (viol) bad.push(viol + " 处同一件相邻落点 < " + gap + " tick");
@@ -714,7 +845,7 @@ const pred5 = n => n > 0;
 /* 判据⑦的谓词：解码路径 + guide 位与预期一致 */
 function pred7(words, evTrack, idx, onTicks, hexRes) {
   const bad = [];
-  let nFieldDiff = 0, nPackDiff = 0, nByteDiff = 0;
+  let nFieldDiff = 0, nPackDiff = 0, nByteDiff = 0, nIndepDiff = 0;
   const firstDiff = [];
   for (let i = 0; i < words.length; i++) {
     const w = words[i];
@@ -722,15 +853,27 @@ function pred7(words, evTrack, idx, onTicks, hexRes) {
     const raw = rawOf(w);
     const df = diffFields(page, raw);
     if (df.length) { nFieldDiff++; if (firstDiff.length < 3) firstDiff.push("字 " + i + " 字段不一致：" + df.join(",")); }
-    if (API.packWord(page.tick, page.inc, page.axis, page.vel, page.kind, page.timbre, page.guide) !== w) nPackDiff++;
+    /* ⭐⭐ 2026-10-16：packWord 现在有 9 个入参 —— 必须把 isDrum(bit5) 与 note5(bits[4:0]) 也传进去。
+     *   🔴 旧版只传 7 个：新位域一旦被置位就必然往返不等（实测 664 个字报错）——
+     *     那不是页面的账，是核对器自己的口径没跟上新位域。 */
+    if (API.packWord(page.tick, page.inc, page.axis, page.vel, page.kind, page.timbre,
+                     page.guide, page.isDrum, page.note5) !== w) nPackDiff++;
+    /* ⭐ 独立编码器往返：覆盖全部 64 位 —— 独立提取若漏了任何一个位域，这里立刻不等。
+     *   ⛔ 这条是"独立比对器确实认识了 bit5 / bits[4:0]"的机械证明。 */
+    if (mkWord(raw) !== w) nIndepDiff++;
     const by = API.wordToBytes(w);
     let v = 0n;
     for (let j = 0; j < 8; j++) v = (v << 8n) | BigInt(by[j]);
     if (v !== w) nByteDiff++;
-    else if (unpack(v).guide !== raw.guide) nByteDiff++;
+    else {
+      const dv = unpack(v);
+      /* ⭐ 8 字节往返后，新位域（bit5 / bits[4:0]）也必须原样 */
+      if (dv.guide !== raw.guide || dv.isDrum !== raw.isDrum || dv.note5 !== raw.note5) nByteDiff++;
+    }
   }
   if (nFieldDiff) bad.push("页面 unpackWord 与独立位提取不一致：" + nFieldDiff + " 个字（" + firstDiff.join(" | ") + "）");
   if (nPackDiff) bad.push("packWord(unpackWord(w)) != w：" + nPackDiff + " 个字");
+  if (nIndepDiff) bad.push("独立编码器往返不等（独立位提取漏了位域）：" + nIndepDiff + " 个字");
   if (nByteDiff) bad.push("8 字节序列化往返不一致：" + nByteDiff + " 个字");
   /* guide 位集合 == 引导轨的字集合 */
   const guideIdx = [];
@@ -746,6 +889,7 @@ function pred7(words, evTrack, idx, onTicks, hexRes) {
   }
   return { ok: bad.length === 0, bad: bad, n: words.length,
            nFieldDiff: nFieldDiff, nPackDiff: nPackDiff, nByteDiff: nByteDiff,
+           nIndepDiff: nIndepDiff,
            guideCount: guideIdx.length, expect: expect };
 }
 
@@ -794,27 +938,38 @@ function pred8(conv, idx) {
 const wordsOf = conv => decWords(conv);
 
 /* 主产物的关键切片 */
+/* ⭐⭐ 2026-10-16（手册 §二）：节拍器/谱面鼓一律带上【drum_type = timbre[8:7] & 3】——
+ *   ⛔ 不再带 inc 当件标识（新位域下鼓的 inc 恒为 0，四件会全挤成一个键）。
+ *   ⚠️ inc 仍留着，判据⑮ 要用它查"鼓的 inc 必须为 0"。 */
 const mainDec = wordsOf(convMain);
 const metOnsMain  = mainDec.filter(o => isMetWord(o.d, o.tr) && o.d.kind === API.KIND_ON)
-                           .map(o => ({ tick: o.d.tick, inc: o.d.inc, axis: o.d.axis, guide: o.d.guide, tr: o.tr }));
+                           .map(o => ({ tick: o.d.tick, type: dtOf(o.d), inc: o.d.inc,
+                                        axis: o.d.axis, guide: o.d.guide, note5: o.d.note5, tr: o.tr }));
 const metOffsMain = mainDec.filter(o => isMetWord(o.d, o.tr) && o.d.kind === API.KIND_OFF)
-                           .map(o => ({ tick: o.d.tick, inc: o.d.inc, axis: o.d.axis, guide: o.d.guide, tr: o.tr }));
+                           .map(o => ({ tick: o.d.tick, type: dtOf(o.d), inc: o.d.inc,
+                                        axis: o.d.axis, guide: o.d.guide, note5: o.d.note5, tr: o.tr }));
 /* 鼓声=两者（避让档）的节拍器字：判据③的另一半要用它 */
 const decBoth = decWords(convBoth);
 const metOnsBoth  = decBoth.filter(o => isMetWord(o.d, o.tr) && o.d.kind === API.KIND_ON)
-                           .map(o => ({ tick: o.d.tick, inc: o.d.inc, axis: o.d.axis, guide: o.d.guide, tr: o.tr }));
+                           .map(o => ({ tick: o.d.tick, type: dtOf(o.d), inc: o.d.inc,
+                                        axis: o.d.axis, guide: o.d.guide, note5: o.d.note5, tr: o.tr }));
 const metOffsBoth = decBoth.filter(o => isMetWord(o.d, o.tr) && o.d.kind === API.KIND_OFF)
-                           .map(o => ({ tick: o.d.tick, inc: o.d.inc, axis: o.d.axis, guide: o.d.guide, tr: o.tr }));
+                           .map(o => ({ tick: o.d.tick, type: dtOf(o.d), inc: o.d.inc,
+                                        axis: o.d.axis, guide: o.d.guide, note5: o.d.note5, tr: o.tr }));
 /* 谱面鼓（非节拍器）的【落点】：节拍器避让规则要用它独立重算。
    注意：只取 kind=ON，不含 off —— 方案 B 的约束是"同一件鼓相邻【落点】>= 480"，
    把 off 也算进去会过度跳过（页面的 taken 同口径，见 buildMetronome 调用处的注释）。
-   判据④也是按 ON 去重量间隔的，两条口径必须一致，否则③会出假阳。 */
-const scoreTicksByInc = {};
+   判据④也是按 ON 去重量间隔的，两条口径必须一致，否则③会出假阳。
+   ⭐⭐ 2026-10-16：索引键改成【drum_type】（手册 §二）——
+   新位域下鼓的 inc 恒为 0，再按 inc 索引会让四件全挤进同一个键（或压根查不到）
+   ⇒ 避让判断静默失效。鼓的识别也从"轴号 12..15"改成【is_drum=1】。 */
+const scoreTicksByType = {};
 for (const o of mainDec) {
   if (isMetWord(o.d, o.tr)) continue;
-  if (!API.isDrumAxis(o.d.axis)) continue;
+  if (o.d.isDrum !== 1) continue;
   if (o.d.kind !== API.KIND_ON) continue;
-  (scoreTicksByInc[o.d.inc] = scoreTicksByInc[o.d.inc] || []).push(o.d.tick);
+  const dt = dtOf(o.d);
+  (scoreTicksByType[dt] = scoreTicksByType[dt] || []).push(o.d.tick);
 }
 /* 谱面长度（不含节拍器字）=> 独立算小节数 */
 let scoreTickMax = 0;
@@ -978,10 +1133,10 @@ if (!main2.ok) main2.bad.forEach(b => ev("未过原因：" + b));
 /* ---------------- ③ ---------------- */
 /* 主产物 = met 档（引导开）⇒ 页面新规则：谱面鼓会被丢 ⇒ 节拍器【不避让】⇒ 落点必须全响 */
 const main3 = pred3(metOnsMain, metOffsMain, convMain.metCount, convMain.metSkipped,
-                    BARS, scoreTicksByInc, avoidMain);
+                    BARS, scoreTicksByType, avoidMain);
 /* 另一档：鼓声=两者 ⇒ 谱面鼓会响 ⇒ 仍然避让（同一件 >= 480），按独立重算逐点核对 */
 const main3b = pred3(metOnsBoth, metOffsBoth, convBoth.metCount, convBoth.metSkipped,
-                     BARS, scoreTicksByInc, avoidBoth);
+                     BARS, scoreTicksByType, avoidBoth);
 /* 生成器单测：taken 传空 => 不避让 => 每小节必须正好是音型那 8 下 */
 setGuide(true, K, true, "beat", "all", "met");
 const gen3 = pred3gen(API.buildMetronome(scoreTickMax, {}), BARS);
@@ -1016,11 +1171,11 @@ if (!main3b.ok) main3b.bad.forEach(b => ev("未过原因（both 档）：" + b))
 {
   /* 反控 a：抽掉一个已响的落点 => 守恒/落点核对必须红 */
   const a = metOnsMain.slice(0, Math.max(0, metOnsMain.length - 1));
-  const ra = pred3(a, metOffsMain, convMain.metCount, convMain.metSkipped, BARS, scoreTicksByInc, avoidMain);
+  const ra = pred3(a, metOffsMain, convMain.metCount, convMain.metSkipped, BARS, scoreTicksByType, avoidMain);
   ctl("抽掉 1 个节拍器落点 -> 判据③ " + (ra.ok ? "仍然绿（判据失效）" : "变红（符合预期）"));
   /* 反控 b：把一个落点挪到音型外（+120 tick）=> 必须红 */
   const b = metOnsMain.map((m, i) => i === 0 ? Object.assign({}, m, { tick: m.tick + 120 }) : m);
-  const rb = pred3(b, metOffsMain, convMain.metCount, convMain.metSkipped, BARS, scoreTicksByInc, avoidMain);
+  const rb = pred3(b, metOffsMain, convMain.metCount, convMain.metSkipped, BARS, scoreTicksByType, avoidMain);
   ctl("把第 1 个落点挪到音型外（+120 tick）-> 判据③ " + (rb.ok ? "仍然绿（判据失效）" : "变红（符合预期）"));
   /* 反控 c：小节数多报 1 => 生成器的数量核对必须红 */
   const rc = pred3gen(API.buildMetronome(scoreTickMax, {}), BARS + 1);
@@ -1035,12 +1190,12 @@ if (!main3b.ok) main3b.bad.forEach(b => ev("未过原因（both 档）：" + b))
   setGuide(true, K, true, "beat", "all", "met");
   /* 反控 e：把 met 档（不避让）按"该避让"去判 => 必须红（证明 avoid 这个开关是有用的） */
   const re = pred3(metOnsMain, metOffsMain, convMain.metCount, convMain.metSkipped,
-                   BARS, scoreTicksByInc, true);
+                   BARS, scoreTicksByType, true);
   ctl("把 met 档（不避让）按「该避让」去判 -> 判据③ " +
       (re.ok ? "仍然绿（判据失效）" : "变红（符合预期）") + "：" + (re.bad[0] || "（无未过原因）"));
   /* 反控 f：把 both 档（避让）按"不避让"去判 => 必须红 */
   const rf = pred3(metOnsBoth, metOffsBoth, convBoth.metCount, convBoth.metSkipped,
-                   BARS, scoreTicksByInc, false);
+                   BARS, scoreTicksByType, false);
   ctl("把 both 档（避让，跳了 " + convBoth.metSkipped + " 下）按「不避让」去判 -> 判据③ " +
       (rf.ok ? "仍然绿（判据失效）" : "变红（符合预期）") + "：" + (rf.bad[0] || "（无未过原因）"));
 }
@@ -1050,10 +1205,10 @@ if (!main3b.ok) main3b.bad.forEach(b => ev("未过原因（both 档）：" + b))
    为什么：新规则下 met 档的节拍器不再避让谱面鼓，而谱面鼓【本来就不会被发下去】——
    约束"同一件鼓相邻落点 >= 480"是给 FPGA 的，只对真正会响的字有意义。
    两种档都验：met 档（只剩节拍器）与 both 档（节拍器 + 谱面鼓全在，= 全量）。 */
-const drumOnsMain = mainDec.filter(o => API.isDrumAxis(o.d.axis) && o.d.kind === API.KIND_ON)
-                           .map(o => ({ inc: o.d.inc, tick: o.d.tick, met: isMetWord(o.d, o.tr) }));
-const visDrumOns = vis => vis.filter(w => API.isDrumAxis(unpack(w).axis) && unpack(w).kind === API.KIND_ON)
-                             .map(w => ({ inc: unpack(w).inc, tick: unpack(w).tick }));
+const drumOnsMain = mainDec.filter(o => o.d.isDrum === 1 && o.d.kind === API.KIND_ON)
+                           .map(o => ({ type: dtOf(o.d), tick: o.d.tick, met: isMetWord(o.d, o.tr) }));
+const visDrumOns = vis => vis.filter(w => unpack(w).isDrum === 1 && unpack(w).kind === API.KIND_ON)
+                             .map(w => ({ type: dtOf(unpack(w)), tick: unpack(w).tick }));
 /* ④ 自己要用的可见字：直接调页面的 visibleWords 取（⛔ 不依赖后面 ⑨..⑬ 的快照块） */
 const visFor = (scope, drum) => {
   if (typeof API.__setTrackSel === "function") API.__setTrackSel(null);
@@ -1078,13 +1233,39 @@ ev("（报告）全量字表里 met 档的鼓轴落点 " + drumOnsMain.length + 
 if (!main4.ok) { main4.ex.forEach(b => ev("太近(met)：" + b)); main4.bad.forEach(b => ev("未过原因：" + b)); }
 if (!main4b.ok) { main4b.ex.forEach(b => ev("太近(both)：" + b)); main4b.bad.forEach(b => ev("未过原因：" + b)); }
 {
-  /* 反控：往同件里塞一个 240 tick 的邻居 => 必须红 */
-  const kickInc = API.DRUM_INC.kick;
-  const kicks = drumOnsMain.filter(o => o.inc === kickInc).map(o => o.tick).sort((a, b) => a - b);
-  const c = drumOnsMain.concat([{ inc: kickInc, tick: kicks[0] + 240, met: true }]);
+  /* 反控：往同件里塞一个 240 tick 的邻居 => 必须红
+   * ⭐ 2026-10-16：件标识改成 drum_type（⛔ 不再是 inc）—— 新位域下鼓的 inc 恒为 0。 */
+  const kickType = WANT_TYPE.kick;                        /* = 0，独立写死（⛔ 不读页面的表） */
+  const kicks = drumOnsMain.filter(o => o.type === kickType).map(o => o.tick).sort((a, b) => a - b);
+  const c = drumOnsMain.concat([{ type: kickType, tick: kicks[0] + 240, met: true }]);
   const rc = pred4(c, WANT_GAP);
   ctl("在 kick 的 " + kicks[0] + " 之后 240 tick 插一下 -> 判据④ " +
       (rc.ok ? "仍然绿（判据失效）" : "变红（符合预期，报 " + rc.viol + " 处）"));
+  /* ⭐ 追加反控（2026-10-16）：证明 ④ 的"同一件"确实是按【drum_type】分组的（跨件不约束）——
+   *   ① 在 snare 的某一下之后 240 tick 插一个 kick ⇒ 不同件 ⇒ 必须【仍然绿】（方案 B 只约束同一件）；
+   *   ② 同一位置改成插 snare ⇒ 同件 ⇒ 必须【变红】。
+   *   ⛔ 上一版这里写的"把 kick 的 drum_type 改错"证明不了分组键：改完之后 kick 组里只剩新插的那个，
+   *      组内没有邻居 ⇒ 本来就该绿（那是判据正确，不是判据失效）。 */
+  const snareTicks = drumOnsMain.filter(o => o.type === WANT_TYPE.snare).map(o => o.tick).sort((a, b) => a - b);
+  const kickTicks  = drumOnsMain.filter(o => o.type === WANT_TYPE.kick).map(o => o.tick);
+  /* ⚠️ 跨件反控要挑一个【离所有 kick 都 >= 480】的位置 ——
+   *   随手取 snare+240 会撞上已有的 kick（实测 snare@960 ⇒ 1200 附近本来就有 kick ⇒ 假红）。 */
+  let crossTick = -1;
+  for (const st of snareTicks) {
+    const t = st + 240;
+    if (kickTicks.every(k => Math.abs(k - t) >= WANT_GAP)) { crossTick = t; break; }
+  }
+  if (snareTicks.length && crossTick >= 0) {
+    const cross = pred4(drumOnsMain.concat([{ type: WANT_TYPE.kick, tick: crossTick, met: true }]), WANT_GAP);
+    ctl("在 snare 附近（tick " + crossTick + "，离所有 kick 都 >= " + WANT_GAP + "）插一个【kick】（跨件）-> 判据④ " +
+        (cross.ok ? "仍然绿（符合预期：方案 B 只约束同一件）" : "变红（判据过严：跨件不该被约束）"));
+    const st0 = snareTicks[0];
+    const same = pred4(drumOnsMain.concat([{ type: WANT_TYPE.snare, tick: st0 + 240, met: true }]), WANT_GAP);
+    ctl("在 snare 的 " + st0 + " 之后 240 tick 插一个【snare】（同件）-> 判据④ " +
+        (same.ok ? "仍然绿（判据失效：同件 240 没抓住）" : "变红（符合预期，报 " + same.viol + " 处）"));
+  } else {
+    ctl("这份产物里没有 snare 落点 / 找不到离 kick 足够远的构造点（无法构造跨件对照）");
+  }
 }
 
 /* ---------------- ⑤ ---------------- */
@@ -1130,7 +1311,11 @@ const main7 = pred7(convMain.words, convMain.evTrack, K, gTrack.onTicks, hexRes)
 judge("⑦", "回读：unpackWord 解回的 guide 位与预期一致", main7.ok,
   "解回置位 " + main7.guideCount + " 字 / 预期 " + main7.expect);
 ev("字段逐项比对（页面 unpackWord vs 独立位提取）：不一致 " + main7.nFieldDiff + " 字 · " +
-   "packWord 往返不符 " + main7.nPackDiff + " 字 · 8 字节往返不符 " + main7.nByteDiff + " 字");
+   "packWord 往返不符 " + main7.nPackDiff + " 字 · 独立编码器往返不符 " + main7.nIndepDiff +
+   " 字 · 8 字节往返不符 " + main7.nByteDiff + " 字");
+ev("  （独立位提取与独立编码器都【不调页面的 unpackWord/packWord】——" +
+   "覆盖 64 位：tick20+inc21+axis4+vel8+kind2+timbre2+guide1+isDrum1+note5 5，" +
+   "⛔ 不是拿被验者验自己）");
 if (hexRes.present) {
   ev("磁盘产物 " + path.basename(hexPath) + "：" + hexRes.lines + " 行 · 非法行 " + hexRes.badHex +
      " · guide 位与原始 bit6 不符 " + hexRes.badGuide + " 行 · 该文件里 bit6=1 的字 " + hexRes.guideInHex +
@@ -1252,24 +1437,34 @@ function cmpVis(conv, vis, keep) {
    🔴 为什么不按字值去归属源轨：节拍器的 kick 与谱面 kick 在同 tick 时【字值完全相同】，
       按值归属一定假红。 */
 function visCounts(vis) {
-  let nGuide = 0, nDrum = 0, nTempo = 0;
+  /* 2026-10-16（手册 §二）扩位后的口径：
+   *   鼓的身份 = is_drum(bit5)；轴段计数 nDrumAxis 现在只作 §7.3-1 的守卫
+   *   （本轮鼓占 12..15 ⇒ 轴的取值区间与鼓的轴段正好重合，靠"轴号"分不开，
+   *      所以 12..15 的守卫只说明"这一段只有鼓能占"）。
+   *   替它做交叉核对的是 nDrumKeyOk = 【is_drum=1 且轴 == 12+dt】的字数：
+   *   判据⑮ 要求 nDrum == nDrumKeyOk（每个鼓字的轴都必须是它自己 dt 的键）。 */
+  let nGuide = 0, nDrum = 0, nDrumAxis = 0, nTempo = 0, nDrumIncNot0 = 0, nMelOnDrumAxis = 0, nDrumKeyOk = 0;
   for (const w of vis) {
     const d = unpack(w);
     if (d.guide === 1) nGuide++;
-    if (API.isDrumAxis(d.axis)) nDrum++;
+    if (d.isDrum === 1) {
+      nDrum++;
+      if (d.inc !== 0) nDrumIncNot0++;
+      if (d.axis === WANT_AXIS_KEY[dtOf(d)]) nDrumKeyOk++;
+    } else if (d.axis >= WANT_MELODY_BAN_AXIS_MIN && d.kind !== API.KIND_TEMPO) {
+      nMelOnDrumAxis++;
+    }
+    if (d.axis >= WANT_MELODY_BAN_AXIS_MIN) nDrumAxis++;
     if (d.kind === API.KIND_TEMPO) nTempo++;
   }
-  return { n: vis.length, nGuide: nGuide, nDrum: nDrum, nTempo: nTempo };
+  return { n: vis.length, nGuide: nGuide, nDrum: nDrum, nDrumAxis: nDrumAxis, nTempo: nTempo,
+           nDrumIncNot0: nDrumIncNot0, nMelOnDrumAxis: nMelOnDrumAxis, nDrumKeyOk: nDrumKeyOk };
 }
 function keepCounts(conv, keep) {
-  let nGuide = 0, nDrum = 0, nTempo = 0;
-  for (const i of keep) {
-    const d = unpack(conv.words[i]);
-    if (d.guide === 1) nGuide++;
-    if (API.isDrumAxis(d.axis)) nDrum++;
-    if (d.kind === API.KIND_TEMPO) nTempo++;
-  }
-  return { n: keep.length, nGuide: nGuide, nDrum: nDrum, nTempo: nTempo };
+  const sub = keep.map(i => conv.words[i]);
+  const c = visCounts(sub);
+  return { n: c.n, nGuide: c.nGuide, nDrum: c.nDrum, nDrumAxis: c.nDrumAxis, nTempo: c.nTempo,
+           nDrumIncNot0: c.nDrumIncNot0, nMelOnDrumAxis: c.nMelOnDrumAxis, nDrumKeyOk: c.nDrumKeyOk };
 }
 /* 类别闭包：可见字必须【全部】落进"引导位 / 鼓轴 / tempo"三类之一，一个不漏、一个不多。
    （三类互斥：引导轨是非鼓轨 ⇒ guide 位与鼓轴不相交；tempo 字 guide=0 且轴 0） */
@@ -1827,16 +2022,493 @@ if (!main14.ok) main14.bad.forEach(b => ev("未过原因：" + b));
 }
 
 /* ===========================================================================
+   判据⑮⑯⑰：鼓与旋律彻底分离（2026-10-16 手册 §二 / §4.1-7 校验器 / §7.3 机械检查）
+   ---------------------------------------------------------------------------
+   口径：鼓 = is_drum(bit5)=1，件名 = drum_type = timbre[8:7] & 3（kick0 · snare1 · hihat2 · tom3）；
+        旋律 = is_drum=0 且【排除 kind=2】（tempo 用 inc 装速度值，按 inc 判会把它当旋律）。
+   ⛔ 全程不用"轴号落 12..15"当鼓的标志 —— 那正是本次要拆掉的老口径。
+   ⚠️ 判据收成【纯函数】：真产物与"手造坏字"喂进同一个谓词，
+      "判据能红"才是机械证明的（⛔ 不靠人眼说"这应该能红"）。
+   =========================================================================== */
+
+/* 判据⑮的谓词：§4.1-7 硬检查①② + §7.3 第 1 条 */
+function pred15(words, tag) {
+  const bad = [];
+  let nDrum = 0, nMel = 0, nTempo = 0, drumIncNot0 = 0, melInc0 = 0, melOnDrumAxis = 0;
+  const ex = { inc: "", mel: "", ax: "" };
+  for (let i = 0; i < words.length; i++) {
+    const d = unpack(words[i]);
+    if (d.kind === API.KIND_TEMPO) {
+      nTempo++;
+      if (d.isDrum === 1) bad.push("tempo 事件（kind=2）的 is_drum 必须为 0（字 " + i + "）");
+      continue;
+    }
+    if (d.isDrum === 1) {
+      nDrum++;
+      if (d.inc !== 0) { drumIncNot0++; if (!ex.inc) ex.inc = "字 " + i + " inc=" + d.inc; }
+    } else {
+      nMel++;
+      if (d.inc === 0) { melInc0++; if (!ex.mel) ex.mel = "字 " + i; }
+      /* §7.3-1：保留段 12..15（期望值独立写死，⛔ 不取页面的 isDrumAxis/DRUM_AXIS_BASE） */
+      if (d.axis >= WANT_MELODY_BAN_AXIS_MIN) { melOnDrumAxis++; if (!ex.ax) ex.ax = "字 " + i + " axis=" + d.axis; }
+    }
+  }
+  if (drumIncNot0) bad.push("鼓事件 inc 非 0：" + drumIncNot0 + " 条（硬检查②）（" + ex.inc + "）");
+  if (melInc0) bad.push("旋律事件 inc=0：" + melInc0 + " 条（" + ex.mel + "）");
+  if (melOnDrumAxis) bad.push("is_drum=0 的事件轴号落 12..15：" + melOnDrumAxis + " 条（§7.3-1）（" + ex.ax + "）");
+  if (!(nDrum > 0)) bad.push(tag + "：一条鼓事件都没有 ⇒ 判据空洞（测不到东西）");
+  if (!(nMel > 0)) bad.push(tag + "：一条旋律事件都没有 ⇒ 判据空洞");
+  return { ok: bad.length === 0, bad: bad, tag: tag, nDrum: nDrum, nMel: nMel, nTempo: nTempo,
+           drumIncNot0: drumIncNot0, melInc0: melInc0, melOnDrumAxis: melOnDrumAxis };
+}
+
+/* 判据⑯的谓词：鼓的 ON/OFF 配对（(axis, drum_type)，手册点名的"漏了就挂音"）+ note_off5=0 */
+function pred16(words) {
+  const bad = [];
+  const keyOf = d => (d.axis & 15) + ":" + dtOf(d);
+  const open = new Map();
+  let on = 0, off = 0, unclosed = 0, orphan = 0, offNoFlag = 0, note5Bad = 0;
+  const ex = [];
+  for (let i = 0; i < words.length; i++) {
+    const d = unpack(words[i]);
+    if (d.kind === API.KIND_TEMPO) continue;
+    if (d.isDrum === 1) {
+      if (d.note5 !== 0) note5Bad++;
+      const k = keyOf(d);
+      if (d.kind === API.KIND_ON) {
+        on++;
+        if (!open.has(k)) open.set(k, []);
+        open.get(k).push(i);
+      } else {
+        off++;
+        const q = open.get(k);
+        if (q && q.length) q.shift(); else orphan++;
+      }
+    } else if (d.kind === API.KIND_OFF && d.axis >= WANT_MELODY_BAN_AXIS_MIN) {
+      /* 鼓轴段（12..15）上的 OFF 却不是鼓 ⇒ 典型的"鼓 OFF 漏标 is_drum"（会把鼓 voice 永久 held）。
+       * 2026-10-16 第三轮：鼓回到 12..15 ⇒ 这条重新成为主指纹（同时 melInc0 也会涨）。 */
+      offNoFlag++;
+      if (ex.length < 3) ex.push("字 " + i + " axis=" + d.axis + " 的 OFF 没带 is_drum");
+    }
+  }
+  for (const q of open.values()) unclosed += q.length;      /* ⚠️ open 的值是【队列数组】 */
+  if (unclosed) bad.push("鼓 ON 没配到同 (axis, drum_type) 的 OFF：" + unclosed + " 条（挂音、耗尽鼓池）");
+  if (orphan) bad.push("鼓 OFF 找不到对应的 ON：" + orphan + " 条");
+  if (offNoFlag) bad.push("鼓轴段（轴 12..15）上的 OFF 没带 is_drum=1：" + offNoFlag + " 条（" + ex.join(" | ") + "）");
+  if (note5Bad) bad.push("is_drum=1 的事件 note_off5 非 0：" + note5Bad + " 条（鼓没有音高）");
+  const cnt = {}; for (let t = 0; t < 4; t++) cnt[t] = { on: 0, off: 0 };
+  for (const w of words) {
+    const d = unpack(w);
+    if (d.isDrum !== 1 || d.kind === API.KIND_TEMPO) continue;
+    const t = dtOf(d);
+    if (d.kind === API.KIND_ON) cnt[t].on++; else cnt[t].off++;
+  }
+  for (let t = 0; t < 4; t++) {
+    if (cnt[t].on !== cnt[t].off) bad.push(nameOfType(t) + " 的 ON/OFF 数不等：" + cnt[t].on + "/" + cnt[t].off);
+  }
+  return { ok: bad.length === 0, bad: bad, on: on, off: off, unclosed: unclosed, orphan: orphan,
+           offNoFlag: offNoFlag, note5Bad: note5Bad, cnt: cnt };
+}
+
+/* 判据⑰的谓词：鼓件【按 drum_type 认件】= timbre[8:7]（2 位，4 件），
+ *   并核对"轴 == 12 + drum_type"（一件一轴：四件鼓的 src 全是 SRC_KDRUM，
+ *   note_off 按 (axis, src) 配对 ⇒ 轴与件一旦错配，一件的 OFF 会清掉另一件的 voice）。 */
+function pred17(words) {
+  const bad = [];
+  const per = {}; for (let t = 0; t < 4; t++) per[t] = 0;
+  const axisOf = {};
+  let badAxis = 0, rawBad = 0;
+  const ex = [];
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i];
+    const d = unpack(w);
+    if (d.isDrum !== 1) continue;
+    const t = dtOf(d);
+    per[t]++;
+    if (axisOf[t] === undefined) axisOf[t] = d.axis;
+    if (axisOf[t] !== d.axis) {
+      badAxis++;
+      if (ex.length < 3) ex.push("drum_type " + t + " 出现在轴 " + d.axis + "（另有 " + axisOf[t] + "）");
+    }
+    if (d.axis !== WANT_AXIS_KEY[t]) {
+      badAxis++;
+      if (ex.length < 3) ex.push("字 " + i + " drum_type=" + t + " 轴=" + d.axis + " != 12+dt = " + WANT_AXIS_KEY[t]);
+    }
+    /* 两条【独立】读取路径（页面 unpackWord 的 drumType / 本文件的位提取）必须给出同一个件号 */
+    if (dtOfRaw(rawOf(w)) !== t) {
+      rawBad++;
+      if (ex.length < 3) ex.push("字 " + i + " 两条件号读取路径不一致（位提取给出 " + dtOfRaw(rawOf(w)) + "）");
+    }
+  }
+  for (const t of WANT_BASE_TYPES) if (!(per[t] > 0)) bad.push(nameOfType(t) + "（drum_type=" + t + "）一件都没有");
+  if (badAxis) bad.push("drum_type 与轴不是按 12+dt 一一对应：" + badAxis + " 处（" + ex.join(" | ") + "）");
+  if (rawBad) bad.push("两条件号读取路径不一致：" + rawBad + " 处（" + ex.join(" | ") + "）");
+  /* 页面表 vs 手册独立表（⛔ 不是拿页面的表验页面的表）—— 本轮应当正好 4 件。 */
+  if (!API.DRUM_TYPE_OF) bad.push("页面没有 DRUM_TYPE_OF（鼓件口径表缺失）");
+  else {
+    for (const nm of ["kick", "snare", "hihat", "tom"]) {
+      if (API.DRUM_TYPE_OF[nm] !== WANT_TYPE[nm]) {
+        bad.push("页面 DRUM_TYPE_OF." + nm + " = " + API.DRUM_TYPE_OF[nm] + " != " + WANT_TYPE[nm]);
+      }
+      if (API.DRUM_AXIS_OF && API.DRUM_AXIS_OF[nm] !== WANT_AXIS[nm]) {
+        bad.push("页面 DRUM_AXIS_OF." + nm + " = " + API.DRUM_AXIS_OF[nm] + " != " + WANT_AXIS[nm]);
+      }
+    }
+    const vals = Object.values(API.DRUM_TYPE_OF).slice().sort((a, b) => a - b);
+    if (vals.length !== 4 || vals.some((v, i) => v !== i)) {
+      bad.push("页面 DRUM_TYPE_OF 的值域不是 0..3（4 件）：[" + vals.join(",") + "]");
+    }
+  }
+  return { ok: bad.length === 0, bad: bad, per: per, axisOf: axisOf, extMiss: [] };
+}
+
+/* 判据⑳的谓词（2026-10-16 第三轮回退 4 件时补上；与 check_drum_split.py 判据⑧ 同口径）：
+ *   鼓力度逐件定值 —— Kick 230 · Snare 235 · HiHat 175 · Tom 220，鼓的 OFF 写 0。
+ *   为什么必须有这条：上一轮"扩到 8 件"时按 inc 认件、力度表被撑到 8 项；
+ *   本轮回到 4 件，力度表同步收成 4 项，且必须【逐条】核对产物，不能只对表。
+ *   ⚠️ 只判鼓（is_drum=1）；旋律力度来自 MIDI 原始力度，不由产物单独判定（只作报告）。 */
+function pred20(words) {
+  const bad = [];
+  const seen = {}; for (let t = 0; t < 4; t++) seen[t] = { on: new Set(), nOn: 0, nOff: 0, offBad: 0 };
+  let nDrum = 0, nOnBad = 0, nOffBad = 0;
+  const ex = [];
+  for (let i = 0; i < words.length; i++) {
+    const d = unpack(words[i]);
+    if (d.isDrum !== 1) continue;
+    nDrum++;
+    const t = dtOf(d);
+    if (t < 0 || t > 3) { if (ex.length < 3) ex.push("字 " + i + " drum_type=" + t + " 越界（4 件只有 0..3）"); continue; }
+    if (d.kind === API.KIND_ON) {
+      seen[t].nOn++; seen[t].on.add(d.vel);
+      if (d.vel !== WANT_DRUM_VEL[t]) {
+        nOnBad++;
+        if (ex.length < 3) ex.push("字 " + i + " " + nameOfType(t) + " ON 力度 " + d.vel +
+                                   " != 定值 " + WANT_DRUM_VEL[t]);
+      }
+    } else if (d.kind === API.KIND_OFF) {
+      seen[t].nOff++;
+      if (d.vel !== 0) { seen[t].offBad++; nOffBad++; }
+    }
+  }
+  if (!(nDrum > 0)) bad.push("一条鼓事件都没有 ⇒ 力度判据空洞（测不到东西）");
+  if (nOnBad) bad.push("鼓 ON 力度不等于该件定值：" + nOnBad + " 条（" + ex.join(" | ") + "）");
+  if (nOffBad) bad.push("鼓 OFF 力度非 0：" + nOffBad + " 条（口径：OFF 写 0）");
+  /* 非空洞：四件的定值都必须被取到（否则"改一个力度"可能一件都没样本） */
+  for (let t = 0; t < 4; t++) if (!(seen[t].nOn > 0)) bad.push(nameOfType(t) + " 一条 ON 都没有，力度判据空洞");
+  return { ok: bad.length === 0, bad: bad, nDrum: nDrum, nOnBad: nOnBad, nOffBad: nOffBad,
+           seen: seen, ex: ex };
+}
+
+/* 判据⑲的谓词（2026-10-16 第三轮新增）：镲族必须归 hihat。
+ *   46/49/51/52/53/55/57/59 在页面 GM_DRUM_MAP 里必须【显式列出】且指向 hihat ——
+ *   ⛔ 不靠表外兜底（兜底 -> tom，等于"镲变嗵鼓"，正是本轮要禁的）。
+ *   ⚠️ 这份测试曲一个镲族音高都没有 ⇒ 产物上验不到，只能核对这张表。 */
+function pred19() {
+  const bad = [];
+  const note = [];
+  const has = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+  if (!API.GM_DRUM_MAP) bad.push("页面没有 GM_DRUM_MAP（GM 音高 -> 鼓件名的表缺失）");
+  else {
+    const notListed = WANT_CYMBAL_GMS.filter(g => !has(API.GM_DRUM_MAP, g));
+    if (notListed.length) {
+      bad.push("镲族 " + notListed.join("/") + " 没有【显式列出】（会走表外兜底 -> tom）");
+    }
+    const notHat = WANT_CYMBAL_GMS.filter(g => has(API.GM_DRUM_MAP, g) &&
+                                               API.GM_DRUM_MAP[g] !== "hihat");
+    if (notHat.length) {
+      bad.push("镲族没有指向 hihat：" + notHat.map(g => "GM" + g + "->" + API.GM_DRUM_MAP[g]).join(" "));
+    }
+    note.push("页面表共 " + Object.keys(API.GM_DRUM_MAP).length + " 条");
+  }
+  /* 反控（静态）：把镲族从表里拿掉、或把它指到 tom，检查器必须认出来 ——
+   *   证明这条判据不是恒真的假绿。 */
+  const fakeDrop = {};
+  for (const k of Object.keys(API.GM_DRUM_MAP || {})) if (WANT_CYMBAL_GMS.indexOf(Number(k)) < 0) fakeDrop[k] = API.GM_DRUM_MAP[k];
+  const ctlDrop = WANT_CYMBAL_GMS.filter(g => !has(fakeDrop, g)).length;
+  const fakeTom = Object.assign({}, API.GM_DRUM_MAP || {});
+  fakeTom[51] = "tom";
+  const ctlTom = WANT_CYMBAL_GMS.filter(g => has(fakeTom, g) && fakeTom[g] !== "hihat");
+  if (ctlDrop !== WANT_CYMBAL_GMS.length) {
+    bad.push("反控失效：把镲族从表里拿掉后只认出 " + ctlDrop + "/" + WANT_CYMBAL_GMS.length + " 个");
+  }
+  if (!(ctlTom.length === 1 && ctlTom[0] === 51)) {
+    bad.push("反控失效：把 GM51 改成 tom 后认出的集合 = [" + ctlTom.join(",") + "]（应只认 51）");
+  }
+  note.push("反控：拿掉镲族 -> 认出 " + ctlDrop + " 个；GM51->tom -> 认出 [" + ctlTom.join(",") + "]");
+  return { ok: bad.length === 0, bad: bad, note: note.join(" · ") };
+}
+
+/* 判据⑱的谓词（2026-10-16 新增）：旋律 note_off5 的新口径 ——
+ *   可弹（MIDI 45..75）=> MIDI-45；越界（<45 或 >75）=> 31 哨兵（不可弹、不点灯）；
+ *   ⛔ 不许钳到 0（0 = A2 = 真实的键 5，会点亮错误的灯）。
+ *   ⚠️ 音高从【事件里带的 inc】反推（⛔ 不读页面的 midi 中间量）；inc 只有 21 位 ⇒ 允许 ±1 半音；
+ *      边界（45±0.5 / 75±0.5）留死区不判。
+ *   ⚠️ 口径边界：哨兵只作用于旋律；鼓的 note_off5 恒 0（判据⑯，本轮不回退）。 */
+function note5Scan(list) {
+  const SENT = 31, LO = 45, HI = 75;
+  const res = { play: 0, unplay: 0, edge: 0, skip: 0, badVal: 0, badSent: 0, badUse: 0, badClamp: 0, ex: [] };
+  for (const it of list) {
+    const d = it.d || it;
+    if (d.isDrum === 1 || d.kind === API.KIND_TEMPO) continue;
+    const m = (d.inc === 0) ? null : midiOfInc(d.inc);
+    if (m == null) { res.skip++; continue; }
+    if (m < LO - 0.5 || m > HI + 0.5) {
+      res.unplay++;
+      if (d.note5 !== SENT) {
+        res.badSent++;
+        if (d.note5 === 0) res.badClamp++;
+        if (res.ex.length < 3) res.ex.push("tick " + d.tick + " 音高 " + m.toFixed(1) + " 却写 note5=" + d.note5);
+      }
+    } else if (m < LO || m > HI) {
+      res.edge++;
+    } else {
+      res.play++;
+      const want = Math.round(m) - LO;
+      if (d.note5 === SENT) {
+        res.badUse++;
+        if (res.ex.length < 3) res.ex.push("tick " + d.tick + " 音高 " + m.toFixed(1) + " 可弹却写哨兵 31");
+      } else if (Math.abs(d.note5 - want) > 1) {
+        res.badVal++;
+        if (res.ex.length < 3) res.ex.push("tick " + d.tick + " note5=" + d.note5 + " 期望 " + want);
+      }
+    }
+  }
+  return res;
+}
+const midiOfInc = inc => { const hz = inc * 50000000 / 4294967296; return hz > 0 ? 69 + 12 * Math.log2(hz / 440) : null; };
+const incOfMidi = m => Math.round(440 * Math.pow(2, (m - 69) / 12) * 4294967296 / 50000000);
+
+const main15  = pred15(convMain.words, "主产物（全量）");
+const main15v = pred15(sAllMet.vis, "可见字（所见即所灌）");
+const main16  = pred16(convMain.words);
+const main17  = pred17(convMain.words);
+const vcAll   = sAllMet.vc;
+judge("⑮", "鼓/旋律分离：鼓 inc 全 0 · 旋律 inc 全非 0 · 鼓轴全 == 12+dt · is_drum=0 无轴 12..15",
+  main15.ok && main15v.ok && vcAll.nDrum === vcAll.nDrumKeyOk &&
+  vcAll.nDrumIncNot0 === 0 && vcAll.nMelOnDrumAxis === 0,
+  "全量：鼓 " + main15.nDrum + " / 旋律 " + main15.nMel + " · 可见：is_drum 字 " + vcAll.nDrum +
+  " == 轴=12+dt 的字 " + vcAll.nDrumKeyOk + " · 鼓 inc≠0 " + (main15.drumIncNot0 + vcAll.nDrumIncNot0) +
+  " · 旋律 inc=0 " + (main15.melInc0 + main15v.melInc0) +
+  " · 旋律落保留段(12..15) " + (main15.melOnDrumAxis + main15v.melOnDrumAxis));
+ev("全量产物（" + main15.nTempo + " 个 tempo）逐条扫：" + main15.nDrum + " 条鼓 / " + main15.nMel + " 条旋律");
+ev("可见字（visibleWords，" + vcAll.n + " 字）逐条扫：is_drum=1 的字 " + vcAll.nDrum +
+   " 条，其中 inc≠0 的 " + vcAll.nDrumIncNot0 + " 条、轴 == 12+dt 的 " + vcAll.nDrumKeyOk +
+   " 条（本轮：这两个数必须相等；鼓占 12..15，旋律一条都不许占这一段）");
+if (!main15.ok)  main15.bad.forEach(b => ev("未过原因（全量）：" + b));
+if (!main15v.ok) main15v.bad.forEach(b => ev("未过原因（可见字）：" + b));
+judge("⑯", "鼓 ON/OFF 按 (axis,drum_type) 全配对（OFF 也带 is_drum=1 与同一 drum_type）+ 鼓 note_off5=0",
+  main16.ok,
+  "ON " + main16.on + " / OFF " + main16.off + " · 未闭合 " + main16.unclosed + " · 无主 OFF " + main16.orphan +
+  " · 保留段上漏标 is_drum 的 OFF " + main16.offNoFlag + " · note_off5≠0 的鼓 " + main16.note5Bad);
+ev("逐件 ON/OFF 数（按 drum_type）：" +
+   [0, 1, 2, 3].map(t => nameOfType(t) + " " + main16.cnt[t].on + "/" + main16.cnt[t].off).join(" · ") +
+   "（手册点名的死线：OFF 漏带 is_drum/drum_type ⇒ 鼓 voice 永久 held ⇒ 保留池耗尽）");
+if (!main16.ok) main16.bad.forEach(b => ev("未过原因：" + b));
+judge("⑰", "鼓件按 drum_type 认件（4 件）：四件齐全 + 轴 == 12+dt + 两条件号读取路径一致 + 页面表一致",
+  main17.ok,
+  "四件计数 " + [0, 1, 2, 3].map(t => nameOfType(t) + "=" + main17.per[t]).join(" · ") +
+  " · 轴 " + [0, 1, 2, 3].map(t => main17.axisOf[t]).join("/"));
+ev("12+dt（鼓的轴 = 12 + drum_type，独立写死）：" + AXIS_KEY_TXT);
+ev("对照表（本轮定稿，独立写死）：" +
+   [0, 1, 2, 3].map(t => nameOfType(t) + "=drum_type" + t + "/轴" + WANT_AXIS_KEY[t]).join(" · "));
+if (!main17.ok) main17.bad.forEach(b => ev("未过原因：" + b));
+/* ⑲（2026-10-16 第三轮新增）镲族必须【显式】归 hihat（⛔ 不靠表外兜底 -> tom）。 */
+const main19 = pred19();
+judge("⑲", "镲族 8 个音高在页面 GM 表里【显式列出】-> hihat（⛔ 不靠兜底 -> tom）",
+  main19.ok,
+  main19.ok ? ("46/49/51/52/53/55/57/59 全部显式 ->hihat · " + main19.note)
+            : main19.bad.join(" | "));
+/* ⑳（第三轮回退 4 件口径新增）鼓力度逐件定值 + OFF 写 0。 */
+const main20 = pred20(convMain.words);
+judge("⑳", "鼓力度逐件定值：Kick230 Snare235 HiHat175 Tom220 · 鼓 OFF 写 0", main20.ok,
+  "鼓事件 " + main20.nDrum + " 条 · 力度错 " + main20.nOnBad + " · OFF 力度非 0 " + main20.nOffBad +
+  " ｜ 逐件 ON 力度 " + [0, 1, 2, 3].map(t =>
+    nameOfType(t) + "=" + ([...main20.seen[t].on].sort((a, b) => a - b).join("/") || "无") +
+    "(定值" + WANT_DRUM_VEL[t] + ")").join(" · "));
+ev("生效值 = drum_gen.v 默认 + top.v 覆盖（Kick 未被覆盖 ⇒ 230）· OFF 写 0（" +
+   [0, 1, 2, 3].map(t => nameOfType(t) + " off " + main20.seen[t].nOff).join(" · ") + "）");
+if (!main20.ok) main20.bad.forEach(b => ev("未过原因：" + b));
+/* ⑱（2026-10-16 新增）旋律 note_off5 新口径：可弹(45..75) => MIDI-45 · 越界 => 31 哨兵。 */
+const n5Main = note5Scan(decWords(convMain));
+const n5Vis  = note5Scan(sAllMet.vis ? sAllMet.vis.map(w => unpack(w)) : []);
+judge("⑱", "旋律 note_off5：可弹(45..75) => MIDI-45 · 越界 => 31 哨兵（⛔ 不许钳到 0）",
+  n5Main.badVal === 0 && n5Main.badSent === 0 && n5Main.badUse === 0 &&
+  n5Vis.badVal === 0 && n5Vis.badSent === 0 && n5Vis.badUse === 0 && main16.note5Bad === 0,
+  "全量：可弹 " + n5Main.play + " · 越界 " + n5Main.unplay + "（应写 31）· 值不对 " + n5Main.badVal +
+  " · 越界没写哨兵 " + n5Main.badSent + "（其中钳到 0 的 " + n5Main.badClamp + "）· 可弹误写哨兵 " + n5Main.badUse +
+  " ｜ 可见字：可弹 " + n5Vis.play + " · 越界 " + n5Vis.unplay + " · 违规 " +
+  (n5Vis.badVal + n5Vis.badSent + n5Vis.badUse));
+ev("音高只从事件里的 inc 反推（⛔ 不读页面的 midi 中间量）；inc 21 位 ⇒ 允许 ±1 半音，边界 45±0.5 / 75±0.5 留死区");
+ev("  全量：可弹 " + n5Main.play + " · 越界 " + n5Main.unplay + " · 死区 " + n5Main.edge +
+   " · 无法反推 " + n5Main.skip + (n5Main.ex.length ? ("（例 " + n5Main.ex.join(" | ") + "）") : ""));
+ev("  可见字：可弹 " + n5Vis.play + " · 越界 " + n5Vis.unplay + " · 死区 " + n5Vis.edge +
+   " · 无法反推 " + n5Vis.skip + (n5Vis.ex.length ? ("（例 " + n5Vis.ex.join(" | ") + "）") : ""));
+if (n5Main.badSent || n5Main.badVal || n5Main.badUse) {
+  n5Main.ex.forEach(x => ev("未过原因（全量）：" + x));
+}
+{
+  /* ---- 反控：手造坏字，喂进【同一个】谓词，要求对应判据变红 ---- */
+  const w0 = convMain.words[0], r0 = rawOf(w0);
+  const mk = o => mkWord(Object.assign({}, r0, o));
+  /* a 鼓事件 inc≠0（§4.1-7 硬检查②） */
+  const ra = pred15(convMain.words.concat([mk({ isDrum: 1, inc: 37796, axis: 12, timbre: 0,
+                                                kind: API.KIND_ON, note5: 0 })]), "反控 a");
+  ctl("手造一条 is_drum=1 且 inc≠0 的字 -> 判据⑮ " +
+      (ra.ok ? "仍然绿（判据失效）" : "变红（符合预期）：" + ra.bad[0]));
+  /* b 旋律事件 inc=0 */
+  const rb = pred15(convMain.words.concat([mk({ isDrum: 0, inc: 0, axis: 2, timbre: 1,
+                                                kind: API.KIND_ON, note5: 3 })]), "反控 b");
+  ctl("手造一条 is_drum=0 且 inc=0 的旋律字 -> 判据⑮ " +
+      (rb.ok ? "仍然绿（判据失效）" : "变红（符合预期）：" + rb.bad[0]));
+  /* c is_drum=0 却占鼓轴（§7.3-1） */
+  const rc = pred15(convMain.words.concat([mk({ isDrum: 0, inc: 37796, axis: 13, timbre: 1,
+                                                kind: API.KIND_ON, note5: 3 })]), "反控 c");
+  ctl("手造一条 is_drum=0 且轴=13 的字 -> 判据⑮ " +
+      (rc.ok ? "仍然绿（判据失效）" : "变红（符合预期）：" + rc.bad[0]));
+  /* d tempo 事件被标成鼓 */
+  const rd = pred15(convMain.words.concat([mk({ isDrum: 1, inc: 12345, axis: 0, timbre: 0,
+                                                kind: API.KIND_TEMPO, note5: 0 })]), "反控 d");
+  ctl("手造一条 kind=2（tempo）却 is_drum=1 的字 -> 判据⑮ " +
+      (rd.ok ? "仍然绿（判据失效）" : "变红（符合预期）：" + rd.bad[0]));
+  /* e 把一条鼓 OFF 的 is_drum 位【替换】清 0（ON/OFF 不同步 —— 手册点名的漏点） */
+  let at = -1;
+  for (let i = 0; i < convMain.words.length; i++) {
+    const d = unpack(convMain.words[i]);
+    if (d.isDrum === 1 && d.kind === API.KIND_OFF) { at = i; break; }
+  }
+  if (at >= 0) {
+    const w1 = convMain.words.slice();
+    w1[at] = w1[at] & ~(1n << 5n);
+    const re2 = pred16(w1);
+    ctl("把一条鼓 OFF 的 is_drum 位清 0（ON/OFF 不同步）-> 判据⑯ " +
+        (re2.ok ? "仍然绿（判据失效）" : "变红（符合预期）：" + re2.bad[0]));
+    /* f 把同一条鼓 OFF 的 drum_type 改错（0 -> 1） */
+    const w2 = convMain.words.slice();
+    w2[at] = (w2[at] & ~(0x3n << 7n)) | (1n << 7n);
+    const rf = pred16(w2);
+    ctl("把一条鼓 OFF 的 drum_type 改成 snare(1)（与 ON 不一致）-> 判据⑯ " +
+        (rf.ok ? "仍然绿（判据失效）" : "变红（符合预期）：" + rf.bad[0]));
+    /* g 拔掉那条鼓 OFF ⇒ 未闭合 ON 必须 > 0 */
+    const w3 = convMain.words.slice(0, at).concat(convMain.words.slice(at + 1));
+    const rg = pred16(w3);
+    ctl("拔掉一条鼓 OFF -> 判据⑯ " +
+        (rg.ok ? "仍然绿（判据失效）" : "变红（符合预期）：" + rg.bad[0]));
+    /* h 给一条鼓事件塞 note_off5≠0（鼓没有音高） */
+    const w4 = convMain.words.slice();
+    w4[at] = (w4[at] & ~0x1Fn) | 7n;
+    const rh = pred16(w4);
+    ctl("把一条鼓事件的 note_off5 置 7 -> 判据⑯ " +
+        (rh.ok ? "仍然绿（判据失效）" : "变红（符合预期）：" + rh.bad[0]));
+    /* i 鼓件 drum_type 改错 ⇒ 轴与件不对应（判据⑰） */
+    const w5 = convMain.words.slice();
+    w5[at] = (w5[at] & ~(0x3n << 7n)) | (2n << 7n);      /* 件号改了、轴没跟着改 ⇒ 轴 != 12+dt */
+    const ri = pred17(w5);
+    ctl("把一条鼓事件的 drum_type 改成 hihat(2)（轴没跟着变）-> 判据⑰ " +
+        (ri.ok ? "仍然绿（判据失效）" : "变红（符合预期）：" + ri.bad[0]));
+    /* j ⑰反控：手造鼓字落在【旧口径】的轴上（上一轮 dt 键 0 / 更早的 8）⇒ 轴 != 12+dt，必须红 */
+    const rj = pred17(convMain.words.concat([mkWord(Object.assign({}, r0, {
+      isDrum: 1, inc: 0, timbre: 0, axis: 0, kind: API.KIND_ON, note5: 0 }))]));
+    const rj8 = pred17(convMain.words.concat([mkWord(Object.assign({}, r0, {
+      isDrum: 1, inc: 0, timbre: 0, axis: 8, kind: API.KIND_ON, note5: 0 }))]));
+    ctl("手造一条鼓字落在 axis=0（上一轮的 dt 键）-> 判据⑰ " +
+        (rj.ok ? "仍然绿（判据失效）" : "变红（符合预期）"));
+    ctl("手造一条鼓字落在 axis=8（更早的 8..15 口径）-> 判据⑰ " +
+        (rj8.ok ? "仍然绿（判据失效）" : "变红（符合预期）"));
+    /* j3 ⑰反控（第三轮重点，任务书点名）：手造一条 Snare(dt=1) 落在【kick 的轴 12】上
+     *   —— 轴号本身合法（12..15 之内、且这一件上有其它鼓在用），只有"件与轴错配"；
+     *   判据⑰ 的硬判据 axis-12 == drum_type 必须把它抓出来（"轴落 12..15"这种软判据抓不到）。 */
+    {
+      const w12 = convMain.words.concat([mkWord(Object.assign({}, r0, {
+        isDrum: 1, inc: 0, timbre: WANT_TYPE.snare, axis: WANT_AXIS.kick,
+        kind: API.KIND_ON, note5: 0, vel: WANT_DRUM_VEL[WANT_TYPE.snare] }))]);
+      const rj3 = pred17(w12);
+      ctl("手造一条 Snare(dt=1) 落在 kick 的轴 12 上 -> 判据⑰ " +
+          (rj3.ok ? "仍然绿（判据失效）" : "变红（符合预期）：" + rj3.bad[0]));
+    }
+    /* j2 ⑰反控（非空洞）：证明"只读 timbre[8:7]（2 位）"在本产物上有鉴别力 ——
+     *   若还按上一轮的 3 位 {bit19, timbre[8:7]} 读，件号会在多少条上不同。
+     *   本产物有落在轴 13/15（bit19=1）的鼓 ⇒ 这个数必然 > 0。 */
+    let legacyDiff = 0;
+    for (const w of convMain.words) {
+      const d = unpack(w);
+      if (d.isDrum !== 1) continue;
+      if (dtOfLegacy3(rawOf(w)) !== dtOfRaw(rawOf(w))) legacyDiff++;
+    }
+    ctl("上一轮的 3 位读法 {bit19,timbre} 与 2 位读法在本产物上会差 " + legacyDiff +
+        " 条鼓事件的件号 -> " + (legacyDiff > 0 ? "2 位读法的鉴别力非空洞（符合预期）"
+                                                : "两种读法结果相同，检查空洞"));
+  } else {
+    ctl("找不到可改的鼓 OFF（无法构造 ⑯⑰ 的反控）");
+  }
+  /* l ⑲反控：镲族缺一条 / 指错件 —— 用 pred19 里的静态反控读数（拿掉镲族、GM51->tom） */
+  ctl("把镲族从页面表里拿掉 / 把 GM51 改成 tom -> 判据⑲ 的静态反控读数：" + main19.note);
+  /* l2 ⑲反控（真跑谓词，⛔ 不只靠 pred19 内部的算术自证）：
+   *   把 GM51 改成 tom 的表【喂回 pred19 的逻辑】重判 —— 用同一个 WANT_CYMBAL_GMS 重扫一遍。 */
+  {
+    const badGm = {};
+    for (const k of Object.keys(API.GM_DRUM_MAP || {})) badGm[k] = (Number(k) === 51) ? "tom" : API.GM_DRUM_MAP[k];
+    const notHat = WANT_CYMBAL_GMS.filter(g => Object.prototype.hasOwnProperty.call(badGm, g) &&
+                                               badGm[g] !== "hihat");
+    ctl("把页面表里 GM51 改成 tom 后重扫镲族 -> 认出的错误集合 [" + notHat.join(",") +
+        "] -> 判据⑲ " + ((notHat.length === 1 && notHat[0] === 51) ? "变红（符合预期）"
+                                                                    : "仍然绿（判据失效）"));
+  }
+  /* m ⑳反控：鼓力度两种坏法，喂进【同一个】pred20()。
+   *   ⚠️ ON 那条必须挑【定值不是 230】的那一件来改 —— 随手把第一条鼓 ON 改成 230 时，
+   *      若第一条正好是 Kick（定值 230）就等于没改 ⇒ 假绿（实测踩过）。 */
+  {
+    const idx = convMain.words.findIndex(w => {
+      const d = unpack(w);
+      return d.isDrum === 1 && d.kind === API.KIND_ON && WANT_DRUM_VEL[dtOf(d)] !== 230; });
+    if (idx >= 0) {
+      const t = dtOf(unpack(convMain.words[idx]));
+      const wv = convMain.words.slice();
+      wv[idx] = (wv[idx] & ~(0xFFn << 11n)) | (230n << 11n);   /* 力度换成 Kick 的 230（该件定值不是它） */
+      const rv = pred20(wv);
+      ctl("把一条 " + nameOfType(t) + " ON 的力度换成 Kick 的 230（该件定值是 " + WANT_DRUM_VEL[t] +
+          "）-> 判据⑳ " + (rv.ok ? "仍然绿（判据失效）" : "变红（符合预期）：" + rv.bad[0]));
+      const wo = convMain.words.slice();
+      const atOff = convMain.words.findIndex(w => {
+        const d = unpack(w); return d.isDrum === 1 && d.kind === API.KIND_OFF; });
+      if (atOff >= 0) {
+        wo[atOff] = (wo[atOff] & ~(0xFFn << 11n)) | (BigInt(WANT_DRUM_VEL[dtOf(unpack(wo[atOff]))]) << 11n);
+        const ro = pred20(wo);
+        ctl("把一条鼓 OFF 的力度写成该件的定值 -> 判据⑳ " +
+            (ro.ok ? "仍然绿（判据失效）" : "变红（符合预期）：" + ro.bad[0]));
+      }
+    }
+  }
+  /* k ⑱反控：note_off5 的三种坏法，喂进【同一个】note5Scan() */
+  {
+    const mkD = (midi, n5) => ({ d: { isDrum: 0, kind: API.KIND_ON, tick: 0,
+                                      inc: incOfMidi(midi), note5: n5 } });
+    const base = decWords(convMain);
+    const ka = note5Scan(base.concat([mkD(40, 0)]));
+    ctl("手造一条音高 40（越界）却写 note5=0 的字 -> 判据⑱ " +
+        (ka.badSent > 0 && ka.badClamp > 0 ? "变红（符合预期）" : "仍然绿（判据失效）") +
+        "：越界未写哨兵 " + ka.badSent + " · 钳到 0 的 " + ka.badClamp);
+    const kb = note5Scan(base.concat([mkD(60, 31)]));
+    ctl("手造一条音高 60（可弹）却写哨兵 31 的字 -> 判据⑱ " +
+        (kb.badUse > 0 ? "变红（符合预期）" : "仍然绿（判据失效）") + "：可弹误写哨兵 " + kb.badUse);
+    const kc = note5Scan(base.concat([mkD(60, 3)]));
+    ctl("手造一条音高 60 却写 note5=3（应为 15）的字 -> 判据⑱ " +
+        (kc.badVal > 0 ? "变红（符合预期）" : "仍然绿（判据失效）") + "：值不对 " + kc.badVal);
+  }
+}
+
+
+console.log();
+/* ===========================================================================
    附：其它音型（报告项，非判据）
    =========================================================================== */
-console.log();
 console.log("【二】其它音型自检（报告项，不计入判据）");
 for (const style of ["beat", "off", "four"]) {
   const c = runGuide(true, K, true, style, "all", "met");
   const d = c.words.map((w, i) => ({ d: unpack(w), tr: c.evTrack[i] }));
   const ons = d.filter(o => isMetWord(o.d, o.tr) && o.d.kind === API.KIND_ON);
   const byNm = {};
-  for (const o of ons) { const nm = nameOfInc[o.d.inc] || ("inc" + o.d.inc); byNm[nm] = (byNm[nm] || 0) + 1; }
+  /* ⭐ 2026-10-16：件名 = drum_type = timbre[8:7] & 3（⛔ 不再按 inc 反查） */
+  for (const o of ons) { const nm = nameOfType(o.d.timbre & 3); byNm[nm] = (byNm[nm] || 0) + 1; }
   console.log("  音型 " + style.padEnd(5) + "（" + (API.MET_STYLE_NAME[style] || "?") + "）：响 " +
     c.metCount + " + 跳过 " + c.metSkipped + " = " + (c.metCount + c.metSkipped) +
     "（期望 " + BARS + "×8 = " + (BARS * 8) + "）· 逐件 " + JSON.stringify(byNm));

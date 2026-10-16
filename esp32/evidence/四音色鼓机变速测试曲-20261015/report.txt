@@ -1,0 +1,82 @@
+mid2evt report
+====================================================
+input        : esp32\evidence\四音色鼓机变速测试曲-20261015\StJamesInfirmary-funk-测试曲.mid
+transpose    : +0 semitones
+
+pitch tracks : 4
+    axis 0  Bass                53 notes
+    axis 1  Guitar              36 notes
+    axis 2  Piano               36 notes
+    axis 3  Pad                 32 notes
+
+TIMBRE assignment (GUESSED from track name -- verify this!):
+    axis 0  Bass             -> BASS    (name contains 'bass')
+    axis 1  Guitar           -> GUITAR  (name contains 'guitar')
+    axis 2  Piano            -> PIANO   (name contains 'piano')
+    axis 3  Pad              -> PAD     (name contains 'pad')
+  Override any of them with:  --timbre AXIS=NAME,...
+  Names: BASS, GUITAR, PIANO, PAD
+
+DRUM tracks (ALSO emitted into events.hex, with is_drum=1):
+    Drum (track name contains 'drum')
+  three rules, OR'd: (1) --drum-track 显式指定, (2) track name, (3) MIDI channel 10
+    Drum               130 notes  (track name contains 'drum')
+  drum records: 130 note_on + 130 note_off = 260
+  every drum record: is_drum=1, inc=0, drum_type=timbre[8:7] (2 位, 4 件)
+  note_off 与 note_on 带【同一个】drum_type 与同一个 axis（否则鼓 voice 永久 held）
+  一件一轴（note_manager.v:1413-1416 的 note_off 按 (axis,src) 清 voice，
+  四件鼓的 src 全是 SRC_KDRUM ⇒ 同轴两件会互相清）:
+    轴号 = 12 + drum_type（一件一轴：12/13/14/15）
+    Kick   drum_type=0 -> axis 12
+    Snare  drum_type=1 -> axis 13
+    HiHat  drum_type=2 -> axis 14
+    Tom    drum_type=3 -> axis 15
+  本谱实际用到的鼓轴号: [12, 13, 14, 15]（旋律轴号一律 <= 11，两段不重叠）
+  drum_type distribution (counted on note_on):
+    Kick   (0) : 30
+    Snare  (1) : 19
+    HiHat  (2) : 76
+    Tom    (3) : 5
+  GM percussion notes actually present:
+    MIDI 36  x30   -> Kick   (0)
+    MIDI 38  x19   -> Snare  (1)
+    MIDI 42  x76   -> HiHat  (2)
+    MIDI 45  x5    -> Tom    (3)
+    其中镲族（映射表里【显式列出】的 8 个音高）事件 0 个：本谱没有
+    ⇒ 镲族是【有意归类】到 HiHat(2)，⛔ 不是表外兜底；表外的只有上面带标记的那些
+
+  drum note_off5: 一律 0（鼓没有音高 —— GM 件号不是键盘音高；哨兵只作用于旋律）
+  旋律 note_off5: 音高 45..75 => MIDI - 45（0..30）；越界 => 31（哨兵）
+                  ⛔ 不再钳到 0（0 = A2 = 真实的键 5，会点错灯）
+  drum velocity: Kick=230, Snare=235, HiHat=175, Tom=220
+
+EMPTY tracks (no notes; no axis id assigned): 1
+    Tempo
+  Guitar Pro exports placeholder/duplicate tracks; giving them
+  an axis would leave gaps in the numbering for no benefit.
+
+notes kept   : 157 melody + 130 drum
+events       : 574 note records (1 note_on + 1 note_off each; 314 melody + 260 drum)
+bit split    : is_drum=1 共 260 条, is_drum=0 共 314 条 (+ 2 tempo)
+               new fields: bit5 is_drum, drum_type=timbre[8:7] (2 位), bits[4:0] note_off5
+velocity     : 真实力度（⚠️ 听觉行为变更：改前一律常量 130）
+               旋律 = MIDI 原始力度；鼓 = 鼓机力度 230/235/175/220；note_off 一律 0
+               鼓力度逐件：Kick=230, Snare=235, HiHat=175, Tom=220
+unplayable   : 判为不可弹（旋律 note_off5 写 31）的条数 = 34（旋律音符；
+               on/off 各一条 => 68 条事件，判据⑤ 就按事件数报）
+               可弹音域 = MIDI 45..75（A2..D#4，31 个键）；越界写 31 = 不点灯
+               鼓 / tempo 的 note_off5 一律 0（没有音高，不参与哨兵规则）
+de-duplicated: 0  (same tick + same pitch collapsed to one;
+                identical pitch means no musical loss, and it
+                avoids two voices beating at the same frequency)
+pitch range  : MIDI 40 .. 76
+length       : 38400 ticks = 10.00 bars (4/4 @ PPQN 960)
+
+TEMPO map (from the MIDI set_tempo events -- NOT assumed):
+    tick 0         96.00 BPM  -> tick_inc 131941
+    tick 19200    108.00 BPM  -> tick_inc 148434
+  ⭐ emitted into events.hex as 2 kind=2 record(s)
+     => the stream is SELF-CONTAINED: the FPGA no longer needs
+        the .mid to know how fast to play.
+  NOTE: this score CHANGES tempo.  Any renderer must follow
+        this map, not a single constant BPM.

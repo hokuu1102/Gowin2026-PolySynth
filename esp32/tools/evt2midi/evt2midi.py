@@ -216,7 +216,7 @@ class ParseStats:
 
         # ---- ⚠️ 可疑 ----
         self.unknown_hi = 0            # ⚠️ ≥0x80 且⛔ 不是 0xA5 ⇒ 失步/噪声
-        self.axis_out_of_range = 0     # ⚠️ axis > 15（⭐ 草案规定 0..15）
+        self.axis_out_of_range = 0     # ⚠️ 上行鼓标记 > 3（合法只有 0..3；2026-10-16 口径补正）
         self.seq_gaps = 0
         self.seq_wraps = 0
         self.tick_wraps = 0
@@ -445,17 +445,16 @@ def parse_stream(data, stats=None, tables=None, anchors=None):
             inc = fd["inc"]
             vel = fd["vel"]
 
-            # ⚠️ axis 草案规定 0..15 ⇒ 越界**计数**（⭐ 但⛔ 不拒收：
-            #    音高以 `phase_inc` 为准，⭐ 轴号越界不影响音高，⭐ 只提示协议异常）
-            #
-            # ⭐⭐ 2026-10-15 起这条是【兜底】，不是主判据：
-            #   `[7]` 现在是 `timbre[5:4] | axis[3:0]`，而 `frame_format.parse_frame`
-            #   在【解析边界】就掩码 ⇒ ⭐ 经 parse_stream 出来的 axis 结构上不可能 > 15
-            #   ⇒ 这里**永远不会**触发。⭐ 留着是因为它是"掩码被绕过"的哨兵
-            #   （⛔ 别把它当修法；真正的修法在解析边界，见 frame_format 的 AXIS_MASK）。
-            #   ⚠️ 判据也跟着改了：原来喂 axis=200 来测这条计数，掩码之后那条判据
-            #   恒绿（⭐ 与 C83 探针假绿同族）⇒ 现在改钉"垃圾字节 0xFF 也只解出 15"。
-            if axis > 15:
+            # ⭐⭐ 2026-10-16 深夜（FPGA 线《上行帧 byte7 口径补正》）—— 口径变了：
+            #   上行 `[7][3:0]` 是【鼓标记】—— 鼓 = drum_type(0..3)、手弹 = 0，
+            #   ⛔ 不是"voice 轴号"（轴号是**下行**概念：0..15，鼓占 12..15）。
+            #   ⇒ 合法值只有 **0..3** ⇒ 越界判据应该是"鼓标记 > 3"。
+            # 🔴 旧代码在这里查 `axis > 15`：`frame_format` 在解析边界掩码之后
+            #   `[3:0]` **结构上不可能** > 15 ⇒ 这条**永远是死的**（同族 C83 探针假绿）。
+            #   ⭐ 现在改成用 `frame_format` 算好的 `mark_out_of_range`（单一来源，
+            #   ⛔ 不在这里另写一套判据 —— 三处口径不一致是 C91 那一族）。
+            #   ⚠️ 不拒收：音高以 `phase_inc` 为准，标记越界只提示协议异常。
+            if fd.get("mark_out_of_range", (axis > 3)):
                 stats.axis_out_of_range += 1
 
             # 序号连续性（只用于短窗口丢帧检测）。
@@ -1214,22 +1213,35 @@ def selftest():
         st_u2.frames_ok == 1 and any(e.tick == 0x0000C000 for e in evs_u2),
         "  ok=%d resync=%d" % (st_u2.frames_ok, st_u2.resyncs))
     # ⭐⭐ 2026-10-15：`[7]` = `timbre[5:4] | axis[3:0]`，⭐ 掩码在【解析边界】就拆干净
-    #   ⇒ ⭐ `axis` 结构上不可能 > 15 ⇒ 越界计数**恒为 0**。
-    #   🔴 原来这条喂 `axis=200`，靠 `axis > 15` 触发计数 —— 掩码之后它【永远不成立】，
-    #      那条判据退化成恒绿（⭐ 与 C83 探针假绿同族）⇒ 必须换判据。
-    #   ⭐ 现在钉住【新不变量】：连 0xFF 这种含保留位的垃圾字节，
-    #      也只解出 axis=15 / timbre=3，且越界计数【仍是 0】。
+    #   ⇒ ⭐ 掩码本身仍要验（0xFF 也只解出 15，⛔ 不是 255）。
+    # 🔴🔴 2026-10-16 深夜（FPGA 线《上行帧 byte7 口径补正》）—— 口径变了，
+    #   这条判据必须跟着改（⛔ 否则它变成"钉住旧口径"的化石）：
+    #     · 上行 `[7][3:0]` 是【鼓标记】：鼓 = drum_type(0..3)、手弹 = 0
+    #       ⇒ 合法只有 **0..3** ⇒ 15 是**越界**，**必须被计数**（不是"恒为 0"）。
+    #     · 旧的"越界计数恒为 0"是**旧口径**（那时 `[3:0]` 被当轴号 0..15）
+    #       ⇒ ⛔ 保留它会把正确行为判成错。
+    #   ⭐ 新判据钉两件事：① 掩码仍在（15 而非 255）；② 越界**被计数**，
+    #      而合法的鼓标记（0x22 ⇒ 2）**不**被计数（⭐ 非空洞：两边都要验）。
     #   ⚠️ 必须绕过造帧侧：`_mk_frame`（= build_frame）写侧也掩码，
     #      直接传 0xFF 只会写出 0x0F ⇒ ⛔ 验不到解析侧的掩码。
     _axg = bytearray(_mk_frame(T_NOTE_ON, 0, 1000, 1, inc440, 100))
     _axg[OFF_AXIS] = 0xFF                      # ⚠️ 直接塞垃圾字节（含保留位 6..7）
     _axg[-1] = frame_checksum(bytes(_axg))
     evs_ax, st_ax = parse_stream(bytes(_axg))
-    chk("⑬ [7]=0xFF ⇒ axis 解成 15（⛔ 不是 255）",
+    chk("⑬ [7]=0xFF ⇒ 鼓标记解成 15（⛔ 不是 255，⭐ 掩码仍在）",
         st_ax.frames_ok == 1 and len(evs_ax) == 1 and evs_ax[0].axis == 15,
         "  axis=%s" % (evs_ax[0].axis if evs_ax else None))
-    chk("⑬ 越界计数恒为 0（⭐ 掩码在边界拆干净；⛔ 不掩码这条会红）",
-        st_ax.axis_out_of_range == 0, "  cnt=%d" % st_ax.axis_out_of_range)
+    chk("⑬ 鼓标记 15 越界（合法只有 0..3）⇒ **必须被计数**（新口径）",
+        st_ax.axis_out_of_range == 1, "  cnt=%d" % st_ax.axis_out_of_range)
+    # ⭐⭐ 非空洞的另一半：合法鼓标记【不许】被误计。
+    _okg = bytearray(_mk_frame(T_NOTE_ON, 0, 1000, 1, inc440, 100))
+    _okg[OFF_AXIS] = 0x22                      # HiHat：drum_type=2（合法）
+    _okg[-1] = frame_checksum(bytes(_okg))
+    evs_ok, st_ok = parse_stream(bytes(_okg))
+    chk("⑬ 合法鼓标记 0x22（drum_type=2）⇒ ⛔ 不计数，且解成鼓",
+        st_ok.axis_out_of_range == 0 and len(evs_ok) == 1 and evs_ok[0].axis == 2,
+        "  cnt=%d axis=%s" % (st_ok.axis_out_of_range,
+                              evs_ok[0].axis if evs_ok else None))
 
     print("\n[14] ⭐⭐ Tempo 元事件：⭐ 文件必须【自描述】速度")
     chk("⑭ 读侧（midi_verify）可用（⭐ 下面几条的前提）", HAVE_MIDI_READER)
@@ -1345,7 +1357,7 @@ def main():
     # ⚠️ 注意：⭐ `big_tick_steps` / `inc_zero*` / `orphan_off` **是在 `build_midi` 里算的**
     #    ⇒ 🔴 必须放到 `build_midi` **之后**再打印（⭐ 否则永远显示 0 —— 假绿）。
     print("  序号缺口 / 回绕    = %d / %d" % (st.seq_gaps, st.seq_wraps))
-    print("  ⚠️ axis 越界(>15)  = %d" % st.axis_out_of_range)
+    print("  ⚠️ 鼓标记越界(>3)  = %d" % st.axis_out_of_range)
     if st.rejects:
         print("  拒收明细（⭐ 前 %d 条）：" % len(st.rejects))
         for off, why in st.rejects:

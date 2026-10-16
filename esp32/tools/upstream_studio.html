@@ -221,26 +221,37 @@ function parse() {
                  " (" + hzToNote(incToHz(items[0])) + ")  inc[15]=" + items[15]);
     } else {
       const tick = ((fr[3] << 24) | (fr[4] << 16) | (fr[5] << 8) | fr[6]) >>> 0;
-      /* ⭐⭐ 2026-10-15：`[7]` 一字节两字段 = `timbre[5:4] | axis[3:0]`
-       * （口径与 frame_format.py 的 AXIS_MASK/TIMBRE_SH/TIMBRE_MASK 一致）。
-       * 🔴 为什么必须掩码：⛔ 不掩码 ⇒ FPGA 一旦把 timbre 填进高 4 位，
-       *    轴号就读成 16..63 ⇒ 🔴 鼓判据（axis=15）、配色（%16）、查表全错，
-       *    而且"看起来只是轴号变大了"（同族 C113：错得看不出来）。
-       * ⚠️ 现状：FPGA 侧 PnR 还没把 timbre 填进来（高 4 位 = 0）
-       *    ⇒ ⭐ 掩码今天不改变任何结果，是为对接做准备。 */
-      const axis = fr[7] & 0x0F;
-      const timbre = (fr[7] >> 4) & 0x03;
+      /* ⭐⭐ 上行 `[7]` 一字节三字段（2026-10-16 深夜 FPGA 线《上行帧 byte7 口径补正》）：
+       *   bit[7:6] 保留恒 0 · bit[5:4] 音色（**鼓事件时这里是 drum_type**）·
+       *   bit[3:0] 鼓标记（鼓 = drum_type(0..3)，手弹 = 0）
+       * ⚠️ 与 frame_format.py 的 DRUM_MARK_MASK / TIMBRE_SH / TIMBRE_MASK 同一口径，
+       *   也与 tools/score_studio.html 的上行解码一致 —— ⚠️ 一共【三处】，
+       *   ⛔ 必须一起改（只改一处 ⇒ 两边解出来不一样，同族 C91）。
+       * 🔴 所以【鼓事件不要读 [5:4] 当音色】：那里是 drum_type ⇒ 一律给 null，
+       *   ⛔ 不给 0（0 会被当 BASS 音色去发 program change）。
+       * ⚠️ 已知盲区：drum_type=0(Kick) 与手弹的低半字节都是 0 ⇒ 帧里分不出，
+       *   本工具【不猜】，用 kickAmbiguous 如实标注。 */
+      const drumMark = fr[7] & 0x0F;
+      const timbreRaw = (fr[7] >> 4) & 0x03;
+      const isDrumUp = (drumMark !== 0);
+      const axis = drumMark;                 /* ⭐ 上行里 [3:0] 就是鼓标记 */
+      const timbre = isDrumUp ? null : timbreRaw;
+      const kickAmbiguous = (drumMark === 0 && timbreRaw === 0);
       const inc = ((fr[8] << 24) | (fr[9] << 16) | (fr[10] << 8) | fr[11]) >>> 0;
       const vel = fr[12];
       const hz = incToHz(inc);
       S.notes++;
       S.lastHz = hz;
-      S.events.push({ tick, type: t, axis, timbre, hz, midi: hzToMidi(hz), vel, seq: fr[2] });
+      S.events.push({ tick, type: t, axis, timbre, hz, midi: hzToMidi(hz), vel, seq: fr[2],
+                      drumMark: drumMark, isDrumUp: isDrumUp, kickAmbiguous: kickAmbiguous });
       if (S.events.length > MAX_EVENTS) S.events.splice(0, S.events.length - MAX_EVENTS);
       feed(t === T_ON ? "on" : "off",
            (t === T_ON ? "note_on " : "note_off") +
-           "  seq=" + fr[2] + "  tick=" + tick + "  轴=" + axis +
-           "  音色=" + timbre +
+           "  seq=" + fr[2] + "  tick=" + tick +
+           (isDrumUp
+             ? ("  【鼓】drum_type=" + drumMark + "（[5:4] 是 drum_type，⛔ 不当音色）")
+             : ("  轴=" + axis + "  音色=" + timbre +
+                (kickAmbiguous ? "  ⚠️ 音色0：可能是 Kick、也可能是手弹 BASS —— 帧里分不出" : ""))) +
            "  " + hzToNote(hz) + " (" + hz.toFixed(1) + " Hz)" + "  力度=" + vel);
     }
     i += flen;
@@ -293,15 +304,17 @@ const TIMBRE_COLORS = ["#fb923c",   /* 0 BASS   橙 */
                        "#3ddc84",   /* 2 PIANO  绿 */
                        "#ff7ab2"];  /* 3 PAD    粉 */
 const DRUM_COLOR = "#00d5c8";             /* 鼓 青（与主页面同色） */
-/* ⭐⭐ 2026-10-15 方案 B：四件鼓【各占一条轴】12/13/14/15（原为四件共用 15）。
- *   ⭐ 判据与 `rtl/w3c/seq_arb.v:204` 逐字一致：`axis >= 12` ⇒ 鼓。
- *   ⚠️ 口径必须与 score_studio.html 的同名常量一致（两页各一份，⛔ 改一处会两边不一样）。 */
-const DRUM_AXIS_OF = { kick: 12, snare: 13, hihat: 14, tom: 15 };
-const DRUM_AXIS_BASE = 12;
-const isDrumAxis = a => a >= DRUM_AXIS_BASE;
+/* ⭐⭐ 2026-10-16 深夜 FPGA 线《上行帧 byte7 口径补正》：上行判鼓改用 **`drumMark`**
+ *   （= `byte[7][3:0]`，鼓 = drum_type(0..3)、手弹 = 0）。
+ *   🔴 为什么废掉 `axis >= 12`：上行帧里 `[3:0]` **不是 voice 轴号**，
+ *     手弹/旋律的槽位由 FPGA 分配、实测在 0..15 里跳 ⇒ 用轴号判鼓会把
+ *     "手弹 bass 落在轴 13"误标成鼓（用户实测原话："我全程只用 bass 弹的，
+ *     但是识别出了鼓"）。⭐ 下行（灌谱）侧才是 `axis >= 12`，两回事。
+ *   ⚠️ 与 score_studio.html / frame_format.py 必须同一口径（一共三处，同族 C91）。 */
 const NOTE_COLOR_FALLBACK = "#8695ab";    /* 拿不到 timbre 时的兜底色 */
 function uTimbreColor(e) {
-  if (isDrumAxis(e.axis)) return DRUM_COLOR;
+  /* 鼓（Kick 除外 —— drum_type=0 与手弹不可区分，见下方已知盲区） */
+  if (e.drumMark !== undefined && e.drumMark !== null && e.drumMark !== 0) return DRUM_COLOR;
   const tb = (e.timbre === undefined || e.timbre === null) ? -1 : e.timbre;
   return (tb >= 0 && tb < TIMBRE_COLORS.length) ? TIMBRE_COLORS[tb] : NOTE_COLOR_FALLBACK;
 }
@@ -431,16 +444,23 @@ function draw() {
    * ⚠️ 与主页面（score_studio.html）的图例同一套语义：只列【出现过的】音色 + 鼓，
    *    ⛔ 不写轴号（轴号是动态分配的，写出来没意义）。 */
   const seenTb = new Set();
+  let seenDrum = false;
   for (const e of win) {
-    if (isDrumAxis(e.axis)) { seenTb.add("drum"); continue; }
+    const dm = (e.drumMark === undefined) ? 0 : e.drumMark;
+    if (dm !== 0) { seenDrum = true; continue; }      /* 鼓（Kick 除外，见盲区说明） */
     const tb = (e.timbre === undefined || e.timbre === null) ? -1 : e.timbre;
     if (tb >= 0 && tb < TIMBRE_NAMES.length) seenTb.add(tb);
   }
   const uLegend = [];
   for (let tb = 0; tb < TIMBRE_NAMES.length; tb++) {
-    if (seenTb.has(tb)) uLegend.push({ name: TIMBRE_NAMES[tb], color: TIMBRE_COLORS[tb] });
+    if (seenTb.has(tb)) {
+      /* ⚠️ 音色0 也可能是 Kick（drum_type=0 与手弹的低半字节都是 0，帧里分不出）
+       *    ⇒ 如实缀一句，⛔ 不谎称分得开 */
+      uLegend.push({ name: TIMBRE_NAMES[tb] + (tb === 0 ? "（也可能是 Kick）" : ""),
+                     color: TIMBRE_COLORS[tb] });
+    }
   }
-  if (seenTb.has("drum")) uLegend.push({ name: "鼓", color: DRUM_COLOR });
+  if (seenDrum) uLegend.push({ name: "鼓", color: DRUM_COLOR });
   let lx = PAD.l + 4; ctx.textAlign = "left";
   for (const it of uLegend.slice(0, 8)) {
     ctx.fillStyle = it.color; ctx.fillRect(lx, PAD.t + ph + 6, 8, 8);
@@ -618,12 +638,14 @@ function buildMidi(evs) {
     const midi = Math.max(0, Math.min(127, Math.round(e.midi)));
     const vel = Math.max(1, Math.min(127, e.vel || 100));
     const on = e.type === T_ON;
-    /* ⭐⭐ 2026-10-15（用户："要分通道"）：按【timbre 分 MIDI 通道】——
-     *   channel = timbre（0..3 ⇒ BASS/GUITAR/PIANO/PAD），
-     *   ⭐ 鼓（axis=15）走 GM 鼓通道 9（⛔ 不占音色通道）。
+    /* ⭐⭐ 按【音色】分 MIDI 通道 —— channel = timbre（0..3 ⇒ BASS/GUITAR/PIANO/PAD），
+     *   ⭐ 鼓走 GM 鼓通道 9（⛔ 不占音色通道）。
      *   ⚠️ 通道号 = status 低 4 位：`0x90|ch` = note_on、`0x80|ch` = note_off。
-     *   ⚠️ 现状：PnR 还没带 timbre ⇒ 高 4 位 = 0 ⇒ 今天所有乐音都落在通道 0。 */
-    const ch = isDrumAxis(e.axis) ? 9
+     * 🔴 2026-10-16 深夜 byte7 补正后：判鼓改用 `drumMark`（⛔ 不再用 `axis>=12` ——
+     *   上行 [3:0] 不是轴号，手弹槽位会跳到 12..15，用它判鼓会把 bass 错分进鼓通道）。
+     * ⚠️ Kick(drum_type=0) 与手弹不可区分 ⇒ 归通道 0（已知盲区，⛔ 不猜）。 */
+    const dm = (e.drumMark === undefined) ? 0 : e.drumMark;
+    const ch = (dm !== 0) ? 9
              : (((e.timbre === undefined || e.timbre === null) ? 0 : e.timbre) & 0x03);
     tp((on ? 0x90 : 0x80) | ch, midi, on ? vel : 0);
   }

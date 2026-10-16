@@ -131,15 +131,10 @@
       <input type="file" id="file" accept=".hex,.mid,.midi,.txt" hidden>
       <div id="fname">（未打开）</div>
     </div>
-    <div class="card">
-      <h2>统计</h2>
-      <div class="kv"><b>事件数</b><span id="s_n">-</span></div>
-      <div class="kv"><b>时长</b><span id="s_dur">-</span></div>
-      <div class="kv"><b>tick 范围</b><span id="s_tick">-</span></div>
-      <div class="kv"><b>变速点</b><span id="s_tempo">-</span></div>
-      <div class="kv"><b>类型分布</b><span id="s_kind">-</span></div>
-      <div class="kv"><b>整包</b><span id="s_bytes">-</span></div>
-    </div>
+    <!-- 2026-10-16（用户要求）：原「统计」卡在左栏这里 —— 已挪到右栏顶部。
+         原因：左栏塞了 5 张卡（谱面/统计/音轨/引导模式/示范—重复）太挤，
+         而右栏只有实时状态+日志太空。⛔ 元素 id（s_n/s_dur/…）一个都没改，
+         更新代码仍走同一套 getElementById。 -->
 
     <!-- 2026-10-14 新增：选轨播放（用户要求：既可全播，也可只播选定的一轨或多轨）。
          只对 .mid 有效 —— events.hex 里没有轨信息。 -->
@@ -159,7 +154,20 @@
          节拍器用鼓机事件生成 ⇒ 跟着谱面的变速走。 -->
     <div class="card">
       <h2>引导模式</h2>
-      <label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer">
+      <!-- ⭐⭐ 2026-10-16（用户要求）：把「示范—重复」【并进本卡】，用模式切换选择 ——
+           两种模式共用同一套「引导轨 / 节拍器」配置，⛔ 不再各占一张卡
+           （用户原话："示范重复模式也要选音轨和节拍器啊，和引导轨一样的配置，
+            或者你直接在引导模式那个卡片里面切换引导/示范"）。 -->
+      <div class="row" style="align-items:center; gap:6px">
+        <span style="font-size:12px; color:var(--dim)">模式</span>
+        <select id="gd_mode" style="flex:1; background:var(--panel); color:var(--fg);
+                border:1px solid var(--line); border-radius:4px; font-size:11px; padding:2px">
+          <option value="guide" selected>引导（跟着 LED 弹）</option>
+          <option value="demo">示范—重复（先听一遍，再照着弹）</option>
+        </select>
+      </div>
+      <label style="display:flex; align-items:center; gap:6px; font-size:12px; cursor:pointer;
+                    margin-top:6px">
         <input type="checkbox" id="gd_on" style="margin:0">
         启用（引导轨只亮灯、不出声）
       </label>
@@ -175,6 +183,16 @@
         <input type="checkbox" id="gd_met" style="margin:0">
         节拍器（4/4，跟着谱面变速）
       </label>
+      <div class="row" style="margin-top:6px; align-items:center; gap:6px">
+        <span style="font-size:12px; color:var(--dim)">准备小节</span>
+        <select id="gd_prep" style="flex:1; background:var(--panel); color:var(--fg);
+                border:1px solid var(--line); border-radius:4px; font-size:11px; padding:2px">
+          <option value="0" selected>不加（直接进）</option>
+          <option value="1">1 小节（只响节拍器）</option>
+          <option value="2">2 小节（只响节拍器）</option>
+        </select>
+        <span style="font-size:11px; color:var(--dim)">开头这几小节只放节拍器</span>
+      </div>
       <div class="row" style="margin-top:6px; align-items:center; gap:6px">
         <span style="font-size:12px; color:var(--dim)">音型</span>
         <select id="gd_style" style="flex:1; background:var(--panel); color:var(--fg);
@@ -201,8 +219,26 @@
           <option value="both">两者都要</option>
         </select>
       </div>
+      <!-- ⭐ 2026-10-16：示范—重复的「示范小节」行 —— 只在【示范模式】显示。
+           ⚠️ 示范模式下「引导范围」「鼓声」两个下拉会被强制成
+              solo（只留引导轨）+ met（只留节拍器）并置灰 —— 见 syncModeUI()。 -->
+      <div class="row" id="gd_demoRow" style="margin-top:6px; align-items:center; gap:6px; display:none">
+        <span style="font-size:12px; color:var(--dim)">示范小节</span>
+        <select id="dr_bars" style="flex:1; background:var(--panel); color:var(--fg);
+                border:1px solid var(--line); border-radius:4px; font-size:11px; padding:2px">
+          <option value="1">1 小节</option>
+          <option value="2" selected>2 小节</option>
+          <option value="4">4 小节</option>
+        </select>
+      </div>
+      <div id="dr_sum" class="hint" style="margin-top:4px"></div>
       <div id="gd_sum" class="hint" style="margin-top:6px">（打开 MIDI 后可选）</div>
     </div>
+
+    <!-- ⭐⭐ 2026-10-16：原「示范—重复」独立卡片已【并入上方「引导模式」卡】
+         （用 gd_mode 下拉切换 引导/示范，共用同一套引导轨+节拍器配置）。
+         原卡片里的 dr_on 复选框已删除 —— 模式切换取代它；
+         dr_bars（示范小节）与 dr_sum（摘要）已移进引导卡。 -->
   </div>
 
   <div class="col mid">
@@ -220,6 +256,18 @@
   </div>
 
   <div class="col right">
+    <!-- 2026-10-16（用户要求）：统计卡从【左栏】挪到此处（右栏顶部）。
+         左栏原来 5 张卡太挤、右栏太空。⛔ id 未改（s_n/s_dur/s_tick/s_tempo/s_kind/s_bytes），
+         更新逻辑照旧。 -->
+    <div class="card">
+      <h2>统计</h2>
+      <div class="kv"><b>事件数</b><span id="s_n">-</span></div>
+      <div class="kv"><b>时长</b><span id="s_dur">-</span></div>
+      <div class="kv"><b>tick 范围</b><span id="s_tick">-</span></div>
+      <div class="kv"><b>变速点</b><span id="s_tempo">-</span></div>
+      <div class="kv"><b>类型分布</b><span id="s_kind">-</span></div>
+      <div class="kv"><b>整包</b><span id="s_bytes">-</span></div>
+    </div>
     <div class="card">
       <h2>实时状态</h2>
       <div class="stats">
@@ -317,13 +365,37 @@
        · bit6=1 ⇒ FPGA 只把该事件送 LED 指引链，⛔ 不进 seq_arb（不出声）
        · bit6=0 ⇒ 照旧出声（其余轨当背景 + 节拍器 + tempo 事件）
        · 依据：files/20-代码/ESP32侧需求-引导模式改成上位机逐事件控制-20261015.md
+     ⭐⭐ 2026-10-16【鼓与旋律彻底分离】
+       · 依据：files/20-代码/ESP32侧修改手册-鼓与旋律分离-最终版-20261016.md
+       · bit5      = is_drum（显式鼓标志；⛔ 不再靠"轴号 >= 12"猜鼓）
+       · bits[4:0] = note_off5（音符号偏移 = MIDI - 45，钳 0..31，给 FPGA 的 LED 查表用）
+       · ⭐ 鼓事件的 timbre[8:7] 【当 drum_type 用】：0=Kick 1=Snare 2=HiHat 3=Tom
+       · ⭐ 鼓事件的 inc 必须写 0（FPGA 按 drum_type 从 drum_gen 的表里自己取；
+            原来写 DRUM_INC 会撞上"21 位装不下 26/28 位 inc"⇒ 电子音）
+       · ⚠️ axis 那 4 位【不动】：FPGA 判定不再看它，但鼓的 note_off 仍按 (axis,src) 配对
+         ⇒ 鼓四件一件一轴（12/13/14/15）必须保留，⛔ 别以为可以随便摊平
+       · 手册 §7.3 机械检查：is_drum=0 的事件里轴号落 12..15 的必须是 0 条
    =========================================================================== */
 const FRAME_BYTES = 9, HDR_EVENT = 0xA5, HDR_TOTAL = 0x00, RESET_FRAMES = 4;
 const KIND_ON = 0, KIND_OFF = 1, KIND_TEMPO = 2;
 const OFF_TICK = 44n, OFF_INC = 23n, OFF_AXIS = 19n, OFF_VEL = 11n,
-      OFF_KIND = 9n, OFF_TIMBRE = 7n, OFF_GUIDE = 6n;
+      OFF_KIND = 9n, OFF_TIMBRE = 7n, OFF_GUIDE = 6n, OFF_IS_DRUM = 5n;
 const M_TICK = 0xFFFFFn, M_INC = 0x1FFFFFn, M_AXIS = 0xFn, M_VEL = 0xFFn,
-      M_KIND = 0x3n, M_TIMBRE = 0x3n, M_GUIDE = 0x1n;
+      M_KIND = 0x3n, M_TIMBRE = 0x3n, M_GUIDE = 0x1n, M_IS_DRUM = 0x1n,
+      M_NOTE5 = 0x1Fn;
+/* ⭐ 音符号偏移的基准（手册 §2.1）：指板表最低音 A2 = MIDI 45 */
+const NOTE5_BASE = 45, NOTE5_MAX = 31;
+/* ⭐⭐ 2026-10-16 语义修正（FPGA 线回函 §三，这是修 bug）：
+ *   键盘上真实存在的键只有 A2..D#4（MIDI 45..63）⇒ 音高 <45 或 >75 时
+ *   【键盘上根本没有这个键】⇒ 写 31（哨兵 = 不可弹）⇒ FPGA 不点灯。
+ *   🔴 原来钳到 0：0 = A2，在指板表里是【真实的键 5】⇒ 会点亮错误的灯。 */
+const NOTE5_NA = NOTE5_MAX;                 /* 31 = 「不可弹」哨兵 */
+function note5Of(midi) {
+  const m = Math.round(midi);
+  /* 45..75 → 0..30；其余一律 31（⛔ 不再钳到 0） */
+  if (m < NOTE5_BASE || m > NOTE5_BASE + NOTE5_MAX - 1) return NOTE5_NA;
+  return m - NOTE5_BASE;
+}
 /* ⚠️⚠️ 本页的 incToHz 口径 = "下行 21 位【字段值】" -> Hz，所以时钟用 **50 MHz**。
  *
  * ⭐ 为什么是 50 MHz（而不是 FPGA 的 48 828.125）：
@@ -352,25 +424,38 @@ const DEV_NAME = "FPGA2026-Synth";
    换名让 Windows 当成新设备，缓存失效。前缀匹配后 Synth/Synth2/Synth3 都能认。 */
 const DEV_PREFIX = "FPGA2026-Synth";
 
-function packWord(tick, inc, axis, vel, kind, timbre, guide) {
+function packWord(tick, inc, axis, vel, kind, timbre, guide, isDrum, note5) {
   return ((BigInt(tick) & M_TICK) << OFF_TICK) |
          ((BigInt(inc) & M_INC) << OFF_INC) |
          ((BigInt(axis) & M_AXIS) << OFF_AXIS) |
          ((BigInt(vel) & M_VEL) << OFF_VEL) |
          ((BigInt(kind) & M_KIND) << OFF_KIND) |
+         /* ⚠️ timbre[8:7]：对鼓事件来说它就是 drum_type（手册 §二） */
          ((BigInt(timbre) & M_TIMBRE) << OFF_TIMBRE) |
          /* ⭐ 2026-10-15：bit6 = 仅指引（省略该参数 ⇒ 0 ⇒ 与以前逐字节相同） */
-         ((BigInt(guide || 0) & M_GUIDE) << OFF_GUIDE);
+         ((BigInt(guide || 0) & M_GUIDE) << OFF_GUIDE) |
+         /* ⭐⭐ 2026-10-16：bit5 = is_drum、bits[4:0] = note_off5（鼓与旋律分离） */
+         ((BigInt(isDrum || 0) & M_IS_DRUM) << OFF_IS_DRUM) |
+         (BigInt(note5 || 0) & M_NOTE5);            /* OFF 恒 0，所以不写 << */
 }
 function unpackWord(w) {
+  const axis = Number((w >> OFF_AXIS) & M_AXIS);
+  const timbre = Number((w >> OFF_TIMBRE) & M_TIMBRE);
+  const isDrum = Number((w >> OFF_IS_DRUM) & M_IS_DRUM);
   return {
     tick:   Number((w >> OFF_TICK) & M_TICK),
     inc:    Number((w >> OFF_INC) & M_INC),
-    axis:   Number((w >> OFF_AXIS) & M_AXIS),
+    axis:   axis,
     vel:    Number((w >> OFF_VEL) & M_VEL),
     kind:   Number((w >> OFF_KIND) & M_KIND),
-    timbre: Number((w >> OFF_TIMBRE) & M_TIMBRE),
+    timbre: timbre,
     guide:  Number((w >> OFF_GUIDE) & M_GUIDE),
+    isDrum: isDrum,
+    note5:  Number(w & M_NOTE5),
+    /* ⭐ 鼓件号 drum_type = `timbre[8:7]`（2 位：0=Kick 1=Snare 2=HiHat 3=Tom）。
+     * ⚠️ 2026-10-16 第三轮：FPGA 线收回了"扩到 3 位（{bit19, timbre}）"⇒ 回到 2 位。
+     * ⛔ 只有 `is_drum=1` 时才有意义 —— 旋律 / tempo 别读它（那时它是音色号）。 */
+    drumType: isDrum ? (timbre & 3) : null,
   };
 }
 function wordToBytes(w) {
@@ -641,14 +726,34 @@ function bpmToTickInc(bpm) {
  *   标准归纳（与 esp32/tools/drum_map.py 同一张表，⛔ 必须同步改）。
  *   📌 已列为待 FPGA 侧确认项。
  */
-/* ⭐⭐ 方案 B 的轴分配（⛔ 只此一份 —— 页面与检查器都从这里取，别再各写一遍）。 */
+/* ⭐⭐ 2026-10-16【鼓与旋律分离 · 4 件】鼓占轴 12/13/14/15（一件一轴，方案 B）。
+ *
+ * 🔴 为什么是"一件一轴"：RTL `note_manager.v:1413-1416` 的 `note_off` 按 **(axis, src)** 清 voice，
+ *   而所有鼓的 `src` 都是 `SRC_KDRUM` ⇒ **同一条轴上的两件鼓会互相清**（鼓被切碎/挂音）。
+ *   ⇒ 四件必须落在四条互不相同的轴上，12/13/14/15 就是这套约定。
+ *
+ * ⚠️ 2026-10-16 第三轮：FPGA 线**收回**了"扩到 8 件"（他们只有 4 件鼓音色，
+ *   那 4 个新 inc 只是同一纯音引擎在高频的 4 个音高，不是新音色）⇒
+ *   鼓的 `axis` 回到 12..15、`drum_type` 回到 **2 位 = `timbre[8:7]`**（⛔ 不再取 bit19）。
+ *   镲族（46/49/51/52/53/55/57/59）改成**显式映射到 HiHat**（见 GM_DRUM_MAP）。
+ *
+ * 📌 判"是不是鼓"仍然读事件的 **`is_drum`(bit5)**（⛔ 不靠轴号猜）——
+ *   FPGA 侧已不看轴号判鼓，轴号只是 voice 的定位键。 */
+const DRUM_TYPE_OF = { kick: 0, snare: 1, hihat: 2, tom: 3 };
+const DRUM_NAME_OF_TYPE = Object.fromEntries(
+  Object.entries(DRUM_TYPE_OF).map(([k, v]) => [v, k]));
 const DRUM_AXIS_OF = { kick: 12, snare: 13, hihat: 14, tom: 15 };
-const DRUM_AXIS_BASE = 12;              /* 判据：axis >= 12 ⇒ 鼓（与 seq_arb 一致） */
-const MELODY_AXIS_MAX = 11;             /* 旋律只能用 0..11（12 条）—— 见下方分轴器 */
-const isDrumAxis = a => a >= DRUM_AXIS_BASE;
+const MELODY_AXIS_MAX = 11;             /* 旋律用 0..11（12 条），与鼓的 12..15 分开 */
 /* 反查：轴 -> 件名（axisLabel 要用） */
 const DRUM_NAME_OF_AXIS = Object.fromEntries(
   Object.entries(DRUM_AXIS_OF).map(([k, v]) => [v, k]));
+/* ⚠️ 只给【上行/回传】那条老通路用的遗留判据（它的轴语义是另一套，见手册 §4.4）。
+ *   ⛔ 下行（灌谱）侧一律用事件的 is_drum。 */
+const isDrumAxis = a => a >= 12;
+function drumNameOfType(t) {
+  if (t === null || t === undefined) return null;
+  return DRUM_NAME_OF_TYPE[t & 3] || null;
+}
 /* ⚠️ 下面同时给两套值，⛔ 别混：
  *   DRUM_PHASE_INC —— FPGA 内部 32 位 phase_inc（只用于反算频率/显示）
  *   DRUM_INC       —— ⭐ **实际要填进下行 `inc` 字段的值** = phase_inc >> 10
@@ -684,7 +789,10 @@ const DRUM_INC = Object.fromEntries(
  * ⚠️ 若 FPGA 侧改那几个数，这里必须同步（⛔ 否则又对不齐 —— 两处常量漂移）。
  * 📌 音量 ∝ 力度（`perc_env_bank.v` 的 SHIFT = ENV_W - VEL_W，峰值 = velocity << 8，线性）。
  */
-const DRUM_VEL = { kick: 230, snare: 235, hihat: 175, tom: 220 };
+const DRUM_VEL = { kick: 230, snare: 235, hihat: 175, tom: 220,
+                   /* ⚠️ 2026-10-16 第三轮：原本给"扩到 8 件"新增的四件力度（openhat/crash/ride/splash）
+                    *   随扩位一起作废（FPGA 侧只有 4 件鼓音色）⇒ 认不出的件走 drumVelOf 的中间值兜底。
+                    * 📌 `tools/mid2evt.py` 必须用【同一组数】（FPGA 线明确要求两条通路一致） */ };
 function drumVelOf(name) {
   const v = DRUM_VEL[name];
   /* ⚠️ 认不出的件给个中间值（⛔ 不给 0 —— 那会静音，比"略轻"更糟）*/
@@ -692,33 +800,50 @@ function drumVelOf(name) {
 }
 const GM_DRUM_MAP = {
   35: "kick", 36: "kick",
-  37: "snare", 38: "snare", 39: "snare", 40: "snare",
+  38: "snare", 40: "snare",
+  42: "hihat", 44: "hihat",
+  /* ⭐⭐ 2026-10-16 第三轮（FPGA 线收回 8 件后定稿）：镲族【显式】归 HiHat。
+   *   46 开镲 · 49 Crash1 · 51 Ride1 · 52 Chinese · 53 RideBell · 55 Splash · 57 Crash2 · 59 Ride2
+   * ⚠️ 必须**显式列出**（⛔ 不靠"表外兜底"）—— 只有这样报告才能区分
+   *    "这是有意归类" 与 "这个音高没认出来（真兜底）"。
+   * ⭐ 为什么镲归 HiHat 而不是 Tom：镲与踩镲都是金属高频，
+   *    "镲→踩镲"远比"镲→嗵鼓"合理；而且 FPGA 侧只有 4 件鼓音色（不造音色凑数）。 */
+  46: "hihat", 49: "hihat", 51: "hihat", 52: "hihat",
+  53: "hihat", 55: "hihat", 57: "hihat", 59: "hihat",
   41: "tom", 43: "tom", 45: "tom", 47: "tom", 48: "tom", 50: "tom",
-  42: "hihat", 44: "hihat", 46: "hihat",
-  49: "hihat", 51: "hihat", 52: "hihat", 53: "hihat", 54: "hihat",
-  55: "hihat", 56: "hihat", 57: "hihat", 58: "hihat", 59: "hihat",
-  60: "snare", 61: "snare", 62: "snare", 63: "snare", 64: "snare",
-  65: "snare", 66: "snare", 67: "snare", 68: "snare", 69: "snare",
-  70: "snare", 71: "snare", 72: "snare", 73: "snare", 74: "snare",
-  75: "snare", 76: "snare", 77: "snare", 78: "snare", 79: "snare",
-  80: "snare", 81: "snare",
 };
-/* ⚠️ 表外音高按音高分区兜底 —— 丢鼓会让节奏缺失（听得出），
- *    归到最接近的一件至少保住节奏。⭐ 并会【计数并报出来】，⛔ 不静默。 */
-const GM_DRUM_BANDS = [
-  [0, 37, "kick"], [38, 48, "snare"], [49, 60, "tom"], [61, 127, "hihat"],
-];
+/* GM 打击乐音高的中文/常用名（只用于【报告兜底了哪些音高】，不参与映射） */
+const GM_DRUM_NAME = {
+  35: "Acoustic Bass Drum", 36: "Bass Drum 1", 37: "Side Stick",
+  38: "Acoustic Snare", 39: "Hand Clap", 40: "Electric Snare",
+  41: "Low Floor Tom", 42: "Closed Hi-Hat", 43: "High Floor Tom",
+  44: "Pedal Hi-Hat", 45: "Low Tom", 46: "Open Hi-Hat",
+  47: "Low-Mid Tom", 48: "Hi-Mid Tom", 49: "Crash Cymbal 1",
+  50: "High Tom", 51: "Ride Cymbal 1", 52: "Chinese Cymbal",
+  53: "Ride Bell", 54: "Tambourine", 55: "Splash Cymbal",
+  56: "Cowbell", 57: "Crash Cymbal 2", 58: "Vibraslap", 59: "Ride Cymbal 2",
+};
+/* ⚠️ 表外音高【一律归 Tom】—— 丢鼓会让节奏缺失（听得出），归到一件至少保住节奏。
+ *    ⭐ 但必须【计数 + 逐个列出音高名】报出来，⛔ 不静默（既有纪律，手册也这么要求）。 */
 function gmToDrum(midi) {
   const m = midi | 0;
-  if (GM_DRUM_MAP[m]) return { name: GM_DRUM_MAP[m], exact: true };
-  for (const [lo, hi, name] of GM_DRUM_BANDS) {
-    if (m >= lo && m <= hi) return { name, exact: false };
-  }
-  return { name: "snare", exact: false };
+  const name = GM_DRUM_MAP[m];
+  if (name) return { name: name, exact: true };
+  return { name: "tom", exact: false };
 }
 
 /* ---- 轨分类：是不是鼓 ---- */
+/* ⭐⭐ 2026-10-16（手册 §4.1 第三条）：识别鼓除了 ①轨名关键词 ②GM 通道 9，
+ * 还要允许【用户显式指定】—— "用户最清楚"（手册原话）。三者【取或】。
+ * 🔴 为什么这条不能省：真实谱面的鼓轨名可能是中文/自创的（"鼓组"、"Percussion2"…），
+ *    光靠英文关键词会漏 ⇒ 那一轨的鼓会被【当成旋律】发出去
+ *    （正是手册 §〇-1 要禁的事的反面：鼓变旋律）。
+ * ⚠️ 还必须能【反向指定】= 强制"这不是鼓" —— 真实谱面里"轨名叫 Perc 却是旋律"的坑很常见。
+ * 📌 值：true = 一定是鼓 · false = 一定不是鼓 · 不在表里 = 走启发式（轨名/通道 9）。 */
+let drumOverride = new Map();          /* idx -> true / false */
 function isDrumTrack(tr) {
+  const i = (tr._idx === undefined) ? -1 : tr._idx;
+  if (i >= 0 && drumOverride.has(i)) return !!drumOverride.get(i);
   const nm = (tr.name || "").toLowerCase();
   for (const h of DRUM_HINTS) if (nm.indexOf(h) >= 0) return true;
   return tr.chan.has(GM_DRUM_CHANNEL);
@@ -773,12 +898,49 @@ function score_lastTick(tr) {
    ⚠️ **新位流到位前 bit6 被忽略** ⇒ 引导轨照常出声，⛔ 不损坏任何现有功能。
    ═══════════════════════════════════════════════════════════════════════════ */
 let guideOn = false;          /* 引导模式总开关 */
+/* ⭐⭐ 2026-10-16（用户要求）：引导 / 示范—重复【同一个开关的两种模式】——
+ *   两种模式共用同一套「引导轨 / 节拍器」配置，⛔ 不再是两张独立的卡。
+ *   "示范—重复" = 前 N 小节照常出声（示范）+ 之后只亮灯（跟奏）；
+ *   "引导"      = 全程只亮灯（原行为，逐字不变）。
+ *   ⚠️ 示范模式【强制】guideScope="solo" + guideDrum="met"（只留引导轨 + 节拍器）——
+ *      用户明确要求："示范模式为了方便就只保留节拍器不保留鼓轨了，也不留背景轨"。 */
+let guideMode = "guide";      /* "guide" | "demo" */
 let guideTrackIdx = null;     /* 引导轨 = parsed.tracks 的下标（⛔ 鼓轨不给选） */
 let metOn = false;            /* 节拍器开关 */
 let metStyle = "beat";        /* 节拍器音型 */
+let guidePrepBars = 0;        /* ⭐ 2026-10-16 准备阶段（count-in）：引导模式最开头只响节拍器的小节数。
+                                 ⚠️ 默认 0 = 不加（⛔ 不能默认 1 —— 否则所有没显式设过 prep 的
+                                 调用方（含判据脚本）都会被悄悄裁词，表现为"可见字数莫名变少"） */
+const BAR_TICKS = 3840;       /* 每小节 tick = 960 PPQN × 4 拍（division=960 的基准；变速谱按 conv.barTicks 缩放） */
 /* 2026-10-16 用户要求：引导范围与鼓声来源都做成自选 */
 let guideScope = "all";       /* all = 保留其他轨当背景 / solo = 只留引导轨 + 节拍器 */
 let guideDrum = "met";        /* met = 只要节拍器 / track = 只要谱面鼓轨 / both = 两者 */
+
+/* ⭐⭐ 2026-10-16「示范—重复」模式（LED 指引）
+ * ═══ 用户需求 ═══
+ *   先自动示范一小段（又出声又亮灯），然后同一段重复时【停声只亮灯】⇒ 用户照着 LED 跟弹。
+ *
+ * ═══ 实现（方案：files/20-代码/LED指引示范重复模式-最小改动方案-20261016.md §三）═══
+ *   ① 分段点 demoEnd = min(demoBars × conv.barTicks, 最后一个事件 tick + 1)
+ *      —— 用【实际事件的 tick 上界】，⛔ 不假设曲子长度（短曲自动退化成"全是示范段"）。
+ *   ② tick < demoEnd ⇒ 原样下发（设计点 B：示范段出声 + 亮灯）
+ *   ③ 其余事件只把【旋律】事件的 bit6(guide) 置 1
+ *      —— FPGA 侧 guide=1 的事件不进发声链、只进 LED 链（top.v:5607 / :5103）⇒ 只亮灯不出声。
+ *   ④ ⛔ 不标 guide 的三类（方案 §三 表下注释）：
+ *        · 鼓（is_drum=1）：鼓的 bit6 无旋律语义，标了只会污染引导模式自己的统计；
+ *        · tempo（kind=2）：它是速度事件，标 guide 会让 FPGA 不出声 ⇒ 时基/变速全丢；
+ *        · 节拍器（src=-2）：也是鼓事件，同上不标（FPGA 本地驱动，本就不靠这些字发声）。
+ *   ⑤ on/off 天然成对（设计点 A）⇒ LED 按节奏顺序亮灭（guide_lamp 只能被 note_off 清灯）。
+ *
+ * ⚠️ 2026-10-16（用户要求）：本模式已【并入引导卡】—— 与"引导"是同一开关的两种模式
+ *    （`guideMode`），⛔ 不再互斥、⛔ 不再各占一张卡。`demoRepeatOn` 现在由
+ *    `syncModeUI()` 从 `guideMode` 派生，仅作"要不要分段"的判据。
+ *
+ * ⚠️ 零回归纪律：demoRepeatOn === false 时 applyDemoRepeat 直接返回原数组
+ *    ⇒ visibleWords 与现状逐字相同（check_guide.js 判据 ⑬ 靠这条）。
+ */
+let demoRepeatOn = false;    /* 派生自 guideMode（"demo" ⇒ true）；⛔ 别单独赋值，走 syncModeUI() */
+let demoBars = 2;            /* 示范小节数：1 / 2 / 4（默认 2，用户 2026-10-16 拍板） */
 
 const BAR_TICK = MIDI_PPQN * 4;          /* 一小节 = 3840 tick（4/4） */
 const DRUM_DUR_TICK = 480;               /* ⚠️ 与方案 B"同一件鼓相邻 >= 480"同口径 */
@@ -807,10 +969,11 @@ const MET_STYLE_NAME = {
  * ⚠️ 与谱面已有的【同一件】鼓间隔 < 480 时【跳过】—— 否则后一下会被前一下的
  *    note_off 掐掉（方案 B 只隔离了跨件，同一件仍要 >= 480）。
  * @param tickMax     谱面长度（tick）
- * @param takenByInc  {drumInc: [tick, ...]} 谱面已有的鼓落点（避让用）
+ * @param takenByType {drum_type: [tick, ...]} 谱面已有的鼓落点（避让用）
+ *        ⚠️ 2026-10-16 起按【drum_type】索引，⛔ 不是 inc（鼓的 inc 现在恒为 0）
  * @return {evs, skipped}
  */
-function buildMetronome(tickMax, takenByInc) {
+function buildMetronome(tickMax, takenByType) {
   const pat = MET_PATTERNS[metStyle] || MET_PATTERNS.beat;
   const out = [];
   let skipped = 0;
@@ -822,18 +985,70 @@ function buildMetronome(tickMax, takenByInc) {
     for (const off of pat.hats) hits.push([t0 + off, "hihat"]);
     for (const hit of hits) {
       const tick = hit[0], name = hit[1];
-      const inc = DRUM_INC[name];
-      const near = (takenByInc[inc] || []).some(t => Math.abs(t - tick) < DRUM_DUR_TICK);
+      /* ⚠️ 2026-10-16：避让键改成【drum_type】—— 新口径下鼓的 inc 恒为 0，
+       *   再按 inc 索引会让四件全挤进同一个键（或压根查不到）⇒ 避让静默失效。 */
+      const dt = DRUM_TYPE_OF[name];
+      const near = (takenByType[dt] || []).some(t => Math.abs(t - tick) < DRUM_DUR_TICK);
       if (near) { skipped++; continue; }
-      out.push({ tick: tick, kind: KIND_ON, inc: inc, axis: DRUM_AXIS_OF[name],
-                 vel: drumVelOf(name), timbre: TIMBRE_BASS,
+      out.push({ tick: tick, kind: KIND_ON, inc: 0, axis: DRUM_AXIS_OF[name],
+                 vel: drumVelOf(name), timbre: dt & 3, isDrum: 1, note5: 0,
                  srcTrack: -2, guide: false });
-      out.push({ tick: tick + DRUM_DUR_TICK, kind: KIND_OFF, inc: inc,
-                 axis: DRUM_AXIS_OF[name], vel: 0, timbre: TIMBRE_BASS,
+      out.push({ tick: tick + DRUM_DUR_TICK, kind: KIND_OFF, inc: 0,
+                 axis: DRUM_AXIS_OF[name], vel: 0, timbre: dt & 3, isDrum: 1, note5: 0,
                  srcTrack: -2, guide: false });
     }
   }
   return { evs: out, skipped: skipped };
+}
+
+/* ⭐⭐ 2026-10-16（手册 §4.1 第 7 条 + §7.3）：鼓与旋律分离的【机械保证】。
+ * ⛔ 这不是锦上添花：判据是【逐条扫产物】的结构性检查，
+ *    不靠"轴号不会撞上"这种运气（手册 §〇 第 1 条的原话）。
+ * 查四件事：
+ *   ① 旋律事件（is_drum=0）里轴号落 12..15 的必须 0 条（§7.3 第 1 条）
+ *   ② 鼓事件（is_drum=1）的 inc 必须为 0（硬检查②）
+ *   ③ 旋律事件的 inc 不能是 0（那是"被当成鼓/静音"的指纹）
+ *   ④ 鼓的每个 ON 都要有配对的 OFF（按 axis+drum_type 配对）——
+ *      漏了会让鼓 voice 永久 held ⇒ 保留池耗尽 ⇒ 打一会儿鼓就不响了
+ */
+function validateDrumSplit(words) {
+  let drumOn = 0, drumOff = 0, melodyInc0 = 0, drumIncNot0 = 0, melodyOnDrumAxis = 0;
+  let drumAxisMismatch = 0;             /* ⭐ 鼓的 axis 必须 == 12 + drum_type（一件一轴） */
+  const openByKey = new Map();
+  const typeCount = { 0: 0, 1: 0, 2: 0, 3: 0 };
+  const melodyAxisHist = {};
+  for (const w of words) {
+    const d = unpackWord(w);
+    if (d.kind === KIND_TEMPO) continue;              /* ⚠️ tempo 用 inc 装速度值，必须排除 */
+    if (d.isDrum) {
+      if (d.inc !== 0) drumIncNot0++;
+      /* ⭐⭐ 2026-10-16 第三轮新增：鼓轴必须与件号一一对应（kick12/snare13/hihat14/tom15）。
+       * 为什么这条有鉴别力：RTL 的 note_off 按 (axis, src) 清 voice，而所有鼓 src 都是 SRC_KDRUM
+       * ⇒ 轴与件号错位就会让两件共轴、互相清（鼓被切碎/挂音）。⛔ 不是恒等式，能抓错。 */
+      if ((d.axis & 15) !== 12 + (d.timbre & 3)) drumAxisMismatch++;
+      typeCount[d.timbre & 3] = (typeCount[d.timbre & 3] || 0) + 1;
+      const key = (d.axis & 15) + ":" + (d.timbre & 3);
+      if (d.kind === KIND_ON) {
+        drumOn++; openByKey.set(key, (openByKey.get(key) || 0) + 1);
+      } else {
+        drumOff++; openByKey.set(key, (openByKey.get(key) || 0) - 1);
+      }
+    } else {
+      if (d.inc === 0) melodyInc0++;
+      if (isDrumAxis(d.axis)) melodyOnDrumAxis++;
+      melodyAxisHist[d.axis] = (melodyAxisHist[d.axis] || 0) + 1;
+    }
+  }
+  let unclosed = 0;
+  for (const v of openByKey.values()) if (v > 0) unclosed += v;
+  const problems = [];
+  if (drumIncNot0)      problems.push("鼓事件 inc 非 0：" + drumIncNot0 + " 条（硬检查②）");
+  if (melodyOnDrumAxis) problems.push("旋律事件轴号落 12..15：" + melodyOnDrumAxis + " 条（§7.3-1）");
+  if (melodyInc0)       problems.push("旋律事件 inc=0：" + melodyInc0 + " 条（会被当成鼓/静音）");
+  if (unclosed)         problems.push("鼓 ON 无配对 OFF：" + unclosed + " 条（会挂音、耗尽鼓池）");
+  if (drumAxisMismatch) problems.push("鼓轴与件号不对应（应 axis == 12 + drum_type）：" +
+                                      drumAxisMismatch + " 条（两件共轴 ⇒ 互相清 voice）");
+  return { problems, drumOn, drumOff, typeCount, melodyAxisHist, unclosed, drumAxisMismatch };
 }
 
 function midiToWords(parsed) {
@@ -912,6 +1127,7 @@ if (allTempos.length > 1) {
   const axisOfTimbre = new Map();        /* timbre -> axis（同类型共用一个轴）*/
   const assign = [];                     /* 供 report 打印 */
   let drumMapped = 0, drumFuzzy = 0;     /* 鼓映射统计（⭐ 兜底要报出来） */
+  const fuzzyPitch = {};                 /* ⭐ 兜底了哪些音高（手册 §4.3 要求逐个列出） */
 
   if (drums.length) {
     /* ⚠️ 鼓【不占】普通轴 —— 占 12..15（方案 B：一件一轴）。
@@ -924,7 +1140,12 @@ if (allTempos.length > 1) {
     for (const tr of drums) for (const n of tr.notes) {
       const d = gmToDrum(n.midi);
       names[d.name] = (names[d.name] || 0) + 1;
-      if (d.exact) drumMapped++; else drumFuzzy++;
+      if (d.exact) drumMapped++;
+      else {
+        drumFuzzy++;
+        /* ⭐ 手册 §4.3：兜底（→Tom）的音高【必须逐个列出来】，⛔ 不静默 */
+        fuzzyPitch[n.midi] = (fuzzyPitch[n.midi] || 0) + 1;
+      }
     }
     for (const tr of drums) {
       /* ⭐ 必须带 idx / drumBreak —— 前者供选轨过滤与音色下拉拿源轨序号，
@@ -943,12 +1164,23 @@ if (allTempos.length > 1) {
         const d = gmToDrum(n.midi);
         evs.push({ tick: Math.round(n.tick * scale),
                    kind: n.on ? KIND_ON : KIND_OFF,
-                   inc: DRUM_INC[d.name],               /* ⭐ 用鼓的固定 inc */
+                   /* ⭐⭐ 2026-10-16（手册 §二/§4.1）：鼓的 inc 必须写 0 ——
+                    *   FPGA 按 drum_type 从 drum_gen 的表里自己取。
+                    *   🔴 原来写 DRUM_INC：inc 字段只有 21 位，装不下
+                    *      INC_SNARE(26 位)/INC_HIHAT(28 位) ⇒ 鼓池里发出音高纯音
+                    *      = 用户听到的"电子音"。 */
+                   inc: 0,
                    vel: n.on ? drumVelOf(d.name) : 0,   /* ⭐ 鼓机力度，⛔ 不用 MIDI 原始力度 */
-                   axis: DRUM_AXIS_OF[d.name],           /* ⭐ 方案 B：一件一轴（12/13/14/15）*/
-                   timbre: TIMBRE_BASS,                 /* 鼓机的音色由 inc 决定 */
-                   srcTrack: tr._idx,                   /* ⭐ 选轨过滤用 */
-                   guide: false });                     /* ⭐ 鼓不作引导轨（bit6=0）*/
+                   axis: DRUM_AXIS_OF[d.name],           /* ⚠️ 一件一轴【必须保留】——
+                                                         *   鼓的 note_off 仍按 (axis,src) 配对 */
+                   timbre: DRUM_TYPE_OF[d.name] & 3,     /* ⭐ 鼓事件：timbre[8:7] = drum_type */
+                   isDrum: 1,                            /* ⭐ 新增：显式鼓标志（bit5）——
+                                                         *   ⚠️ ON 与 OFF 都是这一条 push 出来的
+                                                         *   ⇒ 两者必然带同一个 is_drum/drum_type
+                                                         *   （手册点名的"漏了就挂音"点） */
+                   note5: 0,                             /* ⭐ 鼓没有音高，note_off5 写 0 */
+                   srcTrack: tr._idx,                    /* ⭐ 选轨过滤用 */
+                   guide: false });                      /* ⭐ 鼓不作引导轨（bit6=0）*/
       }
     }
     /* ⭐ 日志/图例打印"四件各打了多少"要看这条（⛔ 别删）。
@@ -1041,7 +1273,9 @@ if (allTempos.length > 1) {
    * ⚠️ 轴不够时**抢最早空出来的**那条 ⇒ 顶掉一个音 ⇒ `axisClash++`。
    *   抢"最早结束"的是对的（被切的是尾巴最短的音，最不痛），⛔ 别改成别的策略。 */
   const lastEnd = new Array(16).fill(-1);
-  for (let a = DRUM_AXIS_BASE; a < 16; a++) lastEnd[a] = Infinity;  /* 12..15 保留给鼓 */
+  /* ⚠️ 2026-10-16：**不再需要"给鼓留 12..15"** —— 鼓的轴值现在是 dt 键（0..7），
+   *   与旋律**数值上重叠也没关系**：`note_off` 按 `(axis, src)` 两维匹配，
+   *   旋律是 SRC_SCORE、鼓是 SRC_KDRUM ⇒ 互不干扰。旋律自己限制在 0..MELODY_AXIS_MAX。 */
   let axisClash = 0;                          /* ⚠️ 抢轴次数（轴不够时才会涨） */
   const axesUsedOfTr = new Map();             /* 轨 -> 用到的 axis 集合 */
   for (const sg of segsUniq) {
@@ -1069,9 +1303,13 @@ if (allTempos.length > 1) {
     /* ⭐ 2026-10-15 引导模式：引导轨的事件置 bit6=1（只亮灯不出声） */
     const gd = !!(guideOn && guideTrackIdx !== null && sg.tr === guideTrackIdx);
     evs.push({ tick: sg.t0, kind: KIND_ON, midi: sg.midi, vel: sg.vel,
-               axis: sg.axis, timbre: sg.tb, srcTrack: sg.tr, guide: gd });
+               axis: sg.axis, timbre: sg.tb, srcTrack: sg.tr, guide: gd,
+               /* ⭐⭐ 2026-10-16（手册 §4.1）：旋律轨 is_drum 【写死 0】，
+                *   ⛔ 不依赖任何条件 —— 这是"旋律绝不变鼓"的结构保证。 */
+               isDrum: 0 });
     evs.push({ tick: sg.t1, kind: KIND_OFF, midi: sg.midi, vel: 0,
-               axis: sg.axis, timbre: sg.tb, srcTrack: sg.tr, guide: gd });
+               axis: sg.axis, timbre: sg.tb, srcTrack: sg.tr, guide: gd,
+               isDrum: 0 });
   }
   /* 报告：每轨用了哪些轴（用户能看出和弦被摊开了） */
   for (const tr of tuned) {
@@ -1096,7 +1334,7 @@ if (allTempos.length > 1) {
   let metCount = 0, metSkipped = 0;
   if (metOn) {
     const metEnd = evs.reduce((m, e) => Math.max(m, e.tick), 0);
-    const taken = {};
+    const takenByType = {};
     /* ⚠️ 2026-10-16：谱面鼓【会被丢掉】时（引导模式 + 鼓声=节拍器）就不要避让它 ——
      *   否则节拍器会在"本该响"的拍点上留洞（那些谱面鼓根本不会出声）。
      *   📌 判据：避让的目的是"别和真正会响的鼓撞"，不是"别和字表里的鼓撞"。 */
@@ -1105,12 +1343,14 @@ if (allTempos.length > 1) {
       for (const e of evs) {
         /* 只统计鼓的【落点】(kind=ON)，不含 off ——
          * 约束是"同一件鼓相邻【落点】>= 480"，把 off 也算进去会过度跳过。
-         * 判据：只统计 inc 非空（鼓事件带 inc 直给）且 kind==KIND_ON。 */
-        if (e.inc == null || e.kind !== KIND_ON) continue;
-        (taken[e.inc] = taken[e.inc] || []).push(e.tick);
+         * ⚠️ 判据用 `e.isDrum`（新口径的显式标志），⛔ 不用"inc 非空"——
+         *   tempo 事件也带 inc（装速度值），按 inc 判会把它们当成鼓。 */
+        if (!e.isDrum || e.kind !== KIND_ON) continue;
+        const dt = e.timbre & 3;                  /* 鼓事件：timbre[8:7] = drum_type */
+        (takenByType[dt] = takenByType[dt] || []).push(e.tick);
       }
     }
-    const met = buildMetronome(metEnd, taken);
+    const met = buildMetronome(metEnd, takenByType);
     for (const e of met.evs) evs.push(e);
     metCount = met.evs.length / 2;
     metSkipped = met.skipped;
@@ -1123,17 +1363,55 @@ if (allTempos.length > 1) {
    *   若先发 on，FPGA 侧可能把同音高的新音挤掉。 */
   evs.sort((a, b) => (a.tick - b.tick) || (b.kind - a.kind));
 
-  const words = evs.map(e =>
-    /* ⚠️ 鼓事件带的是【inc 直给】（DRUM_INC 之一），乐音带的是 midi。
-     * 用 `e.inc != null` 区分 —— 鼓的 inc 恰好非 0，midi 事件没有 inc 字段。 */
-    packWord(e.tick & 0xfffff,
-             (e.inc != null) ? e.inc : midiToPhaseInc(e.midi || 0),
-             e.axis & 15, e.vel & 0xff, e.kind & 3, (e.timbre || 0) & 3,
-             /* ⭐ 2026-10-15 引导模式：仅指引位（bit6） */
-             e.guide ? 1 : 0));
+  let note5Clamped = 0;    /* ⭐ note_off5 被钳到边界的旋律音数（钳了 LED 会指错键，必须报） */
+  const words = evs.map(e => {
+    /* ⚠️ 三条通路各走各的（⛔ 不再靠"inc 非 0"去猜是不是鼓）：
+     *   · 鼓（isDrum=1）    ：inc 恒 0，FPGA 按 timbre[8:7]=drum_type 自己取
+     *   · tempo（kind=2）   ：inc 装速度值
+     *   · 旋律（isDrum=0）  ：inc 由 midi 换算 */
+    const isDrum = e.isDrum ? 1 : 0;
+    const inc = isDrum ? 0
+              : (e.inc != null) ? e.inc : midiToPhaseInc(e.midi || 0);
+    /* ⭐ note_off5（给 FPGA 的 LED 查表用）：旋律按音高算并钳 0..31；
+     *   ⚠️ 鼓与 tempo 必须写 0 —— tempo 没有音高，不排除会把速度值当音高算出垃圾。 */
+    const isMel = (!isDrum && e.kind !== KIND_TEMPO && e.midi != null);
+    const note5 = isMel ? note5Of(e.midi) : 0;
+    /* ⭐ 手册 §2.1：note_off5 只传【偏移】、FPGA 加变调后查表 ⇒ 钳位会指错键，
+     *   所以被钳的音数必须【报出来】，⛔ 不静默（我方向 FPGA 侧答复里承诺过要报）。 */
+    if (isMel && (e.midi < NOTE5_BASE || e.midi > NOTE5_BASE + NOTE5_MAX)) note5Clamped++;
+    return packWord(e.tick & 0xfffff, inc,
+                    e.axis & 15, e.vel & 0xff, e.kind & 3, (e.timbre || 0) & 3,
+                    /* ⭐ 2026-10-15 引导模式：仅指引位（bit6） */
+                    e.guide ? 1 : 0,
+                    /* ⭐⭐ 2026-10-16：显式鼓标志（bit5）+ 音符号偏移（bits[4:0]） */
+                    isDrum, note5);
+  });
 
   /* ⭐ 仅指引的字数（统计面板 + 判据用；0 = 引导模式没生效） */
   const guideWords = evs.filter(e => e.guide).length;
+
+  /* ⭐⭐ 2026-10-16：鼓与旋律分离的机械检查（手册 §4.1-7 / §7.3）。
+   * ⛔ 有问题必须【喊出来】——静默通过等于没有保证。 */
+  const drumSplit = validateDrumSplit(words);
+  if (drumSplit.problems.length) {
+    for (const p of drumSplit.problems) log("🔴 鼓/旋律分离校验：" + p, "er");
+  } else {
+    log("鼓/旋律分离校验通过：鼓 " + drumSplit.drumOn + " 起（K" +
+        drumSplit.typeCount[0] + "/S" + drumSplit.typeCount[1] + "/H" +
+        drumSplit.typeCount[2] + "/T" + drumSplit.typeCount[3] +
+        "）· 旋律 inc 全非 0 · 旋律一个都没占鼓轴 · 鼓 ON/OFF 全配对", "ok");
+  }
+  /* ⭐ 手册 §2.1：note_off5 = MIDI - BASE_NOTE，只传偏移、FPGA 加变调后查表。
+   *   超出 45..76 的音会被【钳到边界】⇒ LED 会指到最低/最高那盏灯。
+   *   ⚠️ 这必须报出来（⛔ 不静默）：若要引导低音轨（如贝斯 40~47），
+   *      得请 FPGA 侧把 BASE_NOTE 改小（例如 40），否则低音区全指错。 */
+  if (note5Clamped) {
+    log("⚠️ 有 " + note5Clamped + " 条旋律【事件】（≈" + Math.round(note5Clamped / 2) +
+        " 个音，on/off 各算一条）超出 note_off5 量程（" + NOTE5_BASE + ".." +
+        (NOTE5_BASE + NOTE5_MAX) + " = A2..E5），已被钳到边界 ⇒ " +
+        "这些音的【LED 会指到最低/最高那盏灯】。要引导低音轨请让 FPGA 侧调小 BASE_NOTE",
+        "er");
+  }
 
   const tickMax = evs.reduce((m, e) => Math.max(m, e.tick), 0);
 
@@ -1161,15 +1439,30 @@ if (allTempos.length > 1) {
     words: words, bpm: bpm, tempoCount: tempoCount, tickMax: tickMax,
     assign: assign, drumTracks: drums.length, tunedTracks: tuned.length,
     drumMapped: drumMapped, drumFuzzy: drumFuzzy,
+    /* ⭐ 手册 §4.3：兜底的音高清单（{MIDI音高: 个数}），UI 要逐个列出来 */
+    drumFuzzyPitch: fuzzyPitch,
+    /* ⭐ 2026-10-16 准备阶段：缩放后的每小节 tick
+     *   公式：文件每小节 tick（division × 4 拍）× 时基缩放（MIDI_PPQN/division）
+     *        = MIDI_PPQN × 4 = 3840（⭐ 与 division 无关 —— 这正是"跟着谱面变速"的意思）
+     *   —— visibleWords 的"只响节拍器"窗口用它。 */
+    barTicks: Math.round(parsed.division * 4 * (MIDI_PPQN / parsed.division)),
     trackList: trackList, evTrack: evTrack,
     /* ⭐ 2026-10-15 引导模式：给 UI 与判据用的三个账 */
     metCount: metCount, metSkipped: metSkipped, guideWords: guideWords,
+    /* ⭐⭐ 2026-10-16 鼓与旋律分离：校验结果（problems 为空才算过） */
+    drumSplit: drumSplit,
+    /* ⭐ note_off5 被钳到边界的音数（手册 §2.1：钳位会让 LED 指错键，要报出来） */
+    note5Clamped: note5Clamped,
+    note5Base: NOTE5_BASE, note5Max: NOTE5_MAX,
     /* ⭐⭐ 2026-10-15 方案 B 的两个账（⚠️ 它们产生于【本函数】的分轴器，⛔ 不在 buildScore）：
      *   · dupRemoved —— 齐奏去重去掉的段数（改了听感：同乐器齐奏的厚度没了）
      *   · axisClash  —— 因旋律轴不够被顶掉的音数（方案 B 后旋律只剩 0..11 共 12 条）
      *   ⚠️ 两个数都必须【报出来】—— 以前 axisClash 只是局部变量，顶掉音也看不出来。 */
     dupRemoved: dupRemoved, axisClash: axisClash,
-    melodyAxisMax: MELODY_AXIS_MAX, drumAxisBase: DRUM_AXIS_BASE,
+    melodyAxisMax: MELODY_AXIS_MAX,
+    /* ⭐ 2026-10-16：鼓的轴不再有"基址"（原来是 12..15）—— 现在是 dt 键映射，
+     *   八件各一个值（0,2,4,6,1,3,5,7）。判据工具要从这里取，⛔ 别自己写死。 */
+    drumAxisOf: DRUM_AXIS_OF, drumTypeOf: DRUM_TYPE_OF,
   };
 }
 
@@ -1242,6 +1535,9 @@ function buildTrackPicker(conv) {
     for (const t of conv.trackList) if (!prevSel.has(t.idx)) trackSel.delete(t.idx);
   }
   lastTrackSig = sig;
+  /* ⚠️ 换了【另一条谱面】⇒ 两张覆写表都要清 —— 轨序号是按下标存的，
+   *   不清的话上一首的"这轨是鼓 / 这轨是钢琴"会凭空套到新谱面上（实测同族：选轨传染）。 */
+  if (!sameSong) { timbreOverride = new Map(); drumOverride = new Map(); }
   /* ⭐ 音色覆写表（2026-10-14）：key = 轨 idx，value = timbre 号。
    * ⚠️ 为什么需要：轨名是作者【随便起的】，我方只能【启发式】猜音色
    *   （用户实测被猜错过）⇒ ⭐ 让用户在网页上直接改，⛔ 不用回去改代码。
@@ -1253,17 +1549,24 @@ function buildTrackPicker(conv) {
     const lab = document.createElement("label");
     lab.style.cssText = "display:flex; align-items:center; gap:6px; padding:3px 0; " +
                         "font-size:12px; cursor:pointer";
+    /* ⭐⭐ 2026-10-16（手册 §4.1 第三条）：显式指定"这轨是不是鼓"——"用户最清楚"。
+     *   真实谱面的鼓轨名可能是中文/自创的（"鼓组"/"Percussion2"），靠关键词会漏；
+     *   也常有"轨名叫 Perc 却是旋律"的坑 ⇒ 必须能【双向】指定。 */
+    const drumBox = '<label title="显式指定这轨是不是鼓（手册 §4.1 第三条）" ' +
+        'style="font-size:10px;color:var(--dim);display:flex;align-items:center;gap:2px">' +
+        '<input type="checkbox" data-drumidx="' + t.idx + '"' + (t.drum ? " checked" : "") +
+        ' style="margin:0">鼓</label>';
     /* ⭐ 音色下拉。⛔ 鼓轨不给下拉（只读文本）——
-     *   改了也没用：鼓在 FPGA 侧根本不吃 timbre。 */
+     *   改了也没用：鼓在 FPGA 侧根本不吃 timbre（新口径下 timbre[8:7] 是 drum_type）。 */
     let right;
     if (t.drum) {
-      right = '<span style="color:var(--dim)">鼓 · ' + t.notes + "</span>";
+      right = drumBox + '<span style="color:var(--dim)">' + t.notes + "</span>";
     } else {
       const cur = (timbreOverride.has(t.idx)) ? timbreOverride.get(t.idx) : t.timbreIdx;
       const opts = TIMBRE_NAMES_ARR.map((nm, k) =>
           '<option value="' + k + '"' + (k === cur ? " selected" : "") + ">" +
           escapeHtml(nm) + "</option>").join("");
-      right =
+      right = drumBox +
         '<select data-tidx="' + t.idx + '" style="background:var(--panel);' +
         'color:var(--fg);border:1px solid var(--line);border-radius:4px;' +
         'font-size:11px;padding:1px 2px">' + opts + "</select>" +
@@ -1289,6 +1592,15 @@ function buildTrackPicker(conv) {
       timbreOverride.set(t.idx, v);
       log("轨「" + (t.name || "(无名)") + "」音色改为 " + TIMBRE_NAMES[v] +
           " —— 已重算并重新灌谱", "ok");
+      rebuildWithOverrides();
+    };
+    /* ⭐⭐ 2026-10-16（手册 §4.1 第三条）：显式指定这是不是鼓 ⇒ 重算 + 重新灌谱。
+     * ⚠️ 必须重算（⛔ 不是只改界面）：is_drum / drum_type / inc=0 / 轴号 全都跟着事件下发。 */
+    const dsel = lab.querySelector("input[data-drumidx]");
+    if (dsel) dsel.onchange = () => {
+      drumOverride.set(t.idx, !!dsel.checked);
+      log("轨「" + (t.name || "(无名)") + "」显式指定为【" +
+          (dsel.checked ? "鼓" : "旋律") + "】—— 已重算并重新灌谱", "ok");
       rebuildWithOverrides();
     };
   }
@@ -1371,7 +1683,7 @@ function updateTrackSummary(conv) {
  *    （与"换音色"同一条纪律：⛔ 只改界面状态不改产物 = 骗自己）。 */
 function bindGuideUI() {
   const on = $("gd_on"), tr = $("gd_track"), met = $("gd_met"), st = $("gd_style"),
-        sc = $("gd_scope"), dr = $("gd_drum");
+        sc = $("gd_scope"), dr = $("gd_drum"), pp = $("gd_prep");
   if (!on || !tr || !met || !st || !sc || !dr) return;
   on.onchange = () => { guideOn = on.checked; applyGuideChange(); };
   tr.onchange = () => {
@@ -1382,18 +1694,40 @@ function bindGuideUI() {
   st.onchange = () => { metStyle = st.value; applyGuideChange(); };
   sc.onchange = () => { guideScope = sc.value; applyGuideChange(); };
   dr.onchange = () => { guideDrum = dr.value; applyGuideChange(); };
+  /* ⭐ 2026-10-16 准备小节（count-in）：开头 N 小节只响节拍器 */
+  if (pp) pp.onchange = () => { guidePrepBars = parseInt(pp.value, 10) || 0; applyGuideChange(); };
   /* ⚠️ 2026-10-16 修（用户实测"这两个下拉选不了"）：⛔ 不要按 guideOn 把这三个下拉置灰 ——
    *   用户的用法是【先选好引导轨 / 范围 / 鼓声，再打开开关】，置灰直接把它挡死了。
    *   （原来这里是 el.disabled = !guideOn，是我的设计错误，不是浏览器问题。） */
+  /* ⭐⭐ 2026-10-16（用户要求）：模式切换（引导 / 示范—重复）—— 两者共用本卡的
+   *   引导轨与节拍器配置，⛔ 不再互斥、⛔ 不再各占一张卡。
+   *   ⚠️ 切到示范时由 syncModeUI() 强制 scope=solo + drum=met（用户要求：
+   *      "示范模式只保留节拍器、不保留鼓轨、也不留背景轨"）。
+   *   ⚠️ 顺序要紧：先 syncModeUI() 落强制项，再 applyDemoRepeatChange() 重算 ——
+   *      反了会按旧 scope/drum 白算一遍（现象：切模式后第一次结果不对）。 */
+  const mode = $("gd_mode"), drBars = $("dr_bars");
+  if (mode) mode.onchange = () => {
+    guideMode = (mode.value === "demo") ? "demo" : "guide";
+    syncModeUI();
+    applyDemoRepeatChange();
+  };
+  if (drBars) drBars.onchange = () => {
+    demoBars = parseInt(drBars.value, 10) || 2;
+    applyDemoRepeatChange();
+  };
+  syncModeUI();
 }
 function applyGuideChange() {
   if (lastConv && lastRawParsed) {
     rebuildWithOverrides();          /* 复用现有重建路径：重算 + 重新组包 + 重画 */
     log("引导模式：" + (guideOn ? ("开 · 引导轨「" + guideTrackName() + "」") : "关") +
-        " · 节拍器 " + (metOn ? ("开（" + (MET_STYLE_NAME[metStyle] || metStyle) + "）") : "关"),
+        " · 节拍器 " + (metOn ? ("开（" + (MET_STYLE_NAME[metStyle] || metStyle) + "）") : "关") +
+        /* ⭐ 2026-10-16：模式也要报出来（引导 / 示范），否则日志看不出当前是哪种 */
+        " · 模式 " + (guideMode === "demo" ? "示范—重复" : "引导"),
         guideOn ? "ok" : "");
   }
   updateGuideSummary();
+  syncModeUI();
 }
 function guideTrackName() {
   if (guideTrackIdx === null || !lastConv) return "（未选）";
@@ -1415,6 +1749,9 @@ function updateGuideSummary() {
                               " · 鼓声 " + (DRUM_NM[guideDrum] || guideDrum)) : "") +
                    " · 仅指引 " + gw + " 字" +
                    " · 节拍器 " + (metOn ? (mc + " 下" + (ms ? ("（避让 " + ms + "）") : "")) : "关") +
+                   /* ⭐ 2026-10-16 准备阶段：只响节拍器的小节数 */
+                   ((guideOn && metOn && guidePrepBars > 0)
+                      ? (" · 准备 " + guidePrepBars + " 小节（只响节拍器）") : "") +
                    " · 会灌 " + vis + " 字";
   if (guideOn && gw === 0) {
     el.textContent += "  ⚠️ 引导轨没置上位（确认选了引导轨）";
@@ -1423,16 +1760,117 @@ function updateGuideSummary() {
     el.style.color = "var(--dim)";
   }
 }
+
+/* ═══════════════ 2026-10-16 引导 / 示范 模式切换 UI ═══════════════
+ *
+ * ⭐ 用户要求（原话）："示范重复模式也要选音轨和节拍器啊，和引导轨一样的配置，
+ *    或者你直接在引导模式那个卡片里面切换引导/示范，
+ *    示范模式为了方便就只保留节拍器不保留鼓轨了，也不留背景轨"。
+ *   ⇒ 两种模式【共用】同一套「引导轨 / 节拍器」配置，在引导卡里用 gd_mode 切换。
+ *
+ * ⭐ 示范模式的固定配置：
+ *      guideScope = "solo"  （⛔ 不留背景轨）
+ *      guideDrum  = "met"   （⛔ 不留谱面鼓轨，只留节拍器）
+ *    ⇒ 净效果 = 引导轨 + 节拍器；跟奏段只有引导轨被置 guide（只亮灯）。
+ * ⚠️ 强制是【可逆】的：进示范前把用户原来的 all/both 存起来，切回引导时恢复 ——
+ *    ⛔ 不悄悄改掉用户的选择。
+ * ⚠️ 强制期间两个下拉【置灰】，且 hint 写明为什么 —— ⛔ 不是静默改值。
+ */
+let _modeSavedScope = null, _modeSavedDrum = null;   /* 进示范前的用户选择，切回时恢复 */
+function syncModeUI() {
+  const mode = $("gd_mode"), sc = $("gd_scope"), dr = $("gd_drum");
+  const row = $("gd_demoRow");
+  const isDemo = (guideMode === "demo");
+  demoRepeatOn = isDemo;                       /* ⭐ 唯一真源是 guideMode，派生出来 */
+  if (mode && mode.value !== guideMode) mode.value = guideMode;
+  if (isDemo) {
+    if (_modeSavedScope === null) _modeSavedScope = guideScope;
+    if (_modeSavedDrum === null) _modeSavedDrum = guideDrum;
+    guideScope = "solo"; guideDrum = "met";
+  } else if (_modeSavedScope !== null) {
+    guideScope = _modeSavedScope;
+    guideDrum = (_modeSavedDrum === null) ? guideDrum : _modeSavedDrum;
+    _modeSavedScope = null; _modeSavedDrum = null;
+  }
+  if (sc) { sc.value = guideScope; sc.disabled = isDemo; }
+  if (dr) { dr.value = guideDrum;  dr.disabled = isDemo; }
+  if (row) row.style.display = isDemo ? "flex" : "none";
+  updateDemoRepeatSummary();
+}
+function applyDemoRepeatChange() {
+  if (lastConv && lastRawParsed) rebuildWithOverrides();
+  updateDemoRepeatSummary();
+  updateGuideSummary();
+  syncModeUI();
+}
+function updateDemoRepeatSummary() {
+  const el = $("dr_sum");
+  if (!el) return;
+  if (!lastConv) { el.textContent = "（打开 MIDI 后可选）"; el.style.color = "var(--dim)"; return; }
+  if (!demoRepeatOn) {
+    el.textContent = "";                      /* ⭐ 引导模式 ⇒ 本行不占位（模式切换后不留旧文案） */
+    el.style.color = "var(--dim)";
+    return;
+  }
+  const dEnd = (lastConv.demoEnd != null) ? lastConv.demoEnd : 0;
+  const dW = (lastConv.demoWords != null) ? lastConv.demoWords : 0;
+  const fW = (lastConv.followWords != null) ? lastConv.followWords : 0;
+  const fM = (lastConv.followMelody != null) ? lastConv.followMelody : 0;
+  const fNa = (lastConv.followNa != null) ? lastConv.followNa : 0;
+  /* ⭐ 2026-10-16（用户要求）：示范模式的固定配置要写出来 ——
+   *    "只保留节拍器、不保留鼓轨、不留背景轨" ⇒ 用户不用去猜为什么那两个下拉被置灰。 */
+  const cfg = "（本模式固定：只留引导轨 + 节拍器；⛔ 不含鼓轨、⛔ 不含背景轨）";
+  if (!guideOn) {
+    el.textContent = "已选示范—重复，但总开关「启用」没勾 ⇒ 当前不会分段。" + cfg;
+    el.style.color = "var(--warn)";
+    return;
+  }
+  el.textContent = "示范 " + dW + " 字（到 tick " + dEnd + " / " + demoBars + " 小节，出声 + 亮灯）" +
+                   " · 跟奏 " + fW + " 字（其中旋律 " + fM + " 字只亮灯）" + cfg;
+  if (fW === 0) {
+    el.textContent += " · ⚠️ 曲子太短，没有跟奏段（demoEnd 已退到末尾）";
+    el.style.color = "var(--warn)";
+  } else if (fNa > 0) {
+    /* 设计点 C：越界音必须在 UI 报数，⛔ 不静默 */
+    el.textContent += " · ⚠️ 跟奏段有 " + fNa +
+        " 个音超出键盘音域(MIDI " + NOTE5_BASE + ".." + (NOTE5_BASE + NOTE5_MAX - 1) +
+        ")，这些音键盘上没有对应键、LED 不会亮";
+    el.style.color = "var(--warn)";
+  } else {
+    el.style.color = "var(--dim)";
+  }
+}
 /* ⭐ 测试钩子（判据工具用）：从外部设置引导状态 —— 与 check_roll.js 的 __setScore 同套路。
  * ⛔ 不要删：check_guide.js 靠它把"引导轨设成全部轨"这种反向证伪跑出来。
  * ⚠️ 后四个参数可选：不传就不改（老判据只传前四个，仍要能用）。 */
-function __setGuide(on, idx, met, style, scope, drum) {
+function __setGuide(on, idx, met, style, scope, drum, prep) {
   guideOn = !!on;
   guideTrackIdx = (idx === null || idx === undefined) ? null : idx;
   if (met !== undefined && met !== null) metOn = !!met;
   if (style) metStyle = style;
   if (scope) guideScope = scope;
   if (drum) guideDrum = drum;
+  if (prep !== undefined && prep !== null) guidePrepBars = parseInt(prep, 10) || 0;
+  /* ⚠️ 2026-10-16（并入引导卡后）：这里改调 syncModeUI()。
+   *    ⚠️ 注意交互：若当前是【示范模式】，syncModeUI() 会把 scope/drum 强制回
+   *    solo/met —— 即覆盖调用方刚传进来的 scope/drum。这是示范模式的【既定语义】
+   *    （用户要求只留节拍器+引导轨），⛔ 不是 bug；判据若要验 all/both，请先切回引导模式。 */
+  syncModeUI();
+}
+/* ⭐ 测试钩子（判据工具用）：从外部设置「示范—重复」模式 —— 与 __setGuide 同套路。
+ * ⚠️ 2026-10-16（并入引导卡后）：本钩子现在设的是【模式】——
+ *      on=true  ⇒ guideMode="demo" 并【同时打开 guideOn】。
+ *        ⚠️ 为什么必须同时开 guideOn：分段只在 guideOn 时生效（筛选才会发生），
+ *           只开模式不开总开关 ⇒ 背景轨没被裁掉却被置 guide，语义混乱。
+ *      on=false ⇒ guideMode="guide"（⛔ 不动 guideOn，尊重调用方）
+ * ⚠️ syncModeUI() 会把 scope 强制成 solo、drum 强制成 met（示范模式的固定配置）
+ *    ⇒ 判据若想验"示范模式下只剩引导轨+节拍器"，这正是预期。
+ * ⚠️ 两个参数可选：不传就不改（与 __setGuide 的后置可选参数一致）。 */
+function __setDemoRepeat(on, bars) {
+  guideMode = on ? "demo" : "guide";
+  if (on) guideOn = true;
+  if (bars !== undefined && bars !== null) demoBars = parseInt(bars, 10) || 2;
+  syncModeUI();
 }
 /* ⭐ 测试钩子：设置选轨（判据工具用）。
  * 为什么需要：`trackSel` 是模块内变量，外部改不了；而"卷帘随选轨变化"这条
@@ -1496,17 +1934,102 @@ function keepByGuide(src, conv) {
   return guideScope !== "solo";                   /* 背景旋律轨 */
 }
 
+/* ⭐⭐ 2026-10-16「示范—重复」分段：示范段原样 / 跟奏段旋律置 guide=1。
+ *
+ * 🔴 为什么放在【筛选之后】（visibleWords 的 keep 之后）：
+ *    keepBySelection / keepByGuide 是【按下标】读 conv.evTrack 的 ——
+ *    在筛选前就地改 guide 会让"按下标保留"的逻辑与 guide 语义打架
+ *    （引导模式自己也读 guideOn；两处同时解释同一批事件 = 互相污染）。
+ *    ⇒ 分段只作用于"最终会发下去的字"，⛔ 不提前。
+ *
+ * ⚠️ 只改 bit6，其它位一个字节都不动：`w | (1n << OFF_GUIDE)`。
+ *    鼓(is_drum=1) / tempo(kind=2) / 节拍器(src=-2) ⛔ 不标 —— 理由见变量声明处注释。
+ * ⚠️ demoRepeatOn === false ⇒ 原样返回（零回归）。
+ */
+function applyDemoRepeat(words, srcs) {
+  /* ⚠️ 两个条件都要：`demoRepeatOn` = 选了示范模式；`guideOn` = 总开关开着。
+   *    ⛔ 只判 demoRepeatOn 的话：总开关关着时【筛选根本没发生】，
+   *    分段会把"本该被裁掉的背景轨/鼓轨"也置 guide ⇒ 语义混乱（还白改一批字）。 */
+  if (!demoRepeatOn || !guideOn) return words;
+  const out = new Array(words.length);
+  let last = -1, nDemo = 0, nFol = 0, nFolMelody = 0, nNa = 0;
+  const u = new Array(words.length);
+  for (let i = 0; i < words.length; i++) {
+    u[i] = unpackWord(words[i]);
+    if (u[i].tick > last) last = u[i].tick;
+  }
+  /* demoEnd = min(demoBars × barTicks, 最后一个事件 tick + 1)
+   * ⚠️ 空谱（words.length === 0）⇒ last = -1 ⇒ 夹到 0 ⇒ 后面循环全不进示范段，
+   *    但空谱本来也没字可发，⛔ 不特判（不崩、不误判）。
+   * ⚠️ barTicks 取 lastConv 的（缩放后恒 3840）—— 判据脚本只调 midiToWords + visibleWords，
+   *    lastConv 可能还是上一个谱面的 ⇒ 退回 BAR_TICKS 兜底，口径一致。 */
+  const barTicks = (lastConv && lastConv.barTicks) || BAR_TICKS;
+  /* ⭐ 2026-10-16：示范段从【准备阶段之后】起算 —— 否则 prep 窗口（只放节拍器）
+   *    会把示范的头几小节静音 ⇒ 用户会看到"示范少了"（实测组合场景）。
+   *    ⚠️ 与 visibleWords 里 prepEnd 的算法必须一致（同一条判据，两处各一份 ⇒ 别改单边）。 */
+  const prepEnd = (metOn && guidePrepBars > 0) ? guidePrepBars * barTicks : 0;
+  let demoEnd = prepEnd + demoBars * barTicks;
+  if (demoEnd > last + 1) demoEnd = last + 1;
+  for (let i = 0; i < words.length; i++) {
+    if (u[i].tick < demoEnd) {
+      /* ⭐⭐ 示范段：原样出声 —— 但【必须清掉 bit6】！
+       * 🔴 2026-10-16 合并后新出现的交互缺陷（实测抓到）：
+       *    引导轨的事件在【转换层】就已经被置了 bit6（`midiToWords` 里
+       *    `gd = guideOn && sg.tr === guideTrackIdx`）—— 引导模式的语义就是"只亮灯"。
+       *    而示范段要的是【出声】⇒ 若照抄那份字，示范段会静音（用户看到"示范没声音"）。
+       *    ⇒ 示范段一律 `& ~(1n << OFF_GUIDE)`：把引导模式预先置的位清掉。
+       * ⚠️ 只清 bit6，其它位一个字节都不动。 */
+      out[i] = words[i] & ~(1n << OFF_GUIDE);
+      nDemo++; continue;
+    }
+    const src = srcs ? srcs[i] : -1;
+    if (src === -2) { out[i] = words[i]; nFol++; continue; }            /* 节拍器：不标 */
+    if (u[i].kind === 2) { out[i] = words[i]; nFol++; continue; }       /* tempo：不标 */
+    if (u[i].isDrum) { out[i] = words[i]; nFol++; continue; }           /* 鼓：不标 */
+    out[i] = words[i] | (1n << OFF_GUIDE);                              /* 旋律：只置 bit6 */
+    nFol++; nFolMelody++;
+    if (u[i].note5 === NOTE5_NA) nNa++;                                 /* 设计点 C：越界音报数 */
+  }
+  /* ⚠️ 记账存在 conv 上：UI 的 dr_sum 要读它（与 guideWords 同套路）。
+   * ⚠️ 只在长度匹配时写 —— 否则是别的调用点（旧口径），别污染它的账。 */
+  if (lastConv && lastConv.words && lastConv.words.length === words.length) {
+    lastConv.demoEnd = demoEnd;
+    lastConv.demoWords = nDemo;
+    lastConv.followWords = nFol;
+    lastConv.followMelody = nFolMelody;
+    lastConv.followNa = nNa;
+  }
+  return out;
+}
+
 /* ⭐ 唯一来源：卷帘、组包、上传【都】用这一份 ⇒ 不会出现"听到的卷帘里没有"。
  * ⚠️ 一趟扫完，⛔ 不串联两个按子集下标工作的过滤器（那会错位，见上面注释）。 */
 function visibleWords(conv) {
   if (!conv || !conv.words) return [];
   if (!conv.evTrack) return conv.words;           /* 没有轨信息（events.hex）⇒ 原样 */
-  const keep = [];
+  /* ⭐⭐ 2026-10-16 准备阶段（count-in）：引导模式 + 节拍器开时，最开头 N 小节
+   *   【只响节拍器】—— 用户要的是"先听几拍再进"，否则一上来就糊一脸。
+   *   🔴 判据：src === -2 的是节拍器 ⇒ 一律保留；其余（引导轨/鼓/背景）窗口内全丢。
+   *   ⚠️ tempo(src=-1) 也保留：它是速度事件，丢了 FPGA 的 tick 基准就错了。
+   *   ⚠️ 每小节 tick 用 conv 的量（division 缩放后）⇒ 变速谱也对。 */
+  let prepEnd = -1;
+  if (guideOn && metOn && guidePrepBars > 0) {
+    prepEnd = guidePrepBars * (conv.barTicks || BAR_TICKS);
+  }
+  const keep = [], srcs = [];
   for (let i = 0; i < conv.words.length; i++) {
     const src = conv.evTrack[i];
-    if (keepBySelection(src) && keepByGuide(src, conv)) keep.push(conv.words[i]);
+    /* ⚠️ conv.words[i] 是打包后的【BigInt 字】，⛔ 没有 .tick 属性（会是 undefined，
+     *   于是 `undefined < prepEnd` 恒 false ⇒ 窗口静默失效）。必须 unpackWord 取 tick。 */
+    if (prepEnd > 0 && src !== -1 && src !== -2 &&
+        unpackWord(conv.words[i]).tick < prepEnd) continue;
+    if (keepBySelection(src) && keepByGuide(src, conv)) {
+      keep.push(conv.words[i]);
+      srcs.push(src);       /* ⭐ 分段要用 src 判节拍器，⛔ 不能丢 */
+    }
   }
-  return keep;
+  /* ⭐ 2026-10-16「示范—重复」：在【筛选之后】分段（⛔ 不提前，理由见 applyDemoRepeat） */
+  return applyDemoRepeat(keep, srcs);
 }
 
 /* ⚠️ 兼容旧调用：只做"引导裁剪"这一层。
@@ -1541,9 +2064,10 @@ function axisLabel(a) {
    * 原因：鼓事件的 timbre 字段被填成 TIMBRE_BASS（因为"鼓的音色由 inc 决定"，
    *   timbre 对鼓没意义），而原来这里【只看 timbre】=> 鼓显示成了 BASS。
    *   用户实测反馈："轴15 那个 BASS 是什么玩意，看不懂"。 */
-  if (isDrumAxis(a)) {
-    /* ⭐ 2026-10-15 方案 B：一个轴 = 一件鼓 ⇒ 标签写【件名】。
-     *   ⚠️ 原来是"四件合计"（因为四件共用一条轴），现在每条轴只对应一件。 */
+  /* ⭐ 2026-10-16：鼓的轴值现在落在 0..7（dt 键），**与旋律撞区间**
+   *   ⇒ "这条轴是不是鼓"必须看【该轴上的音符带不带 is_drum】，⛔ 不能再按轴号段判。 */
+  if ((score.notes || []).some(n => n.axis === a && n.isDrum)) {
+    /* ⭐ 一个 dt 键 = 一件鼓 ⇒ 标签写【件名】。 */
     const nm = DRUM_NAME_OF_AXIS[a];
     if (nm) return "鼓 · " + (DRUM_LANE_NAME[nm] || nm) + "(轴" + a + ")";
     return "鼓 · 轴" + a;
@@ -1596,6 +2120,9 @@ function buildScore(words, name) {
                    kind: d.kind, timbre: d.timbre,
                    /* ⭐ 2026-10-16：把"仅指引"位也带下来 —— 卷帘要给引导轨单独上色 */
                    guide: d.guide,
+                   /* ⭐⭐ 鼓与旋律分离：鼓的判定一律用这个标志（⛔ 不再看轴号）
+                    *   —— 8 件后鼓的轴值落在 0..7，与旋律撞区间。 */
+                   isDrum: d.isDrum, drumType: d.drumType,
                    /* ⭐ 原始 inc 要带下来 —— 鼓栏靠它反查"是哪个件"
                     * （鼓的 midi 是无意义的中间值，⛔ 反查不回件）。 */
                    inc: d.inc });
@@ -1618,7 +2145,14 @@ function buildScore(words, name) {
   const open = new Map();          // key -> [seg, ...]（FIFO）
   let orphanOff = 0, danglingOn = 0;
   for (const n of notes) {
-    const key = ((n.axis & 15) * 128) + (n.midi & 127);
+    /* ⚠️⚠️ 2026-10-16（鼓与旋律分离 · 8 件）：鼓的配对键【不能】用 midi（inc 恒 0，
+     *   算出来的 midi 是垃圾值），也【不能】再靠轴号段判断是不是鼓（鼓轴值 0..7，
+     *   与旋律撞区间）⇒ 一律用事件自带的 `isDrum`。
+     * ⭐ 鼓的键 = 它的 axis（现在就是 dt 键，八件互不相同，与 note_off 的
+     *   (axis,src) 口径一致）；旋律 = (axis, midi)。 */
+    const key = n.isDrum
+        ? ("D" + (n.axis & 15))
+        : ("M" + (n.axis & 15) + ":" + (n.midi & 127));
     if (n.kind === KIND_ON) {
       const seg = { t0: n.tick, t1: null, axis: n.axis, midi: n.midi,
                     vel: n.vel, axis2: n.axis,
@@ -1626,7 +2160,9 @@ function buildScore(words, name) {
                     timbre: n.timbre,    /* ⭐ 颜色按【音色】上色（用户 2026-10-14 要求）*/
                     /* ⭐ 2026-10-16：仅指引位（bit6）带进段里 —— 引导轨要单独上色 */
                     guide: !!n.guide,
-                    drumInc: isDrumAxis(n.axis) ? n.inc : null };
+                    /* ⭐ 2026-10-16：鼓的件名由【事件里的 3 位 drum_type】带上
+                     *   （⛔ 不再由 inc 反查、⛔ 也不再靠轴号段判断 —— 鼓轴值在 0..7） */
+                    drumType: n.isDrum ? n.drumType : null };
       segs.push(seg);
       if (!open.has(key)) open.set(key, []);
       open.get(key).push(seg);
@@ -1642,9 +2178,9 @@ function buildScore(words, name) {
    * ⭐ 判据 = `axis >= 12`（方案 B：四件各占 12/13/14/15，与 seq_arb 一致）。 */
   const drumSegs = [];
   for (const seg of segs) {
-    if (isDrumAxis(seg.axis)) drumSegs.push(seg);
+    if (seg.drumType != null) drumSegs.push(seg);
   }
-  const noteSegs = segs.filter(seg => !isDrumAxis(seg.axis));
+  const noteSegs = segs.filter(seg => seg.drumType == null);
 
   // 收尾：还没闭合的 on（队列可能不止一个）
   for (const q of open.values()) { danglingOn += q.length; }
@@ -1715,7 +2251,7 @@ const NOTE_COLOR_FALLBACK = "#8695ab";
 const GUIDE_COLOR = "#a855f7";            /* 引导轨 紫 */
 function noteColor(seg) {
   if (seg.guide) return GUIDE_COLOR;      /* 引导轨优先（它本来就只能是乐音轨） */
-  if (seg.drumInc != null) return DRUM_COLOR;
+  if (seg.drumType != null) return DRUM_COLOR;
   const tb = (seg.timbre === undefined || seg.timbre === null) ? -1 : seg.timbre;
   return (tb >= 0 && tb < TIMBRE_COLORS.length) ? TIMBRE_COLORS[tb] : NOTE_COLOR_FALLBACK;
 }
@@ -1841,15 +2377,12 @@ function drumLaneHeight(ph) {
  * ⚠️ 高度：鼓栏占主图高度的 18%（但不小于 48px，也不大于 120px）；
  *    主图相应缩小 —— 两者加起来仍是原来的总高。
  */
+/* ⚠️ 2026-10-16 第三轮：鼓回到 4 件（FPGA 侧只有 4 件鼓音色），与 DRUM_TYPE_OF 一一对应 */
 const DRUM_LANE_ORDER = ["kick", "snare", "hihat", "tom"];
 const DRUM_LANE_NAME = { kick: "Kick", snare: "Snare", hihat: "HiHat", tom: "Tom" };
 
-function drumNameOfInc(inc) {
-  for (const k of Object.keys(DRUM_INC)) {
-    if (DRUM_INC[k] === inc) return k;
-  }
-  return null;
-}
+/* ⚠️ 2026-10-16 删掉 `drumNameOfInc()` —— 新口径下鼓的 inc 恒为 0（手册 §二），
+ *   靠 inc 反查件名会【全部认不出】。件名一律走 `drumNameOfType(timbre[8:7])`。 */
 
 function drawDrumLane(X, pw) {
   const segs = score.drumSegs || [];
@@ -1887,7 +2420,7 @@ function drawDrumLane(X, pw) {
   const step = segs.length > 12000 ? Math.ceil(segs.length / 12000) : 1;
   for (let i = 0; i < segs.length; i += step) {
     const sg = segs[i];
-    const k = drumNameOfInc(sg.drumInc);
+    const k = drumNameOfType(sg.drumType);
     const row = DRUM_LANE_ORDER.indexOf(k);
     if (row < 0) continue;                  /* 认不出的件：不画（⛔ 不猜） */
     const x0 = X(sg.t0), x1 = X(sg.t1);
@@ -2011,7 +2544,7 @@ function draw() {
   const vw = viewWindow();
   /* ⭐ 2026-10-14：音高范围【排除鼓】—— 否则会被拉到 B1~B6 一带，
    * 把真正的旋律压扁（用户实测反馈"鼓不该显示音高"）。 */
-  const mids = score.notes.filter(n => !isDrumAxis(n.axis))
+  const mids = score.notes.filter(n => !n.isDrum)
                           .map(n => n.midi).filter(m => m > 0);
   let lo = mids.length ? Math.min(...mids) - 1 : 0;
   let hi = mids.length ? Math.max(...mids) + 1 : 1;
@@ -2056,7 +2589,7 @@ function draw() {
   }
   /* 音符：画成【有长度的色块】（原来只画点，看不出时值）。
    * ⭐ 2026-10-14：鼓段【不在这里画】—— 它们另画在底部一栏（见下方 drawDrumLane）。 */
-  const segs = score.noteSegs || (score.segs || []).filter(x => !isDrumAxis(x.axis));
+  const segs = score.noteSegs || (score.segs || []).filter(x => x.drumType == null);
   const step = segs.length > 24000 ? Math.ceil(segs.length / 24000) : 1;
   const rowH = melPh / (hi - lo);             /* ⭐ 用乐音区高度，⛔ 不是整个 ph */
   const blockH = Math.max(2, Math.min(rowH * 0.72, 12));
@@ -2143,7 +2676,7 @@ function draw() {
   let seenGuide = false;                 /* ⭐ 2026-10-16：图例要能看出"紫 = 引导轨" */
   for (const n of (score.notes || [])) {
     if (n.guide) seenGuide = true;
-    if (isDrumAxis(n.axis)) { seenTb.add("drum"); continue; }
+    if (n.isDrum) { seenTb.add("drum"); continue; }   /* ⭐ 2026-10-16：按 is_drum，⛔ 不看轴号 */
     const tb = (n.timbre === undefined || n.timbre === null) ? -1 : n.timbre;
     if (tb >= 0 && tb < TIMBRE_NAMES_ARR.length) seenTb.add(tb);
   }
@@ -2213,10 +2746,10 @@ function draw() {
 
   // 悬停提示
   if (hover) {
-    /* ⭐ 鼓要显示【件名】，⛔ 不是音名 —— 鼓的 inc 是件标识，
-     *   按音高折算出来是 B6 那种无意义的中间值（用户实测被这个误导过）。 */
-    const what = (hover.drumInc != null)
-      ? (DRUM_LANE_NAME[drumNameOfInc(hover.drumInc)] || "鼓")
+    /* ⭐ 鼓要显示【件名】，⛔ 不是音名 —— 新口径下鼓的 inc 恒 0、音高无意义，
+     *   件名一律由 drum_type（timbre[8:7]）反查（用户实测被"B6"那种中间值误导过）。 */
+    const what = (hover.drumType != null)
+      ? (DRUM_LANE_NAME[drumNameOfType(hover.drumType)] || "鼓")
       : ((TIMBRE_NAMES[hover.timbre] || "?") + " " +
          hzToNote(440 * Math.pow(2, (hover.midi - 69) / 12)));
     const txt = "tick " + hover.tick + " · 轴 " + hover.axis + " · " + what +
@@ -2253,10 +2786,10 @@ function pickHover(px, py) {
     const rowH = laneH / DRUM_LANE_ORDER.length;
     const row = Math.max(0, Math.min(DRUM_LANE_ORDER.length - 1,
                                      Math.floor((py - laneTop) / Math.max(1, rowH))));
-    const want = DRUM_INC[DRUM_LANE_ORDER[row]];
+    const want = DRUM_TYPE_OF[DRUM_LANE_ORDER[row]];
     let best = null, bd = Infinity;
     for (const s of (score.drumSegs || [])) {
-      if (s.drumInc !== want) continue;
+      if (s.drumType !== want) continue;
       const d = dist(s); if (d < bd) { bd = d; best = s; }
     }
     return (best && bd <= thr) ? { ...best, px: px, py: py } : null;
@@ -2848,12 +3381,68 @@ function paintStat(d) {
 const LEAD_SEC_DEFAULT = 10.4;      // BLE_POOL_LEAD_TICKS=20000 tick @120BPM/960PPQN
 let playStartWall = null;           // 点起播的本地时刻（ms）
 let leadSec = LEAD_SEC_DEFAULT;
+let lastStat = null;                // 最近一次状态（上传前要用它判"板子是否在播"）
+
+/* ⭐⭐ 2026-10-16 用户要求：游标改成【本地时钟外推】。
+ *
+ * 🔴 原来为什么卡：游标只在【每次状态轮询】时更新一次
+ *    （`playFrac = heardTick/total` + 一次全量 draw()），而轮询又慢又抖
+ *    ⇒ 用户实测"延迟有点重，然后一卡一卡"。
+ *
+ * ✅ 现在：起播后用【一次真值】锚定出声位置（`play - lead`），
+ *    之后按谱面 tempo map 用 `secToTick()` 自己走（自动跟变速），
+ *    ⛔ 不再逐次吃反馈；停止时停住（冻结在停的位置）。
+ *    📌 反馈只用来【锚一次】，所以轮询再慢也不会让游标抖。
+ */
+let playClock = null;   /* {wall0, tick0, total, raf, lastDraw}；wall0 === null = 还没锚定 */
+
+function playClockTick(now) {
+  if (!playClock || playClock.wall0 === null) return null;
+  return playClock.tick0 + secToTick((now - playClock.wall0) / 1000);
+}
+function startPlayClock() {
+  stopPlayClock(true);
+  playFrac = 0;
+  playClock = { wall0: null, tick0: 0,
+                total: (score && score.tickMax) || 0, raf: 0, lastDraw: 0 };
+  const step = () => {
+    if (!playClock) return;
+    const now = performance.now();
+    const tick = playClockTick(now);
+    if (tick !== null && playClock.total > 0) {
+      const f = Math.min(1, Math.max(0, tick / playClock.total));
+      if (Math.abs(f - (playFrac === null ? 0 : playFrac)) > 1e-6) playFrac = f;
+      /* 限到 ~30fps 重画：够顺，又不至于每帧全量重绘（全量画一次不便宜） */
+      if (now - playClock.lastDraw >= 33) { playClock.lastDraw = now; draw(); }
+    }
+    playClock.raf = requestAnimationFrame(step);
+  };
+  playClock.raf = requestAnimationFrame(step);
+}
+/* 用一次真值锚定（heardTick = play - lead）。⛔ 只锚一次 —— 之后纯本地外推。 */
+function anchorPlayClock(heardTick, totalTick) {
+  if (!playClock || playClock.wall0 !== null) return false;
+  playClock.wall0 = performance.now();
+  playClock.tick0 = Math.max(0, heardTick);
+  if (totalTick && totalTick > 0) playClock.total = totalTick;
+  log("游标已按真值锚定：tick " + playClock.tick0 +
+      "（之后本地外推，不再吃状态反馈）");
+  return true;
+}
+/* freeze = true：游标停在当前位置（用户："停止的时候也停止"）
+ * freeze = false：游标清空（清池用） */
+function stopPlayClock(freeze) {
+  if (playClock && playClock.raf) cancelAnimationFrame(playClock.raf);
+  playClock = null;
+  if (!freeze) { playFrac = null; draw(); }
+}
 
 function updateProgress(d) {
+  lastStat = d;                       /* ⭐ 上传前要用它判"板子是否在播" */
   const run = !!d.run;
   if (!run) {
-    // 停了：位置标记为无效，游标保留在最后一次的位置（方便看"停在哪"）
-    if (playFrac !== null) { draw(); }
+    /* 停了：游标停住（冻结在停的位置 —— 用户："停止的时候也停止"） */
+    stopPlayClock(true);
     const el = $("st_lead");
     if (el) { el.textContent = "-"; el.style.color = "var(--dim)"; }
     return;
@@ -2861,44 +3450,43 @@ function updateProgress(d) {
   if (playStartWall === null) playStartWall = performance.now();
   const sinceStart = (performance.now() - playStartWall) / 1000;
 
-  /* ---- 播放位置：优先用 ESP32 给的真值，拿不到才退回估算 ----
-   *
-   * 🔴🔴 2026-10-14 修算式：原来是 `play - t0 - lead`，【多减了 t0】。
-   *
-   * ═══ 为什么错（实测踩到）═══
-   * 用真机数据一代就露馅：play=20249, t0=20019, lead=20000
-   *   ⇒ 20249-20019-20000 = -19770（负数）
-   * ⚠️ 但同一时刻 `sent=2` —— 【已经在放水了】⇒ 算式必错。
-   *
-   * 正确：`play - lead`（t0 不参与）。验证：20249-20000 = 249 > 0 ✓
-   *   与"刚开始放水"完全吻合。
-   *
-   * 🔎 根因：`t0` 在【中段换速（tempo 事件）】时会被重锚成一个大位置
-   *    （实测从 0 变成 20019），而 `play` 同时也是累计位置
-   *    ⇒ 两者【不能相减】。
-   * ⭐ 固件侧的门控用的是 `pos_now > s_lead_end`，而
-   *    `s_lead_end = t0_tick + LEAD`（t0 是【那一轮】的快照）——
-   *    对【外部观察者】而言拿不到那个快照，所以最稳的判据就是「play 与 lead 比」。
-   * 📌 同族：本文件同一天在 `_uart1_send_path_check.py` 里踩过【一模一样】的坑。
-   */
-  let heardTick = null, totalTick = null;
-  if (d.pv === 1 && d.play != null && d.lead != null) {
-    const heard = d.play - d.lead;            // 还没出声时为负
-    heardTick = Math.max(0, heard);
-    totalTick = (d.ttot && d.ttot > 0) ? d.ttot : null;
-    leadSec = tickToSec(d.lead);              /* ⭐ 按 tempo 表换算（⛔ 不是写死 /1920：
-                                               *   本曲 1920 tick 实际 1.20 s，不是 1.00 s） */
-    if (!(leadSec > 0) || !isFinite(leadSec)) leadSec = LEAD_SEC_DEFAULT;
-  } else if (score && d.tf) {
-    // 退回估算：喂食比例 * 总时长 - 提前量
-    const fedSec = (d.sent / d.tf) * score.duration;
-    /* ⭐ 秒 -> tick 也必须【分段积分】—— 原来把 secPerTick 当常数，
-     *   而中段变速后 tick 与秒不成线性 ⇒ 游标会漂（实测 円 偏 5.6%）。 */
-    heardTick = secToTick(Math.max(0, fedSec - leadSec));
-    totalTick = score.tickMax;
-  }
-  if (heardTick !== null && totalTick) {
-    playFrac = Math.min(1, heardTick / totalTick);
+  /* ⭐⭐ 游标：本地时钟外推。这里【只做锚定】，⛔ 不再每次拿反馈改写位置
+   *    （那正是"延迟重 + 一卡一卡"的来源）。 */
+  if (!playClock) startPlayClock();          /* 兜底：没走过起播按钮也让它动起来 */
+  if (playClock && playClock.wall0 === null) {
+    /* ---- 播放位置的真值：play - lead ----
+     *
+     * 🔴🔴 2026-10-14 修算式：原来是 `play - t0 - lead`，【多减了 t0】。
+     *
+     * ═══ 为什么错（实测踩到）═══
+     * 用真机数据一代就露馅：play=20249, t0=20019, lead=20000
+     *   ⇒ 20249-20019-20000 = -19770（负数）
+     * ⚠️ 但同一时刻 `sent=2` —— 【已经在放水了】⇒ 算式必错。
+     *
+     * 正确：`play - lead`（t0 不参与）。验证：20249-20000 = 249 > 0 ✓
+     *   与"刚开始放水"完全吻合。
+     *
+     * 🔎 根因：`t0` 在【中段换速（tempo 事件）】时会被重锚成一个大位置
+     *    （实测从 0 变成 20019），而 `play` 同时也是累计位置
+     *    ⇒ 两者【不能相减】。
+     * ⭐ 固件侧的门控用的是 `pos_now > s_lead_end`，而
+     *    `s_lead_end = t0_tick + LEAD`（t0 是【那一轮】的快照）——
+     *    对【外部观察者】而言拿不到那个快照，所以最稳的判据就是「play 与 lead 比」。
+     * 📌 同族：本文件同一天在 `_uart1_send_path_check.py` 里踩过【一模一样】的坑。
+     */
+    if (d.pv === 1 && d.play != null && d.lead != null) {
+      leadSec = tickToSec(d.lead);              /* ⭐ 按 tempo 表换算（⛔ 不是写死 /1920：
+                                                 *   本曲 1920 tick 实际 1.20 s，不是 1.00 s） */
+      if (!(leadSec > 0) || !isFinite(leadSec)) leadSec = LEAD_SEC_DEFAULT;
+      anchorPlayClock(Math.max(0, d.play - d.lead),
+                      (d.ttot && d.ttot > 0) ? d.ttot : null);
+    } else if (score && d.tf) {
+      /* 老固件没有 pv/play/lead ⇒ 用喂食比例【估一次】来锚定（之后仍是本地外推）。
+       * ⚠️ 秒 -> tick 也必须【分段积分】—— 原来把 secPerTick 当常数，
+       *   而中段变速后 tick 与秒不成线性 ⇒ 游标会漂（实测 円 偏 5.6%）。 */
+      const fedSec = (d.sent / d.tf) * score.duration;
+      anchorPlayClock(secToTick(Math.max(0, fedSec - leadSec)), score.tickMax);
+    }
   }
 
   // 提前量倒数：还没出声时显示"再等 N 秒"
@@ -2919,6 +3507,7 @@ function updateProgress(d) {
   }
   draw();
 }
+
 /* ⭐ 轮询【不堆积】（2026-10-14 修，用户日志实测）。
  *
  * 🔴 故障现场：上传完 30 秒后【一次性】炸出 7 条
@@ -3016,6 +3605,17 @@ function startPoll(delayMs) {
 }
 
 /* ============================== 上传 ============================== */
+/* ⭐ 2026-10-16：全轴消音脉冲（16 条 OFF，tick 0）。
+ * 依据：note_manager 的 note_off 按【axis + src】清 voice（RTL note_manager.v:1305-1321），
+ *   ⛔ 不比对 inc / 音高 ⇒ 每个轴一条 OFF 就能把它上面所有同源的 voice 一起放掉。
+ * ⚠️ inc 给一个合法值：off 路径虽然不看 inc，但别喂非法值（0 = 0 Hz）。
+ * 📌 只在【上传前发现板子正在播】时用（见 upload()），⛔ 不常驻。 */
+function buildPanicWords() {
+  const inc = midiToPhaseInc(60);
+  const out = [];
+  for (let ax = 0; ax <= 15; ax++) out.push(packWord(0, inc, ax, 0, KIND_OFF, 0, 0));
+  return out;
+}
 let uploading = false;
 async function upload() {
   if (!score) { log("先打开谱面", "er"); return; }
@@ -3041,7 +3641,21 @@ async function upload() {
    *   🔴 为什么必须共用一份：`wordsForSelected(words, conv)` 依赖 `conv.evTrack`
    *   与 words **一一对应**的下标；若拿"已经过滤过的 words"再喂给它，下标就错位了
    *   （会按错误的源轨号去过滤）—— 这是"各算一份"必然踩的坑。 */
-  const selWords = score.words;
+  let selWords = score.words;
+  let panicN = 0;
+  /* ⭐⭐ 2026-10-16 修（用户实测："播放途中打开/换新曲谱，原来正在播的会被掐断导致挂音"）。
+   * 根因：换谱会把 FPGA 侧的谱面与放水位置整个换掉，而【正在响】的 voice
+   *   再也等不到自己的 note_off（那个 off 在旧谱面的未来 tick 上）⇒ 挂音。
+   * 修法：板子正在播时，在这次上传的【最前面】塞一组全轴 note_off 消音脉冲。
+   *   为什么塞在产物里、而不是另发一条命令：
+   *     它随新谱面一起进 FPGA，且在 tick 0 先于新谱面的音发出 ⇒ 结构上不可能留挂音。 */
+  if (lastStat && lastStat.run) {
+    const panic = buildPanicWords();
+    panicN = panic.length;
+    selWords = panic.concat(selWords);
+    log("⚠️ 板子正在播放 —— 已在新谱面最前面插入 " + panicN +
+        " 条消音事件（全轴 note_off），清掉旧谱面的挂音", "ok");
+  }
   const pl = buildPayload(selWords);
 
   /* ⭐ 包长 480 —— MTU=517 ⇒ 载荷 514；且必须是 9 的整数倍（固件按帧收，
@@ -3051,8 +3665,8 @@ async function upload() {
   const CHUNK = 480;
   const total = pl.length;
 
-  if (score.conv && score.conv.words && selWords.length !== score.conv.words.length) {
-    log("只灌选中的轨（+引导范围/鼓声的裁剪）：" + selWords.length + " / " +
+  if (score.conv && score.conv.words && (selWords.length - panicN) !== score.conv.words.length) {
+    log("只灌选中的轨（+引导范围/鼓声的裁剪）：" + (selWords.length - panicN) + " / " +
         score.conv.words.length + " 个事件", "ok");
   }
 
@@ -3322,8 +3936,16 @@ async function openFile(f) {
           log("  鼓已转成鼓机音色（" + axs + "）：" + parts, "ok");
         }
         if (conv.drumFuzzy) {
-          log("  ⚠️ 有 " + conv.drumFuzzy + " 个鼓音符走了【音高分区兜底】" +
-              "（不在 GM 映射表内）—— 节奏保住了，音色可能不理想", "er");
+          /* ⭐⭐ 2026-10-16（手册 §4.3 原话）：兜底的音高【要逐个列出来】。
+           *   镲族（46/49/51~59）在本轮口径里全归 Tom ⇒ 听起来会像嗵鼓，
+           *   这是【必须提前告诉 FPGA 侧】的事，⛔ 不能只报一个数字。 */
+          const fp = conv.drumFuzzyPitch || {};
+          const list = Object.keys(fp).map(Number).sort((a, b) => a - b)
+            .map(m => m + "(" + (GM_DRUM_NAME[m] || "表外") + ")×" + fp[m]).join(" · ");
+          log("  ⚠️ 有 " + conv.drumFuzzy + " 个鼓音符走了【兜底→Tom】（不在手册 §4.3 表内）：" + list,
+              "er");
+          log("     镲族听起来会像嗵鼓 —— 在意音色的话，请 FPGA 侧把 drum_type 扩到 3 位（8 件），" +
+              "这边只改一张表", "er");
         }
       }
       /* ⭐⭐ 2026-10-15（方案 B 的两个账）—— **必须报出来，⛔ 不许静默**：
@@ -3371,6 +3993,12 @@ async function openFile(f) {
     playFrac = null; hover = null; draw();
     log("已打开 " + f.name + "：" + score.words.length + " 事件，" +
         score.duration.toFixed(1) + " s，" + score.tempos.length + " 个变速点", "ok");
+    /* ⭐ 2026-10-16：板子还在放旧谱面时说清楚 —— 开文件本身【不发任何命令】，
+     *   真正换谱是「一键上传」，而那时会先插一组消音事件（避免旧谱面的挂音）。 */
+    if (lastStat && lastStat.run) {
+      log("⚠️ 板子还在放【旧的】谱面 —— 打开新谱面不会影响它；" +
+          "按「一键上传」时才换谱（会自动先插消音事件，清掉挂音）", "er");
+    }
   } catch (e) {
     log("打开失败：" + e.message, "er");
     alert(e.message);
@@ -3428,16 +4056,21 @@ $("btnPlay").onclick = async () => {
    *    ⇒ 第二次起播显示的是"自页面打开以来"的累计秒数。
    * ⭐ 放在这里（发出命令之前）：基线=用户按下的那一刻，⛔ 不是命令往返之后。 */
   playStartWall = performance.now();
+  /* ⭐ 2026-10-16：游标从这一刻开始【本地时钟外推】——
+   *   先停在 0 等一次真值锚定（出声位置），锚上之后自己走（自动跟变速）。 */
+  startPlayClock();
   try { await gattSerial(() => sendCmd(CMD_PLAY)); log("已发 起播"); }
   catch (e) { log(e.message, "er"); }
 };
 $("btnStop").onclick = async () => {
   stopPollFor(1500);
+  stopPlayClock(true);          /* ⭐ 停止 ⇒ 游标停住（冻结在停的位置） */
   try { await gattSerial(() => sendCmd(CMD_STOP)); log("已发 停止"); }
   catch (e) { log(e.message, "er"); }
 };
 $("btnClear").onclick = async () => {
   stopPollFor(1500);
+  stopPlayClock(false);         /* ⭐ 清池 ⇒ 游标清空 */
   try { await gattSerial(() => sendCmd(CMD_RESET)); log("已发 清池"); }
   catch (e) { log(e.message, "er"); }
 };
@@ -3567,28 +4200,47 @@ function uParse() {
                   " (" + uHzToNote(uIncToHz(items[0])) + ")  inc[15]=" + items[15]);
     } else {
       const tick = ((fr[3] << 24) | (fr[4] << 16) | (fr[5] << 8) | fr[6]) >>> 0;
-      /* ⭐⭐ 2026-10-15：`[7]` 一字节两字段 = `timbre[5:4] | axis[3:0]`
-       * （口径与 frame_format.py 的 AXIS_MASK/TIMBRE_SH/TIMBRE_MASK 一致，
-       *  也与 tools/upstream_studio.html 的同名解码一致 —— ⚠️ 一共【三处】，
-       *  ⛔ 必须一起改：只改一处 ⇒ 两边解出来的轴号不一样，同族 C91）。
-       * 🔴 为什么必须掩码：⛔ 不掩码 ⇒ FPGA 一旦把 timbre 填进高 4 位，
-       *    轴号就读成 16..63 ⇒ 🔴 鼓判据（axis=15）、配色（%16）、查表全错，
-       *    而且"看起来只是轴号变大了"（同族 C113：错得看不出来）。
-       * ⚠️ 现状：FPGA 侧 PnR 还没把 timbre 填进来（高 4 位 = 0）
-       *    ⇒ ⭐ 掩码今天不改变任何结果，是为对接做准备。 */
-      const axis = fr[7] & 0x0F;
-      const timbre = (fr[7] >> 4) & 0x03;
+      /* ⭐⭐ `[7]` 一字节三字段 = `timbre[5:4] | 鼓标记[3:0]`
+       * （2026-10-16 FPGA 线《上行帧 byte7 口径补正》定稿；口径与
+       *  frame_format.py 的 AXIS_MASK/TIMBRE_SH/TIMBRE_MASK 一致，也与
+       *  tools/upstream_studio.html 的同名解码一致 —— ⚠️ 一共【三处】，
+       *  ⛔ 必须一起改：只改一处 ⇒ 两边解出来的不一样，同族 C91）。
+       *
+       * 🔴 最终口径（补正来函 §一）：
+       *   bit[7:6] 保留恒 0
+       *   bit[5:4] 音色 —— 但【鼓事件】这里被 drum_type 占用了（字段复用）
+       *   bit[3:0] 鼓标记：鼓 = drum_type(0..3)，手弹 = 0
+       * ⚠️ 所以【鼓事件不要读 [5:4] 当音色】：那里是 drum_type，不是音色。
+       *   ⛔ 若照旧把 [5:4] 当音色去发 program change，鼓会被发成错误音色。
+       * 🔴 已知盲区（他们注释里如实记的）：drum_type=0(Kick) 的低半字节也是 0
+       *   ⇒ Kick 与手弹【在上行帧里不可区分】⇒ 我方不猜：Kick 一律按"未知"处理，
+       *     在日志里标明，⛔ 不当成手弹（那会让底鼓的 LED/音色判成旋律）。 */
+      const drumMark = fr[7] & 0x0F;                 /* bit[3:0] 鼓标记 */
+      const timbreRaw = (fr[7] >> 4) & 0x03;         /* bit[5:4]：旋律=音色；鼓=drum_type */
+      const isDrumUp = (drumMark !== 0);
+      const axis = drumMark;                          /* ⭐ 鼓事件的"轴"就是 drum_type */
+      /* ⭐ 音色只在【非鼓事件】上才有意义；鼓事件一律给 null（不当成音色用）。
+       * ⚠️ Kick 的盲区【不猜】：drum_type=0 与手弹的低半字节都是 0，帧里分不出来
+       *   ⇒ 一律按帧面解出的 timbreRaw 呈现（可能是手弹音色0，也可能是 Kick），
+       *     在日志与图例里注明，⛔ 不当成"一定是手弹"、也⛔ 不当成"一定是 Kick"。 */
+      const timbre = isDrumUp ? null : timbreRaw;
+      const kickAmbiguous = (!isDrumUp && drumMark === 0 && timbreRaw === 0);
       const inc = ((fr[8] << 24) | (fr[9] << 16) | (fr[10] << 8) | fr[11]) >>> 0;
       const vel = fr[12];
       const hz = uIncToHz(inc);
       U.notes++; U.lastHz = hz;
-      U.events.push({ tick, type: t, axis, timbre, hz, midi: uHzToMidi(hz), vel, seq: fr[2] });
+      U.events.push({ tick, type: t, axis, timbre, hz, midi: uHzToMidi(hz), vel,
+                      seq: fr[2], drumMark: drumMark, isDrumUp: isDrumUp,
+                      kickAmbiguous: kickAmbiguous });
       if (U.events.length > U_MAX_EVENTS) {
         U.events.splice(0, U.events.length - U_MAX_EVENTS);
       }
       uFeed(t === U_T_ON ? "ok" : "", (t === U_T_ON ? "note_on " : "note_off") +
-            "  seq=" + fr[2] + "  tick=" + tick + "  轴=" + axis +
-            "  音色=" + timbre +
+            "  seq=" + fr[2] + "  tick=" + tick +
+            (isDrumUp
+              ? ("  【鼓】drum_type=" + drumMark + "（[5:4] 是 drum_type，⛔ 不当音色）")
+              : ("  轴=" + axis + "  音色=" + timbre +
+                 (kickAmbiguous ? "  ⚠️ 音色0：可能是 Kick，也可能是手弹 BASS —— 帧里分不出，不猜" : ""))) +
             "  " + uHzToNote(hz) + "  力度=" + vel);
     }
     i += flen;
@@ -3627,9 +4279,20 @@ setInterval(() => {
  *      ⛔ 别让它落进"timbre=0 ⇒ BASS 橙"（那会把鼓误标成贝斯）。
  *   ⚠️ 现状：FPGA 侧 PnR 还没把 timbre 填上来 ⇒ 高 4 位 = 0
  *      ⇒ ⭐ 今天所有乐音都会是 timbre 0（BASS 橙）—— 这是预期行为，
- *        等 PnR 落地后自动分色。 */
+ *        等 PnR 落地后自动分色。
+ * 🔴🔴 2026-10-16 两轮演进（最终态）：
+ *   ① 第一版：用 `axis>=12` 判鼓 ⇒ 用户实测"我只弹 bass 却有鼓"（手弹 voice 槽位
+ *      会落到 12..15）⇒ 判据是错的，已删。
+ *   ② 2026-10-16 深夜 FPGA 线《上行帧 byte7 口径补正》：byte[7] 定稿为
+ *      `bit[5:4]=音色(鼓事件时是 drum_type) · bit[3:0]=鼓标记(鼓=drum_type，手弹=0)`
+ *      ⇒ **鼓现在可判了**（`drumMark !== 0`）⇒ 恢复按鼓分色。
+ *   ③ ⚠️ 已知盲区（他们注释里如实记的）：`drum_type=0`(Kick) 的低半字节也是 0
+ *      ⇒ Kick 与手弹在上行帧里【不可区分】⇒ Kick 按"未知"走未知色，⛔ 不当成手弹。
+ * ✅ 分色规则：鼓(drumMark≠0) ⇒ 鼓色；手弹 ⇒ 按 [5:4] 的真音色；Kick/未知 ⇒ 未知色。 */
 function uTimbreColor(e) {
-  if (isDrumAxis(e.axis)) return DRUM_COLOR;
+  /* ⭐ 2026-10-16 按 drumMark 判鼓（新口径，⛔ 不再用轴号猜） */
+  if (e.drumMark !== undefined && e.drumMark !== null && e.drumMark !== 0) return DRUM_COLOR;
+  /* drum_type=0(Kick) 与手弹不可区分 ⇒ 落到这里走未知色（见上方已知盲区） */
   const tb = (e.timbre === undefined || e.timbre === null) ? -1 : e.timbre;
   return (tb >= 0 && tb < TIMBRE_COLORS.length) ? TIMBRE_COLORS[tb] : NOTE_COLOR_FALLBACK;
 }
@@ -3739,19 +4402,31 @@ function uDraw() {
                  Math.max(1.6, X(o.tick + minLen) - X(o.tick)), blockH);
     ctx.globalAlpha = 1;
   }
-  /* ⭐⭐ 图例按【音色】列（用户："不需要 axis 配色，只用 timbre 配色"）。
-   * ⚠️ 与下行侧的图例同一套语义：只列【出现过的】音色 + 鼓，⛔ 不写轴号。 */
+   /* ⭐⭐ 图例按【音色】列（用户："不需要 axis 配色，只用 timbre 配色"）。
+    * ⚠️ 与下行侧的图例同一套语义：只列【出现过的】音色，⛔ 不写轴号。
+    * 🔴 2026-10-16 深夜 FPGA 线 byte7 补正后：鼓事件按 `drumMark !== 0` 判
+    *   ⇒ 恢复「鼓」图例项。
+    * ⚠️ Kick 盲区【不猜】：drum_type=0 与手弹音色0 的低半字节都是 0，帧里分不出
+    *   ⇒ 音色0 照常按 BASS 列出，但缀上「也可能是 Kick」的说明（⛔ 不谎称分得出）。 */
   const seenTb = new Set();
+  let seenDrum = false;
   for (const e of win) {
-    if (isDrumAxis(e.axis)) { seenTb.add("drum"); continue; }
+    const dm = (e.drumMark === undefined) ? 0 : e.drumMark;
+    if (dm !== 0) { seenDrum = true; continue; }          /* 鼓（Kick 除外） */
     const tb = (e.timbre === undefined || e.timbre === null) ? -1 : e.timbre;
     if (tb >= 0 && tb < TIMBRE_NAMES_ARR.length) seenTb.add(tb);
   }
   const uLegend = [];
   for (let tb = 0; tb < TIMBRE_NAMES_ARR.length; tb++) {
-    if (seenTb.has(tb)) uLegend.push({ name: TIMBRE_NAMES_ARR[tb], color: TIMBRE_COLORS[tb] });
+    if (seenTb.has(tb)) {
+      uLegend.push({ name: TIMBRE_NAMES_ARR[tb] + (tb === 0 ? "（也可能是 Kick）" : ""),
+                     color: TIMBRE_COLORS[tb] });
+    }
   }
-  if (seenTb.has("drum")) uLegend.push({ name: "鼓", color: DRUM_COLOR });
+  if (seenDrum) uLegend.push({ name: "鼓", color: DRUM_COLOR });
+  if (uLegend.length === 0) {
+    uLegend.push({ name: "（帧内无音色/鼓标记，按 timbre 分色）", color: NOTE_COLOR_FALLBACK });
+  }
   let lx = PAD.l + 4; ctx.textAlign = "left";
   for (const it of uLegend.slice(0, 8)) {
     ctx.fillStyle = it.color; ctx.fillRect(lx, PAD.t + ph + 6, 8, 8);
@@ -3793,12 +4468,16 @@ function uBuildMidi() {
     last = e.tick - t0;
     out.push(200 & 0);                                    // placeholder（见下）
     out.pop();
-    /* ⭐⭐ 2026-10-15（用户："要分通道"）：按【timbre 分 MIDI 通道】——
-     *   channel = timbre（0..3 ⇒ BASS/GUITAR/PIANO/PAD），
-     *   ⭐ 鼓（axis=15）走 GM 鼓通道 9（⛔ 不占音色通道，DAW 里可直接当鼓轨）。
+    /* ⭐⭐ 按【音色】分 MIDI 通道 —— channel = timbre（0..3 ⇒ BASS/GUITAR/PIANO/PAD），
+     *   ⭐ 鼓走 GM 鼓通道 9（⛔ 不占音色通道，DAW 里可直接当鼓轨）。
      *   ⚠️ 通道号 = status 的低 4 位：`0x90|ch` = note_on、`0x80|ch` = note_off。
-     *   ⚠️ 现状：PnR 还没带 timbre ⇒ 高 4 位 = 0 ⇒ ⭐ 今天所有乐音都落在通道 0。 */
-    const ch = isDrumAxis(e.axis) ? 9
+     * 🔴 2026-10-16 两轮演进：
+     *   ① 一度删掉"鼓走 9"—— 因为当时用 `axis>=12` 判鼓会把手弹 bass 错分进去；
+     *   ② 深夜 FPGA 线 byte7 补正后按 `drumMark !== 0` 判鼓 ⇒ 恢复"鼓走通道 9"。
+     * ⚠️ Kick(drum_type=0) 与手弹不可区分 ⇒ 归通道 0（并按 [5:4] 音色，
+     *   而 Kick 的 [5:4] 就是 drum_type=0 ⇒ 落 BASS）⚠️ 这是已知盲区，⛔ 不猜。 */
+    const dm = (e.drumMark === undefined) ? 0 : e.drumMark;
+    const ch = (dm !== 0) ? 9
              : (((e.timbre === undefined || e.timbre === null) ? 0 : e.timbre) & 0x03);
     const status = (e.type === U_T_ON ? 0x90 : 0x80) | ch;
     out.push(...vlq(dt), status, e.midi & 0x7F,
