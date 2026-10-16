@@ -344,6 +344,23 @@ module seq_arb #(
     wire            will_overflow = (cnt_next > DEPTH_C);
 
     // Add at SUM_W, wrap at full precision, then narrow the valid pointer.
+    //
+    //  🔴🔴 2026-10-17 修（`D7`，只读审计发现）：⭐ 原来连做 **3 次**条件减法
+    //     ```verilog
+    //     if (r >= DEPTH_C) r = r - DEPTH_C;
+    //     if (r >= DEPTH_C) r = r - DEPTH_C;
+    //     if (r >= DEPTH_C) r = r - DEPTH_C;
+    //     ```
+    //  🔴 **第 2、3 次在 DEPTH >= 3 时【不可达】**（⭐ 可证）：
+    //     · `t = tail_q ∈ [0, DEPTH-1]`（⭐ 指针由本函数自己维护并回绕）
+    //     · `n ≤ 3`（⭐ `n` 是 2 位）
+    //     ⇒ `r = t + n ≤ DEPTH - 1 + 3 = DEPTH + 2`
+    //     ⇒ ⭐ **一次减法后 `r ≤ 2`**，而 `DEPTH = 6 >= 3` ⇒ ⭐ `r < DEPTH` 恒成立
+    //     ⇒ 🔴 后两次判断**永远为假** ⇒ ⭐ **死逻辑**，而它正是本模块最长组合链的一段
+    //        （⭐ 4 位 `>=` 比较 ＋ 4 位减，串行两次 ≈ **4 级 LUT**）
+    //  ✅ **修法**：⭐ 只留**一次**条件减法（⭐ 对 `DEPTH >= 3` 与旧行为**逐位等价**）
+    //     📌 自检：⭐ 见下方 `initial`（⛔ 若有人把 `DEPTH` 调到 < 3 会报警）
+    //     📌 判据：⭐ `tb/w3c/tb_seq_arb.sv` 的 tail 回绕值必须逐位不变
     function [PTR_W-1:0] tail_plus;
         input [PTR_W-1:0] t;
         input [1:0] n;
@@ -351,15 +368,14 @@ module seq_arb #(
         begin
             r = {{(SUM_W-PTR_W){1'b0}}, t} + {{(SUM_W-2){1'b0}}, n};
             if (r >= DEPTH_C) r = r - DEPTH_C;
-            if (r >= DEPTH_C) r = r - DEPTH_C;
-            if (r >= DEPTH_C) r = r - DEPTH_C;
             tail_plus = r[PTR_W-1:0];
         end
     endfunction
 
     wire [PTR_W-1:0] tail_1 = tail_plus(tail_q, 2'd1);
     wire [PTR_W-1:0] tail_2 = tail_plus(tail_q, 2'd2);
-    wire [PTR_W-1:0] tail_3 = tail_plus(tail_q, 2'd3);
+    //  ⚠️ `tail_3` 已删（`D6`）：⭐ 它被计算但**从未被引用**
+    //     （⭐ 3 源同拍只用 `mem[tail_q]`/`[tail_1]`/`[tail_2]`）⇒ ⭐ 死逻辑 ✅
 
     // ⭐ 弹出那条属于哪个源（⭐ 统计用）
     wire [NW-1:0] pop_src = pop_data[ENT_W +: NW];

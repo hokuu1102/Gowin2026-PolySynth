@@ -339,7 +339,9 @@ module guide_lamp #(
     //           ⇒ ⭐ 实测 **撞 120 s 预算被误判成 TIMEOUT**（⭐ `K-94` 的反面：过了却算挂 ✅）
     //        ✅ 参数化 ⇒ ⭐ tb 用 **`TIMEOUT_CLKS = 1000`**（⭐ 判据形状逐字不变、⭐ 2 s 跑完 ✅）
     //        ⚠️ **硬件仍走 1 s**（⭐ `top.v` 例化时**不覆盖** ⇒ 取默认 ✅）
-    //     ⭐ **资源**：⭐ 27 FF（⭐ 计数器 ✅）＋ 16×2:1 mux（⭐ 清零旁路 ✅）
+    //     ⭐ **资源**：⭐ **26** FF（⭐ 计数器 —— ⚠️ 原文写 27 是错的，⭐ 实测网表
+    //        `Gowin2026.vg:571155` = `wire [25:0] stream_idle_cnt;` + 26 个 `DFFRE` ✅）
+    //        ＋ 16×2:1 mux（⭐ 清零旁路 ✅）
     //        ⇒ ⚠️ 只占**一个 LUT 级更新**，⛔ **不动表 / ⛔ 不动端口语义** ✅
     //     ⚠️⚠️ **本超时【不改变】 `guide_vis_o` 那条**（⭐ `P0-28` 判据钉着，⛔ 动 ✅）：
     //        ⭐ 它**只清 `guide_key_o`**，⭐ 而 `guide_vis_o` 恒等于 `guide_key_o & ~key_active_i`
@@ -358,11 +360,37 @@ module guide_lamp #(
     localparam integer CNT_W = (TIMEOUT_CLKS > 1) ? $clog2(TIMEOUT_CLKS) : 1;
 
     //  ⭐ 计数器：⭐ `stream_alive_i = 0` 时每拍 +1；⭐ 回到 1 **立刻归零**
-    //     ⚠️ **位宽由参数算出来**（⭐ `$clog2` ✅）⇒ ⭐ 硬件 27 位（⭐ 1 s ✅）、
+    //     ⚠️ **位宽由参数算出来**（⭐ `$clog2` ✅）⇒ ⭐ 硬件 **26** 位（⭐ 1 s ✅ —— ⚠️ 原文写 27 是错的）、
     //        ⭐ tb 用 10 位（⭐ `TIMEOUT_CLKS = 1000` ✅）⇒ ⭐ **判据形状逐字不变** ✅
-    reg [$clog2(TIMEOUT_CLKS)-1:0] stream_idle_cnt;
-    //  ⭐ 超时已到（⭐ 单拍脉冲，⛔ 不让它粘住 ✅）
+    //  🔴🔴 2026-10-17 修（`Q5` · 只读审计发现）：⭐ **声明必须用 `CNT_W`，⛔ 不能直接写 `$clog2`** ✅
+    //     🔴 原写法 `reg [$clog2(TIMEOUT_CLKS)-1:0]` ⇒ ⭐ `TIMEOUT_CLKS = 1` 时
+    //        `$clog2(1) = 0` ⇒ 🔴 **`reg [-1:0]`（非法位宽）**
+    //        ⇒ ⚠️ 而上面 `CNT_W` 那行**本来就有 `>1` 保护**，只是**没被用上** ✅
+    //     ⚠️ 且 `TIMEOUT_CLKS = 0` 时 `stream_timeout = (cnt == -1)` **恒假**
+    //        ⇒ 🔴 **超时静默失效**（⭐ 灯可永久挂住）—— 而本模块**原来没有任何参数自检** ✅
+    //     ✅ 修法：声明改用 `CNT_W` ＋ ⭐ 下面加 `initial` 自检（⭐ 与 `led_data.v:110-115` 同套路）✅
+    //  ⭐ 实测位宽（⭐ `impl/gwsynthesis/Gowin2026.vg:571155`）：⭐ 硬件 **26 位**
+    //     （⭐ `$clog2(50_000_000) = 26` —— ⚠️ 上面旧注释写"27 FF"是**错的**）✅
+    //     ⭐ tb 用 10 位（⭐ `TIMEOUT_CLKS = 1000` ✅）⇒ ⭐ **判据形状逐字不变** ✅
+    reg [CNT_W-1:0] stream_idle_cnt;
+
+    //  ⚠️ **`stream_timeout` 是【电平】（⭐ 会粘住）**，⛔ 不是单拍脉冲 ——
+    //     ⭐ 计数器**饱和在 `TIMEOUT_CLKS-1` 不回绕**（⭐ 见下方 `:478` 的守卫）
+    //     ⇒ ⭐ 空闲期它**一直为 1** ✅（⭐ 旧注释"单拍脉冲，不让它粘住"是**错的**）
+    //  📌 **为什么无害**（⭐ 只读审计逐路查过）：⭐ 唯一消费者是"清 `guide_key_o`"，
+    //     而 `guide_key_o` 空闲期本来就是 0（⭐ 清 0 是空操作）；
+    //     且该清零点在 `note_valid_i` 块**之前** ⇒ ⭐ 流恢复首拍的 `note_on` **能活下来** ✅
+    //     ⚠️ 但那个安全性**依赖这两段的先后顺序**（⭐ 承重）⇒ ⚠️ 改这段时⛔ 别动顺序 ✅
     wire stream_timeout = (stream_idle_cnt == TIMEOUT_CLKS - 1);
+
+    //  ⭐⭐ 2026-10-17（`Q5`）：⭐ **参数自检**（⭐ 本模块原来一条都没有）
+    //     🔴 `TIMEOUT_CLKS <= 1` 会**静默失效或非法**（⭐ 见上方长注释）
+    initial begin
+        if (TIMEOUT_CLKS < 2)
+            $display("ERROR [guide_lamp] TIMEOUT_CLKS=%0d must be >= 2 => the idle counter cannot represent TIMEOUT_CLKS-1, so 'stop playing clears the lamps' silently stops working.", TIMEOUT_CLKS);
+        else
+            $display("NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=%0d CNT_W=%0d)", TIMEOUT_CLKS, CNT_W);
+    end
 
     //  ⭐⭐⭐⭐ 2026-10-16（🔴 **关键修正：PnR 卡死的真凶就在这里**）────────────────
     //  🔴 **原写法（已删）**：

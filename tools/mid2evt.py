@@ -456,8 +456,20 @@ def build_events(tracks, division, tempos, transpose=0, overrides=None):
     #    (both 0) would let Python's stable sort keep the notes first, because
     #    tempo records are appended after all notes -- so the tie-break silently
     #    reverses the intent.  tempo=-1 puts it unambiguously ahead.
+    #
+    #  🔴🔴 2026-10-17 修（`Q9` · 只读审计发现）：⭐ **代码原来与上面第 1 条注释【相反】**
+    #     🔴 原写法 `-1 if TEMPO else e["kind"]`，而 `KIND_ON = 0`、`KIND_OFF = 1`
+    #        ⇒ ⭐ 同一 tick 上 **ON 排在 OFF 前面** ✗（⭐ 正是注释要避免的事）✅
+    #     🔴 后果两条（⭐ 都被实测证实）：
+    #        ① **发声**：同音高的**重击音被自己的 OFF 立即关掉**
+    #           （⭐ hex 实证：`夜洋风景` 前三行 = `t=0 on` / `t=480 on` / `t=480 off`）
+    #        ② **LED**：那一拍点亮的灯**只亮 1 个周期（20 ns）⇒ 肉眼不可见**
+    #           （⭐ 占比实测 2.2% / 1.4% / 0.6%）
+    #     ✅ 修法：⭐ 显式给三档**互异**的秩 —— OFF(0) < ON(1)，tempo 仍最前(-1) ✅
+    #        ⭐ 语义与注释、与 FPGA 侧 `note_manager` 的 `note_off` 配对判据一致 ✅
     events.sort(key=lambda e: (e["tick"],
-                               -1 if e["kind"] == KIND_TEMPO else e["kind"]))
+                               -1 if e["kind"] == KIND_TEMPO
+                               else (0 if e["kind"] == KIND_OFF else 1)))
     stats["events"] = len(events)
     return events, stats
 

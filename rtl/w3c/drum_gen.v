@@ -146,7 +146,19 @@ module drum_gen #(
 
     // ⭐⭐ 整数参数先落定宽 localparam（🔴 `K-91`：⛔ 不对 integer 做位选）
     localparam [15:0] TPS_C = TICKS_PER_STEP;
-    localparam [3:0]  STEPS_C = STEPS[3:0];
+
+    //  🔴🔴 2026-10-17 修（`D3`，只读审计发现）：⭐ 这里原来是 `STEPS[3:0]`
+    //     ⚠️ 那正是**本文件 `:55` 自己禁止的**"对 `integer` 参数做位选"（`K-91`）
+    //        ⇒ `STEPS = 16` ⇒ `STEPS[3:0] = 4'd0` ✅（**不是 16，也不是 15**）
+    //     🔴 **为什么一直没炸**：唯一用途是 `STEPS_C - 4'd1`（`:454`/`:539`）
+    //        ⇒ 4 位算术下 `4'd0 - 4'd1 = 4'hF` = **15** = `16 - 1` ⇒ ⭐ **靠借位碰巧正确** ✅
+    //     ⚠️ 但一旦有人改 `STEPS`（或改成非 2 的幂），这个"减法抵消位选"的等式立刻失效，
+    //        而且**没有任何自检会报警** ⇒ 属静默失效（`K-106` 家族）
+    //  ✅ **修法**：⭐ 语义直写 —— `STEPS_C` = **末步索引** = `STEPS - 1`
+    //     ⇒ `STEPS = 16` ⇒ `15`（⭐ 与旧行为**逐位相同**）✅
+    //     📌 两处使用点同步从 `STEPS_C - 4'd1` 改成 `STEPS_C`（⛔ 不再依赖借位）
+    //     📌 并加一条 `initial` 自检（见文件尾）
+    localparam [3:0]  STEPS_C = STEPS - 1;
 
     // ══════════════════════════════════════════════════════════════════════
     //   ⭐⭐ 每个乐器的"音高"（= `PHASE_INC`）—— ⭐ 决定听感上是哪种鼓
@@ -445,13 +457,38 @@ module drum_gen #(
                             : pending_q[1] ? 4'b0010
                             : pending_q[2] ? 4'b0100 : 4'b1000;
     //   ⭐ 本拍真的发（⭐ transport 掉了 ⇒ 立刻停发，⛔ 不吐残余）
-    wire        fire        = has_pending & transport_i;
+    //
+    //  🔴🔴 2026-10-17 修（`Q6` · 只读审计发现）：⭐ **加两个屏蔽项** ✅
+    //
+    //  🔴 **缺陷**：`pending_q` 在**同一个 always 块**里被写 6 次，**程序顺序**决定优先级：
+    //        `!transport`(:577) > `fire`(:567) > `step_advance`(:554) >
+    //        `step_zero_align`(:546) > `pos_rst`(:538) > 复位(:518)
+    //     ⇒ ⚠️ 而 `fire` 与 `step_zero_align` / `pos_rst` **可以同拍成立**（它们无互斥）
+    //        ⇒ 🔴 同拍时 **`fire` 胜** ⇒ `pending_q <= pending_q & ~drum_sel` **覆盖掉**
+    //           `step_zero_align` 的 `<= mask_step0` 或 `pos_rst` 的 `<= 4'd0` ✅
+    //     ⇒ ⭐ 两个后果：
+    //        ① 小节线那一拍 `mask_step0`（新小节的强拍）**整片丢失**（⛔ 不是丢一件）
+    //        ② 🔴 `pos_rst`（`met_start`，⭐ 复位音乐位置）那一拍**清残余失效**
+    //           ⇒ ⭐ 把 `top.v:2873-2879` 的承诺"**复位不发残余事件**"**直接推翻**
+    //              ⇒ 旧残余位继续发 ⇒ 落进新小节 step 0 窗口 ⇒ **错拍/碎** ✅
+    //
+    //  📌 **可达性（⭐ 诚实标注）**：⭐ 按当前参数**近乎不可达** ——
+    //     `pending_q` 装载后 ≤4 拍被 `fire` 逐拍清空，而 step 周期 ≥ 49 万拍
+    //     （`TICKS_PER_STEP=240` × tick 周期 ≥2048 拍）⇒ 小节线落在装载后 ≤3 拍的概率 ~4/26000
+    //     ⇒ ⚠️ 但 `TICKS_PER_STEP` 一旦调小（或 tempo 极高）**立刻变活缺陷** ✅
+    //
+    //  ✅ **修法**：⭐ 让 `fire` 在这两种"整片装载"的拍上**让路**（⭐ 语义上它们本就该赢）
+    //     ⚠️ **必须改 `fire` 本身，⛔ 不能只调 `:567` 的顺序** ——
+    //        那样 `evt_valid_o`/`evt_inc_r`（跟 `fire` 走）会与 `pending_q` **脱节** ⇒ 真"多发" ✅
+    //     📌 判据：⭐ 用 `TICKS_PER_STEP=1` 的实例（或把 tick 周期压到 <4 拍）在小节线断言
+    //        "step0 每一件都发出来"（⭐ 当前必红）；＋ `pos_rst` 版本断言"复位后无残余鼓击" ✅
+    wire        fire        = has_pending & transport_i & ~step_zero_align & ~pos_rst;
 
     // ⭐⭐ 本步的掩码（⭐ 先落 `wire` 再选位 —— 🔴 ⛔ 不能对函数返回值直接位选）
     //   `mask_next` = 下一拍的掩码（⭐ 用于"推进时装载新的一步"）
     wire [3:0]  mask_step0 = step_mask_of(pat_sel, 4'd0);
     wire [3:0]  mask_next  = step_mask_of(pat_sel,
-                                          (step_q == STEPS_C - 4'd1)
+                                          (step_q == STEPS_C)
                                             ? 4'd0 : (step_q + 4'd1));
 
     // ── ⭐⭐ 事件字段（🔴 必须与 `evt_valid_o` 【同拍锁存】）──────────────────
@@ -536,7 +573,7 @@ module drum_gen #(
                 step_evt_cnt_o <= 16'd0;
             end else if (step_advance) begin
                 // ⭐ 正常推进：⭐ step+1（⭐ mod 16 ⇒ 4 位自然回绕）
-                step_q         <= (step_q == STEPS_C - 4'd1) ? 4'd0
+                step_q         <= (step_q == STEPS_C) ? 4'd0
                                                              : (step_q + 4'd1);
                 tick_at_step_q <= tick_cnt_i;
                 pending_q      <= mask_next;
@@ -581,6 +618,12 @@ module drum_gen #(
             $display("WARNING [drum_gen] AXIS_ID=%0d < RESERVED_AXIS_BASE(14): 此告警基于已过时的轴号判据；池实际按来源 SRC_AUX 选，见 note_manager 的 pool_mask assign.", AXIS_ID);
         if (TICKS_PER_STEP < 1)
             $display("WARNING [drum_gen] TICKS_PER_STEP=%0d invalid => every tick advances a step.", TICKS_PER_STEP);
+
+        //  ⭐⭐ 2026-10-17（`D3`）：⭐ **末步索引必须无损**（⛔ 不许截断）
+        //     🔴 原来 `STEPS_C = STEPS[3:0]` = 0，只因 `STEPS_C - 4'd1` 借位碰巧 = 15
+        //        ⇒ ⭐ 没有任何自检能发现"位选 + 减法抵消"这层巧合 ✅
+        if (STEPS_C != STEPS - 1)
+            $display("ERROR [drum_gen] D3: STEPS_C=%0d TRUNCATED from STEPS-1=%0d => the pattern would wrap at the wrong step.", STEPS_C, STEPS - 1);
     end
 
 endmodule

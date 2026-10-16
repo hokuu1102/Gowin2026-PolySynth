@@ -112,8 +112,31 @@ module tb_ee_slide_noise;
         end
     endtask
 
+    //  ⭐⭐ 2026-10-17（🔴 **判据必须跟 RTL 一起改**）：
+    //     RTL 的滑音 A 判据从 `pos_i[si] > REL_TH` 改成了 **`key_on[si]`**，
+    //     而 `key_on[]` 由**扫描状态机**维护：
+    //       `event_extract.v:618`  ⭐ `snap_valid_i` 那一拍**启动**本轮扫描
+    //       `:626-679`             ⭐ 之后**每拍扫一个轴**，16 拍一轮
+    //       `:630`                 ⭐ `pos >= TRIG_TH` ⇒ `key_on <= 1`
+    //     ⇒ 🔴 原来的 `do_snap` 只等 3 拍 ⇒ **扫描没跑完** ⇒ `key_on` 全 0
+    //        ⇒ ⭐ 滑音判据永不成立 ⇒ **判据必红**（这正是它该有的行为：暴露了"判据没跟上"）✅
+    //  ✅ **修法**：⭐ **先"预扫"一次 snap**（让扫描把 `key_on` 置起来），
+    //     等 **≥16 拍**（扫描一轮），**再正式 snap** —— 那一拍 `key_on` 就是"上一帧按下"的结果 ✅
+    //     📌 ⭐ **这样也更接近真实**：真板上帧距 500 µs，每帧都完整扫一轮 ✅
+    //     📌 本 tb 的 `TRIG_TH = 12'h400 = 1024`（模块默认）⇒ ⭐ 噪声轴 `pos = 0x100 = 256`
+    //        **低于** `TRIG_TH` ⇒ `key_on` 保持 0 ⇒ ⭐ **被正确排除** ✅
+    //        （⚠️ 这正是上一版 `pos > REL_TH` 做不到的事：上板 `REL_TH = 32` ⇒ 256 挡不住）
     task do_snap;
         begin
+            //  ── ① 预扫：让扫描状态机把 `key_on[]` 置起来 ──────────────────
+            @(negedge clk);
+            snap_valid = 1'b1;
+            @(posedge clk);
+            @(negedge clk);
+            snap_valid = 1'b0;
+            repeat (24) @(posedge clk);      // ⭐ ≥ 16 拍（扫描一轮）+ 余量
+
+            //  ── ② 正式 snap：这一拍的 `key_on` = 上一帧扫描的结果 ────────
             @(negedge clk);
             snap_valid = 1'b1;
             @(posedge clk);

@@ -359,7 +359,73 @@ module calib #(
         wire [DW:0] limit_code = ((s != {(DW+1){1'b0}}) && (s < MAXT)) ? s : MAXT;
         assign upper_by_channel[ui] = {1'b0,z} + {1'b0,limit_code};
     end endgenerate
-    wire [DW+1:0] upper_rd = upper_by_channel[ch];
+
+    //  ⭐⭐⭐⭐ 2026-10-17（🔴 **时序修复 · 只读审计的 top-1**）：
+    //     ⭐ **把"每通道夹紧上界"从【每样本组合重算】改成【标定寄存器状态】** ✅
+    //
+    //  🔴 **为什么（实测证据）**：⭐ 综合报告的 **25 条最差路径里 24 条**都是
+    //     `u_calib0/u_calib1 span_r[6]_6_s0 → n2109_s`（**Logic Level 20**，`slack −2.9 ns`
+    //     按 `constr/top.sdc:148` 的 `set_max_delay 16.4` 口径）
+    //     逐级：`span_r[6]` → `limit_code`(4 级) → `upper_by_channel`(13 位加法)
+    //           → `upper_rd`(8:1 mux) → ★**10 级 14 位比较**★ → 夹紧 mux → **DSP A 口**
+    //     ⚠️ 而 netlist 实证 `MULTALU27X18 n2109_s` 的 `AREG/BREG` **全 BYPASS**
+    //        ⇒ ⭐ 夹紧链与乘法器**串成一条组合路**，还要额外吃 **3.459 ns** 的 tSu ✅
+    //
+    //  🔴 **为什么"每样本重算"是浪费**：⭐ `limit_code`/`upper_by_channel` **只依赖
+    //     `zero_r[ui]`/`span_r[ui]`**，而这两个**只在 `tare`/`span` 那一刻变**
+    //     （⭐ 正常演奏中**永不变**）⇒ ⭐ 却每个 `valid`（每通道 ~31 µs）都重算一遍 ✅
+    //
+    //  ✅ **修法**：⭐ 无条件把 `upper_by_channel` **打一拍存进 `upper_q`**
+    //     ⇒ ⭐ 那条 `limit_code + 加法` 长链**终点变成寄存器**，⛔ 不再进每样本路径 ✅
+    //     ⇒ ⭐ 每样本路径缩短为 `upper_q[ch]`(mux) → 比较 → 夹紧 → DSP
+    //        ≈ **省 5~6 级**（4 级 `limit_code` ＋ 13 位加法）✅
+    //
+    //  📌 **代价（诚实标注）**：⭐ `upper_q` 比 `zero_r`/`span_r` **晚 1 拍**
+    //     ⇒ ⚠️ `tare`/`span` 之后**那一拍内的样本会用旧阈值**（20 ns 窗口，每次标定只一次）
+    //     📌 判据：⭐ `tb/drivers/tb_calib.sv`（tare→立刻采样）·
+    //        `tb/drivers/tb_calib_equivalence.sv`（对参考模型逐位比）**必须实跑**
+    //     📌 若那两条判据红了 ⇒ ⭐ 说明"标定当拍就要求新阈值"是契约
+    //        ⇒ 那时改用"只在 `tare`/`span_ok_w` 时更新 `upper_q[cal_ch]`"（⭐ 同样省链）✅
+    //  📌 **为什么用数组而不是打包向量**：⭐ 与上面 `upper_by_channel` **同一写法**，
+    //     ⛔ 不引入新的索引算术（⭐ 打包向量的 `ch*(DW+2)` 反而会加 1~2 级）✅
+    //  📌 **第一版踩的坑（记档）**：⭐ 我最初写成"**无条件** `upper_q[vi] <= upper_by_channel[vi]`"
+    //     ⇒ 🔴 `tb/drivers/tb_calib_equivalence.sv:31` **立刻红**
+    //        （`cycle-exact calib mismatch check=33102 raw=2441 ch=7`）
+    //     🔴 原因：⭐ `span_r` 在**另一个 always 块**（`:294`）写、`zero_r` 在本块（`:387`）写
+    //        ⇒ ⭐ 无条件打拍必然**晚 1 拍** ⇒ ⚠️ 标定之后**那一拍内的样本用旧阈值** ✗
+    //  📌 **第二版踩的坑（记档）**：⭐ 改成"只在 `tare`/`span_ok_w` 时更新"后**仍然红**
+    //     🔴 原因：⭐ 我用了 `zero_rd`/`span_rd` —— 那两个是**按 `ch` 索引**的
+    //        ⇒ 🔴 却赋给 `upper_q[cal_ch]` ⇒ ⚠️ **`ch != cal_ch` 时算错通道** ✗
+    //     ✅ 修法：⭐ 一律按 **`cal_ch`** 索引 ✅
+    //  ✅ **最终改法**：⭐ 只在 `tare`/`span_ok_w` 时更新 `upper_q[cal_ch]`，
+    //     且⭐ **用【本次即将写入的】新值算** ⇒ ⭐ 与 `zero_r`/`span_r` **同拍生效** ✅
+    //     ⇒ ⭐ 那条 `limit_code + 加法` 长链的**终点仍是寄存器**（⛔ 不进每样本路径）✅
+    //     ⇒ ⭐ 每样本路径 = `upper_q[ch]`(mux) → 比较 → 夹紧 → DSP ≈ **省 5~6 级** ✅
+    //  ⚠️ **复位值必须是 `MAXT`（⛔ 不是 0）**：⭐ `zero_vld=0`/`span_vld=0` 时
+    //     `upper_by_channel = 0 + MAXT = MAXT`（⭐ 见 `:359` 的 `limit_code` 兜底）✅
+    reg [DW+1:0] upper_q [0:NCH-1];
+    integer      vi;
+
+    //  ⭐ 三个组合临时量：⭐ **一律按 `cal_ch` 索引**（⛔ 不用 `zero_rd`/`span_rd`）
+    wire [DW:0] upper_zero_n = tare
+                             ? raw_f
+                             : (zero_vld[cal_ch] ? zero_r[cal_ch] : {(DW+1){1'b0}});
+    wire [DW:0] upper_span_n = span_ok_w
+                             ? (raw_f - zero_cc)
+                             : (span_vld[cal_ch] ? span_r[cal_ch] : {(DW+1){1'b0}});
+    wire [DW:0] upper_lim_n  = ((upper_span_n != {(DW+1){1'b0}}) && (upper_span_n < MAXT))
+                             ? upper_span_n : MAXT;
+
+    always @(posedge clk) begin
+        if (!rst_n) begin
+            for (vi = 0; vi < NCH; vi = vi + 1)
+                upper_q[vi] <= {1'b0, MAXT};       // ⭐ 与 `upper_by_channel` 的冷启动值一致
+        end else if (tare || span_ok_w) begin
+            upper_q[cal_ch] <= {1'b0, upper_zero_n} + {1'b0, upper_lim_n};
+        end
+    end
+
+    wire [DW+1:0] upper_rd = upper_q[ch];
     wire [DW:0] dclamp = ({2'b0,raw_f} > upper_rd) ? dlim : dcode;
 
     always @(posedge clk) begin

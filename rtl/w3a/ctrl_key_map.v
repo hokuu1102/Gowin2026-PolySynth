@@ -85,7 +85,31 @@ module ctrl_key_map #(
 );
 
     localparam integer LONG_CYC = (CLK_HZ / 1000) * LONG_MS;
-    localparam integer HW       = (LONG_CYC <= 2) ? 1 : $clog2(LONG_CYC);
+
+    //  🔴🔴 2026-10-17 修（`D9`，只读审计发现）：⭐ **两个隐患一起修**
+    //
+    //  🔴 隐患 ①：`HW = $clog2(LONG_CYC)` 只能装到 `LONG_CYC - 1`
+    //     ⇒ ⭐ 若 `LONG_CYC` 恰为 2 的幂（如 1024），计数器 `[HW-1:0]` 最大 = 1023
+    //        ⇒ 🔴 `hold_clr >= LONG_CYC` **永不成立** ⇒ ⭐ **长按永远不触发**
+    //     ✅ 修法：`$clog2(LONG_CYC + 1)` —— ⭐ 这才给出"**装得下 `LONG_CYC` 本身**"的位宽 ✅
+    //
+    //  🔴 隐患 ②（本文件原来的写法）：`LONG_CYC[HW-1:0]` —— ⭐ 对 `integer` localparam 做**位选**
+    //     （⭐ 正是 `K-91` 禁的模式）
+    //     ⇒ ⭐ `LONG_CYC = 1024`、`HW = 10` ⇒ `1024[9:0] = 0`
+    //        ⇒ 🔴 `clr_at_long = (hold_clr >= 0)` = **恒真**
+    //        ⇒ 🔴 `:126` 的 `if (!clr_at_long) hold_clr <= hold_clr + 1'b1;` **一步都不涨**
+    //        ⇒ 🔴 **长按立刻触发** ⇒ ⭐ **长按保护整体失效**
+    //           （⭐ 后果：idx 12 looper **立刻清空** · idx 15 标定**立刻走 span**）✅
+    //     ✅ 修法：⭐ 用**定宽常量** `LONG_CYC_C`（比计数器宽 1 位）＋ **零扩展计数器**比较
+    //        ⇒ ⭐ 不再有任何截断 ✅
+    //
+    //  📌 **当前行为逐位不变**：`LONG_CYC = 100_000_000` ⇒ 旧 `HW = $clog2(100e6) = 27`、
+    //     新 `HW = $clog2(100e6+1) = 27` ⇒ ⭐ **同一个 27** ✅；且 `100_000_000[26:0]`
+    //     本来就装得下 ⇒ ⭐ 比较结果也逐位相同 ✅
+    //  📌 **判据**：⭐ 文件尾 `initial` 新增 `LONG_CYC_C == LONG_CYC` 的自检
+    //     ＋ 用 `LONG_CYC = 4` 的参数化实例断言"按住 3 拍不发脉冲" ✅
+    localparam integer HW       = (LONG_CYC <= 2) ? 1 : $clog2(LONG_CYC + 1);
+    localparam [HW:0]  LONG_CYC_C = LONG_CYC;      // ⭐ 定宽、不截断（HW+1 位）
 
     initial begin
         if (LONG_MS < 1)
@@ -93,6 +117,16 @@ module ctrl_key_map #(
         else
             $display("NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=%0d LONG_MS=%0d LONG_CYC=%0d HW=%0d)",
                      CLK_HZ, LONG_MS, LONG_CYC, HW);
+
+        //  ⭐⭐ 2026-10-17（`D9`）：⭐ **两条定宽自检** —— 这正是原来缺的
+        //     ⭐ ① 定宽常量必须**无损**（⛔ 不许截断 ⇒ 否则 `clr_at_long` 可能恒真）
+        if (LONG_CYC_C != LONG_CYC)
+            $display("ERROR [ctrl_key_map] D9: LONG_CYC_C=%0d TRUNCATED from LONG_CYC=%0d => clr_at_long/cal_at_long may be stuck TRUE => long-press guard broken.",
+                     LONG_CYC_C, LONG_CYC);
+        //     ⭐ ② 计数器 `[HW-1:0]` 必须**够到** `LONG_CYC`（⛔ 否则长按永不触发）
+        if (LONG_CYC > ((1 << HW) - 1))
+            $display("ERROR [ctrl_key_map] D9: LONG_CYC=%0d > counter max %0d (HW=%0d) => long-press NEVER fires.",
+                     LONG_CYC, (1 << HW) - 1, HW);
     end
 
     // ── 长按计数器：只给两个需要长按的键各一个 ─────────────────────────────
@@ -101,8 +135,9 @@ module ctrl_key_map #(
     reg          clr_long_fired;
     reg          cal_long_fired;
 
-    wire clr_at_long = (hold_clr >= LONG_CYC[HW-1:0]);
-    wire cal_at_long = (hold_cal >= LONG_CYC[HW-1:0]);
+    //  ⭐ 零扩展计数器 ＋ 定宽常量 ⇒ ⭐ **无截断、无恒真**（⭐ 见上方 `D9` 长注释）
+    wire clr_at_long = ({1'b0, hold_clr} >= LONG_CYC_C);
+    wire cal_at_long = ({1'b0, hold_cal} >= LONG_CYC_C);
 
     //  🔴🔴 2026-10-14：⭐ **本块【不再碰】`clr_long_fired` / `cal_long_fired`** ✅
     //     ⭐ **原缺陷（⭐ 仿真过、综合报错 ✅）**：

@@ -106,8 +106,18 @@ module tb_event_extract_slide;
     endtask
 
     //  ⭐ 发一个快照脉冲（⭐ 与 `axis_snapshot` 同语义：⭐ 一帧一次 ✅）
+    //  ⭐⭐ 2026-10-17：⭐ **判据必须跟 RTL 一起改** —— RTL 的滑音 A 判据
+    //     从 `pos_i[si] > REL_TH` 改成了 **`key_on[si]`**（扫描状态机维护、带迟滞）
+    //     ⇒ ⭐ 必须先"预扫"一次 snap 让 `key_on` 置起来，再正式 snap ✅
+    //     ⚠️ 真 A 轴的 `pos` 必须 **>= TRIG_TH(0x400=1024)**，否则 `key_on` 不置位
     task do_snap;
         begin
+            @(negedge clk);
+            snap_valid = 1'b1;
+            @(posedge clk);
+            @(negedge clk);
+            snap_valid = 1'b0;
+            repeat (24) @(posedge clk);      // ⭐ 预扫：≥16 拍（扫描一轮）
             @(negedge clk);
             snap_valid = 1'b1;
             @(posedge clk);
