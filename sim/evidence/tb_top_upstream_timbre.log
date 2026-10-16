@@ -1,0 +1,70 @@
+﻿NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
+NOTE [fx_delay] DEPTH=2048 samples = 41 ms @48828.125Hz | MEM_W=18 => 36864 bit / 18432 bit-per-block = 2 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=25 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [ctrl_keypad] PARAM_OK=1 (SCAN_DIV=12500 DEB_N=8 CLK_HZ=50000000 scan_us=0 db_ms=8)
+NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=50000000 LONG_MS=2000 LONG_CYC=100000000 HW=27)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+VCD info: dumpfile build/sim/tb_top_upstream_timbre/tb_top_upstream_timbre.vcd opened for output.
+  ok  : non-vacuity): with the upstream DISABLED, ZERO bytes are emitted
+  ok  : and up_enable_r really is 0 at this point
+  ok  : 'O' (0x4F) turns the real-time upstream ON
+  ok  : one hand-play event => exactly 14 bytes
+  ok  : byte[0] is the 0xA5 header
+  ok  : kind=0 (note_on) => type 0x01
+  ok  :  DRUM MARKER, and a hand-play event is NOT a drum => it is 0 ***
+  ok  : byte[8..11] carry the FULL 32-bit phase_inc
+  ok  : byte[13] equals XOR of bytes [0..12] (INCLUDING the 0xA5 header)
+  ok  :  = 0x20 => timbre 2 in bits[5:4], drum marker 0 in bits[3:0] ***
+  ok  : E's timbre field == 2, i.e. the timbre that actually SOUNDED ***
+  ok  : n-vacuity: the timbre field is NOT the old hard-zero form (0x00)
+  ok  : T timbre (1) + a hand-play (drum marker 0) => byte[7] = 0x10 ***
+  ok  : *** and the frame's timbre field tracks it (now 1) ***
+  ok  : two back-to-back events => exactly 2 frames (28 bytes)
+  ok  : 1 keeps ITS OWN timbre: [7] = 0x30 (timbre 3, drum marker 0) ***
+  ok  : carries ITS OWN timbre: [7] = 0x10 (timbre 1, drum marker 0) ***
+  ok  : ck up the later timbre 2 (the timbre travels WITH the event) ***
+  ok  : frame #1 checksum holds with the new byte[7]
+  ok  : frame #2 checksum holds with the new byte[7]
+  ok  : drum: exactly one 14-byte frame came out
+  ok  : drum: byte[0] is the 0xA5 header
+  ok  : drum: kind=0 (note_on) => type 0x01
+  ok  :  (NOT independently decidable vs hand-play, but must still hold)
+  ok  : drum: byte[7] bits[7:6] are the reserved bits and must stay 0
+  ok  : drum: exactly one 14-byte frame came out
+  ok  : drum: byte[0] is the 0xA5 header
+  ok  : drum: kind=0 (note_on) => type 0x01
+  ok  :  low nibble MUST equal drum_type (this is the decidable one) ***
+  ok  : drum: byte[7] bits[7:6] are the reserved bits and must stay 0
+  ok  : drum: exactly one 14-byte frame came out
+  ok  : drum: byte[0] is the 0xA5 header
+  ok  : drum: kind=0 (note_on) => type 0x01
+  ok  :  low nibble MUST equal drum_type (this is the decidable one) ***
+  ok  : [7] low nibble is 2, NOT 0 -- the drum_type DOES travel upstream
+  ok  : drum: byte[7] bits[7:6] are the reserved bits and must stay 0
+  ok  : drum: exactly one 14-byte frame came out
+  ok  : drum: byte[0] is the 0xA5 header
+  ok  : drum: kind=0 (note_on) => type 0x01
+  ok  :  low nibble MUST equal drum_type (this is the decidable one) ***
+  ok  : drum: byte[7] bits[7:6] are the reserved bits and must stay 0
+  ok  : hand-play: exactly one 14-byte frame came out
+  ok  : ow nibble is 0 -- a hand-play is NEVER marked as a drum upstream
+  ok  : a keyboard-drum event still emits exactly 14 bytes
+  ok  :  DRUM: byte[7][3:0] must be the drum_type (1 = Snare), NOT 0 ***
+  ok  : BOARD DRUM: bits[5:4] must also be the drum_type (1 = Snare) ***
+  ok  : e => byte[7] = 0x11 (the exact value the ESP32 side expects) ***
+  ok  : uity: 0x10 is the OLD (broken) value where the drum marker was 0
+
+PASS: top-level upstream timbre -- a hand-play event's frame carries the timbre that actually SOUNDED in bits[5:4] (bits[3:0] is now the DRUM MARKER, which is 0 for hand-play), and the timbre travels with its own event through the FIFO
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_upstream_timbre.sv:534: $finish called at 2937320000 (1ps)
+
+

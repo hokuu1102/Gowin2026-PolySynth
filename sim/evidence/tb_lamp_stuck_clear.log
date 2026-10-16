@@ -1,0 +1,25 @@
+﻿=== tb_lamp_stuck_clear  [FIXED build: stream-timeout clear] ===
+VCD info: dumpfile build/sim/tb_lamp_stuck_clear/tb_lamp_stuck_clear.vcd opened for output.
+== 1  a note_on with NO matching note_off (the upstream defect) ==
+  ok  : 1a the note_on really lit key 5 (the stimulus is not vacuous)
+  ok  : 1b guide_key_o[5] is the lit lamp
+== 2  the stream is still alive => the lamp must NOT be cleared ==
+  ok  : 2a stream_alive=1 (buffer still has events) => lamp stays lit (no false clear)
+  ok  : 2b the idle counter is pinned at 0 while the stream is alive
+== 3  stream stopped for > 1 s => the hanging lamp MUST clear itself ==
+  ok  : 3a before the timeout the lamp is STILL lit (timeout is not instant)
+  ok  : 3b the hanging lamp cleared itself after 1 s of no score  <-- THE HANGING-LAMP FIX
+  ok  : 3c key 5's lamp is gone (not just dimmed)
+  ok  : 3d the blanked bitmap follows (guide_vis = guide_key & ~active)
+== 4  a new score arriving ON the timeout edge => clean slate then light ==
+  ok  : 4a the old hung lamp is gone AND only the NEW pitch's lamp (key 0) is lit
+  ok  : 4b stale key 5 cleared, fresh key 0 lit (timeout won the previous cycle)
+== 5  a mid-score hiccup (0.5 s) must NOT clear anything ==
+  ok  : 5a-pre the idle counter was reset by the stream coming back (not stuck at the limit)
+  ok  : 5b the lamp is still lit during the hiccup (the timeout has not fired yet)
+  ok  : 5c the lamp survived a 0.5 s stream hiccup (counter reset, no false clear)
+
+PASS: tb_lamp_stuck_clear - 13/13 judgements held
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_lamp_stuck_clear.sv:263: $finish called at 71110000 (1ps)
+
+

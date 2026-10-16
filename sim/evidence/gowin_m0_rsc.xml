@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<Module name="top" Register="304" Alu="114" Lut="1077" T_Register="22434(304)" T_Alu="9383(114)" T_Lut="34907(1077)" T_MULTALU27X18="20(0)" T_MULT12X12="1(0)" T_MULT27X36="5(0)" T_Bsram="100(0)">
+<Module name="top" Register="304" Alu="114" Lut="1077" T_Register="22432(304)" T_Alu="9383(114)" T_Lut="34907(1077)" T_MULTALU27X18="20(0)" T_MULT12X12="1(0)" T_MULT27X36="5(0)" T_Bsram="100(0)">
  <SubModule name="u_rst_sync" Register="2" T_Register="2(2)"/>
  <SubModule name="u_timbre_btn_sync" Register="2" T_Register="2(2)"/>
  <SubModule name="u_timbre_btn_debounce" Register="34" Alu="31" Lut="14" T_Register="34(34)" T_Alu="31(31)" T_Lut="14(14)"/>
@@ -65,9 +65,9 @@
  <SubModule name="g_sound.u_axis_map" Lut="88" T_Lut="88(88)"/>
  <SubModule name="g_sound.u_looper" Register="2946" Alu="529" Lut="4158" Bsram="15" T_Register="2946(2946)" T_Alu="529(529)" T_Lut="4158(4158)" T_Bsram="15(15)"/>
  <SubModule name="g_sound.u_rec_dump" Register="283" Alu="68" Lut="362" T_Register="283(283)" T_Alu="68(68)" T_Lut="362(362)"/>
- <SubModule name="g_sound.u_seq_arb" Register="473" Alu="6" Lut="1072" T_Register="473(473)" T_Alu="6(6)" T_Lut="1072(1072)"/>
+ <SubModule name="g_sound.u_seq_arb" Register="471" Alu="6" Lut="1070" T_Register="471(471)" T_Alu="6(6)" T_Lut="1070(1070)"/>
  <SubModule name="g_sound.u_evt_merge" Register="376" Alu="9" Lut="844" T_Register="376(376)" T_Alu="9(9)" T_Lut="844(844)"/>
- <SubModule name="g_sound.u_evt_upstream" Register="1497" Alu="43" Lut="2642" T_Register="1497(1497)" T_Alu="43(43)" T_Lut="2642(2642)"/>
+ <SubModule name="g_sound.u_evt_upstream" Register="1497" Alu="43" Lut="2644" T_Register="1497(1497)" T_Alu="43(43)" T_Lut="2644(2644)"/>
  <SubModule name="g_sound.u_slide_ramp" Register="291" Alu="98" Lut="473" MULT27X36="1" T_Register="291(291)" T_Alu="98(98)" T_Lut="473(473)" T_MULT27X36="1(1)"/>
  <SubModule name="g_sound.u_note_manager" Register="4531" Alu="849" Lut="6470" MULT27X36="1" Bsram="2" T_Register="4531(4531)" T_Alu="849(849)" T_Lut="6470(6470)" T_MULT27X36="1(1)" T_Bsram="2(2)"/>
  <SubModule name="g_sound.u_vibrato_lfo" Register="97" Alu="134" Lut="247" MULTALU27X18="2" T_Register="97(97)" T_Alu="134(134)" T_Lut="247(247)" T_MULTALU27X18="2(2)"/>

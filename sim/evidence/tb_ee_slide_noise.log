@@ -1,0 +1,19 @@
+﻿NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x400 REL_TH=0x300 DELTA_TH=8 REFRACT_N=150)
+VCD info: dumpfile build/sim/tb_ee_slide_noise/tb_ee_slide_noise.vcd opened for output.
+--- NOISE-1: 杞?1 鏈?-10 鍣０锛岀湡 A=3(-192)銆佺湡 B=4(+192) ---
+  ok  :  -> B=4) MUST still fire when another axis has noise-level delta
+  ok  :  axis the finger actually LEFT (3), not the lowest noisy one (1)
+  ok  : NOISE-1c B must be the adjacent axis that formed (4)
+--- NOISE-2: 杞?0/1/2 閮芥湁鍣０锛岀湡 A=7(-192)銆佺湡 B=0(+192) ---
+  ok  : ide (A=7 -> B=0) MUST still fire when lower axes only have noise
+  ok  : ust be 7 (the axis actually left), not the lowest noisy axis (0)
+--- NOISE-3: 闈炵┖娲?鈥斺€?鏃犲櫔澹版椂浠嶅繀椤诲嚭婊戦煶锛堜笌鏃?tb 鍚屽彛寰勶級---
+  ok  : NOISE-3 (non-vacuous) a clean slide still fires
+  ok  : NOISE-3b and A is 3
+--- NOISE-4: 绾櫔澹帮紙娌′汉婊戯級鈬?鉀?涓嶈鍑烘粦闊?---
+  ok  : noise must NOT be reported as a slide (no finger actually moved)
+
+PASS: event_extract slide survives realistic per-axis noise
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_ee_slide_noise.sv:216: $finish called at 1170000 (1ps)
+
+

@@ -89,7 +89,7 @@ Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\fft_spectr
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\fft_spectrum_view.v'
 Compiling module 'top'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":36)
 Extracting RAM for identifier 'as_pos_d'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":4440)
-WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":7011)
+WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":7053)
 Compiling module 'rst_sync'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\rst_sync.v":27)
 Compiling module 'sync_input(RESET_VAL=1'b1)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\sync_input.v":31)
 Compiling module 'debounce(NKEY=1)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\debounce.sv":24)
@@ -304,8 +304,20 @@ Reading netlist file: "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\gwsynthesis\Gow
 Parsing netlist file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\gwsynthesis\Gowin2026.vg" completed
 Processing netlist completed
 Reading constraint file: "C:\Users\hokuu\Desktop\FPGA\FPGA2026\constr\top.cst"
+WARN  (CT2065) : "C:\Users\hokuu\Desktop\FPGA\FPGA2026\constr\top.cst":536 | Some locations are invalid in 'R[1:44]C[1:148]'
 Physical Constraint parsed completed
 Running placement......
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_29_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_2_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_30_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_31_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_3_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_4_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_5_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_6_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_7_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_8_s' can't be placed according to constraint
+WARN  (CT1094) : 'u_hdmi/u_scope/xy_fb_xy_fb_0_9_s' can't be placed according to constraint
 [10%] Placement Phase 0 completed
 [20%] Placement Phase 1 completed
 [30%] Placement Phase 2 completed
@@ -328,5 +340,5 @@ Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.pin.html"
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.rpt.html" completed
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.rpt.txt" completed
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.tr.html" completed
-Fri Oct 16 21:20:26 2026
+Fri Oct 16 22:05:05 2026
 
