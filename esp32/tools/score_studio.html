@@ -231,6 +231,9 @@
           <option value="4">4 小节</option>
         </select>
       </div>
+      <!-- 2026-10-16（用户裁定）：示范—重复 = 只做开头 —— 准备 → 示范 N 小节（出声）
+           → 重复 N 小节（只亮灯）→ 之后彻底停止。⛔ 不再有"跟奏范围"下拉
+           （原来的"每 N 小节一轮 / 整曲跟奏"两档已按用户要求删除）。 -->
       <div id="dr_sum" class="hint" style="margin-top:4px"></div>
       <div id="gd_sum" class="hint" style="margin-top:6px">（打开 MIDI 后可选）</div>
     </div>
@@ -940,7 +943,9 @@ let guideDrum = "met";        /* met = 只要节拍器 / track = 只要谱面鼓
  *    ⇒ visibleWords 与现状逐字相同（check_guide.js 判据 ⑬ 靠这条）。
  */
 let demoRepeatOn = false;    /* 派生自 guideMode（"demo" ⇒ true）；⛔ 别单独赋值，走 syncModeUI() */
-let demoBars = 2;            /* 示范小节数：1 / 2 / 4（默认 2，用户 2026-10-16 拍板） */
+let demoBars = 2;            /* 示范小节数：1 / 2 / 4（默认 2，用户 2026-10-16 拍板）
+                              * ⭐ 2026-10-16 用户裁定后语义固定为：示范 N 小节 → 重复 N 小节 → 停止
+                              * （原来的"跟奏范围"两档 —— 每 N 小节一轮 / 整曲跟奏 —— 已删除）。 */
 
 const BAR_TICK = MIDI_PPQN * 4;          /* 一小节 = 3840 tick（4/4） */
 const DRUM_DUR_TICK = 480;               /* ⚠️ 与方案 B"同一件鼓相邻 >= 480"同口径 */
@@ -1328,6 +1333,78 @@ if (allTempos.length > 1) {
                   timbreIdx: tb });        /* 音色号 = 下拉的当前值 */
   }
 
+  /* ═══════════════════════════════════════════════════════════════════════════
+     ⭐⭐ 2026-10-16「示范—重复」的时间线改写（用户裁定）：
+       「只示范最开始几小节，后面的既不示范也不重复。就是示范完，用户重复完，
+         这个事件就停止了」
+     ⇒ 行为 = 准备(只节拍器) → **示范 N 小节**（出声 + 亮灯）→ **重复 N 小节**
+              （同一句再来一遍，只亮灯）→ **之后完全停止**（无任何事件）。
+     🔴 必须在【并节拍器之前】做，两个理由：
+       ① 节拍器的 `metEnd` 取 `evs` 的最大 tick —— 在这里截断 ⇒ 节拍器跟着停；
+          ⛔ 若放到 visibleWords 再截，节拍器会按原曲长继续响（曲停了还在打拍子 ✗）。
+       ② 排序在下面统一做 —— 复制出来的事件（tick 更大）能被正确排进去；
+          ⛔ 若在 visibleWords 里追加，输出会【乱序】⇒ play_seq 按 tick 比较时
+             "迟到的小 tick" 会被当成立即播放 ⇒ 节奏全乱 ✗✗。
+     ⚠️ 复制的是【示范段的旋律事件】（tick + segLen、guide=true）——
+        ⛔ 不是拿曲子后半句来当"重复"（那是"听两句弹下两句"，不是重复练习）。
+     ═══════════════════════════════════════════════════════════════════════════ */
+  let demoPlan = null;
+  if (demoRepeatOn && guideOn && guideTrackIdx !== null) {
+    const barT = MIDI_PPQN * 4;                                   /* 一小节（4/4）= 3840 */
+    const prepEnd = (metOn && guidePrepBars > 0) ? guidePrepBars * barT : 0;
+    const segLen = demoBars * barT;
+    const demoEnd = prepEnd + segLen, stopEnd = prepEnd + 2 * segLen;
+    /* 截断前先记下【原曲】末 tick ⇒ 判"曲子不足 2N 小节"（摘要要提示，⛔ 不静默）。 */
+    const origMax = evs.reduce((m, e) => Math.max(m, e.tick), 0);
+    const kept = [];
+    /* ① tempo（srcTrack=-1）：截断窗内保留 —— 速度事件要跟着谱面走 */
+    for (const e of evs) if (e.srcTrack === -1 && e.tick < stopEnd) kept.push(e);
+    /* ② 引导轨的 ON/OFF 按【音高配对】——
+     *   🔴 为什么必须配对而不是"照抄窗内事件"（实测抓到的缺陷）：
+     *      示范窗最后一个音（如 tick 7200 的 ON）它的 OFF 落在窗外（tick >= demoEnd）
+     *      ⇒ 照抄方案会把那个 OFF 丢掉 ⇒ 复制到重复段后也没有 OFF
+     *      ⇒ 🔴 **LED 不会灭 / 发声卡住**（guide_lamp 只被 note_off 清灯）。
+     *   ⇒ 配对后把 OFF【夹进各自窗口内】（clamp 到 winEnd-1），保证每个 ON 都有 OFF。 */
+    const gEvs = evs.filter(e => e.srcTrack === guideTrackIdx && e.kind !== 2)
+                    .sort((a, b) => a.tick - b.tick);
+    const openBy = new Map(), pairs = [];
+    for (const e of gEvs) {
+      if (e.kind === 0) {                       /* ON */
+        if (e.tick < prepEnd) continue;
+        if (e.tick >= demoEnd) break;           /* 示范窗只取前 N 小节，窗外 ON 不要 */
+        const rec = { on: e, off: null };
+        pairs.push(rec);
+        openBy.set(e.midi, rec);
+      } else {                                  /* OFF：按音高认领（含窗外的，用于夹紧） */
+        const rec = openBy.get(e.midi);
+        if (rec) { rec.off = e; openBy.delete(e.midi); }
+      }
+    }
+    /* ③ 示范段（guide=false ⇒ 出声）+ 重复段（guide=true ⇒ 只亮灯；tick + segLen） */
+    const clampT = (t, lo, hi) => (t < lo ? lo : (t > hi ? hi : t));
+    for (const r of pairs) {
+      const offT = r.off ? r.off.tick : (r.on.tick + 1);
+      /* 示范段 */
+      kept.push(Object.assign({}, r.on, { guide: false }));
+      kept.push(Object.assign({}, r.off || r.on, {
+        kind: 1, vel: 0, guide: false,
+        tick: clampT(offT, r.on.tick + 1, demoEnd - 1) }));
+      /* 重复段（同一句再来一遍） */
+      const onT2 = r.on.tick + segLen;
+      if (onT2 >= stopEnd) continue;            /* ⛔ 越过停止线就不发 */
+      kept.push(Object.assign({}, r.on, { guide: true, tick: onT2 }));
+      kept.push(Object.assign({}, r.off || r.on, {
+        kind: 1, vel: 0, guide: true,
+        tick: clampT(offT + segLen, onT2 + 1, stopEnd - 1) }));
+    }
+    evs.length = 0;
+    for (const e of kept) evs.push(e);
+    demoPlan = { prepEnd: prepEnd, demoEnd: demoEnd, stopEnd: stopEnd, segLen: segLen,
+                 demoEvt: pairs.length * 2, pairs: pairs.length, bars: demoBars,
+                 /* 原曲不够 2N 小节 ⇒ 重复段不完整（摘要要提示，⛔ 不静默） */
+                 truncated: (origMax < stopEnd - 1) };
+  }
+
   /* ⭐⭐ 2026-10-15 引导模式：节拍器（可选）—— 鼓机事件，tick 制 ⇒ 跟着谱面变速
    * ⚠️ 必须在【排序之前】并入，否则顺序不对（off 要先于同 tick 的 on）。
    * ⚠️ 节拍器的 srcTrack = -1（公共事件）⇒ 选轨过滤时永不被滤掉。 */
@@ -1447,6 +1524,10 @@ if (allTempos.length > 1) {
      *   —— visibleWords 的"只响节拍器"窗口用它。 */
     barTicks: Math.round(parsed.division * 4 * (MIDI_PPQN / parsed.division)),
     trackList: trackList, evTrack: evTrack,
+    /* ⭐⭐ 2026-10-16「示范—重复」的时间线改写计划（null = 没开或没选引导轨）：
+     *    { prepEnd, demoEnd, stopEnd, segLen, demoEvt, bars, truncated }
+     *    UI 摘要与判据读它；⛔ 分段已在上面做完，下游只记账、⛔ 不再改字。 */
+    demoPlan: demoPlan,
     /* ⭐ 2026-10-15 引导模式：给 UI 与判据用的三个账 */
     metCount: metCount, metSkipped: metSkipped, guideWords: guideWords,
     /* ⭐⭐ 2026-10-16 鼓与旋律分离：校验结果（problems 为空才算过） */
@@ -1817,24 +1898,35 @@ function updateDemoRepeatSummary() {
   const fW = (lastConv.followWords != null) ? lastConv.followWords : 0;
   const fM = (lastConv.followMelody != null) ? lastConv.followMelody : 0;
   const fNa = (lastConv.followNa != null) ? lastConv.followNa : 0;
+  const plan = lastConv.demoPlan || null;
+  const stopT = plan ? plan.stopEnd : (dEnd * 2);
   /* ⭐ 2026-10-16（用户要求）：示范模式的固定配置要写出来 ——
    *    "只保留节拍器、不保留鼓轨、不留背景轨" ⇒ 用户不用去猜为什么那两个下拉被置灰。 */
   const cfg = "（本模式固定：只留引导轨 + 节拍器；⛔ 不含鼓轨、⛔ 不含背景轨）";
   if (!guideOn) {
-    el.textContent = "已选示范—重复，但总开关「启用」没勾 ⇒ 当前不会分段。" + cfg;
+    el.textContent = "已选示范—重复，但总开关「启用」没勾 ⇒ 当前不会做示范/重复。" + cfg;
     el.style.color = "var(--warn)";
     return;
   }
-  el.textContent = "示范 " + dW + " 字（到 tick " + dEnd + " / " + demoBars + " 小节，出声 + 亮灯）" +
-                   " · 跟奏 " + fW + " 字（其中旋律 " + fM + " 字只亮灯）" + cfg;
+  /* ⭐⭐ 2026-10-16（用户裁定）：「只示范最开始几小节，后面的既不示范也不重复。
+   *    示范完、用户重复完，事件就停止了」⇒ 三段式：准备 → 示范 N 小节 → 重复 N 小节 → 停。 */
+  el.textContent = "准备 " + (plan && plan.prepEnd > 0 ? (plan.prepEnd / BAR_TICKS) + " 小节（只响节拍器）· " : "无 · ") +
+                   "示范 " + demoBars + " 小节（tick " + (plan ? plan.prepEnd : 0) + "~" + dEnd +
+                   "，出声 + 亮灯，共 " + dW + " 字）" +
+                   " → 重复 " + demoBars + " 小节（tick " + dEnd + "~" + stopT +
+                   "，只亮灯，共 " + fW + " 字，其中旋律 " + fM + " 字）" +
+                   " → **之后停止**（tick ≥ " + stopT + " 不再有任何事件）" + cfg;
   if (fW === 0) {
-    el.textContent += " · ⚠️ 曲子太短，没有跟奏段（demoEnd 已退到末尾）";
+    el.textContent += " · ⚠️ 重复段为空（引导轨在开头 " + demoBars + " 小节里没有音符？）";
     el.style.color = "var(--warn)";
   } else if (fNa > 0) {
     /* 设计点 C：越界音必须在 UI 报数，⛔ 不静默 */
-    el.textContent += " · ⚠️ 跟奏段有 " + fNa +
+    el.textContent += " · ⚠️ 重复段有 " + fNa +
         " 个音超出键盘音域(MIDI " + NOTE5_BASE + ".." + (NOTE5_BASE + NOTE5_MAX - 1) +
         ")，这些音键盘上没有对应键、LED 不会亮";
+    el.style.color = "var(--warn)";
+  } else if (plan && plan.truncated) {
+    el.textContent += " · ⚠️ 曲子不足 " + (2 * demoBars) + " 小节 ⇒ 重复段不完整";
     el.style.color = "var(--warn)";
   } else {
     el.style.color = "var(--dim)";
@@ -1947,59 +2039,41 @@ function keepByGuide(src, conv) {
  * ⚠️ demoRepeatOn === false ⇒ 原样返回（零回归）。
  */
 function applyDemoRepeat(words, srcs) {
-  /* ⚠️ 两个条件都要：`demoRepeatOn` = 选了示范模式；`guideOn` = 总开关开着。
-   *    ⛔ 只判 demoRepeatOn 的话：总开关关着时【筛选根本没发生】，
-   *    分段会把"本该被裁掉的背景轨/鼓轨"也置 guide ⇒ 语义混乱（还白改一批字）。 */
+  /* ⭐⭐ 2026-10-16（用户裁定后重写）：本函数现在【只记账】，⛔ 不再改字。
+   *   分段与截断已经搬到 `midiToWords` 里做完（见那里的「示范—重复 时间线改写」）。
+   *   为什么必须搬过去（两个硬理由）：
+   *     ① 节拍器的 `metEnd` 取的是 `evs` 的最大 tick ⇒ 截断必须在【并节拍器之前】，
+   *        否则节拍器按原曲长继续打拍子（曲停了还在响 ✗）；
+   *     ② 事件在那边统一排序 ⇒ 复制出来的事件（tick 更大）能排到正确位置；
+   *        ⛔ 在这里追加会让输出乱序 ⇒ play_seq 按 tick 比较时把"迟到的小 tick"
+   *        当成立即播放 ⇒ 节奏全乱 ✗✗。
+   * ⚠️ 只判 `demoRepeatOn` 不够：`guideOn` 关着时筛选根本没发生 ⇒ 账没意义。 */
   if (!demoRepeatOn || !guideOn) return words;
-  const out = new Array(words.length);
   let last = -1, nDemo = 0, nFol = 0, nFolMelody = 0, nNa = 0;
-  const u = new Array(words.length);
   for (let i = 0; i < words.length; i++) {
-    u[i] = unpackWord(words[i]);
-    if (u[i].tick > last) last = u[i].tick;
-  }
-  /* demoEnd = min(demoBars × barTicks, 最后一个事件 tick + 1)
-   * ⚠️ 空谱（words.length === 0）⇒ last = -1 ⇒ 夹到 0 ⇒ 后面循环全不进示范段，
-   *    但空谱本来也没字可发，⛔ 不特判（不崩、不误判）。
-   * ⚠️ barTicks 取 lastConv 的（缩放后恒 3840）—— 判据脚本只调 midiToWords + visibleWords，
-   *    lastConv 可能还是上一个谱面的 ⇒ 退回 BAR_TICKS 兜底，口径一致。 */
-  const barTicks = (lastConv && lastConv.barTicks) || BAR_TICKS;
-  /* ⭐ 2026-10-16：示范段从【准备阶段之后】起算 —— 否则 prep 窗口（只放节拍器）
-   *    会把示范的头几小节静音 ⇒ 用户会看到"示范少了"（实测组合场景）。
-   *    ⚠️ 与 visibleWords 里 prepEnd 的算法必须一致（同一条判据，两处各一份 ⇒ 别改单边）。 */
-  const prepEnd = (metOn && guidePrepBars > 0) ? guidePrepBars * barTicks : 0;
-  let demoEnd = prepEnd + demoBars * barTicks;
-  if (demoEnd > last + 1) demoEnd = last + 1;
-  for (let i = 0; i < words.length; i++) {
-    if (u[i].tick < demoEnd) {
-      /* ⭐⭐ 示范段：原样出声 —— 但【必须清掉 bit6】！
-       * 🔴 2026-10-16 合并后新出现的交互缺陷（实测抓到）：
-       *    引导轨的事件在【转换层】就已经被置了 bit6（`midiToWords` 里
-       *    `gd = guideOn && sg.tr === guideTrackIdx`）—— 引导模式的语义就是"只亮灯"。
-       *    而示范段要的是【出声】⇒ 若照抄那份字，示范段会静音（用户看到"示范没声音"）。
-       *    ⇒ 示范段一律 `& ~(1n << OFF_GUIDE)`：把引导模式预先置的位清掉。
-       * ⚠️ 只清 bit6，其它位一个字节都不动。 */
-      out[i] = words[i] & ~(1n << OFF_GUIDE);
-      nDemo++; continue;
-    }
+    const u = unpackWord(words[i]);
+    if (u.tick > last) last = u.tick;
     const src = srcs ? srcs[i] : -1;
-    if (src === -2) { out[i] = words[i]; nFol++; continue; }            /* 节拍器：不标 */
-    if (u[i].kind === 2) { out[i] = words[i]; nFol++; continue; }       /* tempo：不标 */
-    if (u[i].isDrum) { out[i] = words[i]; nFol++; continue; }           /* 鼓：不标 */
-    out[i] = words[i] | (1n << OFF_GUIDE);                              /* 旋律：只置 bit6 */
-    nFol++; nFolMelody++;
-    if (u[i].note5 === NOTE5_NA) nNa++;                                 /* 设计点 C：越界音报数 */
+    if (src === -1 || src === -2) continue;     /* tempo / 节拍器：⛔ 不计入任一边 */
+    if (u.isDrum) continue;                     /* 鼓：本模式已裁掉（防御性跳过） */
+    if (u.guide) { nFol++; nFolMelody++; if (u.note5 === NOTE5_NA) nNa++; }
+    else nDemo++;
   }
   /* ⚠️ 记账存在 conv 上：UI 的 dr_sum 要读它（与 guideWords 同套路）。
-   * ⚠️ 只在长度匹配时写 —— 否则是别的调用点（旧口径），别污染它的账。 */
-  if (lastConv && lastConv.words && lastConv.words.length === words.length) {
-    lastConv.demoEnd = demoEnd;
+   * 🔴🔴 2026-10-16 修过一次（用户实测"示范 0 字 / 跟奏 0 字 + 假报'曲子太短'"）：
+   *    原来有 `lastConv.words.length === words.length` 的守卫 —— 但 `words` 是
+   *    **筛选后**的数组、`lastConv.words` 是**全量** ⇒ 长度永不相等 ⇒ 账一次都没写。
+   *    ⇒ 现在无条件写（键在 lastConv = 当前谱面，⛔ 不会串到别的谱）。 */
+  if (lastConv) {
+    const plan = lastConv.demoPlan || null;
+    lastConv.demoEnd = plan ? plan.demoEnd : 0;
     lastConv.demoWords = nDemo;
     lastConv.followWords = nFol;
     lastConv.followMelody = nFolMelody;
     lastConv.followNa = nNa;
+    lastConv.scoreLastTick = last;
   }
-  return out;
+  return words;
 }
 
 /* ⭐ 唯一来源：卷帘、组包、上传【都】用这一份 ⇒ 不会出现"听到的卷帘里没有"。
@@ -2007,6 +2081,12 @@ function applyDemoRepeat(words, srcs) {
 function visibleWords(conv) {
   if (!conv || !conv.words) return [];
   if (!conv.evTrack) return conv.words;           /* 没有轨信息（events.hex）⇒ 原样 */
+  /* ⭐⭐ 2026-10-16：本函数认下"当前谱面"= 传进来的 conv。
+   *   为什么必须在这里设：`applyDemoRepeat` 要读 `lastConv.barTicks` 与写记账 ——
+   *   若 lastConv 还停在上一个谱面（或为 null），会 ① barTicks 取错 ② 记账写不进去
+   *   ⇒ 摘要显示 0/0 并假报"曲子太短"（用户实测踩到过）。
+   *   ⚠️ 传进来的就是当前 conv（UI 与判据都如此）⇒ 设它永远自洽。 */
+  lastConv = conv;
   /* ⭐⭐ 2026-10-16 准备阶段（count-in）：引导模式 + 节拍器开时，最开头 N 小节
    *   【只响节拍器】—— 用户要的是"先听几拍再进"，否则一上来就糊一脸。
    *   🔴 判据：src === -2 的是节拍器 ⇒ 一律保留；其余（引导轨/鼓/背景）窗口内全丢。
