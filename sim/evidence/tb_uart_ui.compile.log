@@ -19,8 +19,8 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another 
-file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another
+ file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another fi
 le.
@@ -34,3 +34,21 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_referen
 ce inherited from another file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling inpu
+t port 27 (fxstat_req_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling inpu
+t port 28 (fxstat_sub_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling inpu
+t port 29 (fx_en_mask_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling inpu
+t port 30 (fx_dly_active_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling inpu
+t port 31 (fx_chor_active_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling inpu
+t port 32 (fx_dly_primed_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling inpu
+t port 33 (fx_dist_clip_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling inpu
+t port 34 (fx_trem_lfo_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling inpu
+t port 35 (fx_pipe_i) floating.

@@ -33,9 +33,17 @@
   ok  : byte[7] bits [5:4] carry the timbre (2)
   ok  : checksum follows the new byte[7] (logic unchanged)
   ok  : vacuity: the timbre did NOT change the frame length (still 14 B)
+  ok  : PITCH EVENT: byte[7] bit[6] = 0
+  ok  : pitch event => byte[7] = 0x13 (timbre 1, axis 3, no drum bit)
+  ok  : UM EVENT: byte[7] bit[6] = 1 *** (this is the bit ESP32 decodes)
+  ok  : e[7] = 0x53 (same timbre/axis, ONLY bit6 differs => NON-VACUOUS)
+  ok  : cuity: the drum bit did NOT change the frame length (still 14 B)
+  ok  : checksum follows the drum bit (XOR logic untouched)
+  ok  : the drum bit did NOT disturb bits [5:4] (timbre)
+  ok  : the drum bit did NOT disturb the axis in [3:0]
   ok  : re-disabled: no further frames are emitted
 
 PASS: evt_upstream -- v1.1 14-byte frames with the FULL 32-bit phase_inc, correct type/seq/tick/axis/vel/XOR, gated by enable, and overflow is counted and sticky
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_upstream.sv:286: $finish called at 17220000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_upstream.sv:323: $finish called at 18100000 (1ps)
 
 

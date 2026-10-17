@@ -10,6 +10,6 @@ VCD info: dumpfile build/sim/tb_ee_multineighbor/tb_ee_multineighbor.vcd opened 
   ok  : lip to -1 when the winning neighbour has the smaller axis number
 
 PASS: multi-neighbour slide B-selection -- B is the same-row neighbour with the LARGEST travel (tie -> lowest axis), A stays the leaving axis, direction follows the winning axis
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_ee_multineighbor.sv:237: $finish called at 790000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_ee_multineighbor.sv:247: $finish called at 1790000 (1ps)
 
 

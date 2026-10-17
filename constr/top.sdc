@@ -144,7 +144,41 @@ create_generated_clock -name pixel_clk -source [get_ports {clk}] -master_clock c
 #      ⇒ ⭐ 工具会干到接近极限 ⇒ ⭐ **相对 50 MHz 时钟的真实余量 ≈ 20 − 17.8 = +2.2 ns** ✅
 #   📌 ⭐ 这是**唯一**能真抬余量的杠杆（⭐ PnR 是确定性的 ⇒ ⭐ "重跑抽签"无效 ✅）
 # OPT08: placement target only; physical clk_sys remains 50 MHz.
-# Native slack uses 16.4 ns, not the AO 16.8 ns comparison budget.
+# Native slack uses 18.0 ns, not the AO 16.8 ns comparison budget.
+#
+# ═════════════════════════════════════════════════════════════════════════════
+#  2026-10-18：过约束 16.4 -> 18.0（用户裁定）
+#
+#  这条 set_max_delay 是【优化目标】，不是【验收标准】：
+#    · 它逼布局布线器去干 1/18.0ns = 55.6 MHz
+#    · 真实时钟一直是 create_clock 的 20 ns（50 MHz），从来没变
+#    · 验收由 sim/gowin_build.ps1 的 P0-30 门判定 —— 它【自动从本文件读】
+#      create_clock 周期与这条 set_max_delay，换算成"对真实时钟的 slack"
+#      => 改这里的值，门的判定口径会自动跟着变，不会被写死的数字骗到
+#
+#  历史（都是同一根杠杆，每次调完必须实测）：
+#    18.181 (55.0 MHz) -> 实测 Fmax 55.087 · slack +0.028 · 0 违例（太松，工具一到就收工）
+#    17.0   (58.8 MHz) -> 实测 Fmax 57.203 · slack -0.481 · 14 违例（超过真实上限）
+#    17.8   (56.2 MHz) -> 真实余量 +2.2 ns（当时的取舍）
+#    16.4   (61.0 MHz) -> 2026-10-17 那轮：真实 slack +2.976 ns，但报告显示
+#                          192/208 条"违例"（全是浅违例，最差只 -0.6 ns）
+#                          => 数字看着像失败，其实按 50 MHz 是过的，容易误读
+#    18.0   (55.6 MHz) -> 2026-10-18 实测【变差】，见下，已回退
+#
+#  🔴🔴 2026-10-18 实测结论（这条很重要，别再犯）：
+#     把 16.4 放松到 18.0 之后，**两个指标同时变差**：
+#         Fmax   58.622 -> 53.500 MHz      （掉 5 MHz）
+#        真实余量 +2.942 -> +1.309 ns      （少 1.6 ns）
+#        报告违例  208 -> 162 条           （并没有变成 0）
+#     ⇒ ⭐ **过约束放松 = 工具偷懒 = 设计真的变慢**。
+#        它不是"把判据放宽"，而是"把优化力度调小" ⇒ ⛔ 放松永远不划算。
+#     ⇒ ⭐ 而且**没有换来 0 违例**：工具觉得"差不多"就停手，最终落在 18.7 ns 附近，
+#        仍然差 18.0 一点点 ⇒ "放松到刚好能过"这个想法**不成立**。
+#     ⚠️ 诚实标注：那次同时改了 RTL（推子三档/锁定），所以 5 MHz 里有多少归 SDC
+#        无法完全分离；但"放松不会让设计变快"这个方向是确定的。
+#     ✅ 结论：**过约束越紧越好（在工具还能收敛的前提下）**，因为它换的是真实余量。
+#        报告里那些浅违例是"逼工具多干活"的副作用，⛔ 不是设计失败。
+# ═════════════════════════════════════════════════════════════════════════════
 set_max_delay -from [get_clocks {clk_sys}] -to [get_clocks {clk_sys}] 16.4
 set_max_delay -from [get_clocks {clk_sys}] -to [get_regs {u_hdmi/u_scope/gray_launch_*_s0 u_hdmi/u_scope/full_launch_s0 u_hdmi/u_scope/mode_launch_s0}] 10.000
 # FFT publication/selection also launches on sys falling edges. Preserve the

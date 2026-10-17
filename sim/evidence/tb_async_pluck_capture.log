@@ -1,4 +1,5 @@
-﻿  ok  : UP edge produces exactly one pluck
+﻿WARNING [async_pluck_capture] BLANK_CYC=0 => the same-rail blank is OFF, so a release-threshold re-crossing WILL retrigger (the 'one down stroke, two notes' bug).
+  ok  : UP edge produces exactly one pluck
   ok  : UP edge is labelled UP
   ok  : H10 armed_o is ALWAYS 1'b1 (post-gate semantics: only refractory throttles)
   ok  : refractory suppresses a second immediate edge
@@ -14,7 +15,19 @@
   ok  : H10b armed_o is still 1'b1 while both_low_o is false (no gate to disarm it)
   ok  : H9b setup: both_low_o is FALSE while the DOWN line is held
   ok  : H9b a genuine UP edge fires even though both_low_o is NEVER true (no position gate)
-PASS: async pluck capture synchronizes edges, prioritizes UP, applies refractory, and imposes no position restriction on a genuine pluck
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_async_pluck_capture.sv:196: $finish called at 3530000 (1ps)
+  ok  : P0-4-2 setup: both rails low is observable before the stroke
+  ok  : P0-4-2a the genuine DOWN stroke fires exactly once
+  ok  : P0-4-2b [BUG] a release-threshold RE-CROSSING on the SAME rail emits NO second event
+  ok  : P0-4-2c the ONE event is still the genuine DOWN stroke
+  ok  : 0,BLANK=6] with refractory OFF the blank ALONE still suppresses the rebound (attribution proven)
+  ok  : rm instance] the SAME rebound sequence DOES emit a 2nd event without the fix (judgement is live)
+  ok  : C83 canary b both events are DOWN (the rebound is not a spurious UP)
+  ok  : P0-4-2d the genuine UP stroke fires exactly once
+  ok  : 4-2e [BUG] UP rail release-threshold re-crossing also emits NO second event (both rails guarded)
+  ok  : [REGRESSION] a genuine UP edge right after DOWN release STILL fires (per-rail blank, not global)
+  ok  :  event latency is ZERO added by the blank: <= 4 clocks (80 ns) from edge to event (spec: <=5 ms)
+  ok  : g [REGRESSION] after the release window EXPIRES the same rail fires again (no permanent lockout)
+PASS: async pluck capture synchronizes edges, prioritizes UP, applies refractory, imposes no position restriction on a genuine pluck, and suppresses the release-threshold re-crossing on the same rail with ZERO added latency
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_async_pluck_capture.sv:542: $finish called at 10370000 (1ps)
 
 

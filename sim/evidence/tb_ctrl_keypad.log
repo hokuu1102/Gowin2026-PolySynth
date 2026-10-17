@@ -74,10 +74,10 @@ NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=1000 LONG_MS=600 LONG_CYC=600 HW=10)
   ok  : 8a: while still held short, no command yet
   ok  : 8b: SHORT press -> tare_req once
   ok  : 8c: SHORT press -> NO span_req (the two are mutually exclusive)
-  ok  : 8d: LONG press -> span_req once
-  ok  : 8e: after a long press, releasing does NOT also fire tare
+  ok  : 8d: LONG press -> span NEVER fires (span removed 2026-10-17)
+  ok  : 8e: after a long press, releasing DOES fire tare (span removed => long press no longer suppresses tare)
 
-PASS: ctrl keypad -- one-row-low scan, scan-based debounce (jitter rejected), every key maps to exactly its own command, same-column pairs resolved, long-press protected clear, and calib key short=tare / long=span
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_ctrl_keypad.sv:417: $finish called at 337890000 (1ps)
+PASS: ctrl keypad -- one-row-low scan, scan-based debounce (jitter rejected), every key maps to exactly its own command, same-column pairs resolved, long-press protected clear, and calib key fires tare on release (span removed 2026-10-17)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_ctrl_keypad.sv:424: $finish called at 337890000 (1ps)
 
 

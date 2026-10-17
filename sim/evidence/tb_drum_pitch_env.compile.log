@@ -38,7 +38,15 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_drum_pitch_env.sv:150: warning: I
 h dangling input port 5 (voice_phase_rst_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_drum_pitch_env.sv:150: warning: Instantiating module oscillator_bank wit
 h dangling input port 10 (drum_cls_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_drum_pitch_env.sv:150: warning: Instantiating module oscillator_bank wit
+h dangling input port 21 (osc_rd_addr0_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_drum_pitch_env.sv:150: warning: Instantiating module oscillator_bank wit
+h dangling input port 22 (osc_rd_addr1_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_drum_pitch_env.sv:173: warning: Instantiating module oscillator_bank wit
 h dangling input port 5 (voice_phase_rst_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_drum_pitch_env.sv:173: warning: Instantiating module oscillator_bank wit
 h dangling input port 10 (drum_cls_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_drum_pitch_env.sv:173: warning: Instantiating module oscillator_bank wit
+h dangling input port 21 (osc_rd_addr0_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_drum_pitch_env.sv:173: warning: Instantiating module oscillator_bank wit
+h dangling input port 22 (osc_rd_addr1_i) floating.

@@ -73,8 +73,8 @@ Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\fx_trem.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\fx_chain.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v'
-Analyzing included file 'rtl\w3c\drum_inc_defs.vh'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":6529)
-Back to file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":6529)
+Analyzing included file 'rtl\w3c\drum_inc_defs.vh'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":6616)
+Back to file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":6616)
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\tlc5916_driver.sv'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\mcp3208_driver.sv'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\mcp3208_scanner.sv'
@@ -88,8 +88,8 @@ Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\fft_coeff_
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\fft_spectrum_core.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\fft_spectrum_view.v'
 Compiling module 'top'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":36)
-Extracting RAM for identifier 'as_pos_d'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":5177)
-WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":7901)
+Extracting RAM for identifier 'as_pos_d'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":5264)
+WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":8014)
 Compiling module 'rst_sync'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\rst_sync.v":27)
 Compiling module 'sync_input(RESET_VAL=1'b1)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\sync_input.v":31)
 Compiling module 'debounce(NKEY=1)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\debounce.sv":24)
@@ -104,7 +104,7 @@ Compiling module 'ctrl_keypad'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\ctr
 Extracting RAM for identifier 'deb_cnt'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\ctrl_keypad.v":110)
 WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\ctrl_keypad.v":68)
 Compiling module 'ctrl_key_map'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\ctrl_key_map.v":63)
-WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\ctrl_key_map.v":140)
+WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\ctrl_key_map.v":155)
 Compiling module 'evt_uart_rx(BAUD=500000)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_uart_rx.v":70)
 Compiling module 'evt_buf(HIGH_WM=768)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_buf.v":51)
 Extracting RAM for identifier 'mem'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_buf.v":107)
@@ -163,8 +163,8 @@ Compiling module 'sync_input(RESET_VAL=1'b0)'("C:\Users\hokuu\Desktop\FPGA\FPGA2
 Compiling module 'mcp3208_scanner'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\mcp3208_scanner.sv":3)
 Compiling module 'mcp3208_driver'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\mcp3208_driver.sv":3)
 Compiling module 'right_analog_ctrl'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\right_analog_ctrl.v":8)
-Compiling module 'fader_gear'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\fader_gear.v":101)
-WARN  (EX3791) : Expression size 6 truncated to fit in target size 5("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\fader_gear.v":249)
+Compiling module 'fader_gear'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\fader_gear.v":132)
+WARN  (EX3791) : Expression size 6 truncated to fit in target size 5("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\fader_gear.v":350)
 Compiling module 'calib_autotare(STILL_TOL=48)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\calib_autotare.v":43)
 Extracting RAM for identifier 'last_raw'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\calib_autotare.v":175)
 Extracting RAM for identifier 'still_cnt'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3a\calib_autotare.v":176)
@@ -303,9 +303,9 @@ Running technical mapping ...
 [75%] Tech-Mapping Phase 2 completed
 [80%] Tech-Mapping Phase 3 completed
 [90%] Tech-Mapping Phase 4 completed
-WARN  (NL0002) : The module "metronome" instantiated to "g_sound.u_metronome" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":3449)
-WARN  (NL0002) : The module "param_extract" instantiated to "g_sound.u_param_extract" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":5705)
-WARN  (NL0002) : The module "uart_tx" instantiated to "u_uart_tx_esp" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":2723)
+WARN  (NL0002) : The module "metronome" instantiated to "g_sound.u_metronome" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":3480)
+WARN  (NL0002) : The module "param_extract" instantiated to "g_sound.u_param_extract" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":5792)
+WARN  (NL0002) : The module "uart_tx" instantiated to "u_uart_tx_esp" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":2748)
 [95%] Generate netlist file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\gwsynthesis\Gowin2026.vg" completed
 [100%] Generate report file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\gwsynthesis\Gowin2026_syn.rpt.html" completed
 GowinSynthesis finish
@@ -349,5 +349,5 @@ Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.pin.html"
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.rpt.html" completed
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.rpt.txt" completed
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.tr.html" completed
-Sat Oct 17 23:48:07 2026
+Sun Oct 18 01:28:23 2026
 

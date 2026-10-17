@@ -1683,6 +1683,12 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     wire km_keydrum_req, km_trans_down_req, km_trans_up_req, km_gear_next_req;
     wire km_slide_req, km_mode_req, km_fb_piano, km_fx_req;
     wire km_loop_send_req;      // ⭐ 'loop 发送'（ctrl_key_map idx 13，短按即发）
+    //  ⭐⭐ 2026-10-18：⭐ **idx 9 = 推子锁定切换** ✅
+    //     ⭐ 链路：`u_ctrl_key_map.lock_toggle_req_o` → 本线 → `u_fader_gear.lock_toggle_i`
+    //     📌 ⭐ 直接一根线（⛔ 不再绕 `cmd_*`）—— 因为**生产者与消费者只各一个**
+    //        （⭐ `ctrl_key_map` 与 `fader_gear` 都在 `g_sound` 里，而本线声明在模块级
+    //         ⇒ ⭐ 两边都读得到 ✅；⭐ 与 `km_gear_next_req` 同一口径 ✅）
+    wire km_lock_toggle_req;
     //  ⭐⭐ 2026-10-15：⭐ **idx 14（列 2 / 行 3）= 一键恢复默认音高** ✅
     //     ⭐ 用户需求：*"矩阵键盘加一个键：一键恢复默认音高"* ✅
     //     📌 ⭐ 依据：⭐ `files/20-代码/控制板16键功能映射-20261013.md` §二 ⇒ ⭐ 该格原是「备用 2」
@@ -1700,8 +1706,13 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     assign cmd_met_req          = cc_met_req          | km_met_req;
     assign cmd_drum_pattern_req = cc_drum_pattern_req | km_drum_pattern_req;
     assign cmd_keydrum_req      = cc_keydrum_req      | km_keydrum_req;
-    assign cmd_trans_down_req   = cc_trans_down_req   | km_trans_down_req   | enc_trans_dn_w;
-    assign cmd_trans_up_req     = cc_trans_up_req     | km_trans_up_req     | enc_trans_up_w;
+    //  ⭐⭐ 2026-10-17（用户需求）：⭐ **矩阵键盘的升调/降调改成 ±1 个八度（±12 半音）** ✅
+    //     ⇒ ⭐ 所以 `km_trans_up_req` / `km_trans_down_req` **不再进这条 ±1 半音通路**，
+    //        改走下面 `u_fader_gear` 的**绝对量入口**（`trans_abs_i`/`trans_abs_val_i`）✅
+    //     📌 保留 ±1 半音的通路给：⭐ 串口 `'F'`/`'G'`（精调）＋ ⭐ EC11（一格一个半音）✅
+    //     ⭐ 与项目既有哲学一致：⭐ **推子粗调 / EC11 精调** ⇒ 现在多了"矩阵键 = 八度级粗调" ✅
+    assign cmd_trans_down_req   = cc_trans_down_req   | enc_trans_dn_w;
+    assign cmd_trans_up_req     = cc_trans_up_req     | enc_trans_up_w;
     assign cmd_gear_next_req    = cc_gear_next_req    | km_gear_next_req;
     assign cmd_slide_req        = cc_slide_req        | km_slide_req;
     //  ⭐ idx 7「模式」键 ⇒ ⭐ 与 `'A'` **同一个下游**（⭐ 两者都是"翻转" ✅）
@@ -1861,8 +1872,13 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
         .fb_piano_o         (km_fb_piano),
         .tare_req_o         (km_tare_req),
         .span_req_o         (km_span_req),
-        //  ⚠️ ⭐ `fx_req_o` 是**占位**（⭐ 效果器还不存在 ⇒ ⭐ 综合会剪掉它 ✅）
+        //  ⚠️ ⭐ `fx_req_o` 是**历史占位**（⭐ 用户已确认"效果器那个键不需要了"）
+        //     ⇒ ⭐ 本端口在 `top.v` 里**无消费者**（综合会剪掉）
+        //     ⚠️ 但 ⛔ 不能删端口：`tb_ctrl_key_map.sv:253/281` 与
+        //        `tb_ctrl_keypad.sv:346` 仍断言"idx 9 ⇒ fx_req 一次" ✅
         .fx_req_o           (km_fx_req),
+        //  ⭐⭐ 2026-10-18：⭐ **idx 9 = 推子锁定切换** ✅
+        .lock_toggle_req_o  (km_lock_toggle_req),
         //  ⭐⭐ 2026-10-17：⭐ idx 13（列 1 / 行 3）= loop 发送 ⇒ OR 进 `recdump`（见下方两处使用点 ✅）
         .loop_send_req_o    (km_loop_send_req)
     );
@@ -2314,6 +2330,15 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     localparam integer NCH_LED = 8;         // ⭐ 指示灯颗数（⭐ 一颗对一个东西）
     wire       led_beat;                    // ⭐ 拍点脉冲（`g_sound` 的 `bg_beat`，⭐ 单周期）
     wire [1:0] led_gear_st;                 // ⭐ 推子档位（`g_sound.u_fader_gear.gear_o`）
+    //  ⭐⭐ 2026-10-18：⭐ **推子三档 + 锁定 + 音量颤音** 的跨分支共享线 ✅
+    //     📌 ⭐ **为什么声明在模块层**（⛔ 不在 generate 里）：
+    //        ① `u_led_indicator` 在 **generate 之外** ⇒ ⭐ 必须能在模块层读到 `fg_hold`
+    //        ② 与 `led_gear_st`/`led_beat` 同一口径（⭐ 本项目既有模式 ✅）
+    //     🔴 **`g_silent` 分支必须显式驱动它们** —— 否则悬空成 `z`
+    //        （⭐ 见 `g_silent` 里 `P0-06` 那段教训：漏一根就整块变 X ✅）
+    wire [11:0] trem_depth_f;               // ⭐ 档 2 音量颤音深度（推子 ch2 直通）
+    wire [11:0] trem_rate_f;                // ⭐ 档 2 音量颤音速率（推子 ch3 直通）
+    wire [2:0]  fg_hold;                    // ⭐ 三档锁定状态（bit0/1/2 = 档 0/1/2，1 = 已锁定）
     wire [1:0] led_looper_st;               // ⭐ looper：0=空闲 · 1=录音 · 2=回放 · 3=武装中
     wire [NCH_LED*24-1:0] led_col_flat;     // ⭐ 8 颗灯的颜色（⭐ `u_led_indicator` 驱动）
 
@@ -2878,6 +2903,12 @@ wire ovf_any;
         //     ⚠️ `2'd0` 在指示层的表里是 **"变调"（紫）** ⇒ 🔴 **指示灯会说谎**
         //     （⭐ 这一档**根本没有推子**；⭐ 由 `tb/top/tb_top_led_strip.sv` 的 (3d) 钉住 ✅）
         assign led_gear_st   = 2'd3;
+        //  ⭐⭐ 2026-10-18：⭐ 本档**没有推子** ⇒ 三个新共享线显式给 0 ✅
+        //     📌 `fg_hold = 3'b000`（全解锁）⇒ ⭐ 指示层 #2 不会快闪 ✅
+        //     📌 `trem_* = 0` ⇒ ⭐ 即使被 mux 选中也是"深度 0 = 数值恒等" ✅
+        assign trem_depth_f  = 12'd0;
+        assign trem_rate_f   = 12'd0;
+        assign fg_hold       = 3'b000;
         //  📌 `led_looper_st` 仍是 `2'd0`（= 空闲 ⇒ 暗蓝）——
         //     ⭐ 因为用户的 looper 语义里**没有"无"这一档**（只有 空闲/录音/回放）
         //     ⇒ ⭐ "没有 looper" 与"looper 空闲"在**灯上是同一个状态**（⭐ 也是它的复位态）✅
@@ -3741,6 +3772,33 @@ wire ovf_any;
         //       · `gear_o` → ⭐ 模块层 `led_gear_st` → ⭐ **指示层 led5**（推子功能）
         //         📌 2026-10-03 起有消费者了（⭐ 原来空着；⭐ 语义见 `led_indicator.v`）✅
         wire [11:0] vib_depth_sel, vib_rate_sel;
+
+        //  ═══════════════════════════════════════════════════════════════════
+        //  ⭐⭐ 2026-10-17（用户需求）：⭐ **矩阵键「升调/降调」= ±1 个八度** ✅
+        //
+        //  ⭐ **为什么不改 `fader_gear.v`**：⭐ 它只有 `trans_up_i`/`trans_down_i`
+        //     两个"±1 步"入口，而 ⚠️ 那**同时**被串口 `'F'`/`'G'` 与 EC11 使用
+        //     ⇒ 改它的步长会把**精调也变成八度**（⛔ 不是用户要的）✅
+        //  ✅ 改法：⭐ 复用 `fader_gear` **本来就有的**"带帧绝对量"入口
+        //     （⭐ `'H'` 与「音高归零」键 14 已经在用它 ✅ ⇒ 通路已验证）
+        //     ⇒ ⭐ `fader_gear.v` **一行都不用改**，3 个例化它的 tb 也不会断 ✅
+        //
+        //  ⭐ **量纲换算（⭐ 关键，⛔ 别混）**：
+        //     · `transpose_semi`      = **有符号 −12..+12**（半音）
+        //     · `trans_abs_val_i`     = **无符号 0..24 编码**（12 = 不调）
+        //     ⇒ ⭐ 这里先把 `transpose_semi` 符号扩展成 6 位，±12 后 clamp，
+        //        再 +12 偏移换回 0..24 编码 ✅
+        //     📌 clamp 到 ±12 是**必须**的：⭐ 目标寄存器 `enc_r` 只有 0..24，
+        //        不 clamp 会回绕 ⇒ 🔴 升到顶再按一下会**突然掉到最低**（静默错）
+        //  ═══════════════════════════════════════════════════════════════════
+        wire signed [5:0] semi_now    = {{1{transpose_semi[4]}}, transpose_semi};
+        wire signed [5:0] semi_oct_up = semi_now + 6'sd12;
+        wire signed [5:0] semi_oct_dn = semi_now - 6'sd12;
+        wire signed [5:0] semi_up_cl  = (semi_oct_up >  6'sd12) ?  6'sd12 : semi_oct_up;
+        wire signed [5:0] semi_dn_cl  = (semi_oct_dn < -6'sd12) ? -6'sd12 : semi_oct_dn;
+        wire [7:0]        oct_up_code = {2'b00, (semi_up_cl + 6'sd12)};
+        wire [7:0]        oct_dn_code = {2'b00, (semi_dn_cl + 6'sd12)};
+
         fader_gear u_fader_gear (
             .clk              (clk),
             .rst_n            (rst_n_sync),
@@ -3787,12 +3845,41 @@ wire ovf_any;
             //        📌 ⭐ **语义上可接受**：⭐ "音高归零"是**用户手按的显式意图**，
             //           ⭐ 且**后续命令/推子即可再改**（⛔ 不锁死、⛔ 不产生持久错态 ✅）
             // ═══════════════════════════════════════════════════════════════
-            .trans_abs_i      (cmd_trans_abs_req | km_trans_reset_req),
-            .trans_abs_val_i  (km_trans_reset_req ? 8'd12 : cmd_trans_abs_val),
+            //  ⭐⭐ 2026-10-17：⭐ 绝对量入口现在有 **四个** 来源（⭐ 优先级从高到低）：
+            //     ① 键 14「音高归零」⇒ 送编码 12（= 不调）
+            //     ② 键 6 「升一个八度」⇒ 送 `oct_up_code`
+            //     ③ 键 10「降一个八度」⇒ 送 `oct_dn_code`
+            //     ④ 串口 `'H'`     ⇒ 送 `cmd_trans_abs_val`
+            //  📌 ⭐ 四个来源**互斥**（不同按键/不同命令）⇒ 优先级只是为了"同拍极端情况"确定性
+            //  📌 ⭐ `trans_abs_i` 与 `trans_abs_val_i` **都是纯组合、同一拍** ✅
+            //      （⭐ 与下面键 14 那段注释同一条论证：⭐ 同一个 net 的同一个电平决定 ✅）
+            .trans_abs_i      (cmd_trans_abs_req | km_trans_reset_req
+                               | km_trans_up_req | km_trans_down_req),
+            .trans_abs_val_i  (km_trans_reset_req ? 8'd12 :
+                               km_trans_up_req    ? oct_up_code :
+                               km_trans_down_req  ? oct_dn_code :
+                                                    cmd_trans_abs_val),
             .gear_o           (led_gear_st),   // ⭐ 2026-10-03：⭐ 引出给指示层 led5
             .transpose_semi_o (transpose_semi),
             .vibrato_depth_o  (vib_depth_sel),
-            .vibrato_rate_o   (vib_rate_sel)
+            .vibrato_rate_o   (vib_rate_sel),
+            //  ═══════════════════════════════════════════════════════════════
+            //  ⭐⭐ 2026-10-18：⭐ **三档 + 锁定 + 音量颤音** 的新端口 ✅
+            //     📌 ⭐ 接口按 `bringup/40-推子三档与双颤音共存-实施方案-20261018.md` §4.1
+            //        （⭐ `fader_gear.v` 由另一路并行修改，本处只按契约接线 ✅）
+            //  ⚠️ **`gear_sel0/1/2_i` 本轮接 0** —— 屏点选的触摸控件号还没和屏侧
+            //     对齐（⭐ 见实施方案 §九）⇒ ⭐ 下一轮再接；
+            //     🔴 但**端口必须显式接**（`default_nettype none` 下悬空会报错）✅
+            .gear_sel0_i      (1'b0),
+            .gear_sel1_i      (1'b0),
+            .gear_sel2_i      (1'b0),
+            //  ⭐ 锁定键：idx 9（矩阵 行2列1）⇒ 翻转【当前档】的锁定位 ✅
+            .lock_toggle_i    (km_lock_toggle_req),
+            //  ⭐ 档 2 的音量颤音深度/速率（12 位，与推子同宽 ⇒ 逐位直通）✅
+            .trem_depth_o     (trem_depth_f),
+            .trem_rate_o      (trem_rate_f),
+            //  ⭐ 三档锁定状态（bit0/1/2）⇒ 给指示层 #2（快闪 = 已锁定）✅
+            .hold_o           (fg_hold)
         );
 
         // ── ⭐ ② `calib` ×2：逐通道零点/灵敏度标定 ───────────────────────
@@ -7558,6 +7645,31 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         //    （⭐ 判据 `tb_fx_chain` 验的正是"数值恒等"这一条 ✅）
         wire signed [SAMPLE_W-1:0] fx_sample;
         wire                      fx_valid;
+        //  ═══════════════════════════════════════════════════════════════════
+        //  ⭐⭐ 2026-10-18：⭐ **音量颤音的"生效值" mux（档 2 ⇒ 推子独占）** ✅
+        //
+        //  ⭐ 结构约束（⭐ 已核）：`ui_fx_depth`/`ui_fx_rate` 是 `uart_ui` 内部的
+        //     `output reg`（⭐ `uart_ui.v:171-172`）⇒ ⭐ 顶层**只能读、不能写**
+        //     ⇒ ⭐ 所以**不让推子直接驱动它们**，而是在 `fx_chain` 例化处选"生效值" ✅
+        //     📌 这是实施方案 §5.3.2 的**路线 A**：⭐ 对 `uart_ui` 的写入口零改动、
+        //        ⛔ 不引入"推子 vs 帧 vs EC11"三方仲裁 ✅
+        //
+        //  ⚠️ **必须写清的语义（"静默无效"，与 `K-106` 有张力）**：
+        //     档 2 下帧 `0x15`/`0x16` **仍然写进寄存器，但不影响出声**（被本 mux 挡住）
+        //     ⇒ ⭐ 处置：① 屏上显示**生效值**（mux 之后），⛔ 不显示寄存器原值
+        //               ② 退出档 2 后回到帧设的值（"推子只管档 2 期间"）✅
+        //
+        //  ⭐ **位宽换算的理由（⛔ 别随手改成 [11:4]）**：
+        //     · depth：`[11:4]` ⇒ 0..255 —— 全行程都有意义（0 = 数值恒等，255 = 最深）✅
+        //     · rate ：`[11:7]` ⇒ 0..31  —— 🔴 **必须缩放**：`fx_trem.RATE_DEFAULT = 7`
+        //        ≈ 5 Hz（⭐ `fx_trem.v:85`），而 `RATE_W = 8` 允许 0..255
+        //        ⇒ ⚠️ 若直接取 `[11:4]`，推子**前 3% 行程**就覆盖整个常用区间，
+        //           后面 97% 全是"过快" ⇒ 🔴 手感极差 ✅
+        //  ═══════════════════════════════════════════════════════════════════
+        wire        trem_from_fader = (led_gear_st == 2'd2);
+        wire [7:0]  trem_depth_eff  = trem_from_fader ? trem_depth_f[11:4] : ui_fx_depth;
+        wire [7:0]  trem_rate_eff   = trem_from_fader ? trem_rate_f[11:7]  : ui_fx_rate;
+
         fx_chain #(
             .SAMPLE_W(SAMPLE_W), .AW(14), .AW_CH(11)
         ) u_fx (
@@ -7569,7 +7681,8 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             .dist_sel_i(2'd0), .dist_gain_i(ui_fx_gain), .dist_trim_i(ui_fx_trim),
             .dly_delay_i(ui_fx_dlylen), .chor_delay_i(ui_fx_chorlen),
             .dly_mix_i(ui_fx_mix), .dly_fb_i(ui_fx_fb),
-            .trem_depth_i(ui_fx_depth), .trem_rate_i(ui_fx_rate),
+            //  ⭐⭐ 2026-10-18：⭐ 改用**生效值**（档 2 = 推子，其余 = `uart_ui` 的寄存器）✅
+            .trem_depth_i(trem_depth_eff), .trem_rate_i(trem_rate_eff),
             .valid_o(fx_valid), .sample_o(fx_sample),
             //  ⭐⭐⭐⭐ 2026-10-17（`K-106`）：⭐ **7 个可观测输出全部接出来** ✅
             //     🔴 **原缺陷**：⭐ 这 7 个**全是空接**（⭐ `()`）⇒ 🔴 **综合整条剪掉**
@@ -8371,6 +8484,8 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         .fb_mode_i  (play_fretboard_mode),  // #1 16 键行为（1 = 指板 · 0 = 键盘）
         .keydrum_i  (key_drum_r),           // #1 键盘打鼓（覆盖模式）
         .gear_i     (led_gear_st),          // #2 推子功能
+        //  ⭐⭐ 2026-10-18：⭐ 三档锁定状态 ⇒ #2 灯**快闪 = 已锁定**（常亮 = 实时跟随）✅
+        .hold_i     (fg_hold),
         .metro_on_i (met_on_r),             // #3 节奏
         .beat_i     (led_beat),
         .drum_on_i  (led_drum_on),

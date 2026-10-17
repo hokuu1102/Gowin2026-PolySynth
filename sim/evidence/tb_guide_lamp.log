@@ -1,4 +1,5 @@
-﻿VCD info: dumpfile build/sim/tb_guide_lamp/tb_guide_lamp.vcd opened for output.
+﻿NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
+VCD info: dumpfile build/sim/tb_guide_lamp/tb_guide_lamp.vcd opened for output.
 === tb_guide_lamp (鐏綅 = 闊抽珮鏌ヨ〃 + 杩愯鏈熷彉璋? ===
    kb: E3=52 F#3=54 C3=48 B3=59 A3=57 | fb: A2=45 D4=62
   ok  : baseline: guide all 0 right after reset
@@ -33,7 +34,17 @@
   ok  : P0-28 a PRESSED key is blanked: guide_key[3]=1 but guide_vis[3]=0
   ok  : P0-28 blanking does not disturb other axes: guide_vis == guide_key & ~key_active
   ok  : P0-28 after release the guide bit is visible again
-PASS: tb_guide_lamp (32 checks)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_guide_lamp.sv:534: $finish called at 3891000 (1ps)
+== 鈶?Q4 refcount: one note_off must NOT kill a shared lamp ==
+  ok  : Q4-0 precondition: key 9 is dark before the test
+  ok  : Q4-a two voices on the SAME pitch still light exactly one lamp
+  ok  : Q4-b *** the FIRST note_off KEEPS the lamp ON (this is the Q4 fix) ***
+  ok  : Q4-c the LAST note_off finally clears it
+  ok  : Q4-d ... and nothing else is lit
+  ok  : Q4-e NON-VACUOUS: another pitch's note_off DOES clear its own lamp (key0 dark, key9 lit)
+  ok  : Q4-f clean at the end
+  ok  : Q4-g count saturates at 7 but the lamp is still on
+  ok  : Q4-h saturation SELF-HEALS: 8 ONs + 8 OFFs leaves every lamp dark (no hanging lamp)
+PASS: tb_guide_lamp (41 checks)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_guide_lamp.sv:585: $finish called at 4371000 (1ps)
 
 

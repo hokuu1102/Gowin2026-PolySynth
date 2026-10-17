@@ -34,3 +34,7 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_referen
 ce inherited from another file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_drum_sweep_window.sv:129: warning: Instantiating module oscillator_bank 
+with dangling input port 21 (osc_rd_addr0_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_drum_sweep_window.sv:129: warning: Instantiating module oscillator_bank 
+with dangling input port 22 (osc_rd_addr1_i) floating.

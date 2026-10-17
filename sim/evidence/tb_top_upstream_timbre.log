@@ -8,11 +8,12 @@ NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift
 INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
 NOTE [fx_delay] DEPTH=2048 samples = 41 ms @48828.125Hz | MEM_W=18 => 36864 bit / 18432 bit-per-block = 2 BSRAM block(s) of 118
 NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118
-NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=25 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=26 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
 NOTE [ctrl_keypad] PARAM_OK=1 (SCAN_DIV=12500 DEB_N=8 CLK_HZ=50000000 scan_us=0 db_ms=8)
 NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=50000000 LONG_MS=2000 LONG_CYC=100000000 HW=27)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
 VCD info: dumpfile build/sim/tb_top_upstream_timbre/tb_top_upstream_timbre.vcd opened for output.
   ok  : non-vacuity): with the upstream DISABLED, ZERO bytes are emitted
@@ -39,32 +40,38 @@ VCD info: dumpfile build/sim/tb_top_upstream_timbre/tb_top_upstream_timbre.vcd o
   ok  : drum: byte[0] is the 0xA5 header
   ok  : drum: kind=0 (note_on) => type 0x01
   ok  :  (NOT independently decidable vs hand-play, but must still hold)
-  ok  : drum: byte[7] bits[7:6] are the reserved bits and must stay 0
+  ok  : drum: byte[7] bit[7] is still the reserved bit and must stay 0
+  ok  : e[7] bit[6] = is_drum MUST be 1 (new protocol bit for ESP32) ***
   ok  : drum: exactly one 14-byte frame came out
   ok  : drum: byte[0] is the 0xA5 header
   ok  : drum: kind=0 (note_on) => type 0x01
   ok  :  low nibble MUST equal drum_type (this is the decidable one) ***
-  ok  : drum: byte[7] bits[7:6] are the reserved bits and must stay 0
+  ok  : drum: byte[7] bit[7] is still the reserved bit and must stay 0
+  ok  : e[7] bit[6] = is_drum MUST be 1 (new protocol bit for ESP32) ***
   ok  : drum: exactly one 14-byte frame came out
   ok  : drum: byte[0] is the 0xA5 header
   ok  : drum: kind=0 (note_on) => type 0x01
   ok  :  low nibble MUST equal drum_type (this is the decidable one) ***
   ok  : [7] low nibble is 2, NOT 0 -- the drum_type DOES travel upstream
-  ok  : drum: byte[7] bits[7:6] are the reserved bits and must stay 0
+  ok  : drum: byte[7] bit[7] is still the reserved bit and must stay 0
+  ok  : e[7] bit[6] = is_drum MUST be 1 (new protocol bit for ESP32) ***
   ok  : drum: exactly one 14-byte frame came out
   ok  : drum: byte[0] is the 0xA5 header
   ok  : drum: kind=0 (note_on) => type 0x01
   ok  :  low nibble MUST equal drum_type (this is the decidable one) ***
-  ok  : drum: byte[7] bits[7:6] are the reserved bits and must stay 0
+  ok  : drum: byte[7] bit[7] is still the reserved bit and must stay 0
+  ok  : e[7] bit[6] = is_drum MUST be 1 (new protocol bit for ESP32) ***
   ok  : hand-play: exactly one 14-byte frame came out
   ok  : ow nibble is 0 -- a hand-play is NEVER marked as a drum upstream
   ok  : a keyboard-drum event still emits exactly 14 bytes
   ok  :  DRUM: byte[7][3:0] must be the drum_type (1 = Snare), NOT 0 ***
   ok  : BOARD DRUM: bits[5:4] must also be the drum_type (1 = Snare) ***
-  ok  : e => byte[7] = 0x11 (the exact value the ESP32 side expects) ***
+  ok  : nare => byte[7] = 0x51 = {1'b0, is_drum=1, timbre=1, axis=1} ***
+  ok  : *** and the new is_drum bit[6] is 1 for a keyboard drum ***
   ok  : uity: 0x10 is the OLD (broken) value where the drum marker was 0
+  ok  : 0x11 is the value BEFORE is_drum was added -- bit[6] must differ
 
 PASS: top-level upstream timbre -- a hand-play event's frame carries the timbre that actually SOUNDED in bits[5:4] (bits[3:0] is now the DRUM MARKER, which is 0 for hand-play), and the timbre travels with its own event through the FIFO
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_upstream_timbre.sv:534: $finish called at 2937320000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_upstream_timbre.sv:552: $finish called at 2937320000 (1ps)
 
 

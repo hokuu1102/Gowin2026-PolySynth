@@ -8,11 +8,12 @@ NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift
 INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
 NOTE [fx_delay] DEPTH=2048 samples = 41 ms @48828.125Hz | MEM_W=18 => 36864 bit / 18432 bit-per-block = 2 BSRAM block(s) of 118
 NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118
-NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=25 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=26 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
 NOTE [ctrl_keypad] PARAM_OK=1 (SCAN_DIV=12500 DEB_N=8 CLK_HZ=50000000 scan_us=0 db_ms=8)
 NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=50000000 LONG_MS=2000 LONG_CYC=100000000 HW=27)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
 NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
 NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
@@ -24,11 +25,12 @@ NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift
 INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
 NOTE [fx_delay] DEPTH=2048 samples = 41 ms @48828.125Hz | MEM_W=18 => 36864 bit / 18432 bit-per-block = 2 BSRAM block(s) of 118
 NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118
-NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=25 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=26 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
 NOTE [ctrl_keypad] PARAM_OK=1 (SCAN_DIV=12500 DEB_N=8 CLK_HZ=50000000 scan_us=0 db_ms=8)
 NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=50000000 LONG_MS=2000 LONG_CYC=100000000 HW=27)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
 PASS: actual UART E cycles three modes; 97703 audio/UART cycles identical, 21216 live DIN ones
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_fft_top_modes.sv:44: $finish called at 1954460000 (1ps)

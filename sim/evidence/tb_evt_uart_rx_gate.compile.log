@@ -36,3 +36,21 @@ ce inherited from another file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_gate.sv:79: warning: Instantiating module uart_ui with dangl
 ing input port 3 (mode_sw_req_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_gate.sv:79: warning: Instantiating module uart_ui with dangl
+ing input port 27 (fxstat_req_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_gate.sv:79: warning: Instantiating module uart_ui with dangl
+ing input port 28 (fxstat_sub_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_gate.sv:79: warning: Instantiating module uart_ui with dangl
+ing input port 29 (fx_en_mask_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_gate.sv:79: warning: Instantiating module uart_ui with dangl
+ing input port 30 (fx_dly_active_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_gate.sv:79: warning: Instantiating module uart_ui with dangl
+ing input port 31 (fx_chor_active_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_gate.sv:79: warning: Instantiating module uart_ui with dangl
+ing input port 32 (fx_dly_primed_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_gate.sv:79: warning: Instantiating module uart_ui with dangl
+ing input port 33 (fx_dist_clip_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_gate.sv:79: warning: Instantiating module uart_ui with dangl
+ing input port 34 (fx_trem_lfo_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_uart_rx_gate.sv:79: warning: Instantiating module uart_ui with dangl
+ing input port 35 (fx_pipe_i) floating.

@@ -34,13 +34,17 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_referen
 ce inherited from another file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:124: warning: Instantiating module looper with dangling input 
+port 13 (is_drum_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:167: warning: Instantiating module looper with dangling input 
-port 13 (live_vel_valid_i) floating.
+port 13 (is_drum_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:167: warning: Instantiating module looper with dangling input 
-port 14 (live_vel_axis_i) floating.
+port 14 (live_vel_valid_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:167: warning: Instantiating module looper with dangling input 
-port 15 (live_vel_value_i) floating.
+port 15 (live_vel_axis_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:167: warning: Instantiating module looper with dangling input 
-port 37 (dump_en_i) floating.
+port 16 (live_vel_value_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:167: warning: Instantiating module looper with dangling input 
-port 38 (dump_addr_i) floating.
+port 38 (dump_en_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:167: warning: Instantiating module looper with dangling input 
+port 39 (dump_addr_i) floating.

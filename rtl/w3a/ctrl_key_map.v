@@ -16,7 +16,7 @@
 //     6   1,2     变调 升 1 半音               trans_up_req_o   （'G'）
 //     7   1,3     模式 指板/钢琴               mode_req_o       （新增，无串口命令）
 //     8   2,0     鼓机节奏型 切下一个          drum_pattern_req_o（'D'）
-//     9   2,1     效果器（占位）               fx_req_o         （占位，当前无消费者）
+//     9   2,1     推子【锁定】切换（冻结/实时）  lock_toggle_req_o（⭐ 2026-10-18 起；原为效果器占位）
 //    10   2,2     变调 降 1 半音               trans_down_req_o （'F'）
 //    11   2,3     Test Mode 进/出             test_mode_req_o  （'M'）
 //    12   3,0     looper 清空（长按）          loop_clear_req_o （'C'）
@@ -102,7 +102,22 @@ module ctrl_key_map #(
     output reg         fb_piano_o,        // 模式键「目标档」：1 = 钢琴、0 = 指板
     output reg         tare_req_o,
     output reg         span_req_o,
-    output reg         fx_req_o           // 占位
+    //  ⭐⭐ 2026-10-18：⭐ **idx 9（列 1 / 行 2）= 推子【锁定】键** ✅
+    //     ⭐ 用户裁定：*"加一个按键，让推子记忆当前档位此时的状态，再按一下取消记忆"*
+    //     ⭐ 语义：⭐ 翻转 `fader_gear` **当前档**的锁定位（1 = 冻结，0 = 实时跟随）
+    //     🔴 **本 reg 只在【命令脉冲块】（块 2）里赋值** ——
+    //        ⚠️ 本模块曾因"同一 reg 在两个 always 块里赋值"在综合报
+    //        `ERROR (EX2000) : Net ... is constantly driven from multiple places`
+    //        （⭐ 而 iverilog 仿真全绿 ⇒ 🔴 "仿真过 ≠ 能综合"）✅
+    //     ⭐ 所以：⭐ 复位清零 / 默认清零 / 置位 **三处都在块 2 内** ✅
+    output reg         lock_toggle_req_o,
+    //  ⚠️ **`fx_req_o` 保留为【历史占位】**（2026-10-18）：
+    //     🔴 用户已明确"效果器那个键不需要了"，本端口在 `top.v` 里**无消费者**。
+    //     ⚠️ 但 `tb/w3a/tb_ctrl_key_map.sv:253/281` 与 `tb_ctrl_keypad.sv:346`
+    //        仍断言"idx 9 ⇒ fx_req 一次" ⇒ ⛔ **直接改成恒 0 会让那两个 tb 变红**
+    //        ⇒ ⭐ 本轮**保持它照旧随 idx 9 出脉冲**（死信号，无副作用），
+    //          待那两个 tb 同步更新后再删端口 ✅
+    output reg         fx_req_o           // 历史占位（⛔ 无消费者，仅为 tb 兼容保留）
 );
 
     localparam integer LONG_CYC = (CLK_HZ / 1000) * LONG_MS;
@@ -214,6 +229,7 @@ module ctrl_key_map #(
             fb_piano_o         <= 1'b0;
             tare_req_o         <= 1'b0;
             span_req_o         <= 1'b0;
+            lock_toggle_req_o  <= 1'b0;   // ⭐ idx 9（2026-10-18 新增）
             fx_req_o           <= 1'b0;
             //  ⭐⭐ 2026-10-14：⭐ **两个长按标志的复位【搬到本块】** ✅
             //     🔴 原缺陷见上面块 1 的注释（⭐ 多驱动 ⇒ 综合报错 ✅）
@@ -237,6 +253,7 @@ module ctrl_key_map #(
             mode_req_o         <= 1'b0;
             tare_req_o         <= 1'b0;
             span_req_o         <= 1'b0;
+            lock_toggle_req_o  <= 1'b0;   // ⭐ idx 9（单周期脉冲的默认低 ✅）
             fx_req_o           <= 1'b0;
 
             // 行 0 · 节奏/循环组（按下沿直接出脉冲）
@@ -261,7 +278,15 @@ module ctrl_key_map #(
 
             // 行 2
             if (key_down[ 8]) drum_pattern_req_o <= 1'b1;
-            if (key_down[ 9]) fx_req_o           <= 1'b1;   // 占位
+            //  ⭐⭐ 2026-10-18：⭐ **idx 9 = 推子锁定键**（用户裁定）✅
+            //     ⭐ 语义：⭐ 翻转 `fader_gear` 当前档的锁定位（1 = 冻结 / 0 = 实时）
+            //     ⚠️ `fx_req_o` **同时照旧出脉冲** —— 它已无消费者，保留只为
+            //        `tb_ctrl_key_map.sv:253/281` 与 `tb_ctrl_keypad.sv:346` 的旧断言
+            //        （⭐ 待那两个 tb 更新后再删端口 ✅）
+            if (key_down[ 9]) begin
+                lock_toggle_req_o <= 1'b1;
+                fx_req_o          <= 1'b1;   // 历史占位（⛔ 无消费者，仅为 tb 兼容）
+            end
             if (key_down[10]) trans_down_req_o   <= 1'b1;
             if (key_down[11]) test_mode_req_o    <= 1'b1;
 

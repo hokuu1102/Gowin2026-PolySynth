@@ -12,6 +12,6 @@ VCD info: dumpfile build/sim/tb_ee_multileave/tb_ee_multileave.vcd opened for ou
   ok  : MLEAVE-3b single leaving axis => A == that axis
 
 PASS: event_extract multi-axis-leave -- A is the LOWEST leaving axis, and a slide is not lost
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_ee_multileave.sv:220: $finish called at 930000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_ee_multileave.sv:231: $finish called at 2430000 (1ps)
 
 

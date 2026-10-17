@@ -8,11 +8,12 @@ NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift
 INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
 NOTE [fx_delay] DEPTH=2048 samples = 41 ms @48828.125Hz | MEM_W=18 => 36864 bit / 18432 bit-per-block = 2 BSRAM block(s) of 118
 NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118
-NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=25 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=26 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
 NOTE [ctrl_keypad] PARAM_OK=1 (SCAN_DIV=12500 DEB_N=8 CLK_HZ=50000000 scan_us=0 db_ms=8)
 NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=50000000 LONG_MS=2000 LONG_CYC=100000000 HW=27)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
 NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
 === tb_top_guide_bit6 (閫愪簨浠?bit6 = 鍙寒鐏笉鍑哄０) ===
    play_seq 澶嶄綅榛樿 tick_inc = 164927锛堚瓙 120 BPM = 164927锛?
@@ -48,8 +49,13 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : 4b the bit6=1 note_on lit key 4's guide lamp (D3)
   ok  : 4c the unmarked note_off was consumed
   ok  : 4d the lamp is NOT stuck: an unmarked note_off cleared it  <-- no hanging lamp
+== 5  a REPLAY (metronome left ON) must still light bit6=0 events ==
+  ok  : 5a the latch is set by the earlier bit6=1 event (replay precondition)
+  ok  : 5b' the head tempo frame (kind=2, tick=0) cleared the latch  <-- the fix
+  ok  : 5c the replayed bit6=0 note_on fired
+  ok  : 5d a REPLAY still lit key 4  <-- RED before the fix: the clear was on met_start only
 
-PASS: tb_top_guide_bit6 - 28/28 judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_top_guide_bit6.sv:381: $finish called at 1981650000 (1ps)
+PASS: tb_top_guide_bit6 - 32/32 judgements held
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_top_guide_bit6.sv:428: $finish called at 2357610000 (1ps)
 
 

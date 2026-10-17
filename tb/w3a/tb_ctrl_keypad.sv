@@ -400,16 +400,23 @@ module tb_ctrl_keypad;
         zero_counters;
         pressed[15] = 1'b1;
         wait_clk(LONG_MS * 2);
-        chk("8d: LONG press -> span_req once", n_span == 1);
+        //  ⭐⭐ 2026-10-17/18（用户裁定删除 span）：⭐ 长按**不再发 span** ✅
+        //     🔴 原期望 `n_span == 1`（"长按 = 满量程标定"）—— 该功能已删除，
+        //        `span_req_o` 现在恒 0 ⇒ ⭐ 期望必须改成 0 ✅
+        chk("8d: LONG press -> span NEVER fires (span removed 2026-10-17)", n_span == 0);
         pressed[15] = 1'b0;
         wait_clk(DEB_CYC * 3);
-        chk("8e: after a long press, releasing does NOT also fire tare",
-            n_tare == 0);
+        //  ⭐⭐ 2026-10-17/18：⭐ 长按后松手**现在会发 tare** ✅
+        //     🔴 原期望 `n_tare == 0`（长按被 span 吃掉 ⇒ 松手不再发 tare）
+        //     ✅ 现在没有长按分支 ⇒ `cal_long_fired` 恒 0 ⇒ 松手必发 `tare_req_o`
+        //        ⭐ 这正是用户要的"标定键只相当于发 T" ✅
+        chk("8e: after a long press, releasing DOES fire tare (span removed => long press no longer suppresses tare)",
+            n_tare == 1);
 
         // ═════════════════════════════════════════════════════════════════
         $display("");
         if (errors == 0)
-            $display("PASS: ctrl keypad -- one-row-low scan, scan-based debounce (jitter rejected), every key maps to exactly its own command, same-column pairs resolved, long-press protected clear, and calib key short=tare / long=span");
+            $display("PASS: ctrl keypad -- one-row-low scan, scan-based debounce (jitter rejected), every key maps to exactly its own command, same-column pairs resolved, long-press protected clear, and calib key fires tare on release (span removed 2026-10-17)");
         else
             $fatal(1, "FAIL: ctrl keypad had %0d error(s)", errors);
 

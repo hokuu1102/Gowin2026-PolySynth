@@ -35,6 +35,8 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\uart_tx_fifo_reference.v:55: warn
 ce inherited from another file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_bar_align.sv:113: warning: Instantiating module looper with dangl
-ing input port 37 (dump_en_i) floating.
+ing input port 13 (is_drum_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_bar_align.sv:113: warning: Instantiating module looper with dangl
-ing input port 38 (dump_addr_i) floating.
+ing input port 38 (dump_en_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper_bar_align.sv:113: warning: Instantiating module looper with dangl
+ing input port 39 (dump_addr_i) floating.

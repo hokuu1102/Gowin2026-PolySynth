@@ -19,8 +19,8 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another 
-file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another
+ file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another fi
 le.
@@ -34,9 +34,9 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_referen
 ce inherited from another file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_upstream.v:177: warning: @* is sensitive to all 16 words in array 'mem
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_upstream.v:204: warning: @* is sensitive to all 16 words in array 'mem
 '.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:541: warning: @* is sensitive to all 16 words in array 
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3b\tdm_render_mixer.v:623: warning: @* is sensitive to all 16 words in array 
 'pc_l1'.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_notice_equiv.sv:9: warning: Instantiating module top with dangling i
 nput port 30 (ctrl_col_i) floating.

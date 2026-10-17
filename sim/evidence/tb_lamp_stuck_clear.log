@@ -1,4 +1,5 @@
-﻿=== tb_lamp_stuck_clear  [FIXED build: stream-timeout clear] ===
+﻿NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=1000 CNT_W=10)
+=== tb_lamp_stuck_clear  [FIXED build: stream-timeout clear] ===
 VCD info: dumpfile build/sim/tb_lamp_stuck_clear/tb_lamp_stuck_clear.vcd opened for output.
 == 1  a note_on with NO matching note_off (the upstream defect) ==
   ok  : 1a the note_on really lit key 5 (the stimulus is not vacuous)

@@ -359,12 +359,32 @@ module tb_top_ctrl_wire;
             press_key(6); release_all;
             press_key(6); release_all;
             repeat (200) @(negedge clk);
-            chk(dut.transpose_semi === 5'sd2,
-                "*** two more UP presses => transpose_semi is exactly +2 (the counter really works) ***");
+            //  ⭐⭐ 2026-10-17（用户需求）：⭐ 矩阵键「升调」改成 **±1 个八度（±12 半音）** ✅
+            //     🔴 原期望 `5'sd2`（按 2 次 = +2 半音）—— 该行为已按用户要求改变，
+            //        ⇒ ⭐ 现在按 **1 次就到 +12**（`transpose_semi` 的 clamp 上限），
+            //          再按第 2 次**仍是 +12**（⛔ 不回绕）✅
+            //     📌 ⭐ 这条同时也证明了 clamp 生效（⭐ 不 clamp 的话会回绕成负数）
+            chk(dut.transpose_semi === 5'sd12,
+                "*** two UP presses (octave step) => transpose_semi clamps at +12 (one octave, no wrap) ***");
             press_key(14); release_all;
             repeat (200) @(negedge clk);
             chk(dut.transpose_semi === 5'sd0,
                 "*** key idx 14 resets AGAIN from a DIFFERENT offset (not a one-off coincidence) ***");
+
+            //  ⭐⭐ 2026-10-17：⭐ **降调键（idx 10）同样按八度步进** ✅
+            //     🔴 只验升调是**半条判据** —— 升/降走的是**两个不同的 mux 分支**
+            //        （`km_trans_up_req` vs `km_trans_down_req`）
+            //        ⇒ ⚠️ 只验一边，另一边接错也发现不了 ✅
+            //     ⭐ 期望：⭐ 从 0 按 1 次 ⇒ **−12**；再按 ⇒ **仍是 −12**（clamp，⛔ 不回绕）
+            press_key(10); release_all;
+            press_key(10); release_all;
+            repeat (200) @(negedge clk);
+            chk(dut.transpose_semi === -5'sd12,
+                "*** two DOWN presses (octave step) => transpose_semi clamps at -12 (no wrap) ***");
+            press_key(14); release_all;
+            repeat (200) @(negedge clk);
+            chk(dut.transpose_semi === 5'sd0,
+                "*** key idx 14 recovers from the NEGATIVE octave offset back to 0 ***");
         end
 
         // ══ 判据 ⑫：⭐⭐⭐ 2026-10-17：⭐ **键 idx 13（列 1 / 行 3）= loop 发送** ══

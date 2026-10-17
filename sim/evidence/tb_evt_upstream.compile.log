@@ -34,5 +34,5 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited tim
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_referen
 ce inherited from another file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_upstream.v:187: warning: @* is sensitive to all 16 words in array 'mem
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\evt_upstream.v:204: warning: @* is sensitive to all 16 words in array 'mem
 '.

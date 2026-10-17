@@ -19,8 +19,8 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from anot
 her file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v:30: warning: timescale for guide_lamp inherited from another 
-file.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another
+ file.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another fi
 le.
@@ -38,3 +38,7 @@ C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_wavetable_bank.sv:226: warning: I
 h dangling input port 5 (voice_phase_rst_i) floating.
 C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_wavetable_bank.sv:226: warning: Instantiating module oscillator_bank wit
 h dangling input port 10 (drum_cls_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_wavetable_bank.sv:226: warning: Instantiating module oscillator_bank wit
+h dangling input port 21 (osc_rd_addr0_i) floating.
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_wavetable_bank.sv:226: warning: Instantiating module oscillator_bank wit
+h dangling input port 22 (osc_rd_addr1_i) floating.
