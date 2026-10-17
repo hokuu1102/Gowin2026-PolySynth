@@ -60,6 +60,18 @@ module event_extract #(
     //      ⚠️ 依据：滑动时每帧行程变约 `4096/500 ≈ 8` 个码
     //      ⇒ ⭐ 取 8：**大于手抖/噪声**、**小于真实滑动速度**
     parameter signed [DW-1:0] DELTA_TH = 13'sd8,
+    //  ⭐⭐⭐⭐ 2026-10-17（🔴 **用户裁定：开了滑音模式就不管时间阈值，尽量宽松**）：
+    //     ⭐ **滑音专用**的 A 判据阈值（⛔ 不动上面那个 `DELTA_TH` —— 普通音符检测仍用它）✅
+    //  🔴 **为什么需要它**（实测算账）：
+    //     · 整条行程 `TRAVEL_TARE = 744` 码，帧距 500 µs
+    //     · 一次**正常速度**的滑音（~50 ms 滑完 300~700 码）⇒ A 每帧只掉 **2~7 码**
+    //     · 而 `DELTA_TH = 8` ⇒ 🔴 **2~7 < 8 ⇒ 永不触发** ✅
+    //     ⇒ ⭐ 实测"要 19~44 ms 内滑完才触发" = **正常手速做不到** ⇒ 这就是"难触发"的根因 ✅
+    //  ✅ **本次改成 2**（用户要求"尽量宽松"）⇒ A 每帧掉 > 2 码就认 ✅
+    //     📌 **噪声为什么仍然挡得住**：⭐ A 判据**还有 `&& key_on[si]`**
+    //        （⭐ `key_on` 是由 `TRIG_TH=64` 置位的、带迟滞的"已按下"位）
+    //        ⇒ ⭐ 噪声轴 `key_on = 0` ⇒ **照样被挡** ⇒ `tb_ee_slide_noise` 的 NOISE 用例仍绿 ✅
+    parameter signed [DW-1:0] SLIDE_DELTA_TH = 13'sd2,
     //   ⭐ **不应期**（单位：快照帧数）
     //      🔴 2026-09-25 更正：一帧 = **500 µs**（⛔ 不是原来注释写的 196 µs）
     //         📌 实测证据：`sim/evidence/tb_adc_farm.log` = `frame period=500000 ns`
@@ -87,7 +99,41 @@ module event_extract #(
     //     ⭐ **新值 4**（⭐ 与噪声门槛 `DELTA_TH=8` 的一半 ⇒ ⭐ 够低、又高于纯噪声抖动）：
     //        ⇒ ⭐ "B 的行程在**增加**"就算开始形成 ✅
     //        ⇒ ⭐ 配合"滑音模式开着"这个前提 ⇒ ⭐ **误触由用户关模式兜底**（⭐ 用户原话）✅
-    parameter [POS_W-1:0] SLIDE_START_TH = 12'h004
+    parameter [POS_W-1:0] SLIDE_START_TH = 12'h002,  // ⭐ 2026-10-17：4→2（用户要求尽量宽松）
+    //  ⭐⭐⭐⭐ 2026-10-17（🔴 **修"滑音难触发"的真根因**）：⭐ **跨帧累积**（慢速通道）
+    //  🔴 **为什么单帧阈值再低也没用**（实测算账，⛔ 不是猜）：
+    //     · ⭐ 整条行程 `TRAVEL_TARE = 744` 码 / 16 键 ⇒ ⭐ **每跨一个键 ≈ 46.5 码**
+    //     · ⭐ 帧距 **500 µs** ⇒ ⭐ 每帧位移 = `46.5 / (跨键毫秒数 × 2)`：
+    //         ⭐ 100 ms/键 ⇒ **0.23 码/帧** · ⭐ 50 ms ⇒ 0.47 · ⭐ 20 ms ⇒ 1.16 · ⭐ 10 ms ⇒ 2.3
+    //     ⇒ 🔴 `SLIDE_DELTA_TH = 2`（A 必须**单帧**掉 > 2 码）
+    //        ⇒ ⭐ **必须 11 ms 内跨一个键**才触发 = 🔴 **"甩" 而不是 "滑"** ✅
+    //        （⭐ 实测 `tb_ee_slide_slow`：150 ms 滑完一个键 ⇒ 300 帧里只有 47 帧有位移，
+    //          ⭐ **每帧恰好 1 码** ⇒ ⭐ 旧判据**一帧都够不到** ⇒ `slide_valid` 恒 0 ✅）
+    //  ✅ **修法**：⭐ **每轴维护一个"跨帧累积量"**（量程 = 2 个键）：
+    //     · ⭐ A 侧：`d < 0` 累加 `|d|` · `d > 0` **递减**（到底停 0）· `d == 0` **保持**
+    //     · ⭐ B 侧：镜像（`d > 0` 累加 · `d < 0` 递减 · `d == 0` 保持）
+    //     · ⭐ **累积 ≥ `SLIDE_ACC_TH`** 就当"这个键正在滑走 / B 正在形成"✅
+    //     ⇒ ⭐ 两条通道 **OR** 起来：⭐ 快的走 `SLIDE_DELTA_TH`，⭐ 慢的走累积 ✅
+    //  🔴🔴 **`d == 0` 必须【保持】而不是清零**（⭐ 与直觉相反，但这是本修法成立的关键）：
+    //     ⭐ 慢滑时**大多数帧的 `d` 都是 0**（⭐ 0.155 码/帧 ⇒ 量化后 6~7 帧才动 1 码）
+    //        ⇒ ⭐ 若 `d >= 0` 就清零 ⇒ 🔴 **累积永远回不到 ≥46** ⇒ 150 ms 那条**仍然不触发** ✅
+    //     ⭐ 而 `d > 0` 用**递减**（⛔ 不是清零）⇒ ⭐ 手指轻微回摆只抵消一部分，
+    //        ⛔ 不会把几百毫秒的积累一次抹掉 ✅
+    //  📌 **噪声为什么仍然挡得住**：⭐ 噪声是零均值 ⇒ ⭐ 累积在 0 附近来回（正负相消）
+    //     ⇒ ⭐ 到不了 46（≈ 46 个 σ 之外）⇒ ⭐ `tb_ee_slide_noise` 仍绿 ✅
+    //  📌 **停住为什么不再触发**：⭐ 慢速通道额外要求"**本帧确实在动**"
+    //     （⭐ A 侧 `d < 0` · B 侧 `d > 0`）⇒ ⭐ 手指停住 ⇒ **不出滑音**
+    //     ⇒ ⛔ 不会让 `slide_active_i` 常高（⭐ 那会让 `note_off` 被一直抑制 ⇒ 挂音 ✅）
+    //  📌 **位宽**：⭐ `ACC_W = clog2(SLIDE_ACC_MAX+1)`（⭐ 默认 92 ⇒ **7 位**）
+    //     ⇒ ⭐ 每轴 2 个 × 16 轴 = **224 FF**（⛔ 不要开成 32 位 ✅）
+    //  📌 **实测抗噪边界**（⭐ `build/probe_noise_acc.sv`：4000 帧/档，静止手指 + 零均值对称抖动）：
+    //     ⭐ 单帧抖动 ±4 ⇒ `acc` 峰值 **8** · ⭐ ±8 ⇒ **16** · ⭐ ±11 ⇒ **22**（⭐ 仍 < 24）
+    //        · ⭐ **±12 ⇒ 24（⭐ 刚好打穿 `SLIDE_ACC_TH`）** ⇒ ⭐ **单帧抖动 ≤ ±11 码**时
+    //          ⭐ 慢速通道**不可能**自己触发 ✅
+    //     ⭐ 峰值 = **2 × 幅度**（⭐ 每次反向都被钳回 0 ⇒ ⭐ **有界过程**，⛔ 不是随机游走）✅
+    //     📌 对照：⭐ 交付参数下噪声/手抖的门槛是 `DELTA_TH = 8`（⭐ "大于手抖"）⇒ ⭐ 1.4 倍余量 ✅
+    parameter integer     SLIDE_ACC_TH  = 24,    // ⭐ 累积阈值（码）≈ **半个键**（⭐ 46.5/2）
+    parameter integer     SLIDE_ACC_MAX = 92     // ⭐ 饱和上限（= 2 个键，⭐ 防溢出）
 ) (
     input  wire                    clk,
     input  wire                    rst_n,        // ⭐ 同步复位、低有效
@@ -384,6 +430,17 @@ module event_extract #(
     //        ⇒ ⭐ `left_hit = 1` ⇒ ⭐ **B 仍会被判成候选**（⭐ 与改动前同口径 ✅）
     //        ⇒ ⭐ 所以 `slide_valid` **仍然会抬**（⭐ 这条 tb 本来就在记录这个取舍 ✅）
     //     📌 本修法**⛔ 不改任何阈值语义**（⭐ 用户正在上板调，⛔ 不许碰 ✅）
+    //  ⭐⭐⭐⭐ 2026-10-17（慢速滑音）：**逐轴跨帧累积器**
+    localparam integer     ACC_W     = ((SLIDE_ACC_MAX < 2) ? 1 : $clog2(SLIDE_ACC_MAX + 1));
+    //  ⭐ 有宽度的常量（⭐ `K-91`：⛔ 不对 `integer` 参数做位选 ⇒ 先落成 vector ✅）
+    localparam [ACC_W-1:0] ACC_TH_C = (SLIDE_ACC_TH  < 0) ? 0 : SLIDE_ACC_TH;
+    localparam [ACC_W-1:0] ACC_MX_C = (SLIDE_ACC_MAX < 0) ? 0 : SLIDE_ACC_MAX;
+    reg [ACC_W-1:0]   acc_a [0:AXIS_N-1];   // ⭐ A 侧"下降累积"（⭐ 正数 = 掉了多少码）
+    reg [ACC_W-1:0]   acc_b [0:AXIS_N-1];   // ⭐ B 侧"上升累积"（⭐ 正数 = 涨了多少码）
+    reg [AXIS_N-1:0]  slow_a_ok;            // ⭐ 慢速通道：⭐ 这一轴"正在滑走"
+    reg [AXIS_N-1:0]  up_ok_v;              // ⭐ B 侧合格（⭐ 快速 OR 慢速）
+    reg signed [DW-1:0] d_fr;               // ⭐ 临时：本帧增量
+    reg signed [DW+1:0] acc_s;              // ⭐ 临时：**有符号**累积（⭐ 饱和钳位用）
     reg [AXIS_N-1:0] slide_cand;   // ⭐ 第 1 级：⭐ 每轴"是否合格候选"（⭐ 无比较 ✅）
     integer          si;
 
@@ -521,9 +578,63 @@ module event_extract #(
     reg [POS_W+AXIS_W:0] mx3 [0:1];
     reg [POS_W+AXIS_W:0] mx4;
 
+    // ---------------------------------------------
+    //  ⭐⭐ 2026-10-17（🔴 **PnR 时序修复 v4**）：⭐ **本地复位再同步两拍** ✅
+    //
+    //  🔴 **症状**（PnR 实测 worst-25 setup 表 **#1~#5**，5 条同源）：
+    //     `u_rst_sync/sync_chain_1_s0/Q` → 本模块 `slide_axis_o_*/CE`
+    //     slack **−2.404 ns**（Relation 16.400 · Data Delay 18.515）
+    //     ⇒ ⭐ 机理：⭐ **同步复位**的固有形态是 `D = rst_n ? … : 0` ＋ `CE = rst_n | …`
+    //        ⇒ ⭐ `rst_n` 进**每个寄存器的 CE** ⇒ ⭐ 它在整片上**扇出极大**
+    //        ⇒ ⭐ 从 `u_rst_sync` 到本模块的那段**布线**就吃满一拍 ✅
+    //
+    //  ✅ **修法**：⭐ 在本模块内**本地再同步两拍**，用 `rst_loc[1]` 当复位
+    //     ⇒ ⭐ 全局复位网只驱动**这 2 个 FF**（⭐ 就近放、负载极轻）；
+    //        ⭐ 模块内所有 CE 改吃**本地**那一份 ⇒ ⭐ 那条长布线消失 ✅
+    //
+    //  ⚠️ **⛔ 不改异步复位**：⭐ 仍是**同步**复位（`always @(posedge clk)` 里判电平）
+    //     ⇒ ⭐ 满足项目门禁 `P0-23`（0 async-reset sensitivity lists）✅
+    //
+    //  📌 **语义论证①：⭐ 只晚 2 拍（40 ns），为什么不可观测**
+    //     · ⭐ 本模块的**时间量子是"帧"**：`snap_valid_i` 每帧一次（⭐ 上板 ~500 µs）
+    //       ⇒ ⭐ 40 ns = **0.008 % 帧** ⇒ ⭐ 按帧计的量（`refr` / `left_age`）差不到 1 帧 ✅
+    //     · ⭐ 复位**只在系统复位期**有效（⭐ 上电 / 外部复位），⭐ 正常运行从不拉低
+    //       ⇒ ⭐ 这 2 拍只影响"复位释放那一瞬" ✅
+    //     · ⭐ 释放后本模块**必须先等到一个 `snap_valid_i`** 才动（`scanning` 复位成 0）
+    //       ⇒ ⭐ 不存在"半帧起步" ⇒ ⭐ 输出序列与"不晚 2 拍"**逐位相同** ✅
+    //
+    //  📌 **语义论证②：⭐ 那 2 拍为什么不会产生一个假事件**
+    //     · ⭐ 三个事件输出（`evt_valid_o` / `slide_valid_o` / `two_note_valid_o`）
+    //       **只能**在 `snap_valid_i` 那一拍抬起 —— ⭐ 扫描分支与滑音分支**都在**
+    //       `if (snap_valid_i)` 里面 ⇒ ⭐ **没有快照就没有事件** ✅
+    //     · ⭐ 复位期间（⭐ 含这 2 拍）上游 `axis_snapshot` **自己也在复位**
+    //       ⇒ ⭐ 它的 `snap_valid_o` 恒 0 ⇒ ⭐ 这 2 拍**根本没有快照可吃** ✅
+    //     · ⭐ 三个 valid 都是**单周期脉冲**（⭐ 每个非复位拍先清 0、⭐ 只在分支里置 1）
+    //       ⇒ ⭐ 它们**不可能被"保持"** 2 拍 ⇒ ⭐ 不会多出一次事件 ✅
+    //     · ⭐ `slide_axis_o` / `slide_axis_b_o` 是**电平**输出（⭐ 保存上次的 A/B），
+    //       这 2 拍里保持**复位前**的值 —— ⚠️ 但它**单独不产生任何动作**：
+    //       ⭐ `top.v` 的 `slide_active_i = slide_on_r & play_fretboard_mode &
+    //       (sl_ramp_active | ee_slide_v)` ⇒ ⭐ **要 `ee_slide_v` 那根脉冲**；
+    //       ⭐ `slide_position_ctrl` 的 `.trigger_i` 也是**同一根脉冲**
+    //       ⇒ ⭐ 光有轴号、没有脉冲 ⇒ ⭐ **不会被当成"已按下"** ✅
+    // ---------------------------------------------
+    reg [1:0] rst_loc;
+
+    always @(posedge clk)
+        rst_loc <= {rst_loc[0], rst_n};
+
+    //  ⭐ **只有"两拍都明确释放"才放行**（⭐ 用 `!==` ⛔ 不用 `==`）
+    //     🔴 为什么：⭐ `rst_loc` 在**仿真 0 时刻是 X** ⇒ `==` 给出 X ⇒ `if (X)`
+    //        **两个分支都不执行** ⇒ 🔴 寄存器**既不复位也不更新**（僵死）
+    //        （⭐ 与本文件那条"悬空 = X ⇒ `if` 不执行"是**同一族坑** ✅）
+    //     ✅ `!==`：⭐ 只要任一拍**不是明确的 1**（⭐ 含 X/Z）⇒ ⭐ 继续复位
+    //        ⇒ ⭐ 仿真 0 时刻**必然**从复位态起步，⛔ 不依赖 `initial` ✅
+    //     📌 综合侧：⭐ `!==` 退化成 `!=` ⇒ ⭐ 一个 2 输入与非（**1 LUT**）✅
+    wire rst_hold = (rst_loc !== 2'b11);   // ⭐ 1 = 内部仍处复位
+
     always @(posedge clk) begin
         q_push_now = 1'b0;
-        if (!rst_n) begin
+        if (rst_hold) begin
             for (ai = 0; ai < AXIS_N; ai = ai + 1) begin
                 key_on[ai] <= 1'b0;
                 refr  [ai] <= 16'd0;
@@ -533,6 +644,12 @@ module event_extract #(
             //     🔴 **实测踩到**：⭐ 我第一版**漏了这三行** ⇒ ⭐ 初值是 **X**
             //        ⇒ ⭐ `SLIDE-2`（⭐ 两轴都增 ✅）**误判成滑音** ✅
             //     📌 ⭐ 教训：⭐ 加寄存器时**必须同时加复位** —— ⚠️ 否则 X 会到处传播 ✅
+                //  ⭐⭐ 2026-10-17：⭐ **累积器也必须一起复位** ✅
+                //     📌 本文件踩过"新寄存器忘了复位 ⇒ X 到处传播"的坑（见下方滑音寄存器段）
+                for (ai = 0; ai < AXIS_N; ai = ai + 1) begin
+                    acc_a[ai] <= {ACC_W{1'b0}};
+                    acc_b[ai] <= {ACC_W{1'b0}};
+                end
             left_ax_r <= {AXIS_W{1'b0}};
             left_v_r  <= 1'b0;
             left_age  <= 11'd0;
@@ -767,6 +884,39 @@ module event_extract #(
                 //     ＋ ⭐ 既有三条滑音 tb 的 `.enable_i` 都接 1 ⇒ 不受影响 ✅
                 //  📌 **判据**：⭐ 新增"关断 → 重新使能 ⇒ 不许用旧 A 出滑音"（⭐ 当前必红）
                 if ((slide_en_i === 1'b1) && (enable_i !== 1'b0)) begin
+                //  ⭐⭐⭐⭐ 2026-10-17（慢速滑音）：⭐ **跨帧累积 ＋ 慢速判据**（⭐ 见参数段的长注释）
+                //  📌 顺序：⭐ **先**算判据（⭐ 用【本帧之前】的累积值 ⇒ 最多差 1 帧）
+                //     ⭐ 好处：⭐ 加法器/饱和逻辑**不进**关键路径 ✅
+                for (si = 0; si < AXIS_N; si = si + 1) begin
+                    d_fr = $signed(delta_i[si*DW +: DW]);
+                    //  ── 慢速判据 ──────────────────────────────────────────
+                    //  ⭐ 额外要求"**本帧确实在动**"⇒ ⭐ 手指停住不会一直出滑音 ✅
+                    slow_a_ok[si[AXIS_W-1:0]] = (acc_a[si] >= ACC_TH_C) && (d_fr < 0);
+                    up_ok_v  [si[AXIS_W-1:0]] =
+                        ($signed(delta_i[si*DW +: DW]) > $signed({1'b0, SLIDE_START_TH}))
+                        || ((acc_b[si] >= ACC_TH_C) && (d_fr > 0));
+                    //  ── A 侧累积：⭐ **一条式子** `acc - d` ──────────────────
+                    //     ⭐ d < 0 ⇒ 累加 · ⭐ d > 0 ⇒ 递减（到底停 0）· ⭐ d == 0 ⇒ 保持 ✅
+                    //     🔴🔴 **⛔ 不许写成 `acc + (0 - d)` 并且和无符号拼接混在一起**：
+                    //        ⭐ 那样整个表达式变成**无符号** ⇒ `d` 被**零扩展**
+                    //        （⭐ −2 变成 8190）⇒ 🔴 累积器一帧就饱和（⭐ 实测踩到：
+                    //          `dbg i=1 d=-2 d_fr=0 acc_sum=2 acc_a=92`）✅
+                    acc_s = $signed({1'b0, acc_a[si]}) - $signed(d_fr);
+                    if (acc_s < 0)
+                        acc_a[si] <= {ACC_W{1'b0}};
+                    else if (acc_s > SLIDE_ACC_MAX)
+                        acc_a[si] <= ACC_MX_C;
+                    else
+                        acc_a[si] <= acc_s[ACC_W-1:0];
+                    //  ── B 侧累积：⭐ 镜像，`acc + d` ──────────────────────
+                    acc_s = $signed({1'b0, acc_b[si]}) + $signed(d_fr);
+                    if (acc_s < 0)
+                        acc_b[si] <= {ACC_W{1'b0}};
+                    else if (acc_s > SLIDE_ACC_MAX)
+                        acc_b[si] <= ACC_MX_C;
+                    else
+                        acc_b[si] <= acc_s[ACC_W-1:0];
+                end
                 //  ⭐ 1) 找"**在离开**"的轴（⭐ `dA < −DELTA_TH` ✅）
                 //     ⭐⭐ 2026-10-16 改：⭐ **16 个比较并行 + 一次折 or** ✅
                 //        ⚠️ 语义**逐位不变**（⭐ `left_ax_n` 仍取**最小轴号** ✅）
@@ -817,7 +967,8 @@ module event_extract #(
                 //        📌 这也**更接近真实**：⭐ 真板上帧距 500 µs、每帧扫一轮 ✅
                 for (si = 0; si < AXIS_N; si = si + 1)
                     left_cand[si[AXIS_W-1:0]] =
-                        ($signed(delta_i[si*DW +: DW]) < $signed(-DELTA_TH))
+                        (($signed(delta_i[si*DW +: DW]) < $signed(-SLIDE_DELTA_TH))
+                         || slow_a_ok[si[AXIS_W-1:0]])   // ⭐ 慢速通道（跨帧累积）✅
                         && key_on[si];
                 //  ⭐⭐ 2026-10-16（🔴 时序修复 ① ＋ **修一个真 bug**）
                 //     树形"最低置位"编码器（4 级：16→8→4→2→1）
@@ -907,10 +1058,12 @@ module event_extract #(
                 dlt2_w = delta_i[nb2_w*DW    +: DW];
                 pos1_w = pos_i  [nb1_w*POS_W +: POS_W];
                 pos2_w = pos_i  [nb2_w*POS_W +: POS_W];
-                hit1_w = gate_w &&
-                         ($signed(dlt1_w) > $signed({1'b0, SLIDE_START_TH}));
-                hit2_w = gate_w && nb2_v_w &&
-                         ($signed(dlt2_w) > $signed({1'b0, SLIDE_START_TH}));
+                //  ⭐⭐ 2026-10-17：⭐ **B 侧改用"每轴 1 位合格向量"查表**（⭐ 快速 OR 慢速）
+                //     📌 `dlt1_w`/`dlt2_w` 因此**不再参与判据**（⭐ 声明保留，⭐ 综合会整段折掉）
+                //     📌 顺带变**更浅**：⭐ 原来是"16:1 选 13 位 delta ＋ 比较器"，
+                //        现在是"16:1 选 **1 位**"⇒ ⭐ 少一级（⭐ 对本模块的关键路径有利）✅
+                hit1_w = gate_w && up_ok_v[nb1_w];
+                hit2_w = gate_w && nb2_v_w && up_ok_v[nb2_w];
                 slide_hit = hit1_w || hit2_w;
                 //  ⭐ 两个都命中 ⇒ 取 pos 大者；⭐ 平局取 `nb1`（⭐ 它恒为更小轴号 ✅）
                 slide_best_ax  = (hit1_w && hit2_w) ? ((pos2_w > pos1_w) ? nb2_w : nb1_w)
@@ -952,7 +1105,9 @@ module event_extract #(
     //     ④ `REFRACT_N == 0` ⇒ ⚠️ **不应期关闭** ⇒ ⚠️ 抖动重复触发
     // ═══════════════════════════════════════════════════════════════════════
     localparam PARAM_OK = (TRIG_TH > REL_TH) && (DELTA_TH > 0) &&
-                          (DW >= (POS_W + 1)) && (REFRACT_N > 0);
+                          (DW >= (POS_W + 1)) && (REFRACT_N > 0) &&
+                          (SLIDE_ACC_TH > 0) && (SLIDE_ACC_TH <= SLIDE_ACC_MAX) &&
+                          (SLIDE_ACC_MAX < (1 << ACC_W));
 
     initial begin
         if (TRIG_TH <= REL_TH)
@@ -964,6 +1119,9 @@ module event_extract #(
         if (DW < (POS_W + 1))
             $display("ERROR [event_extract] DW = %0d < POS_W+1 = %0d => the signed delta can overflow and the sign goes WRONG. PARAM_OK=0.",
                      DW, POS_W + 1);
+        if ((SLIDE_ACC_TH <= 0) || (SLIDE_ACC_TH > SLIDE_ACC_MAX) || (SLIDE_ACC_MAX >= (1 << ACC_W)))
+            $display("ERROR [event_extract] SLIDE_ACC_TH=%0d / SLIDE_ACC_MAX=%0d / ACC_W=%0d => the slow-slide accumulator saturates below its own threshold, so the slow path can NEVER fire. PARAM_OK=0.",
+                     SLIDE_ACC_TH, SLIDE_ACC_MAX, ACC_W);
         if (REFRACT_N == 0)
             $display("ERROR [event_extract] REFRACT_N = 0 => the refractory window is DISABLED => contact bounce emits repeated events. PARAM_OK=0.");
         if (PARAM_OK)

@@ -1,0 +1,77 @@
+﻿NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=1000 LONG_MS=600 LONG_CYC=600 HW=10)
+
+=== A) idx 13 (loop send): short press => exactly ONE pulse ===
+  FAIL: A1: idx 13 fires loop_send_req exactly once
+  FAIL: A2: non-vacuity -- it DID fire (not silently zero)
+  ok  : A3: and it fired NO other command
+
+=== B) idx 13 held DOWN (long): still exactly ONE pulse ===
+  FAIL: B1: after holding far past LONG_MS, still exactly ONE pulse
+  FAIL: B2: holding even longer does NOT repeat it (one-shot)
+  FAIL: B3: releasing does NOT produce a second pulse either
+
+=== C) all OTHER keys still map bit-for-bit as before ===
+  ok  : C: idx 0  -> met_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 1  -> timbre_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 2  -> slide_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 3  -> scope_mode_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 4  -> keydrum_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 5  -> gear_next_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 6  -> trans_up_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 7  -> mode_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 8  -> drum_pattern_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 9  -> fx_req once (placeholder)
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 10 -> trans_down_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 11 -> test_mode_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  FAIL: C: idx 13 -> loop_send_req once
+  FAIL: C: that key fired exactly ONE command total
+  ok  : C: idx 14 -> trans_reset_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+
+=== D) reverse disproof: other keys must NOT fire loop_send ===
+  ok  : D1: idx 9 (fx placeholder) fires fx_req
+  ok  : D2: idx 9 (fx placeholder) does NOT fire loop_send
+  ok  : D3: idx 12 SHORT press does NOT clear the looper
+  ok  : D4: idx 12 SHORT press does NOT fire loop_send either
+  ok  : D5: idx 12 LONG press fires loop_clear_req exactly once
+  ok  : D6: idx 12 LONG press still does NOT fire loop_send
+  ok  : D7: idx 12 holding longer is still one-shot (clear)
+  ok  : D8: ...and still zero loop_send
+  ok  : D9:  idx 15 SHORT press -> tare once (unchanged)
+  ok  : D10: idx 15 SHORT press -> NO span (unchanged)
+  ok  : D11: idx 15 SHORT press -> no loop_send
+  ok  : D12: idx 15 LONG press -> span once (unchanged)
+  ok  : D13: idx 15 LONG press -> no loop_send
+  ok  : D14: after idx 15 long press, release does not fire tare (unchanged)
+
+=== E) nothing pressed at all => no pulse anywhere ===
+  ok  : E1: idle key_level produces no key_down/key_up
+  ok  : E2: idle produces NO command pulse at all (incl. loop_send)
+
+FATAL: tb\w3a\tb_ctrl_key_map.sv:337: FAIL: ctrl_key_map had 7 error(s)
+       Time: 155630000  Scope: tb_ctrl_key_map

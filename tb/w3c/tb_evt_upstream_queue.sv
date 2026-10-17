@@ -17,6 +17,9 @@ module tb_evt_upstream_queue;
   /*  ⭐⭐ 2026-10-15：⭐ 音色进 `[7]` 的高 4 位（⭐ 给 ESP32 转 MIDI）
    *     ⚠️ 本 tb 用 0（BASS）⇒ ⭐ 帧内容与改动前**逐位相同** ⇒ ⛔ 判据不用改 ✅ */
   .evt_timbre_i(2'd0),
+  /*  ⭐⭐ 2026-10-17：⭐ 新端口 `evt_is_drum_i` **必须显式驱动**
+   *     ⚠️ 悬空 `z` ⇒ `byte[7]` 的 `bit[6]` 变 `x` ⇒ 🔴 本 tb 的逐字节比对会读到脏值 */
+  .evt_is_drum_i(1'b0),
   .enable_i(1'b1),.ready_i(ready),.push_o(push),.byte_o(data),
   .busy_o(busy),.frame_cnt_o(frames),.drop_cnt_o(drops),
   .overflow_o(overflow),.seq_o(seq),.tick_o(ticks),.level_o(level));

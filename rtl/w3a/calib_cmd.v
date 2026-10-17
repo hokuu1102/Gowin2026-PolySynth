@@ -228,7 +228,29 @@ module calib_cmd #(
     //     📌 ⭐ 为什么用 `'U'`：⭐ 空闲字母只剩 **`U`/`Z`** ✅
     //     📌 ⭐ **默认关**（⭐ `top.v` 的 `guide_only_r` 复位值 0 = 普通演奏模式）
     //        ⇒ ⛔ **零回归** ✅
-    parameter [7:0]   CMD_GUIDE    = 8'h55    // 'U' ⭐ 指引模式 开/关切换
+    parameter [7:0]   CMD_GUIDE    = 8'h55,    // 'U' ⭐ 指引模式 开/关切换
+    //  ⭐⭐ 2026-10-17（`K-106`）：⭐ **`'Z'` = 效果器状态回读**（⭐ 两级命令 ✅）
+    //     📌 ⭐ 语义：⭐ `'Z' <子命令号>` ⇒ ⭐ **下一字节**是子命令号（0..7）
+    //        ⭐ 由 `top.v` 把对应观测量经 `u_tx_fifo`/`u_uart_tx` 发回串口 ✅
+    //     🔴 **为什么必须是"两级"而⛔ 不是"一个字母一个量"**：
+    //        ⚠️ `fx_chain` 有 **7 个**可观测输出（⭐ `en_mask` / `dly_active` /
+    //           `chor_active` / `dly_primed` / `dist_clip_cnt` / `trem_lfo` / `pipe`）
+    //        ⚠️ 而**空闲字母只剩 `Z` 一个**（⭐ `A`~`Y` 已全占，⭐ 见 `uart_ui.v:423` 原话 ✅）
+    //        ⇒ ⭐ 只能"一个字母 ＋ 一个子命令号"复用 ✅
+    //     🔴 **为什么子命令号走"下一字节"而⛔ 不是"`0xA5` 帧的载荷[0]"**：
+    //        ⚠️ `'H'`/`'Q'` 那种臂化要**用户先发一个字节、再灌一整帧 9 字节**
+    //           ⇒ ⚠️ 一次回读要发 **10 个字节**、⭐ 且会把紧随的事件帧**吃掉一个载荷字节** ✅
+    //        ⚡ 而回读是**诊断动作**（⭐ 上板时发几十次）⇒ ⭐ 要求"两个字节搞定" ✅
+    //        ⚠️ **代价（⭐ 必须写清）**：⭐ 子命令字节**不享受 `0xA5` 帧的保护** ——
+    //           ⭐ 它只在"帧外"被收（⭐ 与命令字母同一口径 ✅）
+    //        📌 **安全性**：⭐ 清臂路径与 `'H'`/`'Q'` **完全一致**（三条，见 `fxstat_arm_q` ✅）
+    //           ⇒ ⭐ 残局**不会永久挂着**吃后面的字节 ✅
+    //     📌 **为什么不是 8 位全用**：⭐ 子命令号**只取低 3 位**（0..7）
+    //        ⚠️ 发 8..255 ⇒ ⭐ **静默取模**（⭐ 与 `top.v` 的 `cmd_par_sel_val[2:0]` 同口径 ✅）
+    //        ⚠️ **诚实标注**：⭐ 这次**不报错、不计数**（⛔ 没有越界计数器）——
+    //           ⭐ 因为 `top.v` 那一侧对未知子命令号**直接不动作**（⛔ 不回包 ✅）
+    //           ⇒ ⭐ "发了没反应"本身就是可观测的（⭐ 与 `'X'` 的拒绝同性质 ✅）
+    parameter [7:0]   CMD_FXSTAT   = 8'h5A    // 'Z' ⭐ 效果器状态回读（⭐ 子命令 = 下一字节）
 ) (
     input  wire        clk_i,
     input  wire        rst_n_i,        // ⭐ 同步复位、低有效
@@ -285,6 +307,9 @@ module calib_cmd #(
     output reg         upstream_req_o,
     //  ⭐⭐ 2026-10-14：⭐ `'U'` ⇒ **指引模式 开/关切换**（⭐ 单周期脉冲 ✅）
     output reg         guide_req_o,
+    //  ⭐⭐ 2026-10-17：⭐ `'Z'` ⇒ **效果器状态回读**（⭐ 脉冲 ＋ 子命令号，⭐ 与 `'H'` 同约定 ✅）
+    output reg         fxstat_req_o,    // ⭐ 'Z' 的子命令号到达的那一拍
+    output reg  [2:0]  fxstat_sub_o,    // ⭐ 子命令号（⭐ 只取收到的字节的低 3 位 ⇒ 0..7 ✅）
 
     // ── ⭐ 可观测性（`K-106`：⛔ 不许静默失效）────────────────────────────
     output reg  [15:0] cmd_cnt_o,      // ⭐ 已接受的命令数（饱和）
@@ -341,6 +366,18 @@ module calib_cmd #(
     //        🔴 发 `'Q'` 之后紧跟的**普通事件帧**（⭐ 曲谱 ✅）会被当成 BPM
     //        ⇒ ⭐ **曲谱一灌进来就把 BPM 改乱** ✅（⭐ 与 `abs_arm_q` 的注释同一灾难 ✅）
     reg bpm_arm_q;
+    //  ⭐⭐ 2026-10-17：⭐ **`'Z'` 的臂化标志**（⭐ "下一字节是子命令号" ✅）
+    //     ⚠️ 为什么**必须独立**（⛔ 不能与 `abs_arm_q`/`bpm_arm_q` 共用）：
+    //        🔴 三者** downstream 语义完全不同**（⭐ 半音 / BPM / 效果器状态）
+    //        ⚠️ 共用一个 ⇒ 发 `'Z'` 紧跟一帧 ⇒ 🔴 那帧的载荷[0] 被当成**半音值**
+    //           （⭐ `abs_arm_q` 的灾难原样复制一遍 ✅）
+    //     📌 **三条清臂路径**（⛔ 缺一就会永久挂着 ⇒ 静默吃掉后面的字节）：
+    //        ① ⭐ 子命令号取到 ⇒ 立即清（⭐ 一次臂只吃一字节 ✅）
+    //        ② ⭐ 帧外收到**别的字节** ⇒ 清（⭐ 承诺被打破 ✅）
+    //        ③ ⭐ 空闲归位 ⇒ 清（⭐ 半帧作废 ⇒ 臂一起作废 ✅）
+    //     ⚠️ 另外：⭐ 帧外收到**任何命令字母**（⭐ 包括 `'Z'` 自己）⇒ 也清
+    //        （⭐ 与上面第 ② 条同一个分支 ✅ ⇒ ⭐ `'Z'``'Z'` 连发 = 第二次重新臂化 ✅）
+    reg fxstat_arm_q;
 
     assign idx_o = idx_q;
 
@@ -393,6 +430,8 @@ module calib_cmd #(
     wire byte_is_upstream   = (rx_data_i == CMD_UPSTREAM);
     //  ⭐⭐ 2026-10-14：⭐ **`'U'` 指引模式开关** ✅
     wire byte_is_guide      = (rx_data_i == CMD_GUIDE);
+    //  ⭐⭐ 2026-10-17：⭐ **`'Z'` 效果器状态回读** ✅
+    wire byte_is_fxstat     = (rx_data_i == CMD_FXSTAT);
     // ⭐ 任一命令字母
     wire byte_is_cmd   = byte_is_tare | byte_is_span | byte_is_abort |
                          byte_is_probe | byte_is_vstat | byte_is_posprobe |
@@ -482,9 +521,11 @@ module calib_cmd #(
         mode_sw_req_o    <= 1'b0;   // ⭐ 'A' 模式翻转（⭐ 2026-10-13）
         upstream_req_o   <= 1'b0;   // ⭐ 'O' 实时上行开关（⭐ 2026-10-14）
         guide_req_o      <= 1'b0;   // ⭐ 'U' 指引模式开关（⭐ 2026-10-14）
+        fxstat_req_o     <= 1'b0;   // ⭐ 'Z' 效果器状态回读（⭐ 2026-10-17）
             bpm_val_o        <= 8'd0;   // ⭐ 'Q' 的载荷值
             bpm_arm_q        <= 1'b0;   // ⭐ 'Q' 臂化标志
             abs_arm_q        <= 1'b0;   // ⭐ 'H' 臂化标志（⭐ 2026-10-03 · P2）
+            fxstat_arm_q     <= 1'b0;   // ⭐ 'Z' 臂化标志（⭐ 2026-10-17）
             cmd_cnt_o      <= 16'd0;
             in_frame_cnt_o <= 16'd0;
             resync_cnt_o   <= 16'd0;
@@ -519,6 +560,7 @@ module calib_cmd #(
         mode_sw_req_o      <= 1'b0; // ⭐ 'A'（⭐ 2026-10-13）
         upstream_req_o     <= 1'b0; // ⭐ 'O' 实时上行（⭐ 2026-10-14）
         guide_req_o        <= 1'b0; // ⭐ 'U' 指引模式（⭐ 2026-10-14）
+        fxstat_req_o       <= 1'b0; // ⭐ 'Z' 效果器状态回读（⭐ 2026-10-17）
             gear_next_req_o    <= 1'b0; // ⭐ 'J'（⭐ 2026-10-03 · P2）
             recdump_req_o      <= 1'b0; // ⭐ 'Y' 录制回传导出（⭐ 2026-10-11）
             //   ⚠️ `trans_abs_val_o` **刻意不在这里清零** ——
@@ -533,6 +575,27 @@ module calib_cmd #(
                     if (byte_is_header) begin
                         // ⭐ 事件帧开始 ⇒ ⭐ 进入帧内，⛔ 之后 8 个字节一律不认命令
                         idx_q <= 4'd1;
+                    end else if (fxstat_arm_q) begin
+                        //  ⭐⭐ 2026-10-17：⭐ **`'Z'` 的子命令号就在这里收** ✅
+                        //     ⚠️ **为什么必须排在 `byte_is_cmd` 分支之前**：
+                        //        🔴 `'Z'` 的语义是"**下一个字节**是子命令号"（⭐ 协议原话 ✅）
+                        //        ⚠️ 若排在后面 ⇒ ⭐ 子命令字节只要是另一个命令字母
+                        //           （⭐ 例如用户发 `'Z'` + `'T'`）就会**重新被当成命令**
+                        //           ⇒ 🔴 **子命令号永远收不到**（⭐ 学位号静默失效 ✅）
+                        //     ⚠️ **为什么排在 `byte_is_header` 之后**：
+                        //        🔴 帧头 `0xA5` 必须**最高优先级**（⭐ 否则臂会把帧头吃掉
+                        //           ⇒ 🔴 整个事件帧错位 ⇒ 曲谱链路整体失效，⭐ 灾难 ✅）
+                        //        📌 代价：⭐ 发了 `'Z'` 之后紧跟一帧曲谱 ⇒ ⭐ 那帧的**帧头被当子命令号**
+                        //           （⭐ `0xA5 & 3'b111 = 5`）⇒ ⚠️ 会回读第 5 项而不灌曲谱 ✗
+                        //        ⚠️ **如实标注**：⭐ 这是"两字节命令"的**固有代价**
+                        //           （⭐ `'H'`/`'Q'` 靠"必须灌完整帧"规避，⭐ 而 `'Z'` 故意不那样 ✅）
+                        //        ⭐ 缓解：⭐ 回读是**诊断动作**（⭐ 用户不会在回读时同时灌谱 ✅）
+                        //     ⭐ 取走后**立刻清臂** ⇒ ⭐ 一次臂只吃一字节（⛔ 不会污染后面的字节 ✅）
+                        fxstat_sub_o <= rx_data_i[2:0];   // ⭐ 只取低 3 位（0..7 ✅）
+                        fxstat_req_o <= 1'b1;             // ⭐ 单拍脉冲
+                        fxstat_arm_q <= 1'b0;
+                        cmd_cnt_o     <= sat_inc16(cmd_cnt_o);   // ⭐ 'Z' + 子命令号 = 一条命令
+                        idx_q         <= 4'd0;
                     end else if (byte_is_cmd) begin
                         // ⭐⭐ 命令（⭐ 帧外 ⇒ 安全）
                         //   ⚠️ **互斥**：一次只可能命中一个（⭐ 四个字母互不相同）
@@ -545,6 +608,7 @@ module calib_cmd #(
                         //        ⇒ ⭐ `'Q'` 紧跟 `'H'` 时**不会互相污染** ✅
                         abs_arm_q <= 1'b0;
                         bpm_arm_q <= 1'b0;
+                        fxstat_arm_q <= 1'b0;   // ⭐ 'Z' 的臂也要一起废（⭐ 见 `fxstat_arm_q` 注释 ✅）
                         if (byte_is_tare)  tare_req_o  <= 1'b1;
                         if (byte_is_span)  span_req_o  <= 1'b1;
                         if (byte_is_abort) abort_req_o <= 1'b1;
@@ -593,6 +657,13 @@ module calib_cmd #(
                         if (byte_is_upstream)   upstream_req_o   <= 1'b1;
                         //  ⭐⭐ 2026-10-14：⭐ **`'U'` 指引模式开关**（⭐ "切换"语义 ⇒ 直接出脉冲 ✅）
                         if (byte_is_guide)      guide_req_o      <= 1'b1;
+                        //  ⭐⭐ 2026-10-17：⭐ **`'Z'` = 臂化**（⭐ ⛔ 本拍**不出脉冲** ✅）
+                        //     📌 与 `'H'`/`'Q'` **同构**：⭐ 子命令号在**下一个帧外字节**那一拍才出
+                        //        （⭐ 见下方帧内段之后的 `fxstat_arm_q` 取用点 ✅）
+                        //     🔴 **为什么不本拍就出脉冲**：⭐ 本拍根本没有子命令号
+                        //        ⇒ ⚠️ 若本拍出脉冲，⭐ `top.v` 会拿**上一次的旧子命令号**去回读
+                        //        ⇒ 🔴 **回读到的是别的东西**（⭐ 比"没反应"更危险 ✅）
+                        if (byte_is_fxstat)     fxstat_arm_q     <= 1'b1;
                         cmd_cnt_o <= sat_inc16(cmd_cnt_o);
                         idx_q     <= 4'd0;      // ⭐ 命令不推进帧位置
                     end else begin
@@ -610,6 +681,7 @@ module calib_cmd #(
                         //        （⭐ 只有**别的字节**才会废掉它 —— 那本来就该废 ✅）
                         abs_arm_q <= 1'b0;
                         bpm_arm_q <= 1'b0;
+                        fxstat_arm_q <= 1'b0;   // ⭐ 'Z' 的臂同一条路径废掉（✅ 与 `'Q'` 同族）
                         unknown_cnt_o <= sat_inc16(unknown_cnt_o);
                         idx_q         <= 4'd0;
                     end
@@ -667,6 +739,11 @@ module calib_cmd #(
                 //      📌 **实测触发路径**：⭐ 用户发 ASCII `Q60`（⭐ 字母 + 数字，
                 //         ⛔ 不是"帧"）⇒ ⭐ 臂挂住 ⇒ ⚠️ 之后灌曲谱会被乱改 BPM ✅
                 bpm_arm_q    <= 1'b0;
+                //  ⭐⭐ 2026-10-17：⭐ **`'Z'` 的臂也必须【一起】作废** ✅
+                //     📌 与上面 `bpm_arm_q` **同一条灾难**（⭐ 已是第三次补漏 ✅）
+                //     ⚠️ 触发路径：⭐ 发了 `'Z'` 之后**超过 16 个字节时间没动静**
+                //        ⇒ ⭐ 若不清 ⇒ 之后**第一个字节**被当成子命令号吃掉 ✅
+                fxstat_arm_q <= 1'b0;
             end
         end
     end
@@ -696,7 +773,7 @@ module calib_cmd #(
     //   ⭐ 2026-10-03（`P2`）：⭐ **14 ⇒ 18**（⭐ 新增 `'F'`/`'G'`/`'H'`/`'J'` 四条变调命令）
     //      📌 ⚠️ **忘了加这里 = 查重漏掉新字母** ⇒ 🔴 将来撞字母时**静默遮蔽**
     //         （⭐ 所以本表是"加新命令时的**必改项**"，⭐ 见上方注释 ✅）
-    localparam integer N_CMD = 25;   // E 显示、Q BPM、W 滑音、A 模式、O 上行、U 指引 分别查重
+    localparam integer N_CMD = 26;   // E 显示、Q BPM、W 滑音、A 模式、O 上行、U 指引、Z 状态回读 分别查重
     reg [7:0] cmd_tab [0:N_CMD-1];
     integer   ci, cj;
     reg       letters_ok;
@@ -727,6 +804,7 @@ module calib_cmd #(
         cmd_tab[22] = CMD_MODE_SW;     // ⭐ 2026-10-13：⭐ 'A' 模式翻转 指板⇄钢琴（⭐ 查重必改项 ✅）
         cmd_tab[23] = CMD_UPSTREAM;    // ⭐ 2026-10-14：⭐ 'O' 实时上行开关（⭐ 查重必改项 ✅）
         cmd_tab[24] = CMD_GUIDE;       // ⭐ 2026-10-14：⭐ 'U' 指引模式开关（⭐ 查重必改项 ✅）
+        cmd_tab[25] = CMD_FXSTAT;       // ⭐ 2026-10-17：⭐ 'Z' 效果器状态回读（⭐ 查重必改项 ✅）
 
         if (GAP_BYTES <= 1)
             $display("ERROR [calib_cmd] GAP_BYTES = %0d <= 1 => intra-frame byte gaps would be mistaken for idle, so a half frame resyncs early and payload bytes get treated as commands. PARAM_OK=0.", GAP_BYTES);

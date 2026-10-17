@@ -68,7 +68,22 @@ module tdm_render_mixer #(
     // linear attenuation only: it preserves the AKWF samples, timbre ratios,
     // velocity response and detune behaviour.  Production uses 1 (-6.02 dB);
     // arithmetic unit tests may retain 0 for their historical exact values.
-    parameter integer OUTPUT_HEADROOM_SH  = 0
+    parameter integer OUTPUT_HEADROOM_SH  = 0,
+    //  ⭐⭐ 2026-10-17：⭐ **osc 采样源选择**（⭐ 配 `oscillator_bank.OSC_RAM_EN` ✅）
+    //   · `0`（⭐ **默认**）⇒ ⭐ **老路径**：从 `osc_sample_bus_i` **组合**选 2 个 lane
+    //     （⭐ 逐字、逐位、逐拍完全不变 ✅）
+    //   · `1` ⇒ ⭐ 改用 **BSRAM 的寄存器读口** `osc_rd_data0_i/1_i`
+    //     ＋ ⭐ **去掉 `vs_c_r` 那一级**（⭐ 因为 RAM 读口**已经是寄存器** ⇒ 总拍数一致 ✅）
+    //   📌 **为什么两者拍数相同**（⭐ 逐拍对账，⛔ 不靠直觉）：
+    //      · 老：⭐ cycle k 时 `cnt_sel=k` ⇒ `vs_c`(组合)= voice k ⇒ ⭐ cycle k+1：`vs_c_r` = voice k
+    //      · 新：⭐ cycle k 时地址 = lane 2k ⇒ ⭐ cycle k+1：RAM 输出 = voice k ⇒ `vs_c` = voice k
+    //      ⇒ ⭐ 两条路径 `prod_c` 在 cycle k+1 都是 **voice k** ⇒ ⭐ `prod_r`/`acc_r`/`dry_valid` 全部不变 ✅
+    //   🔴 **权重/差分/归一化的代码一字不改**（⭐ 只是 lane 数据**来源**变了）
+    //      ⇒ ⭐ `9:7` 加权、`>>> LANE_WS`、`prod = vs*env` 全在**原处** ✅
+    parameter integer OSC_SRC_RAM        = 0,
+    //  ⭐ 读口地址宽度（⭐ ⚠️ **必须与 `oscillator_bank.OSC_RD_AW` 同式**）
+    parameter integer OSC_RD_AW          = ((POLY_TARGET * OSC_PER_VOICE) <= 1)
+                                           ? 1 : $clog2(POLY_TARGET * OSC_PER_VOICE)
 ) (
     input  wire                                             clk_i,
     input  wire                                             rst_n_i,
@@ -86,7 +101,14 @@ module tdm_render_mixer #(
     //   ⚠️ **宽度用 `$clog2(POLY_TARGET)+1`** —— ⛔ 不能直接引用 `LW`
     //      （⚠️ `LW` 是**模块体里**的 `localparam`，⭐ **端口列表里还没定义** ⇒
     //       🔴 `Unable to bind parameter` —— ⭐ 这是 `L66`「声明先于使用」的同一族）
-    output wire [$clog2(POLY_TARGET):0]                     n_active_o
+    output wire [$clog2(POLY_TARGET):0]                     n_active_o,
+    //  ⭐⭐ 2026-10-17：⭐ **osc 采样 BSRAM 的读口**（⭐ 只在 `OSC_SRC_RAM != 0` 时有效）
+    //     ⭐ 地址 = `cnt_sel * OSC_PER_VOICE`（⭐ **lane 号**，⛔ 不是 voice 号）
+    //        ⭐ `OSC_PER_VOICE == 2` ⇒ 就是 `2*cnt_sel`；⭐ `+1` 由 `top.v` 连成 `addr0+1` ✅
+    //     ⭐ 数据**晚 1 拍**回来 ⇒ ⭐ 正好替代 `vs_c_r`（⭐ 见上面 `OSC_SRC_RAM` 的逐拍对账）✅
+    output wire [OSC_RD_AW-1:0]                             osc_rd_addr_o,
+    input  wire [OSC_SAMPLE_W-1:0]                          osc_rd_data0_i,
+    input  wire [OSC_SAMPLE_W-1:0]                          osc_rd_data1_i
 );
 
     // ── 位宽推导（⛔ 不对 integer 参数做位选 ⇒ 先落成有宽度的 localparam）────
@@ -135,6 +157,24 @@ module tdm_render_mixer #(
     //   ⇒ ⭐ 正确做法：用**最大索引**（`POLY_TARGET-1`）做夹取，且**用有宽度的 localparam**。
     localparam [LW-1:0] LAST_IDX = POLY_TARGET - 1;
     wire [LW-1:0] cnt_sel = (cnt[LW-1:0] > LAST_IDX) ? LAST_IDX : cnt[LW-1:0];
+    //  ⭐⭐ 2026-10-17（第二轮）：⭐ **读口地址【提前一拍】给出** ✅
+    //   🔴 **为什么必须提前**：⭐ 这个存储体被 Gowin 推断成 **BSRAM 且带输出寄存器**：
+    //      ⭐ 证据 = ⭐ `oscillator_bank` 的 `T_Register` 4300 → **3276**，
+    //      ⭐ 正好**只掉 1024 个 FF**（⭐ 即那 1024 位 `sample_bus_r`）
+    //      ⇒ ⭐ 两个 16 位读寄存器**被吸进了 BSRAM 的 OREG** ⇒ ⭐ **硬件读延迟 = 1 拍** ✅
+    //      ⇒ ⭐ 所以若地址还用 `cnt_sel(t)`，⭐ `vs_c(t)` 拿到的会是 **voice t−1**
+    //         ⇒ ⭐ 再加 `vs_c_r` 就变成 🔴 **voice t−1 的样本 × voice t 的包络**（⭐ 配错对）
+    //            ＋ ⭐ 累加窗口 `[2,33]` 会**漏掉 voice 31** ✅
+    //   ✅ **修法**：⭐ 地址按 **`cnt+1`** 给出（⭐ = 提前一拍读）
+    //      ⇒ ⭐ `vs_c(t)` 拿到的正是 **voice t**（⭐ 与老路径"组合读 1024 位总线"**同拍同义**）
+    //      ⇒ ⭐ `vs_c_r` 那一级**可以原样保留** ⇒ ⭐ DSP 输入又变回【纯 FF】✅
+    //   📌 **空闲时钉 lane0**：⭐ `busy == 0` 的那一拍（⭐ 含 `render_start_i` 当拍）就送地址 `0`
+    //      ⇒ ⭐ **新帧第一拍** `vs_c(0)` 读到的正是 **voice 0** ✅
+    //   📌 求和与差分读的是**同一对 lane**（⭐ `2k` 与 `+1`）⇒ ⭐ 一拍两个 word 就够 ✅
+    //   📌 `OSC_PER_VOICE` 是**常数** ⇒ ⭐ 综合成移位/加常数（⛔ 不实例化乘法器 ✅）
+    wire [LW:0]   cnt_next     = cnt + 1'b1;
+    wire [LW-1:0] cnt_next_sel = (cnt_next > {1'b0, LAST_IDX}) ? LAST_IDX : cnt_next[LW-1:0];
+    assign osc_rd_addr_o = busy ? (cnt_next_sel * OSC_PER_VOICE) : {OSC_RD_AW{1'b0}};
 
     // ═══════════════════════════════════════════════════════════════════════
     // 🔴🔴 **2026-09-26 结构修复：⭐ voice 内部的 lane 求和【必须取平均】**
@@ -234,8 +274,15 @@ module tdm_render_mixer #(
     //           ⛔ 不包的话负数会算错）
     always @(*) begin
         vs_sum = {SUM_W{1'b0}};
-        for (oi = 0; oi < OSC_PER_VOICE; oi = oi + 1)
-            vs_sum = vs_sum + $signed(osc_sample_bus_i[(cnt_sel*OSC_PER_VOICE + oi)*OSC_SAMPLE_W +: OSC_SAMPLE_W]);
+        if (OSC_SRC_RAM != 0) begin
+            //  ⭐ BSRAM 路径：⭐ 数据**已经是** voice `cnt_sel-1` 的那一对 lane
+            //     ⇒ ⭐ 这里**直接加**（⭐ 与下面循环的第一个/第二个 lane **同序** ⇒ 逐位相同 ✅）
+            vs_sum = vs_sum + $signed(osc_rd_data0_i);
+            vs_sum = vs_sum + $signed(osc_rd_data1_i);
+        end else begin
+            for (oi = 0; oi < OSC_PER_VOICE; oi = oi + 1)
+                vs_sum = vs_sum + $signed(osc_sample_bus_i[(cnt_sel*OSC_PER_VOICE + oi)*OSC_SAMPLE_W +: OSC_SAMPLE_W]);
+        end
 
         if (OSC_PER_VOICE <= 1) begin
             //   ⭐ 单 lane：⭐ **单位增益**（⛔ 不加权 —— 单 lane 没有拍，
@@ -243,8 +290,12 @@ module tdm_render_mixer #(
             vs_c = vs_sum;
         end else if (OSC_PER_VOICE == 2) begin
             //   ⭐⭐ 双 lane 加权：⭐ **纯移位 + 加减，⛔ 零乘法器**
-            vs_dif = $signed(osc_sample_bus_i[cnt_sel*2*OSC_SAMPLE_W +: OSC_SAMPLE_W])
-                   - $signed(osc_sample_bus_i[(cnt_sel*2+1)*OSC_SAMPLE_W +: OSC_SAMPLE_W]);
+            //  ⭐ BSRAM 路径：⭐ lane0 − lane1 **同符号、同位宽**（⭐ 与下面那两行等价 ✅）
+            if (OSC_SRC_RAM != 0)
+                vs_dif = $signed(osc_rd_data0_i) - $signed(osc_rd_data1_i);
+            else
+                vs_dif = $signed(osc_sample_bus_i[cnt_sel*2*OSC_SAMPLE_W +: OSC_SAMPLE_W])
+                       - $signed(osc_sample_bus_i[(cnt_sel*2+1)*OSC_SAMPLE_W +: OSC_SAMPLE_W]);
             vs_w   = $signed({vs_sum, 3'b0}) + vs_dif;   // ⭐ 8·(L0+L1) + (L0−L1) = 9L0+7L1
             vs_c   = vs_w >>> LANE_WS;                   // ⭐ ÷16（权重和）
         end else begin
@@ -331,6 +382,15 @@ module tdm_render_mixer #(
         end
     end
 
+    //  ⭐⭐ 2026-10-17（第二轮）：⭐ **`vs_c_r` 那一级【两种模式都保留】** ✅
+    //   ⭐ 语义：⭐ `vs_s = vs_c_r` **恒成立** ⇒ ⭐ **DSP 的 A 口永远是纯寄存器** ✅
+    //      （⭐ 老路径本来就是；⭐ BSRAM 路径靠"地址提前一拍"把 RAM 的读延迟补在前面 ✅）
+    //   📌 **拍数完全不变**（⭐ 逐拍账）：
+    //      · cycle k−1：⭐ 送地址 `2*clamp(cnt(k))` ⇒ ⭐ cycle k：RAM 输出 = **voice k**
+    //      · cycle k：⭐ `vs_c` = voice k ⇒ ⭐ cycle k+1：`vs_c_r` = voice k
+    //      · cycle k+1：⭐ `prod_c` = voice k × `env_c_r`(= env k) ⇒ ⭐ cycle k+2：`prod_r` = voice k
+    //      ⇒ ⭐ `prod_r(j)` = **voice (j−2)** ⇒ ⭐ 窗口 `[2,33]` / `CNT_TOTAL=34` /
+    //         ⭐ `dry_valid` 的 `POLY_TARGET+7` **全都不动** ✅
     wire signed [SUM_W-1:0]   vs_s   = vs_c_r;
     wire signed [ENV_W:0]     env_s  = $signed({1'b0, env_c_r});
     wire signed [PROD_W-1:0]  prod_c = vs_s * env_s;

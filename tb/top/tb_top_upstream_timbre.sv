@@ -261,8 +261,10 @@ module tb_top_upstream_timbre;
             //       · 其余一切来源 ⇒ 回传 **0**
             //     ⚠️ 而 `evt_axis_o`（⭐ 下行 voice 定位键）**原样透传轴号、⛔ 一个字都没动** ✅
             //     ⇒ ⭐ **本 tb 的激励是"手弹"（`SRC_LIVE`）⇒ 低半字节必然是 0** ✅
-            //  📌 ⭐ 于是 `[7]` 的新口径：
-            //       `bit[7:6] = 0`（留位）· `bit[5:4] = 音色` · `bit[3:0] = 鼓标记` ✅
+            //  📌 ⭐ 于是 `[7]` 的新口径（⭐⭐ 2026-10-17 起）：
+            //       `bit[7] = 0`（留位）· `bit[6] = is_drum` · `bit[5:4] = 音色` · `bit[3:0] = 鼓标记` ✅
+            //       ⚠️ 本条是**手弹**（⭐ `SRC_LIVE`）⇒ `is_drum = 0` ⇒ `bit[6]` 也是 0 ✅
+            //          ⇒ ⭐ 下面那几条**精确到整字节**的断言（`0x20`/`0x10`/`0x30`）**值不变** ✅
             //  📌 ⭐ 轴号**没有丢**：⭐ 它在 `[8..11]` 的 `phase_inc` 里
             //     （⭐ ESP32 侧 `note_from_axis_inc` 用它反算音高 ⇒ ⭐ 这才是权威音高 ✅）
             //  ⭐ **鼓标记（非零）由 `tb_seq_arb` 覆盖**（⭐ `evt_up_axis_o` 的出处）✅
@@ -430,10 +432,18 @@ module tb_top_upstream_timbre;
                 if (dti == 2)
                     chk(got_byte7[3:0] !== 4'd0,
                         "non-vacuity (HiHat, drum_type=2): byte[7] low nibble is 2, NOT 0 -- the drum_type DOES travel upstream");
-                //  ⭐ 高 2 位（`bit[7:6]`）= 保留位，**必须恒 0**（⭐ `evt_upstream.v:264`
-                //    的 `b_axis = {2'b0, tm, ax}` ✅）—— ⭐ 它们**不是**鼓标记 ✅
-                chk(got_byte7[7:6] === 2'b00,
-                    "drum: byte[7] bits[7:6] are the reserved bits and must stay 0");
+                //  ⭐⭐ 2026-10-17（🔴 协议变更）：⭐ 高 2 位**不再都是保留位** ✅
+                //     ⭐ 新布局（⭐ `evt_upstream.v` 的 `b_axis`）：
+                //        `byte[7] = {1'b0, is_drum, timbre[1:0], axis[3:0]}`
+                //     · `bit[7]`   = ⭐ **仍然是保留位，必须恒 0** ✅
+                //     · `bit[6]`   = ⭐ **`is_drum`**（⭐ 1 = 这条是鼓 ✅）
+                //     ⇒ 🔴 旧断言 `[7:6] === 2'b00` 在**鼓事件**上**必然红** ——
+                //        ⚠️ 不是回归，是**契约变了**（⭐ 本次改动就是为 ESP32 加这一位）
+                //     📌 本段是**鼓**事件 ⇒ ⭐ `bit[6]` **必须为 1**（⭐ 这就是新判据本身）✅
+                chk(got_byte7[7] === 1'b0,
+                    "drum: byte[7] bit[7] is still the reserved bit and must stay 0");
+                chk(got_byte7[6] === 1'b1,
+                    "*** drum: byte[7] bit[6] = is_drum MUST be 1 (new protocol bit for ESP32) ***");
                 //  ⚠️⚠️ **诚实的边界（⭐ 校尺队口径 ✅）**：⭐ `bit[5:4]`（音色字段）
                 //     **本条【⛔ 不断言】** —— ⭐ 因为 `bit[8:7]` 被**复用**成 `drum_type`
                 //     （⭐ `rtl/top.v:1651-1655` 记录的既定设计 ✅）⇒ ⭐
@@ -487,10 +497,14 @@ module tb_top_upstream_timbre;
         //     · `key_drum_dtype = (sel == 2'd2) ? 2'd1` ⇒ **1 = Snare**
         //     · `key_drum_axis = 12 + 1 = 13` ⇒ `mg_evt_axis[1:0] = 1`
         //     · `src_a_timbre  = key_drum_dtype = 1`（⭐ `valid=1`）
-        //     ⇒ ⭐ **`byte[7] = {2'b0, 2'd1, 4'd1} = 8'h11`**
-        //        （⭐ 与 ESP32 回函 §六 点名的"**键盘打鼓 Snare = 0x11**"逐位一致 ✅）
+        //     ⭐⭐ 2026-10-17（🔴 协议变更）：⭐ `src_a_src = key_drum_r ? 3'd5 : ...`
+        //        ⇒ ⭐ `up_is_drum_w = 1` ⇒ **`byte[7]` 的 `bit[6]` 现在也是 1** ✅
+        //     ⇒ ⭐ **`byte[7] = {1'b0, 1'b1, 2'd1, 4'd1} = 8'h51`**
+        //        （⭐ = 旧的 `0x11` **＋ `0x40`**，⭐ 只多了 `is_drum` 那一位 ✅）
+        //        （⭐ `bit[5:4]`/`bit[3:0]` 与 ESP32 回函 §六 点名的"键盘打鼓 Snare"逐位不变 ✅）
         //
-        //  ⚠️ **本条在修复前必红**（⭐ 旧实现给 `0x10`：`[5:4]=1` 对、`[3:0]=0` 错）✅
+        //  ⚠️ **本条在"修复 `[3:0]` 之前"必红**（⭐ 旧实现给 `0x10`：`[5:4]=1` 对、`[3:0]=0` 错）✅
+        //     ⭐ 而在"加 `is_drum` 之前"也必红（⭐ 那时是 `0x11`，⭐ 差的正是 `bit[6]`）✅
         //
         //  🔴🔴 **⛔ 本块必须放在【最后一个】**（⭐ 2026-10-16 实测踩到）：
         //     ⚠️ 上行帧**一帧要 ~14000 拍**（⭐ 20.48 µs 音频帧）⇒
@@ -514,11 +528,15 @@ module tb_top_upstream_timbre;
                 "*** KEYBOARD DRUM: byte[7][3:0] must be the drum_type (1 = Snare), NOT 0 ***");
             chk(((rxq[7] >> 4) & 8'h03) === 2'd1,
                 "*** KEYBOARD DRUM: bits[5:4] must also be the drum_type (1 = Snare) ***");
-            chk(rxq[7] === 8'h11,
-                "*** KEYBOARD DRUM Snare => byte[7] = 0x11 (the exact value the ESP32 side expects) ***");
+            chk(rxq[7] === 8'h51,
+                "*** KEYBOARD DRUM Snare => byte[7] = 0x51 = {1'b0, is_drum=1, timbre=1, axis=1} ***");
+            chk(rxq[7][6] === 1'b1,
+                "*** and the new is_drum bit[6] is 1 for a keyboard drum ***");
             //  ⭐ **非空洞**：若 `[3:0]` 退回旧行为（恒 0）⇒ 上面第一条必红
             chk(rxq[7] !== 8'h10,
                 "non-vacuity: 0x10 is the OLD (broken) value where the drum marker was 0");
+            chk(rxq[7] !== 8'h11,
+                "non-vacuity: 0x11 is the value BEFORE is_drum was added -- bit[6] must differ");
 
             release dut.key_drum_r;
             release dut.timbre_sel_r;

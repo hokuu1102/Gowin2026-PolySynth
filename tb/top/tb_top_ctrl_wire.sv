@@ -185,6 +185,14 @@ module tb_top_ctrl_wire;
     //  ⭐⭐ 判据 ⑨：⭐ **监视 `cmd_loop_clear_req` 有没有幻影脉冲** ✅
     integer    n_lclr = 0;
     always @(posedge clk) if (rst_n && dut.cmd_loop_clear_req) n_lclr = n_lclr + 1;
+    //  ⭐⭐ 判据 ⑫：⭐ **空循环拒绝计数器**（⭐ `rd_reject_r`，`g_sound` 里 ✅）
+    //     📌 为什么盯它：⭐ 本 tb 里 looper **一个事件都没录**
+    //        ⇒ ⭐ 此刻 `looper_evt_cnt == 0` ⇒ 任何到达 `cmd_recdump_req` 的脉冲
+    //           都走**拒绝**分支（⭐ `rd_reject_event` ✅）
+    //        ⇒ ⭐ 所以"拒绝计数涨没涨"就是**"脉冲到底有没有到 `cmd_recdump_req`"**
+    //           的直接、单调、可证伪的观测点 ✅
+    reg [15:0] n_rj = 0;
+    always @(posedge clk) if (rst_n && dut.g_sound.rd_reject_event) n_rj = n_rj + 1;
 
     initial begin
         $dumpfile("build/sim/tb_top_ctrl_wire/tb_top_ctrl_wire.vcd");
@@ -359,9 +367,63 @@ module tb_top_ctrl_wire;
                 "*** key idx 14 resets AGAIN from a DIFFERENT offset (not a one-off coincidence) ***");
         end
 
+        // ══ 判据 ⑫：⭐⭐⭐ 2026-10-17：⭐ **键 idx 13（列 1 / 行 3）= loop 发送** ══
+        //     ⭐ 用户需求：*"控制板加一个 loop 发送按钮"* ✅
+        //     ⭐ 语义：⭐ 导出该层已录事件（⭐ = 串口 `'Y'`/`CMD_RECDUMP`）
+        //     ⭐ 链路：⭐ 键 13 ⇒ `u_ctrl_key_map.loop_send_req_o`
+        //        ⇒ ⭐ `top.v` 把它 **OR 进 `cmd_recdump_req`**
+        //        ⇒ ⭐ `rd_reject_event` / `rd_pending_r` 的置位条件 ✅
+        //     🔴 **必须能红**（⭐ 三条，⛔ 缺任一条就是空洞判据 ✅）：
+        //        ① ⭐ **非空洞前置**：⭐ 本 tb 从未录过任何一个事件
+        //           ⇒ ⭐ `looper_evt_cnt == 0` ⇒ ⭐ 第一次按键必然走**拒绝**分支
+        //           ⇒ ⭐ 拒绝计数**必须涨**（⭐ 这一步先关掉"什么都不发生"的退路 ✅）
+        //        ② ⭐ **idx 13 专属**：⭐ 再按一次 idx 13 ⇒ ⭐ 拒绝计数**只涨 1**
+        //           （⭐ 短按即发 ⇒ ⭐ 一次按键恰好一个脉冲 ✅）
+        //        ③ ⭐ **别的键不许触发它**：⭐ 逐个按 idx 0/1/2/4/5/10/14
+        //           ⇒ ⭐ 拒绝计数**一步都不许涨**（⭐ 证伪"任意键都能触发导出 ✅"）
+        //     📌 ⭐ 为什么用**拒绝计数器**而不是等导出字节：
+        //        ⚠️ 导出要 `looper_evt_cnt != 0`（⭐ 本 tb 是空的）⇒ ⭐ 不可能真的导出
+        //        ⭐ 但**拒绝本身就是"脉冲到达 `cmd_recdump_req`"的证据**
+        //           （⭐ `rd_reject_event` 的第一个项就是 `cmd_recdump_req && ...` ✅）
+        //        ⭐ ⇒ 判据落在**集成层**、⛔ 不伪造导出 ✅
+        //     📌 ⭐ 真要验"导出字节"的那条判据在
+        //        `tb_top_dump_atomic.sv`（⭐ 那边录了真 Hall 事件 ✅）
+        begin : key13_loop_send_blk
+            // ⭐ ① 非空洞前置：先确认现在真的一个事件都没有
+            chk(dut.g_sound.looper_evt_cnt === 16'd0,
+                "*** non-vacuity: looper_evt_cnt == 0 (nothing recorded) so an export must be REJECTED ***");
+
+            // ⭐ ② 第一次按 idx 13 ⇒ 拒绝计数涨（"脉冲真的到了 recdump"）
+            n_rj = 0;
+            press_key(13); release_all;
+            repeat (600) @(negedge clk);
+            chk(n_rj === 16'd1,
+                "*** key idx 13 (col1/row3, 'loop send') really reaches cmd_recdump_req (rd_reject_event fired exactly once) ***");
+
+            // ⭐ ③ 短按即发、一次一个脉冲：再按一次仍只涨 1
+            n_rj = 0;
+            press_key(13); release_all;
+            repeat (600) @(negedge clk);
+            chk(n_rj === 16'd1,
+                "*** idx 13 is a one-cycle short-press path: a second press still yields exactly ONE reject ***");
+
+            // ⭐ ④ 别的键不许触发它（证伪"任意键都能导出"）
+            n_rj = 0;
+            press_key(0);  release_all;   // 节拍器 'B'
+            press_key(1);  release_all;   // 音色 'I'
+            press_key(2);  release_all;   // 滑音 'W'
+            press_key(4);  release_all;   // 打鼓 'K'
+            press_key(5);  release_all;   // 档位 'J'
+            press_key(10); release_all;   // 降半音 'F'
+            press_key(14); release_all;   // 音高归零
+            repeat (900) @(negedge clk);
+            chk(n_rj === 16'd0,
+                "*** disproof: NO other key (0/1/2/4/5/10/14) can fire the recdump reject -- only idx 13 does ***");
+        end
+
         $display("");
         if (errors == 0)
-            $display("PASS: control-board wiring -- the 4x4 keypad really toggles the downstream state, the serial path is preserved alongside it, and the EC11 routes to BPM or transpose depending on the selected object");
+            $display("PASS: control-board wiring -- the 4x4 keypad really toggles the downstream state, the serial path is preserved alongside it, the EC11 routes to BPM or transpose depending on the selected object, and key idx 13 (loop send) really reaches cmd_recdump_req while no other key does");
         else
             $fatal(1, "FAIL: tb_top_ctrl_wire had %0d error(s)", errors);
 

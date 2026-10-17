@@ -1043,14 +1043,44 @@ module note_manager #(
     //      · ⭐ 每拍只判 **1 个 voice**（⭐ 提交路径）⇒ ⭐ **1 套比较器**（⛔ 不是 2×32 套）✅
     //      · ⭐ **零窗口** —— ⛔ 不再受 `phase_tr` 轮转（≤32 拍）影响 ✅
     //      · ⭐ 于是 `oscillator_bank` 里那 **64 个常量比较器可以整段不综合**（⭐ 净省 ~500 LUT）✅
-    //   📌 用 `cmt_inc_r`（⭐ 提交进来的**未变调**相位）＋ ⭐ `base_oct_r`（⭐ 当时八度）
+    //   📌 用**提交进来的未变调相位** ＋ ⭐ **当前的** `base_oct_r`（⭐ 当时八度）
     //      ⇒ ⭐ 判的就是"**这个键的实际音高**" ✅（⭐ 与变调⛔ 无关 ✅）
+    //  ⭐⭐ 2026-10-17（Q2 + CLS）：⭐ **改写**（⭐ 下面两段都是这条改动的产物 ✅）
+    //
+    //  🔴 **CLS 改的是什么**（⭐ 原做法在这里现算）：
+    //     原来 `cmt_inc_oct` / `cmt_kick` / `cmt_tom` 是**组合**算的，喂给 `ST_COMMIT2` 的写点
+    //     ⇒ ⚠️ 那条链是 `cmt_inc_r`(FF) → **变量移位器** → **2 个比较器** → `drum_cls_r`(FF)，
+    //        全部挤在 `ST_COMMIT2` **一拍之内** —— 而 `ST_COMMIT2` 本来就要驱动
+    //        **32 路写译码**（⭐ 见 `ST_COMMIT2` 的注释：4517 个违例端点的同源问题）
+    //     ✅ 改法：⭐ 在 `ST_COMMIT` 那一拍就把结果锁进 `drum_kick_r`/`drum_tom_r`
+    //        ⇒ ⭐ `ST_COMMIT2` 只用 **2 个 FF 的输出**（⭐ 移位器/比较器从该拍路径上消失 ✅）
+    //     🔴 **逐位等价论证**（⭐ 不是"看起来对"，⛔ 别凭感觉改）：
+    //        · `cmt_inc_r` **只在 `ST_COMMIT` 写**（⭐ 本文件唯一写点 :1590 附近）
+    //          ⇒ ⭐ `ST_COMMIT2` 时它**恒等于** `ST_COMMIT` 那一拍的 `cur_inc` ✅
+    //        · `base_oct_r` **只在 `base_commit_i` 写**（⭐ 那个独立 always 块）
+    //          ⇒ ⭐ `ST_COMMIT` → `ST_COMMIT2` **相邻两拍内不变** ✅
+    //        ⇒ ⭐ 两拍看到的是**同一对输入** ⇒ 锁存值与原现算值**逐位相等** ✅
+    //        📌 `ST_COMMIT2` 本来就要等 `cmt_en_r`（⭐ 也在 `ST_COMMIT` 置位）
+    //           ⇒ ⭐ 锁存与原写点**同生同灭**，不存在"锁了没用上"的窗口 ✅
+    //
+    //  ⭐ **Q2 为什么另有一个写点**：⭐ 同轴重触发走 `ST_DECIDE` → `ST_RETRIG`，
+    //     **完全不经过 `ST_COMMIT`**（⭐ `ST_COMMIT` 只从 `ST_SCAN` 进 ✅）
+    //     ⇒ 🔴 在 `ST_RETRIG` 里读 `cmt_inc_r`/`drum_kick_r` 拿到的是**上一次全量提交的残留值**
+    //        （⭐ 可能是另一个 axis、另一个 voice 的）⇒ ⭐ 会**写错 voice 的分类** ✅
+    //     ✅ 所以 `ST_RETRIG` 用**组合的** `drum_kick_cur`/`drum_tom_cur`（⭐ 由 `cur_inc` 现算）
+    //        —— ⭐ 与同状态里的 `phase_r[same_idx_r] <= cur_inc` **同源** ⇒ 分类与音高一致 ✅
     reg  [POLY_TARGET*2-1:0] drum_cls_r;
-    wire [PHASE_W-1:0] cmt_inc_oct = (base_oct_r == 2'd0) ? cmt_inc_r
-                                   : (base_oct_r == 2'd1) ? (cmt_inc_r << 1)
-                                                          : (cmt_inc_r << 2);
-    wire cmt_kick = (cmt_inc_oct <  DRUM_KICK_MAX_C);
-    wire cmt_tom  = (cmt_inc_oct >= DRUM_KICK_MAX_C) && (cmt_inc_oct < DRUM_TOM_MAX_C);
+    //  ⭐ 本事件的鼓分类（⭐ 由 `cur_inc` ＋ 当前 `base_oct_r` 组合算）——
+    //     ⭐ **两个写点共用这一套**（⭐ 只有一套移位器/比较器，⛔ 不要复制成两套）
+    wire [PHASE_W-1:0] drum_inc_oct = (base_oct_r == 2'd0) ? cur_inc
+                                    : (base_oct_r == 2'd1) ? (cur_inc << 1)
+                                                           : (cur_inc << 2);
+    wire drum_kick_cur = (drum_inc_oct <  DRUM_KICK_MAX_C);
+    wire drum_tom_cur  = (drum_inc_oct >= DRUM_KICK_MAX_C) && (drum_inc_oct < DRUM_TOM_MAX_C);
+    //  ⭐ CLS：⭐ **提交拍锁存**的分类（⭐ `ST_COMMIT2` 的写点用它，⛔ 不再现算）
+    reg  drum_kick_r;
+    reg  drum_tom_r;
+
     //  ⭐⭐ 2026-09-30（时序，待上板验证）：⭐ **同轴重触发的流水级锁存**（⭐ 见 `ST_RETRIG`）
     //     ⭐ `same_en_r` = "本拍要写"（⭐ 由 `same_valid` 锁存）· ⭐ `same_idx_r` = "写哪个 voice"
     //     📌 为什么要寄存：⭐ `same_idx` 来自 **32 路优先编码器**，而写译码又是 **32 路比较**
@@ -1159,6 +1189,9 @@ module note_manager #(
             retrig_reset_r <= {POLY_TARGET{1'b0}};
             sus_hold_r    <= {POLY_TARGET{1'b0}};   // ⭐ T5：延音踏板留音位复位（⛔ 不留 X）
             drum_cls_r    <= {(POLY_TARGET*2){1'b0}};  // ⭐ A3：鼓分类复位（⛔ 不留 X）
+            // ⭐ 2026-10-17（CLS）：⭐ 提交拍锁存的分类也复位（⛔ 不留 X）
+            drum_kick_r   <= 1'b0;
+            drum_tom_r    <= 1'b0;
             // ⭐⭐ 溢出指示：硬复位清（⚠️ 上电后是干净的；上板运行中要靠 clr 输入清）
             lost_cnt_r    <= {EVT_LOST_CNT_W{1'b0}};
             lost_sticky_r <= 1'b0;
@@ -1519,6 +1552,18 @@ module note_manager #(
                         phase_r[same_idx_r]    <= cur_inc;
                         vel_r[same_idx_r]      <= new_vel;
                         timbre_r[same_idx_r]   <= new_timbre;
+                        //  ⭐⭐ 2026-10-17（Q2）：⭐ **同轴重触发也要刷新鼓分类** ✅
+                        //  🔴 **缺陷（改前）**：`drum_cls_r` **只在 `ST_COMMIT2` 写**（:1623）
+                        //     ⇒ ⚠️ 同轴重触发只更新了 `phase_r`（:1519），**分类留在旧值**
+                        //     ⇒ 🔴 换八度（`base_oct_r` 变了）后同轴重触发：
+                        //        `phase_r` 已跟新八度、`drum_cls_r` 还是旧八度算的
+                        //        ⇒ ⭐ 鼓的音色/扫频档（`DRUM_KICK_SWEEP_SH`/`DRUM_TOM_SWEEP_SH`）
+                        //          与**实际音高**对不上 ✅
+                        //  📌 可达性：⭐ `base_oct_r == 0`（C4，默认）时 `drum_inc_oct == cur_inc`，
+                        //     而 `ST_COMMIT2` 那条用的是同一对输入（⭐ 见声明区论证）
+                        //     ⇒ ⭐ **零行为变化**（⭐ 老判据不受影响 ✅）
+                        //     ⚠️ 只有**改过八度（T2/T3）之后同轴重触发**才真正生效 ✅
+                        drum_cls_r[same_idx_r*2 +: 2] <= {drum_kick_cur, drum_tom_cur};
                         age_r[same_idx_r]      <= {AGE_W{1'b0}};
                         //  ⭐⭐ 2026-09-29：⭐ **重触发 ⇒ 每 voice 目标重置为【本次事件的力度】** ✅
                         //    ⭐ 语义：⭐ 起音力度由**这次事件**决定 ⇒ ⛔ 不许残留上一个音的目标 ✅
@@ -1571,6 +1616,12 @@ module note_manager #(
                         cmt_idx_r    <= best_idx;
                         cmt_axis_r   <= cur_axis;
                         cmt_inc_r    <= cur_inc;
+                        //  ⭐⭐ 2026-10-17（CLS）：⭐ **鼓分类在这里就锁存**（⭐ 与 `cmt_inc_r` 同拍）✅
+                        //  📌 语义与"在 `ST_COMMIT2` 用 `cmt_inc_r` 现算"**逐位相同** ——
+                        //     因为 `cmt_inc_r` 本拍写进去的就是 `cur_inc`，
+                        //     而 `base_oct_r` 在相邻两拍内不变（⭐ 论证见声明区那段注释）✅
+                        drum_kick_r  <= drum_kick_cur;
+                        drum_tom_r   <= drum_tom_cur;
                         cmt_vel_r    <= new_vel;
                         cmt_timbre_r <= new_timbre;
                         cmt_src_r    <= cur_src;      // ⭐ A1：来源与 `cmt_axis_r` 同一拍锁存
@@ -1620,7 +1671,7 @@ module note_manager #(
                         //  ⭐⭐ 2026-10-08（`A3` 正确修法）：⭐ **鼓分类与"占 voice"同拍写**
                         //     ⇒ ⭐ 与 `axis_r`/`src_r`/`phase_r` **同生命周期**（⭐ 不可分离）✅
                         //     ⇒ ⭐ `oscillator_bank` 拿到的分类**当拍就绪** ⇒ **零窗口** ✅
-                        drum_cls_r[cmt_idx_r*2 +: 2] <= {cmt_kick, cmt_tom};
+                        drum_cls_r[cmt_idx_r*2 +: 2] <= {drum_kick_r, drum_tom_r};   // ⭐ CLS：用提交拍锁存值（⛔ 不再现算）
                         phase_r[cmt_idx_r]  <= cmt_inc_r;
                         vel_r[cmt_idx_r]    <= cmt_vel_r;
                         timbre_r[cmt_idx_r] <= cmt_timbre_r;

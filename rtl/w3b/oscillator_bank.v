@@ -201,7 +201,30 @@ parameter integer FIXED_BLEND_Q     = 0,
     //      ⇒ ⭐ `1` 时那 64 个比较器**根本不参与综合** ⇒ ⭐ **净省 ~500 LUT** ✅
     //      （⭐ 而 Z-safe 回退会把比较器留着 ⇒ 🔴 净收益归零 —— ⭐ 那正是本修法第一版失败的原因 ✅）
     //   📌 `top.v` 传 **1**（⭐ 唯一的生产例化 ✅）；⭐ 所有 tb 用默认 **0** ✅
-    parameter integer DRUM_CLS_EXT      = 0
+    parameter integer DRUM_CLS_EXT      = 0,
+    //  ⭐⭐ 2026-10-17：⭐ **osc 采样"读 mux"改 BSRAM**（⭐ PnR 布线卡死 ⇒ 腾 LUT）✅
+    //   🔴 **要解决的问题**：⭐ 原来 `sample_bus_r` 是 **1024 个 FF**（⭐ 64 lane × 16 位），
+    //      ⭐ 而 `tdm_render_mixer` 每拍要从这 1024 位里**用 `cnt_sel` 选 2 个 lane**
+    //      ⇒ 🔴 两个 64:1 选路（⭐ ≈ 860 LUT）＋ 1024 个 FF **全都要布线**
+    //      ⇒ ⭐ 这是本轮 **PnR 布线走不完**的头号负担 ✅
+    //   ⭐ 本参数：⭐ `0`（**默认**）⇒ ⭐ 老路径**逐字、逐位、逐拍完全不变**（FF 数组 + 组合读）✅
+    //               ⭐ `1` ⇒ ⭐ 换 **BSRAM + 2 个【寄存器】读口**：
+    //                  ⭐ 写口：写地址 `cnt-1`、写数据 `rom_dout`（⭐ 每拍只写 1 个 lane ⇒ 天然适合 RAM）
+    //                  ⭐ 读口：`osc_rd_addr0_i/1_i` → `osc_rd_data0_o/1_o`（⭐ 晚 1 拍）
+    //
+    //   🔴🔴 **⛔ 绝对不许掺"同址旁路"**（⭐ `rd_wr_same ? wr_data : mem[addr]`）：
+    //      综合会推断 **write-through**（`WRITE_MODE=2'b10`），⭐ 而 Gowin 的 BSRAM
+    //      只支持 `00`/`01` ⇒ 🔴 **PA2122 ⇒ 整个 PnR 失败**
+    //      （⭐ 本项目已踩过一次，见 `evt_buf` 与 `AGENTS.md` 四之二·④）✅
+    //   🔴 **一个 reg 只能在一个 always 块里赋值**（EX2000/EX1999）
+    //      ⇒ ⭐ `osc_ram` 的所有**写入**只放在**一个** always 里 ✅
+    //   📌 **拍数**：⭐ 读口是**寄存器输出** ⇒ 正好替代 `tdm_render_mixer` 里的 `vs_c_r` 那一级
+    //      ⇒ ⭐ `dry_valid_o` 的**绝对拍数不变** ✅
+    parameter integer OSC_RAM_EN        = 0,
+    //  ⭐ 读口地址宽度（⭐ ⛔ 不要写死 6：⭐ 由 `POLY_TARGET*OSC_PER_VOICE` 推导）
+    //     ⚠️ **必须与 `tdm_render_mixer.OSC_RD_AW` 同式**（⭐ 两侧端口位宽必须相等 ✅）
+    parameter integer OSC_RD_AW         = ((POLY_TARGET * OSC_PER_VOICE) <= 1)
+                                          ? 1 : $clog2(POLY_TARGET * OSC_PER_VOICE)
 ) (
     input  wire                                             clk_i,
     input  wire                                             rst_n_i,
@@ -253,7 +276,15 @@ parameter integer FIXED_BLEND_Q     = 0,
     input  wire [15:0]                                      fm_index_i,
     output wire [POLY_TARGET*OSC_PER_VOICE*OSC_SAMPLE_W-1:0] osc_sample_bus_o,
     output wire                                             osc_valid_o,
-    output wire [PHASE_W-1:0]                               phase_acc_dbg_o
+    output wire [PHASE_W-1:0]                               phase_acc_dbg_o,
+    //  ⭐⭐ 2026-10-17：⭐ **osc 采样 BSRAM 的两个读口**（⭐ 只有 `OSC_RAM_EN != 0` 时有效）
+    //     ⭐ 语义：⭐ `osc_rd_addr0_i/1_i` 是 **lane 号**（⛔ 不是 voice 号）
+    //        ⭐ 地址**本拍**给出 ⇒ ⭐ 数据**下一拍**从 `osc_rd_data0_o/1_o` 出来 ✅
+    //     ⚠️ `OSC_RAM_EN == 0` 时：⭐ 地址被忽略、⭐ 数据输出**恒 0**（⭐ 老路径不变 ✅）
+    input  wire [OSC_RD_AW-1:0]                             osc_rd_addr0_i,
+    input  wire [OSC_RD_AW-1:0]                             osc_rd_addr1_i,
+    output wire [OSC_SAMPLE_W-1:0]                          osc_rd_data0_o,
+    output wire [OSC_SAMPLE_W-1:0]                          osc_rd_data1_o
 );
 
     localparam integer LANES = POLY_TARGET * OSC_PER_VOICE;
@@ -946,18 +977,81 @@ parameter integer FIXED_BLEND_Q     = 0,
     // ④ 样本汇总：ROM 数据比地址**晚 1 拍**回来
     //    ⇒ 当 `cnt == k+1` 时，`rom_dout` 是 lane k 的样本
     // ═══════════════════════════════════════════════════════════════════════
-    reg [LANES*OSC_SAMPLE_W-1:0] sample_bus_r;
-    integer si;
+    //  ⭐⭐ 2026-10-17：⭐ **两条实现，参数门控**（⭐ 见 `OSC_RAM_EN` 的长注释 ✅）
+    //   · `OSC_RAM_EN == 0`（⭐ **默认**）⇒ ⭐ `sample_bus_r`：**1024 FF + 组合读**
+    //     ⭐ 与原实现**逐字、逐位、逐拍完全一致** ✅
+    //   · `OSC_RAM_EN == 1` ⇒ ⭐ `osc_ram`：**BSRAM + 2 个寄存器读口**
+    //     ⭐ 写口每拍只写 1 个 lane（⭐ `cnt-1`）⇒ ⭐ 天然适合 RAM ✅
+    //
+    //  🔴 **实测（⭐ 不是推理）**：⭐ 这条"1 写 2 读"的写法 Gowin **能推断 RAM**
+    //     （⭐ `Extracting RAM for identifier 'osc_ram'`）⇒ ⭐ 落成 **2 个 BSRAM**（⭐ 读口复制）
+    //     ＋ ⭐ **LUT 1 / REG 0**（⭐ `build/exp_ram_infer/m_a.*` 实测）✅
+    //     📌 **反面教材**：⭐ 同一次实测里，把数组拆成"偶/奇 lane 两个数组"
+    //        ⇒ 🔴 **BSRAM 0 · REG 1056 · LUT 616**（⭐ 退回寄存器阵列 ⇒ 比不改还差）⛔
+    //        ⇒ ⭐ **必须**保持这个"单数组 + 2 个读地址"的形状 ✅
+    generate
+        if (OSC_RAM_EN != 0) begin : g_osc_ram
+            //  ⚠️ 数组**没有【同步】复位**（⭐ 那会直接把 BSRAM 推断搞掉）——
+            //     ⭐ 但每帧 `cnt` 都会把 `0..LANES-1` **全部重写一遍**（⭐ 见 ② 的 TDM 时序）
+            //     ⇒ ⭐ 渲染阶段读到的**必然是本帧数据** ✅
+            //  ⭐⭐ **`initial` 上电清零**（⭐ 与老路径的"复位 = 0"逐位对齐 ✅）：
+            //     ① ⭐ 仿真：⭐ 未写过的 lane 读 **0** 而⛔ 不是 `X`（🔴 否则 `xprop` 判据会红）
+            //     ② ⭐ 综合：⭐ Gowin 会把初值写进位流/`.mi`（⭐ 实测**不影响 BSRAM 推断**：
+            //        `build/exp_ram_infer/m_c.*` ⇒ ⭐ 仍然 **BSRAM 2 / LUT 1 / REG 0** ✅）
+            //     ③ ⭐ 语义：⭐ 上电后**第一帧**即使渲染与扫描重叠，⭐ 读到的是 0 ⇒
+            //        ⭐ 与老路径（`sample_bus_r` 复位为 0）**逐位相同** ✅
+            reg [OSC_SAMPLE_W-1:0] osc_ram [0:LANES-1];
+            reg [OSC_SAMPLE_W-1:0] osc_rd_data0_r;
+            reg [OSC_SAMPLE_W-1:0] osc_rd_data1_r;
+            integer ri;
 
-    always @(posedge clk_i) begin
-        if (!rst_n_i) begin
-            sample_bus_r <= {(LANES*OSC_SAMPLE_W){1'b0}};
-        end else if (rendering && (cnt >= 1) && (cnt <= LANES[LW:0])) begin
-            sample_bus_r[(cnt-1)*OSC_SAMPLE_W +: OSC_SAMPLE_W] <= rom_dout;
+            initial begin
+                for (ri = 0; ri < LANES; ri = ri + 1)
+                    osc_ram[ri] = {OSC_SAMPLE_W{1'b0}};
+            end
+
+            //  ⭐ 写口：⛔ **只有这一个** always 写 `osc_ram`（⭐ EX2000/EX1999 ✅）
+            //  🔴 **纯写**（⭐ 不读回、⭐ 不掺同址旁路 ⇒ ⛔ 不会推断 write-through ✅）
+            always @(posedge clk_i) begin
+                if (rendering && (cnt >= 1) && (cnt <= LANES[LW:0]))
+                    osc_ram[cnt-1] <= rom_dout;
+            end
+
+            //  ⭐ 读口：⭐ **纯读**（⭐ 只有 `mem[addr]` 这一种形态 ⇒ 无旁路 ✅）
+            //     ⭐ 输出**寄存器**（⭐ 1 拍延迟）＋ ⭐ 复位清零（⭐ 与老路径的复位清零对齐 ✅）
+            always @(posedge clk_i) begin
+                if (!rst_n_i) begin
+                    osc_rd_data0_r <= {OSC_SAMPLE_W{1'b0}};
+                    osc_rd_data1_r <= {OSC_SAMPLE_W{1'b0}};
+                end else begin
+                    osc_rd_data0_r <= osc_ram[osc_rd_addr0_i];
+                    osc_rd_data1_r <= osc_ram[osc_rd_addr1_i];
+                end
+            end
+
+            assign osc_rd_data0_o   = osc_rd_data0_r;
+            assign osc_rd_data1_o   = osc_rd_data1_r;
+            //  ⚠️ 本模式下 `osc_sample_bus_o` **无意义**（⭐ 必须配 `tdm_render_mixer.OSC_SRC_RAM=1`）
+            //     ⇒ ⭐ 恒 0（⭐ 避免悬空 X；⭐ 综合会把它整个折掉 ✅）
+            assign osc_sample_bus_o = {(LANES*OSC_SAMPLE_W){1'b0}};
+        end else begin : g_osc_ff
+            reg [LANES*OSC_SAMPLE_W-1:0] sample_bus_r;
+            integer si;
+
+            always @(posedge clk_i) begin
+                if (!rst_n_i) begin
+                    sample_bus_r <= {(LANES*OSC_SAMPLE_W){1'b0}};
+                end else if (rendering && (cnt >= 1) && (cnt <= LANES[LW:0])) begin
+                    sample_bus_r[(cnt-1)*OSC_SAMPLE_W +: OSC_SAMPLE_W] <= rom_dout;
+                end
+            end
+
+            assign osc_sample_bus_o = sample_bus_r;
+            assign osc_rd_data0_o   = {OSC_SAMPLE_W{1'b0}};
+            assign osc_rd_data1_o   = {OSC_SAMPLE_W{1'b0}};
         end
-    end
+    endgenerate
 
-    assign osc_sample_bus_o = sample_bus_r;
     assign osc_valid_o      = valid_r;
 
     // ⭐ 调试观测：`DBG_LANE` 的相位（冻结表 §2.6：`phase_acc_dbg_o` 是"选定 lane 调试"）

@@ -82,6 +82,16 @@ module evt_upstream #(
     //        （⭐ 见 `esp32/tools/evt2midi/frame_format.py`）
     //        ⇒ ⚠️ **只烧一边会出现"音高全乱"** ✅
     input  wire [1:0]            evt_timbre_i,    // ⭐ 0=BASS 1=GUITAR 2=PIANO 3=PAD
+    //  ⭐⭐ 2026-10-17：⭐ **这条事件是不是鼓**（⭐ 拿 `byte[7]` 的 `bit[6]` 回传给 ESP32 ✅）
+    //   🔴 **为什么加**：⭐ 协议里 `byte[7] = {1'b0, is_drum, timbre[1:0], axis[3:0]}`
+    //      ⇒ ⚠️ 原来 `bit[6]` **硬写 0**（⭐ `b_axis = {2'b0, tm, ax}`）⇒ ESP32 **无法区分**
+    //        "低音旋律"与"鼓"（⭐ 两者 `axis` 低 4 位看起来一样 ✅）
+    //   ✅ **零帧长代价**：⭐ `bit[6]` 本来就空着 ⇒ 帧长 / 帧类型 / 校验逻辑**全不变** ✅
+    //   📌 `top.v` 接的是 **`up_is_drum_w`**（⭐ 三路鼓统一标记，⭐ 已现成 ✅）——
+    //      ⛔ 不新造判据
+    //   ⚠️ **本端口必须接**（⭐ 悬空 `z` ⇒ `bit[6]` 变 `x` ⇒ 对端解出脏字节）
+    //      ⇒ ⭐ 直接驱动的 tb 一律显式接 `1'b0`（⭐ `tb_evt_upstream` / `tb_evt_upstream_queue`）✅
+    input  wire                  evt_is_drum_i,    // ⭐ 1 = 本条是鼓
 
     // ── ⭐ 音乐 tick（⭐ 自由运行 32 位计数器的步进脉冲 = `beat_gen.tick_o`）────
     input  wire                  tick_step_i,
@@ -113,7 +123,14 @@ module evt_upstream #(
     //     ✅ 现在音色与 `tick`/`axis`/`inc` **一样在写侧锁存** ⇒ ⭐ 与事件严格配对 ✅
     //     📌 ⭐ 插入位置在 `axis` 与 `inc` 之间 ⇒ ⭐ `inc` 仍稳居 `[PHASE_W-1:0]`
     //        ⇒ ⭐ 原来的 `kd`/`vl`/`ax`/`inc` 四条切片**一个字都不用改** ✅
-    localparam integer FW   = 2 + VEL_W + AXIS_W + TIMBRE_W + PHASE_W;    // = 48
+    //  ⭐⭐ 2026-10-17（🔴 修"帧里没有 is_drum"）：⭐ **`is_drum` 也随事件进 FIFO** ⇒ `FW` 48 → 49 ✅
+    //     🔴 **为什么⛔ 不能在组帧那一拍读"当前"的 `evt_is_drum_i`**：
+    //        ⭐ 与上面音色**完全同一个理由** —— 组帧在 `S_LOAD`，距事件发生可能隔整整一帧
+    //        ⇒ 🔴 **连来两条事件时，第一条帧会盖上第二条的 `is_drum`**（⭐ 内容串了 ✅）
+    //     📌 插入位置在 `TIMBRE_W` 与 `inc` 之间（⭐ 即 `axis`/音色之后、`inc` 之前）
+    //        ⇒ ⭐ `kd`/`vl`/`ax`/`tm`/`inc` 五条切片的**表达式一个字都不用改**
+    //        （⭐ 只有新加的那 1 位要单独切 ✅）
+    localparam integer FW   = 2 + VEL_W + AXIS_W + TIMBRE_W + 1 + PHASE_W;    // = 49
     //  🔴 `K-91`：⭐ **⛔ 绝不对 `integer` 参数做位选**（`FIFO_D[AW_W:0]` 这种）
     //     ⚠️ 本模块第一版就写了 `FIFO_D[AW_W:0]` ⇒ 🔴 位选对 `integer` **无效**
     //     ⇒ ⭐ 先落到**定宽 localparam** 再参与比较 ✅
@@ -226,7 +243,7 @@ module evt_upstream #(
                 //  ⭐⭐ 2026-10-16：⭐ **音色在【写侧】锁存**（⭐ 与 `tick_q` 同一手法 ✅）
                 //     🔴 原来这里**没有 `evt_timbre_i`** ⇒ ⚠️ 音色根本没跟着事件走 ✅
                 mem[wr_q] <= {tick_q, evt_kind_i, evt_velocity_i, evt_axis_i,
-                              evt_timbre_i, evt_phase_inc_i};
+                              evt_timbre_i, evt_is_drum_i, evt_phase_inc_i};
                 wr_q      <= wr_q + {{(AW_W-1){1'b0}}, 1'b1};
             end
             //  ⭐ 计数（⭐ 同拍读写 ⇒ 不变 ✅）
@@ -248,6 +265,9 @@ module evt_upstream #(
     wire [AXIS_W-1:0]  ax  = hold_q[FW-3-VEL_W -: AXIS_W];
     //  ⭐⭐ 2026-10-16：⭐ **本事件自带的音色**（⭐ 写侧锁存、⭐ 读侧取出 ✅）
     wire [TIMBRE_W-1:0] tm = hold_q[FW-3-VEL_W-AXIS_W -: TIMBRE_W];
+    //  ⭐⭐ 2026-10-17：⭐ **本事件自带的 `is_drum`**（⭐ 写侧锁存、⭐ 读侧取出 ✅）
+    //     📌 位置就在 `tm` 下面一位（⭐ 即 `{... timbre, is_drum, inc}` 的 `is_drum` 段 ✅）
+    wire              dr = hold_q[FW-3-VEL_W-AXIS_W-TIMBRE_W -: 1];
     wire [PHASE_W-1:0] inc = hold_q[PHASE_W-1:0];
 
     // ⭐ 类型：⭐ 只有 `kind==1` 是 note_off；⭐ on(0)/pluck(2) 都算 note_on ✅
@@ -261,7 +281,13 @@ module evt_upstream #(
     //     ⭐⭐ 2026-10-16：⭐ **音色改用 `tm`（⭐ 随事件锁存的那个）** ——
     //        🔴 原来用**裸的 `evt_timbre_i`** ⇒ ⚠️ 组帧那一拍的值可能已是**下一条事件**的 ✅
     //        📌 ⭐ 本 tb 判据 ⑪ 覆盖"音色真的进 `[5:4]`"（⭐ 非空洞 ✅）
-    wire [7:0] b_axis = {2'b0, tm, ax};
+    //  ⭐⭐ 2026-10-17：⭐ `[7]` 字节 = `{1'b0, is_drum, timbre[1:0], axis[3:0]}` ✅
+    //     🔴 **改前**（⭐ 本行原来是 `{2'b0, tm, ax}`）：⭐ `bit[6]` 硬写 0
+    //        ⇒ ⚠️ ESP32 分不出"低音旋律"和"鼓"（⭐ 两者 axis 低 4 位可能一样 ✅）
+    //     ⭐ **`is_drum` 用 `dr`（⭐ 随事件锁存的那个）** —— ⛔ 不用裸的 `evt_is_drum_i`
+    //        （⭐ 理由与 `tm` 那一段完全相同：组帧那一拍的"当前值"可能已是下一条事件的 ✅）
+    //     ⚠️ 本字节参与 XOR 校验 ⇒ ⭐ 值变了校验自然跟着变，⛔ 校验逻辑不用动 ✅
+    wire [7:0] b_axis = {1'b0, dr, tm, ax};
     wire [7:0] b_vel  = vl;
 
     //  ⭐⭐ 2026-10-14：⭐ **XOR 覆盖范围【改为含帧头 0xA5】**（⭐ 与 ESP32 侧对齐 ✅）

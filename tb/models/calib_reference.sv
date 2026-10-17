@@ -339,8 +339,12 @@ module calib_reference #(
     //  ⭐⭐ 上界 = `min(MAX_TRAVEL, span_r[ch])`（⭐ `span_r` 未标定 ⇒ 只用 `MAX_TRAVEL`）
     //     ⭐ 这样**两种情形都安全**：⭐ 标定了 ⇒ 用真实行程；⭐ 没标定 ⇒ 用硬上界 ✅
     localparam [DW:0] MAXT = MAX_TRAVEL;
-    wire [DW:0] dlim = ((span_rd != {(DW+1){1'b0}}) && (span_rd < MAXT))
-                     ? span_rd : MAXT;
+    //  ⭐⭐ 2026-10-17：⭐ **与 RTL 同步** —— 用户裁定删除 span 满量程标定 ✅
+    //   🔴 原式读 `span_rd`；现在 RTL 的上界恒为硬上界 `MAXT` ⇒ 模型必须一致，
+    //      否则 `tb_calib_equivalence` 会在 span 成功的那几拍**必然分叉** ✅
+    //   📌 实测：只改 RTL 不改本行 ⇒ `FAIL: mismatch check=33341 raw=1915 ch=4`
+    //      （⭐ 这就是本次的"改前必红"证据）✅
+    wire [DW:0] dlim = MAXT;
     wire [DW:0] dclamp = (dcode > dlim) ? dlim : dcode;
 
     always @(posedge clk) begin

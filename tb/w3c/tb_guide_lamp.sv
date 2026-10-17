@@ -525,6 +525,57 @@ module tb_guide_lamp;
         send_ev(5'd2, KIND_OFF, 4'd3);
         fb_mode = 1'b0;
 
+        // ═══════════════════════════════════════════════════════════════════
+        // ⭐⭐ 2026-10-17（Q4）：⭐ **每键引用计数** —— 同音高多 voice 时
+        //     ⭐ "**第一个 `note_off` ⛔ 不熄灯，最后一个才熄**" ✅
+        //
+        //  🔴 **缺陷（改前）**：ON 是 `guide_key_o[k] <= 1`、OFF 是 `<= 0`（直接写位）
+        //     ⇒ ⚠️ 同音高还有别的 voice 在响时，**第一个 OFF 就把灯灭了** ✅
+        //     📌 实测比例（`build/score/*/events.csv`）：OFF 到达时"同音高仍有别的 voice"
+        //        = **61~77%** ⇒ ⭐ 按音高指键之后这就是**主行为**（⛔ 不是角落）✅
+        //
+        //  ⭐ **本段在改前【必红】在 `Q4-b`**（⭐ 那时 `guide_key[9]` 已经是 0）✅
+        //  ⭐ **非空洞性**（`Q4-e`）：⭐ 另一个音高的 `note_off` **必须真的灭自己那盏**
+        //     ⇒ ⛔ 不是"灯永远不灭"也能通过 ✅
+        // ═══════════════════════════════════════════════════════════════════
+        $display("== ⑪ Q4 refcount: one note_off must NOT kill a shared lamp ==");
+        fb_mode = 1'b0; transpose = 5'sd0;
+        //  ⭐ 前置条件：⭐ 键 9（C#4 · off 16）此刻必须是**灭的、计数为 0**
+        //     （⭐ 前面每次 ON 都有配对的 OFF ⇒ 天然归零；万一不是，这条先红，指向明确）
+        chk("Q4-0 precondition: key 9 is dark before the test", guide_key[9] === 1'b0);
+
+        send_off5(5'd16, KIND_ON);           // ⭐ voice A（C#4 ⇒ 键 9）
+        send_off5(5'd16, KIND_ON);           // ⭐ voice B（**同一个音高**）
+        chk("Q4-a two voices on the SAME pitch still light exactly one lamp",
+            guide_key === 16'h0200);
+
+        send_off5(5'd16, KIND_OFF);          // ⭐ 只撤掉**一根**引用
+        chk("Q4-b *** the FIRST note_off KEEPS the lamp ON (this is the Q4 fix) ***",
+            guide_key[9] === 1'b1);
+
+        send_off5(5'd16, KIND_OFF);          // ⭐ 最后一根引用
+        chk("Q4-c the LAST note_off finally clears it", guide_key[9] === 1'b0);
+        chk("Q4-d ... and nothing else is lit", guide_key === {AXIS_N{1'b0}});
+
+        //  ── ⭐ 反向证伪：**不同音高**互不影响（⛔ 不是"灯永远不灭"）──────────
+        send_off5(5'd7,  KIND_ON);           // ⭐ E3  ⇒ 键 0
+        send_off5(5'd16, KIND_ON);           // ⭐ C#4 ⇒ 键 9
+        send_off5(5'd7,  KIND_OFF);          // ⭐ 只撤 E3
+        chk("Q4-e NON-VACUOUS: another pitch's note_off DOES clear its own lamp (key0 dark, key9 lit)",
+            guide_key[0] === 1'b0 && guide_key[9] === 1'b1);
+        send_off5(5'd16, KIND_OFF);
+        chk("Q4-f clean at the end", guide_key === {AXIS_N{1'b0}});
+
+        //  ── 饱和自愈：⭐ 8 个 ON（> 饱和值 7）⇒ 8 个 OFF 必须**清得干净**（⛔ 不许留挂灯）──
+        begin : q4_sat
+            integer si;
+            for (si = 0; si < 8; si = si + 1) send_off5(5'd16, KIND_ON);
+            chk("Q4-g count saturates at 7 but the lamp is still on", guide_key[9] === 1'b1);
+            for (si = 0; si < 8; si = si + 1) send_off5(5'd16, KIND_OFF);
+            chk("Q4-h saturation SELF-HEALS: 8 ONs + 8 OFFs leaves every lamp dark (no hanging lamp)",
+                guide_key === {AXIS_N{1'b0}});
+        end
+
         // ── 收尾 ────────────────────────────────────────────────────────────
         if (errors == 0) begin
             $display("PASS: tb_guide_lamp (%0d checks)", checks);

@@ -660,6 +660,62 @@ parameter integer TEST_MODE_EN       = 1,
     wire cmd_timbre_req;
     wire cmd_scope_mode_req;   // ⭐ 2026-10-13：'E' 显示模式切换（⚠️ 原注释误写 'Q'）
 
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐⭐⭐ 2026-10-17：⭐ **EC11 参数调节模式的两条串口命令**（⭐ 提前声明 ✅）
+    //
+    //  ⚠️ **为什么必须在这里（第 660 行附近）就声明** —— ⭐ `L66` 纪律：
+    //     ⭐ 下面第 8xx 行的 **EC11 段**（`enc_obj_r` 的 always ＋ `enc_param_mode`
+    //        的 always）**在 `ur_data`/`ur_done` 声明之前**就要读它们；
+    //     🔴 **而解码逻辑必须写在 `ur_data` 之后**（⭐ 它消费 `ur_data` ✅）
+    //     ⇒ ⭐ 所以：**声明提前**（就在这里）＋ **解码写在 `u_uart_rx` 之后**。
+    //
+    //  🔴 **⛔ 不许用 `calib_cmd.v` 产这两个脉冲** —— 本任务【文件所有权】明写
+    //     *"`rtl/w3a/calib_cmd.v` 不许碰"* ⇒ ⭐ 于是 `top.v` **自己解**这两个字母
+    //     （⭐ 与 `calib_cmd` 消费**同一个** `ur_data`/`ur_done`，⭐ 但**互不干扰**：
+    //        `calib_cmd` 认它的 25 个字母、⭐ 这里只认 `'P'`/`'O'` ✅）
+    //
+    //  ⭐ **两个命令字母（⭐ 已 grep 确认空闲，⛔ 不是 `'P'`/`'O'` 原值！）**：
+    //     · ⭐ `CMD_PARAM_MODE = 8'h70` = `'p'`（**小写**）⇒ 参数调节模式 **进入/退出切换**
+    //     · ⭐ `CMD_PAR_SEL    = 8'h6F` = `'o'`（**小写**）⇒ **选择第 n 个参数**（载荷 = 下一字节）
+    //     🔴 **为什么必须小写**（⭐ 关键，⛔ 不是随手选的）：
+    //        ⚠️ 大写字母 **25 个已全部被 `calib_cmd` 占用**
+    //           （⭐ `T S X P V M N R L C I E B D K F G H J Y Q W A O U` ✅）
+    //           ⚠️ 而剩下的**空闲大写字母只有 `Z`**（⭐ 还被 K-106 占作效果器状态回读 ✅）
+    //        ⇒ 🔴 **本轮只能用小写字母**（⭐ 小写一个都没被占用 ✅）
+    //        📌 ⭐ 而小写**天然不与大写命令撞**（⭐ 二者是不同的字节值 ✅）
+    //           ⇒ ⭐ **屏那边只要发小写**，⛔ 不会误触任何已有命令 ✅
+    //
+    //  ⭐ **`'o'` 的载荷约定**：⭐ 下一字节的**低 3 位** = 参数号（0..7）
+    //     ⚠️ 与 `calib_cmd` 的臂化机制**不同**（⭐ 那个要走 `0xA5` 帧）——
+    //        ⭐ 这里**直接取下一个收到的字节**，更简单、也**不依赖帧** ✅
+    //     🔴 **风险与处置**：⭐ 若发了 `'o'` 却一直不发载荷 ⇒ ⭐ 臂一直挂着 ⇒
+    //        ⭐ 之后**第一个字节**会被当成参数号吃掉。
+    //     ✅ **处置（⭐ 必须有的自愈）**：⭐ **任何非载荷字节的到来都会清臂**，
+    //        ⭐ 并且 ⭐ **空闲超时也清臂**（⭐ 与 `calib_cmd.idle_q` 同一思路 ✅）
+    // ═══════════════════════════════════════════════════════════════════════
+    localparam [7:0] CMD_PARAM_MODE = 8'h70;   // ⭐ 'p'（小写）⇒ 参数调节模式 进入/退出切换
+    localparam [7:0] CMD_PAR_SEL    = 8'h6F;   // ⭐ 'o'（小写）⇒ 选择第 n 个参数（载荷 = 下一字节）
+
+    //  ⚠️ **三个都是 `reg`**（⛔ 不是 wire）—— ⭐ 它们在 `always @(posedge clk)`
+    //     里被赋值（⭐ 见 `u_uart_rx` 之后那段解码逻辑 ✅）
+    //  📌 ⭐ `L66` 纪律：⭐ **声明必须早于第一个使用点**。
+    //     ⚠️ **使用点**：⭐ 第 8xx 行的 EC11 段（⭐ `enc_obj_r` / `enc_param_mode` 的 always）
+    //     ⚠️ **赋值点**：⭐ `u_uart_rx` 之后（⭐ 那里 `ur_data` 已声明 ✅）
+    reg        cmd_param_mode_req;   // ⭐ 'p' ⇒ 单周期脉冲（⭐ 切换 `enc_param_mode` ✅）
+    reg        cmd_par_sel_val_req;  // ⭐ 'o' 的载荷到达（⭐ 单周期脉冲 ✅）
+    reg [7:0]  cmd_par_sel_val;      // ⭐ 'o' 的载荷字节（⭐ 低 3 位 = 参数号 ✅）
+
+    //  ⭐⭐ 2026-10-17：⭐ **EC11 参数调节模式的三个状态寄存器**（⭐ 提前声明 ✅）
+    //     ⚠️ **为什么必须在这里就声明**（⭐ `L66`）：
+    //        ⭐ 上面第 8xx 行 `enc_obj_r` 的那个 always **要读 `enc_param_mode`**
+    //           **和** `enc_param_saved`；
+    //        ⭐ 而**赋值**在下方 EC11 段（⭐ `ur_data` 之后 ✅）
+    //     ⚠️ ⭐ **⛔ 不许在使用点之后才声明** —— iverilog 会报
+    //        `Unable to bind wire/reg/memory`（⭐ 本次已实测踩到 ✅）
+    reg        enc_param_mode;       // ⭐ 1 = **正在参数调节模式**
+    reg        enc_param_saved;      // ⭐ **进入时**锁存的 `enc_obj_r`（⭐ 退出时还回去 ✅）
+    reg [2:0]  enc_par_sel;          // ⭐ 当前所选参数（⭐ 0..7，⭐ 由串口 `'o' <n>` 选 ✅）
+
     //  ⭐⭐ 2026-09-29 合并（⭐ 队友版 + 方案 B）：⭐ **板载 S2 音色按键**
     //   ⚠️ **必须放在【模块层】** —— ⭐ 队友的 `tb\top\tb_top_timbre_button.sv` 用
     //      ⭐ **`dut.timbre_sel_r`** 观察它 ⇒ ⭐ 放 generate 里它**绑不上**（⭐ 实测 8 条 bind 错误 ✅）
@@ -756,9 +812,96 @@ parameter integer TEST_MODE_EN       = 1,
 
     //  ⭐⭐ **对象切换**：⭐ 按压 ⇒ `BPM` ⇄ `变调` ✅
     reg enc_obj_r;                   // ⭐ 0 = BPM · 1 = 变调
+    //  ⭐⭐ 2026-10-17：⭐ **`enc_obj_r` 的写入条件【改了】** —— 见
+    //     ⭐ **"EC11 参数调节模式" (`enc_param_mode`)** 那一整段的说明：
+    //        · ⭐ **原来**：`else if (enc_sw_down_w) enc_obj_r <= ~enc_obj_r;`
+    //        · ⭐ **现在**：⭐ 上面多一道 `cmd_param_mode_req && enc_param_mode`
+    //           ⇒ **退出 ⇒ `enc_obj_r <= enc_param_saved`**
+    //        ⚠️ 这正是用户第 ② 句"**改完之后，再点一下，退出，回到原来的模式**" ✅
+    //     📌 ⭐ **一个 reg 只能在一个 always 块里赋值**（⭐ `EX2000`/`EX1999`：
+    //        iverilog 不报、综合才报、且"后写者胜" ⇒ 项目实测过 ✅）
+    //        ⇒ ⭐ 所以"退出恢复"与"按压切换"**写进同一个 always**、⛔ 不另起一个 ✅
     always @(posedge clk) begin
-        if (rst_n_sync !== 1'b1) enc_obj_r <= 1'b0;
-        else if (enc_sw_down_w)  enc_obj_r <= ~enc_obj_r;
+        if (rst_n_sync !== 1'b1)       enc_obj_r <= 1'b0;
+        else if (cmd_param_mode_req && enc_param_mode)
+                                      enc_obj_r <= enc_param_saved;   // ⭐ 退出 ⇒ 恢复
+        else if (enc_sw_down_w && !enc_param_mode)
+                                      enc_obj_r <= ~enc_obj_r;        // ⭐ 传统按压切换
+    end
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐⭐⭐ 2026-10-17：⭐ **EC11「参数调节模式」与串口屏联动** ✅
+    //
+    //  ⭐⭐ **用户需求原话（三句，逐条对应）**：
+    //     ① *"点一下参数调节键，进入"*          ⇒ 串口命令 ⇒ `enc_param_mode <= 1`
+    //     ② *"改完之后，再点一下，退出"*        ⇒ 同一个命令再来一次 ⇒ `enc_param_mode <= 0`
+    //                                             ＋ ⭐ `enc_obj_r` **恢复**原值
+    //     ③ *"ec11 要反馈调节的正负值给串口屏和正在调节的参数值"*
+    //                                             ⇒ 每步进/每次模式切换发一帧回传
+    //
+    //  ⭐⭐ **为什么必须是一个【新的、层次更高的模式位】**（⛔ 不是复用 `enc_obj_r`）：
+    //     ⚠️ `enc_obj_r` 现在**只切"BPM ⇄ 变调"两个对象**、⛔ **完全不碰效果器**；
+    //        ⭐ 而"参数调节模式"要调的是**效果器参数**（增益/驱动/湿声/反馈）。
+    //     ⇒ 🔴 **两者语义不同、层次不同**：
+    //        · ⭐ `enc_param_mode` = "**现在 EC11 旋钮在调什么域**"
+    //          （⭐ 0 = 传统模式：BPM/变调 · 1 = 参数模式：效果器参数）
+    //        · ⭐ `enc_obj_r`      = "传统模式里调 BPM 还是变调"
+    //     ⚠️ **进入期间锁存 `enc_obj_r`** ⇒ ⭐ 退出时原样还回去 ✅
+    //        （⭐ 否则用户在参数模式里按几下按钮，退出就回不到原来的模式 ✅）
+    //
+    //  ⭐⭐ **命令约定（⭐ 与 `calib_cmd.v` 同一套单字母 ASCII 协议）**：
+    //     · ⭐ `'P'` = **参数调节模式进入/退出切换**（⭐ **不带载荷**，⭐ 与 `'B'`/`'W'`/`'A'` 同构）
+    //     · ⭐ `'O' <n>` = **选择第 n 个参数**（⭐ **下一字节是载荷**，⭐ n = 0..7）
+    //     📌 ⭐ **为什么不是内层子命令**：⭐ `debounce` 只给 `enc_sw_down` 一个脉冲，
+    //        ⚠️ 而"选参数"要 0..7 八个值 ⇒ ⭐ 一个按钮按不出来 ⇒ ⭐ 只能走串口 ✅
+    //     🔴 **⛔ 不许让 EC11 按钮去选参数**（⭐ 按钮只调**值**）⇒ 本模块的设计约束 ✅
+    //
+    //  ⭐⭐ **绝不碰 `fx_chain`**：
+    //     ⚠️ ⭐ 本段**只输出"该改哪个参数、加减多少"的【意图】**
+    //        （⭐ `enc_par_id` / `enc_par_up` / `enc_par_dn` 三个输出 ⇒ 给 K-106 的回读表消费）；
+    //     ⛔ **不自己写 `fx_chain` 的连线**（⭐ 那是 `u_fx` 例化处的活 ✅）
+    //
+    //  ⛔ **纪律**：⭐ 一个 reg 只能在一个 always 块里赋值（`EX2000`/`EX1999`）；
+    //     ⭐ 拼接 `{}` 会把表达式拉成无符号 ⇒ 混有符号运算显式 `$signed()`。
+    //
+    //  ⭐⭐ **物理位置（⭐ `L66` 纪律：先声明、后使用）**：
+    //     ⚠️ `enc_param_mode` 的三个 reg **声明在本段之前**（⭐ `enc_obj_r` 那个
+    //        always 要读它 ✅）；
+    //     ⚠️ 而 `enc_par_up`/`enc_par_dn` 与 `enc_bpm_*`/`enc_trans_*` **全都读
+    //        `enc_step_*`** ⇒ ⭐ 本段的 wire 声明**必须排在 `enc_step_*` 之后**。
+    //     📌 ⭐ **项目踩过的坑**：⭐ iverilog 对**前向引用**会**隐式建 1 位 wire**
+    //        （⭐ top.v 没有 `default_nettype none` ⇒ ⚠️ 不报错，静默截断 ✅）
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // ── ① 模式位 ＋ 进入时锁存的"原对象" ＋ 当前所选参数 ───────────────────
+    //   ⭐ `enc_param_mode`  = 1 ⇒ **正在参数调节模式**
+    //  ⭐⭐ 2026-10-17：⭐ **EC11 参数调节模式的三个状态寄存器**（⭐ 声明见上方 EC11 段）
+    //     ⚠️ **⛔ 不在这里重复声明** —— ⭐ 已提前到 `cmd_*` 声明那一块（⭐ `L66` ✅）
+    //   ⭐ **三个 reg 只在下面【一个】always 里赋值**（⭐ `EX2000` 纪律 ✅）
+    //   ⚠️ **为什么不用"按钮直接切 `enc_param_mode`"**：⭐ 用户明确要
+    //      *"点一下参数调节键"* ⇒ ⭐ 那是由**串口屏**发命令来点的（⭐ 见命令约定 ✅）
+    always @(posedge clk) begin
+        if (rst_n_sync !== 1'b1) begin
+            enc_param_mode  <= 1'b0;
+            enc_param_saved <= 1'b0;
+            enc_par_sel     <= 3'd0;      // ⭐ 复位 = 0（= 增益）⇒ ⛔ 不悬空
+        end else begin
+            // ⭐ 命令 `'p'`（单周期脉冲）⇒ **切换** ＋ **锁存当时的对象**
+            //   ⚠️ **进入/退出的那一拍本身不产生任何调节脉冲** ——
+            //      ⭐ 因为 `enc_par_*` 的门是 `enc_step_*`（⭐ 与 `'p'` 不同源 ✅）
+            //   📌 **两个方向都记 `enc_obj_r`** —— ⭐ 退出那一刻的**当前值**
+            //      （⭐ 而它在参数模式里**根本没被改过** ⇒ ⭐ 等于进入时的值 ✅）
+            if (cmd_param_mode_req) begin
+                enc_param_mode  <= ~enc_param_mode;
+                enc_param_saved <= enc_obj_r;
+            end
+            // ⭐ 命令 `'o' <n>`（载荷字节到达那一拍）⇒ 选第 n 个参数
+            //   ⚠️ **不要求处于参数模式** —— ⭐ 用户可以先选好再进（⛔ 更顺手）
+            //   ⚠️ **载荷只取低 3 位**（⭐ `cmd_par_sel_val[2:0]`）——
+            //      ⭐ 因为参数只有 0..7 个；⭐ 发 8..255 ⇒ 取模 ⇒ 仍落 0..7 ✅
+            if (cmd_par_sel_val_req)
+                enc_par_sel <= cmd_par_sel_val[2:0];
+        end
     end
 
     //  ⭐⭐ 2026-10-15：⭐ **EC11 活动指示**（给指示灯第 5 颗用）
@@ -790,10 +933,43 @@ parameter integer TEST_MODE_EN       = 1,
     //     📌 ⭐ 变调那两条**在下面与 `cc_*`/`km_*` 一起 OR**（⭐ 三来源合流 ✅）
     //     ⚠️ ⭐ **BPM 这两条不过小节对齐器** —— ⭐ 旋钮是"边转边听"，
     //        ⛔ 等一小节反而难用；⭐ 而串口 `'Q'` 是"设一个目标值"⇒ ⭐ 对齐 ✅
-    wire enc_bpm_up_w   = enc_step_cw_w  & ~enc_obj_r;
-    wire enc_bpm_dn_w   = enc_step_ccw_w & ~enc_obj_r;
-    wire enc_trans_up_w = enc_step_cw_w  &  enc_obj_r;
-    wire enc_trans_dn_w = enc_step_ccw_w &  enc_obj_r;
+    //  🔴 **2026-10-17：⭐ 四条线各加一道 `~enc_param_mode` 门** ✅
+    //     ⚠️ **为什么**：⭐ 参数调节模式里 `enc_step_*` **已经**去驱动
+    //        `enc_par_up`/`enc_par_dn`（⭐ 改效果器参数）⇒ ⭐ 若这里不门掉，
+    //        ⭐ 同一次转动会**同时**改音高 ⇒ 🔴 "调效果器时音高乱跳" ✅
+    //     📌 ⭐ **退出后自动恢复** —— ⭐ `enc_param_mode == 0` 时这四条与
+    //        **改动前逐位相同**（⭐ 零回归 ✅）
+    wire enc_bpm_up_w   = enc_step_cw_w  & ~enc_param_mode & ~enc_obj_r;
+    wire enc_bpm_dn_w   = enc_step_ccw_w & ~enc_param_mode & ~enc_obj_r;
+    wire enc_trans_up_w = enc_step_cw_w  & ~enc_param_mode &  enc_obj_r;
+    wire enc_trans_dn_w = enc_step_ccw_w & ~enc_param_mode &  enc_obj_r;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-17：⭐ **参数调节模式下的【步进意图】**（⭐ 只输出意图 ✅）
+    //
+    //  ⭐ `enc_par_id` = **当前正在调哪个参数**（⭐ 3 位 ⇒ 0..7）
+    //     · ⭐ 0 = 失真增益（`gain`）      ⭐ 1 = 失真补偿（`trim`）
+    //     · ⭐ 2 = 湿声混合（`mix`）       ⭐ 3 = 延迟反馈（`fb`）
+    //     · ⭐ 4 = 颤音深度（`depth`）     ⭐ 5 = 颤音速率（`rate`）
+    //     · ⭐ 6 = 延迟长度（`dlylen`）    ⭐ 7 = 合唱长度（`chorlen`）
+    //     📌 ⭐ **与 `uart_ui.v` 的变量序号表逐个对齐**（⭐ 0x11/0x12/0x13/0x14/0x15/
+    //        0x16/0x17/0x18 ✅）⇒ ⭐ 屏那边照抄即可 ✅
+    //  ⭐ `enc_par_up` = **这一步是 +**（⭐ 单周期脉冲 ⇒ "正"）
+    //  ⭐ `enc_par_dn` = **这一步是 −**（⭐ 单周期脉冲 ⇒ "负"）
+    //
+    //  ⚠️ ⭐ **三个输出给下游消费**（⭐ `fx_chain` 那边的回读表 ⇒ K-106 代理的活）：
+    //     ⛔ **本段不写 `fx_chain` 的连线**（⭐ ⛔ 不许越界 ✅）
+    //
+    //  🔴 **为什么"一个 detent 只有一个脉冲"**（⭐ 判据 ③ 的根据）：
+    //     ⭐ `enc_step_cw_w` 已经是"**第 4 个格雷脉冲**"（⭐ 见上方 `enc_div_q` ✅）
+    //        ⇒ ⭐ 而 `enc_param_mode` 在两次命令之间**恒定** ⇒
+    //        ⇒ ⭐ **一次转动（4 个格雷步）⇒ 恰好 1 个 `enc_par_up`** ✅
+    //     📌 ⭐ **反向转动会互相抵消**：⭐ `enc_div_q` 是上/下计数器 ⇒
+    //        ⭐ 来回抖动**不累积假步**（⭐ 与 `enc_step_*` 同一性质 ✅）
+    // ═══════════════════════════════════════════════════════════════════════
+    wire [2:0] enc_par_id = enc_par_sel;
+    wire       enc_par_up = enc_step_cw_w  & enc_param_mode;
+    wire       enc_par_dn = enc_step_ccw_w & enc_param_mode;
 
     always @(posedge clk) begin
         if (rst_n_sync !== 1'b1)
@@ -936,6 +1112,12 @@ parameter integer TEST_MODE_EN       = 1,
     //     📌 ⭐ **声明在模块层**（⭐ 与 `cmd_gear_next_req` 同一口径 ✅）——
     //        ⭐ 因为 `calib_cmd` 在 `g_sound` 里，⭐ 而模块层信号**在里面可读可写** ✅
     wire cmd_recdump_req;           // ⭐ 'Y' ⇒ 启动导出（⭐ 单周期脉冲 ✅）
+    //  ⭐⭐ 2026-10-17（`K-106`）：⭐ `'Z' <n>` ⇒ **效果器状态回读**（⭐ 单周期脉冲 + 3 位子命令号 ✅）
+    //     ⚠️ **必须声明在模块层**（⛔ 不在 generate 里）—— ⭐ 与 `cmd_recdump_req` 同一口径：
+    //        ⭐ `calib_cmd` 在 `g_sound` 里、⭐ 而 `u_uart_ui` 在**模块级**
+    //        ⇒ ⭐ 两个边界都要能读 ⇒ ⭐ 只能放模块层（⭐ 否则 `Unable to bind` ✅）
+    wire cmd_fxstat_req;            // ⭐ 'Z' 的子命令号到达的那一拍
+    wire [2:0] cmd_fxstat_sub;      // ⭐ 子命令号 0..7（⭐ 与 req 同拍有效 ✅）
 //  ⭐⭐ 2026-10-11：⭐ `'Q'` 设置 BPM（⭐ 第 20 条命令 ✅）
 //     📌 ⭐ 声明在**模块级**（⛔ 不在 generate 里）—— ⭐ 本项目踩过的坑：
 //        ⚠️ `rd_push`/`cmd_gear_next_req` 都因为作用域不同而 `Unable to bind` ✅
@@ -1103,6 +1285,137 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     );
 
     // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐⭐⭐ 2026-10-17：⭐ **EC11 参数调节模式的命令解码**（⭐ 声明在文件上方）
+    //
+    //  ⚠️ **为什么必须 `top.v` 自己解、⛔ 不改 `calib_cmd.v`**：
+    //     ⭐ 本任务的文件所有权明写 *"`rtl/w3a/calib_cmd.v` 不许碰"*
+    //        （⭐ 另两个代理正在改它 ✅）
+    //     ⇒ ⭐ 于是这里做**一个极小的独立解码器**，⭐ 与 `calib_cmd`
+    //        **共用同一个 `u_uart_rx`**（⭐ 同一根线的两个消费者，⭐ 本项目
+    //        早就有的模式：⭐ `calib_cmd` / `uart_ui` / `evt_uart_rx` 三路共用 ✅）
+    //
+    //  ⭐⭐ **安全性（⛔ 与 `calib_cmd` 同一条纪律）**：
+    //     ⚠️ **只在"帧外"认命令** —— ⭐ 即"不在一个 `0xA5` 事件帧的第 1..8 字节里"。
+    //     🔴 **为什么**：⭐ 帧内的字母是**载荷**（⭐ 曲谱的 tick/vel/axis 字段
+    //        完全可能是 `0x70`/`0x6F`）⇒ ⭐ 若在那里也认 ⇒
+    //        🔴 **灌曲谱时会乱切参数模式**（⭐ 与 `calib_cmd.v` 里写的
+    //           "帧内字母一律当载荷"是**同一条灾难** ✅）
+    //     ⭐ **实现**：⭐ 自带一个 4 位帧位置计数器 `ec_idx_q`
+    //        （⭐ 看到 `0xA5` ⇒ 进帧内、数 8 个字节 ⇒ 回帧外 ✅）
+    //     ⭐ **空闲归位**：⭐ 长时间没有字节 ⇒ 半帧作废、回帧外（⭐ 自愈 ✅）
+    //
+    //  ⭐⭐ **`'p'`（模式切换）**：⭐ 纯脉冲（⭐ ⛔ 不带载荷 ✅）
+    //  ⭐⭐ **`'o'`（选参数）**：⭐ 臂化 —— ⭐ 见下 `ec_par_arm_q`
+    //     ⚠️ **为什么不把 `'o'` 也做成"纯脉冲 + 固定步进"**：
+    //        ⭐ 用户要的是"**选第 n 个**"（⭐ 0..7 任选，⛔ 不是"下一个"）⇒
+    //        ⭐ 必须带载荷 ✅
+    //     ⚠️ **三种清臂路径**（⛔ 缺一就会永久挂住 ⇒ 静默吃掉后面的字节）：
+    //        ① ⭐ 载荷取到 ⇒ 立即清（⭐ 一次臂只吃一字节 ✅）
+    //        ② ⭐ **收到别的帧外字节** ⇒ 清（⭐ 承诺被打破 ✅）
+    //        ③ ⭐ **空闲归位** ⇒ 清（⭐ 半帧作废 ⇒ 臂一起作废 ✅）
+    //
+    //  ⭐ **可观测性（`K-106`：⛔ 不许静默失效）**：
+    //     ⭐ `ec_par_cmd_cnt` / `ec_par_arm_cnt` / `ec_par_unknown_cnt`
+    //        三个计数器（⭐ 帧外非命令字节也计数 ✅）
+    // ═══════════════════════════════════════════════════════════════════════
+    localparam [3:0] EC_IDX_LAST = 4'd8;      // ⭐ 8 字节载荷（⭐ 与 `evt_uart_rx` 同 ✅）
+    localparam [7:0] EC_HEADER   = 8'hA5;     // ⭐ 同一个帧头魔数 ✅
+
+    reg  [3:0]  ec_idx_q;
+    reg         ec_par_arm_q;                 // ⭐ `'o'` 的臂（⭐ "下一字节是参数号" ✅）
+    reg  [15:0] ec_par_cmd_cnt;               // ⭐ 'p' 计数（⭐ 可观测 ✅）
+    reg  [15:0] ec_par_arm_cnt;               // ⭐ 'o' 臂化计数（⭐ 可观测 ✅）
+    reg  [15:0] ec_par_unknown_cnt;           // ⭐ 帧外非命令字节计数（⭐ 可观测 ✅）
+
+    //  ⭐ 空闲计时器（⭐ 与 `calib_cmd`/`uart_ui` 同一手法：⭐ 收到字节就清零）
+    //     ⚠️ 阈值取 **16 字节时间** = 320 µs @500 kbps（⭐ 与其它两个消费者一致 ✅）
+    localparam integer EC_BIT_CLK_I  = 100;                // ⭐ 50 MHz / 500 kbps
+    localparam integer EC_BYTE_CLK_I = EC_BIT_CLK_I * 10;  // ⭐ 8N1 = 10 位
+    localparam integer EC_GAP_CLK_I  = EC_BYTE_CLK_I * 16;
+    localparam [19:0]  EC_GAP_CLK    = EC_GAP_CLK_I;
+
+    reg [19:0] ec_idle_q;
+    wire       ec_idle_expired = (ec_idle_q >= EC_GAP_CLK);
+
+    //  ⭐ 本字节是不是"帧外命令"（⭐ 结构保证：⛔ 不靠一个可被漏接的门控 wire ✅）
+    wire ec_byte_is_mode = (ur_data == CMD_PARAM_MODE);
+    wire ec_byte_is_sel  = (ur_data == CMD_PAR_SEL);
+
+    always @(posedge clk) begin
+        if (rst_n_sync !== 1'b1) begin
+            ec_idx_q           <= 4'd0;
+            ec_par_arm_q       <= 1'b0;
+            ec_par_cmd_cnt     <= 16'd0;
+            ec_par_arm_cnt     <= 16'd0;
+            ec_par_unknown_cnt <= 16'd0;
+            cmd_param_mode_req <= 1'b0;      // ⭐ 脉冲 ⇒ **必须**每拍清零
+            cmd_par_sel_val_req<= 1'b0;      // ⭐ 同上
+            cmd_par_sel_val    <= 8'd0;      // ⭐ 数据 ⇒ **刻意不清零**（见下）
+        end else begin
+            //  ⭐ 默认：脉冲输出每拍清零 ⇒ 严格单周期
+            //     ⚠️ **`cmd_par_sel_val` 刻意不在这里清零** ——
+            //        ⭐ 它是**数据**（⛔ 不是脉冲）；⭐ 清掉会让"值保持到下一帧"
+            //          这个隐含契约失效（⭐ 与 `calib_cmd.trans_abs_val_o` 同一口径 ✅）
+            cmd_param_mode_req <= 1'b0;
+            cmd_par_sel_val_req<= 1'b0;
+
+            if (ur_done) begin
+                ec_idle_q <= 20'd0;
+                if (ec_idx_q == 4'd0) begin
+                    // ── ⭐ 帧外：这里只可能是帧头、命令、载荷、或杂字节 ─────
+                    //   ⭐ **优先级（⛔ 顺序很重要）**：
+                    //      ① ⭐ `0xA5` 帧头      —— ⭐ **最高**（⛔ 绝不让臂吃掉帧头 ✅）
+                    //      ② ⭐ `'o'` 的臂化载荷  —— ⭐ "下一字节就是参数号"（⭐ 协议原话 ✅）
+                    //      ③ ⭐ `'p'` 模式切换    —— ⭐ 纯脉冲
+                    //      ④ ⭐ `'o'` 选参数      —— ⭐ 置臂
+                    //      ⑤ ⭐ 其它              —— ⭐ 杂字节（⛔ 计数、⛔ 清臂 ✅）
+                    //   🔴 **为什么帧头排第一**：⭐ 若 `0xA5` 被臂吃掉 ⇒
+                    //      ⭐ **整个事件帧错位** ⇒ 曲谱链路整体失效（⭐ 灾难 ✅）
+                    //   🔴 **为什么臂排第二**：⭐ 用户发 `'o'` ＋ 一个数字时，
+                    //      ⭐ 那个数字**必须**进 `enc_par_sel`；
+                    //      ⚠️ 若把 `'p'`/`'o'` 排在前面 ⇒ ⭐ `'o'`+`'o'` 会**重新臂化**
+                    //         ⇒ 🔴 参数号要等**第三个字节**才生效（⭐ 与协议不符 ✅）
+                    if (ur_data == EC_HEADER) begin
+                        ec_idx_q     <= 4'd1;            // ⭐ 进帧内 ⇒ 之后一律不当命令
+                        ec_par_arm_q <= 1'b0;            // ⭐ 帧头优先级最高 ⇒ 废臂 ✅
+                    end else if (ec_par_arm_q) begin
+                        ec_par_arm_q       <= 1'b0;      // ⭐ 一次臂只吃一字节 ✅
+                        cmd_par_sel_val    <= ur_data;
+                        cmd_par_sel_val_req<= 1'b1;
+                        ec_par_cmd_cnt     <= ec_par_cmd_cnt + 16'd1;
+                    end else if (ec_byte_is_mode) begin
+                        cmd_param_mode_req <= 1'b1;      // ⭐ 'p' ⇒ 纯脉冲
+                        ec_par_cmd_cnt     <= ec_par_cmd_cnt + 16'd1;
+                    end else if (ec_byte_is_sel) begin
+                        ec_par_arm_q   <= 1'b1;          // ⭐ 'o' ⇒ 臂化（⛔ 本拍不出脉冲 ✅）
+                        ec_par_arm_cnt <= ec_par_arm_cnt + 16'd1;
+                    end else begin
+                        // ⚠️ 帧外其它字节（PC 敲的回车/换行/调试字符）
+                        //   ⭐ **必须清臂** —— 承诺"下一字节是参数号"被打破 ✅
+                        //   ⭐ 也必须**可观测** ⇒ 计数（⛔ 不静默 ✅）
+                        ec_par_unknown_cnt <= ec_par_unknown_cnt + 16'd1;
+                    end
+                end else begin
+                    // ── ⭐ 帧内：这些字节是【载荷】，⛔ 绝不当命令 ────────────
+                    //   ⚠️ 帧内字节同样**废掉未兑现的臂**（⭐ 否则残局永久挂着 ✅）
+                    //   ⭐ 载荷里出现 `'p'`/`'o'` 也**静默忽略**（⛔ 不当命令）
+                    ec_par_arm_q <= 1'b0;
+                    if (ec_idx_q == EC_IDX_LAST) ec_idx_q <= 4'd0;
+                    else                         ec_idx_q <= ec_idx_q + 4'd1;
+                end
+            end else if (ec_idle_expired && (ec_idx_q != 4'd0)) begin
+                // ══ ⭐ 空闲归位（自愈）══════════════════════════════════════
+                //   ⭐ 长时间没有新字节 ⇒ 半帧作废、回到帧外
+                //   ⭐ 幂等：一旦 `idx==0` 就不再满足条件 ⇒ 天然只触发一次 ✅
+                ec_idx_q     <= 4'd0;
+                ec_par_arm_q <= 1'b0;      // ⭐ 半帧作废 ⇒ 臂一起作废 ✅
+            end else begin
+                if (!ec_idle_expired) ec_idle_q <= ec_idle_q + 20'd1;
+            end
+        end
+    end
+
+    // ═══════════════════════════════════════════════════════════════════════
     //  ⭐⭐⭐⭐ 2026-10-11：⭐ **ESP32 独立 UART**（⭐ 曲谱 ＋ 回传）✅
     //
     //  ⭐⭐ **接线方案（⭐ 用户 2026-10-11 明确）**：
@@ -1183,6 +1496,55 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     wire        ui_tx_start;
     wire [7:0]  ui_tx_data;
 
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐⭐⭐ 2026-10-17（`K-106`）：⭐ **效果器状态【回读】**（⭐ 让上板看到"生没生效" ✅）
+    //
+    //  🔴 **原缺陷**：⭐ `fx_chain` 的 7 个可观测输出**全部空接**
+    //     （⭐ `uart_ui.v` 的注释就写着"K-106：不许静默失效"，⭐ 而顶层没接 ✅）
+    //     ⇒ 🔴 **发一串串口帧下去，完全不知道链路上发生了什么** ✅
+    //        ⚠️ 症状与 `P1-05`/`calib_autotare` 那次**同族**：*"模块给了观测口、顶层不读"* ✅
+    //
+    //  ⭐ **链路**（⭐ 完全复用既有回传通路，⛔ 不新建 UART ✅）：
+    //  ```
+    //  PC ──'Z' <n>──> uart_rx ──> calib_cmd（臂化 ⇒ 子命令号）
+    //                              └─> uart_ui.zfs_*（取值 ⇒ 6 字节 ASCII 帧）
+    //                                  └─> fx_push/fx_data ──> u_tx_fifo ──> u_uart_tx ──> PC
+    //  ```
+    //
+    //  ⚠️ **为什么回读逻辑放 `uart_ui` 而⛔ 不是新模块**：
+    //     · ⭐ 本任务的文件所有权**只许改 3 个文件**（⭐ `calib_cmd.v`/`uart_ui.v`/`top.v` ✅）
+    //     · ⭐ `uart_ui` 已经是**串口控制面**（⭐ 效果器参数就是它解析的 ✅）
+    //     · ⭐ 且它的 `tx_start_o`/`tx_data_o` 端口**早就为回传准备好了**（⭐ 只在 tb 里用过 ✅）
+    //     ⇒ ⭐ 放这里 = **零新增模块、零新增握手约定** ✅
+    //
+    //  ⭐ **帧格式（⭐ 与 `uart_ui.v` 的 ZFS 段注释逐字一致，⛔ 不许自创）**：
+    //     `'Z' 'z' <n> <hi> <lo> '\n'` = 6 字节 ASCII
+    //     （⭐ `<n>` = 子命令号 '0'..'7' · ⭐ `<hi>/<lo>` = 16 位值的高两位 hex ✅）
+    //  子命令表：0=`en_mask` · 1=`dist_clip_cnt` · 2=`dly_active`
+    //            3=`{chor_active, dly_primed}` · 4=`trem_lfo` · 5=`pipe` · 6/7=预留
+    //
+    //  ⚠️ **物理位置**：⭐ **本块在 `generate` 之外**（⭐ 与 `ui_fx_*` 同域 ✅）
+    //     🔴 **为什么必须这样**：⭐ `u_fx_chain` 在 `g_sound` 里（⭐ generate 内），
+    //        ⚠️ 而 `u_uart_ui` 在**模块级** ⇒ ⭐ 拿 `fx_chain` 的输出必须**过一根模块级 wire**
+    //        （⭐ 本项目踩过的坑：⭐ generate 里声明只在 generate 里可见 ✅）
+    //     📌 ⭐ 单向：⭐ `g_sound` **只写**这 7 根（⭐ assign），⭐ 模块级**只读** ✅
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ── ① 来自 `u_fx_chain` 的 7 个可观测输出（⭐ 在 `g_sound` 里 assign ✅）
+    wire [7:0]  fx_ro_mask;        // ⭐ en_mask_o
+    wire        fx_ro_dly_act;     // ⭐ dly_active_o
+    wire        fx_ro_chor_act;    // ⭐ chor_active_o
+    wire        fx_ro_dly_primed;  // ⭐ dly_primed_o
+    wire [15:0] fx_ro_clip;        // ⭐ dist_clip_cnt_o
+    wire [15:0] fx_ro_lfo;         // ⭐ trem_lfo_o
+    wire [15:0] fx_ro_pipe;        // ⭐ pipe_o
+    //  ── ② `'Z' <n>` 的脉冲与子命令号（⭐ 来自 `calib_cmd`，⭐ 声明在模块层 `cmd_*` 那一段 ✅）
+    //     ⚠️ **⛔ 不在这里重复声明** —— 已随 `cmd_recdump_req` 那一段提前声明（⭐ `L66` ✅）
+    //  ── ③ 回读帧 → `u_tx_fifo`（⭐ 与 `tx_req`/`tx_byte` 同一条排队通路 ✅）
+    wire        fx_push;           // ⭐ 推一个字节（单拍）
+    wire [7:0]  fx_data;           // ⭐ 那个字节
+    //  ── ④ 可观测计数（⭐ `K-106`：⛔ 不许静默失效 ✅）
+    wire [15:0] ui_zfs_req_cnt, ui_zfs_drop_cnt;
+
     uart_ui #(
         .CLK_HZ   (50_000_000),
         .BAUD     (500_000),
@@ -1248,7 +1610,24 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
         .err_cnt_o     (ui_err_cnt),
         .hb_ready_o    (ui_hb_ready),
         //  ⭐⭐ 2026-10-09（`P0-02`）：⭐ **"uart_ui 正在收一帧"** ⇒ 顶层互斥门控用 ✅
-        .in_frame_o    (ui_in_frame)
+        .in_frame_o    (ui_in_frame),
+        //  ⭐⭐ 2026-10-17（`K-106`）：⭐ **效果器状态回读** ✅
+        //     📌 触发源是 `'Z' <n>`（⭐ `calib_cmd` 解出来的单拍脉冲 ✅）
+        //     📌 数据源是 `u_fx_chain` 的 7 个可观测输出（⭐ 经模块级 wire 进来 ✅）
+        //     📌 出口与 `tx_start_o`/`tx_data_o` **同一套握手**（⭐ 下面 OR 进 `tx_req` ✅）
+        .fxstat_req_i     (cmd_fxstat_req),
+        .fxstat_sub_i     (cmd_fxstat_sub),
+        .fx_en_mask_i     (fx_ro_mask),
+        .fx_dly_active_i  (fx_ro_dly_act),
+        .fx_chor_active_i (fx_ro_chor_act),
+        .fx_dly_primed_i  (fx_ro_dly_primed),
+        .fx_dist_clip_i   (fx_ro_clip),
+        .fx_trem_lfo_i    (fx_ro_lfo),
+        .fx_pipe_i        (fx_ro_pipe),
+        .fx_tx_start_o    (fx_push),
+        .fx_tx_data_o     (fx_data),
+        .zfs_req_cnt_o    (ui_zfs_req_cnt),
+        .zfs_drop_cnt_o   (ui_zfs_drop_cnt)
     );
 
     // `uart_ui`: 0=指板、1=钢琴；`axis_map`/T15 控制器则相反。
@@ -1303,6 +1682,7 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     wire km_timbre_req, km_scope_mode_req, km_met_req, km_drum_pattern_req;
     wire km_keydrum_req, km_trans_down_req, km_trans_up_req, km_gear_next_req;
     wire km_slide_req, km_mode_req, km_fb_piano, km_fx_req;
+    wire km_loop_send_req;      // ⭐ 'loop 发送'（ctrl_key_map idx 13，短按即发）
     //  ⭐⭐ 2026-10-15：⭐ **idx 14（列 2 / 行 3）= 一键恢复默认音高** ✅
     //     ⭐ 用户需求：*"矩阵键盘加一个键：一键恢复默认音高"* ✅
     //     📌 ⭐ 依据：⭐ `files/20-代码/控制板16键功能映射-20261013.md` §二 ⇒ ⭐ 该格原是「备用 2」
@@ -1384,6 +1764,10 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
         .upstream_req_o  (cmd_upstream_req),
         //  ⭐⭐ 2026-10-14：⭐ `'U'` 指引模式开关 ✅
         .guide_req_o     (cmd_guide_req),
+        //  ⭐⭐ 2026-10-17（`K-106`）：⭐ `'Z' <n>` ⇒ 效果器状态回读 ✅
+        //     📌 脉冲与子命令号**同拍有效**（⭐ `calib_cmd` 的臂化分支 ✅）
+        .fxstat_req_o    (cmd_fxstat_req),
+        .fxstat_sub_o    (cmd_fxstat_sub),
         .cmd_cnt_o      (cmd_cnt),
         .in_frame_cnt_o (cmd_in_frame_cnt),
         .resync_cnt_o   (cmd_resync_cnt),
@@ -1478,7 +1862,9 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
         .tare_req_o         (km_tare_req),
         .span_req_o         (km_span_req),
         //  ⚠️ ⭐ `fx_req_o` 是**占位**（⭐ 效果器还不存在 ⇒ ⭐ 综合会剪掉它 ✅）
-        .fx_req_o           (km_fx_req)
+        .fx_req_o           (km_fx_req),
+        //  ⭐⭐ 2026-10-17：⭐ idx 13（列 1 / 行 3）= loop 发送 ⇒ OR 进 `recdump`（见下方两处使用点 ✅）
+        .loop_send_req_o    (km_loop_send_req)
     );
 
     // ── ⭐ ③ 曲谱事件帧解析（`0xA5` + 8 字节大端 = 64 bit 事件）──────────
@@ -2102,6 +2488,180 @@ wire [15:0] ee_key_on;
 //      ⇒ ⭐ 它会**掩盖后续正常帧**（⭐ 想看"最近一次"要复位 ✅）
 wire ovf_any;
 
+    // ═══════════════════════════════════════════════════════════════════════
+    //  ⭐⭐⭐⭐ 2026-10-17：⭐ **EC11 参数调节状态的【串口屏回传帧】** ✅
+    //
+    //  ⭐⭐ **用户第 ③ 句原话**：*"ec11 要反馈调节的正负值给串口屏和正在调节的参数值"*
+    //
+    //  ⭐⭐ **帧格式（⭐ 与屏那边约定的【唯一】口径，⛔ 不许自创）**：
+    //
+    //     ```
+    //     'E' 'e' <mode> <par_id> <sign> <n> CR LF
+    //      ↓   ↓     ↓       ↓       ↓     ↓   ↓   ↓
+    //      │   │     │       │       │     │   │   └─ 0x0D / 0x0A（CR LF，行结束）
+    //      │   │     │       │       │     │   └──── 已连续步进次数（0..9 循环）
+    //      │   │     │       │       └─────┴──────── '+' = 这一步是 +（正）
+    //      │   │     │       │                        '-' = 这一步是 −（负）
+    //      │   │     │       │                        '=' = 模式切换（无正负）
+    //      │   │     │       └───────────────────── 正在调的参数号 ASCII '0'..'7'
+    //      │   │     └───────────────────────────── 当前模式 ASCII '0' = 传统 · '1' = 参数调节中
+    //      │   └─────────────────────────────────── 内容起始标记（小写 'e' = EC11）
+    //      └─────────────────────────────────────── 帧类型（大写 'E' = EC11 状态回传）
+    //     ```
+    //  ⭐ **总长 7 字节**（⭐ ASCII 一行 ⇒ 串口助手直接可读 ✅）
+    //
+    //  ⭐⭐ **为什么用 ASCII 而不是二进制**：
+    //     ⭐ 串口助手直接看得到一个**人类可读的一行**（⭐ `Ee1 3 + 2` ✅）
+    //     ⭐ 而且**与既有回包同风格**（⭐ `'P'` 回 `P12345`、`'V'` 回 `V<state>...` ✅）
+    //     ⭐ **不占用 `0xA5` 帧** ⇒ ⭐ 曲谱链路零影响 ✅
+    //
+    //  ⭐⭐ **为什么必须【逐字节排队】而⛔ 不是"一帧一个字节"**：
+    //     ⚠️ `tx_req`/`tx_byte` 一次只能推**一个字节**（⭐ `uart_tx_fifo.push_i` 的契约 ✅）
+    //     ⭐ 所以本模块是一个 **5 状态 FSM**（⭐ `S_IDLE` → `S_B1..S_B5`）
+    //     ⚠️ **去抖/合帧**：⭐ 若上一次还没发完又来一次事件 ⇒ ⭐ **保留最新一次**
+    //        （⭐ 因为屏只关心**当前状态**，历史无意义 ✅）—— ⚠️ 这同时保证
+    //        🔴 **每拍最多只推一个字节**（⛔ 不会一次推 7 个 ⇒ 溢出 FIFO ✅）
+    //
+    //  ⭐⭐ **发送时机（⛔ 只有这两种事件，⛔ 不是每拍都发）**：
+    //     ① ⭐ **每一次有效步进**（`enc_par_up` 或 `enc_par_dn`）
+    //     ② ⭐ **每一次模式切换**（`cmd_param_mode_req`，⭐ 即 `'p'` 命令）
+    //     🔴 **⛔ 不是每拍发** —— ⭐ 否则 500 kbps 下会**淹塞串口**
+    //        （⭐ 用户第 ③ 句的"每产生一次有效步进就发一帧" ✅）
+    //     ⚠️ **EC11 自己的按钮按压 ⛔ 不发帧** —— ⭐ 因为它不改 `enc_obj_r`
+    //        （⭐ 参数模式里按按钮是 no-op ⇒ ⭐ 无可播报的新状态 ✅）
+    //        ⭐ 判据：本 tb 的⑦（"参数模式下按按钮不许产生 par_up/par_dn，也不许发帧" ✅）
+    //
+    //  ⭐ **物理位置**：⭐ **模块级、`generate` 之外**
+    //     ⚠️ 因为 `tx_req`/`tx_byte` 由 `g_sound`/`g_silent` **两个互斥分支驱动**
+    //        ⇒ ⭐ 本模块只产出**中间线** `ep_push`/`ep_data`，
+    //           ⭐ 由两个分支各自 OR 进 `tx_req`/`tx_byte`（⛔ 不会冲突 ✅）
+    //  ⭐ **零回归**：⭐ 无事件 ⇒ `ep_push` 恒 0 ⇒ ⭐ 两个分支的 `tx_req`
+    //     与**改动前逐位相同** ✅
+    // ═══════════════════════════════════════════════════════════════════════
+
+    // ── ① 事件检测（⭐ 组合，⭐ 与 EC11 段同源 ✅）─────────────────────────
+    wire ep_evt_step = enc_par_up | enc_par_dn;             // ⭐ 一次有效步进
+    wire ep_evt_mode = cmd_param_mode_req;                  // ⭐ 一次模式切换
+    wire ep_event   = ep_evt_step | ep_evt_mode;            // ⭐ 任一事件 ⇒ 发帧
+
+    // ── ② 帧内容（⭐ 由事件锁存 ⇒ 发的是"那一刻的状态" ✅）─────────────────
+    reg  [2:0] ep_par_q;        // ⭐ 帧里的参数号
+    reg        ep_mode_q;       // ⭐ 帧里的模式
+    reg        ep_sign_q;       // ⭐ 1 = '+' · 0 = '-'（⭐ 模式切换时不用 ✅）
+    reg  [3:0] ep_step_q;       // ⭐ 已连续步进次数（0..9 循环，⭐ 十进制显示 ✅）
+
+    always @(posedge clk) begin
+        if (rst_n_sync !== 1'b1) begin
+            ep_par_q  <= 3'd0;
+            ep_mode_q <= 1'b0;
+            ep_sign_q <= 1'b0;
+            ep_step_q <= 4'd0;
+        end else if (ep_event) begin
+            // ⭐ 锁存"这一刻"的状态（⛔ 不用发送时的值 ⇒ 时序解耦 ✅）
+            ep_par_q  <= enc_par_id;
+            ep_mode_q <= enc_param_mode ^ ep_evt_mode;   // ⭐ 命令那一拍 `enc_param_mode` 还是**旧值** ⇒ 取反 ✅
+            ep_sign_q <= enc_par_up;                      // ⭐ 转 CW ⇒ '+'、转 CCW ⇒ '-'（⭐ 模式切换时无所谓 ✅）
+            if (ep_evt_step) begin
+                // ⭐ 步进次数 0..9 循环（⭐ 十进制一位 ⇒ ⛔ 不溢出 ✅）
+                if (ep_step_q == 4'd9) ep_step_q <= 4'd0;
+                else                  ep_step_q <= ep_step_q + 4'd1;
+            end
+            //   ⚠️ **模式切换时⛔ 不清 `ep_step_q`** —— ⭐ 它是"本次会话累计步数"，
+            //      ⭐ 屏可据此判断"这次调节动了多少下"（⛔ 不是状态量 ✅）
+        end
+    end
+
+    // ── ③ 发送 FSM（⭐ 9 状态：⭐ IDLE + 7 数据 + LF，⭐ 每拍最多推 1 字节 ✅）
+    //   ⚠️ **为什么必须逐字节**（⛔ 不是"一帧一次推完"）：
+    //      ⭐ `u_tx_fifo.push_i` 是**单字节入队**（⭐ 一次 push 一个字节 ✅）
+    //      ⭐ 而 FIFO 深度只有 8 ⇒ 🔴 若一拍推 7 个字节会**溢出丢弃**（✅`K-106`）
+    //   ⚠️ **输出的时序**：⭐ `ep_data` 用**组合**（⛔ 不是寄存）
+    //      ⭐ 这样 `ep_push` 与 `ep_data` **同拍有效**（⭐ `u_tx_fifo` 当拍即存 ✅）
+    localparam [3:0] EP_S_IDLE = 4'd0,
+                     EP_S_B1   = 4'd1,   // ⭐ 'E'
+                     EP_S_B2   = 4'd2,   // ⭐ 'e'
+                     EP_S_B3   = 4'd3,   // ⭐ <mode>
+                     EP_S_B4   = 4'd4,   // ⭐ <par_id>
+                     EP_S_B5   = 4'd5,   // ⭐ <sign>
+                     EP_S_B6   = 4'd6,   // ⭐ <n>
+                     EP_S_CR   = 4'd7,   // ⭐ CR（0x0D）
+                     EP_S_LF   = 4'd8;   // ⭐ LF（0x0A）
+
+    reg  [3:0] ep_state;
+    reg        ep_req_q;        // ⭐ "有一帧待发/在发"（⭐ 事件置位、LF 发完清零 ✅）
+    reg        ep_pend_q;       // ⭐ **挂起位**：⭐ 发上一帧期间又有新事件 ✅
+
+    wire ep_push = (ep_state != EP_S_IDLE);   // ⭐ 非 IDLE ⇒ 本拍要推一个字节
+
+    //  ⭐ **组合输出的 9 个字节**（⭐ 与屏约定的格式，⛔ 不许自创 ✅）
+    reg [7:0] ep_data;
+    always @(*) begin
+        case (ep_state)
+            EP_S_B1:   ep_data = 8'h45;                                    // ⭐ 'E'
+            EP_S_B2:   ep_data = 8'h65;                                    // ⭐ 'e'
+            EP_S_B3:   ep_data = ep_mode_q ? 8'h31 : 8'h30;                // ⭐ '1' : '0'
+            // ⭐ <par_id>：'0'..'7'（⭐ 与 `uart_ui.v` 的变量号表逐个对齐 ✅）
+            EP_S_B4:   ep_data = {5'b0, ep_par_q} + 8'h30;
+            // ⭐ <sign>：'+' = 这一步是 +（正）· '-' = 这一步是 −（负）
+            EP_S_B5:   ep_data = ep_sign_q ? 8'h2B : 8'h2D;
+            // ⭐ <n>：已连续步进次数（'0'..'9'）
+            EP_S_B6:   ep_data = {4'b0, ep_step_q} + 8'h30;
+            EP_S_CR:   ep_data = 8'h0D;                                    // ⭐ CR
+            EP_S_LF:   ep_data = 8'h0A;                                    // ⭐ LF
+            default:   ep_data = 8'h00;
+        endcase
+    end
+
+    always @(posedge clk) begin
+        if (rst_n_sync !== 1'b1) begin
+            ep_state  <= EP_S_IDLE;
+            ep_req_q  <= 1'b0;
+            ep_pend_q <= 1'b0;
+        end else begin
+            case (ep_state)
+                // ── 空闲：等事件 ────────────────────────────────────────
+                EP_S_IDLE: begin
+                    if (!ep_req_q && ep_event) begin
+                        // ⭐ **只在 `!ep_req_q` 时起帧** ——
+                        //   ⚠️ 正在发（`ep_req_q==1`）时来的事件只置 `ep_pend_q`
+                        //      ⇒ ⭐ **⛔ 不打断当前帧**（⭐ 否则帧会被拆花 ✅）
+                        ep_req_q  <= 1'b1;
+                        ep_pend_q <= 1'b0;
+                        ep_state  <= EP_S_B1;      // ⭐ 事件只高 1 拍 ⇒ 立刻起帧 ✅
+                    end
+                end
+                EP_S_B1: ep_state <= EP_S_B2;
+                EP_S_B2: ep_state <= EP_S_B3;
+                EP_S_B3: ep_state <= EP_S_B4;
+                EP_S_B4: ep_state <= EP_S_B5;
+                EP_S_B5: ep_state <= EP_S_B6;
+                EP_S_B6: ep_state <= EP_S_CR;
+                EP_S_CR: ep_state <= EP_S_LF;
+                EP_S_LF: begin
+                    // ⭐ LF 是最后一个字节 ⇒ 本拍之后帧就发完了
+                    if (ep_pend_q) begin
+                        // ⭐ 发送期间又来了一次事件 ⇒ **立刻发下一帧**
+                        //   ⚠️ **内容用最新的锁存值**（⭐ `ep_par_q` 等已被更新 ✅）
+                        ep_pend_q <= 1'b0;
+                        ep_req_q  <= 1'b1;         // ⭐ 保持"在发"
+                        ep_state  <= EP_S_B1;
+                    end else begin
+                        ep_req_q  <= 1'b0;         // ⭐ 本帧发完
+                        ep_state  <= EP_S_IDLE;
+                    end
+                end
+                default: ep_state <= EP_S_IDLE;
+            endcase
+
+            // ══ ⭐ 挂起位（⭐ 与状态机【分开写】，⛔ 不混在 case 里 ✅）═══
+            //   ⚠️ **为什么必须独立**：⭐ `ep_pend_q` 要在**每一个**非 IDLE 状态
+            //      都被置位（⛔ 不能只在某一个状态里置）⇒ ⭐ 写在 case 外面最安全 ✅
+            if (ep_event && (ep_state != EP_S_IDLE)) ep_pend_q <= 1'b1;
+            //   ⚠️ **IDLE 且 `ep_req_q==0`** 的情况 ⇒ ⭐ 由上面 IDLE 分支直接起帧，
+            //      ⭐ **不需要** `ep_pend_q`（⛔ 否则会多发一帧 ✅）
+        end
+    end
+
     uart_tx_fifo #(.DEPTH(8)) u_tx_fifo (
         .clk_i     (clk),
         .rst_n_i   (rst_n_sync),
@@ -2295,8 +2855,15 @@ wire ovf_any;
         //         ⇒ 🔴 `uart_tx` 可能把 `x` 当启动脉冲，⭐ 发出垃圾字节
         //   📌 两个 `generate` 分支**互斥**（⭐ 只例化一个）
         //      ⇒ ⭐ 各自驱动同名信号 **⛔ 不会冲突** ✅
-        assign tx_req  = 1'b0;
-        assign tx_byte = 8'h00;
+        //  ⭐⭐ 2026-10-17：⭐ **`ep_*`（EC11 参数回传帧）也要 OR 进来** ✅
+        //     ⚠️ **为什么静音档也要**：⭐ 用户发 `'p'` 进参数模式是**顶层功能**，
+        //        ⭐ 与"合不合成"**无关**（⭐ 回传通路必须照样工作 ✅）
+        //     📌 ⭐ `ep_push` 在模块级、与 `generate` 无关 ⇒ ⭐ 这里能读 ✅
+        //  ⭐⭐ 2026-10-17（`K-106`）：⭐ **`fx_push`（效果器状态回读帧）同理** ✅
+        //     📌 `'Z' <n>` 是**串口诊断命令** ⇒ ⭐ 静音档也必须能回
+        //        （⭐ `fx_ro_*` 已在上面显式给 0 ⇒ ⭐ 回 `Zz<n>0000`，⛔ 不是 `z`/`x` ✅）
+        assign tx_req  = 1'b0 | ep_push | fx_push;
+        assign tx_byte = ep_push ? ep_data : (fx_push ? fx_data : 8'h00);
         assign rd_pending = 1'b0;
         assign rd_busy = 1'b0;
         assign rd_push = 1'b0;
@@ -2350,6 +2917,21 @@ wire ovf_any;
         assign ps_evt_rd     = 1'b0;
         assign ps_note_valid = 1'b0;
         assign ps_note_data  = 64'd0;
+        //  ⭐⭐ 2026-10-17（`K-106`）：⭐ **静音档没有 `u_fx_chain`** ⇒ ⭐ 7 根回读线**显式给 0**
+        //     ⚠️ **为什么必须在这里也驱动**（⛔ 不能只在 `g_sound` 里）：
+        //        🔴 这 7 根是**模块级 wire**（⭐ 上面 ui_fx 段声明 ✅）
+        //        ⚠️ 而 `g_silent` 档**不例化 `fx_chain`** ⇒ 🔴 不驱动就是 **`z`**
+        //        ⇒ 🔴 `uart_ui.zfs_val_c` 会拿到 `x` ⇒ ⭐ 回读帧发 `xxxx`（⭐ 会说谎 ✅）
+        //     📌 **取值**：⭐ 全 0 = "没有效果器" ⇒ ⭐ 语义与静音档**一致**（⛔ 不是假数据 ✅）
+        //     📌 ⭐ **回读通路本身照样工作**（⭐ `'Z'` 在静音档也回 `Zz0 0 0 \n`）——
+        //        ⭐ 因为命令解码/回读帧都在**模块级**，与 generate 无关 ✅
+        assign fx_ro_mask       = 8'd0;
+        assign fx_ro_dly_act    = 1'b0;
+        assign fx_ro_chor_act   = 1'b0;
+        assign fx_ro_dly_primed = 1'b0;
+        assign fx_ro_clip       = 16'd0;
+        assign fx_ro_lfo        = 16'd0;
+        assign fx_ro_pipe       = 16'd0;
     end else begin : g_sound
         // ═══════════════════════════════════════════════════════════════════════
         //   ⭐⭐ `'P'` 诊断：⭐ 回传 `pos` 读数（⭐ 2026-09-24 新增）
@@ -4007,18 +4589,38 @@ wire ovf_any;
         //      📌 要用诊断时：⭐ 把 `DPOS_DIAG` 改成 1 ⇒ 重新 PnR ✅
         wire normal_req_w = rep_req | pp_push | vp_push | np_push
                            | ((DPOS_DIAG != 0) ? dp_push : 1'b0);
+        //  ⭐⭐ 2026-10-17：⭐ **EC11 参数调节回传帧** OR 进来
+        //     ⚠️ **必须 OR（⛔ 不是替换）** —— ⭐ 串口命令回包**必须继续工作**
+        //        （⭐ 与 `cc_* | km_*` 那一段"OR 而不是替换"是**同一条纪律** ✅）
+        //     ⚠️ **优先级**：⭐ 既有回包 > EC11 帧（⭐ `ep_data` 排在 mux 最后 ✅）
+        //     📌 ⭐ **为什么不会同拍撞**：⭐ EC11 帧是 7 字节的长帧、
+        //        ⭐ 而既有回包都是 1~8 字节且靠 `txf_idle`/`normal_tx_ready` 流控；
+        //        ⚠️ **万一同拍**（⭐ 例如用户一边转旋钮一边按标定键）⇒
+        //        ⭐ **以既有回包为准**，⭐ EC11 帧**丢这一个字节**（⛔ 不会错位 ✅）
         wire rd_notice_push = rd_notice_valid && txf_ready && !normal_req_w;
-        // Export bypasses this FIFO and owns both UARTs until its footer ends.
-        // Normal replies queue here; ready-aware producers pause during export.
-        assign tx_req = normal_req_w | rd_notice_push;
+        //  ⭐⭐ 2026-10-17（`K-106`）：⭐ **效果器状态回读帧**也 OR 进来（⭐ 与 `ep_*` 同一条纪律 ✅）
+        //     ⚠️ **优先级**：⭐ 既有回包 > EC11 帧 > 效果器回读帧（⭐ `fx_data` 排在 mux 最后 ✅）
+        //     📌 ⭐ **为什么不会同拍撞**：⭐ 回读帧是 6 字节、⭐ 由 `'Z'` 命令**手动**触发
+        //        （⭐ 诊断动作，⛔ 不是每拍都发 ✅）⇒ ⚠️ 同拍概率极低
+        //     ⚠️ **万一同拍**（⭐ 例如一边回读一边转旋钮）⇒ ⭐ **以既有回包为准**，
+        //        ⭐ 效果器回读帧**只丢这一个字节**（⛔ 不会错位 —— ⭐ FSM 下一拍继续推 ✅）
+        //        📌 **可观测**：⭐ `u_uart_ui.zfs_drop_cnt_o` 会计这次挂起 ✅
+        assign tx_req = normal_req_w | rd_notice_push | ep_push | fx_push;
         //   ⭐ 'N'（`np_push`）优先级最高 —— 它也是独立命令，与其余不同拍。
         //   ⭐ 'Q'（`dp_push`）次高 —— 它与 `'P'` **故意错开 400 µs**，⛔ 不同拍。
         // 2026-10-13: rd_push no longer shares this pulse-priority mux.
         // Binary frames + footer own both UARTs; normal replies stay queued.
+        // 2026-10-17: ep_* (EC11 param-mode frame) is the lowest priority byte
+        // source. Events are rare and bursty; a dropped byte only delays one
+        // status frame, never corrupts the queue alignment.
+        // 2026-10-17: fx_* (effects status readback) is the very last source;
+        // same reasoning -- one lost byte only delays one diagnostic frame.
         assign tx_byte = np_push ? np_data
                        : ((DPOS_DIAG != 0) && dp_push) ? dp_data
                        : vp_push ? vp_data : pp_push ? pp_data
-                       : rep_req ? rep_byte : 8'h21; // '!' = operation rejected
+                       : rep_req ? rep_byte
+                       : ep_push ? ep_data
+                       : fx_push ? fx_data : 8'h21; // '!' = operation rejected
 
 
         calib #(.NCH(8), .DW(12)) u_calib0 (
@@ -5284,7 +5886,10 @@ wire ovf_any;
         //  ⭐⭐ 2026-10-16：⭐ **上行专用**的鼓标记轴（⭐ 只给上行回传帧 ✅）
         //     📌 `sa_axis` 是【下行 voice 定位键】（⭐ 经 `mg_evt_axis` 到 `note_manager`）
         //        ⇒ ⛔ 不能拿来当鼓标记（⭐ 否则鼓垫四件退化 + 鼓 voice 永久 held ✅）
-        wire [3:0]  sa_up_axis;
+        //  ⭐⭐ 2026-10-17（Q7）：⭐ 原 `wire [3:0] sa_up_axis;` **已删** —— 它是**死线**：
+        //     `up_drum_mark_w` 那一路（见下方"为什么不再 OR 上 `sa_up_axis`"注释）
+        //     才是真正的鼓标记来源 ⇒ 该线有驱动、无消费者 ⇒ 综合器本来就会删掉它，
+        //     ⚠️ 留着只会让下一个人以为"它还在进 FIFO" ✅（`K-106`：保留痕迹）
         wire [31:0] sa_inc;
         wire [7:0]  sa_vel;
         wire [1:0]  sa_kind;
@@ -5452,7 +6057,8 @@ wire ovf_any;
         reg [15:0] rd_reject_r;
         wire rd_start_w = rd_pending_r && txf_idle &&
                           !pp_busy && !vp_busy && !np_busy && !dp_busy;
-        wire rd_reject_event = (cmd_recdump_req &&
+        //  ⭐⭐ 2026-10-17：⭐ `cmd_recdump_req | km_loop_send_req`（⛔ 不改定义 ⇒ 单一驱动源 ✅）
+        wire rd_reject_event = ((cmd_recdump_req | km_loop_send_req) &&
             (rd_lock || looper_layer_state || (looper_evt_cnt == 0))) ||
             //  ⭐⭐ 2026-10-14：⭐ **空循环的 `'L'` 也计入拒绝**（⭐ 回包 `'!'` ✅）
             lp_play_empty_req ||
@@ -5468,7 +6074,8 @@ wire ovf_any;
                 rd_notice_r <= 0;
                 rd_reject_r <= 0;
             end else begin
-                if (cmd_recdump_req && !rd_lock && !looper_layer_state && (looper_evt_cnt != 0))
+                //  ⭐⭐ 2026-10-17：⭐ 同一口径 OR（⛔ 不动 `cmd_recdump_req` 定义 ✅）
+                if ((cmd_recdump_req | km_loop_send_req) && !rd_lock && !looper_layer_state && (looper_evt_cnt != 0))
                     rd_pending_r <= 1;
                 else if (rd_start_w)
                     rd_pending_r <= 0;
@@ -5549,6 +6156,18 @@ wire ovf_any;
             //  ⭐⭐ 2026-09-29 新增：⭐ **录制时记下"当前手弹音色"**
             //     ⇒ ⭐ 回放时用它，⛔ **不跟随**之后手弹切过的音色 ✅（⭐ 用户需求 ✅）
             .live_timbre_i  (timbre_sel_r),
+            //  ⭐⭐ 2026-10-17（🔴 修"鼓进 loop"）：⭐ **本条 live 事件是不是鼓** ✅
+            //  ⭐ **接的是【现成的】`key_drum_r`**（⭐ 打鼓模式，⭐ 串口 `'K'` 切换）——
+            //     ⛔ **不是新造判据**：⭐ 下游 `seq_arb` 的入队 mux 就是用**同一根线**
+            //     决定"这条 live 事件是否变成鼓"：
+            //       · `wire [3:0] src_a_axis = key_drum_r ? key_drum_axis : ...`（⭐ 落 12~15）
+            //       · `wire [2:0] src_a_src  = key_drum_r ? 3'd5 : ...`（⭐ SRC = 键盘打鼓）
+            //     ⇒ ⭐ "looper 判它是不是鼓"与"下游判它是不是鼓"**同为 `key_drum_r`** ✅
+            //  📌 **为什么不需要别的来源**：⭐ `looper` 的 live 口接的是 `w3a_evt_*`
+            //     （⭐ 键盘采集链，⭐ 见上方 `.live_valid_i`）——
+            //     ⚠️ **内部鼓机**（`drum_gen`，⭐ 走 `evt_merge` 源 B）**根本不经过这个口**
+            //     ⇒ ⭐ 能进 loop 的鼓**只可能是**打鼓模式的键盘事件 ⇒ ⭐ 一根线就够 ✅
+            .is_drum_i      (key_drum_r),
             //  ⭐⭐ 2026-09-29 新增：⭐ **手弹位置式力度流**（⭐ 只读旁路监听）
             //   🔴 **为什么 looper 要"看"这条流**：⭐ 回放要复现"轻→重"的手势
             //      ⇒ ⭐ 必须知道**松手那一刻的力度** ✅
@@ -5818,7 +6437,10 @@ wire ovf_any;
             //        下行 `note_manager` 的 (axis, src) 定位键 ⇒ 🔴 不能把它改成鼓标记 ✅
             //     ✅ 拆开后：⭐ 下行用 `sa_axis`（⭐ 原样透传，逐位恢复改动前 ✅）
             //               ⭐ 上行用 `sa_up_axis`（⭐ 鼓回传 drum_type、其余回传 0 ✅）
-            .evt_up_axis_o    (sa_up_axis),
+            //  ⭐⭐ 2026-10-17（Q7）：⭐ 改**空接**（⭐ 与 `guide_key_o` 同一手法 ✅）
+            //     🔴 为什么：⭐ 该输出**无消费者**（⭐ 上行鼓标记走 `up_drum_mark_w` ✅）
+            //     ⇒ ⚠️ 原来接的那根 `sa_up_axis` 是**死线** ⇒ 现已删声明 ✅
+            .evt_up_axis_o    (),
             .evt_phase_inc_o  (sa_inc),
             .evt_velocity_o   (sa_vel),
             .evt_kind_o       (sa_kind),
@@ -6329,6 +6951,17 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             //        ✅ 改接 `up_timbre_w`（⭐ = 与 `note_manager` 同构的兜底 ✅）
             //        📌 根因与逐路核对见上方 `up_timbre_w` 声明处的长注释 ✅
             .evt_timbre_i    (up_timbre_w),
+            //  ⭐⭐ 2026-10-17：⭐ **`byte[7]` 的 `bit[6]` = 本条是不是鼓** ✅
+            //  ⭐ 接的是上面**现成的** `up_is_drum_w`（⭐ 三路鼓统一标记）——
+            //     ⛔ **不新造判据**：⭐ 同一根线已经决定了 `up_drum_mark_w`
+            //     （⭐ 即 `byte[7]` 的 `bit[3:0]` 那 4 位）⇒ ⭐ 两个字段**同源** ⇒
+            //     不可能出现"低 4 位说是鼓、bit6 说不是"的自相矛盾 ✅
+            //  📌 协议（⭐ 改完之后 `byte[7]` 的完整布局）：
+            //       `byte[7] = {1'b0, is_drum, timbre[1:0], axis[3:0]}`
+            //     ⚠️ 对端（ESP32）必须同时改成 `is_drum = (f[7] >> 6) & 1` ✅
+            //  🔴 **必须随事件进 FIFO**（⭐ 见 `evt_upstream.v` 的 `mem[wr_q]` 那一处）——
+            //     ⛔ 不能只在组帧那拍读这根"当前"线，⭐ 否则连来两条事件会串 ✅
+            .evt_is_drum_i   (up_is_drum_w),
             .tick_step_i     (bg_tick),
             .enable_i        (up_enable_r),
             .ready_i         (up_ready_w),
@@ -6546,6 +7179,20 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             .phase_dbg_o      (vibrato_phase)
         );
 
+        //  ⭐⭐ 2026-10-17：⭐ **osc 采样"读 mux"改 BSRAM**（⭐ PnR 布线卡死 ⇒ 腾 LUT）
+        //   ⭐ 依据：⭐ `oscillator_bank.OSC_RAM_EN` / `tdm_render_mixer.OSC_SRC_RAM` 的长注释
+        //   ⚠️ **只在 `OSC_PER_VOICE == 2` 时启用**：⭐ 读口地址必须是 `2*cnt_sel / +1` 这个
+        //      **固定形状**（⭐ 求和与差分读**同一对 lane**）⇒ ⭐ 其它值**强制走老路径** ＋ ⭐ 告警 ✅
+        localparam integer OSC_RAM_EN_TOP = (OSC_PER_VOICE == 2) ? 1 : 0;
+        localparam integer OSC_RD_AW_TOP  = ((POLY_TARGET * OSC_PER_VOICE) <= 1)
+                                            ? 1 : $clog2(POLY_TARGET * OSC_PER_VOICE);
+        wire [OSC_RD_AW_TOP-1:0] ob_osc_rd_addr;
+        wire [15:0]              ob_osc_rd_data0;
+        wire [15:0]              ob_osc_rd_data1;
+        initial begin
+            if (OSC_RAM_EN_TOP == 0)
+                $display("WARNING [top] OSC_PER_VOICE=%0d != 2 => osc sample BSRAM read port DISABLED (legacy FF bus used)", OSC_PER_VOICE);
+        end
         oscillator_bank #(
             .POLY_TARGET   (POLY_TARGET),
             .OSC_PER_VOICE (OSC_PER_VOICE),
@@ -6597,7 +7244,13 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             //              换成 1 套 TDM 比较器 + 64 FF）✅
             //           ③ ⭐ **语义更对**：⭐ 鼓种由"**按的哪个键**"决定，⛔ 不被变调带走 ✅
             //   ⚠️ 阈值（`.DRUM_KICK_MAX`/`.DRUM_TOM_MAX`）⭐ 必须与 `note_manager` 的**同值** ✅
-            .DRUM_CLS_EXT     (1)
+            .DRUM_CLS_EXT     (1),
+            //  ⭐⭐ 2026-10-17：⭐ **osc 采样 MUX → BSRAM**（⭐ 省 LUT：PnR 布线卡死）
+            //   ⭐ `OSC_RAM_EN = 1` ⇒ ⭐ `sample_bus_r`（1024 FF + 64:1 选路）换成 BSRAM
+            //   📌 ⚠️ **必须与下面 `u_tdm_render_mixer.OSC_SRC_RAM` 同时为 1**（⭐ 本文件两处都用
+            //      `OSC_RAM_EN_TOP` ⇒ ⭐ 天然一致，⛔ 不会一个改一个忘 ✅）
+            .OSC_RAM_EN       (OSC_RAM_EN_TOP),
+            .OSC_RD_AW        (OSC_RD_AW_TOP)
         ) u_oscillator_bank (
             .clk_i              (clk),
             .rst_n_i            (rst_n_sync),
@@ -6638,7 +7291,14 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             .fm_index_i         (16'd0),
             .osc_sample_bus_o   (ob_samples),
             .osc_valid_o        (ob_valid),
-            .phase_acc_dbg_o    (ob_phase_dbg)
+            .phase_acc_dbg_o    (ob_phase_dbg),
+            //  ⭐⭐ 2026-10-17：⭐ **BSRAM 两个读口**（⭐ 地址 = 这个 voice 的 lane0 号）
+            //   ⭐ `addr1 = addr0 + 1`：⭐ 求和与差分读的是**同一对 lane**
+            //     （⭐ `2*cnt_sel` 与 `2*cnt_sel+1`）⇒ ⭐ **一拍两个 word** 就够 ✅
+            .osc_rd_addr0_i     (ob_osc_rd_addr),
+            .osc_rd_addr1_i     (ob_osc_rd_addr + 1'b1),
+            .osc_rd_data0_o     (ob_osc_rd_data0),
+            .osc_rd_data1_o     (ob_osc_rd_data1)
         );
 
         // ⭐ TDM 混音 + 饱和（T56）—— ⭐ 全设计**只有 1 个 DSP**
@@ -6817,7 +7477,12 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             //  ⭐⭐ 2026-09-29 合并（⭐ 队友版）：⭐ **限幅器前留 6 dB 裕量**（⭐ `1` = −6.02 dB ✅）
             //   ⭐ 纯线性衰减：⭐ 保住 AKWF 样本 / 音色比 / 力度 / 失谐**全部不变** ✅
             //   🔴 为什么需要：⭐ AKWF 表**满幅** ⇒ 复音叠加会频繁触发软膝限幅 ⇒ ⭐ 音质变糙 ✅
-            .OUTPUT_HEADROOM_SH  (1)
+            .OUTPUT_HEADROOM_SH  (1),
+            //  ⭐⭐ 2026-10-17：⭐ **osc 采样源改走 BSRAM 读口**（⭐ 与 `u_oscillator_bank` 同一个开关）
+            //   ⭐ `vs_c` 直接由 `osc_rd_data0_i/1_i` 算、⭐ `vs_s = vs_c`
+            //     （⭐ 去掉 `vs_c_r` 那一级，⭐ 因为 RAM 读已经寄存 ⇒ ⭐ 总拍数不变 ✅）
+            .OSC_SRC_RAM         (OSC_RAM_EN_TOP),
+            .OSC_RD_AW           (OSC_RD_AW_TOP)
         ) u_tdm_render_mixer (
             .clk_i            (clk),
             .rst_n_i          (rst_n_sync),
@@ -6862,7 +7527,11 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             .dry_valid_o      (mx_valid),
             .dry_sample_o     (mx_sample),
             .deadline_fault_o (mx_fault),
-            .n_active_o       (mx_n_active)
+            .n_active_o       (mx_n_active),
+            //  ⭐⭐ 2026-10-17：⭐ **BSRAM 读口接线**（⭐ 与 `u_oscillator_bank` 的读口同一组网）
+            .osc_rd_addr_o    (ob_osc_rd_addr),
+            .osc_rd_data0_i   (ob_osc_rd_data0),
+            .osc_rd_data1_i   (ob_osc_rd_data1)
         );
 
         // FX is after the complete dry mix (live/score/looper/percussion)
@@ -6902,8 +7571,17 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             .dly_mix_i(ui_fx_mix), .dly_fb_i(ui_fx_fb),
             .trem_depth_i(ui_fx_depth), .trem_rate_i(ui_fx_rate),
             .valid_o(fx_valid), .sample_o(fx_sample),
-            .en_mask_o(), .dly_active_o(), .chor_active_o(), .dly_primed_o(),
-            .dist_clip_cnt_o(), .trem_lfo_o(), .pipe_o()
+            //  ⭐⭐⭐⭐ 2026-10-17（`K-106`）：⭐ **7 个可观测输出全部接出来** ✅
+            //     🔴 **原缺陷**：⭐ 这 7 个**全是空接**（⭐ `()`）⇒ 🔴 **综合整条剪掉**
+            //        ⚠️ 而 `fx_chain.v:149-155` 的注释明明写着
+            //           *"可观测性（K-106：不许静默失效）"* ⇒ ⚠️ **模块想到了、顶层没接** ✅
+            //     ✅ **现在**：⭐ 全部接给模块级 wire ⇒ ⭐ `uart_ui.zfs_*` 经 `'Z' <n>` 发回 PC ✅
+            //     📌 **方向**：⭐ `g_sound`（generate 内）**写** ⇒ 模块级 wire **读** ✅
+            //        （⭐ 单一驱动源，⛔ 不会与别的分支冲突 ✅）
+            .en_mask_o(fx_ro_mask), .dly_active_o(fx_ro_dly_act),
+            .chor_active_o(fx_ro_chor_act), .dly_primed_o(fx_ro_dly_primed),
+            .dist_clip_cnt_o(fx_ro_clip), .trem_lfo_o(fx_ro_lfo),
+            .pipe_o(fx_ro_pipe)
         );
 
         // ⭐⭐ 主混音 + 数字主音量 + 静音斜坡（master_mix，W3c 出声通路最后一级）

@@ -20,9 +20,21 @@
 //    10   2,2     变调 降 1 半音               trans_down_req_o （'F'）
 //    11   2,3     Test Mode 进/出             test_mode_req_o  （'M'）
 //    12   3,0     looper 清空（长按）          loop_clear_req_o （'C'）
-//    13   3,1     备用                         （无）
+//    13   3,1     loop 发送（导出该层已录事件） loop_send_req_o  （⭐ 2026-10-17 新增，短按）
 //    14   3,2     音高归零（恢复默认音高）      trans_reset_req_o（⭐ 2026-10-15 新增）
-//    15   3,3     标定 短按=T / 长按=S         tare_req_o / span_req_o
+//    15   3,3     标定 = 只发 T（松手即发）      tare_req_o  （⭐ span 已删除，见文件内说明）
+//
+//  ⭐⭐ 2026-10-17 新增 idx 13「loop 发送」：
+//    ⭐ 用户需求：*"控制板加一个 loop 发送按钮"*，⭐ 位置 = 列 1 / 行 3（原「备用」）✅
+//    ⭐ 语义：⭐ 把当前 looper 层**已录事件**经串口导出（⭐ = 串口命令 `'Y'`/`CMD_RECDUMP`）
+//    ⭐ 实现：⭐ 本模块**只出脉冲**（⭐ 与 `trans_up_req_o` 完全同构）——
+//       ⭐ 由 `top.v` 把它 OR 进 `cmd_recdump_req`（⭐ 那边已有空循环拒绝/只读读口 ✅）
+//    🔴 🔴 **本键【没有】长按保护** —— 与 idx 12（清空）、idx 15（标定）刻意不同：
+//       ⭐ 理由是**发送是非破坏性操作**（⛔ 不清数据、⛔ 不改状态、⛔ 不进录制）
+//          ⇒ ⭐ 短按立即生效，⛔ 不需要"防误触"的那 2 s 阈值 ✅
+//          ⚠️ 对照：⭐ `loop_clear_req_o`（idx 12）会**清空整层** ⇒ 🔴 必须长按保护 ✅
+//    🔴 **本键【不】与其它任何键共用逻辑**：⭐ 它⛔ 不占 `hold_clr`/`hold_cal` 计数器、
+//       ⛔ 不碰 `clr_long_fired`/`cal_long_fired` ⇒ ⭐ 那两条长按链逐位不变 ✅
 //
 //  ⭐⭐ 2026-10-15 新增 idx 14「音高归零」：
 //    ⭐ 用户需求：*"矩阵键盘加一个键：一键恢复默认音高"*，⭐ 位置 = 列 2 / 行 3 ✅
@@ -77,6 +89,15 @@ module ctrl_key_map #(
     output reg         drum_pattern_req_o,
     output reg         test_mode_req_o,
     output reg         loop_clear_req_o,
+    //  ⭐⭐ 2026-10-17：⭐ idx 13（列 1 / 行 3）= loop 发送（非破坏性 ⇒ 短按即发）✅
+    //     ⭐ 用户需求：*"控制板加一个 loop 发送按钮"* ✅
+    //     🔴 **本 reg 只在【命令脉冲块】（下面的块 2）里赋值** ——
+    //        ⚠️ 本模块曾因"同一 reg 在两个 always 块里赋值"在综合报
+    //        `ERROR (EX2000) : Net ... is constantly driven from multiple places`
+    //        （⭐ 而 iverilog 仿真全绿 ⇒ 🔴 "仿真过 ≠ 能综合"）✅
+    //     ⭐ 所以：⭐ 复位清零 / 默认清零 / 置位 **三处都在块 2 内** ✅
+    //     ⭐ ⚠️ 它⛔ **不占用** `hold_clr` 计数器 ⇒ ⭐ 没有长按阈值那一档 ✅
+    output reg         loop_send_req_o,
     output reg         mode_req_o,        // 新增：模式切换（top.v 需接一个寄存器）
     output reg         fb_piano_o,        // 模式键「目标档」：1 = 钢琴、0 = 指板
     output reg         tare_req_o,
@@ -188,6 +209,7 @@ module ctrl_key_map #(
             drum_pattern_req_o <= 1'b0;
             test_mode_req_o    <= 1'b0;
             loop_clear_req_o   <= 1'b0;
+            loop_send_req_o    <= 1'b0;   // ⭐ idx 13（⭐ 与其余脉冲同一块、同一口径 ✅）
             mode_req_o         <= 1'b0;
             fb_piano_o         <= 1'b0;
             tare_req_o         <= 1'b0;
@@ -211,6 +233,7 @@ module ctrl_key_map #(
             drum_pattern_req_o <= 1'b0;
             test_mode_req_o    <= 1'b0;
             loop_clear_req_o   <= 1'b0;
+            loop_send_req_o    <= 1'b0;   // ⭐ idx 13（⭐ 单周期脉冲的默认低 ✅）
             mode_req_o         <= 1'b0;
             tare_req_o         <= 1'b0;
             span_req_o         <= 1'b0;
@@ -249,6 +272,17 @@ module ctrl_key_map #(
             //      ⭐ 音高状态在 `fader_gear` 里，⛔ 本模块不持有 ⇒ ⛔ 不引入第二个状态源 ✅
             if (key_down[14]) trans_reset_req_o  <= 1'b1;
 
+            //  ⭐⭐ 2026-10-17：⭐ **idx 13（列 1 / 行 3）= loop 发送** ✅
+            //     ⭐ 用户需求：*"控制板加一个 loop 发送按钮"* ✅
+            //     ⭐ 语义：⭐ 导出当前 looper 层**已录事件**（⭐ = 串口 `'Y'`/`CMD_RECDUMP`）
+            //        ⭐ 由 `top.v` 把它 OR 进 `cmd_recdump_req`（⭐ 空循环那边已有拒绝 ✅）
+            //     🔴 🔴 **短按即发，⛔ 无长按保护** —— 与 idx 12/15 刻意不同：
+            //        ⭐ 发送是**非破坏性**的（⛔ 不清数据、⛔ 不改状态）⇒ ⭐ 不需要防误触阈值 ✅
+            //        ⚠️ 对照：⭐ idx 12 `loop_clear_req_o` 会**清空整层** ⇒ 🔴 必须长按 ✅
+            //     📌 ⭐ 直接挂在 `key_down` 上 ⇒ ⭐ 与 `met_req_o`/`timbre_req_o` 同构
+            //        ⇒ ⭐ 天然"一个沿只出一个脉冲"，⛔ 长按不会连发 ✅
+            if (key_down[13]) loop_send_req_o    <= 1'b1;
+
             //  ⭐⭐ 2026-10-14：⭐ **松手清标志**（⭐ 从块 1 搬过来 ✅）
             //     📌 ⭐ 顺序：⭐ 先"松手清"、⭐ 再"阈值置位" ——
             //        ⚠️ 同一拍两者**不可能同时成立**
@@ -262,12 +296,15 @@ module ctrl_key_map #(
                 clr_long_fired   <= 1'b1;
             end
 
-            // 行 3 · 标定：长按 = span（阈值到达时发）；短按 = tare（松手时发，且没长按过）
-            if (key_level[15] && cal_at_long && !cal_long_fired) begin
-                span_req_o     <= 1'b1;
-                cal_long_fired <= 1'b1;
-            end
-            if (key_up[15] && !cal_long_fired) tare_req_o <= 1'b1;
+            //  ⭐⭐ 2026-10-17（用户裁定）：⭐ **span 满量程标定已删除** ✅
+            //     ⇒ 标定键**只发 tare**（松手即发），⛔ 不再有"长按 = span"分支 ✅
+            //     🔴 原写：长按阈值到达时发 `span_req_o` **并置 `cal_long_fired`**
+            //        ⇒ ⚠️ 若不删，`cal_long_fired` 会让下面 `!cal_long_fired` 为假
+            //        ⇒ 🔴 **长按之后松手就不发 tare 了** —— 死代码产生真实副作用 ✅
+            //        （⭐ 这正是用户要求"顺带停掉"的原因 ✅）
+            //     ✅ 现在 `cal_long_fired` 恒 0 ⇒ ⭐ 每次松手都发 `tare_req_o` ✅
+            //     📌 `span_req_o` 端口**保留**（恒 0）⇒ 与 `calib_span` 的接线不用动 ✅
+            if (key_up[15]) tare_req_o <= 1'b1;
         end
     end
 

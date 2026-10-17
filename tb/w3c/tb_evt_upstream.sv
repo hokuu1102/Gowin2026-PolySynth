@@ -39,6 +39,9 @@ module tb_evt_upstream;
     reg  [1:0]         evt_kind = 2'd0;
     //  ⭐⭐ 2026-10-15：⭐ 音色（⭐ `[7]` 的高 4 位）—— ⚠️ 默认 0 = BASS
     reg  [1:0]         evt_timbre = 2'd0;
+    //  ⭐⭐ 2026-10-17：⭐ **`is_drum` 也必须显式驱动** ——
+    //     ⚠️ 悬空 `z` ⇒ `byte[7]` 的 `bit[6]` 变 `x` ⇒ 🔴 判据 ④/⑪ 会读到脏字节
+    reg                evt_is_drum = 1'b0;
     reg        tick_step = 1'b0;
     reg        enable    = 1'b0;
     reg        ready     = 1'b1;
@@ -66,6 +69,7 @@ module tb_evt_upstream;
         //     ⚠️ 本 tb 用 0（BASS）⇒ ⭐ `[7]` 与改动前**逐位相同**
         //        ⇒ ⭐ 下面那些 `rx[7] === 8'h05` 的判据**一个字都不用改** ✅
         .evt_timbre_i  (evt_timbre),
+        .evt_is_drum_i (evt_is_drum),
         .tick_step_i   (tick_step),
         .enable_i      (enable),
         .ready_i       (ready),
@@ -266,6 +270,39 @@ module tb_evt_upstream;
         chk(rx[13] === ck_of(0), "checksum follows the new byte[7] (logic unchanged)");
         chk(rx_n == 14, "non-vacuity: the timbre did NOT change the frame length (still 14 B)");
         evt_timbre = 2'd0;                 // ⭐ 还原，⛔ 不影响后面
+
+        /*  ⭐⭐ 2026-10-17 新增 · 判据 ⑫：⭐ **`is_drum` 进 `[7]` 的 `bit[6]`**（非空洞）✅
+         *  ===========================================================================
+         *  🔴 **缺陷（改前）**：`b_axis = {2'b0, tm, ax}` ⇒ ⭐ `bit[6]` **恒 0**
+         *     ⇒ ⚠️ ESP32 分不出"低音旋律"与"鼓"（⭐ 两者 `axis` 低 4 位可能一样）✅
+         *  📌 **改后布局**：`byte[7] = {1'b0, is_drum, timbre[1:0], axis[3:0]}`
+         *  ⭐ **非空洞性（变量隔离）**：⭐ 两帧的 `timbre`/`axis`/`vel`/`inc`/`kind` **完全相同**，
+         *     只改 `is_drum` ⇒ ⭐ 只有 `bit[6]` 该变 ⇒ 🔴 改前两帧**一模一样**（都是 `0x13`）
+         *     ⇒ ⭐ 期望值：音高 ⇒ `0x13`；鼓 ⇒ `0x53`（⭐ `0x40` = `bit[6]`）✅ */
+        evt_timbre  = 2'd1;                // ⭐ GUITAR
+        evt_is_drum = 1'b0;
+        rx_n = 0; base = 0;
+        send_evt(4'd3, A4_INC, 8'd90, 2'd0);
+        wait_bytes(14);
+        repeat (4) @(negedge clk);
+        chk(((rx[7] >> 6) & 8'h01) === 8'h00, "PITCH EVENT: byte[7] bit[6] = 0");
+        chk(rx[7] === 8'h13, "pitch event => byte[7] = 0x13 (timbre 1, axis 3, no drum bit)");
+
+        evt_is_drum = 1'b1;
+        rx_n = 0; base = 0;
+        send_evt(4'd3, A4_INC, 8'd90, 2'd0);
+        wait_bytes(14);
+        repeat (4) @(negedge clk);
+        chk(((rx[7] >> 6) & 8'h01) === 8'h01,
+            "*** DRUM EVENT: byte[7] bit[6] = 1 *** (this is the bit ESP32 decodes)");
+        chk(rx[7] === 8'h53,
+            "drum event => byte[7] = 0x53 (same timbre/axis, ONLY bit6 differs => NON-VACUOUS)");
+        chk(rx_n == 14, "non-vacuity: the drum bit did NOT change the frame length (still 14 B)");
+        chk(rx[13] === ck_of(0), "checksum follows the drum bit (XOR logic untouched)");
+        chk(((rx[7] >> 4) & 8'h03) === 8'h01, "the drum bit did NOT disturb bits [5:4] (timbre)");
+        chk((rx[7] & 8'h0F) === 8'h03, "the drum bit did NOT disturb the axis in [3:0]");
+        evt_is_drum = 1'b0;
+        evt_timbre  = 2'd0;                // ⭐ 还原，⛔ 不影响后面
 
         // ══ 判据 ⑪：⛔ 关闭后不许再发（⭐ 且 FIFO 已排空 ✅）══
         repeat (200) @(negedge clk);

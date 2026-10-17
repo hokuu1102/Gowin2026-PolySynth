@@ -197,6 +197,49 @@ module calib #(
         end
     endgenerate
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ 2026-10-17（🔴 **时序修复 · calib 写口那条 7.03 ns 的链**）：
+    //     ⭐ **把 `raw_f − zero_cc` 收成【一处】、并收成【12 位】** ✅
+    //
+    //  🔴 **实测证据**（`impl/pnr/Gowin2026.timing_paths`，19/25 条最差 setup 同源）：
+    //     `cal_ch_o → cal_ch_mux → u_calib0/n91 ×3 → u_calib1/zero_cc_1_s1 (7.987)
+    //      → n168_s40→s43→s36→s35→s44→s45→s46→s47→s41→s42 (7.987 → 15.017)
+    //      → den_r_12_s3 (15.827) → upper_lim_n ×3 → n1885/n1884 → upper_q_RAMREG/D (21.270)`
+    //     ⭐ 网表实证 `n168_s40` 是 **LUT4**（`INIT=16'hD4DD`），输入是 `raw_f` 位
+    //        （`n6353_4` ← `top.v` 的 `sp_span_val/af1_pol` 选择）与 `zero_cc[1:0]`
+    //        ⇒ ⭐ **这就是减法的 LUT 借位链**（≈0.7 ns/级，10 级 ≈ 6.8 ns）✅
+    //     📌 对照：**同一模块的加法**走 ALU 进位链（`n1883..n1880`，**0.045 ns/级**）
+    //        ⇒ ⭐ 减法比加法慢 **约 14 倍** ✅
+    //
+    //  ⭐ **为什么可以收到 12 位（⛔ 不是猜，是证明）**：
+    //     · `zero_r[]` 只有两个写点：`:471 zero_r[cal_ch] <= raw_f;`
+    //       （⭐ `raw_f` 是 `[DW-1:0]` = **12 位** ⇒ 零扩展到 13 位
+    //        ⇒ ⭐ **`zero_r[·][DW]` 恒为 0** ✅）与 `:518` 的复位（写 0）✅
+    //     · `zero_cc = zero_vld[cal_ch] ? zero_r[cal_ch] : 0`
+    //       ⇒ ⭐ **`zero_cc[DW]` 恒为 0** ✅
+    //     ⇒ ⭐ 收成 `raw_f - zero_cc[DW-1:0]`（12 位 − 12 位）**数值逐位不变**
+    //        （⭐ 只是把"恒 0 的最高位"从借位链里去掉）✅
+    //
+    //  ⭐ **为什么顺带把三处收成一处**：`:291 den_r`、`:294 span_r[cal_ch]`、
+    //     `:432 upper_span_n` 是**同一个表达式**。原来各写一遍 ⇒ 综合要么合并
+    //     （那这条减法要驱动 3 组写译码、扇出更大），要么留三份（面积与延迟都差）
+    //     ⇒ ⭐ 现在**显式共享一个 wire** ✅
+    //
+    //  ⭐ **顺带把三个比较器收成一个**：`raw_f > zero_cc` 与 `raw_f <= zero_cc`
+    //     是同一比较的互补，原代码在 `:249`/`:275`/`:276` 各写一遍
+    //     ⇒ ⭐ 现在**一个 12 位比较器**，三处共用 ✅
+    //
+    //  📌 **等价性判据（⭐ 必须实跑，⛔ 不许只推理）**：
+    //     · `tb/drivers/tb_calib.sv` —— 14 条（tare/span/err/underflow/median/A8/P2-24）
+    //     · `tb/drivers/tb_calib_equivalence.sv` —— ⭐ **对参考模型【逐拍】比**
+    //       （4 profile × 4096 码 × 8 通道 × 40000 随机拍，⭐ 且 `tare`/`span` **可同拍**）
+    //     ⇒ ⭐ 两条全绿 ⇒ "语义逐位不变"是**实测事实**，⛔ 不是断言 ✅
+    // ═══════════════════════════════════════════════════════════════════════
+    wire [DW-1:0] zero_cc12    = zero_cc[DW-1:0];       // ⭐ `zero_cc[DW]` 恒 0
+    wire [DW-1:0] span_delta12 = raw_f - zero_cc12;     // ⭐ 全模块唯一的减法（12 位）
+    wire [DW:0]   span_delta   = {1'b0, span_delta12};  // ⭐ 零扩展到 13 位（与原式同值）
+    wire          raw_gt_zero  = (raw_f > zero_cc12);   // ⭐ 唯一的比较器（12 位）
+
     // ── 除法器：gain = (FULL << 8) / (span_code - zero) ─────────────────────
     // 移位-减法：被除数 = FULL<<8（24 bit），除数 = den_r（≤ 4095）。
     // 每次迭代把商的一位移入 quo_r，ITER 次后 quo_r = 完整商。
@@ -246,7 +289,7 @@ module calib #(
     //      `gain_vld[cal_ch]` 置位（⭐ 见块 C），⭐ 而那个置位已被移除
     //      （⭐ 失败的重标定**不应**把该轴标成"增益已知"）⇒ ⭐ 它成了死逻辑 ✅
     //      📌 教训：⭐ **防御性代码若不再被用，就是噪声**（⭐ 同 `S_NEXT` 的注释）
-    wire span_ok_w  = (!busy && span && (raw_f >  zero_cc));   // ⭐ span 起点·接受分支
+    wire span_ok_w  = (!busy && span && raw_gt_zero);   // ⭐ span 起点·接受分支（⭐ 共用比较器）
     wire div_done_w = ( busy && (cnt_r == ITER_CNT));          // ⭐ 除法器写回拍
 
     // t_cmp = {rem_r, quo_r 最高位}：当前被除数段（含即将移入的下一位）
@@ -272,8 +315,8 @@ module calib #(
             //        ⭐ "尝试失败 ⇒ 1；尝试成功 ⇒ 0" **一句话说完** ⇒
             //        ⚠️ 以后加分支时不会漏掉"成功要清 0" ✅
             //     📌 教训：⭐ 语义等价的改写，只要它消除歧义、把不变量写进形状，就值得做 ✅
-            err <= (raw_f <= zero_cc);                   // ⭐ 本次尝试：失败 = 1，成功 = 0
-            if (raw_f <= zero_cc) begin
+            err <= !raw_gt_zero;                         // ⭐ 本次尝试：失败 = 1，成功 = 0
+            if (!raw_gt_zero) begin
                 // 失败：⭐ `err` 已置 1（⭐ 见上）⇒ ⛔ 这里不拉 `busy`（⭐ 与它严格互斥）
                 //   ⭐⭐ 2026-09-30：⭐ **删掉** `gain_r[cal_ch] <= (1 << 8);`
                 //      🔴 **为什么删**：⭐ 水位闸已经保证"未标定 ⇒ `gain_rd` = 256"
@@ -288,10 +331,10 @@ module calib #(
                 busy  <= 1'b1;
                 cnt_r <= {IW{1'b0}};
                 rem_r <= 24'd0;
-                den_r <= raw_f - zero_cc;
+                den_r <= span_delta;
                 //  ⭐⭐ 2026-09-28：**同时记下该轴的标定行程码**（⭐ 供输出级夹紧用）
                 //     📌 与 `den_r` **同拍、同表达式** ⇒ ⭐ 两者必然一致（⭐ 单一来源）
-                span_r[cal_ch] <= raw_f - zero_cc;
+                span_r[cal_ch] <= span_delta;
                 //   ⭐⭐ 2026-09-30：⭐ `span_vld`/`gain_vld` 的置位**移到【块 C】**
                 //      （⭐ 条件 = `span_ok_w`）—— ⛔ 本块不再碰位图 ✅
                 quo_r <= DIVIDEND;                        // 被除数 = FULL<<8
@@ -343,22 +386,26 @@ module calib #(
     //  ⭐⭐ 上界 = `min(MAX_TRAVEL, span_r[ch])`（⭐ `span_r` 未标定 ⇒ 只用 `MAX_TRAVEL`）
     //     ⭐ 这样**两种情形都安全**：⭐ 标定了 ⇒ 用真实行程；⭐ 没标定 ⇒ 用硬上界 ✅
     localparam [DW:0] MAXT = MAX_TRAVEL;
-    wire [DW:0] dlim = ((span_rd != {(DW+1){1'b0}}) && (span_rd < MAXT))
-                     ? span_rd : MAXT;
+    //  ⭐⭐ 2026-10-17（用户裁定：**删除 span 满量程标定，保留 tare 零点标定**）✅
+    //   🔴 原式读 `span_rd`：`((span_rd != 0) && (span_rd < MAXT)) ? span_rd : MAXT`
+    //   ✅ 现在 span 不再参与 ⇒ 上界恒为硬上界 `MAXT` ✅
+    //   📌 语义等价性：⭐ span **从未在硬件上跑过** ⇒ `span_vld[]` 恒 0、
+    //      `span_ok_w` 恒 0 ⇒ 原式本来就恒取 `MAXT` ⇒ **实际行为逐位不变** ✅
+    //   ⚠️ 仿真里 `tb_calib_equivalence` 会**主动驱动** span（`:53/:56/:67`，1/16 概率）
+    //      ⇒ 🔴 参考模型 `tb/models/calib_reference.sv` **必须同步改成 `MAXT`**，
+    //        否则判据必红（这正是本次"改前必红"要验证的事）✅
+    wire [DW:0] dlim = MAXT;
     // For unsigned ADC codes, clamp(raw-zero,0,limit) is equally:
     // raw<zero ? 0 : raw>zero+limit ? limit : raw-zero.
     // Precompute each channel's widened upper threshold independently of ch,
     // in parallel with the selected subtract, rather than serializing the
     // channel mux -> subtract -> clamp comparison -> multiplier chain.
     // No state, extra sample cycle, or calibration command timing is added.
-    wire [DW+1:0] upper_by_channel [0:NCH-1];
-    genvar ui;
-    generate for (ui=0;ui<NCH;ui=ui+1) begin : g_upper_threshold
-        wire [DW:0] z = zero_vld[ui] ? zero_r[ui] : {(DW+1){1'b0}};
-        wire [DW:0] s = span_vld[ui] ? span_r[ui] : {(DW+1){1'b0}};
-        wire [DW:0] limit_code = ((s != {(DW+1){1'b0}}) && (s < MAXT)) ? s : MAXT;
-        assign upper_by_channel[ui] = {1'b0,z} + {1'b0,limit_code};
-    end endgenerate
+    //  ⭐⭐ 2026-10-17：⭐ `upper_by_channel` 已**删除** ✅
+    //     🔴 它本来是"每通道预计算上界"，但 `upper_q` 改成标定寄存器后
+    //        **没有任何读者**（原 L412/422/434/448/483 全是注释）⇒ 死代码 ✅
+    //     ✅ 它内含 `span_vld/span_r` 的 4 级 `limit_code` + 13 位加法，
+    //        随 span 一起删除 ⇒ 顺带省下那一整锥 ✅
 
     //  ⭐⭐⭐⭐ 2026-10-17（🔴 **时序修复 · 只读审计的 top-1**）：
     //     ⭐ **把"每通道夹紧上界"从【每样本组合重算】改成【标定寄存器状态】** ✅
@@ -428,18 +475,21 @@ module calib #(
     //        ＋ ⭐ 综合后看那条链是否**从 LUT 借位链变成 ALU 进位链** ✅
     //     ⚠️ **诚实标注**：⭐ 这是**假设**，⛔ 我无法只读证明综合器一定照办 ⇒
     //        ⭐ **落地后必须实测**（⭐ 这正是 `P0` 那次"模型算的上界 ≠ 实测"的教训）✅
-    wire [DW:0] upper_span_n = span_ok_w
-                             ? ({1'b0, raw_f} - zero_cc)          // ⭐ 显式等宽（原为 `raw_f - zero_cc`）
-                             : (span_vld[cal_ch] ? span_r[cal_ch] : {(DW+1){1'b0}});
-    wire [DW:0] upper_lim_n  = ((upper_span_n != {(DW+1){1'b0}}) && (upper_span_n < MAXT))
-                             ? upper_span_n : MAXT;
-
+    //  ⭐⭐ 2026-10-17（span 删除）：⭐ `upper_span_n` / `upper_lim_n` 已删 ✅
+    //     🔴 原式：`upper_span_n = span_ok_w ? span_delta : (span_vld ? span_r : 0)`
+    //              `upper_lim_n  = (upper_span_n != 0 && < MAXT) ? upper_span_n : MAXT`
+    //     ⭐ 那条 `span_delta`（12 位减法）正是 **19 条 setup 违例的 6.84 ns 病灶** ✅
+    //     ✅ 现在上界恒为 `MAXT` ⇒ **减法整根消失** ⇒ 只剩"零 + 常量" ✅
+    //
+    //  ⭐ 写条件从 `tare || span_ok_w` 收成 `tare`（span 不再更新上界）✅
+    //  📌 位宽：`{1'b0,raw_f}` 13 位 ＋ `MAXT` 13 位 ⇒ 结果 14 位
+    //     ⇒ 目标 `upper_q[·]` 是 `[DW+1:0]` = 14 位 ⇒ ⛔ 无截断 ✅
     always @(posedge clk) begin
         if (!rst_n) begin
             for (vi = 0; vi < NCH; vi = vi + 1)
-                upper_q[vi] <= {1'b0, MAXT};       // ⭐ 与 `upper_by_channel` 的冷启动值一致
-        end else if (tare || span_ok_w) begin
-            upper_q[cal_ch] <= {1'b0, upper_zero_n} + {1'b0, upper_lim_n};
+                upper_q[vi] <= {1'b0, MAXT};       // ⭐ 冷启动 = `zero + MAXT`（zero 未标定 ⇒ 0）
+        end else if (tare) begin
+            upper_q[cal_ch] <= {1'b0, raw_f} + MAXT;
         end
     end
 
