@@ -2836,7 +2836,7 @@ wire ovf_any;
             .PHASE_W    (32),
             .VEL_W      (8),
             .AXIS_ID    (14),
-            .RESERVED_N (5),
+            .RESERVED_N (8),
             //  ⭐⭐ 2026-10-01：⭐ **节拍器抬 +1.75 dB**（⭐ 用户："背景的节拍器稍微大声一点"）
             //   ⭐ 原值 `180 / 108`（⭐ 模块默认，⭐ 保持不动）⇒ ⭐ 这里覆盖成 `220 / 132`
             //   ⭐ **为什么是 220 而⛔ 不是更高**（⭐ 余量算式，⭐ 与 `metronome.v` 的 `LIM_TH_W`/`KNEE_W` 余量算式同一口径）：
@@ -2888,8 +2888,31 @@ wire ovf_any;
         //      ⇒ ⭐ 4 个乐器**共用 15**、⭐ 靠 `PHASE_INC` 区分音色
         //      （🔴 ⛔ 不改 `AXIS_W` —— 那会动**冻结的 64 bit 事件格式**）。
         //
-        //   ⚠️ **`RESERVED_N` 的账**：⭐ 节拍器 1 + 鼓机 1（⭐ 共用轴号）⇒ **需要 2**
-        //      ⇒ ✅ **当前 `RESERVED_N = 5` 够用**（⛔ 不用改 `note_manager` 例化）。
+        //   🔴🔴 **`RESERVED_N` 的账 —— 2026-10-17 订正（原注释写错了）** ✅
+        //  ⛔ **原文（已作废）**：*"节拍器 1 + 鼓机 1（⭐ 共用轴号）⇒ **需要 2**
+        //      ⇒ ✅ 当前 `RESERVED_N = 5` 够用"*
+        //  🔴 **为什么它错了**：⭐ 鼓机**不是一个 voice** —— `SEL_DRUM=1` 档下
+        //     `drum_gen` 走的是**四件套**（⭐ Kick / Snare / HiHat / Tom，
+        //     ⭐ 见 `drum_inc_defs.vh` 的四个 `INC_*` ✅）
+        //     ＋ ⭐ 键盘/灌谱那一侧的鼓（⭐ `src=5` 那一路）**最多再 4 个** ✅
+        //  ✅ **正确的账**：
+        //     | 来源 | 需要 |
+        //     |---|---|
+        //     | 节拍器 `metronome` | 1 |
+        //     | 鼓机 `drum_gen`（⭐ **四件套**）| **4** |
+        //     | 键盘 / 灌谱鼓（⭐ `src=5`）| ≤ **4** |
+        //     | **合计** | ⭐ **8~9** |
+        //  🔴 **⇒ 旧值 `RESERVED_N = 5` 曾是【超订】**（⭐ 池 5 < 需求 8~9）✅ **已由 Q3 改为 8**（2026-10-17）
+        //     ⇒ ⚠️ 后果不是丢事件，而是**抢占 + 偷声**（⭐ 保留池被普通池抢、
+        //        ⭐ 或保留 voice 溢出到 ADSR ⇒ **重演 `K-144` 挂音** ✅）
+        //  ⚠️ **⛔ 本条注释【不改参数】** —— 改 `RESERVED_N` 是**契约变更**
+        //     （⭐ 会动 `NORMAL_VOICES`：27 → 24，⭐ 三个 tb 里写死了 27）
+        //     ⇒ ⭐ 精确改动清单见 `bringup/34-遗留问题与排查计划-20261016.md` 的 **Q3**
+        //     📌 **必须 5 处同步**（⭐ 漏 `PERC_N` 会静默半改）：
+        //        `top.v:2839`(metronome) · `:2915`(drum_gen) · `:6363` ·
+        //        `:6671 PERC_N` · `:6793`(note_manager)
+        //     ＋ 模块默认值 `drum_gen.v:85` / `metronome.v:50` / `note_manager.v:88`
+        //     ＋ tb：`tb/e2e/tb_e2e_key_to_sound.sv:63`（`RESERVED_N=5` · `NORMAL_VOICES=27`）
         // ═══════════════════════════════════════════════════════════════════
         wire        drm_evt_valid;
         wire [3:0]  drm_evt_axis;
@@ -2912,7 +2935,7 @@ wire ovf_any;
             .STEPS          (16),
             // ⭐ 16 分音符 = PPQN(960) / 4 = 240 tick
             .TICKS_PER_STEP (240),
-            .RESERVED_N     (5),
+            .RESERVED_N     (8),
             //  ⭐⭐ 2026-10-01：⭐ **鼓机抬偏轻的那几件**（⭐ 用户："背景的鼓机稍微大声一点"）
             //   ⭐ 原值（⭐ 模块默认，⭐ 保持不动）：`KICK 230 / SNARE 200 / HIHAT 140 / TOM 190`
             //   ⭐ 覆盖后：⭐ `SNARE 235` · ⭐ `HIHAT 175` · ⭐ `TOM 220`（⭐ `KICK` **不覆盖**）
@@ -6011,7 +6034,7 @@ wire ovf_any;
         //        决定"**进保留池** + **走 perc 包络**"（⭐ 见 `top.v` 的 `env_level_mix` 与
         //        `perc_trig`）⇒ ⭐ 标上它就**自动变成鼓**，⛔ 不用改 `note_manager` 一行 ✅
         //     ⚠️ **代价（⭐ 已评估）**：⭐ 鼓垫与"源 B（节拍器/鼓机）"**共用保留池**
-        //        （⭐ `RESERVED_N = 5`）⇒ ⚠️ 两者同时响时抢 5 个 voice；
+        //        （⭐ `RESERVED_N = 8`，2026-10-17 Q3 由 5 改 8）⇒ ⚠️ 两者同时响时抢 8 个 voice；
         //        ⭐ 且**手敲 + 鼓机同时**最多 5 音（⭐ 超了按池内分配策略丢）
         //        📌 缓解：⭐ 手敲鼓时用 `'B'` 关掉源 B ✅
         //
@@ -6032,7 +6055,7 @@ wire ovf_any;
         //        📌 ⭐ 而"**进保留池 + 走 perc 包络**"**照旧**（⭐ `note_manager` 已把
         //           `SRC_KDRUM` 加进同一判据 ⇒ ⭐ 两处**同源派生**、⛔ 不会不一致 ✅）
         //     📌 ⭐ **代价**：⭐ 源标记是 3 位、⭐ `0~4` 已用 ⇒ ⭐ **`5` 空闲** ⇒ ⭐ 零位宽代价 ✅
-        //     ⚠️ ⭐ **保留池仍共用**（⭐ `RESERVED_N = 5`）—— ⭐ 那一条**本条⛔ 不解决** ✅
+        //     ⚠️ ⭐ **保留池仍共用**（⭐ `RESERVED_N = 8`）—— ⭐ 那一条**本条⛔ 不解决** ✅
         //        （⭐ 它只是**资源争用**，⭐ 而"抢音"那条**已解决** ✅）
         wire [2:0]  src_a_src = key_drum_r ? 3'd5
                               : ((SOURCE_A_SEL == 1) ? 3'd2 : sa_src);
@@ -6360,7 +6383,7 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             //      It is deliberately PAIRED with metronome.AXIS_ID (see
             //      u_metronome below) (K-106 family: an unpaired setting
             //      fails silently).
-            .RESERVED_N  (5),
+            .RESERVED_N  (8),
             // ⭐⭐ 2026-10-04：⭐ **T3 变调总闸**（⭐ 交付档 = 1，⭐ 见 `T3_ENABLE` 的说明 ✅）
             .T3_EN       (T3_ENABLE)
         ) u_note_manager (
@@ -6667,8 +6690,8 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         //         ⚠️ 改力度**必须同时改本注释**（⭐ 本项目"注释↔代码不一致"是复发缺陷）✅
         // ═══════════════════════════════════════════════════════════════════
         //  ⚠️ 下面这个 5 **必须**与 `u_note_manager` / `u_tdm_render_mixer` 的
-        //     `.RESERVED_N(5)` 一致（⭐ 三处同源；⚠️ 保留池 = **最高**那几路）
-        localparam integer PERC_N   = 5;
+        //     `.RESERVED_N(8)` 一致（2026-10-17 Q3：5→8）（⭐ 三处同源；⚠️ 保留池 = **最高**那几路）
+        localparam integer PERC_N   = 8;
         localparam integer RES_BASE = POLY_TARGET - PERC_N;
 
         wire [PERC_N-1:0]    perc_trig;
@@ -6790,7 +6813,7 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             //      ⭐ 用途：⭐ **popcount 时排除保留池**（⭐ 节拍器/鼓机不该压低键盘音量）
             //      ⚠️ **必须与下面 `note_manager` 的 `RESERVED_N` 一致**（⭐ 两处都写 5）
             //      📌 语义：⭐ N 只数【演奏的 voice】⇒ ⭐ 音量不随节拍器跳动 ✅
-            .RESERVED_N          (5),
+            .RESERVED_N          (8),
             //  ⭐⭐ 2026-09-29 合并（⭐ 队友版）：⭐ **限幅器前留 6 dB 裕量**（⭐ `1` = −6.02 dB ✅）
             //   ⭐ 纯线性衰减：⭐ 保住 AKWF 样本 / 音色比 / 力度 / 失谐**全部不变** ✅
             //   🔴 为什么需要：⭐ AKWF 表**满幅** ⇒ 复音叠加会频繁触发软膝限幅 ⇒ ⭐ 音质变糙 ✅

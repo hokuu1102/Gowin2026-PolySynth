@@ -9,7 +9,7 @@
 //    **停住不归零**，而 `metronome.v` 的 `EVT_KIND` 是常量 `note_on`、
 //    ⛔ **永不发 `note_off`** ⇒ 🔴 **voice 永久 held = 挂音**。
 //    修法：在 `top.v` 里把**保留池那 5 路**的包络电平换成 `perc_env_bank`
-//    （⭐ 键盘那 27 路**逐位透传**）。
+//    （⭐ 键盘那 24 路**逐位透传**）。
 //    ⇒ ⭐ 本 tb 就是这条修法的**契约**：**"保留池必须一击到底"**。
 //
 // ⭐ **手法：用 `force` 直接驱动保留池第 0 路的 `nm_gate`/`nm_vel`**
@@ -18,7 +18,7 @@
 //      `tick_audio` 就归零 ⇒ ⭐ **整个 tb 只要几千拍**（秒级）✅
 //
 // ⭐ **判据清单（逐条机械可判；⛔ 全部用 `===` ⇒ 见到 `x`/`z` 也算 FAIL）**
-//    P1  键盘那 27 路 `env_level_mix[431:0] === env_level[431:0]`
+//    P1  键盘那 24 路 `env_level_mix[431:0] === env_level[431:0]`
 //        （⭐ 逐位透传 ⇒ ⭐ 键盘音色/音量**零变化**）
 //    P2  保留池第 0 路起音到峰值 **256**（`vel=1 ⇒ 1<<8`）
 //    P3  ⭐⭐ **峰值之后必须衰到 0**（⭐ **这条就是"不挂音"的契约**）
@@ -37,8 +37,8 @@
 module tb_perc_env_top;
 
     localparam integer NAME_W   = 8*90;
-    //  ⭐ 与 `top.v` 的 `RES_BASE = POLY_TARGET - PERC_N = 32 - 5 = 27` 同值
-    localparam integer RES_BASE = 27;
+    //  ⭐ 与 `top.v` 的 `RES_BASE = POLY_TARGET - PERC_N = 32 - 8 = 24（2026-10-17 Q3：PERC_N 5→8）` 同值
+    localparam integer RES_BASE = 24;
     localparam integer VTEST    = 1;          // ⭐ 强制力度 1 ⇒ 峰值 256
     localparam integer PEAK      = VTEST << 8;
     //  ⭐⭐ 2026-10-14：⭐ **时长判据的参数【不在 localparam 里做层次引用】** ✅
@@ -200,7 +200,7 @@ module tb_perc_env_top;
         rst_n = 1'b1;
         repeat (20) @(posedge clk);
 
-        // ── P1：键盘那 27 路【逐位透传】──────────────────────────────────
+        // ── P1：键盘那 24 路【逐位透传】──────────────────────────────────
         //    ⚠️ 同样读**混音器的输入口**（⭐ 契约点），⛔ 不读中间信号
         chk("P1 keyboard_27_slots_are_BIT_IDENTICAL_to_adsr",
             (u_top.g_sound.u_tdm_render_mixer.env_level_i[RES_BASE*16-1:0] ===
@@ -294,7 +294,7 @@ endmodule
 //     ⭐ 即"**退回 K-144 的旧行为**"（保留池走 ADSR）⇒ ⭐ 峰值之后停在 sustain(64)
 //        ⇒ **永远到不了 0** ⇒ **P3 必红** ✅ 这正是本 tb 存在的意义。
 //
-//   ⚠️ **P1 的空洞性防线**：⭐ P1 是"27 路逐位相等" ⇒ ⚠️ 若**整条 `env_level_mix`
+//   ⚠️ **P1 的空洞性防线**：⭐ P1 是"24 路逐位相等" ⇒ ⚠️ 若**整条 `env_level_mix`
 //      都接 `env_level`**，P1 **照样通过**（⭐ 两边一模一样）
 //      ⇒ ⭐ **所以 P1 ⛔ 不能单独作为"透传正确"的证据** —— 必须与 P3 一起看。
 //      📌 **教训**：⭐ "相等"类判据**天生对"两边都错成一样"免疫**。

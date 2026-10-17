@@ -60,8 +60,8 @@ module tb_e2e_key_to_sound;
     //      📌 **用途**：⭐ 判"演示和弦落地"时**只看普通池** ——
     //         ⚠️ 保留池按设计**常驻占用**（⭐ 节拍器 free-running），
     //         🔴 把它算进去 ⇒ 条件**永不成立**（⭐ 详见下方 `wait_for_demo_tail` 的说明）。
-    localparam integer RESERVED_N   = 5;
-    localparam integer NORMAL_VOICES = POLY_TARGET - RESERVED_N;   // ⭐ = 27
+    localparam integer RESERVED_N   = 8;
+    localparam integer NORMAL_VOICES = POLY_TARGET - RESERVED_N;   // ⭐ = 24（RESERVED_N 5→8，2026-10-17 Q3）
     // ⭐ 循环变量位宽（⭐ Verilog-2001 里 `for` 的循环变量要显式声明）
     localparam integer POLY_W = 6;          // ⭐ 6 位够数到 32
 
@@ -345,7 +345,7 @@ module tb_e2e_key_to_sound;
     integer  n_my, n_xtalk;
 
     // ── ⭐ 找"某个轴当前占用的 voice"（⭐ 只扫【普通池】）────────────────────
-    //   🔴 **为什么只扫普通池（0 ~ NORMAL_VOICES-1）**：⭐ 保留池（27~31）
+    //   🔴 **为什么只扫普通池（0 ~ NORMAL_VOICES-1）**：⭐ 保留池（24~31）
     //      按设计**常驻占用**（⭐ 节拍器 free-running）⇒ ⚠️ 把它算进来会**误判**
     //      （⭐ 判据① 那段已经为这件事付过一次学费 ✅）。
     //   ⭐ 判据：⭐ `nm_gate[v]==1` **且** `axis_r[v]==ax`

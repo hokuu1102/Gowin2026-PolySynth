@@ -47,7 +47,7 @@ module metronome #(
     // ⭐ 专用 axis_id（`note_manager.RESERVED_AXIS_BASE` 的默认值 = 14 = 4'hE）
     parameter integer AXIS_ID     = 14,
     // ⭐ 专用 voice 数（⚠️ **必须与 `note_manager.RESERVED_N` 一致**，否则自检告警）
-    parameter integer RESERVED_N  = 5,
+    parameter integer RESERVED_N  = 8,
     // ── 音高（`phase_inc = round(f × 2^32 / f_s)`，`f_s = 50 MHz / 1024`）────
     //
     //   🔴🔴 **2026-09-26 上板实测修复：⭐ 原来这两个常量【小了 1000 倍】**

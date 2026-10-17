@@ -82,7 +82,7 @@ module drum_gen #(
     // ⭐⭐ 16 分音符 = PPQN/4 = 240 tick（⭐ `beat_gen` 的 PPQN = 960）
     parameter integer TICKS_PER_STEP = 240,
     // ⭐ 专用 voice 数（⭐ 只为 `cfg_warn` 自检 —— ⚠️ 真正生效的是 `note_manager` 那个）
-    parameter integer RESERVED_N  = 5,
+    parameter integer RESERVED_N  = 8,
     //  ⭐⭐ 2026-10-01：⭐ **每件乐器的力度提到【形参表】**（⭐ 原来在体内是 `localparam`）
     //   🔴 **为什么必须提到形参表**：⚠️ 体内 `parameter` 的"按名覆盖"**在部分综合器上会被忽略**
     //      ⇒ 🔴 那就是 `K-106` 家族：⭐ **"设了没反应"的静默失效** ✅
