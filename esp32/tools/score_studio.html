@@ -1334,6 +1334,35 @@ if (allTempos.length > 1) {
   }
 
   /* ═══════════════════════════════════════════════════════════════════════════
+     ⭐⭐ 2026-10-17 修（用户实测："加了准备小节之后，原曲最开始的小节被截断了，
+        直接从准备小节后的小节开始"）：
+       准备阶段（count-in）的语义是【在原曲前面插入 N 小节的节拍器】，
+       ⛔ 不是"把原曲开头 N 小节删掉"。
+       🔴 原来在 `visibleWords` 里用 `tick < prepEnd` 把事件直接【丢弃】⇒
+          原曲第 1..N 小节消失、曲子从第 (N+1) 小节开始 —— 正是用户看到的现象。
+       ✅ 修法：在【并节拍器之前】把【所有事件整体后移 prepEnd】——
+          这样 [0, prepEnd) 自然只剩节拍器（下面的 buildMetronome 从 tick 0 起铺），
+          而原曲一个小节都不少。
+       ⚠️ 越界保护：后移后最大 tick 必须仍在 20 位 tick 字段内（M_TICK），
+          ⛔ 否则截断会毁谱 ⇒ 超了就【本次不加准备小节】并把原因报出去（⛔ 不静默）。
+     ⚠️ 必须在【示范—重复 改写之前】做 —— 那段也用 prepEnd 当窗口起点，两处口径必须一致。
+     ═══════════════════════════════════════════════════════════════════════════ */
+  let prepShift = 0, prepShiftWarn = "";
+  if (guideOn && metOn && guidePrepBars > 0) {
+    const barT = MIDI_PPQN * 4;
+    const prepEnd = guidePrepBars * barT;
+    const maxTickNow = evs.reduce((m, e) => Math.max(m, e.tick), 0);
+    if (maxTickNow + prepEnd <= Number(M_TICK)) {
+      for (const e of evs) e.tick += prepEnd;
+      prepShift = prepEnd;
+    } else {
+      prepShiftWarn = "准备 " + guidePrepBars + " 小节会让谱面越过 tick 上限（" +
+                      (maxTickNow + prepEnd) + " > " + Number(M_TICK) +
+                      "）⇒ 本次【未加准备小节】（避免 tick 截断毁谱）";
+    }
+  }
+
+  /* ═══════════════════════════════════════════════════════════════════════════
      ⭐⭐ 2026-10-16「示范—重复」的时间线改写（用户裁定）：
        「只示范最开始几小节，后面的既不示范也不重复。就是示范完，用户重复完，
          这个事件就停止了」
@@ -1528,6 +1557,9 @@ if (allTempos.length > 1) {
      *    { prepEnd, demoEnd, stopEnd, segLen, demoEvt, bars, truncated }
      *    UI 摘要与判据读它；⛔ 分段已在上面做完，下游只记账、⛔ 不再改字。 */
     demoPlan: demoPlan,
+    /* ⭐ 2026-10-17 准备阶段（count-in）：全部事件后移了多少 tick + 越界告警。
+     *    ⚠️ 语义是"在原曲前面插入 N 小节节拍器"，⛔ 不是删掉原曲开头。 */
+    prepShift: prepShift, prepShiftWarn: prepShiftWarn,
     /* ⭐ 2026-10-15 引导模式：给 UI 与判据用的三个账 */
     metCount: metCount, metSkipped: metSkipped, guideWords: guideWords,
     /* ⭐⭐ 2026-10-16 鼓与旋律分离：校验结果（problems 为空才算过） */
@@ -2087,22 +2119,15 @@ function visibleWords(conv) {
    *   ⇒ 摘要显示 0/0 并假报"曲子太短"（用户实测踩到过）。
    *   ⚠️ 传进来的就是当前 conv（UI 与判据都如此）⇒ 设它永远自洽。 */
   lastConv = conv;
-  /* ⭐⭐ 2026-10-16 准备阶段（count-in）：引导模式 + 节拍器开时，最开头 N 小节
-   *   【只响节拍器】—— 用户要的是"先听几拍再进"，否则一上来就糊一脸。
-   *   🔴 判据：src === -2 的是节拍器 ⇒ 一律保留；其余（引导轨/鼓/背景）窗口内全丢。
-   *   ⚠️ tempo(src=-1) 也保留：它是速度事件，丢了 FPGA 的 tick 基准就错了。
-   *   ⚠️ 每小节 tick 用 conv 的量（division 缩放后）⇒ 变速谱也对。 */
-  let prepEnd = -1;
-  if (guideOn && metOn && guidePrepBars > 0) {
-    prepEnd = guidePrepBars * (conv.barTicks || BAR_TICKS);
-  }
+  /* ⭐⭐ 2026-10-17：准备阶段（count-in）**不再在这里处理**！
+   *   🔴 原来这里用 `tick < prepEnd` 把原曲开头 N 小节【丢弃】⇒ 用户实测：
+   *      "加了准备小节之后，原曲最开始的小节被截断了"。
+   *   ✅ 现在改成在 `midiToWords` 里【把全部事件整体后移 prepEnd】
+   *      （语义 = 在原曲前面插入 N 小节节拍器，原曲一个小节都不少）。
+   *   ⚠️ 所以本函数⛔ 不要再做 prep 过滤 —— 否则会二次裁剪。 */
   const keep = [], srcs = [];
   for (let i = 0; i < conv.words.length; i++) {
     const src = conv.evTrack[i];
-    /* ⚠️ conv.words[i] 是打包后的【BigInt 字】，⛔ 没有 .tick 属性（会是 undefined，
-     *   于是 `undefined < prepEnd` 恒 false ⇒ 窗口静默失效）。必须 unpackWord 取 tick。 */
-    if (prepEnd > 0 && src !== -1 && src !== -2 &&
-        unpackWord(conv.words[i]).tick < prepEnd) continue;
     if (keepBySelection(src) && keepByGuide(src, conv)) {
       keep.push(conv.words[i]);
       srcs.push(src);       /* ⭐ 分段要用 src 判节拍器，⛔ 不能丢 */
@@ -2681,13 +2706,33 @@ function draw() {
     if (s.t1 < vw.t0 || s.t0 > vw.t1) continue;
     const x0 = X(s.t0), x1 = X(s.t1);
     const y = Y(s.midi) - blockH / 2;
-    const bw = Math.max(1.6, x1 - x0);      // 极短的音也保证看得见
+    /* ⭐⭐ 2026-10-17（用户实测："这一段的吉他按理来说应该是按了好几下，
+     *   而不是连在一起的，最好中间加个线或者小空格隔开一下"）：
+     *   源谱里"一下一下扫弦"的音是【首尾相接】的（上一个 off 与下一个 on 同一个 tick，
+     *   实测 midi 48：ON 0 → off 480 → ON 480 → off 960 → …，间隔恒为 0）
+     *   ⇒ 画出来相邻方块严丝合缝 ⇒ 视觉上连成一条长条，看不出重击 ✗。
+     *   ⇒ 右边缘留 1.5 px 的缝（只对"够宽"的段留，极短的音若留缝会直接看不见）。
+     *   ⚠️ 纯视觉：⛔ 不动任何 tick（载荷必须保持精确时序）。 */
+    const wpx = x1 - x0;
+    const bw = (wpx > 4) ? (wpx - 2) : Math.max(1.6, wpx);
     /* ⭐ 按音色上色（⛔ 不再按轴）—— 用户 2026-10-14 要求 */
     ctx.fillStyle = noteColor(s);
     // 力度 => 透明度（一眼看出强弱）
     ctx.globalAlpha = 0.45 + 0.55 * Math.min(1, (s.vel || 0) / 127);
     ctx.fillRect(x0, y, bw, blockH);
     ctx.globalAlpha = 1;
+    /* ⭐⭐ 2026-10-17（用户："最好中间加个线或者小空格隔开一下"）：
+     *   ① 上面那个 2px 缝只解决【首尾相接】（上一个 t1 == 下一个 t0）；
+     *   ② 实测本谱还有【真重叠】——同一音高前一个音还没落，就又重击一次
+     *      （双声部同音、或源谱音符重叠）：实测 205 处。
+     *      这种情况两个色块直接叠在一起，留缝 ⛔ 无效（方块本身重叠）。
+     *   ⇒ 在每段【起点】画 1px 背景色竖线（= --panel #141a24）——
+     *     相当于吉他谱的"格子线"，让每一下重击的边界都看得见，
+     *     不管它是相接还是重叠。⚠️ 纯视觉：⛔ 不动任何 tick。 */
+    if (wpx > 4) {
+      ctx.fillStyle = "#141a24";
+      ctx.fillRect(x0, y, 1, blockH);
+    }
   }
   /* ⭐ 鼓单独一栏（2026-10-14，用户要求）。
    * 为什么：鼓的 inc 是"件标识"（kick/snare/hihat/tom），
@@ -4286,41 +4331,32 @@ function uParse() {
        *  tools/upstream_studio.html 的同名解码一致 —— ⚠️ 一共【三处】，
        *  ⛔ 必须一起改：只改一处 ⇒ 两边解出来的不一样，同族 C91）。
        *
-       * 🔴 最终口径（补正来函 §一）：
-       *   bit[7:6] 保留恒 0
-       *   bit[5:4] 音色 —— 但【鼓事件】这里被 drum_type 占用了（字段复用）
-       *   bit[3:0] 鼓标记：鼓 = drum_type(0..3)，手弹 = 0
-       * ⚠️ 所以【鼓事件不要读 [5:4] 当音色】：那里是 drum_type，不是音色。
-       *   ⛔ 若照旧把 [5:4] 当音色去发 program change，鼓会被发成错误音色。
-       * 🔴 已知盲区（他们注释里如实记的）：drum_type=0(Kick) 的低半字节也是 0
-       *   ⇒ Kick 与手弹【在上行帧里不可区分】⇒ 我方不猜：Kick 一律按"未知"处理，
-       *     在日志里标明，⛔ 不当成手弹（那会让底鼓的 LED/音色判成旋律）。 */
-      const drumMark = fr[7] & 0x0F;                 /* bit[3:0] 鼓标记 */
-      const timbreRaw = (fr[7] >> 4) & 0x03;         /* bit[5:4]：旋律=音色；鼓=drum_type */
-      const isDrumUp = (drumMark !== 0);
-      const axis = drumMark;                          /* ⭐ 鼓事件的"轴"就是 drum_type */
-      /* ⭐ 音色只在【非鼓事件】上才有意义；鼓事件一律给 null（不当成音色用）。
-       * ⚠️ Kick 的盲区【不猜】：drum_type=0 与手弹的低半字节都是 0，帧里分不出来
-       *   ⇒ 一律按帧面解出的 timbreRaw 呈现（可能是手弹音色0，也可能是 Kick），
-       *     在日志与图例里注明，⛔ 不当成"一定是手弹"、也⛔ 不当成"一定是 Kick"。 */
-      const timbre = isDrumUp ? null : timbreRaw;
-      const kickAmbiguous = (!isDrumUp && drumMark === 0 && timbreRaw === 0);
+       * 🔴🔴 2026-10-17 回滚（用户实测 + RTL 地面真相 `evt_upstream.v:264`）：
+       *   上一版按《上行帧 byte7 口径补正》把 `bit[3:0]` 当"鼓标记"（鼓=drum_type）——
+       *   ⛔ **那是错的**。用户实测症状（bass 音色回传）：
+       *     · 每一条都被标成【鼓】✗
+       *     · "drum_type" 出现 5 / 4 / 3 / 2 / 13 / 12 / 11 / 10 —— 它只有 2 位，**> 3 不可能** ✗
+       *   地面真相（evt_upstream.v:264）只有一种拼装：
+       *       wire [7:0] b_axis = {2'b0, tm, ax};
+       *   ⇒ `bit[5:4]` = 音色、`bit[3:0]` = **轴号**（2+2+4 已排满，⛔ 装不下 is_drum）。
+       *   ⇒ 那串 5/4/3/2/13/12/11/10 正是【本页贪心分配给每个音的轴号】被原样回显 ✓
+       *     （每个音 -1、到 2 之后跳 13，是分配器的复用节奏，⛔ 不是"每事件减 1 的计数器"）。
+       * 🔴 结论：⭐ **上行 14 B 帧里没有鼓标记位** ⇒ 回传侧【无法】区分鼓/旋律 ⇒
+       *   一律按"旋律/未知"呈现，⛔ 绝不用轴号猜鼓
+       *   （那正是 2026-10-16「只弹 bass 却出鼓」老 bug 的成因，⛔ 不许再犯）。
+       * ⚠️ 三处解码器（本文件 / upstream_studio.html / evt2midi/frame_format.py）必须同口径。 */
+      const axis = fr[7] & 0x0F;                     /* bit[3:0] = 轴号（⛔ 不是鼓标记） */
+      const timbre = (fr[7] >> 4) & 0x03;            /* bit[5:4] = 音色 */
       const inc = ((fr[8] << 24) | (fr[9] << 16) | (fr[10] << 8) | fr[11]) >>> 0;
       const vel = fr[12];
       const hz = uIncToHz(inc);
       U.notes++; U.lastHz = hz;
-      U.events.push({ tick, type: t, axis, timbre, hz, midi: uHzToMidi(hz), vel,
-                      seq: fr[2], drumMark: drumMark, isDrumUp: isDrumUp,
-                      kickAmbiguous: kickAmbiguous });
+      U.events.push({ tick, type: t, axis, timbre, hz, midi: uHzToMidi(hz), vel, seq: fr[2] });
       if (U.events.length > U_MAX_EVENTS) {
         U.events.splice(0, U.events.length - U_MAX_EVENTS);
       }
       uFeed(t === U_T_ON ? "ok" : "", (t === U_T_ON ? "note_on " : "note_off") +
-            "  seq=" + fr[2] + "  tick=" + tick +
-            (isDrumUp
-              ? ("  【鼓】drum_type=" + drumMark + "（[5:4] 是 drum_type，⛔ 不当音色）")
-              : ("  轴=" + axis + "  音色=" + timbre +
-                 (kickAmbiguous ? "  ⚠️ 音色0：可能是 Kick，也可能是手弹 BASS —— 帧里分不出，不猜" : ""))) +
+            "  seq=" + fr[2] + "  tick=" + tick + "  轴=" + axis + "  音色=" + timbre +
             "  " + uHzToNote(hz) + "  力度=" + vel);
     }
     i += flen;
@@ -4360,19 +4396,15 @@ setInterval(() => {
  *   ⚠️ 现状：FPGA 侧 PnR 还没把 timbre 填上来 ⇒ 高 4 位 = 0
  *      ⇒ ⭐ 今天所有乐音都会是 timbre 0（BASS 橙）—— 这是预期行为，
  *        等 PnR 落地后自动分色。
- * 🔴🔴 2026-10-16 两轮演进（最终态）：
- *   ① 第一版：用 `axis>=12` 判鼓 ⇒ 用户实测"我只弹 bass 却有鼓"（手弹 voice 槽位
- *      会落到 12..15）⇒ 判据是错的，已删。
- *   ② 2026-10-16 深夜 FPGA 线《上行帧 byte7 口径补正》：byte[7] 定稿为
- *      `bit[5:4]=音色(鼓事件时是 drum_type) · bit[3:0]=鼓标记(鼓=drum_type，手弹=0)`
- *      ⇒ **鼓现在可判了**（`drumMark !== 0`）⇒ 恢复按鼓分色。
- *   ③ ⚠️ 已知盲区（他们注释里如实记的）：`drum_type=0`(Kick) 的低半字节也是 0
- *      ⇒ Kick 与手弹在上行帧里【不可区分】⇒ Kick 按"未知"走未知色，⛔ 不当成手弹。
- * ✅ 分色规则：鼓(drumMark≠0) ⇒ 鼓色；手弹 ⇒ 按 [5:4] 的真音色；Kick/未知 ⇒ 未知色。 */
+ * 🔴🔴 2026-10-17 第三次（最终态，用户实测 + RTL 地面真相）：
+ *   ③ byte[7] 没有"鼓标记"——`wire [7:0] b_axis = {2'b0, tm, ax}`
+ *      ⇒ `bit[5:4]`=音色、`bit[3:0]`=轴号（2+2+4 排满，⛔ 装不下 is_drum）
+ *      ⇒ 上一版按"鼓标记"判鼓会把【每个轴号≠0 的音】都标成鼓 ✗（用户实测：bass 全是鼓）
+ *      ⛔ 于是回传侧【不再判鼓】，只按 `[5:4]` 的音色分色
+ *      （上行帧里没有鼓信息 ⇒ 鼓只能显示成旋律，⛔ 不猜）。
+ * ✅ 现行规则：一律按 `[5:4]` 音色分色；拿不到音色 ⇒ 兜底色。 */
 function uTimbreColor(e) {
-  /* ⭐ 2026-10-16 按 drumMark 判鼓（新口径，⛔ 不再用轴号猜） */
-  if (e.drumMark !== undefined && e.drumMark !== null && e.drumMark !== 0) return DRUM_COLOR;
-  /* drum_type=0(Kick) 与手弹不可区分 ⇒ 落到这里走未知色（见上方已知盲区） */
+  /* ⛔ 不许再用轴号（[3:0]）或任何"鼓标记"判鼓 —— 见上方 ③。 */
   const tb = (e.timbre === undefined || e.timbre === null) ? -1 : e.timbre;
   return (tb >= 0 && tb < TIMBRE_COLORS.length) ? TIMBRE_COLORS[tb] : NOTE_COLOR_FALLBACK;
 }
@@ -4484,28 +4516,20 @@ function uDraw() {
   }
    /* ⭐⭐ 图例按【音色】列（用户："不需要 axis 配色，只用 timbre 配色"）。
     * ⚠️ 与下行侧的图例同一套语义：只列【出现过的】音色，⛔ 不写轴号。
-    * 🔴 2026-10-16 深夜 FPGA 线 byte7 补正后：鼓事件按 `drumMark !== 0` 判
-    *   ⇒ 恢复「鼓」图例项。
-    * ⚠️ Kick 盲区【不猜】：drum_type=0 与手弹音色0 的低半字节都是 0，帧里分不出
-    *   ⇒ 音色0 照常按 BASS 列出，但缀上「也可能是 Kick」的说明（⛔ 不谎称分得出）。 */
+    * 🔴 2026-10-17：上行帧里【没有鼓标记位】（b_axis = {2'b0, tm, ax}）
+    *   ⇒ ⛔ 不再有「鼓」图例项，也不再给音色0 缀「可能是 Kick」（那是上一版的误判）。
+    *   一律按 `[5:4]` 的音色列，⛔ 不猜。 */
   const seenTb = new Set();
-  let seenDrum = false;
   for (const e of win) {
-    const dm = (e.drumMark === undefined) ? 0 : e.drumMark;
-    if (dm !== 0) { seenDrum = true; continue; }          /* 鼓（Kick 除外） */
     const tb = (e.timbre === undefined || e.timbre === null) ? -1 : e.timbre;
     if (tb >= 0 && tb < TIMBRE_NAMES_ARR.length) seenTb.add(tb);
   }
   const uLegend = [];
   for (let tb = 0; tb < TIMBRE_NAMES_ARR.length; tb++) {
-    if (seenTb.has(tb)) {
-      uLegend.push({ name: TIMBRE_NAMES_ARR[tb] + (tb === 0 ? "（也可能是 Kick）" : ""),
-                     color: TIMBRE_COLORS[tb] });
-    }
+    if (seenTb.has(tb)) uLegend.push({ name: TIMBRE_NAMES_ARR[tb], color: TIMBRE_COLORS[tb] });
   }
-  if (seenDrum) uLegend.push({ name: "鼓", color: DRUM_COLOR });
   if (uLegend.length === 0) {
-    uLegend.push({ name: "（帧内无音色/鼓标记，按 timbre 分色）", color: NOTE_COLOR_FALLBACK });
+    uLegend.push({ name: "（帧内无音色，按 timbre 分色）", color: NOTE_COLOR_FALLBACK });
   }
   let lx = PAD.l + 4; ctx.textAlign = "left";
   for (const it of uLegend.slice(0, 8)) {
@@ -4548,17 +4572,12 @@ function uBuildMidi() {
     last = e.tick - t0;
     out.push(200 & 0);                                    // placeholder（见下）
     out.pop();
-    /* ⭐⭐ 按【音色】分 MIDI 通道 —— channel = timbre（0..3 ⇒ BASS/GUITAR/PIANO/PAD），
-     *   ⭐ 鼓走 GM 鼓通道 9（⛔ 不占音色通道，DAW 里可直接当鼓轨）。
+    /* ⭐⭐ 按【音色】分 MIDI 通道 —— channel = timbre（0..3 ⇒ BASS/GUITAR/PIANO/PAD）。
      *   ⚠️ 通道号 = status 的低 4 位：`0x90|ch` = note_on、`0x80|ch` = note_off。
-     * 🔴 2026-10-16 两轮演进：
-     *   ① 一度删掉"鼓走 9"—— 因为当时用 `axis>=12` 判鼓会把手弹 bass 错分进去；
-     *   ② 深夜 FPGA 线 byte7 补正后按 `drumMark !== 0` 判鼓 ⇒ 恢复"鼓走通道 9"。
-     * ⚠️ Kick(drum_type=0) 与手弹不可区分 ⇒ 归通道 0（并按 [5:4] 音色，
-     *   而 Kick 的 [5:4] 就是 drum_type=0 ⇒ 落 BASS）⚠️ 这是已知盲区，⛔ 不猜。 */
-    const dm = (e.drumMark === undefined) ? 0 : e.drumMark;
-    const ch = (dm !== 0) ? 9
-             : (((e.timbre === undefined || e.timbre === null) ? 0 : e.timbre) & 0x03);
+     * 🔴 2026-10-17 第三次（最终态）：上行帧【没有鼓标记位】（b_axis = {2'b0, tm, ax}）
+     *   ⇒ 回传侧无法判鼓 ⇒ ⛔ 不再有"鼓走 GM 通道 9"那条（上一版按 drumMark 判，
+     *     实测会把每个轴号≠0 的音都当鼓 ⇒ 全进通道 9 ✗）。一律按 `[5:4]` 音色分通道。 */
+    const ch = (((e.timbre === undefined || e.timbre === null) ? 0 : e.timbre) & 0x03);
     const status = (e.type === U_T_ON ? 0x90 : 0x80) | ch;
     out.push(...vlq(dt), status, e.midi & 0x7F,
              e.type === U_T_ON ? (e.vel & 0x7F) : 0);

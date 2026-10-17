@@ -239,6 +239,14 @@ NOTE5_MIN, NOTE5_MAX = 0, (1 << NOTE5_W) - 1
 # 音高 < 45 或 > 75 => 写 31（哨兵）。31 在两份 FPGA 表里都是 N（不点灯）。
 # ⛔ 不许再钳到 0：0 = A2，在指板表里是【真实的键 5】=> 会点亮错误的灯
 #    （FPGA 线实测确认，我方回函 §二-④）。
+# 🔴🔴 硬约定（FPGA 线 2026-10-17 回函确认，双方共同遵守）：
+#    bit[4:0] = 31 【永久】保留为"本事件不参与 LED 指引"
+#    => 灯位表里永远不许放 offset 31（= MIDI 76）
+#    ⚠️ offset 19..30（MIDI 64..75）现在也是 KEY_NONE，将来扩表补进去是【允许】的
+#       （那是真实音域），但 offset 31 必须永远留空 ——
+#       否则所有越界音会一起指到 76 那盏灯。
+#    ⛔ 也别改成 `(midi - 45) & 0x1F`：那是【回绕】不是钳位，
+#       MIDI 30 -> 17 -> 会点亮 MIDI 62 的灯（FPGA 线已认下这处错，见其 2026-10-17 回函 §〇）。
 NOTE5_SENTINEL = NOTE5_MAX
 NOTE5_PITCH_MIN, NOTE5_PITCH_MAX = BASE_NOTE, BASE_NOTE + NOTE5_MAX - 1   # 45 .. 75
 
@@ -801,8 +809,19 @@ def build_events(tracks, division, tempos, transpose=0, overrides=None,
     #    (both 0) would let Python's stable sort keep the notes first, because
     #    tempo records are appended after all notes -- so the tie-break silently
     #    reverses the intent.  tempo=-1 puts it unambiguously ahead.
+    # 🔴🔴 2026-10-17 修（FPGA 线《ESP32侧需求-写音高字段bit4-0点亮LED指引》§三-3.3）：
+    #    上面注释写着"off 要排在 on 前面"，但代码写的是 `e["kind"]` —— 而 KIND_ON=0 < KIND_OFF=1
+    #    ⇒ 实际把【ON 排在 OFF 前面】，与注释**正好相反**（注释与代码互相矛盾，本仓 C116 那一族）。
+    #    危害（实测）：
+    #      · 发声：同音高、同 (axis,src) 的重击会被自己的 off 立刻掐掉；
+    #      · LED：那一拍点亮的灯只亮 1 个周期（20 ns）⇒ 肉眼不可见。
+    #    实测"同 tick 同音高、ON 在 OFF 前"的对数：测试曲 15 对 / 09_Conjurer 3428 对 /
+    #    6.世界悲 2464 对（约占该曲字数 1/4）。
+    #    修法：把 kind 映射成 rank（tempo=-1 · off=0 · on=1）—— 三个 rank 互不相同，
+    #    ⛔ 不能直接写 `e["kind"]`。
     events.sort(key=lambda e: (e["tick"],
-                               -1 if e["kind"] == KIND_TEMPO else e["kind"]))
+                               -1 if e["kind"] == KIND_TEMPO else
+                               (0 if e["kind"] == KIND_OFF else 1)))
     stats["events"] = len(events)
     return events, stats
 

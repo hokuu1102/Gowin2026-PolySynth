@@ -218,6 +218,14 @@ const MUTATIONS = {
                     repl: 'const gsel = $("gd_track"); __no_such_fn__();',
                     expect: "⑧", note: "UI 填充路径抛异常（调用一个不存在的函数）" },
 
+  /* ⭐⭐ 2026-10-17 新增：把"准备阶段整体后移"改回【丢弃】= 复现用户实测的那个 bug
+   *    （"加了准备小节之后，原曲最开始的小节被截断了"）。
+   *    ⚠️ 这是这条判据的非空洞性证明：不修的时候它必须红。 */
+  "prep-drop":    { find: "for (const e of evs) e.tick += prepEnd;",
+                    repl: "for (let _i = evs.length - 1; _i >= 0; _i--) { if (evs[_i].tick < prepEnd) evs.splice(_i, 1); }",
+                    expect: "㉑",
+                    note: "准备阶段改成【丢弃 tick < prepEnd 的事件】= 原 bug（原曲开头被裁掉）；㉑ 必须红" },
+
   /* ⭐ 2026-10-16 新增：引导范围 / 鼓声来源 / 所见即所灌 / 选轨×裁剪 / 节拍器源轨号。
      ⚠️ 锚点按页面【当时】的写法取；页面换个写法就会"出现 0 次"⇒ 直接报错退出（⛔ 不假装跑过）。 */
   "solo-nofilter": { find: 'return guideScope !== "solo";', repl: "return true;",
@@ -2513,6 +2521,52 @@ for (const style of ["beat", "off", "four"]) {
     c.metCount + " + 跳过 " + c.metSkipped + " = " + (c.metCount + c.metSkipped) +
     "（期望 " + BARS + "×8 = " + (BARS * 8) + "）· 逐件 " + JSON.stringify(byNm));
 }
+/* ---------------- ㉑ 准备阶段（count-in）：原曲必须【后移】，⛔ 不是被裁掉 ------------ */
+/* 🔴 2026-10-17 用户实测："加了准备小节之后，原曲最开始的小节被截断了，
+ *    直接从准备小节后的小节开始"。
+ *    根因：当时在 visibleWords 里用 `tick < prepEnd` 把事件【直接丢弃】。
+ *    ✅ 修法：在 midiToWords 里把【全部事件整体后移 prepEnd】
+ *       （语义 = 在原曲前面插入 N 小节节拍器，原曲一个小节都不少）。
+ *    ⭐ 本判据钉三件事：① 旋律音数量不变 ② 每个音正好 +prepEnd ③ 准备窗内只有节拍器/tempo。
+ *    ⚠️ 补它的原因：本脚本原先【一条】准备阶段的判据都没有 ⇒ 那个 bug 直接溜过去了。 */
+{
+  const PREP = 1, barT = API.MIDI_PPQN * 4;
+  const runPrep = (n) => {
+    if (typeof API.__setTrackSel === "function") API.__setTrackSel(null);
+    setGuide(true, K, true, "beat", "all", "met", n);   /* 第 7 个参数 = 准备小节数 */
+    const c = API.midiToWords(parsed);
+    const v = (typeof API.visibleWords === "function") ? API.visibleWords(c) : c.words;
+    return { c: c, vis: v };
+  };
+  const a = runPrep(0), b = runPrep(PREP);
+  const mel = (vs) => vs.filter(w => {
+    const d = unpack(w); return d.isDrum === 0 && d.kind !== API.KIND_TEMPO;
+  });
+  const ka = mel(a.vis), kb = mel(b.vis);
+  const sig = (arr) => arr.map(w => { const d = unpack(w); return d.tick + "@" + d.inc; }).sort();
+  const shifted = sig(ka).map(s => {
+    const [t, i] = s.split("@");
+    return (Number(t) + PREP * barT) + "@" + i;
+  }).sort();
+  const sameCount = (ka.length === kb.length && ka.length > 0);
+  const sameShift = JSON.stringify(shifted) === JSON.stringify(sig(kb));
+  const winOnlyMet = b.vis.every(w => {
+    const d = unpack(w);
+    return d.tick >= PREP * barT || d.isDrum === 1 || d.kind === API.KIND_TEMPO;
+  });
+  judge("㉑", "准备小节：原曲整体后移（⛔ 不是被裁掉）",
+        sameCount && sameShift && winOnlyMet,
+        "旋律 " + ka.length + " -> " + kb.length + " · 后移 " + PREP + " 小节 = " +
+        (PREP * barT) + " tick · 准备窗纯净 " + winOnlyMet);
+  ev("准备 0：" + ka.length + " 个旋律音 · 准备 " + PREP + "：" + kb.length + " 个（应相同）");
+  ev("逐条核对：准备 " + PREP + " 的每个 (tick@inc) == 准备 0 的 +" + (PREP * barT));
+  ctl("把 prepEnd 改回\"丢弃 tick < prepEnd 的事件\" -> 判据㉑ 必红（旋律数会变少）");
+  /* ⑮ 顺带：prepShift 记账必须对上（越界保护那条路径见页面的 prepShiftWarn） */
+  const sh = (b.c && b.c.prepShift) || 0;
+  judge("㉑b", "准备阶段的后移量记账 = prepBars × 每小节 tick", sh === PREP * barT,
+        "prepShift=" + sh + " 期望 " + (PREP * barT));
+}
+
 /* 收尾把状态复原成"干净"的，避免给后来者留一个半开的状态 */
 setGuide(false, null, false, "beat", "all", "met");
 if (typeof API.__setTrackSel === "function") API.__setTrackSel(null);
