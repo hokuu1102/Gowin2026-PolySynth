@@ -124,9 +124,13 @@
      [1] 类型   0x01=note_on 0x02=note_off 0x03=calib 0x04=looper 0x10=表同步
      [2] seq
      [3..6]  tick  32 位大端
-     [7] axis/timbre —— 一个字节装两个字段：timbre[5:4] | axis[3:0]
-                      （RTL：b_axis = {2'b0, tm, ax}；8 位已排满，
-                        上行帧没有鼓标记位，所以本页不判鼓）
+     [7] 一个字节装三种东西：{ bit7 保留 , is_drum[6] , 字段A[5:4] , 字段B[3:0] }
+                       （RTL 2026-10-17 起：b_axis = {1'b0, is_drum, tm, ax}）
+                       bit[6]=1 ⇒ 鼓事件：A=drum_type(0..3)、B 恒 0（没有轴号）
+                       bit[6]=0 ⇒ 音高事件：A=音色(0..3)、B=轴号(0..15)
+                       ⛔ 判鼓只认 bit[6] —— 不许用 [3:0] 或轴号推断
+                         （历史上就是那么错过的：每个轴号 != 0 的音都被判成鼓）
+                       ⭐ 向后兼容：旧位流 bit[6] 恒 0 ⇒ 全部按"音高"解，⛔ 不得误判成鼓
      [8..11] inc   32 位大端
      [12] vel
      [13] 校验   = XOR(bytes[0..12])
@@ -167,7 +171,7 @@ function isBlackKey(m) {
 const S = {
   buf: new Uint8Array(0), bytes: 0, frames: 0, notes: 0, tabs: 0,
   bad: 0, unk: 0, resync: 0, lastHz: 0,
-  events: [],          // {tick, type, axis, hz, midi, vel, seq}
+  events: [],          // {tick, type, axis, timbre, drumType, isDrumUp, hz, midi, vel, seq}
   tabItems: null, tabNo: null,
   t0: 0, rateBytes: 0,
 };
@@ -222,33 +226,39 @@ function parse() {
                  " (" + hzToNote(incToHz(items[0])) + ")  inc[15]=" + items[15]);
     } else {
       const tick = ((fr[3] << 24) | (fr[4] << 16) | (fr[5] << 8) | fr[6]) >>> 0;
-      /* 上行 `[7]` 的口径（以 RTL 为准，2026-10-17 回滚上一轮的错误口径）：
-       *   地面真相 `rtl/w3c/evt_upstream.v:264`：
-       *     wire [7:0] b_axis = {2'b0, tm, ax};
+      /* 上行 `[7]` 的口径（2026-10-17 新位：bit[6] = is_drum）：
+       *   RTL（`rtl/w3c/evt_upstream.v` 将改成）：
+       *     wire [7:0] b_axis = {1'b0, is_drum, tm, ax};
        *   整帧 14 B = {HDR, type, seq, tick[4B], axis, inc[4B], vel, ck}
-       *   ⇒ bit[7:6] 保留恒 0 · bit[5:4] 音色（0..3）· bit[3:0] 轴号（0..15）。
-       * 8 位已经排满，14 B 帧里【没有任何 is_drum / drum_type 位】
-       *   ⇒ 上行无法区分鼓与旋律，本页一律按旋律呈现，不猜。
-       * 上一轮把 bit[3:0] 当"鼓标记"是错的：用户实测 bass 音色回传显示
-       *   drum_type = 5/4/3/2/13/12/11/10，全都 > 3，而 drum_type 只有 2 位
-       *   ⇒ 不可能是它；且"每个音 -1、到 2 之后跳 13"正是轴号被复用的节奏
-       *   ⇒ 每个轴号 != 0 的音都被误标成鼓（用户看到"bass 回传全是鼓"）。
-       * 与 frame_format.py 的 AXIS_MASK / TIMBRE_SH / TIMBRE_MASK 同一口径，
+       *   ⇒ bit7 保留 · bit6 is_drum · bit[5:4] 音色 或 drum_type · bit[3:0] 轴号。
+       * bit[6]=1 ⇒ 鼓事件：[5:4] = drum_type(0..3)、[3:0] 恒 0（鼓没有轴号）
+       * bit[6]=0 ⇒ 音高事件：[5:4] = 音色(0..3)、[3:0] = 轴号(0..15)
+       * ⛔ 铁律：判鼓【只认 bit[6]】—— 不许用 [3:0] 或轴号推断。
+       *   上一轮（2026-10-16）就是拿 [3:0] 当"鼓标记"，结果每个轴号 != 0 的音
+       *   都被判成鼓（用户实测 bass 回传全是鼓）；那个口径已回滚，别再改回去。
+       * ⭐ 向后兼容：旧位流该位恒 0 ⇒ 全部按"音高"解（= 原来的行为），⛔ 不得误判成鼓。
+       * 与 frame_format.py 的 is_drum_up / drum_type 同一口径，
        *   也与 tools/score_studio.html 的上行解码一致（三处必须一起改）。
        * 掩码不能省：不掩码会把保留位混进来读成 0..255。 */
-      const axis = fr[7] & 0x0F;                 /* bit[3:0] = 轴号（不是鼓标记）*/
-      const timbre = (fr[7] >> 4) & 0x03;        /* bit[5:4] = 音色 */
+      const isDrumUp = (((fr[7] >> 6) & 0x01) !== 0);   /* bit[6] = is_drum（新位） */
+      const u54 = (fr[7] >> 4) & 0x03;                  /* [5:4]：音色 或 drum_type */
+      const u30 = fr[7] & 0x0F;                         /* [3:0]：轴号（鼓事件恒 0） */
+      const drumType = isDrumUp ? u54 : null;           /* 鼓型 0..3；非鼓 => null */
+      const timbre = isDrumUp ? null : u54;             /* 音色；鼓事件没有音色 */
+      const axis = isDrumUp ? 0 : u30;                  /* 轴号；鼓事件没有轴号 */
       const inc = ((fr[8] << 24) | (fr[9] << 16) | (fr[10] << 8) | fr[11]) >>> 0;
       const vel = fr[12];
       const hz = incToHz(inc);
       S.notes++;
       S.lastHz = hz;
-      S.events.push({ tick, type: t, axis, timbre, hz, midi: hzToMidi(hz), vel, seq: fr[2] });
+      S.events.push({ tick, type: t, axis, timbre, drumType, isDrumUp,
+                      hz, midi: hzToMidi(hz), vel, seq: fr[2] });
       if (S.events.length > MAX_EVENTS) S.events.splice(0, S.events.length - MAX_EVENTS);
       feed(t === T_ON ? "on" : "off",
            (t === T_ON ? "note_on " : "note_off") +
            "  seq=" + fr[2] + "  tick=" + tick +
-           "  轴=" + axis + "  音色=" + timbre +
+           (isDrumUp ? "  【鼓】drum_type=" + drumType + "（byte[7][6]=1）"
+                     : "  轴=" + axis + "  音色=" + timbre) +
            "  " + hzToNote(hz) + " (" + hz.toFixed(1) + " Hz)" + "  力度=" + vel);
     }
     i += flen;
@@ -291,15 +301,18 @@ const cv = $("roll"), ctx = cv.getContext("2d");
  *   回传卷帘按【音色 timbre】上色，不再按 axis 上色。
  *   色板必须与 score_studio.html 的 TIMBRE_COLORS / TIMBRE_NAMES_ARR 一致
  *   —— 两处不一致，同一份数据在两个页面看起来就不一样。
- * 2026-10-17：上行帧里没有鼓标记（见 parse() 里 byte[7] 的说明），
- *   所以本页不再有"鼓"这个配色分支：一律按 timbre 取色，拿不到就用兜底色。 */
+ * 2026-10-17：上行 `[7]` 新增 bit[6] = is_drum（见 parse() 里的说明），
+ *   鼓事件不再有 timbre（timbre = null）⇒ 用下面这个专用色，⛔ 不落到兜底色，
+ *   否则"鼓"会被画成一个谁都认不出的灰点。 */
 const TIMBRE_NAMES = ["BASS", "GUITAR", "PIANO", "PAD"];
 const TIMBRE_COLORS = ["#fb923c",   /* 0 BASS   橙 */
                        "#4ea1ff",   /* 1 GUITAR 蓝 */
                        "#3ddc84",   /* 2 PIANO  绿 */
                        "#ff7ab2"];  /* 3 PAD    粉 */
+const DRUM_COLOR = "#00d5c8";              /* 鼓（is_drum 事件）专用色 */
 const NOTE_COLOR_FALLBACK = "#8695ab";    /* 拿不到 timbre 时的兜底色 */
 function uTimbreColor(e) {
+  if (e.drumType !== undefined && e.drumType !== null) return DRUM_COLOR;
   const tb = (e.timbre === undefined || e.timbre === null) ? -1 : e.timbre;
   return (tb >= 0 && tb < TIMBRE_COLORS.length) ? TIMBRE_COLORS[tb] : NOTE_COLOR_FALLBACK;
 }
@@ -394,14 +407,23 @@ function draw() {
   //   而且滚动窗口会截断 —— 窗口外的 on 配不到 off 时按最小长度画。
   const blockH = Math.max(2, Math.min(rowH * 0.72, 12));
   const minLen = Math.max(1, (tMax - tMin) / 400);
-  const openMap = new Map();     /* key -> { tick, axis, timbre, vel } */
+  const openMap = new Map();     /* key -> { tick, axis, timbre, drumType, vel } */
   for (const e of win) {
-    const key = ((e.axis & 15) * 128) + (e.midi & 127);
+    /* ⭐⭐ 2026-10-17：配对 key 必须含【鼓/音高】区分 —— 新位下鼓事件 `axis=0`，
+     *   若仍用 `(axis*128)+midi`，鼓 on 会和"轴 0 的音高 on"（甚至别的鼓）共用 key
+     *   ⇒ 互相覆盖配对 ⇒ 个别块长度/颜色错乱。
+     *   ⭐ 鼓：key 用 drumType（0..3；鼓的 inc 常为 0 ⇒ midi 是垃圾值，⛔ 不能进 key）
+     *      音高：key 用 (axis, midi)
+     *   ⚠️ 旧的"鼓标记"口径下也是同理 —— 这次只是把区分依据换成 is_drum_up。 */
+    const key = e.isDrumUp
+      ? ("D" + (e.drumType & 3))
+      : ("M" + (e.axis & 15) + ":" + (e.midi & 127));
     if (e.type === T_ON) {
       /* ⭐⭐ 音色/力度取【note_on 那一刻】的，⛔ 不用 off 的：
        *   ① off 帧的 vel 通常是 0 ⇒ 原来所有音符透明度恒为 0.5（看不出强弱）
        *   ② timbre 是"事件自带"字段，⚠️ off 帧不一定带 ⇒ 用 off 上色会时对时错。 */
-      openMap.set(key, { tick: e.tick, axis: e.axis, timbre: e.timbre, vel: e.vel });
+      openMap.set(key, { tick: e.tick, axis: e.axis, timbre: e.timbre,
+                         drumType: e.drumType, vel: e.vel });
     } else {
       const o = openMap.get(key);
       if (o !== undefined) {
@@ -409,6 +431,13 @@ function draw() {
         const x0 = X(o.tick), x1 = X(e.tick);
         ctx.fillStyle = uTimbreColor(o);
         ctx.globalAlpha = 0.5 + 0.5 * Math.min(1, (o.vel || 0) / 127);
+        /* ⚠️ 已知限制（2026-10-17 记档，非本次改动引入）：
+         *   鼓事件的 `inc` 常为 0 ⇒ 由 inc 反算出的 `midi` 是垃圾值
+         *   ⇒ 这里按 `Y(midi)` 定位会把鼓画在【随机高度】。
+         *   改前鼓根本认不出来（也画在这个随机高度）⇒ 本次不引入回归。
+         *   ⭐ 要根治需给鼓加一条底部专用栏（4 个子行按 drumType 分），
+         *     与 score_studio.html 的鼓栏同构 —— 本页是独立旧页（用户实际用合并后的主页面），
+         *     ⛔ 暂不扩 scope。 */
         ctx.fillRect(x0, Y(e.midi) - blockH / 2,
                      Math.max(1.6, x1 - x0), blockH);
         ctx.globalAlpha = 1;
@@ -428,9 +457,12 @@ function draw() {
   /* 图例按【音色】列（用户："只用 timbre 配色"）。
    * 与主页面（score_studio.html）的图例同一套语义：只列【出现过的】音色，
    * 不写轴号（轴号是动态分配的，写出来没意义）。
-   * 2026-10-17：上行帧没有鼓标记，图例里也就没有"鼓"这一项。 */
+   * 2026-10-17：上行 `[7]` 新增 bit[6] = is_drum ⇒ 鼓事件单独列一项（DRUM_COLOR），
+   *   且它在 timbre 上是 null，⛔ 别让它混进音色图例里。 */
   const seenTb = new Set();
+  let seenDrumUp = false;
   for (const e of win) {
+    if (e.drumType !== undefined && e.drumType !== null) { seenDrumUp = true; continue; }
     const tb = (e.timbre === undefined || e.timbre === null) ? -1 : e.timbre;
     if (tb >= 0 && tb < TIMBRE_NAMES.length) seenTb.add(tb);
   }
@@ -438,6 +470,7 @@ function draw() {
   for (let tb = 0; tb < TIMBRE_NAMES.length; tb++) {
     if (seenTb.has(tb)) uLegend.push({ name: TIMBRE_NAMES[tb], color: TIMBRE_COLORS[tb] });
   }
+  if (seenDrumUp) uLegend.push({ name: "鼓", color: DRUM_COLOR });
   let lx = PAD.l + 4; ctx.textAlign = "left";
   for (const it of uLegend.slice(0, 8)) {
     ctx.fillStyle = it.color; ctx.fillRect(lx, PAD.t + ph + 6, 8, 8);
@@ -617,9 +650,10 @@ function buildMidi(evs) {
     const on = e.type === T_ON;
     /* 按【音色】分 MIDI 通道 —— channel = timbre（0..3 => BASS/GUITAR/PIANO/PAD）。
      * 通道号 = status 低 4 位：`0x90|ch` = note_on、`0x80|ch` = note_off。
-     * 2026-10-17：上行帧里没有鼓标记（见 parse() 里 byte[7] 的说明），
-     *   所以不再有"鼓走 GM 通道 9"这条分支，一律 ch = timbre & 3。 */
-    const ch = ((e.timbre === undefined || e.timbre === null) ? 0 : e.timbre) & 0x03;
+     * 2026-10-17：上行 `[7]` 新增 bit[6] = is_drum（见 parse() 里的说明）
+     *   ⇒ 鼓事件走 GM 打击乐通道 9；它没有 timbre（null），⛔ 别让它落到通道 0，
+     *     否则鼓会和 BASS 挤在同一条通道上，听不出来是鼓。 */
+    const ch = (e.drumType != null) ? 9 : (((e.timbre ?? 0) & 0x03));
     tp((on ? 0x90 : 0x80) | ch, midi, on ? vel : 0);
   }
   vlq(0); tp(0xFF, 0x2F, 0x00);

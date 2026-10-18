@@ -221,7 +221,13 @@ const MUTATIONS = {
   /* ⭐⭐ 2026-10-17 新增：把"准备阶段整体后移"改回【丢弃】= 复现用户实测的那个 bug
    *    （"加了准备小节之后，原曲最开始的小节被截断了"）。
    *    ⚠️ 这是这条判据的非空洞性证明：不修的时候它必须红。 */
-  "prep-drop":    { find: "for (const e of evs) e.tick += prepEnd;",
+  /* ⭐⭐ 2026-10-18：把"初始 BPM 钉在 0"去掉（= 旧写法，所有事件一律后移）
+   *    ⇒ secToTick(0) 会返回 prepEnd ⇒ 游标一出生就站在示范段开头
+   *    ⇒ 这是"游标/进度错位"的【根因复现】，㉒ 必须红。 */
+  "prep-shift-tempo": { find: "if (e.kind === KIND_TEMPO && e.tick === 0) continue;",
+                        repl: "if (false) continue;",
+                        expect: "㉒",
+                        note: "初始 tempo 也后移（旧写法）⇒ secToTick(0)=prepEnd ⇒ 游标起点被推到示范段；㉒ 必红" },  "prep-drop":    { find: "for (const e of evs) e.tick += prepEnd;",
                     repl: "for (let _i = evs.length - 1; _i >= 0; _i--) { if (evs[_i].tick < prepEnd) evs.splice(_i, 1); }",
                     expect: "㉑",
                     note: "准备阶段改成【丢弃 tick < prepEnd 的事件】= 原 bug（原曲开头被裁掉）；㉑ 必须红" },
@@ -377,6 +383,11 @@ const APPEND =
      ⛔ 不依赖这个页面常量。 */
   " DRUM_AXIS_BASE: (typeof DRUM_AXIS_BASE === 'number') ? DRUM_AXIS_BASE : null, " +
   "MELODY_AXIS_MAX, DRUM_INC, MIDI_PPQN," +
+  /* ⭐⭐ 2026-10-18：准备段的【时间轴起点】判据要用到这两个换算函数
+     （secToTick 的积分起点是 score.tempos[0].tick —— 那正是本 bug 的根）。
+     typeof 保护：页面没有就导出 null，判据跳过并如实报，⛔ 不当成页面出错。 */
+  " secToTick: (typeof secToTick === 'function') ? secToTick : null," +
+  " tickToSec: (typeof tickToSec === 'function') ? tickToSec : null," +
   /* ⭐ 2026-10-16（手册 §二）：把页面自己的鼓件口径表也带出来 ——
      判据③/⑰ 拿它与手册 §二/§4.3【独立写死的表】对照（⛔ 不是拿页面的表验页面的表）。
      typeof 保护：页面还没写出来时导出 null，判据会明确报缺，⛔ 不抛 ReferenceError。 */
@@ -2565,6 +2576,70 @@ for (const style of ["beat", "off", "four"]) {
   const sh = (b.c && b.c.prepShift) || 0;
   judge("㉑b", "准备阶段的后移量记账 = prepBars × 每小节 tick", sh === PREP * barT,
         "prepShift=" + sh + " 期望 " + (PREP * barT));
+}
+
+/* ---------------- ㉒ 准备段的时间轴【起点必须是 0】（游标/进度错位的根因）----------- */
+/* 🔴 2026-10-18 用户实测："游标还是从蓝色部分（示范段）开始，不是从准备小节第一个音开始；
+ *    播放进度也跟着偏，才放了两小节示范段、重复段根本还没到，进度就显示放完了"。
+ *
+ * 根因（已修，本判据钉住它）：
+ *   准备段的实现是"把所有事件整体后移 prepEnd"，**tick 0 的初始 tempo 也被后移了** ✗
+ *   而 `secToTick(sec)` / `tickToSec(tick)` 的积分起点是 `score.tempos[0].tick`
+ *   ⇒ `secToTick(0)` 直接返回 **prepEnd**（不是 0）
+ *   ⇒ 起播瞬间 `playClockTick()` = 0 + prepEnd ⇒ 游标一出生就站在示范段开头 ✗
+ *   ⇒ 进度 = prepEnd/tickMax（本曲正好 33%）⇒ 看着"快放完了" ✗
+ *
+ * ⭐ 本判据钉四件事（缺一条都能让 bug 复活）：
+ *   ① score.tempos[0].tick === 0          （初始 BPM 必须钉在 0）
+ *   ② secToTick(0) === 0                  （时间轴积分起点）
+ *   ③ 起播瞬间游标 tick === 0 且 进度 === 0
+ *   ④ secToTick / tickToSec 互逆           （换算严格对齐，⛔ 各算一套）
+ * ⚠️ 为什么㉑ 抓不到它：㉑ 只验"旋律后移了 + 逐条 +prepEnd"，⛔ 没验时间轴积分起点
+ *    ⇒ 音符全对、游标全错。这正是"判据数量要等于路径数量"的又一次教训。
+ */
+{
+  if (typeof API.secToTick !== "function" || typeof API.buildScore !== "function") {
+    judge("㉒", "准备段的时间轴起点 = 0（游标/进度错位的根因）", false,
+          "页面没导出 secToTick/buildScore ⇒ 判据无法执行（⛔ 不当成通过）");
+  } else {
+    const PREP2 = 2, barT2 = API.MIDI_PPQN * 4, PREP_T = PREP2 * barT2;
+    if (typeof API.__setTrackSel === "function") API.__setTrackSel(null);
+    setGuide(true, K, true, "beat", "all", "met", PREP2);
+    const c2 = API.midiToWords(parsed);
+    const v2 = (typeof API.visibleWords === "function") ? API.visibleWords(c2) : c2.words;
+    const sc2 = API.buildScore(v2, c2);
+    const t0 = (sc2.tempos && sc2.tempos.length) ? sc2.tempos[0].tick : null;
+    const s0 = API.secToTick(0, sc2.tempos);
+    const tickAtStart = 0 + s0;                       /* playClock.tick0(=0) + secToTick(0) */
+    const fracStart = tickAtStart / Math.max(1, sc2.tickMax);
+    /* 互逆：随便取一个秒数，正反换算必须回到原值 */
+    const probeSec = Math.min(1.0, (sc2.duration || 1) * 0.25);
+    const rt = API.tickToSec(API.secToTick(probeSec, sc2.tempos), sc2.tempos);
+    const ok1 = (t0 === 0);
+    const ok2 = Math.abs(s0) < 1e-6;
+    const ok3 = Math.abs(tickAtStart) < 1e-6 && Math.abs(fracStart) < 1e-9;
+    const ok4 = Math.abs(rt - probeSec) < 1e-3;
+    judge("㉒", "准备段的时间轴起点 = 0（游标/进度错位的根因）",
+          ok1 && ok2 && ok3 && ok4,
+          "tempos[0].tick=" + t0 + " · secToTick(0)=" + s0.toFixed(1) +
+          " · 起播tick=" + tickAtStart.toFixed(1) +
+          " · 起播进度=" + (fracStart * 100).toFixed(2) + "%" +
+          " · 互逆=" + rt.toFixed(4) + "s/" + probeSec.toFixed(4) + "s");
+    ev("准备段长度 = " + PREP_T + " tick（" + PREP2 + " 小节）· 全曲 tickMax = " + sc2.tickMax +
+       " ⇒ 准备段应占 " + (PREP_T / Math.max(1, sc2.tickMax) * 100).toFixed(0) + "% 宽度");
+    ev("① tempos[0].tick=" + t0 + (ok1 ? " ✓ 初始 BPM 钉在 0" : " ✗ 被后移了"));
+    ev("② secToTick(0)=" + s0.toFixed(1) + (ok2 ? " ✓" : " ✗ 应为 0"));
+    ev("③ 起播 tick=" + tickAtStart.toFixed(1) + " 进度=" + (fracStart * 100).toFixed(2) + "%" +
+       (ok3 ? " ✓ 游标从最左端起" : " ✗ 起点被推到了示范段"));
+    ev("④ 换算互逆：" + probeSec.toFixed(4) + "s -> tick " +
+       API.secToTick(probeSec, sc2.tempos).toFixed(1) + " -> " + rt.toFixed(4) + "s" +
+       (ok4 ? " ✓ 严格对齐" : " ✗ 两套算法不一致"));
+    /* 非空洞自证：把初始 tempo 也后移（旧写法）⇒ 上面 ①②③ 必须全红 */
+    const s0old = PREP_T;                              /* 旧写法下 secToTick(0) === prepEnd */
+    ctl("把初始 tempo 也后移（旧写法）-> secToTick(0)=" + s0old +
+        "，起播进度会偏 " + (s0old / Math.max(1, sc2.tickMax) * 100).toFixed(0) +
+        "% -> 判据㉒ 必红");
+  }
 }
 
 /* 收尾把状态复原成"干净"的，避免给后来者留一个半开的状态 */

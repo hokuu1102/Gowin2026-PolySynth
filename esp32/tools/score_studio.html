@@ -282,17 +282,19 @@
         <div><small>运行</small><b id="st_run">-</b></div>
       </div>
       <div class="hint" id="st_more">未识别帧头 <b id="st_unk">-</b> · 不匹配 <b id="st_mm">-</b></div>
-      <!-- 播放进度：喂食（实测）+ 出声（估计）
-           为什么要分开显示：ESP32 起播后要先灌约 10.4 秒的提前量 FPGA 才出声。
-           只显示"喂食"会让人以为游标卡住、时间轴错位。 -->
+      <!-- 播放进度（游标）
+           ⭐ 2026-10-18 用户裁定："喂食进度没用就删了吧，看着慢半拍不知道干啥的反而很奇怪"
+           ⇒ 删掉「喂食进度（sent/tf）」整条 —— 它与"播到哪了"不是一回事，
+             两者并排只会让人反复比较、越看越糊涂。只留这一条，语义唯一。
+           ⚠️ 底层数据（sent/tf/pool）仍在 STAT 里，只是不再上界面。 -->
       <div style="margin-top:10px">
         <div style="display:flex; justify-content:space-between; font-size:11px; color:var(--dim)">
-          <span>喂食进度（实测）</span><span id="st_lead">-</span>
+          <span>播放进度（游标）</span><span id="st_play">-</span>
         </div>
         <div style="position:relative; height:8px; background:#0b0e14; border:1px solid var(--line);
                     border-radius:4px; margin-top:4px; overflow:hidden">
-          <div id="st_bar" style="height:100%; width:0%; background:var(--acc);
-                                  transition:width .25s linear"></div>
+          <div id="st_pbar" style="height:100%; width:0%; background:var(--acc);
+                                   transition:width .25s linear"></div>
         </div>
         <div class="hint" style="margin-top:4px">
           游标 = 出声位置（估计）；要拿真实位置需 FPGA 回传实时事件
@@ -328,6 +330,11 @@
         <div><small>速率 B/s</small><b id="u_rate">0</b></div>
       </div>
       <div class="kv"><b>最后音高</b><span id="u_last">-</span></div>
+      <!-- ⭐⭐ 2026-10-17（用户实测"回传音色全 0、灌谱侧是 GUITAR"）：
+           "帧里到底带没带音色"的自证据 —— ⛔ 不要静默显示 0 让人猜。
+           判据：音色0数 == 乐音数 ⇒ FPGA 一个音色都没带（top.v:7075 兜底没兜住）。 -->
+      <div class="kv"><b>音色0数 / 乐音数</b><span><b id="u_tb0">0</b> / <b id="u_nb0">0</b></span></div>
+      <div class="hint" id="u_tbHint" style="margin-top:4px"></div>
     </div>
     <div class="card">
       <h2>导出</h2>
@@ -1345,15 +1352,43 @@ if (allTempos.length > 1) {
           而原曲一个小节都不少。
        ⚠️ 越界保护：后移后最大 tick 必须仍在 20 位 tick 字段内（M_TICK），
           ⛔ 否则截断会毁谱 ⇒ 超了就【本次不加准备小节】并把原因报出去（⛔ 不静默）。
+     ⭐⭐⭐ 2026-10-17 修（用户实测三连）：
+       · "然后不放节拍器就完全不能用准备小节" —— 原来 gate 写成
+         `guideOn && metOn && guidePrepBars > 0` ⇒ 节拍器一关，整段后移【根本不执行】。
+         ✅ 准备小节的语义是"开头空 N 小节不出声"，⛔ 与节拍器**无关**：
+            关掉节拍器 = 那两小节**静音**（用户原话"准备小节是静音的，但确实也有两个
+            小节的空挡"⇒ 他要的就是这个 ✓）。
+         ⇒ gate 改为 `guideOn && guidePrepBars > 0`（⛔ 去掉 metOn）。
+       · "在引导模式选准备小节，好像也还是会丢掉最前面几个小节" —— 那是上一版【丢弃式】
+         实现（`tick < prepEnd` 直接 continue）的残留表现；现在是后移式，本段不会再丢。
      ⚠️ 必须在【示范—重复 改写之前】做 —— 那段也用 prepEnd 当窗口起点，两处口径必须一致。
      ═══════════════════════════════════════════════════════════════════════════ */
   let prepShift = 0, prepShiftWarn = "";
-  if (guideOn && metOn && guidePrepBars > 0) {
+  /* ⭐ gate ⛔ 不含 metOn：见上方 2026-10-17 修（不放节拍器也要能空出准备小节）。 */
+  if (guideOn && guidePrepBars > 0) {
     const barT = MIDI_PPQN * 4;
     const prepEnd = guidePrepBars * barT;
     const maxTickNow = evs.reduce((m, e) => Math.max(m, e.tick), 0);
     if (maxTickNow + prepEnd <= Number(M_TICK)) {
-      for (const e of evs) e.tick += prepEnd;
+      /* ⭐⭐⭐ 2026-10-18 根因修复（用户："游标还是从蓝色部分开始"）：
+       *
+       * 🔴 原来这里是无条件 `for (const e of evs) e.tick += prepEnd;`
+       *    ⇒ **tick 0 的那帧初始 tempo 也被后移到 prepEnd** ✗
+       *    ⇒ 而 `secToTick(sec)` / `tickToSec(tick)` 的积分起点是
+       *      `score.tempos[0].tick`（见 secToTick 的实现）
+       *    ⇒ 🔴 `secToTick(0)` 直接返回 **prepEnd**（不是 0！）
+       *    ⇒ 起播瞬间 `playClockTick()` = 0 + prepEnd
+       *    ⇒ **游标一出生就站在示范段开头**，播放进度也一起偏 ✗✗✗
+       *
+       * ✅ 修法（改到根上，⛔ 不是在渲染层挪游标）：
+       *    **初始 BPM 那帧留在 tick 0** —— 准备段本身也要按正确 BPM 走，
+       *    它的时间轴起点必须是 0。其余事件（音符 / 后续变速点）照常后移，
+       *    保持与原曲的相对关系不变 ✓
+       *    ⇒ `tempos[0].tick === 0` ⇒ `secToTick(0) === 0` ⇒ 游标从最左端起 ✓ */
+      for (const e of evs) {
+        if (e.kind === KIND_TEMPO && e.tick === 0) continue;   /* 初始 BPM 钉在 0 */
+        e.tick += prepEnd;
+      }
       prepShift = prepEnd;
     } else {
       prepShiftWarn = "准备 " + guidePrepBars + " 小节会让谱面越过 tick 上限（" +
@@ -1380,7 +1415,11 @@ if (allTempos.length > 1) {
   let demoPlan = null;
   if (demoRepeatOn && guideOn && guideTrackIdx !== null) {
     const barT = MIDI_PPQN * 4;                                   /* 一小节（4/4）= 3840 */
-    const prepEnd = (metOn && guidePrepBars > 0) ? guidePrepBars * barT : 0;
+    /* ⭐ gate 必须与上面"准备小节后移"那段【完全一致】（同一条判据两处各一份）
+     *   ⇒ ⛔ 不写 metOn（不放节拍器也要空出准备段）；
+     *   ⇒ ⭐ 也【必须写 guideOn】—— 上一版漏了它：引导没启用但示范—重复开着时，
+     *     这里算 prepEnd = N 小节，而上面那段压根没后移 ⇒ 两处口径漂移（C91）。 */
+    const prepEnd = (guideOn && guidePrepBars > 0) ? guidePrepBars * barT : 0;
     const segLen = demoBars * barT;
     const demoEnd = prepEnd + segLen, stopEnd = prepEnd + 2 * segLen;
     /* 截断前先记下【原曲】末 tick ⇒ 判"曲子不足 2N 小节"（摘要要提示，⛔ 不静默）。 */
@@ -1862,9 +1901,12 @@ function updateGuideSummary() {
                               " · 鼓声 " + (DRUM_NM[guideDrum] || guideDrum)) : "") +
                    " · 仅指引 " + gw + " 字" +
                    " · 节拍器 " + (metOn ? (mc + " 下" + (ms ? ("（避让 " + ms + "）") : "")) : "关") +
-                   /* ⭐ 2026-10-16 准备阶段：只响节拍器的小节数 */
-                   ((guideOn && metOn && guidePrepBars > 0)
-                      ? (" · 准备 " + guidePrepBars + " 小节（只响节拍器）") : "") +
+                   /* ⭐ 2026-10-17：准备小节的 gate ⛔ 不含 metOn —— 关掉节拍器也生效
+                    *   （用户实测："不放节拍器就完全不能用准备小节"）。文案也按实际配置写：
+                    *   节拍器开 ⇒ 那 N 小节只响节拍器；关 ⇒ 那 N 小节【静音】（仍空出空挡）。 */
+                   ((guideOn && guidePrepBars > 0)
+                      ? (" · 准备 " + guidePrepBars + " 小节（" +
+                         (metOn ? "只响节拍器" : "静音空挡") + "）") : "") +
                    " · 会灌 " + vis + " 字";
   if (guideOn && gw === 0) {
     el.textContent += "  ⚠️ 引导轨没置上位（确认选了引导轨）";
@@ -2680,15 +2722,31 @@ function draw() {
     }
   }
   // 变速竖线（BPM 标签太近就不画，避免重叠成一团）
+  /* ⭐⭐ 2026-10-18 修（用户实测："准备段的 BPM 跟实际的不同"）：
+   * 🔴 原标签只写 "142 BPM" ⇒ 用户以为【整曲恒定 142】；
+   *   而实际是：tick 0 那一条是【初始 BPM】，其后的变速点会改
+   *   （谱子本身是对的 —— kind=2 事件全都发了，FPGA 侧支持多处 tempo）。
+   *   ⇒ ⛔ 不是 bug，是【标签有误导】。
+   * ✅ 修法：
+   *   · 第一个 tempo（tick 0）标成 "初始 142 BPM"
+   *   · 有多个 tempo 时再补一句 "· 有 N 处变速"（⛔ 不让人以为只有一档）
+   *   · 每个变速点仍各自标它自己的 BPM（那些本来就是"从那点起变"）      */
   let lastLabelX = -1e9;
-  for (const t of score.tempos) {
+  const nTempo = score.tempos.length;
+  for (let ti = 0; ti < score.tempos.length; ti++) {
+    const t = score.tempos[ti];
     const x = X(t.tick);
     ctx.save(); ctx.setLineDash([4, 4]); ctx.strokeStyle = "#ffb020";
     ctx.beginPath(); ctx.moveTo(x, PAD.t); ctx.lineTo(x, PAD.t + ph); ctx.stroke(); ctx.restore();
     if (x - lastLabelX > 62) {
+      const bpmTxt = (t.hz / TPS120 * 120).toFixed(0);
       ctx.fillStyle = "#ffb020"; ctx.textAlign = "left";
       ctx.font = "10px Consolas,monospace";
-      ctx.fillText((t.hz / TPS120 * 120).toFixed(0) + " BPM", x + 3, PAD.t + 10);
+      ctx.fillText((ti === 0 ? "初始 " : "") + bpmTxt + " BPM", x + 3, PAD.t + 10);
+      /* ⚠️ 只在第一个标签后补一次"有 N 处变速"，⛔ 不每个点都重复 */
+      if (ti === 0 && nTempo > 1) {
+        ctx.fillText("有 " + (nTempo - 1) + " 处变速", x + 3, PAD.t + 21);
+      }
       lastLabelX = x;
     }
   }
@@ -2740,6 +2798,35 @@ function draw() {
    * ⭐ 画法：底部固定 4 行（Kick/Snare/HiHat/Tom），行名写在左侧，
    *   时间轴与主图【同一套 X()】，所以垂直对齐。 */
   drawDrumLane(X, pw);
+
+  /* ⭐⭐ 2026-10-18：把【准备段】画出来（用户："我要游标在一开始只有准备段那个
+   *   没有块的地方，现在是在蓝色块的开头"）。
+   *
+   * 🔴 上一版的错：准备段是【静音】的 ⇒ 卷帘上 [0, prepEnd) 一个块都没有
+   *   ⇒ 游标从 0 起走，视觉上就是"贴在第一个蓝块的前缘"，⛔ 分不出它在准备段里。
+   * ✅ 修法：给准备段画一条【淡色底幕 + 顶部标签】——
+   *   这样"游标在准备段里走"变成【看得见】的，⛔ 不需要靠猜。
+   * ⚠️ 只在真的有准备段时画（prepShift > 0）；⛔ 不加新状态，纯渲染。 */
+  const prepEndT = (lastConv && lastConv.prepShift) || 0;
+  if (prepEndT > 0 && tm > 0) {
+    const x0 = tickToX(0, vw, pw), x1 = tickToX(prepEndT, vw, pw);
+    const left = Math.max(PAD.l, Math.min(x0, x1)), right = Math.min(PAD.l + pw, Math.max(x0, x1));
+    if (right > left) {
+      ctx.globalAlpha = 0.10;
+      ctx.fillStyle = "#79bcff";
+      ctx.fillRect(left, PAD.t, right - left, ph);
+      ctx.globalAlpha = 1;
+      /* 顶部分隔线 + 标签（只在这段够宽时画字，⛔ 不糊成一团） */
+      if (right - left > 26) {
+        ctx.strokeStyle = "rgba(121,188,255,0.55)"; ctx.lineWidth = 1;
+        ctx.beginPath(); ctx.moveTo(right, PAD.t); ctx.lineTo(right, PAD.t + ph); ctx.stroke();
+        ctx.fillStyle = "#79bcff";
+        ctx.font = "11px system-ui";
+        ctx.textAlign = "left";
+        ctx.fillText("准备段（静音）", left + 4, PAD.t + 13);
+      }
+    }
+  }
 
   // 播放游标
   if (playFrac !== null) {
@@ -3528,6 +3615,23 @@ function playClockTick(now) {
 function startPlayClock() {
   stopPlayClock(true);
   playFrac = 0;
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * 🔴🔴 2026-10-18 拆掉 pinnedStart 补丁（用户实测："喂食 30% / 播放 41%"）
+   *
+   * 历史：用户报"游标从蓝色段（示范段）开始"，我当时以为是锚定把起点挪走了，
+   *   于是加了这个 pinnedStart —— 开准备段就把游标【钉在墙钟上】、⛔ 不锚定。
+   *
+   * 🔴 那是误判，而且这个补丁本身制造了新错误：
+   *   · 游标按【墙钟】走 => 从起播那一刻就开始跑
+   *   · 而 FPGA 要等缓冲灌够 lead（提前量，0.6~10 秒）**才开始出声**
+   *   => 游标【领先声音整整一个 lead】 => 播放进度虚高（41% 时实际只到 30%）
+   *
+   * ✅ 真相：真正让游标落在示范段开头的，是 `secToTick(0)` 返回了 prepEnd
+   *    （初始 tempo 被后移那条，已在上游修掉）。修好之后：
+   *      · 起播瞬间 play ≈ lead => `play - lead ≈ 0` => 游标【天生就在准备段起点】
+   *      · 之后锚一次、本地外推 => 游标 = 出声位置（随时钟走，⛔ 不超前）
+   *    ⇒ ⛔ 不需要 pinnedStart，它只会在"锚定"和"跟声音"之间制造二选一。
+   * ═══════════════════════════════════════════════════════════════════════════ */
   playClock = { wall0: null, tick0: 0,
                 total: (score && score.tickMax) || 0, raf: 0, lastDraw: 0 };
   const step = () => {
@@ -3544,14 +3648,22 @@ function startPlayClock() {
   };
   playClock.raf = requestAnimationFrame(step);
 }
-/* 用一次真值锚定（heardTick = play - lead）。⛔ 只锚一次 —— 之后纯本地外推。 */
+/* 用一次真值锚定（heardTick = play - lead）。⛔ 只锚一次 —— 之后纯本地外推。
+ * ⭐⭐ 2026-10-18（拆掉 pinnedStart 补丁，见 startPlayClock 的长注释）：
+ *    · 锚定值 `play - lead` = FPGA【已灌位置】减去【水池提前量】= **出声位置**
+ *      ⇒ 起播瞬间 play ≈ lead ⇒ 锚回 ≈ 0 ⇒ 游标天生落在准备段起点 ✓
+ *    · 之后本地外推 = 跟着声音走（⛔ 不超前一个 lead）✓
+ *    ⚠️ 原来那条 pinnedStart 分支（开准备段就不锚）会让游标按墙钟跑、
+ *       领先声音整整一个 lead ⇒ 播放进度虚高（实测 41% vs 喂食 30%）✗ 已删除。 */
 function anchorPlayClock(heardTick, totalTick) {
   if (!playClock || playClock.wall0 !== null) return false;
   playClock.wall0 = performance.now();
   playClock.tick0 = Math.max(0, heardTick);
   if (totalTick && totalTick > 0) playClock.total = totalTick;
   log("游标已按真值锚定：tick " + playClock.tick0 +
-      "（之后本地外推，不再吃状态反馈）");
+      "（之后本地外推，不再吃状态反馈）· 诊断 prepShift=" +
+      ((lastConv && lastConv.prepShift) || 0) + " total=" + playClock.total +
+      (playClock.tick0 === 0 ? " ⇒ 起点在准备段 ✓" : " ⇒ 起点已越过准备段 ✗"));
   return true;
 }
 /* freeze = true：游标停在当前位置（用户："停止的时候也停止"）
@@ -3568,8 +3680,10 @@ function updateProgress(d) {
   if (!run) {
     /* 停了：游标停住（冻结在停的位置 —— 用户："停止的时候也停止"） */
     stopPlayClock(true);
-    const el = $("st_lead");
-    if (el) { el.textContent = "-"; el.style.color = "var(--dim)"; }
+    /* ⭐ 2026-10-18：播放进度清空（喂食进度已按用户要求删除，见 HTML 处注释）*/
+    const ep = $("st_play");
+    if (ep) { ep.textContent = "-"; ep.style.color = "var(--dim)"; }
+    const pb = $("st_pbar"); if (pb) pb.style.width = "0%";
     return;
   }
   if (playStartWall === null) playStartWall = performance.now();
@@ -3578,6 +3692,18 @@ function updateProgress(d) {
   /* ⭐⭐ 游标：本地时钟外推。这里【只做锚定】，⛔ 不再每次拿反馈改写位置
    *    （那正是"延迟重 + 一卡一卡"的来源）。 */
   if (!playClock) startPlayClock();          /* 兜底：没走过起播按钮也让它动起来 */
+  /* 🔴🔴 2026-10-17 修（用户实测"都快放完了还在说还有 xx 秒出声"）：
+   *   `leadSec` 的刷新原来在 `playClock.wall0 === null` 块【里面】——
+   *   而准备小节的"钉起点"会提前把 wall0 赋值 ⇒ 整块被跳过 ⇒ leadSec 再也不刷
+   *   ⇒ 提前量倒数停在旧值（起播前那一次），看着就像"永远差 N 秒"。
+   * ✅ 修法：leadSec 刷新与"是否已锚定"【解耦】—— 每次都刷，⛔ 不管锚没锚。 */
+  if (d.pv === 1 && d.play != null && d.lead != null) {
+    const ls = tickToSec(d.lead);            /* ⭐ 按 tempo 表换算（⛔ 不是写死 /1920） */
+    if ((ls > 0) && isFinite(ls)) leadSec = ls;
+    else leadSec = LEAD_SEC_DEFAULT;
+  } else if (leadSec <= 0 || !isFinite(leadSec)) {
+    leadSec = LEAD_SEC_DEFAULT;
+  }
   if (playClock && playClock.wall0 === null) {
     /* ---- 播放位置的真值：play - lead ----
      *
@@ -3600,9 +3726,8 @@ function updateProgress(d) {
      * 📌 同族：本文件同一天在 `_uart1_send_path_check.py` 里踩过【一模一样】的坑。
      */
     if (d.pv === 1 && d.play != null && d.lead != null) {
-      leadSec = tickToSec(d.lead);              /* ⭐ 按 tempo 表换算（⛔ 不是写死 /1920：
-                                                 *   本曲 1920 tick 实际 1.20 s，不是 1.00 s） */
-      if (!(leadSec > 0) || !isFinite(leadSec)) leadSec = LEAD_SEC_DEFAULT;
+      /* ⚠️ leadSec 已在外层刷新（见上方 2026-10-17 修的说明）—— ⛔ 这里不再赋值，
+       *   否则两处刷同一变量、口径会打架。这里只负责【锚定】。 */
       anchorPlayClock(Math.max(0, d.play - d.lead),
                       (d.ttot && d.ttot > 0) ? d.ttot : null);
     } else if (score && d.tf) {
@@ -3614,21 +3739,24 @@ function updateProgress(d) {
     }
   }
 
-  // 提前量倒数：还没出声时显示"再等 N 秒"
-  const el = $("st_lead");
-  if (el) {
-    if (sinceStart < leadSec) {
-      el.textContent = "再等 " + (leadSec - sinceStart).toFixed(1) + " 秒出声";
-      el.style.color = "var(--warn)";
+  /* ⭐⭐ 2026-10-18 用户裁定："喂食进度没用就删了吧，看着慢半拍不知道干啥的反而很奇怪"
+   * ⇒ 整条删除（HTML 里的 st_lead / st_bar 也一并删）。
+   *   理由：喂食 = ESP32 往 FPGA 灌了多少帧，与"播到哪了"不是一回事；
+   *   两条并排只会让人反复比较、越看越糊涂。**只留播放进度，语义唯一**。
+   *   ⚠️ 底层 sent/tf/pool 仍在 STAT 里（排查时看日志），只是不再上界面。 */
+  /* ---- 播放进度（游标）：与喂食无关、不共用元素 ---- */
+  const elPlay = $("st_play");
+  if (elPlay) {
+    if (playFrac == null) {
+      elPlay.textContent = "-";
+      elPlay.style.color = "var(--dim)";
+      const pb = $("st_pbar"); if (pb) pb.style.width = "0%";
     } else {
-      el.textContent = "已出声 " + (sinceStart - leadSec).toFixed(1) + " 秒";
-      el.style.color = "var(--ok)";
+      const pct = Math.round(Math.min(1, Math.max(0, playFrac)) * 100);
+      elPlay.textContent = pct + "%" + (pct >= 100 ? "（已到曲末）" : "");
+      elPlay.style.color = "var(--ok)";
+      const pb = $("st_pbar"); if (pb) pb.style.width = pct + "%";
     }
-  }
-  // 进度条 = 喂食（实测）
-  const bar = $("st_bar");
-  if (bar && d.tf) {
-    bar.style.width = Math.min(100, (d.sent / d.tf) * 100) + "%";
   }
   draw();
 }
@@ -4258,6 +4386,11 @@ const U = {
   bad: 0, unk: 0, resync: 0, lastHz: 0, ppqn: null,
   events: [],                    /* {tick, type, axis, hz, midi, vel, seq} */
   tabItems: null, tabNo: null, t0: 0, rateBytes: 0,
+  /* ⭐ 2026-10-17：音色位统计（"帧里到底带没带音色"的自证据）
+   *   tb0         = 解出 timbre==0 的乐音事件数
+   *   nonDrumNotes = 乐音事件总数（⛔ 不含鼓、⛔ 不含 tempo）
+   *   判据：tb0 == nonDrumNotes ⇒ FPGA 一个音色都没带（top.v:7075 兜底没兜住）*/
+  tb0: 0, nonDrumNotes: 0,
 };
 const U_MAX_EVENTS = 20000;
 
@@ -4265,6 +4398,7 @@ function uReset() {
   U.buf = new Uint8Array(0); U.bytes = 0; U.frames = 0; U.notes = 0; U.tabs = 0;
   U.bad = 0; U.unk = 0; U.resync = 0; U.lastHz = 0; U.ppqn = null; U.events = [];
   U.tabItems = null; U.tabNo = null; U.t0 = performance.now(); U.rateBytes = 0;
+  U.tb0 = 0; U.nonDrumNotes = 0;          /* ⭐ 2026-10-17 音色位统计一并清零 */
   const el = $("u_feed"); if (el) el.innerHTML = "";
   uPaint(); uDraw();
 }
@@ -4341,22 +4475,49 @@ function uParse() {
        *   ⇒ `bit[5:4]` = 音色、`bit[3:0]` = **轴号**（2+2+4 已排满，⛔ 装不下 is_drum）。
        *   ⇒ 那串 5/4/3/2/13/12/11/10 正是【本页贪心分配给每个音的轴号】被原样回显 ✓
        *     （每个音 -1、到 2 之后跳 13，是分配器的复用节奏，⛔ 不是"每事件减 1 的计数器"）。
-       * 🔴 结论：⭐ **上行 14 B 帧里没有鼓标记位** ⇒ 回传侧【无法】区分鼓/旋律 ⇒
-       *   一律按"旋律/未知"呈现，⛔ 绝不用轴号猜鼓
-       *   （那正是 2026-10-16「只弹 bass 却出鼓」老 bug 的成因，⛔ 不许再犯）。
+       * 🔴 结论：⭐ 旧版上行帧里**没有鼓标记位** ⇒ 回传侧【无法】区分鼓/旋律 ⇒
+       *   ⛔ 绝不用轴号猜鼓（那正是 2026-10-16「只弹 bass 却出鼓」老 bug 的成因）。
+       * ⭐⭐ 2026-10-17（FPGA 线《byte7 口径更正与 is_drum 提案》，新增位，向后兼容）：
+       *   `byte[7] = {1'b0, is_drum, timbre[1:0], axis[3:0]}`
+       *     · `bit[6] = 1` ⇒ **鼓**：`bit[5:4]` = drum_type(0..3)、`bit[3:0]` = 0
+       *     · `bit[6] = 0` ⇒ 音高：`bit[5:4]` = 音色、`bit[3:0]` = 轴号
+       *   ⚠️ 旧位流该位恒 0 ⇒ 自动退化成"按音高"（= 修复前的表现，⛔ 不会误判成鼓）。
+       *   ⭐ 这才是判鼓的**唯一**依据（⛔ 不是轴号、⛔ 不是 [3:0]）。
        * ⚠️ 三处解码器（本文件 / upstream_studio.html / evt2midi/frame_format.py）必须同口径。 */
-      const axis = fr[7] & 0x0F;                     /* bit[3:0] = 轴号（⛔ 不是鼓标记） */
-      const timbre = (fr[7] >> 4) & 0x03;            /* bit[5:4] = 音色 */
+      const isDrumUp = (((fr[7] >> 6) & 0x01) !== 0);   /* bit[6] = is_drum（新位） */
+      const uint54 = (fr[7] >> 4) & 0x03;               /* [5:4]：音色 或 drum_type */
+      const uint30 = fr[7] & 0x0F;                      /* [3:0]：轴号（鼓事件恒 0） */
+      const drumType = isDrumUp ? uint54 : null;        /* 鼓型 0..3（非鼓 ⇒ null） */
+      const timbre = isDrumUp ? null : uint54;          /* 音色（鼓事件无音色） */
+      const axis = isDrumUp ? 0 : uint30;               /* 轴号（鼓事件没有轴号） */
       const inc = ((fr[8] << 24) | (fr[9] << 16) | (fr[10] << 8) | fr[11]) >>> 0;
       const vel = fr[12];
       const hz = uIncToHz(inc);
       U.notes++; U.lastHz = hz;
-      U.events.push({ tick, type: t, axis, timbre, hz, midi: uHzToMidi(hz), vel, seq: fr[2] });
+      /* ⭐ 2026-10-17：音色位统计（⛔ 不含鼓/不含 tempo —— 那两类 [5:4] 不是音色）*/
+      if (!isDrumUp) {
+        U.nonDrumNotes++;
+        if (uint54 === 0) U.tb0++;
+      }
+      U.events.push({ tick, type: t, axis, timbre, drumType: drumType,
+                      isDrumUp: isDrumUp, hz, midi: uHzToMidi(hz), vel, seq: fr[2] });
       if (U.events.length > U_MAX_EVENTS) {
         U.events.splice(0, U.events.length - U_MAX_EVENTS);
       }
       uFeed(t === U_T_ON ? "ok" : "", (t === U_T_ON ? "note_on " : "note_off") +
-            "  seq=" + fr[2] + "  tick=" + tick + "  轴=" + axis + "  音色=" + timbre +
+            "  seq=" + fr[2] + "  tick=" + tick +
+            (isDrumUp
+              ? ("  【鼓】drum_type=" + drumType + "（byte[7][6]=1）")
+              : ("  轴=" + axis + "  音色=" + timbre +
+                 /* ⭐⭐ 2026-10-17（用户实测"回传音色全 0、灌谱侧是 GUITAR"）：
+                  *   FPGA 侧 top.v:7075-7079 自己写过"手弹那一路恒 0 ⇒ 回传音色永远
+                  *   是 0"，并说改接 up_timbre_w 兜底 —— 但实测还是全 0。
+                  *   ⚠️ 这不是解码能修的（帧里 [5:4] 发出来就是 0）⇒
+                  *   ⭐ 这里【如实标注】而不是静默显示 0：让人一眼看出"帧里没带音色"，
+                  *     ⛔ 不会误以为"页面解错了"。
+                  *   📌 判据：同一份谱在灌谱界面显示 GUITAR、这里显示 0 ⇒ 铁证在 FPGA 侧。 */
+                 (timbre === 0 ? "  ⚠️ 帧内音色位=0：不是 BASS 就是【FPGA 没带上音色】" +
+                                 "（灌谱侧若是别的音色 ⇒ 帧丢了，见 FPGA top.v:7075）" : ""))) +
             "  " + uHzToNote(hz) + "  力度=" + vel);
     }
     i += flen;
@@ -4376,6 +4537,30 @@ function uPaint() {
   set("u_bad", U.bad, !!U.bad); set("u_unk", U.unk, !!U.unk);
   set("u_resync", U.resync, !!U.resync);
   set("u_last", U.lastHz ? uHzToNote(U.lastHz) : "-");
+  /* ⭐⭐ 2026-10-17（用户实测"回传音色全 0、灌谱侧是 GUITAR"）：
+   *   把"帧里到底带没带音色"变成【一个数】，⛔ 不要静默显示 0。
+   *   判据（一条就够）：
+   *     · `tb0 == 全部乐音数` ⇒ FPGA 一个音色都没带（top.v:7075-7079 兜底没兜住）
+   *     · `tb0 < 全部乐音数` ⇒ 带了，只是有些事件没带（那是另一回事）
+   *   📌 这个数配合"灌谱界面显示的音色"就是铁证，⛔ 不用猜。 */
+  set("u_tb0", U.tb0);
+  set("u_nb0", U.nonDrumNotes);
+  /* ⭐ 判定：音色0数 == 乐音数 ⇒ FPGA 一个音色都没带（⛔ 不是"刚好都是 BASS"）*/
+  const h = $("u_tbHint");
+  if (h) {
+    if (U.nonDrumNotes > 0 && U.tb0 === U.nonDrumNotes) {
+      h.textContent = "⚠️ 帧内音色位【全为 0】⇒ FPGA 侧没带上音色" +
+                      "（他们 top.v:7075-7079 的兜底没兜住）。" +
+                      "若灌谱界面显示的不是 BASS，就是帧丢了 —— 请把这份回传 .mid 给 FPGA 线。";
+      h.style.color = "var(--warn)";
+    } else if (U.tb0 > 0) {
+      h.textContent = "⚠️ 有 " + U.tb0 + " 个乐音事件帧内音色=0（可能真 BASS，也可能丢了音色）";
+      h.style.color = "var(--warn)";
+    } else {
+      h.textContent = "";
+      h.style.color = "var(--dim)";
+    }
+  }
 }
 
 /* 速率：每秒刷一次（与时间相关，不能只在收到数据时算） */
@@ -4400,11 +4585,13 @@ setInterval(() => {
  *   ③ byte[7] 没有"鼓标记"——`wire [7:0] b_axis = {2'b0, tm, ax}`
  *      ⇒ `bit[5:4]`=音色、`bit[3:0]`=轴号（2+2+4 排满，⛔ 装不下 is_drum）
  *      ⇒ 上一版按"鼓标记"判鼓会把【每个轴号≠0 的音】都标成鼓 ✗（用户实测：bass 全是鼓）
- *      ⛔ 于是回传侧【不再判鼓】，只按 `[5:4]` 的音色分色
- *      （上行帧里没有鼓信息 ⇒ 鼓只能显示成旋律，⛔ 不猜）。
- * ✅ 现行规则：一律按 `[5:4]` 音色分色；拿不到音色 ⇒ 兜底色。 */
+ *   ④ 2026-10-17 FPGA 线**加了新位** `byte[7][6] = is_drum`（不加字节、≈2 LUT、向后兼容）
+ *      ⇒ ⭐ 判鼓只认这一位：`is_drum=1` ⇒ 鼓（`[5:4]`=drum_type），否则按音色分色。
+ *      ⚠️ 旧位流该位恒 0 ⇒ 自动退化成"按音色"（= 修复前的表现，⛔ 不会误判）。
+ * ✅ 现行规则：鼓 ⇒ 鼓色；否则按 `[5:4]` 音色；拿不到 ⇒ 兜底色。 */
 function uTimbreColor(e) {
-  /* ⛔ 不许再用轴号（[3:0]）或任何"鼓标记"判鼓 —— 见上方 ③。 */
+  /* ⭐ 只认 byte[7][6]（不是轴号、⛔ 不是 [3:0]）—— 见上方 ④。 */
+  if (e.drumType !== undefined && e.drumType !== null) return DRUM_COLOR;
   const tb = (e.timbre === undefined || e.timbre === null) ? -1 : e.timbre;
   return (tb >= 0 && tb < TIMBRE_COLORS.length) ? TIMBRE_COLORS[tb] : NOTE_COLOR_FALLBACK;
 }
@@ -4516,11 +4703,12 @@ function uDraw() {
   }
    /* ⭐⭐ 图例按【音色】列（用户："不需要 axis 配色，只用 timbre 配色"）。
     * ⚠️ 与下行侧的图例同一套语义：只列【出现过的】音色，⛔ 不写轴号。
-    * 🔴 2026-10-17：上行帧里【没有鼓标记位】（b_axis = {2'b0, tm, ax}）
-    *   ⇒ ⛔ 不再有「鼓」图例项，也不再给音色0 缀「可能是 Kick」（那是上一版的误判）。
-    *   一律按 `[5:4]` 的音色列，⛔ 不猜。 */
+    * ⭐ 2026-10-17：FPGA 线加了 `byte[7][6] = is_drum` ⇒ 有鼓事件时列一项「鼓」
+    *   （旧位流该位恒 0 ⇒ 永远不会出现「鼓」，行为与修复前一致）。 */
   const seenTb = new Set();
+  let seenDrumUp = false;
   for (const e of win) {
+    if (e.drumType !== undefined && e.drumType !== null) { seenDrumUp = true; continue; }
     const tb = (e.timbre === undefined || e.timbre === null) ? -1 : e.timbre;
     if (tb >= 0 && tb < TIMBRE_NAMES_ARR.length) seenTb.add(tb);
   }
@@ -4528,6 +4716,7 @@ function uDraw() {
   for (let tb = 0; tb < TIMBRE_NAMES_ARR.length; tb++) {
     if (seenTb.has(tb)) uLegend.push({ name: TIMBRE_NAMES_ARR[tb], color: TIMBRE_COLORS[tb] });
   }
+  if (seenDrumUp) uLegend.push({ name: "鼓", color: DRUM_COLOR });
   if (uLegend.length === 0) {
     uLegend.push({ name: "（帧内无音色，按 timbre 分色）", color: NOTE_COLOR_FALLBACK });
   }
@@ -4574,10 +4763,12 @@ function uBuildMidi() {
     out.pop();
     /* ⭐⭐ 按【音色】分 MIDI 通道 —— channel = timbre（0..3 ⇒ BASS/GUITAR/PIANO/PAD）。
      *   ⚠️ 通道号 = status 的低 4 位：`0x90|ch` = note_on、`0x80|ch` = note_off。
-     * 🔴 2026-10-17 第三次（最终态）：上行帧【没有鼓标记位】（b_axis = {2'b0, tm, ax}）
-     *   ⇒ 回传侧无法判鼓 ⇒ ⛔ 不再有"鼓走 GM 通道 9"那条（上一版按 drumMark 判，
-     *     实测会把每个轴号≠0 的音都当鼓 ⇒ 全进通道 9 ✗）。一律按 `[5:4]` 音色分通道。 */
-    const ch = (((e.timbre === undefined || e.timbre === null) ? 0 : e.timbre) & 0x03);
+     * ⭐ 2026-10-17（FPGA 线新增 `byte[7][6] = is_drum`）：
+     *   鼓事件（drumType != null）走 GM 鼓通道 9（⛔ 不占音色通道，DAW 里可直接当鼓轨）；
+     *   其余按 `[5:4]` 音色分通道。
+     *   ⚠️ 旧位流该位恒 0 ⇒ 不会有事件进通道 9（行为与修复前一致）。 */
+    const ch = (e.drumType !== undefined && e.drumType !== null) ? 9
+             : (((e.timbre === undefined || e.timbre === null) ? 0 : e.timbre) & 0x03);
     const status = (e.type === U_T_ON ? 0x90 : 0x80) | ch;
     out.push(...vlq(dt), status, e.midi & 0x7F,
              e.type === U_T_ON ? (e.vel & 0x7F) : 0);
