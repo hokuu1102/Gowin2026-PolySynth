@@ -134,18 +134,24 @@ module tb_rec_dump;
         input [63:0] w;
         input [7:0]  sq;
         input [3:0]  idx;
-        reg   [7:0]  ty, ax8, vl8, ck;
+        reg   [7:0]  ty, b7, vl8, ck;
         reg   [31:0] tk32, ic32;
         begin
             ty   = (w[10:9] == 2'd1) ? 8'h02 : 8'h01;      // ⭐ [1] 类型
             tk32 = {12'd0, w[63:44]};                       // ⭐ [3..6] tick32
-            ax8  = {4'd0, w[22:19]};                        // ⭐ [7] axis
+            //  ⭐⭐ 2026-10-18：⭐ `[7] = {pad, is_drum, timbre[1:0], axis[3:0]}`
+            //     🔴 改前是 `{4'd0, w[22:19]}`（⭐ 只有 axis）⇒ ⭐ 音色被丢掉 ⇒
+            //        ESP32 解出恒 0（BASS）⇒ 用户报"录 BASS 回放 GUITAR" ✅
+            //     📌 与 `rtl/w3c/rec_dump.v` 的 `f_b7`、以及 `evt_upstream.v:290`
+            //        的 `{1'b0, dr, tm, ax}` **逐位同构** ✅
+            //     ⭐ `is_drum` 恒 0：`looper` 录制时就排除鼓（`looper.v:1368`）✅
+            b7   = {1'b0, 1'b0, w[8:7], w[22:19]};          // ⭐ [7] {pad,is_drum,timbre,axis}
             ic32 = {1'b0, w[43:23], 10'b0};                 // ⭐ [8..11] inc32（⭐ 还原全 32 位）
             vl8  = w[18:11];                                // ⭐ [12] vel
             //  ⭐ [13] 校验 = XOR 覆盖 **[0..12]（⭐ 含帧头 ✅）**
             ck   = 8'hA5 ^ ty ^ sq
                  ^ tk32[31:24] ^ tk32[23:16] ^ tk32[15:8] ^ tk32[7:0]
-                 ^ ax8 ^ ic32[31:24] ^ ic32[23:16] ^ ic32[15:8] ^ ic32[7:0] ^ vl8;
+                 ^ b7 ^ ic32[31:24] ^ ic32[23:16] ^ ic32[15:8] ^ ic32[7:0] ^ vl8;
             case (idx)
                 4'd0:    exp_byte = 8'hA5;
                 4'd1:    exp_byte = ty;
@@ -154,7 +160,7 @@ module tb_rec_dump;
                 4'd4:    exp_byte = tk32[23:16];
                 4'd5:    exp_byte = tk32[15:8];
                 4'd6:    exp_byte = tk32[7:0];
-                4'd7:    exp_byte = ax8;
+                4'd7:    exp_byte = b7;                      // ⭐ {pad,is_drum,timbre,axis}
                 4'd8:    exp_byte = ic32[31:24];
                 4'd9:    exp_byte = ic32[23:16];
                 4'd10:   exp_byte = ic32[15:8];
@@ -206,6 +212,19 @@ module tb_rec_dump;
             end
         end
         chk(frame_cnt === 16'd3, "D4 frame_cnt counts 3 frames");
+        //  ⭐⭐ 2026-10-18：⭐ **非空洞判据 —— `byte[7]` 必须真的带音色** ✅
+        //     🔴 背景：⭐ 原来 `byte[7]` 只有 `axis`，⭐ `[5:4]`（音色）与 `[6]`（is_drum）
+        //        被硬写 0 ⇒ ⭐ ESP32 解出恒 0（BASS）⇒ 用户报"录 BASS、回放 GUITAR" ✅
+        //     📌 测试字的音色是 1 / 2 / 3（⭐ 见 `mem[0..2]` 的 `mk_word` 末参数）⇒
+        //        ⭐ 三条帧必须分别出现 1 / 2 / 3 —— ⛔ 全是 0 就是老 bug 回来了 ✅
+        //     ⚠️ 这条**必须能红**：把 `rec_dump` 的 `f_b7` 改回 `{4'd0, axis}` ⇒ 立刻 FAIL
+        chk(rx[0*14 + 7][5:4] === 2'd1, "D8a frame0 byte[7][5:4] == 1 (word0 timbre)");
+        chk(rx[1*14 + 7][5:4] === 2'd2, "D8b frame1 byte[7][5:4] == 2 (word1 timbre)");
+        chk(rx[2*14 + 7][5:4] === 2'd3, "D8c frame2 byte[7][5:4] == 3 (word2 timbre)");
+        chk(rx[0*14 + 7][6]   === 1'b0, "D8d byte[7][6] (is_drum) == 0 -- looper never records drums");
+        chk(rx[0*14 + 7][7]   === 1'b0, "D8e byte[7][7] (pad) == 0");
+        chk(rx[0*14 + 7][3:0] === 4'd5, "D8f byte[7][3:0] still carries the axis (5)");
+
         chk(clip_cnt  === 16'd1, "D5 clip_cnt counts 1 clipped entry (index 2)");
         chk(den === 1'b0, "D6 the read port is RELEASED after the dump (dump_en back to 0)");
         chk(busy === 1'b0, "D7 busy is low after the dump");

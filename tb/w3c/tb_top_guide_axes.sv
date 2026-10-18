@@ -168,7 +168,10 @@ module tb_top_guide_axes;
     //        · ⭐ A#3 = MIDI 58 ⇒ off 13 ⇒ **键 15**
     //        · ⭐ G#3 = MIDI 56 ⇒ off 11 ⇒ **键 14**（⭐ 判据 ③ 用）
     //        · ⭐ D3  = MIDI 50 ⇒ off  5 ⇒ **键 4**（⭐ 判据 ③ 用）
-    //     📌 ⭐ 期望位图 = 键 `{0,5,9,12,13,15}` ⇒ `0xB221` ✅
+    //     📌 ⭐ 期望位图 = 键 `{3,5,9,12,13,15}` ⇒ `0xB228` ✅
+    //     ⭐⭐ 2026-10-18（用户裁定）：⭐ **E3 的指引灯改点【键 3】**（⛔ 不是键 0）——
+    //        钢琴没有 E# ⇒ `kb_inc[0]` 与 `kb_inc[3]` 同为 E3 ⇒ 指引指定另一颗 ✅
+    //        🔴 改前 `AX6_ALL = 0xB221`（含键 0）⇒ 本 tb 的 1b/1d/1e/1g/2c/3c 全部变红 ✅
     // ═══════════════════════════════════════════════════════════════════════
     localparam [4:0] P_E3   = 5'd7;
     localparam [4:0] P_C3   = 5'd3;
@@ -179,14 +182,14 @@ module tb_top_guide_axes;
     localparam [4:0] P_Gs3  = 5'd11;
     localparam [4:0] P_D3   = 5'd5;
 
-    // ⭐ 键 0/5/9/12/13/15 全亮 = `0xB221`（⭐ 1+32+512+4096+8192+32768 ✅）
-    localparam [15:0] AX6_ALL   = 16'hB221;
-    // ⭐ 没点过的键（1,2,3,4,6,7,8,10,11,14）⇒ ⭐ 掩码 = `~AX6_ALL` ✅
-    localparam [15:0] AX6_UNSET = 16'h4DDE;
+    // ⭐ 键 3/5/9/12/13/15 全亮 = `0xB228`（⭐ 8+32+512+4096+8192+32768 ✅）
+    localparam [15:0] AX6_ALL   = 16'hB228;
+    // ⭐ 没点过的键（0,1,2,4,6,7,8,10,11,14）⇒ ⭐ 掩码 = `~AX6_ALL` ✅
+    localparam [15:0] AX6_UNSET = 16'h4DD7;
     // ⭐ 清掉键 5（⭐ 那条 `note_off`）之后
-    localparam [15:0] AX6_NO5   = 16'hB201;
+    localparam [15:0] AX6_NO5   = 16'hB208;
     // ⭐ 再加上键 14（⭐ 判据 ③）
-    localparam [15:0] AX6_WITH14 = 16'hF201;
+    localparam [15:0] AX6_WITH14 = 16'hF208;
 
     integer spin;
     task wait_evt;
@@ -245,10 +248,11 @@ module tb_top_guide_axes;
         chk(dut.g_sound.u_play_seq.evt_cnt_o === 16'd6,
             "1a all six events were consumed by play_seq");
         chk(dut.u_guide_lamp.guide_key_o === AX6_ALL,
-            "1b the six pitches lit EXACTLY their own keys (0xB221)");
+            "1b the six pitches lit EXACTLY their own keys (0xB228)");
         chk(popcount16(dut.u_guide_lamp.guide_key_o) === 6,
             "1c popcount == 6  <-- NOT all collapsed onto one lamp (the user's symptom)");
-        chk(dut.u_guide_lamp.guide_key_o[0]  === 1'b1 &&
+        //  ⭐ 2026-10-18：⭐ E3 的键从 **0** 改成 **3**（⭐ 同音换颗，用户裁定）✅
+        chk(dut.u_guide_lamp.guide_key_o[3]  === 1'b1 &&
             dut.u_guide_lamp.guide_key_o[5]  === 1'b1 &&
             dut.u_guide_lamp.guide_key_o[9]  === 1'b1 &&
             dut.u_guide_lamp.guide_key_o[12] === 1'b1 &&
@@ -256,7 +260,7 @@ module tb_top_guide_axes;
             dut.u_guide_lamp.guide_key_o[15] === 1'b1,
             "1d each of the six pitches has its OWN lamp lit at the same time");
         chk((dut.u_guide_lamp.guide_key_o & AX6_UNSET) === 16'h0000,
-            "1e the keys we never asked for (1,2,3,4,6,7,8,10,11,14) stayed OFF");
+            "1e the keys we never asked for (0,1,2,4,6,7,8,10,11,14) stayed OFF");
         //  ⭐⭐ 判据 ④：⭐ **通路贯通** —— ⭐ `guide_lamp ⇒ led_data` 那**一根线** ✅
         //     ⭐ 消隐后的位图必须**逐位**进到 `led_data.guide_key_i`：
         //        `led_data.guide_key_i == guide_key_o & ~ee_key_on`（⭐ `top.v` 的接线）✅

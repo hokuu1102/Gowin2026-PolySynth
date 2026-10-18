@@ -13,8 +13,8 @@ VCD info: dumpfile build/sim/tb_lamp_stuck_clear/tb_lamp_stuck_clear.vcd opened 
   ok  : 3c key 5's lamp is gone (not just dimmed)
   ok  : 3d the blanked bitmap follows (guide_vis = guide_key & ~active)
 == 4  a new score arriving ON the timeout edge => clean slate then light ==
-  ok  : 4a the old hung lamp is gone AND only the NEW pitch's lamp (key 0) is lit
-  ok  : 4b stale key 5 cleared, fresh key 0 lit (timeout won the previous cycle)
+  ok  : 4a the old hung lamp is gone AND only the NEW pitch's lamp (key 3) is lit
+  ok  : 4b stale key 5 cleared, fresh key 3 lit (timeout won the previous cycle)
 == 5  a mid-score hiccup (0.5 s) must NOT clear anything ==
   ok  : 5a-pre the idle counter was reset by the stream coming back (not stuck at the limit)
   ok  : 5b the lamp is still lit during the hiccup (the timeout has not fired yet)

@@ -2,6 +2,12 @@
 == D 姝ｅ父瀵煎嚭锛? 鏉′簨浠?鈬?42 瀛楄妭锛?4 脳 3 = v1.1 甯э級==
   ok  : D1 3 events => exactly 42 bytes pushed (14 each = v1.1 frame)
   ok  : D4 frame_cnt counts 3 frames
+  ok  : D8a frame0 byte[7][5:4] == 1 (word0 timbre)
+  ok  : D8b frame1 byte[7][5:4] == 2 (word1 timbre)
+  ok  : D8c frame2 byte[7][5:4] == 3 (word2 timbre)
+  ok  : D8d byte[7][6] (is_drum) == 0 -- looper never records drums
+  ok  : D8e byte[7][7] (pad) == 0
+  ok  : D8f byte[7][3:0] still carries the axis (5)
   ok  : D5 clip_cnt counts 1 clipped entry (index 2)
   ok  : D6 the read port is RELEASED after the dump (dump_en back to 0)
   ok  : D7 busy is low after the dump
@@ -17,7 +23,7 @@
   ok  : G2 the dump can be triggered AGAIN (no stuck state)
   ok  : G3 the second dump is well-formed too
 
-PASS: tb_rec_dump - 55/55 judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_rec_dump.sv:263: $finish called at 8260000 (1ps)
+PASS: tb_rec_dump - 61/61 judgements held
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_rec_dump.sv:282: $finish called at 8260000 (1ps)
 
 

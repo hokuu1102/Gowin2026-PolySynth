@@ -165,6 +165,14 @@ module tb_guide_lamp;
             m     = BASE_NOTE + off;
             for (k = 0; k < 16; k = k + 1)
                 if ((found < 0) && (pitch_of(mode, k) == m)) found = k;
+            //  ⭐⭐ 2026-10-18（⭐ 用户裁定）：⭐ **钢琴有两个"同音对"，指引灯指定点【另一颗】** ✅
+            //     · ⭐ E3（MIDI 52）⇒ 键 **3**（⛔ 不是 0）—— 对应 `kb_inc[0]`/`kb_inc[3]` 同音
+            //     · ⭐ B3（MIDI 59）⇒ 键 **11**（⛔ 不是 8）—— 对应 `kb_inc[8]`/`kb_inc[11]` 同音
+            //     📌 上面的 `for` 取的是**第一个**匹配键（0 / 8）⇒ ⚠️ 必须在这里改判
+            //     📌 **只对键盘/钢琴模式（mode==0）生效** —— 指板那 4 个轴是**不同音**
+            //        （`fb_inc` = E3 / B2 / D4 / A3）⇒ ⛔ 指板模式没有"同音可换"这回事 ✅
+            if ((mode == 0) && (m == 52)) found = 3;    // ⭐ E3 ⇒ 轴 3
+            if ((mode == 0) && (m == 59)) found = 11;   // ⭐ B3 ⇒ 轴 11
             rev_of = found;
         end
     endfunction
@@ -313,6 +321,8 @@ module tb_guide_lamp;
         // ⑤⭐ 非空洞性：⭐ 键号 0..15 **每一个**都能被某个（模式, 音高）点亮 ✅
         //     📌 ⭐ **为什么不是"每个键都有一条自己的音高"**：
         //        ⚠️ 键盘表里 E3 = 键 0 **和** 键 3、B3 = 键 8 **和** 键 11
+        //        ⭐ 2026-10-18（用户裁定）：⭐ **指引灯指定点【另一颗】** ⇒ E3→键 **3**、B3→键 **11**
+        //           （⭐ `rev_of` 里已改判；⭐ 指板模式⛔ 不受影响，那边 4 轴是不同音）✅
         //        ⇒ ⭐ 按"重复取最小索引"的规则，⭐ 键 3 / 键 11 在**键盘模式**
         //           **永远点不到**（⭐ 这是**规则要的**）——
         //        ⭐ 但它们在**指板模式**点得到（⭐ `fb` 表 16 个键音高互不相同）✅
@@ -358,7 +368,7 @@ module tb_guide_lamp;
         // ═══════════════════════════════════════════════════════════════════
         // ⑥ commit 单周期：指引变化那拍恰好 1 拍
         // ═══════════════════════════════════════════════════════════════════
-        send_off5(5'd7, KIND_ON);                       // ⭐ E3 ⇒ 键 0
+        send_off5(5'd7, KIND_ON);                       // ⭐ E3 ⇒ 键 3（⭐ 2026-10-18 改）
         chk("commit high on change", guide_commit === 1'b1);
         @(posedge clk);                          // 下一拍 DUT 采样 note_valid=0 ⇒ commit 回落
         #1;
@@ -368,14 +378,14 @@ module tb_guide_lamp;
 
         // ═══════════════════════════════════════════════════════════════════
         // ⑦ 多键并存：⭐ 两个**不同音高** ⇒ 两盏灯（⛔ 互相覆盖）
-        //     ⭐ E3（off 7 ⇒ 键 0）+ ⭐ C#4（off 16 ⇒ 键 9）✅
+        //     ⭐ E3（off 7 ⇒ 键 **3**）+ ⭐ C#4（off 16 ⇒ 键 9）✅
         //     📌 ⭐ 这正是用户要的"**跟着音高走**" ——
         //        🔴 旧语义下这两条事件（⭐ 同一条轨）**只会亮同一盏灯** ✅
         // ═══════════════════════════════════════════════════════════════════
-        send_off5(5'd7,  KIND_ON);                      // ⭐ E3  ⇒ 键 0
+        send_off5(5'd7,  KIND_ON);                      // ⭐ E3  ⇒ 键 3（2026-10-18 改）
         send_off5(5'd16, KIND_ON);                      // ⭐ C#4 ⇒ 键 9
-        chk("multi: two different PITCHES light two lamps", guide_key[0] === 1'b1 && guide_key[9] === 1'b1);
-        chk("multi: only those two bits", guide_key === 16'h0201);
+        chk("multi: two different PITCHES light two lamps", guide_key[3] === 1'b1 && guide_key[9] === 1'b1);
+        chk("multi: only those two bits", guide_key === 16'h0208);
         send_off5(5'd7,  KIND_OFF);
         send_off5(5'd16, KIND_OFF);
         chk("multi: both cleared -> all 0", guide_key === {AXIS_N{1'b0}});
@@ -444,10 +454,10 @@ module tb_guide_lamp;
         chk("9a transpose=0 : A3 (off 12) -> key 12", guide_key === 16'h1000);
         send_off5(5'd12, KIND_OFF);
 
-        transpose = 5'sd2;                               // ⭐ +2 半音 ⇒ B3 ⇒ 键 8
+        transpose = 5'sd2;                               // ⭐ +2 半音 ⇒ B3 ⇒ 键 11（2026-10-18 改）
         send_off5(5'd12, KIND_ON);
-        chk("9b transpose=+2 : A3+2 = B3 -> key 8  <-- the pitch moved, not the key index",
-            guide_key === 16'h0100);
+        chk("9b transpose=+2 : A3+2 = B3 -> key 11  <-- the pitch moved, not the key index",
+            guide_key === 16'h0800);
         chk("9b' transpose=+2 did NOT just shift the key index (12+2=14 must be dark)",
             guide_key[14] === 1'b0 && guide_key[12] === 1'b0);
         send_off5(5'd12, KIND_OFF);
@@ -458,7 +468,7 @@ module tb_guide_lamp;
         send_off5(5'd12, KIND_OFF);
 
         //  ⭐⭐⭐ **"先变调后查表"的判别用例**（⭐ 旧写法在这里必错）：
-        //     ⭐ E3（off 7）⇒ 键 **0**；⭐ `+1` 半音 ⇒ F3（off 8）⇒ 键 **2** ✅
+        //     ⭐ E3（off 7）⇒ 键 **3**（2026-10-18 改）；⭐ `+1` 半音 ⇒ F3（off 8）⇒ 键 **2** ✅
         //     🔴 若"先查表再平移键号" ⇒ ⭐ 会点键 **1**（⭐ 0+1）⇒ ⭐ 本条必红 ✅
         transpose = 5'sd1;
         send_off5(5'd7, KIND_ON);                        // ⭐ E3 + 1 = F3 ⇒ 键 2

@@ -22,10 +22,10 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : 0d default mode is PIANO => guide_lamp uses the keyboard (kb) table
 == 1  six different PITCHES (same axis) => six different lamps ==
   ok  : 1a all six events were consumed by play_seq
-  ok  : 1b the six pitches lit EXACTLY their own keys (0xB221)
+  ok  : 1b the six pitches lit EXACTLY their own keys (0xB228)
   ok  : 1c popcount == 6  <-- NOT all collapsed onto one lamp (the user's symptom)
   ok  : 1d each of the six pitches has its OWN lamp lit at the same time
-  ok  : 1e the keys we never asked for (1,2,3,4,6,7,8,10,11,14) stayed OFF
+  ok  : 1e the keys we never asked for (0,1,2,4,6,7,8,10,11,14) stayed OFF
   ok  : 1f u_led_data.guide_key_i is wired to (guide_key_o & ~ee_key_on)  <-- the LED path
   ok  : 1g led_data sees all six guide bits (no key is pressed in this tb)
 == 2  one note_off clears exactly ONE lamp ==
@@ -42,6 +42,6 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : 3f its note_off cleared ONLY key 14 (key 4 and the rest untouched)
 
 PASS: tb_top_guide_axes - 21/21 judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_top_guide_axes.sv:326: $finish called at 1880110000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_top_guide_axes.sv:330: $finish called at 1880110000 (1ps)
 
 

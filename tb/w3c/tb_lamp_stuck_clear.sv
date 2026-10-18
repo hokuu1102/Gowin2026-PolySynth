@@ -227,12 +227,12 @@ module tb_lamp_stuck_clear;
         //     ⚠️ 这正是**现场**（⭐ 停播 1 秒后 PC 开始灌新谱 ✅）：
         //        ⭐ 缓冲在**这一拍**变非空 ⇒ `stream_alive` **同拍**抬起来 ✅
         stream_alive = 1'b1;                 // ⭐ 新流在走（⭐ 必须在 note_on 之前 ✅）
-        send_ev(5'd7, KIND_ON);              // ⭐ E3 ⇒ 键 0（⭐ 与刚挂的键 5 不同 ✅）
+        send_ev(5'd7, KIND_ON);              // ⭐ E3 ⇒ 键 3（⭐ 2026-10-18 改；与刚挂的键 5 不同 ✅）
         wait_clks(2);
-        chk(guide_key === 16'h0001,
-            "4a the old hung lamp is gone AND only the NEW pitch's lamp (key 0) is lit");
-        chk(guide_key[5] === 1'b0 && guide_key[0] === 1'b1,
-            "4b stale key 5 cleared, fresh key 0 lit (timeout won the previous cycle)");
+        chk(guide_key === 16'h0008,
+            "4a the old hung lamp is gone AND only the NEW pitch's lamp (key 3) is lit");
+        chk(guide_key[5] === 1'b0 && guide_key[3] === 1'b1,
+            "4b stale key 5 cleared, fresh key 3 lit (timeout won the previous cycle)");
 
         // ═════════════════════════════════════════════════════════════════════
         // ⑤ ⭐ **流中途断一下 ⇒ 计数归零、⛣ 不清**（⭐ "远大于正常音符间隔" ✅）
@@ -246,11 +246,11 @@ module tb_lamp_stuck_clear;
         //  ⭐ 停 `TIMEOUT/2` 拍（⭐ **严格不到点** ✅）再活过来
         stream_alive = 1'b0;
         wait_clks(TIMEOUT / 2);
-        chk(guide_key[0] === 1'b1,
+        chk(guide_key[3] === 1'b1,
             "5b the lamp is still lit during the hiccup (the timeout has not fired yet)");
         stream_alive = 1'b1;                 // ⭐ 又活过来
         wait_clks(1000);
-        chk(guide_key[0] === 1'b1,
+        chk(guide_key[3] === 1'b1,
             "5c the lamp survived a 0.5 s stream hiccup (counter reset, no false clear)");
 `endif
 

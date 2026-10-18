@@ -14,3 +14,5 @@
 | 20261017-215116 | respin-2128-192setup-final | 192 | 0 | 65515 | 57.866(MHz) | 15 | -0.881 | 978521387D4EB724 | FINAL: all 6 headline fields + 5 path tables parse correctly; same 21:51 report |
 | 20261017-231728 | span-removed-34viol | 34 | 0 | 64980 | 58.740(MHz) | 12 | -0.624 | D9C07ECB0B7C5D9C | span deleted (calib.sv+ctrl_key_map.v) + tmds recovery fix; 192->34 violations, Fmax 58.740 |
 | 20261018-012823 | gear3-164 | 28 | 0 | 65101 | 58.913(MHz) | 15 | -0.574 | E9466B8FA4DC5285 | 3 gears + per-gear lock + dual vibrato; 28 EP vs 16.4, real +3.026 |
+| 20261018-174511 | lampA-52p2 | 997 | 0 | 65097 | 52.218(MHz) | 16 | -2.750 | 791692ABB15DD3A3 | lamp dup in top.v: 997 EP vs 16.4, real +0.850, hold 0.183 |
+| 20261018-225545 | guide-table-timbre | 182 | 0 | 65099 | 59.245(MHz) | 18 | -0.479 | 3BABD6A74B19E4A8 | dual-lamp reverted + guide_lamp table E3->3 B3->11 + rec_dump timbre; 182 EP vs 16.4, real +3.121, hold 0.183, Fmax 59.245 |

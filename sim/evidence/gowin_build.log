@@ -73,8 +73,8 @@ Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\fx_trem.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\fx_chain.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v'
-Analyzing included file 'rtl\w3c\drum_inc_defs.vh'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":6616)
-Back to file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":6616)
+Analyzing included file 'rtl\w3c\drum_inc_defs.vh'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":6630)
+Back to file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":6630)
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\tlc5916_driver.sv'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\mcp3208_driver.sv'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\mcp3208_scanner.sv'
@@ -88,8 +88,8 @@ Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\fft_coeff_
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\fft_spectrum_core.v'
 Analyzing Verilog file 'C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\fft_spectrum_view.v'
 Compiling module 'top'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":36)
-Extracting RAM for identifier 'as_pos_d'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":5264)
-WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":8014)
+Extracting RAM for identifier 'as_pos_d'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":5278)
+WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":8028)
 Compiling module 'rst_sync'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\rst_sync.v":27)
 Compiling module 'sync_input(RESET_VAL=1'b1)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\sync_input.v":31)
 Compiling module 'debounce(NKEY=1)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\debounce.sv":24)
@@ -275,7 +275,7 @@ Compiling module 'master_mix'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\mast
 Compiling module 'i2s_tx'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\i2s_tx.v":71)
 Compiling module 'i2s_tx(MSB_DELAY=0)'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\i2s_tx.v":71)
 Compiling module 'guide_lamp'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v":149)
-Extracting RAM for identifier 'key_cnt'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v":514)
+Extracting RAM for identifier 'key_cnt'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v":527)
 WARN  (EX3858) : System task 'display' is ignored for synthesis("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v":392)
 Compiling module 'led_data'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\led_data.v":50)
 Compiling module 'tlc5916_bank'("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\tlc5916_bank.sv":58)
@@ -303,9 +303,9 @@ Running technical mapping ...
 [75%] Tech-Mapping Phase 2 completed
 [80%] Tech-Mapping Phase 3 completed
 [90%] Tech-Mapping Phase 4 completed
-WARN  (NL0002) : The module "metronome" instantiated to "g_sound.u_metronome" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":3480)
-WARN  (NL0002) : The module "param_extract" instantiated to "g_sound.u_param_extract" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":5792)
-WARN  (NL0002) : The module "uart_tx" instantiated to "u_uart_tx_esp" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":2748)
+WARN  (NL0002) : The module "metronome" instantiated to "g_sound.u_metronome" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":3494)
+WARN  (NL0002) : The module "param_extract" instantiated to "g_sound.u_param_extract" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":5806)
+WARN  (NL0002) : The module "uart_tx" instantiated to "u_uart_tx_esp" is swept in optimizing("C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\top.v":2762)
 [95%] Generate netlist file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\gwsynthesis\Gowin2026.vg" completed
 [100%] Generate report file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\gwsynthesis\Gowin2026_syn.rpt.html" completed
 GowinSynthesis finish
@@ -349,5 +349,5 @@ Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.pin.html"
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.rpt.html" completed
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.rpt.txt" completed
 Generate file "C:\Users\hokuu\Desktop\FPGA\FPGA2026\impl\pnr\Gowin2026.tr.html" completed
-Sun Oct 18 01:28:23 2026
+Sun Oct 18 22:55:45 2026
 

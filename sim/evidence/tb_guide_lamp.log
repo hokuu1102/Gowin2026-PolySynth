@@ -19,7 +19,7 @@ VCD info: dumpfile build/sim/tb_guide_lamp/tb_guide_lamp.vcd opened for output.
   ok  : multi: both cleared -> all 0
   ok  : table inverse: all 2 modes x 32 offsets match axis_map's forward table
   ok  : 9a transpose=0 : A3 (off 12) -> key 12
-  ok  : 9b transpose=+2 : A3+2 = B3 -> key 8  <-- the pitch moved, not the key index
+  ok  : 9b transpose=+2 : A3+2 = B3 -> key 11  <-- the pitch moved, not the key index
   ok  : 9b' transpose=+2 did NOT just shift the key index (12+2=14 must be dark)
   ok  : 9c transpose=-2 : A3-2 = G3 -> key 13
   ok  : 9d transpose=+1 : E3+1 = F3 -> key 2  (NOT key 0+1=1)
@@ -45,6 +45,6 @@ VCD info: dumpfile build/sim/tb_guide_lamp/tb_guide_lamp.vcd opened for output.
   ok  : Q4-g count saturates at 7 but the lamp is still on
   ok  : Q4-h saturation SELF-HEALS: 8 ONs + 8 OFFs leaves every lamp dark (no hanging lamp)
 PASS: tb_guide_lamp (41 checks)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_guide_lamp.sv:585: $finish called at 4371000 (1ps)
+C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_guide_lamp.sv:595: $finish called at 4371000 (1ps)
 
 

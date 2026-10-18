@@ -105,22 +105,45 @@ module rec_dump #(
         begin hex_ascii = (n < 10) ? (8'h30 + {4'd0,n}) : (8'h37 + {4'd0,n}); end
     endfunction
     //  ⭐⭐ 2026-10-14：⭐ **v1.1 帧【组合】装配**（⭐ 从 `data_i` 的 64 位下行字导出 ✅）
-    //     📌 ⭐ 字段映射与 `rtl/top.v:4506` 的位域表、以及 `evt_upstream.v` **逐位一致** ✅
+    //  🔴🔴 **2026-10-18 修正：`byte[7]` 现在与 `evt_upstream.v` 真正逐位一致** ✅
+    //
+    //     🔴 **改前缺陷（⭐ 用户实测报"ESP32 上行处音色恒为 0（BASS）"）**：
+    //        原来写 `f_axis = {4'd0, data_i[22:19]}` ⇒ ⭐ `byte[7]` **只有 `axis`**，
+    //        🔴 **`bit[5:4]`（音色）和 `bit[6]`（is_drum）被硬写 0** ✅
+    //        ⇒ ⚠️ 而 `evt_upstream.v:290` 是 `{1'b0, dr, tm, ax}`（**带音色+鼓**）
+    //        ⇒ 🔴 **两条上行路径的 `byte[7]` 语义不同** —— 而本文件 `:108` 的注释
+    //           当时还写着"与 `evt_upstream.v` 逐位一致" ⇒ ⭐ **那句话自 2026-10-16/17
+    //           加音色/鼓位之后就不成立了**（本文件没跟上）✅
+    //     ⇒ ⭐ 症状：⭐ ESP32 解出的 `timbre` **恒 0** ⇒ 导入的谱面没有音色
+    //        ⇒ 回放只能按默认/当前音色（⭐ 用户报"录 BASS、回放 GUITAR"）✅
+    //
+    //     ✅ **音色本来就在 dump 字里**（⭐ `looper.v:687` 的打包）：
+    //        `dump_data_o = {dw_tick[19:0], dw_wire_inc[20:0], dw_axis[3:0],
+    //                        dw_vel[7:0], dw_kind[1:0], dw_tbr[1:0], 7'b0}`
+    //        ⇒ ⭐ 位号：`[63:44]` tick · `[43:23]` inc · `[22:19]` axis ·
+    //                  `[18:11]` vel · `[10:9]` kind · **`[8:7]` 音色** · `[6:0]` 填充
+    //        ⇒ ⭐ 所以只是**没取**，不是"没有" ✅
+    //
+    //     📌 `is_drum` 恒 0 是**正确的**：⭐ `looper` 录制时就排除鼓
+    //        （⭐ `looper.v:1368` `if (live_valid_i && (is_drum_i !== 1'b1))`
+    //         ＋ 注释"鼓不留任何痕迹"）⇒ ⭐ loop 里本来就不会有鼓事件 ✅
+    //     📌 位宽/帧长/帧类型/校验算法**全不变**（⭐ `byte[7]` 本来就是 8 位）✅
     wire [7:0]  f_type = (data_i[10:9] == 2'd1) ? 8'h02 : 8'h01;   // ⭐ kind==1 ⇒ note_off
     wire [7:0]  f_seq  = seq_r;
     wire [31:0] f_tick = {12'd0, data_i[63:44]};                    // ⭐ tick 20 位 ⇒ 零扩展 32 位
-    wire [7:0]  f_axis = {4'd0, data_i[22:19]};
+    //  ⭐⭐ `byte[7] = {pad, is_drum, timbre[1:0], axis[3:0]}`（⭐ 与 `evt_upstream.v:290` 同构）
+    wire [7:0]  f_b7   = {1'b0, 1'b0, data_i[8:7], data_i[22:19]};
     wire [31:0] f_inc  = {1'b0, data_i[43:23], 10'b0};              // ⭐ 还原**全 32 位** phase_inc ✅
     wire [7:0]  f_vel  = data_i[18:11];
     //  ⭐ 校验 = XOR 覆盖 **[0..12]（⭐ 含帧头 0xA5）** —— ⭐ 与 ESP32 侧同口径 ✅
     wire [7:0]  f_ck   = HDR ^ f_type ^ f_seq
                        ^ f_tick[31:24] ^ f_tick[23:16] ^ f_tick[15:8] ^ f_tick[7:0]
-                       ^ f_axis
+                       ^ f_b7
                        ^ f_inc[31:24] ^ f_inc[23:16] ^ f_inc[15:8] ^ f_inc[7:0]
                        ^ f_vel;
     wire [111:0] f_frame = { HDR, f_type, f_seq,
                              f_tick[31:24], f_tick[23:16], f_tick[15:8], f_tick[7:0],
-                             f_axis,
+                             f_b7,
                              f_inc[31:24], f_inc[23:16], f_inc[15:8], f_inc[7:0],
                              f_vel, f_ck };
 

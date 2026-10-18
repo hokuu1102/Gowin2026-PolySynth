@@ -37,13 +37,16 @@ module tb_rec_dump_uart;
     //                    kind[10:9] timbre[8:7]`）逐个抠出来：
     //       tick    = bits63..44 = 0x01234      ⇒ tick32 = `00 00 12 34`
     //       inc     = bits43..23 = 0xACF13      ⇒ inc32  = `<<10` = `2B 3C 4C 00`
-    //       axis    = bits22..19 = 0b0101 = 5   ⇒ `05`
+    //       axis    = bits22..19 = 0b0101 = 5
     //       vel     = bits18..11 = 0b01111001 = 0x79
     //       kind    = bits10..9  = 0b10 = 2     ⇒ ⛔ 不是 1 ⇒ type = **0x01**
     //       timbre  = bits8..7   = 0b11 = 3
-    //       XOR[0..12] = A5^01^00^00^00^12^34^05^2B^3C^4C^00^79 = **0xA5**
-    //     ⇒ 第 0 帧 = `A5 01 00 00 00 12 34 05 2B 3C 4C 00 79 A5`
-    //     📌 第 1 帧**只有 `seq` 与 XOR 变**（⭐ seq=1 ⇒ XOR 也 ^1 = 0xA4 ✅）
+    //       ⭐⭐ 2026-10-18：⭐ `byte[7] = {pad, is_drum, timbre[1:0], axis[3:0]}`
+    //          = {1'b0, 1'b0, 2'b11, 4'b0101} = `0011_0101` = **0x35**
+    //          🔴 改前这里只有 `axis`（`05`）⇒ 音色被丢掉 ⇒ ESP32 解出恒 0（BASS）✅
+    //       XOR[0..12] = A5^01^00^00^00^12^34^35^2B^3C^4C^00^79 = **0x95**
+    //     ⇒ 第 0 帧 = `A5 01 00 00 00 12 34 35 2B 3C 4C 00 79 95`
+    //     📌 第 1 帧**只有 `seq` 与 XOR 变**（⭐ seq=1 ⇒ XOR 也 ^1 = 0x94 ✅）
     //  ═══════════════════════════════════════════════════════════════════════
     reg [111:0] expected;
     integer i;
@@ -53,7 +56,7 @@ module tb_rec_dump_uart;
         repeat(30000) @(negedge clk);
         if(ovf || drop!=0 || received!=28 || frames!=2)
             $fatal(1,"FAIL: export frames=%0d drop=%0d bytes=%0d (expected 2 / 0 / 28)",frames,drop,received);
-        expected=112'hA5_01_00_00_00_12_34_05_2B_3C_4C_00_79_A5;
+        expected=112'hA5_01_00_00_00_12_34_35_2B_3C_4C_00_79_95;
         for(i=0;i<14;i=i+1) begin
             if(bytes[i] !== expected[111-i*8 -: 8])
                 $fatal(1,"FAIL: frame0 byte %0d corrupted (got %02h want %02h)",
@@ -63,8 +66,8 @@ module tb_rec_dump_uart;
         if(bytes[14]!==8'hA5 || bytes[15]!==8'h01 || bytes[16]!==8'h01)
             $fatal(1,"FAIL: frame1 header/type/seq wrong (got %02h %02h %02h)",
                    bytes[14],bytes[15],bytes[16]);
-        if(bytes[27] !== 8'hA4)
-            $fatal(1,"FAIL: frame1 checksum wrong (got %02h want A4)", bytes[27]);
+        if(bytes[27] !== 8'h94)
+            $fatal(1,"FAIL: frame1 checksum wrong (got %02h want 94)", bytes[27]);
         $display("PASS: two complete 14-byte v1.1 frames through real FIFO and 500kbps UART");
         $finish;
     end

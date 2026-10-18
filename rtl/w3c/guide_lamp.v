@@ -429,6 +429,19 @@ module guide_lamp #(
     //  📌 ⭐ **`case` 必须放在 `note_idx` 声明【之后】** —— ⚠️ 放在前面会让 Verilog
     //     隐式创建一根 **1 位** 网线 ⇒ ⭐ `case` 只按 1 位匹配 ⇒ 🔴 **全表查错**
     //     （⭐ 2026-10-16 实测踩到：判据 `guide 0/3`、`top_guide 0/2` 全红）✅
+    //  ⭐⭐ 2026-10-18（⭐ 用户裁定）：⭐ **钢琴模式两个"同音对"的指引灯，改点【另一颗】** ✅
+    //     📌 背景：钢琴没有 E# / B# ⇒ `axis_map.v` 的 `kb_inc[]` 里
+    //        · 轴 **0** 与 轴 **3** 都是 **E3**（`kb_inc[0]` / `kb_inc[3]`）
+    //        · 轴 **8** 与 轴 **11** 都是 **B3**（`kb_inc[8]` / `kb_inc[11]`）
+    //     📌 用户要的语义（分两条路，⛔ 别混）：
+    //        · ⭐ **手弹** ⇒ 按哪颗亮哪颗（⭐ 走 `ee_key_on` → `led_data.key_active_i`，⛔ 本表不管）
+    //        · ⭐ **灌谱指引** ⇒ **亮同音的另一颗**（⭐ 就是本表 ⇒ 改这两行）✅
+    //     🔴 **这里改的是 `key_kb_r`（键盘/钢琴模式）**：
+    //        · `5'd7`（52 = E3）   ：`5'd0` → **`5'd3`**  ✅
+    //        · `5'd14`（59 = B3）  ：`5'd8` → **`5'd11`** ✅
+    //     ⚠️ **指板（`key_fb_r`）⛔ 不动** —— 指板模式那 4 个轴是**不同音**
+    //        （`fb_inc` = E3/B2/D4/A3），⛔ 没有"同音可换"这回事 ✅
+    //     📌 依据 `rtl/w3a/axis_map.v` 的 `kb_inc[]` 表（⭐ 同音关系以那张表为准）
     reg [4:0] key_kb_r, key_fb_r;
     always @(*) begin
         key_kb_r = KEY_NONE;
@@ -442,14 +455,14 @@ module guide_lamp #(
             5'd4 : begin key_kb_r = 5'd6;  key_fb_r = KEY_NONE; end  // 49 C#3  (指板无)
             5'd5 : begin key_kb_r = 5'd4;  key_fb_r = 5'd6;  end     // 50 D3
             5'd6 : begin key_kb_r = 5'd7;  key_fb_r = 5'd7;  end     // 51 D#3
-            5'd7 : begin key_kb_r = 5'd0;  key_fb_r = 5'd0;  end     // 52 E3
+            5'd7 : begin key_kb_r = 5'd3;  key_fb_r = 5'd0;  end     // 52 E3   ⭐ 2026-10-18：kb 0→**3**（同音换个键）
             5'd8 : begin key_kb_r = 5'd2;  key_fb_r = 5'd1;  end     // 53 F3
             5'd9 : begin key_kb_r = 5'd1;  key_fb_r = KEY_NONE; end  // 54 F#3  (指板无)
             5'd10: begin key_kb_r = 5'd13; key_fb_r = 5'd13; end     // 55 G3
             5'd11: begin key_kb_r = 5'd14; key_fb_r = 5'd12; end     // 56 G#3
             5'd12: begin key_kb_r = 5'd12; key_fb_r = 5'd11; end     // 57 A3
             5'd13: begin key_kb_r = 5'd15; key_fb_r = 5'd10; end     // 58 A#3
-            5'd14: begin key_kb_r = 5'd8;  key_fb_r = KEY_NONE; end  // 59 B3   (指板无)
+            5'd14: begin key_kb_r = 5'd11; key_fb_r = KEY_NONE; end  // 59 B3   ⭐ 2026-10-18：kb 8→**11**（同音换个键）（指板无）
             5'd15: begin key_kb_r = 5'd10; key_fb_r = 5'd14; end     // 60 C4
             5'd16: begin key_kb_r = 5'd9;  key_fb_r = 5'd15; end     // 61 C#4
             5'd17: begin key_kb_r = KEY_NONE; key_fb_r = 5'd8;  end  // 62 D4   (键盘无)
