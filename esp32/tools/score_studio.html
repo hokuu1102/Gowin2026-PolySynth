@@ -4670,16 +4670,28 @@ function uDraw() {
    *    所以配不到的 on 按"最小长度"画（表示正在响）。 */
   const blockH = Math.max(2, Math.min(rowH * 0.72, 12));
   const minLen = Math.max(1, (tMax - tMin) / 400);
-  const openMap = new Map();     /* key -> { tick, axis, timbre, vel } */
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * 🔴🔴 2026-10-18 修（用户："回传的卷帘显示不全"）
+   *
+   * 三个错，全是根上的：
+   *   ① 配对 key 用了 `(axis, midi)` —— 而 `off` 帧的 `phase_inc` 在 live 路径上
+   *      不可靠（FPGA 侧已认领：note_off 那一拍的 vel 是脏值，inc 同理）
+   *      ⇒ 同一个音的 on/off 算出的 midi 可能差一格 ⇒ **永远配不上** ✗
+   *      ✅ 改成【只用 axis 配对】：同一条轴在同一时刻只可能响一个音，
+   *         这是硬约束，⛔ 不需要 midi 参与。
+   *   ② 画块时用 `Y(e.midi)`（off 帧的音高）—— 同上，off 的 midi 不可靠 ⇒ 位置乱 ✗
+   *      ✅ 改成 `Y(o.midi)`：用【on 那一拍】的音高，那才是这个音真正的高度。
+   *   ③ 没配上的 on 被统一画在【屏幕中间】一条线上（`Y(lo+(hi-lo)/2)`）✗
+   *      ⇒ 一串音看着像"只在中间闪一下"，完全看不出旋律 ✗
+   *      ✅ 改成也画在 `Y(o.midi)` 上，只是用白色标"还没结束"。
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  const openMap = new Map();     /* axis -> { tick, midi, timbre, drumType, vel } */
   for (const e of win) {
-    const key = ((e.axis & 15) * 128) + (e.midi & 127);
+    const key = e.axis & 15;                    /* ⭐ 只用轴 —— ⛔ 不用 midi */
     if (e.type === U_T_ON) {
-      /* ⭐⭐ 音色/力度取【note_on 那一刻】的，⛔ 不用 off 的。
-       *   🔴 原来上色与透明度都读 off 事件（`e.axis`/`e.vel`）⇒
-       *      ① off 帧的 vel 通常是 0 ⇒ ⭐ 所有音符的透明度恒为 0.5（看不出强弱）
-       *      ② timbre 是"事件自带"字段，⚠️ off 帧不一定带 ⇒ 用 off 上色会时对时错。
-       *   ⭐ 所以 on 的时候就把这一笔要用的字段存下来。 */
-      openMap.set(key, { tick: e.tick, axis: e.axis, timbre: e.timbre, vel: e.vel });
+      /* 音色/力度/音高都取【note_on 那一刻】的，⛔ 不用 off 的 */
+      openMap.set(key, { tick: e.tick, midi: e.midi, axis: e.axis,
+                         timbre: e.timbre, drumType: e.drumType, vel: e.vel });
     } else {
       const o = openMap.get(key);
       if (o !== undefined) {
@@ -4687,17 +4699,18 @@ function uDraw() {
         const x0 = X(o.tick), x1 = X(e.tick);
         ctx.fillStyle = uTimbreColor(o);
         ctx.globalAlpha = 0.5 + 0.5 * Math.min(1, (o.vel || 0) / 127);
-        ctx.fillRect(x0, Y(e.midi) - blockH / 2, Math.max(1.6, x1 - x0), blockH);
+        /* ⭐ 高度用 on 的 midi（o.midi），⛔ 不用 off 的 */
+        ctx.fillRect(x0, Y(o.midi) - blockH / 2, Math.max(1.6, x1 - x0), blockH);
         ctx.globalAlpha = 1;
       }
     }
   }
-  // 还没闭合的 on：画个块（正在响）—— ⭐ 用白色（"还没结束"这个语义要看得出来）
+  // 还没闭合的 on：画个块（正在响）—— ⭐ 也画在【它自己的音高】上
   for (const [, o] of openMap) {
     if (o === undefined) continue;
     ctx.globalAlpha = 0.75;
     ctx.fillStyle = "#e8eefc";
-    ctx.fillRect(X(o.tick), Y(lo + (hi - lo) / 2) - blockH / 2,
+    ctx.fillRect(X(o.tick), Y(o.midi) - blockH / 2,
                  Math.max(1.6, X(o.tick + minLen) - X(o.tick)), blockH);
     ctx.globalAlpha = 1;
   }
@@ -4749,37 +4762,62 @@ function uBuildMidi() {
   const ppqn = U.ppqn || U_PPQN;
   const evs = U.events.filter(e => e.type === U_T_ON || e.type === U_T_OFF);
   if (!evs.length) return null;
-  /* 排序：先 tick，再 kind（off 优先 —— 同 tick 时先关旧音再开新音） */
+  /* ═══════════════════════════════════════════════════════════════════════════
+   * 🔴🔴 2026-10-18 修（用户："回传有音色但是导出的 midi 灌谱没有分轨"）
+   *
+   * 原来导出的是 **format 0 / 单个 track**，只靠 channel 区分音色 ✗
+   * 而灌谱侧（parseMidi）是按 **MIDI track** 分轨、按 **track name** 认音色名
+   *   ⇒ 单 track 且无轨名 ⇒ 灌谱只看到一条 "(无名)" 轨 ✗（用户截图正是如此）
+   *
+   * ✅ 修法：导出 **format 1 / 每个音色一条 track**，并给每条 track 写【轨名】
+   *   （BASS/GUITAR/PIANO/PAD/Drums）—— 灌谱侧就能自动分轨 + 认出音色 ✓
+   *   ⚠️ 通道号仍按音色给（0..3、鼓走 9），双保险：即使某天不看轨名也能分。
+   * ═══════════════════════════════════════════════════════════════════════════ */
+  const TIMBRE_TRACK_NAME = ["BASS", "GUITAR", "PIANO", "PAD"];
   const sorted = evs.slice().sort((a, b) =>
     (a.tick - b.tick) || ((a.type === U_T_ON ? 1 : 0) - (b.type === U_T_ON ? 1 : 0)));
   const t0 = sorted[0].tick;
-  const out = [];
   const vlq = n => { const s = [n & 0x7F]; n >>= 7; while (n) { s.unshift((n & 0x7F) | 0x80); n >>= 7; } return s; };
-  let last = 0;
+  /* 按"轨"分组：鼓一轨（通道 9），音色各一轨（通道 0..3） */
+  const groups = new Map();          /* key -> {name, ch, evs:[]} */
   for (const e of sorted) {
-    const dt = Math.max(0, e.tick - t0 - last);
-    last = e.tick - t0;
-    out.push(200 & 0);                                    // placeholder（见下）
-    out.pop();
-    /* ⭐⭐ 按【音色】分 MIDI 通道 —— channel = timbre（0..3 ⇒ BASS/GUITAR/PIANO/PAD）。
-     *   ⚠️ 通道号 = status 的低 4 位：`0x90|ch` = note_on、`0x80|ch` = note_off。
-     * ⭐ 2026-10-17（FPGA 线新增 `byte[7][6] = is_drum`）：
-     *   鼓事件（drumType != null）走 GM 鼓通道 9（⛔ 不占音色通道，DAW 里可直接当鼓轨）；
-     *   其余按 `[5:4]` 音色分通道。
-     *   ⚠️ 旧位流该位恒 0 ⇒ 不会有事件进通道 9（行为与修复前一致）。 */
-    const ch = (e.drumType !== undefined && e.drumType !== null) ? 9
-             : (((e.timbre === undefined || e.timbre === null) ? 0 : e.timbre) & 0x03);
-    const status = (e.type === U_T_ON ? 0x90 : 0x80) | ch;
-    out.push(...vlq(dt), status, e.midi & 0x7F,
-             e.type === U_T_ON ? (e.vel & 0x7F) : 0);
+    const isDrum = (e.drumType !== undefined && e.drumType !== null);
+    const tb = ((e.timbre === undefined || e.timbre === null) ? 0 : e.timbre) & 0x03;
+    const key = isDrum ? "D" : ("T" + tb);
+    if (!groups.has(key)) {
+      groups.set(key, { name: isDrum ? "Drums" : (TIMBRE_TRACK_NAME[tb] || ("TRK" + tb)),
+                        ch: isDrum ? 9 : tb, evs: [] });
+    }
+    groups.get(key).evs.push(e);
   }
-  out.push(...vlq(0), 0xFF, 0x2F, 0x00);
-  const trackLen = out.length;
-  const hdr = [0x4D,0x54,0x68,0x64, 0,0,0,6, 0,0, 0,1,
+  /* 每条 track 各自编码：轨名（meta 0x03）+ 事件 + 结束 */
+  const trks = [];
+  for (const g of groups.values()) {
+    const out = [];
+    const nm = g.name;
+    out.push(...vlq(0), 0xFF, 0x03, ...vlq(nm.length),
+             ...Array.from(nm, c => c.charCodeAt(0) & 0x7F));
+    let last = 0;
+    for (const e of g.evs) {
+      const dt = Math.max(0, e.tick - t0 - last);
+      last = e.tick - t0;
+      const status = (e.type === U_T_ON ? 0x90 : 0x80) | g.ch;
+      out.push(...vlq(dt), status, e.midi & 0x7F,
+               e.type === U_T_ON ? (e.vel & 0x7F) : 0);
+    }
+    out.push(...vlq(0), 0xFF, 0x2F, 0x00);
+    trks.push(out);
+  }
+  /* format 1：多轨（第 1 条是 tempo/名轨也可省 —— 这里每轨自带名 + 事件） */
+  const hdr = [0x4D,0x54,0x68,0x64, 0,0,0,6, 0,1,          /* format 1 */
+               trks.length >> 8 & 0xFF, trks.length & 0xFF,
                (ppqn >> 8) & 0xFF, ppqn & 0xFF];
-  const trk = [0x4D,0x54,0x72,0x6B,
-               (trackLen>>>24)&0xFF,(trackLen>>>16)&0xFF,(trackLen>>>8)&0xFF,trackLen&0xFF];
-  return new Blob([new Uint8Array([...hdr, ...trk, ...out])], { type: "audio/midi" });
+  const all = [...hdr];
+  for (const t of trks) {
+    all.push(0x4D,0x54,0x72,0x6B,
+             (t.length>>>24)&0xFF,(t.length>>>16)&0xFF,(t.length>>>8)&0xFF,t.length&0xFF, ...t);
+  }
+  return new Blob([new Uint8Array(all)], { type: "audio/midi" });
 }
 
 $("u_btnBin").onclick = () => {
