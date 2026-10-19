@@ -74,12 +74,14 @@ console.log("  总事件 = " + conv.words.length + "  BPM = " + conv.bpm.toFixed
 const dur = conv.tickMax / 960 / (conv.bpm / 60);
 console.log("  时长 ≈ " + dur.toFixed(1) + " 秒");
 
-// ⚠️ 检查：鼓轨被推成音高了吗？
+// ⚠️ 检查：鼓轨走的是哪几条轴？
+/* ⭐ 2026-10-15 方案 B：鼓【一件一轴】12/13/14/15 ⇒ assign 里 `axis` 是"用到的轴"列表串
+ *   （不再是单个 15）。⚠️ FPGA 侧判鼓的判据 = `axis >= 12`（seq_arb.v:204）。 */
 const drumAxes = conv.assign.filter(a => a.kind === "鼓").map(a => a.axis);
 if (drumAxes.length) {
   console.log();
-  console.log("  ⚠️ 鼓轨被分到 axis " + drumAxes.join(",") +
-              " —— 它们会按【音高】发声（因为 axis 决定音高表）");
+  console.log("  鼓轨占用的轴：" + drumAxes.join(",") +
+              "（⭐ 方案 B：四件各占 12/13/14/15，判据 axis >= 12 ⇒ 鼓）");
   // 看鼓轨用的音高分布
   parsed.tracks.forEach(t => {
     if (!API.isDrumTrack(t)) return;

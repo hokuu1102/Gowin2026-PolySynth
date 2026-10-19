@@ -301,6 +301,10 @@ def selftest():
         "_diag_timbre_override.js",  # 验"网页改音色"是否真的下发（端到端，要 argv）
         "_display_lane_check.js",   # 鼓栏左侧不画音名 + 图例不写轴号（要 argv）
         "_zoom_check.js",           # 图谱缩放的视口数学（锚点/夹取/裁剪）
+        "_gatt_queue_check.js",     # 所有 GATT 出口是否都走串行队列（叶子 vs 入口）
+        "_stat_parse_check.js",     # STAT 解析（drop= 出现两次的陷阱）+ 上传节流与丢帧核对
+        "_serial_tap.py",           # 增量落盘的串口抓取（要 argv；开串口会复位 ESP32，注意时机）
+        "_dur_check.js",            # 时值诊断：原始 MIDI / 转换器 / 显示层 三层对比（要 argv）
         "_diag_chord.js",        # 查和弦是否被正确保留（排查用，要 argv）
         "_diag_chord5.js",       # 精确重叠测量（排查用，要 argv）
         "_diag_concurrency.js",  # 峰值并发 / 轴占用（排查用，要 argv）

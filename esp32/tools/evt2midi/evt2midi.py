@@ -170,7 +170,9 @@ class ParseStats:
       · ⭐ 正常计数   —— `frames_ok` / `ascii_events` / `table_frames`
       · 🔴 **拒收计数** —— `frames_bad_csum` / `bad_type` / `truncated`（⭐ 见 `rejected`）
       · ⭐ 恢复计数   —— `resyncs` / `resync_fail`
-      · ⚠️ 可疑计数   —— `unknown_hi` / `axis_out_of_range` / `seq_gaps`
+      · ⚠️ 可疑计数   —— `unknown_hi` / `seq_gaps`
+      （2026-10-17：原 `axis_out_of_range` 已删 —— 它查的"鼓标记"字段在上行帧里不存在，
+        见 `parse_stream` 里那段说明 ✅）
       · ⭐ MIDI 侧    —— `inc_zero*` / `orphan_off` / `notes_open_at_end`
     """
 
@@ -216,7 +218,8 @@ class ParseStats:
 
         # ---- ⚠️ 可疑 ----
         self.unknown_hi = 0            # ⚠️ ≥0x80 且⛔ 不是 0xA5 ⇒ 失步/噪声
-        self.axis_out_of_range = 0     # ⚠️ axis > 15（⭐ 草案规定 0..15）
+        # 2026-10-17 删除 `axis_out_of_range`：它原来查"鼓标记 > 3"，而那个字段
+        # 在上行帧里不存在（`[3:0]` 是轴号，见 parse_stream 那段的说明）✅
         self.seq_gaps = 0
         self.seq_wraps = 0
         self.tick_wraps = 0
@@ -445,10 +448,15 @@ def parse_stream(data, stats=None, tables=None, anchors=None):
             inc = fd["inc"]
             vel = fd["vel"]
 
-            # ⚠️ axis 草案规定 0..15 ⇒ 越界**计数**（⭐ 但⛔ 不拒收：
-            #    音高以 `phase_inc` 为准，⭐ 轴号越界不影响音高，⭐ 只提示协议异常）
-            if axis > 15:
-                stats.axis_out_of_range += 1
+            # 🔴🔴 2026-10-17：这里原来有一段 `axis_out_of_range` 计数 —— **整段删掉**。
+            #   历史：2026-10-16 按《上行帧 byte7 口径补正》把 `[7][3:0]` 当"鼓标记"
+            #   （合法 0..3），于是查"鼓标记 > 3"；后经用户实测 + RTL 地面真相
+            #   （`rtl/w3c/evt_upstream.v:264` `b_axis = {2'b0, tm, ax}`）确认
+            #   **`[3:0]` 是轴号（0..15）**、上行帧里没有鼓标记位。
+            #   ⇒ 若继续查 "> 3"，**合法轴号 4..15 全被计成越界**（用户实测会虚高）；
+            #     若改回查 "> 15"，掩码之后**结构上不可能**成立 ⇒ 恒 0 的假探针（C83）。
+            #   ⇒ 两条都是假的，所以**整段删除**，⛔ 不留"看起来在查什么"的死判据。
+            #   真实的不变量由 frame_format 的掩码保证（0xFF ⇒ axis=15，见其自检）。
 
             # 序号连续性（只用于短窗口丢帧检测）。
             #
@@ -1205,9 +1213,44 @@ def selftest():
     chk("⑬ 未知类型【后面】的真帧仍被找回（⛔ 不被吞掉）",
         st_u2.frames_ok == 1 and any(e.tick == 0x0000C000 for e in evs_u2),
         "  ok=%d resync=%d" % (st_u2.frames_ok, st_u2.resyncs))
-    # ⚠️ axis 越界（⭐ 草案规定 0..15）⇒ ⭐ 计数，⛔ 不拒收（音高以 inc 为准）
-    evs_ax, st_ax = parse_stream(_mk_frame(T_NOTE_ON, 0, 1000, 200, inc440, 100))
-    chk("⑬ axis=200 越界 ⇒ 计数", st_ax.axis_out_of_range == 1 and st_ax.frames_ok == 1)
+    # ⭐⭐ 2026-10-15：`[7]` = `timbre[5:4] | axis[3:0]`，⭐ 掩码在【解析边界】就拆干净
+    #   ⇒ ⭐ 掩码本身仍要验（垃圾字节只解出合法字段，⛔ 不是 255）。
+    # 🔴🔴 2026-10-17 再改（用户实测 + RTL 地面真相 `evt_upstream.v:264`
+    #   `b_axis = {2'b0, tm, ax}`）：`[3:0]` 是【轴号 0..15】，旧版上行帧没有鼓标记位。
+    #   ⇒ 上一版按"鼓标记 0..3"写的两条判据（"15 越界必须被计数""0x22 合法不计数"）
+    #     **整段删除** —— 它们钉的是一个不存在的字段（化石判据，⛔ 留着会把正确行为判成错）。
+    # ⭐⭐ 2026-10-17 再加（FPGA 线新增 `bit[6] = is_drum`）：`[7] = {1'b0,is_drum,timbre[1:0],axis[3:0]}`
+    #   ⇒ 🔴 **测试向量必须避开 bit[6]=1**：`0xFF` 的 bit6=1 ⇒ 按新语义是【鼓】
+    #      ⇒ `axis` 必须是 0、`timbre` 必须是 None ⇒ 原来那条 "0xFF ⇒ axis=15" 与新时代冲突 ✗
+    #      （这不是"实现坏了"，是判据钉了旧口径 —— 任何符合新语义的实现都会红）
+    #   ✅ 改用 `0xBF`（1011_1111）：bit7=1 保留位 · **bit6=0 仍是音高字节** · timbre=3 · axis=15
+    #      ⇒ 原意图（垃圾字节被掩码拆干净、⛔ 不是 255）一格不丢 ✓
+    #   ✅ 另**补一条** `0xFF ⇒ 鼓`：垃圾字节里 bit6=1 也必须被正确识别成鼓（新语义的正向判据）。
+    #   ⚠️ 必须绕过造帧侧：`_mk_frame`（= build_frame）写侧也掩码，
+    #      直接传 0xFF 只会写出 0x0F ⇒ ⛔ 验不到解析侧的掩码。
+    _axg = bytearray(_mk_frame(T_NOTE_ON, 0, 1000, 1, inc440, 100))
+    _axg[OFF_AXIS] = 0xBF                      # bit7=1 保留位 · bit6=0（音高）· timbre=3 · axis=15
+    _axg[-1] = frame_checksum(bytes(_axg))
+    evs_ax, st_ax = parse_stream(bytes(_axg))
+    chk("⑬ [7]=0xBF ⇒ 解成 axis=15 / timbre=3（⛔ 不是 255，⭐ 掩码仍在）",
+        st_ax.frames_ok == 1 and len(evs_ax) == 1 and evs_ax[0].axis == 15,
+        "  axis=%s" % (evs_ax[0].axis if evs_ax else None))
+    # ⭐ 新位 `bit[6]=is_drum` 的正向判据：0xFF 的 bit6=1 ⇒ 鼓 ⇒ axis 必须是 0、drum_type=3
+    _dgg = bytearray(_mk_frame(T_NOTE_ON, 0, 1000, 1, inc440, 100))
+    _dgg[OFF_AXIS] = 0xFF                      # bit7=1 · bit6=1（鼓） · [5:4]=3 · [3:0]=15
+    _dgg[-1] = frame_checksum(bytes(_dgg))
+    evs_dg, st_dg = parse_stream(bytes(_dgg))
+    chk("⑬ [7]=0xFF ⇒ 判为【鼓】(bit6=1) · drum_type=3 · axis=0（新位生效）",
+        st_dg.frames_ok == 1 and len(evs_dg) == 1 and evs_dg[0].axis == 0,
+        "  axis=%s" % (evs_dg[0].axis if evs_dg else None))
+    # ⭐ 非空洞的另一半：合法轴号（含用户实测出现过的大轴号 10/12/13）必须照原样解出。
+    _okg = bytearray(_mk_frame(T_NOTE_ON, 0, 1000, 1, inc440, 100))
+    _okg[OFF_AXIS] = 0x0D                      # axis=13（用户实测里真实出现过）
+    _okg[-1] = frame_checksum(bytes(_okg))
+    evs_ok, st_ok = parse_stream(bytes(_okg))
+    chk("⑬ [7]=0x0D ⇒ axis=13 照原样解出（大轴号合法，⛔ 不许报错/计数）",
+        len(evs_ok) == 1 and evs_ok[0].axis == 13,
+        "  axis=%s" % (evs_ok[0].axis if evs_ok else None))
 
     print("\n[14] ⭐⭐ Tempo 元事件：⭐ 文件必须【自描述】速度")
     chk("⑭ 读侧（midi_verify）可用（⭐ 下面几条的前提）", HAVE_MIDI_READER)
@@ -1323,7 +1366,6 @@ def main():
     # ⚠️ 注意：⭐ `big_tick_steps` / `inc_zero*` / `orphan_off` **是在 `build_midi` 里算的**
     #    ⇒ 🔴 必须放到 `build_midi` **之后**再打印（⭐ 否则永远显示 0 —— 假绿）。
     print("  序号缺口 / 回绕    = %d / %d" % (st.seq_gaps, st.seq_wraps))
-    print("  ⚠️ axis 越界(>15)  = %d" % st.axis_out_of_range)
     if st.rejects:
         print("  拒收明细（⭐ 前 %d 条）：" % len(st.rejects))
         for off, why in st.rejects:

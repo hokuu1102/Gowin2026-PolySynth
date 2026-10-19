@@ -665,6 +665,12 @@ void pool_stop(void)
     enum { MAX_OPEN = 64 };          /* 比 POLY_TARGET(32) 宽一倍，留余量 */
     static uint32_t open_inc[MAX_OPEN];
     static uint8_t  open_axis[MAX_OPEN];
+    /* ⭐ 2026-10-16（FPGA 线「LED 挂灯上游缺口」第 3 条）：补发的 note_off 也要带
+     *   与配对 note_on【逐字节相同】的 note_off5，否则 guide_lamp 灭的是错灯
+     *   （ON 点 A3 的灯、OFF 去灭 A2 的灯 ⇒ 残留位一直闪 ⇒ 没灌谱也闪）。
+     *   ⚠️ 这里不从 inc 反算音高（要做除法 + 音高表反查，有舍入误差）——
+     *     而是扫帧时把 ON 里已经正确的 note_off5 原样存下来，flush 时写回。 */
+    static uint8_t  open_n5[MAX_OPEN];
     uint32_t n_open = 0, dropped = 0, n_fix = 0;
     uint32_t n_on = 0, n_off = 0, sent_idx = 0, frames = 0;
 
@@ -684,6 +690,7 @@ void pool_stop(void)
         if (k != 0 && k != 1) continue;
         uint32_t inc  = ev_inc(w);
         uint8_t  axis = (uint8_t)((w >> 19) & 0xF);   /* AXIS 位域 [22:19] */
+        uint8_t  n5   = (uint8_t)(w & 0x1F);          /* NOTE_OFF5 位域 [4:0] */
         if (k == 0) {
             n_on++;
             bool merged = false;
@@ -694,6 +701,7 @@ void pool_stop(void)
                 if (n_open < MAX_OPEN) {
                     open_inc[n_open]  = inc;
                     open_axis[n_open] = axis;
+                    open_n5[n_open]   = n5;   /* ⭐ 存下 ON 的 note_off5，供 flush 原样写回 */
                     n_open++;
                 } else {
                     dropped++;                  /* 表满：计数，不静默 */
@@ -713,7 +721,9 @@ void pool_stop(void)
     }
 
     /* 补发 note_off：tick 用【最后一个已发帧的 tick】，
-     * ⚠️ 与音乐时间一致 —— FPGA 侧按 tick 排序时不会跑到未来去。 */
+     * ⚠️ 与音乐时间一致 —— FPGA 侧按 tick 排序时不会跑到未来去。
+     * ⭐ 2026-10-16：bit[4:0] 写回该音符 ON 时的 note_off5（见 open_n5 的说明）——
+     *    补发的 OFF 必须与 ON 指向同一盏灯，否则灯灭不掉。 */
     uint32_t t_last = 0;
     if (sent_idx > 0) t_last = ev_tick(pool_peek_word(sent_idx - 1));
     for (uint32_t j = 0; j < n_open; j++) {
@@ -721,6 +731,7 @@ void pool_stop(void)
                    | ((uint64_t)(open_inc[j] & INC_MASK) << INC_SHIFT)
                    | ((uint64_t)(open_axis[j] & 0xF) << 19)
                    | ((uint64_t)0 << 11)          /* vel = 0 */
+                   | ((uint64_t)(open_n5[j] & 0x1F))   /* bit[4:0] = note_off5（与 ON 相同）*/
                    | ((uint64_t)1 << KIND_SHIFT); /* kind = 1 (note_off) */
         uint8_t frame[FRAME_BYTES];
         frame[0] = FRAME_HDR_EVENT;

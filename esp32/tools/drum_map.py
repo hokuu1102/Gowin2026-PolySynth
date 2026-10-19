@@ -74,7 +74,30 @@ def _to_field(phase_inc):
 
 
 DRUM_INC = {k: _to_field(v) for k, v in PHASE_INC.items()}
-DRUM_AXIS = 15                      # ⭐ 4 件【共用】这个轴（靠 inc 区分）
+
+# 鼓的力度 —— 用【鼓机的固定力度】（2026-10-14，用户："把鼓力度抬到和鼓机一个量级"）。
+# 原来发 MIDI 原始力度（0..127），而鼓机是 175..235
+#   => 灌谱的鼓只有鼓机的一半响，听着"没劲"。
+# 必须是【生效值】= 模块默认 + top.v 的实例化覆盖：
+#   rtl/w3c/drum_gen.v:92-95 默认  KICK 230 / SNARE 200 / HIHAT 140 / TOM 190
+#   rtl/top.v:2519-2521     覆盖  SNARE 235 / HIHAT 175 / TOM 220
+#     （KICK 未被覆盖 => 仍用默认 230）
+#   => 生效值 230 / 235 / 175 / 220
+# 音量与力度成线性（perc_env_bank.v 的 SHIFT = ENV_W - VEL_W，峰值 = velocity << 8）。
+# 若 FPGA 侧改那几个数，这里与 score_studio.html 的 DRUM_VEL 都要同步。
+DRUM_VEL = {"kick": 230, "snare": 235, "hihat": 175, "tom": 220}
+
+
+def drum_vel(name):
+    """鼓件 -> 下行 vel 字段值（与鼓机一致）。认不出的件给 200（不给 0，那会静音）。"""
+    return DRUM_VEL.get(name, 200)
+
+
+# 方案 B（2026-10-15）：四件【各占一条轴】12/13/14/15（原为四件共用 15）。
+#   ⭐ 判据与 rtl/w3c/seq_arb.v:204 一致：axis >= 12 ⇒ 鼓。
+#   ⚠️ 与 score_studio.html / upstream_studio.html 的同名常量必须一致（三处口径）。
+DRUM_AXIS_OF = {"kick": 12, "snare": 13, "hihat": 14, "tom": 15}
+DRUM_AXIS_BASE = 12
 DRUM_ORDER = ("kick", "snare", "hihat", "tom")   # 与 step_mask 位序一致
 FS_FPGA = 48828.125                 # f = inc * FS / 2^32
 
@@ -173,6 +196,19 @@ def selftest():
         all(v <= 2097151 for v in DRUM_INC.values()),
         str(sorted(DRUM_INC.values())))
 
+    # ①c ⭐ 鼓力度 = 鼓机的【生效值】（模块默认 + top.v 覆盖）
+    #     ⚠️ 生效值：KICK 230（未覆盖）· SNARE 235 · HIHAT 175 · TOM 220
+    chk("⭐ 鼓力度与鼓机生效值一致（230/235/175/220）",
+        DRUM_VEL == {"kick": 230, "snare": 235, "hihat": 175, "tom": 220},
+        str(DRUM_VEL))
+    chk("⭐ 力度都在 8 位范围内（1..255）",
+        all(1 <= v <= 255 for v in DRUM_VEL.values()),
+        str(sorted(DRUM_VEL.values())))
+    chk("非空洞：鼓力度明显高于 MIDI 原始力度上限（127）",
+        min(DRUM_VEL.values()) > 127,
+        "最小 " + str(min(DRUM_VEL.values())) + " vs MIDI 上限 127")
+    chk("认不出的件给 200（不给 0 —— 那会静音）", drum_vel("nope") == 200)
+
     # ② 反算频率（用 32 位 phase_inc）
     chk("Kick  频率 ≈ 61.0 Hz", abs(inc_to_hz(PHASE_INC["kick"]) - 61.0) < 0.5,
         "%.2f Hz" % inc_to_hz(PHASE_INC["kick"]))
@@ -209,8 +245,14 @@ def selftest():
     chk("方向性：音高 36 => kick（⛔ 不是 hihat）", gm_to_drum(36)[0] == "kick")
     chk("方向性：音高 42 => hihat（⛔ 不是 kick）", gm_to_drum(42)[0] == "hihat")
 
-    # ⑥ 四件共用同一轴
-    chk("四件共用 axis 15（⭐ FPGA 侧的口径）", DRUM_AXIS == 15)
+    # ⑥ 方案 B：四件【各占一条轴】12/13/14/15
+    chk("四件各占一条轴 12/13/14/15（⭐ FPGA 侧 seq_arb 的口径）",
+        DRUM_AXIS_OF == {"kick": 12, "snare": 13, "hihat": 14, "tom": 15},
+        str(DRUM_AXIS_OF))
+    chk("非空洞：轴号【互不相同】（⛔ 若又变回'四件共用一条'这条立刻红）",
+        len(set(DRUM_AXIS_OF.values())) == 4)
+    chk("判据边界：axis >= 12 才是鼓（11 是旋律上限）",
+        DRUM_AXIS_BASE == 12)
     chk("件序与 step_mask 位序一致（kick,snare,hihat,tom）",
         DRUM_ORDER == ("kick", "snare", "hihat", "tom"))
 
@@ -229,7 +271,9 @@ def main():
     for name in DRUM_ORDER:
         print("    %-6s inc = %-10d  ≈ %7.2f Hz"
               % (name, DRUM_INC[name], inc_to_hz(DRUM_INC[name])))
-    print("    ⭐ 四件【共用】axis %d（靠 inc 区分音色）" % DRUM_AXIS)
+    print("    ⭐ 四件【各占一条轴】：" +
+          " ".join("%s=轴%d" % (n, DRUM_AXIS_OF[n]) for n in DRUM_ORDER) +
+          "（判据 axis >= %d）" % DRUM_AXIS_BASE)
     print()
     print("  GM 音高 -> 件：")
     for m in sorted(GM_DRUM_MAP):

@@ -22,7 +22,8 @@ const fn = new Function("document", "window", "navigator", "performance", "conso
   "setTimeout", "clearInterval", "setInterval", "requestAnimationFrame",
   "location", "localStorage", "URLSearchParams",
   blk + "\n; return { parseMidi, midiToWords, midiToWordsWithOverride, buildScore, " +
-  "TIMBRE_NAMES, DRUM_AXIS, timbreOfTrack, setOverride: (m) => { timbreOverride = m; }, " +
+  "TIMBRE_NAMES, KIND_ON, KIND_OFF, isDrumAxis, timbreOfTrack, " +
+  "setOverride: (m) => { timbreOverride = m; }, " +
   "getOverride: () => timbreOverride };");
 const API = fn(doc, { addEventListener() {} }, { bluetooth: null }, { now: () => 0 },
   console, setTimeout, () => {}, () => 0, () => 0,
@@ -68,9 +69,36 @@ else {
   chk("⭐ 覆写后 timbre=" + newTb + " 的事件数明显增加",
       dist[newTb] > before[newTb],
       "before=" + before[newTb] + " after=" + dist[newTb]);
-  chk("非空洞：覆写只影响那条轨（总事件数不变）",
-      conv1.words.length === conv0.words.length,
-      conv0.words.length + " -> " + conv1.words.length);
+  /* ⚠️ 2026-10-15：总数【会变】—— 齐奏去重是【按音色】做的：
+   *   改一条轨的音色 ⇒ 它"与谁算同一个音"就变了 ⇒ 去重结果变 ⇒ 事件数变。
+   *   ⚠️ 连"其它轨的事件数"也会变：重复组里保留哪一条（= 归到哪条轨）随之改变
+   *      ⇒ ⛔ "其它轨分布不变"这个前提本身是错的（我第一版就写错了）。
+   *   ⭐ 所以改成钉【真正的不变量】：每条音符事件的 timbre = 它自己那条轨的音色。
+   *      （这才是"覆写是否被一致地应用"的判据；⛔ 不是数总数。） */
+  /* ⚠️ 用 `trackList[i].timbreIdx`（数字）—— ⛔ 不用 `TIMBRE_NAMES.indexOf(t.timbre)`：
+   *   页面里 `TIMBRE_NAMES` 是【名字→索引的对象】，⛔ 不是数组（踩过）。
+   * ⚠️ `KIND_ON`/`KIND_OFF` 必须在本文件的 harness 导出列表里，
+   *   ⛔ 否则它们是 undefined ⇒ 过滤条件恒真 ⇒ 一条都不查（"查了 0 条"就是这么来的）。 */
+  const tbOfTrack = conv1.trackList.map(t => t.timbreIdx);
+  let mismatch = 0, checked = 0;
+  conv1.words.forEach((w, i) => {
+    const k = Number((w >> 9n) & 0x3n);
+    if (k !== API.KIND_ON && k !== API.KIND_OFF) return;      /* 只看音符事件 */
+    const ax = Number((w >> 19n) & 0xFn);
+    if (API.isDrumAxis(ax)) return;                            /* 鼓的音色由 inc 决定 */
+    const tr = conv1.evTrack ? conv1.evTrack[i] : -1;
+    if (tr < 0 || !(tbOfTrack[tr] >= 0)) return;
+    checked++;
+    if (Number((w >> 7n) & 0x3n) !== tbOfTrack[tr]) mismatch++;
+  });
+  chk("⭐ 不变量：每条旋律事件的 timbre = 它自己那条轨的音色（覆写后仍成立）",
+      mismatch === 0 && checked > 0, "查了 " + checked + " 条 · 不符 " + mismatch);
+  const expDelta = (conv0.dupRemoved - conv1.dupRemoved) * 2;
+  chk("⭐ 总事件数的变化 = 去重差额×2（⭐ 证明变化来自去重，⛔ 不是别处漏改）",
+      (conv1.words.length - conv0.words.length) === expDelta,
+      "实测差 " + (conv1.words.length - conv0.words.length) +
+      " vs 去重差额×2 = " + expDelta +
+      "（dupRemoved " + conv0.dupRemoved + " -> " + conv1.dupRemoved + "）");
   chk("⭐ 轨道列表里该轨显示的音色名也变了",
       conv1.trackList.find(t => t.idx === tuned.idx).timbre === API.TIMBRE_NAMES[newTb],
       API.TIMBRE_NAMES[newTb]);
@@ -81,7 +109,7 @@ else {
     const conv2 = API.midiToWordsWithOverride(parsed, conv0.trackList);
     const incs = new Set();
     conv2.words.forEach((w, i) => {
-      if (Number((w >> 19n) & 0xFn) === API.DRUM_AXIS) {
+      if (API.isDrumAxis(Number((w >> 19n) & 0xFn))) {
         incs.add(Number((w >> 23n) & 0x1FFFFFn));
       }
     });
@@ -96,15 +124,15 @@ else {
 const sc = API.buildScore(conv0.words, "x");
 console.log();
 console.log("  主图音高范围（已排除鼓）：" +
-            Math.min(...sc.notes.filter(n => n.axis !== API.DRUM_AXIS)
+            Math.min(...sc.notes.filter(n => !API.isDrumAxis(n.axis))
                      .map(n => n.midi)).toFixed(1) + " .. " +
-            Math.max(...sc.notes.filter(n => n.axis !== API.DRUM_AXIS)
+            Math.max(...sc.notes.filter(n => !API.isDrumAxis(n.axis))
                      .map(n => n.midi)).toFixed(1));
 console.log("  鼓段数 / 旋律段数：" + (sc.drumSegs || []).length + " / " +
             (sc.noteSegs || []).length);
 console.log();
 console.log("  出现过的 timbre：" +
-            [...new Set(sc.notes.filter(n => n.axis !== API.DRUM_AXIS)
+            [...new Set(sc.notes.filter(n => !API.isDrumAxis(n.axis))
                     .map(n => n.timbre))].sort().join(","));
 
 console.log();

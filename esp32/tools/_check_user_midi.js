@@ -24,7 +24,7 @@ const doc = { getElementById: () => fakeEl(), querySelector: () => fakeEl(),
 const fn = new Function("document", "window", "navigator", "performance", "console",
   "setTimeout", "clearInterval", "setInterval", "requestAnimationFrame",
   "location", "localStorage", "URLSearchParams",
-  blk + "\n; return { parseMidi, midiToWords, DRUM_INC, DRUM_AXIS, TIMBRE_NAMES, " +
+  blk + "\n; return { parseMidi, midiToWords, DRUM_INC, isDrumAxis, TIMBRE_NAMES, " +
   "wordsForSelected, buildPayload, setSel: (s) => { trackSel = s; } };");
 const API = fn(doc, { addEventListener() {} }, { bluetooth: null }, { now: () => 0 },
   console, setTimeout, () => {}, () => 0, () => 0,

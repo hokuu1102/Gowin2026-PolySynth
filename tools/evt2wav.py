@@ -107,6 +107,13 @@ TICK_W, TICK_SH = 20, 44
 INC_W,  INC_SH  = 21, 23
 AXIS_SH, VEL_SH, KIND_SH = 19, 11, 9
 TIMBRE_SH = 7
+#  ⭐⭐ 2026-10-18（合并 ESP32 线）：⭐ `bit5 = is_drum` 显式鼓标志 ✅
+#     🔴 **为什么必须认这个位**：⭐ ESP32 版的 `mid2evt.py` 把鼓**放进 events.hex**
+#        并打 `is_drum=1`（⭐ 不再像以前那样整轨排除）⇒ ⚠️ 若不跳过，
+#        🔴 鼓会被当成**键盘音高**渲染 ⇒ 白烧 voice、听感全错 ✅
+#     📌 鼓的正路 = `events_drum.csv`（⭐ `mid2evt.py` 的 `write_drum_csv` 产出）
+#        ⇒ ⭐ `--drums events_drum.csv` 混回来 ✅
+IS_DRUM_SH = 5
 MIDI_NONE = -1          # the hex record has no midi field; CSV does
 KIND_TEMPO = 2
 
@@ -118,6 +125,7 @@ def read_events_hex(path):
        midi is therefore reported as MIDI_NONE (-1); rendering only needs inc.
     """
     out = []
+    n_drum_skipped = 0      # ⭐ 2026-10-18：被跳过的鼓事件数（`bit5 is_drum=1`）
     with io.open(path, encoding="ascii") as f:
         for lineno, line in enumerate(f, 1):
             line = line.strip()
@@ -136,8 +144,19 @@ def read_events_hex(path):
             axis = (w >> AXIS_SH) & 0xF
             vel = (w >> VEL_SH) & 0xFF
             kind = (w >> KIND_SH) & 0x3
+            #  ⭐⭐ 2026-10-18：⭐ **跳过鼓事件** ✅
+            #     🔴 ESP32 版把鼓放进 hex 并打 `is_drum=1`（`bit5`）⇒
+            #        ⚠️ 鼓没有键盘音高语义，当旋律渲染会白烧 voice、听感全错
+            #     📌 鼓走 `--drums events_drum.csv`（`mid2evt.py` 的 `write_drum_csv`）
+            if (w >> IS_DRUM_SH) & 0x1:
+                n_drum_skipped += 1
+                continue
             out.append((tick, {0: "on", 1: "off", 2: "tempo"}[kind],
                         MIDI_NONE, inc, vel, axis))
+    if n_drum_skipped:
+        print("note: skipped %d drum event(s) in %s "
+              "(drums are rendered only via --drums events_drum.csv)"
+              % (n_drum_skipped, path))
     return out
 
 

@@ -1,0 +1,45 @@
+mid2evt report
+====================================================
+input        : StJamesInfirmary-funk-测试曲.mid
+transpose    : +0 semitones
+
+pitch tracks : 4
+    axis 0  Bass                53 notes
+    axis 1  Guitar              36 notes
+    axis 2  Piano               36 notes
+    axis 3  Pad                 32 notes
+
+TIMBRE assignment (GUESSED from track name -- verify this!):
+    axis 0  Bass             -> BASS    (name contains 'bass')
+    axis 1  Guitar           -> GUITAR  (name contains 'guitar')
+    axis 2  Piano            -> PIANO   (name contains 'piano')
+    axis 3  Pad              -> PAD     (name contains 'pad')
+  Override any of them with:  --timbre AXIS=NAME,...
+  Names: BASS, GUITAR, PIANO, PAD
+
+DRUM tracks (routed to the drum machine, NOT played as pitch):
+    Drum (track name contains 'drum')
+  rule order: (1) track name, (2) MIDI channel 10
+  drums seen : 260 events (excluded from events.hex)
+
+EMPTY tracks (no notes; no axis id assigned): 1
+    Tempo
+  Guitar Pro exports placeholder/duplicate tracks; giving them
+  an axis would leave gaps in the numbering for no benefit.
+
+notes kept   : 157
+events       : 314 note records (1 note_on + 1 note_off each)
+de-duplicated: 0  (same tick + same pitch collapsed to one;
+                identical pitch means no musical loss, and it
+                avoids two voices beating at the same frequency)
+pitch range  : MIDI 40 .. 76
+length       : 38400 ticks = 10.00 bars (4/4 @ PPQN 960)
+
+TEMPO map (from the MIDI set_tempo events -- NOT assumed):
+    tick 0         96.00 BPM  -> tick_inc 131941
+    tick 19200    108.00 BPM  -> tick_inc 148434
+  ⭐ emitted into events.hex as 2 kind=2 record(s)
+     => the stream is SELF-CONTAINED: the FPGA no longer needs
+        the .mid to know how fast to play.
+  NOTE: this score CHANGES tempo.  Any renderer must follow
+        this map, not a single constant BPM.

@@ -30,7 +30,10 @@ frame_format.py —— ⭐ **上行帧格式的【唯一】定义处**（⭐ 任
 [1] 类型   0x01=note_on 0x02=note_off 0x03=calib 0x04=looper 0x10=表同步
 [2] seq    8 位序号（⚠️ 只用于【短窗口】丢帧检测 —— 750 事件/s 时 0.34 秒就回绕）
 [3..6] tick   32 位自由运行计数器（⭐ 大端；⭐ Δt 取模 2³²）
-[7] axis   轴号 0..15
+[7] axis/is_drum 一个字节装三种东西（2026-10-17 新增 is_drum 位）
+          = { 1'b0(bit7 保留) , is_drum(bit6) , 字段A[5:4] , 字段B[3:0] }
+          bit[6]=1 ⇒ 鼓事件：A = drum_type(0..3)、B = 0
+          bit[6]=0 ⇒ 音高事件：A = 音色(0..3)、B = 轴号(0..15)
 [8..11] phase_inc 32 位（⭐ 大端）
 [12] vel   8 位（0..255）
 [13] 校验  8 位
@@ -121,6 +124,95 @@ OFF_INC = 8
 OFF_VEL = 12
 LEN_TICK = 4
 LEN_INC = 4
+
+# ---- `[7]` 这一个字节装【三种】字段（2026-10-17 新增 is_drum 位）------------
+#   `[7]` = `保留[7] | is_drum[6] | 字段A[5:4] | 字段B[3:0]`
+#
+#   ⭐ 新语义（FPGA 线 2026-10-17 提案，已确认要加）：
+#     依据 `rtl/w3c/evt_upstream.v`（将改成）：
+#         wire [7:0] b_axis = {1'b0, is_drum, tm, ax};
+#     bit[6] = 1 ⇒ 这是【鼓】事件：bit[5:4] = drum_type(0..3)、bit[3:0] = 0
+#     bit[6] = 0 ⇒ 这是【音高】事件：bit[5:4] = 音色(0..3)、bit[3:0] = 轴号(0..15)
+#
+#   ⛔ 铁律：判鼓【只认 bit[6]】—— ⛔ 不许用 bit[3:0] 或轴号推断。
+#   ⭐ 向后兼容：旧位流该位恒 0 ⇒ 全部按"音高"解（= 原来的行为），⛔ 不得误判成鼓。
+#   ⚠️ 为什么不能用 `[3:0]` 反推：鼓事件的 `[3:0]` 恒 0，而音高事件的轴号 0 也是 0
+#      ⇒ "看到 0 就判鼓"/"看到 != 0 就判音高"两种反推都必错 ⇒ 唯一判据只有 bit[6]。
+#
+#   历史（别再改回去）：2026-10-16 曾按 FPGA 线《上行帧 byte7 口径补正》
+#     把 `[3:0]` 当成"鼓标记（鼓 = drum_type、手弹 = 0）" ⇒ 每个轴号 != 0 的音
+#     都被判成鼓。用户实测（bass 音色回传 14 条）显示
+#     drum_type = 5 / 4 / 3 / 2 / 13 / 12 / 11 / 10 —— 全都 > 3，
+#     而 drum_type 只有 2 位 ⇒ 不可能是它；"每个音 -1、到 2 之后跳 13"
+#     正是上位机贪心分配轴号的节奏 ⇒ 它就是轴号（0..15）。
+#     2026-10-17 回滚该口径，改由 bit[6] 判鼓（本文件钉住）。
+#
+#   上行/下行⚠️【不同】了（2026-10-17 之前两者同义）：
+#     · 下行（ESP32 → FPGA，`build_frame`）：仍是 `{2'b0, timbre, axis}`，没有 is_drum
+#       ⇒ 下行写侧【不动】（`AXIS_MASK` 仍是轴号掩码）。
+#     · 上行（FPGA → ESP32，`decode_uplink_byte7`）：`{1'b0, is_drum, tm|dt, ax}` ⇒ 判鼓。
+#
+#   同一字节在【网页侧】还有两个解析器（`tools/score_studio.html` 的 `fr[7]`、
+#      `tools/upstream_studio.html` 的 `fr[7]`）⇒ **三处必须同一套口径**
+#      （同族 C91：只改一处，两边解出来就不一样）。
+#   🔴 为什么必须掩码：⛔ 不掩码 ⇒ 保留位/高 4 位混进来 ⇒ 读成 16..63，
+#      而且"看起来只是数值变大了"（同族 C113：错得看不出来）。
+AXIS_MASK = 0x0F               # bit[3:0]：轴号 0..15（鼓事件里恒 0）
+TIMBRE_SH = 4                  # bit[5:4]：音色 0..3（音高事件）
+TIMBRE_MASK = 0x03
+DRUM_TYPE_SH = 4               # bit[5:4]：鼓型 0..3（鼓事件）—— 与音色共用同两位
+DRUM_TYPE_MASK = 0x03
+IS_DRUM_SH = 6                 # bit[6]：is_drum（⭐ 判鼓的【唯一】依据）
+IS_DRUM_MASK = 0x40            # 注意：这是【字节级】掩码 ⇒ 用 `b & IS_DRUM_MASK`，
+                               #   ⛔ 别写成移位后还 & 0x40（那恒为 0，会把所有音当音高）
+RESERVED_SH = 7                # bit[7]：真保留位（应为 0，只留作诊断）
+RESERVED_MASK = 0x80           # 同上，字节级掩码
+
+# ---- 上行 byte[7] 的唯一解码入口（别在别处再写一套）------------------------
+def decode_uplink_byte7(b):
+    """
+    上行帧 `byte[7]` 的唯一解码入口（口径见上方常量区的长注释）。
+
+    位布局（RTL 2026-10-17 起：`wire [7:0] b_axis = {1'b0, is_drum, tm, ax};`）：
+      bit[7]    保留（真保留位，应为 0）
+      bit[6]    is_drum
+      bit[5:4]  鼓事件 = drum_type(0..3) / 音高事件 = 音色(0..3)
+      bit[3:0]  音高事件 = 轴号(0..15) / 鼓事件 = 恒 0
+
+    ⇒ bit[6] = 1 时是【鼓】：bit[5:4] = drum_type、bit[3:0] = 0
+    ⇒ bit[6] = 0 时是【音高】：bit[5:4] = 音色、bit[3:0] = 轴号
+
+    返回 dict：
+      is_drum_up  bit[6] 是否置位（⭐ 判鼓【只认这一位】）
+      drum_type   bit[5:4]，仅当 is_drum_up 为真；否则 None
+      axis        bit[3:0]，仅当 is_drum_up 为假；鼓事件返回 0
+      timbre      bit[5:4]，仅当 is_drum_up 为假；鼓事件返回 None
+      reserved    bit[7]（真保留位；只留作诊断，不参与解码）
+
+    ⭐ 向后兼容：旧位流 bit[6] 恒 0 ⇒ 全部按"音高"解（= 原来的行为），
+      ⛔ 不得把旧位流误判成鼓。
+    ⛔ 判鼓只认 bit[6]，⛔ 不许用 [3:0] 推断 —— 鼓事件里 `[3:0]` 恒 0，
+       而音高事件的轴号 0 也是 0，"看到 0 就判鼓"必错。
+
+    历史（别再改回去）：2026-10-16 曾按 FPGA 线《上行帧 byte7 口径补正》
+      把 `[3:0]` 当"鼓标记" ⇒ 每个轴号 != 0 的音都被判成鼓。
+      用户实测的 bass 回传显示 drum_type = 5 / 4 / 3 / 2 / 13 / 12 / 11 / 10，
+      全都 > 3，而 drum_type 只有 2 位 ⇒ 不可能是它；
+      "每个音 -1、到 2 之后跳 13"正是轴号复用节奏 ⇒ `[3:0]` 是轴号。
+      2026-10-17 回滚，并在此处钉住正确口径（现在改由 bit[6] 判鼓）。
+    """
+    b &= 0xFF
+    is_drum_up = (b & IS_DRUM_MASK) != 0           # ⭐ 判鼓只认 bit[6]
+    u54 = (b >> DRUM_TYPE_SH) & DRUM_TYPE_MASK     # 音色 或 drum_type，看 bit[6]
+    u30 = b & AXIS_MASK                            # 轴号（鼓事件里恒 0）
+    return {
+        "is_drum_up": is_drum_up,
+        "drum_type": u54 if is_drum_up else None,
+        "axis": 0 if is_drum_up else u30,
+        "timbre": None if is_drum_up else u54,
+        "reserved": (b & RESERVED_MASK) >> RESERVED_SH,   # bit[7] 是真保留位
+    }
+
 
 # ---- 表同步帧的布局 --------------------------------------------------------
 TABLESYNC_DATA_OFF = 3
@@ -293,7 +385,8 @@ def parse_frame(f):
        ⇒ ⭐ 只要还有一条路径能把坏数据解成"合理值"，🔴 那个风险就还在。
 
     返回 dict，⭐ 字段随类型不同：
-      · 音符类：`type/seq/tick/axis/inc/vel`
+      · 音符类：`type/seq/tick/axis/timbre/is_drum_up/drum_type/inc/vel`
+        （⭐ `is_drum_up` 是 2026-10-17 新增的判鼓依据，见 `decode_uplink_byte7`）
       · 表同步：`type/table/items`（⭐ 16 个 32 位增量）
     """
     if len(f) < 2:
@@ -327,23 +420,26 @@ def parse_frame(f):
             "tick": int.from_bytes(f[OFF_TICK:OFF_TICK + LEN_TICK], "big"),
             "ppqn": raw48 if raw48 else PPQN_FALLBACK,
             "ppqn_raw": raw48,
-            "axis": f[OFF_AXIS],
+            "axis":   f[OFF_AXIS] & AXIS_MASK,
+            "timbre": (f[OFF_AXIS] >> TIMBRE_SH) & TIMBRE_MASK,
+            # 本类型的 `[7]` 被强制填 0（造帧侧也这么写）⇒ 结构上不可能是鼓。
+            # 仍然给出这两个键，⭐ 让调用方拿到的 dict 形状一致（⛔ 别时有时无）。
+            "is_drum_up": False,
+            "drum_type":  None,
             "vel": f[OFF_VEL],
         }
+    _b7 = decode_uplink_byte7(f[OFF_AXIS])
     return {
         "type": ftype,
         "seq": f[OFF_SEQ],
         "tick": int.from_bytes(f[OFF_TICK:OFF_TICK + LEN_TICK], "big"),
-        #  ⭐⭐ 2026-10-15：⭐ `[7]` 现在装**两样东西**（⭐ 帧长不变）✅
-        #     布局：bit[7:6]=0（留位）· bit[5:4]=**音色** · bit[3:0]=**轴号**
-        #     🔴 **为什么加音色**：⭐ 要把上行事件转成 MIDI ⇒ ⭐ MIDI 需要
-        #        **program change** ⇒ ⚠️ 而帧里原来没有这个字段
-        #     ✅ **向后兼容**：⭐ 音色 = 0（BASS）时 `[7]` 与原来**完全相同** ✅
-        #     🔴 **必须与 FPGA 侧同时改**（⭐ `rtl/w3c/evt_upstream.v` 的 `b_axis`）
-        #        ⇒ ⚠️ 只烧一边会出现"音高全乱" ✅
-        #     📌 音色映射：⭐ 0=BASS · 1=GUITAR · 2=PIANO · 3=PAD ✅
-        "axis":   f[OFF_AXIS] & 0x0F,
-        "timbre": (f[OFF_AXIS] >> 4) & 0x03,
+        # ⭐ 判鼓只认 bit[6]（2026-10-17 新位）——
+        #   `[3:0]` 是轴号（RTL：`b_axis = {1'b0, is_drum, tm, ax}`），⛔ 不是鼓标记。
+        #   鼓事件：is_drum_up=True / drum_type=0..3 / axis=0 / timbre=None
+        "axis":       _b7["axis"],
+        "timbre":     _b7["timbre"],
+        "is_drum_up": _b7["is_drum_up"],
+        "drum_type":  _b7["drum_type"],
         "inc": raw48,
         "vel": f[OFF_VEL],
     }
@@ -357,6 +453,8 @@ def build_frame(ftype, seq=0, tick=0, axis=0, inc=0, vel=0,
     表同步帧（`0x10`）走 `table=`/`items=` 参数，不用 tick/axis 那套。
     v1.1 起播锚点（`0x05`）走 `ppqn=` 参数 —— 它会占用 `[8..11]`，
     所以此时 `inc` 被忽略（两者【共用同一段字节】，这是协议定的，不是巧合）。
+    ⭐ 2026-10-15：`axis`/`timbre` 共用 `[7]`（见 `AXIS_MASK`/`TIMBRE_SH` 的说明）
+    ⇒ ⭐ 写侧也在这里打包，⛔ 调用方别自己去 OR 那一位（否则两边必漂，同族 C91）。
     """
     if ftype == T_TABLESYNC:
         f = bytearray(FRAME_LEN_BY_TYPE[T_TABLESYNC])
@@ -377,13 +475,14 @@ def build_frame(ftype, seq=0, tick=0, axis=0, inc=0, vel=0,
         inc = ppqn
         axis = 0
         vel = 0
+        timbre = 0
 
     f = bytearray(FRAME_LEN_DEFAULT)
     f[0] = FRAME_HDR
     f[1] = ftype & 0xFF
     f[OFF_SEQ] = seq & 0xFF
     f[OFF_TICK:OFF_TICK + LEN_TICK] = (tick & 0xFFFFFFFF).to_bytes(LEN_TICK, "big")
-    f[OFF_AXIS] = ((timbre & 0x03) << 4) | (axis & 0x0F)
+    f[OFF_AXIS] = (axis & AXIS_MASK) | ((timbre & TIMBRE_MASK) << TIMBRE_SH)
     f[OFF_INC:OFF_INC + LEN_INC] = (inc & 0xFFFFFFFF).to_bytes(LEN_INC, "big")
     f[OFF_VEL] = vel & 0xFF
     f[-1] = frame_checksum(bytes(f))
@@ -448,18 +547,34 @@ def selftest():
     chk("   0x05 ⛔ 不属于音符事件（不会当成 note 处理）",
         not (T_TRANSPORT_START in (T_NOTE_ON, T_NOTE_OFF)))
 
-    print("\n[2] ⭐ 构造 → 解析 往返（⭐ 音符帧）")
-    fr = build_frame(T_NOTE_ON, seq=5, tick=0x0000B000, axis=9, inc=37796, vel=200)
+    print("\n[2] ⭐ 构造 → 解析（⭐ 音符帧）")
+    # 2026-10-17：下行写侧仍是 `{2'b0, timbre, axis}`（没有 is_drum）；
+    #   上行解码多了 bit[6]=is_drum（`b_axis = {1'b0, is_drum, tm, ax}`）。
+    #   本用例 `[7]` = 0x29 的 bit[6]=0 ⇒ 上行按"音高"解，与下行同义。
+    #   （上一轮说"上行 `[3:0]` 是鼓标记"是错的，已回滚，见 decode_uplink_byte7 的 docstring。）
+    fr = build_frame(T_NOTE_ON, seq=5, tick=0x0000B000, axis=9, inc=37796, vel=200,
+                     timbre=2)
     chk("   长度 14", len(fr) == 14)
     chk("   帧头对", fr[0] == FRAME_HDR)
     chk("   校验对", frame_checksum(fr) == fr[-1])
+    # ⭐ 下行写侧：`[7]` = timbre(2)<<4 | axis(9) = 0x29 —— 这是下行契约，照旧成立
+    chk("   下行写侧 [7] = 0x29（timbre 2 在高 4 位、轴号 9 在低 4 位）",
+        fr[OFF_AXIS] == 0x29, "[7]=0x%02X" % fr[OFF_AXIS])
     d = parse_frame(fr)
     chk("   type 往返", d["type"] == T_NOTE_ON)
     chk("   seq  往返", d["seq"] == 5)
     chk("   tick 往返", d["tick"] == 0x0000B000)
-    chk("   axis 往返", d["axis"] == 9)
     chk("   inc  往返", d["inc"] == 37796)
     chk("   vel  往返", d["vel"] == 200)
+    # 上行解同一个字节：`[7]` = 0x29 ⇒ bit[3:0]=9 = 轴号、bit[5:4]=2 = 音色，
+    # 且 bit[6]=0 ⇒ 按"音高"解、⛔ 不是鼓。
+    # 2026-10-17 起上下行【不再完全同义】（上行多了 bit[6]=is_drum），
+    # 但这个字节的 bit[6]=0 ⇒ 两边解出来的 axis/timbre 一致 ——
+    # 这不是"对称往返碰巧成立"，而是同一个 RTL 拼装式子的两面。
+    chk("   上行解同字节：axis=9 / timbre=2 / ⛔ 不是鼓（上下行此处同义）",
+        d["axis"] == 9 and d["timbre"] == 2 and d["is_drum_up"] is False,
+        "axis=%s timbre=%s is_drum_up=%s"
+        % (d["axis"], d["timbre"], d["is_drum_up"]))
 
     print("\n[3] ⭐⭐ 表帧往返（⭐ 与音符帧【布局不同】，⛔ 不能混用）")
     vals = [1000 + i for i in range(TABLESYNC_ITEMS)]
@@ -473,29 +588,175 @@ def selftest():
         "tick" not in dt and "axis" not in dt)
 
     print("\n[4] ⭐ 极值 / 边界")
-    mx = build_frame(T_NOTE_ON, seq=255, tick=0xFFFFFFFF, axis=15, inc=0xFFFFFFFF, vel=255)
+    mx = build_frame(T_NOTE_ON, seq=255, tick=0xFFFFFFFF, axis=15, timbre=3,
+                     inc=0xFFFFFFFF, vel=255)
     dm = parse_frame(mx)
     chk("   全 0xFF 往返（tick 32 位）", dm["tick"] == 0xFFFFFFFF)
     chk("   全 0xFF 往返（inc 32 位）", dm["inc"] == 0xFFFFFFFF)
-    #  ⭐⭐ 2026-10-15：⭐ `axis` 从 **255 改成 15**（⭐ 因为 `[7]` 现在被拆成两半）✅
-    #     🔴 **为什么**：⭐ `[7]` 的布局是 `bit[5:4]=音色 · bit[3:0]=轴号`
-    #        ⇒ ⭐ **轴号只装得下 4 位**（0..15）⇒ ⭐ `axis=255` 现在会被掩成 15 ✅
-    #     📌 ⚠️ **这不是功能退化**：⭐ FPGA 侧 `axis` 本来就只有 4 位（0..15）
-    #        ⇒ ⭐ 原来"能往返 255"只是**测试写宽了**（⭐ 它测的是一个不存在的取值）✅
-    chk("   极值往返（seq/axis/vel）",
-        dm["seq"] == 255 and dm["axis"] == 15 and dm["vel"] == 255)
-    #  ⭐ 非空洞：⭐ 音色也要能往返（⭐ 用最大值 3）
-    mt = parse_frame(build_frame(T_NOTE_ON, axis=7, timbre=3))
-    chk("   音色往返（timbre 3 + axis 7）", mt["timbre"] == 3 and mt["axis"] == 7)
-    m0 = parse_frame(build_frame(T_NOTE_ON, axis=7, timbre=0))
-    chk("   音色 0 时与旧格式逐位一致（向后兼容）",
-        m0["timbre"] == 0 and m0["axis"] == 7)
+    chk("   全 0xFF 往返（seq/vel）", dm["seq"] == 255 and dm["vel"] == 255)
+    # `[7]` 装 {保留 1 位 | is_drum 1 位 | 字段A 2 位 | 字段B 4 位}：
+    # 轴号与音色都取满、且 bit[6]=0（不是鼓）时是 0x3F（axis=15 + timbre=3）。
+    chk("   [7]=0x3F：上行解出 axis=15 且 timbre=3（轴号取满，不是越界）",
+        dm["axis"] == 15 and dm["timbre"] == 3 and mx[OFF_AXIS] == 0x3F,
+        "axis=%d timbre=%d [7]=0x%02X" % (dm["axis"], dm["timbre"], mx[OFF_AXIS]))
+    # 真·垃圾字节（0xBF：保留位 bit7=1、bit[6]=0、高两位字段全 1）：
+    # 掩码必须照样把它拆干净。
+    # ⚠️ 这里⛔ 不能用 0xFF —— 2026-10-17 起 0xFF 的 bit[6]=1 ⇒ 那是【鼓】字节，
+    #   拆出来是 drum_type=3 / axis=0（见下方 [4b] 的专门判据），
+    #   拿它验"掩码"会验到另一条路径上（且旧期望 axis=15 会假红）。
+    _g = bytearray(build_frame(T_NOTE_ON, axis=1, timbre=1))
+    _g[OFF_AXIS] = 0xBF
+    _g[-1] = frame_checksum(bytes(_g))
+    _dg = parse_frame(bytes(_g))
+    chk("   [7]=0xBF（含保留位 bit7）也拆成 axis=15 / timbre=3（掩码不是摆设）",
+        _dg["axis"] == 15 and _dg["timbre"] == 3 and _dg["is_drum_up"] is False,
+        "axis=%d timbre=%d" % (_dg["axis"], _dg["timbre"]))
     z = parse_frame(build_frame(T_NOTE_ON))
-    # ⚠️ 注意：⭐ `type` 字段**不是 0**（⭐ 它就是 T_NOTE_ON）⇒ ⭐ 要排除它再判
-    zfields = {k: v for k, v in z.items() if k != "type"}
-    chk("   全 0 时【除 type 外】字段全 0", all(v == 0 for v in zfields.values()),
-        "  %s" % zfields)
+    # 注意：`type` 字段不是 0（它就是 T_NOTE_ON）⇒ 要排除它再判。
+    # 2026-10-17：解码现在还会产出 `drum_type`（非鼓时为 None）——
+    #   ⚠️ `None == 0` 不成立（`False == 0` 成立）⇒ 先把 None 摘掉再判"数值全 0"，
+    #   然后【单独】钉住"鼓字段为空"（⭐ 旧判据"不许有脏值残留"的意图保持不变）。
+    zfields = {k: v for k, v in z.items() if k != "type" and v is not None}
+    chk("   全 0 时【除 type/空鼓字段外】数值字段全 0（没有脏值残留）",
+        all(v == 0 for v in zfields.values()), "  %s" % zfields)
+    chk("   全 0 时 is_drum_up=False 且 drum_type=None（旧位流 ⛔ 不判鼓）",
+        z["is_drum_up"] is False and z["drum_type"] is None,
+        "  is_drum_up=%s drum_type=%s" % (z["is_drum_up"], z["drum_type"]))
+    chk("   全 0 时解出 axis=0 / timbre=0（不是脏数据）",
+        z["axis"] == 0 and z["timbre"] == 0,
+        "  axis=%s timbre=%s" % (z["axis"], z["timbre"]))
     chk("   type 仍是 T_NOTE_ON", z["type"] == T_NOTE_ON)
+
+    print("\n[4b] 上行 `byte[7]`：bit[6]=is_drum · [5:4]=音色/鼓型 · [3:0]=轴号")
+    # 依据（RTL 2026-10-17 起）：b_axis = {1'b0, is_drum, tm, ax}
+    #   ⇒ bit[7] 保留 · bit[6] is_drum · bit[5:4] 音色或 drum_type · bit[3:0] 轴号。
+    # ⛔ 铁律：判鼓【只认 bit[6]】—— 不许用 [3:0] 或轴号推断
+    #   （2026-10-16 那轮就是拿 [3:0] 当鼓标记，每个轴号 != 0 的音都被判成鼓）。
+    # ⭐ 旧位流 bit[6] 恒 0 ⇒ 全部按"音高"解（下面的 0x00 与用户实测轴号几条钉住它）。
+    # 下面的判据钉住【正确】口径，并刻意让"旧口径（无视 bit[6]）"过不去。
+    _c = decode_uplink_byte7
+    chk("   [7]=0x22 ⇒ axis=2, timbre=2（轴 2 + 音色 2，不是鼓）",
+        _c(0x22)["axis"] == 2 and _c(0x22)["timbre"] == 2
+        and _c(0x22)["is_drum_up"] is False,
+        "  axis=%d timbre=%d" % (_c(0x22)["axis"], _c(0x22)["timbre"]))
+    chk("   [7]=0x13 ⇒ axis=3, timbre=1",
+        _c(0x13)["axis"] == 3 and _c(0x13)["timbre"] == 1,
+        "  axis=%d timbre=%d" % (_c(0x13)["axis"], _c(0x13)["timbre"]))
+    # 大轴号必须被接受：用户实测显示过 13/12/11/10（那是轴号，不是越界）
+    # ⚠️ 2026-10-17 改样本：原来是 0xFA，但它的 bit[6]=1 ⇒ 现在成了【鼓】字节
+    #   （旧期望 axis=10 会假红）。保留原判据的意图（"大轴号合法"）改用 0x3A：
+    #   bit[6]=0 ⇒ axis=10、timbre=3，「大轴号 + 满音色」照样全是合法字段。
+    chk("   [7]=0x3A ⇒ axis=10, timbre=3（大轴号合法，不得报错）",
+        _c(0x3A)["axis"] == 10 and _c(0x3A)["timbre"] == 3
+        and _c(0x3A)["is_drum_up"] is False,
+        "  axis=%d timbre=%d" % (_c(0x3A)["axis"], _c(0x3A)["timbre"]))
+    chk("   [7]=0x00 ⇒ axis=0, timbre=0",
+        _c(0x00)["axis"] == 0 and _c(0x00)["timbre"] == 0)
+    # 用户实测的那几个值原样过一遍（bass 音色 ⇒ timbre=0）：
+    # 5/4/3/2/13/12/11/10 全部是合法轴号 0..15，不得报越界、不得判鼓。
+    _measured = [5, 4, 3, 2, 13, 12, 11, 10]
+    chk("   用户实测轴号 5/4/3/2/13/12/11/10 全部解成合法轴号（timbre=0）",
+        all(_c(v)["axis"] == v and _c(v)["timbre"] == 0
+            and _c(v)["is_drum_up"] is False for v in _measured),
+        "  %s" % [_c(v)["axis"] for v in _measured])
+
+    # ═══ 2026-10-17 新增：bit[6] = is_drum（⭐ 判鼓只认这一位）═══
+    chk("   [7]=0x60 ⇒ is_drum_up=True · drum_type=2 · timbre=None · axis=0",
+        _c(0x60)["is_drum_up"] is True and _c(0x60)["drum_type"] == 2
+        and _c(0x60)["timbre"] is None and _c(0x60)["axis"] == 0,
+        "  is_drum_up=%s drum_type=%s timbre=%s axis=%s"
+        % (_c(0x60)["is_drum_up"], _c(0x60)["drum_type"],
+           _c(0x60)["timbre"], _c(0x60)["axis"]))
+    # 鼓型 1 = Snare。⚠️ 用 0x50：0x10 的 bit[6]=0 ⇒ 那其实是【音高】字节
+    #   （timbre=1 / axis=0），拿它当鼓会直接违反"判鼓只认 bit[6]"。
+    #   两条都钉住，正是这条铁律的两个方向。
+    chk("   [7]=0x50 ⇒ is_drum_up=True · drum_type=1（Snare）",
+        _c(0x50)["is_drum_up"] is True and _c(0x50)["drum_type"] == 1
+        and _c(0x50)["timbre"] is None and _c(0x50)["axis"] == 0,
+        "  is_drum_up=%s drum_type=%s" % (_c(0x50)["is_drum_up"],
+                                         _c(0x50)["drum_type"]))
+    chk("   [7]=0x10 ⇒ ⛔ 不是鼓（bit[6]=0）：timbre=1 · axis=0 · drum_type=None",
+        _c(0x10)["is_drum_up"] is False and _c(0x10)["drum_type"] is None
+        and _c(0x10)["timbre"] == 1 and _c(0x10)["axis"] == 0,
+        "  is_drum_up=%s timbre=%s axis=%s"
+        % (_c(0x10)["is_drum_up"], _c(0x10)["timbre"], _c(0x10)["axis"]))
+    chk("   [7]=0x20 ⇒ is_drum_up=False · drum_type=None · timbre=2 · axis=0",
+        _c(0x20)["is_drum_up"] is False and _c(0x20)["drum_type"] is None
+        and _c(0x20)["timbre"] == 2 and _c(0x20)["axis"] == 0,
+        "  is_drum_up=%s timbre=%s axis=%s"
+        % (_c(0x20)["is_drum_up"], _c(0x20)["timbre"], _c(0x20)["axis"]))
+    chk("   [7]=0x0D ⇒ is_drum_up=False · axis=13（大轴号合法）",
+        _c(0x0D)["is_drum_up"] is False and _c(0x0D)["axis"] == 13
+        and _c(0x0D)["timbre"] == 0,
+        "  axis=%s timbre=%s" % (_c(0x0D)["axis"], _c(0x0D)["timbre"]))
+    chk("   [7]=0x00 ⇒ is_drum_up=False · drum_type=None · timbre=0 · axis=0"
+        "（旧位流）",
+        _c(0x00)["is_drum_up"] is False and _c(0x00)["drum_type"] is None
+        and _c(0x00)["timbre"] == 0 and _c(0x00)["axis"] == 0)
+    # ⚠️ drum_type=0 是【合法鼓型】（BitA），⛔ 不能用真值判断（0 会被当"没有"）。
+    chk("   [7]=0x40 ⇒ is_drum_up=True · drum_type=0（⭐ 0 是合法鼓型，⛔ 别用真值判）",
+        _c(0x40)["is_drum_up"] is True and _c(0x40)["drum_type"] == 0
+        and _c(0x40)["drum_type"] is not None,
+        "  drum_type=%r" % (_c(0x40)["drum_type"],))
+    # ⚠️ 反向陷阱：音高字节的轴号也可以正好是 0 ⇒ ⛔ 不能"axis==0 就判鼓"。
+    chk("   [7]=0x80（bit7=1，轴 0）⇒ ⛔ 不是鼓：reserved=1 · axis=0 · timbre=0",
+        _c(0x80)["is_drum_up"] is False and _c(0x80)["reserved"] == 1
+        and _c(0x80)["axis"] == 0 and _c(0x80)["timbre"] == 0,
+        "  reserved=%s axis=%s" % (_c(0x80)["reserved"], _c(0x80)["axis"]))
+    # ⭐ 非空洞性（反面）：把 bit[6] 那位【忽略】（= 旧口径）⇒ 0x60 会被解成 timbre=2，
+    #   与上面的第一条（timbre=None）不同 ⇒ 那条判据必红。这一步把"新位真的被读了"证明掉。
+    _old_timbre = (0x60 >> 4) & 0x03            # 旧口径：只看 [5:4]，不看 bit[6]
+    chk("   ⭐ 非空洞：旧口径（无视 bit[6]）会把 0x60 解成 timbre=2 ⇒ 上面必红",
+        _old_timbre == 2 and _c(0x60)["timbre"] is None and _old_timbre != _c(0x60)["timbre"],
+        "  旧=%d 新=%s" % (_old_timbre, _c(0x60)["timbre"]))
+
+    # 掩码不是摆设：[7]=0xFF 的 bit[6]=1 ⇒ 按新语义是【鼓】字节：
+    #   reserved=1 · drum_type=3 · axis=0 · timbre=None（⛔ 不是 255，也不是 axis=15）。
+    chk("   [7]=0xFF ⇒ 鼓：drum_type=3 · axis=0 · timbre=None · reserved=1",
+        _c(0xFF)["is_drum_up"] is True and _c(0xFF)["drum_type"] == 3
+        and _c(0xFF)["axis"] == 0 and _c(0xFF)["timbre"] is None
+        and _c(0xFF)["reserved"] == 1,
+        "  drum_type=%s axis=%s reserved=%s"
+        % (_c(0xFF)["drum_type"], _c(0xFF)["axis"], _c(0xFF)["reserved"]))
+    # 真保留位 bit[7] 必须被掩掉：0x82 的 axis 仍是 2，reserved 如实报 1。
+    # ⚠️ 2026-10-17 改样本：原来是 0xC2，但它的 bit[6]=1 ⇒ 现在成了鼓字节
+    #   （旧期望 axis=2 会假红）。改用 0x82：bit[6]=0 ⇒ 仍是音高字节，
+    #   原判据"保留位不污染字段"的意图不变。
+    chk("   [7]=0x82（保留位 bit7=1）⇒ axis 仍是 2，reserved 如实报 1",
+        _c(0x82)["axis"] == 2 and _c(0x82)["timbre"] == 0
+        and _c(0x82)["reserved"] == 1 and _c(0x82)["is_drum_up"] is False,
+        "  axis=%d timbre=%d reserved=%d"
+        % (_c(0x82)["axis"], _c(0x82)["timbre"], _c(0x82)["reserved"]))
+    # 键集合：⭐ 鼓字段现在【是】正式字段（2026-10-17 新增），下面钉住形状。
+    chk("   解码结果的键恰为 is_drum_up/drum_type/axis/timbre/reserved",
+        set(_c(0x22).keys()) == {"is_drum_up", "drum_type", "axis", "timbre",
+                                 "reserved"},
+        "  %s" % sorted(_c(0x22).keys()))
+    # 与 parse_frame 串起来：手造上行帧 → parse 出来的字段与 helper 一致
+    _up = bytearray(build_frame(T_NOTE_ON, inc=12345, vel=100))
+    _up[OFF_AXIS] = 0x22
+    _up[-1] = frame_checksum(bytes(_up))
+    _dup = parse_frame(bytes(_up))
+    chk("   手造上行帧 [7]=0x22 经 parse_frame ⇒ axis=2 / timbre=2（不是鼓）",
+        _dup["axis"] == 2 and _dup["timbre"] == 2
+        and _dup["is_drum_up"] is False and _dup["drum_type"] is None,
+        "  axis=%s timbre=%s" % (_dup["axis"], _dup["timbre"]))
+    chk("   parse_frame 的键恰为 type/seq/tick/axis/timbre/is_drum_up/drum_type/inc/vel",
+        set(_dup) == {"type", "seq", "tick", "axis", "timbre", "is_drum_up",
+                      "drum_type", "inc", "vel"},
+        "  %s" % sorted(_dup))
+    # 鼓字节走完整帧：parse_frame 必须把 is_drum_up / drum_type 也带出来
+    #   （⭐ 只验 helper 不够 —— 上层真正读的是 parse_frame 的返回值）。
+    _upd = bytearray(build_frame(T_NOTE_ON, inc=12345, vel=100))
+    _upd[OFF_AXIS] = 0x60
+    _upd[-1] = frame_checksum(bytes(_upd))
+    _dd = parse_frame(bytes(_upd))
+    chk("   手造上行帧 [7]=0x60 经 parse_frame ⇒ is_drum_up=True / drum_type=2",
+        _dd["is_drum_up"] is True and _dd["drum_type"] == 2
+        and _dd["axis"] == 0 and _dd["timbre"] is None
+        and _dd["inc"] == 12345,
+        "  is_drum_up=%s drum_type=%s axis=%s timbre=%s"
+        % (_dd["is_drum_up"], _dd["drum_type"], _dd["axis"], _dd["timbre"]))
 
     print("\n[5] ⭐⭐ 反例（非空洞性）：改坏必须被发现")
     bad = bytearray(fr); bad[-1] ^= 0xFF

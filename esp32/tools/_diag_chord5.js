@@ -20,7 +20,7 @@ const doc = { getElementById: () => fakeEl(), querySelector: () => fakeEl(),
 const fn = new Function("document", "window", "navigator", "performance", "console",
   "setTimeout", "clearInterval", "setInterval", "requestAnimationFrame",
   "location", "localStorage", "URLSearchParams",
-  blk + "\n; return { parseMidi, midiToWords, KIND_ON, KIND_OFF, DRUM_AXIS };");
+  blk + "\n; return { parseMidi, midiToWords, KIND_ON, KIND_OFF, isDrumAxis, MELODY_AXIS_MAX };");
 const API = fn(doc, { addEventListener() {} }, { bluetooth: null }, { now: () => 0 },
   console, setTimeout, () => {}, () => 0, () => 0,
   { protocol: "http:", host: "x", search: "" },
@@ -55,22 +55,22 @@ for (const [ax, arr] of [...byAxis].sort((a, b) => a[0] - b[0])) {
     if (e.kind === API.KIND_OFF) { if (cur > 0) cur--; }
     else if (e.kind === API.KIND_ON) { cur++; if (cur > mx) { mx = cur; hits.push({ t: e.tick, n: cur }); } }
   }
-  if (ax === API.DRUM_AXIS) worstDrum = Math.max(worstDrum, mx);
+  if (API.isDrumAxis(ax)) worstDrum = Math.max(worstDrum, mx);
   else worstTuned = Math.max(worstTuned, mx);
-  const warn = (ax !== API.DRUM_AXIS && mx > 1) ? "  <-- ⚠️ 会和弦互抢" : "";
+  const warn = (!API.isDrumAxis(ax) && mx > 1) ? "  <-- ⚠️ 会和弦互抢" : "";
   console.log("    axis " + String(ax).padStart(2) + "  真同时 " + String(mx).padStart(2) +
               (mx > 1 ? "   峰值例: tick=" + hits[hits.length - 1].t : "") + warn);
 }
 console.log();
-console.log("  ⭐ 旋律轴（0..14）最大真同时 = " + worstTuned +
+console.log("  ⭐ 旋律轴（0.." + API.MELODY_AXIS_MAX + "）最大真同时 = " + worstTuned +
             (worstTuned <= 1 ? "  => ✅ 通过（不会被 same_hit 顶掉）" : "  => 🔴 仍有互抢"));
-console.log("  鼓轴（15）最大真同时 = " + worstDrum +
+console.log("  鼓轴（12..15）最大真同时 = " + worstDrum +
             (worstDrum <= 1 ? "  => ✅ 无重叠"
-                            : "  => ⚠️ 鼓有同时敲击（需问 FPGA 侧 same_hit 对鼓的行为）"));
+                            : "  => ⚠️ 鼓有同时敲击（⭐ 方案 B 之后【不同件】本就该同时响）"));
 
-// 统计：有多少个 tick 上有 >=2 个鼓同时敲
-if (byAxis.has(API.DRUM_AXIS)) {
-  const dArr = byAxis.get(API.DRUM_AXIS);
+// 统计：有多少个 tick 上有 >=2 个鼓同时敲（⭐ 方案 B：鼓在 12..15 四条轴上，要合起来数）
+{
+  const dArr = evs.filter(e => API.isDrumAxis(e.axis));
   const onT = new Map();
   for (const e of dArr) {
     if (e.kind !== API.KIND_ON) continue;

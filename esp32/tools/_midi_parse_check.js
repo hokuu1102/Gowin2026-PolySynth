@@ -70,6 +70,7 @@ const fn = new Function("document", "window", "navigator", "performance", "conso
                         "location", "localStorage", "URLSearchParams",
                         blocks[0] + "\n; return { parseMidi, midiToWords, packWord, " +
                         "midiToPhaseInc, bpmToTickInc, isDrumTrack, timbreOfTrack, " +
+                        "isDrumAxis, DRUM_AXIS_OF, DRUM_AXIS_BASE, MELODY_AXIS_MAX, DRUM_INC, " +
                         "MIDI_PPQN, TIMBRE_NAMES, KIND_ON, KIND_OFF, KIND_TEMPO };");
 let API;
 try {
@@ -191,15 +192,47 @@ chk("换速：60BPM 的 tick_inc = 82463",
 // ---- ④ 转换层：轴分配 ----
 const conv = API.midiToWords(parsed);
 chk("转换：产生了事件", conv.words.length > 0, conv.words.length + " 个");
-/* 期望（2026-10-14 改）：
- *   ⭐ 鼓【全部】走 axis 15（FPGA 侧口径：鼓机四件共用 axis 15，靠 inc 区分）
- *   ⭐ 其余轨从 axis 0 起，按音色类型归组
- * ⚠️ 改这里的原因：原来鼓占 axis 0、其余从 1 起；现在鼓不占普通轴了。
- *    ⛔ 不是缺陷，是设计变更 —— 判据要跟着设计走。 */
+/* 期望（2026-10-15 方案 B）：
+ *   ⭐ 鼓【一件一轴】12/13/14/15（FPGA `seq_arb.v:204`：`axis >= 12` ⇒ 鼓）
+ *   ⭐ 旋律轨从 axis 0 起，只用 0..11
+ * ⚠️ `assign` 里鼓那一条的 `axis` 现在是"用到的轴列表"字符串（如 "12/13"），
+ *    ⛔ 不再是一条轴 —— 所以下面按类型分开判。 */
 const byAxis = {};
-for (const a of conv.assign) byAxis[a.axis] = a;
-chk("轴分配：鼓在 axis 15（⭐ 四件共用）",
-    byAxis[15] && byAxis[15].kind === "鼓", JSON.stringify(byAxis[15]));
+for (const a of conv.assign) if (typeof a.axis === "number") byAxis[a.axis] = a;
+const drumAssign = conv.assign.filter(a => a.kind === "鼓");
+chk("轴分配：鼓轨用到的轴全部落在 12..15",
+    drumAssign.length > 0 && drumAssign.every(a =>
+      String(a.axis).split("/").every(x => API.isDrumAxis(Number(x)))),
+    JSON.stringify(drumAssign.map(a => a.axis)));
+/* ⭐⭐ 非空洞（2026-10-15 补，改了两次才对）：
+ *   🔴 第一版只验"鼓轴落在 12..15" —— 把四件全改成 15 也照样绿。
+ *   🔴 第二版拿 `DRUM_AXIS_OF` 当期望值 —— ⛔ 被测对象一改、期望跟着改，判据照样绿（空转）。
+ *   ⭐ 正解：钉【协议字面值】（FPGA 侧答复 §1.1 / `seq_arb.v:204`），
+ *      ⛔ 不引用被测代码里的任何常量 —— 这才是"真契约 vs 派生常量"（同族 C88）。 */
+const DRUM_AXIS_PROTO = { kick: 12, snare: 13, hihat: 14, tom: 15 };
+{
+  chk("协议值：四件的轴 = 12/13/14/15（⛔ 不引用被测常量）",
+      DRUM_AXIS_PROTO.kick === 12 && DRUM_AXIS_PROTO.snare === 13 &&
+      DRUM_AXIS_PROTO.hihat === 14 && DRUM_AXIS_PROTO.tom === 15);
+  chk("且被测代码的 DRUM_AXIS_OF 与协议值逐字相同",
+      JSON.stringify(API.DRUM_AXIS_OF) === JSON.stringify(DRUM_AXIS_PROTO),
+      JSON.stringify(API.DRUM_AXIS_OF) + " vs " + JSON.stringify(DRUM_AXIS_PROTO));
+  /* 逐事件：轴必须等于【协议表】里该件的轴 */
+  const nameOfInc = {};
+  for (const [k, v] of Object.entries(API.DRUM_INC)) nameOfInc[v] = k;
+  const badAx = [];
+  conv.words.forEach(w => {
+    const k = Number((w >> 9n) & 0x3n);
+    if (k !== API.KIND_ON && k !== API.KIND_OFF) return;
+    const ax = Number((w >> 19n) & 0xFn);
+    if (!API.isDrumAxis(ax)) return;
+    const inc = Number((w >> 23n) & 0x1FFFFFn);
+    const want = DRUM_AXIS_PROTO[nameOfInc[inc]];
+    if (want !== ax) badAx.push((nameOfInc[inc] || inc) + "→轴" + ax + "(应 " + want + ")");
+  });
+  chk("非空洞：每条鼓事件的轴 = 协议表里该件的轴",
+      badAx.length === 0, badAx.join(",") || "全部对");
+}
 chk("轴分配：BASS 在 axis 0", byAxis[0] && byAxis[0].timbre === "BASS", JSON.stringify(byAxis[0]));
 chk("轴分配：PIANO 在 axis 1", byAxis[1] && byAxis[1].timbre === "PIANO", JSON.stringify(byAxis[1]));
 
@@ -216,9 +249,15 @@ function ticksOf(words, axis, kind) {
   }
   return out;
 }
-chk("缩放：鼓 on 的 tick = 0,480（240×2，⭐ 轴 15）",
-    ticksOf(conv.words, 15, API.KIND_ON).join(",") === "0,480",
-    ticksOf(conv.words, 15, API.KIND_ON).join(","));
+/* ⭐ 方案 B：鼓不在一根轴上 ⇒ 收集时要覆盖 12..15 四条（本夹具是 kick+snare ⇒ 12/13） */
+const ticksOfDrum = (words, kind) => {
+  const out = [];
+  for (const ax of [12, 13, 14, 15]) out.push(...ticksOf(words, ax, kind));
+  return out.sort((a, b) => a - b);
+};
+chk("缩放：鼓 on 的 tick = 0,480（240×2，⭐ 轴 12/13）",
+    ticksOfDrum(conv.words, API.KIND_ON).join(",") === "0,480",
+    ticksOfDrum(conv.words, API.KIND_ON).join(","));
 chk("缩放：BASS on 的 tick = 0,960（480×2，⭐ 轴 0）",
     ticksOf(conv.words, 0, API.KIND_ON).join(",") === "0,960",
     ticksOf(conv.words, 0, API.KIND_ON).join(","));
@@ -288,11 +327,17 @@ chk("非空洞：把 C4 改成 D4 => 输出里出现 D4 的 inc",
 chk("非空洞：且【不再】出现 C4 的 inc（⭐ 证明改的确实是那个音）",
     !onInc2.includes(expectInc(60)), "C4 inc = " + expectInc(60));
 
-// D. 只有鼓的 MIDI => 只占 axis 0，不占别的
+// D. 只有鼓的 MIDI => 只占 12..15，⛔ 不占旋律段 0..11
 const drumOnly = midiFile(DIV, [trDrum]);
 const dOnly = API.midiToWords(API.parseMidi(drumOnly.buffer));
-chk("非空洞：只有鼓 => 只用 axis 15", dOnly.assign.length === 1 && dOnly.assign[0].axis === 15,
-    JSON.stringify(dOnly.assign));
+/* ⚠️ 只统计【音符类】事件 —— tempo 元事件的 axis 字段是 0（不是音符），
+ *   ⛔ 不排除它就会看到"鼓占了轴 0"的假象（本判据第一版就踩了）。 */
+const dAxes = new Set(dOnly.words
+  .map(w => ({ ax: Number((w >> 19n) & 0xFn), k: Number((w >> 9n) & 0x3n) }))
+  .filter(e => e.k === API.KIND_ON || e.k === API.KIND_OFF)
+  .map(e => e.ax));
+chk("非空洞：只有鼓 => 只占 12..15（⛔ 不占旋律 0..11）",
+    dAxes.size > 0 && [...dAxes].every(a => API.isDrumAxis(a)), [...dAxes].join(","));
 
 
 /* ---- ⑤⭐ 多 tempo 必须全部发出（2026-10-14 补，双向验证抓到的漏洞）----
@@ -348,6 +393,73 @@ function tempoMidi(us) {
   const cT1 = API.midiToWords(API.parseMidi(tempoMidi([500000]).buffer));
   const n1 = cT1.words.filter(w => Number((w >> 9n) & 0x3n) === API.KIND_TEMPO).length;
   chk("非空洞：只 1 个 tempo => 只发 1 个（⛔ 不能无脑多发）", n1 === 1, "实测 " + n1);
+}
+
+/* ---- ⑦⭐⭐ 方案 B（2026-10-15）：齐奏去重 + 抢轴上报 ----
+ *
+ * 背景：方案 B 让鼓占掉 axis 12..15 ⇒ 旋律只剩 12 条轴（原 15 条）。
+ *   实测三份真实谱面峰值并发 13/13/10 ⇒ 12 条轴会有 3/20 次抢轴。
+ *   去重（同音高+同时值+同音色只发一次）后峰值 13→11 ⇒ 12 条够。
+ * ⚠️ 去重的 key **必须含音色**：跨音色齐奏是两件乐器，⛔ 去掉就丢一件。
+ *   ⇒ 下面用【两组】测试把这个区分钉死（这是本组判据的非空洞性所在）。
+ */
+function onCount(words, midi) {
+  const want = API.midiToPhaseInc(midi);
+  let n = 0;
+  for (const w of words) {
+    const kind = Number((w >> 9n) & 0x3n);
+    const inc = Number((w >> 23n) & 0x1FFFFFn);
+    if (kind === API.KIND_ON && inc === want) n++;
+  }
+  return n;
+}
+{
+  /* (a) 同音色齐奏（两把 Guitar 同 tick 同音高同时值）⇒ 必须去重成 1 个音 */
+  const sameTb = midiFile(DIV, [
+    track([[0, nameMeta("Guitar 1")], [0, [0x90, 60, 100]], [480, [0x80, 60, 0]]]),
+    track([[0, nameMeta("Guitar 2")], [0, [0x90, 60, 100]], [480, [0x80, 60, 0]]]),
+  ]);
+  const cS = API.midiToWords(API.parseMidi(sameTb.buffer));
+  chk("去重：同音色齐奏 ⇒ 只剩 1 个 on（⭐ 方案 B 靠它省轴）",
+      onCount(cS.words, 60) === 1, "on=" + onCount(cS.words, 60));
+  chk("去重：账要报出来（dupRemoved = 1）", cS.dupRemoved === 1,
+      "dupRemoved=" + cS.dupRemoved);
+
+  /* (b) 跨音色齐奏（Guitar + Piano 同 tick 同音高同时值）⇒ ⛔ 必须保留两个 */
+  const diffTb = midiFile(DIV, [
+    track([[0, nameMeta("Guitar")], [0, [0x90, 60, 100]], [480, [0x80, 60, 0]]]),
+    track([[0, nameMeta("Piano")], [0, [0x90, 60, 100]], [480, [0x80, 60, 0]]]),
+  ]);
+  const cD = API.midiToWords(API.parseMidi(diffTb.buffer));
+  chk("⭐ 去重【必须含音色】：跨音色齐奏保留 2 个 on（⛔ 不能丢一件乐器）",
+      onCount(cD.words, 60) === 2, "on=" + onCount(cD.words, 60));
+  chk("非空洞：跨音色时 dupRemoved = 0（⭐ 证明 key 里确实带了音色）",
+      cD.dupRemoved === 0, "dupRemoved=" + cD.dupRemoved);
+
+  /* (c) 轴够用时必须【不抢轴】（本自检的小谱面） */
+  chk("抢轴上报：小谱面 axisClash = 0（⭐ 够用就要说够用）",
+      conv.axisClash === 0, "axisClash=" + conv.axisClash);
+  chk("方案 B 口径：melodyAxisMax = 11 · drumAxisBase = 12",
+      conv.melodyAxisMax === 11 && conv.drumAxisBase === 12,
+      "melodyMax=" + conv.melodyAxisMax + " drumBase=" + conv.drumAxisBase);
+
+  /* (d) 非空洞性：13 个音同时响 ⇒ 12 条轴不够 ⇒ 必须报出抢轴
+   *   ⚠️ 长度必须给足：off 的 delta 若也是 0 ⇒ 音符长度 0 ⇒ 根本不重叠（我第一版就踩了）。 */
+  const evs13 = [[0, nameMeta("Piano")]];
+  for (let m = 60; m < 73; m++) evs13.push([0, [0x90, m, 100]]);
+  evs13.push([480, [0x80, 60, 0]]);                  /* ⭐ 第一个 off 推后 480 */
+  for (let m = 61; m < 73; m++) evs13.push([0, [0x80, m, 0]]);
+  const wide = API.midiToWords(API.parseMidi(midiFile(DIV, [track(evs13)]).buffer));
+  chk("⭐ 非空洞：13 个同时音 > 12 条轴 ⇒ axisClash > 0（抢轴确实会被报出来）",
+      wide.axisClash > 0, "axisClash=" + wide.axisClash);
+  /* 边界不写松：正好 12 个同时音 ⇒ 必须 0 抢轴 */
+  const e12 = [[0, nameMeta("Piano")]];
+  for (let m = 60; m < 72; m++) e12.push([0, [0x90, m, 100]]);
+  e12.push([480, [0x80, 60, 0]]);
+  for (let m = 61; m < 72; m++) e12.push([0, [0x80, m, 0]]);
+  const just12 = API.midiToWords(API.parseMidi(midiFile(DIV, [track(e12)]).buffer));
+  chk("非空洞：正好 12 个同时音 ⇒ axisClash = 0（⭐ 边界不写松）",
+      just12.axisClash === 0, "axisClash=" + just12.axisClash);
 }
 
 console.log();

@@ -23,7 +23,7 @@ const doc = { getElementById: () => fakeEl(), querySelector: () => fakeEl(),
 const fn = new Function("document", "window", "navigator", "performance", "console",
   "setTimeout", "clearInterval", "setInterval", "requestAnimationFrame",
   "location", "localStorage", "URLSearchParams",
-  blk + "\n; return { parseMidi, midiToWords, DRUM_AXIS, KIND_ON, KIND_OFF, incToHz, midiName, hzToMidi, buildScore, packWord };");
+  blk + "\n; return { parseMidi, midiToWords, isDrumAxis, KIND_ON, KIND_OFF, incToHz, midiName, hzToMidi, buildScore, packWord };");
 const API = fn(doc, { addEventListener() {} }, { bluetooth: null }, { now: () => 0 },
   console, setTimeout, () => {}, () => 0, () => 0,
   { protocol: "http:", host: "x", search: "" },
