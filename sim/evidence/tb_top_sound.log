@@ -51,6 +51,6 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : I2S2_DIN 1s and 0s are both substantial (not a stuck level)
      鈩癸笍 澶栫疆/鏉胯浇鏁版嵁涓嶅悓鐨勬媿鏁?= 456409锛堚瓙 涓よ矾鏍煎紡涓嶅悓锛屽睘棰勬湡锛?
 PASS: top sound chain (T57) - HP_DIN is live and the mixer emits a varying waveform
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_sound.sv:369: $finish called at 42048620000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_sound.sv:369: $finish called at 42048620000 (1ps)
 
 

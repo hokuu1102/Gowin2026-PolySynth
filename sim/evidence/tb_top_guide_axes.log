@@ -42,6 +42,6 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : 3f its note_off cleared ONLY key 14 (key 4 and the rest untouched)
 
 PASS: tb_top_guide_axes - 21/21 judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_top_guide_axes.sv:330: $finish called at 1880110000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_axes.sv:330: $finish called at 1880110000 (1ps)
 
 

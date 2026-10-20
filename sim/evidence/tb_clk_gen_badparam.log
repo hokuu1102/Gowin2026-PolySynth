@@ -1,6 +1,6 @@
 ﻿ERROR [clk_gen] 鍙傛暟蹇呴』鍏ㄤ负 2 鐨勫箓涓?BCLK_DIV/MCLK_DIV >= 2銆丆LK_PER_SAMPLE >= BCLK_DIV锛欳LK_PER_SAMPLE=1000 BCLK_DIV=12 MCLK_DIV=4锛堝綋鍓嶅疄鐜版妸 $clog2 褰撶Щ浣嶉噺鐢?鈬?闈?2 鐨勫箓浼?*闈欓粯缁欓敊棰戠巼**锛?
 ERROR [clk_gen] CLK_PER_SAMPLE(1000) 涓嶈兘琚?2脳BCLK_DIV(24) 鏁撮櫎 鈬?宸﹀彸鏃堕殭涓嶇瓑闀?
-VCD info: dumpfile build/sim/tb_clk_gen_badparam/tb_clk_gen_badparam.vcd opened for output.
+VCD info: dumping is suppressed.
 
 ================ clk_gen 鍙傛暟鑷锛堣礋鍚戯級================
   闈炴硶鍙傛暟瀹炰緥(1000/12/4) 鐨?bclk_en 娆℃暟 = 258
@@ -11,6 +11,6 @@ VCD info: dumpfile build/sim/tb_clk_gen_badparam/tb_clk_gen_badparam.vcd opened 
   ok : 鍚堟硶鍙傛暟涓?bclk_en 娆℃暟姝ｅ父锛?56 鈮?256锛?
 
 PASS: clk_gen 鍙傛暟鑷鎸夐鏈熷伐浣滐紙闈炴硶鍙傛暟浼氬憡璀︼紱鍚堟硶鍙傛暟鏃犲憡璀︼紱涓よ€呴兘涓嶅崱姝伙級
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\clk_gen\tb_clk_gen_badparam.sv:104: $finish called at 82091000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\clk_gen\tb_clk_gen_badparam.sv:104: $finish called at 82091000 (1ps)
 
 

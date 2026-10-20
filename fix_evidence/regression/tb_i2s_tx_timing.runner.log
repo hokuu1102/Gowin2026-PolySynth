@@ -1,0 +1,53 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_i2s_tx_timing ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+=== 运行 tb_i2s_tx_timing ===
+    VCD info: dumping is suppressed.
+
+================ i2s_tx vs PT8211 timing ================
+  [manual] DAC samples DIN on BCK RISING edge; Fbck<=18.4MHz; tH>=25ns
+  [ours  ] tSU(min) = 160 ns   tHD(min) = 160 ns   (target >= 100 ns)
+           WS setup(min) = 160 ns
+           BCK tH(min) = 160 ns (>= 25) 路 tL(min) = 160 ns
+           BCK period = 320..320 ns (nominal 320) 路 WS period = 20480..20480 ns
+           DIN changes = 307 路 BCK rising = 1153 路 WS changes = 35
+           bit period with >1 DIN change = 0
+  A8     : din=0 bck=0 ws=0
+========================================================
+  ok : DIN setup to BCK rising edge = 160 ns (>= 100)
+  ok : DIN hold after BCK rising edge = 160 ns (>= 100)
+  ok : BCK high time = 160 ns (manual tH >= 25 ns)
+  ok : BCK period = 320..320 ns (= 3.125 MHz, manual max 18.4 MHz)
+  ok : WS period = 20480..20480 ns (= 48.828 kHz, manual max 384 kHz)
+  ok : WS setup to BCK rising edge = 160 ns (>= 100)
+  ok : no bit period had more than one DIN change (glitch-free)
+  ok : A8 no X/Z
+
+PASS: I2S output timing has >=100ns setup/hold around the DAC sampling edge (PT8211 manual limits met)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_i2s_tx_timing.sv:184: $finish called at 368891000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

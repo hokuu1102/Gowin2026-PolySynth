@@ -26,6 +26,6 @@
   ok  : 6c buffer holds exactly DEPTH
 
 PASS: tb_score_chain - 21/21 judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_score_chain.sv:236: $finish called at 4380000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_score_chain.sv:236: $finish called at 4380000 (1ps)
 
 

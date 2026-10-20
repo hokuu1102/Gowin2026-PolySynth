@@ -1,0 +1,49 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_note_manager_vel_wrap ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_note_manager_vel_wrap.sv:98: warning: Port 39 (alloc_voice_o) of note_manager expects 1 bits, got 4.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_note_manager_vel_wrap.sv:98:        : Padding 3 high bits of the expression.
+=== 运行 tb_note_manager_vel_wrap ===
+    WARNING [note_manager] FIFO_DEPTH=8 < 鏈€鍧忕獊鍙?18 (=16 杞?+1 鑺傛媿鍣?+1 榧撴満) => 浜嬩欢浼氭孩鍑轰涪寮冿紙猸?宸茬敱 event_lost_o 鎸囩ず锛屼絾浼氫涪闊筹級
+=== tb_note_manager_vel_wrap (P0-01 鍔涘害鏂滃潯 8 浣嶅洖缁? ===
+      [dbg] W1 vel=255 src=0 => vel_of(0)=255 (鏈熸湜 255)
+  ok  : W1 hand-play vel=255 stays 255 after 1 sample_tick
+      [dbg] W2 vel=248 src=0 => vel_of(0)=248 vel_of(1)=0 (鏈熸湜 鑷冲皯涓€涓?248)
+  ok  : W2 hand-play vel=248 stays 248 after 1 sample_tick
+      [dbg] W3 vel=250 src=1 => vel_of(0)=250 (鏈熸湜 250)
+  ok  : W3 playback vel=250 stays 250 after 1 sample_tick
+      [dbg] W4 tgt=248 from 250 => vel_of(0)=248 (鏈熸湜 248)
+  ok  : W4 |tgt-cur|=7 <= 8 => snaps to 248 (no slow ramp)
+      [dbg] W5 tgt=100 from 248 => vel_of(0)=240 (鏈熸湜 240)
+  ok  : W5 descending ramp steps -8 (248 -> 240), no wrap
+      [dbg] W6 tgt=255 from 240 => vel_of(0)=248 (鏈熸湜 248)
+  ok  : W6 ascending ramp steps +8 (240 -> 248), no wrap
+
+PASS: tb_note_manager_vel_wrap 鈥?6/6 judgements held (P0-01 鏃犲洖缁?
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_note_manager_vel_wrap.sv:283: $finish called at 2040000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

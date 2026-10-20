@@ -1,0 +1,77 @@
+PASS velocity128 remains audible: {"names":["BASS"],"events":[{"tick":0,"status":144,"note":69,"vel":64},{"tick":960,"status":128,"note":69,"vel":0}]}
+PASS zero-inc note_off closes same pitch: {"names":["BASS"],"events":[{"tick":0,"status":144,"note":69,"vel":50},{"tick":960,"status":128,"note":69,"vel":0}]}
+PASS download bin preserves received 28 bytes: {"downloaded":28,"received":28,"remaining":0}
+PASS roll draws melody and two drums independently: {"blocks":[{"a":[76,26.560000000000002,866.6666666666666,12],"color":"#fb923c"},{"a":[97.66666666666666,453.44,866.6666666666666,12],"color":"#00d5c8"},{"a":[119.33333333333333,230.72,866.6666666666666,12],"color":"#00d5c8"}]}
+PASS roll draws two concurrent melodies axes 0,1: [{"a":[76,303.27272727272725,887.8048780487804,12],"color":"#fb923c"},{"a":[98.1951219512195,176.72727272727275,887.8048780487804,12],"color":"#fb923c"}]
+PASS roll draws two concurrent melodies axes 0,0: [{"a":[76,303.27272727272725,887.8048780487804,12],"color":"#fb923c"},{"a":[98.1951219512195,176.72727272727275,887.8048780487804,12],"color":"#fb923c"}]
+PASS REAL TOP UART fixture preserves two chord notes on roll: {"inputBytes":56,"events":[{"tick":0,"type":1,"axis":5,"timbre":0,"drumType":null,"isDrumUp":false,"hz":440.000349044567,"midi":69,"vel":100,"seq":0},{"tick":0,"type":1,"axis":6,"timbre":0,"drumType":null,"isDrumUp":false,"hz":553.687186766183,"midi":73,"vel":100,"seq":1},{"tick":0,"type":2,"axis":5,"timbre":0,"drumType":null,"isDrumUp":false,"hz":440.000349044567,"midi":69,"vel":100,"seq":2},{"tick":0,"type":2,"axis":6,"timbre":0,"drumType":null,"isDrumUp":false,"hz":553.687186766183,"midi":73,"vel":100,"seq":3}],"blocks":[{"a":[76,394.6666666666667,1.6,12],"color":"#fb923c"},{"a":[76,85.33333333333331,1.6,12],"color":"#fb923c"}]}
+PASS four timbres export four named tracks: ["BASS","GUITAR","PIANO","PAD"]
+PASS sample-clock A4 decodes MIDI69: 69
+PASS two-bar silent preparation shifts first note to7680: [{"tick":0,"inc":109951,"axis":0,"vel":0,"kind":2,"timbre":0,"guide":0,"isDrum":0,"note5":0,"drumType":null},{"tick":7680,"inc":37796,"axis":0,"vel":100,"kind":0,"timbre":2,"guide":1,"isDrum":0,"note5":24,"drumType":null},{"tick":8640,"inc":164927,"axis":0,"vel":0,"kind":2,"timbre":0,"guide":0,"isDrum":0,"note5":0,"drumType":null},{"tick":8640,"inc":37796,"axis":0,"vel":0,"kind":1,"timbre":2,"guide":1,"isDrum":0,"note5":24,"drumType":null}]
+PASS preparation retains tempo at0 and shifts later tempo to8640: [{"tick":0,"inc":109951,"axis":0,"vel":0,"kind":2,"timbre":0,"guide":0,"isDrum":0,"note5":0,"drumType":null},{"tick":8640,"inc":164927,"axis":0,"vel":0,"kind":2,"timbre":0,"guide":0,"isDrum":0,"note5":0,"drumType":null}]
+PASS preparation clock starts zero and 7680ticks lasts6sec: {"tick0":0,"sec7680":6.000008882735036}
+PASS byte7 compatibility 0: 0
+PASS byte7 compatibility 1: 1
+PASS byte7 compatibility 2: 2
+PASS byte7 compatibility 3: 3
+PASS byte7 compatibility 4: 4
+PASS byte7 compatibility 5: 5
+PASS byte7 compatibility 6: 6
+PASS byte7 compatibility 7: 7
+PASS byte7 compatibility 8: 8
+PASS byte7 compatibility 9: 9
+PASS byte7 compatibility 10: 10
+PASS byte7 compatibility 11: 11
+PASS byte7 compatibility 12: 12
+PASS byte7 compatibility 13: 13
+PASS byte7 compatibility 14: 14
+PASS byte7 compatibility 15: 15
+PASS byte7 compatibility 16: 0
+PASS byte7 compatibility 17: 1
+PASS byte7 compatibility 18: 2
+PASS byte7 compatibility 19: 3
+PASS byte7 compatibility 20: 4
+PASS byte7 compatibility 21: 5
+PASS byte7 compatibility 22: 6
+PASS byte7 compatibility 23: 7
+PASS byte7 compatibility 24: 8
+PASS byte7 compatibility 25: 9
+PASS byte7 compatibility 26: 10
+PASS byte7 compatibility 27: 11
+PASS byte7 compatibility 28: 12
+PASS byte7 compatibility 29: 13
+PASS byte7 compatibility 30: 14
+PASS byte7 compatibility 31: 15
+PASS byte7 compatibility 32: 0
+PASS byte7 compatibility 33: 1
+PASS byte7 compatibility 34: 2
+PASS byte7 compatibility 35: 3
+PASS byte7 compatibility 36: 4
+PASS byte7 compatibility 37: 5
+PASS byte7 compatibility 38: 6
+PASS byte7 compatibility 39: 7
+PASS byte7 compatibility 40: 8
+PASS byte7 compatibility 41: 9
+PASS byte7 compatibility 42: 10
+PASS byte7 compatibility 43: 11
+PASS byte7 compatibility 44: 12
+PASS byte7 compatibility 45: 13
+PASS byte7 compatibility 46: 14
+PASS byte7 compatibility 47: 15
+PASS byte7 compatibility 48: 0
+PASS byte7 compatibility 49: 1
+PASS byte7 compatibility 50: 2
+PASS byte7 compatibility 51: 3
+PASS byte7 compatibility 52: 4
+PASS byte7 compatibility 53: 5
+PASS byte7 compatibility 54: 6
+PASS byte7 compatibility 55: 7
+PASS byte7 compatibility 56: 8
+PASS byte7 compatibility 57: 9
+PASS byte7 compatibility 58: 10
+PASS byte7 compatibility 59: 11
+PASS byte7 compatibility 60: 12
+PASS byte7 compatibility 61: 13
+PASS byte7 compatibility 62: 14
+PASS byte7 compatibility 63: 15
+FAILURES=0

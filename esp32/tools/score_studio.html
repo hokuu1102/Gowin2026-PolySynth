@@ -4716,7 +4716,7 @@ function uDraw() {
    *      ⇒ 一串音看着像"只在中间闪一下"，完全看不出旋律 ✗
    *      ✅ 改成也画在 `Y(o.midi)` 上，只是用白色标"还没结束"。
    * ═══════════════════════════════════════════════════════════════════════════ */
-  const openMap = new Map();     /* axis -> { tick, midi, timbre, drumType, vel } */
+  const openMap = new Map();     /* voiceId -> { tick, midi, axis, timbre, drumType, vel } */
   for (const e of uResolveOffs(win)) {
     const key = e.voiceId;                    /* ⭐ 只用轴 —— ⛔ 不用 midi */
     if (e.type === U_T_ON) {

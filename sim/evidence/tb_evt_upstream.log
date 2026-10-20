@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_evt_upstream/tb_evt_upstream.vcd opened for output.
+﻿VCD info: dumping is suppressed.
   ok  : reset: frame_cnt is 0
   ok  : reset: FIFO level is 0
   ok  : reset: overflow is 0
@@ -44,6 +44,6 @@
   ok  : re-disabled: no further frames are emitted
 
 PASS: evt_upstream -- v1.1 14-byte frames with the FULL 32-bit phase_inc, correct type/seq/tick/axis/vel/XOR, gated by enable, and overflow is counted and sticky
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_upstream.sv:323: $finish called at 18100000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_evt_upstream.sv:323: $finish called at 18100000 (1ps)
 
 

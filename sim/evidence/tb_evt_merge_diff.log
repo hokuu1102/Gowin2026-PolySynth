@@ -2,6 +2,6 @@
 === evt_merge 閫愭媿宸垎锛欴EPTH 2/3/4/6/9 脳 20000 鎷?===
     姣旇緝娆℃暟 = 100330   涓嶄竴鑷?= 0
 PASS: 鏂版棫 evt_merge 鍦?5 绉?DEPTH 涓嬮€愭媿閫愪綅鐩稿悓锛?2 缁勮緭鍑猴級
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_evt_merge_diff.sv:143: $finish called at 401320000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_evt_merge_diff.sv:143: $finish called at 401320000 (1ps)
 
 

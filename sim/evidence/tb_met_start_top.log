@@ -15,7 +15,7 @@ NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
-VCD info: dumpfile build/sim/tb_met_start_top/tb_met_start_top.vcd opened for output.
+VCD info: dumping is suppressed.
   ok  : T0 precondition: mid-bar position held (tick_cnt_q==5000)
   ok  : T1 met_on_r rising edge produced a met_start pulse
   ok  : T2 pos_reset cleared the bar position (tick_cnt_q==0)
@@ -33,6 +33,6 @@ VCD info: dumpfile build/sim/tb_met_start_top/tb_met_start_top.vcd opened for ou
   ok  : T5 velocity pattern is accent-weak-weak-weak (180,108,108,108 x2)
   ok  : T6 EVERY beat really fired the perc envelope (8 triggers for 8 events)
 PASS: met_start_top -- metronome starts on the DOWNBEAT and every beat fires
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_met_start_top.sv:252: $finish called at 545530000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_met_start_top.sv:252: $finish called at 545530000 (1ps)
 
 

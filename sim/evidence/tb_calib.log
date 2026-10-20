@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/calib/tb_calib.vcd opened for output.
+﻿VCD info: dumping is suppressed.
 ok : default: out CLAMPED to MAX_TRAVEL when raw exceeds travel (K-153)
 ok : tare: out = raw - zero = 500 - 100 = 400
 ok : span: divider finished (busy==0)
@@ -14,6 +14,6 @@ ok : P2-24a (setup) the latched sample is non-zero (else 24c is vacuous)
 ok : P2-24b valid=0 => out_valid is 0 (the output is gated)
 ok : P2-24c valid=0 => the multiplier did NOT run (out_val HOLDS)
 PASS: calib T13 all 14 checks ok
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_calib.sv:315: $finish called at 1870000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\drivers\tb_calib.sv:315: $finish called at 1870000 (1ps)
 
 

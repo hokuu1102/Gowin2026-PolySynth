@@ -1,0 +1,64 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_score_chain ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_score_chain.sv:92: warning: Instantiating module play_seq with dangling input port 7 (lead_sel_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_score_chain.sv:92: warning: Instantiating module play_seq with dangling input port 8 (bpm_up_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_score_chain.sv:92: warning: Instantiating module play_seq with dangling input port 9 (bpm_dn_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_score_chain.sv:92: warning: Instantiating module play_seq with dangling input port 10 (bpm_load_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_score_chain.sv:92: warning: Instantiating module play_seq with dangling input port 11 (bpm_i) floating.
+=== 运行 tb_score_chain ===
+    === tb_score_chain (U-19 缂撳啿 + play_seq 鐨勩€愭彙鎵嬮摼銆? ===
+   play_seq 澶嶄綅榛樿 tick_inc = 164927锛堚瓙 搴斾负 120 BPM 鐨?164927锛?
+  ok  : 0a reset default tick_inc == 164927 (120 BPM)
+== 鈶犫憽鈶⑩懀 鏈潵浜嬩欢涓嶈鎻愬墠鍙?/ 鍚?tick 鍏ㄥ彂瀹?/ 閫愭潯钀藉 tick ==
+  ok  : 1a all three events are buffered (cnt == 3)
+  ok  : 1b no overflow for three events
+  ok  : 1c NO event fires before its tick (buffer really holds them)
+  ok  : 2a BOTH same-tick events fire within that one tick
+  ok  : 2b the two same-tick axes are 1 and 2
+  ok  : 2c both carry cur_tick == 5
+  ok  : 3a still nothing new before tick 9
+  ok  : 3b the tick-9 event fired
+  ok  : 3c it is axis 3
+  ok  : 3d it carries cur_tick == 9
+  ok  : 4a evt_cnt == 3 (nothing lost, nothing duplicated)
+  ok  : 4b the buffer drained to empty
+== 鈶?kind=2 鎹㈤€燂細猸?鏀归€熷害 + 猸?涓嶄骇鐢熼煶绗?==
+  ok  : 5a tempo_applied_o is a 1-cycle pulse (already low here)
+  ok  : 5b tick_inc_o became the value from the kind=2 event
+  ok  : 5c tempo_cnt_o == 1 (the change was really applied)
+  ok  : 5d a kind=2 event produces NO note (note count still 3)
+  ok  : 5e evt_cnt counts it (4 events consumed)
+== 鈶?婧㈠嚭鍦ㄨ繖鏉￠摼涓婁篃鍙娴?==
+  ok  : 6a overflow is sticky-visible on the chain
+  ok  : 6b drop_cnt == 1 (the 9th event was dropped, NOT silently)
+  ok  : 6c buffer holds exactly DEPTH
+
+PASS: tb_score_chain - 21/21 judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_score_chain.sv:236: $finish called at 4380000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

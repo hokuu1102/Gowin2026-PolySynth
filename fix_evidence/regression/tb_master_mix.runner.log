@@ -1,0 +1,49 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_master_mix ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+=== 运行 tb_master_mix ===
+    VCD info: dumping is suppressed.
+  ok  : baseline: output is 0 right after reset (mute-safe), even with a huge input
+  ok  : baseline: valid_o still passes through (chain not stalled)
+  ok  : full gain: ramp has settled to the target
+  ok  : full gain: output == input*0x7FFF>>15 (Q1.15 exact scaling, ~0.99997)
+  ok  : half gain: ramp settled
+  ok  : half gain: output == input>>1 (Q1.15 multiply, >>15)
+  ok  : half gain: exact, not approximate
+  ok  : mute: ramp settled to 0
+  ok  : mute: output is 0 at gain=0
+  ok  : ramp: gain fully reset to 0 before the precise up-ramp measurement
+  ok  : ramp: busy right after a gain step (still ramping)
+  ok  : ramp: still busy at 127 ticks (has NOT overshot or stalled)
+  ok  : ramp: settles at ~129 ticks (16384/128 steps + 1 settle cycle)
+  ok  : ramp: output mid-ramp is NOT the full-gain value (no click)
+  ok  : saturation: max positive sample at unity gain stays valid (no wrap)
+  ok  : saturation: min negative sample at unity gain stays valid (no wrap)
+  ok  : valid: valid_o is asserted the SAME cycle as valid_i (no backpressure)
+PASS: master_mix (mute-safe reset / unity passthrough / exact Q1.15 scaling / smooth ramp / saturation / zero-latency valid)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

@@ -13,6 +13,6 @@
      [xy] sine set=1843  vs  dc set=1
   ok  : non-vacuous: sine point count >> dc point count (>=20x)
 PASS: xy_scope acceptance (8 checks) - all judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\hdmi\tb_xy_scope.sv:186: $finish called at 51560320000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\hdmi\tb_xy_scope.sv:186: $finish called at 51560320000 (1ps)
 
 

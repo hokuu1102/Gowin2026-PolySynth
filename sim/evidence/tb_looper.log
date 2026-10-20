@@ -92,6 +92,6 @@
   ok  : CLEARPIPE-f the clear fired EXACTLY ONCE: a later recording is not wiped again
   ok  : CLEARPIPE-g ... and it is still there 60 cycles later (no lingering second clear)
 PASS: looper T37 record/replay, no-hang incl. axis 15, clear, same-tick, overflow, clear-pipeline one-shot
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_looper.sv:957: $finish called at 206860000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_looper.sv:957: $finish called at 206860000 (1ps)
 
 

@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_perc_env_bank/tb_perc_env_bank.vcd opened for output.
+﻿VCD info: dumping is suppressed.
   ok  : baseline: all levels are 0 with no trigger
   ok  : baseline: active_o is all 0 with no trigger
   ok  : baseline: busy_o is all 0 with no trigger

@@ -11,6 +11,6 @@ COVER: mixer P=4 O=15 E=1 positive/negative knee=0/0 ceiling=0/0
 COVER: mixer P=32 O=16 E=16 positive/negative knee=130/194 ceiling=498/694
 COVER: mixer P=32 O=15 E=1 positive/negative knee=0/0 ceiling=0/0
 PASS: BG mixer samples, valid, fault and active count match every clock
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_bg_mixer_cycle_equiv.sv:68: $finish called at 4096080000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_bg_mixer_cycle_equiv.sv:68: $finish called at 4096080000 (1ps)
 
 

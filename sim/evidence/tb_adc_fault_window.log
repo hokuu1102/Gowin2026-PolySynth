@@ -1,4 +1,4 @@
 ﻿PASS: legal CH0 endpoint is accepted; sustained all-channel endpoint is reported separately
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_adc_fault_window.sv:56: $finish called at 18696740000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\drivers\tb_adc_fault_window.sv:56: $finish called at 18696740000 (1ps)
 
 

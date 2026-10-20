@@ -1,0 +1,46 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_xy_scope ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+=== 运行 tb_xy_scope ===
+    == 鏉庤惃濡傦紙XY锛夋樉绀洪獙鏀讹細SCOPE_MODE=1, XY_DELAY=64 ==
+     [xy] sine  : set=1843  x=[75,564]  y=[11,469]
+  ok  : sine: point cloud spans a wide X range (>=150 px)
+  ok  : sine: point cloud spans a wide Y range (>=100 px)
+  ok  : sine: enough points to form a curve (>=200)
+     [xy] dc    : set=1  x=[381,381]  y=[182,182]
+  ok  : dc: all points collapse (<=4 pixels)
+     [xy] square: set=19  x=[0,639]  y=[0,479]
+  ok  : full-scale square: reaches BOTH Y edges (0 and 479)
+  ok  : full-scale square: reaches BOTH X edges (0 and 639)
+     [xy] fast  : set=357  x=[75,564]  y=[11,469]
+  ok  : fast signal: LINE DRAWING fills gaps (set >= 150; no-line would be ~20)
+     [xy] sine set=1843  vs  dc set=1
+  ok  : non-vacuous: sine point count >> dc point count (>=20x)
+PASS: xy_scope acceptance (8 checks) - all judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\hdmi\tb_xy_scope.sv:186: $finish called at 51560320000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

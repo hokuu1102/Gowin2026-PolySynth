@@ -1,4 +1,4 @@
 ﻿PASS: independent-bin sharp outline, no fill, connected flank, full-band and atomic backpressure
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\hdmi\tb_fft_outline.sv:98: $finish called at 2330560000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\hdmi\tb_fft_outline.sv:98: $finish called at 2330560000 (1ps)
 
 

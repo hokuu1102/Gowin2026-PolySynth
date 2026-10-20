@@ -1,0 +1,111 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_uart_ui ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling input port 27 (fxstat_req_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling input port 28 (fxstat_sub_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling input port 29 (fx_en_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling input port 30 (fx_dly_active_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling input port 31 (fx_chor_active_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling input port 32 (fx_dly_primed_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling input port 33 (fx_dist_clip_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling input port 34 (fx_trem_lfo_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_uart_ui.sv:105: warning: Instantiating module uart_ui with dangling input port 35 (fx_pipe_i) floating.
+=== 运行 tb_uart_ui ===
+    VCD info: dumping is suppressed.
+  ok  : reset: mode=MODE_PIANO_DEFAULT (???惔)
+  ok  : reset: base_semi=0 (C4)
+  ok  : reset: hb_ready=0
+  ok  : reset:?commit ??
+  ok  : reset: fx_mask = ?????
+  ok  : reset: fx_gain = ??16384 (4.0)
+  ok  : reset: fx_trim = ??8192 (0.25)
+  ok  : reset: fx_mix = ??128
+  ok  : reset: fx_fb =??96
+  ok  : reset: fx_depth = ??0?€???
+  ok  : reset: fx_rate ??7
+  ok  : reset: fx_dlylen = ??8??6??
+  ok  : reset: fx_chorlen =????5????????
+  ok  : reset棤 fx_commit ??
+  ok  : reset: test_mode???
+  ok  : ??0x88 -> hb_ready=1
+  ok  : ???frame_cnt
+  ok  : ??敼 mode
+  ok  : ???? -> mode???)
+  ok  : mode_comm?????
+  ok  : mode_commit ????????
+  ok  : ??懜 -> mod???)
+  ok  : mode_sw_req_i -> mod??????????
+  ok  : mode_sw_req_i -> mode_commi????
+  ok  : mode_sw_req_??-> mode_commit ??
+  ok  : mode_sw_req?綆 -> mod??????????
+  ok  : mode_sw_req_i ????????
+  ok  : ???-> base_semi ??=12
+  ok  : base_comm?????
+  ok  : base_commit???
+  ok  : fx 0x10: mask 0x00 -> 0x17?????????bit4???
+  ok  : fx 0x10: fx_comm?????
+  ok  : fx 0x10: fx_commit???
+  ok  : fx 0x11: ga??2 -> 8192 (Q4.12 = 2.0)
+  ok  : fx 0x11: gai€?4 -> 16384 (Q4.12 = 4.0)
+  ok  : fx 0x11: ga??54 -> 650????
+  ok  : fx 0x12: trim?28 -> 32768 (Q1.15 = 1.0)
+  ok  : fx 0x13: mix ??200
+  ok  : fx 0x14: fb ??180
+  ok  : fx 0x15: depth 0 ->?????
+  ok  : fx 0x15: depth????????????????
+  ok  : fx 0x16: rate??30
+  ok  : fx 0x17: dlyle€?4 -> 8192 ?紙168??
+  ok  : fx 0x17: dlylen ?27 -> 16256 ??
+  ok  : fx 0x17: dlylen ?00 -???1638? DEPTH-????2??
+  ok  : fx 0x18: chorlen ?3 -> 736???5??
+  ok  : fx 0x18: chorle€?3 -> 2016 ??
+  ok  : fx 0x18: chorlen?00 ???204? DEPTH-????2??
+  ok  : fx ?? ??0x7F ????????
+  ok  : fx?? val=0xF??? =>??€?????????
+  ok  : ??????fx_commi??????????????
+  ok  : ????? 0xF???嵁 =>??垚 0xFE
+  ok  : fx??????fx_commit???
+  ok  : fx 0x10: mask 0xFE -> 0x????????????
+  ok  : fx 0x9?彿 bi???????垚 0x?????mas??
+  ok  : touch 0x80:???bit7 ????????????????
+  ok  : touch 0x80???mode_commit ??
+  ok  : ?????-> test_mode=1, n=00(4)
+  ok  : test_mode_comm?????
+  ok  : test_mode_commit???
+  ok  : ?? ??-> n=01(8)
+  ok  : ?????-> n=10(16)
+  ok  : ?????-> n=11(32)
+  ok  : ?????-> 32???
+  ok  : ?繛 FF???坢ode???
+  ok  : ???-> ???resync_cnt>0)
+  ok  : ????-> err_cnt ???????????
+  ok  : ?????懜 mode=~??
+  ok  : ?? frame_cnt ??
+PASS: tb_uart_ui (69 checks)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_uart_ui.sv:575: $finish called at 48220000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

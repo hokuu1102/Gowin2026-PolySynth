@@ -1,5 +1,5 @@
 ﻿ERROR [i2s_tx] 鍙傛暟涓嶈嚜娲斤細JUSTIFY=0 SLOT_BITS=16 DATA_BITS=16 MSB_DELAY=1 鈬?浼氭湁鏁版嵁浣嶈**闈欓粯涓㈠純**
-VCD info: dumpfile build/sim/tb_i2s_tx_sweep/tb_i2s_tx_sweep.vcd opened for output.
+VCD info: dumping is suppressed.
   [x] (7) #1 got 0x3ffe00 exp 0x3fffff
   [x] (7) #2 got 0x064400 exp 0x0645e9
   [x] (7) #3 got 0x3fb000 exp 0x3fb11a
@@ -29,6 +29,6 @@ VCD info: dumpfile build/sim/tb_i2s_tx_sweep/tb_i2s_tx_sweep.vcd opened for outp
   ok : R-14 鏋佺鏍风偣鎴柇姝ｇ‘锛堝彇楂?16 浣嶃€佷笉婧㈠嚭锛涒垝0.5LSB 鐩存祦鍋忕疆涓哄凡鐭ュ彇鑸嶏級
 
 PASS: i2s_tx works in every parameter mode (incl. 16BCK equivalence and the inconsistent-parameter negative proof)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_i2s_tx_sweep.sv:419: $finish called at 1392891000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_i2s_tx_sweep.sv:419: $finish called at 1392891000 (1ps)
 
 

@@ -21,6 +21,6 @@
   ok  : after reset the transmitter still works (0xC3 round-trips)
 
 PASS: uart_tx sends 8N1 LSB-first, latches its data, spans busy over the frame, pulses done for one cycle, ignores start-while-busy and survives mid-byte data changes -- all verified by loopback through the real uart_rx
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_uart_tx.sv:363: $finish called at 863510000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_uart_tx.sv:363: $finish called at 863510000 (1ps)
 
 

@@ -1,0 +1,14 @@
+# Generated executables and disposable patch scripts are not review artifacts.
+*.exe
+*.vvp
+*.mid
+*.vcd
+*-host-fixed/
+pool-host-fixed/
+host/
+apply_*.py
+fix_*.py
+make_*.py
+clean_*.py
+inspect_hdmi.py
+*process-config.json

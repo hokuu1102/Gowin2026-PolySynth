@@ -3,6 +3,6 @@
   ok  : existing voice keeps its original PIANO timbre
   ok  : new voice snapshots GUITAR while held voice stays PIANO
 PASS: T31b timbre event path
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_timbre_event_path.sv:193: $finish called at 1500000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_timbre_event_path.sv:193: $finish called at 1500000 (1ps)
 
 

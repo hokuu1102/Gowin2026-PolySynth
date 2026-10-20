@@ -26,6 +26,6 @@
   ok  : FB: port B is NOT a constant (axis 0 vs axis 7 differ => the check above is not vacuous)
 
 PASS: axis_map selects phase_inc by AXIS ID in both modes (keyboard + fretboard), with interpolation disabled; 16 fretboard axes and 16 keyboard axes each map to their confirmed pitch tables, phase_inc is never zero, and valid stays in the same cycle as data
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_axis_map.sv:482: $finish called at 4579000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_axis_map.sv:482: $finish called at 4579000 (1ps)
 
 

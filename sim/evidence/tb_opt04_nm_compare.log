@@ -122,6 +122,6 @@ WARNING [note_manager] FIFO_DEPTH=4 < 鏈€鍧忕獊鍙?18 (=16 杞?+1 鑺傛�
   INFO: K-169 phase before re-press = 40505000, after = 40000000
   ok  : K-169: re-press in release tail reloads the phase seed
 PASS: note_manager acceptance (T54) - all judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_opt04_nm_compare.sv:1422: $finish called at 5292080000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_opt04_nm_compare.sv:1422: $finish called at 5292080000 (1ps)
 
 

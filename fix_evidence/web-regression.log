@@ -1,0 +1,11 @@
+PASS score_studio.html raw export keeps every received byte across fragments
+PASS score_studio.html parser consumed frames independently of archive
+PASS score_studio.html MIDI velocity boundaries
+PASS score_studio.html chord and drums keep independent identities
+PASS Python export -> actual webpage score conversion preserves four timbres and four drums
+PASS score_studio.html reset clears raw archive
+PASS upstream_studio.html raw export keeps every received byte across fragments
+PASS upstream_studio.html parser consumed frames independently of archive
+PASS upstream_studio.html MIDI velocity boundaries
+PASS upstream_studio.html chord and drums keep independent identities
+PASS upstream_studio.html reset clears raw archive

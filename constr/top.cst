@@ -534,3 +534,8 @@ GRP_LOC h5_ret R[45:73]C[1:148];
 // ---------------------------------------------------------------------------
 GROUP  h5_scope = { "u_hdmi/u_scope/*" };
 GRP_LOC h5_scope R[1:44]C[1:148];   // ⭐ A：36 行装不下 BSRAM（CT1005）⇒ 回到 44
+
+// Keep the OSER reset launch register beside TMDS IOR22/24/26/39.
+// This limits actual reset routing delay; recovery/removal remain fully timed.
+GROUP h5_oser_reset = { "u_hdmi/u_serializer/reset_release*" };
+GRP_LOC h5_oser_reset R[22:40]C[140:148];

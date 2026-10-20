@@ -1,0 +1,16 @@
+[
+  {
+    "repeat": 1,
+    "actual_exit": 1,
+    "expected_exit": 1,
+    "stale_pass_hint": false,
+    "result_log": "FAIL: TIMEOUT after 1 s -- no verdict before deadline\n"
+  },
+  {
+    "repeat": 2,
+    "actual_exit": 1,
+    "expected_exit": 1,
+    "stale_pass_hint": false,
+    "result_log": "FAIL: TIMEOUT after 1 s -- no verdict before deadline\n"
+  }
+]

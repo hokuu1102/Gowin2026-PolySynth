@@ -1,5 +1,5 @@
 ﻿NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
-VCD info: dumpfile build/sim/tb_am_pipe/tb_am_pipe.vcd opened for output.
+VCD info: dumping is suppressed.
 == A: 鍩虹嚎 鈥斺€?鍗曚簨浠讹紙閿洏妯″紡锛岃酱 5锛?=
   ok  : EVT axis=5 mode=0 kind=0 inc=00af92ee == table[5]
   ok  : A: output event count == 1
@@ -40,6 +40,6 @@ VCD info: dumpfile build/sim/tb_am_pipe/tb_am_pipe.vcd opened for output.
   ok  : back-to-back injected event count == 14
   ok  : P0-2: w3a_evt_inc is in the SAME cycle as w3a_evt_valid (mismatch == 0)
 PASS: am_pipe pitch-tap alignment (P0-2) - all judgements held (events=17 mismatches=0)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_am_pipe.sv:312: $finish called at 2060000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_am_pipe.sv:312: $finish called at 2060000 (1ps)
 
 

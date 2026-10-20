@@ -1,0 +1,55 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_axis_snapshot ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+=== 运行 tb_axis_snapshot ===
+    NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+  ok  : after reset all 16 axes read 0
+  ok  : after reset all deltas read 0
+  ok  : after reset axis_seen is 0
+  ok  : axis 0 (adc0 ch0) holds the adc0 sample
+  ok  : axis 8 (adc1 ch0) holds the adc1 sample  [axis = adc*8+ch]
+  ok  : ONE sample_valid wrote BOTH chips at once (lockstep)
+  ok  : axis 3 (adc0 ch3) correct
+  ok  : axis 11 (adc1 ch3) correct
+  ok  : pos_o reflects the CURRENT frame, not the previous one
+  ok  : snapshot pulse occurred (frame_done produced snap_valid)
+  ok  : delta is POSITIVE when travel increases (axis 0)
+  ok  : delta is POSITIVE when travel increases (axis 8)
+  ok  : delta is NEGATIVE when travel decreases (axis 0)  [slide prerequisite]
+  ok  : delta is NEGATIVE when travel decreases (axis 8)
+  ok  : negative delta is not a wrapped unsigned value
+      [dbg] P0-13 蹇収褰撴媿锛氳酱7=0x307锛堟湰甯у簲 0x307锛壜?杞?5=0x407锛堟湰甯у簲 0x407锛?
+  ok  : P0-13 last axis 15 in the snapshot is the CURRENT frame value (real producer timing)
+  ok  : P0-13 last axis 7 in the snapshot is the CURRENT frame value (real producer timing)
+--- 鍒ゆ嵁锛氣瓙 P2-27 鈥斺€?浣嶇疆涓嶅彉 鈬?姣忔蹇収鐨?delta 蹇呴』銆愬叏 0銆?--
+  ok  : P2-27 (non-vacuous) at least one snapshot happened
+  ok  : P2-27 with a CONSTANT position every snapshot delta is 0 (the first frame must not emit)
+
+PASS: axis_snapshot maps (adc,ch)->axis, commits all chips in one cycle, emits a per-frame pulse, and produces a SIGNED per-axis delta (the raw material for slide/two-note detection)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_axis_snapshot.sv:330: $finish called at 3530000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

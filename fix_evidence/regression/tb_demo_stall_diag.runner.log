@@ -1,0 +1,402 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_demo_stall_diag ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\evt_upstream.v:204: warning: @* is sensitive to all 16 words in array 'mem'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3b\tdm_render_mixer.v:623: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:498: warning: @* is sensitive to all 16 words in array 'held_axis'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:499: warning: @* is sensitive to all 16 words in array 'held_note'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:500: warning: @* is sensitive to all 16 words in array 'held_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:502: warning: @* is sensitive to all 16 words in array 'held_axis'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:503: warning: @* is sensitive to all 16 words in array 'held_note'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:518: warning: @* is sensitive to all 16 words in array 'next_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:519: warning: @* is sensitive to all 16 words in array 'next_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\e2e\tb_demo_stall_diag.sv:160: warning: Instantiating module top with dangling input port 30 (ctrl_col_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\e2e\tb_demo_stall_diag.sv:160: warning: Instantiating module top with dangling input port 31 (enc_a_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\e2e\tb_demo_stall_diag.sv:160: warning: Instantiating module top with dangling input port 32 (enc_b_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\e2e\tb_demo_stall_diag.sv:160: warning: Instantiating module top with dangling input port 33 (enc_sw_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\e2e\tb_demo_stall_diag.sv:160: warning: Instantiating module top with dangling input port 35 (pedal_sus_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\e2e\tb_demo_stall_diag.sv:160: warning: Instantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\e2e\tb_demo_stall_diag.sv:160: warning: Instantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\e2e\tb_demo_stall_diag.sv:160: warning: Instantiating module top with dangling input port 39 (esp_uart_rx_i) floating.
+=== 运行 tb_demo_stall_diag ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=50000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=48 VOTE_N=4 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=4)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
+NOTE [fx_delay] DEPTH=2048 samples = 41 ms @48828.125Hz | MEM_W=18 => 36864 bit / 18432 bit-per-block = 2 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=26 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [ctrl_keypad] PARAM_OK=1 (SCAN_DIV=12500 DEB_N=8 CLK_HZ=50000000 scan_us=0 db_ms=8)
+NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=50000000 LONG_MS=2000 LONG_CYC=100000000 HW=27)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+=== tb_demo_stall_diag : demo chord -> key press, note_manager state trace ===
+  cfg  : N_TICK=96 tick (=98304 clk, window for criterion B)
+  cfg  : N_PRESS=3 per key; KEY_A axis=0 ; KEY_B axis=8
+  cfg  : DEMO_NOTE_DELAY=10000 (board 2_000_000) ; DEMO_HOLD_CYC=20000 (board 50_000_000)
+  cfg  : defparam event_extract.REFRACT_N = 4 (board 60 => 30 ms at 500 us/frame)
+  [FSM  ] t=10000 state 0 -> x  fifo_cnt=x cur_kind=x cur_axis=x cur_src=x best_valid=x
+  [FSM  ] t=30000 state x -> 0  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=0
+  [FSM  ] t=200590000 state 0 -> 6  fifo_cnt=1 cur_kind=0 cur_axis=0 cur_src=2 best_valid=0
+  [FSM  ] t=200610000 state 6 -> 1  fifo_cnt=2 cur_kind=0 cur_axis=0 cur_src=2 best_valid=0
+  [FSM  ] t=200630000 state 1 -> 2  fifo_cnt=2 cur_kind=0 cur_axis=0 cur_src=2 best_valid=0
+  [FSM  ] t=201270000 state 2 -> 3  fifo_cnt=2 cur_kind=0 cur_axis=0 cur_src=2 best_valid=1
+  [FSM  ] t=201290000 state 3 -> 4  fifo_cnt=2 cur_kind=0 cur_axis=0 cur_src=2 best_valid=1
+  [FSM  ] t=201310000 state 4 -> 0  fifo_cnt=2 cur_kind=0 cur_axis=0 cur_src=2 best_valid=1
+  [FSM  ] t=201330000 state 0 -> 6  fifo_cnt=1 cur_kind=0 cur_axis=1 cur_src=2 best_valid=1
+  [FSM  ] t=201350000 state 6 -> 1  fifo_cnt=1 cur_kind=0 cur_axis=1 cur_src=2 best_valid=1
+  [FSM  ] t=201370000 state 1 -> 2  fifo_cnt=1 cur_kind=0 cur_axis=1 cur_src=2 best_valid=0
+  [FSM  ] t=202010000 state 2 -> 3  fifo_cnt=1 cur_kind=0 cur_axis=1 cur_src=2 best_valid=1
+  [FSM  ] t=202030000 state 3 -> 4  fifo_cnt=1 cur_kind=0 cur_axis=1 cur_src=2 best_valid=1
+  [FSM  ] t=202050000 state 4 -> 0  fifo_cnt=1 cur_kind=0 cur_axis=1 cur_src=2 best_valid=1
+  [FSM  ] t=202070000 state 0 -> 6  fifo_cnt=0 cur_kind=0 cur_axis=2 cur_src=2 best_valid=1
+  [FSM  ] t=202090000 state 6 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=2 cur_src=2 best_valid=1
+  [FSM  ] t=202110000 state 1 -> 2  fifo_cnt=0 cur_kind=0 cur_axis=2 cur_src=2 best_valid=0
+  [FSM  ] t=202750000 state 2 -> 3  fifo_cnt=0 cur_kind=0 cur_axis=2 cur_src=2 best_valid=1
+  [FSM  ] t=202770000 state 3 -> 4  fifo_cnt=0 cur_kind=0 cur_axis=2 cur_src=2 best_valid=1
+  [FSM  ] t=202790000 state 4 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=2 cur_src=2 best_valid=1
+  [FSM  ] t=600670000 state 0 -> 6  fifo_cnt=1 cur_kind=1 cur_axis=0 cur_src=2 best_valid=1
+  [FSM  ] t=600690000 state 6 -> 1  fifo_cnt=2 cur_kind=1 cur_axis=0 cur_src=2 best_valid=1
+  [FSM  ] t=600710000 state 1 -> 0  fifo_cnt=2 cur_kind=1 cur_axis=0 cur_src=2 best_valid=1
+  [FSM  ] t=600730000 state 0 -> 6  fifo_cnt=1 cur_kind=1 cur_axis=1 cur_src=2 best_valid=1
+  [FSM  ] t=600750000 state 6 -> 1  fifo_cnt=1 cur_kind=1 cur_axis=1 cur_src=2 best_valid=1
+  [FSM  ] t=600770000 state 1 -> 0  fifo_cnt=1 cur_kind=1 cur_axis=1 cur_src=2 best_valid=1
+  [FSM  ] t=600790000 state 0 -> 6  fifo_cnt=0 cur_kind=1 cur_axis=2 cur_src=2 best_valid=1
+  [FSM  ] t=600810000 state 6 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=2 cur_src=2 best_valid=1
+  [FSM  ] t=600830000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=2 cur_src=2 best_valid=1
+  [tare ] at_done=1 after ~110000 cycles
+  [frame] measured frame period = 25000 clk (500 us); one axis refresh = 1 frame (expected 25000 clk = CLK_HZ/CHANNEL_RATE_HZ)
+  ok  : F measured adc frame period is the real one (~25000 clk = 500 us), not 0 and not a timeout
+  [TAG  ] after reset + autotare
+[DIAG] t=3196791000 ev=6  state=0 fifo_cnt=0 fifo_wr=6 fifo_rd=6
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=2 cur_src=2
+       free_cnt=29 live_cnt=3 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=0 mg_ev_cnt=6 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=2 gate_seen=0x0007 ev_ax=0x0007
+       (x) nm_active=0x00000007 env_active=0x00000007 pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [demo ] demo_fired=1 (demo_step=7) after ~0 cycles; board value = 40 ms + 1 s
+  [TAG  ] mo chord finished (demo_fired=1)
+[DIAG] t=3196792000 ev=6  state=0 fifo_cnt=0 fifo_wr=6 fifo_rd=6
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=2 cur_src=2
+       free_cnt=29 live_cnt=3 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=0 mg_ev_cnt=6 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=2 gate_seen=0x0007 ev_ax=0x0007
+       (x) nm_active=0x00000007 env_active=0x00000007 pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [drain] fifo empty + ST_IDLE reached after 0 clk (drained=1)
+  [TAG  ] after demo tail drain
+[DIAG] t=3196811000 ev=6  state=0 fifo_cnt=0 fifo_wr=6 fifo_rd=6
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=2 cur_src=2
+       free_cnt=29 live_cnt=3 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=0 mg_ev_cnt=6 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=2 gate_seen=0x0007 ev_ax=0x0007
+       (x) nm_active=0x00000007 env_active=0x00000007 pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  ok  : A after demo chord: note_manager fifo_cnt==0 AND state==ST_IDLE
+
+=== press A #1 : axis 0 (chip 0 ch 0) ===
+  [TAG  ] BEFORE press
+[DIAG] t=3196832000 ev=6  state=0 fifo_cnt=0 fifo_wr=6 fifo_rd=6
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=2 cur_src=2
+       free_cnt=29 live_cnt=3 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=0 mg_ev_cnt=6 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=0 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=2 gate_seen=0x0000 ev_ax=0x0007
+       (x) nm_active=0x00000007 env_active=0x00000007 pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=3697090000 state 0 -> 6  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=3697110000 state 6 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=3697130000 state 1 -> 2  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=0
+  [FSM  ] t=3697770000 state 2 -> 3  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=3697790000 state 3 -> 4  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=3697810000 state 4 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [gate ] axis=0 gate_seen=1 first_gate_latency=25040 clk (~25 sample_tick, window=96)
+  [TAG  ] AFTER press (window end)
+[DIAG] t=3697951000 ev=7  state=0 fifo_cnt=0 fifo_wr=7 fifo_rd=7
+       best_valid=1 same_valid=0 cur_kind=0 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=1 mg_ev_cnt=7 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x00000007 pos[0]=744 pos[8]=2 af0_pol=2103 cal0_val=0
+  ok  : B press axis 0 #1 => a voice on that axis got GATED (25040 clk, 25 tick)
+  [TAG  ] during press hold
+[DIAG] t=4697951000 ev=7  state=0 fifo_cnt=0 fifo_wr=7 fifo_rd=7
+       best_valid=1 same_valid=0 cur_kind=0 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=1 mg_ev_cnt=7 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=744 pos[8]=2 af0_pol=2103 cal0_val=0
+  [FSM  ] t=5197090000 state 0 -> 6  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=5197110000 state 6 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=5197130000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [rel  ] axis=0 gate cleared after 24944 clk (25 tick)
+  [TAG  ] after release
+[DIAG] t=5197151000 ev=8  state=0 fifo_cnt=0 fifo_wr=8 fifo_rd=8
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=2 mg_ev_cnt=8 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [refr ] wait axis 0: bound = 200000 clk (= 8 frame x 25000 clk/frame); refr now = 1
+  [refr ] axis 0 refractory cleared after 19986 clk (bound was 200000 clk; REFRACT_N was 4 frames at the press)
+
+=== press A #2 : axis 0 (chip 0 ch 0) ===
+  [TAG  ] BEFORE press
+[DIAG] t=5696892000 ev=8  state=0 fifo_cnt=0 fifo_wr=8 fifo_rd=8
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=2 mg_ev_cnt=8 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=0 scan_cnt=31 same_en=0 same_idx=0 cmt_en=1 cmt_idx=3 gate_seen=0x0000 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=6197090000 state 0 -> 6  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=6197110000 state 6 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=6197130000 state 1 -> 5  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=6197150000 state 5 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [gate ] axis=0 gate_seen=1 first_gate_latency=25440 clk (~25 sample_tick, window=96)
+  [TAG  ] AFTER press (window end)
+[DIAG] t=6206011000 ev=9  state=0 fifo_cnt=0 fifo_wr=9 fifo_rd=9
+       best_valid=1 same_valid=1 cur_kind=0 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=3 mg_ev_cnt=9 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=744 pos[8]=2 af0_pol=2103 cal0_val=0
+  ok  : B press axis 0 #2 => a voice on that axis got GATED (25440 clk, 25 tick)
+  [TAG  ] during press hold
+[DIAG] t=7206011000 ev=9  state=0 fifo_cnt=0 fifo_wr=9 fifo_rd=9
+       best_valid=1 same_valid=1 cur_kind=0 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=3 mg_ev_cnt=9 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=744 pos[8]=2 af0_pol=2103 cal0_val=0
+  [FSM  ] t=7697090000 state 0 -> 6  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=7697110000 state 6 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=7697130000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [rel  ] axis=0 gate cleared after 24544 clk (24 tick)
+  [TAG  ] after release
+[DIAG] t=7697211000 ev=10  state=0 fifo_cnt=0 fifo_wr=10 fifo_rd=10
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=4 mg_ev_cnt=10 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [refr ] wait axis 0: bound = 200000 clk (= 8 frame x 25000 clk/frame); refr now = 1
+  [refr ] axis 0 refractory cleared after 19983 clk (bound was 200000 clk; REFRACT_N was 4 frames at the press)
+
+=== press A #3 : axis 0 (chip 0 ch 0) ===
+  [TAG  ] BEFORE press
+[DIAG] t=8196892000 ev=10  state=0 fifo_cnt=0 fifo_wr=10 fifo_rd=10
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=4 mg_ev_cnt=10 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=0 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0000 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=8697090000 state 0 -> 6  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=8697110000 state 6 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=8697130000 state 1 -> 5  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=8697150000 state 5 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=0 cur_src=0 best_valid=1
+  [gate ] axis=0 gate_seen=1 first_gate_latency=25376 clk (~25 sample_tick, window=96)
+  [TAG  ] AFTER press (window end)
+[DIAG] t=8704731000 ev=11  state=0 fifo_cnt=0 fifo_wr=11 fifo_rd=11
+       best_valid=1 same_valid=1 cur_kind=0 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=5 mg_ev_cnt=11 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=744 pos[8]=2 af0_pol=2103 cal0_val=0
+  ok  : B press axis 0 #3 => a voice on that axis got GATED (25376 clk, 25 tick)
+  [TAG  ] during press hold
+[DIAG] t=9704731000 ev=11  state=0 fifo_cnt=0 fifo_wr=11 fifo_rd=11
+       best_valid=1 same_valid=1 cur_kind=0 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=5 mg_ev_cnt=11 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=744 pos[8]=2 af0_pol=2103 cal0_val=0
+  [FSM  ] t=10197090000 state 0 -> 6  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=10197110000 state 6 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [FSM  ] t=10197130000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=0 cur_src=0 best_valid=1
+  [rel  ] axis=0 gate cleared after 24608 clk (25 tick)
+  [TAG  ] after release
+[DIAG] t=10197211000 ev=12  state=0 fifo_cnt=0 fifo_wr=12 fifo_rd=12
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=6 mg_ev_cnt=12 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0001 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [refr ] wait axis 0: bound = 200000 clk (= 8 frame x 25000 clk/frame); refr now = 1
+  [refr ] axis 0 refractory cleared after 19983 clk (bound was 200000 clk; REFRACT_N was 4 frames at the press)
+
+=== press B #1 : axis 8 (chip 1 ch 0) ===
+  [TAG  ] BEFORE press
+[DIAG] t=10696892000 ev=12  state=0 fifo_cnt=0 fifo_wr=12 fifo_rd=12
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=0 cur_src=0
+       free_cnt=28 live_cnt=4 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=6 mg_ev_cnt=12 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=0 scan_cnt=31 same_en=1 same_idx=3 cmt_en=1 cmt_idx=3 gate_seen=0x0000 ev_ax=0x0007
+       (x) nm_active=0x0000000f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=11197250000 state 0 -> 6  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=11197270000 state 6 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=11197290000 state 1 -> 2  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=0
+  [FSM  ] t=11197930000 state 2 -> 3  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=11197950000 state 3 -> 4  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=11197970000 state 4 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [gate ] axis=8 gate_seen=1 first_gate_latency=25040 clk (~25 sample_tick, window=96)
+  [TAG  ] AFTER press (window end)
+[DIAG] t=11198011000 ev=13  state=0 fifo_cnt=0 fifo_wr=13 fifo_rd=13
+       best_valid=1 same_valid=0 cur_kind=0 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=7 mg_ev_cnt=13 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=3 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000000f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  ok  : B press axis 8 #1 => a voice on that axis got GATED (25040 clk, 25 tick)
+  [TAG  ] during press hold
+[DIAG] t=12198011000 ev=13  state=0 fifo_cnt=0 fifo_wr=13 fifo_rd=13
+       best_valid=1 same_valid=0 cur_kind=0 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=7 mg_ev_cnt=13 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=3 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=12697250000 state 0 -> 6  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=12697270000 state 6 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=12697290000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [rel  ] axis=8 gate cleared after 24960 clk (25 tick)
+  [TAG  ] after release
+[DIAG] t=12697531000 ev=14  state=0 fifo_cnt=0 fifo_wr=14 fifo_rd=14
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=8 mg_ev_cnt=14 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=0 same_idx=3 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [refr ] wait axis 8: bound = 200000 clk (= 8 frame x 25000 clk/frame); refr now = 1
+  [refr ] axis 8 refractory cleared after 19967 clk (bound was 200000 clk; REFRACT_N was 4 frames at the press)
+
+=== press B #2 : axis 8 (chip 1 ch 0) ===
+  [TAG  ] BEFORE press
+[DIAG] t=13196892000 ev=14  state=0 fifo_cnt=0 fifo_wr=14 fifo_rd=14
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=8 mg_ev_cnt=14 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=0 scan_cnt=31 same_en=0 same_idx=3 cmt_en=1 cmt_idx=4 gate_seen=0x0000 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=13697250000 state 0 -> 6  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=13697270000 state 6 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=13697290000 state 1 -> 5  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=13697310000 state 5 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [gate ] axis=8 gate_seen=1 first_gate_latency=25232 clk (~25 sample_tick, window=96)
+  [TAG  ] AFTER press (window end)
+[DIAG] t=13701851000 ev=15  state=0 fifo_cnt=0 fifo_wr=15 fifo_rd=15
+       best_valid=1 same_valid=1 cur_kind=0 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=9 mg_ev_cnt=15 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  ok  : B press axis 8 #2 => a voice on that axis got GATED (25232 clk, 25 tick)
+  [TAG  ] during press hold
+[DIAG] t=14701851000 ev=15  state=0 fifo_cnt=0 fifo_wr=15 fifo_rd=15
+       best_valid=1 same_valid=1 cur_kind=0 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=9 mg_ev_cnt=15 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=15197250000 state 0 -> 6  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=15197270000 state 6 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=15197290000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [rel  ] axis=8 gate cleared after 24768 clk (25 tick)
+  [TAG  ] after release
+[DIAG] t=15197531000 ev=16  state=0 fifo_cnt=0 fifo_wr=16 fifo_rd=16
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=10 mg_ev_cnt=16 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [refr ] wait axis 8: bound = 200000 clk (= 8 frame x 25000 clk/frame); refr now = 1
+  [refr ] axis 8 refractory cleared after 19967 clk (bound was 200000 clk; REFRACT_N was 4 frames at the press)
+
+=== press B #3 : axis 8 (chip 1 ch 0) ===
+  [TAG  ] BEFORE press
+[DIAG] t=15696892000 ev=16  state=0 fifo_cnt=0 fifo_wr=16 fifo_rd=16
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=10 mg_ev_cnt=16 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=0 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0000 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=16197250000 state 0 -> 6  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=16197270000 state 6 -> 1  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=16197290000 state 1 -> 5  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=16197310000 state 5 -> 0  fifo_cnt=0 cur_kind=0 cur_axis=8 cur_src=0 best_valid=1
+  [gate ] axis=8 gate_seen=1 first_gate_latency=25152 clk (~25 sample_tick, window=96)
+  [TAG  ] AFTER press (window end)
+[DIAG] t=16200251000 ev=17  state=0 fifo_cnt=0 fifo_wr=17 fifo_rd=17
+       best_valid=1 same_valid=1 cur_kind=0 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=11 mg_ev_cnt=17 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  ok  : B press axis 8 #3 => a voice on that axis got GATED (25152 clk, 25 tick)
+  [TAG  ] during press hold
+[DIAG] t=17200251000 ev=17  state=0 fifo_cnt=0 fifo_wr=17 fifo_rd=17
+       best_valid=1 same_valid=1 cur_kind=0 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=1 retrig_low_cnt=0
+       (x) ee_cnt=11 mg_ev_cnt=17 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [FSM  ] t=17697250000 state 0 -> 6  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=17697270000 state 6 -> 1  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [FSM  ] t=17697290000 state 1 -> 0  fifo_cnt=0 cur_kind=1 cur_axis=8 cur_src=0 best_valid=1
+  [rel  ] axis=8 gate cleared after 24848 clk (25 tick)
+  [TAG  ] after release
+[DIAG] t=17697531000 ev=18  state=0 fifo_cnt=0 fifo_wr=18 fifo_rd=18
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=12 mg_ev_cnt=18 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  [refr ] wait axis 8: bound = 200000 clk (= 8 frame x 25000 clk/frame); refr now = 1
+  [refr ] axis 8 refractory cleared after 19967 clk (bound was 200000 clk; REFRACT_N was 4 frames at the press)
+  [fifo ] max fifo_cnt seen = 2 (FIFO_DEPTH=32) ; over=0 @ t=0
+  ok  : C1 note_manager fifo_cnt never exceeded FIFO_DEPTH
+  [fifo ] after keys released: c1=0 c2=0 c3=0 (must not grow)
+  ok  : C2 after keys released, fifo_cnt does NOT keep growing
+  [TAG  ] nal (keys released, tail waited)
+[DIAG] t=18360751000 ev=18  state=0 fifo_cnt=0 fifo_wr=18 fifo_rd=18
+       best_valid=1 same_valid=1 cur_kind=1 cur_axis=8 cur_src=0
+       free_cnt=27 live_cnt=5 gate_cnt=0 retrig_low_cnt=0
+       (x) ee_cnt=12 mg_ev_cnt=18 sa_cnt=0 mg_cnt=0 lost=0/0 sa_drop=0 mg_drop=0 ovf=0
+       (x) best_seen=1 scan_cnt=31 same_en=1 same_idx=4 cmt_en=1 cmt_idx=4 gate_seen=0x0100 ev_ax=0x0107
+       (x) nm_active=0x0000001f env_active=0x0000001f pos[0]=0 pos[8]=0 af0_pol=2103 cal0_val=0
+  ok  : C3 after keys released, fifo_cnt DRAINS back to 0
+  [evts ] ee_cnt=12 ev=18 (on=9 off=9) sa_cnt=0 mg_cnt=0 sa_drop=0 mg_drop=0
+  [src  ] seq_arb forwarded: live=12 demo=6 (demo chord = 3 on + 3 off = 6)
+  [axes ] ee_axis=0x0101 ev_axis=0x0107 gate_seen=0x0100
+  ok  : D the hand-play events really flowed (ee_cnt>0 and ev>0) -- non-vacuous
+  ok  : D no upstream event was dropped (sa_drop==0 and mg_drop==0)
+  ok  : D note_manager reported no event loss (event_lost_o==0)
+
+PASS: demo-chord-then-key diagnostic -- the queue drained and every press gated a voice on its own axis
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\e2e\tb_demo_stall_diag.sv:710: $finish called at 18361751000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

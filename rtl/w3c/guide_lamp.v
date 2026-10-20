@@ -1,151 +1,11 @@
-// ═══════════════════════════════════════════════════════════════════════════
-//  guide_lamp.v —— 音符事件 → 灯位指引映射层（丙线 · P1 · 2026-10-03）
-//
-//  ⭐ 职责边界（与 `led_data` 分工）：
-//    · `play_seq` 吐出的是【音符事件流】（`note_valid` + `note_data[63:0]`），
-//      不是 `led_data` 需要的 16 位 one-hot「哪个键该按」位图。
-//    · 本模块做这层【事件 → 位图】转换：把事件的**音高**字段 `note_off5`
-//      （bit[4:0]，= MIDI 音符号 − `BASE_NOTE`）**查一张「音符号 → 键位」表**，
-//      再解码成 `guide_key_o[15:0]` 的 one-hot 指引。
-//    · `led_data` 负责的是【位图 → 24bit 物理图案】+ CH→OUT 重映射（下游）。
-//
-//  ⭐ 位域契约（必须与 `play_seq.v` / `tools/mid2evt.py` 逐位一致）：
-//    · NOTE_SH =  0（5 bit，`note_off5` = MIDI − 45，⭐ 覆盖 MIDI 45..76）
-//    · AXIS_SH = 19（4 bit，轴号 0..15 —— ⚠️ **轨号，⛔ 不是键位**，见下方警告）
-//    · KIND_SH =  9（2 bit）：0 = note_on，1 = note_off，2 = tempo（换速，非音符）
-//    · note_data 整体 64 bit，note_off5 位于 [4:0]，kind 位于 [10:9]。
-//
-//  ⭐ 语义：
-//    · note_on（kind=0）→ 点亮 note_off5 对应的键位灯（下一键该按）
-//    · note_off（kind=1）→ 熄灭同一个键位灯
-//    · tempo（kind=2）→ 忽略（换速不是音符，⛔ 不得点亮任何灯）
-//    · key_active_i 已按下的键 → 消隐（已按就不需要再指引）
-//    · blink_i（拍点脉冲）→ 使当前指引位跟随拍点闪烁（可观测节拍）
-//
-//  ⭐ 非空洞性（P1 判据硬要求）：任意轴号 0..15 的 note_on 事件，
-//    都能落到一个真实、非空的灯位（one-hot 位 set），满射、无空洞。
-//
-//  ⭐⭐⭐⭐ ⚠️ **轴号语义警告（⭐ 2026-10-16 · 点灯 LIGHTER 实测定位）** ✅
-//     🔴 **本模块的 `axis` 是【轨号（track id）】，⛔ 不是【键位/音高】** ——
-//        ⭐ 这是**上游生成侧的既有语义**，⭐ ⛔ **不是本模块的缺陷**：
-//        · ⭐ `tools/mid2evt.py:359` `axis_of[ti] = nxt`（**一条非鼓轨 = 一个轴号**）
-//        · ⭐ `tools/mid2evt.py:390` `axis = axis_of[ti] & 0xF`（⭐ 该轨**所有**音符共用它）
-//        · ⭐ **音高在 `inc[43:23]`**（⭐ 与 `axis` 完全独立）
-//     ⇒ ⭐ **一盏灯 = 一条轨** ⇒ ⭐ 单轨乐段**只有一盏灯在闪**（⭐ 实测：三首真曲
-//        `events.hex` 只出现轴号 0..5，⭐ 且开头有 62~192 条**连续同轴**）✅
-//
-//  ⭐⭐⭐⭐ ✅ **2026-10-16（指北 COMPASS · 点灯 · 用户拍板）：本模块改成【按音高指键】**
-//     ⭐ 用户原话：*"LED 指引要**跟着音高走**，而且【变调之后】不许指错键"* ✅
-//
-//     ⭐ **契约（新）**：⭐ 帧的 `bit[4:0]` = `note_off5` = `MIDI 音符号 − BASE_NOTE(45)`
-//        ⇒ ⭐ 本模块：`note_after = BASE_NOTE + note_off5 + transpose_i`（⭐ 变调在半音上做）
-//        ⇒ ⭐ **再查表**「音符号 → 键位」⇒ ⭐ 点亮那个键 ✅
-//
-//     ⭐⭐ **顺序是关键**：🔴 **变调必须发生在【查表】【之前】** ——
-//        ⭐ 这样"**变调后**"音高变了、⭐ 表查的是**变调后的音高** ⇒
-//        ⭐ **灯永远指向"真正该按的那个键"**（⭐ 用户要的就是这一条 ✅）。
-//        ⚠️ 若反过来（先查表再加变调）⇒ 🔴 **整体平移一个"键位偏移"**，
-//        ⭐ 而键位**不是**按半音排的（⭐ 见下方两张表的乱序）⇒ 🔴 **必指错键** ✅
-//
-//     ⭐ **两张表**（⭐ `NOTE2KEY_KB` / `NOTE2KEY_FB`）：
-//        ⭐ **机械地从 `rtl/w3a/axis_map.v` 的【正向表】反推**（⭐ 唯一地面真相）：
-//        · ⭐ `kb_inc[]`（⭐ `axis_map.v:395-410`）⇒ `NOTE2KEY_KB`
-//        · ⭐ `fb_inc[]`（⭐ `axis_map.v:461-476`）⇒ `NOTE2KEY_FB`
-//        ⭐ **生成脚本**：⭐ `build/exp/note2key_gen.py`（⭐ 改音高图后重跑即可）
-//        ⚠️ **⛔ 不要手改表值** —— ⭐ 手抄正是"表错、灯跟着错"的根源。
-//        📌 ⭐ 脚本**双重推导**（⭐ 音名 vs `phase_inc` 反算频率）并**互校**，
-//           ⚠️ 两者不一致就直接退出（⭐ 那说明**正向表本身**有问题）✅
-//
-//     ⭐ **重复项规则**：⭐ 同一个音高能被两个键弹出时（⭐ 如 `kb_inc` 里
-//        E3 = 键 0 **和** 键 3、B3 = 键 8 **和** 键 11）⇒ 🔴 **取【索引最小】的那个键**
-//        ⇒ ⭐ "一个音符号 ⇒ 唯一一个灯"（⭐ 确定性、可判据化 ✅）
-//
-//     ⭐ **表里没有的音符号 ⇒ `4'hF`（哨兵）** ⇒ ⭐ **不点任何灯** ✅
-//        🔴 **为什么必须是哨兵、⛔ 不能填 0**：⭐ 填 0 ⇒ 🔴 **误点亮键 0**
-//        （⭐ 用户看到的就会是"乱指键"）✅
-//
-//     📌 ⭐ **本模块的满射性**（⭐ 任意 `axis` → 一个真实灯位）由 `tb_guide_lamp`
-//        判据 ⑤ 与 `tb/w3c/tb_top_guide_axes.sv`（⭐ 顶层 6 个音高同时亮 6 盏）钉住 ✅
-//     📌 ⭐ **表互逆**（⭐ 正向表 ⇄ 反查表）由 `tb_guide_lamp` 判据 ⑧ 钉住 ✅
-//     📌 ⭐ `axis` 现在**在灯位映射里没有角色** —— ⚠️ 它**照样在帧里**，
-//        ⭐ 因为 `note_manager` / `seq_arb` 的**发声**那一路仍然按 `axis` 分 voice ✅
-//        🔴 **⛔ 不许因为"灯不用它了"就把 `axis` 字段删掉**（⭐ 那是契约级改动）✅
-//
-//  ⚠️ 只动丙线自己的文件：本模块【不实例化、不改】play_seq / note_manager / top.v，
-//    仅消费 play_seq 的公开输出接口（note_valid_o / note_data_o），接线留待集成层。
-//
-// ═══════════════════════════════════════════════════════════════════════════
-//  ⭐⭐⭐⭐ 2026-10-16（灭灯 LAMPKILL）：⭐ **"LED 挂灯"根因档案 ＋ RTL 侧兜底** ✅
-//
-//  🔴 **症状**（⭐ 用户实测）：⭐ *"没灌谱也闪"* —— ⭐ 灯跟着 125 ms 方波一直闪，永不熄 ✅
-//
-//  ── ① 审灯队报的机理（⭐ 带行号，⭐ 原文照抄）──────────────────────────────
-//     · `guide_lamp.v:316-343` `guide_key_o` **只有两条清除路径**：
-//       ⭐ `note_off(key_valid)` 与 ⭐ `rst_n` ⇒ 🔴 **没有超时、没有引用计数、
-//         ⭐ 没有"停播即清"** ✅
-//     · `guide_lamp.v:329/336` ON/OFF 用**同一个 `key_sel`** ⇒ ⭐ 只保证
-//       "**同一条 note_off 下** ON/OFF 同键"，⛔ **不保证不同事件的 `note_off5` 相同** ✅
-//     · `led_data.v:73/79` `blink_keys = guide_key_i & ~key_active_i`；
-//       `key_pattern = key_active | (blink_keys & blink_i)` ✅
-//     · `top.v:2496-2502` `led_blink` = 125 ms 方波（⭐ `bg_beat` 派生 ✅）
-//
-//  ── ② ⭐⭐ **本轮复核：审灯队的"ON 点 A、OFF 灭 B"在【当前数据】上不成立** ⚠️
-//     ⭐ 我把五个真曲的 `events.hex` **逐条解码统计**（⭐ `bit[4:0]` = `note_off5` ✅）：
-//        | 曲目 | 事件数 | `off5 ≠ 0` 的条数 | `note_on` 的 off5 分布 | `note_off` 的 off5 分布 |
-//        |---|---|---|---|---|
-//        | `夜洋风景`   | 11564 | **0** | `0` × 5782 | `0` × 5782 |
-//        | `09_Conjurer` | 11858 | **0** | `0` × 5929 | `0` × 5929 |
-//        | `6.世界悲`   |  9778 | **0** | `0` × 4889 | `0` × 4889 |
-//        | `regen/夜洋风景` | 11566 | **0** | `0` × 5782 | `0` × 5782 |
-//        | `t6test`     | 11865 | **0** | `0` × 5929 | `0` × 5929 |
-//     ⇒ ⭐ **ON 与 OFF 查的是【同一个】 offset（0）** ⇒ ⭐ **亮哪盏就灭哪盏**（⭐ 硬要求 ③ 已满足 ✅）
-//     ⇒ ⚠️ 所以"灯永不熄"**不是**"ON 点 A、OFF 灭 B"造成的 ✅
-//     📌 ⭐ **上游为什么恒 0**（⭐ `tools/mid2evt.py:496-502`，⭐ 逐字 ✅）：
-//        `# bits 6..0 stay 0 (reserved)` —— ⭐ `off5` 是**这个交付版本还没实现**的新字段，
-//        ⭐ 语义是"**此版无音高**"，⛔ **不是"写错了"** ✅
-//        （⭐ 而 `score_word.py:121` / `pool.c:724` 同样没写 ✅）
-//
-//  ── ③ ⭐⭐⭐⭐ **真正的三条挂灯机理**（⭐ 都能独立造成"永不熄" ✅）────────────
-//     · **M1 · 缺 `note_off`（⭐ 上游）**：⭐ `mid2evt.py:359-390` 把 off 补进 `note_on`
-//       事件里，⭐ 若某个音的 off 没生成 ⇒ **只有 ON 没有 OFF** ⇒ 那盏灯**常亮到复位** ✅
-//     · **M2 · ON/OFF 表不同（⭐ 可复现的真实路径）**：⭐ 灯位由 `fb_mode_i` 选表
-//        ⇒ ⭐ 用户**演奏中切钢琴/指板** ⇒ ON 走表 A、OFF 走表 B ⇒ **亮 A 灭 B** ✅
-//     · **M3 · 结构性：没有任何超时**（⭐ 本模块自身）：
-//       ⭐ `guide_vis_o = guide_key_o & ~key_active_i`（⭐ `P0-28` 钉死，⛔ 不动 ✅）
-//       ＋ ⭐ `led_data` 只做 `blink_keys & blink_i` ⇒ ⭐ **用户一松手灯就灭**
-//       ⇒ ⭐ 灯的生命周期 = **`guide_key_o` 的生命周期** ⇒ ⭐ 而它**只能被 note_off/复位清**
-//       ⇒ ⭐ **任何"没配上对 OFF"的灯都会挂住** ✅
-//
-//  ── ④ ⭐⭐ **为什么选"停播即清"而⛔ 不是引用计数**（⭐ 本轮裁定 ✅）────────
-//     ⭐ 逐条对表（⭐ 谁能治谁 ✅）：
-//        | 机理 | 停播即清 | 引用计数 |
-//        |---|---|---|
-//        | M1 缺 `note_off`            | ⭐ **能** | ⛔ 不能（␣ 计数停在 1 ✅）|
-//        | M2 ON/OFF 不同表（␣ 切模式）  | ⭐ **能** | ⛔ 不能（␣ 各记各的 ✅）|
-//        | M3 结构性无超时              | ⭐ **能** | ⛔ 不能 |
-//        | 同键和弦第一个 off 误熄       | ⛔ 不能 | ⭐ 能 |
-//     ⇒ ⭐ **前三条才是"永不熄"的真机理**，⭐ 而**最后一条**（␣ 同键和弦首 off 误熄）
-//       ⭐ 需要"**同一个键上同时有两个音**"（␣ 同音高叠置 ✅）—— ⭐ 概率最低、
-//       ⭐ 且它造成的是"**提前熄**"而⛔ **不是"挂灯"**（⭐ 与本任务要治的症状相反 ✅）
-//     ⇒ ⭐⭐ **结论**：⭐ **超时一个就够**（⭐ 三条真机理全覆盖 ✅）；
-//       ⭐ 计数只多治那条最不可能的，⭐ 代价却是 **16×5 = 80 FF** ＋ 饱和逻辑
-//       ＋ 一个**顶层粘滞寄存器**（⭐ 为"流里到底有没有过真音符" ✅）
-//       ⇒ 🔴 **性价比倒挂，⛔ 不做** ✅
-//
-//  ── ⑤ ⭐ **超时值的安全边界（⭐ 真曲实测，⛔ 不是拍的** ✅）────────────────
-//     · ⭐ 曲中**最长休止** = `09_Conjurer` **26880 tick**（⭐ @120BPM = 28 s ✅）
-//     · ⭐ 最长**音符** = `6.世界悲` **8160 tick**（⭐ @120BPM = 8.5 s ✅）
-//     ⇒ 🔴 **任何"按时间的超时"在慢速/休止处都必误清** ⇒ ⭐ 所以触发源
-//       ⛔ **不能是"多久没有 note 事件"**，⭐ **必须是"流还在不在走"** ✅
-//     ⭐ **本模块的取法**（⭐ `top.v` 的接线 ✅）：
-//        `stream_alive_i = eb_rd_valid | ps_note_valid`
-//        · ⭐ `ps_note_valid` = **此刻正在吐一条事件** ✅
-//        · ⭐ `eb_rd_valid`  = **缓冲区里还有事件没播** ✅
-//        ⇒ ⭐ 曲中休止 / ⭐ 长音 / ⭐ 慢速 ⇒ **缓冲非空 ⇒ 不算停 ⇒ 不攒超时** ✅
-//        ⇒ ⭐ **只有真·停播**才攒：⭐ 没灌谱 / ⭐ 灌完 / ⭐ 灌断 ✅
-//        ⇒ 🔴 **⛔ 不会误清正在进行的曲谱**（⭐ 任务书硬要求 ✅）
-//  ═══════════════════════════════════════════════════════════════════════════
-
+// Map score pitches to keyboard/fretboard guide lamps.
+// Preserve each ON's original (axis, note_off5) and selected physical key,
+// so later transpose or mode changes cannot redirect its OFF.
+// Different identities retain independent slots; repeated identical ONs use
+// a 32-bit count. A shared lamp stays lit until every held reference closes.
+// Reset or stream timeout clears the full ledger. key_active_i only masks
+// visible lamps; it does not discard the held score state.
+// Capacity: 16 distinct mapped identities, with separately counted repeats.
 module guide_lamp #(
     parameter integer EVT_W = 64,        // 事件数据位宽（与 play_seq 一致）
     parameter integer AXIS_N = 16,       // 键位数（轴号 0..15）
@@ -478,14 +338,16 @@ module guide_lamp #(
     wire        key_valid = in_range && (key_sel != KEY_NONE);
 
     // Keep each ON's original identity and mapped key until its matching OFF.
-    // Multiple references, including duplicate pitches, occupy separate slots.
+    // Repeated identical ONs share a 32-bit count; different mapped identities
+    // retain independent slots. OFF consumes the first matching identity.
     reg [AXIS_N-1:0] held_valid, next_valid;
     reg [3:0] held_axis [0:AXIS_N-1], next_axis [0:AXIS_N-1];
     reg [4:0] held_note [0:AXIS_N-1], next_note [0:AXIS_N-1];
     reg [4:0] held_key [0:AXIS_N-1], next_key [0:AXIS_N-1];
+    reg [31:0] held_count [0:AXIS_N-1], next_count [0:AXIS_N-1];
     reg [AXIS_N-1:0] next_lamps;
     reg next_commit;
-    integer gi, free_slot, off_slot;
+    integer gi, free_slot, off_slot, same_slot;
     wire [3:0] event_axis = note_data_i[AXIS_SH +: 4];
 
     always @(*) begin
@@ -494,23 +356,33 @@ module guide_lamp #(
         next_commit = 1'b0;
         free_slot = -1;
         off_slot = -1;
+        same_slot = -1;
         for (gi=0; gi<AXIS_N; gi=gi+1) begin
+            next_count[gi] = stream_timeout ? 0 : held_count[gi];
             next_axis[gi] = held_axis[gi];
             next_note[gi] = held_note[gi];
             next_key[gi] = held_key[gi];
             if (!next_valid[gi] && free_slot < 0) free_slot = gi;
             if (next_valid[gi] && held_axis[gi] == event_axis &&
-                held_note[gi] == note_off5_i && off_slot < 0) off_slot = gi;
+                held_note[gi] == note_off5_i) begin
+                if (off_slot < 0) off_slot = gi;
+                if (held_key[gi] == key_sel && same_slot < 0) same_slot = gi;
+            end
         end
         if (note_valid_i) begin
-            if (is_note_on && key_valid && free_slot >= 0) begin
+            if (is_note_on && key_valid && same_slot >= 0) begin
+                next_count[same_slot] = held_count[same_slot] + 1'b1;
+                next_commit = 1'b1;
+            end else if (is_note_on && key_valid && free_slot >= 0) begin
                 next_valid[free_slot] = 1'b1;
+                next_count[free_slot] = 32'd1;
                 next_axis[free_slot] = event_axis;
                 next_note[free_slot] = note_off5_i;
                 next_key[free_slot] = key_sel;
                 next_commit = 1'b1;
             end else if (is_note_off && off_slot >= 0) begin
-                next_valid[off_slot] = 1'b0;
+                next_count[off_slot] = held_count[off_slot] - 1'b1;
+                if (held_count[off_slot] == 1) next_valid[off_slot] = 1'b0;
                 next_commit = 1'b1;
             end
         end
@@ -527,6 +399,7 @@ module guide_lamp #(
             guide_commit_o <= 1'b0;
             stream_idle_cnt <= {CNT_W{1'b0}};
             for (gr=0; gr<AXIS_N; gr=gr+1) begin
+                held_count[gr] <= 32'd0;
                 held_axis[gr] <= 4'd0;
                 held_note[gr] <= 5'd0;
                 held_key[gr] <= KEY_NONE;
@@ -536,6 +409,7 @@ module guide_lamp #(
             guide_key_o <= next_lamps;
             guide_commit_o <= next_commit;
             for (gr=0; gr<AXIS_N; gr=gr+1) begin
+                held_count[gr] <= next_count[gr];
                 held_axis[gr] <= next_axis[gr];
                 held_note[gr] <= next_note[gr];
                 held_key[gr] <= next_key[gr];

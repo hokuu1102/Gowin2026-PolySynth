@@ -1,0 +1,4 @@
+﻿PASS: gain ramps remain bounded at mute and full scale
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\audio\tb_master_mix_boundaries.sv:42: $finish called at 165840000 (1ps)
+
+

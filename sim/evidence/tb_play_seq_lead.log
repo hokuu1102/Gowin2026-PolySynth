@@ -12,6 +12,6 @@
   ok  : L5a tempo event is NOT emitted as a note (kind=2 never drives note_valid_o)
   ok  : L5b tempo was applied (tempo_applied_o pulsed)
 PASS: play_seq lead -- 0 is bit-exact, 960 is exact, no 20-bit wrap
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_play_seq_lead.sv:216: $finish called at 455470000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_play_seq_lead.sv:216: $finish called at 455470000 (1ps)
 
 

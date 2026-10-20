@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_metronome/tb_metronome.vcd opened for output.
+﻿VCD info: dumping is suppressed.
   ok  : baseline: transport is low
   ok  : baseline: NO events emitted while stopped (counter still 0)
   ok  : baseline: evt_valid_o is low while stopped

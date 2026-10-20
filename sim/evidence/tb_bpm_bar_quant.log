@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_bpm_bar_quant/tb_bpm_bar_quant.vcd opened for output.
+﻿VCD info: dumping is suppressed.
   ok  : reset: pending_o is 0
   ok  : reset: load_o is 0
   ok  : non-vacuous: bar_start alone (no set_i) NEVER loads
@@ -23,6 +23,6 @@
   ok  : endpoint 240 BPM survives the round trip
 
 PASS: bpm_bar_quant -- a manual change arms only, lands exactly ONCE on the next bar_start with the latched value, is one-shot, is reset-cleared, and bar_start alone is inert
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_bpm_bar_quant.sv:202: $finish called at 1560000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_bpm_bar_quant.sv:202: $finish called at 1560000 (1ps)
 
 

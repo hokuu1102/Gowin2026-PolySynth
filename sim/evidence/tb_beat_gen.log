@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_beat_gen/tb_beat_gen.vcd opened for output.
+﻿VCD info: dumping is suppressed.
 PASS: beat_gen tick interval range 0 (strict tiers) / <=1 clk (BPM 60/120/200), BPM rates correct, transport edge assertions hold
 
 

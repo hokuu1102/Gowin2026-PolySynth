@@ -14,6 +14,6 @@
   ok  : J4 step_q realigns to 0 after pos_reset
 
 PASS: tb_drum_gen_posreset - 5/5 judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_drum_gen_posreset.sv:278: $finish called at 158212460000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_drum_gen_posreset.sv:278: $finish called at 158212460000 (1ps)
 
 

@@ -13,6 +13,6 @@ ok  : need_press_o 纭疄浜х敓浜嗕笂鍗囨部 鈬?top.v 鐨?ev_need 浼
 NOTE: need_press 楂?202 鎷?
 ==================================================
 PASS: calibration prompt rising edge and nonzero width observed
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_need_press_width.sv:156: $finish called at 6240000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_span_need_press_width.sv:156: $finish called at 6240000 (1ps)
 
 

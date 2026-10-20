@@ -1,0 +1,83 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_nm_off_in_hold ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_nm_off_in_hold.sv:107: warning: Port 9 (note_src_i) of note_manager expects 3 bits, got 2.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_nm_off_in_hold.sv:107:        : Padding 1 high bits of the port.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_nm_off_in_hold.sv:107: warning: Instantiating module note_manager with dangling input port 16 (vel_upd_src_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_nm_off_in_hold.sv:107: warning: Instantiating module note_manager with dangling input port 17 (pitch_upd_src_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_nm_off_in_hold.sv:107: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_nm_off_in_hold.sv:107: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_nm_off_in_hold.sv:107: warning: Instantiating module note_manager with dangling input port 25 (transpose_semi_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_nm_off_in_hold.sv:107: warning: Instantiating module note_manager with dangling input port 26 (sus_pedal_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_nm_off_in_hold.sv:131: warning: Instantiating module envelope_bank with dangling input port 7 (timbre_i) floating.
+=== 运行 tb_nm_off_in_hold ===
+    
+==============================================================
+ B3 RETRIGGER window: can note_off still clear the gate?
+   (phase sweep around sample_tick; gate MUST be 0 after note_off)
+==============================================================
+  off_phase=   0 -> gate=0 ok
+  off_phase=  64 -> gate=0 ok
+  off_phase= 128 -> gate=0 ok
+  off_phase= 192 -> gate=0 ok
+  off_phase= 256 -> gate=0 ok
+  off_phase= 320 -> gate=0 ok
+  off_phase= 384 -> gate=0 ok
+  off_phase= 448 -> gate=0 ok
+  off_phase= 512 -> gate=0 ok
+  off_phase= 576 -> gate=0 ok
+  off_phase= 640 -> gate=0 ok
+  off_phase= 704 -> gate=0 ok
+  off_phase= 768 -> gate=0 ok
+  off_phase= 832 -> gate=0 ok
+  off_phase= 896 -> gate=0 ok
+  off_phase= 960 -> gate=0 ok
+  off_phase=1016 -> gate=0 ok
+  off_phase=1017 -> gate=0 ok
+  off_phase=1018 -> gate=0 ok
+  off_phase=1019 -> gate=0 ok
+  off_phase=1020 -> gate=0 ok
+  off_phase=1021 -> gate=0 ok
+  off_phase=1022 -> gate=0 ok
+  off_phase=1023 -> gate=0 ok
+  off_phase=   0 -> gate=0 ok
+  off_phase=   1 -> gate=0 ok
+  off_phase=   2 -> gate=0 ok
+  off_phase=   3 -> gate=0 ok
+  off_phase=   4 -> gate=0 ok
+  off_phase=   5 -> gate=0 ok
+  off_phase=   6 -> gate=0 ok
+  off_phase=   7 -> gate=0 ok
+
+  == summary ==
+   cleared=32  STUCK=0  (invalid=0, phases=32)
+  ok  : B3: every phase around the sample tick clears the gate (no stuck note)
+  ok  : B3 non-vacuity: all phase cases executed with a valid setup
+PASS: B3 note_off always clears the gate, even inside the retrigger hold window
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_nm_off_in_hold.sv:305: $finish called at 1853940000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

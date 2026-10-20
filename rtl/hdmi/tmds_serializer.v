@@ -17,10 +17,14 @@ module tmds_serializer (
     assign lane[1] = green;
     assign lane[2] = red;
     assign lane[3] = 10'b0000011111;
+    // A dedicated, low-fanout word-clock register drives the four I/O resets.
+    // Its placement region is beside the fixed TMDS I/O bank in top.cst.
+    (* syn_preserve = 1 *) reg reset_release = 1'b1;
+    always @(posedge pixel_clk) reset_release <= rst;
     genvar j;
     generate for (j=0; j<4; j=j+1) begin : lanes
         // Parallel word-clock reset release; verify both FCLK edges in STA.
-        wire lane_reset = rst;
+        wire lane_reset = reset_release;
         OSER10 u_oser (
             .Q(serial[j]), .D0(lane[j][0]), .D1(lane[j][1]),
             .D2(lane[j][2]), .D3(lane[j][3]), .D4(lane[j][4]),

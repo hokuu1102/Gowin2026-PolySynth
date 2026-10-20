@@ -1,0 +1,103 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_top_ctrl_wire ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\evt_upstream.v:204: warning: @* is sensitive to all 16 words in array 'mem'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3b\tdm_render_mixer.v:623: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:498: warning: @* is sensitive to all 16 words in array 'held_axis'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:499: warning: @* is sensitive to all 16 words in array 'held_note'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:500: warning: @* is sensitive to all 16 words in array 'held_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:502: warning: @* is sensitive to all 16 words in array 'held_axis'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:503: warning: @* is sensitive to all 16 words in array 'held_note'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:518: warning: @* is sensitive to all 16 words in array 'next_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:519: warning: @* is sensitive to all 16 words in array 'next_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:52: warning: Instantiating module top with dangling input port 35 (pedal_sus_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:52: warning: Instantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:52: warning: Instantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:52: warning: Instantiating module top with dangling input port 39 (esp_uart_rx_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:65: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:65: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:65: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:65: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:66: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:66: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:66: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:66: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:67: warning: Instantiating module mcp3208_model with dangling input port 5 (ovr_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:67: warning: Instantiating module mcp3208_model with dangling input port 6 (ovr_val_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:67: warning: Instantiating module mcp3208_model with dangling input port 7 (ch_mask_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:67: warning: Instantiating module mcp3208_model with dangling input port 8 (ch_val_i) floating.
+=== 运行 tb_top_ctrl_wire ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
+NOTE [fx_delay] DEPTH=2048 samples = 41 ms @48828.125Hz | MEM_W=18 => 36864 bit / 18432 bit-per-block = 2 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=26 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [ctrl_keypad] PARAM_OK=1 (SCAN_DIV=4 DEB_N=2 CLK_HZ=50000000 scan_us=0 db_ms=0)
+NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=50000000 LONG_MS=2000 LONG_CYC=100000000 HW=27)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+VCD info: dumping is suppressed.
+  ok  : baseline: with NO key pressed, met_on_r does not move
+  ok  : baseline: with NO key pressed, slide_on_r does not move
+  ok  : TOGGLES met_on_r -- the keypad really reaches the downstream ***
+  ok  : key idx 0 pressed again toggles back
+  ok  : key idx 2 (slide 'W') toggles slide_on_r
+  ok  : key idx 1 (timbre 'I') steps timbre_sel_r by one
+  ok  : d STILL toggles met_on_r (the OR kept the serial path alive) ***
+  ok  : with object=BPM raises tick_inc_o by exactly 1374 (= +1 BPM) ***
+  ok  : 1 press the object is TRANSPOSE, so tick_inc_o must NOT move ***
+  ok  : lear_req stays quiet (a phantom clear would wipe the looper) ***
+  ok  :  is LOW at rest (a stuck rd_lock would reject R/L/C AND 'Y') ***
+  ok  : looper_evt_cnt is 0 when nothing has been recorded (sanity)
+  ok  : *** 'U' turns GUIDE MODE on (guide_only_r = 1) ***
+  ok  :  score's AUDIO path is gated OFF (seq_arb.score_valid_i = 0) ***
+  ok  : 'U' again turns the guide mode back OFF
+  ok  : L mode the score's audio path is OPEN again (no over-gating) ***
+  ok  : idx 6 (transpose UP x3) really moved transpose_semi OFF zero ***
+  ok  : (col2/row3) RESETS the pitch to DEFAULT: transpose_semi == 0 ***
+  ok  : d the underlying encoding is exactly 12 (= no transposition) ***
+  ok  :  step) => transpose_semi clamps at +12 (one octave, no wrap) ***
+  ok  : ts AGAIN from a DIFFERENT offset (not a one-off coincidence) ***
+  ok  : sses (octave step) => transpose_semi clamps at -12 (no wrap) ***
+  ok  : ey idx 14 recovers from the NEGATIVE octave offset back to 0 ***
+  ok  : vt_cnt == 0 (nothing recorded) so an export must be REJECTED ***
+  ok  : reaches cmd_recdump_req (rd_reject_event fired exactly once) ***
+  ok  : t-press path: a second press still yields exactly ONE reject ***
+  ok  : 2/4/5/10/14) can fire the recdump reject -- only idx 13 does ***
+
+PASS: control-board wiring -- the 4x4 keypad really toggles the downstream state, the serial path is preserved alongside it, the EC11 routes to BPM or transpose depending on the selected object, and key idx 13 (loop send) really reaches cmd_recdump_req while no other key does
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:451: $finish called at 1346640000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

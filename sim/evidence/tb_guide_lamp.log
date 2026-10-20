@@ -1,5 +1,5 @@
 ﻿NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
-VCD info: dumpfile build/sim/tb_guide_lamp/tb_guide_lamp.vcd opened for output.
+VCD info: dumping is suppressed.
 === tb_guide_lamp (鐏綅 = 闊抽珮鏌ヨ〃 + 杩愯鏈熷彉璋? ===
    kb: E3=52 F#3=54 C3=48 B3=59 A3=57 | fb: A2=45 D4=62
   ok  : baseline: guide all 0 right after reset
@@ -45,6 +45,6 @@ VCD info: dumpfile build/sim/tb_guide_lamp/tb_guide_lamp.vcd opened for output.
   ok  : Q4-g count saturates at 7 but the lamp is still on
   ok  : Q4-h saturation SELF-HEALS: 8 ONs + 8 OFFs leaves every lamp dark (no hanging lamp)
 PASS: tb_guide_lamp (41 checks)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_guide_lamp.sv:595: $finish called at 4371000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_guide_lamp.sv:595: $finish called at 4371000 (1ps)
 
 

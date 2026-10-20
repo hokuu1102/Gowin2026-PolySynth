@@ -24,6 +24,6 @@ ok  : C2b an UN-calibrated channel IGNORES the stale array content (water-mark g
 ==================================================================
 tb_calib_still_guard: pass=19 fail=0
 PASS: still-guard / clk-timeout / 'T'-guard / water-mark / no-direct-read
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_still_guard.sv:524: $finish called at 5282000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_calib_still_guard.sv:524: $finish called at 5282000 (1ps)
 
 

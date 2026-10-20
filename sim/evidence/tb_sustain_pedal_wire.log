@@ -27,6 +27,6 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : W7 sus_pedal_r is never X/Z
 
 PASS: tb_sustain_pedal_wire 鈥?9/9 judgements held (T5 top wiring)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_sustain_pedal_wire.sv:134: $finish called at 5454400000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_sustain_pedal_wire.sv:134: $finish called at 5454400000 (1ps)
 
 

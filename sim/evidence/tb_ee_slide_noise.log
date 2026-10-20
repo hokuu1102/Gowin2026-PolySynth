@@ -1,5 +1,5 @@
 ﻿NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x400 REL_TH=0x300 DELTA_TH=8 REFRACT_N=150)
-VCD info: dumpfile build/sim/tb_ee_slide_noise/tb_ee_slide_noise.vcd opened for output.
+VCD info: dumping is suppressed.
 --- NOISE-1: 杞?1 鏈?-10 鍣０锛岀湡 A=3(-192)銆佺湡 B=4(+192) ---
   ok  :  -> B=4) MUST still fire when another axis has noise-level delta
   ok  :  axis the finger actually LEFT (3), not the lowest noisy one (1)
@@ -14,6 +14,6 @@ VCD info: dumpfile build/sim/tb_ee_slide_noise/tb_ee_slide_noise.vcd opened for 
   ok  : noise must NOT be reported as a slide (no finger actually moved)
 
 PASS: event_extract slide survives realistic per-axis noise
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_ee_slide_noise.sv:239: $finish called at 3170000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_ee_slide_noise.sv:239: $finish called at 3170000 (1ps)
 
 

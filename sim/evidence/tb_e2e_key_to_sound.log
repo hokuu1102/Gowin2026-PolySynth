@@ -67,6 +67,6 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
   ok  : B4c: re-pressing the SAME key => EXACTLY ONE voice holds it, with EXACTLY kb_inc[10]
 
 PASS: end-to-end key-to-sound -- with the MCP3208 slave injecting real hall codes, a key press makes HP_DIN carry audio and release returns to silence
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\e2e\tb_e2e_key_to_sound.sv:995: $finish called at 47241190000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\e2e\tb_e2e_key_to_sound.sv:995: $finish called at 47241190000 (1ps)
 
 

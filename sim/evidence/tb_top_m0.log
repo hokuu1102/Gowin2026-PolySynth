@@ -19,7 +19,7 @@ NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
-VCD info: dumpfile build/sim/tb_top_m0/tb_top_m0.vcd opened for output.
+VCD info: dumping is suppressed.
 
 ==================== top / M0 椤跺眰楠屾敹 ====================
   A 鏃跺熀    : HP_BCK 鍛ㄦ湡 min=16 max=16 clk锛堟湡鏈?16锛壜?涓婂崌娌?4097 涓?
@@ -58,6 +58,6 @@ VCD info: dumpfile build/sim/tb_top_m0/tb_top_m0.vcd opened for output.
   ok : P0-06 蹇冭烦缈昏浆 64 娆★紙娲讳綋瑙佽瘉鏈夋晥锛?
 
 PASS: M0 top-level acceptance (timebase + SD_MODE polarity + silence-clean + heartbeat + no X + external DAC)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_m0.sv:591: $finish called at 1310971000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_m0.sv:591: $finish called at 1310971000 (1ps)
 
 

@@ -1,0 +1,5 @@
+COMPILE ['D:/cyx/Dev-Cpp/MinGW64/bin/gcc.exe', '-std=c11', '-static', '-IC:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\fix-audit-20261020\\review\\spec\\host', '-IC:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\fix-audit-20261020\\esp32\\ble\\main', 'C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\fix-audit-20261020\\review\\spec\\host\\notify_probe.c', 'C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\fix-audit-20261020\\esp32\\ble\\main\\up_ring.c', '-o', 'C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\fix-audit-20261020\\review\\spec\\host\\notify_probe.exe']
+COMPILE_EXIT 0
+PASS positive send: tx=28 out=28 level=0
+PASS failed notify retains unaccepted bytes: tx=0 out=28 level=28 failed=1
+RUN_EXIT 0

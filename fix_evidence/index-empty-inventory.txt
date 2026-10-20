@@ -1,0 +1,7 @@
+EMPTY 6
+sim/evidence/gowin_build.stderr.log
+sim/evidence/p5-adsr-20261003/syn_after.err
+sim/evidence/p5-adsr-20261003/syn_after2.log.err
+sim/evidence/p5-adsr-20261003/syn_before.err
+sim/evidence/t3-disable-20261003/syn-T3EN0.stderr.log
+sim/evidence/t3-disable-20261003/syn-T3EN1.stderr.log

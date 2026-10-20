@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_led_data/tb_led_data.vcd opened for output.
+﻿VCD info: dumping is suppressed.
   ok  : baseline: pattern all 0 right after reset
   ok  : baseline: commit is 0 (no spurious commit)
   ok  : key light: active keys 0,1 are ON (steady)

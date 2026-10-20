@@ -29,6 +29,6 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
   ok  : *** FORCED OFF CENTER => led_heartbeat follows hb again (blinking, not latched) ***
 
 PASS: joystick center on the heartbeat LED -- centered => SOLID ON, off-center => the normal heartbeat blink returns, and pluck_both_low now has a real consumer (it can no longer be pruned)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_hb_center.sv:191: $finish called at 45940000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_hb_center.sv:191: $finish called at 45940000 (1ps)
 
 

@@ -44,6 +44,6 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : R6 unused chip selects (cs_n[5:3]) stay HIGH
 
 PASS: tb_right_adc 鈥?7/7 judgements held (=1 妗ｅ姛鑳介€氳矾鏄椿鐨?
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_right_adc.sv:210: $finish called at 2400400000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_right_adc.sv:210: $finish called at 2400400000 (1ps)
 
 

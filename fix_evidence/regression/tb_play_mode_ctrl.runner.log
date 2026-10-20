@@ -1,0 +1,156 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_play_mode_ctrl ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_play_mode_ctrl.sv:56: warning: Instantiating module play_mode_ctrl with dangling input port 11 (slide_active_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_play_mode_ctrl.sv:56: warning: Instantiating module play_mode_ctrl with dangling input port 12 (slide_axis_i) floating.
+=== 运行 tb_play_mode_ctrl ===
+         [evt #0] axis=2 kind=0 (depth=1000)
+     [evt #1] axis=2 kind=1 (depth=0)
+  ok  : keyboard forwards threshold note_on
+  ok  : keyboard forwards release note_off
+  ok  : fretboard selection alone is silent
+     [evt #2] axis=6 kind=2 (depth=900)
+  ok  : fretboard DOWN pluck starts selected axis
+     [evt #3] axis=6 kind=1 (depth=0)
+  ok  : releasing a plucked selection sends note_off
+     [evt #4] axis=9 kind=2 (depth=800)
+  ok  : fretboard UP pluck starts a newly selected axis
+     [evt #0] axis=6 kind=2 (depth=900)
+     [evt #1] axis=6 kind=1 (depth=0)
+  ok  : P0-22 slide-then-release: the SOUNDING note (gate axis 6) gets its note_off
+     [evt #0] axis=5 kind=0 (depth=1000)
+     [evt #1] axis=5 kind=1 (depth=0)
+  ok  : P0-22 keyboard->fretboard switch: the release still emits note_off (no stuck note)
+  ok  : M1 two axes held => selection alone is still silent
+     [evt #0] axis=6 kind=2 (depth=900)
+     [evt #1] axis=9 kind=2 (depth=800)
+  ok  : M2 [contract changed - user authorised] ONE pluck triggers ALL held axes: BOTH 6 and 9
+     [evt #2] axis=6 kind=2 (depth=900)
+     [evt #3] axis=9 kind=2 (depth=800)
+  ok  : M3 a SECOND pluck re-triggers the WHOLE chord (both axes again, no 'second note missing')
+     [evt #4] axis=6 kind=1 (depth=0)
+  ok  : M3b releasing axis 6 emits exactly ONE note_off, and it is axis 6 (the other keeps sounding)
+     [evt #5] axis=9 kind=1 (depth=0)
+  ok  : M3c releasing axis 9 emits ITS OWN note_off => every note_on has a matching note_off
+     [evt #0] axis=6 kind=2 (depth=900)
+     [evt #1] axis=6 kind=1 (depth=0)
+     [evt #2] axis=9 kind=2 (depth=800)
+     [evt #3] axis=9 kind=1 (depth=0)
+     [evt #4] axis=6 kind=2 (depth=900)
+     [evt #5] axis=6 kind=1 (depth=0)
+  ok  : M4 alternating pluck/release => every note_on gets its note_off (no stuck note)
+     [evt #0] axis=3 kind=2 (depth=500)
+     [evt #1] axis=3 kind=2 (depth=500)
+     [evt #2] axis=3 kind=2 (depth=500)
+  ok  : M5 held axis keeps retriggering on every pluck (no one-shot latch)
+     [evt #0] axis=1 kind=2 (depth=700)
+     [evt #1] axis=2 kind=2 (depth=700)
+     [evt #2] axis=3 kind=2 (depth=700)
+  ok  : M6 three axes held => ONE pluck emits THREE note_on (PLUCK) events
+  ok  : M6b the three PLUCK events cover axes {1,2,3} exactly once each
+     [evt #3] axis=1 kind=1 (depth=0)
+  ok  : M6c releasing axis 1 emits its OWN note_off (axis 1)
+     [evt #4] axis=2 kind=1 (depth=0)
+  ok  : M6d releasing axis 2 emits its OWN note_off (axis 2)
+     [evt #5] axis=3 kind=1 (depth=0)
+  ok  : M6e releasing axis 3 completes 3 note_on / 3 note_off, perfectly paired (no stuck voice)
+     [evt #0] axis=7 kind=2 (depth=650)
+  ok  : M7 BOUNDARY one axis held => ONE pluck still emits EXACTLY ONE event (N=1, not 2+)
+     [evt #0] axis=0 kind=2 (depth=600)
+     [evt #1] axis=1 kind=2 (depth=600)
+     [evt #2] axis=2 kind=2 (depth=600)
+     [evt #3] axis=3 kind=2 (depth=600)
+     [evt #4] axis=4 kind=2 (depth=600)
+     [evt #5] axis=5 kind=2 (depth=600)
+     [evt #6] axis=6 kind=2 (depth=600)
+     [evt #7] axis=7 kind=2 (depth=600)
+     [evt #8] axis=8 kind=2 (depth=600)
+     [evt #9] axis=9 kind=2 (depth=600)
+     [evt #10] axis=10 kind=2 (depth=600)
+     [evt #11] axis=11 kind=2 (depth=600)
+     [evt #12] axis=12 kind=2 (depth=600)
+     [evt #13] axis=13 kind=2 (depth=600)
+     [evt #14] axis=14 kind=2 (depth=600)
+     [evt #15] axis=15 kind=2 (depth=600)
+  ok  : M8 BOUNDARY all 16 axes held => ONE pluck emits 16 PLUCK events covering all 16 axes
+     [evt #16] axis=0 kind=1 (depth=0)
+     [evt #17] axis=1 kind=1 (depth=0)
+     [evt #18] axis=2 kind=1 (depth=0)
+     [evt #19] axis=3 kind=1 (depth=0)
+     [evt #20] axis=4 kind=1 (depth=0)
+     [evt #21] axis=5 kind=1 (depth=0)
+     [evt #22] axis=6 kind=1 (depth=0)
+     [evt #23] axis=7 kind=1 (depth=0)
+     [evt #24] axis=8 kind=1 (depth=0)
+     [evt #25] axis=9 kind=1 (depth=0)
+     [evt #26] axis=10 kind=1 (depth=0)
+     [evt #27] axis=11 kind=1 (depth=0)
+     [evt #28] axis=12 kind=1 (depth=0)
+     [evt #29] axis=13 kind=1 (depth=0)
+     [evt #30] axis=14 kind=1 (depth=0)
+     [evt #31] axis=15 kind=1 (depth=0)
+  ok  : M9 all 16 released => 16 matching note_off, one per axis (no stuck voice)
+     [evt #0] axis=2 kind=2 (depth=600)
+     [evt #1] axis=5 kind=2 (depth=600)
+     [evt #2] axis=7 kind=2 (depth=600)
+  ok  : M10 pluck coinciding with an axis press loses nothing: axes {2,5,7} are ALL plucked
+     [evt #0] axis=1 kind=2 (depth=600)
+     [evt #1] axis=2 kind=2 (depth=600)
+     [evt #2] axis=3 kind=2 (depth=600)
+     [evt #3] axis=1 kind=2 (depth=600)
+     [evt #4] axis=2 kind=2 (depth=600)
+     [evt #5] axis=3 kind=2 (depth=600)
+  ok  : M11 a second pluck arriving DURING the chord FSM is latched, not lost (2 chords x 3 axes = 6)
+  ok  : M12 setup: two axes held, selection alone is silent
+     [evt #0] axis=9 kind=2 (depth=800)
+  ok  : M12 ONE pluck with a stale held_mask bit emits EXACTLY ONE event, for the axis still held (9)
+     [evt #0] axis=1 kind=2 (depth=700)
+     [evt #1] axis=3 kind=2 (depth=700)
+  ok  : H1 axis released INSIDE the pluck FSM: 2 PLUCK events, axes {1,3}, none for released axis 2
+     [evt #0] axis=9 kind=2 (depth=900)
+  ok  : H2a axis_clr + axis_evt(9,ON) same cycle: fresh ON wins, next pluck = 1 event, axis 9
+     [evt #0] axis=3 kind=2 (depth=900)
+     [evt #0] axis=3 kind=1 (depth=0)
+  ok  : H2b pluck in the SAME cycle as axis_clr: 0 PLUCK from the stale mask, only recovery OFF(3)
+     [evt #0] axis=1 kind=2 (depth=700)
+     [evt #1] axis=1 kind=1 (depth=0)
+  ok  : H3 axis_clr while the chord FSM runs: no stale PLUCK (1 PLUCK axis 1) + recovery OFF(1)
+     [evt #0] axis=5 kind=2 (depth=850)
+     [evt #0] axis=5 kind=1 (depth=0)
+  ok  : DEFECT3 axis_clr drains keyboard_held: sounding axis 5 gets its OFF (no stuck voice)
+     [evt #1] axis=5 kind=2 (depth=850)
+     [evt #2] axis=5 kind=1 (depth=0)
+  ok  : DEFECT3b after the drain, axis 5 re-press/pluck/release is still paired (1 PLUCK, 2 OFF)
+  ok  : H4 BOUNDARY a pluck with NO axis held emits nothing at all (no phantom note)
+     [evt #0] axis=2 kind=2 (depth=700)
+     [evt #1] axis=5 kind=2 (depth=700)
+     [evt #2] axis=9 kind=2 (depth=700)
+  ok  : H5 CONTRACT pluck FSM emits ascending axis order (lowest set bit first): 2, 5, 9
+PASS: play-mode controller enforces keyboard and fretboard semantics
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_play_mode_ctrl.sv:631: $finish called at 9890000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

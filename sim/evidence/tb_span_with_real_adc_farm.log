@@ -12,6 +12,6 @@ ok  : 鐪?adc_farm 椹卞姩涓嬶紝calib_span 鑳芥甯告爣瀹氾紙span>
       => 鉁?璇存槑銆愮湡瀹為噰鏍锋椂搴忋€戜笅鐘舵€佹満宸ヤ綔姝ｅ父
       => 馃敶 涓婃澘澶辫触鐨勫師鍥犲湪鍒锛堜笉鏄噰鏍锋椂搴忥級
 PASS: real SPI ADC calibration makes progress without rejection
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_with_real_adc_farm.sv:205: $finish called at 60002440000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_span_with_real_adc_farm.sv:205: $finish called at 60002440000 (1ps)
 
 

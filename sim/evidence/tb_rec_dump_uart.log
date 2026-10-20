@@ -1,5 +1,5 @@
 ﻿NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 PASS: two complete 14-byte v1.1 frames through real FIFO and 500kbps UART
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_rec_dump_uart.sv:72: $finish called at 600100000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_rec_dump_uart.sv:72: $finish called at 600100000 (1ps)
 
 

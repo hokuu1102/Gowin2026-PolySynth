@@ -1,0 +1,5 @@
+﻿NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=20 CNT_W=5)
+PASS: guide identity, 16 overlaps, repeated ONs and timeout
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\control\tb_guide_lamp_identity.sv:40: $finish called at 5244880000 (1ps)
+
+

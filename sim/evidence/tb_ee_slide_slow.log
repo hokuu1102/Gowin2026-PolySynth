@@ -1,0 +1,18 @@
+﻿NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x400 REL_TH=0x300 DELTA_TH=8 REFRACT_N=150)
+VCD info: dumping is suppressed.
+== 1: 150 ms 婊戝畬涓€涓敭锛堟墜閫熺湡瀹為噺绾э級==
+INFO: steps=300 甯?(= 150 ms) | 涓嬮檷甯?47 鏈€澶у崟甯ч檷=1 涓婂崌甯?47
+INFO: slide_cnt=23  棣栨媿鍦?160 甯?(= 80 ms)  鍋滀綇鍚庢柊澧?0
+  ok  :  reaches the old fast threshold (<2) => the old rule CANNOT fire
+  ok  : the slide really produced decreasing frames
+  ok  : SLOW SLIDE (150 ms per key) fires slide_valid
+  ok  : ld => fires MID-slide (<=55% of the 150 ms), not at the very end
+  ok  : ide pulses after the finger stops (no hang/note_off suppression)
+== 2: 7.5 ms 鐢╀竴涓敭锛堝揩閫氶亾锛?=
+INFO: steps=15 甯?(= 7 ms) | 涓嬮檷甯?15 鏈€澶у崟甯ч檷=4 涓婂崌甯?15
+INFO: slide_cnt=15  棣栨媿鍦?1 甯?(= 0 ms)  鍋滀綇鍚庢柊澧?0
+  ok  : FAST slide (7.5 ms per key) still fires slide_valid
+PASS: slow (150 ms/key) and fast (7.5 ms/key) slides both fire, and a resting finger is silent
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_ee_slide_slow.sv:241: $finish called at 191040000 (1ps)
+
+

@@ -1,0 +1,62 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_score_looper_coexist ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_score_looper_coexist.sv:207: warning: Instantiating module looper with dangling input port 13 (is_drum_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_score_looper_coexist.sv:207: warning: Instantiating module looper with dangling input port 38 (dump_en_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_score_looper_coexist.sv:207: warning: Instantiating module looper with dangling input port 39 (dump_addr_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_score_looper_coexist.sv:284: warning: Instantiating module note_manager with dangling input port 23 (base_semi_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_score_looper_coexist.sv:284: warning: Instantiating module note_manager with dangling input port 24 (base_commit_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_score_looper_coexist.sv:284: warning: Instantiating module note_manager with dangling input port 25 (transpose_semi_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_score_looper_coexist.sv:284: warning: Instantiating module note_manager with dangling input port 26 (sus_pedal_i) floating.
+=== 运行 tb_score_looper_coexist ===
+    VCD info: dumping is suppressed.
+== A: score path with an EMPTY looper ==
+  ok  : score_path_unchanged_when_looper_empty: note_on allocates exactly ONE voice
+  ok  : score_path_unchanged_when_looper_empty: note_off releases it again
+== B: record one note on axis 3 (start vel 100 -> end vel 200) ==
+  ok  : recording leaves NO held voice behind (live note was closed)
+  ok  : looper stored the note_on AND the note_off
+== C: start playback ==
+  ok  : looper replay emits a note_on (source C is wired)
+  ok  : looper replay alone holds exactly ONE voice on axis 3
+  ok  : loop_interp_update_reaches_loop_voice: its velocity climbs above the start value
+== D: score note ON the SAME axis while the loop is playing ==
+  ok  : score_and_loop_same_axis_coexist: TWO distinct voices on axis 3
+  ok  : score_and_loop_same_axis_coexist: BOTH are gated (audible)
+== E: score note OFF -- the loop's voice must survive ==
+  ok  : score_note_off_keeps_loop_voice: the loop's voice is STILL gated
+  ok  : score_note_off_keeps_loop_voice: only the score's own voice was cleared
+== F: loop note OFF -- the score's voice must survive ==
+  ok  : score voice re-allocated next to the loop's voice
+  ok  : looper replay emits a note_off
+  ok  : loop_note_off_keeps_score_voice: the score's voice is STILL gated
+  ok  : loop_note_off_keeps_score_voice: only the loop's own voice was cleared
+  ok  : loop_interp_update_reaches_loop_voice: the score voice's velocity is untouched
+  ok  : final score note_off releases the last voice (no stuck voice)
+PASS: score UART and looper coexist; source tags isolate note_off (ok=17)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

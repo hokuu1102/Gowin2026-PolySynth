@@ -32,6 +32,6 @@ ok: both axes released closes original gate
 ok: disabled slide emits no pitch transactions
 ok: keyboard mode blocks slide even with W enabled
 PASS: real UART/SPI/comparator slide-to-I2S path, 14 checks
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_slide_position_e2e.sv:128: $finish called at 2855960000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_slide_position_e2e.sv:128: $finish called at 2855960000 (1ps)
 
 

@@ -89,6 +89,6 @@
   DBG: state 4 -> 0 (kind=0 axis=0 scan=31 best_v=1)
 PASS: base_semi -- octave shift is exact, bypassed at 0, and rejects illegal values
 INFO: checks=10 errors=0
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_base_semi.sv:350: $finish called at 19470000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_base_semi.sv:350: $finish called at 19470000 (1ps)
 
 

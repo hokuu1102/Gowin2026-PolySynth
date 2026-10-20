@@ -53,6 +53,6 @@ ok  : 鏉炬墜闈欐 鈬?鏍囧畾銆愯兘閫氳繃銆戯紙span=6, reject=
 ok  : 杞? 甯ч棿鍙樺寲 螖=0 < STABLE_TOL=48 鈬?绋冲畾鍒ゅ畾銆愬簲鑳介€氳繃銆?
 ==================================================
 PASS: real ADC released-input calibration makes progress without rejection
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_released_stable.sv:185: $finish called at 60004440000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_span_released_stable.sv:185: $finish called at 60004440000 (1ps)
 
 

@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/evt_uart_rx/tb_evt_uart_rx.vcd opened for output.
+﻿VCD info: dumping is suppressed.
   ok  : real 115200 baud, 64-bit payload exact (big-endian ok)
   ok  : payload containing 0xA5 bytes parsed correctly (no false sync)
   ok  : 0xA5 in the middle of the payload does NOT resync

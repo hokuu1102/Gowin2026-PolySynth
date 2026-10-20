@@ -1,0 +1,74 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_pos_probe ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_pos_probe.sv:44: warning: Port 5 (ch_i) of pos_probe expects 4 bits, got 3.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_pos_probe.sv:44:        : Padding 1 high bits of the port.
+=== 运行 tb_pos_probe ===
+    === tb_pos_probe ===
+== 1: 鏃犺姹?==
+  ok  : 鏃犺姹傛椂 push 鎭?0
+== 2/3: 涓€娆¤姹?==
+  ok  : 姝ｅソ 8 涓瓧鑺?
+    744: pos=744 -> P00744
+
+  ok  : 744 鏁板€兼纭?
+    0: pos=0 -> P00000
+
+  ok  : 0 鏁板€兼纭?
+    4095: pos=4095 -> P04095
+
+  ok  : 4095 鏁板€兼纭?
+    9: pos=9 -> P00009
+
+  ok  : 9 鏁板€兼纭?
+    2050: pos=2050 -> P02050
+
+  ok  : 2050 鏁板€兼纭?
+== 4: 閿佸瓨璇箟 ==
+  ok  : 鍥炰紶鏈熼棿鏀硅緭鍏?鈬?浠嶈緭鍑洪攣瀛樼殑 1234
+    閿佸瓨: pos=1234 -> P01234
+
+  ok  : 閿佸瓨 鏁板€兼纭?
+== 5: 闈炵┖鏃朵笉寮€鏂板寘锛圞-126 鐨勬暀璁級==
+  ok  : 闈炵┖鏃朵竴涓兘涓嶅彂锛堚瓙 绛夛紝鉀?涓嶇‖濉烇級
+  ok  : 闈炵┖鏃?busy 涓?0锛堚瓙 杩樻病寮€濮嬶紝鉀?涓嶆槸蹇欙級
+  ok  : 绌轰簡浠ュ悗璇锋眰 鈬?7 涓瓧鑺傚叏鍙戯紙猸?涓€涓病涓級
+    绌哄悗: pos=500 -> P00500
+
+  ok  : 绌哄悗 鏁板€兼纭?
+== 6: busy 璇箟 ==
+  ok  : 绌洪棽鏃?busy 涓?0
+  ok  : 鍥炰紶涓?busy 涓?1
+  ok  : 鍥炲畬鍚?busy 钀?0
+== 7: A8 ==
+  ok  : A8: data 鏃?X/Z
+  ok  : A8: busy 鏃?X/Z
+
+PASS: pos_probe emits 'P<4 digits>CRLF' on request, latches the reading, and never drops when the sink is busy
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_pos_probe.sv:219: $finish called at 6050000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

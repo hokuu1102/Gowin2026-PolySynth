@@ -29,9 +29,9 @@ module tb_guide_lamp_identity;
     if(keys!==16'h0020)$fatal(1,"sixteenth overlapping note lost");
     evt(1,15);if(keys!==0)$fatal(1,"last OFF failed");
     // Repeated same-axis ONs must also retain multiplicity.
-    for(i=0;i<8;i=i+1)evt(0,0);
-    for(i=0;i<7;i=i+1)evt(1,0);
-    if(keys!==16'h0020)$fatal(1,"eighth repeated note lost");
+    for(i=0;i<65536;i=i+1)evt(0,0);
+    for(i=0;i<65535;i=i+1)evt(1,0);
+    if(keys!==16'h0020)$fatal(1,"65536th repeated note lost");
     alive=0;repeat(24)@(negedge clk);
     if(keys!==0)$fatal(1,"timeout failed to clear identities");
     alive=1;evt(0,0);evt(1,0);

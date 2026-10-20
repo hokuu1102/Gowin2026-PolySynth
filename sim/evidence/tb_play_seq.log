@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/play_seq/tb_play_seq.vcd opened for output.
+﻿VCD info: dumping is suppressed.
   ok  : reset default tick_inc = 164927 (120 BPM, not 0)
   ok  : evt_underrun_o asserts when the buffer is empty
   ok  : segment1 = 120 BPM, gap [26041,26042] ok

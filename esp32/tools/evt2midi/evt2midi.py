@@ -577,7 +577,7 @@ def _guess_tick_unit(evs):
 def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None, tables=None,
                table_fallback=False, tick_unit=TICK_UNIT_AUTO):
     """
-    生成标准 MIDI（Format 0，单轨）。
+    生成标准 MIDI（Format 1，速度轨 + 按音色/鼓分轨）。
 
     ---- tick 的单位（2026-10-13 新增，因为发现两侧定义冲突）----
     🔴 **实测发现**：`tick` 的单位在两条通路上【不一样】，而旧代码只会一种：
@@ -662,7 +662,8 @@ def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None, tables=None,
     prev_midi_t = 0
     prev_fpga_tick = None
     acc_ticks = 0                    # ⭐ 累加的真实 tick 数（⭐ 支持任意次回绕）
-    open_notes = {}                  # axis -> note（⭐ 用于配对 off）
+    open_notes = {}                  # (channel, identity) -> pending pitches
+    tracks, last_by_channel = {}, {}
     skipped_no_pitch = 0
     ticks_seen = 0
 
@@ -697,8 +698,15 @@ def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None, tables=None,
     us_per_qn = max(1, min(0xFFFFFF, us_per_qn))
     out += var_len(0) + bytes([0xFF, 0x51, 0x03]) + us_per_qn.to_bytes(3, "big")
 
-    for channel, program in enumerate((32, 24, 0, 89)):
-        out += var_len(0) + bytes([0xC0 | channel, program])
+    def track_for(channel):
+        if channel not in tracks:
+            name = ("Drums" if channel == 9 else ("BASS", "GUITAR", "PIANO", "PAD")[channel]).encode("ascii")
+            track = bytearray(var_len(0) + b"\xff\x03" + var_len(len(name)) + name)
+            if channel != 9:
+                track += var_len(0) + bytes([0xC0 | channel, (32, 24, 0, 89)[channel]])
+            tracks[channel] = track
+            last_by_channel[channel] = 0
+        return tracks[channel]
 
     for e in evs_sorted:
         if e.tick is None:
@@ -752,11 +760,11 @@ def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None, tables=None,
         if e.kind in ("note_on", "note_off"):
             # ---- ⭐⭐ inc == 0：⭐ 明确政策（⛔ 不猜音高）----
             channel = 9 if e.drum_type is not None else (e.timbre or 0) & 3
-            identity = (channel, e.axis)
+            identity = (channel, e.drum_type if channel == 9 else e.axis)
             if e.drum_type is not None:
                 note = (36, 38, 42, 45)[e.drum_type & 3]
-            elif e.kind == "note_off" and identity in open_notes:
-                note = open_notes[identity]
+            elif e.kind == "note_off" and not e.inc and identity in open_notes:
+                note = open_notes[identity][0]
             elif not e.inc:
                 stats.inc_zero += 1
                 if table_fallback and eff_map is not None and e.axis in eff_map:
@@ -779,36 +787,41 @@ def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None, tables=None,
             # ⭐ vel 是 8 位（0..255）⇒ ⭐ ÷2 缩放到 MIDI 的 0..127
             #    ⚠️ 下限取 1：⭐ MIDI 里 note_on 的 velocity=0 等于 note_off
             v7 = max(1, min(127, (vel + 1) // 2))
+            track = track_for(channel)
+            track += var_len(midi_t - last_by_channel[channel])
+            last_by_channel[channel] = midi_t
             if e.kind == "note_on":
-                out += var_len(delta)
-                out += bytes([0x90 | channel, note, v7])
-                open_notes[identity] = note
+                track += bytes([0x90 | channel, note, v7])
+                open_notes.setdefault(identity, []).append(note)
             else:
                 # ⚠️ note_off 的力度用 0x40（⭐ 标准做法；⭐ FPGA 的"峰值力度"
                 #    已体现在 note_on 里，⭐ 这里⛔ 不再用）
                 if identity not in open_notes:
                     # ⚠️ 没 on 就 off ⇒ ⭐ 计数（⭐ 这通常意味着**前面有帧被拒收**）
                     stats.orphan_off += 1
-                out += var_len(delta)
-                out += bytes([0x80 | channel, note, 0x40])
-                open_notes.pop(identity, None)
+                track += bytes([0x80 | channel, note, 0x40])
+                pending = open_notes.get(identity, [])
+                if note in pending:
+                    pending.remove(note)
+                if not pending:
+                    open_notes.pop(identity, None)
             prev_midi_t = midi_t
             ticks_seen += 1
 
     # ⭐ 收尾：⭐ 给所有还开着的音补 note_off（⚠️ 否则播放器会挂音）
-    stats.notes_open_at_end = len(open_notes)
-    if open_notes:
-        for (channel, axis), note in open_notes.items():
-            out += var_len(0)
-            out += bytes([0x80 | channel, note, 0x40])
+    stats.notes_open_at_end = sum(len(pending) for pending in open_notes.values())
+    for (channel, identity), pending in open_notes.items():
+        track = track_for(channel)
+        for note in pending:
+            track += var_len(prev_midi_t - last_by_channel[channel])
+            last_by_channel[channel] = prev_midi_t
+            track += bytes([0x80 | channel, note, 0x40])
 
-    # ⭐ 轨道结束标记（⭐ MIDI 规范要求）
-    out += var_len(0) + bytes([0xFF, 0x2F, 0x00])
-
-    # ---- 组装文件 ----
-    hdr = b"MThd" + struct.pack(">IHHH", 6, 0, 1, PPQN)
-    trk = b"MTrk" + struct.pack(">I", len(out)) + bytes(out)
-    return hdr + trk, skipped_no_pitch, ticks_seen
+    end_marker = var_len(0) + b"\xff\x2f\x00"
+    payloads = [out + end_marker] + [track + end_marker for track in tracks.values()]
+    hdr = b"MThd" + struct.pack(">IHHH", 6, 1, len(payloads), PPQN)
+    chunks = [b"MTrk" + struct.pack(">I", len(track)) + track for track in payloads]
+    return hdr + b"".join(chunks), skipped_no_pitch, ticks_seen
 
 
 # ============================================================================

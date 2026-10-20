@@ -1,0 +1,61 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_lamp_stuck_clear ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:498: warning: @* is sensitive to all 16 words in array 'held_axis'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:499: warning: @* is sensitive to all 16 words in array 'held_note'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:500: warning: @* is sensitive to all 16 words in array 'held_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:502: warning: @* is sensitive to all 16 words in array 'held_axis'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:503: warning: @* is sensitive to all 16 words in array 'held_note'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:518: warning: @* is sensitive to all 16 words in array 'next_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:519: warning: @* is sensitive to all 16 words in array 'next_key'.
+=== 运行 tb_lamp_stuck_clear ===
+    NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=1000 CNT_W=10)
+=== tb_lamp_stuck_clear  [FIXED build: stream-timeout clear] ===
+VCD info: dumping is suppressed.
+== 1  a note_on with NO matching note_off (the upstream defect) ==
+  ok  : 1a the note_on really lit key 5 (the stimulus is not vacuous)
+  ok  : 1b guide_key_o[5] is the lit lamp
+== 2  the stream is still alive => the lamp must NOT be cleared ==
+  ok  : 2a stream_alive=1 (buffer still has events) => lamp stays lit (no false clear)
+  ok  : 2b the idle counter is pinned at 0 while the stream is alive
+== 3  stream stopped for > 1 s => the hanging lamp MUST clear itself ==
+  ok  : 3a before the timeout the lamp is STILL lit (timeout is not instant)
+  ok  : 3b the hanging lamp cleared itself after 1 s of no score  <-- THE HANGING-LAMP FIX
+  ok  : 3c key 5's lamp is gone (not just dimmed)
+  ok  : 3d the blanked bitmap follows (guide_vis = guide_key & ~active)
+== 4  a new score arriving ON the timeout edge => clean slate then light ==
+  ok  : 4a the old hung lamp is gone AND only the NEW pitch's lamp (key 3) is lit
+  ok  : 4b stale key 5 cleared, fresh key 3 lit (timeout won the previous cycle)
+== 5  a mid-score hiccup (0.5 s) must NOT clear anything ==
+  ok  : 5a-pre the idle counter was reset by the stream coming back (not stuck at the limit)
+  ok  : 5b the lamp is still lit during the hiccup (the timeout has not fired yet)
+  ok  : 5c the lamp survived a 0.5 s stream hiccup (counter reset, no false clear)
+
+PASS: tb_lamp_stuck_clear - 13/13 judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_lamp_stuck_clear.sv:263: $finish called at 71110000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

@@ -14,6 +14,6 @@
   ok  : W6 ascending ramp steps +8 (240 -> 248), no wrap
 
 PASS: tb_note_manager_vel_wrap 鈥?6/6 judgements held (P0-01 鏃犲洖缁?
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager_vel_wrap.sv:283: $finish called at 2040000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_note_manager_vel_wrap.sv:283: $finish called at 2040000 (1ps)
 
 

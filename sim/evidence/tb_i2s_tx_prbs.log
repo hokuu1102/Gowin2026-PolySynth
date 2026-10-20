@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_i2s_tx_prbs/tb_i2s_tx_prbs.vcd opened for output.
+﻿VCD info: dumping is suppressed.
 
 ================ i2s_tx value/bit-pattern coverage ================
   LCG random  : 512 frames (fixed seed DEADBEEF, reproducible)
@@ -13,6 +13,6 @@
   ok : A8 no X/Z
 
 PASS: i2s_tx round-trips the full 24-bit value range, every single-bit pattern, and the truncation edge cases
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_i2s_tx_prbs.sv:197: $finish called at 11878651000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_i2s_tx_prbs.sv:197: $finish called at 11878651000 (1ps)
 
 

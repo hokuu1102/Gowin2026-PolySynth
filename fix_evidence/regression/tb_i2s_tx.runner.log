@@ -1,0 +1,53 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_i2s_tx ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+=== 运行 tb_i2s_tx ===
+    VCD info: dumping is suppressed.
+  路 宸?#0 瑙ｄ覆=0 鏈熸湜=0锛堥珮 16 浣嶄竴鑷达級
+  路 宸?#1 瑙ｄ覆=410880 鏈熸湜=411113锛堥珮 16 浣嶄竴鑷达級
+  路 宸?#2 瑙ｄ覆=818176 鏈熸湜=818268锛堥珮 16 浣嶄竴鑷达級
+  路 宸?#3 瑙ｄ覆=1217536 鏈熸湜=1217542锛堥珮 16 浣嶄竴鑷达級
+
+================ i2s_tx / S2 瑙ｄ覆瀹炴祴 ================
+  甯ф暟        : 鏀跺埌宸?260 / 鍙?260 涓牱鐐癸紙鏈熸湜 256锛?
+  閫愮偣涓€鑷?   : 宸?256 瀵?/ 0 閿?路 鍙?256 瀵?/ 0 閿?
+  HP_BCK 鍛ㄦ湡 : min=16 max=16 clk锛堟湡鏈?16 = 3.125 MHz锛?
+  HP_WS  鍛ㄦ湡 : min=1024 max=1024 clk锛堟湡鏈?1024 = 48.828125 kHz锛?
+  HP_WS  鍗犵┖ : 浣?133122 / 楂?133118 clk
+  鏍风偣 CSV    : sim/evidence/i2s_tx_l.csv / _r.csv锛堜氦缁?tools/csv_fft.py锛?
+=====================================================
+  ok : 宸﹀０閬撹В涓叉牱鐐逛笌婵€鍔?*閫愮偣涓€鑷?*锛?56 鐐癸級
+  ok : 鍙冲０閬撹В涓叉牱鐐逛笌婵€鍔?*閫愮偣涓€鑷?*锛?56 鐐癸級
+  ok : HP_BCK 鍛ㄦ湡鎭板ソ 16 clk锛?.125 MHz锛?
+  ok : HP_WS 鍛ㄦ湡鎭板ソ 1024 clk锛?8.828125 kHz锛?
+  ok : HP_WS 浣?= 宸﹀０閬擄紙260 涓抚璧风偣澶勫潎涓轰綆锛?
+  ok : A8 鏃?X/Z 浼犳挱锛圚P_BCK/HP_WS/HP_DIN锛?
+
+PASS: i2s_tx + S2 瑙ｄ覆閫愮偣涓€鑷达紙M1 鐨勬牳蹇冨垽鎹€氳繃锛?
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_i2s_tx.sv:222: $finish called at 5325051000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

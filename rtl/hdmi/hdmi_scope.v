@@ -21,7 +21,8 @@ module hdmi_scope #(
     reg [2:0] rstn_pix = 3'b000;
     always @(posedge pixel_clk)
         rstn_pix <= {rstn_pix[1:0], (lock & rst_n)};   // ⭐ `rst_n` 是 clk_sys 域电平，只当【数据】采 ✅
-    wire video_reset_n = rstn_pix[2];                  wire serial_reset = ~video_reset_n;
+    wire video_reset_n = rstn_pix[2];
+    wire serial_reset = ~video_reset_n;
     wire [9:0] x, y;
     wire de, hs, vs, scope_de, scope_hs, scope_vs;
     wire [7:0] r, g, b,wave_r,wave_g,wave_b;
@@ -30,12 +31,7 @@ module hdmi_scope #(
     assign hpd_en = 1'b1;
     hdmi_clk u_clk (.clk(clk), .rst_n(rst_n), .pixel_clk(pixel_clk),
         .serial_clk(serial_clk), .lock(lock));
-    //  ⭐⭐ `P0-24`：⭐ **旧的跨域异步复位块已删** ✅
-    //   🔴 原文：`always @(posedge pixel_clk or negedge rst_n) begin
-    //              if (!rst_n) reset_pipe <= 0;
-    //              else reset_pipe <= {reset_pipe[0], lock};
-    //            end`
-    //   ⚠️ 它的 `reset_pipe` 是 `[1:0]`（⭐ 2 级）⇒ ⭐ 新写法是 `[2:0]`（⭐ 3 级，⭐ 与串行域一致 ✅）
+    // All pixel logic observes the synchronized word-clock reset.
     video_timing u_timing (.clk(pixel_clk), .rst_n(video_reset_n),
         .x(x), .y(y), .de(de), .hsync(hs), .vsync(vs));
     waveform_scope #(.XY_DELAY(XY_DELAY), .XY_GAIN(XY_GAIN)) u_scope (
@@ -82,9 +78,7 @@ module hdmi_scope #(
         .de(scope_de), .c0(1'b0), .c1(1'b0), .symbol(green));
     tmds_encoder u_red (.clk(pixel_clk), .rst_n(video_reset_n), .data(r),
         .de(scope_de), .c0(1'b0), .c1(1'b0), .symbol(red));
-    //  ⭐⭐ 2026-10-09（`P0-24`）：⭐ **OSER10 的 RESET 改由【串行域内同步】的复位驱动** ✅
-    //   🔴 原写 `.rst(!rst_n)` ⇒ ⭐ 把 clk_sys 域的复位直接灌进 **125 MHz `FCLK` 硬宏**
-    //      ⇒ 🔴 **跨域异步复位** ✅
+    // The serializer adds a dedicated, physically local PCLK reset register.
     tmds_serializer u_serializer (.pixel_clk(pixel_clk), .serial_clk(serial_clk),
         .rst(serial_reset), .blue(blue), .green(green), .red(red),
         .tmds_d_p_0(tmds_d_p_0), .tmds_d_n_0(tmds_d_n_0),

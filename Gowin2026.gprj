@@ -230,8 +230,6 @@
               📌 登记后 ⚠️ **必须**在综合日志里确认出现 `Compiling module 'guide_lamp'`
                  （⭐ 见下方 :186-189 的坑：⭐ 写错 `type` 会**静默跳过**）✅ -->
         <File path="rtl/w3c/guide_lamp.v" type="file.verilog" enable="1"/>
-        <File path="rtl/w3c/led_data.v" type="file.verilog" enable="1"/>
-        <File path="rtl/w3c/tlc5916_bank.sv" type="file.verilog" enable="1"/>
         <File path="rtl/top.v" type="file.verilog" enable="1"/>
         <!-- ⭐ SystemVerilog 文件登记成 type="file.verilog"（**和 .v 一样**，不是 file.systemverilog！）
              ⚠️ 2026-09-17 实测：写错 type 时 Gowin **不报错、直接静默跳过该文件**

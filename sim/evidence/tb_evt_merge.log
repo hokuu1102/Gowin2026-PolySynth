@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/evt_merge/tb_evt_merge.vcd opened for output.
+﻿VCD info: dumping is suppressed.
   ok  : empty queue emits nothing (no garbage)
   ok  : BOTH events survived a same-cycle collision (0 -> 2)
   ok  : collision payloads intact (axis 1 then 2)

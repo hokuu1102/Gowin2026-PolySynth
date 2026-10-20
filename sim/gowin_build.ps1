@@ -55,37 +55,25 @@ if (-not (Test-Path $GwSh)) {
 
 Push-Location $root
 
-# ---- GUARD: PnR algorithm options must be the project defaults (0/0) ----
-#   WHY (2026-10-15): impl/Gowin2026_process_config.json was silently changed to
-#   Place_Option=2 / Route_Option=2 -- a "timing-first" algorithm this project has
-#   ALREADY measured as unusable (3906 unrouted nets in a 97-minute run).  The build
-#   then took 53m19s and produced 676 unrouted nets (ERROR PR0004) with no obvious
-#   cause, because this .json is NOT wiped by this script and the .gprj does not
-#   carry these fields.  They are ALGORITHM choices, not random seeds; defaults are
-#   0/0.  Fail fast here instead of burning an hour.
-#
-#   ⭐⭐ 2026-10-16（⭐ 补漏）：⭐ **`Map_Option` 也必须钉住** ✅
-#      🔴 **原 guard 只挡了 Place/Route 两个**，漏了第三个算法选项 `Map_Option`
-#         （⭐ 即 `set_option -tm`，Technology Mapping Option）✅
-#      🔴 **实测**：当前那份 json 里 `Map_Option = "1"`（⛔ 非 0），
-#         而这份 json 是 Gowin 自己写的、本脚本从不擦它 ⇒ ⭐ 它会一直生效 ✅
-#      📌 三个 PnR 算法选项（`Map` / `Place` / `Route`）必须【一起】钉住：
-#         ⛔ 只钉两个 = 留一个后门 ⇒ 又是"静默非默认算法"✅
+# ---- GUARD: known mapping modes, fixed place/route algorithms ----
+# 2026-10-20 correction: V1.9.12.03 creates Map_Option=1 itself on a clean
+# build. The clean candidate1 completed routing without PR0004 using that
+# generated configuration. Treating 1 as corruption made the next build fail.
+# Keep explicit mapping 0 compatible; reject unknown mapping modes and keep
+# Place/Route at 0. Actual setup/hold/recovery/removal remain separately gated.
 $pcPath = Join-Path $root "impl\Gowin2026_process_config.json"
 if (Test-Path $pcPath) {
   $pcRaw   = [IO.File]::ReadAllText($pcPath)
   $pcMap   = [regex]::Match($pcRaw, '"Map_Option"\s*:\s*"([^"]*)"').Groups[1].Value
   $pcPlace = [regex]::Match($pcRaw, '"Place_Option"\s*:\s*"([^"]*)"').Groups[1].Value
   $pcRoute = [regex]::Match($pcRaw, '"Route_Option"\s*:\s*"([^"]*)"').Groups[1].Value
-  if (($pcMap -ne "0") -or ($pcPlace -ne "0") -or ($pcRoute -ne "0")) {
-    Write-Host "ERROR: impl/Gowin2026_process_config.json has Map='$pcMap' Place='$pcPlace' Route='$pcRoute' -- all three must be 0" -ForegroundColor Red
-    Write-Host "       Non-default algorithm options caused 676 unrouted nets (PR0004) on 2026-10-15." -ForegroundColor Red
-    Write-Host "       Map_Option = set_option -tm (Technology Mapping) -- it was NOT guarded before 2026-10-16." -ForegroundColor Red
+  if (($pcMap -notin @("0", "1")) -or ($pcPlace -ne "0") -or ($pcRoute -ne "0")) {
+    Write-Host "ERROR: impl/Gowin2026_process_config.json has Map='$pcMap' Place='$pcPlace' Route='$pcRoute' -- Map must be 0 or 1; Place/Route must be 0" -ForegroundColor Red
     exit 3
   }
-  Write-Host "OK  PnR options are the project defaults (Map=$pcMap Place=$pcPlace Route=$pcRoute)"
+  Write-Host "OK  PnR options are supported (Map=$pcMap Place=$pcPlace Route=$pcRoute)"
 } else {
-  Write-Host "NOTE: impl/Gowin2026_process_config.json absent -- Gowin will use its own defaults (0/0)"
+  Write-Host "NOTE: impl/Gowin2026_process_config.json absent -- Gowin will generate its tool defaults; retain the generated config as evidence"
 }
 
 # ---- ⭐ GUARD: files instantiated by top.v must be registered in the .gprj ----

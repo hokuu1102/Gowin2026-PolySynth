@@ -20,6 +20,6 @@
   ok  : D10c no X on clip_cnt_o
   ok  : D10d no X on peak_o
 PASS: fx_dist -- bypass bit-exact, hard clip saturates, gain monotonic, trim scales
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_fx_dist.sv:307: $finish called at 51840000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_fx_dist.sv:307: $finish called at 51840000 (1ps)
 
 
