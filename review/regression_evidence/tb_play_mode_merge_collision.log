@@ -1,0 +1,4 @@
+PASS: simultaneous axis input retains exactly one captured pluck
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3a\tb_play_mode_merge_collision.sv:34: $finish called at 340000 (1ps)
+
+

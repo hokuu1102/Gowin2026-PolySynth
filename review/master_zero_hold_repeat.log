@@ -1,0 +1,8 @@
+tick=1 target=0 gain=65445 sample=1997222
+tick=512 target=0 gain=37 sample=1129
+tick=513 target=0 gain=65445 sample=1997222
+tick=1024 target=0 gain=37 sample=1129
+tick=1025 target=0 gain=65445 sample=1997222
+zero_count=0 over1025 audio ticks; first gain=65445
+FATAL: review/tb_master_zero_hold.sv:38: MUTE_NEVER_CONVERGES expected all1025 tick gains=0
+       Time: 21012580000  Scope: tb_master_zero_hold

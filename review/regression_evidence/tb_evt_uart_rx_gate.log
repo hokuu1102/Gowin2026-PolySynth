@@ -1,0 +1,11 @@
+=== tb_evt_uart_rx_gate (P0-02 椤跺眰闂ㄦ帶) ===
+      [dbg] G1: screen frames=8  ui_inframe_cycles=5712  spurious_evt=0
+  ok  : G1 screen frames (payload contains 0xA5) produce ZERO score events
+  ok  : G3 the gate was actually exercised (uart_ui.in_frame_o was high)
+      [dbg] G2: legal score packet  evt=1  (frame_cnt=1 hdr_err=16)
+  ok  : G2 a LEGAL score packet (sent between frames) still produces exactly 1 event
+
+PASS: tb_evt_uart_rx_gate 鈥?3/3 judgements held (P0-02 闂ㄦ帶鍙屽悜楠岃瘉)
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3c\tb_evt_uart_rx_gate.sv:238: $finish called at 445440000 (1ps)
+
+

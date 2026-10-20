@@ -1,0 +1,4 @@
+PASS: recording exports score-unit pitch and observable quantization
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3c\tb_looper_wire_pitch.sv:44: $finish called at 920000 (1ps)
+
+

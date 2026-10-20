@@ -1,0 +1,4 @@
+PASS: normal quarter-band zoom, full test band, vblank-atomic range, zero drops
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\hdmi\tb_fft_zoom_modes.sv:64: $finish called at 739360000 (1ps)
+
+

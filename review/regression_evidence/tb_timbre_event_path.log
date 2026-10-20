@@ -1,0 +1,8 @@
+WARNING [note_manager] FIFO_DEPTH=8 < 鏈€鍧忕獊鍙?18 (=16 杞?+1 鑺傛媿鍣?+1 榧撴満) => 浜嬩欢浼氭孩鍑轰涪寮冿紙猸?宸茬敱 event_lost_o 鎸囩ず锛屼絾浼氫涪闊筹級
+  ok  : score PIANO timbre survives arb/merge/FIFO into voice0
+  ok  : existing voice keeps its original PIANO timbre
+  ok  : new voice snapshots GUITAR while held voice stays PIANO
+PASS: T31b timbre event path
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3b\tb_timbre_event_path.sv:193: $finish called at 1500000 (1ps)
+
+

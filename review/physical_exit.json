@@ -1,0 +1,10 @@
+{
+    "source":  "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+    "started_utc":  "2026-10-20T06:35:52.8312798Z",
+    "finished_utc":  "2026-10-20T06:59:43.9524652Z",
+    "actual_exit_code":  0,
+    "regression_exit_file":  "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\regression_exit.json",
+    "retry_exit_file":  "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries_exit.json",
+    "verification_readiness_file":  "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\ready_for_physical.json",
+    "command":  "powershell.exe -NoProfile -ExecutionPolicy Bypass -File sim/gowin_build.ps1 -GwSh D:/Gowin/Software/Gowin_V1.9.12.03_x64/IDE/bin/gw_sh.exe"
+}

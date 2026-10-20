@@ -1,0 +1,7 @@
+{"name": "web-probe", "command": ["node", "review/spec/web_probe.js"], "exit": 1, "seconds": 0.19}
+{"name": "python-probe", "command": ["C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\spec\\venv\\Scripts\\python.exe", "review/spec/python_probe.py"], "exit": 1, "seconds": 0.42}
+{"name": "host-probe", "command": ["C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\spec\\venv\\Scripts\\python.exe", "review/spec/host_probe.py"], "exit": 1, "seconds": 1.12}
+{"name": "pool-interleave", "command": ["C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\spec\\venv\\Scripts\\python.exe", "review/spec/pool_interleave_probe.py"], "exit": 1, "seconds": 0.94}
+{"name": "html-syntax", "command": ["C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\spec\\venv\\Scripts\\python.exe", "esp32/tools/_check_html_js.py"], "exit": 0, "seconds": 0.62}
+{"name": "selftest-complete", "command": ["C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\spec\\venv\\Scripts\\python.exe", "esp32/tools/selftest_all.py", "-v"], "exit": 1, "seconds": 16.78}
+{"name": "inventory", "command": ["C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\spec\\venv\\Scripts\\python.exe", "review/spec/inventory.py"], "exit": 0, "seconds": 0.62}

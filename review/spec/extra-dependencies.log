@@ -1,0 +1,42 @@
+Collecting bleak
+  Using cached bleak-3.0.2-py3-none-any.whl.metadata (4.7 kB)
+Collecting numpy
+  Downloading numpy-2.5.4-cp312-cp312-win_amd64.whl.metadata (6.6 kB)
+Collecting winrt-runtime>=3.1 (from bleak)
+  Using cached winrt_runtime-3.2.1-cp312-cp312-win_amd64.whl.metadata (780 bytes)
+Collecting winrt-windows-devices-bluetooth>=3.1 (from bleak)
+  Using cached winrt_windows_devices_bluetooth-3.2.1-cp312-cp312-win_amd64.whl.metadata (1.6 kB)
+Collecting winrt-windows-devices-bluetooth-advertisement>=3.1 (from bleak)
+  Using cached winrt_windows_devices_bluetooth_advertisement-3.2.1-cp312-cp312-win_amd64.whl.metadata (1.4 kB)
+Collecting winrt-windows-devices-bluetooth-genericattributeprofile>=3.1 (from bleak)
+  Using cached winrt_windows_devices_bluetooth_genericattributeprofile-3.2.1-cp312-cp312-win_amd64.whl.metadata (1.5 kB)
+Collecting winrt-windows-devices-enumeration>=3.1 (from bleak)
+  Using cached winrt_windows_devices_enumeration-3.2.1-cp312-cp312-win_amd64.whl.metadata (1.5 kB)
+Collecting winrt-windows-devices-radios>=3.1 (from bleak)
+  Using cached winrt_windows_devices_radios-3.2.1-cp312-cp312-win_amd64.whl.metadata (1.1 kB)
+Collecting winrt-windows-foundation>=3.1 (from bleak)
+  Using cached winrt_windows_foundation-3.2.1-cp312-cp312-win_amd64.whl.metadata (1.0 kB)
+Collecting winrt-windows-foundation-collections>=3.1 (from bleak)
+  Using cached winrt_windows_foundation_collections-3.2.1-cp312-cp312-win_amd64.whl.metadata (1.1 kB)
+Collecting winrt-windows-storage-streams>=3.1 (from bleak)
+  Using cached winrt_windows_storage_streams-3.2.1-cp312-cp312-win_amd64.whl.metadata (1.3 kB)
+Collecting typing_extensions>=4.12.2 (from winrt-runtime>=3.1->bleak)
+  Using cached typing_extensions-4.16.0-py3-none-any.whl.metadata (3.3 kB)
+Using cached bleak-3.0.2-py3-none-any.whl (146 kB)
+Downloading numpy-2.5.4-cp312-cp312-win_amd64.whl (12.6 MB)
+   ---------------------------------------- 12.6/12.6 MB 105.0 kB/s eta 0:00:00
+Using cached winrt_runtime-3.2.1-cp312-cp312-win_amd64.whl (241 kB)
+Using cached winrt_windows_devices_bluetooth-3.2.1-cp312-cp312-win_amd64.whl (113 kB)
+Using cached winrt_windows_devices_bluetooth_advertisement-3.2.1-cp312-cp312-win_amd64.whl (95 kB)
+Using cached winrt_windows_devices_bluetooth_genericattributeprofile-3.2.1-cp312-cp312-win_amd64.whl (187 kB)
+Using cached winrt_windows_devices_enumeration-3.2.1-cp312-cp312-win_amd64.whl (141 kB)
+Using cached winrt_windows_devices_radios-3.2.1-cp312-cp312-win_amd64.whl (40 kB)
+Using cached winrt_windows_foundation-3.2.1-cp312-cp312-win_amd64.whl (118 kB)
+Using cached winrt_windows_foundation_collections-3.2.1-cp312-cp312-win_amd64.whl (69 kB)
+Using cached winrt_windows_storage_streams-3.2.1-cp312-cp312-win_amd64.whl (131 kB)
+Using cached typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+Installing collected packages: typing_extensions, numpy, winrt-runtime, winrt-windows-storage-streams, winrt-windows-foundation-collections, winrt-windows-foundation, winrt-windows-devices-radios, winrt-windows-devices-enumeration, winrt-windows-devices-bluetooth-genericattributeprofile, winrt-windows-devices-bluetooth-advertisement, winrt-windows-devices-bluetooth, bleak
+Successfully installed bleak-3.0.2 numpy-2.5.4 typing_extensions-4.16.0 winrt-runtime-3.2.1 winrt-windows-devices-bluetooth-3.2.1 winrt-windows-devices-bluetooth-advertisement-3.2.1 winrt-windows-devices-bluetooth-genericattributeprofile-3.2.1 winrt-windows-devices-enumeration-3.2.1 winrt-windows-devices-radios-3.2.1 winrt-windows-foundation-3.2.1 winrt-windows-foundation-collections-3.2.1 winrt-windows-storage-streams-3.2.1
+
+[notice] A new release of pip is available: 25.0.1 -> 26.2.1
+[notice] To update, run: C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\review\spec\venv\Scripts\python.exe -m pip install --upgrade pip

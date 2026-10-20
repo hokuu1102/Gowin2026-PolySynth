@@ -1,0 +1,4 @@
+PASS: four timbres have distinct ADSR profiles
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3b\tb_timbre_adsr.sv:98: $finish called at 14420261000 (1ps)
+
+

@@ -1,0 +1,4 @@
+PASS: weak spectrum near baseline, strong spectrum visible, silence black, zero drops
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\hdmi\tb_fft_height_floor.sv:46: $finish called at 738720000 (1ps)
+
+

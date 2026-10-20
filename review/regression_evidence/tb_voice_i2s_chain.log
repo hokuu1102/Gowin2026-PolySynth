@@ -1,0 +1,5 @@
+VCD info: dumpfile build/sim/tb_voice_i2s_chain/tb_voice_i2s_chain.vcd opened for output.
+T10_CHAIN decoded_l=1032 decoded_r=1032 point_ok_l=1032 point_ok_r=1032 golden_ok=1027 golden_bad=0
+PASS: real DDS+ADSR voice round-trips through I2S and matches the golden samples
+
+

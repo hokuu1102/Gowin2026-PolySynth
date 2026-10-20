@@ -1,0 +1,2 @@
+PASS: wavetable_bank emits the selected CC0 AKWF four-timbre set
+tb/w3b/tb_akwf_wavetables.sv:69: $finish called at 380000 (1ps)

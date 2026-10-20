@@ -1,0 +1,17 @@
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x400 REL_TH=0x300 DELTA_TH=8 REFRACT_N=150)
+VCD info: dumpfile build/sim/tb_ee_multileave/tb_ee_multileave.vcd opened for output.
+--- MLEAVE-1锛氣瓙 杞?3 涓庤酱 5 銆愬悓甯т竴璧风寮€銆戔噿 A 蹇呴』鏄€愭渶灏忋€戣酱鍙?3 ---
+  ok  : leaving in ONE frame must still raise slide_valid_o (via axis 4)
+  ok  : T leaving axis (3), not the highest (5) -- comment :328 says MIN
+--- MLEAVE-2锛氣瓙 杞?4 涓庤酱 6 銆愬悓甯т竴璧风寮€銆戔噿 A 蹇呴』鍙?4锛堝彇 6 灏便€愪笉鍑烘粦闊炽€戯級---
+  ok  : s neighbour 5 rising => slide MUST fire (A=6 would find nothing)
+  ok  : VE-2b A must be the LOWEST leaving axis (4), not the highest (6)
+  ok  : MLEAVE-2c B must name the adjacent axis 5
+--- MLEAVE-3锛氣瓙 闈炵┖娲?鈥斺€?鍗曚釜杞寸寮€鏃朵粛鎸夎€佽涓哄嚭婊戦煶锛堜笌鏃?tb 鍚屽彛寰勶級---
+  ok  : NGLE leaving axis still fires a slide -- proves the DUT is alive
+  ok  : MLEAVE-3b single leaving axis => A == that axis
+
+PASS: event_extract multi-axis-leave -- A is the LOWEST leaving axis, and a slide is not lost
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3a\tb_ee_multileave.sv:231: $finish called at 2430000 (1ps)
+
+

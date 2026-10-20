@@ -1,0 +1,37 @@
+NOTE [slide_ramp] PARAM_OK=1 (SHIFT=4 EPS=4096)
+
+=== 1) idle: no trig => the module does not move on its own ===
+  ok  : 1a: with no trig, active stays low
+  ok  : 1b: with no trig, the value does not change by itself
+
+=== 2) a real glide from A to B (the actual portamento) ===
+  [glide] steps recorded = 84   first=00c51339 second=00c5ceb8 final=00d0cb35
+  ok  : 2a: right after trig the value equals the START (A's pitch), not the target
+  ok  : 2b: the first step is SMALL (not a jump straight to the target)
+  ok  : 2c: it really took many steps (a glide, not a one-shot jump)
+  ok  : 2d: and the final value is EXACTLY the target (no residual error)
+  ok  : 2e: when it is done, active has dropped
+  [glide] up=83 down=0 flat=0
+  ok  : 3a: monotonic upward for an upward glide (never steps backwards)
+  ok  : 3b: and it actually moved every step except the last snap (no stalling)
+  ok  : 3c: non-vacuity -- there were many upward steps
+
+=== 4) downward glide is symmetric ===
+  ok  : 4a: downward glide only steps downward
+  ok  : 4b: and lands exactly on the (lower) target
+  ok  : 4c: non-vacuity -- many downward steps
+
+=== 5) retarget mid-glide => continue from CURRENT value ===
+  ok  : 5a: mid-glide the value sits strictly between start and target
+  ok  : 5b: on retarget the output continues from the CURRENT value (no jump back)
+  ok  : 5c: and it is still active (the glide continues)
+  ok  : 5d: it converges on the NEW target
+
+=== 6) tiny move below EPS snaps immediately (no infinite dither) ===
+  ok  : 6a: a sub-EPS move snaps to the target on the first tick
+  ok  : 6b: and immediately deactivates (no endless micro-stepping)
+
+PASS: slide ramp -- a trig starts at A's pitch and walks toward B's pitch in many small monotonic steps (both directions), lands exactly on the target, retargeting continues from the current value instead of jumping back, and sub-EPS moves snap cleanly
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3a\tb_slide_ramp.sv:229: $finish called at 10311000 (1ps)
+
+

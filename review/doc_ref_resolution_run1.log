@@ -1,0 +1,33 @@
+{
+  "cases": [
+    {
+      "reference": "rtl/hdmi/video_timing.v",
+      "document_directory": "bringup/hdmi_640x480",
+      "canonical": "rtl/hdmi/video_timing.v",
+      "expected": true,
+      "actual": true
+    },
+    {
+      "reference": "../../rtl/hdmi/video_timing.v",
+      "document_directory": "bringup/hdmi_640x480",
+      "canonical": "rtl/hdmi/video_timing.v",
+      "expected": true,
+      "actual": false
+    },
+    {
+      "reference": "../../rtl/hdmi/tmds_encoder.v",
+      "document_directory": "bringup/hdmi_640x480",
+      "canonical": "rtl/hdmi/tmds_encoder.v",
+      "expected": true,
+      "actual": false
+    },
+    {
+      "reference": "../../rtl/hdmi/no_such_file.v",
+      "document_directory": "bringup/hdmi_640x480",
+      "canonical": "rtl/hdmi/no_such_file.v",
+      "expected": false,
+      "actual": false
+    }
+  ],
+  "confirmed_false_positive_count": 14
+}

@@ -1,0 +1,22 @@
+{
+  "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+  "test": "tb_nm_no_leak",
+  "original_rtl_and_assertions_unchanged": true,
+  "image_sha256": "affe7cdd12dbed8ca06014a8f4dbceb83779c8778de6b49848da039fd5a02181",
+  "working_directory": "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\nm_no_leak_workspace",
+  "timeout_seconds": 900,
+  "waveform_dump_suppressed": true,
+  "started_utc": "2026-10-20T07:39:13.519154+00:00",
+  "command": [
+    "D:/iverilog/bin/vvp.exe",
+    "-i",
+    "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\nm_no_leak_workspace\\tb_nm_no_leak.vvp",
+    "-none"
+  ],
+  "pid": 43848,
+  "finished_utc": "2026-10-20T07:45:00.911028+00:00",
+  "seconds": 347.39,
+  "actual_native_exit": 0,
+  "timed_out": false,
+  "status": "PASS"
+}

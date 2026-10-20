@@ -1,0 +1,47 @@
+=== tb_seq_arb锛堟簮 A 涓夌骇浠茶锛?==
+  ok  : 鈶?鏃犺緭鍏?鈬?涓嶅彂浠讳綍浜嬩欢
+  ok  : 鈶?鍗曟簮锛堟墜寮癸級鈬?鎭板ソ 1 鏉★紝鍐呭姝ｇ‘
+  ok  : 鈶♀瓙 鎵嬪脊+鏇茶氨鍚屾媿 鈬?銆愪袱鏉￠兘鍑烘潵浜嗐€?live=1 score=1)
+  ok  : 鈶?婕旂ず璁╀綅 鈥斺€?鎵嬪脊鍦ㄥ彂鏃舵紨绀恒€愪笉鍙備笌銆?live=1 demo=0)
+  ok  : 鈶 婕旂ず鍗曠嫭锛堟棤鍒簮锛夆噿 姝ｅ父鍙?1 鏉?
+  ok  : 鈶?杩炲彂 20 鏉?鈬?鍑烘潵 20 鏉★紙涓嶄涪涓嶅锛?
+  ok  : 鈶?涓嶇矘婊?鈥斺€?valid 杩炵画楂樻椂鏁版嵁姣忔媿閮藉湪鍙橈紙鏈€闀胯繛缁?2 鎷嶏紝姝ｅ父锛?
+  ok  : 鈶?婧㈠嚭銆愬彲瑙併€戔€斺€?overflow=1, drop_cnt=114锛堚洈 涓嶉潤榛樹涪锛?
+  ok  : 鈶?涓夋簮鍚屾媿 鈬?鎵嬪脊+鏇茶氨 2 鏉★紙猸?婕旂ず鎸夎璁¤浣嶏級
+  ok  : 鈶?鏁版嵁涓?valid 鍚屾媿锛堚瓙 鎸?inc 璁よ韩浠藉叏閮ㄨ鍒颁簡锛?
+  ok  : 鈶?A8 鏃?X/Z 浼犳挱
+      鍒嗘簮璁℃暟: live=3(鏈熸湜3) score=2(鏈熸湜2) demo=2(鏈熸湜2)
+  ok  : 鈶?涓変釜鍒嗘簮璁℃暟銆愰兘鐪熺殑鍦ㄦ暟銆戯紙猸?涓婃澘鍙嵁姝ょ湅'璋佸湪鍙?锛?
+--------------------------------------------------
+  鍑哄彛浜嬩欢鎬绘暟 = 7锛堟墜寮?3 路 鏇茶氨 2 路 婕旂ず 2锛?
+  鐩告挒璁℃暟 = 0 路 鍚堟祦璁℃暟 = 7 路 涓㈠純 = 0
+--------------------------------------------------
+  ok  : is_drum=1 drum_type=3(Tom) => SRC_KDRUM (5) -- note_manager puts it in the DRUM pool
+  ok  : is_drum=1 drum_type=3 => TOM inc (17895697) -- the shared drum table is used (decoy 195887105 did NOT leak)
+  ok  : is_drum=1 drum_type=0(Kick) => SRC_KDRUM (5) -- Kick
+  ok  : is_drum=1 drum_type=0 => KICK inc (5368709) -- shared drum table (decoy 195887105 did NOT leak)
+  ok  : is_drum=1 kind=1(note_off) => SRC_KDRUM (5) -- the drum voice can be released
+  ok  : drum note_on and note_off BOTH carry axis 6 -- the (axis,src) pair in note_manager will match, so the drum voice can be released (P0-2)
+  ok  : is_drum=1 drum_type=1(Snare) => SRC_KDRUM (5) -- Snare
+  ok  : is_drum=1 drum_type=1 => SNARE inc (42949673) -- shared drum table (decoy 195887105 did NOT leak)
+  ok  : is_drum=1 drum_type=2(HiHat) => SRC_KDRUM (5) -- HiHat
+  ok  : is_drum=1 drum_type=2 => HIHAT inc (171798691) -- shared drum table (decoy 195887105 did NOT leak)
+  ok  : is_drum=1 on axis==5 (a 'melody-looking' axis) => SRC_KDRUM (5) -- the AXIS NUMBER does NOT decide
+  ok  : is_drum=1 on axis==5 => TOM inc (17895697) -- the drum table follows the FLAG, not the axis
+  ok  : MELODY axis==12 is_drum=0 => SRC_SCORE (1) -- melody can NEVER become a drum
+  ok  : MELODY axis==12 inc passes through unchanged (aaa000c)
+  ok  : MELODY axis==13 is_drum=0 => SRC_SCORE (1) -- melody can NEVER become a drum
+  ok  : MELODY axis==13 inc passes through unchanged (aaa000d)
+  ok  : MELODY axis==14 is_drum=0 => SRC_SCORE (1) -- melody can NEVER become a drum
+  ok  : MELODY axis==14 inc passes through unchanged (aaa000e)
+  ok  : MELODY axis==15 is_drum=0 => SRC_SCORE (1) -- melody can NEVER become a drum
+  ok  : MELODY axis==15 inc passes through unchanged (aaa000f)
+  ok  : score axis==11 => SRC_SCORE (1) -- plain melody stays melody
+  ok  : score axis==11 inc passes through unchanged (aaa0011)
+  ok  : score axis==2 still => SRC_SCORE (1) -- the drum marker is NOT over-broad
+  ok  : score axis==2 inc passes through unchanged (aaa0002)
+PASS: A1 DEPTH9 width and behavioral queue checks=656 full=142 reject=67 triple=43 wraps=72
+PASS: seq_arb 澶氭簮鍚屾媿涓嶄涪銆佹紨绀鸿浣嶃€佹孩鍑哄彲瑙併€佸崟鍛ㄦ湡銆佹棤 X/Z
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3c\tb_seq_arb.sv:1001: $finish called at 13120000 (1ps)
+
+

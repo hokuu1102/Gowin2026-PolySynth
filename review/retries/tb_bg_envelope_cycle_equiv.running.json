@@ -1,0 +1,17 @@
+{
+  "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+  "test": "tb_bg_envelope_cycle_equiv",
+  "original_rtl_and_assertions_unchanged": true,
+  "image_sha256": "1bdc700746bc7fc9c7488692ccca3b7b756933db35dde9ccc2ac1363866f8f2e",
+  "working_directory": "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\bg_envelope_cycle_equiv_workspace",
+  "timeout_seconds": 600,
+  "waveform_dump_suppressed": true,
+  "started_utc": "2026-10-20T07:39:13.517158+00:00",
+  "command": [
+    "D:/iverilog/bin/vvp.exe",
+    "-i",
+    "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\bg_envelope_cycle_equiv_workspace\\tb_bg_envelope_cycle_equiv.vvp",
+    "-none"
+  ],
+  "pid": 42220
+}

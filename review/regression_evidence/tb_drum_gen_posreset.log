@@ -1,0 +1,19 @@
+=== tb_drum_gen_posreset (P1-18: met_start 鐨?pos_reset 璁?drum_gen 澶氬彂涓€鏉? ===
+   info: 澶嶄綅鍓?A: tick_cnt=300 step_q=1 evt=2 | B: tick_cnt=300 step_q=1 evt=2
+   info: pos_reset 鑴夊啿宸插彂锛? 鎷嶏紝t=156770780000锛?
+== J5 澶嶄綅鑴夊啿鍚庛€愮珛鍒汇€戯紙杩滄棭浜庝笅涓€涓?tick锛塻tep_q 蹇呴』宸叉槸 0 ==
+   info: 澶嶄綅鍚?10 鎷嶏紙tick 杩樻病鏉ワ級锛欰 step_q=0 evt=2
+  ok  : J5 pos_reset clears step_q IMMEDIATELY (before the next tick) -- fix (1) only
+== J1/J2 澶嶄綅鍚庣獥鍙ｅ唴涓嶈鏈夊浣欎簨浠讹紙猸?绐楀彛 = 20000 clk < 涓€涓?tick锛?=
+   info: 绐楀彛1锛堝浣嶅悗 20000 鎷嶏級鏂板 A=0 B=0锛圓: tick_cnt=0 step_q=0 | B: tick_cnt=300 step_q=1锛?
+  ok  : J1 pos_reset must NOT produce any off-grid event (window = 1 tick)
+  ok  : J2 non-vacuity: the control (no pos_reset) has 0 events in the same window
+== J3/J4 澶嶄綅鍚庡繀椤绘甯稿洖鍒?step 0 骞跺彂鍑哄己鎷?==
+   info: 绐楀彛2 绱鏂板 A=2 B=0 | A: step_q=0 澶嶄綅鍚庡墠涓ゆ潯=5368709,171798691
+  ok  : J3 the FIRST post-reset events are the step-0 downbeat (Kick then HiHat), no stray in front
+  ok  : J4 step_q realigns to 0 after pos_reset
+
+PASS: tb_drum_gen_posreset - 5/5 judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3c\tb_drum_gen_posreset.sv:278: $finish called at 158212460000 (1ps)
+
+

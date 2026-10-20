@@ -1,0 +1,6 @@
+[!] ESP-IDF is not activated.
+
+    Tried EIM profile: C:\Espressif\tools\Microsoft.v5.5.PowerShell_profile.ps1  (exists: False)
+
+    Activate manually, then re-run:
+      . "C:\Espressif\tools\Microsoft.v5.5.PowerShell_profile.ps1"

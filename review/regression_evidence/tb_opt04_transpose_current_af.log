@@ -1,0 +1,82 @@
+
+================================================================
+ tb_transpose 路 T3 瀹炴椂鍙樿皟锛堟楠も憼锛?
+================================================================
+
+=== T1: transpose=0 鈬?voice_phase_inc_o 閫愭媿閫愪綅 == note_manager_ref ===
+  -- base_oct_r 妗?0锛坆ase_semi=0锛夐殢鏈烘縺鍔?5000 鎷?--
+  -- base_oct_r 妗?1锛坆ase_semi=12锛夐殢鏈烘縺鍔?5000 鎷?--
+  -- base_oct_r 妗?2锛坆ase_semi=24锛夐殢鏈烘縺鍔?5000 鎷?--
+  姣旇緝 15258 鎷?
+  ok  : T1: transpose=0 => phase_inc bit-identical to note_manager_ref (3 oct x 5000 cyc)
+  ok  : T1: the other 12 output groups are bit-identical to the reference too
+  ok  : T1: the UNCONNECTED-transpose instance is bit-identical too (= top.v case)
+  [闈炵┖娲炴€ 鍘绘帀鏃佽矾 mux锛堣緭鍑烘亽璧?phase_tr锛夆噿 鏈笁鏉″繀绾?
+
+=== 甯冪疆锛氬崰婊?32 涓?voice锛坧hase_r 鍚勪笉鐩稿悓锛?==
+  ok  : setup: all 32 voices are allocated (gate all 1)
+  ok  : setup: every voice phase_r is non-zero and pairwise distinct
+
+=== T4: 鐭粦闊?0 鈬?+12锛堟瘡 1 ms 涓€姝?= 50000 鎷嶏級===
+  step 0: 0 -> 1   gap 48648 clk  (residual phase, not judged)
+  [T3] semi_cur=+1 鍚?34 鎷嶏細32 涓?lane 涓笉涓€鑷?0 涓?
+  step 1: 1 -> 2   gap 50000 clk                              
+  step 2: 2 -> 3   gap 50000 clk                              
+  step 3: 3 -> 4   gap 50000 clk                              
+  step 4: 4 -> 5   gap 50000 clk                              
+  step 5: 5 -> 6   gap 50000 clk                              
+  step 6: 6 -> 7   gap 50000 clk                              
+  step 7: 7 -> 8   gap 50000 clk                              
+  step 8: 8 -> 9   gap 50000 clk                              
+  step 9: 9 -> 10   gap 50000 clk                              
+  step 10: 10 -> 11   gap 50000 clk                              
+  step 11: 11 -> 12   gap 50000 clk                              
+  ok  : T4: semi_cur walks 0->+12 in 12 steps, monotonic, no jump / no backstep
+  ok  : T4: every step interval is EXACTLY 50000 clocks (= 1 ms @ 50 MHz)
+  ok  : T3: within 34 clocks of the first non-zero semi_cur, ALL 32 lanes updated
+
+=== T2: 姣忔。杈撳嚭 == phase_base 脳 姣斾緥琛?>>> 15锛堝宸?1 LSB锛?==
+  n=+12 oct=0 : 涓嶄竴鑷?0 / 32 lane
+  n=+12 oct=1 : 涓嶄竴鑷?0 / 32 lane
+  n=+12 oct=2 : 涓嶄竴鑷?0 / 32 lane
+  n=7 oct=0 : 涓嶄竴鑷?0 / 32 lane
+  n=0 oct=0 : 涓嶄竴鑷?0 / 32 lane
+  n=-7 oct=0 : 涓嶄竴鑷?0 / 32 lane
+  n=-12 oct=0 : 涓嶄竴鑷?0 / 32 lane
+  ok  : T2: 5 semitone settings (+12/+7/0/-7/-12) x 32 lanes match the ratio table (tol 1 LSB)
+  ok  : T2: base_oct_r = 1 and 2 are covered too (octave shift really goes through the multiplier)
+  [T2] 鏈€澶у亸宸?= 0 LSB锛堝垽鎹?鈮?1锛?
+
+=== T6: 婧愰棬鎺э紙src=3/4 涓嶅彉 路 src=0/1/2 璺熼殢锛?==
+  src=3 lanes 1 路 src=4 lanes 1 路 src=0/1/2 lanes 30 (mismatch 0) 路 gated mismatch 0
+  ok  : T6 non-vacuous: pool really has a src=3 voice (>=1)
+  ok  : T6 non-vacuous: pool really has a src=4 voice (>=1)
+  ok  : T6 non-vacuous: pool really has src=0/1/2 voices (>=2)
+  ok  : T6: src=3/4 voices are bit-UNCHANGED (== phase_r, NOT transposed)
+  ok  : T6: src=0/1/2 voices DO follow the transposition (== ratio table)
+  ok  : T6 non-vacuous: gating really blocks a DIFFERENT value (transposed != base)
+  ok  : T6: the rotator DOES compute a transposed value for gated lanes (the select discards it)
+  [闈炵┖娲炴€ 鍘绘帀婧愰棬鎺э紙鎭掕蛋 phase_tr锛夆噿 涓婇潰 T6 鐨勫垽鎹繀绾?
+
+=== T7: T3_EN=0 浜や粯閰嶇疆 鈬?鍏ㄧ▼閫愭媿閫愪綅 == T2 鍩虹嚎锛坉36cb64^锛?==
+  鍏ㄧ▼姣旇緝 1815845 鎷嶏紙猸?涓ゆ潯鐪熷垽鎹?*鍏ㄧ▼閫愭媿**锛?
+  闈炵┖娲炴€ф帰閽堬細T3_EN=1 涓庡熀绾裤€愬嚭鐜拌繃銆戜笉鍚?10214 鎷嶏紙鍏朵腑 semi!=0 涔嬪悗 1 鎷嶏級
+  鈿狅笍 鍚庝袱涓暟鍦ㄣ€愬瓨鍦ㄦ€у凡璇併€戝悗**鍋滄绱姞** 鈬?猸?鍙渶 > 0锛屸洈 涓嶆槸鎬绘暟锛堣涓婃柟銆屼豢鐪熷紑閿€銆嶏級
+  ok  : T7: T3_EN=0 instance is bit-identical to the T2 baseline for the WHOLE run
+  ok  : T7: the dangling-transpose instance (= top.v today) is bit-identical too
+  ok  : T7 non-vacuous: T3_EN=1 DOES differ from the baseline somewhere
+  ok  : T7 non-vacuous: T3_EN=1 differs AFTER semi became non-zero (= switch really blocks it)
+  [闈炵┖娲炴€ 鑻?T3_EN 闂ㄦ帶娌℃帴鍒拌緭鍑轰笂锛圱3_EN=0 浠嶈蛋鍙樿皟锛夆噿 涓婇潰绗?1 鏉″繀绾?
+  [闈炵┖娲炴€ 鑻?T3_EN 闂ㄦ帶鎶?T3_EN=1 涔熷叧鎺?鈬?涓婇潰绗?3/4 鏉″繀绾?
+
+=== T8: 婧?5锛堥敭鐩樻墦榧擄級**涓嶈窡鍙樿皟**锛堚瓙 `P1-59`锛?==
+  INFO T8: semi_cur=+12 | src0 lane=0 inc=006688aa锛堚瓙 搴斻€愬彉銆戯級| src5 lane=0 inc=00445566锛堚瓙 搴斻€愪笉鍙樸€戯級
+  ok  : T8 non-vacuous: src=0 IS transposed while semi_cur=+12
+  ok  : T8: src=5 (keyboard drums) BYPASSES transposition -- P1-59
+
+================================================================
+PASS: tb_transpose 鈥斺€?T1/T2/T3/T4/T6/T7/T8 鍏ㄩ儴鎴愮珛锛圱3_EN=0 浜や粯鍙ｅ緞 + T3_EN=1 璇箟淇濇寔锛?
+================================================================
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3b\tb_opt04_transpose_current_af.sv:1034: $finish called at 36320980000 (1ps)
+
+

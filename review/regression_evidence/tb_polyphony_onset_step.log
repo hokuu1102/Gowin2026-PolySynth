@@ -1,0 +1,6 @@
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=0 => 鍗曢煶宄?鈮?50% FS
+INFO: max note_on step=5998, allowed=11997, baseline=383872
+PASS: polyphony normalization is de-zippered at note_on
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3b\tb_polyphony_onset_step.sv:161: $finish called at 34600000 (1ps)
+
+

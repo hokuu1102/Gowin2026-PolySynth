@@ -1,0 +1,4 @@
+PASS: concurrent clear/drop preserves new loss, plain clear empties history
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3c\tb_uart_tx_fifo_clear_drop.sv:22: $finish called at 320000 (1ps)
+
+

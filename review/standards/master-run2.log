@@ -1,0 +1,4 @@
+Before mute gain=37 sample=1129
+After mute target=0 gain=65445 sample=1997222
+FATAL: review/standards/tb_master_review.sv:20: MUTE_RAMP_UNDERFLOW expected gain=0 sample=0 actual gain=65445 sample=1997222
+       Time: 160000  Scope: tb_master_review

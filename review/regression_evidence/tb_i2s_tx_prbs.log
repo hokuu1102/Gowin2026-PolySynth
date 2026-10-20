@@ -1,0 +1,18 @@
+VCD info: dumpfile build/sim/tb_i2s_tx_prbs/tb_i2s_tx_prbs.vcd opened for output.
+
+================ i2s_tx value/bit-pattern coverage ================
+  LCG random  : 512 frames (fixed seed DEADBEEF, reproducible)
+  bit walk    : 48 frames (1<<k and ~(1<<k) for k=0..23)
+  edge values : 16 frames (7FFFFF/800000/0/FFFFFF/0000FF)
+  L channel   : ok 578 / bad 0
+  R channel   : ok 580 / bad 0
+  A8          : din=0 bck=0 ws=0
+==================================================================
+  ok : L channel: every value (incl. all bit patterns) round-trips exactly
+  ok : R channel: every value round-trips exactly
+  ok : A8 no X/Z
+
+PASS: i2s_tx round-trips the full 24-bit value range, every single-bit pattern, and the truncation edge cases
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3c\tb_i2s_tx_prbs.sv:197: $finish called at 11878651000 (1ps)
+
+

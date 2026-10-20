@@ -1,0 +1,36 @@
+=== tb_uart_tx_fifo ===
+== 1: 鑳岄潬鑳屾帹 3 涓紙K-126 鐨勭洿鎺ュ垽鎹級==
+    鍙戝嚭 3 涓? 0x74 0x73 0x30
+  ok  : 3 涓瓧鑺傚叏閮ㄥ彂鍑猴紙涓€涓兘娌′涪锛?
+  ok  : 椤哄簭姝ｇ‘ 't'->'s'->'0'
+== 2: 涓嬫父蹇欐椂鎺紙鍘熸潵灏辨槸杩欐牱涓㈢殑锛?=
+    姝ゅ埢 busy=1 busy_left=17
+  ok  : 绗?1 涓凡鍦ㄥ彂锛坆usy 楂橈級
+    鍙戝嚭 3 涓? 0x41 0x42 0x43
+  ok  : 蹇欐椂鎺ㄧ殑 2 涓病涓?
+  ok  : 椤哄簭浠嶆槸 A->B->C
+== 3: 鍗曟媿鑴夊啿锛堟ā鎷?need_press 閭?20 ns锛?=
+    鍙戝嚭 1 涓? 0x5a
+  ok  : 1 鎷嶈剦鍐蹭篃琚帴浣忓苟鍙戝嚭
+== 4/5: 婧㈠嚭锛堟帹 9 涓紝娣卞害 8锛?=
+    ovf=1 drop_cnt=1
+  ok  : 婧綅缃捣锛堜笉闈欓粯锛?
+  ok  : 涓㈠純璁℃暟 = 1
+    鍙戝嚭 8 涓?
+  ok  : 鍓?8 涓粛鐒跺叏閮ㄥ彂鍑猴紙鍙涪绗?9 涓級
+  ok  : 鍙戝嚭鐨勬槸 0..7锛堜涪鐨勬槸鏈€鍚庨偅涓級
+== 6: ovf_clr_i ==
+  ok  : 娓呭悗 ovf 钀?0
+  ok  : 娓呭悗 drop_cnt 褰?0
+== 7: 澶嶄綅 ==
+  ok  : 澶嶄綅鍚?ovf 娓?0
+  ok  : 澶嶄綅鍚?drop_cnt 娓?0
+  ok  : 澶嶄綅鍚庨槦鍒楃┖锛坮eady 楂橈級
+== 8: A8 ==
+  ok  : A8: tx_data 鏃?X/Z
+  ok  : A8: ovf / drop_cnt 鏃?X/Z
+
+PASS: uart_tx_fifo queues bytes (never drops while busy), surfaces overflow, and clears on demand
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3c\tb_uart_tx_fifo.sv:235: $finish called at 6710000 (1ps)
+
+

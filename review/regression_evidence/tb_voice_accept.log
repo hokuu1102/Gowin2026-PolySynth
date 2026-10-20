@@ -1,0 +1,23 @@
+VCD info: dumpfile build/sim/tb_voice_accept/tb_voice_accept.vcd opened for output.
+
+============ T10 鐪熷疄 voice 楠屾敹 ============
+  DUT = voice锛圖DS + pROM 娉㈣〃 + ADSR + 骞呭害缂╂斁锛?
+------------------------------------------------
+  [鍙樿皟] 鍙敼 phase_inc锛? kHz锛夆€斺€?A7 搴斾繚鎸?0 杩濊
+------------------------------------------------
+  甯ф暟       : tick_audio 98 娆?路 frame_done 98 娆?
+  杈撳嚭娲诲姩   : 闈為浂鏍风偣 96259 鎷?
+  A6 甯у唴鎴: 0 娆¤繚瑙勶紙鏈熸湜 0锛?
+  A7 鐩镐綅鍓嶈繘: 0 娆¤繚瑙勶紙鏈熸湜 0锛?
+  A8 X/Z     : sample=0 acc=0锛堟湡鏈?0/0锛?
+================================================
+  ok : A6 姣忓抚閮藉湪 1024 鎷嶅唴缁欏嚭 frame_done锛堝崟 voice 涓嶆嫋璺ㄥ抚锛?
+  ok : A7 鐩镐綅鍙寜 phase_inc 鍓嶈繘锛堝彉璋?*娌℃湁**娓呴浂鐩镐綅 鈬?鏃犲挃鍝掞級
+  ok : A8 杈撳嚭涓庣浉浣嶉兘鏃?X/Z 浼犳挱
+  ok : 姣忓抚鎭板ソ涓€娆?frame_done锛?8/98锛?
+  ok : 杈撳嚭纭疄鏈夐潪闆舵牱鐐癸紙96259 鎷嶏級鈥斺€?涓嶆槸銆屽亣瑁呭湪宸ヤ綔銆?
+
+PASS: T10 鐪熷疄 voice 鐨?A6/A7/A8 涓庢椿鍔ㄦ牱鐐归獙鏀跺叏閮ㄩ€氳繃
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\voice\tb_voice_accept.sv:271: $finish called at 2007251000 (1ps)
+
+

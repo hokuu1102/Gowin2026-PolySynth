@@ -1,0 +1,4 @@
+PASS: all prior keyboard axes release after switching to fretboard
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3a\tb_play_mode_poly_release.sv:34: $finish called at 400000 (1ps)
+
+

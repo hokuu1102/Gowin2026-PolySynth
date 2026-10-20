@@ -1,0 +1,32 @@
+NOTE [fx_delay] DEPTH=1024 samples = 20 ms @48828.125Hz | MEM_W=18 => 18432 bit / 18432 bit-per-block = 1 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=1024 samples = 20 ms @48828.125Hz | MEM_W=18 => 18432 bit / 18432 bit-per-block = 1 BSRAM block(s) of 118
+  ok  : C1 all-off (mask=0): output is BIT-IDENTICAL to input (13 points)
+  ok  : C2 reverb bit alone (bit3): placeholder passthrough, output unchanged
+  ok  : C3a distortion bit alone: output IS changed (hard clip bites)
+  ok  : C3b distortion clip counter moved
+  ok  : C4a delay bit alone: dry passes at unity, only the wet is scaled by mix=0.5
+  ok  : C4b delay bit alone: the echo DOES come back (non-zero after D samples)
+  ok  : C5 chorus bit alone: output IS modulated (differs from the plain mix)
+  ok  : C6a delay+chorus bits together: BOTH stages are active
+  ok  : C6b chorus bit alone: chorus on, delay off
+  ok  : C6c delay bit alone: delay on, chorus off
+  ok  : C6d no delay/chorus bit: both off
+  ok  : C6e series: chorus+delay together differs from either one alone
+  ok  : C7 stream: exactly one valid_o per valid_i with 4 stages on (20 in, 20 out)
+  ok  : C8a en_mask_o echoes the mask
+  ok  : C8b pipe_o reports the measured 19-cycle pipeline depth
+  ok  : C11a tremolo is ALWAYS ON: mask=0 + depth=255 still modulates
+  ok  : C11b and it never boosts above the input amplitude
+  ok  : C11c same mask but depth=0 => bit-identical passthrough
+  ok  : C12a chorus-only (bit1): fb=255 and fb=0 give BIT-IDENTICAL output (40 samples)
+  ok  : C12b control (delay-only, bit2): fb=255 and fb=0 DO differ (feedback still bites)
+  ok  : C13 delay stage en=1 sel=0 mix=0: output is BIT-IDENTICAL to input (13 points)
+  ok  : C9a no X on sample_o
+  ok  : C9b no X on valid_o
+  ok  : C9c no X on en_mask_o
+  ok  : C9d no X on chor_active_o
+  ok  : C10 non-vacuous: all-off and distortion-only give DIFFERENT outputs
+PASS: fx_chain -- all-off bit-exact, reverb placeholder, delay+chorus run TOGETHER in series
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3c\tb_fx_chain.sv:510: $finish called at 9422860000 (1ps)
+
+

@@ -1,0 +1,62 @@
+[
+  {
+    "case": "indexed_fail",
+    "repeat": 1,
+    "expected_exit": 1,
+    "actual_exit": 0,
+    "actual_index": "FAIL: staged contamination\n",
+    "working": "PASS: working clean\n",
+    "stdout": "OK: evidence looks clean (1 tracked file(s), none empty, none staged with FAIL)\n",
+    "stderr": ""
+  },
+  {
+    "case": "indexed_empty",
+    "repeat": 1,
+    "expected_exit": 1,
+    "actual_exit": 0,
+    "actual_index": "",
+    "working": "PASS: working clean\n",
+    "stdout": "OK: evidence looks clean (1 tracked file(s), none empty, none staged with FAIL)\n",
+    "stderr": ""
+  },
+  {
+    "case": "clean_control",
+    "repeat": 1,
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "actual_index": "PASS: indexed clean\n",
+    "working": "PASS: working clean\n",
+    "stdout": "OK: evidence looks clean (1 tracked file(s), none empty, none staged with FAIL)\n",
+    "stderr": ""
+  },
+  {
+    "case": "indexed_fail",
+    "repeat": 2,
+    "expected_exit": 1,
+    "actual_exit": 0,
+    "actual_index": "FAIL: staged contamination\n",
+    "working": "PASS: working clean\n",
+    "stdout": "OK: evidence looks clean (1 tracked file(s), none empty, none staged with FAIL)\n",
+    "stderr": ""
+  },
+  {
+    "case": "indexed_empty",
+    "repeat": 2,
+    "expected_exit": 1,
+    "actual_exit": 0,
+    "actual_index": "",
+    "working": "PASS: working clean\n",
+    "stdout": "OK: evidence looks clean (1 tracked file(s), none empty, none staged with FAIL)\n",
+    "stderr": ""
+  },
+  {
+    "case": "clean_control",
+    "repeat": 2,
+    "expected_exit": 0,
+    "actual_exit": 0,
+    "actual_index": "PASS: indexed clean\n",
+    "working": "PASS: working clean\n",
+    "stdout": "OK: evidence looks clean (1 tracked file(s), none empty, none staged with FAIL)\n",
+    "stderr": ""
+  }
+]

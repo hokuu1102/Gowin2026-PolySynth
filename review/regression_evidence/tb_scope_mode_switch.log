@@ -1,0 +1,4 @@
+PASS: XY/waveform/XY switch at frame boundaries and waveform displays real samples
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\hdmi\tb_scope_mode_switch.sv:63: $finish called at 4244240000 (1ps)
+
+

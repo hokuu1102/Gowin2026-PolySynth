@@ -1,0 +1,18 @@
+{
+  "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+  "test": "tb_e2e_key_to_sound",
+  "image_sha256": "46d22bacffa78b6a92c2ef9867cf0c329096320f33e7fced050440888d0c235b",
+  "timeout_seconds": 1800,
+  "original_rtl_and_assertions_unchanged": true,
+  "started_utc": "2026-10-20T06:26:32.546825+00:00",
+  "command": [
+    "D:/iverilog/bin/vvp.exe",
+    "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\tb_e2e_key_to_sound.vvp"
+  ],
+  "pid": 6024,
+  "finished_utc": "2026-10-20T06:51:13.516197+00:00",
+  "seconds": 1480.97,
+  "actual_native_exit": 0,
+  "timed_out": false,
+  "status": "PASS"
+}

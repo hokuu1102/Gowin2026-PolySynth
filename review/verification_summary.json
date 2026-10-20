@@ -1,0 +1,194 @@
+{
+  "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+  "generated_utc": "2026-10-20T07:58:21.777542+00:00",
+  "confirmed_primary_findings": {
+    "Standards": 8,
+    "Spec": 5,
+    "P1": 6,
+    "P2": 7,
+    "total": 13
+  },
+  "tracked_production_inputs_unchanged": true,
+  "regression": {
+    "metadata": {
+      "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+      "started_utc": "2026-10-20T05:21:43.3750542Z",
+      "finished_utc": "2026-10-20T07:55:12.6660206Z",
+      "actual_exit_code": 1,
+      "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File sim/tb_all.ps1"
+    },
+    "selected_testbenches": 221,
+    "observed_status_counts": {
+      "OBSERVED_PASS": 209,
+      "DIAGNOSTIC_COMPLETED": 1,
+      "TIMEOUT_INCOMPLETE": 7,
+      "SKIPPED_BY_DEFAULT": 3,
+      "EXPECTED_NEGATIVE_DETECTED": 1
+    },
+    "production_runner_summary": "通过 211 / 共 218\r\n其中预期负向检出: 1 (not functional PASS)\r\n跳过（工具 tb，非验收）: tb_at_merge_known_bugs, tb_export_key_wav, tb_export_wav\r\n  ⭐ 要跑它: powershell -File sim\\tb_all.ps1 -Filter tb_at_merge_known_bugs\r\n失败: tb_e2e_key_to_sound, tb_sustain_pedal_wire, tb_top_sound, tb_top_upstream_timbre, tb_top_ec11_param, tb_bg_envelope_cycle_equiv, tb_nm_no_leak"
+  },
+  "isolated_native_replays": [
+    {
+      "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+      "test": "tb_bg_envelope_cycle_equiv",
+      "original_rtl_and_assertions_unchanged": true,
+      "image_sha256": "1bdc700746bc7fc9c7488692ccca3b7b756933db35dde9ccc2ac1363866f8f2e",
+      "working_directory": "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\bg_envelope_cycle_equiv_workspace",
+      "timeout_seconds": 600,
+      "waveform_dump_suppressed": true,
+      "started_utc": "2026-10-20T07:39:13.517158+00:00",
+      "command": [
+        "D:/iverilog/bin/vvp.exe",
+        "-i",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\bg_envelope_cycle_equiv_workspace\\tb_bg_envelope_cycle_equiv.vvp",
+        "-none"
+      ],
+      "pid": 42220,
+      "finished_utc": "2026-10-20T07:40:44.522951+00:00",
+      "seconds": 91.0,
+      "actual_native_exit": 0,
+      "timed_out": false,
+      "status": "PASS"
+    },
+    {
+      "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+      "test": "tb_e2e_key_to_sound",
+      "image_sha256": "46d22bacffa78b6a92c2ef9867cf0c329096320f33e7fced050440888d0c235b",
+      "timeout_seconds": 1800,
+      "original_rtl_and_assertions_unchanged": true,
+      "started_utc": "2026-10-20T06:26:32.546825+00:00",
+      "command": [
+        "D:/iverilog/bin/vvp.exe",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\tb_e2e_key_to_sound.vvp"
+      ],
+      "pid": 6024,
+      "finished_utc": "2026-10-20T06:51:13.516197+00:00",
+      "seconds": 1480.97,
+      "actual_native_exit": 0,
+      "timed_out": false,
+      "status": "PASS"
+    },
+    {
+      "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+      "test": "tb_nm_no_leak",
+      "original_rtl_and_assertions_unchanged": true,
+      "image_sha256": "affe7cdd12dbed8ca06014a8f4dbceb83779c8778de6b49848da039fd5a02181",
+      "working_directory": "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\nm_no_leak_workspace",
+      "timeout_seconds": 900,
+      "waveform_dump_suppressed": true,
+      "started_utc": "2026-10-20T07:39:13.519154+00:00",
+      "command": [
+        "D:/iverilog/bin/vvp.exe",
+        "-i",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\nm_no_leak_workspace\\tb_nm_no_leak.vvp",
+        "-none"
+      ],
+      "pid": 43848,
+      "finished_utc": "2026-10-20T07:45:00.911028+00:00",
+      "seconds": 347.39,
+      "actual_native_exit": 0,
+      "timed_out": false,
+      "status": "PASS"
+    },
+    {
+      "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+      "test": "tb_sustain_pedal_wire",
+      "image_sha256": "374631b4c40866425de1fc278249acfe9abc8114ed34eff291c80fc5270f67d5",
+      "timeout_seconds": 1800,
+      "original_rtl_and_assertions_unchanged": true,
+      "started_utc": "2026-10-20T06:26:32.546825+00:00",
+      "command": [
+        "D:/iverilog/bin/vvp.exe",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\tb_sustain_pedal_wire.vvp"
+      ],
+      "pid": 16528,
+      "finished_utc": "2026-10-20T06:29:43.356848+00:00",
+      "seconds": 190.8,
+      "actual_native_exit": 0,
+      "timed_out": false,
+      "status": "PASS"
+    },
+    {
+      "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+      "test": "tb_top_ec11_param",
+      "original_rtl_and_assertions_unchanged": true,
+      "image_sha256": "a770b2640ff1a0fb0ee669388c30c476d15ed03c27e0c0c9c1803620f6944d01",
+      "working_directory": "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\top_ec11_param_workspace",
+      "timeout_seconds": 1800,
+      "waveform_dump_suppressed": true,
+      "started_utc": "2026-10-20T07:12:29.310994+00:00",
+      "command": [
+        "D:/iverilog/bin/vvp.exe",
+        "-i",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\top_ec11_param_workspace\\tb_top_ec11_param.vvp",
+        "-none"
+      ],
+      "pid": 42120,
+      "finished_utc": "2026-10-20T07:37:37.524913+00:00",
+      "seconds": 1508.2,
+      "actual_native_exit": 0,
+      "timed_out": false,
+      "status": "PASS"
+    },
+    {
+      "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+      "test": "tb_top_sound",
+      "original_rtl_and_assertions_unchanged": true,
+      "image_sha256": "90109a2d37c88bff26e7e2f65351cceb909ffd8cd121f39ec6994cb61031fd27",
+      "working_directory": "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\top_sound_workspace",
+      "timeout_seconds": 1800,
+      "started_utc": "2026-10-20T06:41:22.893346+00:00",
+      "command": [
+        "D:/iverilog/bin/vvp.exe",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\top_sound_workspace\\tb_top_sound.vvp"
+      ],
+      "pid": 28500,
+      "finished_utc": "2026-10-20T07:04:08.837133+00:00",
+      "seconds": 1365.94,
+      "actual_native_exit": 0,
+      "timed_out": false,
+      "status": "PASS"
+    },
+    {
+      "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+      "test": "tb_top_upstream_timbre",
+      "original_rtl_and_assertions_unchanged": true,
+      "image_sha256": "2b29fcf29e1b324200cbfdfed615419f41dd4c544a5c2d952b2937e44f737b90",
+      "working_directory": "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\top_upstream_timbre_workspace",
+      "timeout_seconds": 600,
+      "started_utc": "2026-10-20T07:06:30.639548+00:00",
+      "command": [
+        "D:/iverilog/bin/vvp.exe",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\top_upstream_timbre_workspace\\tb_top_upstream_timbre.vvp"
+      ],
+      "pid": 1816,
+      "finished_utc": "2026-10-20T07:08:27.338005+00:00",
+      "seconds": 116.69,
+      "actual_native_exit": 0,
+      "timed_out": false,
+      "status": "PASS"
+    }
+  ],
+  "original_timeouts_without_a_passing_isolated_replay": [],
+  "physical_wrapper": {
+    "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+    "started_utc": "2026-10-20T06:35:52.8312798Z",
+    "finished_utc": "2026-10-20T06:59:43.9524652Z",
+    "actual_exit_code": 0,
+    "regression_exit_file": "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\regression_exit.json",
+    "retry_exit_file": "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries_exit.json",
+    "verification_readiness_file": "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\ready_for_physical.json",
+    "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File sim/gowin_build.ps1 -GwSh D:/Gowin/Software/Gowin_V1.9.12.03_x64/IDE/bin/gw_sh.exe"
+  },
+  "native_STA_worst_slack_ns": {
+    "Setup": -0.479,
+    "Hold": 0.183,
+    "Recovery": -0.675,
+    "Removal": 0.646
+  },
+  "native_STA_all_checks_pass": false,
+  "esp_idf_full_build_verified": false,
+  "esp_idf_limit": "SDK was unavailable; see esp_idf_build.log",
+  "board_tests_executed": false,
+  "C_runtime_probes": "Real production C with host SDK/RTOS stubs; not hardware BLE or dual-core stress."
+}

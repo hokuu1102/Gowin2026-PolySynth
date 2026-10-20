@@ -1,0 +1,15 @@
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x400 REL_TH=0x300 DELTA_TH=8 REFRACT_N=150)
+VCD info: dumpfile build/sim/tb_ee_multineighbor/tb_ee_multineighbor.vcd opened for output.
+--- SCENE 1: BOTH neighbours of A=3 form at once; larger travel on axis 4 ---
+  ok  :  slide_valid_o must actually pulse for this multi-neighbour case
+  ok  : he LARGEST travel (4), not the first/lowest-axis forming one (2)
+  ok  :  WINNING axis (best_ax 4 > A 3 => +1), not the first-forming one
+  ok  : l be the leaving axis (3) -- is_h_adj + left-axis pick unchanged
+  ok  : MULTI-4b (non-vacuous) scene 2 must also pulse slide_valid_o
+  ok  : may have the SMALLER axis number (2 here), and it must still win
+  ok  : lip to -1 when the winning neighbour has the smaller axis number
+
+PASS: multi-neighbour slide B-selection -- B is the same-row neighbour with the LARGEST travel (tie -> lowest axis), A stays the leaving axis, direction follows the winning axis
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3a\tb_ee_multineighbor.sv:247: $finish called at 1790000 (1ps)
+
+

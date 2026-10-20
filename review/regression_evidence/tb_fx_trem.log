@@ -1,0 +1,20 @@
+  ok  : T1a reset: valid_o is low
+  ok  : T1b reset: output is silent
+  ok  : T2 en=0 hard bypass: output is BIT-IDENTICAL to input (11 points)
+  ok  : T3 depth=0 => unity gain, output unchanged
+  ok  : T4a depth=255: amplitude really swings (max >> min over one LFO cycle)
+  ok  : T4b the maximum stays at (or below) the input amplitude (no gain boost)
+  ok  : T5 rate=0 => LFO frozen => output stays constant
+  ok  : T6 higher rate => LFO phase advances further in the same number of samples
+  ok  : T7 stream: exactly one valid_o per valid_i (20 in, 20 out)
+  ok  : T8a tri_o is a real triangle (both rising and falling observed)
+  ok  : T8b gain_o / depth_used_o / rate_used_o expose live values
+  ok  : T9a no X on sample_o
+  ok  : T9b no X on valid_o
+  ok  : T9c no X on lfo_o
+  ok  : T9d no X on gain_o
+  ok  : T10 non-vacuous: depth=0 and depth=255 give DIFFERENT outputs
+PASS: fx_trem -- bypass bit-exact, depth swings, rate controls LFO
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3c\tb_fx_trem.sv:275: $finish called at 232120000 (1ps)
+
+

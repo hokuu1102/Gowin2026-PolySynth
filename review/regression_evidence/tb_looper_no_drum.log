@@ -1,0 +1,15 @@
+=== tb_looper_no_drum (榧撲笉杩?loop) ===
+== 1: record a normal note AND a drum ==
+  info: recorded event count = 2 (expect 2)
+  ok  : A1 the drum's note_on AND note_off are NOT recorded (count stays 2, was 4)
+== 2: replay and look for drum events ==
+  info: played ax12=0  ax5-on=5  ax5-off=5
+  ok  : A2 REPLAY CONTAINS NO DRUM EVENT (axis 12 never comes back) *** the whole point ***
+  ok  : N1 (NON-VACUOUS) the normal note_on IS still recorded and replayed
+  ok  : N2 (NON-VACUOUS) the normal note_off IS still recorded and replayed
+== 3: record a drum ONLY ==
+  ok  : A3 a recording that contains ONLY drums ends up empty (0 events, was 2)
+PASS: tb_looper_no_drum -- drums never enter the loop, normal notes still do
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3c\tb_looper_no_drum.sv:322: $finish called at 16620000 (1ps)
+
+

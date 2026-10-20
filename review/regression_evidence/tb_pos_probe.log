@@ -1,0 +1,44 @@
+=== tb_pos_probe ===
+== 1: 鏃犺姹?==
+  ok  : 鏃犺姹傛椂 push 鎭?0
+== 2/3: 涓€娆¤姹?==
+  ok  : 姝ｅソ 8 涓瓧鑺?
+    744: pos=744 -> P00744
+
+  ok  : 744 鏁板€兼纭?
+    0: pos=0 -> P00000
+
+  ok  : 0 鏁板€兼纭?
+    4095: pos=4095 -> P04095
+
+  ok  : 4095 鏁板€兼纭?
+    9: pos=9 -> P00009
+
+  ok  : 9 鏁板€兼纭?
+    2050: pos=2050 -> P02050
+
+  ok  : 2050 鏁板€兼纭?
+== 4: 閿佸瓨璇箟 ==
+  ok  : 鍥炰紶鏈熼棿鏀硅緭鍏?鈬?浠嶈緭鍑洪攣瀛樼殑 1234
+    閿佸瓨: pos=1234 -> P01234
+
+  ok  : 閿佸瓨 鏁板€兼纭?
+== 5: 闈炵┖鏃朵笉寮€鏂板寘锛圞-126 鐨勬暀璁級==
+  ok  : 闈炵┖鏃朵竴涓兘涓嶅彂锛堚瓙 绛夛紝鉀?涓嶇‖濉烇級
+  ok  : 闈炵┖鏃?busy 涓?0锛堚瓙 杩樻病寮€濮嬶紝鉀?涓嶆槸蹇欙級
+  ok  : 绌轰簡浠ュ悗璇锋眰 鈬?7 涓瓧鑺傚叏鍙戯紙猸?涓€涓病涓級
+    绌哄悗: pos=500 -> P00500
+
+  ok  : 绌哄悗 鏁板€兼纭?
+== 6: busy 璇箟 ==
+  ok  : 绌洪棽鏃?busy 涓?0
+  ok  : 鍥炰紶涓?busy 涓?1
+  ok  : 鍥炲畬鍚?busy 钀?0
+== 7: A8 ==
+  ok  : A8: data 鏃?X/Z
+  ok  : A8: busy 鏃?X/Z
+
+PASS: pos_probe emits 'P<4 digits>CRLF' on request, latches the reading, and never drops when the sink is busy
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3c\tb_pos_probe.sv:219: $finish called at 6050000 (1ps)
+
+

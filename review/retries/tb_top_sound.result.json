@@ -1,0 +1,19 @@
+{
+  "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+  "test": "tb_top_sound",
+  "original_rtl_and_assertions_unchanged": true,
+  "image_sha256": "90109a2d37c88bff26e7e2f65351cceb909ffd8cd121f39ec6994cb61031fd27",
+  "working_directory": "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\top_sound_workspace",
+  "timeout_seconds": 1800,
+  "started_utc": "2026-10-20T06:41:22.893346+00:00",
+  "command": [
+    "D:/iverilog/bin/vvp.exe",
+    "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\retries\\top_sound_workspace\\tb_top_sound.vvp"
+  ],
+  "pid": 28500,
+  "finished_utc": "2026-10-20T07:04:08.837133+00:00",
+  "seconds": 1365.94,
+  "actual_native_exit": 0,
+  "timed_out": false,
+  "status": "PASS"
+}

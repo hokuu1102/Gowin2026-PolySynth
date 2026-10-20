@@ -1,0 +1,17 @@
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x400 REL_TH=0x300 DELTA_TH=8 REFRACT_N=4)
+  ok  : first crossing emits exactly one note_on
+  ok  : note_on carries the correct axis
+  [refract] events=1  note_on=0  note_off=1 (expect on=0, off>=1)
+  ok  : re-pressing INSIDE the refractory window emits NO second note_on
+  ok  : the release itself was reported (note_off present)
+  ok  : between TRIG and REL the key stays held (no spurious event)
+  ok  : dropping below REL emits note_off
+  ok  : note_off carries the correct axis
+  ok  : after the refractory window the key can trigger again (self-healing)
+  ok  : THREE axes crossing in the SAME frame emit THREE note_on (none lost)
+  ok  : all three distinct axes are present (1, 5, 9)
+
+PASS: event_extract fires on the first crossing (no settle wait), holds with hysteresis, blocks inside the refractory window and self-heals, and NEVER loses events when several axes cross in the same frame
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3a\tb_event_extract.sv:307: $finish called at 18790000 (1ps)
+
+

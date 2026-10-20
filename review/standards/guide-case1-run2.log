@@ -1,0 +1,3 @@
+NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
+FATAL: review/standards/tb_guide_review.sv:16: TRANSPOSE_AFTER_LAST_OFF expected=0000 actual=0020
+       Time: 360000  Scope: tb_guide_review

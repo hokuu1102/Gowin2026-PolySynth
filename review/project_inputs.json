@@ -1,0 +1,411 @@
+{
+  "registered_entries": 80,
+  "unique_paths": 78,
+  "duplicates": {
+    "rtl/w3c/led_data.v": 2,
+    "rtl/w3c/tlc5916_bank.sv": 2
+  },
+  "missing": [],
+  "entries": [
+    {
+      "path": "ip/wavetable_sine_rom_ip/wavetable_sine_rom_ip.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/clk_gen.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/rst_sync.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/sync_input.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3b/oscillator_bank.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3b/adsr.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3b/envelope_bank.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3b/tdm_render_mixer.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3b/test_mode_ctrl.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3b/vibrato_lfo.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3b/wavetable_bank.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3b/dds_wavetable_core.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3b/voice.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3b/voice_i2s_chain.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3b/note_manager.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/drivers/adc_farm.sv",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/drivers/calib.sv",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/drivers/debounce.sv",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3a/axis_map.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3a/axis_snapshot.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3a/event_extract.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3a/async_pluck_capture.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3a/play_mode_ctrl.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3a/param_extract.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3a/right_analog_ctrl.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3a/fader_gear.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3a/slide_ramp.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3a/slide_position_ctrl.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3a/ctrl_keypad.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3a/ctrl_key_map.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3a/ws2812_driver.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3a/led_indicator.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3a/calib_autotare.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3a/calib_span.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3a/calib_cmd.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/evt_uart_rx.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/uart_ui.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/uart_tx.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/uart_tx_fifo.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/pos_probe.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/span_probe.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/i2s_tx.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/beat_gen.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/metronome.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/perc_env_bank.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/uart_rx.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/play_seq.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/bpm_bar_quant.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/evt_buf.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/evt_merge.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/evt_upstream.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/looper.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/rec_dump.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/led_data.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/tlc5916_bank.sv",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/seq_arb.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/drum_gen.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/master_mix.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/fx_dist.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/fx_delay.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/fx_trem.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/fx_chain.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/guide_lamp.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/led_data.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/w3c/tlc5916_bank.sv",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/top.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/drivers/tlc5916_driver.sv",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/drivers/mcp3208_driver.sv",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/drivers/mcp3208_scanner.sv",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "constr/top.cst",
+      "exists": true,
+      "type": "file.cst"
+    },
+    {
+      "path": "constr/top.sdc",
+      "exists": true,
+      "type": "file.sdc"
+    },
+    {
+      "path": "rtl/hdmi/video_timing.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/hdmi/tmds_encoder.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/hdmi/tmds_serializer.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/hdmi/hdmi_clk.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/hdmi/waveform_scope.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/hdmi/hdmi_scope.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/hdmi/fft_coeff_rom.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/hdmi/fft_spectrum_core.v",
+      "exists": true,
+      "type": "file.verilog"
+    },
+    {
+      "path": "rtl/hdmi/fft_spectrum_view.v",
+      "exists": true,
+      "type": "file.verilog"
+    }
+  ]
+}

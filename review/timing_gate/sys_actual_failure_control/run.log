@@ -1,0 +1,30 @@
+
+== P0-30 setup gate ==
+  clk_sys      setup EP=   1   TNS=-4
+  TOTAL setup EP = 1   TNS = -4   worst path slack = -4 ns
+  REAL slack (vs the actual clock) = -0.4 ns  (real clock 20 ns, over-constraint 16.4 ns)
+  NOTE: the 16.4 ns figure is an over-constraint (see top.sdc); the physical clock is 20 ns.
+        Violations against 16.4 ns are printed above for visibility but do NOT fail this gate.
+
+########################################################################
+##  TIMING FAIL -- NOT A TIMING-CLEAN BUILD
+########################################################################
+  reason                   : the design does NOT meet the real 20 ns clock (real slack -0.4 ns)
+  setup-violated endpoints : 1
+  total negative slack     : -4 ns
+  worst setup path slack   : -4 ns
+  REAL slack (vs clock)    : -0.4 ns  (real clock 20 ns, over-constraint 16.4 ns)
+
+  This build did NOT converge.  Bitstream on disk:
+    path   : C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\review\timing_gate\sys_actual_failure_control\impl\pnr\Gowin2026.fs
+    size   : n/a (no bitstream on disk)
+    sha256 : n/a
+
+  MAY be burned to the board for bench testing -- the hardware still runs.
+  NOT a timing-clean release: do NOT archive it, do NOT ship it, and do
+  NOT use it as the baseline for a comparison table.
+
+  Where to look: impl/pnr/Gowin2026_tr_content.html -> Setup Paths Table.
+  Evidence that would otherwise be lost: tools/archive_pnr_evidence.ps1.
+
+  P0-30 FAIL (exit 12).

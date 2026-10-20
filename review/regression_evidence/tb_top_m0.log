@@ -1,0 +1,63 @@
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=26 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [ctrl_keypad] PARAM_OK=1 (SCAN_DIV=12500 DEB_N=8 CLK_HZ=50000000 scan_us=0 db_ms=8)
+NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=50000000 LONG_MS=2000 LONG_CYC=100000000 HW=27)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=26 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [ctrl_keypad] PARAM_OK=1 (SCAN_DIV=12500 DEB_N=8 CLK_HZ=50000000 scan_us=0 db_ms=8)
+NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=50000000 LONG_MS=2000 LONG_CYC=100000000 HW=27)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=26 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [ctrl_keypad] PARAM_OK=1 (SCAN_DIV=12500 DEB_N=8 CLK_HZ=50000000 scan_us=0 db_ms=8)
+NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=50000000 LONG_MS=2000 LONG_CYC=100000000 HW=27)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+VCD info: dumpfile build/sim/tb_top_m0/tb_top_m0.vcd opened for output.
+
+==================== top / M0 椤跺眰楠屾敹 ====================
+  A 鏃跺熀    : HP_BCK 鍛ㄦ湡 min=16 max=16 clk锛堟湡鏈?16锛壜?涓婂崌娌?4097 涓?
+              HP_WS  鍛ㄦ湡 min=1024 max=1024 clk锛堟湡鏈?1024锛壜?涓婂崌娌?64 涓?
+  B fallback: PA_EN_n NOT-low 0 cyc (expect 0) * trans 0 (expect 0) * rst-bad 0
+  C Console : PA_EN_n high 65536 of 65536 cyc (expect all) * trans 0 * falling 0 (both expect 0)
+  D 蹇冭烦    : 缈昏浆 127 娆?路 闂撮殧 min=512 max=512 clk锛堟湡鏈?512锛?
+  G rst_sync: 杈撳叆閲婃斁鎷?9 路 鍚屾杈撳嚭閲婃斁鎷?11 路 寤惰繜 2 鎷嶏紙鏈熸湜鎭板ソ 2锛?
+  E 闈欓煶    : HP_DIN 涓?1 鐨勬媿鏁?0锛堟湡鏈?0锛?
+  F A8      : bck=0 ws=0 din=0 pa=0 hb=0 pa(寤舵椂)=0
+  J 澶栫疆DAC : I2S2_BCK 鍛ㄦ湡 min=16 max=16 路 I2S2_LRCK 鍛ㄦ湡 min=1024 max=1024
+              涓庢澘杞介€愭媿姣斿: 65536 鎷嶄腑鏈?0 鎷嶄笉涓€鑷达紙鏈熸湜 0锛?
+              涓婂崌娌?bck2=4097 lrck2=64 路 A8 bck2=0 lrck2=0 din2=0
+  璇佹嵁      : sim/evidence/top_m0_pa_trace.csv锛堝簲鍙湁琛ㄥご锛? 娉㈠舰 build/sim/tb_top_m0/
+==========================================================
+  ok : A 路 HP_BCK 鍛ㄦ湡鎭板ソ 16 clk锛?.125 MHz锛?
+  ok : A 路 HP_WS 鍛ㄦ湡鎭板ソ 1024 clk锛?8.828125 kHz锛?
+  ok : B * NEO-Dock fallback (PA_ON_AFTER_RESET=0) -- PA_EN_n low throughout, 0 transitions
+  ok : C * Console delivery -- PA_EN_n high for all 65536 cycles, 0 edges (SD_MODE=Left => SOUNDS)
+  ok : D 路 蹇冭烦 LED 娲荤潃涓斿崐鍛ㄦ湡鎭板ソ 512 clk锛?27 娆＄炕杞級
+  ok : E 路 闈欓煶鏄湡闈欓煶 鈥斺€?HP_DIN 鍏ㄧ▼涓?0
+  ok : F 路 A8 鏃?X/Z 浼犳挱锛? 涓《灞傝緭鍑?+ 寤舵椂瀹炰緥锛?
+  ok : G 路 rst_sync 鎶婂浣嶉噴鏀惧欢鍚?*鎭板ソ 2 鎷?*锛堝紓姝ヨ緭鍏?鈫?鍚屾閲婃斁锛?
+  H SD_MODE : PA_EN_n falling edges A=0 (fallback, low) B=0 (Console, high)
+  ok : H * zero falling edges -- Console SD_MODE never leaves Left (would be Shutdown)
+  I default : bare instantiation PA_ON_AFTER_RESET = 1 (1 = Console sounds; 0 = Shutdown)
+  ok : I * delivery default correct -- bare instantiation drives SD_MODE high => board sounds
+  ok : I * explicit PA_ON_AFTER_RESET=0 gives a static-low output (NEO-Dock fallback intact)
+  ok : J 路 I2S2_BCK 鍛ㄦ湡鎭板ソ 16 clk锛?.125 MHz锛屼笌鏉胯浇鍚屾。锛?
+  ok : J 路 I2S2_LRCK 鍛ㄦ湡鎭板ソ 1024 clk锛?8.828125 kHz锛?
+  ok : J * 澶栫疆涓庢澘杞姐€愰€愭媿瀹屽叏涓€鑷淬€戯紙65536 鎷嶅叏绛夛級-- 涓よ矾鍚屾簮鍚屾锛屾棤鐩镐綅婕傜Щ
+  J 娲诲姩閲? : 澶栫疆 bck=8193 lrck=127 din=0 锝?鏉胯浇 bck=8193 ws=127 din=0
+  ok : J ** 澶栫疆涓庢澘杞界殑銆愭椿鍔ㄩ噺鐩哥О銆戯紙猸?鏃堕挓绾块兘鍦ㄥ姩锛涙湰妗ｄ袱璺?DIN 鍚屼负闈欓煶锛?
+  ok : J 路 A8 澶栫疆涓夋牴绾垮浣嶅悗鏃?X/Z
+  ok : P0-06 g_silent 妗?fault_sticky 鏈夌‘瀹氬€硷紙=0锛?
+  ok : P0-06 蹇冭烦缈昏浆 64 娆★紙娲讳綋瑙佽瘉鏈夋晥锛?
+
+PASS: M0 top-level acceptance (timebase + SD_MODE polarity + silence-clean + heartbeat + no X + external DAC)
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\top\tb_top_m0.sv:591: $finish called at 1310971000 (1ps)
+
+

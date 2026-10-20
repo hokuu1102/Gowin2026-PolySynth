@@ -1,0 +1,45 @@
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+VCD info: dumpfile build/sim/tb_am_pipe/tb_am_pipe.vcd opened for output.
+== A: 鍩虹嚎 鈥斺€?鍗曚簨浠讹紙閿洏妯″紡锛岃酱 5锛?=
+  ok  : EVT axis=5 mode=0 kind=0 inc=00af92ee == table[5]
+  ok  : A: output event count == 1
+  ok  : A: single event => no pitch mismatch
+== B: 猸?瀵圭収 鈥斺€?涓や釜浜嬩欢銆愭湁绌洪殭銆戯紙杞?5 / 杞?9锛?=
+  ok  : EVT axis=5 mode=0 kind=0 inc=00af92ee == table[5]
+  ok  : EVT axis=9 mode=0 kind=0 inc=0174073a == table[9]
+  ok  : B: output event count == 3 (incl. A)
+  ok  : B: with a GAP between events there is NO mismatch (so the criterion is not a blanket failure)
+== C: 猸愨瓙 鑳岄潬鑳?2 涓簨浠讹紙杞?0 / 杞?1锛夆€斺€?P0-2 姝ｉ ==
+  ok  : EVT axis=0 mode=0 kind=0 inc=00dd3595 == table[0]
+  ok  : EVT axis=1 mode=0 kind=0 inc=00f84c8f == table[1]
+  ok  : C: output event count == 5
+  ok  : C: back-to-back 2 events => mismatch count == 0
+== D: 猸愨瓙 鑳岄潬鑳?3 涓簨浠讹紙杞?2 / 3 / 4锛?=
+  ok  : EVT axis=2 mode=0 kind=0 inc=00ea5cf4 == table[2]
+  ok  : EVT axis=3 mode=0 kind=0 inc=00dd3595 == table[3]
+  ok  : EVT axis=4 mode=0 kind=0 inc=00c51339 == table[4]
+  ok  : D: output event count == 8
+  ok  : D: back-to-back 3 events => mismatch count == 0
+== E: 猸愨瓙 涓変覆鑳岄潬鑳屽悇 2 涓?= 6 涓簨浠讹紙澶嶇幇澶嶅瀹炴祴 events=6锛?=
+  ok  : EVT axis=8 mode=0 kind=0 inc=014b7081 == table[8]
+  ok  : EVT axis=9 mode=0 kind=0 inc=0174073a == table[9]
+  ok  : EVT axis=10 mode=0 kind=0 inc=015f25dc == table[10]
+  ok  : EVT axis=11 mode=0 kind=0 inc=014b7081 == table[11]
+  ok  : EVT axis=12 mode=0 kind=0 inc=0127476d == table[12]
+  ok  : EVT axis=13 mode=0 kind=0 inc=0107104e == table[13]
+  ok  : E: output event count == 14
+  ok  : E: 6 back-to-back events => mismatch count == 0 (pre-fix measured 3)
+== F: 猸愨瓙 鎸囨澘妯″紡锛坢ode=1锛夎儗闈犺儗 3 涓簨浠讹紙杞?8 / 9 / 10锛?=
+  ok  : EVT axis=8 mode=1 kind=0 inc=018a2672 == table[8]
+  ok  : EVT axis=9 mode=1 kind=0 inc=01a1966b == table[9]
+  ok  : EVT axis=10 mode=1 kind=0 inc=0138d653 == table[10]
+  ok  : F: output event count == 17
+  ok  : F: fretboard mode back-to-back => mismatch count == 0
+== 姹囨€?==
+  ok  : event total == expected (criterion is not vacuous)
+  ok  : back-to-back injected event count == 14
+  ok  : P0-2: w3a_evt_inc is in the SAME cycle as w3a_evt_valid (mismatch == 0)
+PASS: am_pipe pitch-tap alignment (P0-2) - all judgements held (events=17 mismatches=0)
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\top\tb_am_pipe.sv:312: $finish called at 2060000 (1ps)
+
+
