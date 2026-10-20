@@ -72,6 +72,9 @@ for root, dirs, files in os.walk(HERE):
 #     · `score_word.py` 的 `old_axis != 3` —— ⭐ 自检里【构造的测试数据】
 #   ⚠️ 非空洞性：把任一条从 WHITELIST 去掉 ⇒ 立刻变红（已实测）。
 WHITELIST = [
+    # Byte7 protocol fixtures: fixed input 0x40/0x0d must decode these axes.
+    ("evt2midi/evt2midi.py", re.compile(r"evs_dg\[0\]\.axis\s*==\s*0")),
+    ("evt2midi/evt2midi.py", re.compile(r"evs_ok\[0\]\.axis\s*==\s*13")),
     ("evt2midi/evt2midi.py", re.compile(r"if\s+axis\s*>\s*15\s*:")),
     ("evt2midi/evt2midi.py", re.compile(r"evs_ax\[0\]\.axis\s*==\s*15")),
     ("score_word.py",        re.compile(r"old_axis\s*!=\s*3")),

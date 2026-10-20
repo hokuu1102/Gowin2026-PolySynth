@@ -104,13 +104,13 @@ def build_stream():
             k_mapped = T_NOTE_ON
             n_on += 1
         buf += build_frame(k_mapped, seq=seq, tick=d["tick"], axis=d["axis"],
-                           inc=d["inc"], vel=d["vel"])
+                           inc=d["inc"] << 10, vel=d["vel"])
         seq = (seq + 1) & 0xFF
         if first_tick is None:
             first_tick = d["tick"]
 
     # 表同步帧：给 16 个轴一个标称增量（inc=0 时 evt2midi 可用它兜底）
-    nominal = [22473 + i * 1000 for i in range(TABLESYNC_ITEMS)]
+    nominal = [(22473 + i * 1000) << 10 for i in range(TABLESYNC_ITEMS)]
     buf += build_frame(T_TABLESYNC, items=nominal)
 
     return bytes(buf), {

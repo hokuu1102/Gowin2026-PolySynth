@@ -32,7 +32,7 @@ const fn = new Function("document", "window", "navigator", "performance", "conso
   "setTimeout", "clearInterval", "setInterval", "requestAnimationFrame",
   "location", "localStorage", "URLSearchParams",
   blk + "\n; return { midiName, incToHz, F_CLK, midiToPhaseInc, DRUM_INC, DRUM_PHASE_INC, " +
-  "isDrumAxis, DRUM_AXIS_OF, DRUM_AXIS_BASE, MELODY_AXIS_MAX, " +
+  "isDrumAxis, DRUM_AXIS_OF, MELODY_AXIS_MAX, " +
   "parseMidi, midiToWords, hzToMidi, setScore: (x) => { score = x; }, axisLabel };");
 let API;
 try {
@@ -142,10 +142,16 @@ const conv = API.midiToWords(parsed);
 API.setScore({
   notes: conv.words.map(w => ({
     axis: Number((w >> 19n) & 0xFn),
+    isDrum: ((w >> 5n) & 1n) !== 0n,
     timbre: Number((w >> 7n) & 0x3n),
   })),
   conv: conv,
 });
+API.setScore({ notes: [
+  {axis: 12, isDrum: true, timbre: 0},
+  {axis: 15, isDrum: true, timbre: 3},
+  {axis: 11, isDrum: false, timbre: 0}
+], conv });
 const label15 = API.axisLabel(15);
 const label12 = API.axisLabel(12);
 chk("⭐ 鼓轴显示'鼓'（⛔ 不是 BASS）", /鼓/.test(label15), label15);

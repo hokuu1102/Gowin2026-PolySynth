@@ -989,7 +989,7 @@ void pool_pump(void)
 
         xSemaphoreTake(s_lock, portMAX_DELAY);
 
-        if (s_play_idx >= s_frames) {
+        if (!s_running || s_play_idx >= s_frames) {
             xSemaphoreGive(s_lock);
             break;                                  /* 池空 / 播完 */
         }
@@ -1047,12 +1047,11 @@ void pool_pump(void)
 
             /* ⚠️ 重锚后 due_tick 从头算，所以本帧必须【立刻发出去】，
              *    否则会卡在"还没到提前量"里。这里直接放行并 continue 到写 UART。 */
-            xSemaphoreGive(s_lock);
             goto emit;
         }
 
-        xSemaphoreGive(s_lock);
-
+        // Keep the single-frame handoff and cursor update serialized with
+        // STOP/RESET. They can compensate only frames already committed.
 emit:
         /* 🔴 一帧 9 字节【一次写入】—— 保证帧内无空隙 */
         {
@@ -1062,9 +1061,11 @@ emit:
                 s_play_idx++;
             } else {
                 ESP_LOGE(TAG, "uart_write_bytes short: %d", w);
+                xSemaphoreGive(s_lock);
                 break;
             }
         }
+        xSemaphoreGive(s_lock);
     }
 
     /* ⭐ 放水收尾遥测（一次性，⛔ 不每轮打）
@@ -1076,7 +1077,8 @@ emit:
      *    ⭐ 这是最有价值的一个数：120 BPM / PPQN 960 下应读 **~1920 tick/s**。
      *       ≈1920 ⇒ 放水节奏正确；明显 >1920 ⇒ 放快了（🔴 FPGA 缓冲会积压）；
      *       明显 <1920 ⇒ 放慢了（⚠️ 会 evt_underrun）。 */
-    if (!s_feed_done_logged && s_frames > 0 && (s_play_idx >= s_frames)) {
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    if (s_running && !s_feed_done_logged && s_frames > 0 && (s_play_idx >= s_frames)) {
         s_feed_done_logged = true;
 
         /* ⭐⭐ 【上游源头】就在这里：⭐ 此刻"这一曲放完了"是【确定的】
@@ -1085,7 +1087,6 @@ emit:
          *    ⇒ ⭐ ① 屏上 `播完` 不可达（死代码）
          *       ⭐ ② 放完后再按 START 会被 "already running" 拒掉
          * ⭐ 所以必须【在这里】把状态收干净，⛔ 不是在别处打补丁。 */
-        xSemaphoreTake(s_lock, portMAX_DELAY);
         s_running  = false;      /* ⭐ 真的停了 ⇒ `pool_is_running()` 不再说谎 */
         s_finished = true;       /* ⭐ 通知消费方"自然放完"（⭐ 与 STOP 区分开） */
         xSemaphoreGive(s_lock);
@@ -1101,6 +1102,8 @@ emit:
                       "elapsed=%lld ms",
                  (unsigned long)s_sent_frames, (unsigned long)s_frames,
                  (unsigned long)rate, (long long)(elapsed / 1000));
+    } else {
+        xSemaphoreGive(s_lock);
     }
 }
 

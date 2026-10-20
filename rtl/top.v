@@ -7020,7 +7020,7 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         //  ═══════════════════════════════════════════════════════════════════════
         wire        up_is_drum_w  = (mg_evt_src == 3'd5)                  // ⭐ 灌谱鼓 + 键盘打鼓
                                   | ((mg_evt_src == 3'd3) & sel_drum);    // ⭐ 内部鼓机（⭐ 节拍器不算）
-        wire [3:0]  up_drum_mark_w = up_is_drum_w ? {2'b0, mg_evt_axis[1:0]} : 4'd0;
+        wire [3:0]  up_drum_mark_w = up_is_drum_w ? {2'b0, mg_evt_axis[1:0]} : mg_evt_axis;
 
         evt_upstream #(
             .PHASE_W(32),
@@ -8569,4 +8569,4 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
 
     assign ws_start = (ws_ld_state == WLS_START);
 
-endmodule
+endmodule

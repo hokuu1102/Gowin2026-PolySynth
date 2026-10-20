@@ -127,11 +127,11 @@ chk("⭐ 每个旋律 axis 上真同时 <= 1（⛔ 否则会被 same_hit 顶掉�
 
 // ---- ③ 鼓仍走 axis 15（⛔ 不能被分配走）----
 const drumEvs = evs.filter(e => API.isDrumAxis(e.axis));
-chk("⭐ 鼓仍全在 axis 15（seq_arb 靠它判鼓：score_axis_i == 4'd15）",
+chk("⭐ 鼓仍在 axis 12..15（seq_arb 靠它判鼓：score_axis_i == 4'd15）",
     drumEvs.length > 0, drumEvs.length + " 个鼓事件");
 const drumIncs = new Set(drumEvs.map(e => e.inc));
-chk("鼓用的是 DRUM_INC 的值（kick=5243）",
-    [...drumIncs].every(v => Object.values(API.DRUM_INC).includes(v)),
+chk("鼓 inc=0，鼓件由 timbre[8:7] 给出",
+    [...drumIncs].every(v => v === 0),
     [...drumIncs].join(","));
 chk("非空洞：旋律【没有】落在 axis 15 上",
     evs.filter(e => API.isDrumAxis(e.axis)).every(e => drumIncs.has(e.inc)));

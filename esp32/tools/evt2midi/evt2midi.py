@@ -64,11 +64,10 @@ TWO32 = 4294967296.0          # ⭐ 2³²
 PPQN = 960                    # ⭐ MIDI 每四分音符的 tick 数（⭐ 与项目一致）
 DEFAULT_BPM = 120.0
 
-# 🔴🔴 一个**极易踩**的坑（⭐ 现有 `evt2wav.py:66-70` 明确警告过）：
-#    ⭐ `phase_inc` 是用 **【系统时钟 50 MHz】** 造的：`inc = round(f × 2³² / 50e6)`
-#    ⚠️ 若用音频帧率（48.828 kHz）去反算 ⇒ 🔴 **错 1024 倍**！
-#    ⇒ ⭐ 反算必须是 `f = inc × 50e6 / 2³²`
-FS_AUDIO_HZ = 50_000_000.0 / 1024.0     # ⚠️ 48.828 kHz，⭐ 仅作参考/限幅用
+# Upstream events carry the full 32-bit phase increment restored by RTL.
+# The oscillator advances once per audio sample (50 MHz / 1024).
+# CLK_HZ remains the system tick rate for legacy raw-clock timestamps.
+FS_AUDIO_HZ = 50_000_000.0 / 1024.0
 
 # ============================================================================
 # ⭐⭐ 帧格式：**全部从 `frame_format.py` 导入**（⭐ 任务 4）
@@ -120,7 +119,7 @@ except Exception as _reader_err:             # noqa: BLE001
 # ============================================================================
 def inc_to_hz(inc):
     """⭐ 反算频率。⚠️ 用【系统时钟 50 MHz】，⛔ 不是音频帧率（⭐ 否则错 1024×）。"""
-    return inc * CLK_HZ / TWO32
+    return inc * FS_AUDIO_HZ / TWO32
 
 
 def hz_to_note(hz):
@@ -137,10 +136,10 @@ def hz_to_note(hz):
 # ⭐⭐ 解析器（⭐ 状态机 + 定长 —— ⛔ 绝不"扫 0xA5"）
 # ============================================================================
 class Event:
-    __slots__ = ("kind", "tick", "axis", "inc", "vel", "seq", "ascii", "t_raw")
+    __slots__ = ("kind", "tick", "axis", "inc", "vel", "seq", "ascii", "t_raw", "timbre", "drum_type")
 
     def __init__(self, kind, tick=None, axis=None, inc=None, vel=None,
-                 seq=None, ascii_ch=None, t_raw=None):
+                 seq=None, ascii_ch=None, t_raw=None, timbre=None, drum_type=None):
         self.kind = kind
         self.tick = tick
         self.axis = axis
@@ -149,6 +148,8 @@ class Event:
         self.seq = seq
         self.ascii = ascii_ch
         self.t_raw = t_raw
+        self.timbre = timbre
+        self.drum_type = drum_type
 
     def __repr__(self):
         if self.ascii is not None:
@@ -488,14 +489,14 @@ def parse_stream(data, stats=None, tables=None, anchors=None):
 
             if ftype == T_NOTE_ON:
                 stats.notes_on += 1
-                evs.append(Event("note_on", tick, axis, inc, vel, seq))
+                evs.append(Event("note_on", tick, axis, inc, vel, seq, timbre=fd.get("timbre"), drum_type=fd.get("drum_type")))
             elif ftype == T_NOTE_OFF:
                 stats.notes_off += 1
-                evs.append(Event("note_off", tick, axis, inc, vel, seq))
+                evs.append(Event("note_off", tick, axis, inc, vel, seq, timbre=fd.get("timbre"), drum_type=fd.get("drum_type")))
             elif ftype == T_CALIB:
-                evs.append(Event("calib", tick, axis, inc, vel, seq))
+                evs.append(Event("calib", tick, axis, inc, vel, seq, timbre=fd.get("timbre"), drum_type=fd.get("drum_type")))
             elif ftype == T_LOOPER:
-                evs.append(Event("looper", tick, axis, inc, vel, seq))
+                evs.append(Event("looper", tick, axis, inc, vel, seq, timbre=fd.get("timbre"), drum_type=fd.get("drum_type")))
             else:
                 # 🔴 理论不可达（⭐ 白名单已经挡过）—— ⚠️ 保留为**兜底**，⛔ 不许静默
                 stats.bad_type += 1
@@ -696,6 +697,9 @@ def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None, tables=None,
     us_per_qn = max(1, min(0xFFFFFF, us_per_qn))
     out += var_len(0) + bytes([0xFF, 0x51, 0x03]) + us_per_qn.to_bytes(3, "big")
 
+    for channel, program in enumerate((32, 24, 0, 89)):
+        out += var_len(0) + bytes([0xC0 | channel, program])
+
     for e in evs_sorted:
         if e.tick is None:
             continue                     # ⚠️ ASCII 事件不参与 MIDI 时间轴
@@ -747,7 +751,13 @@ def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None, tables=None,
 
         if e.kind in ("note_on", "note_off"):
             # ---- ⭐⭐ inc == 0：⭐ 明确政策（⛔ 不猜音高）----
-            if not e.inc:
+            channel = 9 if e.drum_type is not None else (e.timbre or 0) & 3
+            identity = (channel, e.axis)
+            if e.drum_type is not None:
+                note = (36, 38, 42, 45)[e.drum_type & 3]
+            elif e.kind == "note_off" and identity in open_notes:
+                note = open_notes[identity]
+            elif not e.inc:
                 stats.inc_zero += 1
                 if table_fallback and eff_map is not None and e.axis in eff_map:
                     note = eff_map[e.axis]
@@ -771,26 +781,26 @@ def build_midi(evs, stats, bpm=DEFAULT_BPM, axis_map=None, tables=None,
             v7 = max(1, min(127, (vel + 1) // 2))
             if e.kind == "note_on":
                 out += var_len(delta)
-                out += bytes([0x90, note, v7])
-                open_notes[e.axis] = note
+                out += bytes([0x90 | channel, note, v7])
+                open_notes[identity] = note
             else:
                 # ⚠️ note_off 的力度用 0x40（⭐ 标准做法；⭐ FPGA 的"峰值力度"
                 #    已体现在 note_on 里，⭐ 这里⛔ 不再用）
-                if e.axis not in open_notes:
+                if identity not in open_notes:
                     # ⚠️ 没 on 就 off ⇒ ⭐ 计数（⭐ 这通常意味着**前面有帧被拒收**）
                     stats.orphan_off += 1
                 out += var_len(delta)
-                out += bytes([0x80, note, 0x40])
-                open_notes.pop(e.axis, None)
+                out += bytes([0x80 | channel, note, 0x40])
+                open_notes.pop(identity, None)
             prev_midi_t = midi_t
             ticks_seen += 1
 
     # ⭐ 收尾：⭐ 给所有还开着的音补 note_off（⚠️ 否则播放器会挂音）
     stats.notes_open_at_end = len(open_notes)
     if open_notes:
-        for axis, note in open_notes.items():
+        for (channel, axis), note in open_notes.items():
             out += var_len(0)
-            out += bytes([0x80, note, 0x40])
+            out += bytes([0x80 | channel, note, 0x40])
 
     # ⭐ 轨道结束标记（⭐ MIDI 规范要求）
     out += var_len(0) + bytes([0xFF, 0x2F, 0x00])
@@ -823,25 +833,18 @@ def selftest():
         ok = ok and cond
 
     # ---- ① 相位增量反算（⭐ 含那个 1024× 陷阱的守卫）----
-    inc440 = int(round(440.0 * TWO32 / CLK_HZ))
+    inc440 = 38702840  # Full-width upstream phase accumulator at 50 MHz / 1024.
     hz = inc_to_hz(inc440)
     chk("① 440 Hz 往返 (inc=%d -> %.2f Hz)" % (inc440, hz), abs(hz - 440.0) < 0.5)
-    # ⚠️ 若误用音频帧率会得到 ~0.43 Hz ⇒ 这一条能抓住
-    chk("① 不是 1024× 错（>100 Hz）", hz > 100.0, "  实测 %.1f" % hz)
-    # ⭐⭐ 2026-10-01（加固）：🔴 上面那条**抓不住"CLK_HZ 整体改错"** ——
-    #    ⚠️ 因为 `inc440` 是从 `CLK_HZ` **反推**的 ⇒ ⭐ 两边一起错 ⇒
-    #    🔴 往返**自洽** ⇒ ⭐ 假绿（⭐ 这就是"自洽的假绿"，比单纯错更难查）。
-    #    ⭐ 修法：⭐ 用**规范写死的 inc 值**（⭐ 440 Hz @50 MHz ⇒ 37796）把前提钉死。
-    chk("① ⭐ 规范值：440 Hz @50 MHz ⇒ inc = 37796", inc440 == 37796,
-        "  实测 %d" % inc440)
-    chk("① ⭐ inc=37796 ⇒ 440.00 Hz（⭐ 写死值，⛔ 不随 CLK_HZ 漂）",
-        abs(inc_to_hz(37796) - 440.0) < 0.5, "  实测 %.3f" % inc_to_hz(37796))
-    wrong_hz = 37796 * FS_AUDIO_HZ / TWO32          # ⭐ 那个 1024× 的错解
-    chk("① ⭐ 错解（音频帧率）⇒ %.3f Hz（⚠️ 差约 1024×）" % wrong_hz,
-        wrong_hz < 1.0 and abs(inc_to_hz(37796) - wrong_hz) > 400.0,
-        "  正解 %.1f / 错解 %.3f" % (inc_to_hz(37796), wrong_hz))
+    # Pin the RTL's full-width A4 fixture independently of the conversion formula.
+    chk("① 上行 A4 字面值 38702840 反算 440 Hz",
+        abs(inc_to_hz(38702840) - 440.0) < 0.5)
+    wrong_hz = 38702840 * CLK_HZ / TWO32
+    chk("① 非空洞：误用 50 MHz 会高 1024 倍",
+        wrong_hz > 100000 and abs(wrong_hz / hz - 1024) < 0.001,
+        "  正确 %.1f Hz / 错误 %.1f Hz" % (hz, wrong_hz))
     chk("① ⭐ 用错解反算音符号 ⇒ 越界 None（⭐ 两解可区分）",
-        hz_to_note(inc_to_hz(37796)) == 69 and hz_to_note(wrong_hz) is None,
+        hz_to_note(inc_to_hz(38702840)) == 69 and hz_to_note(wrong_hz) is None,
         "  错解音符号 = %s" % hz_to_note(wrong_hz))
 
     # ---- ② 音符号 ----
@@ -1180,7 +1183,7 @@ def selftest():
         evs_z2, st_z2, tables={TABLESYNC_TABLE_KB: [inc440] * TABLESYNC_ITEMS},
         table_fallback=True)
     chk("⑫ 显式开表兜底 ⇒ 才用表（⭐ 且单独计数）",
-        n_z2 == 2 and st_z2.inc_zero_from_table == 2 and st_z2.inc_zero_skipped == 0)
+        n_z2 == 2 and st_z2.inc_zero_from_table == 1 and st_z2.inc_zero_skipped == 0)
     chk("⑫ 表兜底音高 = 69（⭐ 表里是 440 Hz）",
         [e["note"] for e in _notes_of(_read_midi(midi_z2))] == [69, 69])
 
@@ -1286,7 +1289,7 @@ def selftest():
     t_e = 1000
     step = int(0.25 * CLK_HZ)                     # ⭐ 0.25 秒
     for hz_v, vel_v in melody:
-        iv = int(round(hz_v * TWO32 / CLK_HZ))
+        iv = int(round(hz_v * TWO32 / FS_AUDIO_HZ))
         rec += _mk_frame(T_NOTE_ON, sq, t_e, 0, iv, vel_v); sq += 1
         rec += _mk_frame(T_NOTE_OFF, sq, t_e + step // 2, 0, iv, vel_v); sq += 1
         t_e += step

@@ -233,6 +233,31 @@ size_t up_ring_pop(uint8_t *dst, size_t cap)
     return got;
 }
 
+size_t up_ring_peek(uint8_t *dst, size_t cap)
+{
+    if (!s_buf || !s_cap || !dst || !cap) return 0;
+    portENTER_CRITICAL(&s_mux);
+    size_t n = s_level < cap ? s_level : cap;
+    size_t first = s_cap - s_tail;
+    if (first > n) first = n;
+    memcpy(dst, s_buf + s_tail, first);
+    if (n > first) memcpy(dst + first, s_buf, n - first);
+    portEXIT_CRITICAL(&s_mux);
+    return n;
+}
+
+size_t up_ring_discard(size_t n)
+{
+    if (!s_buf || !s_cap) return 0;
+    portENTER_CRITICAL(&s_mux);
+    if (n > s_level) n = s_level;
+    s_tail = (s_tail + n) % s_cap;
+    s_level -= n;
+    s_out += (uint32_t)n;
+    portEXIT_CRITICAL(&s_mux);
+    return n;
+}
+
 void up_ring_stats(up_ring_stats_t *out)
 {
     if (out == NULL) {

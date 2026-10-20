@@ -477,127 +477,73 @@ module guide_lamp #(
     //   ⭐ 有效 = ⭐ 在范围内 **且** ⭐ 查到了键（⭐ 哨兵 ⇒ 无效 ⇒ 不点灯）✅
     wire        key_valid = in_range && (key_sel != KEY_NONE);
 
-    // ── 指引位图寄存器 ────────────────────────────────────────────────────
-    //   ⭐ one-hot 生成：⭐ `note_on` → 置位 `key_sel`；⭐ `note_off` → 清零 `key_sel`。
-    //   ⚠️ **ON 与 OFF 用【同一套推导】**（⭐ `key_sel` / `key_valid` 都是组合的、
-    //      同一个表达式）⇒ ⭐ **亮哪一盏、就灭哪一盏**（⭐ 否则灯灭不掉 ✅）
-    //   📌 ⭐ 用索引赋值（`guide_key_o[key_sel[3:0]]`），⛔ 不用移位 ——
-    //      ⭐ 保证「每个键号 → 一个灯位」的满射、非空洞 ✅
-    //      ⚠️ ⭐ 只取 `key_sel` 的**低 4 位**当索引：⭐ `key_valid = 0` 时
-    //         （⭐ 含 `key_sel = 5'd16`）⭐ **整段都不执行** ⇒ ⭐ 取不取都无所谓 ✅
-    //   📌 ⭐ `key_valid = 0` 时**什么都不做**（⭐ 也不发 commit）——
-    //      ⚠️ 这才是"**表里没有这个音 ⇒ 不点灯**"的正确写法 ✅
-    //   ⭐⭐ 2026-10-16（灭灯 LAMPKILL）：⭐ **超时清零插在事件分支【之前】**
-    //     🔴 **为什么必须优先于事件分支**：
-    //        ⭐ 超时那一拍**可能同时**在吐一条 `note_on`（⭐ 例如停播 1 秒后又灌了新曲，
-    //        ⭐ 缓冲刚好在这一拍变非空 ⇒ `stream_alive_i` 这一拍才抬起来 ✅）
-    //        ⇒ ⚠️ 若把超时放在**事件分支之后** ⇒ ⭐ `note_on` 会把刚清掉的位置**又点亮**
-    //        ⇒ 🔴 那个键**下个超时才清** ⇒ ⭐ 表现成"闪一下又挂住"（⭐ 更难查 ✅）
-    //        ⭐ 放在**之前** ⇒ ⭐ **先整片清、再点亮这一拍该亮的** ⇒ ⭐ 干净 ✅
-    //     📌 ⭐ **这也保证"停播后重新灌谱"是对的**：⭐ 灯先全灭、⭐ 只亮新曲要的那几盏 ✅
-    // ══════════════════════════════════════════════════════════════════════
-    //  ⭐⭐ 2026-10-17（Q4）：⭐ **每键引用计数**（3 位饱和）✅
-    //
-    //  🔴 **缺陷（改前）**：`guide_key_o[k]` 是**直接写位**的 ——
-    //       note_on  ⇒ `<= 1'b1`（置位）
-    //       note_off ⇒ `<= 1'b0`（清位）
-    //     ⇒ ⚠️ **第一个 `note_off` 就把灯灭了**，哪怕**同音高还有别的 voice 在响** ✅
-    //  📌 **实测比例**（`build/score/*/events.csv`）：OFF 到达时"同音高仍有别的 voice"
-    //     = **61~77%** ⇒ ⭐ 按音高指键之后，这**就是主行为**（⛔ 不是角落）✅
-    //
-    //  ✅ **改法**：⭐ 每个键一个 3 位**饱和**计数，**只有最后一根引用才熄灯**：
-    //       ON  : `if (cnt != 7) cnt <= cnt + 1;`  且 `guide_key_o[k] <= 1'b1;`
-    //       OFF : `if (cnt != 0) cnt <= cnt - 1;`
-    //             `if (cnt == 1) guide_key_o[k] <= 1'b0;`   ← 🔴 **只有这一种情况才熄灯** ✅
-    //      超时: **清全部计数 + 清全部灯**（⭐ 与"停播即清"同一条路径 ✅）
-    //      复位: **清全部计数**（⛔ 不留 X）✅
-    //
-    //  ⭐ **为什么 3 位 / 饱和 7 就够，而且会自愈**：
-    //     · ⭐ 同音高最多几个 voice：键盘表里 E3 同指**键 0 与键 3** 两个轴
-    //       ＋ 曲谱/手弹两路 ⇒ ⭐ 实测远 < 7 ✅
-    //     · ⭐ 饱和丢的是"**多余的引用**" ⇒ 之后 OFF 逐个减到底（⭐ 第 7 个 OFF 就熄灯）
-    //       ⇒ ⚠️ 只会让灯**晚灭一点点**，⛔ **不会**变成"永久灭不掉" ✅
-    //
-    //  ⚠️ **一个 reg 只能在一个 always 里赋值**：`key_cnt` **只在下面那个
-    //     `always @(posedge clk_i)`**（唯一时序块）里被写 —— 复位/超时/ON/OFF 四处**全在同一个块内**
-    //     ⇒ ⭐ 结构上不可能 `EX2000/EX1999` ✅
-    //  ⚠️ **⛔ 不新增任何输入端口** ⇒ 不牵动本文件既有的 `=== 1'b1` Z-safe 口径 ✅
-    //  📌 `guide_vis_o = guide_key_o & ~key_active_i`（⭐ 本文件 L216，`P0-28` 钉着）
-    //     ⛔ **一个字都不改** —— 它本来就是"从 `guide_key_o` 派生"的 ✅
-    reg [2:0] key_cnt [0:AXIS_N-1];
-    integer   kc_i;                  // ⭐ 复位 / 超时的清零循环变量（⭐ Verilog-2001 要声明在块外 ✅）
+    // Keep each ON's original identity and mapped key until its matching OFF.
+    // Multiple references, including duplicate pitches, occupy separate slots.
+    reg [AXIS_N-1:0] held_valid, next_valid;
+    reg [3:0] held_axis [0:AXIS_N-1], next_axis [0:AXIS_N-1];
+    reg [4:0] held_note [0:AXIS_N-1], next_note [0:AXIS_N-1];
+    reg [4:0] held_key [0:AXIS_N-1], next_key [0:AXIS_N-1];
+    reg [AXIS_N-1:0] next_lamps;
+    reg next_commit;
+    integer gi, free_slot, off_slot;
+    wire [3:0] event_axis = note_data_i[AXIS_SH +: 4];
 
-    always @(posedge clk_i) begin
-        if (!rst_n_i) begin
-            guide_key_o    <= {AXIS_N{1'b0}};
-            //  ⭐⭐ 2026-10-17（Q4）：⭐ 引用计数也要**逐个清零**（⛔ 留 X 会让首次 ON 后
-            //     的 `cnt == 1` 判据拿到 x ⇒ 🔴 灯永远熄不掉 ✅）
-            for (kc_i = 0; kc_i < AXIS_N; kc_i = kc_i + 1)
-                key_cnt[kc_i] <= 3'd0;
-            guide_commit_o <= 1'b0;
-            stream_idle_cnt <= {CNT_W{1'b0}};
+    always @(*) begin
+        next_valid = stream_timeout ? {AXIS_N{1'b0}} : held_valid;
+        next_lamps = {AXIS_N{1'b0}};
+        next_commit = 1'b0;
+        free_slot = -1;
+        off_slot = -1;
+        for (gi=0; gi<AXIS_N; gi=gi+1) begin
+            next_axis[gi] = held_axis[gi];
+            next_note[gi] = held_note[gi];
+            next_key[gi] = held_key[gi];
+            if (!next_valid[gi] && free_slot < 0) free_slot = gi;
+            if (next_valid[gi] && held_axis[gi] == event_axis &&
+                held_note[gi] == note_off5_i && off_slot < 0) off_slot = gi;
         end
-        else begin
-            // 默认：commit 单周期脉冲每拍清零
-            guide_commit_o <= 1'b0;
-
-            // ⭐⭐ 2026-10-16（灭灯 LAMPKILL）：⭐ **超时计数 + "停播即清"** ✅
-            //   · ⭐ `stream_alive_i = 1` ⇒ **计数归零**（⭐ 流在走，⛔ 绝不清 ✅）
-            //   · ⭐ `stream_alive_i = 0` ⇒ **每拍 +1**，⭐ 到点**整片清零** ✅
-            //   ⚠️ **Z-safe**（⭐ `=== 1'b1` ✅）：⭐ 悬空 `z` 一律当**假**（= 流停了）
-            //     ⇒ ⚠️ 那不是我们想要的失败方向 ⇒ 🔴 **接线必须给真信号**
-            //     （⭐ `top.v` 接 `eb_rd_valid | ps_note_valid` ✅）
-            //     📌 ⭐ **已有的 tb 为什么不会被它影响**：⭐ `tb_guide_lamp` 等 tb 的例化
-            //        **没接这个端口** ⇒ 输入 `z` ⇒ 计数器会涨 ⇒ ⭐ 但每个 tb 都在**远短于
-            //        1 秒**的时间内跑完 ⇒ ⭐ **超时不可能触发** ⇒ 判据逐位不变 ✅
-            if (stream_alive_i === 1'b1)
-                stream_idle_cnt <= {CNT_W{1'b0}};
-            else if (stream_idle_cnt != TIMEOUT_CLKS - 1)
-                stream_idle_cnt <= stream_idle_cnt + {{(CNT_W-1){1'b0}}, 1'b1};
-
-            //  ⭐ 停播且超时 ⇒ **整片清零**（⭐ 治 M1/M2/M3 三条"挂灯"机理 ✅）
-            //  ⭐⭐ 2026-10-17（Q4）：⭐ **引用计数也要一起清**（⭐ 否则灯灭了但计数还留着
-            //     ⇒ ⚠️ 下一首曲的同音高 ON 会把计数叠加上去 ⇒ 🔴 那盏灯**永远熄不掉**）✅
-            //  📌 顺序：⭐ 先清计数、再清灯，⛔ 都在"事件分支"**之前**（⭐ 保持原有优先级 ✅）
-            if (stream_timeout) begin
-                guide_key_o <= {AXIS_N{1'b0}};
-                for (kc_i = 0; kc_i < AXIS_N; kc_i = kc_i + 1)
-                    key_cnt[kc_i] <= 3'd0;
-            end
-
-            if (note_valid_i) begin
-                if (is_note_on) begin
-                    // ⭐ note_on → 点亮"该按的那个键"（⭐ 音高查表得到）
-                    if (key_valid) begin
-                        //  ⭐⭐ 2026-10-17（Q4）：⭐ **引用 +1（3 位饱和到 7）**
-                        //     📌 `!= 3'd7` 守卫 ⇒ ⭐ 溢出时**停在 7**（⛔ 不回绕成 0 ⇒
-                        //        否则会把灯误灭 ✅）
-                        if (key_cnt[key_sel[3:0]] != 3'd7)
-                            key_cnt[key_sel[3:0]] <= key_cnt[key_sel[3:0]] + 3'd1;
-                        guide_key_o[key_sel[3:0]] <= 1'b1;
-                        guide_commit_o            <= 1'b1;
-                    end
-                end
-                else if (is_note_off) begin
-                    // ⭐ note_off → 熄灭同一个键（⭐ 与 ON 逐位相同的推导）
-                    if (key_valid) begin
-                        //  ⭐⭐ 2026-10-17（Q4）：⭐ **引用 −1，⭐ 只有最后一根引用才熄灯** ✅
-                        //  🔴 `if (key_cnt == 3'd1)` 是这条改动的**全部意义**：
-                        //     · 计数 2 ⇒ 减到 1，**灯保持亮**（⭐ 同音高还有 voice 在响 ✅）
-                        //     · 计数 1 ⇒ 减到 0，**这才熄灯** ✅
-                        //     · 计数 0 ⇒ **减法和熄灯都不做**（⭐ 野 `note_off` 不许造出负计数 ✅）
-                        //  ⚠️ ⛔ 不要写成 `if (key_cnt != 3'd0)` —— 那等于"任何一根引用就熄灯"，
-                        //     ⭐ 就是改动前的老行为（⭐ 本改动要修的正是它 ✅）
-                        if (key_cnt[key_sel[3:0]] != 3'd0)
-                            key_cnt[key_sel[3:0]] <= key_cnt[key_sel[3:0]] - 3'd1;
-                        if (key_cnt[key_sel[3:0]] == 3'd1)
-                            guide_key_o[key_sel[3:0]] <= 1'b0;
-                        guide_commit_o            <= 1'b1;
-                    end
-                end
-                // ⭐ tempo（kind=2）→ 忽略，不改任何灯位
+        if (note_valid_i) begin
+            if (is_note_on && key_valid && free_slot >= 0) begin
+                next_valid[free_slot] = 1'b1;
+                next_axis[free_slot] = event_axis;
+                next_note[free_slot] = note_off5_i;
+                next_key[free_slot] = key_sel;
+                next_commit = 1'b1;
+            end else if (is_note_off && off_slot >= 0) begin
+                next_valid[off_slot] = 1'b0;
+                next_commit = 1'b1;
             end
         end
+        for (gi=0; gi<AXIS_N; gi=gi+1)
+            if (next_valid[gi] && next_key[gi] < AXIS_N)
+                next_lamps[next_key[gi]] = 1'b1;
     end
 
+    integer gr;
+    always @(posedge clk_i) begin
+        if (!rst_n_i) begin
+            held_valid <= {AXIS_N{1'b0}};
+            guide_key_o <= {AXIS_N{1'b0}};
+            guide_commit_o <= 1'b0;
+            stream_idle_cnt <= {CNT_W{1'b0}};
+            for (gr=0; gr<AXIS_N; gr=gr+1) begin
+                held_axis[gr] <= 4'd0;
+                held_note[gr] <= 5'd0;
+                held_key[gr] <= KEY_NONE;
+            end
+        end else begin
+            held_valid <= next_valid;
+            guide_key_o <= next_lamps;
+            guide_commit_o <= next_commit;
+            for (gr=0; gr<AXIS_N; gr=gr+1) begin
+                held_axis[gr] <= next_axis[gr];
+                held_note[gr] <= next_note[gr];
+                held_key[gr] <= next_key[gr];
+            end
+            if (stream_alive_i === 1'b1)
+                stream_idle_cnt <= {CNT_W{1'b0}};
+            else if (stream_idle_cnt != TIMEOUT_CLKS-1)
+                stream_idle_cnt <= stream_idle_cnt + 1'b1;
+        end
+    end
 endmodule

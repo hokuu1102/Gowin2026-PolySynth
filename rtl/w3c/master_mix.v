@@ -82,9 +82,9 @@ module master_mix #(
     assign ramp_busy_o = ~ramp_done;
 
     // ⭐ 下一拍增益：若已到目标则保持；否则朝目标走一步（饱和，不越过）
-    wire [GAIN_W-1:0] gain_up_v   = (gain_r + RAMP_STEP[GAIN_W-1:0] < gain_i)
+    wire [GAIN_W-1:0] gain_up_v   = (gain_i - gain_r > RAMP_STEP[GAIN_W-1:0])
                                   ? (gain_r + RAMP_STEP[GAIN_W-1:0]) : gain_i;
-    wire [GAIN_W-1:0] gain_dn_v   = (gain_r - RAMP_STEP[GAIN_W-1:0] > gain_i)
+    wire [GAIN_W-1:0] gain_dn_v   = (gain_r - gain_i > RAMP_STEP[GAIN_W-1:0])
                                   ? (gain_r - RAMP_STEP[GAIN_W-1:0]) : gain_i;
 
     always @(posedge clk_i) begin

@@ -18,7 +18,9 @@
 #       ⛔ **不把 `ERROR` 当失败**：T3 的负向测试会**故意**打印 `ERROR [A3]/[A6]/[A8]`，
 #          那正是"断言确实会触发"的证据。ERROR 行只做计数与展示。
 #       X 传播由 `tb/checkers/chk_xprop.sv`（A8）在每个 tb 里主动监视。
-param([string]$Filter = "", [int]$TimeoutSec = 120)
+param([string]$Filter = "", [int]$TimeoutSec = 120,
+      [switch]$ExactFilter, [switch]$NoWave,
+      [ValidateRange(1,20)][double]$TimeoutScale = 1)
 
 $ErrorActionPreference = "Continue"
 
@@ -63,7 +65,7 @@ $rtl    = @($rtl) + $rtlDac
 $models = Get-HdlSources (Join-Path $root "tb\models")
 $chk    = Get-HdlSources (Join-Path $root "tb\checkers")   # T3 的断言 A1~A8
 $tbs    = @(Get-ChildItem -Path $tbDir -Recurse -Include tb_*.sv -File -ErrorAction SilentlyContinue |
-            Where-Object { $Filter -eq "" -or $_.Name -like "*$Filter*" } |
+            Where-Object { $Filter -eq "" -or ($ExactFilter -and $_.BaseName -eq $Filter) -or (-not $ExactFilter -and $_.Name -like "*$Filter*") } |
             Sort-Object FullName)
 
 if ($tbs.Count -eq 0) {
@@ -349,15 +351,18 @@ foreach ($tb in $tbs) {
                   elseif ($heavyTb -contains $name) { 300 }
                   else { $TimeoutSec }
 
+  $tbTimeoutSec = [int][Math]::Ceiling($tbTimeoutSec * $TimeoutScale)
   $job = Start-Job -ScriptBlock {
-    param($exe, $img, $wd)
+    param($exe, $img, $wd, $noWave)
     Set-Location -LiteralPath $wd      # ⭐ 关键：让相对 $dumpfile 落在仓库根下
-    $o = & $exe $img 2>&1 | Out-String
+    $vvpArgs = @($img)
+    if ($noWave) { $vvpArgs += "-none" }
+    $o = & $exe @vvpArgs 2>&1 | Out-String
     $c = $LASTEXITCODE
     if ($null -eq $c) { $c = 0 }
     # ⭐ 把真实退出码用标记行带出来（⛔ 不能用 $LASTEXITCODE 跨 job 边界）
     "$o`n__VVP_EXIT__=$c"
-  } -ArgumentList $vvp, $vvpFile, $root
+  } -ArgumentList $vvp, $vvpFile, $root, ([bool]$NoWave)
 
   $done = Wait-Job -Job $job -Timeout $tbTimeoutSec
   if (-not $done) {
@@ -372,22 +377,10 @@ foreach ($tb in $tbs) {
       Where-Object { $_.CreationDate -ge $stamp -and $_.CommandLine -match $imageArg } |
       ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
     # END SCOPED VVP CLEANUP
-    # ⭐⭐ 2026-09-24：超时消息里带上【已产出的日志】——
-    #    ⚠️ 若里面已经有 `PASS:` ⇒ 说明**仿真其实成功了**，只是没在预算内返回
-    #    ⇒ ⭐ 一眼就能区分"真挂死"和"预算太紧"（⭐ 这正是第四次修复要防的误判）
-    $partial = ""
-    if (Test-Path $runLog) {
-      $tail = (Get-Content $runLog -Tail 40 -ErrorAction SilentlyContinue) -join "`n"
-      if ($tail -match "(?m)^PASS:") {
-        $partial = "  [!!] 但日志里已出现 PASS: —— 很可能是【超时预算太紧】而不是真挂死，请人工确认"
-      } elseif ($tail -match "(?m)^FAIL:") {
-        $partial = "  [!!] 日志里有 FAIL: —— 这是真失败"
-      }
-    }
-    $runOut  = @("FAIL: TIMEOUT after $tbTimeoutSec s -- testbench hung (no verdict is a FAILURE, see K-94)$partial")
+    # The job buffers stdout; an existing runLog belongs to an older run.
+    $runOut = @("FAIL: TIMEOUT after $tbTimeoutSec s -- no verdict before deadline")
     $runExit = 124
-    Write-Host ("    ⛔ 超时 " + $tbTimeoutSec + " s（本 tb 预算）—— 判失败（挂死不是通过，见 K-94）") -ForegroundColor Red
-    if ($partial) { Write-Host ("    " + $partial) -ForegroundColor Yellow }
+    Write-Host ("    TIMEOUT after $tbTimeoutSec s -- no verdict before deadline") -ForegroundColor Red
   } else {
     $raw = Receive-Job -Job $job
     Remove-Job -Job $job -Force -ErrorAction SilentlyContinue
