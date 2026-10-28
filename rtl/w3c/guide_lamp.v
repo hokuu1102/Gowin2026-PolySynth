@@ -5,10 +5,11 @@
 // a 32-bit count. A shared lamp stays lit until every held reference closes.
 // Reset or stream timeout clears the full ledger. key_active_i only masks
 // visible lamps; it does not discard the held score state.
-// Capacity: 16 distinct mapped identities, with separately counted repeats.
+// Capacity: 64 distinct mapped identities, with separately counted repeats.
 module guide_lamp #(
     parameter integer EVT_W = 64,        // 事件数据位宽（与 play_seq 一致）
     parameter integer AXIS_N = 16,       // 键位数（轴号 0..15）
+    parameter integer HELD_SLOTS = 64,  // Independent of the 16 physical lamps.
     //  ⭐⭐ 2026-10-16（灭灯 LAMPKILL）：⭐ **"停播即清"的超时拍数**
     //     ⚠️ **必须留在【端口表】里** —— `parameter` 放在模块体（`localparam` 之后）
     //        是**非法的**（⭐ iverilog 直接 `syntax error` ⇒ 🔴 整个 rtl 树编译失败，
@@ -340,66 +341,91 @@ module guide_lamp #(
     // Keep each ON's original identity and mapped key until its matching OFF.
     // Repeated identical ONs share a 32-bit count; different mapped identities
     // retain independent slots. OFF consumes the first matching identity.
-    reg [AXIS_N-1:0] held_valid, next_valid;
-    reg [3:0] held_axis [0:AXIS_N-1], next_axis [0:AXIS_N-1];
-    reg [4:0] held_note [0:AXIS_N-1], next_note [0:AXIS_N-1];
-    reg [4:0] held_key [0:AXIS_N-1], next_key [0:AXIS_N-1];
-    reg [31:0] held_count [0:AXIS_N-1], next_count [0:AXIS_N-1];
+    reg [HELD_SLOTS-1:0] held_valid, next_valid;
+    reg [3:0] held_axis [0:HELD_SLOTS-1], next_axis [0:HELD_SLOTS-1];
+    reg [4:0] held_note [0:HELD_SLOTS-1], next_note [0:HELD_SLOTS-1];
+    reg [4:0] held_key [0:HELD_SLOTS-1], next_key [0:HELD_SLOTS-1];
+    // A single addressed count write avoids a reset/load mux on every count bit.
+    // Invalid slots are never read for a decision; allocation initializes to 1.
+    localparam integer SLOT_W = (HELD_SLOTS > 1) ? $clog2(HELD_SLOTS) : 1;
+    reg [31:0] held_count [0:HELD_SLOTS-1];
+    reg count_write;
+    reg [SLOT_W-1:0] count_write_slot;
+    reg [31:0] count_write_value;
     reg [AXIS_N-1:0] next_lamps;
     reg next_commit;
-    integer gi, free_slot, off_slot, same_slot;
+    integer gi, lookup_i, free_slot, off_slot, same_slot;
     wire [3:0] event_axis = note_data_i[AXIS_SH +: 4];
 
     always @(*) begin
-        next_valid = stream_timeout ? {AXIS_N{1'b0}} : held_valid;
-        next_lamps = {AXIS_N{1'b0}};
-        next_commit = 1'b0;
         free_slot = -1;
         off_slot = -1;
         same_slot = -1;
-        for (gi=0; gi<AXIS_N; gi=gi+1) begin
-            next_count[gi] = stream_timeout ? 0 : held_count[gi];
+        for (lookup_i=0; lookup_i<HELD_SLOTS; lookup_i=lookup_i+1) begin
+            if ((stream_timeout || !held_valid[lookup_i]) && free_slot < 0)
+                free_slot = lookup_i;
+            if (!stream_timeout && held_valid[lookup_i] &&
+                held_axis[lookup_i] == event_axis && held_note[lookup_i] == note_off5_i) begin
+                if (off_slot < 0) off_slot = lookup_i;
+                if (held_key[lookup_i] == key_sel && same_slot < 0) same_slot = lookup_i;
+            end
+        end
+    end
+    wire [SLOT_W-1:0] count_read_slot = (is_note_off && off_slot >= 0)
+        ? off_slot[SLOT_W-1:0] : ((same_slot >= 0) ? same_slot[SLOT_W-1:0] : {SLOT_W{1'b0}});
+    wire [31:0] count_read_value = held_count[count_read_slot];
+
+    always @(*) begin
+        next_valid = stream_timeout ? {HELD_SLOTS{1'b0}} : held_valid;
+        next_lamps = {AXIS_N{1'b0}};
+        next_commit = 1'b0;
+        count_write = 1'b0;
+        count_write_slot = {SLOT_W{1'b0}};
+        count_write_value = 32'd0;
+        for (gi=0; gi<HELD_SLOTS; gi=gi+1) begin
             next_axis[gi] = held_axis[gi];
             next_note[gi] = held_note[gi];
             next_key[gi] = held_key[gi];
-            if (!next_valid[gi] && free_slot < 0) free_slot = gi;
-            if (next_valid[gi] && held_axis[gi] == event_axis &&
-                held_note[gi] == note_off5_i) begin
-                if (off_slot < 0) off_slot = gi;
-                if (held_key[gi] == key_sel && same_slot < 0) same_slot = gi;
-            end
         end
         if (note_valid_i) begin
             if (is_note_on && key_valid && same_slot >= 0) begin
-                next_count[same_slot] = held_count[same_slot] + 1'b1;
+                count_write = 1'b1;
+                count_write_slot = same_slot[SLOT_W-1:0];
+                count_write_value = count_read_value + 1'b1;
                 next_commit = 1'b1;
             end else if (is_note_on && key_valid && free_slot >= 0) begin
                 next_valid[free_slot] = 1'b1;
-                next_count[free_slot] = 32'd1;
+                count_write = 1'b1;
+                count_write_slot = free_slot[SLOT_W-1:0];
+                count_write_value = 32'd1;
                 next_axis[free_slot] = event_axis;
                 next_note[free_slot] = note_off5_i;
                 next_key[free_slot] = key_sel;
                 next_commit = 1'b1;
             end else if (is_note_off && off_slot >= 0) begin
-                next_count[off_slot] = held_count[off_slot] - 1'b1;
-                if (held_count[off_slot] == 1) next_valid[off_slot] = 1'b0;
+                count_write = 1'b1;
+                count_write_slot = off_slot[SLOT_W-1:0];
+                count_write_value = count_read_value - 1'b1;
+                if (count_read_value == 1) next_valid[off_slot] = 1'b0;
                 next_commit = 1'b1;
             end
         end
-        for (gi=0; gi<AXIS_N; gi=gi+1)
+        for (gi=0; gi<HELD_SLOTS; gi=gi+1)
             if (next_valid[gi] && next_key[gi] < AXIS_N)
                 next_lamps[next_key[gi]] = 1'b1;
     end
 
     integer gr;
+    always @(posedge clk_i)
+        if (rst_n_i && count_write)
+            held_count[count_write_slot] <= count_write_value;
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
-            held_valid <= {AXIS_N{1'b0}};
+            held_valid <= {HELD_SLOTS{1'b0}};
             guide_key_o <= {AXIS_N{1'b0}};
             guide_commit_o <= 1'b0;
             stream_idle_cnt <= {CNT_W{1'b0}};
-            for (gr=0; gr<AXIS_N; gr=gr+1) begin
-                held_count[gr] <= 32'd0;
+            for (gr=0; gr<HELD_SLOTS; gr=gr+1) begin
                 held_axis[gr] <= 4'd0;
                 held_note[gr] <= 5'd0;
                 held_key[gr] <= KEY_NONE;
@@ -408,8 +434,7 @@ module guide_lamp #(
             held_valid <= next_valid;
             guide_key_o <= next_lamps;
             guide_commit_o <= next_commit;
-            for (gr=0; gr<AXIS_N; gr=gr+1) begin
-                held_count[gr] <= next_count[gr];
+            for (gr=0; gr<HELD_SLOTS; gr=gr+1) begin
                 held_axis[gr] <= next_axis[gr];
                 held_note[gr] <= next_note[gr];
                 held_key[gr] <= next_key[gr];

@@ -51,8 +51,9 @@ module top #(
     // 与 `clk_gen` / `i2s_tx` 保持一致的音频参数
     parameter integer SAMPLE_W          = 24,
     parameter integer DATA_BITS         = 16,
-    // Compile-time FX profiles only; UART/key assignments remain unchanged.
-    // Default is exact legacy bypass. Bits 0/1/2: distortion/chorus/delay.
+    // Reset defaults for the runtime UART/HMI FX registers.
+    // Mask zero and depth zero give sample-identical bypass with pipeline latency.
+    // Bits 0/1/2: distortion/chorus/delay; tremolo is controlled by depth/rate.
     // Reverb and the remaining mask bits are placeholders, not implemented effects.
     parameter [7:0]  FX_EN_MASK          = 8'd0,
     parameter [1:0]  FX_DIST_SEL         = 2'd0,
@@ -1034,6 +1035,22 @@ parameter integer TEST_MODE_EN       = 1,
         .enc_err    ()
     );
 
+    // Looper pedals use the same active-low, synchronized, debounced contract
+    // as sustain. A press issues one command; holding cannot toggle repeatedly.
+    wire [1:0] loop_pedal_safe = {
+        (pedal_loop_play_i === 1'b0) ? 1'b0 : 1'b1,
+        (pedal_loop_rec_i  === 1'b0) ? 1'b0 : 1'b1};
+    wire [1:0] loop_pedal_sync, loop_pedal_down;
+    sync_input #(.W(2),.STAGES(2),.RESET_VAL(2'b11)) u_loop_pedal_sync (
+        .clk(clk),.rst_n(rst_n_sync),.async_in(loop_pedal_safe),.sync_out(loop_pedal_sync));
+    debounce #(.NKEY(2),.CLK_HZ(50_000_000),.DB_MS(PEDAL_DB_MS),.ACTIVE_LOW(1))
+    u_loop_pedal_debounce (
+        .clk(clk),.rst_n(rst_n_sync),.key_in(loop_pedal_sync),
+        .key_level(),.key_down(loop_pedal_down),.key_up(),
+        .enc_a(1'b1),.enc_b(1'b1),.enc_sw(1'b1),
+        .enc_a_lvl(),.enc_b_lvl(),.enc_sw_lvl(),.enc_sw_down(),.enc_sw_up(),
+        .enc_cw(),.enc_ccw(),.enc_state(),.enc_err());
+
     // ═══════════════════════════════════════════════════════════════════════
     //  ⭐⭐ 2026-09-29：⭐ **鼓机节奏型寄存器**（⭐ 串口 `'D'` ⇒ 循环 `0→1→2→3→0`）
     //
@@ -1677,6 +1694,7 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     wire cc_timbre_req, cc_scope_mode_req, cc_met_req, cc_drum_pattern_req;
     wire cc_keydrum_req, cc_trans_down_req, cc_trans_up_req, cc_gear_next_req;
     wire cc_slide_req, cc_mode_sw_req;
+    wire cc_loop_rec_req, cc_loop_play_req;
     //  ⭐ 键盘侧（⭐ `u_ctrl_key_map` 的输出 ✅）
     wire km_tare_req, km_span_req, km_test_mode_req, km_loop_clear_req;
     wire km_timbre_req, km_scope_mode_req, km_met_req, km_drum_pattern_req;
@@ -1701,6 +1719,8 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     assign cmd_span_req         = cc_span_req         | km_span_req;
     assign cmd_test_mode_req    = cc_test_mode_req    | km_test_mode_req;
     assign cmd_loop_clear_req   = cc_loop_clear_req   | km_loop_clear_req;
+    assign cmd_loop_rec_req     = cc_loop_rec_req     | loop_pedal_down[0];
+    assign cmd_loop_play_req    = cc_loop_play_req    | loop_pedal_down[1];
     assign cmd_timbre_req       = cc_timbre_req       | km_timbre_req;
     assign cmd_scope_mode_req   = cc_scope_mode_req   | km_scope_mode_req;
     assign cmd_met_req          = cc_met_req          | km_met_req;
@@ -1736,8 +1756,8 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
         .posprobe_req_o (cmd_posprobe_req),
         .test_mode_req_o(cc_test_mode_req),
         // ⭐ 2026-09-29：looper 三条命令
-        .loop_rec_req_o (cmd_loop_rec_req),
-        .loop_play_req_o(cmd_loop_play_req),
+        .loop_rec_req_o (cc_loop_rec_req),
+        .loop_play_req_o(cc_loop_play_req),
         .loop_clear_req_o(cc_loop_clear_req),
         // ⭐ 2026-09-29：⭐ 切音色（⭐ 'I'）
         .timbre_req_o   (cc_timbre_req),

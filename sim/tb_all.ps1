@@ -348,6 +348,10 @@ foreach ($tb in $tbs) {
                   #        （⭐ 而日志里已有 `PASS:` ✅）⇒ ⭐ 这是 `K-94` 的**反面误报** ⚠️
                   #     ⇒ ⭐ 给 **600 s**（⭐ 5× 余量）⛔ 否则机器负载高时必误报
                   elseif ($name -eq 'tb_demo_stall_diag') { 600 }
+                  # 64 ledger slots, 65,536 ONs and 65,535 OFFs: measured
+                  # 512-reference sample ~1.2 s; retain the full count boundary.
+                  elseif ($name -eq 'tb_guide_lamp_identity') { 480 }
+                  elseif ($name -eq 'tb_top_fx_runtime') { 600 }
                   elseif ($heavyTb -contains $name) { 300 }
                   else { $TimeoutSec }
 
