@@ -119,6 +119,9 @@ static bool      s_pool_done = false;     /* 发送端是否已宣布"灌完" */
 
 /* 播放游标（帧号） */
 static size_t    s_play_idx = 0;
+static bool s_cleanup_done = true;
+static uint32_t s_cleanup_sent = 0;
+static bool pool_close_submitted_locked(void);
 
 /* 节拍：当前每 tick 的相位增量（由 kind=2 事件改写） */
 static uint32_t  s_tick_inc = BLE_POOL_DEFAULT_TICK_INC;
@@ -413,6 +416,10 @@ void pool_reset(void)
     }
 
     xSemaphoreTake(s_lock, portMAX_DELAY);
+    if (!pool_close_submitted_locked()) {
+        xSemaphoreGive(s_lock);
+        return;
+    }
     s_frames        = 0;
     s_play_idx      = 0;
     s_pool_done     = false;
@@ -598,6 +605,12 @@ static uint32_t pool_compute_lead_ticks(void)
 void pool_start(void)
 {
     xSemaphoreTake(s_lock, portMAX_DELAY);
+    if (!pool_close_submitted_locked()) {
+        xSemaphoreGive(s_lock);
+        return;
+    }
+    s_cleanup_done = false;
+    s_cleanup_sent = 0;
     s_play_idx = 0;
     s_t0_tick  = (uint32_t)ev_tick(pool_peek_word(0));
     s_t0_us    = esp_timer_get_time();
@@ -638,122 +651,80 @@ bool pool_take_finished(void)
  * ⚠️ 语义说清：⛔ 不"暂停/续播" —— `pool_start()` 会把 `s_play_idx` 重置到 0
  *    ⇒ ⭐ **stop 之后再 start = 【从头重播】**。
  * ⚠️ 保留池内容（⛔ 不清空）⇒ 若只是想停，之后仍可重播同一首。 */
-void pool_stop(void)
+/* Caller holds s_lock. Reconstruct outstanding references from submitted events.
+ * Keep the original identity and flags; repeated ONs each require an OFF. */
+static bool pool_close_submitted_locked(void)
 {
-    /* 🔴🔴 2026-10-14 修：原来这里【只置标志，不补 note_off】⇒ 挂音。
-     *
-     * ═══ 用户实测报告 ═══
-     *   "在上位机按停止，esp32 好像没有发 note_off，导致最后一个音一直挂着"
-     *   => 查证属实，且这是【我方】缺陷，不是 FPGA 侧没处理：
-     *      FPGA 收到了某音的 note_on，却【永远等不到】配对的 note_off，
-     *      它当然只能一直响（FPGA 复位才停 —— 那是把整颗芯片清了）。
-     *
-     * ═══ 为什么会漏 ═══
-     *   pool_pump() 是【按 tick 顺序】喂帧的：遇到"还没到该发的 tick"就停。
-     *   => 停止那一刻，**已经开始响、但还没到它的 note_off 那一帧**的音，
-     *      就再也没有机会被关闭了。
-     *   ⚠️ 而 due_tick = pos_now - lead 让发送【领先播放】，
-     *      所以"已发出的 on"比"已发出的 off"多 —— 漏的正是它们。
-     *
-     * ═══ 修法（结构性）═══
-     *   停止时【扫一遍已发出的部分】，把"有 on 没 off"的音逐个补一帧 note_off。
-     *   为什么扫而不是维护"当前开着列表"：
-     *     ⭐ 扫是【自证】的 —— 结果只取决于"发过什么"，不取决于"我记得什么"。
-     *     记列表要在起播/换速/池重置多处维护生命周期，每处都可能漏。
-     *   ⚠️ 代价 O(已发帧数)，最坏 2 万帧 —— 停止不是热路径，可接受。
-     */
-    enum { MAX_OPEN = 64 };          /* 比 POLY_TARGET(32) 宽一倍，留余量 */
-    static uint32_t open_inc[MAX_OPEN];
-    static uint8_t  open_axis[MAX_OPEN];
-    /* ⭐ 2026-10-16（FPGA 线「LED 挂灯上游缺口」第 3 条）：补发的 note_off 也要带
-     *   与配对 note_on【逐字节相同】的 note_off5，否则 guide_lamp 灭的是错灯
-     *   （ON 点 A3 的灯、OFF 去灭 A2 的灯 ⇒ 残留位一直闪 ⇒ 没灌谱也闪）。
-     *   ⚠️ 这里不从 inc 反算音高（要做除法 + 音高表反查，有舍入误差）——
-     *     而是扫帧时把 ON 里已经正确的 note_off5 原样存下来，flush 时写回。 */
-    static uint8_t  open_n5[MAX_OPEN];
-    uint32_t n_open = 0, dropped = 0, n_fix = 0;
-    uint32_t n_on = 0, n_off = 0, sent_idx = 0, frames = 0;
-
-    xSemaphoreTake(s_lock, portMAX_DELAY);
-    if (!s_running) {
-        xSemaphoreGive(s_lock);
-        return;                       /* 本来就没在跑：不重复补 */
-    }
+    enum { MAX_OPEN = 64 };
+    struct open_note { uint64_t word; uint32_t refs; };
+    static struct open_note open[MAX_OPEN];
+    uint32_t n_open = 0;
+    size_t sent = s_play_idx < s_frames ? s_play_idx : s_frames;
     s_running = false;
-    sent_idx = (s_play_idx < s_frames) ? s_play_idx : s_frames;
-    frames   = s_frames;
-
-    /* 扫已发出的部分，做 on/off 配对（⛔ 不扫没发的） */
-    for (uint32_t i = 0; i < sent_idx; i++) {
+    if (s_cleanup_done) return true;
+    const uint64_t identity = ((uint64_t)INC_MASK << INC_SHIFT)
+                            | ((uint64_t)15 << 19) | 31;
+    for (size_t i = 0; i < sent; ++i) {
         uint64_t w = pool_peek_word(i);
-        uint32_t k = ev_kind(w);
-        if (k != 0 && k != 1) continue;
-        uint32_t inc  = ev_inc(w);
-        uint8_t  axis = (uint8_t)((w >> 19) & 0xF);   /* AXIS 位域 [22:19] */
-        uint8_t  n5   = (uint8_t)(w & 0x1F);          /* NOTE_OFF5 位域 [4:0] */
-        if (k == 0) {
-            n_on++;
-            bool merged = false;
-            for (uint32_t j = 0; j < n_open; j++) {
-                if (open_inc[j] == inc && open_axis[j] == axis) { merged = true; break; }
-            }
-            if (!merged) {
-                if (n_open < MAX_OPEN) {
-                    open_inc[n_open]  = inc;
-                    open_axis[n_open] = axis;
-                    open_n5[n_open]   = n5;   /* ⭐ 存下 ON 的 note_off5，供 flush 原样写回 */
-                    n_open++;
-                } else {
-                    dropped++;                  /* 表满：计数，不静默 */
-                }
-            }
-        } else {
-            n_off++;
-            for (uint32_t j = 0; j < n_open; j++) {
-                if (open_inc[j] == inc && open_axis[j] == axis) {
-                    open_inc[j]  = open_inc[n_open - 1];
-                    open_axis[j] = open_axis[n_open - 1];
-                    n_open--;
-                    break;
-                }
+        uint32_t kind = ev_kind(w);
+        if (kind > 1) continue;
+        uint32_t j;
+        for (j = 0; j < n_open; ++j)
+            if ((open[j].word & (identity | 0x1e0)) == (w & (identity | 0x1e0))) break;
+        /* OFF may omit timbre flags. Keep routing distinct: guide-only OFFs
+         * cannot close audible notes, and drum OFFs cannot close melody. */
+        if (kind == 1 && j == n_open) {
+            for (j = 0; j < n_open; ++j)
+                if ((open[j].word & (identity | 0x60)) == (w & (identity | 0x60))) break;
+            if (j == n_open && !(w & 0x60)) {
+                for (j = 0; j < n_open; ++j)
+                    if ((open[j].word & identity) == (w & identity)
+                        && (open[j].word & 0x40)) break;
             }
         }
+        if (kind == 0) {
+            if (j < n_open) ++open[j].refs;
+            else if (n_open < MAX_OPEN) {
+                open[n_open].word = w;
+                open[n_open++].refs = 1;
+            } else {
+                ESP_LOGE(TAG, "cleanup identity capacity exceeded");
+                return false;
+            }
+        } else if (j < n_open) {
+            if (--open[j].refs == 0) open[j] = open[--n_open];
+        }
     }
-
-    /* 补发 note_off：tick 用【最后一个已发帧的 tick】，
-     * ⚠️ 与音乐时间一致 —— FPGA 侧按 tick 排序时不会跑到未来去。
-     * ⭐ 2026-10-16：bit[4:0] 写回该音符 ON 时的 note_off5（见 open_n5 的说明）——
-     *    补发的 OFF 必须与 ON 指向同一盏灯，否则灯灭不掉。 */
-    uint32_t t_last = 0;
-    if (sent_idx > 0) t_last = ev_tick(pool_peek_word(sent_idx - 1));
-    for (uint32_t j = 0; j < n_open; j++) {
-        uint64_t w = ((uint64_t)(t_last & TICK_MASK) << TICK_SHIFT)
-                   | ((uint64_t)(open_inc[j] & INC_MASK) << INC_SHIFT)
-                   | ((uint64_t)(open_axis[j] & 0xF) << 19)
-                   | ((uint64_t)0 << 11)          /* vel = 0 */
-                   | ((uint64_t)(open_n5[j] & 0x1F))   /* bit[4:0] = note_off5（与 ON 相同）*/
-                   | ((uint64_t)1 << KIND_SHIFT); /* kind = 1 (note_off) */
+    uint32_t tick = sent ? ev_tick(pool_peek_word(sent - 1)) : 0;
+    uint32_t close_index = 0;
+    for (uint32_t j = 0; j < n_open; ++j) {
+        uint64_t w = open[j].word;
+        w &= ~(((uint64_t)TICK_MASK << TICK_SHIFT)
+             | ((uint64_t)255 << 11) | ((uint64_t)3 << KIND_SHIFT));
+        w |= ((uint64_t)tick << TICK_SHIFT) | ((uint64_t)1 << KIND_SHIFT);
         uint8_t frame[FRAME_BYTES];
         frame[0] = FRAME_HDR_EVENT;
-        for (int k = 0; k < 8; k++) {
-            frame[1 + k] = (uint8_t)((w >> (8 * (7 - k))) & 0xFF);
-        }
-        int wr = uart_write_bytes(BLE_UART_PORT, (const char *)frame, FRAME_BYTES);
-        if (wr == FRAME_BYTES) {
-            n_fix++;
-            s_sent_frames++;
-        } else {
-            ESP_LOGE(TAG, "STOP flush: uart_write_bytes short: %d", wr);
+        for (int k = 0; k < 8; ++k)
+            frame[1+k] = (uint8_t)(w >> (8*(7-k)));
+        for (uint32_t ref = 0; ref < open[j].refs; ++ref) {
+            if (close_index++ < s_cleanup_sent) continue;
+            if (uart_write_bytes(BLE_UART_PORT, (const char *)frame, FRAME_BYTES) != FRAME_BYTES) {
+                ESP_LOGE(TAG, "cleanup UART short write");
+                return false;
+            }
+            ++s_sent_frames;
+            ++s_cleanup_sent;
         }
     }
-    xSemaphoreGive(s_lock);
+    s_cleanup_done = true;
+    return true;
+}
 
-    ESP_LOGW(TAG, "pool STOP at frame %u/%u (on=%lu off=%lu) "
-             "=> flushed %lu note_off, still_open=%lu, dropped=%lu",
-             (unsigned)sent_idx, (unsigned)frames,
-             (unsigned long)n_on, (unsigned long)n_off,
-             (unsigned long)n_fix, (unsigned long)(n_open - n_fix),
-             (unsigned long)dropped);
+void pool_stop(void)
+{
+    xSemaphoreTake(s_lock, portMAX_DELAY);
+    (void)pool_close_submitted_locked();
+    xSemaphoreGive(s_lock);
 }
 
 /* ⭐ 已放出的帧数（2026-09-30 新增）—— 给"起播触发"打日志用。 */

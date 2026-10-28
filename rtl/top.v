@@ -6702,7 +6702,11 @@ wire ovf_any;
         //  ⚠️ **优先级**：⭐ `key_drum_r` 覆盖 `SOURCE_A_SEL == 1`（⭐ 演示和弦）——
         //     ⭐ 与 `src_a_inc`/`src_a_vel`/`src_a_src`/`src_a_timbre` 那四条
         //     `key_drum_r ? ... :` **同一优先级**（⭐ 五条必须一起看才不误判 ✅）
-        wire [3:0]  src_a_axis  = key_drum_r ? key_drum_axis
+        // Keyboard drums transform live keys only in normal arbitration mode.
+        // Preserve the explicitly forced-demo diagnostic profile. Downloaded
+        // melody/drum events retain their own axis, source and timbre identity.
+        wire key_drum_apply = key_drum_r && ((SOURCE_A_SEL == 1) || (sa_src == 3'd0));
+        wire [3:0]  src_a_axis  = key_drum_apply ? key_drum_axis
                                              : ((SOURCE_A_SEL == 1) ? demo_note_axis : sa_axis);
         //   ⭐⭐ **2026-10-01 二次拉开**（⭐ 用户："通鼓和底鼓感觉还差一点点区分度"）：
         //      ⭐ 底鼓 70 ⇒ **60 Hz** · ⭐ 嗵鼓 160 ⇒ **200 Hz** ⇒ ⭐ 比 **3.33×**（⭐ 原 2.29×）
@@ -6741,12 +6745,12 @@ wire ovf_any;
                                       : (key_drum_sel == 2'd2) ? 8'd210    // ⭐ 军鼓
                                       :                          8'd175;   // ⭐ 踩镲（⭐ 原 140 ⇒ 抬高）
 
-        wire [31:0] src_a_inc   = key_drum_r ? key_drum_inc
+        wire [31:0] src_a_inc   = key_drum_apply ? key_drum_inc
                                              : ((SOURCE_A_SEL == 1) ? demo_note_inc : sa_inc);
         //  ⭐⭐ 2026-10-01：⭐ **打鼓模式下的力度下限**（⭐ 见上方 `key_drum_base_vel` 的说明）
         //     ⭐ `max(键盘力度, 本件基础力度)` —— ⭐ 保留力度跟随，⭐ 但轻敲也够响 ✅
         wire [7:0]  src_a_vel_raw = (SOURCE_A_SEL == 1) ? demo_note_vel : sa_vel;
-        wire [7:0]  src_a_vel   = (key_drum_r && (src_a_vel_raw < key_drum_base_vel))
+        wire [7:0]  src_a_vel   = (key_drum_apply && (src_a_vel_raw < key_drum_base_vel))
                                 ? key_drum_base_vel : src_a_vel_raw;
         wire [1:0]  src_a_kind  = (SOURCE_A_SEL == 1) ? demo_note_kind  : sa_kind;
         //  ⭐⭐ 2026-10-16（⭐⭐ 统一鼓轴）：⭐ 打鼓模式的 `timbre` 字段 = **`drum_type`** ✅
@@ -6763,9 +6767,9 @@ wire ovf_any;
         //  ⚠️ **唯一的行为变化**：⭐ 上行帧 `[7]` 的 `[5:4]` 由恒 `2` 变成 `drum_type`
         //     ⇒ ⭐ 这是本条的目的，⛒ 不是副作用 ✅
         //  📌 **判据**：⭐ `tb/w3c/tb_key_drum.sv` 的 **`T4'`**（⭐ 逐件断言 = drum_type ✅）
-        wire        src_a_timbre_valid = key_drum_r ? 1'b1
+        wire        src_a_timbre_valid = key_drum_apply ? 1'b1
                                        : ((SOURCE_A_SEL == 1) ? 1'b0 : sa_timbre_valid);
-        wire [1:0]  src_a_timbre = key_drum_r ? key_drum_dtype
+        wire [1:0]  src_a_timbre = key_drum_apply ? key_drum_dtype
                                  : ((SOURCE_A_SEL == 1) ? 2'd0 : sa_timbre);
         //  ⭐⭐ 2026-09-29（A1）：⭐ **源 A 的来源标记**
         //     ⚠️ 必须**跟着上面那个 mux 一起选** —— `SOURCE_A_SEL == 1` 时源 A 是
@@ -6800,7 +6804,7 @@ wire ovf_any;
         //     📌 ⭐ **代价**：⭐ 源标记是 3 位、⭐ `0~4` 已用 ⇒ ⭐ **`5` 空闲** ⇒ ⭐ 零位宽代价 ✅
         //     ⚠️ ⭐ **保留池仍共用**（⭐ `RESERVED_N = 8`）—— ⭐ 那一条**本条⛔ 不解决** ✅
         //        （⭐ 它只是**资源争用**，⭐ 而"抢音"那条**已解决** ✅）
-        wire [2:0]  src_a_src = key_drum_r ? 3'd5
+        wire [2:0]  src_a_src = key_drum_apply ? 3'd5
                               : ((SOURCE_A_SEL == 1) ? 3'd2 : sa_src);
 
         // ⭐⭐ 源 B 二选一（⭐ 节拍器 / 鼓机，⭐ `SEL_DRUM`，⭐ 默认节拍器）
