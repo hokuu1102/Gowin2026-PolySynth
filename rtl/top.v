@@ -1557,6 +1557,7 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     //  ── ② `'Z' <n>` 的脉冲与子命令号（⭐ 来自 `calib_cmd`，⭐ 声明在模块层 `cmd_*` 那一段 ✅）
     //     ⚠️ **⛔ 不在这里重复声明** —— 已随 `cmd_recdump_req` 那一段提前声明（⭐ `L66` ✅）
     //  ── ③ 回读帧 → `u_tx_fifo`（⭐ 与 `tx_req`/`tx_byte` 同一条排队通路 ✅）
+    wire        fx_ready;
     wire        fx_push;           // ⭐ 推一个字节（单拍）
     wire [7:0]  fx_data;           // ⭐ 那个字节
     //  ── ④ 可观测计数（⭐ `K-106`：⛔ 不许静默失效 ✅）
@@ -1641,6 +1642,7 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
         .fx_dist_clip_i   (fx_ro_clip),
         .fx_trem_lfo_i    (fx_ro_lfo),
         .fx_pipe_i        (fx_ro_pipe),
+        .fx_tx_ready_i    (fx_ready),
         .fx_tx_start_o    (fx_push),
         .fx_tx_data_o     (fx_data),
         .zfs_req_cnt_o    (ui_zfs_req_cnt),
@@ -2921,6 +2923,7 @@ wire ovf_any;
         //  ⭐⭐ 2026-10-17（`K-106`）：⭐ **`fx_push`（效果器状态回读帧）同理** ✅
         //     📌 `'Z' <n>` 是**串口诊断命令** ⇒ ⭐ 静音档也必须能回
         //        （⭐ `fx_ro_*` 已在上面显式给 0 ⇒ ⭐ 回 `Zz<n>0000`，⛔ 不是 `z`/`x` ✅）
+        assign fx_ready = normal_tx_ready && !ep_push;
         assign tx_req  = 1'b0 | ep_push | fx_push;
         assign tx_byte = ep_push ? ep_data : (fx_push ? fx_data : 8'h00);
         assign rd_pending = 1'b0;
@@ -4726,6 +4729,7 @@ wire ovf_any;
         //     ⚠️ **万一同拍**（⭐ 例如一边回读一边转旋钮）⇒ ⭐ **以既有回包为准**，
         //        ⭐ 效果器回读帧**只丢这一个字节**（⛔ 不会错位 —— ⭐ FSM 下一拍继续推 ✅）
         //        📌 **可观测**：⭐ `u_uart_ui.zfs_drop_cnt_o` 会计这次挂起 ✅
+        assign fx_ready = normal_tx_ready && !normal_req_w && !rd_notice_valid && !ep_push;
         assign tx_req = normal_req_w | rd_notice_push | ep_push | fx_push;
         //   ⭐ 'N'（`np_push`）优先级最高 —— 它也是独立命令，与其余不同拍。
         //   ⭐ 'Q'（`dp_push`）次高 —— 它与 `'P'` **故意错开 400 µs**，⛔ 不同拍。

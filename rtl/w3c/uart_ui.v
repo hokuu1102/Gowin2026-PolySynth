@@ -203,6 +203,7 @@ module uart_ui #(
     input  wire [15:0] fx_dist_clip_i,    // ⭐ fx_chain.dist_clip_cnt_o
     input  wire [15:0] fx_trem_lfo_i,     // ⭐ fx_chain.trem_lfo_o
     input  wire [15:0] fx_pipe_i,         // ⭐ fx_chain.pipe_o（低 16 位够用：真值 19）
+    input  wire        fx_tx_ready_i,    // acceptance from downstream byte arbiter
     output reg         fx_tx_start_o,     // ⭐ 推一个字节给 u_tx_fifo（单周期脉冲）
     output reg  [7:0]  fx_tx_data_o,      // ⭐ 那个字节
     //  ⭐⭐ 可观测性（`K-106`：⛔ 不许静默失效）
@@ -555,76 +556,19 @@ module uart_ui #(
         end
     end
 
-    // ═══════════════════════════════════════════════════════════════════════════
-    //  ⭐⭐ 2026-10-17（`K-106`）：⭐ **效果器状态回读**（`'Z' <n>` ⇒ 6 字节 ASCII 帧）
-    //
-    //  ── ⭐⭐ 回传帧格式（⭐ 本节【唯一】口径，⛔ 不许自创，⛔ 不许改）
-    //  ```
-    //   'Z' 'z' <n> <hi> <lo> '\n'
-    //   ↑   ↑   ↑    ↑     ↑     ↑
-    //   │   │   │    │     │     └─ 0x0A（LF，行结束）
-    //   │   │   │    │     └─────── 16 位值的低字节（ASCII hex，'0'..'9'/'A'..'F'）
-    //   │   │   │    └───────────── 16 位值的高字节（ASCII hex）
-    //   │   │   └────────────────── 子命令号 ASCII '0'..'7'
-    //   │   └────────────────────── 内容起始标记（小写 'z' = 效果器状态）
-    //   └────────────────────────── 帧类型（大写 'Z' = 效果器状态回读，与命令同字母 ✅）
-    //  ```
-    //  ⭐ **总长 6 字节**（⭐ ASCII 一行 ⇒ ⭐ 串口助手直接可读 ✅）
-    //
-    //  ⭐⭐ **为什么用 ASCII 而不是二进制**（⭐ 与 `top.v` 的 `ep_*` 同理由 ✅）：
-    //     · ⭐ 串口助手直接看得到一个**人类可读的一行**（⭐ 例 `Zz102 3` = "子命令 1、clip=0x0233" ✅）
-    //     · ⭐ 与既有回包同风格（⭐ `'P'` 回 `P12345`、⭐ `'V'`/`'N'` 回 ASCII ✅）
-    //     · ⭐ **不占用 `0xA5` 帧** ⇒ ⭐ 曲谱链路零影响 ✅
-    //
-    //  ── ⭐ 子命令表（⭐ `fxstat_sub_i` ⇒ 回读哪一项）
-    //  | n | 回读量 | 来源 | 宽度 | 编码 |
-    //  |---|---|---|---|---|
-    //  | 0 | `en_mask` | `fx_en_mask_i` | 8 bit | 2 位 hex |
-    //  | 1 | `dist_clip_cnt` | `fx_dist_clip_i` | 16 bit | 4 位 hex |
-    //  | 2 | `dly_active` | `fx_dly_active_i` | 1 bit | `00`/`01` |
-    //  | 3 | `chor_active` / `dly_primed` | `{fx_chor_active_i, fx_dly_primed_i}` | 2 bit | `00`..`03` |
-    //  | 4 | `trem_lfo` | `fx_trem_lfo_i` | 16 bit | 4 位 hex |
-    //  | 5 | `pipe` | `fx_pipe_i` | 16 bit | 4 位 hex |
-    //  | 6/7 | 预留 | — | — | ⭐ 恒回 `0000`（⭐ ⛔ 不静默：⭐ 发得出、看得出 ✅）|
-    //
-    //  ⚠️ **`n=3` 是"两项挤一个子命令号"**（⭐ 任务原文就要求 `'Z' 3` 同时回这两项 ✅）
-    //     ⭐ 编码：⭐ bit1 = chorus_active · bit0 = dly_primed（⭐ 高位在前 ✅）
-    //
-    //  🔴 **为什么必须逐字节排队**（⛔ 不是"一帧一次推完"）：
-    //     ⚠️ `u_tx_fifo.push_i` 一次只能推**一个字节**（⭐ 它的契约 ✅）
-    //        ⭐ 而 FIFO 深度只有 8 ⇒ 🔴 若一拍推 6 个字节会**溢出丢弃**（⭐`K-106` ✅）
-    //     ⚠️ **去抖/合帧**：⭐ 若上一次还没发完又来一次 `'Z'` ⇒ ⭐ **保留最新一次**
-    //        （⭐ 因为诊断只关心**当前状态**，历史无意义 ✅）
-    //     ⚠️ **每拍最多只推一个字节** ⇒ ⛔ 不会溢出 FIFO ✅
-    //
-    //  ⭐ **零回归**：⭐ 没有 `'Z'` ⇒ `fx_tx_start_o` 恒 0 ⇒ ⭐ `top.v` 的 `tx_req`
-    //     与**改动前逐位相同** ✅
-    //
-    //  ⚠️ **一个 reg 只能在一个 always 块里赋值**（⭐ `EX2000`/`EX1999` ✅）
-    //     ⇒ ⭐ 本节的 `zfs_*` 全部只在下面那**一个** always 里写 ✅
-    //  ⚠️ **拼接 `{}` 会把表达式拉成无符号**（⭐ 本项目 10-17 实测把 −2 零扩展成 8190 ✅）
-    //     ⇒ ⭐ 本节的取值全是**无符号**位宽（⭐ 掩码/计数/LFO/拍数 ✅）⇒ ⛔ 不参与有符号运算 ✅
-    // ═══════════════════════════════════════════════════════════════════════════
-
-    // ── ① 状态编码（⭐ IDLE + 6 数据字节 = 7 个状态）────────────────────────
-    localparam [2:0] ZFS_S_IDLE = 3'd0,   // ⭐ 空闲：等 `'Z' <n>`
-                     ZFS_S_HDR1 = 3'd1,   // ⭐ 'Z'
-                     ZFS_S_HDR2 = 3'd2,   // ⭐ 'z'
-                     ZFS_S_N    = 3'd3,   // ⭐ <n>
-                     ZFS_S_HI   = 3'd4,   // ⭐ <hi>
-                     ZFS_S_LO   = 3'd5,   // ⭐ <lo>
-                     ZFS_S_LF   = 3'd6;   // ⭐ LF
-
-    reg [2:0]  zfs_state;
-    reg        zfs_req_q;      // ⭐ "有一帧待发/在发"（⭐ 起帧置位、LF 发完清零 ✅）
-    reg        zfs_pend_q;     // ⭐ **挂起位**：⭐ 发上一帧期间又来一次 `'Z'` ✅
-    reg [2:0]  zfs_sub_q;      // ⭐ 帧里的子命令号（⭐ 锁存 ⇒ **时序解耦** ✅）
-    reg [15:0] zfs_val_q;      // ⭐ 帧里的 16 位值（⭐ **事件那一拍**就锁存 ✅）
-
-    // ── ② 取哪一项（⭐ 组合，⭐ 在**脉冲那一拍**求值）
-    //   ⚠️ **必须组合、⛔ 不能等下一拍** —— ⭐ `dist_clip_cnt` 这类**会变**
-    //      （⭐ 判据②就是"驱动削波样本 ⇒ 回读值必须增加" ⇒ ⚠️ 若延后取样会读到旧值 ✅）
-    //   📌 **宽度纪律**：⭐ 每一项都写成**定宽 localparam/pin**（⛔ 不靠隐式截断 ✅）
+    // FXSTAT: Zz<sub><four hexadecimal digits>LF, eight bytes total.
+    // An accepted byte advances the serializer; pressure never drops a byte.
+    // One latest pending request is retained separately from the active frame.
+    // Overwriting that pending request increments the saturating drop counter.
+    localparam [3:0] ZFS_S_IDLE=4'd0, ZFS_S_HDR1=4'd1,
+        ZFS_S_HDR2=4'd2, ZFS_S_N=4'd3, ZFS_S_HI=4'd4,
+        ZFS_S_MH=4'd5, ZFS_S_ML=4'd6, ZFS_S_LO=4'd7, ZFS_S_LF=4'd8;
+    reg [3:0] zfs_state;
+    reg zfs_pend_q;
+    reg [2:0] zfs_sub_q, zfs_pending_sub;
+    reg [15:0] zfs_val_q, zfs_pending_val;
+    // Existing standalone benches omit this new port; Z means no pressure.
+    wire zfs_ready = (fx_tx_ready_i !== 1'b0);
     reg [15:0] zfs_val_c;
     always @(*) begin
         case (fxstat_sub_i)
@@ -638,11 +582,6 @@ module uart_ui #(
         endcase
     end
 
-    // ── ③ 字节内容（⭐ 组合，⭐ 与 `zfs_state` 严格同拍 ✅）
-    //   ⚠️ **hex nibble → ASCII**：⭐ `4'h0..4'h9` ⇒ `+8'h30`；
-    //      ⭐ `4'hA..4'hF` ⇒ `+8'h37`（⭐ 即 `+('A'−10)` ✅）
-    //   📌 **为什么不用 `$sformatf`/`%h`**：⭐ 综合器不支持（⭐ 只对仿真有效 ✅）
-    //      ⇒ ⭐ 用一条"加 0x30 / 0x37"的算术（⭐ 8 位加，⛔ 无溢出 ✅）
     function [7:0] hex2asc;
         input [3:0] h;
         begin
@@ -650,98 +589,46 @@ module uart_ui #(
                                   : ({4'd0, h} + 8'h37);
         end
     endfunction
-
-    reg [7:0] zfs_data_c;
     always @(*) begin
+        fx_tx_start_o = (zfs_state != ZFS_S_IDLE) && zfs_ready;
         case (zfs_state)
-            ZFS_S_HDR1: zfs_data_c = 8'h5A;                        // ⭐ 'Z'
-            ZFS_S_HDR2: zfs_data_c = 8'h7A;                        // ⭐ 'z'
-            ZFS_S_N:    zfs_data_c = {5'd0, zfs_sub_q} + 8'h30;    // ⭐ '0'..'7'
-            ZFS_S_HI:   zfs_data_c = hex2asc(zfs_val_q[15:12]);    // ⭐ 高位 nibble
-            ZFS_S_LO:   zfs_data_c = hex2asc(zfs_val_q[7:4]);      // ⭐ 次高 nibble
-            ZFS_S_LF:   zfs_data_c = 8'h0A;                        // ⭐ LF
-            default:    zfs_data_c = 8'h00;                        // IDLE ⇒ ⛔ 不会推
+            ZFS_S_HDR1: fx_tx_data_o=8'h5a;
+            ZFS_S_HDR2: fx_tx_data_o=8'h7a;
+            ZFS_S_N: fx_tx_data_o={5'd0,zfs_sub_q}+8'h30;
+            ZFS_S_HI: fx_tx_data_o=hex2asc(zfs_val_q[15:12]);
+            ZFS_S_MH: fx_tx_data_o=hex2asc(zfs_val_q[11:8]);
+            ZFS_S_ML: fx_tx_data_o=hex2asc(zfs_val_q[7:4]);
+            ZFS_S_LO: fx_tx_data_o=hex2asc(zfs_val_q[3:0]);
+            ZFS_S_LF: fx_tx_data_o=8'h0a;
+            default: fx_tx_data_o=8'd0;
         endcase
     end
-
-    //  ⚠️ **帧只有 5 个有意义的数据字节 + LF** ⇒ ⭐ `zfs_val_q[3:0]` **被丢弃**
-    //     （⭐ 如实标注：⭐ `dist_clip_cnt` 的**低 4 位看不到**）
-    //     📌 **为什么不做 8 位 hex**：⭐ 那要 8 个数据字节 ⇒ ⭐ 一次回读 9 字节
-    //        ⚠️ 而 `u_tx_fifo` 深度只有 **8** ⇒ 🔴 排队期间再来一条命令就溢出 ✅
-    //     ⭐ **取舍**：⭐ 诊断要看的是"**有没有在涨 / 是不是 0**"，
-    //        ⚠️ 低 4 位的精度对"生没生效"这个问题**没有信息量**（✅ 理由充分）
-
-    // ── ④ 时序（⭐ 唯一写 `zfs_*` 的 always 块 ✅）
-    //   ⚠️ `fx_tx_start_o`/`fx_tx_data_o` 是 **`output reg`**（⭐ 端口声明处定的 ✅）
-    //      ⇒ ⭐ 必须在这个 always 里赋值（⛔ 不能再写 `assign` ✅）
-    //      📌 **好处**：⭐ 脉冲与数据**天然同拍**（⭐ `u_tx_fifo` 当拍即存 ✅）
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
-            zfs_state     <= ZFS_S_IDLE;
-            zfs_req_q     <= 1'b0;
-            zfs_pend_q    <= 1'b0;
-            zfs_sub_q     <= 3'd0;
-            zfs_val_q     <= 16'd0;
-            fx_tx_start_o <= 1'b0;
-            fx_tx_data_o  <= 8'd0;
-            zfs_req_cnt_o  <= 16'd0;
-            zfs_drop_cnt_o <= 16'd0;
+            zfs_state<=ZFS_S_IDLE; zfs_pend_q<=1'b0;
+            zfs_sub_q<=3'd0; zfs_val_q<=16'd0;
+            zfs_pending_sub<=3'd0; zfs_pending_val<=16'd0;
+            zfs_req_cnt_o<=16'd0; zfs_drop_cnt_o<=16'd0;
         end else begin
-            // ⭐ 默认：脉冲输出每拍清零 ⇒ 严格单周期
-            fx_tx_start_o <= 1'b0;
-
-            // ══ ⭐ 计数器（`K-106`）══════════════════════════════════════
-            //  ⚠️ 计数与状态机**写在同一个 always**（⛔ 不另起一个 —— `EX2000` ✅）
-            if (fxstat_req_i) begin
-                zfs_req_cnt_o <= sat_inc16(zfs_req_cnt_o);
-                // ⭐ 挂起 = "请求来了但上一帧还没发完"（⭐ 会丢一次**即时**性 ✅）
-                if (zfs_req_q && (zfs_state != ZFS_S_IDLE))
-                    zfs_drop_cnt_o <= sat_inc16(zfs_drop_cnt_o);
+            if (fxstat_req_i) zfs_req_cnt_o<=sat_inc16(zfs_req_cnt_o);
+            if (zfs_state==ZFS_S_IDLE) begin
+                if (fxstat_req_i || zfs_pend_q) begin
+                    zfs_sub_q<=fxstat_req_i ? fxstat_sub_i : zfs_pending_sub;
+                    zfs_val_q<=fxstat_req_i ? zfs_val_c : zfs_pending_val;
+                    zfs_pend_q<=1'b0;
+                    zfs_state<=ZFS_S_HDR1;
+                    if (fxstat_req_i && zfs_pend_q)
+                        zfs_drop_cnt_o<=sat_inc16(zfs_drop_cnt_o);
+                end
+            end else begin
+                if (fxstat_req_i) begin
+                    zfs_pending_sub<=fxstat_sub_i; zfs_pending_val<=zfs_val_c;
+                    zfs_pend_q<=1'b1;
+                    if (zfs_pend_q) zfs_drop_cnt_o<=sat_inc16(zfs_drop_cnt_o);
+                end
+                if (zfs_ready)
+                    zfs_state <= (zfs_state==ZFS_S_LF) ? ZFS_S_IDLE : zfs_state+4'd1;
             end
-
-            case (zfs_state)
-                // ── 空闲：等 `'Z' <n>` ────────────────────────────────────
-                ZFS_S_IDLE: begin
-                    // ⭐ **只在 `!zfs_req_q` 时起帧**
-                    //   ⚠️ 正在发（`zfs_req_q==1`）时来的 `'Z'` 只置 `zfs_pend_q`
-                    //      ⇒ ⭐ **⛔ 不打断当前帧**（⭐ 否则帧会被拆花 ✅）
-                    if (!zfs_req_q && fxstat_req_i) begin
-                        zfs_req_q  <= 1'b1;
-                        zfs_pend_q <= 1'b0;
-                        // ⭐ **在脉冲那一拍就锁存**（⭐ 组合值只在这一拍有效 ✅）
-                        zfs_sub_q  <= fxstat_sub_i;
-                        zfs_val_q  <= zfs_val_c;
-                        zfs_state  <= ZFS_S_HDR1;
-                    end
-                end
-                ZFS_S_HDR1: begin fx_tx_start_o <= 1'b1; fx_tx_data_o <= zfs_data_c; zfs_state <= ZFS_S_HDR2; end
-                ZFS_S_HDR2: begin fx_tx_start_o <= 1'b1; fx_tx_data_o <= zfs_data_c; zfs_state <= ZFS_S_N;    end
-                ZFS_S_N:    begin fx_tx_start_o <= 1'b1; fx_tx_data_o <= zfs_data_c; zfs_state <= ZFS_S_HI;   end
-                ZFS_S_HI:   begin fx_tx_start_o <= 1'b1; fx_tx_data_o <= zfs_data_c; zfs_state <= ZFS_S_LO;   end
-                ZFS_S_LO:   begin fx_tx_start_o <= 1'b1; fx_tx_data_o <= zfs_data_c; zfs_state <= ZFS_S_LF;   end
-                ZFS_S_LF:   begin
-                    fx_tx_start_o <= 1'b1; fx_tx_data_o <= zfs_data_c;
-                    // ⭐ LF 是最后一个字节 ⇒ 本拍之后帧就发完了
-                    if (zfs_pend_q) begin
-                        // ⭐ 发送期间又来了一次 `'Z'` ⇒ **立刻发下一帧**
-                        //   ⚠️ **内容用最新的锁存值**（⭐ `zfs_sub_q`/`zfs_val_q` 已被更新 ✅）
-                        zfs_pend_q <= 1'b0;
-                        zfs_req_q  <= 1'b1;         // ⭐ 保持"在发"
-                        zfs_state  <= ZFS_S_HDR1;
-                    end else begin
-                        zfs_req_q  <= 1'b0;         // ⭐ 本帧发完
-                        zfs_state  <= ZFS_S_IDLE;
-                    end
-                end
-                default: zfs_state <= ZFS_S_IDLE;
-            endcase
-
-            // ══ ⭐ 挂起位（⭐ 与状态机【分开写】，⛔ 不混在 case 里 ✅）═══
-            //   ⚠️ **为什么必须独立**：⭐ `zfs_pend_q` 要在**每一个**非 IDLE 状态
-            //      都被置位（⛔ 不能只在某一个状态里置）⇒ ⭐ 写在 case 外面最安全 ✅
-            if (fxstat_req_i && (zfs_state != ZFS_S_IDLE)) zfs_pend_q <= 1'b1;
-            //   ⚠️ **IDLE 且 `zfs_req_q==0`** 的情况 ⇒ ⭐ 由上面 IDLE 分支直接起帧，
-            //      ⭐ **不需要** `zfs_pend_q`（⛔ 否则会多发一帧 ✅）
         end
     end
 
