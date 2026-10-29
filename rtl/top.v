@@ -1557,7 +1557,12 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     //  ── ② `'Z' <n>` 的脉冲与子命令号（⭐ 来自 `calib_cmd`，⭐ 声明在模块层 `cmd_*` 那一段 ✅）
     //     ⚠️ **⛔ 不在这里重复声明** —— 已随 `cmd_recdump_req` 那一段提前声明（⭐ `L66` ✅）
     //  ── ③ 回读帧 → `u_tx_fifo`（⭐ 与 `tx_req`/`tx_byte` 同一条排队通路 ✅）
-    wire        fx_ready;
+    wire        fx_ready, fx_pending;
+    wire        ep_push, ep_ready, ep_pending;
+    wire        normal_diag_pending;
+    reg [1:0] diag_owner;
+    reg up_packet_owner;
+    reg [2:0] diag_byte_count;
     wire        fx_push;           // ⭐ 推一个字节（单拍）
     wire [7:0]  fx_data;           // ⭐ 那个字节
     //  ── ④ 可观测计数（⭐ `K-106`：⛔ 不许静默失效 ✅）
@@ -1642,6 +1647,7 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
         .fx_dist_clip_i   (fx_ro_clip),
         .fx_trem_lfo_i    (fx_ro_lfo),
         .fx_pipe_i        (fx_ro_pipe),
+        .fx_tx_pending_o  (fx_pending),
         .fx_tx_ready_i    (fx_ready),
         .fx_tx_start_o    (fx_push),
         .fx_tx_data_o     (fx_data),
@@ -2463,7 +2469,7 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     wire pp_active, vp_active, np_active, dp_active;
     // Pending Y lets already-started reply producers finish. Actual export
     // starts only after producers AND FIFO/UART are idle, then pauses them.
-    wire       normal_tx_ready = txf_ready & ~rd_busy;
+    wire       normal_tx_ready = txf_ready & ~rd_busy & (diag_owner == 0) & ~up_packet_owner;
     //  ⭐⭐ 2026-10-14：⭐ **上行帧 v1.1 的 14 B 实时事件流也走这条 TX** ✅
     //     📌 **优先级**：⭐ `'Y'` 导出 > 命令回包 > 实时上行 ✅
     //        ⭐ 回包短且稀有 ⇒ ⛔ 不会被饿死；⭐ 上行只吃**空隙** ✅
@@ -2471,13 +2477,43 @@ wire [7:0]  cmd_bpm_val;        // ⭐ 'Q' ⇒ 该帧第一个载荷字节（⭐
     //        ⚠️ 否则上行以为字节被收下、⭐ 实际被抢掉 ⇒ 🔴 **静默丢** ✅
     //     ⚠️ **这些线必须在【模块级】声明**（⭐ 与 `rd_push`/`rd_byte` **同一个坑**：
     //        `u_evt_upstream` 在 `g_sound` 里、⭐ 而本块在外 ⇒ ⛔ 作用域不通 ✅）
+    // Reserve all eight bytes of an auxiliary reply before letting another
+    // producer enqueue. One-cycle calibration replies are queued separately.
+    wire ordinary_packet_busy = (DEMO_CHORD_ON == 0) ? 1'b0
+        : (pp_busy || vp_busy || np_busy || dp_busy);
+    assign fx_ready = (diag_owner == 1) && txf_ready && !rd_busy;
+    assign ep_ready = (diag_owner == 2) && txf_ready && !rd_busy;
+    always @(posedge clk) begin
+        if (!rst_n_sync) begin diag_owner<=0; diag_byte_count<=0; end
+        else if (diag_owner == 0) begin
+            diag_byte_count<=0;
+            if (txf_idle && !up_packet_owner && !ordinary_packet_busy && !normal_diag_pending && !rd_lock) begin
+                if (ep_pending) diag_owner<=2;
+                else if (fx_pending) diag_owner<=1;
+            end
+        end else if (fx_push || ep_push) begin
+            if (diag_byte_count == 7) begin diag_owner<=0; diag_byte_count<=0; end
+            else diag_byte_count<=diag_byte_count+1'b1;
+        end
+    end
     wire        up_busy_w, up_push_w, up_ovf_w;
     wire [7:0]  up_byte_w;
     wire [15:0] up_frame_cnt_w, up_drop_cnt_w;
     wire [7:0]  up_seq_w;
     wire [31:0] up_tick_w;
     wire [4:0]  up_level_w;
-    wire        up_ready_w = ~rd_busy & ~txf_start & ~board_uart_busy & ~esp_uart_busy;
+    wire        up_ready_w = up_packet_owner && !rd_busy && !board_uart_busy && !esp_uart_busy;
+    // The live producer may prepare a frame while waiting. Only an owner can
+    // launch bytes, so FIFO's registered start can never race its first byte.
+    always @(posedge clk) begin
+        if (!rst_n_sync) up_packet_owner<=0;
+        else if (up_packet_owner) begin
+            if (!up_busy_w) up_packet_owner<=0;
+        end else if ((DEMO_CHORD_ON != 0) && up_busy_w && txf_idle
+            && (diag_owner == 0) && !ordinary_packet_busy && !normal_diag_pending
+            && !rd_lock && !ep_pending && !fx_pending)
+            up_packet_owner<=1;
+    end
     wire       shared_tx_start = rd_busy ? rd_push : (txf_start ? txf_start : up_push_w);
     wire [7:0] shared_tx_data  = rd_busy ? rd_byte : (txf_start ? txf_data  : up_byte_w);
     assign txf_busy = board_uart_busy | esp_uart_busy;
@@ -2652,74 +2688,38 @@ wire ovf_any;
     reg        ep_req_q;        // ⭐ "有一帧待发/在发"（⭐ 事件置位、LF 发完清零 ✅）
     reg        ep_pend_q;       // ⭐ **挂起位**：⭐ 发上一帧期间又有新事件 ✅
 
-    wire ep_push = (ep_state != EP_S_IDLE);   // ⭐ 非 IDLE ⇒ 本拍要推一个字节
+    assign ep_pending = (ep_state != EP_S_IDLE) || ep_pend_q;
+    assign ep_push = (ep_state != EP_S_IDLE) && ep_ready;   // ⭐ 非 IDLE ⇒ 本拍要推一个字节
 
-    //  ⭐ **组合输出的 9 个字节**（⭐ 与屏约定的格式，⛔ 不许自创 ✅）
+    //  ⭐ **组合输出的 8 个字节**（⭐ 与屏约定的格式，⛔ 不许自创 ✅）
     reg [7:0] ep_data;
+    reg [63:0] ep_frame;
     always @(*) begin
         case (ep_state)
-            EP_S_B1:   ep_data = 8'h45;                                    // ⭐ 'E'
-            EP_S_B2:   ep_data = 8'h65;                                    // ⭐ 'e'
-            EP_S_B3:   ep_data = ep_mode_q ? 8'h31 : 8'h30;                // ⭐ '1' : '0'
-            // ⭐ <par_id>：'0'..'7'（⭐ 与 `uart_ui.v` 的变量号表逐个对齐 ✅）
-            EP_S_B4:   ep_data = {5'b0, ep_par_q} + 8'h30;
-            // ⭐ <sign>：'+' = 这一步是 +（正）· '-' = 这一步是 −（负）
-            EP_S_B5:   ep_data = ep_sign_q ? 8'h2B : 8'h2D;
-            // ⭐ <n>：已连续步进次数（'0'..'9'）
-            EP_S_B6:   ep_data = {4'b0, ep_step_q} + 8'h30;
-            EP_S_CR:   ep_data = 8'h0D;                                    // ⭐ CR
-            EP_S_LF:   ep_data = 8'h0A;                                    // ⭐ LF
-            default:   ep_data = 8'h00;
+            EP_S_B1: ep_data=ep_frame[63:56]; EP_S_B2: ep_data=ep_frame[55:48];
+            EP_S_B3: ep_data=ep_frame[47:40]; EP_S_B4: ep_data=ep_frame[39:32];
+            EP_S_B5: ep_data=ep_frame[31:24]; EP_S_B6: ep_data=ep_frame[23:16];
+            EP_S_CR: ep_data=ep_frame[15:8]; EP_S_LF: ep_data=ep_frame[7:0];
+            default: ep_data=0;
         endcase
     end
 
     always @(posedge clk) begin
-        if (rst_n_sync !== 1'b1) begin
-            ep_state  <= EP_S_IDLE;
-            ep_req_q  <= 1'b0;
-            ep_pend_q <= 1'b0;
+        if (!rst_n_sync) begin
+            ep_state<=EP_S_IDLE; ep_req_q<=0; ep_pend_q<=0; ep_frame<=0;
         end else begin
-            case (ep_state)
-                // ── 空闲：等事件 ────────────────────────────────────────
-                EP_S_IDLE: begin
-                    if (!ep_req_q && ep_event) begin
-                        // ⭐ **只在 `!ep_req_q` 时起帧** ——
-                        //   ⚠️ 正在发（`ep_req_q==1`）时来的事件只置 `ep_pend_q`
-                        //      ⇒ ⭐ **⛔ 不打断当前帧**（⭐ 否则帧会被拆花 ✅）
-                        ep_req_q  <= 1'b1;
-                        ep_pend_q <= 1'b0;
-                        ep_state  <= EP_S_B1;      // ⭐ 事件只高 1 拍 ⇒ 立刻起帧 ✅
-                    end
+            if (ep_event) ep_pend_q<=1;
+            if (ep_state==EP_S_IDLE) begin
+                if (ep_pend_q) begin
+                    ep_frame <= {8'h45,8'h65,(ep_mode_q ? 8'h31 : 8'h30),
+                        ({5'd0,ep_par_q}+8'h30),(ep_sign_q ? 8'h2b : 8'h2d),
+                        ({4'd0,ep_step_q}+8'h30),8'h0d,8'h0a};
+                    ep_state<=EP_S_B1; ep_req_q<=1; ep_pend_q<=ep_event;
                 end
-                EP_S_B1: ep_state <= EP_S_B2;
-                EP_S_B2: ep_state <= EP_S_B3;
-                EP_S_B3: ep_state <= EP_S_B4;
-                EP_S_B4: ep_state <= EP_S_B5;
-                EP_S_B5: ep_state <= EP_S_B6;
-                EP_S_B6: ep_state <= EP_S_CR;
-                EP_S_CR: ep_state <= EP_S_LF;
-                EP_S_LF: begin
-                    // ⭐ LF 是最后一个字节 ⇒ 本拍之后帧就发完了
-                    if (ep_pend_q) begin
-                        // ⭐ 发送期间又来了一次事件 ⇒ **立刻发下一帧**
-                        //   ⚠️ **内容用最新的锁存值**（⭐ `ep_par_q` 等已被更新 ✅）
-                        ep_pend_q <= 1'b0;
-                        ep_req_q  <= 1'b1;         // ⭐ 保持"在发"
-                        ep_state  <= EP_S_B1;
-                    end else begin
-                        ep_req_q  <= 1'b0;         // ⭐ 本帧发完
-                        ep_state  <= EP_S_IDLE;
-                    end
-                end
-                default: ep_state <= EP_S_IDLE;
-            endcase
-
-            // ══ ⭐ 挂起位（⭐ 与状态机【分开写】，⛔ 不混在 case 里 ✅）═══
-            //   ⚠️ **为什么必须独立**：⭐ `ep_pend_q` 要在**每一个**非 IDLE 状态
-            //      都被置位（⛔ 不能只在某一个状态里置）⇒ ⭐ 写在 case 外面最安全 ✅
-            if (ep_event && (ep_state != EP_S_IDLE)) ep_pend_q <= 1'b1;
-            //   ⚠️ **IDLE 且 `ep_req_q==0`** 的情况 ⇒ ⭐ 由上面 IDLE 分支直接起帧，
-            //      ⭐ **不需要** `ep_pend_q`（⛔ 否则会多发一帧 ✅）
+            end else if (ep_ready) begin
+                if (ep_state==EP_S_LF) begin ep_state<=EP_S_IDLE;ep_req_q<=0;end
+                else ep_state<=ep_state+1'b1;
+            end
         end
     end
 
@@ -2732,7 +2732,7 @@ wire ovf_any;
         .idle_o    (txf_idle),      // ⭐ 队列真空了（⭐ 包边界用）
         .tx_start_o(txf_start),
         .tx_data_o (txf_data),
-        .busy_i    (txf_busy | rd_busy),
+        .busy_i    (txf_busy | rd_busy | up_packet_owner),
         .ovf_o     (txf_ovf),
         .drop_cnt_o(txf_drop),
         .ovf_clr_i (1'b0)           // ⚠️ 本版不清（⭐ 置位后保持 ⇒ 上板可观测）
@@ -2923,7 +2923,7 @@ wire ovf_any;
         //  ⭐⭐ 2026-10-17（`K-106`）：⭐ **`fx_push`（效果器状态回读帧）同理** ✅
         //     📌 `'Z' <n>` 是**串口诊断命令** ⇒ ⭐ 静音档也必须能回
         //        （⭐ `fx_ro_*` 已在上面显式给 0 ⇒ ⭐ 回 `Zz<n>0000`，⛔ 不是 `z`/`x` ✅）
-        assign fx_ready = normal_tx_ready && !ep_push;
+        assign normal_diag_pending = 1'b0;
         assign tx_req  = 1'b0 | ep_push | fx_push;
         assign tx_byte = ep_push ? ep_data : (fx_push ? fx_data : 8'h00);
         assign rd_pending = 1'b0;
@@ -4332,7 +4332,7 @@ wire ovf_any;
             .push_o     (pp_push),
             .data_o     (pp_data),
             .ready_i    (normal_tx_ready),
-            .idle_i     (txf_idle && !np_busy && !vp_busy && !dp_active),
+            .idle_i     (txf_idle && (diag_owner == 0) && !up_packet_owner && !np_busy && !vp_busy && !dp_active),
             .busy_o     (pp_busy), .packet_active_o(pp_active)
         );
 
@@ -4368,7 +4368,7 @@ wire ovf_any;
             .push_o     (vp_push),
             .data_o     (vp_data),
             .ready_i    (normal_tx_ready),
-            .idle_i     (txf_idle && !np_busy && !pp_active && !dp_active),
+            .idle_i     (txf_idle && (diag_owner == 0) && !up_packet_owner && !np_busy && !pp_active && !dp_active),
             .busy_o     (vp_busy), .packet_active_o(vp_active)
         );
 
@@ -4711,39 +4711,42 @@ wire ovf_any;
         //      ⇒ ⭐ `u_pos_probe_dpos` 的输出**无人使用** ⇒ 🔴 **整块被综合器扫掉**
         //      ⇒ ⭐ **不占时序余量、也不拖慢仿真** ✅
         //      📌 要用诊断时：⭐ 把 `DPOS_DIAG` 改成 1 ⇒ 重新 PnR ✅
-        wire normal_req_w = rep_req | pp_push | vp_push | np_push
+        // Queue asynchronous one-cycle status replies during reserved packets.
+        reg [7:0] rep_queue [0:15];
+        reg [3:0] rep_wr, rep_rd;
+        reg [4:0] rep_count;
+        reg [15:0] rep_drop;
+        wire rep_pop = (rep_count != 0) && normal_tx_ready
+            && !pp_push && !vp_push && !np_push && !((DPOS_DIAG != 0) && dp_push);
+        wire rep_accept = rep_req && ((rep_count < 16) || rep_pop);
+        assign normal_diag_pending = (rep_count != 0) || rep_req || rd_notice_valid;
+        always @(posedge clk) begin
+            if (!rst_n_sync) begin rep_wr<=0;rep_rd<=0;rep_count<=0;rep_drop<=0;end
+            else begin
+                if (rep_accept) begin rep_queue[rep_wr]<=rep_byte;rep_wr<=rep_wr+1'b1;end
+                if (rep_pop) rep_rd<=rep_rd+1'b1;
+                case ({rep_accept,rep_pop})
+                    2'b10: rep_count<=rep_count+1'b1;
+                    2'b01: rep_count<=rep_count-1'b1;
+                    default: begin end
+                endcase
+                if (rep_req && !rep_accept && rep_drop!=16'hffff) rep_drop<=rep_drop+1'b1;
+            end
+        end
+        wire normal_req_w = rep_pop | pp_push | vp_push | np_push
                            | ((DPOS_DIAG != 0) ? dp_push : 1'b0);
-        //  ⭐⭐ 2026-10-17：⭐ **EC11 参数调节回传帧** OR 进来
-        //     ⚠️ **必须 OR（⛔ 不是替换）** —— ⭐ 串口命令回包**必须继续工作**
-        //        （⭐ 与 `cc_* | km_*` 那一段"OR 而不是替换"是**同一条纪律** ✅）
-        //     ⚠️ **优先级**：⭐ 既有回包 > EC11 帧（⭐ `ep_data` 排在 mux 最后 ✅）
-        //     📌 ⭐ **为什么不会同拍撞**：⭐ EC11 帧是 7 字节的长帧、
-        //        ⭐ 而既有回包都是 1~8 字节且靠 `txf_idle`/`normal_tx_ready` 流控；
-        //        ⚠️ **万一同拍**（⭐ 例如用户一边转旋钮一边按标定键）⇒
-        //        ⭐ **以既有回包为准**，⭐ EC11 帧**丢这一个字节**（⛔ 不会错位 ✅）
-        wire rd_notice_push = rd_notice_valid && txf_ready && !normal_req_w;
-        //  ⭐⭐ 2026-10-17（`K-106`）：⭐ **效果器状态回读帧**也 OR 进来（⭐ 与 `ep_*` 同一条纪律 ✅）
-        //     ⚠️ **优先级**：⭐ 既有回包 > EC11 帧 > 效果器回读帧（⭐ `fx_data` 排在 mux 最后 ✅）
-        //     📌 ⭐ **为什么不会同拍撞**：⭐ 回读帧是 6 字节、⭐ 由 `'Z'` 命令**手动**触发
-        //        （⭐ 诊断动作，⛔ 不是每拍都发 ✅）⇒ ⚠️ 同拍概率极低
-        //     ⚠️ **万一同拍**（⭐ 例如一边回读一边转旋钮）⇒ ⭐ **以既有回包为准**，
-        //        ⭐ 效果器回读帧**只丢这一个字节**（⛔ 不会错位 —— ⭐ FSM 下一拍继续推 ✅）
-        //        📌 **可观测**：⭐ `u_uart_ui.zfs_drop_cnt_o` 会计这次挂起 ✅
-        assign fx_ready = normal_tx_ready && !normal_req_w && !rd_notice_valid && !ep_push;
+        // EP and FXSTAT reserve eight accepted bytes. Probe packets wait;
+        // asynchronous one-cycle replies remain queued during the reservation.
+        // The live-frame owner also blocks physical FIFO launching.
+        // Dump owns physical UART, not the pending-reply FIFO. Queue notices
+        // while dumping so distinct R/L/C rejections retain their replies.
+        wire rd_notice_push = rd_notice_valid && txf_ready && (diag_owner == 0)
+                            && !up_packet_owner && !normal_req_w;
         assign tx_req = normal_req_w | rd_notice_push | ep_push | fx_push;
-        //   ⭐ 'N'（`np_push`）优先级最高 —— 它也是独立命令，与其余不同拍。
-        //   ⭐ 'Q'（`dp_push`）次高 —— 它与 `'P'` **故意错开 400 µs**，⛔ 不同拍。
-        // 2026-10-13: rd_push no longer shares this pulse-priority mux.
-        // Binary frames + footer own both UARTs; normal replies stay queued.
-        // 2026-10-17: ep_* (EC11 param-mode frame) is the lowest priority byte
-        // source. Events are rare and bursty; a dropped byte only delays one
-        // status frame, never corrupts the queue alignment.
-        // 2026-10-17: fx_* (effects status readback) is the very last source;
-        // same reasoning -- one lost byte only delays one diagnostic frame.
         assign tx_byte = np_push ? np_data
                        : ((DPOS_DIAG != 0) && dp_push) ? dp_data
                        : vp_push ? vp_data : pp_push ? pp_data
-                       : rep_req ? rep_byte
+                       : rep_pop ? rep_queue[rep_rd]
                        : ep_push ? ep_data
                        : fx_push ? fx_data : 8'h21; // '!' = operation rejected
 
@@ -5273,7 +5276,7 @@ wire ovf_any;
             .push_o     (np_push),
             .data_o     (np_data),
             .ready_i    (normal_tx_ready),
-            .idle_i     (txf_idle && !pp_active && !vp_active && !dp_active),
+            .idle_i     (txf_idle && (diag_owner == 0) && !up_packet_owner && !pp_active && !vp_active && !dp_active),
             .busy_o     (np_busy), .packet_active_o(np_active)
         );
 
@@ -5383,7 +5386,7 @@ wire ovf_any;
             .push_o     (dp_push),
             .data_o     (dp_data),
             .ready_i    (normal_tx_ready),
-            .idle_i     (txf_idle && !np_busy && !vp_busy && !pp_busy),
+            .idle_i     (txf_idle && (diag_owner == 0) && !up_packet_owner && !np_busy && !vp_busy && !pp_busy),
             .busy_o     (dp_busy), .packet_active_o(dp_active)
         );
 
@@ -6178,9 +6181,9 @@ wire ovf_any;
         //  ⚠️ ⭐ 2026-10-14：⭐ **`looper_layer_state` / `looper_evt_cnt` 的声明已【上提】**
         //     （⭐ 见上面"空循环拒绝"那一段 —— ⚠️ Verilog **先声明后使用** ✅）
         reg rd_pending_r;
-        reg rd_notice_r;
+        reg [15:0] rd_notice_r;
         reg [15:0] rd_reject_r;
-        wire rd_start_w = rd_pending_r && txf_idle &&
+        wire rd_start_w = rd_pending_r && txf_idle && (diag_owner == 0) && !up_packet_owner &&
                           !pp_busy && !vp_busy && !np_busy && !dp_busy;
         //  ⭐⭐ 2026-10-17：⭐ `cmd_recdump_req | km_loop_send_req`（⛔ 不改定义 ⇒ 单一驱动源 ✅）
         wire rd_reject_event = ((cmd_recdump_req | km_loop_send_req) &&
@@ -6191,12 +6194,12 @@ wire ovf_any;
             (cmd_probe_req && pp_busy) || (cmd_posprobe_req && np_busy) ||
             (cmd_vstat_req && vp_busy);
         assign rd_pending = rd_pending_r;
-        assign rd_notice_valid = rd_notice_r;
+        assign rd_notice_valid = |rd_notice_r;
         assign rd_reject_count = rd_reject_r;
         always @(posedge clk) begin
             if (!rst_n_sync) begin
                 rd_pending_r <= 0;
-                rd_notice_r <= 0;
+                rd_notice_r <= 16'd0;
                 rd_reject_r <= 0;
             end else begin
                 //  ⭐⭐ 2026-10-17：⭐ 同一口径 OR（⛔ 不动 `cmd_recdump_req` 定义 ✅）
@@ -6204,11 +6207,14 @@ wire ovf_any;
                     rd_pending_r <= 1;
                 else if (rd_start_w)
                     rd_pending_r <= 0;
-                // Equivalent set-dominant pending latch, expressed as its next
-                // data bit rather than a hold/enable mux. No extra pipeline
-                // cycle: reject still wins over a simultaneous accepted notice.
-                rd_notice_r <= rd_reject_event |
-                               (rd_notice_r & (~txf_ready | normal_req_w));
+                // Count blocked requests rather than coalescing their replies.
+                // Concurrent enqueue/dequeue retains one pending notice.
+                case ({rd_reject_event,rd_notice_push})
+                    2'b10: if (rd_notice_r != 16'hffff)
+                        rd_notice_r <= rd_notice_r + 16'd1;
+                    2'b01: rd_notice_r <= rd_notice_r - 16'd1;
+                    default: begin end
+                endcase
                 if (rd_reject_event) begin
                     if (rd_reject_r != 16'hffff) rd_reject_r <= rd_reject_r + 1'b1;
                 end

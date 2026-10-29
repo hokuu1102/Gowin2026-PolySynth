@@ -43,6 +43,6 @@ with (OUT/'素材清单.csv').open('w',encoding='utf-8-sig',newline='') as f:
     writer=csv.DictWriter(f,fieldnames=['file','notes','tracks','seconds']);writer.writeheader();writer.writerows(manifest)
 with (OUT.parent/'逐项验收记录.csv').open('w',encoding='utf-8-sig',newline='') as f:
     w=csv.writer(f);w.writerow(['用例','日期','操作者','FPGA_SHA256','ESP_SHA256','结果','证据绝对路径','问题及复测'])
-    for prefix,count in [('A',11),('B',8),('C',11),('D',8),('E',10),('F',5),('G',5)]:
+    for prefix,count in [('A',11),('B',8),('C',12),('D',9),('E',10),('F',5),('G',5)]:
         for i in range(1,count+1):w.writerow([f'{prefix}{i:02d}','','','','','待上板','',''])
 print(manifest)

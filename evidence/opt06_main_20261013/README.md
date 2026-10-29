@@ -73,10 +73,10 @@ SHA256：`17DE0189B4AB8D367B9F35413AED7B86498557D838D44A4D6BA21B7FE1BFF625`。
 
 `C:/Users/cyx/Documents/ChatGPT/FPGA/rollback-pre-opt06-20261013`
 
-其中 `worktree/` 是原文件；`repository.bundle` 保存 Git 全历史；
+其中 「worktree/」（历史引用，当前未收录） 是原文件；`repository.bundle` 保存 Git 全历史；
 本地回退分支为 `codex/rollback-pre-opt06-20261013`。
 原主目录 `impl/` 另存于备份的 `impl/`，其旧 fs 早于 AF 源码，
-不要误标为 AF 构建；额外备份的 `af-impl/` 与 AF 的 78 项输入一致，
+不要误标为 AF 构建；额外备份的 「af-impl/」（历史引用，当前未收录） 与 AF 的 78 项输入一致，
 用于恢复匹配的 AF 构建结果。
 
 回退脚本默认仅校验，不改动。需要回退时，先关闭 Gowin IDE/构建进程：

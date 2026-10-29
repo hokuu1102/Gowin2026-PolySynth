@@ -264,7 +264,7 @@ esp32/
 > 🔴 **漏了 `ble/`（主推版）与 `uart_test/`，也没提 `up_ring`** —— ⭐ 已按上表补齐。
 >
 > 🔴🔴 **2026-10-01 更正（第二轮）**：⚠️ `tools/` 下原文只提了 `e2e_accept.py` ⇒
-> 🔴 **漏了 `stat_read.py` / `regress_live.py` / `evt2midi/`** —— ⭐ 已补齐（⭐ 证据见 §〇之二 第 **14**~**16** 行）。
+> 🔴 **漏了 `stat_read.py` / `regress_live.py` / `esp32/tools/evt2midi/`** —— ⭐ 已补齐（⭐ 证据见 §〇之二 第 **14**~**16** 行）。
 
 ---
 

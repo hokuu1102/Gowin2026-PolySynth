@@ -91,7 +91,7 @@ end
 
 ## 4. 前置验证（⛔ 不通过不准进 PnR）
 
-1. **逐沿差分**：新增 `tb/w3b/tb_oscillator_sweep_share.sv`，把「per-lane 版」与「per-voice 版」
+1. **逐沿差分**：新增 「tb/w3b/tb_oscillator_sweep_share.sv」（历史引用，当前未收录），把「per-lane 版」与「per-voice 版」
    两个模型并排跑，逐系统时钟沿比较**每 lane 的 `phase_q` / `addr_q` / sample 输出**。
    覆盖：鼓类别边界（`base_inc` 恰在 `DRUM_KICK_MAX_C` / `DRUM_TOM_MAX_C` 两侧）、
    失谐开关、颤音正负半周、retrigger、note_off 后再起音、**Test Mode 进出**（含「只激活 lane 0」）。

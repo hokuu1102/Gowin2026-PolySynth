@@ -1,0 +1,12 @@
+{
+  "inputs": 86,
+  "baseline": "8c05c95",
+  "changed_design_inputs": [
+    "rtl/w3c/guide_lamp.v"
+  ],
+  "input_mutations_after_snapshot": [],
+  "differ_from_current_source": [],
+  "constraints_identical": true,
+  "native_non_path_options_identical": true,
+  "guide_sha256": "1069d3383ff4d37160a0bffe43c125ab6dcb7e1a6956321e5047d28473094e75"
+}

@@ -203,6 +203,7 @@ module uart_ui #(
     input  wire [15:0] fx_dist_clip_i,    // ⭐ fx_chain.dist_clip_cnt_o
     input  wire [15:0] fx_trem_lfo_i,     // ⭐ fx_chain.trem_lfo_o
     input  wire [15:0] fx_pipe_i,         // ⭐ fx_chain.pipe_o（低 16 位够用：真值 19）
+    output wire        fx_tx_pending_o,  // complete frame waiting or being sent
     input  wire        fx_tx_ready_i,    // acceptance from downstream byte arbiter
     output reg         fx_tx_start_o,     // ⭐ 推一个字节给 u_tx_fifo（单周期脉冲）
     output reg  [7:0]  fx_tx_data_o,      // ⭐ 那个字节
@@ -568,6 +569,7 @@ module uart_ui #(
     reg [2:0] zfs_sub_q, zfs_pending_sub;
     reg [15:0] zfs_val_q, zfs_pending_val;
     // Existing standalone benches omit this new port; Z means no pressure.
+    assign fx_tx_pending_o = (zfs_state != ZFS_S_IDLE) || zfs_pend_q;
     wire zfs_ready = (fx_tx_ready_i !== 1'b0);
     reg [15:0] zfs_val_c;
     always @(*) begin

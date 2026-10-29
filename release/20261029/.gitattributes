@@ -1,0 +1,5 @@
+# Preserve delivery bytes so SHA256SUMS is valid on Windows and Unix checkouts.
+* -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+firmware/*.fs binary
+# Vendor reports retain original column padding and end-of-file formatting.
+evidence/* -whitespace

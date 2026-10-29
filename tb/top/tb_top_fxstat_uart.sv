@@ -3,7 +3,7 @@ module tb_top_fxstat_uart;
   reg clk=0;always #10 clk=~clk;
   reg rst=0,rx=1,capture=0;
   wire tx,esp_tx,rx_done;wire [7:0] rx_data;
-  integer accepted=0,received=0,fx_bytes=0,stalls=0,i;
+  integer accepted=0,received=0,fx_bytes=0,stalls=0,i,j,whole_frames;
   reg [7:0] expected_stream[0:255],actual_stream[0:255],fx_stream[0:63];
   top #(.SCOPE_MODE(0),.FFT_ENABLE(0),.RIGHT_ADC_ENABLE(0),
     .DEMO_NOTE_DELAY(10000000),.AUTOTARE_DELAY_CLK(10000000)) dut(
@@ -49,10 +49,21 @@ module tb_top_fxstat_uart;
     repeat(2000)@(negedge clk);
     if(dut.ui_fx_mask!==7)$fatal(1,"real UART failed to set FX mask");
     capture=1;
-    query(0);repeat(12000)@(negedge clk);
-    if(received!=8)$fatal(1,"expected 8 public UART bytes, got %0d",received);
+    // Inject a calibration-complete producer event at its reply seam. This
+    // independent hardware event can coincide with any UART diagnostic byte.
+    fork
+      begin
+        wait(dut.fx_push && dut.fx_data=="z");
+        @(negedge clk); force dut.g_sound.ev_done=1'b1;
+        @(negedge clk); release dut.g_sound.ev_done;
+      end
+      begin query(0); end
+    join
+    repeat(14000)@(negedge clk);
+    if(received!=9)$fatal(1,"expected FX frame plus calibration completion, got %0d bytes",received);
     for(i=0;i<8;i=i+1)
       if(actual_stream[i]!==({"Zz00007",8'h0a} >> ((7-i)*8) & 8'hff))$fatal(1,"public mask frame corrupt at %0d",i);
+    if(actual_stream[8]!=="D")$fatal(1,"calibration completion reply lost");
     query(6);repeat(12000)@(negedge clk);
     query(7);repeat(12000)@(negedge clk);
     // Ordinary packets compete while two FX requests are in flight.
@@ -61,6 +72,16 @@ module tb_top_fxstat_uart;
     if(received!=accepted)$fatal(1,"UART drain mismatch accepted=%0d received=%0d",accepted,received);
     for(i=0;i<accepted;i=i+1)
       if(actual_stream[i]!==expected_stream[i])$fatal(1,"accepted byte lost/reordered at UART byte %0d",i);
+    whole_frames=0;
+    for(i=0;i+7<received;i=i+1) begin
+      if(actual_stream[i]=="Z" && actual_stream[i+1]=="z") begin
+        for(j=0;j<8;j=j+1)
+          if(actual_stream[i+j]!==fx_stream[whole_frames*8+j])
+            $fatal(1,"ordinary diagnostic byte split FXSTAT frame %0d at byte %0d",whole_frames,j);
+        whole_frames=whole_frames+1;
+      end
+    end
+    if(whole_frames!=5)$fatal(1,"expected five contiguous public FXSTAT frames, got %0d",whole_frames);
     if(fx_bytes!=40)$fatal(1,"expected 5 FX frames, got %0d bytes",fx_bytes);
     check_fx(0,{"Zz00007",8'h0a});check_fx(8,{"Zz60000",8'h0a});check_fx(16,{"Zz70000",8'h0a});
     check_fx(24,{"Zz00007",8'h0a});check_fx(32,{"Zz60000",8'h0a});

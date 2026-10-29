@@ -995,7 +995,7 @@ top.v:4191:            .FIXED_BLEND_Q (0),
 | ③ | `tdm_render_mixer` → `master_mix` → `top.sample_r` | `samp_r` | `top.sample_r` | 24×16 DSP → 40 位归约 → mux | **不在 top-25**（<19.36 ns），结构同 `:800-825` 已修那条 | ⭐ **P1-3** |
 | ④ | `perc_env_bank` → `tdm_render_mixer` 的 DSP 输入 | `perc_env_bank.level_o` | `prod_r`（DSP 后） | `top.v:4359` 的**纯拼接** → `env_c` 32:1 mux → DSP | 与 ② 同一条 `prod_c` 路径（并行支路） | **P3**：保留池那 5 路的包络**也没有寄存器**（与键盘那 27 路不同源） |
 | ⑤ | `looper` → `note_manager.phase_r` | `play_upd_inc_o_9_s0` | `phase_r[31]_9_s1` | ⛔ 无 | HOLD **0.194 ns**（全设计最薄） | **P3**：`pitch_upd_value_i` 直连 D 脚 |
-| ⑥ | `note_manager` → `tdm_render_mixer` 的 `voice_active_i` | `gate_r/env_active_r/...` | `n_active_r` | 4 组 OR → 32 根长线 → 16 项加法 | 不在 top-25（`pc_sum` 见 P3-5） | **P3** |
+| ⑥ | `note_manager` → `tdm_render_mixer` 的 `voice_active_i` | `gate_r`、`env_active_r` 等信号 | `n_active_r` | 4 组 OR → 32 根长线 → 16 项加法 | 不在 top-25（`pc_sum` 见 P3-5） | **P3** |
 
 ⭐ **结论**：这条链上**只有 1 处是"寄存器到寄存器"的干净边界**（`phase_tr[]` → `oscillator_bank`，因为 T3 影子数组是寄存器）。其余 **6 处全部是"模块输出不寄存、直接喂下游的组合/时序块"** ⇒ **这就是长路径与薄 hold 的结构性来源**，也是"布局噪声主导"的根因（组合穿透路径的延迟 ≈ 布线延迟，而布线延迟随布局摆动 ±2 ns）。
 

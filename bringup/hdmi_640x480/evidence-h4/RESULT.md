@@ -11,7 +11,7 @@
 .\build_hdmi_640x480.ps1 -Mode H4 -GwSh D:\Gowin\Software\Gowin_V1.9.12.03_x64\IDE\bin\gw_sh.exe
 ```
 
-新增 `hdmi_top.MODE_H4` 参数、`rtl/hdmi_h4.v` 独立入口、`hdmi_h4.gprj` 和 `constr/hdmi_h4.sdc`。原 `constr/hdmi_640x480.sdc` 未修改。H4 水平参数为 1920/48/32/80（2080），垂直参数为 1200/3/6/26（1235）；顶部把原 timing 模块的负极性同步反相为正极性，再送蓝通道编码器。默认参数保持 640x480。
+新增 `hdmi_top.MODE_H4` 参数、`bringup/hdmi_640x480/rtl/hdmi_h4.v` 独立入口、`hdmi_h4.gprj` 和 `constr/hdmi_h4.sdc`。原 `constr/hdmi_640x480.sdc` 未修改。H4 水平参数为 1920/48/32/80（2080），垂直参数为 1200/3/6/26（1235）；顶部把原 timing 模块的负极性同步反相为正极性，再送蓝通道编码器。默认参数保持 640x480。
 
 使用首选 MDIV=15、FRAC=3、ODIV0=1、ODIV1=5；SDC 为 123/8 和 123/40，无放宽约束、无新增 false path。像素频率相对 154 MHz 偏差约 -0.16234%，帧率约 59.85285 Hz。未尝试备选 155 MHz，因为首选已生成 bitstream 且 pixel STA 通过，提高频率不能消除 serial 域没有 STA 路径这一空缺。
 
@@ -86,7 +86,7 @@ WARN  (PR1014) : Generic routing resource will be used to clock signal 'clk_d' b
 
 默认 640x480 回归也出现相同 5 行警告。
 
-早期一次构建启动曾因尝试了不支持的 Tcl 宏选项而退出，尚未综合。原文如下，已改为参数化顶层入口解决，原始日志保存在 `initial_cli_failure/`：
+早期一次构建启动曾因尝试了不支持的 Tcl 宏选项而退出，尚未综合。原文如下，已改为参数化顶层入口解决，原始日志保存在 「initial_cli_failure/」（历史引用，当前未收录）：
 
 ```text
 unknown option: -verilog_define
@@ -109,9 +109,9 @@ H4 bitstream：`impl/pnr/hdmi_h4.fs`，SHA256 `CCC5A2DDF6BCAA8FD924533A495344BD8
 
 默认 bitstream：`impl/pnr/hdmi_640x480.fs`，SHA256 `E2117F3F54301728E3984FAFAB0D41F46CAEC252EEA9D8A82B3ABC659091446E`。
 
-原始 H4 报告仍在 `impl/pnr/hdmi_h4_tr_content.html`，同时归档到本目录 `h4/`。修改前/后默认配置日志分别在 `baseline_before/`、`baseline_after/`，避免共享 `build/build.log` 被后续构建覆盖后混淆。`evidence.txt` 是两种配置报告的原始单元格文本及警告、PLL 网表参数摘录；提取程序为 `extract_evidence.py`。
+原始 H4 报告仍在 `impl/pnr/hdmi_h4_tr_content.html`，同时归档到本目录 「h4/」（历史引用，当前未收录）。修改前/后默认配置日志分别在 「baseline_before/」（历史引用，当前未收录）、「baseline_after/」（历史引用，当前未收录），避免共享 `build/build.log` 被后续构建覆盖后混淆。`evidence.txt` 是两种配置报告的原始单元格文本及警告、PLL 网表参数摘录；提取程序为 `extract_evidence.py`。
 
-新增 `tb/tb_hdmi_modes.sv` 对两种模式逐像素检查完整一帧的坐标、DE、同步极性/区间、有效像素数和帧回绕，均通过：
+新增 `bringup/hdmi_640x480/tb/tb_hdmi_modes.sv` 对两种模式逐像素检查完整一帧的坐标、DE、同步极性/区间、有效像素数和帧回绕，均通过：
 
 ```text
 PASS H4=0 active=640x480 total=800x525 pixels=307200 sync_positive=0

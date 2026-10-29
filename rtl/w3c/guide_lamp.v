@@ -341,104 +341,185 @@ module guide_lamp #(
     // Keep each ON's original identity and mapped key until its matching OFF.
     // Repeated identical ONs share a 32-bit count; different mapped identities
     // retain independent slots. OFF consumes the first matching identity.
-    reg [HELD_SLOTS-1:0] held_valid, next_valid;
-    reg [3:0] held_axis [0:HELD_SLOTS-1], next_axis [0:HELD_SLOTS-1];
-    reg [4:0] held_note [0:HELD_SLOTS-1], next_note [0:HELD_SLOTS-1];
-    reg [4:0] held_key [0:HELD_SLOTS-1], next_key [0:HELD_SLOTS-1];
-    // A single addressed count write avoids a reset/load mux on every count bit.
-    // Invalid slots are never read for a decision; allocation initializes to 1.
+    reg [HELD_SLOTS-1:0] held_valid;
+    wire [HELD_SLOTS-1:0] next_valid;
+    reg [3:0] held_axis [0:HELD_SLOTS-1];
+    reg [4:0] held_note [0:HELD_SLOTS-1];
+    reg [4:0] held_key [0:HELD_SLOTS-1];
+    // Bank-local read/modify/write keeps the global identity priority tree
+    // out of the count-data path. Preload invalid slots with 1: allocation
+    // only changes their valid/identity state, not their 32-bit count data.
     localparam integer SLOT_W = (HELD_SLOTS > 1) ? $clog2(HELD_SLOTS) : 1;
+    localparam integer TREE_N = 1 << SLOT_W;
+    localparam integer BANK_W = (SLOT_W > 3) ? 3 : SLOT_W;
+    localparam integer BANK_SIZE = 1 << BANK_W;
+    localparam integer BANK_N = (HELD_SLOTS + BANK_SIZE - 1) / BANK_SIZE;
+    localparam integer BANK_ROOT = TREE_N / BANK_SIZE;
     reg [31:0] held_count [0:HELD_SLOTS-1];
-    reg count_write;
-    reg [SLOT_W-1:0] count_write_slot;
-    reg [31:0] count_write_value;
-    reg [AXIS_N-1:0] next_lamps;
-    reg next_commit;
-    integer gi, lookup_i, free_slot, off_slot, same_slot;
+    wire [AXIS_N-1:0] next_lamps;
     wire [3:0] event_axis = note_data_i[AXIS_SH +: 4];
 
-    always @(*) begin
-        free_slot = -1;
-        off_slot = -1;
-        same_slot = -1;
-        for (lookup_i=0; lookup_i<HELD_SLOTS; lookup_i=lookup_i+1) begin
-            if ((stream_timeout || !held_valid[lookup_i]) && free_slot < 0)
-                free_slot = lookup_i;
-            if (!stream_timeout && held_valid[lookup_i] &&
-                held_axis[lookup_i] == event_axis && held_note[lookup_i] == note_off5_i) begin
-                if (off_slot < 0) off_slot = lookup_i;
-                if (held_key[lookup_i] == key_sel && same_slot < 0) same_slot = lookup_i;
+    // Balanced selection: each level halves the candidates. A linear
+    // first-match loop otherwise chains all 64 identity comparators/muxes.
+    wire [SLOT_W:0] free_tree [1:2*TREE_N-1];
+    wire [SLOT_W:0] off_tree [1:2*TREE_N-1];
+    wire [SLOT_W:0] same_tree [1:2*TREE_N-1];
+    genvar ti;
+    generate
+        for (ti=0; ti<TREE_N; ti=ti+1) begin: g_lookup_leaf
+            if (ti<HELD_SLOTS) begin: g_used
+                wire match_id = held_valid[ti]
+                    && held_axis[ti] == event_axis && held_note[ti] == note_off5_i;
+                assign free_tree[TREE_N+ti] = {!held_valid[ti], ti[SLOT_W-1:0]};
+                assign off_tree[TREE_N+ti] = {match_id, ti[SLOT_W-1:0]};
+                assign same_tree[TREE_N+ti] = {match_id && held_key[ti] == key_sel, ti[SLOT_W-1:0]};
+            end else begin: g_padding
+                assign free_tree[TREE_N+ti] = 0;
+                assign off_tree[TREE_N+ti] = 0;
+                assign same_tree[TREE_N+ti] = 0;
             end
         end
-    end
-    wire [SLOT_W-1:0] count_read_slot = (is_note_off && off_slot >= 0)
-        ? off_slot[SLOT_W-1:0] : ((same_slot >= 0) ? same_slot[SLOT_W-1:0] : {SLOT_W{1'b0}});
-    wire [31:0] count_read_value = held_count[count_read_slot];
-
-    always @(*) begin
-        next_valid = stream_timeout ? {HELD_SLOTS{1'b0}} : held_valid;
-        next_lamps = {AXIS_N{1'b0}};
-        next_commit = 1'b0;
-        count_write = 1'b0;
-        count_write_slot = {SLOT_W{1'b0}};
-        count_write_value = 32'd0;
-        for (gi=0; gi<HELD_SLOTS; gi=gi+1) begin
-            next_axis[gi] = held_axis[gi];
-            next_note[gi] = held_note[gi];
-            next_key[gi] = held_key[gi];
+        for (ti=1; ti<TREE_N; ti=ti+1) begin: g_lookup_branch
+            assign free_tree[ti] = free_tree[2*ti][SLOT_W] ? free_tree[2*ti] : free_tree[2*ti+1];
+            assign off_tree[ti] = off_tree[2*ti][SLOT_W] ? off_tree[2*ti] : off_tree[2*ti+1];
+            assign same_tree[ti] = same_tree[2*ti][SLOT_W] ? same_tree[2*ti] : same_tree[2*ti+1];
         end
-        if (note_valid_i) begin
-            if (is_note_on && key_valid && same_slot >= 0) begin
-                count_write = 1'b1;
-                count_write_slot = same_slot[SLOT_W-1:0];
-                count_write_value = count_read_value + 1'b1;
-                next_commit = 1'b1;
-            end else if (is_note_on && key_valid && free_slot >= 0) begin
-                next_valid[free_slot] = 1'b1;
-                count_write = 1'b1;
-                count_write_slot = free_slot[SLOT_W-1:0];
-                count_write_value = 32'd1;
-                next_axis[free_slot] = event_axis;
-                next_note[free_slot] = note_off5_i;
-                next_key[free_slot] = key_sel;
-                next_commit = 1'b1;
-            end else if (is_note_off && off_slot >= 0) begin
-                count_write = 1'b1;
-                count_write_slot = off_slot[SLOT_W-1:0];
-                count_write_value = count_read_value - 1'b1;
-                if (count_read_value == 1) next_valid[off_slot] = 1'b0;
-                next_commit = 1'b1;
+    endgenerate
+    // Preserve the eight-slot reduction boundary, as in note_manager's
+    // scan_group/env_grp nets. Otherwise global match and prefix selection
+    // may share a long, spatially distributed chain after synthesis.
+    (* syn_keep = 1 *) wire [BANK_N-1:0] same_bank_present;
+    genvar match_bank;
+    generate
+        for (match_bank=0; match_bank<BANK_N; match_bank=match_bank+1) begin: g_same_bank
+            assign same_bank_present[match_bank] = same_tree[BANK_ROOT+match_bank][SLOT_W];
+        end
+    endgenerate
+    wire same_present = |same_bank_present;
+    // Timeout invalidates the ledger at the update boundary, rather than
+    // feeding all identity comparators and priority selectors. In that same
+    // cycle an ON allocates slot zero; an OFF has no previous live identity.
+    wire mapped_on_event = note_valid_i && is_note_on && key_valid;
+    // Free-slot selection below already rejects a full ledger; its root
+    // need not be serially included in the global allocation gate.
+    wire allocate = mapped_on_event && (stream_timeout || !same_present);
+    wire repeat_event = mapped_on_event && !stream_timeout;
+    wire release_event = note_valid_i && is_note_off && !stream_timeout;
+    wire next_commit = (mapped_on_event &&
+        (stream_timeout || same_present || free_tree[1][SLOT_W]))
+        || (release_event && off_tree[1][SLOT_W]);
+    // Evaluate the terminal-count predicate before selecting the OFF slot.
+    // This removes the 64:1 count-data mux from the lamp/valid update path.
+    wire [HELD_SLOTS-1:0] release_slot;
+    wire [HELD_SLOTS-1:0] count_enable;
+    wire [HELD_SLOTS-1:0] free_mask, off_mask, same_mask;
+    genvar vi;
+    generate
+        for (vi=0; vi<HELD_SLOTS; vi=vi+1) begin: g_valid_update
+            assign free_mask[vi] = free_tree[TREE_N+vi][SLOT_W];
+            assign off_mask[vi] = off_tree[TREE_N+vi][SLOT_W];
+            assign same_mask[vi] = same_tree[TREE_N+vi][SLOT_W];
+            wire free_pick, off_pick, same_pick;
+            if (vi==0) begin: g_first
+                assign free_pick = free_mask[vi];
+                assign off_pick = off_mask[vi];
+                assign same_pick = same_mask[vi];
+            end else begin: g_rest
+                // Parallel prefix reductions preserve lowest-slot priority
+                // without encoding a global index and decoding it again.
+                assign free_pick = free_mask[vi] && !(|free_mask[vi-1:0]);
+                assign off_pick = off_mask[vi] && !(|off_mask[vi-1:0]);
+                assign same_pick = same_mask[vi] && !(|same_mask[vi-1:0]);
+            end
+            wire chosen_free = stream_timeout ? (vi==0) : free_pick;
+            wire alloc_here = allocate && chosen_free;
+            // A selected free slot may preload metadata even for a duplicate
+            // ON. It stays invalid in that case, so these dead payloads cannot
+            // participate in matching or lamp output. Real allocation writes
+            // the same event payload before that slot becomes observable.
+            wire payload_load = mapped_on_event && chosen_free;
+            wire off_here = release_event && off_pick;
+            assign count_enable[vi] = (repeat_event && same_pick) || off_here;
+            assign release_slot[vi] = off_here && held_count[vi] == 32'd1;
+            assign next_valid[vi] = alloc_here
+                || (held_valid[vi] && !stream_timeout && !release_slot[vi]);
+            always @(posedge clk_i) begin
+                if (!rst_n_i) begin
+                    held_axis[vi] <= 4'd0;
+                    held_note[vi] <= 5'd0;
+                    held_key[vi] <= KEY_NONE;
+                end else if (payload_load) begin
+                    held_axis[vi] <= event_axis;
+                    held_note[vi] <= note_off5_i;
+                    held_key[vi] <= key_sel;
+                end
             end
         end
-        for (gi=0; gi<HELD_SLOTS; gi=gi+1)
-            if (next_valid[gi] && next_key[gi] < AXIS_N)
-                next_lamps[next_key[gi]] = 1'b1;
-    end
+    endgenerate
 
-    integer gr;
-    always @(posedge clk_i)
-        if (rst_n_i && count_write)
-            held_count[count_write_slot] <= count_write_value;
+    // Each lamp uses a reduction tree rather than 64 ordered variable-bit
+    // writes. Preserve the original event-to-output cycle exactly.
+    genvar lamp, slot;
+    generate
+        for (lamp=0; lamp<AXIS_N; lamp=lamp+1) begin: g_lamp_reduce
+            wire [HELD_SLOTS-1:0] hit;
+            for (slot=0; slot<HELD_SLOTS; slot=slot+1) begin: g_slot
+                assign hit[slot] = held_valid[slot] && !stream_timeout
+                    && !release_slot[slot] && (held_key[slot] == lamp);
+            end
+            // A duplicate ON already has a lit reference in hit. With a
+            // free slot, OR-ing its key again is idempotent, so lamps need
+            // not wait for the global duplicate-identity lookup. A full
+            // ledger still rejects a new identity exactly as before.
+            assign next_lamps[lamp] = (|hit)
+                || (mapped_on_event && (stream_timeout || free_tree[1][SLOT_W]) && key_sel == lamp);
+        end
+    endgenerate
+
+    // Each bank has its own eight-way count read and one 32-bit adder.
+    // The subtree still chooses the lowest matching slot within that bank;
+    // the prefix masks enable only the globally winning slot's write.
+    genvar bank, bi;
+    generate
+        for (bank=0; bank<BANK_N; bank=bank+1) begin: g_count_bank
+            wire [BANK_W-1:0] read_slot = is_note_off
+                ? off_tree[BANK_ROOT+bank][BANK_W-1:0]
+                : same_tree[BANK_ROOT+bank][BANK_W-1:0];
+            wire [31:0] values [0:BANK_SIZE-1];
+            wire [31:0] delta = is_note_off ? 32'hffffffff : 32'd1;
+            wire [31:0] write_value = values[read_slot] + delta;
+            for (bi=0; bi<BANK_SIZE; bi=bi+1) begin: g_slot
+                if (bank*BANK_SIZE+bi < HELD_SLOTS) begin: g_used
+                    assign values[bi] = held_count[bank*BANK_SIZE+bi];
+                    always @(posedge clk_i) begin
+                        if (rst_n_i) begin
+                            // The old valid bit is sampled here. An allocation
+                            // into an invalid slot therefore gets count 1 in
+                            // the very same cycle, including back-to-back reuse.
+                            // Timeout + ON likewise starts a fresh slot at 1.
+                            if (!held_valid[bank*BANK_SIZE+bi] || stream_timeout)
+                                held_count[bank*BANK_SIZE+bi] <= 32'd1;
+                            else if (count_enable[bank*BANK_SIZE+bi])
+                                held_count[bank*BANK_SIZE+bi] <= write_value;
+                        end
+                    end
+                end else begin: g_padding
+                    assign values[bi] = 32'd0;
+                end
+            end
+        end
+    endgenerate
+
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
             held_valid <= {HELD_SLOTS{1'b0}};
             guide_key_o <= {AXIS_N{1'b0}};
             guide_commit_o <= 1'b0;
             stream_idle_cnt <= {CNT_W{1'b0}};
-            for (gr=0; gr<HELD_SLOTS; gr=gr+1) begin
-                held_axis[gr] <= 4'd0;
-                held_note[gr] <= 5'd0;
-                held_key[gr] <= KEY_NONE;
-            end
         end else begin
             held_valid <= next_valid;
             guide_key_o <= next_lamps;
             guide_commit_o <= next_commit;
-            for (gr=0; gr<HELD_SLOTS; gr=gr+1) begin
-                held_axis[gr] <= next_axis[gr];
-                held_note[gr] <= next_note[gr];
-                held_key[gr] <= next_key[gr];
-            end
             if (stream_alive_i === 1'b1)
                 stream_idle_cnt <= {CNT_W{1'b0}};
             else if (stream_idle_cnt != TIMEOUT_CLKS-1)

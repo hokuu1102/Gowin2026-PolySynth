@@ -16,7 +16,7 @@
 python review/spec/run_probes.py
 ```
 
-脚本将输出每项真实退出码并写 `results.json`。预期整体退出 1，因为探针以正常需求作为断言，当前生产代码会判红；没有把 bug 当成应通过行为。依赖已隔离安装在 `review/spec/venv/`：pyserial、mido、bleak、numpy。最初缺包产生的失败只属环境问题，最终自检已补齐依赖后重跑。C 编译器使用本机已有 `D:/cyx/Dev-Cpp/MinGW64/bin/gcc.exe`；ESP 的内存/锁/时间/UART 调用用宿主桩控制，业务函数来自未修改的生产 C 文件。
+脚本将输出每项真实退出码并写 `results.json`。预期整体退出 1，因为探针以正常需求作为断言，当前生产代码会判红；没有把 bug 当成应通过行为。依赖已隔离安装在 「review/spec/venv/」（本地路径，非仓库交付文件）：pyserial、mido、bleak、numpy。最初缺包产生的失败只属环境问题，最终自检已补齐依赖后重跑。C 编译器使用本机已有 `D:/cyx/Dev-Cpp/MinGW64/bin/gcc.exe`；ESP 的内存/锁/时间/UART 调用用宿主桩控制，业务函数来自未修改的生产 C 文件。
 
 完整 runner 连续独立执行两次，结果相同；第一次退出清单为 `results-run1.json`、第二次为 `results.json`，命令汇总在 `repeat-run.log`、`repeat-run2.log`。真实 top→网页卷帘 RED、力度128 RED、bin RED、C notify RED、C STOP/RESET RED 均两轮重复；正控制亦两轮通过。网页共6个红断言含 Q1 疑点与 S1 的不同场景，不等于6个独立正式发现。
 

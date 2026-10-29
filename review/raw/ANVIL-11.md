@@ -137,7 +137,7 @@ end
 - **收益 / 代价**：收益 = 片1（键灯高 8 位 = 右手板 8 个键）恢复正确图案；顺带消掉 2 次多余传输。
   代价 = **0 LUT / 0 FF**（还少一个 `if (drv_busy)` 比较）；`drv_start_r` 路径是 FF→FF 单级，**Fmax 无影响**。
 
-- **怎么验证能红**：新建 `tb/w3c/tb_tlc5916_bank_seq.sv`：`pattern = 24'hA5_3C_0F`，在 `led_le_o` 上升沿抓 8 位串行字节并记 `dut.chip_sel`，断言三个字节依次 `== {chip0_out, chip1_out, chip2_out}`（= `F0/3C/95`）。
+- **怎么验证能红**：新建 「tb/w3c/tb_tlc5916_bank_seq.sv」（历史计划路径，当前未提供）：`pattern = 24'hA5_3C_0F`，在 `led_le_o` 上升沿抓 8 位串行字节并记 `dut.chip_sel`，断言三个字节依次 `== {chip0_out, chip1_out, chip2_out}`（= `F0/3C/95`）。
   **对未修的 RTL 必须红**（我已实测 `f0/f0/95`）。⛔ 现有 `tb_tlc5916_bank.sv` **抓不到**（见 P0-4）。
 
 ---
@@ -599,7 +599,7 @@ end
   代价 = (b) ≈ **6~8 LUT**；(a) 0 LUT 但 384 FF 带复位。
   ⚠️ 对 Fmax：`rd_addr(4 FF) → 比较器 → mux → rd_data(24 FF)` 是 1~2 级 LUT，**远短于 18.181 ns**，属噪声级。
 
-- **怎么验证能红**：把 `build/anvil11-probe/tb_anvil11_ws_probe.sv` 提升为正式 `tb/w3a/tb_ws2812_partial.sv`（只写 LED0..6 + `chk_xprop`）。
+- **怎么验证能红**：把 `build/anvil11-probe/tb_anvil11_ws_probe.sv` 提升为正式 「tb/w3a/tb_ws2812_partial.sv」（历史计划路径，当前未提供）（只写 LED0..6 + `chk_xprop`）。
   未修 ⇒ `x_cnt = 13391`（我已实测）；修后 ⇒ `x_cnt = 0`。
 
 ---
@@ -931,7 +931,7 @@ end
 
 ### P2-6 · `ws2812_driver` 是六个灯模块里唯一没有参数自检的
 
-- **位置**：`rtl/w3c/ws2812_driver.v`（**全文无 `initial` 块**）· 对照 `led_indicator.v:80-87`、`led_data.v:110-115`、`tlc5916_bank.sv:270-277`、`tlc5916_driver.sv:91-98`
+- **位置**：`rtl/w3a/ws2812_driver.v`（**全文无 `initial` 块**）· 对照 `led_indicator.v:80-87`、`led_data.v:110-115`、`tlc5916_bank.sv:270-277`、`tlc5916_driver.sv:91-98`
 
 - **代码**：
 

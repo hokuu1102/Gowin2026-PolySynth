@@ -277,7 +277,7 @@ wire signed [PHASE_W-1:0] vib_off = vib_mul_r >>> 15;
 | 项 | 结果 |
 |---|---|
 | 改动文件 | `rtl/w3b/oscillator_bank.v`（新输入 `phase_raw_i` + Z-safe + 鼓分类）· `rtl/w3b/note_manager.v`（新输出 `voice_phase_raw_o` + 模块级 `gen_pack` 打包）· `rtl/top.v`（接线 `nm_phase_raw`）· `tb/models/oscillator_bank_ref.v`（⭐ 同步，⛔ 否则逐位等价假红） |
-| ⭐ 新判据 | `tb/w3b/tb_osc_drum_raw.sv` —— **4/4 PASS**：<br>· `A1`：`base=嗵鼓档(12M)`、`raw=底鼓档(8M)` ⇒ ⭐ **`is_kick=1`**（⭐ 按原始相位判 ✅）<br>· `A2`：`raw=Z`（悬空）⇒ ⭐ **回退 `base`** ⇒ `is_kick=0`/`is_tom=1`（⭐ Z-safe 向后兼容 ✅） |
+| ⭐ 新判据 | 「tb/w3b/tb_osc_drum_raw.sv」（历史引用，当前未收录） —— **4/4 PASS**：<br>· `A1`：`base=嗵鼓档(12M)`、`raw=底鼓档(8M)` ⇒ ⭐ **`is_kick=1`**（⭐ 按原始相位判 ✅）<br>· `A2`：`raw=Z`（悬空）⇒ ⭐ **回退 `base`** ⇒ `is_kick=0`/`is_tom=1`（⭐ Z-safe 向后兼容 ✅） |
 | ⭐ 反向验证 | 去掉修法（`bv_drum = bv`）⇒ **A1/A1b 两条 FAIL**（2 pass / 2 fail）✅<br>还原后**逐字节一致** ⇒ **4/4 复绿** ✅ |
 | 零回归 | ⭐ 老 tb **一个都没改**：`tb_p5_osc_equiv`（逐位等价）· `tb_oscillator_bank` · `tb_drum_pitch_env` · `tb_transpose` · `tb_note_manager`(4/4) · `tb_sustain_pedal_wire` · `tb_right_adc` · `tb_top_m0` ⇒ **全绿** ✅ |
 

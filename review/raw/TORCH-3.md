@@ -258,7 +258,7 @@ wire       fault_any_w;
 - ⚠️ 风险点：`tlc5916_driver` 的 K-66 恢复序列**依赖复位后的固定相位**，`debounce`/`calib` 不涉及，故**无连带**。
 
 **怎么验证能红**：
-新增 `tb/cdc/tb_reset_release_order.sv`（或加进 `tb/top/tb_top_m0.sv`）：
+新增 「tb/cdc/tb_reset_release_order.sv」（历史计划路径，当前未提供）（或加进 `tb/top/tb_top_m0.sv`）：
 1. 用 `rand` 让 `rst_n` 的释放沿**相对 `clk_sys` 随机偏移 0..19 ns**（跑 200 个种子）；
 2. 释放后第 3 拍，断言**下列模块的所有状态 FF 全部处于复位初值**（用 `$isunknown` + 初值比对）：
    `u_timbre_btn_debounce.key_level` · `u_pedal_sus_debounce.key_level` · `g_sound.u_calib0.zero_r` ·
@@ -327,7 +327,7 @@ wire       fault_any_w;
 assert (u_evt_uart_rx.frame_cnt_o == 0)   // 未修复 ⇒ == 8 ⇒ 红
 assert (u_evt_uart_rx.hdr_err_cnt_o >= 8) // 未修复 ⇒ == 0 ⇒ 红（说明 0xA5 被当成了帧头）
 ```
-再加一条端到端判据（`tb/top/tb_e2e_key_to_sound.sv` 家族）：
+再加一条端到端判据（`tb/e2e/tb_e2e_key_to_sound.sv` 家族）：
 注入伪事件后发同轴的 `live` `note_off`，断言 `u_note_manager.gate_r` 对应位**归 0**。
 **未修复**：恒 1 ⇒ 红（这就是"挂音"的机器判据）。
 
@@ -891,7 +891,7 @@ $paths = Get-Content impl/pnr/Gowin2026.timing_paths
 # 当前 min = 0.102 ⇒ 红（< 1.0）
 # 另：required 必须 == 18.181（±0.01）⇒ 当前 = 22.274 ⇒ 红（约束未覆盖）
 ```
-② 行为判据：`tb/w3b/tb_note_manager_t3.sv` 家族必须证明"插流水后变调值**逐位不变**，只是晚 1 拍"。
+② 行为判据：「tb/w3b/tb_note_manager_t3.sv」（历史引用，当前未收录） 家族必须证明"插流水后变调值**逐位不变**，只是晚 1 拍"。
 
 ---
 
@@ -1437,7 +1437,7 @@ set_output_delay -clock clk_sys -max 50.0 -min -50.0 [get_ports {ctrl_ws_o}]
 
 **怎么验证能红**：
 1. **静态**：断言 `uart_tx_fifo.push_i` 的驱动源必须是寄存器（当前是 `rep_req | ...` 组合 ⇒ **红**）。
-2. **动态**：`tb/w3a/tb_span_axis_over_uart.sv` / `tb/w3c/tb_uart_calib_chain.sv`（均**已存在**）
+2. **动态**：`tb/w3a/tb_span_axis_over_uart.sv` / `tb/w3a/tb_uart_calib_chain.sv`（均**已存在**）
    断言回包字符序列**逐字节不变**（打一拍不改序列，只改时间）⇒ 未修复与已修复**都应绿**，
    故**这条的判据是"序列不变 + 静态检查"**，⛔ 不能靠行为 tb 抓。
 
