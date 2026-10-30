@@ -26,8 +26,35 @@ module tb_top_dump_atomic;
     assign miso[5:2]=4'b1111;
     wire rx_done;
     wire [7:0] rx_data;
-    uart_rx #(.BAUD_DIV(100)) monitor(.clk_i(clk),.rst_n_i(rst_n),.rx_i(board_tx),
+    //  ⭐ 2026-10-28 改档：⭐ 板载 TX 已是 115200 ⇒ 监听器同步改 434 ✅
+    uart_rx #(.BAUD_DIV(434)) monitor(.clk_i(clk),.rst_n_i(rst_n),.rx_i(board_tx),
         .rx_data_o(rx_data),.rx_done_o(rx_done));
+    //  ⭐⭐ 镜像判据改为【字节流】级（⛔ 不再逐拍比波形）✅
+    //     🔴 板载口改 115200（434）后两口速率不同 ⇒ 波形必然不同
+    //        ⇒ 旧 `board_tx!==esp_tx` 逐拍比较必红（⛔ 不是功能坏了）
+    //     ✅ 新口径：⭐ ESP 口另配 500 k（100）解码器，逐字节比对 ✅
+    wire esp_rx_done;
+    wire [7:0] esp_rx_data;
+    uart_rx #(.BAUD_DIV(100)) esp_monitor(.clk_i(clk),.rst_n_i(rst_n),.rx_i(esp_tx),
+        .rx_data_o(esp_rx_data),.rx_done_o(esp_rx_done));
+    integer mirror_cnt_b=0, mirror_cnt_e=0;
+    reg [7:0] mirror_b [0:255];
+    reg [7:0] mirror_e [0:255];
+    always @(posedge clk) if(rst_n) begin
+        if(esp_rx_done) begin
+            if(mirror_cnt_e<256) mirror_e[mirror_cnt_e]=esp_rx_data;
+            mirror_cnt_e=mirror_cnt_e+1;
+        end
+        if(rx_done) begin
+            if(mirror_cnt_b<256) mirror_b[mirror_cnt_b]=rx_data;
+            mirror_cnt_b=mirror_cnt_b+1;
+            if(mirror_cnt_e < mirror_cnt_b)
+                $fatal(1,"FAIL: UART mirrors disagree (ESP missing byte %0d)",mirror_cnt_b-1);
+            else if(mirror_b[mirror_cnt_b-1]!==mirror_e[mirror_cnt_b-1])
+                $fatal(1,"FAIL: UART mirrors disagree (byte %0d board=%02h esp=%02h)",
+                       mirror_cnt_b-1,mirror_b[mirror_cnt_b-1],mirror_e[mirror_cnt_b-1]);
+        end
+    end
     //  ⭐⭐ 控制板 4x4 矩阵（⭐ 2026-10-17 新增 idx 13「loop 发送」判据 ✅）
     //     📌 `top` 的 `ctrl_row_o` / `ctrl_col_i` **没有默认值**
     //        ⇒ ⭐ 原 tb 把它们**完全悬空**
@@ -84,7 +111,6 @@ module tb_top_dump_atomic;
         $fdisplay(trace_fd,"%b%b%b%b%b%b%b%b",board_tx,esp_tx,cs,sck,mosi,
                   dut.HP_BCK,dut.HP_WS,dut.HP_DIN);
     always @(posedge clk) if(rst_n) begin
-        if(board_tx!==esp_tx) $fatal(1,"FAIL: UART mirrors disagree");
         if(capture && rx_done) begin
             if(count<256) bytes[count]=rx_data;
             count=count+1;
@@ -93,9 +119,10 @@ module tb_top_dump_atomic;
     task send(input [7:0] b);
         integer k;
         begin
-            @(negedge clk);command_rx=0;repeat(100) @(negedge clk);
-            for(k=0;k<8;k=k+1) begin command_rx=b[k];repeat(100) @(negedge clk);end
-            command_rx=1;repeat(150) @(negedge clk);
+            //  115200 board UART: 434 clk/bit (2026-10-28 re-baud, tb adapted)
+            @(negedge clk);command_rx=0;repeat(434) @(negedge clk);
+            for(k=0;k<8;k=k+1) begin command_rx=b[k];repeat(434) @(negedge clk);end
+            command_rx=1;repeat(650) @(negedge clk);
         end
     endtask
     integer i;
@@ -117,7 +144,8 @@ module tb_top_dump_atomic;
         //     📌 ⭐ 实测（⭐ dump 出来的字节）：⭐ 40000 拍时 count=45 =
         //        28 帧 ＋ 14 尾 ＋ 3 拒绝 ⇒ ⭐ **正好缺那 11 字节的探针回复** ✅
         send("Y");send("P");send("L");send("R");send("C");send("E");
-        repeat(200000) @(negedge clk);
+        repeat(350000) @(negedge clk);
+        //  ⭐ 53 字节 @ 115200 ≈ 230020 拍 ⇒ 2026-10-28 改档后从 200000 放大 ✅
         //  ⭐⭐ 2026-10-14：⭐ **帧宽 9 B → 14 B ⇒ dump 帧之后的偏移全部 +10** ✅
         //     📌 旧账：2×9 = 18 帧字节 ＋ 14 尾 ＋ 11 探针 = **43**
         //     📌 新账：2×14 = 28 帧字节 ＋ 14 尾 ＋ 11 探针 = **53** ✅
@@ -145,7 +173,7 @@ module tb_top_dump_atomic;
             probe_value=probe_value*10+bytes[i]-"0";
         end
         if(probe_value<2103 || probe_value>2110) $fatal(1,"FAIL: deferred probe snapshot %0d",probe_value);
-        count=0;send("Y");repeat(40000) @(negedge clk);
+        count=0;send("Y");repeat(200000) @(negedge clk);
         if(count<32) $fatal(1,"FAIL: R/L/C changed layer while exporting");
         //  ⭐⭐ 2026-10-14：⭐ **只比"事件内容"，⛔ 不比传输层的 `seq` 与 XOR** ✅
         //     🔴 **为什么**：⭐ `seq` 是**自由运行计数器**（⭐ 每次导出继续递增）
@@ -191,10 +219,10 @@ module tb_top_dump_atomic;
         //     ⇒ ⭐ 实测字节 `[0]=33 [1]=0a [2]=21`（⭐ `"3\n"` ＋ `'!'` ✅）
         //     ✅ **修法**：⭐ 先空转 100000 拍让上一次导出**彻底发完** ✅
         // ═══════════════════════════════════════════════════════════════════
-        repeat(100000) @(negedge clk);       // ⭐ drain 上一次导出（⛔ 别让 rd_lock 伪拒绝 ✅）
+        repeat(250000) @(negedge clk);       // ⭐ drain 上一次导出（42 B × 4340 拍/B ≈ 182k，改档后从 100000 放大）
         count=0;                             // ⭐ 现在才从零开始数 ✅
         press_idx(13);                       // ⭐ 列 1 / 行 3（⭐ 短按即发 ✅）
-        repeat(80000) @(negedge clk);        // ⭐ 42 B × 1000 拍/B ≈ 42000 ⇒ 留余量 ✅
+        repeat(250000) @(negedge clk);        // ⭐ 42 B × 4340 拍/B ≈ 182k ⇒ 留余量 ✅
         release_all_idx;
         //  ⭐ 必须 ≥ 42 = 2 帧 × 14 B ＋ 14 B footer（⭐ 与第一次 `'Y'` 的布局**逐项相同** ✅）
         //     ⚠️ 这里**没有**再发 `'P'`/`'L'`/`'R'`/`'C'`
@@ -219,6 +247,9 @@ module tb_top_dump_atomic;
             for(i=0;i<16;i=i+1) $display("    [%0d] = %02h", i, bytes[i]);
             $fatal(1,"FAIL: bytes appeared AFTER idx 13 was released (it must be edge, not level)");
         end
+        if(mirror_cnt_b!=mirror_cnt_e)
+            $fatal(1,"FAIL: UART mirrors disagree (byte counts %0d vs %0d)",
+                   mirror_cnt_b,mirror_cnt_e);
         $display("PASS: real Hall recording, atomic dual UART export, deferred P, rejected R/L/C, unchanged re-export, and key idx 13 (loop send) driving a byte-identical real export");
         $finish;
     end
@@ -227,5 +258,5 @@ module tb_top_dump_atomic;
     //        `100000` 拍 drain ＋ `800` 拍按键 ＋ `80000` 拍等导出 ＋ `60000` 拍验"不连发"
     //     ⚠️ 上限仍是**充裕**的：⭐ 记录态跑完约 11.4M 拍（⭐ 见原 PASS 的时间戳）
     //        ⇒ ⭐ 45M 留 ~3.5 倍余量（⛔ 不放松到"永不触发"✅）
-    initial begin #45000000;$fatal(1,"FAIL: top dump watchdog");end
+    initial begin #90000000;$fatal(1,"FAIL: top dump watchdog");end
 endmodule

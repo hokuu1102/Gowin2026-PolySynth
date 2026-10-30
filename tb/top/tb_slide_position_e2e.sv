@@ -71,13 +71,26 @@ module tb_slide_position_e2e;
     task command(input [7:0] b);
         integer j;
         begin
-            @(negedge clk);rx=0;clocks(100);
-            for(j=0;j<8;j=j+1) begin rx=b[j];clocks(100);end
-            rx=1;clocks(200);
+            @(negedge clk);rx=0;clocks(434);
+            for(j=0;j<8;j=j+1) begin rx=b[j];clocks(434);end
+            rx=1;clocks(868);
         end
     endtask
     task keys(input [7:0] m,input [11:0] d);
-        begin @(negedge clk);mask=m;depth=d;end
+        begin
+            //  ⭐⭐ 2026-10-28 改档补齐：⭐ **对齐帧边界**再改 mask/depth ✅
+            //     🔴 **为什么**：⭐ 板载口 500k→115200 ⇒ `command()` 多花 ~7.4k 拍
+            //        ⇒ `keys()` 相对 ADC 扫描相位的落点平移，恰好落进帧内
+            //          **ch6 与 ch7 的扫描间隙** ⇒ A 离开/B 形成被撕进相邻两帧
+            //          （B 先 A 后，顺序与真实滑音相反）⇒ `ee_slide_v` 永不出
+            //          （⚠️ 之后帧全稳态，等多久都不触发；⛔ 不是 RTL 缺陷 ✅）
+            //     ✅ **修法**：⭐ 等 `as_valid` 帧边界再改值 ⇒ 两通道【同帧原子反映】
+            //        （⭐ 诊断副本实测：对齐后 f=24 出滑音脉冲、middle 进入内部音高 ✅）
+            //     ⚠️ 诊断副本与逐帧证据见 `sim/diag/tb_slide_diag.sv` ✅
+            wait(u_top.g_sound.as_valid===1'b1);
+            @(negedge clk);mask=m;depth=d;
+            @(negedge clk);
+        end
     endtask
     task find_owner;
         begin
@@ -127,5 +140,5 @@ module tb_slide_position_e2e;
         $display("PASS: real UART/SPI/comparator slide-to-I2S path, %0d checks",checks);
         $finish;
     end
-    initial begin clocks(220000);$fatal(1,"FAIL: bounded slide e2e watchdog");end
+    initial begin clocks(500000);$fatal(1,"FAIL: bounded slide e2e watchdog");end
 endmodule

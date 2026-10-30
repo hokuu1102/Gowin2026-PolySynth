@@ -57,10 +57,10 @@ module tb_key_drum;
     reg rst_n = 1'b0;
     always #10 clk = ~clk;          // ⭐ 50 MHz
 
-    // ── ⭐ 串口（⭐ 500 kbaud ⇒ 100 clk/bit）─────────────────────────────
+    // ── ⭐ 串口（⭐ 115200 ⇒ 434 clk/bit；⭐ 2026-10-28 板载口改档，tb 同步适配）──
     localparam integer CLK_HZ      = 50_000_000;
-    localparam integer BAUD        = 500_000;
-    localparam integer CLK_PER_BIT = CLK_HZ / BAUD;      // = 100
+    localparam integer BAUD        = 115_200;
+    localparam integer CLK_PER_BIT = 434;                 // = 50M/115200（⭐ 收发同档）
 
     reg  uart_rx_line = 1'b1;       // ⭐ 空闲高
     wire uart_tx_line;

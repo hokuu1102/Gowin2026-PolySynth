@@ -110,16 +110,17 @@ module tb_top_ctrl_wire;
         end
     endtask
 
-    //  ⭐ 真 UART 发一个字节（⭐ 与 `tb_top_scope_live` 同一套：100 拍/位 ✅）
+    //  ⭐ 真 UART 发一个字节（⭐ 与 `tb_top_scope_live` 同一套：434 拍/位 = 115200 ✅）
+    //     📌 2026-10-28 板载口改档 ⇒ tb 同步适配
     task send_byte;
         input [7:0] cmd;
         integer bi;
         begin
-            @(negedge clk); rx = 1'b0; repeat (100) @(negedge clk);
+            @(negedge clk); rx = 1'b0; repeat (434) @(negedge clk);
             for (bi = 0; bi < 8; bi = bi + 1) begin
-                rx = cmd[bi]; repeat (100) @(negedge clk);
+                rx = cmd[bi]; repeat (434) @(negedge clk);
             end
-            rx = 1'b1; repeat (150) @(negedge clk);
+            rx = 1'b1; repeat (650) @(negedge clk);
         end
     endtask
 

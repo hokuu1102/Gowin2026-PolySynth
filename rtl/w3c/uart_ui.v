@@ -54,13 +54,18 @@ module uart_ui #(
     //  ⚠️ **本参数的"默认值"与"交付取值"不是一回事**（⭐ 2026-10-15 澄清）：
     //     · ⭐ 模块默认 = **1000000**（1 Mbps）—— ⭐ 只有本模块的 **tb** 用它
     //       （⭐ `tb/w3c/tb_uart_ui.sv:22` 传 `BAUD=1000000`，⭐ 且 `CLK_HZ` 也由它给）
-    //     · ⭐ **交付实传 = 500000**（500 kbps）—— ⭐ 见 `top.v` 的 `uart_ui` 例化
-    //       （⭐ `.BAUD(500_000)`，⭐ 与 `uart_rx.BAUD_DIV=100` 同档 ✅）
-    //     🔴 **⛔ 不要照着"默认 1e6"去配 `uart_rx`** —— ⚠️ 上板走的是 `top.v` 传的 500 k
+    //     · ⭐ **交付实传 = 115200** —— ⭐ 见 `top.v` 的 `uart_ui` 例化
+    //       （⭐ `.BAUD(115_200)`，⭐ 与 `uart_rx.BAUD_DIV=434` 同档 ✅
+    //        🔴 2026-10-28 板载口 500 kbps → 115200 —— ⭐ 串口屏 TJC 不支持 500000 档 ✅）
+    //     🔴 **⛔ 不要照着"默认 1e6"去配 `uart_rx`** —— ⚠️ 上板走的是 `top.v` 传的 115200
     //        （⭐ 原注释只写"1 Mbps = 1000000（默认）"，⭐ 容易让人以为交付就是 1 Mbps）✅
     parameter integer BAUD = 1000000,
     // ⭐ 空闲归位阈值（单位：字节时间）。> 1，取 16（对齐 evt_uart_rx 的 GAP_BYTES）
     parameter integer GAP_BYTES = 16,
+    //  ⭐⭐ 2026-10-29：⭐ **心跳周期**（单位：ms，⭐ 喂屏侧看门狗 `tm1`）
+    //     📌 交付取值 1000ms（⭐ 屏侧 `tm1` 周期 1500ms ⇒ 500ms 余量）；
+    //        ⭐ tb 用小值加速（⭐ `tb_uart_ui.sv` 传 1ms）⇒ ⛔ 判据不依赖真实手感 ✅
+    parameter integer HB_MS = 1000,
     // ⭐⭐ **2026-09-27 新增：⭐ 上电默认模式**
     //   · 0 => ⭐ **指板模式**（轴事件只"选音"，⭐ 必须拨弦才发声）
     //   · 1 => ⭐ **钢琴模式**（轴事件直接发声，**⛔ 不需要拨弦**）
@@ -133,6 +138,54 @@ module uart_ui #(
     output reg         test_mode_o,        // ⭐ Test Mode 使能（1 = 进入）
     output reg  [1:0]  test_mode_n_o,      // ⭐ 分档（00/01/10/11 = 4/8/16/32）
     output reg         test_mode_commit_o, // ⭐ 切档提交（单周期脉冲）
+
+    // ── ⭐ 音色循环请求（⭐ 丙 · 2026-10-30）────────────────────────────────
+    //   🔴 **为什么要加**：⭐ `t_timbre`（BASS/GUITAR/PIANO/PAD）在屏上是
+    //      32px 大字看似主控件，但原来**屏上没有任何按钮能切音色**——
+    //      入口只有板载 S2 按键和调试串口 'I' ⇒ 🔴 屏侧闭环缺一环 ✗
+    //   ✅ **现在**：⭐ 触摸控件 3 = 音色循环请求（单周期脉冲）
+    //      ⭐ 真正的 `timbre_sel_r` 在 `top.v`（2 位自然回绕 0→1→2→3→0），
+    //      本模块只发脉冲 ⛔ 不存音色值 —— 📌 与 'I'/S2 **并联**（或）✅
+    //   📌 **回显自动闭环**：⭐ 回显 FSM 只盯 `st_timbre_i` 的值变化挂帧
+    //      （uart_ui.v 变化检测段），无论变化来自屏触摸 / 'I' / S2 ⇒
+    //      ⭐ 本入口加上后 t_timbre 文字切换**零额外回显代码** ✅
+    output reg         timbre_req_o,       // ⭐ 音色循环请求（单周期脉冲）
+
+    // ── ⭐⭐ page0 控制面板化：11 个触摸控件脉冲（⭐ 丙 · 2026-10-31）──────────
+    //   🔴 **为什么要加**：⭐ page0 上 t_slide/t_drum/t_kd/t_trans/t_loop/
+    //      t_gear/t_bpm 原来都只是**文字显示**（回显）⇒ 🔴 屏上**没有入口**
+    //      能改它们（只有调试串口 'W'/'D'/'K'/'F'/'G'/'R'/'L'/'C'/'J'/'Q'）✗
+    //   ✅ **现在**：⭐ 每个字段右端叠放一个热区按钮，点按发 `65 00 <id>`
+    //      帧 ⇒ 本模块发**单周期脉冲**，top.v 里与对应 `cmd_*_req`
+    //      **并联**（或），与调试串口命令**完全同一条下游路径** ✅
+    //   📌 **回显自动闭环**：⭐ 回显 FSM 只盯 `st_*_i` 值变化挂帧，
+    //      无论变化来自屏触摸 / 调试串口 ⇒ ⭐ **零额外回显代码** ✅
+    //
+    //   📌 **控件 ID 分配**（⭐ 与 tb / 搭建清单 v3 三方对齐）：
+    //   | id | 控件 | 按钮 | 对应调试命令 | 下游寄存器 |
+    //   |----|------|------|--------------|------------|
+    //   | 4  | 滑音开/关   | b_slide  | 'W' | top.v slide_en_r |
+    //   | 5  | 鼓机节奏下一 | b_drum   | 'D' | drum_pat_r |
+    //   | 6  | 键盘打鼓开关 | b_kd     | 'K' | kd_active_r |
+    //   | 7  | 移调 +1 半音 | b_tr_up  | 'F' | trans_semi_r |
+    //   | 8  | 移调 -1 半音 | b_tr_dn  | 'G' | trans_semi_r |
+    //   | 9  | 循环录音     | b_rec    | 'R' | looper rec |
+    //   | 10 | 循环播放     | b_play   | 'L' | looper play |
+    //   | 11 | 循环清空     | b_clear  | 'C' | looper clear |
+    //   | 12 | 推子档位下一 | b_gear   | 'J' | gear_r（1..5 循环）|
+    //   | 13 | BPM +5      | b_bpm_up | 'Q'+val | bpm shadow |
+    //   | 14 | BPM -5      | b_bpm_dn | 'Q'+val | bpm shadow |
+    output reg         slide_req_o,        // ⭐ 控件 4：滑音开/关（单周期脉冲）
+    output reg         drum_req_o,         // ⭐ 控件 5：鼓机节奏型下一（单周期脉冲）
+    output reg         kd_req_o,           // ⭐ 控件 6：键盘打鼓开/关（单周期脉冲）
+    output reg         trans_up_req_o,     // ⭐ 控件 7：移调 +1 半音（单周期脉冲）
+    output reg         trans_dn_req_o,     // ⭐ 控件 8：移调 -1 半音（单周期脉冲）
+    output reg         loop_rec_req_o,     // ⭐ 控件 9：循环录音请求（单周期脉冲）
+    output reg         loop_play_req_o,    // ⭐ 控件 10：循环播放请求（单周期脉冲）
+    output reg         loop_clear_req_o,   // ⭐ 控件 11：循环清空请求（单周期脉冲）
+    output reg         gear_req_o,         // ⭐ 控件 12：推子档位下一（单周期脉冲）
+    output reg         bpm_up_req_o,       // ⭐ 控件 13：BPM +5（单周期脉冲）
+    output reg         bpm_dn_req_o,       // ⭐ 控件 14：BPM -5（单周期脉冲）
 
     // ── ⭐⭐ 效果器运行时参数（⭐ 2026-10-15 实装，⛔ 不再是"留位恒 0"）──────────
     //   🔴 **为什么要改**：⭐ 原来 `fx_en_o`/`fx_sel_o` **恒 0**，而 `top.v` 的
@@ -211,6 +264,40 @@ module uart_ui #(
     //     ✅ 三个计数器全部接出来（⭐ `top.v` 已把它 OR 进回读帧的观测点 ✅）
     output reg  [15:0] zfs_req_cnt_o,    // ⭐ 已受理的回读请求数（饱和）
     output reg  [15:0] zfs_drop_cnt_o,   // ⭐ 因上一帧未发完而【挂起】的次数（饱和）
+
+    // ── ⭐⭐ 2026-10-29：⭐ Page0 状态回显输入（⭐ 只读，全部来自 top.v 模块层信号）──
+    //   ⭐ 控件号/文案严格按《USART-HMI搭建清单-Page0-20261028.md》✅
+    //   ⚠️ **全部 Z-safe**：⭐ 老 tb 不接新端口 ⇒ 输入 `z` ⇒ 一律取"默认值"
+    //      （⭐ = 信号复位值）⇒ 镜像与输入恒相等 ⇒ ⛔ 不产生伪回显帧 ⇒ **零回归** ✅
+    //   📌 单比特沿用项目既有约定 `=== 1'b1`（z/x 当假）；多比特用 `=== N'bz`（悬空=全 z）✅
+    input  wire [7:0]  st_bpm_i,     // ⭐ play_seq.bpm_o（t_bpm 巨字，复位 120）
+    input  wire [1:0]  st_timbre_i,  // ⭐ timbre_sel_r（t_timbre：0=BASS/1=GUITAR/2=PIANO/3=PAD）
+    input  wire [4:0]  st_trans_i,   // ⭐ transpose_semi（t_trans，⚠️ 有符号 −12..+12）
+    input  wire        st_slide_i,   // ⭐ slide_on_r（t_slide：开启/关闭）
+    input  wire [1:0]  st_drum_i,    // ⭐ drum_pattern_r（t_drum：I/II/III/IV）
+    input  wire        st_kd_i,      // ⭐ key_drum_r（t_kd：键盘打鼓开/关）
+    input  wire [1:0]  st_loop_i,    // ⭐ led_looper_st（t_loop：0=空闲/1=录音/2=回放/3=武装中）
+    input  wire [6:0]  st_vol_i,     // ⭐ 主音量百分比 0..100（t_vol + j_vol.val）
+    input  wire        st_pedal_i,   // ⭐ sus_pedal_r（t_pedal：踩下使能/松开）
+    input  wire [1:0]  st_gear_i,    // ⭐ led_gear_st（t_gear：0=变调/1=音高颤音/2=音量颤音/3=无）
+    input  wire [1:0]  st_scope_i,   // ⭐ scope_mode_r（t_hdmi：0=波形/1=李萨如/2=频谱）
+    input  wire [6:0]  st_pvib_i,    // ⭐ 音高颤音深度百分比（t_pd + z_pd.val）
+    input  wire [6:0]  st_vvib_i,    // ⭐ 音量颤音深度百分比（t_vd + z_vd.val）
+    input  wire [2:0]  st_fxmask_i,  // ⭐ ui_fx_mask[2:0]（t_dist_st/t_chor_st/t_dly_st）
+
+    // ── ⭐⭐ 2026-10-29：⭐ EC11 参数旋钮【写回】（缺口4）────────────────────────
+    //   🔴 **背景**：⭐ EC11 的 `enc_par_up/dn` 原来只发 `'E'` 反馈帧、⛔ **不写 fx 寄存器**
+    //      ⇒ ⭐ 旋了半天屏上/链路上**什么都没变** ⇒ 🔴 典型 K-106 形态 ✗
+    //   ⭐ **修法**：⭐ 把 EC11 的"选参 + 步进"直接接进本模块的 fx 寄存器
+    //      （⭐ 与串口 `0x11..0x18` 帧**写同一组寄存器** ⇒ 后写者胜，⛔ 无仲裁 ✅）
+    //   📌 参数号与 uart_ui 变量号**一一对齐**（0x11..0x18 − 0x11 = 0..7）：
+    //      | 0=gain · 1=trim · 2=mix · 3=fb · 4=depth · 5=rate · 6=dlylen · 7=chorlen |
+    //   📌 步进粒度 = **串口帧可达的最小格点**（⭐ 保证 EC11 调完还能用串口帧复原 ✅）：
+    //      gain/trim ±256（=1 个字节档）· mix/fb/depth/rate ±1 · dlylen ±128 · chorlen ±32
+    //   ⚠️ 全部**限幅到串口帧可达范围**（⭐ 0..254 字节域 / 0x17 的 127 档 / 0x18 的 63 档）✅
+    input  wire [2:0]  par_sel_i,    // ⭐ EC11 选中的参数号 0..7（电平）
+    input  wire        par_up_i,     // ⭐ +1 步进（单周期脉冲）
+    input  wire        par_dn_i,     // ⭐ −1 步进（单周期脉冲）
 
     // ── ⭐ 可观测性（`K-106`）────────────────────────────────────────────
     output reg  [15:0] frame_cnt_o,        // ⭐ 成功解析的返回帧数（饱和）
@@ -292,6 +379,33 @@ module uart_ui #(
     wire idle_expired = (idle_q >= GAP_CLK);
 
     // ═══════════════════════════════════════════════════════════════════════
+    // ③b  ⭐⭐ 2026-10-29：Page0 回显输入 / EC11 写回输入的 **Z-safe 接线** ✅
+    //   🔴 **为什么**：⭐ 老 tb 不接这批新端口 ⇒ 输入是 `z` ⇒
+    //      ⚠️ 直接 `==` 比较会把 `z` 当 `x` 传播进回显镜像 ⇒ 🔴 伪帧/不定态 ✗
+    //   ✅ **修法**：⭐ 单比特 `=== 1'b1`（z/x 当假）；多比特 `=== N'bz` 判悬空 ⇒
+    //      ⭐ 悬空一律取「信号复位值」（⭐ 与端口注释的默认值表**逐项对齐**）⇒
+    //      ⭐ 镜像初值 = 同一复位值 ⇒ ⛔ 不产生伪回显帧 ⇒ **零回归** ✅
+    //   📌 `par_sel_c` 悬空取 0 无害：⭐ up/dn 脉冲悬空恒假 ⇒ 写回分支进不去 ✅
+    // ═══════════════════════════════════════════════════════════════════════
+    wire [7:0]  st_bpm_c    = (st_bpm_i    === 8'bz) ? 8'd120 : st_bpm_i;   // 复位 120
+    wire [1:0]  st_timbre_c = (st_timbre_i === 2'bz) ? 2'd0   : st_timbre_i;
+    wire [4:0]  st_trans_c  = (st_trans_i  === 5'bz) ? 5'd0   : st_trans_i;
+    wire        st_slide_c  = (st_slide_i  === 1'b1);
+    wire [1:0]  st_drum_c   = (st_drum_i   === 2'bz) ? 2'd0   : st_drum_i;
+    wire        st_kd_c     = (st_kd_i     === 1'b1);
+    wire [1:0]  st_loop_c   = (st_loop_i   === 2'bz) ? 2'd0   : st_loop_i;
+    wire [6:0]  st_vol_c    = (st_vol_i    === 7'bz) ? 7'd0   : st_vol_i;
+    wire        st_pedal_c  = (st_pedal_i  === 1'b1);
+    wire [1:0]  st_gear_c   = (st_gear_i   === 2'bz) ? 2'd1   : st_gear_i;   // 复位档 1
+    wire [1:0]  st_scope_c  = (st_scope_i  === 2'bz) ? 2'd0   : st_scope_i;
+    wire [6:0]  st_pvib_c   = (st_pvib_i   === 7'bz) ? 7'd0   : st_pvib_i;
+    wire [6:0]  st_vvib_c   = (st_vvib_i   === 7'bz) ? 7'd0   : st_vvib_i;
+    wire [2:0]  st_fxmask_c = (st_fxmask_i === 3'bz) ? 3'd0   : st_fxmask_i;
+    wire        par_up_c    = (par_up_i    === 1'b1);
+    wire        par_dn_c    = (par_dn_i    === 1'b1);
+    wire [2:0]  par_sel_c   = (par_sel_i   === 3'bz) ? 3'd0   : par_sel_i;
+
+    // ═══════════════════════════════════════════════════════════════════════
     // ④ 空闲计时器
     // ═══════════════════════════════════════════════════════════════════════
     always @(posedge clk_i) begin
@@ -336,6 +450,19 @@ module uart_ui #(
             test_mode_o  <= 1'b0;          // ⭐ A1：上电默认关（⛔ 不打扰正常演奏）
             test_mode_n_o<= 2'b00;         // ⭐ 关后首档 = 4 voices
             test_mode_commit_o <= 1'b0;
+            timbre_req_o <= 1'b0;           // ⭐ 2026-10-30：音色循环脉冲复位清零
+            //  ⭐ 2026-10-31：page0 控制面板 11 个脉冲复位清零
+            slide_req_o     <= 1'b0;
+            drum_req_o      <= 1'b0;
+            kd_req_o        <= 1'b0;
+            trans_up_req_o  <= 1'b0;
+            trans_dn_req_o  <= 1'b0;
+            loop_rec_req_o  <= 1'b0;
+            loop_play_req_o <= 1'b0;
+            loop_clear_req_o<= 1'b0;
+            gear_req_o      <= 1'b0;
+            bpm_up_req_o    <= 1'b0;
+            bpm_dn_req_o    <= 1'b0;
             //  ⭐⭐ 效果器运行时参数（⭐ 复位值 = **参数传入的初值**）
             //     📌 `top.v` 传的是 `FX_*`（⭐ 默认全关）⇒ **零回归** ✅
             //     📌 队友的 `tb_top_fx_audio` 覆盖 `FX_EN_MASK=8'hFF` ⇒ ⭐ 上电即全开 ✅
@@ -353,16 +480,27 @@ module uart_ui #(
             resync_cnt_o <= 16'd0;
             err_cnt_o    <= 16'd0;
             hb_ready_o   <= 1'b0;
-            tx_start_o   <= 1'b0;
-            tx_data_o    <= 8'd0;
         end else begin
             // ⭐ 默认：脉冲类输出每拍清零 ⇒ 严格单周期
             mode_commit_o <= 1'b0;
             base_commit_o <= 1'b0;
             test_mode_commit_o <= 1'b0;
+            //  ⭐ 音色循环脉冲：⭐ 默认每拍清零 ⇒ 严格单周期 ✅
+            timbre_req_o <= 1'b0;
+            //  ⭐ 2026-10-31：page0 控制面板 11 个脉冲默认每拍清零 ⇒ 严格单周期 ✅
+            slide_req_o     <= 1'b0;
+            drum_req_o      <= 1'b0;
+            kd_req_o        <= 1'b0;
+            trans_up_req_o  <= 1'b0;
+            trans_dn_req_o  <= 1'b0;
+            loop_rec_req_o  <= 1'b0;
+            loop_play_req_o <= 1'b0;
+            loop_clear_req_o<= 1'b0;
+            gear_req_o      <= 1'b0;
+            bpm_up_req_o    <= 1'b0;
+            bpm_dn_req_o    <= 1'b0;
             //  ⭐ 效果器参数提交脉冲：⭐ 默认每拍清零 ⇒ 严格单周期 ✅
             fx_commit_o   <= 1'b0;
-            tx_start_o    <= 1'b0;
 
             //  ⭐⭐ 2026-10-13：外部模式翻转（串口 'A' 命令 / 控制板模式键）
             //     与屏触摸控件 0 **同一语义**。
@@ -370,6 +508,48 @@ module uart_ui #(
             if (mode_sw_req_i) begin
                 mode_o        <= ~mode_o;
                 mode_commit_o <= 1'b1;
+            end
+
+            //  ⭐⭐ 2026-10-29：EC11 参数旋钮【写回】（缺口4）────────────────
+            //   🔴 **背景**：⭐ EC11 的 `enc_par_up/dn` 原来只发 `'E'` 反馈帧、
+            //      ⛔ **不写 fx 寄存器** ⇒ ⭐ 旋了半天**链路上什么都没变** ⇒
+            //      🔴 典型 K-106「静默失效」形态（⭐ 无法归因）✗
+            //   ✅ **修法**：⭐ 把 EC11 的"选参 + 步进"直接落到与串口帧
+            //      `0x11..0x18` **同一组** fx 寄存器 ⇒ ⭐ 后写者胜、⛔ 无仲裁 ✅
+            //   📌 参数号对齐：`par_sel_c` 0..7 ↔ 串口变量 `0x11..0x18` − 0x11 ✅
+            //   📌 步进粒度 = 串口帧最小格点（⭐ 保证串口帧还能把值**写回来**）：
+            //      · gain/trim ±256（16 位 = `val×256`）· mix/fb/depth/rate ±1
+            //      · dlylen ±128（14 位 = `val×128`）· chorlen ±32（= `val×32`）
+            //   ⚠️ 全部**限幅到串口帧可达范围**（65024 / 254 / 16256 / 2016）✅
+            //   ⚠️ **摆放位置**：⭐ 本段在 `rx_done_i` 解析【之前】⇒
+            //      同拍既有旋钮脉冲又有串口帧 ⇒ 串口帧后执行 ⇒ ⭐ **串口帧胜**
+            //      （⭐ 与上方 `mode_sw_req_i` 的取舍**同款**，⭐ 可接受）✅
+            //   ⚠️ up/dn **同拍** ⇒ ⛔ 互斥丢弃（⭐ 编码器换向抖动不可能同拍；
+            //      `fx_commit_o` 也**不置位** ⇒ ⛔ 不发空提交脉冲）✅
+            if (par_up_c && !par_dn_c) begin
+                case (par_sel_c)
+                    3'd0: fx_gain_o    <= (fx_gain_o    < 16'd64768) ? fx_gain_o + 16'd256 : 16'd65024;
+                    3'd1: fx_trim_o    <= (fx_trim_o    < 16'd64768) ? fx_trim_o + 16'd256 : 16'd65024;
+                    3'd2: fx_mix_o     <= (fx_mix_o     <  8'd254  ) ? fx_mix_o  +  8'd1   :  8'd254;
+                    3'd3: fx_fb_o      <= (fx_fb_o      <  8'd254  ) ? fx_fb_o   +  8'd1   :  8'd254;
+                    3'd4: fx_depth_o   <= (fx_depth_o   <  8'd254  ) ? fx_depth_o + 8'd1   :  8'd254;
+                    3'd5: fx_rate_o    <= (fx_rate_o    <  8'd254  ) ? fx_rate_o +  8'd1   :  8'd254;
+                    3'd6: fx_dlylen_o  <= (fx_dlylen_o  < 14'd16128) ? fx_dlylen_o + 14'd128 : 14'd16256;
+                    default: fx_chorlen_o <= (fx_chorlen_o < 11'd1984) ? fx_chorlen_o + 11'd32 : 11'd2016;
+                endcase
+                fx_commit_o <= 1'b1;    // ⭐ 写回即提交（⭐ 与串口帧同款语义）
+            end else if (par_dn_c && !par_up_c) begin
+                case (par_sel_c)
+                    3'd0: fx_gain_o    <= (fx_gain_o    > 16'd256) ? fx_gain_o - 16'd256 : 16'd0;
+                    3'd1: fx_trim_o    <= (fx_trim_o    > 16'd256) ? fx_trim_o - 16'd256 : 16'd0;
+                    3'd2: fx_mix_o     <= (fx_mix_o     >  8'd1  ) ? fx_mix_o  -  8'd1   :  8'd0;
+                    3'd3: fx_fb_o      <= (fx_fb_o      >  8'd1  ) ? fx_fb_o   -  8'd1   :  8'd0;
+                    3'd4: fx_depth_o   <= (fx_depth_o   >  8'd1  ) ? fx_depth_o -  8'd1   :  8'd0;
+                    3'd5: fx_rate_o    <= (fx_rate_o    >  8'd1  ) ? fx_rate_o -  8'd1   :  8'd0;
+                    3'd6: fx_dlylen_o  <= (fx_dlylen_o  > 14'd128) ? fx_dlylen_o - 14'd128 : 14'd0;
+                    default: fx_chorlen_o <= (fx_chorlen_o > 11'd32) ? fx_chorlen_o - 11'd32 : 11'd0;
+                endcase
+                fx_commit_o <= 1'b1;
             end
 
             if (rx_done_i) begin
@@ -388,6 +568,10 @@ module uart_ui #(
                             // ⭐ 0x88 握手：立即置就绪（无帧体）
                             if (rx_data_i == RET_BOOT) begin
                                 hb_ready_o <= 1'b1;
+                                // ⭐⭐ 2026-10-29 三件套-A：⭐ **每次收到 0x88 都请求全量重发** ✅
+                                //   📌 首次：与 `!ech_hb_s` 握手沿同拍 ⇒ 二选一触发（reflash_q 次拍自清）
+                                //   📌 重复：⭐ 屏切页返回时发 `88` ⇒ ⭐ 靠本标志再拿 22 帧新值
+                                reflash_q <= 1'b1;
                             end
                         end else begin
                             // 🔴 该是返回码却不是 ⇒ 留在 IDLE 继续等
@@ -408,7 +592,11 @@ module uart_ui #(
                                     RET_TOUCH: begin
                                         // ⭐ 触摸事件：body_q = 控件 ID
                                         //   ⭐ 约定（见 tb）：控件 0 = 模式切换，控件 1 = 起始音，
-                                        //      控件 2 = Test Mode 切档（⭐ A1）
+                                        //      控件 2 = Test Mode 切档（⭐ A1），
+                                        //      控件 3 = 音色循环（⭐ 2026-10-30，top.v 并入 timbre_sel_r）
+                                        //      ⭐ 2026-10-31：控件 4..14 = page0 控制面板组
+                                        //      （4=滑音 5=鼓机 6=打鼓 7/8=移调± 9/10/11=循环录播清
+                                        //       12=档位 13/14=BPM±5，见端口区分配表）
                                         if (body_q == 8'd0) begin
                                             mode_o        <= ~mode_o;    // ⭐ 翻转
                                             mode_commit_o <= 1'b1;
@@ -424,6 +612,44 @@ module uart_ui #(
                                                 test_mode_n_o <= test_mode_n_o + 2'b01;
                                             end
                                             test_mode_commit_o <= 1'b1;
+                                        end else if (body_q == 8'd3) begin
+                                            // ⭐ 2026-10-30：音色循环请求（b_timbre 按钮）
+                                            //   ⭐ 只发脉冲，音色值由 top.v 的 timbre_sel_r 管理
+                                            //    （0=BASS→1=GUITAR→2=PIANO→3=PAD→0 回绕）
+                                            timbre_req_o <= 1'b1;
+                                        end else if (body_q == 8'd4) begin
+                                            // ⭐ 2026-10-31：滑音开/关（b_slide）
+                                            slide_req_o <= 1'b1;
+                                        end else if (body_q == 8'd5) begin
+                                            // ⭐ 2026-10-31：鼓机节奏型下一（b_drum）
+                                            drum_req_o <= 1'b1;
+                                        end else if (body_q == 8'd6) begin
+                                            // ⭐ 2026-10-31：键盘打鼓开/关（b_kd）
+                                            kd_req_o <= 1'b1;
+                                        end else if (body_q == 8'd7) begin
+                                            // ⭐ 2026-10-31：移调 +1 半音（b_tr_up）
+                                            trans_up_req_o <= 1'b1;
+                                        end else if (body_q == 8'd8) begin
+                                            // ⭐ 2026-10-31：移调 -1 半音（b_tr_dn）
+                                            trans_dn_req_o <= 1'b1;
+                                        end else if (body_q == 8'd9) begin
+                                            // ⭐ 2026-10-31：循环录音（b_rec）
+                                            loop_rec_req_o <= 1'b1;
+                                        end else if (body_q == 8'd10) begin
+                                            // ⭐ 2026-10-31：循环播放（b_play）
+                                            loop_play_req_o <= 1'b1;
+                                        end else if (body_q == 8'd11) begin
+                                            // ⭐ 2026-10-31：循环清空（b_clear）
+                                            loop_clear_req_o <= 1'b1;
+                                        end else if (body_q == 8'd12) begin
+                                            // ⭐ 2026-10-31：推子档位下一（b_gear，1..5 循环）
+                                            gear_req_o <= 1'b1;
+                                        end else if (body_q == 8'd13) begin
+                                            // ⭐ 2026-10-31：BPM +5（b_bpm_up，40..240 饱和）
+                                            bpm_up_req_o <= 1'b1;
+                                        end else if (body_q == 8'd14) begin
+                                            // ⭐ 2026-10-31：BPM -5（b_bpm_dn，40..240 饱和）
+                                            bpm_dn_req_o <= 1'b1;
                                         end
                                     end
                                     RET_NUM: begin
@@ -509,7 +735,7 @@ module uart_ui #(
                                             fx_dlylen_o <= (val_q > 8'd127) ? 14'd16383
                                                                             : {val_q[6:0], 7'b0};
                                             fx_commit_o <= 1'b1;
-                                        end else if (body_q == 8'd24) begin // 0x18
+                                        end                                         else if (body_q == 8'd24) begin // 0x18
                                             // ⭐ 合唱长度：⭐ 字节 ×32 采样
                                             //    ⭐ 值 23 ⇒ 736（⭐ **= 上电默认值**，⭐ 15 ms）✅
                                             //       📌 默认值已从 732 改成 736 ⇒ ⭐ **在 ×32 格点上**，
@@ -519,6 +745,29 @@ module uart_ui #(
                                             fx_chorlen_o <= (val_q > 8'd63) ? 11'd2047
                                                                            : {val_q[5:0], 5'b0};
                                             fx_commit_o <= 1'b1;
+                                        end
+                                        //  ⭐⭐ 2026-10-29 三件套-B：⭐ **翻转变量 0x19**（效果器开关）✅
+                                        //     🔴 **为什么**：⭐ 屏 page1 的效果器开关按钮只知道"翻哪个 bit"，
+                                        //        ⛔ **不知道当前值**（⭐ 0x10 是绝对写、屏没法翻转）⇒ 屏侧要
+                                        //        状态记账才能发绝对值（⭐ 两套状态源必漂）✗
+                                        //     ✅ **修法**：⭐ `fx_mask_o ^= val_q`（⭐ 屏发 `71 19 01/02/04`
+                                        //        盲翻转 Bit0/1/2，⭐ 无状态、天然幂等收敛）✅
+                                        //     📌 翻转结果由回显 FSM 三状态条帧（t_dist_st 等）反馈给屏 ✅
+                                        else if (body_q == 8'd25) begin // 0x19
+                                            fx_mask_o   <= fx_mask_o ^ val_q;
+                                            fx_commit_o <= 1'b1;
+                                        end
+                                        //  ⭐⭐ 2026-10-29 三件套-C：⭐ **八度循环变量 0x1B**（起始音）✅
+                                        //     🔴 **为什么**：⭐ b_oct 按 0/12/24 循环，屏侧若用 0x01 绝对写
+                                        //        得自己记账（⭐ 硬件侧也改过就记偏）✗
+                                        //     ✅ **修法**：⭐ FPGA 侧自循环 `0→12→24→0`（⭐ 与 b_oct 语义
+                                        //        一对一），⭐ 屏发一句 `71 1B 01` 即可、无需记账 ✅
+                                        //     📌 ⚠️ 非格点值（0x01 绝对写过）：一律归到 0 重开循环 ✅
+                                        else if (body_q == 8'd27) begin // 0x1B
+                                            base_semi_o  <= (base_semi_o == 7'd0)  ? 7'd12
+                                                          : (base_semi_o == 7'd12) ? 7'd24
+                                                          : 7'd0;
+                                            base_commit_o<= 1'b1;
                                         end
                                     end
                                     // ⭐ RET_STR / RET_BOOT：本版只回显，不落地控制量
@@ -742,6 +991,1208 @@ module uart_ui #(
             if (fxstat_req_i && (zfs_state != ZFS_S_IDLE)) zfs_pend_q <= 1'b1;
             //   ⚠️ **IDLE 且 `zfs_req_q==0`** 的情况 ⇒ ⭐ 由上面 IDLE 分支直接起帧，
             //      ⭐ **不需要** `zfs_pend_q`（⛔ 否则会多发一帧 ✅）
+        end
+    end
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    //  ⭐⭐ 2026-10-28：⭐ **状态回显推送 FSM**（规格 `FPGA侧串口屏UI规划` §五-1 / §二 2.2）
+    //
+    //  ── 它解决什么 ───────────────────────────────────────────────────────────
+    //   ⭐ 串口屏是「主控制面」，但**只下行**（屏→FPGA）。屏上 Page 0 的
+    //      **22 个状态控件**（`t_mode`/`t_bpm`/…/`z_vd`）需要 FPGA 在**上电握手后**、
+    //      以及**每次状态变化后**回写，否则屏上显示与 FPGA 实际状态**脱节**。
+    //   ⭐ 本 FSM 复用**早已预留、但一直「死着」**的 `tx_start_o`/`tx_data_o`
+    //      （⭐ `top.v` 当前把它们接成 `ui_tx_start`/`ui_tx_data` 但**无消费者** ✅，
+    //        ⚠️ 接入 tx 仲裁是**下一步**（规格 §五-1「复用 uart_tx.v」）✅）。
+    //
+    //  ── 触发时机（⭐ 全部是可观测的**状态变化**）──────────────────────────────
+    //   ① 0x88 握手（`hb_ready_o` 0→1）⇒ ⭐ 回写**全部 47 个字段**（屏上电初态）
+    //      ⭐ 握手**前**的变化 ⛔ 不发帧（⭐ 由握手沿一次性补发 ⇒ 屏没就绪发了也白发）
+    //      ⭐⭐ 2026-10-29 三件套-A：⭐ **每次收到 0x88 都全量重发**（⭐ `reflash_q`）——
+    //         屏切页返回时发 `88` ⇒ 再拿 47 帧最新值（⭐ 修"切页陈旧值"）✅
+    //   ② 任一字段值变化（⭐ 握手后）⇒ 置对应待发位，IDLE 按**字段号从小到大**发帧
+    //   📌 `t1` 是旧控件（Test Mode 档位）⭐ 保留一列，其余 21 个 = Page 0 新控件
+    //
+    //  ── 回写内容（⭐ UTF-8 字节，严格按《USART-HMI搭建清单-Page0-20261028.md》）──
+    //   | # | 控件 | 内容（body） | 帧 |
+    //   |---|---|---|---|
+    //   | 0 | t_mode   | 指板模式 [FRET] / 钢琴模式 [PIANO] | txt |
+    //   | 1 | t1       | 关 / 4 / 8 / 16 / 32（⭐ 旧控件） | txt |
+    //   | 2 | t_base   | 基准音: C4 (最低音 C3) | txt |
+    //   | 3 | t_timbre | BASS / GUITAR / PIANO / PAD | txt |
+    //   | 4 | t_trans  | 0 SEMI (原调) / +N SEMI / −N SEMI | txt |
+    //   | 5 | t_slide  | 开启 (GLIDE ON) / 关闭 (GLIDE OFF) | txt |
+    //   | 6 | t_bpm    | 120（⭐ 十进制巨字，无前导零） | txt |
+    //   | 7 | t_drum   | 开 II [PATTERN II] | txt |
+    //   | 8 | t_loop   | 空闲 / ● 循环录音中 REC / ► 循环回放中 PLAY / 武装中 | txt |
+    //   | 9 | t_kd     | 键盘打鼓: 关闭 [音符演奏] / 开启 [键位打鼓] | txt |
+    //   | 10| t_vol    | 主音量: 85% | txt |
+    //   | 11| t_pedal  | [PEDAL 延音踏板: 踩下使能] / …松开] | txt |
+    //   | 12| t_gear   | 推子控制: 档 1 [音高颤音] | txt |
+    //   | 13| t_hdmi   | HDMI: 实时示波器 (波形显示/李萨如图/频谱) | txt |
+    //   | 14| t_pd     | 音高颤音: 25% | txt |
+    //   | 15| t_vd     | 音量颤音: 60% | txt |
+    //   | 16-18 | t_dist_st / t_chor_st / t_dly_st | 失真 [关] / 合唱 [开] / 延迟 [开] | txt |
+    //   | 19| j_vol    | 主音量数值 0..100 | val |
+    //   | 20| z_pd     | 音高颤音仪表值 0..100 | val |
+    //   | 21| z_vd     | 音量颤音仪表值 0..100 | val |
+    //   ⚠️ 每帧以 `FF FF FF` 结尾（⭐ TJC 命令约定，与屏→FPGA 方向对称 ✅）
+    //
+    //  ── ⭐⭐ 2026-10-29 晚：§八 收口新增 25 字段（23..47）───────────────────
+    //   | 23/24 | t_loop（.bco=/.pco=）| 三态配色：空闲 63455/9509 · 录音 52517/65535
+    //   |       |                    | 回放 6822/65535 · 武装 55264/65535（RGB565 十进制）|
+    //   | 25-27 | led_dist/led_chor/led_dly（.val=0/1）| 效果器状态灯（fx_mask 同源、屏侧双态按钮）|
+    //   | 28-35 | z_dg/z_dt/z_cl/z_mx/z_ll/z_lf/z_pr/z_vr（.val=0..99）| page1 仪表
+    //   |       | （⭐ 满量程**百分比**统一口径：16bit→v[15:8]、14bit→v[13:6]、
+    //   |       |   11bit→v[10:3]、8bit→v，再 ×100>>8；⭐ z_pr/z_vr 同源 fx_rate）|
+    //   | 36-45 | t_dg_val..t_vr_val（txt `NN%`）| page1 数值文本（与仪表同源） |
+    //   | 46 | cur | `EC11: <参数名> (0x1N)`（N=par_sel 0..7 ↔ 变量 0x11..0x18）| txt |
+    //   | 47 | gr  | `档 N [label]`（与 t_gear 同源短版）| txt |
+    //   ⚠️ 每帧同样以 `FF FF FF` 结尾；⭐ 全量 47 帧 ≈ 1141 字节 ≈ 99ms@115200（切页可接受）
+    //
+    //  ── ⭐ 为什么用「镜像寄存器 + 变化检测」而不是「提交脉冲触发」──────────
+    //   ⭐ 本模块有 `mode_commit_o`/`test_mode_commit_o`/`base_commit_o` 三个脉冲
+    //      本可直接当触发源，⚠️ 但：
+    //        · ⭐ 脉冲与 `mode_o` 等**同一拍更新**（非阻塞），⭐ 直接读会拿到旧值；
+    //        · ⭐ `mode_sw_req_i`（外部模式翻转）也发 `mode_commit_o`，⭐ 与屏触摸**同源**；
+    //        · 🔴 用脉冲**无法区分「哪个寄存器变了」**，还得再比一次。
+    //      ⇒ ⭐ 干脆**只盯寄存器值**：⭐ 无论变化来自屏触摸、数值帧还是外部按键，
+    //        只要 `mode_o`/`test_mode_o`/`base_semi_o` 的值变了就回显 ✅
+    //        （⭐ 这也**天然覆盖**握手后的初始状态 —— 上电时寄存器就是初值 ✅）
+    //
+    //  ── ⭐ 握手约定（⭐ 流控，⛔ 与 ZFS 回读的"盲推"不同）───────────────────
+    //   ⭐ 每拍最多推**一个字节**（`tx_start_o` 单周期脉冲 + `tx_data_o` 同拍数据）。
+    //   ⭐ **看 `tx_busy_i`**：⭐ busy（下游队列满 / 串行线在发）时**原地等待**，
+    //      ⛔ 不推、不推进 —— 🔴 因为回显帧最长 52 字节（t_hdmi 波形档：
+    //      6+6+36+1+3），而 `u_tx_fifo` 深度只有 8，
+    //      ⚠️ 若盲推（像 `fx_tx` 那样）会**溢出丢字节**（⭐ `fx_tx` 的 `'Z'` 帧 6 字节 < 8 才敢盲推 ✅）
+    //   📌 `top.v` 把 `tx_busy_i` 接 `~txf_ready`（队列满 = 忙）⇒ 自动背压 ✅
+    //
+    //  ── 零回归 ───────────────────────────────────────────────────────────────
+    //   ⭐ 握手前 / 无状态变化时 ⇒ `tx_start_o` 恒 0 ⇒ 与改动前**逐位相同** ✅
+    //   ⭐ 复位时把镜像寄存器初始化为**与复位值一致** ⇒ ⛔ 上电不产生伪回显 ✅
+    //
+    //  ── ⛔ 纪律 ───────────────────────────────────────────────────────────────
+    //   ⭐ `tx_start_o`/`tx_data_o` 是 `output reg`，⭐ **只能在一个 always 里赋值**
+    //      ⇒ ⭐ 已从上方「主状态机」里**移除**它们的赋值，⭐ 全部改由本节接管 ✅
+    // ═══════════════════════════════════════════════════════════════════════════
+
+    // ── ① 状态 / 字段编码 ────────────────────────────────────────────────────
+    localparam [1:0] ECH_S_IDLE = 2'd0,
+                     ECH_S_EMIT = 2'd1;
+    //  ⭐⭐ 2026-10-29：状态字段 **0..21**（⭐ 与 `ech_pend` 一位一字段对齐）
+    //     ⭐ 2026-10-29 晚：**再加 22 = 心跳**（⭐ 不是屏状态字段：⭐ 由【计时器】
+    //        而非变化检测置位 —— ⭐ 周期发 `tm1.tim=1500` 喂屏侧看门狗、断联闪烁 ✅）
+    //     ⭐⭐ 2026-10-29 晚：**再加 23..47 = §八 收口 25 字段**（⭐ 三态配色 2 +
+    //        状态灯 3 + page1 动态 20；⭐ 全部排在心跳之后 = 展板类最低优先）✅
+    //   📌 编码顺序 = IDLE 发送优先级（⭐ 字段号小的先发 ⇒ 演奏核心类最优先）✅
+    localparam [5:0] ECH_F_MODE = 6'd0,   // t_mode（指板模式 [FRET] / 钢琴模式 [PIANO]）
+                     ECH_F_TEST = 6'd1,   // t1（Test Mode 档位，⭐ 旧控件保留）
+                     ECH_F_BASE = 6'd2,   // t_base（基准音: C4 (最低音 C3)）
+                     ECH_F_TIMB = 6'd3,   // t_timbre（BASS/GUITAR/PIANO/PAD）
+                     ECH_F_TRAN = 6'd4,   // t_trans（0 SEMI (原调) / ±N SEMI）
+                     ECH_F_SLIDE= 6'd5,   // t_slide（开启 (GLIDE ON) / 关闭 (GLIDE OFF)）
+                     ECH_F_BPM  = 6'd6,   // t_bpm（十进制巨字，无前导零）
+                     ECH_F_DRUM = 6'd7,   // t_drum（开 N [PATTERN N]）
+                     ECH_F_LOOP = 6'd8,   // t_loop（空闲/● 循环录音中 REC/► 循环回放中 PLAY/武装中）
+                     ECH_F_KD   = 6'd9,   // t_kd（键盘打鼓: 开/关）
+                     ECH_F_VOL  = 6'd10,  // t_vol（主音量: NN%）
+                     ECH_F_PEDAL= 6'd11,  // t_pedal（[PEDAL 延音踏板: …]）
+                     ECH_F_GEAR = 6'd12,  // t_gear（推子控制: 档 N [label]）
+                     ECH_F_HDMI = 6'd13,  // t_hdmi（HDMI: 实时示波器 (…)）
+                     ECH_F_PD   = 6'd14,  // t_pd（音高颤音: NN%）
+                     ECH_F_VD   = 6'd15,  // t_vd（音量颤音: NN%）
+                     ECH_F_DIST = 6'd16,  // t_dist_st（失真 [开/关]）
+                     ECH_F_CHOR = 6'd17,  // t_chor_st（合唱 [开/关]）
+                     ECH_F_DLY  = 6'd18,  // t_dly_st（延迟 [开/关]）
+                     ECH_F_JVOL = 6'd19,  // j_vol.val（主音量数值）
+                     ECH_F_ZPD  = 6'd20,  // z_pd.val（音高颤音仪表值）
+                     ECH_F_ZVD  = 6'd21,  // z_vd.val（音量颤音仪表值）
+                     ECH_F_HB   = 6'd22,  // tm1.tim=1500（⭐ 心跳帧、喂屏看门狗）
+                     // ── ⭐⭐ 2026-10-29 晚：§八 收口 25 字段 ──────────────────
+                     ECH_F_LOOPBCO = 6'd23,  // t_loop.bco（三态背景色，⭐ §八-2）
+                     ECH_F_LOOPPCO = 6'd24,  // t_loop.pco（三态前景色）
+                     ECH_F_LEDD    = 6'd25,  // led_dist.val（失真灯，⭐ §八-4）
+                     ECH_F_LEDC    = 6'd26,  // led_chor.val（合唱灯）
+                     ECH_F_LEDDLY  = 6'd27,  // led_dly.val（延迟灯）
+                     ECH_F_ZDG     = 6'd28,  // z_dg.val（失真增益仪表，⭐ §八-3）
+                     ECH_F_ZDT     = 6'd29,  // z_dt.val（失真补偿仪表）
+                     ECH_F_ZCL     = 6'd30,  // z_cl.val（合唱长度仪表）
+                     ECH_F_ZMX     = 6'd31,  // z_mx.val（干湿比仪表）
+                     ECH_F_ZLL     = 6'd32,  // z_ll.val（延迟长度仪表）
+                     ECH_F_ZLF     = 6'd33,  // z_lf.val（延迟反馈仪表）
+                     ECH_F_ZPR     = 6'd34,  // z_pr.val（音高颤音速率仪表）
+                     ECH_F_ZVR     = 6'd35,  // z_vr.val（音量颤音速率仪表）
+                     ECH_F_TDG     = 6'd36,  // t_dg_val（"NN%" 数值文本）
+                     ECH_F_TDT     = 6'd37,  // t_dt_val
+                     ECH_F_TCL     = 6'd38,  // t_cl_val
+                     ECH_F_TMX     = 6'd39,  // t_mx_val
+                     ECH_F_TLL     = 6'd40,  // t_ll_val
+                     ECH_F_TLF     = 6'd41,  // t_lf_val
+                     ECH_F_TPDV    = 6'd42,  // t_pd_val（音高颤音深度文本）
+                     ECH_F_TVDV    = 6'd43,  // t_vd_val（音量颤音深度文本）
+                     ECH_F_TPR     = 6'd44,  // t_pr_val（速率文本）
+                     ECH_F_TVR     = 6'd45,  // t_vr_val（速率文本）
+                     ECH_F_CUR     = 6'd46,  // cur（EC11 锁定参数文本）
+                     ECH_F_GR      = 6'd47;  // gr（推子档短文本）
+
+    reg [1:0]  ech_state;
+    reg [5:0]  ech_pos;        // ⭐ 帧内字节位置（最长帧 52B ⇒ 6 位够）
+    reg [47:0] ech_pend;       // ⭐ 每字段一位（0..47）待发标志（⭐ IDLE 按低位优先发）
+    reg [5:0]  ech_nxt_c;      // ⭐ IDLE 组合选出：`ech_pend` 的最低置位位
+    // ── 起帧那拍锁存的「帧快照」（⭐ 发送期间输入再变也 ⛔ 不影响本帧）──────────
+    reg [71:0] ech_name_q;     // ⭐ 控件名（≤9B，⭐ **右对齐**：低字节 = 末字符）
+    reg [3:0]  ech_nlen_q;     // ⭐ 名字长度（2..9）
+    reg [5:0]  ech_blen_q;     // ⭐ body 长度（0..36）
+    reg        ech_isval_q;    // ⭐ 1 = `.val=` 帧（数值帧、无收尾引号）
+    reg        ech_istim_q;    // ⭐ 1 = `.tim=` 帧（⭐ 心跳专用、无收尾引号）
+    //  ⭐⭐ 2026-10-29 晚（§八-2）：`.bco=`/`.pco=` 色帧（⭐ 与 .val= 同为 5B infix）
+    reg        ech_isbco_q;    // ⭐ 1 = `.bco=` 帧（背景色，t_loop 三态配色）
+    reg        ech_ispco_q;    // ⭐ 1 = `.pco=` 帧（前景色）
+    //  ⭐⭐ 2026-10-29：⭐ 心跳节拍（⭐ 握手后才开始计 ⇒ 上电不发）
+    localparam integer HB_CLKS_I = (CLK_HZ/1000)*HB_MS;   // ⭐ 周期（clk 数）
+    reg  [31:0] hb_tmr_q;      // ⭐ 32 位（⭐ 50MHz×1s=5e7 < 2^31 ✅）
+    reg [7:0]  ech_body_q [0:35];  // ⭐ body 字节缓冲（**左对齐数组**：[0]=首字节）
+    // ── 镜像寄存器（⭐ 变化检测基准；⭐ 复位值 = 各信号复位值 ⇒ 上电无伪帧）─────
+    reg        ech_hb_s;       // ⭐ `hb_ready_o` 的镜像（抓 0→1 上升沿）
+    //  ⭐⭐ 2026-10-29 三件套-A：⭐ **重发请求**（0x88 每次收到都全量重发）✅
+    //     🔴 **为什么**：⭐ 原 `!ech_hb_s` 只在**首次**握手沿触发 ⇒ 屏切页回来
+    //        发 `88` 时 hb_ready 早已为 1、**无沿** ⇒ 🔴 **一个字节都不回** ✗
+    //        ⇒ 屏上显示**陈旧值**（⭐ 切页期间 page0 更新帧全被屏丢弃）✗
+    //     ✅ **修法**：⭐ 收到 0x88（⭐ 含重复收到）置一拍 `reflash_q` ⇒
+    //        回显块看到 `reflash_q` ⇒ **与首次握手同款**：47 字段全置位 + 同步镜像 ✅
+    reg        reflash_q;      // ⭐ 0x88 重发请求（单拍标志，回显块自清）
+    reg        ech_mode_s;
+    reg        ech_test_s;
+    reg [1:0]  ech_testn_s;
+    reg [6:0]  ech_base_s;
+    reg [1:0]  ech_timbre_s;
+    reg [4:0]  ech_trans_s;
+    reg        ech_slide_s;
+    reg [7:0]  ech_bpm_s;
+    reg [1:0]  ech_drum_s;
+    reg [1:0]  ech_loop_s;
+    reg        ech_kd_s;
+    reg [6:0]  ech_vol_s;
+    reg        ech_pedal_s;
+    reg [1:0]  ech_gear_s;
+    reg [1:0]  ech_scope_s;
+    reg [6:0]  ech_pvib_s;
+    reg [6:0]  ech_vvib_s;
+    reg [2:0]  ech_fxmask_s;
+    //  ⭐⭐ 2026-10-29 晚（§八-3）：page1 动态字段镜像（⭐ 同样只盯值、来源无关）
+    reg [15:0] ech_fxg_s;      // fx_gain_o 镜像（z_dg / t_dg_val 数据源）
+    reg [15:0] ech_fxt_s;      // fx_trim_o 镜像（z_dt / t_dt_val）
+    reg [7:0]  ech_mix_s;      // fx_mix_o 镜像（z_mx / t_mx_val）
+    reg [7:0]  ech_fb_s;       // fx_fb_o 镜像（z_lf / t_lf_val）
+    reg [7:0]  ech_rate_s;     // fx_rate_o 镜像（z_pr/z_vr/t_pr_val/t_vr_val 四同源）
+    reg [13:0] ech_dl_s;       // fx_dlylen_o 镜像（z_ll / t_ll_val）
+    reg [10:0] ech_cl_s;       // fx_chorlen_o 镜像（z_cl / t_cl_val）
+    reg [2:0]  ech_parsel_s;   // par_sel_c 镜像（cur 文本）
+
+    // ── ①b 待发字段选择（⭐ 组合：`ech_pend` 最低置位位）────────────────────
+    //   ⚠️ **必须与 IDLE 的选字段/清位完全一致** ⇒ ⭐ 双方共用 `ech_nxt_c` ✅
+    //   📌 `ech_pend` 全 0 时 IDLE 不会起帧 ⇒ `ech_nxt_c` 的值无害 ✅
+    always @(*) begin
+        if      (ech_pend[ 0]) ech_nxt_c = ECH_F_MODE;
+        else if (ech_pend[ 1]) ech_nxt_c = ECH_F_TEST;
+        else if (ech_pend[ 2]) ech_nxt_c = ECH_F_BASE;
+        else if (ech_pend[ 3]) ech_nxt_c = ECH_F_TIMB;
+        else if (ech_pend[ 4]) ech_nxt_c = ECH_F_TRAN;
+        else if (ech_pend[ 5]) ech_nxt_c = ECH_F_SLIDE;
+        else if (ech_pend[ 6]) ech_nxt_c = ECH_F_BPM;
+        else if (ech_pend[ 7]) ech_nxt_c = ECH_F_DRUM;
+        else if (ech_pend[ 8]) ech_nxt_c = ECH_F_LOOP;
+        else if (ech_pend[ 9]) ech_nxt_c = ECH_F_KD;
+        else if (ech_pend[10]) ech_nxt_c = ECH_F_VOL;
+        else if (ech_pend[11]) ech_nxt_c = ECH_F_PEDAL;
+        else if (ech_pend[12]) ech_nxt_c = ECH_F_GEAR;
+        else if (ech_pend[13]) ech_nxt_c = ECH_F_HDMI;
+        else if (ech_pend[14]) ech_nxt_c = ECH_F_PD;
+        else if (ech_pend[15]) ech_nxt_c = ECH_F_VD;
+        else if (ech_pend[16]) ech_nxt_c = ECH_F_DIST;
+        else if (ech_pend[17]) ech_nxt_c = ECH_F_CHOR;
+        else if (ech_pend[18]) ech_nxt_c = ECH_F_DLY;
+        else if (ech_pend[19]) ech_nxt_c = ECH_F_JVOL;
+        else if (ech_pend[20]) ech_nxt_c = ECH_F_ZPD;
+        else if (ech_pend[21]) ech_nxt_c = ECH_F_ZVD;
+        //  ⭐ 心跳排【page0 状态字段之后、page1 展板字段之前】（⭐ 2026-10-29 晚）
+        //    ⭐ page0 状态变化永远最优先；⭐ 47 帧全量 < 100ms << 1s 心跳周期 ⇒ 不会饿死；
+        //    ⭐ page1 展板类（23..47）最低优先（⭐ 演奏核心类不因展板刷屏而排队）
+        else if (ech_pend[22]) ech_nxt_c = ECH_F_HB;
+        else if (ech_pend[23]) ech_nxt_c = ECH_F_LOOPBCO;
+        else if (ech_pend[24]) ech_nxt_c = ECH_F_LOOPPCO;
+        else if (ech_pend[25]) ech_nxt_c = ECH_F_LEDD;
+        else if (ech_pend[26]) ech_nxt_c = ECH_F_LEDC;
+        else if (ech_pend[27]) ech_nxt_c = ECH_F_LEDDLY;
+        else if (ech_pend[28]) ech_nxt_c = ECH_F_ZDG;
+        else if (ech_pend[29]) ech_nxt_c = ECH_F_ZDT;
+        else if (ech_pend[30]) ech_nxt_c = ECH_F_ZCL;
+        else if (ech_pend[31]) ech_nxt_c = ECH_F_ZMX;
+        else if (ech_pend[32]) ech_nxt_c = ECH_F_ZLL;
+        else if (ech_pend[33]) ech_nxt_c = ECH_F_ZLF;
+        else if (ech_pend[34]) ech_nxt_c = ECH_F_ZPR;
+        else if (ech_pend[35]) ech_nxt_c = ECH_F_ZVR;
+        else if (ech_pend[36]) ech_nxt_c = ECH_F_TDG;
+        else if (ech_pend[37]) ech_nxt_c = ECH_F_TDT;
+        else if (ech_pend[38]) ech_nxt_c = ECH_F_TCL;
+        else if (ech_pend[39]) ech_nxt_c = ECH_F_TMX;
+        else if (ech_pend[40]) ech_nxt_c = ECH_F_TLL;
+        else if (ech_pend[41]) ech_nxt_c = ECH_F_TLF;
+        else if (ech_pend[42]) ech_nxt_c = ECH_F_TPDV;
+        else if (ech_pend[43]) ech_nxt_c = ECH_F_TVDV;
+        else if (ech_pend[44]) ech_nxt_c = ECH_F_TPR;
+        else if (ech_pend[45]) ech_nxt_c = ECH_F_TVR;
+        else if (ech_pend[46]) ech_nxt_c = ECH_F_CUR;
+        else if (ech_pend[47]) ech_nxt_c = ECH_F_GR;
+        else                   ech_nxt_c = ECH_F_MODE;
+    end
+
+    // ── ①c 中文词表（UTF-8；⭐ Python 逐字节生成核对过 2026-10-29）─────────────
+    //   📌 一律 **120 位右对齐**（低字节 = 末字）⇒ 可直接喂 `ech_push_str` ✅
+    localparam [119:0] W_ZHIBAN_MOSHI   = {8'hE6,8'h8C,8'h87,8'hE6,8'h9D,8'hBF,8'hE6,8'hA8,8'hA1,8'hE5,8'hBC,8'h8F},  // 指板模式(12B)
+                       W_GANGQIN_MOSHI  = {8'hE9,8'h92,8'hA2,8'hE7,8'h90,8'hB4,8'hE6,8'hA8,8'hA1,8'hE5,8'hBC,8'h8F},  // 钢琴模式(12B)
+                       W_JIZHUNYIN      = {8'hE5,8'h9F,8'hBA,8'hE5,8'h87,8'h86,8'hE9,8'h9F,8'hB3},                     // 基准音(9B)
+                       W_ZUIDIYIN       = {8'hE6,8'h9C,8'h80,8'hE4,8'hBD,8'h8E,8'hE9,8'h9F,8'hB3},                     // 最低音(9B)
+                       W_YUANDIAO       = {8'hE5,8'h8E,8'h9F,8'hE8,8'hB0,8'h83},                                       // 原调(6B)
+                       W_KAIQI          = {8'hE5,8'hBC,8'h80,8'hE5,8'h90,8'hAF},                                       // 开启(6B)
+                       W_GUANBI         = {8'hE5,8'h85,8'hB3,8'hE9,8'h97,8'hAD},                                       // 关闭(6B)
+                       W_KAI            = {8'hE5,8'hBC,8'h80},                                                          // 开(3B)
+                       W_GUAN           = {8'hE5,8'h85,8'hB3},                                                          // 关(3B)
+                       W_XUNHUAN_LUYIN  = {8'hE5,8'hBE,8'hAA,8'hE7,8'h8E,8'hAF,8'hE5,8'hBD,8'h95,8'hE9,8'h9F,8'hB3,8'hE4,8'hB8,8'hAD}, // 循环录音中(15B)
+                       W_XUNHUAN_HUIFANG= {8'hE5,8'hBE,8'hAA,8'hE7,8'h8E,8'hAF,8'hE5,8'h9B,8'h9E,8'hE6,8'h94,8'hBE,8'hE4,8'hB8,8'hAD}, // 循环回放中(15B)
+                       W_KONGXIAN       = {8'hE7,8'hA9,8'hBA,8'hE9,8'h97,8'hB2},                                       // 空闲(6B)
+                       W_WUZHUANG       = {8'hE6,8'hAD,8'hA6,8'hE8,8'hA3,8'h85,8'hE4,8'hB8,8'hAD},                     // 武装中(9B)
+                       W_JIANPAN_DAGU   = {8'hE9,8'h94,8'hAE,8'hE7,8'h9B,8'h98,8'hE6,8'h89,8'h93,8'hE9,8'hBC,8'h93},    // 键盘打鼓(12B)
+                       W_JIANWEI_DAGU   = {8'hE9,8'h94,8'hAE,8'hE4,8'hBD,8'h8D,8'hE6,8'h89,8'h93,8'hE9,8'hBC,8'h93},    // 键位打鼓(12B)
+                       W_YINFU_YANZOU   = {8'hE9,8'h9F,8'hB3,8'hE7,8'hAC,8'hA6,8'hE6,8'hBC,8'h94,8'hE5,8'hA5,8'h8F},    // 音符演奏(12B)
+                       W_ZHU_YINLIANG   = {8'hE4,8'hB8,8'hBB,8'hE9,8'h9F,8'hB3,8'hE9,8'h87,8'h8F},                     // 主音量(9B)
+                       W_YANYIN_TABAN   = {8'hE5,8'hBB,8'hB6,8'hE9,8'h9F,8'hB3,8'hE8,8'hB8,8'hA9,8'hE6,8'h9D,8'hBF},    // 延音踏板(12B)
+                       W_CAIXIA_SHINENG = {8'hE8,8'hB8,8'hA9,8'hE4,8'hB8,8'h8B,8'hE4,8'hBD,8'hBF,8'hE8,8'h83,8'hBD},    // 踩下使能(12B)
+                       W_SONGKAI        = {8'hE6,8'h9D,8'hBE,8'hE5,8'hBC,8'h80},                                       // 松开(6B)
+                       W_TUIZI_KONGZHI  = {8'hE6,8'h8E,8'hA8,8'hE5,8'hAD,8'h90,8'hE6,8'h8E,8'hA7,8'hE5,8'h88,8'hB6},    // 推子控制(12B)
+                       W_DANG           = {8'hE6,8'hA1,8'hA3},                                                          // 档(3B)
+                       W_BIANDIAO       = {8'hE5,8'h8F,8'h98,8'hE8,8'hB0,8'h83},                                       // 变调(6B)
+                       W_YINGAO_CHANYIN = {8'hE9,8'h9F,8'hB3,8'hE9,8'hAB,8'h98,8'hE9,8'hA2,8'hA4,8'hE9,8'h9F,8'hB3},  // 音高颤音(12B)
+                       W_YINLIANG_CHANYIN = {8'hE9,8'h9F,8'hB3,8'hE9,8'h87,8'h8F,8'hE9,8'hA2,8'hA4,8'hE9,8'h9F,8'hB3}, // 音量颤音(12B)
+                       W_WU             = {8'hE6,8'h97,8'hA0},                                                          // 无(3B)
+                       W_SHISHI_SHIBOQI = {8'hE5,8'hAE,8'h9E,8'hE6,8'h97,8'hB6,8'hE7,8'hA4,8'hBA,8'hE6,8'hB3,8'hA2,8'hE5,8'h99,8'hA8}, // 实时示波器(15B)
+                       W_BOXING_XIANSHI = {8'hE6,8'hB3,8'hA2,8'hE5,8'hBD,8'hA1,8'hE6,8'h98,8'hBE,8'hE7,8'hA4,8'hBA},    // 波形显示(12B)
+                       W_LISA_RU        = {8'hE6,8'h9D,8'h8E,8'hE8,8'h90,8'hA8,8'hE5,8'hA6,8'h82,8'hE5,8'h9B,8'hBE},    // 李萨如图(12B)
+                       W_PINPU          = {8'hE9,8'hA2,8'h91,8'hE8,8'hB0,8'hB1},                                       // 频谱(6B)
+                       W_SHIZHEN        = {8'hE5,8'hA4,8'hB1,8'hE7,8'h9C,8'h9F},                                       // 失真(6B)
+                       W_HECHANG        = {8'hE5,8'h90,8'h88,8'hE5,8'h94,8'hB1},                                       // 合唱(6B)
+                       W_YANCHI         = {8'hE5,8'hBB,8'hB6,8'hE8,8'hBF,8'h9F},                                       // 延迟(6B)
+                       W_DOT            = {8'hE2,8'h97,8'h8F},                                                          // ●(3B)
+                       W_PLAY           = {8'hE2,8'h96,8'hBA},                                                          // ►(3B) ⭐ 2026-10-30 回放态专用（终稿速查表对齐；⛔ 不用 ▶ U+25B6，字库② §7.2 集里是 ► U+25BA）
+                       // ── ⭐⭐ 2026-10-29 晚（§八-3）：page1 参数名词表（UTF-8，Python 逐字节核对 ✅）──
+                       W_ZENGYI         = {8'hE5,8'hA2,8'h9E,8'hE7,8'h9B,8'h8A},                                       // 增益(6B)
+                       W_BUCHANG        = {8'hE8,8'hA1,8'hA5,8'hE5,8'h81,8'hBF},                                       // 补偿(6B)
+                       W_HUNHE          = {8'hE6,8'hB7,8'hB7,8'hE5,8'h90,8'h88},                                       // 混合(6B)
+                       W_FANKUI         = {8'hE5,8'h8F,8'h8D,8'hE9,8'hA6,8'h88},                                       // 反馈(6B)
+                       W_SHENDU         = {8'hE6,8'hB7,8'hB1,8'hE5,8'hBA,8'hA6},                                       // 深度(6B)
+                       W_SULU           = {8'hE9,8'h80,8'h9F,8'hE7,8'h8E,8'h87},                                       // 速率(6B)
+                       W_YANCHI_CD      = {8'hE5,8'hBB,8'hB6,8'hE8,8'hBF,8'h9F,8'hE9,8'h95,8'hBF,8'hE5,8'hBA,8'hA6}, // 延迟长度(12B)
+                       W_HECHANG_CD     = {8'hE5,8'h90,8'h88,8'hE5,8'h94,8'hB1,8'hE9,8'h95,8'hBF,8'hE5,8'hBA,8'hA6}; // 合唱长度(12B)
+    // ── ⭐⭐ 2026-10-29 晚（§八-2）：t_loop 三态配色（RGB565 十进制，⭐ 与清单 §五 色表一致）──
+    localparam [15:0] C_LPIDLE_B = 16'd63455,   // 空闲背景（浅灰）
+                      C_LPIDLE_P = 16'd9509,    // 空闲前景（深字）
+                      C_LPREC_B  = 16'd52517,   // 录音背景（红）
+                      C_LPREC_P  = 16'd65535,   // 录音前景（反白）
+                      C_LPPLAY_B = 16'd6822,    // 回放背景（绿）
+                      C_LPPLAY_P = 16'd65535,   // 回放前景（反白）
+                      C_LPARM_B  = 16'd55264,   // 武装背景（琥珀）
+                      C_LPARM_P  = 16'd65535;   // 武装前景（反白）
+
+    // ── ② body 打包原语（⭐ 只在下方组合块内调用）────────────────────────────
+    //   📌 `ech_bf_c`/`ech_len_c` 是组合 scratch（左对齐数组 + 游标）；
+    //      ⭐ 起帧那拍整体锁存进 `ech_body_q`/`ech_blen_q` ⇒ 帧内容冻结 ✅
+    reg [7:0] ech_bf_c [0:35];
+    reg [5:0] ech_len_c;
+    reg       ech_isval_c;
+    reg       ech_istim_c;     // ⭐ 1 = `.tim=` 心跳帧
+    reg       ech_isbco_c;     // ⭐ 1 = `.bco=` 背景色帧（⭐ §八-2，与 .val= 同 5B infix、无收尾引号）
+    reg       ech_ispco_c;     // ⭐ 1 = `.pco=` 前景色帧
+    reg [4:0] ech_abs_c;       // ⭐ 变调绝对值（TRAN 字段用）
+    integer   ech_bi;
+
+    task ech_push;             // ⭐ 追加 1 字节
+        input [7:0] b;
+        begin
+            ech_bf_c[ech_len_c] = b;
+            ech_len_c = ech_len_c + 6'd1;
+        end
+    endtask
+
+    task ech_push_str;         // ⭐ 追加右对齐串（低 len 字节 = 文本，⭐ 从高位往低位推）
+        input [119:0] s;
+        input [4:0]   len;
+        integer k;
+        begin
+            for (k = len - 1; k >= 0; k = k - 1)
+                ech_push(s[8*k +: 8]);
+        end
+    endtask
+
+    task ech_push_dec;         // ⭐ 追加十进制数（⛔ 不带前导零：TJC 按数字解析）
+        input [7:0] v;
+        reg [7:0] h, t, o;
+        begin
+            h = 8'h30 + (v / 8'd100);
+            t = 8'h30 + ((v / 8'd10) % 8'd10);
+            o = 8'h30 + (v % 8'd10);
+            if (v >= 8'd100) ech_push(h);
+            if (v >= 8'd10)  ech_push(t);
+            ech_push(o);
+        end
+    endtask
+
+    task ech_push_dec16;   // ⭐⭐ 2026-10-29 晚：16 位十进制（⭐ 色帧 5 位数、⛔ 无前导零）
+        input [15:0] v;
+        reg [15:0] rem;
+        reg [7:0]  d4, d3, d2, d1, d0;
+        begin
+            d4  = 8'h30 + (v / 16'd10000);
+            rem = v % 16'd10000;
+            d3  = 8'h30 + (rem / 16'd1000);
+            rem = rem % 16'd1000;
+            d2  = 8'h30 + (rem / 16'd100);
+            rem = rem % 16'd100;
+            d1  = 8'h30 + (rem / 16'd10);
+            d0  = 8'h30 + (rem % 16'd10);
+            if (v >= 16'd10000) begin
+                ech_push(d4); ech_push(d3); ech_push(d2); ech_push(d1); ech_push(d0);
+            end else if (v >= 16'd1000) begin
+                ech_push(d3); ech_push(d2); ech_push(d1); ech_push(d0);
+            end else if (v >= 16'd100) begin
+                ech_push(d2); ech_push(d1); ech_push(d0);
+            end else if (v >= 16'd10) begin
+                ech_push(d1); ech_push(d0);
+            end else begin
+                ech_push(d0);
+            end
+        end
+    endtask
+
+    // ── ⭐⭐ 2026-10-29 晚（§八-3）：满量程百分比（⭐ 仪表 .val 与文本 `NN%` 同源同值）──
+    //   ⭐ 口径统一：取满量程**高 8 位**再 ×100>>8 ⇒ 0..99（⭐ 与屏侧 j_vol/z_pd 同宽）
+    //   ⚠️ Verilog 乘积宽度 = 操作数最大宽度 ⇒ ⛔ 8bit×100 会溢出 256
+    //      ⇒ **全部零扩到 16 位再乘**（⭐ 16bit 中间积 25500 < 2^16 ✅）
+    function [7:0] ech_pct16h;   // 16bit 满量程（gain Q4.12 / trim Q1.15）
+        input [15:0] v;
+        begin
+            ech_pct16h = (({8'd0, v[15:8]}) * 8'd100) >> 8;
+        end
+    endfunction
+    function [7:0] ech_pct14;    // 14bit 满量程（dlylen 采样）
+        input [13:0] v;
+        begin
+            ech_pct14 = (({8'd0, v[13:6]}) * 8'd100) >> 8;
+        end
+    endfunction
+    function [7:0] ech_pct11;    // 11bit 满量程（chorlen 采样）
+        input [10:0] v;
+        begin
+            ech_pct11 = (({8'd0, v[10:3]}) * 8'd100) >> 8;
+        end
+    endfunction
+    function [7:0] ech_pct8;     // 8bit 满量程（mix / fb / rate 字节域）
+        input [7:0] v;
+        begin
+            ech_pct8 = (({8'd0, v}) * 8'd100) >> 8;
+        end
+    endfunction
+
+    // ── ②b 控件名（⭐ 组合，⭐ 与 `ech_nxt_c` 同拍）───────────────────────────
+    //   📌 字符串字面量赋给 72 位 reg ⇒ ⭐ 高位补零 = **右对齐**（低字节 = 末字符）✅
+    //   ⭐ 最长名 `t_dist_st`/`t_chor_st` = 9 字符 ⇒ 72 位恰好装下 ✅
+    reg [71:0] ech_name_c;
+    reg [3:0]  ech_nlen_c;
+    always @(*) begin
+        case (ech_nxt_c)
+            ECH_F_MODE:  begin ech_name_c = "t_mode";    ech_nlen_c = 4'd6; end
+            ECH_F_TEST:  begin ech_name_c = "t1";        ech_nlen_c = 4'd2; end
+            ECH_F_BASE:  begin ech_name_c = "t_base";    ech_nlen_c = 4'd6; end
+            ECH_F_TIMB:  begin ech_name_c = "t_timbre";  ech_nlen_c = 4'd8; end
+            ECH_F_TRAN:  begin ech_name_c = "t_trans";   ech_nlen_c = 4'd7; end   // ⭐ 7 字符（⭐ 曾误写 8 ⇒ 帧头多发一个 00 名字字节）
+            ECH_F_SLIDE: begin ech_name_c = "t_slide";   ech_nlen_c = 4'd7; end   // ⭐ 7 字符（同上修正）
+            ECH_F_BPM:   begin ech_name_c = "t_bpm";     ech_nlen_c = 4'd5; end
+            ECH_F_DRUM:  begin ech_name_c = "t_drum";    ech_nlen_c = 4'd6; end
+            ECH_F_LOOP:  begin ech_name_c = "t_loop";    ech_nlen_c = 4'd6; end
+            ECH_F_KD:    begin ech_name_c = "t_kd";      ech_nlen_c = 4'd4; end
+            ECH_F_VOL:   begin ech_name_c = "t_vol";    ech_nlen_c = 4'd5; end
+            ECH_F_PEDAL: begin ech_name_c = "t_pedal";   ech_nlen_c = 4'd7; end   // ⭐ 7 字符（同上修正）
+            ECH_F_GEAR:  begin ech_name_c = "t_gear";    ech_nlen_c = 4'd6; end
+            ECH_F_HDMI:  begin ech_name_c = "t_hdmi";    ech_nlen_c = 4'd6; end
+            ECH_F_PD:    begin ech_name_c = "t_pd";      ech_nlen_c = 4'd4; end
+            ECH_F_VD:    begin ech_name_c = "t_vd";      ech_nlen_c = 4'd4; end
+            ECH_F_DIST:  begin ech_name_c = "t_dist_st"; ech_nlen_c = 4'd9; end
+            ECH_F_CHOR:  begin ech_name_c = "t_chor_st"; ech_nlen_c = 4'd9; end
+            ECH_F_DLY:   begin ech_name_c = "t_dly_st";  ech_nlen_c = 4'd8; end
+            ECH_F_JVOL:  begin ech_name_c = "j_vol";     ech_nlen_c = 4'd5; end
+            ECH_F_ZPD:   begin ech_name_c = "z_pd";      ech_nlen_c = 4'd4; end
+            ECH_F_HB:    begin ech_name_c = "tm1";      ech_nlen_c = 4'd3; end
+            // ── ⭐⭐ 2026-10-29 晚：§八 收口 25 字段 ──────────────────────────
+            ECH_F_LOOPBCO: begin ech_name_c = "t_loop";   ech_nlen_c = 4'd6; end
+            ECH_F_LOOPPCO: begin ech_name_c = "t_loop";   ech_nlen_c = 4'd6; end
+            ECH_F_LEDD:    begin ech_name_c = "led_dist"; ech_nlen_c = 4'd8; end
+            ECH_F_LEDC:    begin ech_name_c = "led_chor"; ech_nlen_c = 4'd8; end
+            ECH_F_LEDDLY:  begin ech_name_c = "led_dly";  ech_nlen_c = 4'd7; end   // ⭐ 7 字符（同上修正）
+            ECH_F_ZDG:     begin ech_name_c = "z_dg";     ech_nlen_c = 4'd4; end
+            ECH_F_ZDT:     begin ech_name_c = "z_dt";     ech_nlen_c = 4'd4; end
+            ECH_F_ZCL:     begin ech_name_c = "z_cl";     ech_nlen_c = 4'd4; end
+            ECH_F_ZMX:     begin ech_name_c = "z_mx";     ech_nlen_c = 4'd4; end
+            ECH_F_ZLL:     begin ech_name_c = "z_ll";     ech_nlen_c = 4'd4; end
+            ECH_F_ZLF:     begin ech_name_c = "z_lf";     ech_nlen_c = 4'd4; end
+            ECH_F_ZPR:     begin ech_name_c = "z_pr";     ech_nlen_c = 4'd4; end
+            ECH_F_ZVR:     begin ech_name_c = "z_vr";     ech_nlen_c = 4'd4; end
+            ECH_F_TDG:     begin ech_name_c = "t_dg_val"; ech_nlen_c = 4'd8; end
+            ECH_F_TDT:     begin ech_name_c = "t_dt_val"; ech_nlen_c = 4'd8; end
+            ECH_F_TCL:     begin ech_name_c = "t_cl_val"; ech_nlen_c = 4'd8; end
+            ECH_F_TMX:     begin ech_name_c = "t_mx_val"; ech_nlen_c = 4'd8; end
+            ECH_F_TLL:     begin ech_name_c = "t_ll_val"; ech_nlen_c = 4'd8; end
+            ECH_F_TLF:     begin ech_name_c = "t_lf_val"; ech_nlen_c = 4'd8; end
+            ECH_F_TPDV:    begin ech_name_c = "t_pd_val"; ech_nlen_c = 4'd8; end
+            ECH_F_TVDV:    begin ech_name_c = "t_vd_val"; ech_nlen_c = 4'd8; end
+            ECH_F_TPR:     begin ech_name_c = "t_pr_val"; ech_nlen_c = 4'd8; end
+            ECH_F_TVR:     begin ech_name_c = "t_vr_val"; ech_nlen_c = 4'd8; end
+            ECH_F_CUR:     begin ech_name_c = "cur";      ech_nlen_c = 4'd3; end
+            ECH_F_GR:      begin ech_name_c = "gr";       ech_nlen_c = 4'd2; end
+            default:     begin ech_name_c = "z_vd";      ech_nlen_c = 4'd4; end  // ECH_F_ZVD
+        endcase
+    end
+
+    // ── ②c body 打包（⭐ 组合，⭐ 与 `ech_nxt_c` 同拍；⭐ 起帧那拍整体锁存快照）─
+    //   ⚠️ 文案严格按《USART-HMI搭建清单-Page0-20261028.md》，UTF-8 已逐字核对 ✅
+    //   ⚠️ **变长 body ⛔ 不能用定宽拼接**（零填充会落进帧里）⇒ 用游标逐字节推 ✅
+    always @(*) begin
+        for (ech_bi = 0; ech_bi < 36; ech_bi = ech_bi + 1) ech_bf_c[ech_bi] = 8'h00;
+        ech_len_c   = 6'd0;
+        ech_isval_c = 1'b0;
+        ech_istim_c = 1'b0;
+        ech_isbco_c = 1'b0;
+        ech_ispco_c = 1'b0;
+        ech_abs_c   = 5'd0;
+        case (ech_nxt_c)
+            ECH_F_MODE: begin
+                if (mode_o) begin
+                    ech_push_str(W_GANGQIN_MOSHI, 4'd12);
+                    ech_push_str(" [PIANO]", 4'd8);
+                end else begin
+                    ech_push_str(W_ZHIBAN_MOSHI, 4'd12);
+                    ech_push_str(" [FRET]", 4'd7);
+                end
+            end
+            ECH_F_TEST: begin
+                // ⭐ 旧控件 t1 保留（Test Mode 档位）
+                case ({test_mode_o, test_mode_n_o})
+                    3'b000: ech_push_str(W_GUAN, 3'd3);   // 关
+                    3'b100: ech_push_str("4", 4'd1);
+                    3'b101: ech_push_str("8", 4'd1);
+                    3'b110: ech_push_str("16", 4'd2);
+                    3'b111: ech_push_str("32", 4'd2);
+                    default: ;
+                endcase
+            end
+            ECH_F_BASE: begin
+                // ⭐ 基准音: C4 (最低音 C3) —— C5/C6 时最低音联动 +1 八度
+                ech_push_str(W_JIZHUNYIN, 4'd9);
+                ech_push_str(": ", 4'd2);
+                case (base_semi_o)
+                    7'd12:  begin ech_push(8'h43); ech_push(8'h35); end  // C5
+                    7'd24:  begin ech_push(8'h43); ech_push(8'h36); end  // C6
+                    default: begin ech_push(8'h43); ech_push(8'h34); end // C4（⭐ 兜底）
+                endcase
+                ech_push_str(" (", 4'd2);
+                ech_push_str(W_ZUIDIYIN, 4'd9);
+                ech_push(8'h20);
+                case (base_semi_o)
+                    7'd12:  begin ech_push(8'h43); ech_push(8'h34); end  // C4
+                    7'd24:  begin ech_push(8'h43); ech_push(8'h35); end // C5
+                    default: begin ech_push(8'h43); ech_push(8'h33); end // C3（⭐ 兜底）
+                endcase
+                ech_push(8'h29);   // ')'
+            end
+            ECH_F_TIMB: begin
+                case (st_timbre_c)
+                    2'd0: ech_push_str("BASS", 4'd4);
+                    2'd1: ech_push_str("GUITAR", 4'd6);
+                    2'd2: ech_push_str("PIANO", 4'd5);
+                    default: ech_push_str("PAD", 4'd3);
+                endcase
+            end
+            ECH_F_TRAN: begin
+                // ⭐ 0 = `0 SEMI (原调)`；非 0 = `+N SEMI` / `-N SEMI`
+                if (st_trans_c == 5'd0) begin
+                    ech_push_str("0 SEMI (", 4'd8);
+                    ech_push_str(W_YUANDIAO, 4'd6);
+                    ech_push(8'h29);   // ')'
+                end else begin
+                    if (st_trans_c[4]) begin
+                        ech_abs_c = (~st_trans_c) + 5'd1;   // ⭐ 有符号取绝对值
+                        ech_push(8'h2D);                     // '-'
+                        ech_push_dec({3'd0, ech_abs_c});
+                    end else begin
+                        ech_push(8'h2B);                     // '+'
+                        ech_push_dec({3'd0, st_trans_c});
+                    end
+                    ech_push_str(" SEMI", 4'd5);
+                end
+            end
+            ECH_F_SLIDE: begin
+                if (st_slide_c) begin
+                    ech_push_str(W_KAIQI, 4'd6);
+                    ech_push_str(" (GLIDE ON)", 4'd11);
+                end else begin
+                    ech_push_str(W_GUANBI, 4'd6);
+                    ech_push_str(" (GLIDE OFF)", 4'd12);
+                end
+            end
+            ECH_F_BPM: ech_push_dec(st_bpm_c);
+            ECH_F_DRUM: begin
+                // ⭐ `开 N [PATTERN N]`（N = I/II/III/IV；⭐ 开=常量，drum_gen 无使能位）
+                ech_push_str(W_KAI, 3'd3);
+                ech_push(8'h20);
+                case (st_drum_c)
+                    2'd0: ech_push_str("I", 4'd1);
+                    2'd1: ech_push_str("II", 4'd2);
+                    2'd2: ech_push_str("III", 4'd3);
+                    default: ech_push_str("IV", 4'd2);
+                endcase
+                ech_push_str(" [PATTERN ", 4'd10);
+                case (st_drum_c)
+                    2'd0: ech_push_str("I", 4'd1);
+                    2'd1: ech_push_str("II", 4'd2);
+                    2'd2: ech_push_str("III", 4'd3);
+                    default: ech_push_str("IV", 4'd2);
+                endcase
+                ech_push(8'h5D);   // ']'
+            end
+            ECH_F_LOOP: begin
+                case (st_loop_c)
+                    2'd1: begin  // 录音
+                        ech_push_str(W_DOT, 3'd3);
+                        ech_push(8'h20);
+                        ech_push_str(W_XUNHUAN_LUYIN, 4'd15);
+                        ech_push_str(" REC", 4'd4);
+                    end
+                    2'd2: begin  // 回放
+                        // ⭐ 2026-10-30：● → ►（终稿速查表"▶ 回放中"的对齐实现；
+                        //    ⛔ ▶ U+25B6 不在字库② §7.2 集（只有 ► U+25BA）⇒ 用 ► ✅
+                        ech_push_str(W_PLAY, 3'd3);
+                        ech_push(8'h20);
+                        ech_push_str(W_XUNHUAN_HUIFANG, 4'd15);
+                        ech_push_str(" PLAY", 4'd5);
+                    end
+                    2'd3: ech_push_str(W_WUZHUANG, 4'd9);   // 武装中
+                    default: ech_push_str(W_KONGXIAN, 4'd6); // 空闲
+                endcase
+            end
+            ECH_F_KD: begin
+                // ⭐ `键盘打鼓: 开/关 [键位打鼓/音符演奏]`
+                ech_push_str(W_JIANPAN_DAGU, 4'd12);
+                ech_push_str(": ", 4'd2);
+                if (st_kd_c) begin
+                    ech_push_str(W_KAIQI, 4'd6);
+                    ech_push_str(" [", 4'd2);
+                    ech_push_str(W_JIANWEI_DAGU, 4'd12);
+                end else begin
+                    ech_push_str(W_GUANBI, 4'd6);
+                    ech_push_str(" [", 4'd2);
+                    ech_push_str(W_YINFU_YANZOU, 4'd12);
+                end
+                ech_push(8'h5D);   // ']'
+            end
+            ECH_F_VOL: begin
+                ech_push_str(W_ZHU_YINLIANG, 4'd9);
+                ech_push_str(": ", 4'd2);
+                ech_push_dec({1'b0, st_vol_c});
+                ech_push(8'h25);   // '%'
+            end
+            ECH_F_PEDAL: begin
+                ech_push_str("[PEDAL ", 4'd7);
+                ech_push_str(W_YANYIN_TABAN, 4'd12);
+                ech_push_str(": ", 4'd2);
+                if (st_pedal_c) ech_push_str(W_CAIXIA_SHINENG, 4'd12);
+                else            ech_push_str(W_SONGKAI, 4'd6);
+                ech_push(8'h5D);   // ']'
+            end
+            ECH_F_GEAR: begin
+                // ⭐ `推子控制: 档 N [label]`（⭐ 屏显档号 1..4 = gear+1）
+                ech_push_str(W_TUIZI_KONGZHI, 4'd12);
+                ech_push_str(": ", 4'd2);
+                ech_push_str(W_DANG, 3'd3);
+                ech_push(8'h20);
+                ech_push_dec({5'd0, st_gear_c} + 8'd1);
+                ech_push_str(" [", 4'd2);
+                case (st_gear_c)
+                    2'd0: ech_push_str(W_BIANDIAO, 4'd6);
+                    2'd1: ech_push_str(W_YINGAO_CHANYIN, 4'd12);
+                    2'd2: ech_push_str(W_YINLIANG_CHANYIN, 4'd12);
+                    default: ech_push_str(W_WU, 3'd3);
+                endcase
+                ech_push(8'h5D);   // ']'
+            end
+            ECH_F_HDMI: begin
+                // ⭐ `HDMI: 实时示波器 (波形显示/李萨如图/频谱)`
+                ech_push_str("HDMI: ", 4'd6);
+                ech_push_str(W_SHISHI_SHIBOQI, 4'd15);
+                ech_push_str(" (", 4'd2);
+                case (st_scope_c)
+                    2'd1: ech_push_str(W_LISA_RU, 4'd12);
+                    2'd2: ech_push_str(W_PINPU, 4'd6);
+                    default: ech_push_str(W_BOXING_XIANSHI, 4'd12);
+                endcase
+                ech_push(8'h29);   // ')'
+            end
+            ECH_F_PD: begin
+                ech_push_str(W_YINGAO_CHANYIN, 4'd12);
+                ech_push_str(": ", 4'd2);
+                ech_push_dec({1'b0, st_pvib_c});
+                ech_push(8'h25);   // '%'
+            end
+            ECH_F_VD: begin
+                ech_push_str(W_YINLIANG_CHANYIN, 4'd12);
+                ech_push_str(": ", 4'd2);
+                ech_push_dec({1'b0, st_vvib_c});
+                ech_push(8'h25);   // '%'
+            end
+            ECH_F_DIST: begin
+                ech_push_str(W_SHIZHEN, 4'd6);
+                ech_push_str(" [", 4'd2);
+                ech_push_str(st_fxmask_c[0] ? W_KAI : W_GUAN, 3'd3);
+                ech_push(8'h5D);   // ']'
+            end
+            ECH_F_CHOR: begin
+                ech_push_str(W_HECHANG, 4'd6);
+                ech_push_str(" [", 4'd2);
+                ech_push_str(st_fxmask_c[1] ? W_KAI : W_GUAN, 3'd3);
+                ech_push(8'h5D);   // ']'
+            end
+            ECH_F_DLY: begin
+                ech_push_str(W_YANCHI, 4'd6);
+                ech_push_str(" [", 4'd2);
+                ech_push_str(st_fxmask_c[2] ? W_KAI : W_GUAN, 3'd3);
+                ech_push(8'h5D);   // ']'
+            end
+            ECH_F_JVOL: begin
+                // ⭐ 数值帧：j_vol.val=<0..100>（⭐ 进度条）
+                ech_isval_c = 1'b1;
+                ech_push_dec({1'b0, st_vol_c});
+            end
+            ECH_F_ZPD: begin
+                ech_isval_c = 1'b1;
+                ech_push_dec({1'b0, st_pvib_c});
+            end
+            ECH_F_HB: begin
+                //  ⭐ 心跳帧：`tm1.tim=1500`（⭐ 重置屏侧看门狗倒计时 ⇒ 断联 1.5s 后闪）
+                //     ⚠️ "1500" 与屏侧 tm1 周期【成对配置】（⭐ > HB_MS 留余量）
+                ech_istim_c = 1'b1;
+                ech_push_str("1500", 4'd4);
+            end
+            // ══ ⭐⭐ 2026-10-29 晚：§八 收口 25 字段 ═════════════════════════════
+            ECH_F_LOOPBCO: begin
+                //  ⭐ §八-2：t_loop 背景色（.bco=，⭐ 色值与 body 文案同一个 st_loop case 源）
+                ech_isbco_c = 1'b1;
+                case (st_loop_c)
+                    2'd1:    ech_push_dec16(C_LPREC_B);   // 录音红
+                    2'd2:    ech_push_dec16(C_LPPLAY_B);  // 回放绿
+                    2'd3:    ech_push_dec16(C_LPARM_B);   // 武装琥珀
+                    default: ech_push_dec16(C_LPIDLE_B);  // 空闲浅灰
+                endcase
+            end
+            ECH_F_LOOPPCO: begin
+                ech_ispco_c = 1'b1;
+                case (st_loop_c)
+                    2'd1:    ech_push_dec16(C_LPREC_P);
+                    2'd2:    ech_push_dec16(C_LPPLAY_P);
+                    2'd3:    ech_push_dec16(C_LPARM_P);
+                    default: ech_push_dec16(C_LPIDLE_P);
+                endcase
+            end
+            ECH_F_LEDD: begin
+                //  ⭐ §八-4：效果器状态灯（.val=0/1，⭐ 与 t_dist_st 同源 fxmask）
+                ech_isval_c = 1'b1;
+                ech_push(st_fxmask_c[0] ? 8'h31 : 8'h30);
+            end
+            ECH_F_LEDC: begin
+                ech_isval_c = 1'b1;
+                ech_push(st_fxmask_c[1] ? 8'h31 : 8'h30);
+            end
+            ECH_F_LEDDLY: begin
+                ech_isval_c = 1'b1;
+                ech_push(st_fxmask_c[2] ? 8'h31 : 8'h30);
+            end
+            ECH_F_ZDG: begin
+                //  ⭐ §八-3：page1 仪表（.val=0..99，⭐ 满量程百分比）
+                ech_isval_c = 1'b1;
+                ech_push_dec(ech_pct16h(fx_gain_o));
+            end
+            ECH_F_ZDT: begin
+                ech_isval_c = 1'b1;
+                ech_push_dec(ech_pct16h(fx_trim_o));
+            end
+            ECH_F_ZCL: begin
+                ech_isval_c = 1'b1;
+                ech_push_dec(ech_pct11(fx_chorlen_o));
+            end
+            ECH_F_ZMX: begin
+                ech_isval_c = 1'b1;
+                ech_push_dec(ech_pct8(fx_mix_o));
+            end
+            ECH_F_ZLL: begin
+                ech_isval_c = 1'b1;
+                ech_push_dec(ech_pct14(fx_dlylen_o));
+            end
+            ECH_F_ZLF: begin
+                ech_isval_c = 1'b1;
+                ech_push_dec(ech_pct8(fx_fb_o));
+            end
+            ECH_F_ZPR: begin
+                ech_isval_c = 1'b1;
+                ech_push_dec(ech_pct8(fx_rate_o));
+            end
+            ECH_F_ZVR: begin
+                ech_isval_c = 1'b1;
+                ech_push_dec(ech_pct8(fx_rate_o));   // ⭐ 与 z_pr 同源 fx_rate
+            end
+            ECH_F_TDG: begin
+                //  ⭐ page1 数值文本（txt `NN%`，⭐ 与对应仪表**同源同值**）
+                ech_push_dec(ech_pct16h(fx_gain_o));
+                ech_push(8'h25);   // '%'
+            end
+            ECH_F_TDT: begin
+                ech_push_dec(ech_pct16h(fx_trim_o));
+                ech_push(8'h25);
+            end
+            ECH_F_TCL: begin
+                ech_push_dec(ech_pct11(fx_chorlen_o));
+                ech_push(8'h25);
+            end
+            ECH_F_TMX: begin
+                ech_push_dec(ech_pct8(fx_mix_o));
+                ech_push(8'h25);
+            end
+            ECH_F_TLL: begin
+                ech_push_dec(ech_pct14(fx_dlylen_o));
+                ech_push(8'h25);
+            end
+            ECH_F_TLF: begin
+                ech_push_dec(ech_pct8(fx_fb_o));
+                ech_push(8'h25);
+            end
+            ECH_F_TPDV: begin
+                //  ⭐ 音高/音量颤音深度文本（⭐ 数据源 = page0 的 st_pvib/st_vvib）
+                ech_push_dec({1'b0, st_pvib_c});
+                ech_push(8'h25);
+            end
+            ECH_F_TVDV: begin
+                ech_push_dec({1'b0, st_vvib_c});
+                ech_push(8'h25);
+            end
+            ECH_F_TPR: begin
+                ech_push_dec(ech_pct8(fx_rate_o));
+                ech_push(8'h25);
+            end
+            ECH_F_TVR: begin
+                ech_push_dec(ech_pct8(fx_rate_o));   // ⭐ 与 t_pr_val 同源 fx_rate
+                ech_push(8'h25);
+            end
+            ECH_F_CUR: begin
+                //  ⭐ EC11 锁定参数文本 `EC11: <参数名> (0x1N)`（N=par_sel 0..7 ↔ 0x11..0x18）
+                ech_push_str("EC11: ", 4'd6);
+                case (par_sel_c)
+                    3'd1: ech_push_str(W_BUCHANG, 4'd6);       // 补偿
+                    3'd2: ech_push_str(W_HUNHE, 4'd6);          // 混合
+                    3'd3: ech_push_str(W_FANKUI, 4'd6);         // 反馈
+                    3'd4: ech_push_str(W_SHENDU, 4'd6);         // 深度
+                    3'd5: ech_push_str(W_SULU, 4'd6);           // 速率
+                    3'd6: ech_push_str(W_YANCHI_CD, 4'd12);     // 延迟长度
+                    3'd7: ech_push_str(W_HECHANG_CD, 4'd12);    // 合唱长度
+                    default: ech_push_str(W_ZENGYI, 4'd6);     // 增益（par_sel=0）
+                endcase
+                ech_push_str(" (0x1", 4'd5);
+                ech_push(8'h31 + {5'd0, par_sel_c});   // '1'..'8'（⭐ = 串口变量号 0x11..0x18）
+                ech_push(8'h29);                       // ')'
+            end
+            ECH_F_GR: begin
+                //  ⭐ 推子档短文本 `档 N [label]`（⭐ 与 t_gear 同源 st_gear_c ⇒ 双挂起）
+                ech_push_str(W_DANG, 3'd3);
+                ech_push(8'h20);
+                ech_push_dec({5'd0, st_gear_c} + 8'd1);   // ⭐ 屏显档号 1..4 = gear+1
+                ech_push_str(" [", 4'd2);
+                case (st_gear_c)
+                    2'd0: ech_push_str(W_BIANDIAO, 4'd6);
+                    2'd1: ech_push_str(W_YINGAO_CHANYIN, 4'd12);
+                    2'd2: ech_push_str(W_YINLIANG_CHANYIN, 4'd12);
+                    default: ech_push_str(W_WU, 3'd3);
+                endcase
+                ech_push(8'h5D);   // ']'
+            end
+            default: begin  // ECH_F_ZVD
+                ech_isval_c = 1'b1;
+                ech_push_dec({1'b0, st_vvib_c});
+            end
+        endcase
+    end
+
+    // ── ③ 帧字节（⭐ 组合，⭐ 与 `ech_pos` 严格同拍；⭐ 只读【锁存快照】）────────
+    //   📌 帧结构：`<名字>`(nlen) + `.txt="`(6)/`.val=`(5)/`.tim=`(5)/`.bco=`(5)/`.pco=`(5)
+    //            + <body>(blen) + [`"`](仅 txt) + `FF FF FF`(3)
+    //   📌 位置映射：pos 0..nlen−1 = 名字 · nlen..pre−1 = infix ·
+    //       pre..ebody−1 = body · ebody = 收尾引号(txt) · ff0..ff0+2 = FF FF FF
+    //   📌 最长帧 = t_hdmi 波形档：6+6+36+1+3 = 52 字节 ⇒ `ech_pos` 6 位够 ✅
+    wire [5:0] ech_ilen_c  = (ech_isval_q | ech_istim_q | ech_isbco_q | ech_ispco_q) ? 6'd5 : 6'd6;
+    wire [5:0] ech_pre_c   = {2'd0, ech_nlen_q} + ech_ilen_c;        // 名字+infix 总长
+    wire [5:0] ech_ebody_c = ech_pre_c + ech_blen_q;                 // body 结束（不含）
+    wire [5:0] ech_ff0_c   = ech_ebody_c + ((ech_isval_q | ech_istim_q | ech_isbco_q | ech_ispco_q) ? 6'd0 : 6'd1); // 首个 FF 位置
+    reg  [7:0] ech_data_c;
+    reg        ech_last_c;
+    always @(*) begin
+        ech_data_c = 8'h00;
+        ech_last_c = 1'b0;
+        if (ech_pos < {2'd0, ech_nlen_q}) begin
+            // ══ 名字（⭐ 右对齐 72 位：字节 (nlen−1−pos) 从低位数）══
+            ech_data_c = ech_name_q[8*(ech_nlen_q - 6'd1 - ech_pos) +: 8];
+        end else if (ech_pos < ech_pre_c) begin
+            // ══ infix ══
+            if (ech_istim_q) begin
+                case (ech_pos - {2'd0, ech_nlen_q})
+                    6'd0: ech_data_c = 8'h2E;  // '.'
+                    6'd1: ech_data_c = 8'h74;  // 't'
+                    6'd2: ech_data_c = 8'h69;  // 'i'
+                    6'd3: ech_data_c = 8'h6D;  // 'm'
+                    6'd4: ech_data_c = 8'h3D;  // '='
+                    default: ech_data_c = 8'h00;
+                endcase
+            end else if (ech_isval_q) begin
+                case (ech_pos - {2'd0, ech_nlen_q})
+                    6'd0: ech_data_c = 8'h2E;  // '.'
+                    6'd1: ech_data_c = 8'h76;  // 'v'
+                    6'd2: ech_data_c = 8'h61;  // 'a'
+                    6'd3: ech_data_c = 8'h6C;  // 'l'
+                    6'd4: ech_data_c = 8'h3D;  // '='
+                    default: ech_data_c = 8'h00;
+                endcase
+            end else if (ech_isbco_q) begin
+                //  ⭐⭐ 2026-10-29 晚（§八-2）：`.bco=` 背景色 infix（5B、无收尾引号）
+                case (ech_pos - {2'd0, ech_nlen_q})
+                    6'd0: ech_data_c = 8'h2E;  // '.'
+                    6'd1: ech_data_c = 8'h62;  // 'b'
+                    6'd2: ech_data_c = 8'h63;  // 'c'
+                    6'd3: ech_data_c = 8'h6F;  // 'o'
+                    6'd4: ech_data_c = 8'h3D;  // '='
+                    default: ech_data_c = 8'h00;
+                endcase
+            end else if (ech_ispco_q) begin
+                //  ⭐ `.pco=` 前景色 infix
+                case (ech_pos - {2'd0, ech_nlen_q})
+                    6'd0: ech_data_c = 8'h2E;  // '.'
+                    6'd1: ech_data_c = 8'h70;  // 'p'
+                    6'd2: ech_data_c = 8'h63;  // 'c'
+                    6'd3: ech_data_c = 8'h6F;  // 'o'
+                    6'd4: ech_data_c = 8'h3D;  // '='
+                    default: ech_data_c = 8'h00;
+                endcase
+            end else begin
+                case (ech_pos - {2'd0, ech_nlen_q})
+                    6'd0: ech_data_c = 8'h2E;  // '.'
+                    6'd1: ech_data_c = 8'h74;  // 't'
+                    6'd2: ech_data_c = 8'h78;  // 'x'
+                    6'd3: ech_data_c = 8'h74;  // 't'
+                    6'd4: ech_data_c = 8'h3D;  // '='
+                    6'd5: ech_data_c = 8'h22;  // '"'
+                    default: ech_data_c = 8'h00;
+                endcase
+            end
+        end else if (ech_pos < ech_ebody_c) begin
+            // ══ body（⭐ 左对齐数组：下标 = pos − pre）══
+            ech_data_c = ech_body_q[ech_pos - ech_pre_c];
+        end else if (!ech_isval_q && !ech_istim_q && !ech_isbco_q && !ech_ispco_q && (ech_pos == ech_ebody_c)) begin
+            ech_data_c = 8'h22;   // '"'（txt 帧收尾引号；⭐ val/tim/bco/pco 帧 ⛔ 无引号）
+        end else if (ech_pos >= ech_ff0_c) begin
+            ech_data_c = 8'hFF;
+            if (ech_pos == (ech_ff0_c + 6'd2)) ech_last_c = 1'b1;   // ⭐ 第 3 个 FF = 帧尾
+        end
+    end
+
+    // ── ④ 时序（⭐ 唯一写 `tx_start_o`/`tx_data_o` 与 `ech_*` 的 always 块）────
+    //   ⚠️ **已从主状态机里移除** `tx_start_o`/`tx_data_o` 的赋值，
+    //      ⭐ 现在**只有本节**写它们（⛔ 一个 reg 只能一个 always 赋值 ✅）
+    //   ⚠️ **本块内顺序**：① 发送 FSM（清 pending 位）→ ② 变化检测（置 pending 位）。
+    //      ⭐ 两者写同一位时**后写者胜** ⇒ 同拍「起帧 + 值恰好又变」不会被清掉 ✅
+    integer ech_ei;   // ⭐ 起帧锁存 36 字节快照的循环变量
+    always @(posedge clk_i) begin
+        if (!rst_n_i) begin
+            ech_state   <= ECH_S_IDLE;
+            ech_pos     <= 6'd0;
+            ech_pend    <= 48'd0;
+            ech_name_q  <= 72'd0;
+            ech_nlen_q  <= 4'd0;
+            ech_blen_q  <= 6'd0;
+            ech_isval_q <= 1'b0;
+            ech_istim_q <= 1'b0;
+            ech_isbco_q <= 1'b0;
+            ech_ispco_q <= 1'b0;
+            hb_tmr_q    <= 32'd0;
+            for (ech_ei = 0; ech_ei < 36; ech_ei = ech_ei + 1) ech_body_q[ech_ei] <= 8'd0;
+            // ⭐ 镜像初始化为**与各信号复位值一致** ⇒ ⛔ 上电不产生伪回显 ✅
+            ech_hb_s     <= 1'b0;
+            reflash_q    <= 1'b0;   // ⭐ 2026-10-29 三件套-A：重发请求复位
+            ech_mode_s   <= (MODE_PIANO_DEFAULT != 0) ? 1'b1 : 1'b0;
+            ech_test_s   <= 1'b0;
+            ech_testn_s  <= 2'b00;
+            ech_base_s   <= 7'd0;
+            ech_timbre_s <= 2'd0;
+            ech_trans_s  <= 5'd0;
+            ech_slide_s  <= 1'b0;
+            ech_bpm_s    <= 8'd120;   // ⭐ play_seq.bpm_o 复位 120
+            ech_drum_s   <= 2'd0;
+            ech_loop_s   <= 2'd0;
+            ech_kd_s     <= 1'b0;
+            ech_vol_s    <= 7'd0;
+            ech_pedal_s  <= 1'b0;
+            ech_gear_s   <= 2'd1;    // ⭐ fader_gear 复位档 1
+            ech_scope_s  <= 2'd0;
+            ech_pvib_s   <= 7'd0;
+            ech_vvib_s   <= 7'd0;
+            ech_fxmask_s <= 3'd0;
+            // ⭐⭐ 2026-10-29 晚（§八-3）：page1 镜像 ← FX 复位默认值 ⇒ ⛔ 上电不产生伪回显 ✅
+            ech_fxg_s    <= FX_GAIN_DEF;
+            ech_fxt_s    <= FX_TRIM_DEF;
+            ech_mix_s    <= FX_MIX_DEF;
+            ech_fb_s     <= FX_FB_DEF;
+            ech_rate_s   <= FX_RATE_DEF;
+            ech_dl_s     <= FX_DLYLEN_DEF;
+            ech_cl_s     <= FX_CHORLEN_DEF;
+            ech_parsel_s <= 3'd0;
+            tx_start_o <= 1'b0;
+            tx_data_o  <= 8'd0;
+        end else begin
+            // ⭐ 默认：脉冲输出每拍清零 ⇒ 严格单周期
+            tx_start_o <= 1'b0;
+
+            // ══ ⭐ 发送 FSM ═════════════════════════════════════════════════
+            case (ech_state)
+                ECH_S_IDLE: begin
+                    if (|ech_pend) begin
+                        // ⭐ 起帧：锁存**帧快照**（⭐ 发送期间输入再变也 ⛔ 不影响本帧）
+                        ech_pend[ech_nxt_c] <= 1'b0;   // ⭐ 变索引清位（与 ①b 同一优先级）
+                        ech_nlen_q  <= ech_nlen_c;
+                        ech_name_q  <= ech_name_c;
+                        ech_blen_q  <= ech_len_c;
+                        ech_isval_q <= ech_isval_c;
+                        ech_istim_q <= ech_istim_c;
+                        ech_isbco_q <= ech_isbco_c;
+                        ech_ispco_q <= ech_ispco_c;
+                        for (ech_ei = 0; ech_ei < 36; ech_ei = ech_ei + 1)
+                            ech_body_q[ech_ei] <= ech_bf_c[ech_ei];
+                        ech_pos     <= 6'd0;
+                        ech_state    <= ECH_S_EMIT;
+                    end
+                end
+                ECH_S_EMIT: begin
+                    // ⭐⭐ 流控：⭐ 只在 `tx_busy_i == 0`（下游能接）时推字节 + 推进
+                    //   🔴 **为什么必须看 busy**：⭐ 回显帧最长 52 字节，而 `u_tx_fifo`
+                    //      深度只有 8 ⇒ ⛔ 若像 `fx_tx` 那样"盲推每拍一个"，队列会溢出丢字节。
+                    //      （⭐ `fx_tx` 能盲推只因为 `'Z'` 帧是 6 字节 < 8 ✅）
+                    //   ⇒ ⭐ `top.v` 把 `tx_busy_i` 接到 `~txf_ready`（队列满 = 忙），
+                    //      本 FSM 在 busy 时**原地等待**（⛔ 不推、不推进 pos）✅
+                    //   📌 与 `uart_tx` 直连时同理：busy 就是"串行线还在发上一字节"。
+                    if (!tx_busy_i) begin
+                        tx_start_o <= 1'b1;
+                        tx_data_o  <= ech_data_c;
+                        if (ech_last_c) begin
+                            // ⭐ 帧尾（第 3 个 FF）已推 ⇒ 回 IDLE
+                            ech_pos   <= 6'd0;
+                            ech_state <= ECH_S_IDLE;
+                        end else begin
+                            ech_pos <= ech_pos + 6'd1;
+                        end
+                    end
+                end
+                default: ech_state <= ECH_S_IDLE;
+            endcase
+
+            // ══ ⭐⭐ 心跳节拍（⭐ 2026-10-29 新增：⭐ 周期置位 pend[22]）══
+            //   📌 门控在 `hb_ready_o` 上：⭐ 握手前一个心跳都不发（⭐ 与状态回显同一纪律）
+            //   📌 心跳 = `tm1.tim=1500`（⭐ 屏侧看门狗复位倒计时）⇒ 屏断联 1.5s 自动闪
+            if (!hb_ready_o) begin
+                hb_tmr_q <= 32'd0;
+            end else if (hb_tmr_q >= HB_CLKS_I - 1) begin
+                hb_tmr_q <= 32'd0;
+                ech_pend[ECH_F_HB] <= 1'b1;   // ⭐ 最低优先级 ⇒ 不抢状态帧
+            end else begin
+                hb_tmr_q <= hb_tmr_q + 32'd1;
+            end
+
+            // ══ ⭐ 变化检测 + 置待发位（⭐ **后**执行：同拍「起帧清位」不会吃掉新变化）══
+            //   📌 全部门控在 `hb_ready_o` 上：⭐ 握手前的变化由握手沿**一次性补发** ✅
+            if (hb_ready_o) begin
+                //  ⭐⭐ 2026-10-29 三件套-A：⭐ **首次握手沿 ∨ 0x88 重发请求** ⇒ 全量 ⭐⭐
+                //   📌 重复收到 0x88（⭐ 屏切页返回）⇒ ⭐ 靠 `reflash_q` 再拿 47 帧新值 ✅
+                if (!ech_hb_s || reflash_q) begin
+                    // ⭐ 0x88 握手上升沿 ⇒ 47 个字段**全部**回显（屏上电初态）
+                    //   ⭐ 2026-10-29 起重复收到 0x88 同样全量（⭐ 切页返回刷新）
+                    ech_pend <= 48'hFFFF_FFBF_FFFF;   // ⭐ bit22（心跳）⛔ 不随握手置位：⭐ 由计时器首发
+                    reflash_q <= 1'b0;        // ⭐ 重发请求自清（⭐ 单拍语义）
+                    // ⭐ 同步全部镜像（⭐ 吸收握手前堆积的变化 ⇒ 随后不重复触发）
+                    ech_mode_s   <= mode_o;
+                    ech_test_s   <= test_mode_o;
+                    ech_testn_s  <= test_mode_n_o;
+                    ech_base_s   <= base_semi_o;
+                    ech_timbre_s <= st_timbre_c;
+                    ech_trans_s  <= st_trans_c;
+                    ech_slide_s  <= st_slide_c;
+                    ech_bpm_s    <= st_bpm_c;
+                    ech_drum_s   <= st_drum_c;
+                    ech_loop_s   <= st_loop_c;
+                    ech_kd_s     <= st_kd_c;
+                    ech_vol_s    <= st_vol_c;
+                    ech_pedal_s  <= st_pedal_c;
+                    ech_gear_s   <= st_gear_c;
+                    ech_scope_s  <= st_scope_c;
+                    ech_pvib_s   <= st_pvib_c;
+                    ech_vvib_s   <= st_vvib_c;
+                    ech_fxmask_s <= st_fxmask_c;
+                    // ⭐⭐ 2026-10-29 晚（§八-3）：同步 page1 镜像（⭐ 吸收握手前堆积的变化）
+                    ech_fxg_s    <= fx_gain_o;
+                    ech_fxt_s    <= fx_trim_o;
+                    ech_mix_s    <= fx_mix_o;
+                    ech_fb_s     <= fx_fb_o;
+                    ech_rate_s   <= fx_rate_o;
+                    ech_dl_s     <= fx_dlylen_o;
+                    ech_cl_s     <= fx_chorlen_o;
+                    ech_parsel_s <= par_sel_c;
+                end else begin
+                    // ⭐ 逐字段变化检测（⭐ 只盯值 ⇒ ⭐ 触摸/串口/按键全走这一条路）
+                    if (mode_o != ech_mode_s) begin
+                        ech_pend[ECH_F_MODE] <= 1'b1;  ech_mode_s <= mode_o;
+                    end
+                    if ((test_mode_o != ech_test_s) || (test_mode_n_o != ech_testn_s)) begin
+                        ech_pend[ECH_F_TEST] <= 1'b1;
+                        ech_test_s  <= test_mode_o;
+                        ech_testn_s <= test_mode_n_o;
+                    end
+                    if (base_semi_o != ech_base_s) begin
+                        ech_pend[ECH_F_BASE] <= 1'b1;  ech_base_s <= base_semi_o;
+                    end
+                    if (st_timbre_c != ech_timbre_s) begin
+                        ech_pend[ECH_F_TIMB] <= 1'b1;  ech_timbre_s <= st_timbre_c;
+                    end
+                    if (st_trans_c != ech_trans_s) begin
+                        ech_pend[ECH_F_TRAN] <= 1'b1;  ech_trans_s <= st_trans_c;
+                    end
+                    if (st_slide_c !== ech_slide_s) begin
+                        ech_pend[ECH_F_SLIDE] <= 1'b1;  ech_slide_s <= st_slide_c;
+                    end
+                    if (st_bpm_c != ech_bpm_s) begin
+                        ech_pend[ECH_F_BPM] <= 1'b1;  ech_bpm_s <= st_bpm_c;
+                    end
+                    if (st_drum_c != ech_drum_s) begin
+                        ech_pend[ECH_F_DRUM] <= 1'b1;  ech_drum_s <= st_drum_c;
+                    end
+                    if (st_loop_c != ech_loop_s) begin
+                        // ⭐⭐ 2026-10-29 晚（§八-2）：文案 + 三态配色**同源** ⇒ 三挂起
+                        ech_pend[ECH_F_LOOP]   <= 1'b1;
+                        ech_pend[ECH_F_LOOPBCO] <= 1'b1;
+                        ech_pend[ECH_F_LOOPPCO] <= 1'b1;
+                        ech_loop_s <= st_loop_c;
+                    end
+                    if (st_kd_c !== ech_kd_s) begin
+                        ech_pend[ECH_F_KD] <= 1'b1;  ech_kd_s <= st_kd_c;
+                    end
+                    if (st_vol_c != ech_vol_s) begin
+                        // ⭐ 主音量：文本 `t_vol` 与进度条 `j_vol.val` **同源** ⇒ 双挂起
+                        ech_pend[ECH_F_VOL]  <= 1'b1;
+                        ech_pend[ECH_F_JVOL] <= 1'b1;
+                        ech_vol_s <= st_vol_c;
+                    end
+                    if (st_pedal_c !== ech_pedal_s) begin
+                        ech_pend[ECH_F_PEDAL] <= 1'b1;  ech_pedal_s <= st_pedal_c;
+                    end
+                    if (st_gear_c != ech_gear_s) begin
+                        // ⭐⭐ 2026-10-29 晚（§八-3）：t_gear 与 page1 短文本 gr **同源** ⇒ 双挂起
+                        ech_pend[ECH_F_GEAR] <= 1'b1;
+                        ech_pend[ECH_F_GR]   <= 1'b1;
+                        ech_gear_s <= st_gear_c;
+                    end
+                    if (st_scope_c != ech_scope_s) begin
+                        ech_pend[ECH_F_HDMI] <= 1'b1;  ech_scope_s <= st_scope_c;
+                    end
+                    if (st_pvib_c != ech_pvib_s) begin
+                        // ⭐ 音高颤音深度：文本 `t_pd` + 仪表 `z_pd` + page1 文本 `t_pd_val` 同源 ⇒ 三挂起
+                        ech_pend[ECH_F_PD]   <= 1'b1;
+                        ech_pend[ECH_F_ZPD]  <= 1'b1;
+                        ech_pend[ECH_F_TPDV] <= 1'b1;
+                        ech_pvib_s <= st_pvib_c;
+                    end
+                    if (st_vvib_c != ech_vvib_s) begin
+                        // ⭐ 音量颤音深度：文本 `t_vd` + 仪表 `z_vd` + page1 文本 `t_vd_val` 同源 ⇒ 三挂起
+                        ech_pend[ECH_F_VD]   <= 1'b1;
+                        ech_pend[ECH_F_ZVD]  <= 1'b1;
+                        ech_pend[ECH_F_TVDV] <= 1'b1;
+                        ech_vvib_s <= st_vvib_c;
+                    end
+                    if (st_fxmask_c != ech_fxmask_s) begin
+                        // ⭐⭐ 2026-10-29 晚（§八-4）：三个灯文本 + 三个状态灯 .val **同源** ⇒ 六挂起
+                        ech_pend[ECH_F_DIST]   <= 1'b1;
+                        ech_pend[ECH_F_CHOR]   <= 1'b1;
+                        ech_pend[ECH_F_DLY]    <= 1'b1;
+                        ech_pend[ECH_F_LEDD]   <= 1'b1;
+                        ech_pend[ECH_F_LEDC]   <= 1'b1;
+                        ech_pend[ECH_F_LEDDLY] <= 1'b1;
+                        ech_fxmask_s <= st_fxmask_c;
+                    end
+                    // ⭐⭐ 2026-10-29 晚（§八-3）：page1 动态字段
+                    //   （⭐ fx 寄存器就是数据源：串口帧 / EC11 写回都会触发这一条路 ✅）
+                    if (fx_gain_o != ech_fxg_s) begin
+                        // ⭐ 失真增益：仪表 z_dg + 文本 t_dg_val 同源 ⇒ 双挂起
+                        ech_pend[ECH_F_ZDG] <= 1'b1;
+                        ech_pend[ECH_F_TDG] <= 1'b1;
+                        ech_fxg_s <= fx_gain_o;
+                    end
+                    if (fx_trim_o != ech_fxt_s) begin
+                        ech_pend[ECH_F_ZDT] <= 1'b1;
+                        ech_pend[ECH_F_TDT] <= 1'b1;
+                        ech_fxt_s <= fx_trim_o;
+                    end
+                    if (fx_mix_o != ech_mix_s) begin
+                        ech_pend[ECH_F_ZMX] <= 1'b1;
+                        ech_pend[ECH_F_TMX] <= 1'b1;
+                        ech_mix_s <= fx_mix_o;
+                    end
+                    if (fx_fb_o != ech_fb_s) begin
+                        ech_pend[ECH_F_ZLF] <= 1'b1;
+                        ech_pend[ECH_F_TLF] <= 1'b1;
+                        ech_fb_s <= fx_fb_o;
+                    end
+                    if (fx_rate_o != ech_rate_s) begin
+                        // ⭐ 颤音速率：z_pr/z_vr/t_pr_val/t_vr_val **四帧同源** ⇒ 四挂起
+                        ech_pend[ECH_F_ZPR] <= 1'b1;
+                        ech_pend[ECH_F_ZVR] <= 1'b1;
+                        ech_pend[ECH_F_TPR] <= 1'b1;
+                        ech_pend[ECH_F_TVR] <= 1'b1;
+                        ech_rate_s <= fx_rate_o;
+                    end
+                    if (fx_dlylen_o != ech_dl_s) begin
+                        ech_pend[ECH_F_ZLL] <= 1'b1;
+                        ech_pend[ECH_F_TLL] <= 1'b1;
+                        ech_dl_s <= fx_dlylen_o;
+                    end
+                    if (fx_chorlen_o != ech_cl_s) begin
+                        ech_pend[ECH_F_ZCL] <= 1'b1;
+                        ech_pend[ECH_F_TCL] <= 1'b1;
+                        ech_cl_s <= fx_chorlen_o;
+                    end
+                    if (par_sel_c != ech_parsel_s) begin
+                        // ⭐ EC11 选参变化 ⇒ cur 文本（⭐ 参数号与 0x11..0x18 对齐）
+                        ech_pend[ECH_F_CUR] <= 1'b1;
+                        ech_parsel_s <= par_sel_c;
+                    end
+                end
+            end
+            ech_hb_s <= hb_ready_o;
         end
     end
 

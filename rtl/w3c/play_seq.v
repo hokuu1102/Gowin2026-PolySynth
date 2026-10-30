@@ -142,6 +142,19 @@ module play_seq #(
 
     output reg  [31:0]         tick_inc_o,       // ⭐⭐ → `beat_gen.tick_inc_i`（**寄存器输出**）
 
+    // ── ⭐⭐ 2026-10-28：⭐ 当前 BPM 整数回显（→ `uart_ui` → 串口屏 `t_bpm`）────────
+    //  ⭐ **为什么需要它**：⭐ 屏上要显示 `120` 这样的**整数 BPM**（Page0 `t_bpm` ✅）
+    //     ⇒ ⚠️ 只有 `tick_inc_o` 的话屏侧得做 `(inc−47)/1374` 的**除法反算** ——
+    //        ⚠️ HMI 侧做除法既慢又难精确 ⇒ ⭐ **FPGA 侧算好再送** ✅
+    //  📌 ⭐ **三个来源都维护它**（⭐ 与 `tick_inc_o` 同一个 always、同步写 ✅）：
+    //     · ⭐ 复位 = **120**（⭐ 与 `TICK_INC_DEFAULT` 精确对应 ✅）
+    //     · ⭐ 手动 `bpm_load/up/dn_i` ⇒ ⭐ 直接装载 / ±1（⭐ 本来就是整数 ✅）
+    //     · ⭐ 曲谱 `kind=2` 事件只带 `tick_inc` ⇒ ⭐ 用 **20 拍恢复余数除法器**
+    //        精确反算 `BPM = (tick_inc − 47) / 1374`（⭐ 见 `div_*` 寄存器组 ✅）
+    //  ⚠️ ⭐ **悬空无害**：⭐ 本输出是**新增端口**，老 tb 不接 ⇒ 读到 `z`
+    //     ⇒ ⭐ 只影响 tb 里对它的观测（⛔ 不反馈进任何逻辑）⇒ **零回归** ✅
+    output reg  [7:0]          bpm_o,            // ⭐ 当前 BPM（复位 120 · ⭐ 供 UI 回显）
+
     // ── 事件缓冲接口（⭐ 由调用方供给）──────────────────────────────────────
     input  wire                evt_valid_i,      // 缓冲区当前有事件可读
     input  wire [EVT_W-1:0]    evt_data_i,       // 事件数据
@@ -216,6 +229,32 @@ module play_seq #(
     wire [31:0] inc_up     = (inc_up_raw > INC_MAX) ? INC_MAX : inc_up_raw;
     wire [31:0] inc_dn     = (inc_dn_raw < INC_MIN) ? INC_MIN : inc_dn_raw;
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // ⭐⭐ 2026-10-28：⭐ **BPM 反算除法器**（⭐ 曲谱 tempo 事件 → `bpm_o` ✅）
+    //
+    //  ⭐ **要算的式子**：⭐ `BPM = (tick_inc − 47) / 1374`（⭐ 正向公式的逆 ✅）
+    //  ⚠️ ⭐ **为什么不用"乘倒数"**：⭐ `1/1374` 不是二次幂 ⇒ ⭐ 截断误差随被除数放大
+    //     （⚠️ 到 240 BPM 附近会偏 ±1 以上）⇒ 🔴 屏上数字与实际速度**对不上** ✅
+    //     ⇒ ⭐ 用**恢复余数除法**（MSB-first、20 拍）⭐ **精确、零误差** ✅
+    //  📌 ⭐ 20 拍 ≪ 1 个 tick（≈18601 clk）⇒ ⭐ 下一次 beat 边界前**必然算完** ✅
+    //  📌 ⭐ 除法进行中来手动命令 ⇒ ⭐ **手动杀掉除法**（⭐ 手动胜，见主 FSM ✅）
+    // ═══════════════════════════════════════════════════════════════════════
+    reg         div_run;                    // ⭐ 除法进行中
+    reg  [19:0] div_xq;                     // ⭐ 剩余被除数（MSB-first 消费）→ 完成后 = 商
+    reg  [11:0] div_r;                      // ⭐ 部分余数（⭐ 恒 < 1374 ⇒ 12 位够 ✅）
+    reg  [4:0]  div_cnt;                    // ⭐ 剩余步数（20 → 0）
+
+    // ⭐ 单步：⭐ 余数左移一位拼上被除数当前最高位，⭐ 够减则商 1
+    //    ⚠️ 14 位减法看 bit13 借位（⭐ `div_t` 最大 8191，⭐ 无二次回绕 ✅）
+    wire [13:0] div_t  = {1'b0, div_r[11:0], div_xq[19]};
+    wire [13:0] div_s  = div_t - 14'd1374;              // ⭐ = INC_PER_BPM
+    wire        div_ge = ~div_s[13];                    // ⭐ 无借位 ⇒ 够减
+
+    // ⭐ 被除数预处理：⭐ `x = evt_inc − 47`（⭐ 22 位同时看借位/溢出 ✅）
+    //     · ⭐ `div_x_ext[21]`（借位）⇒ `evt_inc < 47` ⇒ **0 BPM**（异常谱，照实显示）
+    //     · ⭐ `div_x_ext[20]`（溢出）⇒ `x ≥ 2^20` ⇒ **饱和 255**（⭐ 照实反映"超快" ✅）
+    wire [21:0] div_x_ext = {1'b0, evt_inc[20:0]} - 22'd47;
+
     // ── ⭐ 位域（⚠️ 必须与 `tools/mid2evt.py` 逐位一致 —— 契约 §1.1.3 硬约束 1）──
     localparam integer TICK_SH   = 44;
     localparam integer TICK_W    = 20;
@@ -287,6 +326,11 @@ module play_seq #(
             tempo_cnt_o     <= 16'd0;
             cur_tick_o      <= 20'd0;
             tick_inc_o      <= TICK_INC_DEFAULT;   // ⭐ ⛔ 不是 0（0 ⇒ 时钟静止）
+            bpm_o           <= 8'd120;             // ⭐ 与 TICK_INC_DEFAULT 精确对应
+            div_run         <= 1'b0;               // ⭐ 除法器空闲
+            div_xq          <= 20'd0;
+            div_r           <= 12'd0;
+            div_cnt         <= 5'd0;
         end else begin
             // ⭐ 默认：脉冲类输出**每拍清零** ⇒ 严格单周期
             note_valid_o    <= 1'b0;
@@ -308,6 +352,33 @@ module play_seq #(
                 evt_underrun_o <= 1'b1;
             end
 
+            // ═══════════════════════════════════════════════════════════════
+            // ⭐⭐ BPM 反算除法器迭代（⭐ 放在 `emit_now`/手动段【之前】✅）
+            //
+            //  📌 ⭐ **为什么必须放最前**（⚠️ 同一 always 内后写者胜）：
+            //     · ⭐ 放在 tempo 启动**之前** ⇒ 新事件**重启**除法器时
+            //       ⭐ 本拍先用【旧值】走完最后一步 ⇒ 新被除数**不被冲掉** ✅
+            //     · ⭐ 放在手动段**之前** ⇒ 手动命令同拍杀除法（`div_run <= 0`）
+            //       ⇒ ⭐ 手动的 `bpm_o` **覆盖**除法器可能的完成回写 ⇒ **手动胜** ✅
+            // ═══════════════════════════════════════════════════════════════
+            if (div_run) begin
+                if (div_cnt != 5'd0) begin
+                    div_cnt <= div_cnt - 5'd1;
+                    if (div_ge) begin
+                        div_r  <= div_s[11:0];              // ⭐ 减掉 1374，商 1 移入
+                        div_xq <= {div_xq[18:0], 1'b1};
+                    end else begin
+                        div_r  <= {div_r[11:0], div_xq[19]}; // ⭐ 只移位，商 0 移入
+                        div_xq <= {div_xq[18:0], 1'b0};
+                    end
+                end else begin
+                    // ⭐ 20 拍走完：`div_xq` 已整体变成**商** ⇒ 回写 `bpm_o`
+                    //    ⭐ 商 > 255（被除数超常）⇒ **饱和 255**（⭐ 照实反映 ✅）
+                    div_run <= 1'b0;
+                    bpm_o   <= (|div_xq[19:8]) ? 8'd255 : div_xq[7:0];
+                end
+            end
+
             if (emit_now) begin
                 evt_cnt_o    <= evt_cnt_o + 16'd1;
                 // ⭐⭐ 缺陷 2 的修法：**在同一拍把数据锁存**，与 `note_valid_o` 对齐
@@ -323,6 +394,25 @@ module play_seq #(
                         tick_inc_o      <= evt_inc;
                         tempo_applied_o <= 1'b1;
                         tempo_cnt_o     <= tempo_cnt_o + 16'd1;
+
+                        // ⭐⭐ 2026-10-28：⭐ 同步维护 `bpm_o`（⭐ 回显用 ✅）
+                        //    ⚠️ 事件只带 `tick_inc` ⇒ ⭐ 需要反算除法（见上方长注释）
+                        //    ⭐ `div_x_ext` 是 `evt_inc − 47` 的 22 位预处理：
+                        //      · 借位（`evt_inc < 47`）⇒ **0 BPM**（异常谱，照实显示）
+                        //      · 溢出（`x ≥ 2^20`）⇒ **饱和 255**
+                        //      · 否则 ⇒ ⭐ 启动 20 拍除法器，完成后回写
+                        if (div_x_ext[21]) begin
+                            bpm_o   <= 8'd0;
+                            div_run <= 1'b0;   // ⭐ 蹭掉可能还在跑的旧除法
+                        end else if (div_x_ext[20]) begin
+                            bpm_o   <= 8'd255;
+                            div_run <= 1'b0;
+                        end else begin
+                            div_run <= 1'b1;
+                            div_xq  <= div_x_ext[19:0];
+                            div_r   <= 12'd0;
+                            div_cnt <= 5'd20;
+                        end
                     end
                     // ⚠️ 若 evt_inc == 0：**不应用、但也不报错** ——
                     //    这是"上电/未选曲"的合法态。⭐ 可观测性由 `tempo_cnt_o` 体现
@@ -355,14 +445,22 @@ module play_seq #(
             //     📌 ⭐ 而且它**保护所有"没接新端口的 tb"** —— ⚠️ 否则每加一个输入都要改一堆 tb ✅
             if (bpm_load_i === 1'b1) begin
                 tick_inc_o      <= tick_inc_from_bpm;
+                bpm_o           <= bpm_clamped[7:0];   // ⭐ 已限幅 40~240 ⇒ 8 位安全
+                div_run         <= 1'b0;               // ⭐ 手动胜：杀掉进行中的反算
                 tempo_applied_o <= 1'b1;
                 tempo_cnt_o     <= tempo_cnt_o + 16'd1;
             end else if (bpm_up_i === 1'b1) begin
                 tick_inc_o      <= inc_up;
+                // ⭐ 与 `inc_up` 的 INC_MAX 限幅**同步**：到顶就不再涨
+                if (bpm_o != 8'd240) bpm_o <= bpm_o + 8'd1;
+                div_run         <= 1'b0;
                 tempo_applied_o <= 1'b1;
                 tempo_cnt_o     <= tempo_cnt_o + 16'd1;
             end else if (bpm_dn_i === 1'b1) begin
                 tick_inc_o      <= inc_dn;
+                // ⭐ 与 `inc_dn` 的 INC_MIN 限幅**同步**：到底就不再降
+                if (bpm_o != 8'd40) bpm_o <= bpm_o - 8'd1;
+                div_run         <= 1'b0;
                 tempo_applied_o <= 1'b1;
                 tempo_cnt_o     <= tempo_cnt_o + 16'd1;
             end

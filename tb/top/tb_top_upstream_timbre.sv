@@ -90,16 +90,17 @@ module tb_top_upstream_timbre;
         end
     endtask
 
-    //  ⭐ 真 UART 发一个字节（⭐ 100 拍/位 = 500 kbps ⇒ 与 `BAUD_DIV=100` 同档 ✅）
+    //  ⭐ 真 UART 发一个字节（⭐ 434 拍/位 = 115200 ⇒ 与板载 `BAUD_DIV=434` 同档 ✅）
+    //     📌 2026-10-28 板载口改档 500 kbps → 115200 ⇒ tb 同步适配
     task send_byte;
         input [7:0] cmd;
         integer bi;
         begin
-            @(negedge clk); rx = 1'b0; repeat (100) @(negedge clk);
+            @(negedge clk); rx = 1'b0; repeat (434) @(negedge clk);
             for (bi = 0; bi < 8; bi = bi + 1) begin
-                rx = cmd[bi]; repeat (100) @(negedge clk);
+                rx = cmd[bi]; repeat (434) @(negedge clk);
             end
-            rx = 1'b1; repeat (150) @(negedge clk);
+            rx = 1'b1; repeat (650) @(negedge clk);
         end
     endtask
 
@@ -171,17 +172,18 @@ module tb_top_upstream_timbre;
     endtask
 
     //  ⭐ 等够 `n` 个字节（⭐ 带超时 ⇒ ⛔ 不静默挂死 ✅）
-    //     ⚠️ ⭐ 一帧 14 B @ 500 kbps = **14000 拍** ⇒ ⭐ 超时预算必须按帧算 ✅
+    //     ⚠️ ⭐ 一帧 14 B @ 115200 = **60760 拍**（⭐ 板载口 2026-10-28 改档后）
+    //        ⇒ ⭐ 超时预算必须按帧算（⭐ 500 kbps 时代是 14000 拍 ✅）
     task wait_bytes;
         input integer n;
         integer guard;
         begin
             guard = 0;
-            while ((rxn < n) && (guard < 60000)) begin
+            while ((rxn < n) && (guard < 400000)) begin
                 @(negedge clk);
                 guard = guard + 1;
             end
-            if (guard >= 60000) begin
+            if (guard >= 400000) begin
                 $display("FAIL: timeout waiting for %0d bytes (got %0d)", n, rxn);
                 errors = errors + 1;
             end
@@ -553,7 +555,7 @@ module tb_top_upstream_timbre;
     end
 
     initial begin
-        #40000000;                                  // ⭐ 40 ms 上限（⭐ 4 帧 ≈ 56000 拍 ✅）
+        #100000000;                                  // ⭐ 100 ms 上限（⭐ 8 帧 ≈ 486000 拍 @115200 ✅）
         $display("FAIL: tb_top_upstream_timbre timed out");
         $fatal(1, "timeout");
     end
