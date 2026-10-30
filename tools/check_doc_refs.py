@@ -73,10 +73,36 @@ DOC_EXT = {
 # ── 不扫描 .md 的目录 ──────────────────────────────────
 # files/历史/ 是历史留档，故意保留旧引用（旧文件名/旧结构），
 # 检查它只产生噪音，且改它等于篡改历史记录。
-SCAN_SKIP_DIRS = {"files/历史", "tools"}
+# ⭐ 2026-10-30 扩充（CI 拉绿专项）：以下目录同样是【历史存档/证据留痕】，
+#    引用当时的旧工作文件、外部仓库、本地工具链 PDF 是常态 ——
+#    按「宁可漏报，不可误报」原则不扫，与 files/历史 同理：
+#      · review / sim / evidence       夜战审查 / 仿真 / 上板证据留痕
+#      · assets/third_party            第三方素材 SOURCES（原发布包未入库）
+#      · esp32                         ESP32 侧固件文档（其侧源文件未入库）
+#      · bringup/hdmi_640x480          已废弃 HDMI 分支存档（rtl/hdmi 已删）
+SCAN_SKIP_DIRS = {
+    "files/历史", "tools",
+    "review", "sim", "evidence",
+    "assets/third_party", "esp32",
+    "bringup/hdmi_640x480",
+}
+
+# ── 历史快照文档（按日期命名）→ 坏引用降级为提示 ────────
+# ⭐ files/ 与 bringup/ 下大量文档是【带日期的过程快照】
+#   （交接文档-20261016.md / T3-复核-组1-20261001.md / 今晚任务书-20260930.md…）。
+#   它们按【当时】的仓库状态写引用；目标后来被移走/删除是历史的正常演化，
+#   改写快照里的引用等于篡改历史记录，删掉又丢信息
+# ⇒ 按设计原则降级：这类文档里的坏引用【只提示、不判失败】。
+# ⚠️ 只对 files/ bringup/ 两个文档树生效 —— ⛔ 不含 hmi7/ 等在维护的活文档树
+#   （串口屏v3-搭建清单-20261029.md 虽带日期但必须照常判硬：
+#    心跳圆点工具漏入库就是它抓出来的）。
+RE_DATED_SNAPSHOT = re.compile(r"-20\d{6}")
+DEGRADE_DIRS = ("files", "bringup")
 
 # ── 仓库外的本机路径前缀（跳过，不判失败）───────────────
-EXTERNAL_HINTS = ("Desktop", "Users", "Documents", "AppData", "~")
+# 注：IDE = Gowin IDE 安装目录（例 `IDE/data/device/device_info.csv`），
+#     只在装了 IDE 的本机上存在，仓库里本来就不该有。
+EXTERNAL_HINTS = ("Desktop", "Users", "Documents", "AppData", "~", "IDE")
 
 # ── 构建产物目录（跳过，不判失败）───────────────────────
 # ⭐ 为什么必须跳过：这些目录**被 gitignore**，所以永远不在
@@ -99,6 +125,13 @@ EXTERNAL_HINTS = ("Desktop", "Users", "Documents", "AppData", "~")
 #    ⛔ **不要加 `sim/evidence/`** —— ⭐ 它是**被跟踪的**（证据要入库），
 #       所以引用它必须照常检查。
 BUILD_OUTPUT_DIRS = ("impl/", "build/", "files/开发板原理图/")
+
+# ── 外部兄弟仓库前缀（跳过，不判失败）─────────────
+# 文档会引用同级 checkout 的另一个私有仓库（FPGA2026-esp32 等），
+# 例：`FPGA2026/rtl/top.v`、`../FPGA2026-esp32/files/...`。
+# 这些路径只在「两个仓库并排 checkout」的本机上成立，
+# 在本仓库的 CI 检出里【本来就不该有】—— 引用它是合法的。
+EXTERNAL_REPO_HINTS = ("FPGA2026",)
 
 RE_BACKTICK = re.compile(r"`([^`\n]+)`")
 RE_MDLINK = re.compile(r"\]\(([^)\s]+)\)")
@@ -172,6 +205,9 @@ def looks_like_ref(s: str) -> bool:
     seg = re.split(r"[\\/]", s)[0]
     if seg in EXTERNAL_HINTS:
         return False                      # 仓库外的本机路径
+    if any(any(part.startswith(h) for h in EXTERNAL_REPO_HINTS)
+           for part in re.split(r"[\\/]", s)):
+        return False                      # 外部兄弟仓库路径（并排 checkout 才有）
     return True
 
 
@@ -216,6 +252,7 @@ def check_file(
     tracked: set[str],
     hard: list[tuple[str, int, str]],
     soft: list[tuple[str, int, str]],
+    degrade: bool = False,
 ) -> None:
     md = repo / rel
     try:
@@ -260,7 +297,7 @@ def check_file(
 
             if is_dir_ref:
                 if not resolve(ref, md_rel_dir, tracked):
-                    hard.append((rel, lineno, ref))
+                    (soft if degrade else hard).append((rel, lineno, ref))
                 continue
 
             ext = os.path.splitext(ref.lower())[1]
@@ -282,6 +319,9 @@ def check_file(
                 #    （早先只放过 .md/.pdf 等少数扩展名，结果 .v/.py/.cst
                 #     被误判成硬错误 —— 又一个"误报训练人忽略检查器"的例子。）
                 soft.append((rel, lineno, ref + "  （仓库里找不到同名文件）"))
+            elif degrade:
+                # ⭐ 历史快照文档：坏引用降级为提示（见 DEGRADE_DIRS 注释）
+                soft.append((rel, lineno, ref + "  （历史快照，目标已不存在，仅提示）"))
             else:
                 hard.append((rel, lineno, ref))
 
@@ -316,7 +356,11 @@ def main() -> int:
     soft: list[tuple[str, int, str]] = []
 
     for rel in md_files:
-        check_file(rel, repo, tracked, hard, soft)
+        # ⭐ 历史快照降级：files/ bringup/ 下按日期命名的文档（见 DEGRADE_DIRS 注释）
+        first_seg = PurePosixPath(rel).parts[0]
+        is_snapshot = (first_seg in DEGRADE_DIRS
+                       and RE_DATED_SNAPSHOT.search(PurePosixPath(rel).name) is not None)
+        check_file(rel, repo, tracked, hard, soft, degrade=is_snapshot)
 
     print(f"📄 检查了 {len(md_files)} 个 Markdown 文件"
           f"（依据 git 跟踪清单，共 {len(tracked)} 个文件）")
