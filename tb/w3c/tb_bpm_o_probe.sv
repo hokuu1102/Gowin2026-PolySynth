@@ -80,6 +80,17 @@ module tb_bpm_o_probe;
         send_tempo(32'd30);      check(bpm_o, 8'd0, "evt_inc<47 -> 0");
         // 溢出 x>=2^20 → 255
         send_tempo(32'h100040);  check(bpm_o, 8'd255, "x>=2^20 -> saturate 255");
+        send_tempo(32'd412247); // 300 BPM, displayed as 255
+        pulse_up;
+        check(bpm_o, 8'd240, "up from >255 BPM follows actual 240 clamp");
+        send_tempo(32'd412247); pulse_dn;
+        check(bpm_o, 8'd255, "down above display range stays saturated");
+        send_tempo(32'd350417); pulse_dn;
+        check(bpm_o, 8'd254, "down from exactly 255 BPM is 254");
+        send_tempo(32'd30); pulse_up;
+        check(bpm_o, 8'd0, "up after sub-offset tempo follows tick increment");
+        send_tempo(32'd30); pulse_dn;
+        check(bpm_o, 8'd255, "readback reflects existing unsigned increment behavior");
         // 恢复：装载 90
         @(negedge clk); bpm_i = 16'd90; pulse_load;
         check(bpm_o, 8'd90, "bpm_load 90");
