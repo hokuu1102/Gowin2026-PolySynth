@@ -1,10 +1,10 @@
 `timescale 1ns/1ps
-module vibrato_ce_case #(parameter [31:0] STEP=16, parameter integer DIV=10)(output reg done=0);
+module vibrato_ce_case #(parameter [31:0] STEP=16, parameter integer DIV=10, parameter [31:0] MIN_INC=86, MAX_INC=1031)(output reg done=0);
 reg clk=0,rst=0,valid=0;reg [11:0] depth=0,rate=0;
 always #10 clk=~clk;
 wire signed [15:0] a,b;wire da,db;wire [31:0] ra,rb,pa,pb;
-vibrato_lfo #(.RATE_SLEW_STEP(STEP),.CTRL_SLEW_DIV(DIV)) dut(.clk_i(clk),.rst_n_i(rst),.ctrl_valid_i(valid),.depth_raw_i(depth),.rate_raw_i(rate),.mod_o(a),.depth_active_o(da),.rate_inc_dbg_o(ra),.phase_dbg_o(pa));
-vibrato_lfo_before_ce #(.RATE_SLEW_STEP(STEP),.CTRL_SLEW_DIV(DIV)) ref_dut(.clk_i(clk),.rst_n_i(rst),.ctrl_valid_i(valid),.depth_raw_i(depth),.rate_raw_i(rate),.mod_o(b),.depth_active_o(db),.rate_inc_dbg_o(rb),.phase_dbg_o(pb));
+vibrato_lfo #(.RATE_SLEW_STEP(STEP),.CTRL_SLEW_DIV(DIV),.RATE_MIN_INC(MIN_INC),.RATE_MAX_INC(MAX_INC)) dut(.clk_i(clk),.rst_n_i(rst),.ctrl_valid_i(valid),.depth_raw_i(depth),.rate_raw_i(rate),.mod_o(a),.depth_active_o(da),.rate_inc_dbg_o(ra),.phase_dbg_o(pa));
+vibrato_lfo_before_ce #(.RATE_SLEW_STEP(STEP),.CTRL_SLEW_DIV(DIV),.RATE_MIN_INC(MIN_INC),.RATE_MAX_INC(MAX_INC)) ref_dut(.clk_i(clk),.rst_n_i(rst),.ctrl_valid_i(valid),.depth_raw_i(depth),.rate_raw_i(rate),.mod_o(b),.depth_active_o(db),.rate_inc_dbg_o(rb),.phase_dbg_o(pb));
 reg [31:0] random=32'h9abc1234,initial_rate;integer i;
 always @(posedge clk)begin
  #1;if({a,da,ra,pa,dut.depth_q,dut.slew_count_q}!=={b,db,rb,pb,ref_dut.depth_q,ref_dut.slew_count_q})
@@ -35,11 +35,12 @@ initial begin
 end
 endmodule
 module tb_vibrato_rate_ce_equiv;
-wire a,b,c,d;
+wire a,b,c,d,e;
 vibrato_ce_case #(.STEP(16),.DIV(10)) n(a);
 vibrato_ce_case #(.STEP(0),.DIV(1)) z(b);
 vibrato_ce_case #(.STEP(1),.DIV(3)) o(c);
 vibrato_ce_case #(.STEP(32'hffffffff),.DIV(10)) m(d);
-initial begin wait(a&&b&&c&&d);$display("PASS: all vibrato enable-equivalence cases");$finish;end
+vibrato_ce_case #(.STEP(16),.DIV(2),.MIN_INC(32'hfffffc00),.MAX_INC(32'hffffffff)) overflow(e);
+initial begin wait(a&&b&&c&&d&&e);$display("PASS: all vibrato enable-equivalence cases");$finish;end
 initial begin #1000000;$fatal(1,"FAIL: timeout");end
 endmodule

@@ -120,6 +120,14 @@ module vibrato_lfo #(
     reg [31:0]       phase_q;
     integer          slew_count_q;
 
+    // Compare against widened thresholds instead of subtracting first and
+    // then comparing a second time. The 33rd bit preserves UINT32 edges.
+    wire [32:0] rate_plus_step_w = {1'b0, rate_inc_q} + {1'b0, RATE_SLEW_STEP};
+    wire [32:0] target_plus_step_w = {1'b0, rate_target_w} + {1'b0, RATE_SLEW_STEP};
+    wire rate_slew_up_w = {1'b0, rate_target_w} > rate_plus_step_w;
+    wire rate_slew_down_w = {1'b0, rate_inc_q} > target_plus_step_w;
+
+
     // Triangle LFO: 0 -> +1 -> 0 -> -1 -> 0 over one 32-bit phase turn.
     wire [14:0] tri_mag = phase_q[30] ? ~phase_q[29:15] : phase_q[29:15];
     //  ⭐⭐ 2026-10-09（`P0-17`）：⭐ **补码取负改用 `(~x) + 16'd1`（一条进位链）** ✅
@@ -184,20 +192,14 @@ module vibrato_lfo #(
                 // 10 commits (5 ms nominal), with a bounded step each time.
                 if (slew_count_q >= (CTRL_SLEW_DIV - 1)) begin
                     slew_count_q <= 0;
-                    if (rate_inc_q < rate_target_w) begin
-                        if ((rate_target_w - rate_inc_q) > RATE_SLEW_STEP)
-                            rate_inc_q <= rate_inc_q + RATE_SLEW_STEP;
-                        else
-                            rate_inc_q <= rate_target_w;
-                    end else if (!(rate_inc_q < rate_target_w)) begin
-                        // Equality writes the same target value instead of
-                        // holding it: identical state/output, simpler CE.
-                        // The complemented test also preserves X-target hold.
-                        if ((rate_inc_q - rate_target_w) > RATE_SLEW_STEP)
-                            rate_inc_q <= rate_inc_q - RATE_SLEW_STEP;
-                        else
-                            rate_inc_q <= rate_target_w;
-                    end
+                    if (rate_slew_up_w)
+                        rate_inc_q <= rate_plus_step_w[31:0];
+                    else if (rate_slew_down_w)
+                        rate_inc_q <= rate_inc_q - RATE_SLEW_STEP;
+                    else if (!(rate_slew_up_w | rate_slew_down_w))
+                        // Known in-range/equal values snap to target. An
+                        // unknown target still holds exactly as before.
+                        rate_inc_q <= rate_target_w;
                 end else begin
                     slew_count_q <= slew_count_q + 1;
                 end
