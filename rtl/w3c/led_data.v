@@ -80,24 +80,37 @@ module led_data #(
     wire [KEY_N-1:0] key_pattern;
     localparam integer PULSE_W = (GUIDE_PULSE_CLKS > 1)
         ? $clog2(GUIDE_PULSE_CLKS + 1) : 1;
+    // One shared phase counter and independent per-key deadlines replace
+    // sixteen wide decrementers. The modulo period is larger than a pulse.
+    reg [PULSE_W-1:0] pulse_phase;
+    wire [PULSE_W-1:0] pulse_deadline = pulse_phase + GUIDE_PULSE_CLKS;
+    always @(posedge clk_i) begin
+        if (!rst_n_i) pulse_phase <= {PULSE_W{1'b0}};
+        else pulse_phase <= pulse_phase + 1'b1;
+    end
     genvar ki;
     generate
         for (ki = 0; ki < KEY_N; ki = ki + 1) begin : gen_key
             // ⭐ 当前按下 ⇒ 常亮；否则若是"要按还没按" ⇒ 跟随 blink 闪烁
-            reg [PULSE_W-1:0] pulse_left;
+            reg [PULSE_W-1:0] deadline;
+            reg pulse_active;
             always @(posedge clk_i) begin
-                if (!rst_n_i || guide_clear_i === 1'b1)
-                    pulse_left <= {PULSE_W{1'b0}};
-                else if (guide_on_i[ki] === 1'b1)
-                    pulse_left <= GUIDE_PULSE_CLKS;
-                else if (pulse_left != 0)
-                    pulse_left <= pulse_left - 1'b1;
+                if (!rst_n_i) begin
+                    deadline <= {PULSE_W{1'b0}};
+                    pulse_active <= 1'b0;
+                end else if (guide_clear_i === 1'b1)
+                    pulse_active <= 1'b0;
+                else if (guide_on_i[ki] === 1'b1) begin
+                    deadline <= pulse_deadline;
+                    pulse_active <= 1'b1;
+                end else if (pulse_phase == deadline)
+                    pulse_active <= 1'b0;
             end
             // A note's own pulse survives an early OFF, but never modifies
             // the held ledger. Repeated ONs reload only this key's timer.
             assign key_pattern[ki] = key_active_i[ki]
                 | ((blink_keys[ki] & blink_i)
-                   | ((pulse_left != 0) & ~key_active_i[ki]));
+                   | (pulse_active & ~key_active_i[ki]));
         end
     endgenerate
 

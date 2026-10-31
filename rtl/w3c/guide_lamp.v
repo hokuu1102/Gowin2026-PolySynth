@@ -72,7 +72,7 @@ module guide_lamp #(
     output wire [AXIS_N-1:0]   guide_vis_o,       // ⭐ 1 = 该键「该按」**且尚未按下** ✅
     // Accepted ON notification, including repeats whose held bitmap stays 1.
     // Registered alongside the original ledger output; display use only.
-    output reg                 guide_on_valid_o,
+    output wire                guide_on_valid_o,
     output reg  [3:0]          guide_on_key_o,
     output wire                stream_idle_o
 
@@ -400,12 +400,10 @@ module guide_lamp #(
     // scan_group/env_grp nets. Otherwise global match and prefix selection
     // may share a long, spatially distributed chain after synthesis.
     (* syn_keep = 1 *) wire [BANK_N-1:0] same_bank_present;
-    (* syn_keep = 1 *) wire [BANK_N-1:0] off_bank_present;
     genvar match_bank;
     generate
         for (match_bank=0; match_bank<BANK_N; match_bank=match_bank+1) begin: g_same_bank
             assign same_bank_present[match_bank] = same_tree[BANK_ROOT+match_bank][SLOT_W];
-            assign off_bank_present[match_bank] = off_tree[BANK_ROOT+match_bank][SLOT_W];
         end
     endgenerate
     wire same_present = |same_bank_present;
@@ -423,6 +421,21 @@ module guide_lamp #(
         || (release_event && off_tree[1][SLOT_W]);
     // Evaluate the terminal-count predicate before selecting the OFF slot.
     // This removes the 64:1 count-data mux from the lamp/valid update path.
+    wire [HELD_SLOTS-1:0] accepted_on_slot;
+    reg [BANK_N-1:0] accepted_on_bank;
+    assign guide_on_valid_o = |accepted_on_bank;
+    genvar accept_bank;
+    generate
+        for (accept_bank=0; accept_bank<BANK_N; accept_bank=accept_bank+1) begin: g_on_report
+            localparam integer FIRST = accept_bank * BANK_SIZE;
+            localparam integer LAST = ((FIRST + BANK_SIZE) < HELD_SLOTS)
+                ? FIRST + BANK_SIZE - 1 : HELD_SLOTS - 1;
+            always @(posedge clk_i) begin
+                if (!rst_n_i) accepted_on_bank[accept_bank] <= 1'b0;
+                else accepted_on_bank[accept_bank] <= |accepted_on_slot[LAST:FIRST];
+            end
+        end
+    endgenerate
     wire [HELD_SLOTS-1:0] release_slot;
     wire [HELD_SLOTS-1:0] count_enable;
     wire [HELD_SLOTS-1:0] free_mask, off_mask, same_mask;
@@ -437,36 +450,27 @@ module guide_lamp #(
             localparam integer FIRST_IN_BANK = THIS_BANK * BANK_SIZE;
             (* syn_keep = 1 *) wire earlier_bank;
             (* syn_keep = 1 *) wire earlier_local;
-            (* syn_keep = 1 *) wire earlier_off_bank;
-            (* syn_keep = 1 *) wire earlier_off_local;
             if (THIS_BANK == 0) begin: g_bank_first
                 assign earlier_bank = 1'b0;
-                assign earlier_off_bank = 1'b0;
             end else begin: g_bank_later
                 assign earlier_bank = |same_bank_present[THIS_BANK-1:0];
-                assign earlier_off_bank = |off_bank_present[THIS_BANK-1:0];
             end
             if (vi == FIRST_IN_BANK) begin: g_local_first
                 assign earlier_local = 1'b0;
-                assign earlier_off_local = 1'b0;
             end else begin: g_local_later
                 assign earlier_local = |same_mask[vi-1:FIRST_IN_BANK];
-                assign earlier_off_local = |off_mask[vi-1:FIRST_IN_BANK];
             end
             // Keep the global lowest-slot rule, using two bounded eight-way
             // selections instead of a synthesis-created 64-slot carry chain.
             assign same_pick = same_mask[vi] && !earlier_bank && !earlier_local;
-            // Bound the OFF priority prefix to eight slots plus bank flags.
-            // The ungrouped 64-slot prefix became a 15-level physical path
-            // into next_lamps. Lowest-slot selection and output cycles stay
-            // exactly the same, including arbitrary held counter states.
-            assign off_pick = off_mask[vi] && !earlier_off_bank && !earlier_off_local;
             if (vi==0) begin: g_first
                 assign free_pick = free_mask[vi];
+                assign off_pick = off_mask[vi];
             end else begin: g_rest
                 // Parallel prefix reductions preserve lowest-slot priority
                 // without encoding a global index and decoding it again.
                 assign free_pick = free_mask[vi] && !(|free_mask[vi-1:0]);
+                assign off_pick = off_mask[vi] && !(|off_mask[vi-1:0]);
             end
             wire chosen_free = stream_timeout ? (vi==0) : free_pick;
             wire alloc_here = allocate && chosen_free;
@@ -476,6 +480,9 @@ module guide_lamp #(
             // the same event payload before that slot becomes observable.
             wire payload_load = mapped_on_event && chosen_free;
             wire off_here = release_event && off_pick;
+            // Observe the existing slot write controls locally. Do not add
+            // a new consumer to the global next_commit priority path.
+            assign accepted_on_slot[vi] = alloc_here || (repeat_event && same_pick);
             assign count_enable[vi] = (repeat_event && same_pick) || off_here;
             assign release_slot[vi] = off_here && held_count[vi] == 32'd1;
             assign next_valid[vi] = alloc_here
@@ -551,10 +558,8 @@ module guide_lamp #(
     // display logic decodes this registered key in the following cycle.
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
-            guide_on_valid_o <= 1'b0;
             guide_on_key_o <= 4'd0;
         end else begin
-            guide_on_valid_o <= next_commit && is_note_on;
             guide_on_key_o <= key_sel[3:0];
         end
     end
