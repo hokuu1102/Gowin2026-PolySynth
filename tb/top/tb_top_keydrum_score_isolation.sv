@@ -6,7 +6,7 @@ module tb_top_keydrum_score_isolation;
   reg [63:0] inject_data=0;
   integer seen=0, failures=0, drum_type;
   integer melodic_on=0,melodic_off=0,drum_on=0,drum_off=0;
-  top #(.SCOPE_MODE(0),.FFT_ENABLE(0),.RIGHT_ADC_ENABLE(0),
+  top #(.MAIN_UART_BAUD(500000),.SCOPE_MODE(0),.FFT_ENABLE(0),.RIGHT_ADC_ENABLE(0),
     .DEMO_CHORD_ON(1),.DEMO_NOTE_DELAY(10000000),.SOURCE_A_SEL(0),.PA_ON_AFTER_RESET(0)) dut(
     .clk(clk),.rst_n(rst_n),.uart_rx(rx),.esp_uart_rx_i(1'b1),
     .timbre_btn_i(1'b1),.spi_miso(6'b111111),.ctrl_col_i(4'b1111),

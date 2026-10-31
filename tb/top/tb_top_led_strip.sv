@@ -59,13 +59,14 @@ module tb_top_led_strip;
     reg rst_n = 1'b0;
     always #10 clk = ~clk;                    // 50 MHz
 
-    // ── 串口注入（⭐ 500 kbaud ⇒ BAUD_DIV = 100，与 `top.v` 的 `u_uart_rx` 同档）──
+    // ── 串口注入（⭐ 115200 ⇒ BAUD_DIV = 434，与 `top.v` 的 `u_uart_rx` 同档）
+    //    📌 2026-10-28 板载口改档 500 kbps → 115200 ⇒ tb 同步适配 ──
     reg  [7:0] tx_data;
     reg        tx_start;
     wire       tx_busy;
     wire       uart_line;
 
-    uart_tx #(.BAUD_DIV(100)) u_pc (
+    uart_tx #(.BAUD_DIV(434)) u_pc (
         .clk_i     (clk),
         .rst_n_i   (rst_n),
         .tx_start_i(tx_start),
@@ -224,7 +225,7 @@ module tb_top_led_strip;
             tx_start = 1'b1;
             @(negedge clk);
             tx_start = 1'b0;
-            wait (tx_busy === 1'b1);          // ⭐ 10 位 × 100 拍
+            wait (tx_busy === 1'b1);          // ⭐ 10 位 × 434 拍（115200）
             wait (tx_busy === 1'b0);
             repeat (3000) @(posedge clk);     // ⭐ 等 `calib_cmd` 消化并置 `timbre_sel_r`
         end

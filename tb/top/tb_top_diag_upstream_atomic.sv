@@ -7,7 +7,7 @@ module tb_top_diag_upstream_atomic;
   reg [7:0] bytes[0:127];
   reg [7:0] checksum;
   integer count=0,i,j,live_frames=0,fx_frames=0;
-  top #(.SCOPE_MODE(0),.FFT_ENABLE(0),.RIGHT_ADC_ENABLE(0),
+  top #(.MAIN_UART_BAUD(500000),.SCOPE_MODE(0),.FFT_ENABLE(0),.RIGHT_ADC_ENABLE(0),
     .DEMO_NOTE_DELAY(10000000),.AUTOTARE_DELAY_CLK(10000000)) dut(
     .clk(clk),.rst_n(rst),.uart_rx(rx),.uart_tx(tx),.esp_uart_tx_o(esp_tx),
     .esp_uart_rx_i(1'b1),.spi_miso(6'b111111),.ctrl_col_i(4'b1111),

@@ -20,8 +20,35 @@ module tb_top_notice_equiv;
     assign miso[5:2]=4'b1111;
     wire rx_done;
     wire [7:0] rx_data;
-    uart_rx #(.BAUD_DIV(100)) monitor(.clk_i(clk),.rst_n_i(rst_n),.rx_i(board_tx),
+    //  ⭐ 2026-10-28 改档：⭐ 板载 TX 已是 115200 ⇒ 监听器同步改 434 ✅
+    uart_rx #(.BAUD_DIV(434)) monitor(.clk_i(clk),.rst_n_i(rst_n),.rx_i(board_tx),
         .rx_data_o(rx_data),.rx_done_o(rx_done));
+    //  ⭐⭐ 镜像判据改为【字节流】级（⛔ 不再逐拍比波形）✅
+    //     🔴 板载口改 115200（434）后两口速率不同 ⇒ 波形必然不同
+    //        ⇒ 旧 `board_tx!==esp_tx` 逐拍比较必红（⛔ 不是功能坏了）
+    //     ✅ 新口径：⭐ ESP 口另配 500 k（100）解码器，逐字节比对 ✅
+    wire esp_rx_done;
+    wire [7:0] esp_rx_data;
+    uart_rx #(.BAUD_DIV(100)) esp_monitor(.clk_i(clk),.rst_n_i(rst_n),.rx_i(esp_tx),
+        .rx_data_o(esp_rx_data),.rx_done_o(esp_rx_done));
+    integer mirror_cnt_b=0, mirror_cnt_e=0;
+    reg [7:0] mirror_b [0:255];
+    reg [7:0] mirror_e [0:255];
+    always @(posedge clk) if(rst_n) begin
+        if(esp_rx_done) begin
+            if(mirror_cnt_e<256) mirror_e[mirror_cnt_e]=esp_rx_data;
+            mirror_cnt_e=mirror_cnt_e+1;
+        end
+        if(rx_done) begin
+            if(mirror_cnt_b<256) mirror_b[mirror_cnt_b]=rx_data;
+            mirror_cnt_b=mirror_cnt_b+1;
+            if(mirror_cnt_e < mirror_cnt_b)
+                $fatal(1,"FAIL: UART mirrors disagree (ESP missing byte %0d)",mirror_cnt_b-1);
+            else if(mirror_b[mirror_cnt_b-1]!==mirror_e[mirror_cnt_b-1])
+                $fatal(1,"FAIL: UART mirrors disagree (byte %0d board=%02h esp=%02h)",
+                       mirror_cnt_b-1,mirror_b[mirror_cnt_b-1],mirror_e[mirror_cnt_b-1]);
+        end
+    end
     integer count=0;
     reg capture=0;
     reg [7:0] bytes[0:255];
@@ -40,7 +67,6 @@ module tb_top_notice_equiv;
         $fdisplay(trace_fd,"%b%b%b%b%b%b%b%b",board_tx,esp_tx,cs,sck,mosi,
                   dut.HP_BCK,dut.HP_WS,dut.HP_DIN);
     always @(posedge clk) if(rst_n) begin
-        if(board_tx!==esp_tx) $fatal(1,"FAIL: UART mirrors disagree");
         if(capture && rx_done) begin
             if(count<256) bytes[count]=rx_data;
             count=count+1;
@@ -49,9 +75,10 @@ module tb_top_notice_equiv;
     task send(input [7:0] b);
         integer k;
         begin
-            @(negedge clk);command_rx=0;repeat(100) @(negedge clk);
-            for(k=0;k<8;k=k+1) begin command_rx=b[k];repeat(100) @(negedge clk);end
-            command_rx=1;repeat(150) @(negedge clk);
+            //  115200 board UART: 434 clk/bit (2026-10-28 re-baud, tb adapted)
+            @(negedge clk);command_rx=0;repeat(434) @(negedge clk);
+            for(k=0;k<8;k=k+1) begin command_rx=b[k];repeat(434) @(negedge clk);end
+            command_rx=1;repeat(650) @(negedge clk);
         end
     endtask
     task check_frames(input integer frames);
@@ -82,7 +109,8 @@ module tb_top_notice_equiv;
         send("R");repeat(2000) @(negedge clk);
         capture=1;count=0;
         send("Y");send("P");send("L");send("R");send("C");send("E");
-        repeat(200000) @(negedge clk);
+        //  ⭐ 53 字节 @ 115200 ≈ 230020 拍 ＋ 6 条命令发送 ⇒ 2026-10-28 改档后 200000 → 350000 ✅
+        repeat(350000) @(negedge clk);
         if(count!=53 || bytes[0]!==8'hA5 || bytes[14]!==8'hA5)
             $fatal(1,"FAIL: atomic export absent/corrupt count=%0d",count);
         for(i=0;i<14;i=i+1)
@@ -108,8 +136,11 @@ module tb_top_notice_equiv;
         check_frames(2);
         if(bytes[2]!==8'd2 || bytes[16]!==8'd3)
             $fatal(1,"FAIL: re-export sequence did not advance");
+        if(mirror_cnt_b!=mirror_cnt_e)
+            $fatal(1,"FAIL: UART mirrors disagree (byte counts %0d vs %0d)",
+                   mirror_cnt_b,mirror_cnt_e);
         $display("PASS: accelerated public-pin notification equivalence fixture, 14-byte dump and three notices");
         $finish;
     end
-    initial begin #20000000;$fatal(1,"FAIL: top dump watchdog");end
+    initial begin #40000000;$fatal(1,"FAIL: top dump watchdog");end
 endmodule

@@ -18,11 +18,12 @@ module tb_top_scope_live;
     task send_byte(input [7:0] cmd);
         integer bit_index;
         begin
-            @(negedge clk);rx=0;repeat(100) @(negedge clk);
+            // 115200 board UART: 434 clk/bit (2026-10-28 re-baud, tb adapted)
+            @(negedge clk);rx=0;repeat(434) @(negedge clk);
             for(bit_index=0;bit_index<8;bit_index=bit_index+1) begin
-                rx=cmd[bit_index];repeat(100) @(negedge clk);
+                rx=cmd[bit_index];repeat(434) @(negedge clk);
             end
-            rx=1;repeat(150) @(negedge clk);
+            rx=1;repeat(650) @(negedge clk);
         end
     endtask
     task check_stream;
@@ -83,5 +84,5 @@ module tb_top_scope_live;
         $display("PASS: real UART E three-mode live stream, Q framed BPM=140 and W slide toggle coexist");
         $finish;
     end
-    initial begin #2000000;$fatal(1,"FAIL: top scope stream timeout");end
+    initial begin #20000000;$fatal(1,"FAIL: top scope stream timeout");end
 endmodule

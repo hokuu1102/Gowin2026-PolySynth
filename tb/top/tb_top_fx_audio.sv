@@ -5,7 +5,7 @@ module fx_top_audio_fixture #(
     parameter [15:0] GAIN=4096,
     parameter [15:0] TRIM=32768
 )(input wire clk,rst_n,rx,output wire bck,ws,din,bck2,ws2,din2,tx);
-    top #(.SCOPE_MODE(0),.FFT_ENABLE(0),.RIGHT_ADC_ENABLE(0),
+    top #(.MAIN_UART_BAUD(500000),.SCOPE_MODE(0),.FFT_ENABLE(0),.RIGHT_ADC_ENABLE(0),
         .PA_ON_AFTER_RESET(0),.PA_ON_DELAY(32),.DEMO_CHORD_ON(1),.SOURCE_A_SEL(1),
         .DEMO_NOTE_DELAY(2000),.DEMO_HOLD_CYC(1000000),.AUTOTARE_DELAY_CLK(10000000),
         .FX_EN_MASK(MASK),.FX_DIST_GAIN(GAIN),.FX_DIST_TRIM(TRIM),.FX_TREM_DEPTH(0)
