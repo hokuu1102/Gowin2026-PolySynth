@@ -8478,7 +8478,31 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         ? (16'h0001 << gl_guide_on_key) : 16'd0;
     // Only display pulse tails are cleared here. The score ledger and all
     // audio/Loop event paths retain their original state transitions.
-    wire gl_display_clear = met_start | ps_new_score | gl_stream_idle;
+    reg gl_note_valid_r, gl_fb_mode_r, gl_stream_alive_r, gl_epoch_clear_r;
+    reg [63:0] gl_note_data_r;
+    reg signed [4:0] gl_transpose_r;
+    wire gl_note_valid_raw = ps_note_valid & (guide_only_r | evt_guide_only
+                                             | ~evt_guide_seen_r | ps_is_note_off);
+    // A display-only entry sample isolates the score/control fanout.
+    // Capture control metadata with its note; audio/Loop paths stay direct.
+    always @(posedge clk) begin
+        if (!rst_n_sync) begin
+            gl_note_valid_r <= 1'b0;
+            gl_note_data_r <= 64'd0;
+            gl_transpose_r <= 5'sd0;
+            gl_fb_mode_r <= 1'b0;
+            gl_stream_alive_r <= 1'b0;
+            gl_epoch_clear_r <= 1'b0;
+        end else begin
+            gl_note_valid_r <= gl_note_valid_raw;
+            gl_note_data_r <= ps_note_data;
+            gl_transpose_r <= transpose_semi;
+            gl_fb_mode_r <= play_fretboard_mode;
+            gl_stream_alive_r <= eb_rd_valid | ps_note_valid;
+            gl_epoch_clear_r <= met_start | ps_new_score;
+        end
+    end
+    wire gl_display_clear = met_start | ps_new_score | gl_epoch_clear_r | gl_stream_idle;
 
 
     guide_lamp #(
@@ -8563,9 +8587,8 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         //     📌 ⭐ **代价**：⭐ 0 资源（⭐ 只是 OR 进一项，⭐ 而 `ps_is_note_off` 是 1 个比较器
         //        ＋ ⭐ 综合后与 `guide_lamp` 里已有的 kind 解码**共享**）✅
         //     🔴 ⚠️ **本修法⛔ 不改变"一轨一灯"** —— ⭐ 那是**上游语义**（⭐ 见下方 §轴号语义 ✅）
-        .note_valid_i   (ps_note_valid & (guide_only_r | evt_guide_only
-                                          | ~evt_guide_seen_r | ps_is_note_off)),
-        .note_data_i    (ps_note_data),
+        .note_valid_i   (gl_note_valid_r),
+        .note_data_i    (gl_note_data_r),
         //  ⭐⭐⭐⭐ 2026-10-16（指北 COMPASS）：⭐ **灯位改由【音高】决定** ✅
         //     ⭐ `note_off5_i` = 帧 `bit[4:0]`（⭐ 与 `ps_note_valid` **同一拍**的锁存值 ✅）
         //     ⭐ `transpose_i` = `transpose_semi`（⭐ **与 `u_note_manager` 同一个源**
@@ -8577,9 +8600,9 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         //        📌 ⭐ 与 `axis_map`（`top.v:4814` 的 `.mode_i(am_mode)`）**同一口径** ✅
         //     ⚠️ ⭐ **为什么变调必须接到这里**：🔴 若 `guide_lamp` 用**未变调**的音高
         //        ⇒ ⭐ 变调后**灯指的还是原调的键** ⇒ 🔴 **正是用户不许的那种"指错键"** ✅
-        .note_off5_i    (ps_note_off5),
-        .transpose_i    (transpose_semi),
-        .fb_mode_i      (play_fretboard_mode),
+        .note_off5_i    (gl_note_data_r[4:0]),
+        .transpose_i    (gl_transpose_r),
+        .fb_mode_i      (gl_fb_mode_r),
         //  ⭐ 消隐用：⭐ 与 `led_data` **同一个源**（⭐ 保证口径一致 ✅）
         .key_active_i   (ee_key_on),
         //  ⭐⭐⭐⭐ 2026-10-16（灭灯 LAMPKILL）：⭐ **"曲谱还在走"标志**（⭐ 超时取反源 ✅）
@@ -8598,7 +8621,7 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         //     📌 ⭐ **零回归**（⭐ 逐位论证 ✅）：⭐ `guide_key_o` 的**每条既有清除路径**
         //        都没动，⭐ 本项只是**新增**一条"停播整片清" ⇒ ⭐ 正在进行的曲谱里
         //        `eb_rd_valid` 恒 1 ⇒ ⭐ 计数器恒 0 ⇒ ⭐ **超时永远不可能触发** ✅
-        .stream_alive_i (eb_rd_valid | ps_note_valid),
+        .stream_alive_i (gl_stream_alive_r),
         //  ⚠️ 未消隐的原图**无消费者** ⇒ ⭐ 留空（⭐ 消隐后的那根才是要接的 ✅）
         .guide_key_o    (),
         .guide_commit_o (),
