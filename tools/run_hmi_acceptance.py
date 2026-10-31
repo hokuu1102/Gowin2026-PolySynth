@@ -3,10 +3,10 @@ from pathlib import Path
 import subprocess,json,re,time,concurrent.futures
 ROOT=Path(__file__).resolve().parents[1]
 OUT=Path('D:/ChatGPT/Outputs/FPGA-51-HMI-checks')/time.strftime('%Y%m%d-%H%M%S');OUT.mkdir(parents=True,exist_ok=True)
-names=['tb_bpm_o_probe', 'tb_guide_lamp', 'tb_guide_lamp_capacity', 'tb_guide_lamp_cycle_equiv', 'tb_guide_lamp_identity', 'tb_guide_lamp_local_equiv', 'tb_lamp_stuck_clear', 'tb_looper_e2e', 'tb_play_seq', 'tb_right_analog_ctrl', 'tb_score_chain', 'tb_test_mode_top', 'tb_top_ctrl_wire', 'tb_top_diag_upstream_atomic', 'tb_top_dump_atomic', 'tb_top_ec11_param', 'tb_top_fx_audio', 'tb_top_fx_runtime', 'tb_top_fxstat_uart', 'tb_top_guide_axes', 'tb_top_guide_bit6', 'tb_top_hmi_bpm', 'tb_top_hmi_integration', 'tb_top_keydrum_score_isolation', 'tb_top_looper_pedals', 'tb_top_reject_notice_queue', 'tb_top_score_path', 'tb_top_uart_isolation', 'tb_top_upstream_timbre', 'tb_uart_ui']
+names=['tb_bpm_o_probe', 'tb_guide_lamp', 'tb_guide_lamp_capacity', 'tb_guide_lamp_cycle_equiv', 'tb_guide_lamp_identity', 'tb_guide_lamp_local_equiv', 'tb_lamp_stuck_clear', 'tb_looper_e2e', 'tb_play_seq', 'tb_right_analog_ctrl', 'tb_score_chain', 'tb_test_mode_top', 'tb_top_ctrl_wire', 'tb_top_diag_upstream_atomic', 'tb_top_dump_atomic', 'tb_top_ec11_param', 'tb_top_fx_audio', 'tb_top_fx_runtime', 'tb_top_fxstat_uart', 'tb_top_guide_axes', 'tb_top_guide_bit6', 'tb_top_hmi_bpm', 'tb_top_hmi_integration', 'tb_top_keydrum_score_isolation', 'tb_top_looper_pedals', 'tb_top_reject_notice_queue', 'tb_top_score_path', 'tb_top_uart_isolation', 'tb_top_upstream_timbre', 'tb_uart_ui', 'tb_axis_snapshot', 'tb_axis_snapshot_cycle_equiv', 'tb_top_ui_snapshot', 'tb_event_extract', 'tb_event_extract_slide', 'tb_ee_slide_slow', 'tb_ee_adj', 'tb_ee_multineighbor', 'tb_ee_slide_noise', 'tb_slide_position_e2e']
 import sys
 if '--help' in sys.argv:
- print('Run 30 selected HMI/51-baseline checks. Usage: python tools/run_hmi_acceptance.py [tb_name ...]. Outputs: '+str(OUT));raise SystemExit(0)
+ print('Run selected HMI/51-baseline timing checks. Usage: python tools/run_hmi_acceptance.py [tb_name ...]. Outputs: '+str(OUT));raise SystemExit(0)
 if len(sys.argv)>1:names=sys.argv[1:]
 rtl=[str(p) for p in (ROOT/'rtl').rglob('*') if p.suffix in ['.v','.sv']]
 models=[str(p) for folder in ['tb/models','tb/checkers'] for p in (ROOT/folder).rglob('*') if p.suffix in ['.v','.sv']]

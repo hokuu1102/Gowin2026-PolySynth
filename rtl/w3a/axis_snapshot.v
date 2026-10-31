@@ -274,8 +274,26 @@ module axis_snapshot #(
             //   ⚠️ **必须做符号扩展**：⭐ 两个 12 位无符号数相减，
             //      结果需要 `POS_W+1` 位才能表示 `[-4095, +4095]`。
             //   ⚠️ 写法：⭐ 先各自扩展到 `DW` 位再相减 ⇒ ⭐ 进位/借位正确
-            assign delta_o[gi*DW +: DW] =
-                {1'b0, cur[gi]} - {1'b0, prev[gi]};
+            // Move subtraction before the snapshot register without delaying
+            // any output cycle. Use the exact next cur/prev values, including
+            // the simultaneous ch0 sample and whole-frame prev handover.
+            reg [DW-1:0] delta_r;
+            wire this_sample = sample_valid_i
+                && (sample_ch_i == (gi % 8));
+            wire prev_handover = sample_valid_i && (sample_ch_i == 0)
+                && first_ch_of_frame;
+            always @(posedge clk) begin
+                if (!rst_n) delta_r <= {DW{1'b0}};
+                else if (prev_handover) begin
+                    if (this_sample)
+                        delta_r <= {1'b0, sample_data_i[(gi/8)*POS_W +: POS_W]}
+                                 - {1'b0, cur[gi]};
+                    else delta_r <= {DW{1'b0}};
+                end else if (this_sample)
+                    delta_r <= {1'b0, sample_data_i[(gi/8)*POS_W +: POS_W]}
+                             - {1'b0, prev[gi]};
+            end
+            assign delta_o[gi*DW +: DW] = delta_r;
         end
     endgenerate
 

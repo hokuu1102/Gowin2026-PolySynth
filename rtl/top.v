@@ -7951,12 +7951,28 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         wire [6:0]  ui_vol_raw  = ui_vol_mul[22:15];
         wire [18:0] ui_pvib_mul = {7'd0, vib_depth_sel} * 19'd100;
         wire [14:0] ui_vvib_mul = {7'd0, trem_depth_eff} * 15'd100;
-        assign ui_vol_pct  = (ui_vol_raw > 7'd100) ? 7'd100 : ui_vol_raw;
-        assign ui_pvib_pct = ui_pvib_mul[18:12];
-        assign ui_vvib_pct = ui_vvib_mul[14:8];
-        //  ⭐⭐ 2026-10-31：双仓速率回显线（⭐ 原始值直通，⭐ dHz 换算在 uart_ui 内做）
-        assign ui_prate_raw = vib_rate_sel;   // ⭐ 推子档1 mux 后 → vibrato_lfo（1..12Hz）
-        assign ui_vrate_eff = trem_rate_eff;  // ⭐ 档2推子/串口寄存器 mux 后（⭐ 取实际生效值）
+        // UI-only snapshot cuts conversion -> decimal formatting paths.
+        // Audio/LFO controls and note/guide event timing are unchanged.
+        reg [6:0] ui_vol_pct_q, ui_pvib_pct_q, ui_vvib_pct_q;
+        reg [11:0] ui_prate_q;
+        reg [7:0] ui_vrate_q;
+        always @(posedge clk) begin
+            if (!rst_n_sync) begin
+                ui_vol_pct_q <= 0; ui_pvib_pct_q <= 0; ui_vvib_pct_q <= 0;
+                ui_prate_q <= 0; ui_vrate_q <= 7;
+            end else begin
+                ui_vol_pct_q <= (ui_vol_raw > 100) ? 7'd100 : ui_vol_raw;
+                ui_pvib_pct_q <= ui_pvib_mul[18:12];
+                ui_vvib_pct_q <= ui_vvib_mul[14:8];
+                ui_prate_q <= vib_rate_sel;
+                ui_vrate_q <= trem_rate_eff;
+            end
+        end
+        assign ui_vol_pct = ui_vol_pct_q;
+        assign ui_pvib_pct = ui_pvib_pct_q;
+        assign ui_vvib_pct = ui_vvib_pct_q;
+        assign ui_prate_raw = ui_prate_q;
+        assign ui_vrate_eff = ui_vrate_q;
 
         fx_chain #(
             .SAMPLE_W(SAMPLE_W), .AW(14), .AW_CH(11)
