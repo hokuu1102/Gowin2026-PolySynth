@@ -189,7 +189,10 @@ module vibrato_lfo #(
                             rate_inc_q <= rate_inc_q + RATE_SLEW_STEP;
                         else
                             rate_inc_q <= rate_target_w;
-                    end else if (rate_inc_q > rate_target_w) begin
+                    end else if (!(rate_inc_q < rate_target_w)) begin
+                        // Equality writes the same target value instead of
+                        // holding it: identical state/output, simpler CE.
+                        // The complemented test also preserves X-target hold.
                         if ((rate_inc_q - rate_target_w) > RATE_SLEW_STEP)
                             rate_inc_q <= rate_inc_q - RATE_SLEW_STEP;
                         else
