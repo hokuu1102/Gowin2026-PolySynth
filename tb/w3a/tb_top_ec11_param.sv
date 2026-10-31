@@ -42,7 +42,7 @@ module tb_top_ec11_param;
     defparam dut.u_enc_debounce.DB_MS = 1;
 
     // ── ⭐ 每相保持时间：1.2 ms > DB_MS(1ms) 的稳定窗口 ─────────────────────
-    localparam integer DEB_NS = 1_200_000;
+    localparam integer DEB_NS = 1_200; // 60 cycles > scaled 50-cycle debounce window
 
     reg clk = 1'b0;
     always #(CLK_N/2) clk = ~clk;
@@ -65,7 +65,7 @@ module tb_top_ec11_param;
     // ── 其余输入（免悬空）──────────────────────────────────────────────────
     reg  [3:0]  ctrl_col = 4'b1111;
     reg         pedal_sus = 1'b1, pedal_loop_rec = 1'b1, pedal_loop_play = 1'b1;
-    reg  [7:0]  esp_uart_rx = 8'd0;
+    reg esp_uart_rx = 1'b1;
 
     integer errors = 0;
 
@@ -310,6 +310,8 @@ module tb_top_ec11_param;
             errors = errors + 1;
         end else $display("ok  : ⑤ in param mode => bpm=%0d trans=%0d (gated)", rd_n_bpm, rd_n_trans);
 
+        wait(dut.txf_idle && !dut.ep_pending && dut.ep_state == 0);
+        repeat(4) @(negedge clk);
         // ⑥ 一次步进 ⇒ 推 8 字节帧
         n_ep_byte = 0;
         for (k = 0; k < 64; k = k + 1) ep_hist[k] = 8'd0;
@@ -367,6 +369,9 @@ module tb_top_ec11_param;
         $finish;
     end
 
+defparam dut.MAIN_UART_BAUD = 500000;
+// Scale only the debouncer test instance; keep all detent/pulse/frame assertions.
+defparam dut.u_enc_debounce.CLK_HZ = 50_000;
 endmodule
 
 `default_nettype wire

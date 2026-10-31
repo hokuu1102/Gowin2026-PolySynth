@@ -1,0 +1,10 @@
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=8 N_ADC=1 POS_W=8 DW=10)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=8 N_ADC=1 POS_W=8 DW=10)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=3 N_ADC=1 POS_W=12 DW=13)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=3 N_ADC=1 POS_W=12 DW=13)
+FATAL: tb/w3a/tb_axis_snapshot_cycle_equiv.sv:17: snapshot cycle mismatch N=3 P=12 D=13 cycle=16 delta=00000009f6 ref=0000001eee
+       Time: 206000  Scope: tb_axis_snapshot_cycle_equiv.f2
+FATAL: tb/w3a/tb_axis_snapshot_cycle_equiv.sv:17: snapshot cycle mismatch N=8 P=8 D=10 cycle=16 delta=000000000000000000e4 ref=000000000000000003ef
+       Time: 206000  Scope: tb_axis_snapshot_cycle_equiv.f1

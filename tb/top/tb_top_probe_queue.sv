@@ -18,13 +18,41 @@ module tb_top_probe_queue;
     assign miso[5:2]=4'b1111;
     wire rx_done;
     wire [7:0] rx_data;
-    uart_rx #(.BAUD_DIV(100)) monitor(.clk_i(clk),.rst_n_i(rst_n),.rx_i(board_tx),
+    //  ⭐ 2026-10-28 改档：⭐ 板载 TX 已是 115200 ⇒ 监听器同步改 434 ✅
+    uart_rx #(.BAUD_DIV(434)) monitor(.clk_i(clk),.rst_n_i(rst_n),.rx_i(board_tx),
         .rx_data_o(rx_data),.rx_done_o(rx_done));
+    //  ⭐⭐ 镜像判据改为【字节流】级（⛔ 不再逐拍比波形）✅
+    //     🔴 板载口改 115200（434）后两口**速率不同** ⇒ 波形必然不同
+    //        ⇒ 旧的 `board_tx!==esp_tx` 逐拍比较必红（⛔ 不是功能坏了）
+    //     ✅ 新口径：⭐ ESP 口另配一个 500 k（100）解码器
+    //        ⇒ ⭐ 板载口每解出一个字节，就与 ESP 口同序号的字节比对 ✅
+    wire esp_rx_done;
+    wire [7:0] esp_rx_data;
+    uart_rx #(.BAUD_DIV(100)) esp_monitor(.clk_i(clk),.rst_n_i(rst_n),.rx_i(esp_tx),
+        .rx_data_o(esp_rx_data),.rx_done_o(esp_rx_done));
+    integer mirror_cnt_b=0, mirror_cnt_e=0;
+    reg [7:0] mirror_b [0:255];
+    reg [7:0] mirror_e [0:255];
+    always @(posedge clk) if(rst_n) begin
+        if(esp_rx_done) begin
+            if(mirror_cnt_e<256) mirror_e[mirror_cnt_e]=esp_rx_data;
+            mirror_cnt_e=mirror_cnt_e+1;
+        end
+        if(rx_done) begin
+            if(mirror_cnt_b<256) mirror_b[mirror_cnt_b]=rx_data;
+            mirror_cnt_b=mirror_cnt_b+1;
+            //  ⭐ 板载（434）比 ESP（100）慢 ⇒ 比对时 ESP 必已备好同序号字节
+            if(mirror_cnt_e < mirror_cnt_b)
+                $fatal(1,"FAIL: UART mirrors disagree (ESP missing byte %0d)",mirror_cnt_b-1);
+            else if(mirror_b[mirror_cnt_b-1]!==mirror_e[mirror_cnt_b-1])
+                $fatal(1,"FAIL: UART mirrors disagree (byte %0d board=%02h esp=%02h)",
+                       mirror_cnt_b-1,mirror_b[mirror_cnt_b-1],mirror_e[mirror_cnt_b-1]);
+        end
+    end
     integer count=0;
     reg capture=0;
     reg [7:0] bytes[0:255];
     always @(posedge clk) if(rst_n) begin
-        if(board_tx!==esp_tx) $fatal(1,"FAIL: UART mirrors disagree");
         if(capture && rx_done) begin
             if(count<256) bytes[count]=rx_data;
             count=count+1;
@@ -33,9 +61,10 @@ module tb_top_probe_queue;
     task send(input [7:0] b);
         integer k;
         begin
-            @(negedge clk);command_rx=0;repeat(100) @(negedge clk);
-            for(k=0;k<8;k=k+1) begin command_rx=b[k];repeat(100) @(negedge clk);end
-            command_rx=1;repeat(150) @(negedge clk);
+            //  115200 board UART: 434 clk/bit (2026-10-28 re-baud, tb adapted)
+            @(negedge clk);command_rx=0;repeat(434) @(negedge clk);
+            for(k=0;k<8;k=k+1) begin command_rx=b[k];repeat(434) @(negedge clk);end
+            command_rx=1;repeat(650) @(negedge clk);
         end
     endtask
     task decimal_packet(input integer offset,input [7:0] prefix);
@@ -66,7 +95,8 @@ module tb_top_probe_queue;
         capture=1;count=0;
         send("Y");send("P");send("N");send("V");send("P");
         send("L");send("R");send("C");send("E");
-        repeat(80000) @(negedge clk);
+        repeat(400000) @(negedge clk);
+        //  ⭐ 69 字节 @ 115200 ≈ 299460 拍 ⇒ 2026-10-28 改档后从 80000 放大 ✅
         //  ⭐⭐ 2026-10-14：⭐ **帧宽 9 B → 14 B ⇒ 偏移全部 +10，总数 59 → 69** ✅
         //     📌 新账：2×14 = 28 事件字节 ＋ 14 尾 ＋ 4 拒绝通知 ＋ N(8) ＋ V(7) ＋ P(8)
         //        = **69** ✅（⭐ 旧账 2×9 = 18 ⇒ 59 ✅）
@@ -81,8 +111,11 @@ module tb_top_probe_queue;
            !==56'h56303030300d0a) $fatal(1,"FAIL: V snapshot/packet interleaved got=%h",
                {bytes[54],bytes[55],bytes[56],bytes[57],bytes[58],bytes[59],bytes[60]});
         decimal_packet(61,"P");
+        if(mirror_cnt_b!=mirror_cnt_e)
+            $fatal(1,"FAIL: UART mirrors disagree (byte counts %0d vs %0d)",
+                   mirror_cnt_b,mirror_cnt_e);
         $display("PASS: atomic export, bounded duplicate rejection, complete ordered N/V/P packets");
         $finish;
     end
-    initial begin #20000000;$fatal(1,"FAIL: probe queue watchdog");end
+    initial begin #40000000;$fatal(1,"FAIL: probe queue watchdog");end
 endmodule

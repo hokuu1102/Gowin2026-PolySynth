@@ -55,8 +55,9 @@ module tb_looper_e2e;
     localparam [11:0] RAW_REST = 12'h7C1;
     localparam [11:0] RAW_DOWN = 12'h4D9;
 
-    // ⭐ 串口：500 kbaud @ 50 MHz ⇒ **100 拍/位** ✅
-    localparam integer BAUD_CLK = 100;
+    // ⭐ 串口：115200 @ 50 MHz ⇒ **434 拍/位** ✅
+    //   📌 2026-10-28 板载口改档 500 kbps → 115200（TJC 屏不支持 500 k 档）⇒ tb 同步适配
+    localparam integer BAUD_CLK = 434;
 
     integer errors = 0;
 

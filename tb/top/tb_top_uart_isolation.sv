@@ -20,19 +20,22 @@ module tb_top_uart_isolation;
  end
  // Two physical senders run concurrently: arguments and bit counters MUST
  // be per invocation, otherwise the fixture itself corrupts both UARTs.
+ // 2026-10-28 re-baud: board port is 115200 (434 clk/bit), ESP stays 500k (100).
  task automatic send_byte;
   input select_esp;
   input [7:0] value;
   integer b;
+  integer cyc;
   begin
+   cyc = select_esp ? 100 : 434;
    @(negedge clk);if(select_esp)esp_rx=0;else board_rx=0;
-   repeat(100) @(negedge clk);
+   repeat(cyc) @(negedge clk);
    for(b=0;b<8;b=b+1) begin
     if(select_esp)esp_rx=value[b];else board_rx=value[b];
-    repeat(100) @(negedge clk);
+    repeat(cyc) @(negedge clk);
    end
    if(select_esp)esp_rx=1;else board_rx=1;
-   repeat(100) @(negedge clk);
+   repeat(cyc) @(negedge clk);
   end
  endtask
  task automatic screen_frame;
@@ -71,5 +74,5 @@ module tb_top_uart_isolation;
   $display("PASS: real top dual UART isolation; ten screen frames, one exact ESP event");
   $finish;
  end
- initial begin #10000000;$fatal(1,"FAIL: dual UART isolation watchdog");end
+ initial begin #20000000;$fatal(1,"FAIL: dual UART isolation watchdog");end
 endmodule

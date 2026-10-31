@@ -2,7 +2,7 @@
 `default_nettype none
 module runtime_fx_fixture(input wire clk,rst_n,rx,
     output wire bck,ws,din,bck2,ws2,din2);
-  top #(.SCOPE_MODE(0),.FFT_ENABLE(0),.RIGHT_ADC_ENABLE(0),
+  top #(.MAIN_UART_BAUD(500000),.SCOPE_MODE(0),.FFT_ENABLE(0),.RIGHT_ADC_ENABLE(0),
     .PA_ON_AFTER_RESET(0),.PA_ON_DELAY(32),.DEMO_CHORD_ON(1),.SOURCE_A_SEL(1),
     .DEMO_NOTE_DELAY(2000),.DEMO_HOLD_CYC(1000000),.AUTOTARE_DELAY_CLK(10000000),
     .FX_EN_MASK(0),.FX_DIST_GAIN(16384),.FX_DIST_TRIM(32768),.FX_TREM_DEPTH(0)) dut(

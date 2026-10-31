@@ -22,8 +22,9 @@ module tb_fft_top_modes;
   integer k;
   reg [7:0] value;
   begin
-   value=8'h45;@(negedge clk);rx=0;repeat(100)@(negedge clk);
-   for(k=0;k<8;k=k+1)begin rx=value[k];repeat(100)@(negedge clk);end
+   // 115200 board UART: 434 clk/bit (2026-10-28 re-baud, tb adapted)
+   value=8'h45;@(negedge clk);rx=0;repeat(434)@(negedge clk);
+   for(k=0;k<8;k=k+1)begin rx=value[k];repeat(434)@(negedge clk);end
    rx=1;repeat(4000)@(negedge clk);
   end
  endtask

@@ -1,0 +1,178 @@
+{
+  "tb_bpm_o_probe": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_guide_lamp": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_guide_lamp_capacity": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_guide_lamp_cycle_equiv": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_guide_lamp_identity": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_guide_lamp_local_equiv": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_lamp_stuck_clear": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_looper_e2e": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_play_seq": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_right_analog_ctrl": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_score_chain": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_test_mode_top": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_top_ctrl_wire": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_top_diag_upstream_atomic": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_top_dump_atomic": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_top_ec11_param": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_top_fxstat_uart": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_top_fx_audio": {
+    "commit": "c062ec9",
+    "scope": "current affected regression",
+    "source_log_folder": "D:\\ChatGPT\\Outputs\\FPGA-51-HMI-checks\\20261031-215600"
+  },
+  "tb_top_fx_runtime": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_top_guide_axes": {
+    "commit": "c062ec9",
+    "scope": "current affected regression",
+    "source_log_folder": "D:\\ChatGPT\\Outputs\\FPGA-51-HMI-checks\\20261031-215600"
+  },
+  "tb_top_guide_bit6": {
+    "commit": "c062ec9",
+    "scope": "current affected regression",
+    "source_log_folder": "D:\\ChatGPT\\Outputs\\FPGA-51-HMI-checks\\20261031-215600"
+  },
+  "tb_top_hmi_bpm": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_top_hmi_integration": {
+    "commit": "c062ec9",
+    "scope": "current affected regression",
+    "source_log_folder": "D:\\ChatGPT\\Outputs\\FPGA-51-HMI-checks\\20261031-215100"
+  },
+  "tb_top_keydrum_score_isolation": {
+    "commit": "c062ec9",
+    "scope": "current affected regression",
+    "source_log_folder": "D:\\ChatGPT\\Outputs\\FPGA-51-HMI-checks\\20261031-215600"
+  },
+  "tb_top_looper_pedals": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_top_reject_notice_queue": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_top_score_path": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_top_uart_isolation": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_top_upstream_timbre": {
+    "commit": "dd2e55e",
+    "scope": "previous integration regression"
+  },
+  "tb_uart_ui": {
+    "commit": "c062ec9",
+    "scope": "current affected regression",
+    "source_log_folder": "D:\\ChatGPT\\Outputs\\FPGA-51-HMI-checks\\20261031-215100"
+  },
+  "tb_axis_snapshot_cycle_equiv": {
+    "commit": "c062ec9",
+    "scope": "current affected regression",
+    "source_log_folder": "D:\\ChatGPT\\Outputs\\FPGA-51-HMI-checks\\20261031-215100"
+  },
+  "tb_axis_snapshot": {
+    "commit": "c062ec9",
+    "scope": "current affected regression",
+    "source_log_folder": "D:\\ChatGPT\\Outputs\\FPGA-51-HMI-checks\\20261031-215100"
+  },
+  "tb_event_extract_slide": {
+    "commit": "c062ec9",
+    "scope": "current affected regression",
+    "source_log_folder": "D:\\ChatGPT\\Outputs\\FPGA-51-HMI-checks\\20261031-215100"
+  },
+  "tb_ee_slide_slow": {
+    "commit": "c062ec9",
+    "scope": "current affected regression",
+    "source_log_folder": "D:\\ChatGPT\\Outputs\\FPGA-51-HMI-checks\\20261031-215100"
+  },
+  "tb_slide_position_e2e": {
+    "commit": "c062ec9",
+    "scope": "current affected regression",
+    "source_log_folder": "D:\\ChatGPT\\Outputs\\FPGA-51-HMI-checks\\20261031-215100"
+  },
+  "tb_top_ui_snapshot": {
+    "commit": "c062ec9",
+    "scope": "current affected regression",
+    "source_log_folder": "D:\\ChatGPT\\Outputs\\FPGA-51-HMI-checks\\20261031-215600"
+  },
+  "tb_event_extract": {
+    "commit": "c062ec9",
+    "scope": "current affected regression",
+    "source_log_folder": "D:\\ChatGPT\\Outputs\\FPGA-51-HMI-checks\\20261031-215600"
+  },
+  "tb_ee_adj": {
+    "commit": "c062ec9",
+    "scope": "current affected regression",
+    "source_log_folder": "D:\\ChatGPT\\Outputs\\FPGA-51-HMI-checks\\20261031-215600"
+  },
+  "tb_ee_multineighbor": {
+    "commit": "c062ec9",
+    "scope": "current affected regression",
+    "source_log_folder": "D:\\ChatGPT\\Outputs\\FPGA-51-HMI-checks\\20261031-215600"
+  },
+  "tb_ee_slide_noise": {
+    "commit": "c062ec9",
+    "scope": "current affected regression",
+    "source_log_folder": "D:\\ChatGPT\\Outputs\\FPGA-51-HMI-checks\\20261031-215600"
+  }
+}
