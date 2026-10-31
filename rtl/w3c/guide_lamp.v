@@ -422,7 +422,14 @@ module guide_lamp #(
     // Evaluate the terminal-count predicate before selecting the OFF slot.
     // This removes the 64:1 count-data mux from the lamp/valid update path.
     wire [HELD_SLOTS-1:0] accepted_on_slot;
-    reg [BANK_N-1:0] accepted_on_bank;
+    reg [HELD_SLOTS-1:0] accepted_on_state;
+    (* syn_keep = 1 *) wire [BANK_N-1:0] accepted_on_bank;
+    // Register existing slot controls before reduction. R(OR(x)) equals
+    // OR(R(x)) here: same clock, same zero reset, same visible event cycle.
+    always @(posedge clk_i) begin
+        if (!rst_n_i) accepted_on_state <= {HELD_SLOTS{1'b0}};
+        else accepted_on_state <= accepted_on_slot;
+    end
     assign guide_on_valid_o = |accepted_on_bank;
     genvar accept_bank;
     generate
@@ -430,10 +437,7 @@ module guide_lamp #(
             localparam integer FIRST = accept_bank * BANK_SIZE;
             localparam integer LAST = ((FIRST + BANK_SIZE) < HELD_SLOTS)
                 ? FIRST + BANK_SIZE - 1 : HELD_SLOTS - 1;
-            always @(posedge clk_i) begin
-                if (!rst_n_i) accepted_on_bank[accept_bank] <= 1'b0;
-                else accepted_on_bank[accept_bank] <= |accepted_on_slot[LAST:FIRST];
-            end
+            assign accepted_on_bank[accept_bank] = |accepted_on_state[LAST:FIRST];
         end
     endgenerate
     wire [HELD_SLOTS-1:0] release_slot;
