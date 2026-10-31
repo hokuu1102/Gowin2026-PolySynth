@@ -47,7 +47,7 @@ module tb_top_score_path;
     wire HP_BCK, HP_WS, HP_DIN, PA_EN_n, led_heartbeat;
     wire I2S2_BCK, I2S2_LRCK, I2S2_DIN;
 
-    top #(
+    top #(.MAIN_UART_BAUD(500000),
         .PA_ON_AFTER_RESET     (0),
         .DEMO_CHORD_ON         (1),            // ⭐ 要真声音链
         .DEMO_NOTE_DELAY       (1_000_000),    // ⭐ 演示和弦别来捣乱
