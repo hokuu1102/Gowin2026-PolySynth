@@ -372,10 +372,14 @@ module guide_lamp #(
                     && held_axis[ti] == event_axis && held_note[ti] == note_off5_i;
                 assign free_tree[TREE_N+ti] = {!held_valid[ti], ti[SLOT_W-1:0]};
                 assign off_tree[TREE_N+ti] = {match_id, ti[SLOT_W-1:0]};
-                assign same_tree[TREE_N+ti] = {match_id && held_key[ti] == key_sel, ti[SLOT_W-1:0]};
+                // Valid stored keys are 0..15; mapped_on_event retains the full
+                // incoming validity check before any observable ledger update.
+                assign same_tree[TREE_N+ti] = {match_id && held_key[ti][3:0] == key_sel[3:0], ti[SLOT_W-1:0]};
             end else begin: g_padding
                 assign free_tree[TREE_N+ti] = 0;
                 assign off_tree[TREE_N+ti] = 0;
+                // Valid stored keys are 0..15; mapped_on_event retains the full
+                // incoming validity check before any observable ledger update.
                 assign same_tree[TREE_N+ti] = 0;
             end
         end
@@ -420,16 +424,31 @@ module guide_lamp #(
             assign off_mask[vi] = off_tree[TREE_N+vi][SLOT_W];
             assign same_mask[vi] = same_tree[TREE_N+vi][SLOT_W];
             wire free_pick, off_pick, same_pick;
+            localparam integer THIS_BANK = vi / BANK_SIZE;
+            localparam integer FIRST_IN_BANK = THIS_BANK * BANK_SIZE;
+            (* syn_keep = 1 *) wire earlier_bank;
+            (* syn_keep = 1 *) wire earlier_local;
+            if (THIS_BANK == 0) begin: g_bank_first
+                assign earlier_bank = 1'b0;
+            end else begin: g_bank_later
+                assign earlier_bank = |same_bank_present[THIS_BANK-1:0];
+            end
+            if (vi == FIRST_IN_BANK) begin: g_local_first
+                assign earlier_local = 1'b0;
+            end else begin: g_local_later
+                assign earlier_local = |same_mask[vi-1:FIRST_IN_BANK];
+            end
+            // Keep the global lowest-slot rule, using two bounded eight-way
+            // selections instead of a synthesis-created 64-slot carry chain.
+            assign same_pick = same_mask[vi] && !earlier_bank && !earlier_local;
             if (vi==0) begin: g_first
                 assign free_pick = free_mask[vi];
                 assign off_pick = off_mask[vi];
-                assign same_pick = same_mask[vi];
             end else begin: g_rest
                 // Parallel prefix reductions preserve lowest-slot priority
                 // without encoding a global index and decoding it again.
                 assign free_pick = free_mask[vi] && !(|free_mask[vi-1:0]);
                 assign off_pick = off_mask[vi] && !(|off_mask[vi-1:0]);
-                assign same_pick = same_mask[vi] && !(|same_mask[vi-1:0]);
             end
             wire chosen_free = stream_timeout ? (vi==0) : free_pick;
             wire alloc_here = allocate && chosen_free;
