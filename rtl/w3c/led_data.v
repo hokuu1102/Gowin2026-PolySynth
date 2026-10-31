@@ -51,7 +51,9 @@ module led_data #(
     // 键灯数（左手板，16 = 2 片 TLC5916）
     parameter integer KEY_N    = 16,
     // 状态灯数（右手板，8 = 1 片 TLC5916 × 4 双色灯）
-    parameter integer STATUS_N = 8
+    parameter integer STATUS_N = 8,
+    // 50 ms at the unchanged 50 MHz board clock.
+    parameter integer GUIDE_PULSE_CLKS = 2_500_000
 ) (
     input  wire                     clk_i,
     input  wire                     rst_n_i,          // ⭐ 同步复位、低有效（约定 2）
@@ -64,7 +66,11 @@ module led_data #(
 
     // ── 输出 · 24 bit 图案（16 键灯 + 8 状态灯）─────────────────────────────
     output wire [KEY_N+STATUS_N-1:0] pattern_o,
-    output wire                      pattern_commit_o // ⭐ 图案变化那一拍，单周期脉冲
+    output wire                      pattern_commit_o, // ⭐ 图案变化那一拍，单周期脉冲
+    // Optional for legacy users: unconnected inputs do not create pulses.
+    input wire [KEY_N-1:0] guide_on_i,
+    input wire             guide_clear_i
+
 );
 
     // ── ⭐ 键灯合并逻辑（组合，⛔ 无状态）────────────────────────────────────
@@ -72,11 +78,26 @@ module led_data #(
     //   · 闪烁 = 指引要按、但还没按的键（在 blink 高电平那一拍亮）
     wire [KEY_N-1:0] blink_keys = guide_key_i & ~key_active_i;
     wire [KEY_N-1:0] key_pattern;
+    localparam integer PULSE_W = (GUIDE_PULSE_CLKS > 1)
+        ? $clog2(GUIDE_PULSE_CLKS + 1) : 1;
     genvar ki;
     generate
         for (ki = 0; ki < KEY_N; ki = ki + 1) begin : gen_key
             // ⭐ 当前按下 ⇒ 常亮；否则若是"要按还没按" ⇒ 跟随 blink 闪烁
-            assign key_pattern[ki] = key_active_i[ki] | (blink_keys[ki] & blink_i);
+            reg [PULSE_W-1:0] pulse_left;
+            always @(posedge clk_i) begin
+                if (!rst_n_i || guide_clear_i === 1'b1)
+                    pulse_left <= {PULSE_W{1'b0}};
+                else if (guide_on_i[ki] === 1'b1)
+                    pulse_left <= GUIDE_PULSE_CLKS;
+                else if (pulse_left != 0)
+                    pulse_left <= pulse_left - 1'b1;
+            end
+            // A note's own pulse survives an early OFF, but never modifies
+            // the held ledger. Repeated ONs reload only this key's timer.
+            assign key_pattern[ki] = key_active_i[ki]
+                | ((blink_keys[ki] & blink_i)
+                   | ((pulse_left != 0) & ~key_active_i[ki]));
         end
     endgenerate
 
@@ -108,6 +129,8 @@ module led_data #(
     // ── 参数自检（与 `clk_gen`/`tlc5916`/`top` 的 `PARAM_OK` 同一套路）──────
     //   ⚠️ 这些组合会**静默失效**，且现象极难定位
     initial begin
+        if (GUIDE_PULSE_CLKS < 1)
+            $display("ERROR [led_data] GUIDE_PULSE_CLKS must be >= 1");
         if (KEY_N < 1)
             $display("ERROR [led_data] KEY_N=%0d 必须 >= 1", KEY_N);
         if (STATUS_N < 0)

@@ -69,7 +69,13 @@ module guide_lamp #(
     //        （⭐ 而这正是 `LED演奏指引方案.md` §4.3 要区分的那两件事）✅
     //   ✅ **修法**：⭐ 新增本输出 = `guide_key_o & ~key_active_i`（⭐ 一层 AND，+16 LUT / 0 FF）✅
     //      📌 ⭐ 保留 `guide_key_o` 的端口语义不变（⭐ 兼容既有 tb）✅
-    output wire [AXIS_N-1:0]   guide_vis_o        // ⭐ 1 = 该键「该按」**且尚未按下** ✅
+    output wire [AXIS_N-1:0]   guide_vis_o,       // ⭐ 1 = 该键「该按」**且尚未按下** ✅
+    // Accepted ON notification, including repeats whose held bitmap stays 1.
+    // Registered alongside the original ledger output; display use only.
+    output reg                 guide_on_valid_o,
+    output reg  [3:0]          guide_on_key_o,
+    output wire                stream_idle_o
+
 );
 
     //  ⭐⭐ 2026-10-09（`P0-28`）：⭐ **消隐逻辑**（⭐ 组合、最省）✅
@@ -243,6 +249,7 @@ module guide_lamp #(
     //     且该清零点在 `note_valid_i` 块**之前** ⇒ ⭐ 流恢复首拍的 `note_on` **能活下来** ✅
     //     ⚠️ 但那个安全性**依赖这两段的先后顺序**（⭐ 承重）⇒ ⚠️ 改这段时⛔ 别动顺序 ✅
     wire stream_timeout = (stream_idle_cnt == TIMEOUT_CLKS - 1);
+    assign stream_idle_o = stream_timeout;
 
     //  ⭐⭐ 2026-10-17（`Q5`）：⭐ **参数自检**（⭐ 本模块原来一条都没有）
     //     🔴 `TIMEOUT_CLKS <= 1` 会**静默失效或非法**（⭐ 见上方长注释）
@@ -528,6 +535,18 @@ module guide_lamp #(
             end
         end
     endgenerate
+
+    // Keep the pitch decoder out of the ledger acceptance path. Downstream
+    // display logic decodes this registered key in the following cycle.
+    always @(posedge clk_i) begin
+        if (!rst_n_i) begin
+            guide_on_valid_o <= 1'b0;
+            guide_on_key_o <= 4'd0;
+        end else begin
+            guide_on_valid_o <= next_commit && is_note_on;
+            guide_on_key_o <= key_sel[3:0];
+        end
+    end
 
     always @(posedge clk_i) begin
         if (!rst_n_i) begin

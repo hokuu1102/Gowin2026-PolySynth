@@ -8472,6 +8472,14 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
     //     —— ⚠️ **那是契约级改动，须用户裁定，⛔ 本轮不动** ✅
     // ═══════════════════════════════════════════════════════════════════════
     wire [15:0] gl_guide_vis;
+    wire gl_guide_on_valid, gl_stream_idle;
+    wire [3:0] gl_guide_on_key;
+    wire [15:0] gl_guide_on = gl_guide_on_valid
+        ? (16'h0001 << gl_guide_on_key) : 16'd0;
+    // Only display pulse tails are cleared here. The score ledger and all
+    // audio/Loop event paths retain their original state transitions.
+    wire gl_display_clear = met_start | ps_new_score | gl_stream_idle;
+
 
     guide_lamp #(
         .EVT_W  (64),
@@ -8594,7 +8602,10 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         //  ⚠️ 未消隐的原图**无消费者** ⇒ ⭐ 留空（⭐ 消隐后的那根才是要接的 ✅）
         .guide_key_o    (),
         .guide_commit_o (),
-        .guide_vis_o    (gl_guide_vis)
+        .guide_vis_o    (gl_guide_vis),
+        .guide_on_valid_o(gl_guide_on_valid),
+        .guide_on_key_o (gl_guide_on_key),
+        .stream_idle_o  (gl_stream_idle)
     );
 
     // 逻辑图案层：键灯（16，CH 序）+ 状态灯（8）→ 24 bit
@@ -8607,6 +8618,8 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         //  ⭐⭐ 2026-10-11：⭐ **占位换成真源**（⭐ 原来写的是 `16'd0`）✅
         //     ⇒ ⭐ **"该按哪个键"的指引灯从此真的会亮** ✅
         .guide_key_i     (gl_guide_vis),
+        .guide_on_i      (gl_guide_on),
+        .guide_clear_i   (gl_display_clear),
         //  ⭐⭐ 2026-10-09（`P0-27`）：⭐ **接真源**（⭐ 原来是占位 `16'd0`）✅
         //   ✅ `ee_key_on` = `event_extract.key_on[]` 的打包版（⭐ 模块级 wire）
         //   📌 ⭐ 这一接 ⇒ ⭐ 按键就亮（⭐ 16 个键灯复活）✅
