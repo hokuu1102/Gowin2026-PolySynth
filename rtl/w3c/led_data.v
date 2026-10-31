@@ -88,12 +88,26 @@ module led_data #(
         if (!rst_n_i) pulse_phase <= {PULSE_W{1'b0}};
         else pulse_phase <= pulse_phase + 1'b1;
     end
-    genvar ki;
+    genvar ki, pair;
     generate
         for (ki = 0; ki < KEY_N; ki = ki + 1) begin : gen_key
             // ⭐ 当前按下 ⇒ 常亮；否则若是"要按还没按" ⇒ 跟随 blink 闪烁
             reg [PULSE_W-1:0] deadline;
             reg pulse_active;
+            localparam integer EQ_PAIRS = (PULSE_W + 1) / 2;
+            // Each preserved two-bit comparison fits one four-input LUT.
+            // Avoid inferring sixteen long carry-based equality chains.
+            (* syn_keep = 1 *) wire [EQ_PAIRS-1:0] expiry_pair;
+            for (pair=0; pair<EQ_PAIRS; pair=pair+1) begin: g_expiry_pair
+                if (2*pair+1 < PULSE_W) begin: g_two
+                    assign expiry_pair[pair] =
+                        ~(pulse_phase[2*pair] ^ deadline[2*pair])
+                        & ~(pulse_phase[2*pair+1] ^ deadline[2*pair+1]);
+                end else begin: g_one
+                    assign expiry_pair[pair] =
+                        ~(pulse_phase[2*pair] ^ deadline[2*pair]);
+                end
+            end
             always @(posedge clk_i) begin
                 if (!rst_n_i) begin
                     deadline <= {PULSE_W{1'b0}};
@@ -103,7 +117,7 @@ module led_data #(
                 else if (guide_on_i[ki] === 1'b1) begin
                     deadline <= pulse_deadline;
                     pulse_active <= 1'b1;
-                end else if (pulse_phase == deadline)
+                end else if (&expiry_pair)
                     pulse_active <= 1'b0;
             end
             // A note's own pulse survives an early OFF, but never modifies
