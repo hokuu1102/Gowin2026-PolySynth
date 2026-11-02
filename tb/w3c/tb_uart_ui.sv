@@ -1003,7 +1003,7 @@ module tb_uart_ui;
             capture_echo;
         join
         chk("echo⑧-1 握手后 hb_ready=1", hb_ready === 1'b1);
-        chk("echo⑧-1 握手 burst 总长 = 1286 字节（56 帧全量）", cap_n === 1286);
+        chk("echo⑧-1 握手 burst 总长 = 1304 字节（57 帧全量）", cap_n === 1304);
 
         //   ⭐ 链式核对：off 逐帧推进，最后 off 必须恰好走满 cap_n
         off = 0;
@@ -1186,7 +1186,10 @@ module tb_uart_ui;
         expect_frame("echo⑧-1 f55 j_vd.val=0", off, flen, 1'b1,
             "j_vd", 4'd4, "0", 6'd1);
         off = off + flen;
-        chk("echo⑧-1 56 帧恰好走满 burst（off=cap_n）", off === cap_n);
+        expect_frame("echo⑧-1 f56 t_drum.bco=2907（开启蓝）", off, flen, 3'd3,
+            "t_drum", 4'd6, "2907", 6'd4);
+        off = off + flen;
+        chk("echo⑧-1 57 帧恰好走满 burst（off=cap_n）", off === cap_n);
 
         // ── ⑧-2 变化回显：st_bpm 96→120（缺口3 回显链）──────────────
         st_bpm = 8'd120;
@@ -1505,7 +1508,7 @@ module tb_uart_ui;
             feed_frame(8'h88, 8'h00, 8'h00);
             capture_echo;
         join
-        chk("echo⑬-1 二次 0x88 ⇒ 全量重发 burst = 1293 字节（56 帧）", cap_n === 1293);
+        chk("echo⑬-1 二次 0x88 ⇒ 全量重发 burst = 1311 字节（57 帧）", cap_n === 1311);
         off = 0;
         expect_frame("echo⑬-1 f0  t_mode=钢琴模式 [PIANO]", off, flen, 1'b0,
             "t_mode", 4'd6, {W_GANGQIN_MOSHI, " [PIANO]"}, 6'd20);
@@ -1685,7 +1688,10 @@ module tb_uart_ui;
         expect_frame("echo⑬-1 f55 j_vd.val=0", off, flen, 1'b1,
             "j_vd", 4'd4, "0", 6'd1);
         off = off + flen;
-        chk("echo⑬-1 56 帧恰好走满 burst（off=cap_n）", off === cap_n);
+        expect_frame("echo⑬-1 f56 t_drum.bco=2907（开启蓝）", off, flen, 3'd3,
+            "t_drum", 4'd6, "2907", 6'd4);
+        off = off + flen;
+        chk("echo⑬-1 57 帧恰好走满 burst（off=cap_n）", off === cap_n);
 
         // ── ⑬-B 翻转变量 0x19：fx_mask 盲翻转（效果器开关按钮）──────────
         //   ⭐ fx_mask 此刻 = 0（⑦ 后复位、⑧ 只动过显示输入 st_fxmask）
@@ -1917,26 +1923,32 @@ module tb_uart_ui;
         //   ⑮-6/7 双仓速率 dHz 换算 + 进度条百分比
         // ═════════════════════════════════════════════════════════════════
 
-        // ── ⑮-1 st_drum 开I→开II ⇒ t_drum 单帧 "Pattern II" ──────────
+        // ── ⑮-1 st_drum 开I→开II ⇒ t_drum 文本 + t_drum.bco 双帧 ──────
         st_drum = 3'b101;
         capture_echo;
-        chk("echo⑮-1 burst 总长 = 26 字节（仅 t_drum）", cap_n === 26);
+        chk("echo⑮-1 burst 总长 = 44 字节（t_drum 26 + bco 18）", cap_n === 44);
         off = 0;
         expect_frame("echo⑮-1 t_drum=Pattern II", off, flen, 1'b0,
             "t_drum", 4'd6, {"Pattern ", "II"}, 6'd10);
         off = off + flen;
-        chk("echo⑮-1 单帧走满 burst", off === cap_n);
+        expect_frame("echo⑮-1 t_drum.bco=2907（开启蓝）", off, flen, 3'd3,
+            "t_drum", 4'd6, "2907", 6'd4);
+        off = off + flen;
+        chk("echo⑮-1 双帧走满 burst", off === cap_n);
 
-        // ── ⑮-2 st_drum 开II→关 ⇒ t_drum 单帧 "关" ─────────────────
+        // ── ⑮-2 st_drum 开II→关 ⇒ t_drum 文本 + t_drum.bco 双帧 ───────
         //   ⭐ 五态循环：I→II→III→IV→关→I；关档 = st_drum[2]=0
         st_drum = 3'b000;
         capture_echo;
-        chk("echo⑮-2 burst 总长 = 19 字节（仅 t_drum）", cap_n === 19);
+        chk("echo⑮-2 burst 总长 = 38 字节（t_drum 19 + bco 19）", cap_n === 38);
         off = 0;
         expect_frame("echo⑮-2 t_drum=关", off, flen, 1'b0,
             "t_drum", 4'd6, W_GUAN, 6'd3);
         off = off + flen;
-        chk("echo⑮-2 单帧走满 burst", off === cap_n);
+        expect_frame("echo⑮-2 t_drum.bco=63455（关闭灰）", off, flen, 3'd3,
+            "t_drum", 4'd6, "63455", 6'd5);
+        off = off + flen;
+        chk("echo⑮-2 双帧走满 burst", off === cap_n);
 
         // ── ⑮-3 st_kd 0→1 ⇒ t_kd 单帧 `打鼓: 开启 [键位打鼓]` ───────
         st_kd = 1'b1;

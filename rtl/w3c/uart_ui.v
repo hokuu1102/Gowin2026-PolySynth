@@ -1171,11 +1171,12 @@ module uart_ui #(
                      ECH_F_JPR     = 6'd53,  // j_pr.val（音高颤音速率进度条）
                      ECH_F_JVR     = 6'd54,  // j_vr.val（音量颤音速率进度条）
                      ECH_F_JPD     = 6'd55,  // j_pd.val（音高颤音深度进度条）
-                     ECH_F_JVD     = 6'd56;  // j_vd.val（音量颤音深度进度条）
+                     ECH_F_JVD     = 6'd56,  // j_vd.val（音量颤音深度进度条）
+                     ECH_F_DRUMBCO = 6'd57;  // t_drum.bco（鼓机开启=蓝背景，⭐ 2026-11-02）
 
     reg [1:0]  ech_state;
     reg [5:0]  ech_pos;        // ⭐ 帧内字节位置（最长帧 52B ⇒ 6 位够）
-    reg [56:0] ech_pend;       // ⭐ 每字段一位（0..56）待发标志（⭐ IDLE 按低位优先发）
+    reg [57:0] ech_pend;       // ⭐ 每字段一位（0..57）待发标志（⭐ IDLE 按低位优先发）
     reg [5:0]  ech_nxt_c;      // ⭐ IDLE 组合选出：`ech_pend` 的最低置位位
     // ── 起帧那拍锁存的「帧快照」（⭐ 发送期间输入再变也 ⛔ 不影响本帧）──────────
     reg [71:0] ech_name_q;     // ⭐ 控件名（≤9B，⭐ **右对齐**：低字节 = 末字符）
@@ -1298,6 +1299,7 @@ module uart_ui #(
         else if (ech_pend[54]) ech_nxt_c = ECH_F_JVR;
         else if (ech_pend[55]) ech_nxt_c = ECH_F_JPD;
         else if (ech_pend[56]) ech_nxt_c = ECH_F_JVD;
+        else if (ech_pend[57]) ech_nxt_c = ECH_F_DRUMBCO;
         else                   ech_nxt_c = ECH_F_MODE;
     end
 
@@ -1359,6 +1361,10 @@ module uart_ui #(
                       C_LPPLAY_P = 16'd65535,   // 回放前景（反白）
                       C_LPARM_B  = 16'd55264,   // 武装背景（琥珀）
                       C_LPARM_P  = 16'd65535;   // 武装前景（反白）
+
+    // ── ⭐⭐ 2026-11-02：鼓机开启蓝（t_drum.bco，⭐ 与 t_drum 文本同源 st_drum_c ⇒ 双挂起）──
+    localparam [15:0] C_DRUM_ON_B  = 16'd2907,   // 鼓机开启背景（电光蓝 #0969DA）
+                      C_DRUM_OFF_B = 16'd63455;  // 鼓机关闭背景（浅灰 #F6F8FA，⭐ 与空闲同色）
 
     // ── ② body 打包原语（⭐ 只在下方组合块内调用）────────────────────────────
     //   📌 `ech_bf_c`/`ech_len_c` 是组合 scratch（左对齐数组 + 游标）；
@@ -1539,6 +1545,7 @@ module uart_ui #(
             ECH_F_JVR:     begin ech_name_c = "j_vr";     ech_nlen_c = 4'd4; end
             ECH_F_JPD:     begin ech_name_c = "j_pd";     ech_nlen_c = 4'd4; end
             ECH_F_JVD:     begin ech_name_c = "j_vd";     ech_nlen_c = 4'd4; end
+            ECH_F_DRUMBCO: begin ech_name_c = "t_drum";   ech_nlen_c = 4'd6; end
             default:     begin ech_name_c = "z_vd";      ech_nlen_c = 4'd4; end  // ECH_F_ZVD
         endcase
     end
@@ -1644,6 +1651,12 @@ module uart_ui #(
                 end else begin
                     ech_push_str(W_GUAN, 3'd3);   // 关
                 end
+            end
+            ECH_F_DRUMBCO: begin
+                //  ⭐⭐ 2026-11-02：鼓机背景色（.bco=）—— 开启=蓝、关闭=浅灰
+                //   📌 与 t_drum 文本同源 st_drum_c ⇒ 变化检测里双挂起
+                ech_isbco_c = 1'b1;
+                ech_push_dec16(st_drum_c[2] ? C_DRUM_ON_B : C_DRUM_OFF_B);
             end
             ECH_F_LOOP: begin
                 case (st_loop_c)
@@ -2057,7 +2070,7 @@ module uart_ui #(
         if (!rst_n_i) begin
             ech_state   <= ECH_S_IDLE;
             ech_pos     <= 6'd0;
-            ech_pend    <= 57'd0;
+            ech_pend    <= 58'd0;
             ech_name_q  <= 72'd0;
             ech_nlen_q  <= 4'd0;
             ech_blen_q  <= 6'd0;
@@ -2169,10 +2182,10 @@ module uart_ui #(
                 //  ⭐⭐ 2026-10-29 三件套-A：⭐ **首次握手沿 ∨ 0x88 重发请求** ⇒ 全量 ⭐⭐
                 //   📌 重复收到 0x88（⭐ 屏切页返回）⇒ ⭐ 靠 `reflash_q` 再拿 47 帧新值 ✅
                 if (!ech_hb_s || reflash_q) begin
-                    // ⭐ 0x88 握手上升沿 ⇒ 56 个字段**全部**回显（屏上电初态）
+                    // ⭐ 0x88 握手上升沿 ⇒ 57 个字段**全部**回显（屏上电初态）
                     //   ⭐ 2026-10-29 起重复收到 0x88 同样全量（⭐ 切页返回刷新）
-                    //   ⭐ 2026-10-31 起新增 48..56 共 9 帧一并全量
-                    ech_pend <= 57'h1FF_FFFF_FFBF_FFFF;  // ⭐ bit22（心跳）⛔ 不随握手置位：⭐ 由计时器首发
+                    //   ⭐ 2026-10-31 起新增 48..56 共 9 帧一并全量；⭐ 2026-11-02 加 57（DRUMBCO）
+                    ech_pend <= 58'h3FFF_FFFF_FBFF_FFF;  // ⭐ bit22（心跳）⛔ 不随握手置位：⭐ 由计时器首发；⭐ 2026-11-02 加 bit57（DRUMBCO）
                     reflash_q <= 1'b0;        // ⭐ 重发请求自清（⭐ 单拍语义）
                     // ⭐ 同步全部镜像（⭐ 吸收握手前堆积的变化 ⇒ 随后不重复触发）
                     ech_mode_s   <= mode_o;
@@ -2235,7 +2248,10 @@ module uart_ui #(
                         ech_pend[ECH_F_BPM] <= 1'b1;  ech_bpm_s <= st_bpm_c;
                     end
                     if (st_drum_c != ech_drum_s) begin
-                        ech_pend[ECH_F_DRUM] <= 1'b1;  ech_drum_s <= st_drum_c;
+                        // ⭐⭐ 2026-11-02：文本 t_drum + 背景色 t_drum.bco **同源** ⇒ 双挂起
+                        ech_pend[ECH_F_DRUM]    <= 1'b1;
+                        ech_pend[ECH_F_DRUMBCO] <= 1'b1;
+                        ech_drum_s <= st_drum_c;
                     end
                     if (st_loop_c != ech_loop_s) begin
                         // ⭐⭐ 2026-10-29 晚（§八-2）：文案 + 三态配色**同源** ⇒ 三挂起
