@@ -1604,6 +1604,9 @@ end
     wire [7:0]  ui_vrate_eff;  // ⭐ 音量颤音速率（trem_rate_eff 8 位相位增量）
     wire        ui_beat;       // ⭐ 拍点脉冲前向线（= led_beat，⭐ 见 L2478 桥接）⇒ p_bpm 橙点
     wire        ui_uplink_sw;  // ⭐ b_uplink 实时上行开关（⭐ 触摸翻转；功能语义待队友裁定，先引线）
+    //  ⭐⭐ 2026-11-01 队友新增：推子锁定 + 复音数回显线（跨 generate 引线，见下方桥接）
+    wire        ui_lock;       // ⭐ 当前档锁定状态（fg_hold[led_gear_st]，档3=0）⇒ t_lock
+    wire [5:0]  ui_nactive;    // ⭐ 当前活跃复音数（g_sound.u_mixer.n_active_o，0..32）⇒ t1
     //  ⭐⭐ 2026-10-29：⭐ 三根**既有**状态线的声明【上移】到 `u_uart_ui` 例化之前（`L66`）
     //     ⚠️ 原声明在本文件 `:2336`/`:2346`/`:2858`（例化**之后**）⇒ ⛔ 不能直接接进端口 ✅
     //     📌 只挪声明，⭐ 驱动（`assign`/`always`）**全部原地不动** ✅
@@ -1782,6 +1785,9 @@ end
         .st_vrate_i  (ui_vrate_eff),  // ⭐ 音量颤音速率 ⇒ `t_vr` + `j_vr.val`
         .beat_i      (ui_beat),      // ⭐ 拍点脉冲 ⇒ `p_bpm.val` 橙点翻转
         .uplink_sw_o (ui_uplink_sw),  // ⭐ 控件 15 翻转（功能语义待定，先引线）
+        //  ⭐⭐ 2026-11-01 队友新增：推子锁定 + 复音数回显
+        .st_lock_i   (ui_lock),       // ⭐ 当前档锁定 ⇒ `t_lock`（锁定/实时生效）
+        .st_nactive_i(ui_nactive),    // ⭐ 复音数 0..32 ⇒ `t1`
         //  ⭐⭐⭐⭐ 2026-10-29：⭐ EC11 参数旋钮【写回】（缺口4）✅
         //     📌 三个意图信号来自本文件 `:970` 那段（`enc_par_id/up/dn`）⇒
         //        ⭐ `uart_ui` 里与串口 `0x11..0x18` 帧写**同一组 fx 寄存器**（后写者胜）✅
@@ -3153,6 +3159,9 @@ wire ovf_any;
         //  ⭐⭐ 2026-10-31：双仓速率线（⭐ 静音档无颤音通路 ⇒ 给 uart_ui 镜像复位同值 ⇒ 零伪帧）
         assign ui_prate_raw = 12'd0;
         assign ui_vrate_eff = 8'd7;
+        //  ⭐⭐ 2026-11-01：队友新增线（静音档：无锁定、无复音）
+        assign ui_lock     = 1'b0;
+        assign ui_nactive  = 6'd0;
         //  ⭐⭐ 2026-10-17（`K-106`）：⭐ **静音档没有 `u_fx_chain`** ⇒ ⭐ 7 根回读线**显式给 0**
         //     ⚠️ **为什么必须在这里也驱动**（⛔ 不能只在 `g_sound` 里）：
         //        🔴 这 7 根是**模块级 wire**（⭐ 上面 ui_fx 段声明 ✅）
@@ -7909,6 +7918,9 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         //  ⭐⭐ 2026-10-31：双仓速率回显线（⭐ 原始值直通，⭐ dHz 换算在 uart_ui 内做）
         assign ui_prate_raw = vib_rate_sel;   // ⭐ 推子档1 mux 后 → vibrato_lfo（1..12Hz）
         assign ui_vrate_eff = trem_rate_eff;  // ⭐ 档2推子/串口寄存器 mux 后（⭐ 取实际生效值）
+        //  ⭐⭐ 2026-11-01 队友新增：推子锁定 + 复音数（⭐ 跨 generate 桥接）
+        assign ui_lock    = (led_gear_st < 2'd3) ? fg_hold[led_gear_st] : 1'b0;  // 档3（无）⇒ 0
+        assign ui_nactive = mx_n_active;      // ⭐ 当前活跃复音数 0..32
 
         fx_chain #(
             .SAMPLE_W(SAMPLE_W), .AW(14), .AW_CH(11)

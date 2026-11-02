@@ -288,6 +288,9 @@ module uart_ui #(
     input  wire [11:0] st_prate_i,   // ⭐ 音高颤音速率原始值 vib_rate_sel（0..4095 → 1..12Hz）
     input  wire [7:0]  st_vrate_i,  // ⭐ 音量颤音速率 trem_rate_eff（f = rate×48828/65536 Hz）
     input  wire        beat_i,      // ⭐ 节拍脉冲（p_bpm 橙点每拍翻转）
+    //  ⭐⭐ 2026-11-01 队友新增输入（⭐ 全部 Z-safe）
+    input  wire        st_lock_i,   // ⭐ 当前推子档锁定状态（fg_hold[gear]，1=锁定 ⇒ t_lock）
+    input  wire [5:0]  st_nactive_i,// ⭐ 当前活跃复音数 mx_n_active（0..32 ⇒ t1 复音数）
 
     // ── ⭐⭐ 2026-10-31：b_uplink 实时上行开关（⭐ 触摸控件 15 翻转，top 只读消费）──
     output reg         uplink_sw_o, // ⭐ 1 = 开启（复位默认）
@@ -415,6 +418,8 @@ module uart_ui #(
     wire [11:0] st_prate_c  = (st_prate_i  === 12'bz) ? 12'd0  : st_prate_i;
     wire [7:0]  st_vrate_c  = (st_vrate_i  === 8'bz) ? 8'd7   : st_vrate_i;   // = FX_RATE_DEF
     wire        beat_c      = (beat_i      === 1'b1);
+    wire        st_lock_c   = (st_lock_i   === 1'b1);                          // 1=锁定
+    wire [5:0]  st_nactive_c= (st_nactive_i=== 6'bz) ? 6'd0   : st_nactive_i; // 复音数 0..32
 
     // ── ⭐⭐ 2026-10-31：颤音速率 → 十分之一赫兹（dHz）换算 ─────────────────────
     //   音高（vib_rate_sel 0..4095 线性 → 1..12Hz，vibrato_lfo：rate_inc=86+raw×945>>12）：
@@ -1172,11 +1177,14 @@ module uart_ui #(
                      ECH_F_JVR     = 6'd54,  // j_vr.val（音量颤音速率进度条）
                      ECH_F_JPD     = 6'd55,  // j_pd.val（音高颤音深度进度条）
                      ECH_F_JVD     = 6'd56,  // j_vd.val（音量颤音深度进度条）
-                     ECH_F_DRUMBCO = 6'd57;  // t_drum.bco（鼓机开启=蓝背景，⭐ 2026-11-02）
+                     // ⭐⭐ 2026-11-01 队友新增 3 字段（色帧 + 锁定）
+                     ECH_F_DRUMBCO = 6'd57,  // t_drum.bco（鼓机开启=蓝背景）
+                     ECH_F_PEDALBCO= 6'd58,  // t_pedal.bco（踩下=红背景）
+                     ECH_F_LOCK    = 6'd59;  // t_lock.txt（推子锁定状态）
 
     reg [1:0]  ech_state;
     reg [5:0]  ech_pos;        // ⭐ 帧内字节位置（最长帧 52B ⇒ 6 位够）
-    reg [57:0] ech_pend;       // ⭐ 每字段一位（0..57）待发标志（⭐ IDLE 按低位优先发）
+    reg [59:0] ech_pend;       // ⭐ 每字段一位（0..59）待发标志（⭐ IDLE 按低位优先发）
     reg [5:0]  ech_nxt_c;      // ⭐ IDLE 组合选出：`ech_pend` 的最低置位位
     // ── 起帧那拍锁存的「帧快照」（⭐ 发送期间输入再变也 ⛔ 不影响本帧）──────────
     reg [71:0] ech_name_q;     // ⭐ 控件名（≤9B，⭐ **右对齐**：低字节 = 末字符）
@@ -1233,6 +1241,8 @@ module uart_ui #(
     reg        beat_dot_s;     // p_bpm.val 显示值（每拍翻转 0/1）
     reg [11:0] ech_prate_s;    // st_prate_c 镜像（t_pr + j_pr 双挂起）
     reg [7:0]  ech_vrate_s;    // st_vrate_c 镜像（t_vr + j_vr 双挂起）
+    reg        ech_lock_s;     // st_lock_c 镜像（t_lock）
+    reg [5:0]  ech_nactive_s;  // st_nactive_c 镜像（t1 复音数）
 
     // ── ①b 待发字段选择（⭐ 组合：`ech_pend` 最低置位位）────────────────────
     //   ⚠️ **必须与 IDLE 的选字段/清位完全一致** ⇒ ⭐ 双方共用 `ech_nxt_c` ✅
@@ -1300,6 +1310,8 @@ module uart_ui #(
         else if (ech_pend[55]) ech_nxt_c = ECH_F_JPD;
         else if (ech_pend[56]) ech_nxt_c = ECH_F_JVD;
         else if (ech_pend[57]) ech_nxt_c = ECH_F_DRUMBCO;
+        else if (ech_pend[58]) ech_nxt_c = ECH_F_PEDALBCO;
+        else if (ech_pend[59]) ech_nxt_c = ECH_F_LOCK;
         else                   ech_nxt_c = ECH_F_MODE;
     end
 
@@ -1323,6 +1335,7 @@ module uart_ui #(
                        W_YINFU_YANZOU   = {8'hE9,8'h9F,8'hB3,8'hE7,8'hAC,8'hA6,8'hE6,8'hBC,8'h94,8'hE5,8'hA5,8'h8F},    // 音符演奏(12B)
                        W_ZHU_YINLIANG   = {8'hE4,8'hB8,8'hBB,8'hE9,8'h9F,8'hB3,8'hE9,8'h87,8'h8F},                     // 主音量(9B)
                        W_YANYIN_TABAN   = {8'hE5,8'hBB,8'hB6,8'hE9,8'h9F,8'hB3,8'hE8,8'hB8,8'hA9,8'hE6,8'h9D,8'hBF},    // 延音踏板(12B)
+                       W_YANYIN         = {8'hE5,8'hBB,8'hB6,8'hE9,8'h9F,8'hB3},                                       // 延音(6B) ⭐ 2026-11-01 队友改（原「[PEDAL 延音踏板: …]」）
                        W_CAIXIA_SHINENG = {8'hE8,8'hB8,8'hA9,8'hE4,8'hB8,8'h8B,8'hE4,8'hBD,8'hBF,8'hE8,8'h83,8'hBD},    // 踩下使能(12B)
                        W_SONGKAI        = {8'hE6,8'h9D,8'hBE,8'hE5,8'hBC,8'h80},                                       // 松开(6B)
                        W_TUIZI_KONGZHI  = {8'hE6,8'h8E,8'hA8,8'hE5,8'hAD,8'h90,8'hE6,8'h8E,8'hA7,8'hE5,8'h88,8'hB6},    // 推子控制(12B)
@@ -1334,6 +1347,8 @@ module uart_ui #(
                        W_SHISHI_SHIBOQI = {8'hE5,8'hAE,8'h9E,8'hE6,8'h97,8'hB6,8'hE7,8'hA4,8'hBA,8'hE6,8'hB3,8'hA2,8'hE5,8'h99,8'hA8}, // 实时示波器(15B)
                        W_BOXING_XIANSHI = {8'hE6,8'hB3,8'hA2,8'hE5,8'hBD,8'hA1,8'hE6,8'h98,8'hBE,8'hE7,8'hA4,8'hBA},    // 波形显示(12B)
                        W_LISA_RU        = {8'hE6,8'h9D,8'h8E,8'hE8,8'h90,8'hA8,8'hE5,8'hA6,8'h82,8'hE5,8'h9B,8'hBE},    // 李萨如图(12B)
+                       W_LISARU         = {8'hE6,8'h9D,8'h8E,8'hE8,8'h90,8'hA8,8'hE5,8'hA6,8'h82},                     // 李萨如(9B) ⭐ 2026-11-01 队友改（去「图」）
+                       W_SHIBO          = {8'hE7,8'hA4,8'hBA,8'hE6,8'hB3,8'hA2},                                       // 示波(6B) ⭐ 2026-11-01 队友改（原「波形显示」）
                        W_PINPU          = {8'hE9,8'hA2,8'h91,8'hE8,8'hB0,8'hB1},                                       // 频谱(6B)
                        W_SHIZHEN        = {8'hE5,8'hA4,8'hB1,8'hE7,8'h9C,8'h9F},                                       // 失真(6B)
                        W_HECHANG        = {8'hE5,8'h90,8'h88,8'hE5,8'h94,8'hB1},                                       // 合唱(6B)
@@ -1351,20 +1366,29 @@ module uart_ui #(
                        W_HECHANG_CD     = {8'hE5,8'h90,8'h88,8'hE5,8'h94,8'hB1,8'hE9,8'h95,8'hBF,8'hE5,8'hBA,8'hA6}, // 合唱长度(12B)
                        // ── ⭐⭐ 2026-10-31：卡片 B/D 新词（UTF-8 逐字节核对 ✅）──
                        W_DAGU           = {8'hE6,8'h89,8'h93,8'hE9,8'hBC,8'h93},                                        // 打鼓(6B)
-                       W_SHISHI_SHANGXING = {8'hE5,8'hAE,8'h9E,8'hE6,8'h97,8'hB6,8'hE4,8'hB8,8'h8A,8'hE8,8'hA1,8'h8C}; // 实时上行(12B)
-    // ── ⭐⭐ 2026-10-29 晚（§八-2）：t_loop 三态配色（RGB565 十进制，⭐ 与清单 §五 色表一致）──
-    localparam [15:0] C_LPIDLE_B = 16'd63455,   // 空闲背景（浅灰）
-                      C_LPIDLE_P = 16'd9509,    // 空闲前景（深字）
-                      C_LPREC_B  = 16'd52517,   // 录音背景（红）
+                       W_SHISHI_SHANGXING = {8'hE5,8'hAE,8'h9E,8'hE6,8'h97,8'hB6,8'hE4,8'hB8,8'h8A,8'hE8,8'hA1,8'h8C}, // 实时上行(12B)
+                       // ── ⭐⭐ 2026-11-01 队友改：推子锁定状态词 ──
+                       W_SUODING          = {8'hE9,8'h94,8'h81,8'hE5,8'hAE,8'h9A},                                       // 锁定(6B)
+                       W_SHISHI_SHENGXIAO = {8'hE5,8'hAE,8'h9E,8'hE6,8'h97,8'hB6,8'hE7,8'h94,8'h9F,8'hE6,8'h95,8'h88}; // 实时生效(12B)
+    // ── ⭐⭐ 2026-10-29 晚（§八-2）：t_loop 三态配色（⭐ 标准 RGB565；2026-11-01 修正错误色值）──
+    //   🔴 2026-11-01 修正：原清单"RGB565"列是**错误换算**（如 52517 实际显示偏黄，队友反馈「循环录音改回红色」）。
+    //      正确值 = 标准 RGB565（R>>3<<11 | G>>2<<5 | B>>3）：
+    //      警戒红 #CF222E=51461 · 森林绿 #1A7F37=7142 · 琥珀金 #D97706=56224 · 深炭黑 #24292F=8517
+    localparam [15:0] C_LPIDLE_B = 16'd63455,   // 空闲背景（浅灰 #F6F8FA）
+                      C_LPIDLE_P = 16'd8517,    // 空闲前景（深炭黑 #24292F，⭐ 原 9509 错）
+                      C_LPREC_B  = 16'd51461,   // 录音背景（警戒红 #CF222E，⭐ 原 52517 错→显黄）
                       C_LPREC_P  = 16'd65535,   // 录音前景（反白）
-                      C_LPPLAY_B = 16'd6822,    // 回放背景（绿）
+                      C_LPPLAY_B = 16'd7142,    // 回放背景（森林绿 #1A7F37，⭐ 原 6822 错）
                       C_LPPLAY_P = 16'd65535,   // 回放前景（反白）
-                      C_LPARM_B  = 16'd55264,   // 武装背景（琥珀）
+                      C_LPARM_B  = 16'd56224,   // 武装背景（琥珀金 #D97706，⭐ 原 55264 错）
                       C_LPARM_P  = 16'd65535;   // 武装前景（反白）
-
-    // ── ⭐⭐ 2026-11-02：鼓机开启蓝（t_drum.bco，⭐ 与 t_drum 文本同源 st_drum_c ⇒ 双挂起）──
+    // ── ⭐⭐ 2026-11-01：鼓机蓝 / 踏板红（标准 RGB565）──
     localparam [15:0] C_DRUM_ON_B  = 16'd2907,   // 鼓机开启背景（电光蓝 #0969DA）
-                      C_DRUM_OFF_B = 16'd63455;  // 鼓机关闭背景（浅灰 #F6F8FA，⭐ 与空闲同色）
+                      C_DRUM_OFF_B = 16'd63455,  // 鼓机关闭背景（浅灰 #F6F8FA，⭐ 与空闲同色）
+                      C_PEDAL_ON_B = 16'd51461,  // 踏板踩下背景（警戒红 #CF222E）
+                      C_PEDAL_OFF_B= 16'd63455,  // 踏板松开背景（浅灰）
+                      C_PEDAL_ON_P = 16'd65535,  // 踏板踩下前景（反白）
+                      C_PEDAL_OFF_P= 16'd9509;   // 踏板松开前景（深字）
 
     // ── ② body 打包原语（⭐ 只在下方组合块内调用）────────────────────────────
     //   📌 `ech_bf_c`/`ech_len_c` 是组合 scratch（左对齐数组 + 游标）；
@@ -1479,6 +1503,15 @@ module uart_ui #(
             ech_pct8 = (({8'd0, v}) * 8'd100) >> 8;
         end
     endfunction
+    function [7:0] ech_pct_vrate; // ⭐ 2026-11-01：音量颤音速率进度条（满量程 = 31 = 推子档上限 23.1Hz）
+        input [7:0] v;
+        begin
+            //   📌 推子档 trem_rate_eff = 推子[11:7] ⇒ 满量程 31（=23.1Hz），⛔ 不是 255
+            //      （ech_pct8 按 256 换算 ⇒ 拉满只显示 12% ⇒ 🔴 进度条不满）
+            //   ✅ 除以 31（常数除法综合器转乘加）：31 → 99、7 → 22、0 → 0
+            ech_pct_vrate = (v >= 8'd31) ? 8'd99 : (({8'd0, v} * 8'd100) / 8'd31);
+        end
+    endfunction
 
     // ── ②b 控件名（⭐ 组合，⭐ 与 `ech_nxt_c` 同拍）───────────────────────────
     //   📌 字符串字面量赋给 72 位 reg ⇒ ⭐ 高位补零 = **右对齐**（低字节 = 末字符）✅
@@ -1546,6 +1579,8 @@ module uart_ui #(
             ECH_F_JPD:     begin ech_name_c = "j_pd";     ech_nlen_c = 4'd4; end
             ECH_F_JVD:     begin ech_name_c = "j_vd";     ech_nlen_c = 4'd4; end
             ECH_F_DRUMBCO: begin ech_name_c = "t_drum";   ech_nlen_c = 4'd6; end
+            ECH_F_PEDALBCO:begin ech_name_c = "t_pedal";  ech_nlen_c = 4'd7; end
+            ECH_F_LOCK:    begin ech_name_c = "t_lock";   ech_nlen_c = 4'd6; end
             default:     begin ech_name_c = "z_vd";      ech_nlen_c = 4'd4; end  // ECH_F_ZVD
         endcase
     end
@@ -1572,15 +1607,8 @@ module uart_ui #(
                 end
             end
             ECH_F_TEST: begin
-                // ⭐ 旧控件 t1 保留（Test Mode 档位）
-                case ({test_mode_o, test_mode_n_o})
-                    3'b000: ech_push_str(W_GUAN, 3'd3);   // 关
-                    3'b100: ech_push_str("4", 4'd1);
-                    3'b101: ech_push_str("8", 4'd1);
-                    3'b110: ech_push_str("16", 4'd2);
-                    3'b111: ech_push_str("32", 4'd2);
-                    default: ;
-                endcase
+                // ⭐⭐ 2026-11-01 队友改：t1 显示「当前复音数」（mx_n_active 0..32），⛔ 不再是档位
+                ech_push_dec(st_nactive_c);
             end
             ECH_F_BASE: begin
                 // ⭐ 基准音: C4 (最低音 C3) —— C5/C6 时最低音联动 +1 八度
@@ -1638,25 +1666,15 @@ module uart_ui #(
             end
             ECH_F_BPM: ech_push_dec(st_bpm_c);
             ECH_F_DRUM: begin
-                //  ⭐⭐ 2026-10-31 新文案：`Pattern N` / `关`
-                //   📌 st_drum_c = {on, pattern}（⭐ 2026-10-31 起鼓机有开关档）
-                if (st_drum_c[2]) begin
-                    ech_push_str("Pattern ", 4'd8);
-                    case (st_drum_c[1:0])
-                        2'd0: ech_push_str("I", 4'd1);
-                        2'd1: ech_push_str("II", 4'd2);
-                        2'd2: ech_push_str("III", 4'd3);
-                        default: ech_push_str("IV", 4'd2);
-                    endcase
-                end else begin
-                    ech_push_str(W_GUAN, 3'd3);   // 关
-                end
-            end
-            ECH_F_DRUMBCO: begin
-                //  ⭐⭐ 2026-11-02：鼓机背景色（.bco=）—— 开启=蓝、关闭=浅灰
-                //   📌 与 t_drum 文本同源 st_drum_c ⇒ 变化检测里双挂起
-                ech_isbco_c = 1'b1;
-                ech_push_dec16(st_drum_c[2] ? C_DRUM_ON_B : C_DRUM_OFF_B);
+                //  ⭐⭐ 2026-11-01 队友改：一直显示当前节奏型 `Pattern N`（⛔ 不再显示「关」）
+                //   📌 st_drum_c = {on, pattern}；开启/关闭只靠 bco 色帧（ECH_F_DRUMBCO）区分
+                ech_push_str("Pattern ", 4'd8);
+                case (st_drum_c[1:0])
+                    2'd0: ech_push_str("I", 4'd1);
+                    2'd1: ech_push_str("II", 4'd2);
+                    2'd2: ech_push_str("III", 4'd3);
+                    default: ech_push_str("IV", 4'd2);
+                endcase
             end
             ECH_F_LOOP: begin
                 case (st_loop_c)
@@ -1701,12 +1719,10 @@ module uart_ui #(
                 ech_push(8'h25);   // '%'
             end
             ECH_F_PEDAL: begin
-                ech_push_str("[PEDAL ", 4'd7);
-                ech_push_str(W_YANYIN_TABAN, 4'd12);
+                //  ⭐⭐ 2026-11-01 队友改：`延音: 关/开`（踩下=开，⭐ 配合 bco 色帧变红）
+                ech_push_str(W_YANYIN, 4'd6);
                 ech_push_str(": ", 4'd2);
-                if (st_pedal_c) ech_push_str(W_CAIXIA_SHINENG, 4'd12);
-                else            ech_push_str(W_SONGKAI, 4'd6);
-                ech_push(8'h5D);   // ']'
+                ech_push_str(st_pedal_c ? W_KAI : W_GUAN, 3'd3);
             end
             ECH_F_GEAR: begin
                 // ⭐ `推子控制: 档 N [label]`（⭐ 屏显档号 1..4 = gear+1）
@@ -1725,16 +1741,13 @@ module uart_ui #(
                 ech_push(8'h5D);   // ']'
             end
             ECH_F_HDMI: begin
-                // ⭐ `HDMI: 实时示波器 (波形显示/李萨如图/频谱)`
+                //  ⭐⭐ 2026-11-01 队友改：`HDMI: 频谱/示波/李萨如`（⛔ 去掉「实时示波器」与括号）
                 ech_push_str("HDMI: ", 4'd6);
-                ech_push_str(W_SHISHI_SHIBOQI, 4'd15);
-                ech_push_str(" (", 4'd2);
                 case (st_scope_c)
-                    2'd1: ech_push_str(W_LISA_RU, 4'd12);
-                    2'd2: ech_push_str(W_PINPU, 4'd6);
-                    default: ech_push_str(W_BOXING_XIANSHI, 4'd12);
+                    2'd2: ech_push_str(W_PINPU, 4'd6);        // 频谱
+                    2'd1: ech_push_str(W_LISARU, 4'd9);       // 李萨如
+                    default: ech_push_str(W_SHIBO, 4'd6);     // 示波（原「波形显示」）
                 endcase
-                ech_push(8'h29);   // ')'
             end
             ECH_F_PD: begin
                 //  ⭐⭐ 2026-10-31 新文案：`深度 NN%`
@@ -1962,7 +1975,7 @@ module uart_ui #(
             end
             ECH_F_JVR: begin
                 ech_isval_c = 1'b1;
-                ech_push_dec(ech_pct8(st_vrate_c));
+                ech_push_dec(ech_pct_vrate(st_vrate_c));   // ⭐ 满量程 31（推子档上限 23.1Hz）
             end
             ECH_F_JPD: begin
                 // ⭐ 音高/音量颤音深度进度条（⭐ 与 t_pd/t_vd 文本同源同值）
@@ -1972,6 +1985,22 @@ module uart_ui #(
             ECH_F_JVD: begin
                 ech_isval_c = 1'b1;
                 ech_push_dec({1'b0, st_vvib_c});
+            end
+            // ══ ⭐⭐ 2026-11-01 队友新增 3 帧体（色帧 + 锁定）════════════════
+            ECH_F_DRUMBCO: begin
+                // 鼓机背景色：开启=蓝、关闭=浅灰（⭐ 与 t_drum 文本同源 st_drum_c ⇒ 双挂起）
+                ech_isbco_c = 1'b1;
+                ech_push_dec16(st_drum_c[2] ? C_DRUM_ON_B : C_DRUM_OFF_B);
+            end
+            ECH_F_PEDALBCO: begin
+                // 踏板背景色：踩下=红、松开=浅灰（⭐ 与 t_pedal 文本同源 st_pedal_c ⇒ 双挂起）
+                ech_isbco_c = 1'b1;
+                ech_push_dec16(st_pedal_c ? C_PEDAL_ON_B : C_PEDAL_OFF_B);
+            end
+            ECH_F_LOCK: begin
+                //  ⭐⭐ 2026-11-01 队友改：推子锁定状态（`锁定` / `实时生效`）
+                if (st_lock_c) ech_push_str(W_SUODING, 4'd6);
+                else           ech_push_str(W_SHISHI_SHENGXIAO, 4'd12);
             end
             default: begin  // ECH_F_ZVD
                 ech_isval_c = 1'b1;
@@ -2070,7 +2099,7 @@ module uart_ui #(
         if (!rst_n_i) begin
             ech_state   <= ECH_S_IDLE;
             ech_pos     <= 6'd0;
-            ech_pend    <= 58'd0;
+            ech_pend    <= 60'd0;
             ech_name_q  <= 72'd0;
             ech_nlen_q  <= 4'd0;
             ech_blen_q  <= 6'd0;
@@ -2182,10 +2211,10 @@ module uart_ui #(
                 //  ⭐⭐ 2026-10-29 三件套-A：⭐ **首次握手沿 ∨ 0x88 重发请求** ⇒ 全量 ⭐⭐
                 //   📌 重复收到 0x88（⭐ 屏切页返回）⇒ ⭐ 靠 `reflash_q` 再拿 47 帧新值 ✅
                 if (!ech_hb_s || reflash_q) begin
-                    // ⭐ 0x88 握手上升沿 ⇒ 57 个字段**全部**回显（屏上电初态）
+                    // ⭐ 0x88 握手上升沿 ⇒ 56 个字段**全部**回显（屏上电初态）
                     //   ⭐ 2026-10-29 起重复收到 0x88 同样全量（⭐ 切页返回刷新）
-                    //   ⭐ 2026-10-31 起新增 48..56 共 9 帧一并全量；⭐ 2026-11-02 加 57（DRUMBCO）
-                    ech_pend <= 58'h3FFF_FFFF_FBFF_FFF;  // ⭐ bit22（心跳）⛔ 不随握手置位：⭐ 由计时器首发；⭐ 2026-11-02 加 bit57（DRUMBCO）
+                    //   ⭐ 2026-10-31 起新增 48..56 共 9 帧一并全量
+                    ech_pend <= 60'hFFF_FFFF_FFBF_FFFF;  // ⭐ bit22（心跳）⛔ 不随握手置位：⭐ 由计时器首发
                     reflash_q <= 1'b0;        // ⭐ 重发请求自清（⭐ 单拍语义）
                     // ⭐ 同步全部镜像（⭐ 吸收握手前堆积的变化 ⇒ 随后不重复触发）
                     ech_mode_s   <= mode_o;
@@ -2210,6 +2239,9 @@ module uart_ui #(
                     ech_uplink_s <= uplink_sw_o;
                     ech_prate_s  <= st_prate_c;
                     ech_vrate_s  <= st_vrate_c;
+                    // ⭐⭐ 2026-11-01：同步队友新增字段镜像
+                    ech_lock_s    <= st_lock_c;
+                    ech_nactive_s <= st_nactive_c;
                     // ⭐⭐ 2026-10-29 晚（§八-3）：同步 page1 镜像（⭐ 吸收握手前堆积的变化）
                     ech_fxg_s    <= fx_gain_o;
                     ech_fxt_s    <= fx_trim_o;
@@ -2248,7 +2280,7 @@ module uart_ui #(
                         ech_pend[ECH_F_BPM] <= 1'b1;  ech_bpm_s <= st_bpm_c;
                     end
                     if (st_drum_c != ech_drum_s) begin
-                        // ⭐⭐ 2026-11-02：文本 t_drum + 背景色 t_drum.bco **同源** ⇒ 双挂起
+                        // ⭐⭐ 2026-11-01：文案 + 背景色 bco **同源** ⇒ 双挂起
                         ech_pend[ECH_F_DRUM]    <= 1'b1;
                         ech_pend[ECH_F_DRUMBCO] <= 1'b1;
                         ech_drum_s <= st_drum_c;
@@ -2270,7 +2302,10 @@ module uart_ui #(
                         ech_vol_s <= st_vol_c;
                     end
                     if (st_pedal_c !== ech_pedal_s) begin
-                        ech_pend[ECH_F_PEDAL] <= 1'b1;  ech_pedal_s <= st_pedal_c;
+                        // ⭐⭐ 2026-11-01：文案 + 背景色 bco **同源** ⇒ 双挂起（踩下=红）
+                        ech_pend[ECH_F_PEDAL]    <= 1'b1;
+                        ech_pend[ECH_F_PEDALBCO] <= 1'b1;
+                        ech_pedal_s <= st_pedal_c;
                     end
                     if (st_gear_c != ech_gear_s) begin
                         // ⭐⭐ 2026-10-29 晚（§八-3）：t_gear 与 page1 短文本 gr **同源** ⇒ 双挂起
@@ -2377,6 +2412,15 @@ module uart_ui #(
                             ech_pend[ECH_F_PBEAT] <= 1'b1;
                         end
                         ech_beat_s <= beat_c;
+                    end
+                    // ⭐⭐ 2026-11-01 队友新增字段变化检测 ──────────────────────
+                    if (st_lock_c !== ech_lock_s) begin
+                        ech_pend[ECH_F_LOCK] <= 1'b1;
+                        ech_lock_s <= st_lock_c;
+                    end
+                    if (st_nactive_c != ech_nactive_s) begin
+                        ech_pend[ECH_F_TEST] <= 1'b1;
+                        ech_nactive_s <= st_nactive_c;
                     end
                 end
             end
