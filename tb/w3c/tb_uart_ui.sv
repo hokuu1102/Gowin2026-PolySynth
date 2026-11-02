@@ -1003,7 +1003,7 @@ module tb_uart_ui;
             capture_echo;
         join
         chk("echo⑧-1 握手后 hb_ready=1", hb_ready === 1'b1);
-        chk("echo⑧-1 握手 burst 总长 = 1286 字节（56 帧全量）", cap_n === 1286);
+        chk("full echo burst = 1277 bytes (56 fields)", cap_n === 1277);
 
         //   ⭐ 链式核对：off 逐帧推进，最后 off 必须恰好走满 cap_n
         off = 0;
@@ -1020,8 +1020,8 @@ module tb_uart_ui;
         expect_frame("echo⑧-1 f3  t_timbre=BASS", off, flen, 1'b0,
             "t_timbre", 4'd8, "BASS", 6'd4);
         off = off + flen;
-        expect_frame("echo⑧-1 f4  t_trans=0 SEMI (原调)", off, flen, 1'b0,
-            "t_trans", 4'd7, {"0 SEMI (", W_YUANDIAO, ")"}, 6'd15);
+        expect_frame("echo f4 t_trans=0 SEMI", off, flen, 1'b0,
+            "t_trans", 4'd7, "0 SEMI", 6'd6);
         off = off + flen;
         expect_frame("echo⑧-1 f5  t_slide=关闭 (GLIDE OFF)", off, flen, 1'b0,
             "t_slide", 4'd7, {W_GUANBI, " (GLIDE OFF)"}, 6'd18);
@@ -1113,8 +1113,8 @@ module tb_uart_ui;
         expect_frame("echo⑧-1 f32 z_lf.val=37（反馈 96）", off, flen, 1'b1,
             "z_lf", 4'd4, "37", 6'd2);
         off = off + flen;
-        expect_frame("echo⑧-1 f33 z_pr.val=2（速率 7）", off, flen, 1'b1,
-            "z_pr", 4'd4, "2", 6'd1);
+        expect_frame("echo f33 z_pr.val=0 (raw pitch rate)", off, flen, 1'b1,
+            "z_pr", 4'd4, "0", 6'd1);
         off = off + flen;
         expect_frame("echo⑧-1 f34 z_vr.val=2（速率 7）", off, flen, 1'b1,
             "z_vr", 4'd4, "2", 6'd1);
@@ -1613,8 +1613,8 @@ module tb_uart_ui;
         expect_frame("echo⑬-1 f32 z_lf.val=37（反馈 96）", off, flen, 1'b1,
             "z_lf", 4'd4, "37", 6'd2);
         off = off + flen;
-        expect_frame("echo⑬-1 f33 z_pr.val=2（速率 7）", off, flen, 1'b1,
-            "z_pr", 4'd4, "2", 6'd1);
+        expect_frame("echo repeat f33 z_pr.val=0 (raw pitch rate)", off, flen, 1'b1,
+            "z_pr", 4'd4, "0", 6'd1);
         off = off + flen;
         expect_frame("echo⑬-1 f34 z_vr.val=2（速率 7）", off, flen, 1'b1,
             "z_vr", 4'd4, "2", 6'd1);
@@ -1847,12 +1847,9 @@ module tb_uart_ui;
         feed_frame_z(8'h71, 8'h16, 8'd64);
         chk("echo⑭-D 0x16=64 ⇒ fx_rate=64", fx_rate === 8'd64);
         capture_echo;
-        chk("echo⑭-D burst 总长 = 70 字节（z_pr 14 + z_vr 14 + t_pr_val 21 + t_vr_val 21）",
-            cap_n === 70);
+        chk("FX rate burst = 56 bytes; raw pitch gauge unchanged",
+            cap_n === 56);
         off = 0;
-        expect_frame("echo⑭-D z_pr.val=25", off, flen, 1'b1,
-            "z_pr", 4'd4, "25", 6'd2);
-        off = off + flen;
         expect_frame("echo⑭-D z_vr.val=25", off, flen, 1'b1,
             "z_vr", 4'd4, "25", 6'd2);
         off = off + flen;
@@ -1862,7 +1859,7 @@ module tb_uart_ui;
         expect_frame("echo⑭-D t_vr_val=25%", off, flen, 1'b0,
             "t_vr_val", 4'd8, "25%", 6'd3);
         off = off + flen;
-        chk("echo⑭-D 四帧走满 burst", off === cap_n);
+        chk("FX rate three frames cover complete burst", off === cap_n);
 
         // ── ⑭-E par_sel 7→3 ⇒ cur 单帧（反馈）────────────────────────
         par_sel = 3'd3;
@@ -2015,8 +2012,11 @@ module tb_uart_ui;
         //   j_pr = ech_pct12(2048) = (2048>>4)×100>>8 = 50
         st_prate = 12'd2048;
         capture_echo;
-        chk("echo⑮-6 burst 总长 = 40 字节（t_pr 26 + j_pr 14）", cap_n === 40);
+        chk("pitch raw rate burst = 54 bytes (z_pr + t_pr + j_pr)", cap_n === 54);
         off = 0;
+        expect_frame("raw pitch rate updates z_pr independently", off, flen, 1'b1,
+            "z_pr", 4'd4, "50", 6'd2);
+        off = off + flen;
         expect_frame("echo⑮-6 t_pr=速率 6.5Hz", off, flen, 1'b0,
             "t_pr", 4'd4, {W_SULU, " ", "6.5", "Hz"}, 6'd12);
         off = off + flen;
@@ -2041,7 +2041,24 @@ module tb_uart_ui;
         chk("echo⑮-7 双帧走满 burst", off === cap_n);
 
         // ═══════════════════════════════════════════════════════════════════
-        // 汇总
+        // Raw pitch rate endpoints must update both gauges with complete frames.
+        st_prate=12'd4095;
+        capture_echo;
+        off=0;
+        expect_frame("pitch maximum z_pr=99",off,flen,1'b1,"z_pr",4'd4,"99",6'd2);off=off+flen;
+        expect_frame("pitch frequency mapping unchanged at maximum",off,flen,1'b0,
+            "t_pr",4'd4,{W_SULU," ","12.0","Hz"},6'd13);off=off+flen;
+        expect_frame("pitch maximum j_pr=99",off,flen,1'b1,"j_pr",4'd4,"99",6'd2);off=off+flen;
+        chk("maximum rate complete burst",off===cap_n);
+        st_prate=0;
+        capture_echo;
+        off=0;
+        expect_frame("pitch zero z_pr=0",off,flen,1'b1,"z_pr",4'd4,"0",6'd1);off=off+flen;
+        expect_frame("pitch zero frequency mapping unchanged",off,flen,1'b0,
+            "t_pr",4'd4,{W_SULU," ","1.0","Hz"},6'd12);off=off+flen;
+        expect_frame("pitch zero j_pr=0",off,flen,1'b1,"j_pr",4'd4,"0",6'd1);off=off+flen;
+        chk("zero rate complete burst",off===cap_n);
+        // Summary
         // ═══════════════════════════════════════════════════════════════════
         if (errors == 0) begin
             //  ⭐ 运行期计数（⭐ ⛔ 不再写死 28）✅

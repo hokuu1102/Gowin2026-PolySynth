@@ -40,6 +40,12 @@ module tb_top_hmi_integration;
     begin send(8'h65);send(0);send(control_id);send(8'hff);send(8'hff);send(8'hff);
       repeat(30)@(negedge clk);end
   endtask
+  task number(input [7:0] id, input [7:0] value);
+    begin send(8'h71);send(id);send(value);send(8'hff);send(8'hff);send(8'hff);
+      repeat(30)@(negedge clk);end
+  endtask
+  integer n,gear_pulses=0;
+  always @(posedge clk) if(rst && dut.ui_gear_sel_valid)gear_pulses=gear_pulses+1;
   initial begin
     repeat(20)@(negedge clk);rst=1;repeat(100)@(negedge clk);
     if(dut.up_enable_r!==0 || dut.u_uart_ui.uplink_sw_o!==0)
@@ -55,10 +61,32 @@ module tb_top_hmi_integration;
     if(rec_count!=2 || play_count!=2)$fatal(1,"screen and pedal controls do not coexist");
     rec=1;play=1;
     touch(4);if(dut.slide_on_r!==1)$fatal(1,"screen slide toggle missing");
+    send("B");repeat(30)@(negedge clk);
+    if(dut.drum_on_r!==1)$fatal(1,"independent drum switch did not open");
     touch(5);touch(5);touch(5);touch(5);
-    if(dut.drum_on_r!==0)$fatal(1,"drum off state missing");
-    touch(5);if(dut.drum_on_r!==1 || dut.drum_pattern_r!==0)
-      $fatal(1,"drum restart did not return to I");
+    if(dut.drum_on_r!==1 || dut.drum_pattern_r!==0 || dut.met_on_r!==1)
+      $fatal(1,"screen pattern cycle must wrap IV to I without stopping drums");
+    send("B");repeat(30)@(negedge clk);
+    if(dut.drum_on_r!==0 || dut.u_uart_ui.st_drum_i!==3'b000)
+      $fatal(1,"screen status did not follow independent drum off switch");
+    touch(5);
+    send("D");repeat(30)@(negedge clk);
+    if(dut.drum_on_r!==0 || dut.drum_pattern_r!==2)
+      $fatal(1,"screen/serial pattern selection while off must not enable drums");
+    send("B");repeat(30)@(negedge clk);
+    if(dut.drum_on_r!==1 || dut.drum_pattern_r!==2 || dut.u_uart_ui.st_drum_i!==3'b110)
+      $fatal(1,"drum opening must preserve preselected pattern and synchronize screen");
+    for(n=0;n<8;n=n+1)begin
+      send(8'h6f);send(n);repeat(30)@(negedge clk);
+      if(dut.enc_par_sel!==n[2:0] || dut.ec_par_arm_q!==0)$fatal(1,"raw EC11 selection failed");
+      send(8'hff);send(8'hff);send(8'hff);repeat(30)@(negedge clk);
+      if(dut.enc_par_sel!==n[2:0] || dut.ec_par_arm_q!==0)$fatal(1,"optional suffix changed selection");
+    end
+    number(5,2);if(dut.ui_gear_sel!==2 || gear_pulses!=1)$fatal(1,"screen volume selection missing");
+    number(5,1);if(dut.ui_gear_sel!==1 || gear_pulses!=2)$fatal(1,"screen pitch selection missing");
+    number(5,0);if(dut.ui_gear_sel!==0 || gear_pulses!=3)$fatal(1,"screen transpose selection missing");
+    number(5,3);number(5,5);number(5,254);
+    if(dut.ui_gear_sel!==0 || gear_pulses!=3)$fatal(1,"invalid gear aliases a valid selection");
     // Reset clears previous diagnostic replies; boot acknowledgement starts screen echo.
     rst=0;repeat(20)@(negedge clk);rst=1;repeat(100)@(negedge clk);
     check_screen=1;send(8'h88);send(8'hff);send(8'hff);send(8'hff);
@@ -66,8 +94,8 @@ module tb_top_hmi_integration;
     if({prefix[0],prefix[1],prefix[2],prefix[3],prefix[4],prefix[5]}!=="t_mode")
       $fatal(1,"first screen command lost or duplicated a byte");
     if(screen_bytes<30)$fatal(1,"vacuous screen transmission");
-    $display("PASS: 115200 touch/O state sync, pedal coexistence, five-state drum, screen framing and ESP isolation");
+    $display("PASS: 115200 touch/O state sync, pedal coexistence, four-pattern drum with independent on/off, screen framing and ESP isolation");
     $finish;
   end
-  initial begin #30000000;$fatal(1,"HMI integration deadline");end
+  initial begin #80000000;$fatal(1,"HMI integration deadline");end
 endmodule

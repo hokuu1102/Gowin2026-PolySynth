@@ -327,7 +327,12 @@ module fader_gear (
             //   ⭐ `3'b001 << gear_o`：⭐ 档 0/1/2 ⇒ 3'b001/010/100 ✅
             //   📌 `gear_o` 只可能是 0/1/2（三档循环）⇒ ⛔ 不会移出界 ✅
             //   ⚠️ `hold_o` **只在本块被写**（⭐ 复位分支 + 本分支）⇒ ⛔ 无 EX2000 多驱动 ✅
-            if (lock_toggle_i)
+            // Direct screen changes lock the departing gear; physical next stays manual.
+            if ((gear_sel0_i && gear_o != 2'd0) ||
+                (!gear_sel0_i && gear_sel1_i && gear_o != 2'd1) ||
+                (!gear_sel0_i && !gear_sel1_i && gear_sel2_i && gear_o != 2'd2))
+                hold_o <= hold_o | (3'b001 << gear_o);
+            else if (lock_toggle_i)
                 hold_o <= hold_o ^ (3'b001 << gear_o);
 
             // ── ⭐ 影子寄存器：⭐ 只在"该档 + 未锁定"时跟随；其余时候**保持** ──

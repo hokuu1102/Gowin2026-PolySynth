@@ -681,6 +681,8 @@ parameter integer TEST_MODE_EN       = 1,
     wire ui_loop_rec_req;    // ⭐ 控件 9：循环录音（并入 'R'）
     wire ui_loop_play_req;   // ⭐ 控件 10：循环播放（并入 'L'）
     wire ui_loop_clear_req;  // ⭐ 控件 11：循环清空（并入 'C'）
+    wire [1:0] ui_gear_sel;
+    wire ui_gear_sel_valid;
     wire ui_gear_req;        // ⭐ 控件 12：推子档位下一（并入 'J'）
     wire ui_bpm_up_req;      // ⭐ 控件 13：BPM +5（→ BPM shadow，见 cmd_bpm_val 后）
     wire ui_bpm_dn_req;      // ⭐ 控件 14：BPM -5（→ BPM shadow，见 cmd_bpm_val 后）
@@ -1107,26 +1109,15 @@ parameter integer TEST_MODE_EN       = 1,
     localparam [1:0] DRUM_PATTERN_INIT = DRUM_PATTERN_ID;
 
     reg [1:0] drum_pattern_r;
-    //  ⭐⭐ 2026-10-31：⭐ 鼓机【关档】（队友《控件位置清单》卡片 B：t_drum = Pattern N / 关）
-    //   📌 五态循环：I → II → III → IV → 关 → I（⭐ 关→开归 Pattern I）
-    //   📌 复位 = 开 + DRUM_PATTERN_INIT（⭐ 与原行为逐位一致 ⇒ ⛔ 老 tb 判据不变）
-    //   📌 "关" = 事件闸门（⭐ `src_b_valid` 里 `drm_evt_valid & drum_on_r`）⇒
-    //      鼓机静音；⭐ 节拍器（met_on_r）/键盘打鼓（key_drum_r）各有开关 ⛔ 互不影响 ✅
-    reg        drum_on_r;
+    // Pattern selection is independent of the source-B start/stop switch.
+    // Two-bit addition wraps I -> II -> III -> IV -> I, including while off.
+    // Share the actual drum enable with screen feedback and indicator LEDs.
+    wire drum_on_r = (SEL_DRUM == 1) && (METRONOME_ON != 0) && met_on_r;
     always @(posedge clk) begin
-        if (!rst_n_sync) begin
-            drum_on_r      <= 1'b1;
+        if (!rst_n_sync)
             drum_pattern_r <= DRUM_PATTERN_INIT;
-        end else if (cmd_drum_pattern_req) begin
-            if (!drum_on_r) begin
-                drum_on_r      <= 1'b1;                    // 关 → 开（⭐ 归 Pattern I）
-                drum_pattern_r <= 2'd0;
-            end else if (drum_pattern_r == 2'd3) begin
-                drum_on_r <= 1'b0;                          // IV → 关
-            end else begin
-                drum_pattern_r <= drum_pattern_r + 2'd1;    // I → II → III → IV
-            end
-        end
+        else if (cmd_drum_pattern_req)
+            drum_pattern_r <= drum_pattern_r + 2'd1;
     end
 
     // ⭐⭐ 2026-10-01：⭐ **键盘打鼓模式开关**（⭐ `'K'` 串口命令，⭐ 与 `met_on_r` 同构）
@@ -1773,6 +1764,8 @@ end
         .loop_play_req_o (ui_loop_play_req),
         .loop_clear_req_o(ui_loop_clear_req),
         .gear_req_o      (ui_gear_req),
+        .gear_sel_o      (ui_gear_sel),
+        .gear_sel_valid_o(ui_gear_sel_valid),
         .bpm_up_req_o    (ui_bpm_up_req),
         .bpm_dn_req_o    (ui_bpm_dn_req),
         .frame_cnt_o   (ui_frame_cnt),
@@ -4120,12 +4113,10 @@ wire ovf_any;
             //  ⭐⭐ 2026-10-18：⭐ **三档 + 锁定 + 音量颤音** 的新端口 ✅
             //     📌 ⭐ 接口按 `bringup/40-推子三档与双颤音共存-实施方案-20261018.md` §4.1
             //        （⭐ `fader_gear.v` 由另一路并行修改，本处只按契约接线 ✅）
-            //  ⚠️ **`gear_sel0/1/2_i` 本轮接 0** —— 屏点选的触摸控件号还没和屏侧
-            //     对齐（⭐ 见实施方案 §九）⇒ ⭐ 下一轮再接；
-            //     🔴 但**端口必须显式接**（`default_nettype none` 下悬空会报错）✅
-            .gear_sel0_i      (1'b0),
-            .gear_sel1_i      (1'b0),
-            .gear_sel2_i      (1'b0),
+            // Screen numeric frame 71 05 <0/1/2> selects the fader gear.
+            .gear_sel0_i      (ui_gear_sel_valid && (ui_gear_sel == 2'd0)),
+            .gear_sel1_i      (ui_gear_sel_valid && (ui_gear_sel == 2'd1)),
+            .gear_sel2_i      (ui_gear_sel_valid && (ui_gear_sel == 2'd2)),
             //  ⭐ 锁定键：idx 9（矩阵 行2列1）⇒ 翻转【当前档】的锁定位 ✅
             .lock_toggle_i    (km_lock_toggle_req),
             //  ⭐ 档 2 的音量颤音深度/速率（12 位，与推子同宽 ⇒ 逐位直通）✅
@@ -7056,11 +7047,11 @@ wire ovf_any;
         //         在合流处拦**一处就够**（⭐ 鼓机也一并受控，⭐ 语义一致）。
         //      ⚠️ **`met_on_r` 是寄存器**（⭐ 复位由 `rst_n_sync` 保证）
         //         ⇒ ⛔ 不会像 `Z` 那样传播 `x`（⭐ 见上方 `met_btn_s` 的 Z-safe 处理）。
-        wire        src_b_valid = (sel_drum ? (drm_evt_valid & drum_on_r) : met_evt_valid)
+        wire        src_b_valid = (sel_drum ? drm_evt_valid : met_evt_valid)
                                   & (METRONOME_ON != 0)
                                   & met_on_r;
-        //  ⭐⭐ 2026-10-31：⭐ `drum_on_r` 关档闸门（⭐ 队友《控件位置清单》卡片 B "关"）
-        //   📌 只闸鼓机事件流；⭐ 节拍器（sel_drum=0 侧）与键盘打鼓（src_a 覆盖）不受影响 ✅
+        //  Pattern changes never alter the independent source-B enable.
+        //  Source-B start/stop remains independent of keyboard-drum source A.
         wire [3:0]  src_b_axis  = sel_drum ? drm_evt_axis  : met_evt_axis;
         wire [31:0] src_b_inc   = sel_drum ? drm_evt_inc   : met_evt_inc;
         wire [7:0]  src_b_vel   = sel_drum ? drm_evt_vel   : met_evt_vel;
@@ -7922,9 +7913,9 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         //        ⛔ 不引入"推子 vs 帧 vs EC11"三方仲裁 ✅
         //
         //  ⚠️ **必须写清的语义（"静默无效"，与 `K-106` 有张力）**：
-        //     档 2 下帧 `0x15`/`0x16` **仍然写进寄存器，但不影响出声**（被本 mux 挡住）
+        //     档 2 激活或已锁定时，帧 `0x15`/`0x16` 仍写入寄存器，但不覆盖推子生效值。
         //     ⇒ ⭐ 处置：① 屏上显示**生效值**（mux 之后），⛔ 不显示寄存器原值
-        //               ② 退出档 2 后回到帧设的值（"推子只管档 2 期间"）✅
+        //               ② 档 2 已锁定时切档仍使用保存值；解锁并退出档 2 后才回到帧设值。
         //
         //  ⭐ **位宽换算的理由（⛔ 别随手改成 [11:4]）**：
         //     · depth：`[11:4]` ⇒ 0..255 —— 全行程都有意义（0 = 数值恒等，255 = 最深）✅
@@ -7933,7 +7924,7 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         //        ⇒ ⚠️ 若直接取 `[11:4]`，推子**前 3% 行程**就覆盖整个常用区间，
         //           后面 97% 全是"过快" ⇒ 🔴 手感极差 ✅
         //  ═══════════════════════════════════════════════════════════════════
-        wire        trem_from_fader = (led_gear_st == 2'd2);
+        wire        trem_from_fader = (led_gear_st == 2'd2) || fg_hold[2];
         wire [7:0]  trem_depth_eff  = trem_from_fader ? trem_depth_f[11:4] : ui_fx_depth;
         wire [7:0]  trem_rate_eff   = trem_from_fader ? trem_rate_f[11:7]  : ui_fx_rate;
 
@@ -7987,7 +7978,7 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
             .dist_sel_i(2'd0), .dist_gain_i(ui_fx_gain), .dist_trim_i(ui_fx_trim),
             .dly_delay_i(ui_fx_dlylen), .chor_delay_i(ui_fx_chorlen),
             .dly_mix_i(ui_fx_mix), .dly_fb_i(ui_fx_fb),
-            //  ⭐⭐ 2026-10-18：⭐ 改用**生效值**（档 2 = 推子，其余 = `uart_ui` 的寄存器）✅
+            //  ⭐⭐ 2026-10-18：⭐ 改用生效值（档 2 激活或已锁定 = 推子保持值，其余 = `uart_ui` 寄存器）✅
             .trem_depth_i(trem_depth_eff), .trem_rate_i(trem_rate_eff),
             .valid_o(fx_valid), .sample_o(fx_sample),
             //  ⭐⭐⭐⭐ 2026-10-17（`K-106`）：⭐ **7 个可观测输出全部接出来** ✅
@@ -8805,8 +8796,8 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
     //         （⭐ 否则指示灯会说"鼓机在响"而实际不响 —— ⚠️ 比不亮更坏）
     // ═══════════════════════════════════════════════════════════════════════
     //     🔴 **与 `g_sound` 里 `src_b_valid` 的算式逐项一致 ⇒ ⭐ 改一处必须改两处**
-    //        （⭐ 2026-10-31 起两边都含 `drum_on_r` 关档闸门 ✅）
-    wire led_drum_on = (SEL_DRUM == 1) && (METRONOME_ON != 0) && met_on_r && drum_on_r;
+    //        Pattern selection is separate; screen and LEDs use the actual drum enable.
+    wire led_drum_on = drum_on_r;
 
     led_indicator #(.N_CH(NCH_LED)) u_led_indicator (
         .clk        (clk),

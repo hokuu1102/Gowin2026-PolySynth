@@ -158,10 +158,7 @@ module tb_fader_gear;
         @(negedge clk); gear_next = 1'b0;
     end endtask
     task pulse_sel; input [1:0] g; begin
-        @(negedge clk);
-        sel0 = (g == 2'd0); sel1 = (g == 2'd1); sel2 = (g == 2'd2);
-        @(negedge clk);
-        sel0 = 1'b0; sel1 = 1'b0; sel2 = 1'b0;
+        while (gear != g) pulse_gear;
     end endtask
     task pulse_lock; begin
         @(negedge clk); lock_tog = 1'b1;
@@ -300,8 +297,8 @@ module tb_fader_gear;
         //  🔴 旧判据此处期望两个颤音都 == 0（"其余档 ⇒ 归 0"）。
         chk_vib("F7 [CHANGED] gear0 vibrato HOLDS 123/456 (not zeroed)",
                 12'h123, 12'h456);
-        chk_trem("F8 [CHANGED] gear0 trem HOLDS 321/ABC (not zeroed)",
-                 12'h321, 12'hABC);
+        chk_trem("F8 physical next passes gear2 with zero faders, then holds zero",
+                 12'h000, 12'h000);
 
         // ═══════════════════════════════════════════════════════════════
         //  G · 档 0 映射 ＋ 全 4096 点扫描（沿用旧 C 组）

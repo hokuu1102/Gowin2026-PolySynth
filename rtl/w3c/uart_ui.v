@@ -183,6 +183,8 @@ module uart_ui #(
     output reg         loop_rec_req_o,     // ⭐ 控件 9：循环录音请求（单周期脉冲）
     output reg         loop_play_req_o,    // ⭐ 控件 10：循环播放请求（单周期脉冲）
     output reg         loop_clear_req_o,   // ⭐ 控件 11：循环清空请求（单周期脉冲）
+    output reg  [1:0] gear_sel_o,
+    output reg        gear_sel_valid_o,
     output reg         gear_req_o,         // ⭐ 控件 12：推子档位下一（单周期脉冲）
     output reg         bpm_up_req_o,       // ⭐ 控件 13：BPM +5（单周期脉冲）
     output reg         bpm_dn_req_o,       // ⭐ 控件 14：BPM -5（单周期脉冲）
@@ -485,6 +487,8 @@ module uart_ui #(
             loop_play_req_o <= 1'b0;
             loop_clear_req_o<= 1'b0;
             gear_req_o      <= 1'b0;
+            gear_sel_valid_o <= 1'b0;
+            gear_sel_o <= 2'd0;
             bpm_up_req_o    <= 1'b0;
             bpm_dn_req_o    <= 1'b0;
             //  ⭐⭐ 效果器运行时参数（⭐ 复位值 = **参数传入的初值**）
@@ -528,6 +532,7 @@ module uart_ui #(
             loop_play_req_o <= 1'b0;
             loop_clear_req_o<= 1'b0;
             gear_req_o      <= 1'b0;
+            gear_sel_valid_o <= 1'b0;
             bpm_up_req_o    <= 1'b0;
             bpm_dn_req_o    <= 1'b0;
             //  ⭐ 效果器参数提交脉冲：⭐ 默认每拍清零 ⇒ 严格单周期 ✅
@@ -730,6 +735,12 @@ module uart_ui #(
                                         //        · ⭐ 屏协议本来就有「变量序号 + 值」的形态 ⇒ **天然够用** ✅
                                         //     📌 **好处**：⭐ 串口屏和串口助手**同一套协议** ⇒
                                         //        ⭐ 屏上勾选和助手发帧**走同一条代码路径**，⛔ 不用二选一 ✅
+                                        else if (body_q == 8'd5) begin
+                                            if ((body_len == 6'd2) && (val_q <= 8'd2)) begin
+                                                gear_sel_o <= val_q[1:0];
+                                                gear_sel_valid_o <= 1'b1;
+                                            end
+                                        end
                                         else if (body_q == 8'd16) begin   // 0x10
                                             fx_mask_o   <= val_q;         // ⭐ 位掩码，直传
                                             fx_commit_o <= 1'b1;
@@ -1209,7 +1220,6 @@ module uart_ui #(
                        W_GANGQIN_MOSHI  = {8'hE9,8'h92,8'hA2,8'hE7,8'h90,8'hB4,8'hE6,8'hA8,8'hA1,8'hE5,8'hBC,8'h8F},  // 钢琴模式(12B)
                        W_JIZHUNYIN      = {8'hE5,8'h9F,8'hBA,8'hE5,8'h87,8'h86,8'hE9,8'h9F,8'hB3},                     // 基准音(9B)
                        W_ZUIDIYIN       = {8'hE6,8'h9C,8'h80,8'hE4,8'hBD,8'h8E,8'hE9,8'h9F,8'hB3},                     // 最低音(9B)
-                       W_YUANDIAO       = {8'hE5,8'h8E,8'h9F,8'hE8,8'hB0,8'h83},                                       // 原调(6B)
                        W_KAIQI          = {8'hE5,8'hBC,8'h80,8'hE5,8'h90,8'hAF},                                       // 开启(6B)
                        W_GUANBI         = {8'hE5,8'h85,8'hB3,8'hE9,8'h97,8'hAD},                                       // 关闭(6B)
                        W_KAI            = {8'hE5,8'hBC,8'h80},                                                          // 开(3B)
@@ -1505,11 +1515,9 @@ module uart_ui #(
                 endcase
             end
             ECH_F_TRAN: begin
-                // ⭐ 0 = `0 SEMI (原调)`；非 0 = `+N SEMI` / `-N SEMI`
+                // Zero: `0 SEMI`; nonzero: `+N SEMI` / `-N SEMI`.
                 if (st_trans_c == 5'd0) begin
-                    ech_push_str("0 SEMI (", 4'd8);
-                    ech_push_str(W_YUANDIAO, 4'd6);
-                    ech_push(8'h29);   // ')'
+                    ech_push_str("0 SEMI", 4'd6);
                 end else begin
                     if (st_trans_c[4]) begin
                         ech_abs_c = (~st_trans_c) + 5'd1;   // ⭐ 有符号取绝对值
@@ -1732,11 +1740,11 @@ module uart_ui #(
             end
             ECH_F_ZPR: begin
                 ech_isval_c = 1'b1;
-                ech_push_dec(ech_pct8(fx_rate_o));
+                ech_push_dec(ech_pct12(st_prate_c));
             end
             ECH_F_ZVR: begin
                 ech_isval_c = 1'b1;
-                ech_push_dec(ech_pct8(fx_rate_o));   // ⭐ 与 z_pr 同源 fx_rate
+                ech_push_dec(ech_pct8(fx_rate_o));   // Volume rate retains its existing FX source.
             end
             ECH_F_TDG: begin
                 //  ⭐ page1 数值文本（txt `NN%`，⭐ 与对应仪表**同源同值**）
@@ -2220,8 +2228,7 @@ module uart_ui #(
                         ech_fb_s <= fx_fb_o;
                     end
                     if (fx_rate_o != ech_rate_s) begin
-                        // ⭐ 颤音速率：z_pr/z_vr/t_pr_val/t_vr_val **四帧同源** ⇒ 四挂起
-                        ech_pend[ECH_F_ZPR] <= 1'b1;
+                        // FX rate: volume gauge and the existing FX percentage texts.
                         ech_pend[ECH_F_ZVR] <= 1'b1;
                         ech_pend[ECH_F_TPR] <= 1'b1;
                         ech_pend[ECH_F_TVR] <= 1'b1;
@@ -2244,7 +2251,8 @@ module uart_ui #(
                     end
                     // ⭐⭐ 2026-10-31：《控件位置清单》新字段变化检测 ──────────────────
                     if (st_prate_c != ech_prate_s) begin
-                        // ⭐ 音高颤音速率：文本 `t_pr` + 进度条 `j_pr.val` 同源 ⇒ 双挂起
+                        ech_pend[ECH_F_ZPR] <= 1'b1;
+                        // Pitch raw rate updates t_pr, j_pr and z_pr together.
                         ech_pend[ECH_F_PRATE] <= 1'b1;
                         ech_pend[ECH_F_JPR]   <= 1'b1;
                         ech_prate_s <= st_prate_c;
