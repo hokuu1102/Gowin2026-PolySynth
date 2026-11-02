@@ -22,7 +22,7 @@
 //    12   3,0     looper 清空（长按）          loop_clear_req_o （'C'）
 //    13   3,1     loop 发送（导出该层已录事件） loop_send_req_o  （⭐ 2026-10-17 新增，短按）
 //    14   3,2     音高归零（恢复默认音高）      trans_reset_req_o（⭐ 2026-10-15 新增）
-//    15   3,3     标定 = 只发 T（松手即发）      tare_req_o  （⭐ span 已删除，见文件内说明）
+//    15   3,3     实时回传开关（松手切换一次） uplink_toggle_req_o
 //
 //  ⭐⭐ 2026-10-17 新增 idx 13「loop 发送」：
 //    ⭐ 用户需求：*"控制板加一个 loop 发送按钮"*，⭐ 位置 = 列 1 / 行 3（原「备用」）✅
@@ -33,8 +33,7 @@
 //       ⭐ 理由是**发送是非破坏性操作**（⛔ 不清数据、⛔ 不改状态、⛔ 不进录制）
 //          ⇒ ⭐ 短按立即生效，⛔ 不需要"防误触"的那 2 s 阈值 ✅
 //          ⚠️ 对照：⭐ `loop_clear_req_o`（idx 12）会**清空整层** ⇒ 🔴 必须长按保护 ✅
-//    🔴 **本键【不】与其它任何键共用逻辑**：⭐ 它⛔ 不占 `hold_clr`/`hold_cal` 计数器、
-//       ⛔ 不碰 `clr_long_fired`/`cal_long_fired` ⇒ ⭐ 那两条长按链逐位不变 ✅
+//    本键不占用 looper 清空键的长按计数器或标志。
 //
 //  ⭐⭐ 2026-10-15 新增 idx 14「音高归零」：
 //    ⭐ 用户需求：*"矩阵键盘加一个键：一键恢复默认音高"*，⭐ 位置 = 列 2 / 行 3 ✅
@@ -48,8 +47,7 @@
 //
 //  长按保护（破坏性/低频操作）：
 //    · idx 12 looper 清空：必须**长按** LONG_MS 才发脉冲（防误触）
-//    · idx 15 标定：**短按** = tare（'T'）、**长按** = span（'S'）
-//      两者共用一个键，互斥：长按触发后，松手不再发短按的那一个
+//    · idx 15 实时回传：短按或长按均在松手时切换一次，不再触发标定。
 //
 //  为什么与 calib_cmd 的输出【OR】而不是替换：
 //    calib_cmd 的下游全部只认这一组 *_req 脉冲，
@@ -100,7 +98,8 @@ module ctrl_key_map #(
     output reg         loop_send_req_o,
     output reg         mode_req_o,        // 新增：模式切换（top.v 需接一个寄存器）
     output reg         fb_piano_o,        // 模式键「目标档」：1 = 钢琴、0 = 指板
-    output reg         tare_req_o,
+    output reg         uplink_toggle_req_o, // idx15 release; state belongs to top
+    output reg         tare_req_o, // retained inactive; serial calibration is independent
     output reg         span_req_o,
     //  ⭐⭐ 2026-10-18：⭐ **idx 9（列 1 / 行 2）= 推子【锁定】键** ✅
     //     ⭐ 用户裁定：*"加一个按键，让推子记忆当前档位此时的状态，再按一下取消记忆"*
@@ -165,15 +164,12 @@ module ctrl_key_map #(
                      LONG_CYC, (1 << HW) - 1, HW);
     end
 
-    // ── 长按计数器：只给两个需要长按的键各一个 ─────────────────────────────
+    // ── 长按计数器：仅 looper 清空键需要 ─────────────────────────────
     reg [HW-1:0] hold_clr;     // idx 12 looper 清空
-    reg [HW-1:0] hold_cal;     // idx 15 标定
     reg          clr_long_fired;
-    reg          cal_long_fired;
 
     //  ⭐ 零扩展计数器 ＋ 定宽常量 ⇒ ⭐ **无截断、无恒真**（⭐ 见上方 `D9` 长注释）
     wire clr_at_long = ({1'b0, hold_clr} >= LONG_CYC_C);
-    wire cal_at_long = ({1'b0, hold_cal} >= LONG_CYC_C);
 
     //  🔴🔴 2026-10-14：⭐ **本块【不再碰】`clr_long_fired` / `cal_long_fired`** ✅
     //     ⭐ **原缺陷（⭐ 仿真过、综合报错 ✅）**：
@@ -190,7 +186,6 @@ module ctrl_key_map #(
     always @(posedge clk) begin
         if (!rst_n) begin
             hold_clr        <= {HW{1'b0}};
-            hold_cal        <= {HW{1'b0}};
         end else begin
             // idx 12：按住就计数，松手清零
             if (key_level[12]) begin
@@ -199,12 +194,6 @@ module ctrl_key_map #(
                 hold_clr       <= {HW{1'b0}};
             end
 
-            // idx 15：同上
-            if (key_level[15]) begin
-                if (!cal_at_long) hold_cal <= hold_cal + 1'b1;
-            end else begin
-                hold_cal       <= {HW{1'b0}};
-            end
         end
     end
 
@@ -227,6 +216,7 @@ module ctrl_key_map #(
             loop_send_req_o    <= 1'b0;   // ⭐ idx 13（⭐ 与其余脉冲同一块、同一口径 ✅）
             mode_req_o         <= 1'b0;
             fb_piano_o         <= 1'b0;
+            uplink_toggle_req_o <= 1'b0;
             tare_req_o         <= 1'b0;
             span_req_o         <= 1'b0;
             lock_toggle_req_o  <= 1'b0;   // ⭐ idx 9（2026-10-18 新增）
@@ -234,7 +224,6 @@ module ctrl_key_map #(
             //  ⭐⭐ 2026-10-14：⭐ **两个长按标志的复位【搬到本块】** ✅
             //     🔴 原缺陷见上面块 1 的注释（⭐ 多驱动 ⇒ 综合报错 ✅）
             clr_long_fired     <= 1'b0;
-            cal_long_fired     <= 1'b0;
         end else begin
             // 默认全低：单周期脉冲
             met_req_o          <= 1'b0;
@@ -251,6 +240,7 @@ module ctrl_key_map #(
             loop_clear_req_o   <= 1'b0;
             loop_send_req_o    <= 1'b0;   // ⭐ idx 13（⭐ 单周期脉冲的默认低 ✅）
             mode_req_o         <= 1'b0;
+            uplink_toggle_req_o <= 1'b0;
             tare_req_o         <= 1'b0;
             span_req_o         <= 1'b0;
             lock_toggle_req_o  <= 1'b0;   // ⭐ idx 9（单周期脉冲的默认低 ✅）
@@ -313,7 +303,6 @@ module ctrl_key_map #(
             //        ⚠️ 同一拍两者**不可能同时成立**
             //        （⭐ 一个要求 `key_level=0`、⭐ 一个要求 `=1` ✅）
             if (!key_level[12]) clr_long_fired <= 1'b0;
-            if (!key_level[15]) cal_long_fired <= 1'b0;
 
             // 行 3 · looper 清空：长按阈值到达那一刻发一次（且只发一次）
             if (key_level[12] && clr_at_long && !clr_long_fired) begin
@@ -321,15 +310,9 @@ module ctrl_key_map #(
                 clr_long_fired   <= 1'b1;
             end
 
-            //  ⭐⭐ 2026-10-17（用户裁定）：⭐ **span 满量程标定已删除** ✅
-            //     ⇒ 标定键**只发 tare**（松手即发），⛔ 不再有"长按 = span"分支 ✅
-            //     🔴 原写：长按阈值到达时发 `span_req_o` **并置 `cal_long_fired`**
-            //        ⇒ ⚠️ 若不删，`cal_long_fired` 会让下面 `!cal_long_fired` 为假
-            //        ⇒ 🔴 **长按之后松手就不发 tare 了** —— 死代码产生真实副作用 ✅
-            //        （⭐ 这正是用户要求"顺带停掉"的原因 ✅）
-            //     ✅ 现在 `cal_long_fired` 恒 0 ⇒ ⭐ 每次松手都发 `tare_req_o` ✅
-            //     📌 `span_req_o` 端口**保留**（恒 0）⇒ 与 `calib_span` 的接线不用动 ✅
-            if (key_up[15]) tare_req_o <= 1'b1;
+            // Debounced release: one toggle even after a long hold.
+            // Calibration remains available through serial T and power-on autotare.
+            if (key_up[15]) uplink_toggle_req_o <= 1'b1;
         end
     end
 

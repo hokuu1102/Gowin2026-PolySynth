@@ -1,0 +1,395 @@
+VCD info: dumping is suppressed.
+  ok  : reset: mode=MODE_PIANO_DEFAULT (яяяЊяяяїяяяйяяяђґ)
+  ok  : reset: base_semi=0 (C4)
+  ok  : reset: hb_ready=0
+  ok  : reset:яяя  commit яяяеяІ
+  ok  : reset: fx_mask = яяяияяяјяяяЁяяяпя‰
+  ok  : reset: fx_gain = яяяия¤ 16384 (4.0)
+  ok  : reset: fx_trim = яяяия¤ 8192 (0.25)
+  ok  : reset: fx_mix = яяяия¤ 128
+  ok  : reset: fx_fb =яяяяя¤ 96
+  ok  : reset: fx_depth = яяяия¤ 0яяяжяяяЂяяя’яяяпя‰
+  ok  : reset: fx_rate яяя»яяя¤ 7
+  ok  : reset: fx_dlylen = яяяия¤ 8яяяпя€16яяяпя‰
+  ok  : reset: fx_chorlen =яяяяя¤ яяяпя€15яяяјяяяђяяяЁяя—3яяя яяя№яяяпя‰
+  ok  : resetяяя—  fx_commit яяяеяІ
+  ok  : reset: test_modeяяяяяяеяі
+  ok  : яяяЎяя‹ 0x88 -> hb_ready=1
+  ok  : яяяжяяя®яяяҐ frame_cnt
+  ok  : яяяЎяяядяяя”№ mode
+  ok  : яяяияяя‘яяя§яя¶0 -> modeяяя»яя¬ яяяйяяя®¤)
+  ok  : mode_commяяяеяяя‘яяяџяяяеяІ
+  ok  : mode_commit яя… яяя‹яяя€яяядяяя‹яяяћяяяпя‰
+  ok  : яяяЌяяяияяя‘ё -> modяяяїяяяћяяяйяяя®¤)
+  ok  : mode_sw_req_i -> modяяяїяяя¬яяядяяя±яяя¦яяяеяяяёяяя­яяяпя‰
+  ok  : mode_sw_req_i -> mode_commiяяя‡яяя†яяяеяІ
+  ok  : mode_sw_req_яяя‹яяяЋ -> mode_commit яяяияЅ
+  ok  : mode_sw_reqяяяжяяяЅЋ -> modяяяїяяяЃяяяеяяяјяяяЌяяязяяя№яяяЏяяяпя‰
+  ok  : mode_sw_req_i яяяияяяЏяяя€яяядяяя¬яяя»яяяпя‰
+  ok  : яяя°яяяея§ -> base_semi яяяея° =12
+  ok  : base_commяяяеяяя‘яяяџяяяеяІ
+  ok  : base_commitяяя…яяяжяЌ
+  ok  : fx 0x10: mask 0x00 -> 0x17яяяеяяяњяяяђяяя±яяя¶яяяеяяяјяяяЊяяђ bit4яяяєяяяпя‰
+  ok  : fx 0x10: fx_commяяяеяяя‘яяяџяяяеяІ
+  ok  : fx 0x10: fx_commitяяя…яяяжяЌ
+  ok  : fx 0x11: gaяяяеяј32 -> 8192 (Q4.12 = 2.0)
+  ok  : fx 0x11: gaiяяяЂј64 -> 16384 (Q4.12 = 4.0)
+  ok  : fx 0x11: gaяяяеяј254 -> 650яяяјяяяЉяяяпя‰
+  ok  : fx 0x12: trimяяяј128 -> 32768 (Q1.15 = 1.0)
+  ok  : fx 0x13: mix яяядя  200
+  ok  : fx 0x14: fb яяядя  180
+  ok  : fx 0x15: depth 0 ->яяяпяяяўяяяіяяяпя‰
+  ok  : fx 0x15: depthяяяћяя° яяя€яяђ яяяеяяяЃяяя‰яяявяяяияяяќяяя±яяяжяяя·яяя¤яяяпя‰
+  ok  : fx 0x16: rateяяяґяя  30
+  ok  : fx 0x17: dlyleяяяЂј64 -> 8192 яяяжяяяј€168яяяпя‰
+  ok  : fx 0x17: dlylen яяј127 -> 16256 яяяжя·
+  ok  : fx 0x17: dlylen яяј200 -яяяҐяяяЊяя° 1638яяя€= DEPTH-яяяЊяя” яяяжяЇ 2яяяпя‰
+  ok  : fx 0x18: chorlen яяј23 -> 736яяя‡яяяпя€15яяяпя‰
+  ok  : fx 0x18: chorleяяяЂј63 -> 2016 яяяжя·
+  ok  : fx 0x18: chorlenяяяј200 яяяйяяя’яяя° 204яяя€= DEPTH-яяяЊяя” яяяжяЇ 2яяяпя‰
+  ok  : fx яяяея‘: яяяйяЏ 0x7F яяяеяяя“яяя»яяяжяяяћяяяЁяяяжя°
+  ok  : fxяяя‘яя¦: val=0xFяяяяяя§яяяжяяя®° =>яяя„яяяеяяяЂяяяЌяяягяяяјяяяЏяяяеяяяњяяя¦яяяпя‰
+  ok  : яяяеяяяєяяядяяяёяяя§яяџ fx_commiяяя„яяяІяяявяяяеяяя яяя¬яяяияяяЅяяяђяяяжяяяёяяяЅяяяпя‰
+  ok  : яяяеяяяєяяяќяяяєяяћ: 0xFяяяяяя€яяяжяяяЌ® =>яяя©яяяеяяя€ђ 0xFE
+  ok  : fxяяя‘яя¦ яяязяяяґяяядя” fx_commitяяя‰яяяеяІ
+  ok  : fx 0x10: mask 0xFE -> 0xяяяјяяяђяяяЅяяяйяяяјяяя”яяяЌяяяеяяяѓяяя®яяяпя‰
+  ok  : fx 0x9яяяеяяяЏ· biяяязяяяЅяяя‡яяя›яяяёяяяёяяяеяяя€ђ 0xяяяјяяя®яяяйяяя»яяя™ masяяяпя‰
+  ok  : touch 0x80:яяя§яяяея· bit7 яяядяяявяяявяяядяяя®яяя«яяяжяяяЋяяя¶яяяјяяя®яяязяяяЅяяяЎяяяпя‰
+  ok  : touch 0x80яяяёяяяЌяя‘ mode_commit яяяеяІ
+  ok  : яяяжяяя»яяязяяяжяЎ -> test_mode=1, n=00(4)
+  ok  : test_mode_commяяяеяяя‘яяяџяяяеяІ
+  ok  : test_mode_commitяяя…яяяжяЌ
+  ok  : яяядя¶2 яя¬2яяЎ -> n=01(8)
+  ok  : яяяжяяя»яяязяяяжяЎ -> n=10(16)
+  ok  : яяяжяяя»яяязяяяжяЎ -> n=11(32)
+  ok  : яяяжяяя»яяязяяяжяЎ -> 32яяяћяяяеяі
+  ok  : яяяЋяяя¶3 -> timbre_req яяяеяяяњяяя‰яяяпяяя±яяяіяяяжяяя’яяя­яяяпя‰
+  ok  : яяяЋяяя¶3 -> timbre_req яя… яяя‹яяя€яяяжяяяЌяяяЁяяяпя‰
+  ok  : touch 0x83: bit7 яяядяяявяяявяяядяяя®яяя«яяяжяяяЋяяя¶яяяјяяяЌяяяйяяя‰яяя‰яяяпя‰
+  ok  : touch 0x83яяяёяяяЌяяяияяяЁяяяЏяяявяяядяяя€яяяЌяяяжяяя»яяяпя‰
+  ok  : яяяжяяя»яяяжяяяџі -> slide_rяяязяяяѓяяя•яяяпяяяёяяя›яяяёяяя‘ timbre_яяяпя‰
+  ok  : яяяжяяя»¶4 -> panel_vec яяяеяяя›яяя€яяяжяяяЌяяяЁяяяпя‰
+  ok  : яяяжяяя»яяяйяяяњє -> drum_reяяя‹яяя­яяяжяЌ
+  ok  : яяядя¶5 -> panel_vecяяяЁяяяйя¶
+  ok  : яяя§яя¶6яяя“яя“ -> kd_reяяя‹яяя­яяяжяЌ
+  ok  : яяядя¶6 -> panel_vecяяяЁяяяйя¶
+  ok  : яяяЋяяя¶яяя§яяяѓ+ -> trans_up_reяяя‹яяя­яяяжяЌ
+  ok  : яяядя¶7 -> panel_vecяяяЁяяяйя¶
+  ok  : яяяЋяяя¶яяя§яяяѓ- -> trans_dn_reяяя‹яяя­яяяжяЌ
+  ok  : яяядя¶8 -> panel_vecяяяЁяяяйя¶
+  ok  : яяядя¶9 яяязяяяЅ• -> loop_rec_reяяя‹яяя­яяяжяЌ
+  ok  : яяядя¶9 -> panel_vecяяяЁяяяйя¶
+  ok  : яяяЋяяя¶яяяеяяяЋяяя­ -> loop_play_reяяя‹яяя­яяяжяЌ
+  ok  : яяяжяяя»¶10 -> panel_vecяяяЁяяяйя¶
+  ok  : яяя§яя¶1яяяѕяяяЇяя… -> loop_clear_reяяя‹яяя­яяяжяЌ
+  ok  : яяяжяяя»¶11 -> panel_vecяяяЁяяяйя¶
+  ok  : яяяЋяяя¶яяяжяяяЅЌ -> gear_reяяя‹яяя­яяяжяЌ
+  ok  : яяяжяяя»¶12 -> panel_vecяяяЁяяяйя¶
+  ok  : яяяЋяяя¶13 BPM+ -> bpm_up_reяяя‹яяя­яяяжяЌ
+  ok  : яяяжяяя»¶13 -> panel_vecяяяЁяяяйя¶
+  ok  : яяяЋяяя¶14 BPM- -> bpm_dn_reяяя‹яяя­яяяжяЌ
+  ok  : яяяжяяя»¶14 -> panel_vecяяяЁяяяйя¶
+  ok  : яяя§яя¶15 b_uplink -> panel_vec яяяйяяяјяяя”яяяЌяяяияяяЏяяя»яяяйяяяќяяя‰яяяпя‰
+  ok  : яяядя¶15 b_uplink -> uplink_sw 1яя’0яяязяяяЅяяяіяяяпя‰
+  ok  : touch 0x8D: biяяязяяяЅяяя‡яяя›яяяёяяяёяяяеяяя€яяя§яя¶ яяяјяяяЌяя‘ BPM+яяя‰яяяпя‰
+  ok  : яяядяяяїћ FFяяяЌяяяжяяяёяяя€modeяяяЄяяяпя‰
+  ok  : яяяеяяяќяяя -> яяяйяяяЅяяяЌ(resync_cnt>0)
+  ok  : яяяћяяяияяя›яяяЃ -> err_cnt яяяеяяя‡яяяћяяяјяяя”яяяЌяяяжяяяњяяя„яяяпя‰
+  ok  : яяяћяя’:яяяЌяяяжяяяияяя‘ё mode=~яяяия¤
+  ok  : яяя›яяя’: frame_cnt яяяияЎ
+  ok  : echo: яяядяяяђЋ hb_ready=0яяяеяяя‡яяя·яяяпя‰
+  ok  : echoяя§-яяяЏяяя‹яяяеяяяЊяяя¶яяяжяяяј€tx_starяяяЃяяяпя‰
+  ok  : echoяя§-яяяЏяяя‹яяЋ hb_ready=1
+  ok  : echяяя§яяяжяяя‰‹ burst яяяйяї = 128яяя­яяя‚яя€5яяяёяяяЁяяяпя‰
+  ok  : echoяя§-1 f0  t_modeяяя‡яяяжяяяјЏ [FRET]
+  ok  : echoяя§-1 f1  t1яяяі
+  ok  : echoяя§-1 f2  t_baseяяяєяяяйяі CяяяжяяяЅяяяі C3)
+  ok  : echяяя§-1 f3  t_timbre=BASS
+  ok  : eяяявя§-1 f4  t_trans=0 SEMI яяяџяяѓ)
+  ok  : echoяя§-1 f5  t_slidяяя…яяя­ (GLIDE OFF)
+  ok  : ecяяя‘§-1 f6  t_bpm=96
+  ok  : ecяяя‘§-1 f7  t_drum=Pattern I
+  ok  : echяяя§-1 f8  t_looяяя©яяяІ
+  ok  : echoяя§-1 f9  t_яяяжяяяјяяяеяяя—яяяйяяя¬яяя”яяЏ]
+  ok  : eяяявя§-1 f10 t_vяяядяяяџяяяЏ: 0%
+  ok  : ecяяя‘§-1 f11 t_pedal=[PEDяяяеяяяџяяяЏяяї:яяяѕяяЂ]
+  ok  : echяяя§-1 f12 t_geaяяяЋяяяђяяяея¶: яяЈ яяяйяяя«яяя¤яяі]
+  ok  : echoяя§-1 f13 t_hdmi=HDMяяя®яяя¶яяяжяяя™яяяжяяяЅяяяѕяяє)
+  ok  : echoяя§-1 f14 t_яяяжяяяє¦ 0%
+  ok  : echoяя§-1 f15 t_яяяжяяяє¦ 0%
+  ok  : echoяя§-1 f16 t_dist_st=яяязяџ [яяі]
+  ok  : echoяя§-1 f17 t_chor_st=яяяея± [яяі]
+  ok  : echяяя§-1 f18 t_dly_st=яяяияџ [яяі]
+  ok  : eяяявя§-1 f19 j_vol.val=0
+  ok  : echoяя§-1 f20 z_pd.val=0
+  ok  : echoяя§-1 f21 z_vd.val=0
+  ok  : echoяя§-1 f22 t_loop.bco=634яяяјяяяєяяяжяяяЃяяя‰
+  ok  : echяяя§-1 f23 t_loop.pco=95яяяјяяяєяяяжяяя­яяя‰
+  ok  : echoяя§-1 f24 led_dist.val=0
+  ok  : echoяя§-1 f25 led_chor.val=0
+  ok  : echяяя§-1 f26 led_dly.val=0
+  ok  : echяяя§-1 f27 z_dg.val=яяяјяяяћяяЉ 1638яяя‰
+  ok  : ecяяя‘§-1 f28 z_dt.valяяяпяяяЎяяяї 819яяя‰
+  ok  : echoяя§-1 f29 z_cl.val=3яяя€яяяеяяя•ї 73яяя‰
+  ok  : eяяявя§-1 f30 z_mx.val=50яяяеяяя№ї 12яяя‰
+  ok  : echoяя§-1 f31 z_ll.val=5яяя€яя¶ long 819яяя‰
+  ok  : echoяя§-1 f32 z_lf.val=3яяя€яяяйя€ 9яяя‰
+  ok  : ecяяя‘§-1 f33 z_pr.valяяяјяяяџяя‡ яяя‰
+  ok  : ecяяя‘§-1 f34 z_vr.valяяяјяяяџяя‡ яяя‰
+  ok  : ecяяя‘§-1 f35 t_dg_val=25%
+  ok  : ecяяя‘§-1 f36 t_dt_val=12%
+  ok  : ecяяя‘§-1 f37 t_cl_val=35%
+  ok  : ecяяя‘§-1 f38 t_mx_val=50%
+  ok  : ecяяя‘§-1 f39 t_ll_val=50%
+  ok  : ecяяя‘§-1 f40 t_lf_val=37%
+  ok  : eяяявя§-1 f41 t_pd_val=0%
+  ok  : eяяявя§-1 f42 t_vd_val=0%
+  ok  : eяяявя§-1 f43 t_pr_val=2%
+  ok  : eяяявя§-1 f44 t_vr_val=2%
+  ok  : eяяявя§-1 f45 cur=EC1яяяеяяя›Љ (0x11)
+  ok  : eяяявя§-1 f46 gr=яяЈ яяяйяяя«яяя¤яяі]
+  ok  : echяяя§-1 f47 p_slide.val=0
+  ok  : eяяявя§-1 f48 p_bpm.val=0
+  ok  : echяяя§-1 f49 b_uplink=яяЏ яяяжяяяёяяяЊяяяјяяяЇ
+  ok  : echяяя§-1 f50 t_pr=яяязя‡ 1.0Hz
+  ok  : echяяя§-1 f51 t_vr=яяязя‡ 5.2Hz
+  ok  : echoяя§-1 f52 j_pr.val=0
+  ok  : echoяя§-1 f53 j_vr.val=2
+  ok  : echoяя§-1 f54 j_pd.val=0
+  ok  : echoяя§-1 f55 j_vd.val=0
+  ok  : echяяя§-1 5яяяёяяя°яяяияяя»Ў buяяяпя€off=caяяяпя‰
+  ok  : ecяяя‘§-2 bursяяяЂяяяї = 1яяя­яяя‚яяядя… t_bpmяяя•яяяпя‰
+  ok  : echяяя§-2 t_bpm=120
+  ok  : ecяяя‘§-2 яяяеяяяµяяяЎ burst
+  ok  : echoяя§-яяя§яяяёяяЋ modeяяяўяяґ(1)
+  ok  : echoяя§-3 burst яяяйяї = 36 яяяия‚
+  ok  : eяяявя§-3 t_mode=яяязяяяЁяяяЏ [PIANO]
+  ok  : ecяяя‘§-3 яяяеяяяµяяяЎ burst
+  ok  : ecяяя‘§-4 яяяжяяяђЋ test_mode=1, n=00(4)
+  ok  : echoяя§-4 burst яяяйяї = 13 яяяия‚
+  ok  : ecяяя‘§-4 t1=4
+  ok  : ecяяя‘§-4 яяяеяяяµяяяЎ burst
+  ok  : echoяя§-яяяµяяя‹яяяияяяњ° base_semi=24(C6)
+  ok  : echoяя§-5 burst яяяйяї = 44 яяяия‚
+  ok  : echoяя§-5 t_baseяяяєяяяйяі CяяяжяяяЅяяяі C5)
+  ok  : ecяяя‘§-5 яяяеяяяµяяяЎ burst
+  ok  : echoяя§-6 burst яяяйяї = 23 яяяия‚
+  ok  : echoяя§-6 t_timbre=PIANO
+  ok  : ecяяя‘§-6 яяяеяяяµяяяЎ burst
+  ok  : eяяявя§-7a burst яяяйяї = 24 яяяия‚
+  ok  : ecяяя‘§-7a t_trans=+3 SEMI
+  ok  : echяяя§-7a яяяеяяяµяяяЎ burst
+  ok  : eяяявя§-7b burst яяяйяї = 24 яяяия‚
+  ok  : ecяяя‘§-7b t_trans=-3 SEMI
+  ok  : echяяя§-7b яяяеяяяµяяяЎ burst
+  ok  : eяяявя§-8 burяяяжяяя•ї = яяяеяяяЉяяя€t_vol 29 + j_volяяяпя‰
+  ok  : echяяя§-8a t_voяяяёяяяіяяЏ: 85%
+  ok  : echяяя§-8b j_vol.val=85
+  ok  : ecяяя‘§-8 яяяеяяяµяяяЎ burst
+  ok  : echяяя§-9 burstяяя»яяї = 14яяя­яяя‚яя€31+31+30+17+17+16яяя­яяяпя‰
+  ok  : eяяявя§-9a t_dist_st=яяязяџ [яяЂ]
+  ok  : eяяявя§-9b t_chor_st=яяяея± [яяі]
+  ok  : echoяя§-9c t_dly_st=яяяияџ [яяЂ]
+  ok  : eяяявя§-9d led_dist.val=1
+  ok  : eяяявя§-9e led_chor.val=0
+  ok  : echoяя§-9f led_dly.val=1
+  ok  : ecяяя‘§-9 яяяеяяяµяяяЎ burst
+  ok  : ecяяя‘§-10a gain up 16384->16640
+  ok  : echoяя§-10a fx_commiяяяЌяяяЌяяяеяІ
+  ok  : eяяявя§-10a fx_commitяяя…яяяжяЌ
+  ok  : eяяявя§-10a burstяяя»яяї = 35яяя—яяяпя€z_dg 14 + t_dg_valяяяпя‰
+  ok  : echяяя§-10a z_dg.val=25
+  ok  : echoяя§-10a t_dg_val=25%
+  ok  : echoяя§-10a яяяеяяяµяяяЎ burst
+  ok  : ecяяя‘§-10b gain dn 16640->16384
+  ok  : eяяявя§-10b burstяяя»яяї = 35яяя—яяяпя€z_dg 14 + t_dg_valяяяпя‰
+  ok  : echяяя§-10b z_dg.val=25
+  ok  : echoяя§-10b t_dg_val=25%
+  ok  : echoяя§-10b яяяеяяяµяяяЎ burst
+  ok  : echяяя§-10c up/яяяеяяя‹яяя’яяядяяяјяяя€gainяяяЌяяяпя‰
+  ok  : echoяя§-10c яяяжяяяёяяяѓяя  commit
+  ok  : echяяя§-10cяяяЊяяядяяяјяяя¶яяяжяяяј€tx_starяяяЃяяяпя‰
+  ok  : eяяявя§-10d mix up 128->129
+  ok  : ecяяя‘§-10d burst яяяйяї = 67 яяяияяяј€cur 32 + z_mx 14 + t_mx_valяяяпя‰
+  ok  : echяяя§-10d cur=EC1яяяжяяяђ€ (0x13)
+  ok  : echяяя§-10d z_mx.val=50
+  ok  : echoяя§-10d t_mx_val=50%
+  ok  : echoяя§-10d яяяеяяяµяяяЎ burst
+  ok  : eяяявя§-10e depth dn яяяйяяя№яяяЌ 0
+  ok  : echoяя§-10e яяяйяяя№яяяЌяя‘ commit
+  ok  : ecяяя‘§-10e commitяяя…яяяжяЌ
+  ok  : echяяя§-10e burяяяжяяя•ї = яяяеяяяЉяяя€яя… яяяпя‰
+  ok  : echяяя§-10e cur=EC1яяяжяяяє¦ (0x15)
+  ok  : echoяя§-10e яяяеяяяµяяяЎ burst
+  ok  : eяяявя§-10f chorlen up 736->768
+  ok  : ecяяя‘§-10f burst яяяйяї = 73 яяяияяяј€cur 38 + z_cl 14 + t_cl_valяяяпя‰
+  ok  : eяяявя§-10f cur=EC11:яяя€яяяйяяяє¦ (0x18)
+  ok  : echяяя§-10f z_cl.val=37
+  ok  : echoяя§-10f t_cl_val=37%
+  ok  : echoяя§-10f яяяеяяяµяяяЎ burst
+  ok  : ecяяя‘§-11 busяяяњяяяґ tx_starяяяЃяяяпяяя›яяяѕяяяияяяЋяяяЎяяяпя‰
+  ok  : eяяявя§-1яяяµяяя§яяяйяяяђЋ burst яяяйяї = 51 яяяия‚
+  ok  : eяяявя§-11 t_pedal=[PEDALяяя¶яяяияяяќяяяияяяёяяяїяяЅ]
+  ok  : echяяя§-11 яяяеяяяµяяяЎ burst
+  ok  : echяяя«яяяеяяя·яяя§яяяйяї = 15 яяяия‚
+  ok  : eяяявя«-2яяяѓяяяеяяя†яяя№ = tm1.tim=1500 + FF FF FF
+  ok  : echяяя«яяяеяяя·яяяЁяяџ яя€ яяяпяяяђяяя№яяяпя‰
+  ok  : echoяя¬-яяяєяяяЎ 0x8яяя‡яяя…яяяЏяяяея‘ burst = 1293 яяяияяяј€56 яяяпя‰
+  ok  : eяяявя¬-1 f0  t_mode=яяязяяяЁяяяЏ [PIANO]
+  ok  : ecяяя‘¬-1 f1  t1=4
+  ok  : echoяя¬-1 f2  t_baseяяяєяяяйяі CяяяжяяяЅяяяі C5)
+  ok  : echoяя¬-1 f3  t_timbre=PIANO
+  ok  : echяяя¬-1 f4  t_trans=-3 SEяяяјяяя“яяяеяяяќяяя€яяяйяяяѓяяя‰
+  ok  : echoяя¬-1 f5  t_slidяяя…яяя­ (GLIDE OFF)
+  ok  : echяяя¬-1 f6  t_bpm=120
+  ok  : ecяяя‘¬-1 f7  t_drum=Pattern I
+  ok  : echяяя¬-1 f8  t_looяяя©яяяІ
+  ok  : echoяя¬-1 f9  t_яяяжяяяјяяяеяяя—яяяйяяя¬яяя”яяЏ]
+  ok  : ecяяя‘¬-1 f10 t_voяяяёяяяіяяЏ: 85%
+  ok  : echoяя¬-1 f11 t_pedal=[PEDALяяя¶яяяияяяќяяяияяяёяяяїяяЅ]
+  ok  : echяяя¬-1 f12 t_geaяяяЋяяяђяяяея¶: яяЈ яяяйяяя«яяя¤яяі]
+  ok  : echoяя¬-1 f13 t_hdmi=HDMяяя®яяя¶яяяжяяя™яяяжяяяЅяяяѕяяє)
+  ok  : echoяя¬-1 f14 t_яяяжяяяє¦ 0%
+  ok  : echoяя¬-1 f15 t_яяяжяяяє¦ 0%
+  ok  : echoяя¬-1 f16 t_dist_st=яяязяџ [яяЂ]
+  ok  : echoяя¬-1 f17 t_chor_st=яяяея± [яяі]
+  ok  : echяяя¬-1 f18 t_dly_st=яяяияџ [яяЂ]
+  ok  : ecяяя‘¬-1 f19 j_vol.val=85
+  ok  : echoяя¬-1 f20 z_pd.val=0
+  ok  : echoяя¬-1 f21 z_vd.val=0
+  ok  : echoяя¬-1 f22 t_loop.bco=634яяяјяяяєяяяжяяяЃяяя‰
+  ok  : echяяя¬-1 f23 t_loop.pco=95яяяјяяяєяяяжяяя­яяя‰
+  ok  : echoяя¬-1 f24 led_dist.val=1
+  ok  : echoяя¬-1 f25 led_chor.val=0
+  ok  : echяяя¬-1 f26 led_dly.val=1
+  ok  : echяяя¬-1 f27 z_dg.val=яяяјяяяћяяЉ 1638яяя‰
+  ok  : ecяяя‘¬-1 f28 z_dt.valяяяпяяяЎяяяї 819яяя‰
+  ok  : echoяя¬-1 f29 z_cl.val=3яяя€яяяеяяя•ї 76яяя‰
+  ok  : eяяявя¬-1 f30 z_mx.val=50яяяеяяя№ї 12яяя‰
+  ok  : echoяя¬-1 f31 z_ll.val=5яяя€яя¶ long 819яяя‰
+  ok  : echoяя¬-1 f32 z_lf.val=3яяя€яяяйя€ 9яяя‰
+  ok  : ecяяя‘¬-1 f33 z_pr.valяяяјяяяџяя‡ яяя‰
+  ok  : ecяяя‘¬-1 f34 z_vr.valяяяјяяяџяя‡ яяя‰
+  ok  : ecяяя‘¬-1 f35 t_dg_val=25%
+  ok  : ecяяя‘¬-1 f36 t_dt_val=12%
+  ok  : ecяяя‘¬-1 f37 t_cl_val=37%
+  ok  : ecяяя‘¬-1 f38 t_mx_val=50%
+  ok  : ecяяя‘¬-1 f39 t_ll_val=50%
+  ok  : ecяяя‘¬-1 f40 t_lf_val=37%
+  ok  : eяяявя¬-1 f41 t_pd_val=0%
+  ok  : eяяявя¬-1 f42 t_vd_val=0%
+  ok  : eяяявя¬-1 f43 t_pr_val=2%
+  ok  : eяяявя¬-1 f44 t_vr_val=2%
+  ok  : echяяя¬-1 f45 cur=EC11:яяя€яяяйяяяє¦ (0x18)
+  ok  : eяяявя¬-1 f46 gr=яяЈ яяяйяяя«яяя¤яяі]
+  ok  : echяяя¬-1 f47 p_slide.val=0
+  ok  : eяяявя¬-1 f48 p_bpm.val=0
+  ok  : echяяя¬-1 f49 b_uplink=яяЏ яяяжяяяёяяяЊяяяјяяяЇ
+  ok  : echяяя¬-1 f50 t_pr=яяязя‡ 1.0Hz
+  ok  : echяяя¬-1 f51 t_vr=яяязя‡ 5.2Hz
+  ok  : echoяя¬-1 f52 j_pr.val=0
+  ok  : echoяя¬-1 f53 j_vr.val=2
+  ok  : echoяя¬-1 f54 j_pd.val=0
+  ok  : echoяя¬-1 f55 j_vd.val=0
+  ok  : echяяя¬-1 5яяяёяяя°яяяияяя»Ў buяяяпя€off=caяяяпя‰
+  ok  : echяяя¬-B1 0x19яяя» Bit1: fx_mask 0яяявя’0x02
+  ok  : echяяя¬-B1 fx_commiяяяЌяяяЌяяяеяІ
+  ok  : echoяя¬-B1 fx_commitяяя…яяяжяЌ
+  ok  : eяяявя¬-B2 0xяяязя» Bit0+2: fx_mask 0яяявя’0x07
+  ok  : echoяя¬-яяяеяяяї» BiяяяеяяяђЅ: fx_mask 0яяявя’0x05
+  ok  : eяяявя¬-C1 0xяяяеяяяЋЇ: 2яяя’0 (C4)
+  ok  : eяяявя¬-C1 base_commiяяяЌяяяЌяяяеяІ
+  ok  : ecяяя‘¬-C1 base_commitяяя…яяяжяЌ
+  ok  : echoяя¬-C1 t_basяяя›яяяѕ = 4яяя­яяя‚яяяея§
+  ok  : eяяявя¬-C1 t_baseяяяєяяяйяі CяяяжяяяЅяяяі C3)
+  ok  : echяяя¬-C1 яяяеяяяµяяяЎ burst
+  ok  : eяяявя¬-C2 0xяяяеяяяЋЇ: 0яя’12 (C5)
+  ok  : echoяя¬-C2 t_basяяя›яяяѕ = 4яяя­яяя‚яяяея§
+  ok  : eяяявя¬-C2 t_baseяяяєяяяйяі CяяяжяяяЅяяяі C4)
+  ok  : echяяя¬-C2 яяяеяяяµяяяЎ burst
+  ok  : ecяяя‘¬-C3 0x1яяяѕяяяЇ: 12яя’24 (C6)
+  ok  : echoяя¬-C3 t_basяяя›яяяѕ = 4яяя­яяя‚яяяея§
+  ok  : eяяявя¬-C3 t_baseяяяєяяяйяі CяяяжяяяЅяяяі C5)
+  ok  : echяяя¬-C3 яяяеяяяµяяяЎ burst
+  ok  : ecяяя‘­-A1 burяяяжяяя•ї = яяяеяяяЉяяя€t_loop 39 + bco 19 + pcoяяяпя‰
+  ok  : eяяявя­-A1 t_loopяяяЏяяяЄяяяеяяяџяяя­ REC
+  ok  : ecяяя‘­-A1 t_loop.bco=5251яяя€яяяйяяяєяяя‰
+  ok  : echяяя­-A1 t_loop.pco=65535яяяеяяя™яяя‰
+  ok  : echяяя­-A1 яяяеяяяµяяяЎ burst
+  ok  : ecяяя‘­-A2 burяяяжяяя•ї = яяяеяяяЉяяя€t_loop 40 + bco 18 + pcoяяяпя‰
+  ok  : ecяяя‘­-A2 t_loop=яяє яяязяяя›яяяѕяя­ PLAY
+  ok  : eяяявя­-A2 t_loop.bco=682яяя€яяяжяяя»яяя‰
+  ok  : echяяя­-A2 t_loop.pco=65535яяяеяяя™яяя‰
+  ok  : echяяя­-A2 яяяеяяяµяяяЎ burst
+  ok  : ecяяя‘­-A3 burяяяжяяя•ї = яяяеяяяЉяяя€t_loop 22 + bco 19 + pcoяяяпя‰
+  ok  : echoяя­-A3 t_looяяя©яяяІ
+  ok  : eяяявя­-A3 t_loop.bco=634яяяјяяяєяяяжяяяЃяяя‰
+  ok  : echoяя­-A3 t_loop.pco=95яяяјяяяєяяяжяяя­яяя‰
+  ok  : echяяя­-A3 яяяеяяяµяяяЎ burst
+  ok  : echяяя­-B burstяяя»яяї = 14яяя­яяя‚яя€31+31+30+17+17+16яяя­яяяпя‰
+  ok  : eяяявя­-Ba t_dist_st=яяязяџ [яяі]
+  ok  : eяяявя­-Bb t_chor_st=яяяея± [яяЂ]
+  ok  : echoяя­-Bc t_dly_st=яяяияџ [яяЂ]
+  ok  : eяяявя­-Bd led_dist.val=0
+  ok  : eяяявя­-Be led_chor.val=1
+  ok  : echoяя­-Bf led_dly.val=1
+  ok  : ecяяя‘­-B яяяеяяяµяяяЎ burst
+  ok  : eяяявя­-C 0x11=80яяя’ fx_gain=20480
+  ok  : echяяя­-C burstяяя»яяї = 35яяя—яяяпя€z_dg 14 + t_dg_valяяяпя‰
+  ok  : eяяявя­-C z_dg.val=31
+  ok  : ecяяя‘­-C t_dg_val=31%
+  ok  : ecяяя‘­-C яяяеяяяµяяяЎ burst
+  ok  : ecяяя‘­-D 0x16=64 яя’ fx_rate=64
+  ok  : echяяя­-D burstяяя»яяї = 70яяя—яяяпя€z_pr 14 + z_vr 14 + t_pr_val 21 + t_vr_valяяяпя‰
+  ok  : eяяявя­-D z_pr.val=25
+  ok  : eяяявя­-D z_vr.val=25
+  ok  : ecяяя‘­-D t_pr_val=25%
+  ok  : ecяяя‘­-D t_vr_val=25%
+  ok  : ecяяя‘­-D яяяеяяяµяяяЎ burst
+  ok  : eяяявя­-E burяяяжяяя•ї = яяяеяяяЉяяя€яя… яяяпя‰
+  ok  : eяяявя­-E cur=EC1яяяеяяя¦€ (0x14)
+  ok  : ecяяя‘­-E яяяеяяяµяяяЎ burst
+  ok  : echяяя­-F burstяяя»яяї = 64яяя—яяяпя€t_gear 41 + grяяяпя‰
+  ok  : ecяяя‘­-F t_geяяяжяяя­яяя§яя¶:яяяЈ 4 [яя ]
+  ok  : echoяя­-F grяяяЈ 4 [яя ]
+  ok  : ecяяя‘­-F яяяеяяяµяяяЎ burst
+  ok  : echяяя­-G burstяяя»яяї = 73яяя—яяяпя€t_pd 24 + z_pd 14 + t_pd_val 21 + j_pdяяяпя‰
+  ok  : eяяявя­-G t_pяяя·яяя¦ 40%
+  ok  : eяяявя­-G z_pd.val=40
+  ok  : ecяяя‘­-G t_pd_val=40%
+  ok  : eяяявя­-G j_pd.val=40
+  ok  : ecяяя‘­-G яяяеяяяµяяяЎ burst
+  ok  : echoяя®-1 burst яяяйяї = 26 яяяияяяјяяя… t_dяяяпя‰
+  ok  : echяяя®-1 t_drum=Pattern II
+  ok  : ecяяя‘®-1 яяяеяяяµяяяЎ burst
+  ok  : echoяя®-2 burst яяяйяї = 19 яяяияяяјяяя… t_dяяяпя‰
+  ok  : echoяя®-2 t_drumяяяі
+  ok  : ecяяя‘®-2 яяяеяяяµяяяЎ burst
+  ok  : ecяяя‘®-3 bursяяяЂяяяї = 4яяя­яяя‚яяядя… tяяяпя‰
+  ok  : echoяя®-3 t_яяяжяяяјяяяеяяяђяяяйяяяЅяяя“яя“]
+  ok  : ecяяя‘®-3 яяяеяяяµяяяЎ burst
+  ok  : ecяяя‘®-4aяяя¦яяяеяЋ uplink_swяяяјяяяіяяяпя‰
+  ok  : ecяяя‘®-4a burяяяжяяя•ї = яяяеяяяЉяяя€яя… b_uplinkяяяіяяяпя‰
+  ok  : echoяя®-4a b_uplink=яяЏ яяяжяяяёяяяЊяяя…яяя­
+  ok  : echяяя®-4a яяяеяяяµяяяЎ burst
+  ok  : eяяявя®-4яяя§яяяёяяЋ uplink_sяяяпяяя†яяяЂяяяпя‰
+  ok  : ecяяя‘®-4b burяяяжяяя•ї = яяяеяяяЉяяя€яя… b_uplinkяяяЂяяяпя‰
+  ok  : echoяя®-4b b_uplink=яяЏ яяяжяяяёяяяЊяяяјяяяЇ
+  ok  : echяяя®-4b яяяеяяяµяяяЎ burst
+  ok  : ecяяя‘®-5a burяяяжяяя•ї = яяяеяяяЉяяя€яя… p_bpm.vaяяяпя‰
+  ok  : echяяя®-5a p_bpm.vaяяяпяяя¬яяяЂяяязяяяЅяяя‰
+  ok  : echяяя®-5a яяяеяяяµяяяЎ burst
+  ok  : echoяя®-5b beat яяяйяяяІяяя¶яяяжяяяј€tx_starяяяЃяяяпя‰
+  ok  : ecяяя‘®-5c burяяяжяяя•ї = яяяеяяяЉяяя€яя… p_bpm.vaяяяпя‰
+  ok  : echяяя®-5c p_bpm.vaяяяпяяя¬яяяЊяяязяяя›яяя‰
+  ok  : echяяя®-5c яяяеяяяµяяяЎ burst
+  ok  : echяяя®-6 burstяяя»яяї = 40яяя—яяяпя€t_pr 26 + j_prяяяпя‰
+  ok  : echяяя®-6 t_pr=яяязя‡ 6.5Hz
+  ok  : eяяявя®-6 j_pr.val=50
+  ok  : ecяяя‘®-6 яяяеяяяµяяяЎ burst
+  ok  : echяяя®-7 burstяяя»яяї = 41яяя—яяяпя€t_vr 27 + j_vrяяяпя‰
+  ok  : echoяя®-7 t_яяяйяяяЋ‡ 47.7Hz
+  ok  : eяяявя®-7 j_vr.val=25
+  ok  : ecяяя‘®-7 яяяеяяяµяяяЎ burst
+PASS: tb_uart_ui (392 checks)
+D:\ChatGPT\Projects\FPGA\key15-uplink-disable-fix-20261102\tb\w3c\tb_uart_ui.sv:2052: $finish called at 2412860000 (1ps)

@@ -57,6 +57,8 @@ module tb_ctrl_key_map;
     wire met_req, timbre_req, slide_req, scope_req, keydrum_req, gear_req;
     wire trans_up_req, trans_dn_req, drum_pat_req, testmode_req, loop_clr_req;
     wire mode_req, fb_piano, tare_req, span_req, fx_req;
+    wire uplink_req;
+    integer n_uplink;
     wire trans_reset_req;
     wire loop_send_req;      // ⭐ 本轮新增：idx 13
 
@@ -84,6 +86,7 @@ module tb_ctrl_key_map;
         .loop_send_req_o    (loop_send_req),   // ⭐ 本轮新增
         .mode_req_o         (mode_req),
         .fb_piano_o         (fb_piano),
+        .uplink_toggle_req_o(uplink_req),
         .tare_req_o         (tare_req),
         .span_req_o         (span_req),
         .fx_req_o           (fx_req)
@@ -110,6 +113,7 @@ module tb_ctrl_key_map;
             if (testmode_req)  n_tmode   = n_tmode   + 1;
             if (loop_clr_req)  n_lclr    = n_lclr    + 1;
             if (mode_req)      n_mode    = n_mode    + 1;
+            if (uplink_req) n_uplink = n_uplink + 1;
             if (tare_req)      n_tare    = n_tare    + 1;
             if (span_req)      n_span    = n_span    + 1;
             if (fx_req)        n_fx      = n_fx      + 1;
@@ -124,7 +128,7 @@ module tb_ctrl_key_map;
         begin
             n_met=0; n_timbre=0; n_slide=0; n_scope=0; n_keydrum=0; n_gear=0;
             n_up=0; n_dn=0; n_dpat=0; n_tmode=0; n_lclr=0; n_mode=0;
-            n_tare=0; n_span=0; n_fx=0; n_kdown=0; n_kup=0; n_treset=0;
+            n_uplink=0; n_tare=0; n_span=0; n_fx=0; n_kdown=0; n_kup=0; n_treset=0;
             n_lsend=0;
         end
     endtask
@@ -209,7 +213,7 @@ module tb_ctrl_key_map;
         chk("A2: non-vacuity -- it DID fire (not silently zero)", n_lsend == 1);
         chk("A3: and it fired NO other command",
             (n_met+n_timbre+n_slide+n_scope+n_keydrum+n_gear+n_up+n_dn
-             +n_dpat+n_tmode+n_lclr+n_mode+n_tare+n_span+n_fx+n_treset) == 0);
+             +n_dpat+n_tmode+n_lclr+n_mode+n_uplink+n_tare+n_span+n_fx+n_treset) == 0);
 
         // ═════════════════════════════════════════════════════════════════
         $display("");
@@ -264,7 +268,7 @@ module tb_ctrl_key_map;
                     //  ⭐ 一次只发一个命令（防止一键多脉冲）
                     chk("C: that key fired exactly ONE command total",
                         (n_met+n_timbre+n_slide+n_scope+n_keydrum+n_gear+n_up+n_dn
-                         +n_dpat+n_tmode+n_lclr+n_mode+n_tare+n_span+n_fx+n_treset
+                         +n_dpat+n_tmode+n_lclr+n_mode+n_uplink+n_tare+n_span+n_fx+n_treset
                          +n_lsend) == 1);
                 end
             end
@@ -303,7 +307,7 @@ module tb_ctrl_key_map;
         zero_counters;
         tap_key(15, 20);
         repeat (5) @(posedge clk);
-        chk("D9:  idx 15 SHORT press -> tare once (unchanged)", n_tare == 1);
+        chk("D9: idx15 SHORT release -> uplink once, no tare", n_uplink == 1 && n_tare == 0);
         chk("D10: idx 15 SHORT press -> NO span (unchanged)",   n_span == 0);
         chk("D11: idx 15 SHORT press -> no loop_send",          n_lsend == 0);
 
@@ -314,15 +318,15 @@ module tb_ctrl_key_map;
         //     🔴 原期望 `n_span == 1`（"长按 = 满量程标定"）—— 该功能已删除，
         //        `span_req_o` 现在恒 0 ⇒ ⭐ 期望必须改成 0，否则判据与实现脱节 ✅
         chk("D12: idx 15 LONG press -> span NEVER fires (span removed 2026-10-17)", n_span == 0);
-        chk("D13: idx 15 LONG press -> no loop_send",          n_lsend == 0);
+        chk("D13: idx15 hold -> no uplink, tare or loop_send", n_uplink == 0 && n_tare == 0 && n_lsend == 0);
         release_key(15);
         repeat (10) @(posedge clk);
         //  ⭐⭐ 2026-10-17：⭐ 长按后松手**现在会发 tare** ✅
         //     🔴 原期望 `n_tare == 0`（长按已被 span 吃掉 ⇒ 松手不再发 tare）
         //     ✅ 现在没有长按分支 ⇒ `cal_long_fired` 恒 0 ⇒ 松手必发 `tare_req_o`
         //        ⭐ 这正是用户要的"标定键只相当于发 T" ✅
-        chk("D14: after idx 15 long press, release DOES fire tare (span removed => long press no longer suppresses tare)",
-            n_tare == 1);
+        chk("D14: LONG release -> uplink once, no tare",
+            n_uplink == 1 && n_tare == 0);
 
         // ═════════════════════════════════════════════════════════════════
         $display("");
@@ -334,7 +338,7 @@ module tb_ctrl_key_map;
             (n_kdown == 0) && (n_kup == 0));
         chk("E2: idle produces NO command pulse at all (incl. loop_send)",
             (n_met+n_timbre+n_slide+n_scope+n_keydrum+n_gear+n_up+n_dn+n_dpat
-             +n_tmode+n_lclr+n_mode+n_tare+n_span+n_fx+n_treset+n_lsend) == 0);
+             +n_tmode+n_lclr+n_mode+n_uplink+n_tare+n_span+n_fx+n_treset+n_lsend) == 0);
 
         // ═════════════════════════════════════════════════════════════════
         $display("");

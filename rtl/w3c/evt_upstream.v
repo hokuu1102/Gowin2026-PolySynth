@@ -204,7 +204,10 @@ module evt_upstream #(
             if (rd_q == hi) head = mem[hi];
     end
 
-    // ⭐ 写侧：⭐ 使能时才收（⭐ 关掉时⛔ 不占 FIFO、⛔ 不计数、⛔ 不报溢出 ✅）
+    // The switch gates every incoming event, including note_off.
+    // No release-event exception remains after the first enabled session.
+    // Do not reset the FIFO on disable: finish accepted events in order, even
+    // under backpressure, rather than parking them until the next enable.
     wire do_wr = enable_i && evt_valid_i;
     wire accept_wr = do_wr && (!fifo_full || pop_w);
 
@@ -348,7 +351,7 @@ module evt_upstream #(
                 // ── ⭐ 空闲：⭐ 有事件就装载一帧 ─────────────────────────
                 S_IDLE: begin
                     busy_o <= 1'b0;
-                    if (enable_i && !fifo_empty) begin
+                    if (!fifo_empty) begin
                         //  ⭐ 本拍把队头**打进 `hold_q`** 并弹出（⭐ 组合读 ✅）
                         //  ⭐ 同时**锁存 tick** ⇒ ⭐ 时间戳是"事件发生那一刻" ✅
                         hold_q    <= head[FW-1:0];

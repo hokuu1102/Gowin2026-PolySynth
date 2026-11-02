@@ -1,0 +1,20 @@
+{
+  "source_commit": "470be0e326f7a1c5f9c553d093d0bb26891c2d33",
+  "checks": 9,
+  "fresh_checks": 9,
+  "reused_checks": 0,
+  "paired_reference_commit": "8ffd0c23940d4eab7a928e3fa601278dd3439dda",
+  "paired_configurations": [
+    1,
+    3,
+    9,
+    64,
+    65
+  ],
+  "paired_checked_clock_transitions": 11280,
+  "negative_control_rejected": true,
+  "root": "D:\\ChatGPT\\Projects\\FPGA\\timing-guide-bank-fanout-20261101",
+  "board_test": "pending",
+  "paired_reference_matches_original_commit": true,
+  "paired_reference_model_sha256": "40a7a28a2b2d538de23696d85b7ddcae10366b535111bb9e7c5ab3e6495cd678"
+}

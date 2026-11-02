@@ -1,0 +1,2 @@
+FATAL: D:\ChatGPT\Projects\FPGA\key15-uplink-disable-fix-20261102\tb\w3c\tb_evt_upstream_toggle.sv:41: FAIL: disabled note_off must not be transmitted n=84 frames=6
+       Time: 5740000  Scope: tb_evt_upstream_toggle

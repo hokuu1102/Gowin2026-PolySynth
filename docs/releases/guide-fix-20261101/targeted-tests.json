@@ -1,0 +1,90 @@
+[
+  {
+    "name": "tb_top_guide_input_snapshot",
+    "pass": true
+  },
+  {
+    "name": "tb_led_data",
+    "pass": true
+  },
+  {
+    "name": "tb_guide_lamp",
+    "pass": true
+  },
+  {
+    "name": "tb_guide_lamp_identity",
+    "pass": true
+  },
+  {
+    "name": "tb_guide_lamp_capacity",
+    "pass": true
+  },
+  {
+    "name": "tb_guide_lamp_local_equiv",
+    "pass": true
+  },
+  {
+    "name": "tb_guide_lamp_cycle_equiv",
+    "pass": true
+  },
+  {
+    "name": "tb_guide_lamp_state_equiv",
+    "pass": true
+  },
+  {
+    "name": "tb_lamp_stuck_clear",
+    "pass": true
+  },
+  {
+    "name": "tb_tlc5916_refresh",
+    "pass": true
+  },
+  {
+    "name": "tb_guide_flash",
+    "pass": true
+  },
+  {
+    "name": "tb_top_guide_flash",
+    "pass": true
+  },
+  {
+    "name": "tb_top_guide_axes",
+    "pass": true
+  },
+  {
+    "name": "tb_top_guide_bit6",
+    "pass": true
+  },
+  {
+    "name": "tb_top_score_path",
+    "pass": true
+  },
+  {
+    "name": "tb_score_chain",
+    "pass": true
+  },
+  {
+    "name": "tb_top_keydrum_score_isolation",
+    "pass": true
+  },
+  {
+    "name": "tb_led_pulse_duration",
+    "pass": true
+  },
+  {
+    "name": "tb_led_pulse_wrap",
+    "pass": true
+  },
+  {
+    "name": "tb_vibrato_rate_ce_equiv",
+    "pass": true
+  },
+  {
+    "name": "tb_vibrato_lfo",
+    "pass": true
+  },
+  {
+    "name": "tb_vibrato_top",
+    "pass": true
+  }
+]

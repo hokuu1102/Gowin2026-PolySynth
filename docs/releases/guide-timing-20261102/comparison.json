@@ -1,0 +1,155 @@
+{
+  "baseline": {
+    "preserved_tag": "archive/guide-fix-50m905-local-20261101",
+    "preserved_commit": "97a50966d71b775e086177936b7bec7b50b8d601",
+    "compiled_source_commit": "6560f67bfcae0e8c31d9e00635266ca71942c361",
+    "bitstream": "D:\\ChatGPT\\Outputs\\FPGA-guide-fix-20261101\\delivery\\Gowin2026-51-HMI-guide-fix-50MHz-pass-20261101.fs",
+    "sha256": "9812b0ba0dfac4098310f7465e35ee67fcde1b8ef876ea6e93dc20ff22812270",
+    "Fmax_MHz": 50.905,
+    "actual_setup_ns": 0.356,
+    "native_slack": {
+      "SETUP": -3.244,
+      "HOLD": 0.178,
+      "RECOVERY": 0.284,
+      "REMOVAL": 0.203
+    },
+    "remote_push": false
+  },
+  "candidates": [
+    {
+      "label": "trial01-on-bank-or-p1",
+      "change": "ON组存在性直接OR",
+      "source_commit": "6f135d2298fd9fad5c596866d1ad666cac078484",
+      "native_exit": 0,
+      "Fmax_MHz": 48.315,
+      "actual_50MHz_setup_ns": -0.697,
+      "native_slack": {
+        "SETUP": -4.297,
+        "HOLD": 0.179,
+        "RECOVERY": 0.25,
+        "REMOVAL": 0.203
+      },
+      "original_gate_exit": 12,
+      "status": "not_adopted",
+      "first_setup_path": [
+        "1",
+        "-4.297",
+        "gl_note_data_r_0_s0/Q",
+        "u_guide_lamp/accepted_on_state_39_s0/D",
+        "clk_sys:[R]",
+        "clk_sys:[R]",
+        "16.400",
+        "0.008",
+        "20.631"
+      ]
+    },
+    {
+      "label": "trial02-pair-prefix-p1",
+      "change": "ON组存在性OR及两层组间前缀",
+      "source_commit": "b2e9f7f8444ad4dbc4b8473a78980845cc8d31a8",
+      "native_exit": 0,
+      "Fmax_MHz": 50.012,
+      "actual_50MHz_setup_ns": 0.005,
+      "native_slack": {
+        "SETUP": -3.595,
+        "HOLD": 0.127,
+        "RECOVERY": 0.187,
+        "REMOVAL": 0.203
+      },
+      "original_gate_exit": 0,
+      "status": "not_adopted",
+      "first_setup_path": [
+        "1",
+        "-3.595",
+        "gl_note_data_r_1_s0/Q",
+        "u_guide_lamp/guide_key_o_10_s0/D",
+        "clk_sys:[R]",
+        "clk_sys:[R]",
+        "16.400",
+        "0.008",
+        "19.929"
+      ]
+    },
+    {
+      "label": "trial03r-decoded-entry-p1",
+      "change": "查表后采样，总延迟仍20ns",
+      "source_commit": "58d6ccc14d30004458469425096e3a4ef4e6126f",
+      "native_exit": 1,
+      "status": "native_build_failed"
+    },
+    {
+      "label": "trial04-decoded-bank-p1",
+      "change": "查表后采样及OFF/空槽8槽分组",
+      "source_commit": "8ffd0c23940d4eab7a928e3fa601278dd3439dda",
+      "native_exit": 0,
+      "Fmax_MHz": 46.574,
+      "actual_50MHz_setup_ns": -1.471,
+      "native_slack": {
+        "SETUP": -5.071,
+        "HOLD": 0.054,
+        "RECOVERY": 0.25,
+        "REMOVAL": 0.203
+      },
+      "original_gate_exit": 12,
+      "status": "not_adopted",
+      "first_setup_path": [
+        "1",
+        "-5.071",
+        "u_guide_lamp/g_decode_pipeline.axis_r_3_s0/Q",
+        "u_guide_lamp/guide_key_o_4_s0/D",
+        "clk_sys:[R]",
+        "clk_sys:[R]",
+        "16.400",
+        "-0.008",
+        "21.422"
+      ]
+    },
+    {
+      "label": "trial05-local-metadata-p1",
+      "change": "按8槽复制输入快照，降低局部扇出",
+      "source_commit": "470be0e326f7a1c5f9c553d093d0bb26891c2d33",
+      "native_exit": 0,
+      "Fmax_MHz": 52.015,
+      "actual_50MHz_setup_ns": 0.775,
+      "native_slack": {
+        "SETUP": -2.825,
+        "HOLD": 0.186,
+        "RECOVERY": 0.25,
+        "REMOVAL": 0.203
+      },
+      "original_gate_exit": 0,
+      "status": "improved",
+      "first_setup_path": [
+        "1",
+        "-2.825",
+        "u_guide_lamp/g_decode_pipeline.g_bank_sample[1].note_copy_2_s1/Q",
+        "u_guide_lamp/guide_key_o_8_s0/D",
+        "clk_sys:[R]",
+        "clk_sys:[R]",
+        "16.400",
+        "0.000",
+        "19.173"
+      ]
+    },
+    {
+      "label": "trial06-local-metadata-p0",
+      "change": "同码低扇出方案，布局选项0",
+      "source_commit": "470be0e326f7a1c5f9c553d093d0bb26891c2d33",
+      "status": "canceled_unmeasured",
+      "cancel_record": {
+        "status": "canceled_unmeasured",
+        "reason": "Qualified improved trial05 delivered and verified; stop remaining optional placement comparison",
+        "builder_pid": 34128,
+        "worker_pids": [
+          21124
+        ],
+        "stopped_at": "2026-11-02T00:21:38.2501096+08:00"
+      }
+    }
+  ],
+  "all_native_runs_complete": true,
+  "best_improved_candidate_so_far": "trial05-local-metadata-p1",
+  "selected_candidate": "trial05-local-metadata-p1",
+  "original_trial03": "interrupted at placement, no final result; restarted as trial03r",
+  "remote_push": false
+}

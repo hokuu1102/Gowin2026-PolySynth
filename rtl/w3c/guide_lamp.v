@@ -10,6 +10,7 @@ module guide_lamp #(
     parameter integer EVT_W = 64,        // 事件数据位宽（与 play_seq 一致）
     parameter integer AXIS_N = 16,       // 键位数（轴号 0..15）
     parameter integer HELD_SLOTS = 64,  // Independent of the 16 physical lamps.
+    parameter integer DECODE_PIPELINE = 0, // Optional display-only 20ns boundary.
     //  ⭐⭐ 2026-10-16（灭灯 LAMPKILL）：⭐ **"停播即清"的超时拍数**
     //     ⚠️ **必须留在【端口表】里** —— `parameter` 放在模块体（`localparam` 之后）
     //        是**非法的**（⭐ iverilog 直接 `syntax error` ⇒ 🔴 整个 rtl 树编译失败，
@@ -69,7 +70,13 @@ module guide_lamp #(
     //        （⭐ 而这正是 `LED演奏指引方案.md` §4.3 要区分的那两件事）✅
     //   ✅ **修法**：⭐ 新增本输出 = `guide_key_o & ~key_active_i`（⭐ 一层 AND，+16 LUT / 0 FF）✅
     //      📌 ⭐ 保留 `guide_key_o` 的端口语义不变（⭐ 兼容既有 tb）✅
-    output wire [AXIS_N-1:0]   guide_vis_o        // ⭐ 1 = 该键「该按」**且尚未按下** ✅
+    output wire [AXIS_N-1:0]   guide_vis_o,       // ⭐ 1 = 该键「该按」**且尚未按下** ✅
+    // Accepted ON notification, including repeats whose held bitmap stays 1.
+    // Registered alongside the original ledger output; display use only.
+    output wire                guide_on_valid_o,
+    output reg  [3:0]          guide_on_key_o,
+    output wire                stream_idle_o
+
 );
 
     //  ⭐⭐ 2026-10-09（`P0-28`）：⭐ **消隐逻辑**（⭐ 组合、最省）✅
@@ -86,7 +93,11 @@ module guide_lamp #(
     localparam [1:0] KIND_TEMPO = 2'd2;
 
     // ── 组合解码（⭐ 用 assign，⛔ 不用 always @(*)，规避 L67）─────────────
-    wire [1:0]  note_kind = note_data_i[KIND_SH +: 2];
+    wire [1:0] event_kind;
+    wire event_valid, event_stream_alive;
+    wire [4:0] event_note;
+    wire [3:0] event_axis;
+    wire [1:0]  note_kind = event_kind;
     //  📌 ⭐ `axis`（bit[22:19]）**仍然是帧的一部分**，⭐ 但**本模块不再用它选灯** ✅
     //     ⚠️ 它的消费者是**发声**那一路（`note_manager` / `seq_arb` 按轴分 voice）✅
     //     🔴 ⛔ **不许因为"灯不用它了"就删字段 / 改上游语义**（⭐ 契约级改动）✅
@@ -243,6 +254,7 @@ module guide_lamp #(
     //     且该清零点在 `note_valid_i` 块**之前** ⇒ ⭐ 流恢复首拍的 `note_on` **能活下来** ✅
     //     ⚠️ 但那个安全性**依赖这两段的先后顺序**（⭐ 承重）⇒ ⚠️ 改这段时⛔ 别动顺序 ✅
     wire stream_timeout = (stream_idle_cnt == TIMEOUT_CLKS - 1);
+    assign stream_idle_o = stream_timeout;
 
     //  ⭐⭐ 2026-10-17（`Q5`）：⭐ **参数自检**（⭐ 本模块原来一条都没有）
     //     🔴 `TIMEOUT_CLKS <= 1` 会**静默失效或非法**（⭐ 见上方长注释）
@@ -333,10 +345,80 @@ module guide_lamp #(
     end
     //  ⭐ 选表：⭐ 指板 / 键盘（⭐ 与 `axis_map` 的两种模式同一口径）✅
     //     📌 5 位 2 选 1 mux，很便宜 ✅
-    wire [4:0]  key_sel  = fb_mode_i ? key_fb_r : key_kb_r;
+    wire [4:0] decoded_key = fb_mode_i ? key_fb_r : key_kb_r;
     //   ⭐ `key_sel` 已在上面 `case` 那段声明并赋值（⭐ 2026-10-16 改：⛔ 不再用变步长部分选择）✅
     //   ⭐ 有效 = ⭐ 在范围内 **且** ⭐ 查到了键（⭐ 哨兵 ⇒ 无效 ⇒ 不点灯）✅
-    wire        key_valid = in_range && (key_sel != KEY_NONE);
+    wire decoded_valid = in_range && (decoded_key != KEY_NONE);
+    wire [4:0] key_sel;
+    wire key_valid;
+    localparam integer SLOT_W = (HELD_SLOTS > 1) ? $clog2(HELD_SLOTS) : 1;
+    localparam integer TREE_N = 1 << SLOT_W;
+    localparam integer BANK_W = (SLOT_W > 3) ? 3 : SLOT_W;
+    localparam integer BANK_SIZE = 1 << BANK_W;
+    localparam integer BANK_N = (HELD_SLOTS + BANK_SIZE - 1) / BANK_SIZE;
+    localparam integer BANK_ROOT = TREE_N / BANK_SIZE;
+    wire [3:0] bank_event_axis [0:BANK_N-1];
+    wire [4:0] bank_event_note [0:BANK_N-1];
+    wire [4:0] bank_event_key [0:BANK_N-1];
+    genvar sample_bank;
+    generate
+        if (DECODE_PIPELINE != 0) begin: g_decode_pipeline
+            reg valid_r, mapped_r, alive_r;
+            reg [4:0] key_r, note_r;
+            reg [3:0] axis_r;
+            reg [1:0] kind_r;
+            always @(posedge clk_i) begin
+                if (!rst_n_i) begin
+                    valid_r <= 0; mapped_r <= 0; alive_r <= 1;
+                    key_r <= 0; note_r <= 0; axis_r <= 0; kind_r <= 0;
+                end else begin
+                    valid_r <= note_valid_i; mapped_r <= decoded_valid;
+                    alive_r <= stream_alive_i; key_r <= decoded_key;
+                    note_r <= note_off5_i; axis_r <= note_data_i[AXIS_SH +: 4];
+                    kind_r <= note_data_i[KIND_SH +: 2];
+                end
+            end
+            assign event_valid = valid_r;
+            assign event_stream_alive = alive_r;
+            assign event_kind = kind_r;
+            assign event_note = note_r;
+            assign event_axis = axis_r;
+            assign key_sel = key_r;
+            assign key_valid = mapped_r;
+            // Identical samples on the existing boundary: no extra cycle.
+            // Keep each bank's drivers local to eight match/payload slots.
+            for (sample_bank=0; sample_bank<BANK_N; sample_bank=sample_bank+1) begin: g_bank_sample
+                (* syn_preserve = 1, syn_keep = 1 *) reg [3:0] axis_copy;
+                (* syn_preserve = 1, syn_keep = 1 *) reg [4:0] note_copy;
+                (* syn_preserve = 1, syn_keep = 1 *) reg [4:0] key_copy;
+                always @(posedge clk_i) begin
+                    if (!rst_n_i) begin
+                        axis_copy <= 0; note_copy <= 0; key_copy <= 0;
+                    end else begin
+                        axis_copy <= note_data_i[AXIS_SH +: 4];
+                        note_copy <= note_off5_i;
+                        key_copy <= decoded_key;
+                    end
+                end
+                assign bank_event_axis[sample_bank] = axis_copy;
+                assign bank_event_note[sample_bank] = note_copy;
+                assign bank_event_key[sample_bank] = key_copy;
+            end
+        end else begin: g_direct_decode
+            assign event_valid = note_valid_i;
+            assign event_stream_alive = stream_alive_i;
+            assign event_kind = note_data_i[KIND_SH +: 2];
+            assign event_note = note_off5_i;
+            assign event_axis = note_data_i[AXIS_SH +: 4];
+            assign key_sel = decoded_key;
+            assign key_valid = decoded_valid;
+            for (sample_bank=0; sample_bank<BANK_N; sample_bank=sample_bank+1) begin: g_bank_direct
+                assign bank_event_axis[sample_bank] = event_axis;
+                assign bank_event_note[sample_bank] = event_note;
+                assign bank_event_key[sample_bank] = key_sel;
+            end
+        end
+    endgenerate
 
     // Keep each ON's original identity and mapped key until its matching OFF.
     // Repeated identical ONs share a 32-bit count; different mapped identities
@@ -349,15 +431,8 @@ module guide_lamp #(
     // Bank-local read/modify/write keeps the global identity priority tree
     // out of the count-data path. Preload invalid slots with 1: allocation
     // only changes their valid/identity state, not their 32-bit count data.
-    localparam integer SLOT_W = (HELD_SLOTS > 1) ? $clog2(HELD_SLOTS) : 1;
-    localparam integer TREE_N = 1 << SLOT_W;
-    localparam integer BANK_W = (SLOT_W > 3) ? 3 : SLOT_W;
-    localparam integer BANK_SIZE = 1 << BANK_W;
-    localparam integer BANK_N = (HELD_SLOTS + BANK_SIZE - 1) / BANK_SIZE;
-    localparam integer BANK_ROOT = TREE_N / BANK_SIZE;
     reg [31:0] held_count [0:HELD_SLOTS-1];
     wire [AXIS_N-1:0] next_lamps;
-    wire [3:0] event_axis = note_data_i[AXIS_SH +: 4];
 
     // Balanced selection: each level halves the candidates. A linear
     // first-match loop otherwise chains all 64 identity comparators/muxes.
@@ -369,12 +444,13 @@ module guide_lamp #(
         for (ti=0; ti<TREE_N; ti=ti+1) begin: g_lookup_leaf
             if (ti<HELD_SLOTS) begin: g_used
                 wire match_id = held_valid[ti]
-                    && held_axis[ti] == event_axis && held_note[ti] == note_off5_i;
+                    && held_axis[ti] == bank_event_axis[ti/BANK_SIZE]
+                    && held_note[ti] == bank_event_note[ti/BANK_SIZE];
                 assign free_tree[TREE_N+ti] = {!held_valid[ti], ti[SLOT_W-1:0]};
                 assign off_tree[TREE_N+ti] = {match_id, ti[SLOT_W-1:0]};
                 // Valid stored keys are 0..15; mapped_on_event retains the full
                 // incoming validity check before any observable ledger update.
-                assign same_tree[TREE_N+ti] = {match_id && held_key[ti][3:0] == key_sel[3:0], ti[SLOT_W-1:0]};
+                assign same_tree[TREE_N+ti] = {match_id && held_key[ti][3:0] == bank_event_key[ti/BANK_SIZE][3:0], ti[SLOT_W-1:0]};
             end else begin: g_padding
                 assign free_tree[TREE_N+ti] = 0;
                 assign off_tree[TREE_N+ti] = 0;
@@ -393,27 +469,50 @@ module guide_lamp #(
     // scan_group/env_grp nets. Otherwise global match and prefix selection
     // may share a long, spatially distributed chain after synthesis.
     (* syn_keep = 1 *) wire [BANK_N-1:0] same_bank_present;
+    (* syn_keep = 1 *) wire [BANK_N-1:0] off_bank_present;
+    (* syn_keep = 1 *) wire [BANK_N-1:0] free_bank_present;
     genvar match_bank;
     generate
         for (match_bank=0; match_bank<BANK_N; match_bank=match_bank+1) begin: g_same_bank
             assign same_bank_present[match_bank] = same_tree[BANK_ROOT+match_bank][SLOT_W];
+            assign off_bank_present[match_bank] = off_tree[BANK_ROOT+match_bank][SLOT_W];
+            assign free_bank_present[match_bank] = free_tree[BANK_ROOT+match_bank][SLOT_W];
         end
     endgenerate
     wire same_present = |same_bank_present;
     // Timeout invalidates the ledger at the update boundary, rather than
     // feeding all identity comparators and priority selectors. In that same
     // cycle an ON allocates slot zero; an OFF has no previous live identity.
-    wire mapped_on_event = note_valid_i && is_note_on && key_valid;
+    wire mapped_on_event = event_valid && is_note_on && key_valid;
     // Free-slot selection below already rejects a full ledger; its root
     // need not be serially included in the global allocation gate.
     wire allocate = mapped_on_event && (stream_timeout || !same_present);
     wire repeat_event = mapped_on_event && !stream_timeout;
-    wire release_event = note_valid_i && is_note_off && !stream_timeout;
+    wire release_event = event_valid && is_note_off && !stream_timeout;
     wire next_commit = (mapped_on_event &&
         (stream_timeout || same_present || free_tree[1][SLOT_W]))
         || (release_event && off_tree[1][SLOT_W]);
     // Evaluate the terminal-count predicate before selecting the OFF slot.
     // This removes the 64:1 count-data mux from the lamp/valid update path.
+    wire [HELD_SLOTS-1:0] accepted_on_slot;
+    reg [HELD_SLOTS-1:0] accepted_on_state;
+    (* syn_keep = 1 *) wire [BANK_N-1:0] accepted_on_bank;
+    // Register existing slot controls before reduction. R(OR(x)) equals
+    // OR(R(x)) here: same clock, same zero reset, same visible event cycle.
+    always @(posedge clk_i) begin
+        if (!rst_n_i) accepted_on_state <= {HELD_SLOTS{1'b0}};
+        else accepted_on_state <= accepted_on_slot;
+    end
+    assign guide_on_valid_o = |accepted_on_bank;
+    genvar accept_bank;
+    generate
+        for (accept_bank=0; accept_bank<BANK_N; accept_bank=accept_bank+1) begin: g_on_report
+            localparam integer FIRST = accept_bank * BANK_SIZE;
+            localparam integer LAST = ((FIRST + BANK_SIZE) < HELD_SLOTS)
+                ? FIRST + BANK_SIZE - 1 : HELD_SLOTS - 1;
+            assign accepted_on_bank[accept_bank] = |accepted_on_state[LAST:FIRST];
+        end
+    endgenerate
     wire [HELD_SLOTS-1:0] release_slot;
     wire [HELD_SLOTS-1:0] count_enable;
     wire [HELD_SLOTS-1:0] free_mask, off_mask, same_mask;
@@ -441,15 +540,24 @@ module guide_lamp #(
             // Keep the global lowest-slot rule, using two bounded eight-way
             // selections instead of a synthesis-created 64-slot carry chain.
             assign same_pick = same_mask[vi] && !earlier_bank && !earlier_local;
-            if (vi==0) begin: g_first
-                assign free_pick = free_mask[vi];
-                assign off_pick = off_mask[vi];
-            end else begin: g_rest
-                // Parallel prefix reductions preserve lowest-slot priority
-                // without encoding a global index and decoding it again.
-                assign free_pick = free_mask[vi] && !(|free_mask[vi-1:0]);
-                assign off_pick = off_mask[vi] && !(|off_mask[vi-1:0]);
+            (* syn_keep = 1 *) wire earlier_off_bank, earlier_free_bank;
+            (* syn_keep = 1 *) wire earlier_off_local, earlier_free_local;
+            if (THIS_BANK == 0) begin: g_prefix_first_bank
+                assign earlier_off_bank = 1'b0;
+                assign earlier_free_bank = 1'b0;
+            end else begin: g_prefix_later_bank
+                assign earlier_off_bank = |off_bank_present[THIS_BANK-1:0];
+                assign earlier_free_bank = |free_bank_present[THIS_BANK-1:0];
             end
+            if (vi == FIRST_IN_BANK) begin: g_prefix_first_local
+                assign earlier_off_local = 1'b0;
+                assign earlier_free_local = 1'b0;
+            end else begin: g_prefix_later_local
+                assign earlier_off_local = |off_mask[vi-1:FIRST_IN_BANK];
+                assign earlier_free_local = |free_mask[vi-1:FIRST_IN_BANK];
+            end
+            assign free_pick = free_mask[vi] && !earlier_free_bank && !earlier_free_local;
+            assign off_pick = off_mask[vi] && !earlier_off_bank && !earlier_off_local;
             wire chosen_free = stream_timeout ? (vi==0) : free_pick;
             wire alloc_here = allocate && chosen_free;
             // A selected free slot may preload metadata even for a duplicate
@@ -458,6 +566,9 @@ module guide_lamp #(
             // the same event payload before that slot becomes observable.
             wire payload_load = mapped_on_event && chosen_free;
             wire off_here = release_event && off_pick;
+            // Observe the existing slot write controls locally. Do not add
+            // a new consumer to the global next_commit priority path.
+            assign accepted_on_slot[vi] = alloc_here || (repeat_event && same_pick);
             assign count_enable[vi] = (repeat_event && same_pick) || off_here;
             assign release_slot[vi] = off_here && held_count[vi] == 32'd1;
             assign next_valid[vi] = alloc_here
@@ -468,9 +579,9 @@ module guide_lamp #(
                     held_note[vi] <= 5'd0;
                     held_key[vi] <= KEY_NONE;
                 end else if (payload_load) begin
-                    held_axis[vi] <= event_axis;
-                    held_note[vi] <= note_off5_i;
-                    held_key[vi] <= key_sel;
+                    held_axis[vi] <= bank_event_axis[THIS_BANK];
+                    held_note[vi] <= bank_event_note[THIS_BANK];
+                    held_key[vi] <= bank_event_key[THIS_BANK];
                 end
             end
         end
@@ -529,6 +640,16 @@ module guide_lamp #(
         end
     endgenerate
 
+    // Keep the pitch decoder out of the ledger acceptance path. Downstream
+    // display logic decodes this registered key in the following cycle.
+    always @(posedge clk_i) begin
+        if (!rst_n_i) begin
+            guide_on_key_o <= 4'd0;
+        end else begin
+            guide_on_key_o <= key_sel[3:0];
+        end
+    end
+
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
             held_valid <= {HELD_SLOTS{1'b0}};
@@ -539,7 +660,7 @@ module guide_lamp #(
             held_valid <= next_valid;
             guide_key_o <= next_lamps;
             guide_commit_o <= next_commit;
-            if (stream_alive_i === 1'b1)
+            if (event_stream_alive === 1'b1)
                 stream_idle_cnt <= {CNT_W{1'b0}};
             else if (stream_idle_cnt != TIMEOUT_CLKS-1)
                 stream_idle_cnt <= stream_idle_cnt + 1'b1;

@@ -1,0 +1,47 @@
+VCD info: dumping is suppressed.
+  ok  : reset: frame_cnt is 0
+  ok  : reset: FIFO level is 0
+  ok  : reset: overflow is 0
+  ok  : disabled: NO bytes emitted
+  ok  : disabled: the event is NOT even buffered
+  ok  : disabled: frame_cnt stays 0
+  ok  : one event => exactly 14 bytes
+  ok  : byte[0] is the 0xA5 header
+  ok  : kind=0 (note_on) maps to type 0x01
+  ok  : first frame carries seq 0
+  ok  : byte[7] carries axis 5 (timbre is 0 here => byte unchanged)
+  ok  : byte[12] carries velocity 200
+  ok  :  byte[8..11] carry the FULL 32-bit phase_inc (A4 = 38702840) ***
+  ok  : non-vacuity: the value really exceeds the old 21-bit wire field
+  ok  : *** NOT the 21-bit truncation (the old format's bug) ***
+  ok  : byte[3..6] carry the tick latched AT CAPTURE TIME (=7)
+  ok  : byte[13] equals XOR of bytes [0..12] (INCLUDING the 0xA5 header)
+  ok  : non-vacuity: the checksum is not a constant 0
+  ok  : kind=1 (note_off) maps to type 0x02
+  ok  : seq increments per event (now 1)
+  ok  : axis 9 survived
+  ok  : checksum still holds for the second frame
+  ok  : kind=2 (pluck) is treated as note_on (0x01)
+  ok  : a second, larger inc survives intact
+  ok  : non-vacuity: different events give DIFFERENT checksums
+  ok  : checksum holds for the third frame
+  ok  : overflow: drop_cnt is non-zero (loss is COUNTED)
+  ok  : overflow: the sticky flag is set (loss is VISIBLE)
+  ok  : after draining, busy_o returns low
+  ok  : * timbre=2 + axis=5 => byte[7] = 0x25 (timbre in bits [5:4]) ***
+  ok  : byte[7] low nibble still carries the axis (5)
+  ok  : byte[7] bits [5:4] carry the timbre (2)
+  ok  : checksum follows the new byte[7] (logic unchanged)
+  ok  : vacuity: the timbre did NOT change the frame length (still 14 B)
+  ok  : PITCH EVENT: byte[7] bit[6] = 0
+  ok  : pitch event => byte[7] = 0x13 (timbre 1, axis 3, no drum bit)
+  ok  : UM EVENT: byte[7] bit[6] = 1 *** (this is the bit ESP32 decodes)
+  ok  : e[7] = 0x53 (same timbre/axis, ONLY bit6 differs => NON-VACUOUS)
+  ok  : cuity: the drum bit did NOT change the frame length (still 14 B)
+  ok  : checksum follows the drum bit (XOR logic untouched)
+  ok  : the drum bit did NOT disturb bits [5:4] (timbre)
+  ok  : the drum bit did NOT disturb the axis in [3:0]
+  ok  : re-disabled: no further frames are emitted
+
+PASS: evt_upstream -- v1.1 14-byte frames with the FULL 32-bit phase_inc, correct type/seq/tick/axis/vel/XOR, gated by enable, and overflow is counted and sticky
+D:\ChatGPT\Projects\FPGA\key15-uplink-disable-fix-20261102\tb\w3c\tb_evt_upstream.sv:323: $finish called at 18100000 (1ps)

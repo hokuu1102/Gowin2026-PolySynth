@@ -611,10 +611,11 @@ parameter integer TEST_MODE_EN       = 1,
     //        ⇒ 🔴 常开会把命令回包挤到后面、⭐ 串口助手看到一堆噪声 ✅
     wire cmd_upstream_req;      // ⭐ 'O' ⇒ 实时上行 开/关切换
     wire ui_uplink_toggle;
+    wire km_uplink_toggle_req; // matrix idx15, debounced release
     reg  up_enable_r;
     always @(posedge clk) begin
         if (!rst_n_sync)        up_enable_r <= 1'b0;
-        else if (cmd_upstream_req || ui_uplink_toggle) up_enable_r <= ~up_enable_r;
+        else if (cmd_upstream_req || ui_uplink_toggle || km_uplink_toggle_req) up_enable_r <= ~up_enable_r;
     end
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -2081,6 +2082,7 @@ end
         //     📌 现在模式键与 `'A'` **共用同一个翻转下游**（⭐ 语义一致、最省改动 ✅）
         //     📌 ⭐ 若将来要做"按键直接指定档位"（⛔ 不是翻转）⇒ ⭐ 再用它 ✅
         .fb_piano_o         (km_fb_piano),
+        .uplink_toggle_req_o(km_uplink_toggle_req),
         .tare_req_o         (km_tare_req),
         .span_req_o         (km_span_req),
         //  ⚠️ ⭐ `fx_req_o` 是**历史占位**（⭐ 用户已确认"效果器那个键不需要了"）
@@ -8472,10 +8474,27 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
     //     —— ⚠️ **那是契约级改动，须用户裁定，⛔ 本轮不动** ✅
     // ═══════════════════════════════════════════════════════════════════════
     wire [15:0] gl_guide_vis;
+    wire gl_guide_on_valid, gl_stream_idle;
+    wire [3:0] gl_guide_on_key;
+    wire [15:0] gl_guide_on = gl_guide_on_valid
+        ? (16'h0001 << gl_guide_on_key) : 16'd0;
+    // Only display pulse tails are cleared here. The score ledger and all
+    // audio/Loop event paths retain their original state transitions.
+    reg gl_epoch_clear_r;
+    wire gl_note_valid_raw = ps_note_valid & (guide_only_r | evt_guide_only
+                                             | ~evt_guide_seen_r | ps_is_note_off);
+    // The guide module samples decoded key plus its original event identity.
+    always @(posedge clk) begin
+        if (!rst_n_sync) gl_epoch_clear_r <= 1'b0;
+        else gl_epoch_clear_r <= met_start | ps_new_score;
+    end
+    wire gl_display_clear = met_start | ps_new_score | gl_epoch_clear_r | gl_stream_idle;
+
 
     guide_lamp #(
         .EVT_W  (64),
-        .AXIS_N (16)
+        .AXIS_N (16),
+        .DECODE_PIPELINE (1)
     ) u_guide_lamp (
         .clk_i          (clk),
         .rst_n_i        (rst_n_sync),
@@ -8555,8 +8574,7 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         //     📌 ⭐ **代价**：⭐ 0 资源（⭐ 只是 OR 进一项，⭐ 而 `ps_is_note_off` 是 1 个比较器
         //        ＋ ⭐ 综合后与 `guide_lamp` 里已有的 kind 解码**共享**）✅
         //     🔴 ⚠️ **本修法⛔ 不改变"一轨一灯"** —— ⭐ 那是**上游语义**（⭐ 见下方 §轴号语义 ✅）
-        .note_valid_i   (ps_note_valid & (guide_only_r | evt_guide_only
-                                          | ~evt_guide_seen_r | ps_is_note_off)),
+        .note_valid_i   (gl_note_valid_raw),
         .note_data_i    (ps_note_data),
         //  ⭐⭐⭐⭐ 2026-10-16（指北 COMPASS）：⭐ **灯位改由【音高】决定** ✅
         //     ⭐ `note_off5_i` = 帧 `bit[4:0]`（⭐ 与 `ps_note_valid` **同一拍**的锁存值 ✅）
@@ -8594,7 +8612,10 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         //  ⚠️ 未消隐的原图**无消费者** ⇒ ⭐ 留空（⭐ 消隐后的那根才是要接的 ✅）
         .guide_key_o    (),
         .guide_commit_o (),
-        .guide_vis_o    (gl_guide_vis)
+        .guide_vis_o    (gl_guide_vis),
+        .guide_on_valid_o(gl_guide_on_valid),
+        .guide_on_key_o (gl_guide_on_key),
+        .stream_idle_o  (gl_stream_idle)
     );
 
     // 逻辑图案层：键灯（16，CH 序）+ 状态灯（8）→ 24 bit
@@ -8607,6 +8628,8 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         //  ⭐⭐ 2026-10-11：⭐ **占位换成真源**（⭐ 原来写的是 `16'd0`）✅
         //     ⇒ ⭐ **"该按哪个键"的指引灯从此真的会亮** ✅
         .guide_key_i     (gl_guide_vis),
+        .guide_on_i      (gl_guide_on),
+        .guide_clear_i   (gl_display_clear),
         //  ⭐⭐ 2026-10-09（`P0-27`）：⭐ **接真源**（⭐ 原来是占位 `16'd0`）✅
         //   ✅ `ee_key_on` = `event_extract.key_on[]` 的打包版（⭐ 模块级 wire）
         //   📌 ⭐ 这一接 ⇒ ⭐ 按键就亮（⭐ 16 个键灯复活）✅

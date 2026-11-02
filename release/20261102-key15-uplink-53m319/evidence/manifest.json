@@ -1,0 +1,21 @@
+{
+  "source_commit": "2d948be1b52d299a97ff22878eb35d7b7fe182d6",
+  "baseline": "f8bbdade02a2f156c696782c9c0b8208a1be15ff",
+  "Fmax_MHz": 53.319,
+  "actual_50MHz_setup_ns": 1.245,
+  "native_slack": {
+    "SETUP": -2.355,
+    "HOLD": 0.089,
+    "RECOVERY": 0.25,
+    "REMOVAL": 0.203
+  },
+  "targeted_tests": 10,
+  "bitstream_sha256": "ab4472efe3e2bf70801557bb980935c38b8b1b2f12b323ecc5300aa09f93d5c0",
+  "shutdown_policy": "Reject every newly arriving ON/OFF/pluck event while disabled; previously accepted queue drains without truncating frames.",
+  "status": "10 targeted regressions PASS; real 50MHz gate PASS; board verification pending",
+  "compiled_source_commit_local": "2d948be1b52d299a97ff22878eb35d7b7fe182d6",
+  "delivery_branch": "codex/delivery-key15-uplink-20261102",
+  "bitstream": "firmware/Gowin2026-51-HMI-key15-uplink-disable-fix-50MHz-20261102.fs",
+  "frozen_build_inputs": "source/FPGA-key15-uplink-53m319-build-inputs-20261102.zip",
+  "note": "Publication squashes local development history; production files match the compiled snapshot; Git line endings may differ, frozen ZIP preserves exact build bytes."
+}
