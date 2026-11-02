@@ -1087,9 +1087,26 @@ parameter integer TEST_MODE_EN       = 1,
     localparam [1:0] DRUM_PATTERN_INIT = DRUM_PATTERN_ID;
 
     reg [1:0] drum_pattern_r;
+    //  ⭐⭐ 2026-10-31：⭐ 鼓机【关档】（队友《控件位置清单》卡片 B：t_drum = Pattern N / 关）
+    //   📌 五态循环：I → II → III → IV → 关 → I（⭐ 关→开归 Pattern I）
+    //   📌 复位 = 开 + DRUM_PATTERN_INIT（⭐ 与原行为逐位一致 ⇒ ⛔ 老 tb 判据不变）
+    //   📌 "关" = 事件闸门（⭐ `src_b_valid` 里 `drm_evt_valid & drum_on_r`）⇒
+    //      鼓机静音；⭐ 节拍器（met_on_r）/键盘打鼓（key_drum_r）各有开关 ⛔ 互不影响 ✅
+    reg        drum_on_r;
     always @(posedge clk) begin
-        if (!rst_n_sync) drum_pattern_r <= DRUM_PATTERN_INIT;
-        else if (cmd_drum_pattern_req) drum_pattern_r <= drum_pattern_r + 2'd1;
+        if (!rst_n_sync) begin
+            drum_on_r      <= 1'b1;
+            drum_pattern_r <= DRUM_PATTERN_INIT;
+        end else if (cmd_drum_pattern_req) begin
+            if (!drum_on_r) begin
+                drum_on_r      <= 1'b1;                    // 关 → 开（⭐ 归 Pattern I）
+                drum_pattern_r <= 2'd0;
+            end else if (drum_pattern_r == 2'd3) begin
+                drum_on_r <= 1'b0;                          // IV → 关
+            end else begin
+                drum_pattern_r <= drum_pattern_r + 2'd1;    // I → II → III → IV
+            end
+        end
     end
 
     // ⭐⭐ 2026-10-01：⭐ **键盘打鼓模式开关**（⭐ `'K'` 串口命令，⭐ 与 `met_on_r` 同构）
@@ -1582,6 +1599,14 @@ end
     wire [6:0] ui_vol_pct;    // ⭐ 主音量百分比 0..100（`master_gain` Q1.15 换算）
     wire [6:0] ui_pvib_pct;   // ⭐ 音高颤音深度百分比（`vib_depth_sel` [11:0] 换算）
     wire [6:0] ui_vvib_pct;   // ⭐ 音量颤音深度百分比（`trem_depth_eff` [7:0] 换算）
+    //  ⭐⭐ 2026-10-31：《控件位置清单》卡片 D：双仓速率回显线（⭐ Hz 换算在 uart_ui 内做）
+    wire [11:0] ui_prate_raw;  // ⭐ 音高颤音速率原始值（vib_rate_sel 0..4095 → 1..12Hz）
+    wire [7:0]  ui_vrate_eff;  // ⭐ 音量颤音速率（trem_rate_eff 8 位相位增量）
+    wire        ui_beat;       // ⭐ 拍点脉冲前向线（= led_beat，⭐ 见 L2478 桥接）⇒ p_bpm 橙点
+    wire        ui_uplink_sw;  // ⭐ b_uplink 实时上行开关（⭐ 触摸翻转；功能语义待队友裁定，先引线）
+    //  ⭐⭐ 2026-11-01 队友新增：推子锁定 + 复音数回显线（跨 generate 引线，见下方桥接）
+    wire        ui_lock;       // ⭐ 当前档锁定状态（fg_hold[led_gear_st]，档3=0）⇒ t_lock
+    wire [5:0]  ui_nactive;    // ⭐ 当前活跃复音数（g_sound.u_mixer.n_active_o，0..32）⇒ t1
     //  ⭐⭐ 2026-10-29：⭐ 三根**既有**状态线的声明【上移】到 `u_uart_ui` 例化之前（`L66`）
     //     ⚠️ 原声明在本文件 `:2336`/`:2346`/`:2858`（例化**之后**）⇒ ⛔ 不能直接接进端口 ✅
     //     📌 只挪声明，⭐ 驱动（`assign`/`always`）**全部原地不动** ✅
@@ -1745,7 +1770,7 @@ end
         .st_timbre_i (timbre_sel_r),    // ⭐ 0=BASS/1=GUITAR/2=PIANO/3=PAD ⇒ `t_timbre`
         .st_trans_i  (transpose_semi),  // ⭐ 有符号 −12..+12（`u_fader_gear` 驱动）⇒ `t_trans`
         .st_slide_i  (slide_on_r),      // ⇒ `t_slide`
-        .st_drum_i   (drum_pattern_r),  // ⭐ 0..3 ⇒ 节奏型 I/II/III/IV ⇒ `t_drum`
+        .st_drum_i   ({drum_on_r, drum_pattern_r}),  // ⭐ {on, 0..3} ⇒ `t_drum`（Pattern N / 关）
         .st_kd_i     (key_drum_r),      // ⭐ 键盘打鼓 ⇒ `t_kd`
         .st_loop_i   (led_looper_st),   // ⭐ looper 四态 ⇒ `t_loop`
         .st_vol_i    (ui_vol_pct),      // ⭐ 主音量百分比 ⇒ `t_vol` + `j_vol.val`
@@ -1755,6 +1780,14 @@ end
         .st_pvib_i   (ui_pvib_pct),     // ⭐ 音高颤音深度% ⇒ `t_pd` + `z_pd.val`
         .st_vvib_i   (ui_vvib_pct),     // ⭐ 音量颤音深度% ⇒ `t_vd` + `z_vd.val`
         .st_fxmask_i (ui_fx_mask[2:0]), // ⭐ bit0/1/2 = 失真/合唱/延迟 ⇒ `t_dist_st` 等
+        //  ⭐⭐ 2026-10-31：《控件位置清单》新回显输入/输出 ✅
+        .st_prate_i  (ui_prate_raw),   // ⭐ 音高颤音速率原始值 ⇒ `t_pr` + `j_pr.val`
+        .st_vrate_i  (ui_vrate_eff),  // ⭐ 音量颤音速率 ⇒ `t_vr` + `j_vr.val`
+        .beat_i      (ui_beat),      // ⭐ 拍点脉冲 ⇒ `p_bpm.val` 橙点翻转
+        .uplink_sw_o (ui_uplink_sw),  // ⭐ 控件 15 翻转（功能语义待定，先引线）
+        //  ⭐⭐ 2026-11-01 队友新增：推子锁定 + 复音数回显
+        .st_lock_i   (ui_lock),       // ⭐ 当前档锁定 ⇒ `t_lock`（锁定/实时生效）
+        .st_nactive_i(ui_nactive),    // ⭐ 复音数 0..32 ⇒ `t1`
         //  ⭐⭐⭐⭐ 2026-10-29：⭐ EC11 参数旋钮【写回】（缺口4）✅
         //     📌 三个意图信号来自本文件 `:970` 那段（`enc_par_id/up/dn`）⇒
         //        ⭐ `uart_ui` 里与串口 `0x11..0x18` 帧写**同一组 fx 寄存器**（后写者胜）✅
@@ -2476,6 +2509,10 @@ end
     //           · 5=EC11+音高 · 6=HDMI · 7=效果器
     localparam integer NCH_LED = 8;         // ⭐ 指示灯颗数（⭐ 一颗对一个东西）
     wire       led_beat;                    // ⭐ 拍点脉冲（`g_sound` 的 `bg_beat`，⭐ 单周期）
+    //  ⭐⭐ 2026-10-31：⭐ 前向桥接给 `u_uart_ui.beat_i`（⭐ p_bpm 节拍橙点）
+    //     📌 `led_beat` 声明晚于 L1667 的 `u_uart_ui` 例化 ⇒ ⭐ 先声明 `ui_beat`、
+    //        再在这里桥接（⭐ 与 `ps_bpm_w` 跨 generate 引线同一模式 ✅）
+    assign ui_beat = led_beat;
     //  ⭐ `led_gear_st` 的声明已上移到 `u_uart_ui` 例化之前（⭐ 2026-10-29 · `L66`）✅
     //  ⭐⭐ 2026-10-18：⭐ **推子三档 + 锁定 + 音量颤音** 的跨分支共享线 ✅
     //     📌 ⭐ **为什么声明在模块层**（⛔ 不在 generate 里）：
@@ -3119,6 +3156,12 @@ wire ovf_any;
         assign ui_vol_pct  = 7'd0;
         assign ui_pvib_pct = 7'd0;
         assign ui_vvib_pct = 7'd0;
+        //  ⭐⭐ 2026-10-31：双仓速率线（⭐ 静音档无颤音通路 ⇒ 给 uart_ui 镜像复位同值 ⇒ 零伪帧）
+        assign ui_prate_raw = 12'd0;
+        assign ui_vrate_eff = 8'd7;
+        //  ⭐⭐ 2026-11-01：队友新增线（静音档：无锁定、无复音）
+        assign ui_lock     = 1'b0;
+        assign ui_nactive  = 6'd0;
         //  ⭐⭐ 2026-10-17（`K-106`）：⭐ **静音档没有 `u_fx_chain`** ⇒ ⭐ 7 根回读线**显式给 0**
         //     ⚠️ **为什么必须在这里也驱动**（⛔ 不能只在 `g_sound` 里）：
         //        🔴 这 7 根是**模块级 wire**（⭐ 上面 ui_fx 段声明 ✅）
@@ -6972,9 +7015,11 @@ wire ovf_any;
         //         在合流处拦**一处就够**（⭐ 鼓机也一并受控，⭐ 语义一致）。
         //      ⚠️ **`met_on_r` 是寄存器**（⭐ 复位由 `rst_n_sync` 保证）
         //         ⇒ ⛔ 不会像 `Z` 那样传播 `x`（⭐ 见上方 `met_btn_s` 的 Z-safe 处理）。
-        wire        src_b_valid = (sel_drum ? drm_evt_valid : met_evt_valid)
+        wire        src_b_valid = (sel_drum ? (drm_evt_valid & drum_on_r) : met_evt_valid)
                                   & (METRONOME_ON != 0)
                                   & met_on_r;
+        //  ⭐⭐ 2026-10-31：⭐ `drum_on_r` 关档闸门（⭐ 队友《控件位置清单》卡片 B "关"）
+        //   📌 只闸鼓机事件流；⭐ 节拍器（sel_drum=0 侧）与键盘打鼓（src_a 覆盖）不受影响 ✅
         wire [3:0]  src_b_axis  = sel_drum ? drm_evt_axis  : met_evt_axis;
         wire [31:0] src_b_inc   = sel_drum ? drm_evt_inc   : met_evt_inc;
         wire [7:0]  src_b_vel   = sel_drum ? drm_evt_vel   : met_evt_vel;
@@ -7870,6 +7915,12 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
         assign ui_vol_pct  = (ui_vol_raw > 7'd100) ? 7'd100 : ui_vol_raw;
         assign ui_pvib_pct = ui_pvib_mul[18:12];
         assign ui_vvib_pct = ui_vvib_mul[14:8];
+        //  ⭐⭐ 2026-10-31：双仓速率回显线（⭐ 原始值直通，⭐ dHz 换算在 uart_ui 内做）
+        assign ui_prate_raw = vib_rate_sel;   // ⭐ 推子档1 mux 后 → vibrato_lfo（1..12Hz）
+        assign ui_vrate_eff = trem_rate_eff;  // ⭐ 档2推子/串口寄存器 mux 后（⭐ 取实际生效值）
+        //  ⭐⭐ 2026-11-01 队友新增：推子锁定 + 复音数（⭐ 跨 generate 桥接）
+        assign ui_lock    = (led_gear_st < 2'd3) ? fg_hold[led_gear_st] : 1'b0;  // 档3（无）⇒ 0
+        assign ui_nactive = mx_n_active;      // ⭐ 当前活跃复音数 0..32
 
         fx_chain #(
             .SAMPLE_W(SAMPLE_W), .AW(14), .AW_CH(11)
@@ -8678,7 +8729,9 @@ assign ovf_any = ee_ovf | (|ee_lost) | sa_overflow | looper_overflow | mg_overfl
     //      🔴 **与 `g_sound` 里 `src_b_valid` 的算式逐项一致** ⇒ ⭐ 改一处必须改两处
     //         （⭐ 否则指示灯会说"鼓机在响"而实际不响 —— ⚠️ 比不亮更坏）
     // ═══════════════════════════════════════════════════════════════════════
-    wire led_drum_on = (SEL_DRUM == 1) && (METRONOME_ON != 0) && met_on_r;
+    //     🔴 **与 `g_sound` 里 `src_b_valid` 的算式逐项一致 ⇒ ⭐ 改一处必须改两处**
+    //        （⭐ 2026-10-31 起两边都含 `drum_on_r` 关档闸门 ✅）
+    wire led_drum_on = (SEL_DRUM == 1) && (METRONOME_ON != 0) && met_on_r && drum_on_r;
 
     led_indicator #(.N_CH(NCH_LED)) u_led_indicator (
         .clk        (clk),
