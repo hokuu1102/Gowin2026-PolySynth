@@ -1138,7 +1138,7 @@ C 是**降低长线风险**。**都无法量化成 Fmax 提升**（因为当前�
 
 ### R-5 · `sine_512x16.hex` 与 `wavetable_sine_rom_ip.v` 的常量**逐值一致**
 
-| 索引 | `rtl/w3b/rom/sine_512x16.hex` | `ip/.../wavetable_sine_rom_ip.v` `INIT_RAM_00` 低位起 |
+| 索引 | `rtl/w3b/rom/sine_512x16.hex` | `ip/wavetable_sine_rom_ip/wavetable_sine_rom_ip.v` `INIT_RAM_00` 低位起 |
 |---|---|---|
 | 0 | `0000` | `0000` |
 | 1 | `0192` | `0192` |

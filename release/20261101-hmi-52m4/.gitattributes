@@ -1,0 +1,6 @@
+* -text whitespace=blank-at-eol,blank-at-eof,space-before-tab,cr-at-eol
+firmware/*.fs binary
+source/*.zip binary
+evidence/* -whitespace
+# Preserve the verbatim archived diff, including context-line spaces.
+source/*.patch -whitespace

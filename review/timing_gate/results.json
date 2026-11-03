@@ -1,0 +1,74 @@
+{
+  "source_file": "sim/gowin_build.ps1",
+  "extracted_gate_sha256": "c6c7930217e570b2e154c6a0b3a48bcc6d7ca3c3a78c09dde0edac6fb7b16744",
+  "cases": [
+    {
+      "case": "sys_overconstraint_control",
+      "clock": "clk_sys",
+      "slack_ns": -0.5,
+      "expected_exit": 0,
+      "actual_exit": 0,
+      "matches_requirement": true,
+      "reason": "16.4ns sys-to-sys budget may be expanded to 20ns",
+      "command": [
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\timing_gate\\sys_overconstraint_control\\run_exact_gate.ps1"
+      ]
+    },
+    {
+      "case": "serial_real_violation",
+      "clock": "serial_clk",
+      "slack_ns": -0.5,
+      "expected_exit": 12,
+      "actual_exit": 0,
+      "matches_requirement": false,
+      "reason": "serial_clk has a real 8ns period and no 16.4ns override",
+      "command": [
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\timing_gate\\serial_real_violation\\run_exact_gate.ps1"
+      ]
+    },
+    {
+      "case": "pixel_real_violation",
+      "clock": "pixel_clk",
+      "slack_ns": -0.5,
+      "expected_exit": 12,
+      "actual_exit": 0,
+      "matches_requirement": false,
+      "reason": "pixel_clk has a real 40ns period and no 16.4ns override",
+      "command": [
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\timing_gate\\pixel_real_violation\\run_exact_gate.ps1"
+      ]
+    },
+    {
+      "case": "sys_actual_failure_control",
+      "clock": "clk_sys",
+      "slack_ns": -4.0,
+      "expected_exit": 12,
+      "actual_exit": 12,
+      "matches_requirement": true,
+      "reason": "even after adding 3.6ns this sys path is late",
+      "command": [
+        "powershell.exe",
+        "-NoProfile",
+        "-ExecutionPolicy",
+        "Bypass",
+        "-File",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\review\\timing_gate\\sys_actual_failure_control\\run_exact_gate.ps1"
+      ]
+    }
+  ]
+}

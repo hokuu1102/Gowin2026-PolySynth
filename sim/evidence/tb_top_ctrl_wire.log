@@ -15,7 +15,7 @@ NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
-VCD info: dumpfile build/sim/tb_top_ctrl_wire/tb_top_ctrl_wire.vcd opened for output.
+VCD info: dumping is suppressed.
   ok  : baseline: with NO key pressed, met_on_r does not move
   ok  : baseline: with NO key pressed, slide_on_r does not move
   ok  : TOGGLES met_on_r -- the keypad really reaches the downstream ***
@@ -45,6 +45,6 @@ VCD info: dumpfile build/sim/tb_top_ctrl_wire/tb_top_ctrl_wire.vcd opened for ou
   ok  : 2/4/5/10/14) can fire the recdump reject -- only idx 13 does ***
 
 PASS: control-board wiring -- the 4x4 keypad really toggles the downstream state, the serial path is preserved alongside it, the EC11 routes to BPM or transpose depending on the selected object, and key idx 13 (loop send) really reaches cmd_recdump_req while no other key does
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_ctrl_wire.sv:451: $finish called at 1346640000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_ctrl_wire.sv:451: $finish called at 1346640000 (1ps)
 
 

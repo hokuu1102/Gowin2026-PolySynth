@@ -72,6 +72,6 @@
   ok  : (7h)??????????
   ok  : (8) no X/Z on led_col_o after reset (A????
 PASS: led_indicator -- 8 璺涔夛紙鎺у埗鏉跨 3 鐗堬級+ 鍏变韩蹇棯 + 鎷嶇偣闂?+ 鍙傛暟鍖栭棯鐑佸叏閮ㄦ垚绔?
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_led_indicator.sv:496: $finish called at 10567080000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_led_indicator.sv:496: $finish called at 10567080000 (1ps)
 
 

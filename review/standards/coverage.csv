@@ -1,0 +1,77 @@
+﻿file,review_method,new_targeted_test,finding_or_limit
+rtl/bringup/wavetable_tone_top.v,main regression/legacy bringup coverage,no,no new focused review by this agent
+rtl/clk_gen.v,main reviewer owns clock/reset review,no,delegated
+rtl/drivers/adc_farm.sv,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/drivers/calib.sv,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/drivers/debounce.sv,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/drivers/mcp3208_driver.sv,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/drivers/mcp3208_scanner.sv,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/drivers/tlc5916_driver.sv,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/hdmi/fft_coeff_rom.v,CDC wiring spot review; detailed review delegated to main reviewer,no,no silicon CDC/STA test by this agent
+rtl/hdmi/fft_spectrum_core.v,CDC wiring spot review; detailed review delegated to main reviewer,no,no silicon CDC/STA test by this agent
+rtl/hdmi/fft_spectrum_view.v,CDC wiring spot review; detailed review delegated to main reviewer,no,no silicon CDC/STA test by this agent
+rtl/hdmi/hdmi_clk.v,CDC wiring spot review; detailed review delegated to main reviewer,no,no silicon CDC/STA test by this agent
+rtl/hdmi/hdmi_scope.v,CDC wiring spot review; detailed review delegated to main reviewer,no,no silicon CDC/STA test by this agent
+rtl/hdmi/tmds_encoder.v,CDC wiring spot review; detailed review delegated to main reviewer,no,no silicon CDC/STA test by this agent
+rtl/hdmi/tmds_serializer.v,CDC wiring spot review; detailed review delegated to main reviewer,no,no silicon CDC/STA test by this agent
+rtl/hdmi/video_timing.v,CDC wiring spot review; detailed review delegated to main reviewer,no,no silicon CDC/STA test by this agent
+rtl/hdmi/waveform_scope.v,CDC wiring spot review; detailed review delegated to main reviewer,no,no silicon CDC/STA test by this agent
+rtl/rst_sync.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/sync_input.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/top.v,targeted source-to-sink integration review,yes,large top not exhaustively reviewed line by line
+rtl/w3a/async_pluck_capture.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3a/axis_map.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3a/axis_snapshot.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3a/calib_autotare.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3a/calib_cmd.v,state/assignment/interface source review,yes,no new confirmed defect; not a proof of correctness
+rtl/w3a/calib_span.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3a/ctrl_key_map.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3a/ctrl_keypad.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3a/event_extract.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3a/fader_gear.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3a/led_indicator.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3a/param_extract.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3a/play_mode_ctrl.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3a/right_analog_ctrl.v,state/assignment/interface source review,yes,no new confirmed defect; not a proof of correctness
+rtl/w3a/slide_position_ctrl.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3a/slide_ramp.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3a/ws2812_driver.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3b/adsr.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3b/dds_wavetable_core.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3b/envelope_bank.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3b/note_manager.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3b/oscillator_bank.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3b/tdm_render_mixer.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3b/test_mode_ctrl.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3b/vibrato_lfo.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3b/voice.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3b/voice_i2s_chain.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3b/wavetable_bank.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/beat_gen.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/bpm_bar_quant.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/drum_gen.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/evt_buf.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/evt_merge.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/evt_uart_rx.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/evt_upstream.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/fx_chain.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/fx_delay.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/fx_dist.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/fx_trem.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/guide_lamp.v,state/assignment/interface source review,yes,no new confirmed defect; not a proof of correctness
+rtl/w3c/i2s_tx.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/led_data.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/looper.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/master_mix.v,state/assignment/interface source review,yes,no new confirmed defect; not a proof of correctness
+rtl/w3c/metronome.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/perc_env_bank.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/play_seq.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/pos_probe.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/rec_dump.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/seq_arb.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/span_probe.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/tlc5916_bank.sv,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/uart_rx.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/uart_tx.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/uart_tx_fifo.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness
+rtl/w3c/uart_ui.v,state/assignment/interface source review,no,no new confirmed defect; not a proof of correctness

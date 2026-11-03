@@ -1,6 +1,6 @@
 ﻿NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=1000 CNT_W=10)
 === tb_lamp_stuck_clear  [FIXED build: stream-timeout clear] ===
-VCD info: dumpfile build/sim/tb_lamp_stuck_clear/tb_lamp_stuck_clear.vcd opened for output.
+VCD info: dumping is suppressed.
 == 1  a note_on with NO matching note_off (the upstream defect) ==
   ok  : 1a the note_on really lit key 5 (the stimulus is not vacuous)
   ok  : 1b guide_key_o[5] is the lit lamp
@@ -21,6 +21,6 @@ VCD info: dumpfile build/sim/tb_lamp_stuck_clear/tb_lamp_stuck_clear.vcd opened 
   ok  : 5c the lamp survived a 0.5 s stream hiccup (counter reset, no false clear)
 
 PASS: tb_lamp_stuck_clear - 13/13 judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_lamp_stuck_clear.sv:263: $finish called at 71110000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_lamp_stuck_clear.sv:263: $finish called at 71110000 (1ps)
 
 

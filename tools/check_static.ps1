@@ -1,4 +1,4 @@
-# check_static.ps1 -- pre-push static gates that need NO PnR and NO simulation.
+﻿# check_static.ps1 -- pre-push static gates that need NO PnR and NO simulation.
 #
 # WHY (2026-10-16):
 #   gowin_build.ps1 runs the HDL-no-BOM gate at its TAIL (L736-750) -- i.e. a BOM
@@ -118,21 +118,21 @@ else {
     foreach ($m in $missing) { Write-Host ("        " + $m) }
 }
 
-# ---- A6: PnR algorithm options must be 0/0/0 ----------------------------------
-#   Mirrors gowin_build.ps1 L74-89 (exit 3, first gate). Map_Option was the one
-#   that escaped the original guard on 2026-10-15 and produced 676 unrouted nets.
+# ---- A6: mirror the measured mapping defaults accepted by gowin_build ----
+# V1.9.12.03 generates Map=1 in a clean run; explicit Map=0 remains supported.
 $pcPath = Join-Path $root 'impl\Gowin2026_process_config.json'
 if (Test-Path $pcPath) {
     $pcRaw = [IO.File]::ReadAllText($pcPath)
     $bad = @()
     foreach ($k in 'Map_Option','Place_Option','Route_Option') {
         $v = [regex]::Match($pcRaw, '"' + $k + '"\s*:\s*"([^"]*)"').Groups[1].Value
-        if ($v -ne '0') { $bad += ("$k=$v") }
+        $allowed = if ($k -eq 'Map_Option') { @('0','1') } else { @('0') }
+        if ($v -notin $allowed) { $bad += ("$k=$v") }
     }
-    if ($bad.Count -eq 0) { Pass "A6  PnR options Map/Place/Route all 0" }
+    if ($bad.Count -eq 0) { Pass "A6  PnR options Map=0/1 and Place/Route=0" }
     else { Fail ("A6  PnR options non-default: " + ($bad -join ' ')) }
 } else {
-    Pass "A6  PnR options: process config absent (Gowin uses defaults 0/0/0)"
+    Pass "A6  PnR options: process config absent (Gowin generates its defaults)"
 }
 
 # ---- A7: .gprj XML comments must not contain a bare '--' ----------------------

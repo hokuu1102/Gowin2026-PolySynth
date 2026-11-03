@@ -1,4 +1,4 @@
 ﻿PASS: fx_dist public stream contract: 266 samples, exact 5-cycle latency, atomic controls, peak/clip alignment and reset
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_fx_dist_stream_contract.sv:100: $finish called at 37900000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_fx_dist_stream_contract.sv:100: $finish called at 37900000 (1ps)
 
 

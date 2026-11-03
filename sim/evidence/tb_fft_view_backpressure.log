@@ -1,4 +1,4 @@
 ﻿PASS: stalled video preserves complete FFT bank and N; drops only display frames
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\hdmi\tb_fft_view_backpressure.sv:53: $finish called at 736720000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\hdmi\tb_fft_view_backpressure.sv:53: $finish called at 736720000 (1ps)
 
 

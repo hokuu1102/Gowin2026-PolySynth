@@ -46,6 +46,6 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : H2 non-vacuity: the value must have been SCALED up past the 21-bit wire field
 
 PASS: tb_top_score_path - 20/20 judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_top_score_path.sv:336: $finish called at 1136930000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_top_score_path.sv:336: $finish called at 1136930000 (1ps)
 
 

@@ -377,8 +377,8 @@ def selftest():
     print("\n[7] ⭐⭐ 交叉核对：⭐ 读侧 vs `evt2midi` 的写侧（⭐ 两套独立实现）")
     try:
         import evt2midi as E
-        f1 = E._mk_frame(E.T_NOTE_ON, 0, 1000, 0, 37796, 200)
-        f2 = E._mk_frame(E.T_NOTE_OFF, 1, 1000 + 250000, 0, 37796, 200)
+        f1 = E._mk_frame(E.T_NOTE_ON, 0, 1000, 0, 38702840, 200)
+        f2 = E._mk_frame(E.T_NOTE_OFF, 1, 1000 + 250000, 0, 38702840, 200)
         evs, st = E.parse_stream(f1 + f2)
         midi, _sk, _n = E.build_midi(evs, st)
         rr = read_midi(midi)

@@ -1,0 +1,254 @@
+{
+  "exit": 0,
+  "seconds": 2356.64,
+  "fs_exists": true,
+  "summary": [
+    "Part Number | GW5AT-LV60PG484AC1/I0",
+    "Numbers of Setup Violated Endpoints | 3184",
+    "Numbers of Hold Violated Endpoints | 0",
+    "1 | clk_sys | 50.000(MHz) | 52.400(MHz) | 15 | TOP",
+    "2 | pixel_clk | 25.000(MHz) | 68.823(MHz) | 4 | TOP",
+    "clk_sys | Setup | -3863.999 | 3184",
+    "clk_sys | Hold | 0.000 | 0",
+    "serial_clk | Setup | 0.000 | 0",
+    "serial_clk | Hold | 0.000 | 0",
+    "pixel_clk | Setup | 0.000 | 0",
+    "pixel_clk | Hold | 0.000 | 0"
+  ],
+  "worst_slack": {
+    "SETUP": -2.684,
+    "HOLD": 0.11,
+    "RECOVERY": 0.25,
+    "REMOVAL": 0.203
+  },
+  "top_paths": {
+    "Setup": [
+      [
+        "1",
+        "-2.684",
+        "g_sound.u_fader_gear/enc_r_3_s1/Q",
+        "u_guide_lamp/held_count[61]_20_s0/CE",
+        "clk_sys:[R]",
+        "clk_sys:[R]",
+        "16.400",
+        "0.008",
+        "18.795"
+      ],
+      [
+        "2",
+        "-2.684",
+        "g_sound.u_fader_gear/enc_r_3_s1/Q",
+        "u_guide_lamp/held_count[61]_25_s0/CE",
+        "clk_sys:[R]",
+        "clk_sys:[R]",
+        "16.400",
+        "0.008",
+        "18.795"
+      ],
+      [
+        "3",
+        "-2.683",
+        "g_sound.u_fader_gear/enc_r_3_s1/Q",
+        "u_guide_lamp/held_count[31]_31_s0/D",
+        "clk_sys:[R]",
+        "clk_sys:[R]",
+        "16.400",
+        "0.000",
+        "18.878"
+      ],
+      [
+        "4",
+        "-2.682",
+        "g_sound.u_fader_gear/enc_r_3_s1/Q",
+        "u_guide_lamp/held_count[59]_20_s0/CE",
+        "clk_sys:[R]",
+        "clk_sys:[R]",
+        "16.400",
+        "0.000",
+        "18.802"
+      ],
+      [
+        "5",
+        "-2.682",
+        "g_sound.u_fader_gear/enc_r_3_s1/Q",
+        "u_guide_lamp/held_count[59]_22_s0/CE",
+        "clk_sys:[R]",
+        "clk_sys:[R]",
+        "16.400",
+        "0.000",
+        "18.802"
+      ]
+    ],
+    "Hold": [
+      [
+        "1",
+        "0.110",
+        "g_sound.u_looper/rd_ptr_r_2_s0/Q",
+        "g_sound.u_looper/ep_mem_ep_mem_0_0_s/ADB[5]",
+        "clk_sys:[R]",
+        "clk_sys:[R]",
+        "0.000",
+        "-0.177",
+        "0.319"
+      ],
+      [
+        "2",
+        "0.137",
+        "g_sound.u_looper/rd_ptr_r_5_s0/Q",
+        "g_sound.u_looper/ep_mem_ep_mem_0_0_s/ADB[8]",
+        "clk_sys:[R]",
+        "clk_sys:[R]",
+        "0.000",
+        "-0.185",
+        "0.353"
+      ],
+      [
+        "3",
+        "0.142",
+        "g_sound.u_looper/rd_ptr_r_5_s0/Q",
+        "g_sound.u_looper/ep_mem_ep_mem_0_4_s/ADB[8]",
+        "clk_sys:[R]",
+        "clk_sys:[R]",
+        "0.000",
+        "-0.181",
+        "0.355"
+      ],
+      [
+        "4",
+        "0.142",
+        "g_sound.u_looper/rd_ptr_r_1_s0/Q",
+        "g_sound.u_looper/ep_mem_ep_mem_0_0_s/ADB[4]",
+        "clk_sys:[R]",
+        "clk_sys:[R]",
+        "0.000",
+        "-0.177",
+        "0.351"
+      ],
+      [
+        "5",
+        "0.176",
+        "u_hdmi/g_fft.u_fft/histogram_waddr_9_s0/Q",
+        "u_hdmi/g_fft.u_fft/histogram_histogram_0_0_s/ADA[12]",
+        "clk_sys:[R]",
+        "clk_sys:[R]",
+        "0.000",
+        "-0.004",
+        "0.213"
+      ]
+    ],
+    "Recovery": [
+      [
+        "1",
+        "0.250",
+        "u_hdmi/u_serializer/reset_release_s1/Q",
+        "u_hdmi/u_serializer/lanes[2].u_oser/RESET",
+        "pixel_clk:[R]",
+        "serial_clk:[F]",
+        "4.000",
+        "1.881",
+        "1.698"
+      ],
+      [
+        "2",
+        "0.720",
+        "u_hdmi/u_serializer/reset_release_s1/Q",
+        "u_hdmi/u_serializer/lanes[0].u_oser/RESET",
+        "pixel_clk:[R]",
+        "serial_clk:[F]",
+        "4.000",
+        "1.881",
+        "1.228"
+      ],
+      [
+        "3",
+        "0.885",
+        "u_hdmi/u_serializer/reset_release_s1/Q",
+        "u_hdmi/u_serializer/lanes[3].u_oser/RESET",
+        "pixel_clk:[R]",
+        "serial_clk:[F]",
+        "4.000",
+        "1.881",
+        "1.063"
+      ],
+      [
+        "4",
+        "1.074",
+        "u_hdmi/u_serializer/reset_release_s1/Q",
+        "u_hdmi/u_serializer/lanes[1].u_oser/RESET",
+        "pixel_clk:[R]",
+        "serial_clk:[F]",
+        "4.000",
+        "1.881",
+        "0.874"
+      ],
+      [
+        "5",
+        "4.249",
+        "u_hdmi/u_serializer/reset_release_s1/Q",
+        "u_hdmi/u_serializer/lanes[2].u_oser/RESET",
+        "pixel_clk:[R]",
+        "serial_clk:[R]",
+        "8.000",
+        "1.881",
+        "1.698"
+      ]
+    ],
+    "Removal": [
+      [
+        "1",
+        "0.203",
+        "u_hdmi/u_serializer/reset_release_s1/Q",
+        "u_hdmi/u_serializer/lanes[1].u_oser/RESET",
+        "pixel_clk:[R]",
+        "pixel_clk:[R]",
+        "0.000",
+        "-0.010",
+        "0.351"
+      ],
+      [
+        "2",
+        "0.274",
+        "u_hdmi/u_serializer/reset_release_s1/Q",
+        "u_hdmi/u_serializer/lanes[3].u_oser/RESET",
+        "pixel_clk:[R]",
+        "pixel_clk:[R]",
+        "0.000",
+        "-0.010",
+        "0.422"
+      ],
+      [
+        "3",
+        "0.366",
+        "u_hdmi/u_serializer/reset_release_s1/Q",
+        "u_hdmi/u_serializer/lanes[0].u_oser/RESET",
+        "pixel_clk:[R]",
+        "pixel_clk:[R]",
+        "0.000",
+        "-0.010",
+        "0.514"
+      ],
+      [
+        "4",
+        "0.544",
+        "u_hdmi/u_serializer/reset_release_s1/Q",
+        "u_hdmi/u_serializer/lanes[2].u_oser/RESET",
+        "pixel_clk:[R]",
+        "pixel_clk:[R]",
+        "0.000",
+        "-0.010",
+        "0.692"
+      ],
+      [
+        "5",
+        "0.780",
+        "u_hdmi/u_serializer/reset_release_s1/Q",
+        "u_hdmi/u_serializer/lanes[1].u_oser/RESET",
+        "pixel_clk:[R]",
+        "serial_clk:[R]",
+        "0.000",
+        "0.602",
+        "0.351"
+      ]
+    ]
+  }
+}

@@ -15,7 +15,7 @@ NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
-VCD info: dumpfile build/sim/tb_perc_env_top/tb_perc_env_top.vcd opened for output.
+VCD info: dumping is suppressed.
   ok  : P1 keyboard_27_slots_are_BIT_IDENTICAL_to_adsr
   ok  : P2 perc_slot_attacks_to_PEAK_256 (vel=1 => 1<<8)
   [perc] DECAY_STEP=33 peak=256 => expected 8 tick(s), budget=16384 clk
@@ -25,6 +25,6 @@ VCD info: dumpfile build/sim/tb_perc_env_top/tb_perc_env_top.vcd opened for outp
   ok  : P4 edge_detect_fired_EXACTLY_ONCE (not level-triggered)
   ok  : P5 perc_active_drops_after_decay
 PASS: perc_env_top -- reserved pool is one-shot percussive (K-144 fixed)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_perc_env_top.sv:280: $finish called at 168130000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_perc_env_top.sv:280: $finish called at 168130000 (1ps)
 
 

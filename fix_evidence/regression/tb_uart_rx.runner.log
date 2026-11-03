@@ -1,0 +1,57 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_uart_rx ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+=== 运行 tb_uart_rx ===
+    VCD info: dumping is suppressed.
+  ok  : baseline: NO rx_done while the line is idle (rx held high)
+  ok  : baseline: rx data stays 0 with no traffic
+  ok  : all 10 bytes at the REAL configured baud were received
+  ok  : byte[0] = 00  (real baud)
+  ok  : byte[1] = ff  (real baud)
+  ok  : byte[2] = 55  (real baud)
+  ok  : byte[3] = aa  (real baud)
+  ok  : byte[4] = 01  (real baud)
+  ok  : byte[5] = 80  (real baud)
+  ok  : byte[6] = 7f  (real baud)
+  ok  : byte[7] = fe  (real baud)
+  ok  : byte[8] = 5a  (real baud)
+  ok  : byte[9] = a5  (real baud)
+  ok  : bit order: 0x01 came back as 0x01 (LSB-first, NOT 0x80)
+  ok  : arbitrary gap: bytes on BOTH sides of a long idle gap are correct
+  ok  : back-to-back: 10 consecutive frames with NO gap are all received
+  ok  : back-to-back 10/10 matched
+  ok  : glitch: a narrow low pulse produces NO frame
+  ok  : rx_done_o is exactly 1 clk wide (never wider)
+  ok  : sync reset: rx_data_o cleared
+  ok  : sync reset: rx_done_o cleared
+  ok  : after reset the receiver still works
+  ok  : sample point: a +3% slower transmitter still decodes (mid-bit sampling)
+  ok  : sample point: a -3% faster transmitter still decodes (mid-bit sampling)
+  ok  : sample point: a +4% slower transmitter still decodes
+PASS: uart_rx 8N1 at REAL baud (BAUD_DIV=50 => 1000000 bps): 10 patterns, back-to-back, glitch reject, single-cycle done, sync reset
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

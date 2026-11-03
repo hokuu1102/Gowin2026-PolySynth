@@ -1,0 +1,3498 @@
+{
+  "metadata": {
+    "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+    "started_utc": "2026-10-20T05:21:43.3750542Z",
+    "finished_utc": "2026-10-20T07:55:12.6660206Z",
+    "actual_exit_code": 1,
+    "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File sim/tb_all.ps1"
+  },
+  "selected_testbenches": 221,
+  "observed_status_counts": {
+    "OBSERVED_PASS": 209,
+    "DIAGNOSTIC_COMPLETED": 1,
+    "TIMEOUT_INCOMPLETE": 7,
+    "SKIPPED_BY_DEFAULT": 3,
+    "EXPECTED_NEGATIVE_DETECTED": 1
+  },
+  "production_runner_summary": "通过 211 / 共 218\r\n其中预期负向检出: 1 (not functional PASS)\r\n跳过（工具 tb，非验收）: tb_at_merge_known_bugs, tb_export_key_wav, tb_export_wav\r\n  ⭐ 要跑它: powershell -File sim\\tb_all.ps1 -Filter tb_at_merge_known_bugs\r\n失败: tb_e2e_key_to_sound, tb_sustain_pedal_wire, tb_top_sound, tb_top_upstream_timbre, tb_top_ec11_param, tb_bg_envelope_cycle_equiv, tb_nm_no_leak",
+  "cases": [
+    {
+      "test": "tb_dac_tone_top",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_dac_tone_top.log",
+      "tail": [
+        "  ok  : 鈶?DIN 鐪熺殑鍦ㄥ姩锛堢炕杞?5928 娆★級",
+        "  ok  : 鈶?瑙ｅ嚭鏈夋晥姝ｅ鸡锛?99 涓牱鐐癸紝399 娆″€煎彉鍖栵級",
+        "  ok  : 鈶?骞呭害鍚堢悊涓斻€愬弻鏋佹€с€戯紙-16384 .. 16383锛屾憜骞?32767锛夆€斺€?姝ｅ鸡姝ｇ‘",
+        "  ok  : 鈶?A8 鏃?X/Z",
+        "PASS: dac_tone_top 杈撳嚭姝ｇ‘鐨?I2S 娴侊紙BCK/LRCK/DIN 鍏ㄥ锛屾寮﹀彲瑙ｏ級",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\bringup\\tb_dac_tone_top.sv:247: $finish called at 8192200000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_wavetable_tone_top",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_wavetable_tone_top.log",
+      "tail": [
+        "VCD info: dumpfile build/sim/wavetable_tone_top/tb_wavetable_tone_top.vcd opened for output.",
+        "WAVETABLE_TONE frames=620 nonzero=613 crossings=5 period=111..111 avg=111 measured_hz=439",
+        "WAVETABLE_TONE bck_gap=16..16 ws_gap=1024..1024 din_toggles=8720 pa_falls=0",
+        "PASS: Dock wavetable tone top outputs deterministic 440 Hz mono audio",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\bringup\\tb_wavetable_tone_top.sv:236: $finish called at 12697771000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_checkers",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_checkers.log",
+      "tail": [
+        "  ok : A7 鐩镐綅娓呴浂琚姄鍒帮紙璐熷悜娴嬭瘯锛?",
+        "--- A7 姝ｄ緥锛氬悎娉曠浉浣嶉噸鍚紙jump_ok=1锛変笉鎶?---",
+        "  ok : A7 鍚堟硶鐨勭浉浣嶉噸鍚紙jump_ok锛夋湭琚鎶?",
+        "",
+        "PASS: A1/A2/A3/A4/A5/A6/A7/A8 缁撴瀯绫绘柇瑷€鍏ㄩ儴鎸夐鏈熷伐浣滐紙鍚礋鍚戞祴璇曪級",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\checkers\\tb_checkers.sv:393: $finish called at 78620000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_clk_gen",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_clk_gen.log",
+      "tail": [
+        "  ok : frame_start 闂撮殧鎭板ソ 1024 clk锛堟瘡甯т竴娆★級",
+        "  ok : frame_start **蹇呭畾涓?bclk_en 鍚屾媿**锛坕2s_tx 鐨勫抚鍐呬綅瀵归綈鍓嶆彁锛?",
+        "  ok : 姣忓抚鎭板ソ涓€涓?frame_start锛? 甯?鈫?8 娆″悓鎷嶏級",
+        "",
+        "PASS: clk_gen 鏃跺熀鍏ㄩ儴绗﹀悎锛堝垎棰戦摼绮剧‘ + 鏋佸樊涓?0 + 鐩镐綅鍏崇郴姝ｇ‘ + 鏃?X锛?",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\clk_gen\\tb_clk_gen.sv:280: $finish called at 164011000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_clk_gen_badparam",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_clk_gen_badparam.log",
+      "tail": [
+        "========================================================",
+        "  ok : 闈炴硶鍙傛暟纭疄琚?*闈欓粯鎸?梅16** 澶勭悊锛?58 娆?鈮?256锛夆€斺€?璇佹槑蹇呴』闈?PARAM_OK 鍛婅",
+        "  ok : 鍚堟硶鍙傛暟涓?bclk_en 娆℃暟姝ｅ父锛?56 鈮?256锛?",
+        "",
+        "PASS: clk_gen 鍙傛暟鑷鎸夐鏈熷伐浣滐紙闈炴硶鍙傛暟浼氬憡璀︼紱鍚堟硶鍙傛暟鏃犲憡璀︼紱涓よ€呴兘涓嶅崱姝伙級",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\clk_gen\\tb_clk_gen_badparam.sv:104: $finish called at 82091000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_adc_farm",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_adc_farm.log",
+      "tail": [
+        "VCD info: dumpfile build/sim/adc_farm/tb_adc_farm.vcd opened for output.",
+        "  -- P1-28: force chip-0 MISO stuck at 0, wait 17 frames --",
+        "  ok  : P1-28 dead chip 0 detected (fault=001), live chips untouched",
+        "PASS: 2 frames + P1-28 dead-chip window (19 frames total), 16 sample_valid, frame period=500000 ns, fanout clean",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\drivers\\tb_adc_farm.sv:217: $finish called at 9196541000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_adc_fault_window",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_adc_fault_window.log",
+      "tail": [
+        "PASS: legal CH0 endpoint is accepted; sustained all-channel endpoint is reported separately",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\drivers\\tb_adc_fault_window.sv:56: $finish called at 18696740000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_calib",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_calib.log",
+      "tail": [
+        "ok : A8: no X/Z on med_out_val",
+        "ok : P2-24a (setup) the latched sample is non-zero (else 24c is vacuous)",
+        "ok : P2-24b valid=0 => out_valid is 0 (the output is gated)",
+        "ok : P2-24c valid=0 => the multiplier did NOT run (out_val HOLDS)",
+        "PASS: calib T13 all 14 checks ok",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\drivers\\tb_calib.sv:315: $finish called at 1870000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_calib_equivalence",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_calib_equivalence.log",
+      "tail": [
+        "PASS: calib cycle-exact equivalence checks=73141 profiles=4 exhaustive_codes=4096 channels=8",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\drivers\\tb_calib_equivalence.sv:73: $finish called at 1462820000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_debounce",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_debounce.log",
+      "tail": [
+        "ok : EC11 illegal: A/B simultaneous -> enc_err fired",
+        "ok : EC11 illegal: no count on illegal step",
+        "ok : A8: no X/Z on key_level/enc_state",
+        "ok : self-check: correct branch is reachable",
+        "PASS: debounce T14 all 13 checks ok",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\drivers\\tb_debounce.sv:270: $finish called at 20045070000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_mcp3208_driver",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_mcp3208_driver.log",
+      "tail": [
+        "PASS CH4: clocks=24, MOSI=070000, ADC=abc",
+        "PASS CH5: clocks=24, MOSI=074000, ADC=a5c",
+        "PASS CH6: clocks=24, MOSI=078000, ADC=def",
+        "PASS CH7: clocks=24, MOSI=07c000, ADC=fff",
+        "PASS: all MCP3208 channels completed",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\drivers\\tb_mcp3208_driver.sv:214: $finish called at 196611000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_mcp3208_scanner",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_mcp3208_scanner.log",
+      "tail": [
+        "VCD info: dumpfile build/sim/mcp3208/mcp3208_scanner_tb.vcd opened for output.",
+        "PASS: 2 frames, 16 samples, frame period=500000 ns",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\drivers\\tb_mcp3208_scanner.sv:285: $finish called at 696541000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_tlc5916_driver",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_tlc5916_driver.log",
+      "tail": [
+        "  ok : K-66 猸?鎭㈠鏈熼棿 `LE` **鍏ㄧ▼浣?*锛堚噿 绗?4 涓部蹇呭垽 Normal Mode锛?",
+        "  ok : K-66 猸?`OE` 浣庣數骞冲搴?1000 ns 鈮?鎵嬪唽 tw(OE) 500 ns",
+        "  ok : K-66 鎭㈠搴忓垪鍙戜簡 12 涓?CLK 鍛ㄦ湡锛堚墺5锛岀 4 涓部鑳介噰鍒?LE锛?",
+        "  ok : K-66 鎭㈠搴忓垪**姣忔澶嶄綅鍚庢伆濂借窇涓€娆?*锛堟湰 tb 鏈?2 娆″浣嶉噴鏀?鈬?2 娆★級",
+        "PASS: all TLC5916 tests completed successfully",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\drivers\\tb_tlc5916_driver.sv:495: $finish called at 137520000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_demo_stall_diag",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_demo_stall_diag.log",
+      "tail": [
+        "  ok  : D the hand-play events really flowed (ee_cnt>0 and ev>0) -- non-vacuous",
+        "  ok  : D no upstream event was dropped (sa_drop==0 and mg_drop==0)",
+        "  ok  : D note_manager reported no event loss (event_lost_o==0)",
+        "",
+        "PASS: demo-chord-then-key diagnostic -- the queue drained and every press gated a voice on its own axis",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\e2e\\tb_demo_stall_diag.sv:710: $finish called at 18361751000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "DIAGNOSTIC_COMPLETED",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_e2e_key_to_sound",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_e2e_key_to_sound.log",
+      "tail": [
+        "FAIL: TIMEOUT after 900 s -- testbench hung (no verdict is a FAILURE, see K-94)  [!!] 但日志里已出现 PASS: —— 很可能是【超时预算太紧】而不是真挂死，请人工确认"
+      ],
+      "status": "TIMEOUT_INCOMPLETE",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_looper_e2e",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_looper_e2e.log",
+      "tail": [
+        "  [after playback] evt_cnt=2 lay_st=1 rec_on=0 play_on=1 rd_lock=0 n_live=1 n_play=0",
+        "  ok  : ntrol path OK; the replay payload itself is tb_looper's job) ***",
+        "  ok  : rd_lock is still 0 at the end (never got stuck)",
+        "",
+        "PASS: looper end-to-end (top level) -- 'R' starts recording, a hand-played note is really captured (evt_cnt>0), 'R' stops, 'L' starts playback and the looper enters its PLAYING state; an 'L' on an EMPTY loop is REJECTED instead of silently playing silence. The replay payload itself is covered by tb_looper.",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\e2e\\tb_looper_e2e.sv:333: $finish called at 2048360000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fft_color_bars",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fft_color_bars.log",
+      "tail": [
+        "PASS: production 2048 FFT, 128 colored filled bars, exact 3+1 gaps, both ranges, atomic frames",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\hdmi\\tb_fft_color_bars.sv:85: $finish called at 15392240000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fft_header_digits",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fft_header_digits.log",
+      "tail": [
+        "PASS: all 64 FFT N headers, 5376 public RGB checks, atomic metadata and zero drops",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\hdmi\\tb_fft_header_digits.sv:64: $finish called at 16596600000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fft_height_floor",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fft_height_floor.log",
+      "tail": [
+        "PASS: weak spectrum near baseline, strong spectrum visible, silence black, zero drops",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\hdmi\\tb_fft_height_floor.sv:46: $finish called at 738720000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fft_outline",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fft_outline.log",
+      "tail": [
+        "PASS: independent-bin sharp outline, no fill, connected flank, full-band and atomic backpressure",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\hdmi\\tb_fft_outline.sv:98: $finish called at 2330560000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fft_outline_x2",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fft_outline_x2.log",
+      "tail": [
+        "PASS: independent-bin sharp outline, no fill, connected flank, full-band and atomic backpressure",
+        "./tb/hdmi/tb_fft_outline.sv:98: $finish called at 2640760000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fft_spectrum_2048",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fft_spectrum_2048.log",
+      "tail": [
+        "PASS: six real-input FFT frames match independent direct DFT, exact ordering and no drops",
+        "./tb/hdmi/tb_fft_spectrum_core.sv:53: $finish called at 254279880000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fft_spectrum_core",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fft_spectrum_core.log",
+      "tail": [
+        "PASS: six real-input FFT frames match independent direct DFT, exact ordering and no drops",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\hdmi\\tb_fft_spectrum_core.sv:53: $finish called at 1028040000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fft_spectrum_overrun",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fft_spectrum_overrun.log",
+      "tail": [
+        "PASS: burst overflow counted without capture overwrite; disable/reset cancel partial frames",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\hdmi\\tb_fft_spectrum_overrun.sv:45: $finish called at 305380000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fft_spectrum_view",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fft_spectrum_view.log",
+      "tail": [
+        "PASS: real FFT to pixel bars, vertical-blank commit and atomic N/frame metadata",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\hdmi\\tb_fft_spectrum_view.sv:50: $finish called at 246480000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fft_view_backpressure",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fft_view_backpressure.log",
+      "tail": [
+        "PASS: stalled video preserves complete FFT bank and N; drops only display frames",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\hdmi\\tb_fft_view_backpressure.sv:53: $finish called at 736720000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fft_zoom_modes",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fft_zoom_modes.log",
+      "tail": [
+        "PASS: normal quarter-band zoom, full test band, vblank-atomic range, zero drops",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\hdmi\\tb_fft_zoom_modes.sv:64: $finish called at 739360000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_scope_mode_switch",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_scope_mode_switch.log",
+      "tail": [
+        "PASS: XY/waveform/XY switch at frame boundaries and waveform displays real samples",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\hdmi\\tb_scope_mode_switch.sv:63: $finish called at 4244240000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_waveform_scope",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_waveform_scope.log",
+      "tail": [
+        "PASS: mode=2 full frame exact pixels; green=7822 gray=613; live ring overwrite stable",
+        "PASS: mode=3 full frame exact pixels; green=10240 gray=608; live ring overwrite stable",
+        "PASS: mode=4 full frame exact pixels; green=306721 gray=1; live ring overwrite stable",
+        "PASS: mode=5 full frame exact pixels; green=20800 gray=547; live ring overwrite stable",
+        "PASS: waveform_scope 2308886 pixel checks, silence/DC/sine/square/fullscale/rounding, wrap, DE/sync, reset",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\hdmi\\tb_waveform_scope.sv:157: $finish called at 135683581000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_xy_scope",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_xy_scope.log",
+      "tail": [
+        "     [xy] fast  : set=357  x=[75,564]  y=[11,469]",
+        "  ok  : fast signal: LINE DRAWING fills gaps (set >= 150; no-line would be ~20)",
+        "     [xy] sine set=1843  vs  dc set=1",
+        "  ok  : non-vacuous: sine point count >> dc point count (>=20x)",
+        "PASS: xy_scope acceptance (8 checks) - all judgements held",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\hdmi\\tb_xy_scope.sv:186: $finish called at 51560320000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_latency_m2",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_latency_m2.log",
+      "tail": [
+        "  ok : 鏋佸樊 938 clk = 0.0188 ms 鈮?0.100 ms锛堢‘瀹氭€ф棤鎶栧姩锛?",
+        "  ok : 缁熻娆℃暟 = 50锛圡2 瑕佹眰 50锛?",
+        "  ok : A8 鏃?X/Z 浼犳挱锛圚P_DIN/HP_BCK/HP_WS/鏍风偣锛?",
+        "",
+        "PASS: M2 鏁板瓧绔欢杩熶笂鐣屼笌鎶栧姩鍧囪揪鏍囷紙50 娆★紝鏋佸樊 < 0.1 ms锛?",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\latency\\tb_latency_m2.sv:194: $finish called at 2820771000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_mcp3208_model",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_mcp3208_model.log",
+      "tail": [
+        "VCD info: dumpfile build/sim/mcp3208_model/tb_mcp3208_model.vcd opened for output.",
+        "PASS CH0: model returned 400",
+        "PASS CH1: model returned 401",
+        "PASS CH7: model returned 407",
+        "PASS: mcp3208_model returns IDVAL+channel correctly",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\models\\tb_mcp3208_model.sv:92: $finish called at 72260000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_am_pipe",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_am_pipe.log",
+      "tail": [
+        "== 姹囨€?==",
+        "  ok  : event total == expected (criterion is not vacuous)",
+        "  ok  : back-to-back injected event count == 14",
+        "  ok  : P0-2: w3a_evt_inc is in the SAME cycle as w3a_evt_valid (mismatch == 0)",
+        "PASS: am_pipe pitch-tap alignment (P0-2) - all judgements held (events=17 mismatches=0)",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_am_pipe.sv:312: $finish called at 2060000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_at_merge_known_bugs",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "status": "SKIPPED_BY_DEFAULT",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_export_key_wav",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "status": "SKIPPED_BY_DEFAULT",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_export_wav",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "status": "SKIPPED_BY_DEFAULT",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fft_top_modes",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fft_top_modes.log",
+      "tail": [
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)",
+        "NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.",
+        "PASS: actual UART E cycles three modes; 97703 audio/UART cycles identical, 21216 live DIN ones",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_fft_top_modes.sv:44: $finish called at 1954460000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_right_adc",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_right_adc.log",
+      "tail": [
+        "  ok  : R4 SPI sclk is running",
+        "  ok  : R5 heartbeat toggles (design alive)",
+        "  ok  : R6 unused chip selects (cs_n[5:3]) stay HIGH",
+        "",
+        "PASS: tb_right_adc 鈥?7/7 judgements held (=1 妗ｅ姛鑳介€氳矾鏄椿鐨?",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_right_adc.sv:210: $finish called at 2400400000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_slide_e2e",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_slide_e2e.log",
+      "tail": [
+        "ok: real I2S output decodes into nonzero known PCM samples",
+        "ok: both axes released closes original gate",
+        "ok: disabled slide emits no pitch transactions",
+        "ok: keyboard mode blocks slide even with W enabled",
+        "PASS: real UART/SPI/comparator slide-to-I2S path, 14 checks",
+        "./tb/top/tb_slide_position_e2e.sv:128: $finish called at 2855960000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_slide_position_e2e",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_slide_position_e2e.log",
+      "tail": [
+        "ok: real I2S output decodes into nonzero known PCM samples",
+        "ok: both axes released closes original gate",
+        "ok: disabled slide emits no pitch transactions",
+        "ok: keyboard mode blocks slide even with W enabled",
+        "PASS: real UART/SPI/comparator slide-to-I2S path, 14 checks",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_slide_position_e2e.sv:128: $finish called at 2855960000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_slide_top_pitch",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_slide_top_pitch.log",
+      "tail": [
+        "NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)",
+        "PASS: real map and position follower, 12 physical pairs",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_slide_top_pitch.sv:59: $finish called at 21700000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_sustain_pedal_wire",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_sustain_pedal_wire.log",
+      "tail": [
+        "FAIL: TIMEOUT after 120 s -- testbench hung (no verdict is a FAILURE, see K-94)  [!!] 但日志里已出现 PASS: —— 很可能是【超时预算太紧】而不是真挂死，请人工确认"
+      ],
+      "status": "TIMEOUT_INCOMPLETE",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_ctrl_wire",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_ctrl_wire.log",
+      "tail": [
+        "  ok  : reaches cmd_recdump_req (rd_reject_event fired exactly once) ***",
+        "  ok  : t-press path: a second press still yields exactly ONE reject ***",
+        "  ok  : 2/4/5/10/14) can fire the recdump reject -- only idx 13 does ***",
+        "",
+        "PASS: control-board wiring -- the 4x4 keypad really toggles the downstream state, the serial path is preserved alongside it, the EC11 routes to BPM or transpose depending on the selected object, and key idx 13 (loop send) really reaches cmd_recdump_req while no other key does",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_top_ctrl_wire.sv:451: $finish called at 1346640000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_dump_atomic",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_dump_atomic.log",
+      "tail": [
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)",
+        "NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.",
+        "PASS: real Hall recording, atomic dual UART export, deferred P, rejected R/L/C, unchanged re-export, and key idx 13 (loop send) driving a byte-identical real export",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_top_dump_atomic.sv:223: $finish called at 16245460000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_fx_audio",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_fx_audio.log",
+      "tail": [
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)",
+        "NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.",
+        "PASS: top FX public I2S/UART: 79101 cycles unity bit-exact, board/external effect differences 12122/12138, live ones=17776",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_top_fx_audio.sv:51: $finish called at 1582420000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_hb_center",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_hb_center.log",
+      "tail": [
+        "  ok  : *** FORCED CENTER wins over hb: led_heartbeat stays SOLID ON even though hb is blinking ***",
+        "  ok  : *** non-vacuity: dut.hb toggles in this window ***",
+        "  ok  : *** FORCED OFF CENTER => led_heartbeat follows hb again (blinking, not latched) ***",
+        "",
+        "PASS: joystick center on the heartbeat LED -- centered => SOLID ON, off-center => the normal heartbeat blink returns, and pluck_both_low now has a real consumer (it can no longer be pruned)",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_top_hb_center.sv:191: $finish called at 45940000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_led_strip",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_led_strip.log",
+      "tail": [
+        "=== (5) 棰勭暀鑴?/ UART 绌洪棽鎬?===",
+        "  ok  : (5a) ws_strip_o == 3'b000?????????????",
+        "  ok  : (5b) esp_uart_tx_????UART ?€?",
+        "  ok  : (6) ctrl_ws_o ???X/Z圓?",
+        "PASS: top 鐏甫闆嗘垚 鈥斺€?ctrl_ws_o 浣嶆祦瑙ｅ嚭鐨?7 璺鑹?鐏簭/鍒囩墖/涓ゆ。鍒嗘敮鍏ㄩ儴姝ｇ‘",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_top_led_strip.sv:298: $finish called at 2153550000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_m0",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_m0.log",
+      "tail": [
+        "  ok : J 路 A8 澶栫疆涓夋牴绾垮浣嶅悗鏃?X/Z",
+        "  ok : P0-06 g_silent 妗?fault_sticky 鏈夌‘瀹氬€硷紙=0锛?",
+        "  ok : P0-06 蹇冭烦缈昏浆 64 娆★紙娲讳綋瑙佽瘉鏈夋晥锛?",
+        "",
+        "PASS: M0 top-level acceptance (timebase + SD_MODE polarity + silence-clean + heartbeat + no X + external DAC)",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_top_m0.sv:591: $finish called at 1310971000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_merge_startup",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_merge_startup.log",
+      "tail": [
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)",
+        "NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.",
+        "PASS: healthy ADC startup normal; injected missing-axis mask still gives fault heartbeat",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_top_merge_startup.sv:66: $finish called at 1400230000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_notice_equiv",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_notice_equiv.log",
+      "tail": [
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)",
+        "NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.",
+        "PASS: accelerated public-pin notification equivalence fixture, 14-byte dump and three notices",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_top_notice_equiv.sv:112: $finish called at 12709420000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_probe_queue",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_probe_queue.log",
+      "tail": [
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)",
+        "NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.",
+        "PASS: atomic export, bounded duplicate rejection, complete ordered N/V/P packets",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_top_probe_queue.sv:85: $finish called at 8271460000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_scope_live",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_scope_live.log",
+      "tail": [
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)",
+        "NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.",
+        "PASS: real UART E three-mode live stream, Q framed BPM=140 and W slide toggle coexist",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_top_scope_live.sv:84: $finish called at 1175700000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_sound",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_sound.log",
+      "tail": [
+        "FAIL: TIMEOUT after 900 s -- testbench hung (no verdict is a FAILURE, see K-94)  [!!] 但日志里已出现 PASS: —— 很可能是【超时预算太紧】而不是真挂死，请人工确认"
+      ],
+      "status": "TIMEOUT_INCOMPLETE",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_t15",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_t15.log",
+      "tail": [
+        "NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.",
+        "  ok  : top keyboard mode forwards axis ON/OFF",
+        "  ok  : top fretboard selection is silent",
+        "  ok  : top DOWN comparator edge plucks selected axis",
+        "PASS: T15 top-level keyboard/fretboard integration",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_top_t15.sv:109: $finish called at 451000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_timbre_button",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_timbre_button.log",
+      "tail": [
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)",
+        "NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.",
+        "PASS: S2 cycles BASS -> GUITAR -> PIANO -> PAD -> BASS once per press",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_top_timbre_button.sv:85: $finish called at 8018630000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_uart_isolation",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_uart_isolation.log",
+      "tail": [
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)",
+        "NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.",
+        "PASS: real top dual UART isolation; ten screen frames, one exact ESP event",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\top\\tb_top_uart_isolation.sv:72: $finish called at 1982200000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_upstream_timbre",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_upstream_timbre.log",
+      "tail": [
+        "FAIL: TIMEOUT after 120 s -- testbench hung (no verdict is a FAILURE, see K-94)  [!!] 但日志里已出现 PASS: —— 很可能是【超时预算太紧】而不是真挂死，请人工确认"
+      ],
+      "status": "TIMEOUT_INCOMPLETE",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_pitch_shift_accept",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_pitch_shift_accept.log",
+      "tail": [
+        "VCD info: dumpfile build/sim/tb_pitch_shift_accept/tb_pitch_shift_accept.vcd opened for output.",
+        "T19_ACCEPT note_on=1 phase_before=3019898880 A7=0 golden=616/616 i2s_errors=0 xz=0",
+        "PASS: held-note pitch update preserves phase/envelope and external I2S continuity",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\voice\\tb_pitch_shift_accept.sv:157: $finish called at 12718430000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_voice_accept",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_voice_accept.log",
+      "tail": [
+        "  ok : A8 杈撳嚭涓庣浉浣嶉兘鏃?X/Z 浼犳挱",
+        "  ok : 姣忓抚鎭板ソ涓€娆?frame_done锛?8/98锛?",
+        "  ok : 杈撳嚭纭疄鏈夐潪闆舵牱鐐癸紙96259 鎷嶏級鈥斺€?涓嶆槸銆屽亣瑁呭湪宸ヤ綔銆?",
+        "",
+        "PASS: T10 鐪熷疄 voice 鐨?A6/A7/A8 涓庢椿鍔ㄦ牱鐐归獙鏀跺叏閮ㄩ€氳繃",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\voice\\tb_voice_accept.sv:271: $finish called at 2007251000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_voice_i2s_chain",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_voice_i2s_chain.log",
+      "tail": [
+        "VCD info: dumpfile build/sim/tb_voice_i2s_chain/tb_voice_i2s_chain.vcd opened for output.",
+        "T10_CHAIN decoded_l=1032 decoded_r=1032 point_ok_l=1032 point_ok_r=1032 golden_ok=1027 golden_bad=0",
+        "PASS: real DDS+ADSR voice round-trips through I2S and matches the golden samples",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_async_pluck_capture",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_async_pluck_capture.log",
+      "tail": [
+        "  ok  : 4-2e [BUG] UP rail release-threshold re-crossing also emits NO second event (both rails guarded)",
+        "  ok  : [REGRESSION] a genuine UP edge right after DOWN release STILL fires (per-rail blank, not global)",
+        "  ok  :  event latency is ZERO added by the blank: <= 4 clocks (80 ns) from edge to event (spec: <=5 ms)",
+        "  ok  : g [REGRESSION] after the release window EXPIRES the same rail fires again (no permanent lockout)",
+        "PASS: async pluck capture synchronizes edges, prioritizes UP, applies refractory, imposes no position restriction on a genuine pluck, and suppresses the release-threshold re-crossing on the same rail with ZERO added latency",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_async_pluck_capture.sv:542: $finish called at 10370000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_axis_map",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_axis_map.log",
+      "tail": [
+        "--- 鍒ゆ嵁鈶э細猸?绗簩鏌ヨ〃鍙?`phase_inc_b_o`锛堚瓙 婊戦煶闊抽珮閫氳矾鐢?鉁咃級---",
+        "  ok  : FB: port B equals port A when fed the SAME axis id (all 16 axes)",
+        "  ok  : FB: port B is NOT a constant (axis 0 vs axis 7 differ => the check above is not vacuous)",
+        "",
+        "PASS: axis_map selects phase_inc by AXIS ID in both modes (keyboard + fretboard), with interpolation disabled; 16 fretboard axes and 16 keyboard axes each map to their confirmed pitch tables, phase_inc is never zero, and valid stays in the same cycle as data",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_axis_map.sv:482: $finish called at 4579000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_axis_snapshot",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_axis_snapshot.log",
+      "tail": [
+        "--- 鍒ゆ嵁锛氣瓙 P2-27 鈥斺€?浣嶇疆涓嶅彉 鈬?姣忔蹇収鐨?delta 蹇呴』銆愬叏 0銆?--",
+        "  ok  : P2-27 (non-vacuous) at least one snapshot happened",
+        "  ok  : P2-27 with a CONSTANT position every snapshot delta is 0 (the first frame must not emit)",
+        "",
+        "PASS: axis_snapshot maps (adc,ch)->axis, commits all chips in one cycle, emits a per-frame pulse, and produces a SIGNED per-axis delta (the raw material for slide/two-note detection)",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_axis_snapshot.sv:330: $finish called at 3530000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_calib_autotare",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_calib_autotare.log",
+      "tail": [
+        "  ok  : retrig_i leaves done_o asserted again",
+        "  ok  : after retrig completes, the latch still holds",
+        "  ok  : cal_ch advanced through all channels (implied by exact-once + alignment)",
+        "",
+        "PASS: calib_autotare waits for the hall supply, tares every channel exactly once, aligns each tare with its own sample, and latches done",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_calib_autotare.sv:243: $finish called at 10810000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_calib_cmd",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_calib_cmd.log",
+      "tail": [
+        "  ok  : non-vacuous: the SAME frame DOES emit when freshly armed",
+        "  ok  : the SAME stray-byte rule protects the 'H' arm (transpose is not silently set)",
+        "  ok  : a PAUSE (no bytes at all) between 'Q' and the frame still works -- arm survives",
+        "",
+        "PASS: calib_cmd parses T/S/X/M/F/G/H/J only at frame boundaries, ignores payload letters, counts what it drops, takes the 'H' framed value from the next frame's first payload byte, self-heals after a half frame, and voids an unfulfilled arm as soon as any non-header byte breaks the promise",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_calib_cmd.sv:751: $finish called at 99050000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_calib_cmd_q_y",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_calib_cmd_q_y.log",
+      "tail": [
+        "NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=1000000 GAP_BYTES=16 BYTE_CLK=500 HEADER=a5 N_CMD=26 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)",
+        "ERROR [calib_cmd] duplicate command letters 45 at index 18 and 21 => one command is silently shadowed and never fires. PARAM_OK=0.",
+        "PASS: E/Y/B/Q/W independent, framed BPM=140, payload isolation and duplicate detection",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_calib_cmd_q_y.sv:70: $finish called at 2580000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_calib_span",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_calib_span.log",
+      "tail": [
+        "  ok  : P1-12 setup: the span FSM reached DONE again (done_o asserted)",
+        "  ok  : P1-12 setup: busy_o is 0 while sitting in DONE",
+        "  ok  : P1-12 a second start_i after DONE RESTARTS the FSM (busy_o back to 1 -- NOT a silent no-op)",
+        "",
+        "PASS: calib_span gates on stability, rejects bad votes, aligns span with its channel, honours calib.err, and aborts cleanly from any state",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_calib_span.sv:640: $finish called at 24463890000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_calib_span_err",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_calib_span_err.log",
+      "tail": [
+        "  ok  : B4 a span with raw <= zero IS rejected (err == 1) -- precondition",
+        "  ok  : B5 the FAILED re-calibration did NOT wipe the previous gain (full-scale still ~4095)",
+        "==================================================================",
+        "tb_calib_span_err: checks=12 errors=0",
+        "PASS: span err handling -- per-axis err, retry is accepted, failed re-cal keeps the old gain",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_calib_span_err.sv:502: $finish called at 18342000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_calib_still_guard",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_calib_still_guard.log",
+      "tail": [
+        "ok  : C2b precondition: after tare(zero=777) the offset IS applied (500 < 777 => underflow => 0)",
+        "ok  : C2b an UN-calibrated channel IGNORES the stale array content (water-mark gates the read)",
+        "==================================================================",
+        "tb_calib_still_guard: pass=19 fail=0",
+        "PASS: still-guard / clk-timeout / 'T'-guard / water-mark / no-direct-read",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_calib_still_guard.sv:524: $finish called at 5282000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_ctrl_key_map",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_ctrl_key_map.log",
+      "tail": [
+        "=== E) nothing pressed at all => no pulse anywhere ===",
+        "  ok  : E1: idle key_level produces no key_down/key_up",
+        "  ok  : E2: idle produces NO command pulse at all (incl. loop_send)",
+        "",
+        "PASS: ctrl_key_map -- idx 13 loop_send is a one-cycle short-press pulse (no long-press guard), every other key still maps bit-for-bit, and no other key can fire loop_send",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_ctrl_key_map.sv:347: $finish called at 155730000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_ctrl_keypad",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_ctrl_keypad.log",
+      "tail": [
+        "  ok  : 8c: SHORT press -> NO span_req (the two are mutually exclusive)",
+        "  ok  : 8d: LONG press -> span NEVER fires (span removed 2026-10-17)",
+        "  ok  : 8e: after a long press, releasing DOES fire tare (span removed => long press no longer suppresses tare)",
+        "",
+        "PASS: ctrl keypad -- one-row-low scan, scan-based debounce (jitter rejected), every key maps to exactly its own command, same-column pairs resolved, long-press protected clear, and calib key fires tare on release (span removed 2026-10-17)",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_ctrl_keypad.sv:424: $finish called at 337890000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_ee_adj",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_ee_adj.log",
+      "tail": [
+        "     ev[1] axis=2 kind=0  (note_on)",
+        "     ev[2] axis=3 kind=0  (note_on)",
+        "   overflow=0 lost_cnt=0",
+        "   鉁?PASS: all three adjacent axes emitted",
+        "==============================================================",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_ee_adj.sv:141: $finish called at 2960000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_ee_multileave",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_ee_multileave.log",
+      "tail": [
+        "--- MLEAVE-3锛氣瓙 闈炵┖娲?鈥斺€?鍗曚釜杞寸寮€鏃朵粛鎸夎€佽涓哄嚭婊戦煶锛堜笌鏃?tb 鍚屽彛寰勶級---",
+        "  ok  : NGLE leaving axis still fires a slide -- proves the DUT is alive",
+        "  ok  : MLEAVE-3b single leaving axis => A == that axis",
+        "",
+        "PASS: event_extract multi-axis-leave -- A is the LOWEST leaving axis, and a slide is not lost",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_ee_multileave.sv:231: $finish called at 2430000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_ee_multineighbor",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_ee_multineighbor.log",
+      "tail": [
+        "  ok  : MULTI-4b (non-vacuous) scene 2 must also pulse slide_valid_o",
+        "  ok  : may have the SMALLER axis number (2 here), and it must still win",
+        "  ok  : lip to -1 when the winning neighbour has the smaller axis number",
+        "",
+        "PASS: multi-neighbour slide B-selection -- B is the same-row neighbour with the LARGEST travel (tie -> lowest axis), A stays the leaving axis, direction follows the winning axis",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_ee_multineighbor.sv:247: $finish called at 1790000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_ee_slide_noise",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_ee_slide_noise.log",
+      "tail": [
+        "  ok  : NOISE-3b and A is 3",
+        "--- NOISE-4: 绾櫔澹帮紙娌′汉婊戯級鈬?鉀?涓嶈鍑烘粦闊?---",
+        "  ok  : noise must NOT be reported as a slide (no finger actually moved)",
+        "",
+        "PASS: event_extract slide survives realistic per-axis noise",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_ee_slide_noise.sv:239: $finish called at 3170000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_ee_slide_slow",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_ee_slide_slow.log",
+      "tail": [
+        "== 2: 7.5 ms 鐢╀竴涓敭锛堝揩閫氶亾锛?=",
+        "INFO: steps=15 甯?(= 7 ms) | 涓嬮檷甯?15 鏈€澶у崟甯ч檷=4 涓婂崌甯?15",
+        "INFO: slide_cnt=15  棣栨媿鍦?1 甯?(= 0 ms)  鍋滀綇鍚庢柊澧?0",
+        "  ok  : FAST slide (7.5 ms per key) still fires slide_valid",
+        "PASS: slow (150 ms/key) and fast (7.5 ms/key) slides both fire, and a resting finger is silent",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_ee_slide_slow.sv:241: $finish called at 191040000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_event_extract",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_event_extract.log",
+      "tail": [
+        "  ok  : after the refractory window the key can trigger again (self-healing)",
+        "  ok  : THREE axes crossing in the SAME frame emit THREE note_on (none lost)",
+        "  ok  : all three distinct axes are present (1, 5, 9)",
+        "",
+        "PASS: event_extract fires on the first crossing (no settle wait), holds with hysteresis, blocks inside the refractory window and self-heals, and NEVER loses events when several axes cross in the same frame",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_event_extract.sv:307: $finish called at 18790000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_event_extract_slide",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_event_extract_slide.log",
+      "tail": [
+        "  ok  : -4 a plain release (no adjacent key forming) must NOT be a slide",
+        "--- 鍒ゆ嵁鈶わ細猸?闈炵┖娲?鈥斺€?鐩戣鍣ㄦ湰韬湪宸ヤ綔 ---",
+        "  ok  : us) the slide monitor can actually increment (proved by SLIDE-1)",
+        "",
+        "PASS: event_extract slide detection -- release+tiny-adjacent-press within the window is a slide, two-note/far/plain-release are NOT",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_event_extract_slide.sv:246: $finish called at 3270000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fader_gear",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fader_gear.log",
+      "tail": [
+        "  ok  : O8 [UNLOCK] keeps following after unlock (move => +10)  (semi=10)",
+        "  ok  : O9 same-cycle sel0+sel2 => sel0 wins (gear0)  (gear=0)",
+        "  ok  : O10 same-cycle sel1+sel2 => sel1 wins (gear1)  (gear=1)",
+        "",
+        "PASS: fader_gear -- 3 gears / per-gear lock / dual-vibrato coexistence all hold",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_fader_gear.sv:609: $finish called at 85800000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_led_indicator",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_led_indicator.log",
+      "tail": [
+        "  ok  : (7f)?????50%",
+        "  ok  : (7g????孩 / ??????????",
+        "  ok  : (7h)??????????",
+        "  ok  : (8) no X/Z on led_col_o after reset (A????",
+        "PASS: led_indicator -- 8 璺涔夛紙鎺у埗鏉跨 3 鐗堬級+ 鍏变韩蹇棯 + 鎷嶇偣闂?+ 鍙傛暟鍖栭棯鐑佸叏閮ㄦ垚绔?",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_led_indicator.sv:496: $finish called at 10567080000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_param_extract",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_param_extract.log",
+      "tail": [
+        "  ok  : note_off does NOT start a velocity measurement",
+        "  ok  : pitch_valid_o stays 0 in this version (stage 2 not wired yet)",
+        "  ok  : pitch_value_o is 0 in this version",
+        "",
+        "PASS: param_extract measures velocity from the two-threshold time gap (fast => louder), saturates at both ends, ignores note_off, and keeps the parametric path entirely separate from the note-event path",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_param_extract.sv:359: $finish called at 29330000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_play_mode_ctrl",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_play_mode_ctrl.log",
+      "tail": [
+        "     [evt #0] axis=2 kind=2 (depth=700)",
+        "     [evt #1] axis=5 kind=2 (depth=700)",
+        "     [evt #2] axis=9 kind=2 (depth=700)",
+        "  ok  : H5 CONTRACT pluck FSM emits ascending axis order (lowest set bit first): 2, 5, 9",
+        "PASS: play-mode controller enforces keyboard and fretboard semantics",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_play_mode_ctrl.sv:631: $finish called at 9890000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_play_mode_fret_release",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_play_mode_fret_release.log",
+      "tail": [
+        "PASS: a new pluck cannot strand the prior axis",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_play_mode_fret_release.sv:40: $finish called at 440000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_play_mode_merge_collision",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_play_mode_merge_collision.log",
+      "tail": [
+        "PASS: simultaneous axis input retains exactly one captured pluck",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_play_mode_merge_collision.sv:34: $finish called at 340000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_play_mode_merge_release",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_play_mode_merge_release.log",
+      "tail": [
+        "PASS: round-robin voices release by their own axes",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_play_mode_merge_release.sv:31: $finish called at 560000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_play_mode_poly_release",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_play_mode_poly_release.log",
+      "tail": [
+        "PASS: all prior keyboard axes release after switching to fretboard",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_play_mode_poly_release.sv:34: $finish called at 400000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_play_mode_slide_hold",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_play_mode_slide_hold.log",
+      "tail": [
+        "PASS: slide sustains across the original key release and ends exactly once",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_play_mode_slide_hold.sv:58: $finish called at 1320000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_right_analog_ctrl",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_right_analog_ctrl.log",
+      "tail": [
+        "  ok  : CH1 maximum maps to Q1.15 unity",
+        "  ok  : CH2 captures vibrato depth",
+        "  ok  : CH3 captures rate and commits coherent controls",
+        "  ok  : disabled right ADC keeps unity and forces safe vibrato controls",
+        "PASS: right analog control maps CH1 volume and snapshots CH2/CH3 coherently",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_right_analog_ctrl.sv:52: $finish called at 2020000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_slide_position_ctrl",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_slide_position_ctrl.log",
+      "tail": [
+        "PASS_CHECK: W off aborts an in-flight result and suppresses valid",
+        "PASS_CHECK: re-enable does not revive a cancelled session",
+        "PASS_CHECK: unsigned 32-bit endpoints use a full-width weighted sum",
+        "PASS_CHECK: A8 detects no unknown public output",
+        "PASS: position slide follows calibrated ratios, owns its voice, and cancels atomically",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_slide_position_ctrl.sv:93: $finish called at 20720000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_slide_ramp",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_slide_ramp.log",
+      "tail": [
+        "=== 6) tiny move below EPS snaps immediately (no infinite dither) ===",
+        "  ok  : 6a: a sub-EPS move snaps to the target on the first tick",
+        "  ok  : 6b: and immediately deactivates (no endless micro-stepping)",
+        "",
+        "PASS: slide ramp -- a trig starts at A's pitch and walks toward B's pitch in many small monotonic steps (both directions), lands exactly on the target, retargeting continues from the current value instead of jumping back, and sub-EPS moves snap cleanly",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_slide_ramp.sv:229: $finish called at 10311000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_span_alignment_gap",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_span_alignment_gap.log",
+      "tail": [
+        "--------------------------------------------------",
+        "ok  : 璺ㄩ€氶亾鏋佸樊 762 涓嬶紝16 杞翠粛鍏ㄩ儴鏍囧畾鎴愬姛",
+        "      => 鉁?閫氶亾杩囨护銆愭湁鏁堛€?> 璺ㄩ€氶亾璺冲彉銆愪笉鏄€戞牴鍥?",
+        "==================================================",
+        "PASS: 姝ｇ‘鐨勯€氶亾杩囨护鑳介殧绂昏法閫氶亾璺冲彉",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_span_alignment_gap.sv:155: $finish called at 25600240000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_span_axis_over_uart",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_span_axis_over_uart.log",
+      "tail": [
+        "ok  : 's'锛堝彈鐞嗭級缁?UART 鐪熺殑鍙戝嚭鍘讳簡",
+        "ok  : 銆愯酱鍙风粡 UART 鐪熺殑鍙戝嚭鍘讳簡銆?",
+        "ok  : 鏈?7 娆℃嫆缁濄€? 娆¤酱鍙?鈬?猸?閲嶈瘯鏃惰酱鍙枫€愮‘瀹為噸鍙戙€?",
+        "==================================================",
+        "PASS: 杞村彿纭疄缁?UART 鍙戝嚭锛屼笖閲嶈瘯鏃朵細閲嶅彂锛圞-132 宸蹭慨锛?",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_span_axis_over_uart.sv:289: $finish called at 8024380000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_span_cross_channel",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_span_cross_channel.log",
+      "tail": [
+        "      鈬?鉁?璇存槑'鍚勯€氶亾闈欐€佸€间笉鍚?鏈韩銆愪笉鏄€戦棶棰?",
+        "      鈬?馃敶 涓婃澘澶辫触鍙墿'閲囨牱瀵归綈/鎺ョ嚎'涓€绉嶈В閲婏紙瑙佸畾妗堟枃妗?搂鍥涳級",
+        "ok  : rej_cnt_o=0 <= REJECT_MAX=8锛堣鏁拌涔夎嚜娲斤級",
+        "==================================================",
+        "PASS: 璺ㄩ€氶亾闈欐€佸樊寮備笉鐮村潖 span 鏍囧畾",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_span_cross_channel.sv:161: $finish called at 25600240000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_span_multiaxis_noise",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_span_multiaxis_noise.log",
+      "tail": [
+        "  ok  : 鍣０ 卤10  (< 48) 鈬?16 杞村叏杩? 鏃犳嫆缁?",
+        "  ok  : 鍣０ 卤20  (< 48) 鈬?16 杞村叏杩? 鏃犳嫆缁?",
+        "  ok  : 鍣０ 卤40  (< 48) 鈬?16 杞村叏杩? 鏃犳嫆缁?",
+        "==================================================",
+        "PASS: 绋冲畾鍒ゅ畾闃堝€艰涓烘纭紙鍣０ < TOL 灏辫兘杩囷級",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_span_multiaxis_noise.sv:202: $finish called at 115201440000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_span_need_press_width",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_span_need_press_width.log",
+      "tail": [
+        "--------------------------------------------------",
+        "ok  : need_press_o 纭疄浜х敓浜嗕笂鍗囨部 鈬?top.v 鐨?ev_need 浼氳瑙﹀彂",
+        "NOTE: need_press 楂?202 鎷?",
+        "==================================================",
+        "PASS: calibration prompt rising edge and nonzero width observed",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_span_need_press_width.sv:156: $finish called at 6240000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_span_realistic",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_span_realistic.log",
+      "tail": [
+        "  ok  : ???0?????-- span=16 (鏈熸湜 16) reject=0",
+        "鈶?鎶栧姩卤60锛? TOL 48锛夛細span=16 reject=0 杩沄OTE娆℃暟=16 state=7",
+        "  ok  : VOTE_TOL 96) 鈬?浠嶅簲鍏ㄦ爣瀹?-- span=16 (鏈熸湜 16) reject=0",
+        "==================================================",
+        "PASS: 鍚屾瘮渚嬭秴鏃朵笅锛宑alib_span 鍦ㄧǔ瀹?鎶栧姩杈撳叆閮借兘鏍囧畾鍏ㄩ儴 16 杞?",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_span_realistic.sv:186: $finish called at 76800720000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_span_released_stable",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_span_released_stable.log",
+      "tail": [
+        "ok  : 鏉炬墜闈欐 鈬?鏍囧畾銆愯兘閫氳繃銆戯紙span=6, reject=0锛?",
+        "      => 馃敶 涓婃澘琚嫆銆愪笉鏄€戣繖涓満鏅湰韬殑闂 鈬?鍙︽湁鍥犵礌",
+        "ok  : 杞? 甯ч棿鍙樺寲 螖=0 < STABLE_TOL=48 鈬?绋冲畾鍒ゅ畾銆愬簲鑳介€氳繃銆?",
+        "==================================================",
+        "PASS: real ADC released-input calibration makes progress without rejection",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_span_released_stable.sv:185: $finish called at 60004440000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_span_retry_reemits_axis",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_span_retry_reemits_axis.log",
+      "tail": [
+        "  reject 娆℃暟              = 9",
+        "--------------------------------------------------",
+        "ok  : 姣忔閲嶈瘯閮介噸鏂板彂浜嗚酱鍙凤紙9 娆?/ 9 娆¤繘 PROMPT锛?",
+        "==================================================",
+        "PASS: 閲嶈瘯鏃惰酱鍙蜂細閲嶆柊鍥炲彂锛圞-132 宸蹭慨锛?",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_span_retry_reemits_axis.sv:145: $finish called at 120240000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_span_vote_offbyone",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_span_vote_offbyone.log",
+      "tail": [
+        "  state       = 2",
+        "  鍙戣繃 span?  = 0",
+        "--------------------------------------------------",
+        "ok   : RTL 姝ｇ‘ 鈥斺€?鏈€鍚庝竴甯х殑绂荤兢鍊笺€愯鐪嬭銆戝苟鎷掔粷浜嗚缁勬牱鏈?",
+        "PASS: 鎶曠エ绐楀彛瑕嗙洊浜嗗叏閮?VOTE_N 甯?",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_span_vote_offbyone.sv:175: $finish called at 1780000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_span_with_real_adc_farm",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_span_with_real_adc_farm.log",
+      "tail": [
+        "--------------------------------------------------",
+        "ok  : 鐪?adc_farm 椹卞姩涓嬶紝calib_span 鑳芥甯告爣瀹氾紙span>0, reject=0锛?",
+        "      => 鉁?璇存槑銆愮湡瀹為噰鏍锋椂搴忋€戜笅鐘舵€佹満宸ヤ綔姝ｅ父",
+        "      => 馃敶 涓婃澘澶辫触鐨勫師鍥犲湪鍒锛堜笉鏄噰鏍锋椂搴忥級",
+        "PASS: real SPI ADC calibration makes progress without rejection",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_span_with_real_adc_farm.sv:205: $finish called at 60002440000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_ec11_param",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_ec11_param.log",
+      "tail": [
+        "FAIL: TIMEOUT after 900 s -- testbench hung (no verdict is a FAILURE, see K-94)"
+      ],
+      "status": "TIMEOUT_INCOMPLETE",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_uart_calib_chain",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_uart_calib_chain.log",
+      "tail": [
+        "  ok  : while autotare is BUSY, 'S' is IGNORED (no calibration started)",
+        "  ok  : the interlock did not swallow the command itself (cmd still counted)",
+        "  ok  : after autotare goes idle, 'S' DOES start calibration (interlock recovers)",
+        "",
+        "PASS: a serial 'S' really starts calib_span, 'X' really cancels it, 'T' really re-runs autotare, in-frame letters are payload, commands never fake an event, and the busy interlock blocks (then releases) 'S'",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_uart_calib_chain.sv:420: $finish called at 210190000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_ws2812_driver",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_ws2812_driver.log",
+      "tail": [
+        "  ok  : (3) wire order is GRB with MSB first",
+        "  info: LED1 '1'-coded bits = 24 / 24 (want 24)",
+        "  ok  : (8) per-LED addressing: LED1 is all-ones while LED0 is not",
+        "  ok  : (7) no X/Z on dout_o/busy_o after reset (A8)",
+        "PASS: ws2812_driver -- 1 channel, GRB, 800 kHz, reset gap, busy handshake",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3a\\tb_ws2812_driver.sv:256: $finish called at 2229970000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_adsr",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_adsr.log",
+      "tail": [
+        "VCD info: dumpfile build/sim/tb_adsr/tb_adsr.vcd opened for output.",
+        "PASS: ADSR follows attack, decay, sustain, and release through its public interface",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_akwf_wavetables",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_akwf_wavetables.log",
+      "tail": [
+        "PASS: wavetable_bank emits the selected CC0 AKWF four-timbre set",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_akwf_wavetables.sv:69: $finish called at 380000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_base_semi",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_base_semi.log",
+      "tail": [
+        "  DBG: state 2 -> 3 (kind=0 axis=0 scan=31 best_v=1)",
+        "  DBG: state 3 -> 4 (kind=0 axis=0 scan=31 best_v=1)",
+        "  DBG: state 4 -> 0 (kind=0 axis=0 scan=31 best_v=1)",
+        "PASS: base_semi -- octave shift is exact, bypassed at 0, and rejects illegal values",
+        "INFO: checks=10 errors=0",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_base_semi.sv:350: $finish called at 19470000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_bg_envelope_cycle_equiv",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_bg_envelope_cycle_equiv.log",
+      "tail": [
+        "FAIL: TIMEOUT after 120 s -- testbench hung (no verdict is a FAILURE, see K-94)  [!!] 但日志里已出现 PASS: —— 很可能是【超时预算太紧】而不是真挂死，请人工确认"
+      ],
+      "status": "TIMEOUT_INCOMPLETE",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_bg_mixer_cycle_equiv",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_bg_mixer_cycle_equiv.log",
+      "tail": [
+        "COVER: mixer P=4 O=24 E=16 positive/negative knee=175/264 ceiling=142/146",
+        "COVER: mixer P=4 O=15 E=1 positive/negative knee=0/0 ceiling=0/0",
+        "COVER: mixer P=32 O=16 E=16 positive/negative knee=130/194 ceiling=498/694",
+        "COVER: mixer P=32 O=15 E=1 positive/negative knee=0/0 ceiling=0/0",
+        "PASS: BG mixer samples, valid, fault and active count match every clock",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_bg_mixer_cycle_equiv.sv:68: $finish called at 4096080000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_dds_wavetable_core",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_dds_wavetable_core.log",
+      "tail": [
+        "VCD info: dumpfile build/sim/dds_wavetable_core/tb_dds_wavetable_core.vcd opened for output.",
+        "PASS: DDS wavetable core preserves phase across phase_inc changes",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_dds_wavetable_core.sv:88: $finish called at 440000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_drum_pitch_env",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_drum_pitch_env.log",
+      "tail": [
+        "== 鍒ゆ嵁 3b锛氶潪榧?voice锛堚瓙 韪╅暡闊抽珮锛夆噿 杈撳嚭杩囬浂鐜囨亽瀹?==",
+        "  info: 闈為紦@韪╅暡闊抽珮 杩囬浂 鏃?82 鏅?82锛堚瓙 绐楀彛鍚?1024 鎷嶏級鐩镐綅澧為噺=[171798691,171798691]",
+        "  ok  : non_drum_voice_output_zcr_stays_constant",
+        "  ok  : non_drum_voice_at_hihat_pitch_phase_step_is_nominal",
+        "PASS: drum pitch envelope (stage 2b) - all judgements held",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_drum_pitch_env.sv:431: $finish called at 4428020000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_drum_sweep_window",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_drum_sweep_window.log",
+      "tail": [
+        "   info: 鏈熸湜鐩镐綅澧為噺=10737285 路 鏈慨澶嶄細鏄?6487173 路 瀹炴祴 max=10737285",
+        "  ok  : W3 tom->kick (WINDOW: base_inc refreshes AFTER the onset tick) : sweep_q loaded from the NEW pitch (not the stale one)",
+        "  ok  : W3 tom->kick (WINDOW: base_inc refreshes AFTER the onset tick) : per-sample phase step == NEW_INC + depth<<8 (end-to-end)",
+        "",
+        "PASS: tb_drum_sweep_window - 6/6 judgements held",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_drum_sweep_window.sv:338: $finish called at 24700000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_envelope_bank",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_envelope_bank.log",
+      "tail": [
+        "VCD info: dumpfile build/sim/tb_envelope_bank/tb_envelope_bank.vcd opened for output.",
+        "== P1-03锛氣瓙 澶氭媿 `sample_tick` 蹇呴』涓庡崟鎷嶃€愮瓑浠枫€?=",
+        "  ok  : P1-03 a 2-cycle sample_tick == a 1-cycle one (env0=32768)",
+        "== P1-03b锛氣瓙 **鎸佺画涓洪珮**鐨?`sample_tick`锛堚瓙 宸茬煡缂哄彛锛屸瓙 鏈疆銆愪笉淇€戯級==",
+        "PASS: envelope_bank keeps per-voice ADSR state independent",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_integration_consts",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_integration_consts.log",
+      "tail": [
+        "NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.",
+        "=== tb_integration_consts: top.v self-checks as RED-ABLE assertions ===",
+        "  INFO: TRIG=64 REL=32 TRAVEL=744 CALIB_FULL=4095 POS_FULL(passed down)=744",
+        "PASS: integration_consts -- top's self-checks hold AND the value really reaches param_extract",
+        "INFO: checks=6 errors=0",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_integration_consts.sv:131: $finish called at 290000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_nm_no_leak",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_nm_no_leak.log",
+      "tail": [
+        "FAIL: TIMEOUT after 300 s -- testbench hung (no verdict is a FAILURE, see K-94)  [!!] 但日志里已出现 PASS: —— 很可能是【超时预算太紧】而不是真挂死，请人工确认"
+      ],
+      "status": "TIMEOUT_INCOMPLETE",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_nm_off_in_hold",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_nm_off_in_hold.log",
+      "tail": [
+        "  == summary ==",
+        "   cleared=32  STUCK=0  (invalid=0, phases=32)",
+        "  ok  : B3: every phase around the sample tick clears the gate (no stuck note)",
+        "  ok  : B3 non-vacuity: all phase cases executed with a valid setup",
+        "PASS: B3 note_off always clears the gate, even inside the retrigger hold window",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_nm_off_in_hold.sv:305: $finish called at 1853940000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_nm_reuse_tail",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_nm_reuse_tail.log",
+      "tail": [
+        "  == summary ==",
+        "   reuse=6  DUPLICATE=0",
+        "  ok  : B2 non-vacuity: at wait=2 frames the tail is still alive (env_active=1 on the axis)",
+        "  ok  : B2: release-tail re-press never allocates a 2nd same-axis voice",
+        "PASS: B2 release-tail re-press reuses the SAME voice (no duplicate same-axis voice)",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_nm_reuse_tail.sv:326: $finish called at 2842140000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_note_manager",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_note_manager.log",
+      "tail": [
+        "  ok  : K-169 setup: phase != seed before re-press (non-vacuous)",
+        "  ok  : K-169 setup: the fresh voice is voice0 (probe lane matches)",
+        "  INFO: K-169 phase before re-press = 40505000, after = 40000000",
+        "  ok  : K-169: re-press in release tail reloads the phase seed",
+        "PASS: note_manager acceptance (T54) - all judgements held",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_note_manager.sv:1422: $finish called at 5292080000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_note_manager_sus",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_note_manager_sus.log",
+      "tail": [
+        "  ok  : S5 pedal held but src!=0 => gate=0 (not sustained)",
+        "  ok  : S6a released before pedal => gate=0",
+        "  ok  : S6b pedal pressed AFTER release => NO resurrection",
+        "",
+        "PASS: tb_note_manager_sus 鈥?19/19 judgements held (T5 寤堕煶韪忔澘璇箟)",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_note_manager_sus.sv:407: $finish called at 1504880000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_note_manager_vel_ramp",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_note_manager_vel_ramp.log",
+      "tail": [
+        "  checks=123904  new-vs-old mismatches=0  red(no-valid-gate) mismatches=30855  spec mismatches=0",
+        "PASS: tb_note_manager_vel_ramp 123904 cases, 0 mismatches; red detected in 30855; spec-conformant",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_note_manager_vel_ramp.sv:130: $finish called at 123904000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_note_manager_vel_wrap",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_note_manager_vel_wrap.log",
+      "tail": [
+        "  ok  : W5 descending ramp steps -8 (248 -> 240), no wrap",
+        "      [dbg] W6 tgt=255 from 240 => vel_of(0)=248 (鏈熸湜 248)",
+        "  ok  : W6 ascending ramp steps +8 (240 -> 248), no wrap",
+        "",
+        "PASS: tb_note_manager_vel_wrap 鈥?6/6 judgements held (P0-01 鏃犲洖缁?",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_note_manager_vel_wrap.sv:283: $finish called at 2040000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_note_manager_write_share",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_note_manager_write_share.log",
+      "tail": [
+        "PASS: tb_note_manager_write_share P=32 T3=0 cycles=24324 commits=561 retriggers=173 collisions=734 drops=8180 all_voice_mask=ffffffff",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_note_manager_write_share.sv:355: $finish called at 243240000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_opt04_nm_age_negative",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_opt04_nm_age_negative.log",
+      "tail": [
+        "FATAL: C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_opt04_nm_age_negative.sv:47: split age mismatch width=7 a=65 b=64",
+        "       Time: 3000  Scope: tb_opt04_nm_age_negative.b",
+        "FATAL: C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_opt04_nm_age_negative.sv:47: split age mismatch width=16 a=cde5 b=cde4",
+        "       Time: 3000  Scope: tb_opt04_nm_age_negative.c",
+        "FATAL: C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_opt04_nm_age_negative.sv:47: split age mismatch width=17 a=0cde5 b=0cde4",
+        "       Time: 3000  Scope: tb_opt04_nm_age_negative.d",
+        "",
+        ""
+      ],
+      "status": "EXPECTED_NEGATIVE_DETECTED",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_opt04_nm_compare",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_opt04_nm_compare.log",
+      "tail": [
+        "  ok  : K-169 setup: phase != seed before re-press (non-vacuous)",
+        "  ok  : K-169 setup: the fresh voice is voice0 (probe lane matches)",
+        "  INFO: K-169 phase before re-press = 40505000, after = 40000000",
+        "  ok  : K-169: re-press in release tail reloads the phase seed",
+        "PASS: note_manager acceptance (T54) - all judgements held",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_opt04_nm_compare.sv:1422: $finish called at 5292080000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_opt04_nm_compare_values",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_opt04_nm_compare_values.log",
+      "tail": [
+        "PASS: actual NM comparator width=1 comparisons=100000",
+        "PASS: actual NM comparator width=7 comparisons=100000",
+        "PASS: actual NM comparator width=16 comparisons=100000",
+        "PASS: actual NM comparator width=17 comparisons=100000",
+        "PASS: comparator boundary/random checks 400000",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_opt04_nm_compare_values.sv:60: $finish called at 100000000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_opt04_rot32_current_af",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_opt04_rot32_current_af.log",
+      "tail": [
+        "  ok  : D3 non-vacuous: a real number of cycles was compared (> 40000)",
+        "",
+        "================================================================",
+        "PASS: tb_rot32_diff 鈥斺€?50266 鎷嶉€愭媿閫愪綅鐩稿悓锛? 澶勪笉鍚?",
+        "================================================================",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_opt04_rot32_current_af.sv:331: $finish called at 1005960000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_opt04_transpose_current_af",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_opt04_transpose_current_af.log",
+      "tail": [
+        "  ok  : T8: src=5 (keyboard drums) BYPASSES transposition -- P1-59",
+        "",
+        "================================================================",
+        "PASS: tb_transpose 鈥斺€?T1/T2/T3/T4/T6/T7/T8 鍏ㄩ儴鎴愮珛锛圱3_EN=0 浜や粯鍙ｅ緞 + T3_EN=1 璇箟淇濇寔锛?",
+        "================================================================",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_opt04_transpose_current_af.sv:1034: $finish called at 36320980000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_opt08_target_cache",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_opt08_target_cache.log",
+      "tail": [
+        "PASS cache stress P=4 cycles=100000 overlap=25205 alloc=7901 clear=4942",
+        "PASS cache stress P=32 cycles=100000 overlap=9878 alloc=2219 clear=2896",
+        "PASS: AO/cache differential 200000 profile-cycles",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_opt08_target_cache.sv:83: $finish called at 2001700000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_opt08_write_share_reused",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_opt08_write_share_reused.log",
+      "tail": [
+        "PASS: tb_note_manager_write_share P=32 T3=0 cycles=24324 commits=561 retriggers=173 collisions=734 drops=8180 all_voice_mask=ffffffff",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_opt08_write_share_reused.sv:344: $finish called at 243240000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_osc_drum_cls",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_osc_drum_cls.log",
+      "tail": [
+        "      [dbg] B': base=kick(8M) cls=tom => is_kick=1 is_tom=0",
+        "  ok  : A3 swap: DRUM_CLS_EXT=1 still follows the external class (tom)",
+        "  ok  : B3 swap: DRUM_CLS_EXT=0 still follows bv (kick)",
+        "",
+        "PASS: tb_osc_drum_cls 鈥?6/6 judgements held (A3 鍙傛暟闂ㄦ帶 + 闆剁獥鍙?",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_osc_drum_cls.sv:175: $finish called at 1000000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_osc_ram_equiv",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_osc_ram_equiv.log",
+      "tail": [
+        "INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS",
+        "INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS",
+        "INFO: case 1 (delayed_start=0): compared=100 samples, nonzero=99, max_abs=145211 (0x0002373b)",
+        "INFO: case 2 (delayed_start=1): compared=200 samples, nonzero=199, max_abs=145211 (0x0002373b)",
+        "PASS: osc BSRAM read path is cycle-exact and bit-exact vs the FF path (200 samples)",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_osc_ram_equiv.sv:264: $finish called at 808400000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_oscillator_bank",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_oscillator_bank.log",
+      "tail": [
+        "== 9: timbre must not depend on velocity ==",
+        "  ok  : velocity 0 and 255 give BIT-IDENTICAL samples (timbre is velocity-free)",
+        "== 10: two attacks at the same depth must be BIT-IDENTICAL (NO reset) ==",
+        "  ok  : two attacks at the same depth are BIT-IDENTICAL (phase returns to the seed)",
+        "PASS: oscillator_bank acceptance (T55) - all judgements held",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_oscillator_bank.sv:513: $finish called at 117540000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_p5_adsr_diff",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_p5_adsr_diff.log",
+      "tail": [
+        "per-cycle bus checks = 108000  (each check covers 32 voices x 16 level bits + 32 active bits)",
+        "voice-observations   = 3456000",
+        "mismatches           = 0",
+        "PASS: shared round-robin envelope_bank is bit-exact vs the 32x ADSR bank",
+        "--------------------------------------------------------------",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_p5_adsr_diff.sv:248: $finish called at 2280160000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_p5_osc_equiv",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_p5_osc_equiv.log",
+      "tail": [
+        "--------------------------------------------------",
+        "  osc frames compared = 322 路 mismatches = 0",
+        "  姣斾簡锛歰sc_sample_bus_o(64脳16) + osc_valid_o + phase_acc_dbg + 64 涓?phase_q",
+        "PASS: P5-2 per-voice oscillator_bank is BIT-IDENTICAL to the reference",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_p5_osc_equiv.sv:234: $finish called at 528240000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_polyphony_onset_step",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_polyphony_onset_step.log",
+      "tail": [
+        "INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=0 => 鍗曢煶宄?鈮?50% FS",
+        "INFO: max note_on step=5998, allowed=11997, baseline=383872",
+        "PASS: polyphony normalization is de-zippered at note_on",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_polyphony_onset_step.sv:161: $finish called at 34600000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_pool_by_src",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_pool_by_src.log",
+      "tail": [
+        "  ok  : d5: axis-14/15 voices are NOT drum voices (pitch drives the wavetable)",
+        "  ok  : d6 (non-vacuous): src=3 raises voice_drum_o (d5 is not trivial)",
+        "  ok  : d7: the src=3 voice also keeps phase_inc bit-exact",
+        "  ok  : d8: the src=3 voice sits in the reserved pool (>= 28)",
+        "PASS: pool-by-source judgements (26.3 a/b/c/d) all held",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_pool_by_src.sv:636: $finish called at 25960000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_retrig_reset_span",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_retrig_reset_span.log",
+      "tail": [
+        "  ok  : gate is back high after re-press inside the tail",
+        "  ok  : P0-4: re-press inside release tail => spans exactly ONE sample_tick",
+        "== 姹囨€?==",
+        "  ok  : all three retriggers really produced a reset pulse (1/1/1, not vacuous)",
+        "PASS: retrig_reset single-tick span (P0-4) - all judgements held (rst_ticks = 1/1/1)",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_retrig_reset_span.sv:335: $finish called at 28880000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_rot32_diff",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_rot32_diff.log",
+      "tail": [
+        "  ok  : D3 non-vacuous: a real number of cycles was compared (> 40000)",
+        "",
+        "================================================================",
+        "PASS: tb_rot32_diff 鈥斺€?50266 鎷嶉€愭媿閫愪綅鐩稿悓锛? 澶勪笉鍚?",
+        "================================================================",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_rot32_diff.sv:339: $finish called at 1005960000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_soft_hard_blend",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_soft_hard_blend.log",
+      "tail": [
+        "PASS: oscillator_bank soft/hard interpolation endpoints and midpoint",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_soft_hard_blend.sv:70: $finish called at 400000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_tdm_render_mixer",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_tdm_render_mixer.log",
+      "tail": [
+        "  ok  : fault clears only on reset",
+        "== 7: real saturation via wide samples ==",
+        "  ok  : wide positive overflow clamps to soft-knee ceiling (no wrap)",
+        "  ok  : wide negative overflow clamps to soft-knee ceiling (no wrap)",
+        "PASS: tdm_render_mixer acceptance (T56) - all judgements held",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_tdm_render_mixer.sv:476: $finish called at 20620000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_test_mode_ctrl",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_test_mode_ctrl.log",
+      "tail": [
+        "  ok  : 32-to-4 switch leaves no stale fifth voice",
+        "  ok  : disable after 32/4 switching clears every output",
+        "  ok  : reset wins even while enable is high",
+        "  ok  : no output X/Z after reset",
+        "PASS: test_mode_ctrl 4/8/16/32 contract",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_test_mode_ctrl.sv:180: $finish called at 148000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_test_mode_fft",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_test_mode_fft.log",
+      "tail": [
+        "FFT_EVIDENCE: mode=4 samples=8192 file=sim/evidence/test_mode_n4.csv",
+        "FFT_EVIDENCE: mode=8 samples=8192 file=sim/evidence/test_mode_n8.csv",
+        "FFT_EVIDENCE: mode=16 samples=8192 file=sim/evidence/test_mode_n16.csv",
+        "FFT_EVIDENCE: mode=32 samples=8192 file=sim/evidence/test_mode_n32.csv",
+        "PASS: generated real Test Mode wavetable samples for FFT acceptance",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_test_mode_fft.sv:131: $finish called at 43909360000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_test_mode_top",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_test_mode_top.log",
+      "tail": [
+        "  ok  : one oscillator lane per selected voice",
+        "  ok  : Test Mode gate mux reaches envelope bank",
+        "  ok  : Test Mode velocity mux reaches envelope bank",
+        "  ok  : controller lanes reach oscillator bank",
+        "PASS: physical UART M command controls 4/8/16/32 Test Mode in top",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_test_mode_top.sv:146: $finish called at 293710000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_timbre_adsr",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_timbre_adsr.log",
+      "tail": [
+        "PASS: four timbres have distinct ADSR profiles",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_timbre_adsr.sv:98: $finish called at 14420261000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_timbre_event_path",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_timbre_event_path.log",
+      "tail": [
+        "WARNING [note_manager] FIFO_DEPTH=8 < 鏈€鍧忕獊鍙?18 (=16 杞?+1 鑺傛媿鍣?+1 榧撴満) => 浜嬩欢浼氭孩鍑轰涪寮冿紙猸?宸茬敱 event_lost_o 鎸囩ず锛屼絾浼氫涪闊筹級",
+        "  ok  : score PIANO timbre survives arb/merge/FIFO into voice0",
+        "  ok  : existing voice keeps its original PIANO timbre",
+        "  ok  : new voice snapshots GUITAR while held voice stays PIANO",
+        "PASS: T31b timbre event path",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_timbre_event_path.sv:193: $finish called at 1500000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_score_path",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_score_path.log",
+      "tail": [
+        "   info: 鏇茶氨浜嬩欢鐨?inc=38697984 鈬?鎸夐噰鏍风巼鎹㈢畻 = 439 Hz锛堚瓙 鏈熸湜 440锛?",
+        "  ok  : H1 the score note's phase_inc yields 440 Hz at the SAMPLE rate (not 50 MHz)",
+        "  ok  : H2 non-vacuity: the value must have been SCALED up past the 21-bit wire field",
+        "",
+        "PASS: tb_top_score_path - 20/20 judgements held",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_top_score_path.sv:336: $finish called at 1136930000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_test_mode_pipe",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_test_mode_pipe.log",
+      "tail": [
+        "  checks=6229  new-vs-old mismatches=0  red(one-cycle-late) mismatches=1383",
+        "PASS: tb_top_test_mode_pipe 6229 per-clock comparisons, 0 mismatches; red variant detected in 1383 clocks",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_top_test_mode_pipe.sv:211: $finish called at 125300000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_transpose",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_transpose.log",
+      "tail": [
+        "  ok  : T8: src=5 (keyboard drums) BYPASSES transposition -- P1-59",
+        "",
+        "================================================================",
+        "PASS: tb_transpose 鈥斺€?T1/T2/T3/T4/T6/T7/T8 鍏ㄩ儴鎴愮珛锛圱3_EN=0 浜や粯鍙ｅ緞 + T3_EN=1 璇箟淇濇寔锛?",
+        "================================================================",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_transpose.sv:1047: $finish called at 36320980000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_vel_pos_follow",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_vel_pos_follow.log",
+      "tail": [
+        "  ok  : J4c: env decayed all the way to 0",
+        "  ok  : J4d: env_active fell",
+        "  ok  : J5a: after note_off a vel_upd must NOT change vel (FROZEN)",
+        "  ok  : J5b: and env was not pushed back up (still 0)",
+        "PASS: vel_pos_follow acceptance - volume follows position (up AND down), frozen on release",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_vel_pos_follow.sv:420: $finish called at 666360000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_vel_top_stream",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_vel_top_stream.log",
+      "tail": [
+        "  ok  : T10a: BOTH halves at pos=0 => NO packets",
+        "  ok  : T10b: ONLY axes 8..15 over threshold => exactly 8 packets per rotation",
+        "  ok  : T10c: every packet axis is in 8..15 (axes 8..15 ARE scanned)",
+        "  ok  : T10d: every packet value == pos_to_vel(700)",
+        "PASS: vel_top_stream -- the top-level vu_* stream obeys its contract",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_vel_top_stream.sv:428: $finish called at 12000000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_velocity_headroom",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_velocity_headroom.log",
+      "tail": [
+        "INFO: timbre=0 velocity=200 samples=700 osc=32767 env=51200 max_abs=1147904 (136/1000 FS) knee=0 rail=0",
+        "INFO: timbre=1 velocity=200 samples=700 osc=32767 env=51200 max_abs=1540672 (183/1000 FS) knee=0 rail=0",
+        "INFO: timbre=2 velocity=200 samples=700 osc=32767 env=51200 max_abs=1467328 (174/1000 FS) knee=0 rail=0",
+        "INFO: timbre=3 velocity=200 samples=700 osc=32767 env=31455 max_abs=354176 (42/1000 FS) knee=0 rail=0",
+        "PASS: velocity headroom stays below the digital limiter for all timbres",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_velocity_headroom.sv:157: $finish called at 4900700000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_velocity_lane_isolation",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_velocity_lane_isolation.log",
+      "tail": [
+        "PASS: TDM lanes use their own velocity blend coefficient",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_velocity_lane_isolation.sv:59: $finish called at 201000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_velocity_tone_decoupling",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_velocity_tone_decoupling.log",
+      "tail": [
+        "PASS: performance velocity changes loudness only, not oscillator tone",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_velocity_tone_decoupling.sv:63: $finish called at 300000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_vibrato_lfo",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_vibrato_lfo.log",
+      "tail": [
+        "  ok  : P0-19 depth clamp: |mod| <= 960 with the fader at full travel",
+        "      [dbg] full-travel: depth_raw=2048 => |mod| peak = 480锛堟弧琛岀▼ ~952锛?",
+        "  ok  : full-travel usable: mid-fader depth is clearly BELOW full-travel depth",
+        "  ok  : full-travel usable: mid-fader depth is clearly NON-ZERO (fader really does something)",
+        "PASS: vibrato LFO hysteresis, slew and phase continuity",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_vibrato_lfo.sv:173: $finish called at 2070000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_vibrato_top",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_vibrato_top.log",
+      "tail": [
+        "  ok  : P4 CH1 reaches master mix as Q1.15 unity",
+        "  ok  : P4-disabled configuration retains unity master gain",
+        "  ok  : CH2 high control enables the LFO through hysteresis",
+        "  ok  : LFO output reaches the real oscillator bank",
+        "PASS: T18 P4 ADC -> LFO -> oscillator integration",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_vibrato_top.sv:58: $finish called at 700110000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_w1_interfaces",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_w1_interfaces.log",
+      "tail": [
+        "ERROR [tdm_render_mixer] LANE_W0/W1 = (16,0) but the shift/add identity implements (9,7) => THE PARAMETERS HAVE NO EFFECT, update the code (see the LANE_W0 comment)",
+        "INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=0 => 鍗曢煶宄?鈮?50% FS",
+        "PASS: W3b interfaces elaborate at 32x1 and Test Mode selects 32 voices",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_w1_interfaces.sv:127: $finish called at 200000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_wavetable_bank",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_wavetable_bank.log",
+      "tail": [
+        "  info: drum voice capture zcr: noise_sel=246 (0.481) / noise_sel_off=41 (0.080)",
+        "  ok  : noise_sel_off_capture_is_pitched",
+        "  ok  : drum_voice_reads_broadband_noise",
+        "  ok  : drum_voice_zcr_at_least_3x_pitched_ref",
+        "PASS: wavetable_bank four timbres use deterministic synchronous reads",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_wavetable_bank.sv:448: $finish called at 350800000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_wavetable_bank_prom",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_wavetable_bank_prom.log",
+      "tail": [
+        "VCD info: dumpfile build/sim/wavetable_prom/tb_wavetable_bank_prom.vcd opened for output.",
+        "PASS: wavetable_bank generated-table build is deterministic",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_wavetable_bank_prom.sv:226: $finish called at 220000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_wavetable_timbres",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_wavetable_timbres.log",
+      "tail": [
+        "PASS: T31b four timbre wavetable public interface",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3b\\tb_wavetable_timbres.sv:108: $finish called at 260000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_beat_gen",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_beat_gen.log",
+      "tail": [
+        "VCD info: dumpfile build/sim/tb_beat_gen/tb_beat_gen.vcd opened for output.",
+        "PASS: beat_gen tick interval range 0 (strict tiers) / <=1 clk (BPM 60/120/200), BPM rates correct, transport edge assertions hold",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_bpm_bar_quant",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_bpm_bar_quant.log",
+      "tail": [
+        "  ok  : r reset a bar alone still does not load (pending really cleared)",
+        "  ok  : endpoint 40 BPM survives the round trip",
+        "  ok  : endpoint 240 BPM survives the round trip",
+        "",
+        "PASS: bpm_bar_quant -- a manual change arms only, lands exactly ONCE on the next bar_start with the latched value, is one-shot, is reset-cleared, and bar_start alone is inert",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_bpm_bar_quant.sv:202: $finish called at 1560000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_bpm_entry",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_bpm_entry.log",
+      "tail": [
+        "  ok  : bpm_dn at 40 BPM stays clamped (no underrun)",
+        "  ok  : every manual change increments tempo_cnt_o (visible, not silent)",
+        "  ok  : non-vacuous: different BPM really produce different tick_inc",
+        "",
+        "PASS: play_seq BPM entry -- tick_inc = BPM*1374+47, anchored exactly at 120 BPM, clamped to 40..240, and observable",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_bpm_entry.sv:208: $finish called at 1330000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_drum_gen",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_drum_gen.log",
+      "tail": [
+        "  ok  : 鈶?cfg_warn_o = 0锛堝弬鏁颁竴鑷达細AXIS_ID=15 >= 14, STEPS=16锛?",
+        "  ok  : 鈶?A8 鏃?X/Z 浼犳挱",
+        "  ok  : 鈶 transport 鎷変綆鍚?鈬?绔嬪埢鍋滃彂锛堚洈 涓嶅悙娈嬩綑锛?",
+        "--------------------------------------------------",
+        "PASS: drum_gen 涓€姝ュ涔愬櫒涓嶄涪銆?6姝?1灏忚妭銆佹鎷嶇浉浣?step0=Kick+HiHat)銆佷笓鐢ㄦ睜銆佷笉绮樻粸銆乼ransport 闂ㄦ帶銆佽繍琛屾椂鍒囧瀷+鍡甸紦銆佹棤 X/Z銆? 涓妭濂忓瀷浣嶇簿纭鐢ㄦ埛琛?",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_drum_gen.sv:733: $finish called at 132860000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_drum_gen_posreset",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_drum_gen_posreset.log",
+      "tail": [
+        "   info: 绐楀彛2 绱鏂板 A=2 B=0 | A: step_q=0 澶嶄綅鍚庡墠涓ゆ潯=5368709,171798691",
+        "  ok  : J3 the FIRST post-reset events are the step-0 downbeat (Kick then HiHat), no stray in front",
+        "  ok  : J4 step_q realigns to 0 after pos_reset",
+        "",
+        "PASS: tb_drum_gen_posreset - 5/5 judgements held",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_drum_gen_posreset.sv:278: $finish called at 158212460000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_drum_timbre_top",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_drum_timbre_top.log",
+      "tail": [
+        "  info: voices with axis=15 and gate high = 2  (2 drum events were emitted)",
+        "  ok  : T4 note_manager latched a voice for the drum (axis 15, gate high)",
+        "  ok  : T4b the drum voice timbre is DRUM_TIMBRE(2), NOT the keyboard's 3",
+        "  ok  : T5 after the keyboard timbre changed, the drum timbre is STILL 2",
+        "PASS: drum_timbre_top -- the drum machine keeps its own timbre when the keyboard timbre changes",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_drum_timbre_top.sv:280: $finish called at 85330000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_evt_buf",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_evt_buf.log",
+      "tail": [
+        "  ok  : 11j clear resets high_water (shared with ovf_clr_i)",
+        "  ok  : 11k small instance HIGH_WM derives to 8-2 = 6",
+        "  ok  : 11l delivery instance HIGH_WM derives to 1024-256 = 768",
+        "",
+        "PASS: tb_evt_buf - 76/76 judgements held",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_evt_buf.sv:364: $finish called at 86100000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_evt_buf_clear_collision",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_evt_buf_clear_collision.log",
+      "tail": [
+        "PASS: clear retains a same-cycle new overflow",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_evt_buf_clear_collision.sv:19: $finish called at 160000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_evt_merge",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_evt_merge.log",
+      "tail": [
+        "  ok  : all THREE sources survived a same-cycle collision (52 -> 55)",
+        "  ok  : each of the three keeps its OWN source tag (A=0 B=3 C=4)",
+        "  ok  : A8 no X/Z on evt_merge outputs",
+        "  ok  : DEPTH9 浣嶅濂戠害 + 杞欢鍙傝€冩ā鍨嬮€愭媿涓€鑷达紙checks=656 full=81 reject=126 triple=100 wraps=72锛?",
+        "  ok  : P0-16 楗卞拰鍒ゆ嵁 drop_cnt_o=0xffff锛堢亴 40000 鎷?x push_n 鍧囧€?2 > 65535锛?",
+        "PASS: evt_merge never drops a same-cycle collision, is single-cycle, rotates, and reports overflow",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_evt_merge_diff",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_evt_merge_diff.log",
+      "tail": [
+        "",
+        "=== evt_merge 閫愭媿宸垎锛欴EPTH 2/3/4/6/9 脳 20000 鎷?===",
+        "    姣旇緝娆℃暟 = 100330   涓嶄竴鑷?= 0",
+        "PASS: 鏂版棫 evt_merge 鍦?5 绉?DEPTH 涓嬮€愭媿閫愪綅鐩稿悓锛?2 缁勮緭鍑猴級",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_evt_merge_diff.sv:143: $finish called at 401320000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_evt_uart_rx",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_evt_uart_rx.log",
+      "tail": [
+        "  ok  : 10 back-to-back frames all parsed, payloads exact",
+        "  ok  : evt_valid_o is strictly single-cycle",
+        "  ok  : evt_valid_o and evt_data_o are the same beat (14/14)",
+        "  ok  : conservation -- frame_cnt=14 == events emitted, drop_cnt=2 exactly",
+        "  ok  : A8 no X/Z on evt_uart_rx outputs",
+        "PASS: evt_uart_rx frames 64-bit events at real baud, never false-syncs on a 0xA5 payload, drops the reset sequence, and self-heals on idle gaps",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_evt_uart_rx_gate",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_evt_uart_rx_gate.log",
+      "tail": [
+        "  ok  : G3 the gate was actually exercised (uart_ui.in_frame_o was high)",
+        "      [dbg] G2: legal score packet  evt=1  (frame_cnt=1 hdr_err=16)",
+        "  ok  : G2 a LEGAL score packet (sent between frames) still produces exactly 1 event",
+        "",
+        "PASS: tb_evt_uart_rx_gate 鈥?3/3 judgements held (P0-02 闂ㄦ帶鍙屽悜楠岃瘉)",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_evt_uart_rx_gate.sv:238: $finish called at 445440000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_evt_uart_rx_screen",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_evt_uart_rx_screen.log",
+      "tail": [
+        "==============================================================",
+        "DIAGNOSTIC_CONFIRMED: bare score parser accepts 8 spurious events from mixed screen bytes",
+        "PASS: bare-parser characterization unchanged -- 8 spurious events, as documented",
+        "      (CHARACTERIZATION of a known module-level limitation, NOT a safety verdict;",
+        "       the safety criterion lives in tb/w3c/tb_evt_uart_rx_gate.sv)",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_evt_uart_rx_screen.sv:204: $finish called at 381760000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_evt_upstream",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_evt_upstream.log",
+      "tail": [
+        "  ok  : the drum bit did NOT disturb bits [5:4] (timbre)",
+        "  ok  : the drum bit did NOT disturb the axis in [3:0]",
+        "  ok  : re-disabled: no further frames are emitted",
+        "",
+        "PASS: evt_upstream -- v1.1 14-byte frames with the FULL 32-bit phase_inc, correct type/seq/tick/axis/vel/XOR, gated by enable, and overflow is counted and sticky",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_evt_upstream.sv:323: $finish called at 18100000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_evt_upstream_queue",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_evt_upstream_queue.log",
+      "tail": [
+        "PASS: upstream full queue preserves accepted events and capture timestamps",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_evt_upstream_queue.sv:52: $finish called at 4680000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fx_chain",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fx_chain.log",
+      "tail": [
+        "  ok  : C9b no X on valid_o",
+        "  ok  : C9c no X on en_mask_o",
+        "  ok  : C9d no X on chor_active_o",
+        "  ok  : C10 non-vacuous: all-off and distortion-only give DIFFERENT outputs",
+        "PASS: fx_chain -- all-off bit-exact, reverb placeholder, delay+chorus run TOGETHER in series",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_fx_chain.sv:510: $finish called at 9422860000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fx_chain_latency_contract",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fx_chain_latency_contract.log",
+      "tail": [
+        "NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118",
+        "NOTE [fx_delay] DEPTH=2048 samples = 41 ms @48828.125Hz | MEM_W=18 => 36864 bit / 18432 bit-per-block = 2 BSRAM block(s) of 118",
+        "NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118",
+        "OBSERVED_CHAIN_LATENCY=19 metadata=19",
+        "PASS: fx_chain public latency contract: 128 samples, dry and clipping path, production RAM parameters, exact 19-cycle valid and metadata",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_fx_chain_latency_contract.sv:58: $finish called at 21280000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fx_delay_chorus_floor",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fx_delay_chorus_floor.log",
+      "tail": [
+        "  ok  : C14f no saturation on this ramp (sat_cnt_o == 0)",
+        "  ok  : C14g no X on sample_o",
+        "  ok  : C14h write pointer advanced once per sample",
+        "NOTE C14: checked=96 peak_samples=3 failures=0 worst_abs_err=8192 TOL=16384 D_expected=129",
+        "PASS: fx_delay chorus read floor -- MOD+1 = 129 samples of guard, no lap-around at the LFO peak",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_fx_delay_chorus_floor.sv:200: $finish called at 343360000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fx_delay_production",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fx_delay_production.log",
+      "tail": [
+        "NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118",
+        "PASS: fx_delay production 16384x18 memory priming, exact nine-sample echo and three feedback decays, 16416 outputs",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_fx_delay_production.sv:51: $finish called at 2626860000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fx_dist",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fx_dist.log",
+      "tail": [
+        "  ok  : D10a no X on sample_o",
+        "  ok  : D10b no X on valid_o",
+        "  ok  : D10c no X on clip_cnt_o",
+        "  ok  : D10d no X on peak_o",
+        "PASS: fx_dist -- bypass bit-exact, hard clip saturates, gain monotonic, trim scales",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_fx_dist.sv:307: $finish called at 51840000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fx_dist_stream_contract",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fx_dist_stream_contract.log",
+      "tail": [
+        "PASS: fx_dist public stream contract: 266 samples, exact 5-cycle latency, atomic controls, peak/clip alignment and reset",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_fx_dist_stream_contract.sv:100: $finish called at 37900000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fx_trem",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fx_trem.log",
+      "tail": [
+        "  ok  : T9b no X on valid_o",
+        "  ok  : T9c no X on lfo_o",
+        "  ok  : T9d no X on gain_o",
+        "  ok  : T10 non-vacuous: depth=0 and depth=255 give DIFFERENT outputs",
+        "PASS: fx_trem -- bypass bit-exact, depth swings, rate controls LFO",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_fx_trem.sv:275: $finish called at 232120000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_fx_trem_stream_contract",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_fx_trem_stream_contract.log",
+      "tail": [
+        "PASS: fx_trem public stream contract: 773 samples, exact 3-cycle latency, atomic depth/rate/enable, phase wrap and reset",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_fx_trem_stream_contract.sv:75: $finish called at 93320000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_guide_lamp",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_guide_lamp.log",
+      "tail": [
+        "  ok  : Q4-e NON-VACUOUS: another pitch's note_off DOES clear its own lamp (key0 dark, key9 lit)",
+        "  ok  : Q4-f clean at the end",
+        "  ok  : Q4-g count saturates at 7 but the lamp is still on",
+        "  ok  : Q4-h saturation SELF-HEALS: 8 ONs + 8 OFFs leaves every lamp dark (no hanging lamp)",
+        "PASS: tb_guide_lamp (41 checks)",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_guide_lamp.sv:595: $finish called at 4371000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_i2s_tx",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_i2s_tx.log",
+      "tail": [
+        "  ok : HP_WS 鍛ㄦ湡鎭板ソ 1024 clk锛?8.828125 kHz锛?",
+        "  ok : HP_WS 浣?= 宸﹀０閬擄紙260 涓抚璧风偣澶勫潎涓轰綆锛?",
+        "  ok : A8 鏃?X/Z 浼犳挱锛圚P_BCK/HP_WS/HP_DIN锛?",
+        "",
+        "PASS: i2s_tx + S2 瑙ｄ覆閫愮偣涓€鑷达紙M1 鐨勬牳蹇冨垽鎹€氳繃锛?",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_i2s_tx.sv:222: $finish called at 5325051000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_i2s_tx_prbs",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_i2s_tx_prbs.log",
+      "tail": [
+        "  ok : L channel: every value (incl. all bit patterns) round-trips exactly",
+        "  ok : R channel: every value round-trips exactly",
+        "  ok : A8 no X/Z",
+        "",
+        "PASS: i2s_tx round-trips the full 24-bit value range, every single-bit pattern, and the truncation edge cases",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_i2s_tx_prbs.sv:197: $finish called at 11878651000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_i2s_tx_sweep",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_i2s_tx_sweep.log",
+      "tail": [
+        "  ok : A8 no X/Z on all three HP_DIN nets",
+        "  R-14 extreme samples (0x7FFFFF / 0x800000 / 0 / 0xFFFFFF): ok 66 / bad 0",
+        "  ok : R-14 鏋佺鏍风偣鎴柇姝ｇ‘锛堝彇楂?16 浣嶃€佷笉婧㈠嚭锛涒垝0.5LSB 鐩存祦鍋忕疆涓哄凡鐭ュ彇鑸嶏級",
+        "",
+        "PASS: i2s_tx works in every parameter mode (incl. 16BCK equivalence and the inconsistent-parameter negative proof)",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_i2s_tx_sweep.sv:419: $finish called at 1392891000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_i2s_tx_timing",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_i2s_tx_timing.log",
+      "tail": [
+        "  ok : WS setup to BCK rising edge = 160 ns (>= 100)",
+        "  ok : no bit period had more than one DIN change (glitch-free)",
+        "  ok : A8 no X/Z",
+        "",
+        "PASS: I2S output timing has >=100ns setup/hold around the DAC sampling edge (PT8211 manual limits met)",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_i2s_tx_timing.sv:184: $finish called at 368891000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_key_drum",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_key_drum.log",
+      "tail": [
+        "NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.",
+        "=== tb_key_drum: keyboard-as-drums ===",
+        "  INFO: byte[0] = 0x6b (got=1)",
+        "PASS: key_drum -- keyboard-as-drums maps 4 instruments by axis[3:2] and stays decoupled",
+        "INFO: checks=181 errors=0",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_key_drum.sv:460: $finish called at 77270000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_lamp_stuck_clear",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_lamp_stuck_clear.log",
+      "tail": [
+        "  ok  : 5a-pre the idle counter was reset by the stream coming back (not stuck at the limit)",
+        "  ok  : 5b the lamp is still lit during the hiccup (the timeout has not fired yet)",
+        "  ok  : 5c the lamp survived a 0.5 s stream hiccup (counter reset, no false clear)",
+        "",
+        "PASS: tb_lamp_stuck_clear - 13/13 judgements held",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_lamp_stuck_clear.sv:263: $finish called at 71110000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_led_data",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_led_data.log",
+      "tail": [
+        "  ok  : status: upper 8 bits pass through unchanged",
+        "  ok  : commit: no change => commit stays 0",
+        "  ok  : commit: pulses for exactly the change cycle (1st cycle high)",
+        "  ok  : commit: returns to 0 the very next cycle (single-cycle pulse)",
+        "  ok  : commit: blink toggle does NOT trigger commit when only active keys lit",
+        "PASS: led_data (steady active / blinking guide / priority / status passthrough / single-cycle commit)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_looper",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_looper.log",
+      "tail": [
+        "  ok  : CLEARPIPE-d (PIPE) and it is gone again => the pulse is NOT stretched into a level",
+        "  ok  : CLEARPIPE-e (NON-VACUOUS) a SINGLE-cycle pulse still clears the layer after the pipeline",
+        "  ok  : CLEARPIPE-f the clear fired EXACTLY ONCE: a later recording is not wiped again",
+        "  ok  : CLEARPIPE-g ... and it is still there 60 cycles later (no lingering second clear)",
+        "PASS: looper T37 record/replay, no-hang incl. axis 15, clear, same-tick, overflow, clear-pipeline one-shot",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_looper.sv:957: $finish called at 206860000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_looper_bar_align",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_looper_bar_align.log",
+      "tail": [
+        "     [dbg] B: wrap[7] grid=0 tick=10368",
+        "     [dbg] B: wrap[8] grid=0 tick=10944",
+        "     [dbg] B: wrap[9] grid=0 tick=11520",
+        "     [dbg] B: wrap[10] grid=0 tick=12096",
+        "PASS: looper T41 bar alignment -- arm/quantize/align across 10 wraps",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_looper_bar_align.sv:436: $finish called at 4151220000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_looper_no_drum",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_looper_no_drum.log",
+      "tail": [
+        "  ok  : N1 (NON-VACUOUS) the normal note_on IS still recorded and replayed",
+        "  ok  : N2 (NON-VACUOUS) the normal note_off IS still recorded and replayed",
+        "== 3: record a drum ONLY ==",
+        "  ok  : A3 a recording that contains ONLY drums ends up empty (0 events, was 2)",
+        "PASS: tb_looper_no_drum -- drums never enter the loop, normal notes still do",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_looper_no_drum.sv:322: $finish called at 16620000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_looper_replay_tail",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_looper_replay_tail.log",
+      "tail": [
+        "  ok  : C2 the REPLAYED release slope is IDENTICAL to the live one (same timbre step)",
+        "  ok  : C3 the REPLAYED release starts at the SAME level as live (same tail length)",
+        "  ok  : C4 the REPLAYED voice uses the RECORDED timbre PAD(3), not the current key timbre BASS(0)",
+        "  ok  : C5 the replayed note_off carries the recorded END velocity (120), not the onset (20)",
+        "PASS: looper replay keeps the SAME per-timbre release tail as the live note",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_looper_replay_tail.sv:541: $finish called at 24115280000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_looper_tail",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_looper_tail.log",
+      "tail": [
+        "  ok  : tail: replay vel at note_off equals live vel at note_off (all gestures)",
+        "  ok  : tail: replayed env level at note_off is within 10 percent of the live one",
+        "  ok  : tail: replayed release duration is within 10 percent of the live one",
+        "  ok  : tail: every gesture matched between live and replay",
+        "PASS: looper tail -- replayed PAD note releases like the live one",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_looper_tail.sv:601: $finish called at 912210000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_looper_wire_pitch",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_looper_wire_pitch.log",
+      "tail": [
+        "PASS: recording exports score-unit pitch and observable quantization",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_looper_wire_pitch.sv:44: $finish called at 920000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_master_mix",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_master_mix.log",
+      "tail": [
+        "  ok  : ramp: settles at ~129 ticks (16384/128 steps + 1 settle cycle)",
+        "  ok  : ramp: output mid-ramp is NOT the full-gain value (no click)",
+        "  ok  : saturation: max positive sample at unity gain stays valid (no wrap)",
+        "  ok  : saturation: min negative sample at unity gain stays valid (no wrap)",
+        "  ok  : valid: valid_o is asserted the SAME cycle as valid_i (no backpressure)",
+        "PASS: master_mix (mute-safe reset / unity passthrough / exact Q1.15 scaling / smooth ramp / saturation / zero-latency valid)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_met_start_top",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_met_start_top.log",
+      "tail": [
+        "  info: beat 7 (bar=0)  vcnt=8  tcnt=8  triggers_this_beat=1",
+        "  ok  : T4 exactly ONE metronome event per emulated beat (8 events)",
+        "  ok  : T5 velocity pattern is accent-weak-weak-weak (180,108,108,108 x2)",
+        "  ok  : T6 EVERY beat really fired the perc envelope (8 triggers for 8 events)",
+        "PASS: met_start_top -- metronome starts on the DOWNBEAT and every beat fires",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_met_start_top.sv:252: $finish called at 545530000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_metronome",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_metronome.log",
+      "tail": [
+        "  ok  : gate: the counter must not advance while transport_i=0",
+        "  ok  : gate: the SAME pulse DOES emit once transport_i=1 (gate is not stuck shut)",
+        "  ok  : gate: the counter advanced to 1",
+        "  ok  : gate: lowering transport_i again immediately blocks events",
+        "  ok  : gate: the counter stayed at 1",
+        "PASS: metronome emits one event per beat in step with beat_gen, accents on bar_start, dedicated axis",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_perc_env_bank",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_perc_env_bank.log",
+      "tail": [
+        "  ok  : velocity latch: peak loaded from velocity at trigger time",
+        "  ok  : velocity latch: changing velocity MID-NOTE does NOT change the ringing peak",
+        "  ok  : velocity latch: the note keeps decaying from its ORIGINAL peak",
+        "  ok  : velocity latch: previous note finished",
+        "  ok  : velocity latch: the NEXT trigger picks up the NEW velocity (255 => 65280)",
+        "PASS: perc_env_bank one-shot decay (peak / monotonic / exact length / active clears / independent / retriggerable)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_perc_env_top",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_perc_env_top.log",
+      "tail": [
+        "  ok  : P3b decay_length_matches_DECAY_STEP (not just 'reaches zero')",
+        "  [perc] zero_ticks=7 (expected 7..8), zero_st=1 (2=DONE)",
+        "  ok  : P4 edge_detect_fired_EXACTLY_ONCE (not level-triggered)",
+        "  ok  : P5 perc_active_drops_after_decay",
+        "PASS: perc_env_top -- reserved pool is one-shot percussive (K-144 fixed)",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_perc_env_top.sv:280: $finish called at 168130000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_play_seq",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_play_seq.log",
+      "tail": [
+        "  ok  : note_valid_o and note_data_o same beat (8/8)",
+        "  ok  : evt_cnt_o = 11 = pushed events (no double-read, none lost)",
+        "  ok  : forward-dated event held back for 5 ticks (not emitted early)",
+        "  ok  : no events consumed while run_i=0 (gate really works)",
+        "  ok  : A8 no X/Z on play_seq outputs",
+        "PASS: play_seq emits every due event (whole chord within one tick), latches data with valid, handshakes a standard FIFO once, applies tempo, rejects tick_inc=0, reports underrun",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_play_seq_lead",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_play_seq_lead.log",
+      "tail": [
+        "  ok  : L4a due_limit is computed in 21 bits (0xFFFFF + 960 = 1049535, not 959)",
+        "  ok  : L4b the 20-bit truncation would have given 959 (so L4a is non-vacuous)",
+        "  ok  : L5a tempo event is NOT emitted as a note (kind=2 never drives note_valid_o)",
+        "  ok  : L5b tempo was applied (tempo_applied_o pulsed)",
+        "PASS: play_seq lead -- 0 is bit-exact, 960 is exact, no 20-bit wrap",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_play_seq_lead.sv:216: $finish called at 455470000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_pos_probe",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_pos_probe.log",
+      "tail": [
+        "== 7: A8 ==",
+        "  ok  : A8: data 鏃?X/Z",
+        "  ok  : A8: busy 鏃?X/Z",
+        "",
+        "PASS: pos_probe emits 'P<4 digits>CRLF' on request, latches the reading, and never drops when the sink is busy",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_pos_probe.sv:219: $finish called at 6050000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_pos_probe_axis",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_pos_probe_axis.log",
+      "tail": [
+        "  ok  : A8 pp_data has no X/Z",
+        "  ok  : A8 pp_axis_r has no X/Z",
+        "  ok  : A8 af0_pol/af1_pol have no X/Z",
+        "",
+        "PASS: pos_probe_axis -- 'P' rotates over 16 axes and reports the raw code of the chip selected by axis[3] (chip 1 observable)",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_pos_probe_axis.sv:439: $finish called at 18870000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_pos_probe_exhaustive",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_pos_probe_exhaustive.log",
+      "tail": [
+        "PASS: all 4096 values, 16 channel tags, snapshot mutation and blocked queue PREFIX=50",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_pos_probe_exhaustive.sv:61: $finish called at 2313140000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_rec_dump",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_rec_dump.log",
+      "tail": [
+        "  ok  : G1 first dump pushed 28 bytes (14 x 2)",
+        "  ok  : G2 the dump can be triggered AGAIN (no stuck state)",
+        "  ok  : G3 the second dump is well-formed too",
+        "",
+        "PASS: tb_rec_dump - 61/61 judgements held",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_rec_dump.sv:282: $finish called at 8260000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_rec_dump_status",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_rec_dump_status.log",
+      "tail": [
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "PASS: atomic record frames and public frame/loss/reject footer",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_rec_dump_status.sv:36: $finish called at 1040100000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_rec_dump_uart",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_rec_dump_uart.log",
+      "tail": [
+        "NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)",
+        "PASS: two complete 14-byte v1.1 frames through real FIFO and 500kbps UART",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_rec_dump_uart.sv:72: $finish called at 600100000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_score_chain",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_score_chain.log",
+      "tail": [
+        "  ok  : 6a overflow is sticky-visible on the chain",
+        "  ok  : 6b drop_cnt == 1 (the 9th event was dropped, NOT silently)",
+        "  ok  : 6c buffer holds exactly DEPTH",
+        "",
+        "PASS: tb_score_chain - 21/21 judgements held",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_score_chain.sv:236: $finish called at 4380000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_score_looper_coexist",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_score_looper_coexist.log",
+      "tail": [
+        "  ok  : looper replay emits a note_off",
+        "  ok  : loop_note_off_keeps_score_voice: the score's voice is STILL gated",
+        "  ok  : loop_note_off_keeps_score_voice: only the loop's own voice was cleared",
+        "  ok  : loop_interp_update_reaches_loop_voice: the score voice's velocity is untouched",
+        "  ok  : final score note_off releases the last voice (no stuck voice)",
+        "PASS: score UART and looper coexist; source tags isolate note_off (ok=17)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_seq_arb",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_seq_arb.log",
+      "tail": [
+        "  ok  : score axis==11 inc passes through unchanged (aaa0011)",
+        "  ok  : score axis==2 still => SRC_SCORE (1) -- the drum marker is NOT over-broad",
+        "  ok  : score axis==2 inc passes through unchanged (aaa0002)",
+        "PASS: A1 DEPTH9 width and behavioral queue checks=656 full=142 reject=67 triple=43 wraps=72",
+        "PASS: seq_arb 澶氭簮鍚屾媿涓嶄涪銆佹紨绀鸿浣嶃€佹孩鍑哄彲瑙併€佸崟鍛ㄦ湡銆佹棤 X/Z",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_seq_arb.sv:1001: $finish called at 13120000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_tlc5916_bank",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_tlc5916_bank.log",
+      "tail": [
+        "  ok  : after 3-chip write: OE all high (back to IDLE)",
+        "  ok  : after 3-chip write: busy 0",
+        "  ok  : global_blank: OE stays all high during write",
+        "      [dbg] P0-08 driver.pending 缃綅娆℃暟 = 0锛堝簲涓?0锛?",
+        "  ok : P0-08 start 鏄伆濂?1 鎷嶏紙driver.pending 浠庢湭琚疆浣嶏級",
+        "PASS: tlc5916_bank (CH->OUT full-table remap / 3-chip seq / per-board OE / global blank)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_tlc5916_refresh",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_tlc5916_refresh.log",
+      "tail": [
+        "PASS: shared-bus three-board refresh, mapping, dwell and safe OE",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_tlc5916_refresh.sv:48: $finish called at 3220200000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_guide_axes",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_guide_axes.log",
+      "tail": [
+        "  ok  : 3d a third pitch on the SAME axis lit yet another lamp (key 4)",
+        "  ok  : 3e popcount == 7  <-- a single track drove SEVEN different lamps (was 1 before)",
+        "  ok  : 3f its note_off cleared ONLY key 14 (key 4 and the rest untouched)",
+        "",
+        "PASS: tb_top_guide_axes - 21/21 judgements held",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_top_guide_axes.sv:330: $finish called at 1880110000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_top_guide_bit6",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_top_guide_bit6.log",
+      "tail": [
+        "  ok  : 5b' the head tempo frame (kind=2, tick=0) cleared the latch  <-- the fix",
+        "  ok  : 5c the replayed bit6=0 note_on fired",
+        "  ok  : 5d a REPLAY still lit key 4  <-- RED before the fix: the clear was on met_start only",
+        "",
+        "PASS: tb_top_guide_bit6 - 32/32 judgements held",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_top_guide_bit6.sv:428: $finish called at 2357610000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_uart_rx",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_uart_rx.log",
+      "tail": [
+        "  ok  : sync reset: rx_done_o cleared",
+        "  ok  : after reset the receiver still works",
+        "  ok  : sample point: a +3% slower transmitter still decodes (mid-bit sampling)",
+        "  ok  : sample point: a -3% faster transmitter still decodes (mid-bit sampling)",
+        "  ok  : sample point: a +4% slower transmitter still decodes",
+        "PASS: uart_rx 8N1 at REAL baud (BAUD_DIV=50 => 1000000 bps): 10 patterns, back-to-back, glitch reject, single-cycle done, sync reset",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_uart_tx",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_uart_tx.log",
+      "tail": [
+        "  ok  : reset returns tx to the idle HIGH level",
+        "  ok  : reset clears busy_o",
+        "  ok  : after reset the transmitter still works (0xC3 round-trips)",
+        "",
+        "PASS: uart_tx sends 8N1 LSB-first, latches its data, spans busy over the frame, pulses done for one cycle, ignores start-while-busy and survives mid-byte data changes -- all verified by loopback through the real uart_rx",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_uart_tx.sv:363: $finish called at 863510000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_uart_tx_fifo",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_uart_tx_fifo.log",
+      "tail": [
+        "== 8: A8 ==",
+        "  ok  : A8: tx_data 鏃?X/Z",
+        "  ok  : A8: ovf / drop_cnt 鏃?X/Z",
+        "",
+        "PASS: uart_tx_fifo queues bytes (never drops while busy), surfaces overflow, and clears on demand",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_uart_tx_fifo.sv:235: $finish called at 6710000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_uart_tx_fifo_clear_drop",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_uart_tx_fifo_clear_drop.log",
+      "tail": [
+        "PASS: concurrent clear/drop preserves new loss, plain clear empties history",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_uart_tx_fifo_clear_drop.sv:22: $finish called at 320000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_uart_tx_fifo_pipeline_equiv",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_uart_tx_fifo_pipeline_equiv.log",
+      "tail": [
+        "PASS: FIFO cycle equivalence 50412 cycles, 8372 launches",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_uart_tx_fifo_pipeline_equiv.sv:52: $finish called at 1008240000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    },
+    {
+      "test": "tb_uart_ui",
+      "per_test_native_exit": "not retained by the unmodified production runner",
+      "log": "sim\\evidence\\tb_uart_ui.log",
+      "tail": [
+        "  ok  : ???-> ???resync_cnt>0)",
+        "  ok  : ????-> err_cnt ???????????",
+        "  ok  : ?????懜 mode=~??",
+        "  ok  : ?? frame_cnt ??",
+        "PASS: tb_uart_ui (69 checks)",
+        "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\tb\\w3c\\tb_uart_ui.sv:575: $finish called at 48220000 (1ps)",
+        "",
+        ""
+      ],
+      "status": "OBSERVED_PASS",
+      "archived_fresh_evidence_directory": "review/regression_evidence"
+    }
+  ]
+}

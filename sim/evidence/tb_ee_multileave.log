@@ -1,5 +1,5 @@
 ﻿NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x400 REL_TH=0x300 DELTA_TH=8 REFRACT_N=150)
-VCD info: dumpfile build/sim/tb_ee_multileave/tb_ee_multileave.vcd opened for output.
+VCD info: dumping is suppressed.
 --- MLEAVE-1锛氣瓙 杞?3 涓庤酱 5 銆愬悓甯т竴璧风寮€銆戔噿 A 蹇呴』鏄€愭渶灏忋€戣酱鍙?3 ---
   ok  : leaving in ONE frame must still raise slide_valid_o (via axis 4)
   ok  : T leaving axis (3), not the highest (5) -- comment :328 says MIN
@@ -12,6 +12,6 @@ VCD info: dumpfile build/sim/tb_ee_multileave/tb_ee_multileave.vcd opened for ou
   ok  : MLEAVE-3b single leaving axis => A == that axis
 
 PASS: event_extract multi-axis-leave -- A is the LOWEST leaving axis, and a slide is not lost
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_ee_multileave.sv:231: $finish called at 2430000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_ee_multileave.sv:231: $finish called at 2430000 (1ps)
 
 

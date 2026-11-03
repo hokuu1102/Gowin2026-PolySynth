@@ -19,6 +19,6 @@ NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift
   ok  : full-travel usable: mid-fader depth is clearly BELOW full-travel depth
   ok  : full-travel usable: mid-fader depth is clearly NON-ZERO (fader really does something)
 PASS: vibrato LFO hysteresis, slew and phase continuity
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_vibrato_lfo.sv:173: $finish called at 2070000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_vibrato_lfo.sv:173: $finish called at 2070000 (1ps)
 
 

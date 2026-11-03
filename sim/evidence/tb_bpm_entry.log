@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_bpm_entry/tb_bpm_entry.vcd opened for output.
+﻿VCD info: dumping is suppressed.
   ok  : reset default tick_inc = 164927 (120 BPM, NOT 0)
   ok  : bpm_load 140 => tick_inc = 140*1374+47 = 192407
   ok  : 20 => tick_inc is BIT-IDENTICAL to TICK_INC_DEFAULT (the anchor)
@@ -15,6 +15,6 @@
   ok  : non-vacuous: different BPM really produce different tick_inc
 
 PASS: play_seq BPM entry -- tick_inc = BPM*1374+47, anchored exactly at 120 BPM, clamped to 40..240, and observable
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_bpm_entry.sv:208: $finish called at 1330000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_bpm_entry.sv:208: $finish called at 1330000 (1ps)
 
 

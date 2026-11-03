@@ -1,0 +1,45 @@
+NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=10000000 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=50000000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 交付口径: 基准=64 · OUTPUT_HEADROOM_SH=1 => 单音峰 ≈ 25% FS
+NOTE [fx_delay] DEPTH=2048 samples = 41 ms @48828.125Hz | MEM_W=18 => 36864 bit / 18432 bit-per-block = 2 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=12500000 GAP_BYTES=16 BYTE_CLK=40 HEADER=a5 N_CMD=26 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [ctrl_keypad] PARAM_OK=1 (SCAN_DIV=4 DEB_N=2 CLK_HZ=50000000 scan_us=0 db_ms=0)
+NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=50000000 LONG_MS=2000 LONG_CYC=100000000 HW=27)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=4 => 12500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
+NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
+CHECK page0 physical mode switch before=t_mode.txt="钢琴模式 [PIANO]" after=t_mode.txt="指板模式 [FRET]"
+CHECK page0 keydrum state before=t_kd.txt="打鼓: 关闭 [音符演奏]" after=t_kd.txt="打鼓: 开启 [键位打鼓]"
+CHECK page0 reverse mode switch before=t_mode.txt="指板模式 [FRET]" after=t_mode.txt="钢琴模式 [PIANO]"
+CHECK page0 reverse keydrum before=t_kd.txt="打鼓: 开启 [键位打鼓]" after=t_kd.txt="打鼓: 关闭 [音符演奏]"
+CHECK page0 slide ON before=t_slide.txt="关闭 (GLIDE OFF)" after=t_slide.txt="开启 (GLIDE ON)"
+CHECK page0 slide OFF before=t_slide.txt="开启 (GLIDE ON)" after=t_slide.txt="关闭 (GLIDE OFF)"
+CHECK page0 uplink ON before=b_uplink.txt="● 实时上行: 关闭" after=b_uplink.txt="● 实时上行: 开启"
+CHECK page0 uplink OFF before=b_uplink.txt="● 实时上行: 开启" after=b_uplink.txt="● 实时上行: 关闭"
+CHECK serial O uplink ON before=b_uplink.txt="● 实时上行: 关闭" after=b_uplink.txt="● 实时上行: 开启"
+CHECK serial O uplink OFF before=b_uplink.txt="● 实时上行: 开启" after=b_uplink.txt="● 实时上行: 关闭"
+CHECK z_dg.val= before=z_dg.val=25 after=z_dg.val=15
+CHECK t_dg_val.txt= before=t_dg_val.txt="25%" after=t_dg_val.txt="15%"
+CHECK z_dt.val= before=z_dt.val=12 after=z_dt.val=15
+CHECK t_dt_val.txt= before=t_dt_val.txt="12%" after=t_dt_val.txt="15%"
+CHECK z_cl.val= before=z_cl.val=35 after=z_cl.val=62
+CHECK t_cl_val.txt= before=t_cl_val.txt="35%" after=t_cl_val.txt="62%"
+CHECK z_mx.val= before=z_mx.val=50 after=z_mx.val=15
+CHECK t_mx_val.txt= before=t_mx_val.txt="50%" after=t_mx_val.txt="15%"
+CHECK z_ll.val= before=z_ll.val=50 after=z_ll.val=31
+CHECK t_ll_val.txt= before=t_ll_val.txt="50%" after=t_ll_val.txt="31%"
+CHECK z_lf.val= before=z_lf.val=37 after=z_lf.val=15
+CHECK t_lf_val.txt= before=t_lf_val.txt="37%" after=t_lf_val.txt="15%"
+CHECK EC11 gain needle after Ee report before=z_dg.val=12 after=z_dg.val=14
+CHECK EC11 gain number after Ee report before=t_dg_val.txt="12%" after=t_dg_val.txt="14%"
+CHECK EC11 reverse needle after Ee report before=z_dg.val=14 after=z_dg.val=12
+CHECK EC11 reverse number after Ee report before=t_dg_val.txt="14%" after=t_dg_val.txt="12%"
+PASS: mode, keydrum and six gauge/number pairs update
+D:\ChatGPT\Projects\FPGA\fix-hmi-protocol-boundary-20261103\tb\top\tb_top_hmi_protocol_boundary.sv:153: $finish called at 3720000000 (1ps)

@@ -40,6 +40,17 @@ module tb_right_analog_ctrl;
         chk("CH1 minimum maps to hard mute", dut.master_gain_lut(6'd0) == 16'd0);
         chk("CH1 midpoint uses logarithmic attenuation", dut.master_gain_lut(6'd32) == 16'd1095);
         chk("CH1 maximum maps to Q1.15 unity", master_gain == 16'h7fff);
+        // Sweep the full ADC range: cover both 3% end zones and every boundary.
+        previous_gain = 0;
+        for (idx=0; idx<4096; idx=idx+1) begin
+            sample(3'd1, idx); @(negedge clk);
+            if(master_gain < previous_gain)$fatal(1,"volume nonmonotonic at ADC=%0d",idx);
+            if(idx<=128 && master_gain!==0)$fatal(1,"bottom dead zone not muted");
+            if(idx>=3968 && master_gain!==16'h7fff)$fatal(1,"top dead zone not unity");
+            if(idx>128 && idx<3968 && (master_gain==0 || master_gain>=16'h7fff))
+                $fatal(1,"middle span lost logarithmic attenuation");
+            previous_gain=master_gain;
+        end
         sample(3'd2, 12'd321); @(negedge clk);
         chk("CH2 captures vibrato depth", depth == 12'd321 && !param_valid);
         sample(3'd3, 12'd654);
@@ -51,5 +62,5 @@ module tb_right_analog_ctrl;
         else $fatal(1, "FAIL: right_analog_ctrl has %0d error(s)", errors);
         $finish;
     end
-    initial begin #5000; $fatal(1, "FAIL: tb_right_analog_ctrl timeout"); end
+    initial begin #200000; $fatal(1, "FAIL: tb_right_analog_ctrl timeout"); end
 endmodule

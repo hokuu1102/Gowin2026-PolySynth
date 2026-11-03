@@ -1,0 +1,33 @@
+{
+  "source_commit": "55c64c3384d9a01c63385221f85a2cf464e8804d",
+  "baseline_commit": "8c05c95",
+  "native_candidate": "kept-bank-flags",
+  "tool": "Gowin V1.9.12.03",
+  "part": "GW5AT-LV60PG484AC1/I0",
+  "source_git_blob_matches_compiled_guide_normalized_eol": true,
+  "compiled_guide_sha256": "1069d3383ff4d37160a0bffe43c125ab6dcb7e1a6956321e5047d28473094e75",
+  "bitstream_sha256": "aa461bc4178620e02614ffd159e4670d6acc6c6f05c5e091790d61af6da54d5c",
+  "bitstream_bytes": 20561439,
+  "raw_slack": {
+    "SETUP": -3.031,
+    "HOLD": 0.184,
+    "RECOVERY": 0.25,
+    "REMOVAL": 0.203
+  },
+  "original_P0_30_gate_pass": true,
+  "targeted_cases": 11,
+  "targeted_all_pass": true,
+  "board_acceptance": "pending; this package does not assert real-board audio/BLE/long-run validation",
+  "files": {
+    "Gowin2026-timing-20261029.fs": "aa461bc4178620e02614ffd159e4670d6acc6c6f05c5e091790d61af6da54d5c",
+    "input-audit.json": "015e54222245e2857fa6c2592d9cb8b4dd9fb9bf9b9ce0a591c988f5efd67a2d",
+    "inputs.json": "7aad11ec1459aed0afb9be16d0438767c766fa3d5f8297e3742117df40bea638",
+    "native-resources.txt": "65dab2e03f4828d4317707e6f25032444950b544167667564d12afaa8206fb40",
+    "native-result.json": "25631130a864972c734951b71963b495e29f9ab6736534c769b0aabf7179e3b3",
+    "native-STA.html": "7b0f806b1199424533d1b74ae251cb0c421c9437752ebd16622d3dd4fa3e8916",
+    "targeted-tests.json": "327ae6c86ce0fc365d643447c1b11404783b52d66d9a8faaeb3431a9bb3bc9f8",
+    "timing-gate.log": "f58cd4cec5c763357336fc31362550e2959de9ba1265063dcc6e711b4fe43139",
+    "timing-optimization.patch": "9e43b465c509a036a5c1ad26d43b4e8d784a2c1898bf0a42c859c30ad0224521",
+    "\u65f6\u5e8f\u4f18\u5316\u7ed3\u679c.md": "caee6102184a625b583ae7a2993b92e61a0a3cb750f225383e6dc4a3b80b726d"
+  }
+}

@@ -18,6 +18,6 @@
 ==================================================================
 tb_calib_span_err: checks=12 errors=0
 PASS: span err handling -- per-axis err, retry is accepted, failed re-cal keeps the old gain
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_span_err.sv:502: $finish called at 18342000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_calib_span_err.sv:502: $finish called at 18342000 (1ps)
 
 

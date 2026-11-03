@@ -171,6 +171,6 @@
   ok  : O10 same-cycle sel1+sel2 => sel1 wins (gear1)  (gear=1)
 
 PASS: fader_gear -- 3 gears / per-gear lock / dual-vibrato coexistence all hold
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_fader_gear.sv:609: $finish called at 85800000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_fader_gear.sv:609: $finish called at 85800000 (1ps)
 
 

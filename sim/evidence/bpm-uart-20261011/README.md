@@ -134,7 +134,7 @@ if (bpm_load_i === 1'b1) begin ... end      // ⭐ z/x 一律当假 ⇒ 悬空�
 
 ### ⭐⭐ 补做：新建最小 tb（⭐ 首次全绿，⚠️ 但**不能留在树里**）
 
-⭐ 新建了 `tb/w3c/tb_play_seq_bpm.sv`（⭐ **只例化 `play_seq`** ✅）⇒ ⭐ **首次运行 14 条全绿** ✅
+⭐ 新建了 「tb/w3c/tb_play_seq_bpm.sv」（历史计划路径，当前未提供）（⭐ **只例化 `play_seq`** ✅）⇒ ⭐ **首次运行 14 条全绿** ✅
 （⭐ 日志存档 `tb_play_seq_bpm-firstrun.log` ✅）：
 
 ```text

@@ -1,0 +1,26 @@
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=640000)
+=== tb_span_multiaxis_noise ===
+猸?澶氳酱杩炵画鏍囧畾 + 銆愰€愰€氶亾甯ч棿鍣０銆戯紙猸?鎴戝墠闈?tb 缂哄け鐨勫彉閲忥級
+猸?STABLE_TOL=48 VOTE_TOL=96 STABLE_NEED=8 VOTE_N=8
+猸?閫氶亾鍩哄€?= 涓婃澘瀹炴祴鏉炬墜鍊硷紙ch2=2184 灏辨槸琚嫆閭ｈ酱锛?
+
+  鍣０ 卤0    鈬? span=16   reject=0    鏈€鍚庤鎷掕酱=15 ?
+  鍣０ 卤10   鈬? span=16   reject=0    鏈€鍚庤鎷掕酱=15 ?
+  鍣０ 卤20   鈬? span=16   reject=0    鏈€鍚庤鎷掕酱=15 ?
+  鍣０ 卤40   鈬? span=16   reject=0    鏈€鍚庤鎷掕酱=15 ?
+  鍣０ 卤48   鈬? span=16   reject=0    鏈€鍚庤鎷掕酱=15 ?
+  鍣０ 卤60   鈬? span=10   reject=9    鏈€鍚庤鎷掕酱=10      
+--------------------------------------------------
+猸?瑙ｈ锛?
+  路 鍣０ < STABLE_TOL(48) 鈬?搴斿綋銆愬叏閮?16 杞撮€氳繃銆?reject=0)
+  路 鍣０ > STABLE_TOL(48) 鈬?绋冲畾鍒ゅ畾杩囦笉鍘?鈬?鎷掔粷鏄€愭纭涓恒€?
+--------------------------------------------------
+  ok  : 鍣０ 卤0   (< 48) 鈬?16 杞村叏杩? 鏃犳嫆缁?
+  ok  : 鍣０ 卤10  (< 48) 鈬?16 杞村叏杩? 鏃犳嫆缁?
+  ok  : 鍣０ 卤20  (< 48) 鈬?16 杞村叏杩? 鏃犳嫆缁?
+  ok  : 鍣０ 卤40  (< 48) 鈬?16 杞村叏杩? 鏃犳嫆缁?
+==================================================
+PASS: 绋冲畾鍒ゅ畾闃堝€艰涓烘纭紙鍣０ < TOL 灏辫兘杩囷級
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3a\tb_span_multiaxis_noise.sv:202: $finish called at 115201440000 (1ps)
+
+

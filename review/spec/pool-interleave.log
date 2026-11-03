@@ -1,0 +1,5 @@
+COMPILE_EXIT 0
+PASS positive tx=1
+FAIL RESET between unlock and UART prevents stale send: tx=1 frames=0 idx=1 running=0
+FAIL STOP between unlock and UART prevents stale note_on: tx=1 idx=1 running=0
+RUN_EXIT 1

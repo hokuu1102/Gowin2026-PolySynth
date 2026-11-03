@@ -6,6 +6,7 @@
   亮绿   RGB(  0,200,  0)  —— 推荐联机色（bco2 可配 2016）
   深绿   RGB(  0,130,  0)  —— 对齐 bco2=1024 原色
   灰     RGB(197,194,197)  —— 对齐 bco=50712 断联色
+  琥珀橙 RGB(217,119,  6)  —— 对齐 55264 琥珀金（⭐ p_bpm 节拍橙点）
 """
 import struct, zlib, math, os
 
@@ -54,6 +55,8 @@ if __name__ == "__main__":
         ("p_hb_on_darkgreen.png", (0, 130, 0)),
         ("p_hb_off_gray.png",  (197, 194, 197)),
         ("p_hb_off_darkgray.png", (120, 120, 120)),
+        ("p_bpm_on_amber.png",  (217, 119, 6)),   # ⭐ 节拍橙点（55264 琥珀金）
+        ("p_bpm_off_gray.png",  (197, 194, 197)), # ⭐ 节拍灭（复用灰）
     ]:
         write_png(os.path.join(OUT_DIR, name), 10, 10, make_dot(10, rgb))
     print("done ->", OUT_DIR)

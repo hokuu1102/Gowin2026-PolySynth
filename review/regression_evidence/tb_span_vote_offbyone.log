@@ -1,0 +1,15 @@
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=4 STABLE_TOL=8 VOTE_N=4 VOTE_TOL=16 REJECT_MAX=8 WAIT_TIMEOUT_CLK=1000)
+=== tb_span_vote_offbyone 寮€濮嬶紙VOTE_N=4 VOTE_TOL=16锛?==
+  路 SETTLE 闃舵鍠備簡 6 甯?A=2000锛屽綋鍓?state=3
+  路 VOTE 闃舵宸插杺 3 甯?A锛屽綋鍓?state=3
+  路 宸插杺鏈€鍚?1 甯?B=2056锛堢缇わ紝瓒?VOTE_TOL 16锛夆噿 state=2
+--------------------------------------------------
+  reject 娆℃暟 = 1
+  state       = 2
+  鍙戣繃 span?  = 0
+--------------------------------------------------
+ok   : RTL 姝ｇ‘ 鈥斺€?鏈€鍚庝竴甯х殑绂荤兢鍊笺€愯鐪嬭銆戝苟鎷掔粷浜嗚缁勬牱鏈?
+PASS: 鎶曠エ绐楀彛瑕嗙洊浜嗗叏閮?VOTE_N 甯?
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3a\tb_span_vote_offbyone.sv:175: $finish called at 1780000 (1ps)
+
+

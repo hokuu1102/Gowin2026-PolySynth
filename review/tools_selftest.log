@@ -1,0 +1,66 @@
+====================================================================
+tools/ 四个验收脚本的自检
+====================================================================
+
+────────────────────────────────────────────────────────────────────
+vcd2csv 自检（内置一个小 VCD，不需要外部输入）
+────────────────────────────────────────────────────────────────────
+  ·  解析到 2 个信号，timescale=1ns
+  ok : 头部解析出 sample
+  ok : 信号数量正确（tick + sample）
+  ok : 在 tick 上升沿取到 [1,2,3,255]
+  ok : 按 20ns 等间隔重采样得到 [0,1,2,3,255]
+  ok : X 取值原样保留（不静默丢）
+
+PASS: vcd2csv 自检 —— 5/5 项全部符合预期
+
+❌ csv_fft 需要 numpy（本机 python 里没装）。
+   装法：  python -m pip install numpy
+   说明：  只有 csv_fft / peak_count 依赖它；vcd2csv / latency_stats 只用标准库。
+
+────────────────────────────────────────────────────────────────────
+latency_stats 自检（正例 + 故意造的超差例；证明判据真的会失败）
+────────────────────────────────────────────────────────────────────
+  ok : 样本数 = 50
+  ok : 最大延迟 ≤ 2 个音频帧（数字端目标）
+  ok : 极差 ≤ 0.1 ms（确定性无抖动）
+  ·  正例：50 次 60~61 拍 → 最大 0.0596 帧（1.220 µs）、极差 0.0200 µs
+  ok : 正例全部通过（不误报）
+  ok : 样本数 = 50
+FAIL: 最大延迟 ≤ 2 个音频帧（数字端目标）  —— 实测 19.531 帧 = 0.4000 ms
+FAIL: 极差 ≤ 0.1 ms（确定性无抖动）  —— 实测 0.3988 ms（19940 cycles）
+  ·  反例：一个 20000 拍的离群值 → 最大 19.5 帧、极差 0.3988 ms
+  ok : 反例被判失败（判据不是永远通过）
+  ok : 失败项确实指向'最大延迟'
+  ok : 失败项确实指向'极差'
+  ok : 能解析 plain 格式的日志
+  ok : 能解析 latency= 格式的日志
+  ok : 能解析 LATENCY 格式的日志
+  ok : unit=us 的换算正确（110 µs = 0.11 ms）
+
+PASS: latency_stats 自检 —— 8/8 项全部符合预期
+
+❌ peak_count 需要 numpy（本机 python 里没装）。
+   装法：  python -m pip install numpy
+   说明：  只有 csv_fft / peak_count 依赖它；vcd2csv / latency_stats 只用标准库。
+
+  RTL_CROSS frames=306 drop=4 hdrerr=0 resync=0
+
+  python model : 306 events
+  real RTL     : 306 events
+  python drops : 4
+
+  MATCH -- the Python model reproduces the RTL exactly
+PASS: evt2uart.py's Python framing model reproduces evt_uart_rx.v byte-for-byte on adversarial input
+
+脚本                  结论      说明
+--------------------------------------------------------------------
+vcd2csv.py          PASS    VCD → CSV（波形抽取）
+csv_fft.py          FAIL    CSV → FFT（主峰/SNR/杂散）
+                            (没有结论行)
+latency_stats.py    PASS    延迟日志 → min/max/极差 + M2 判据
+peak_count.py       FAIL    频谱 → 谱峰计数（M4 判定）
+                            (没有结论行)
+selftest_evt2uart.pyPASS    evt2uart 帧模型 vs RTL 逐字节对拍
+--------------------------------------------------------------------
+FAIL: 2/5 个脚本的自检没通过

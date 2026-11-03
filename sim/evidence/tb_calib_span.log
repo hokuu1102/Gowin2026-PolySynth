@@ -45,6 +45,6 @@
   ok  : P1-12 a second start_i after DONE RESTARTS the FSM (busy_o back to 1 -- NOT a silent no-op)
 
 PASS: calib_span gates on stability, rejects bad votes, aligns span with its channel, honours calib.err, and aborts cleanly from any state
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_span.sv:640: $finish called at 24463890000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_calib_span.sv:640: $finish called at 24463890000 (1ps)
 
 

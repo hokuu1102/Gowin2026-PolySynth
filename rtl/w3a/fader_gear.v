@@ -27,7 +27,7 @@
 //
 //  ⭐ **三个新语义（⭐ 这是本轮的核心，⛔ 不要按旧注释理解）**
 //    ① ⭐ **切档不再清零** —— 旧写法"非档 1 ⇒ 颤音输出 = 0"会让两个颤音**互斥**。
-//       新写法：**离开某档时该档参数"保持"最后的值** ⇒ ⭐ **两个颤音可以同时生效** ✅
+//       2026-11-02: 离档后由锁定位决定保留；未锁定归零，已锁定可共存。
 //       📌 实现必须是"组合透传 + 影子寄存器"，⛔ 不能把输出改成寄存器
 //          —— 否则档 1 会多 1 拍延迟，破坏原契约（见下方 ④ 的注释）✅
 //    ② ⭐ **每档一个锁定位**（`hold_o[2:0]`）：置位 ⇒ 该档参数**冻结**，
@@ -327,7 +327,12 @@ module fader_gear (
             //   ⭐ `3'b001 << gear_o`：⭐ 档 0/1/2 ⇒ 3'b001/010/100 ✅
             //   📌 `gear_o` 只可能是 0/1/2（三档循环）⇒ ⛔ 不会移出界 ✅
             //   ⚠️ `hold_o` **只在本块被写**（⭐ 复位分支 + 本分支）⇒ ⛔ 无 EX2000 多驱动 ✅
-            if (lock_toggle_i)
+            // Direct screen changes lock the departing gear; physical next stays manual.
+            if ((gear_sel0_i && gear_o != 2'd0) ||
+                (!gear_sel0_i && gear_sel1_i && gear_o != 2'd1) ||
+                (!gear_sel0_i && !gear_sel1_i && gear_sel2_i && gear_o != 2'd2))
+                hold_o <= hold_o | (3'b001 << gear_o);
+            else if (lock_toggle_i)
                 hold_o <= hold_o ^ (3'b001 << gear_o);
 
             // ── ⭐ 影子寄存器：⭐ 只在"该档 + 未锁定"时跟随；其余时候**保持** ──
@@ -350,24 +355,19 @@ module fader_gear (
     assign transpose_semi_o = $signed({1'b0, enc_r}) - 5'sd12;
 
     // ═══════════════════════════════════════════════════════════════════════
-    //  ④ ⭐⭐ 2026-10-18：⭐ CH2/CH3 的语义 mux（**已改：从"清零"改成"保持"**）
-    //
-    //  🔴 **旧行为（已作废）**：⭐ 档 1 透传、**其余档一律归 0**
-    //     ⇒ ⚠️ 切档就把另一个颤音**关掉** ⇒ 🔴 **两个颤音不可能共存** ✅
-    //  ✅ **新行为**：⭐ 在对应档且**未锁定** ⇒ **组合逐位透传**；
-    //     其余所有情况（别的档 / 本档已锁定）⇒ ⭐ 读影子寄存器 = **保持最后的值** ✅
-    //
-    //  📌 ⭐ 档 1 的"逐位恒等"性质**保留**：`vib_follow` 为真时输出就是 `ch2_i`/`ch3_i`，
-    //     ⛔ 不经任何寄存器 ⇒ ⭐ 零延迟、零截断（与旧行为逐位相同）✅
-    //  ⚠️ ⭐ 四个输出**只在本块被写** ⇒ ⛔ 无 EX2000 多驱动 ✅
+    // Current unlocked gear follows the physical faders without added latency.
+    // Off-gear outputs are zero unless their independent hold bit is set.
+    // Screen direct selection sets the departing hold bit before changing gear.
+    // Physical/J next selection keeps the manual-lock contract.
+    // Only the output mux changes; quantization, enc_r and shadows stay intact.
     // ═══════════════════════════════════════════════════════════════════════
     always @(*) begin
         // 音高颤音（档 1）
-        vibrato_depth_o = vib_follow ? ch2_i : vib_d_hold;
-        vibrato_rate_o  = vib_follow ? ch3_i : vib_r_hold;
+        vibrato_depth_o = vib_follow ? ch2_i : (hold_o[1] ? vib_d_hold : 12'd0);
+        vibrato_rate_o  = vib_follow ? ch3_i : (hold_o[1] ? vib_r_hold : 12'd0);
         // 音量颤音（档 2）—— ⭐ 2026-10-18 新增
-        trem_depth_o    = trm_follow ? ch2_i : trm_d_hold;
-        trem_rate_o     = trm_follow ? ch3_i : trm_r_hold;
+        trem_depth_o    = trm_follow ? ch2_i : (hold_o[2] ? trm_d_hold : 12'd0);
+        trem_rate_o     = trm_follow ? ch3_i : (hold_o[2] ? trm_r_hold : 12'd0);
     end
 
 endmodule

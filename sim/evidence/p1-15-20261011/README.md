@@ -229,7 +229,7 @@ PASS: pos_probe_axis -- 'P' rotates over 16 axes and reports the raw code of the
 ⇒ 🔴 ⭐ **这笔交易 = 用"最紧的资源"换"最松的资源"** ✅
 ⭐ 而**用户这一轮的要求正是"优化逻辑资源"** ⇒ ⚠️ ⭐ **方向反了** ✅
 📌 ⭐ 而 `P1-15` 这条审查之所以存在，⭐ 是因为有人以为 DSP 是瓶颈 ✅ ——
-⭐ 而**本项目自己的资源基线**（⭐ `resource-baseline-20261011/` ✅）写着：
+⭐ 而**本项目自己的资源基线**（⭐ `sim/evidence/resource-baseline-20261011/` ✅）写着：
 ⭐ `DSP 22%`、⭐ `CLS 82%` ⇒ ⭐ **DSP 不是瓶颈** ✅
 
 ### ✅ 回退后

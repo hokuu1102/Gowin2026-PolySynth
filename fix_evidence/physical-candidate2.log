@@ -1,0 +1,6 @@
+NOTE: impl/Gowin2026_process_config.json absent -- Gowin will use its own defaults (0/0)
+=== gowin build (synthesis + PnR + bitstream) ===
+OK  wiped impl/gwsynthesis (6 files) -- full synthesis, numbers are comparable
+OK  wiped impl/pnr (17 files, old Gowin2026.pr was 110 MB) -- full place & route
+NOTE: gw_sh exit code =  (informational only -- see the freshness check below)
+ERROR: no PnR report at C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\impl\pnr\Gowin2026_tr_content.html -- the build produced nothing

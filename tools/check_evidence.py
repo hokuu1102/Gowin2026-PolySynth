@@ -17,6 +17,7 @@ WHY THIS EXISTS (both failure modes were hit on 2026-09-22):
      results.  mutation_test.ps1 documents this (see its contamination NOTE) and
      its LAST step re-runs tb_all from clean RTL precisely to undo it.
 
+All payload checks read the Git index, even when working files have changed.
 So: if `build/mutation/.lock` exists, a mutation run is in flight -> refuse.
 
 Usage:
@@ -27,6 +28,7 @@ Exit: 0 = ok to commit; 1 = do NOT commit evidence right now.
 """
 from __future__ import annotations
 
+import io
 import argparse
 import os
 import subprocess
@@ -56,14 +58,10 @@ EVID = "sim/evidence/"
 #    check entirely, which would also hide a compile log that SHOULD have
 #    content.  Instead the exemption is scoped by suffix below, so a non-empty
 #    compile log is still checked for FAIL/error contamination further down.
-EMPTY_OK_SUFFIXES = (".compile.log",)
+# Empty compiler and stderr channels mean that the tool emitted no diagnostics.
+# Non-empty staged diagnostics are still checked for FAIL/LEAK below.
+EMPTY_OK_SUFFIXES = (".compile.log", ".stderr.log", ".err")
 ALLOW_EMPTY = set()
-
-
-def sh(args):
-    r = subprocess.run(args, capture_output=True, text=True,
-                       encoding="utf-8", errors="replace")
-    return r.stdout or ""
 
 
 def main() -> int:
@@ -82,44 +80,58 @@ def main() -> int:
             "      Wait for mutation_test.ps1 to finish (its last step re-runs\n"
             "      tb_all from clean RTL), then commit.")
 
-    # ── 2) tracked evidence files that are empty on disk ──────────────────
-    #   ⭐ K-117: skip `*.compile.log` -- for those, EMPTY MEANS CLEAN (measured).
-    tracked = [p for p in sh(["git", "ls-files", EVID]).splitlines() if p.strip()]
-    empties = []
-    for p in tracked:
-        if p in ALLOW_EMPTY or not os.path.isfile(p):
-            continue
-        if p.endswith(EMPTY_OK_SUFFIXES):
-            continue                      # ⭐ empty compile log == clean compile
-        try:
-            if os.path.getsize(p) == 0:
-                empties.append(p)
-        except OSError:
-            pass
-    if empties:
-        problems.append(
-            "%d tracked evidence file(s) are EMPTY on disk:\n%s\n"
-            "      Empty evidence is worse than none: it looks like a passing file."
-            % (len(empties), "\n".join("        " + e for e in empties[:10])))
+    # Inspect the index: working files may already belong to the next run.
+    tracked = []
+    try:
+        def git(*args, data=None):
+            return subprocess.run(["git", *args], input=data, capture_output=True,
+                                  check=True).stdout
 
-    # ── 3) staged evidence that contains FAIL lines ───────────────────────
-    staged = [p for p in sh(["git", "diff", "--cached", "--name-only",
-                             "--", EVID]).splitlines() if p.strip()]
-    dirty = []
-    for p in staged:
-        if not os.path.isfile(p):
-            continue
-        try:
-            txt = open(p, encoding="utf-8", errors="replace").read()
-        except OSError:
-            continue
-        if "FAIL:" in txt or "GREEN(LEAK" in txt:
-            dirty.append(p)
-    if dirty:
-        problems.append(
-            "%d STAGED evidence file(s) contain FAIL/LEAK lines:\n%s\n"
-            "      That is a mutant run's output, not acceptance evidence."
-            % (len(dirty), "\n".join("        " + d for d in dirty[:10])))
+        entries = {}
+        for record in git("ls-files", "--stage", "-z", "--", EVID).split(b"\0"):
+            if not record:
+                continue
+            metadata, name = record.split(b"\t", 1)
+            mode, oid, stage = metadata.split()
+            if stage != b"0":
+                raise ValueError("Unmerged evidence in index")
+            entries[name.decode("utf-8", "surrogateescape")] = oid
+        tracked = list(entries)
+        staged = {p for p in git("diff", "--cached", "--name-only",
+                                "--diff-filter=ACMRT", "-z", "--", EVID)
+                  .decode("utf-8", "surrogateescape").split("\0") if p}
+        empty_oid = git("hash-object", "--stdin", data=b"").strip()
+        empties = [p for p, oid in entries.items() if oid == empty_oid and
+                   p not in ALLOW_EMPTY and not p.endswith(EMPTY_OK_SUFFIXES)]
+        dirty = []
+        # One batch process instead of starting Git once per tracked log.
+        wanted = list(dict.fromkeys(entries[p] for p in staged))
+        blobs = {}
+        if wanted:
+            stream = io.BytesIO(git("cat-file", "--batch", data=b"\n".join(wanted) + b"\n"))
+            for oid in wanted:
+                header = stream.readline().split()
+                if len(header) != 3 or header[0] != oid or header[1] != b"blob":
+                    raise ValueError("Cannot read indexed evidence blob")
+                size = int(header[2])
+                data = stream.read(size)
+                if len(data) != size or stream.read(1) != b"\n":
+                    raise ValueError("Truncated indexed evidence blob")
+                blobs[oid] = data
+        for p in staged:
+            data = blobs[entries[p]]
+            encoding = "utf-16" if data.startswith((b"\xff\xfe", b"\xfe\xff")) else "utf-8-sig"
+            txt = data.decode(encoding, errors="replace")
+            if "FAIL:" in txt or "GREEN(LEAK" in txt:
+                dirty.append(p)
+        if empties:
+            problems.append("%d indexed evidence file(s) are EMPTY:\n%s" %
+                            (len(empties), "\n".join("        " + p for p in empties[:10])))
+        if dirty:
+            problems.append("%d STAGED evidence file(s) contain FAIL/LEAK lines:\n%s" %
+                            (len(dirty), "\n".join("        " + p for p in dirty[:10])))
+    except (OSError, subprocess.CalledProcessError, ValueError, KeyError) as exc:
+        problems.append("Cannot read evidence from Git index: " + str(exc))
 
     if problems:
         print("REFUSING to commit evidence:")

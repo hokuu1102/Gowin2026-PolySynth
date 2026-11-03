@@ -52,7 +52,8 @@ module debounce #(
 );
 
     // ── 去抖稳定周期数：DB_MS 毫秒换算成系统时钟拍 ─────────────────────────
-    localparam integer DB_CYC = (CLK_HZ / 1000) * DB_MS;   // 5 ms @50 MHz = 250_000
+    localparam integer DB_CYC_RAW = (CLK_HZ / 1000) * DB_MS;
+    localparam integer DB_CYC = (DB_CYC_RAW < 1) ? 1 : DB_CYC_RAW;
 
     // ── 按键：NKEY 路计数去抖 ───────────────────────────────────────────────
     // 每路独立计数器：输入必须连续稳定 DB_CYC 拍才更新输出电平。

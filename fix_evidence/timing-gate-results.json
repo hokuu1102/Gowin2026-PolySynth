@@ -1,0 +1,47 @@
+[
+  {
+    "name": "sys_budget",
+    "expected": 0,
+    "actual": 0
+  },
+  {
+    "name": "serial_failure",
+    "expected": 12,
+    "actual": 12
+  },
+  {
+    "name": "pixel_failure",
+    "expected": 12,
+    "actual": 12
+  },
+  {
+    "name": "sys_real_failure",
+    "expected": 12,
+    "actual": 12
+  },
+  {
+    "name": "recovery_failure",
+    "expected": 12,
+    "actual": 12
+  },
+  {
+    "name": "removal_failure",
+    "expected": 12,
+    "actual": 12
+  },
+  {
+    "name": "recovery_missing",
+    "expected": 12,
+    "actual": 12
+  },
+  {
+    "name": "rounded_negative_zero",
+    "expected": 12,
+    "actual": 12
+  },
+  {
+    "name": "short_sys_exception",
+    "expected": 12,
+    "actual": 12
+  }
+]

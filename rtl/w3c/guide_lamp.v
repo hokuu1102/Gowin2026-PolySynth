@@ -1,154 +1,16 @@
-// ═══════════════════════════════════════════════════════════════════════════
-//  guide_lamp.v —— 音符事件 → 灯位指引映射层（丙线 · P1 · 2026-10-03）
-//
-//  ⭐ 职责边界（与 `led_data` 分工）：
-//    · `play_seq` 吐出的是【音符事件流】（`note_valid` + `note_data[63:0]`），
-//      不是 `led_data` 需要的 16 位 one-hot「哪个键该按」位图。
-//    · 本模块做这层【事件 → 位图】转换：把事件的**音高**字段 `note_off5`
-//      （bit[4:0]，= MIDI 音符号 − `BASE_NOTE`）**查一张「音符号 → 键位」表**，
-//      再解码成 `guide_key_o[15:0]` 的 one-hot 指引。
-//    · `led_data` 负责的是【位图 → 24bit 物理图案】+ CH→OUT 重映射（下游）。
-//
-//  ⭐ 位域契约（必须与 `play_seq.v` / `tools/mid2evt.py` 逐位一致）：
-//    · NOTE_SH =  0（5 bit，`note_off5` = MIDI − 45，⭐ 覆盖 MIDI 45..76）
-//    · AXIS_SH = 19（4 bit，轴号 0..15 —— ⚠️ **轨号，⛔ 不是键位**，见下方警告）
-//    · KIND_SH =  9（2 bit）：0 = note_on，1 = note_off，2 = tempo（换速，非音符）
-//    · note_data 整体 64 bit，note_off5 位于 [4:0]，kind 位于 [10:9]。
-//
-//  ⭐ 语义：
-//    · note_on（kind=0）→ 点亮 note_off5 对应的键位灯（下一键该按）
-//    · note_off（kind=1）→ 熄灭同一个键位灯
-//    · tempo（kind=2）→ 忽略（换速不是音符，⛔ 不得点亮任何灯）
-//    · key_active_i 已按下的键 → 消隐（已按就不需要再指引）
-//    · blink_i（拍点脉冲）→ 使当前指引位跟随拍点闪烁（可观测节拍）
-//
-//  ⭐ 非空洞性（P1 判据硬要求）：任意轴号 0..15 的 note_on 事件，
-//    都能落到一个真实、非空的灯位（one-hot 位 set），满射、无空洞。
-//
-//  ⭐⭐⭐⭐ ⚠️ **轴号语义警告（⭐ 2026-10-16 · 点灯 LIGHTER 实测定位）** ✅
-//     🔴 **本模块的 `axis` 是【轨号（track id）】，⛔ 不是【键位/音高】** ——
-//        ⭐ 这是**上游生成侧的既有语义**，⭐ ⛔ **不是本模块的缺陷**：
-//        · ⭐ `tools/mid2evt.py:359` `axis_of[ti] = nxt`（**一条非鼓轨 = 一个轴号**）
-//        · ⭐ `tools/mid2evt.py:390` `axis = axis_of[ti] & 0xF`（⭐ 该轨**所有**音符共用它）
-//        · ⭐ **音高在 `inc[43:23]`**（⭐ 与 `axis` 完全独立）
-//     ⇒ ⭐ **一盏灯 = 一条轨** ⇒ ⭐ 单轨乐段**只有一盏灯在闪**（⭐ 实测：三首真曲
-//        `events.hex` 只出现轴号 0..5，⭐ 且开头有 62~192 条**连续同轴**）✅
-//
-//  ⭐⭐⭐⭐ ✅ **2026-10-16（指北 COMPASS · 点灯 · 用户拍板）：本模块改成【按音高指键】**
-//     ⭐ 用户原话：*"LED 指引要**跟着音高走**，而且【变调之后】不许指错键"* ✅
-//
-//     ⭐ **契约（新）**：⭐ 帧的 `bit[4:0]` = `note_off5` = `MIDI 音符号 − BASE_NOTE(45)`
-//        ⇒ ⭐ 本模块：`note_after = BASE_NOTE + note_off5 + transpose_i`（⭐ 变调在半音上做）
-//        ⇒ ⭐ **再查表**「音符号 → 键位」⇒ ⭐ 点亮那个键 ✅
-//
-//     ⭐⭐ **顺序是关键**：🔴 **变调必须发生在【查表】【之前】** ——
-//        ⭐ 这样"**变调后**"音高变了、⭐ 表查的是**变调后的音高** ⇒
-//        ⭐ **灯永远指向"真正该按的那个键"**（⭐ 用户要的就是这一条 ✅）。
-//        ⚠️ 若反过来（先查表再加变调）⇒ 🔴 **整体平移一个"键位偏移"**，
-//        ⭐ 而键位**不是**按半音排的（⭐ 见下方两张表的乱序）⇒ 🔴 **必指错键** ✅
-//
-//     ⭐ **两张表**（⭐ `NOTE2KEY_KB` / `NOTE2KEY_FB`）：
-//        ⭐ **机械地从 `rtl/w3a/axis_map.v` 的【正向表】反推**（⭐ 唯一地面真相）：
-//        · ⭐ `kb_inc[]`（⭐ `axis_map.v:395-410`）⇒ `NOTE2KEY_KB`
-//        · ⭐ `fb_inc[]`（⭐ `axis_map.v:461-476`）⇒ `NOTE2KEY_FB`
-//        ⭐ **生成脚本**：⭐ `build/exp/note2key_gen.py`（⭐ 改音高图后重跑即可）
-//        ⚠️ **⛔ 不要手改表值** —— ⭐ 手抄正是"表错、灯跟着错"的根源。
-//        📌 ⭐ 脚本**双重推导**（⭐ 音名 vs `phase_inc` 反算频率）并**互校**，
-//           ⚠️ 两者不一致就直接退出（⭐ 那说明**正向表本身**有问题）✅
-//
-//     ⭐ **重复项规则**：⭐ 同一个音高能被两个键弹出时（⭐ 如 `kb_inc` 里
-//        E3 = 键 0 **和** 键 3、B3 = 键 8 **和** 键 11）⇒ 🔴 **取【索引最小】的那个键**
-//        ⇒ ⭐ "一个音符号 ⇒ 唯一一个灯"（⭐ 确定性、可判据化 ✅）
-//
-//     ⭐ **表里没有的音符号 ⇒ `4'hF`（哨兵）** ⇒ ⭐ **不点任何灯** ✅
-//        🔴 **为什么必须是哨兵、⛔ 不能填 0**：⭐ 填 0 ⇒ 🔴 **误点亮键 0**
-//        （⭐ 用户看到的就会是"乱指键"）✅
-//
-//     📌 ⭐ **本模块的满射性**（⭐ 任意 `axis` → 一个真实灯位）由 `tb_guide_lamp`
-//        判据 ⑤ 与 `tb/w3c/tb_top_guide_axes.sv`（⭐ 顶层 6 个音高同时亮 6 盏）钉住 ✅
-//     📌 ⭐ **表互逆**（⭐ 正向表 ⇄ 反查表）由 `tb_guide_lamp` 判据 ⑧ 钉住 ✅
-//     📌 ⭐ `axis` 现在**在灯位映射里没有角色** —— ⚠️ 它**照样在帧里**，
-//        ⭐ 因为 `note_manager` / `seq_arb` 的**发声**那一路仍然按 `axis` 分 voice ✅
-//        🔴 **⛔ 不许因为"灯不用它了"就把 `axis` 字段删掉**（⭐ 那是契约级改动）✅
-//
-//  ⚠️ 只动丙线自己的文件：本模块【不实例化、不改】play_seq / note_manager / top.v，
-//    仅消费 play_seq 的公开输出接口（note_valid_o / note_data_o），接线留待集成层。
-//
-// ═══════════════════════════════════════════════════════════════════════════
-//  ⭐⭐⭐⭐ 2026-10-16（灭灯 LAMPKILL）：⭐ **"LED 挂灯"根因档案 ＋ RTL 侧兜底** ✅
-//
-//  🔴 **症状**（⭐ 用户实测）：⭐ *"没灌谱也闪"* —— ⭐ 灯跟着 125 ms 方波一直闪，永不熄 ✅
-//
-//  ── ① 审灯队报的机理（⭐ 带行号，⭐ 原文照抄）──────────────────────────────
-//     · `guide_lamp.v:316-343` `guide_key_o` **只有两条清除路径**：
-//       ⭐ `note_off(key_valid)` 与 ⭐ `rst_n` ⇒ 🔴 **没有超时、没有引用计数、
-//         ⭐ 没有"停播即清"** ✅
-//     · `guide_lamp.v:329/336` ON/OFF 用**同一个 `key_sel`** ⇒ ⭐ 只保证
-//       "**同一条 note_off 下** ON/OFF 同键"，⛔ **不保证不同事件的 `note_off5` 相同** ✅
-//     · `led_data.v:73/79` `blink_keys = guide_key_i & ~key_active_i`；
-//       `key_pattern = key_active | (blink_keys & blink_i)` ✅
-//     · `top.v:2496-2502` `led_blink` = 125 ms 方波（⭐ `bg_beat` 派生 ✅）
-//
-//  ── ② ⭐⭐ **本轮复核：审灯队的"ON 点 A、OFF 灭 B"在【当前数据】上不成立** ⚠️
-//     ⭐ 我把五个真曲的 `events.hex` **逐条解码统计**（⭐ `bit[4:0]` = `note_off5` ✅）：
-//        | 曲目 | 事件数 | `off5 ≠ 0` 的条数 | `note_on` 的 off5 分布 | `note_off` 的 off5 分布 |
-//        |---|---|---|---|---|
-//        | `夜洋风景`   | 11564 | **0** | `0` × 5782 | `0` × 5782 |
-//        | `09_Conjurer` | 11858 | **0** | `0` × 5929 | `0` × 5929 |
-//        | `6.世界悲`   |  9778 | **0** | `0` × 4889 | `0` × 4889 |
-//        | `regen/夜洋风景` | 11566 | **0** | `0` × 5782 | `0` × 5782 |
-//        | `t6test`     | 11865 | **0** | `0` × 5929 | `0` × 5929 |
-//     ⇒ ⭐ **ON 与 OFF 查的是【同一个】 offset（0）** ⇒ ⭐ **亮哪盏就灭哪盏**（⭐ 硬要求 ③ 已满足 ✅）
-//     ⇒ ⚠️ 所以"灯永不熄"**不是**"ON 点 A、OFF 灭 B"造成的 ✅
-//     📌 ⭐ **上游为什么恒 0**（⭐ `tools/mid2evt.py:496-502`，⭐ 逐字 ✅）：
-//        `# bits 6..0 stay 0 (reserved)` —— ⭐ `off5` 是**这个交付版本还没实现**的新字段，
-//        ⭐ 语义是"**此版无音高**"，⛔ **不是"写错了"** ✅
-//        （⭐ 而 `score_word.py:121` / `pool.c:724` 同样没写 ✅）
-//
-//  ── ③ ⭐⭐⭐⭐ **真正的三条挂灯机理**（⭐ 都能独立造成"永不熄" ✅）────────────
-//     · **M1 · 缺 `note_off`（⭐ 上游）**：⭐ `mid2evt.py:359-390` 把 off 补进 `note_on`
-//       事件里，⭐ 若某个音的 off 没生成 ⇒ **只有 ON 没有 OFF** ⇒ 那盏灯**常亮到复位** ✅
-//     · **M2 · ON/OFF 表不同（⭐ 可复现的真实路径）**：⭐ 灯位由 `fb_mode_i` 选表
-//        ⇒ ⭐ 用户**演奏中切钢琴/指板** ⇒ ON 走表 A、OFF 走表 B ⇒ **亮 A 灭 B** ✅
-//     · **M3 · 结构性：没有任何超时**（⭐ 本模块自身）：
-//       ⭐ `guide_vis_o = guide_key_o & ~key_active_i`（⭐ `P0-28` 钉死，⛔ 不动 ✅）
-//       ＋ ⭐ `led_data` 只做 `blink_keys & blink_i` ⇒ ⭐ **用户一松手灯就灭**
-//       ⇒ ⭐ 灯的生命周期 = **`guide_key_o` 的生命周期** ⇒ ⭐ 而它**只能被 note_off/复位清**
-//       ⇒ ⭐ **任何"没配上对 OFF"的灯都会挂住** ✅
-//
-//  ── ④ ⭐⭐ **为什么选"停播即清"而⛔ 不是引用计数**（⭐ 本轮裁定 ✅）────────
-//     ⭐ 逐条对表（⭐ 谁能治谁 ✅）：
-//        | 机理 | 停播即清 | 引用计数 |
-//        |---|---|---|
-//        | M1 缺 `note_off`            | ⭐ **能** | ⛔ 不能（␣ 计数停在 1 ✅）|
-//        | M2 ON/OFF 不同表（␣ 切模式）  | ⭐ **能** | ⛔ 不能（␣ 各记各的 ✅）|
-//        | M3 结构性无超时              | ⭐ **能** | ⛔ 不能 |
-//        | 同键和弦第一个 off 误熄       | ⛔ 不能 | ⭐ 能 |
-//     ⇒ ⭐ **前三条才是"永不熄"的真机理**，⭐ 而**最后一条**（␣ 同键和弦首 off 误熄）
-//       ⭐ 需要"**同一个键上同时有两个音**"（␣ 同音高叠置 ✅）—— ⭐ 概率最低、
-//       ⭐ 且它造成的是"**提前熄**"而⛔ **不是"挂灯"**（⭐ 与本任务要治的症状相反 ✅）
-//     ⇒ ⭐⭐ **结论**：⭐ **超时一个就够**（⭐ 三条真机理全覆盖 ✅）；
-//       ⭐ 计数只多治那条最不可能的，⭐ 代价却是 **16×5 = 80 FF** ＋ 饱和逻辑
-//       ＋ 一个**顶层粘滞寄存器**（⭐ 为"流里到底有没有过真音符" ✅）
-//       ⇒ 🔴 **性价比倒挂，⛔ 不做** ✅
-//
-//  ── ⑤ ⭐ **超时值的安全边界（⭐ 真曲实测，⛔ 不是拍的** ✅）────────────────
-//     · ⭐ 曲中**最长休止** = `09_Conjurer` **26880 tick**（⭐ @120BPM = 28 s ✅）
-//     · ⭐ 最长**音符** = `6.世界悲` **8160 tick**（⭐ @120BPM = 8.5 s ✅）
-//     ⇒ 🔴 **任何"按时间的超时"在慢速/休止处都必误清** ⇒ ⭐ 所以触发源
-//       ⛔ **不能是"多久没有 note 事件"**，⭐ **必须是"流还在不在走"** ✅
-//     ⭐ **本模块的取法**（⭐ `top.v` 的接线 ✅）：
-//        `stream_alive_i = eb_rd_valid | ps_note_valid`
-//        · ⭐ `ps_note_valid` = **此刻正在吐一条事件** ✅
-//        · ⭐ `eb_rd_valid`  = **缓冲区里还有事件没播** ✅
-//        ⇒ ⭐ 曲中休止 / ⭐ 长音 / ⭐ 慢速 ⇒ **缓冲非空 ⇒ 不算停 ⇒ 不攒超时** ✅
-//        ⇒ ⭐ **只有真·停播**才攒：⭐ 没灌谱 / ⭐ 灌完 / ⭐ 灌断 ✅
-//        ⇒ 🔴 **⛔ 不会误清正在进行的曲谱**（⭐ 任务书硬要求 ✅）
-//  ═══════════════════════════════════════════════════════════════════════════
-
+// Map score pitches to keyboard/fretboard guide lamps.
+// Preserve each ON's original (axis, note_off5) and selected physical key,
+// so later transpose or mode changes cannot redirect its OFF.
+// Different identities retain independent slots; repeated identical ONs use
+// a 32-bit count. A shared lamp stays lit until every held reference closes.
+// Reset or stream timeout clears the full ledger. key_active_i only masks
+// visible lamps; it does not discard the held score state.
+// Capacity: 64 distinct mapped identities, with separately counted repeats.
 module guide_lamp #(
     parameter integer EVT_W = 64,        // 事件数据位宽（与 play_seq 一致）
     parameter integer AXIS_N = 16,       // 键位数（轴号 0..15）
+    parameter integer HELD_SLOTS = 64,  // Independent of the 16 physical lamps.
+    parameter integer DECODE_PIPELINE = 0, // Optional display-only 20ns boundary.
     //  ⭐⭐ 2026-10-16（灭灯 LAMPKILL）：⭐ **"停播即清"的超时拍数**
     //     ⚠️ **必须留在【端口表】里** —— `parameter` 放在模块体（`localparam` 之后）
     //        是**非法的**（⭐ iverilog 直接 `syntax error` ⇒ 🔴 整个 rtl 树编译失败，
@@ -199,7 +61,7 @@ module guide_lamp #(
     //      ⇒ ⭐ **闪烁是 `led_data` 的职责**，⭐ 本模块**只做消隐** ✅
 
     // ── 输出：one-hot 指引位图 ───────────────────────────────────────────
-    output reg  [AXIS_N-1:0]   guide_key_o,       // 1 = 该键「该按」（指引，⭐ 未消隐）
+    output wire [AXIS_N-1:0]   guide_key_o,       // 1 = 该键「该按」（指引，⭐ 未消隐）
     output reg                 guide_commit_o,    // 指引更新（单周期脉冲，可观测）
     //  ⭐⭐ 2026-10-09（`P0-28`）：⭐ **消隐后的指引位图**（⭐ 这才是该接给 `led_data` 的）✅
     //   🔴 **原缺陷**：⭐ `key_active_i` 在文件里**只出现 2 次**（⭐ 端口声明 + :20 注释）
@@ -208,7 +70,13 @@ module guide_lamp #(
     //        （⭐ 而这正是 `LED演奏指引方案.md` §4.3 要区分的那两件事）✅
     //   ✅ **修法**：⭐ 新增本输出 = `guide_key_o & ~key_active_i`（⭐ 一层 AND，+16 LUT / 0 FF）✅
     //      📌 ⭐ 保留 `guide_key_o` 的端口语义不变（⭐ 兼容既有 tb）✅
-    output wire [AXIS_N-1:0]   guide_vis_o        // ⭐ 1 = 该键「该按」**且尚未按下** ✅
+    output wire [AXIS_N-1:0]   guide_vis_o,       // ⭐ 1 = 该键「该按」**且尚未按下** ✅
+    // Accepted ON notification, including repeats whose held bitmap stays 1.
+    // Registered alongside the original ledger output; display use only.
+    output wire                guide_on_valid_o,
+    output reg  [3:0]          guide_on_key_o,
+    output wire                stream_idle_o
+
 );
 
     //  ⭐⭐ 2026-10-09（`P0-28`）：⭐ **消隐逻辑**（⭐ 组合、最省）✅
@@ -225,7 +93,11 @@ module guide_lamp #(
     localparam [1:0] KIND_TEMPO = 2'd2;
 
     // ── 组合解码（⭐ 用 assign，⛔ 不用 always @(*)，规避 L67）─────────────
-    wire [1:0]  note_kind = note_data_i[KIND_SH +: 2];
+    wire [1:0] event_kind;
+    wire event_valid, event_stream_alive;
+    wire [4:0] event_note;
+    wire [3:0] event_axis;
+    wire [1:0]  note_kind = event_kind;
     //  📌 ⭐ `axis`（bit[22:19]）**仍然是帧的一部分**，⭐ 但**本模块不再用它选灯** ✅
     //     ⚠️ 它的消费者是**发声**那一路（`note_manager` / `seq_arb` 按轴分 voice）✅
     //     🔴 ⛔ **不许因为"灯不用它了"就删字段 / 改上游语义**（⭐ 契约级改动）✅
@@ -382,6 +254,7 @@ module guide_lamp #(
     //     且该清零点在 `note_valid_i` 块**之前** ⇒ ⭐ 流恢复首拍的 `note_on` **能活下来** ✅
     //     ⚠️ 但那个安全性**依赖这两段的先后顺序**（⭐ 承重）⇒ ⚠️ 改这段时⛔ 别动顺序 ✅
     wire stream_timeout = (stream_idle_cnt == TIMEOUT_CLKS - 1);
+    assign stream_idle_o = stream_timeout;
 
     //  ⭐⭐ 2026-10-17（`Q5`）：⭐ **参数自检**（⭐ 本模块原来一条都没有）
     //     🔴 `TIMEOUT_CLKS <= 1` 会**静默失效或非法**（⭐ 见上方长注释）
@@ -472,132 +345,316 @@ module guide_lamp #(
     end
     //  ⭐ 选表：⭐ 指板 / 键盘（⭐ 与 `axis_map` 的两种模式同一口径）✅
     //     📌 5 位 2 选 1 mux，很便宜 ✅
-    wire [4:0]  key_sel  = fb_mode_i ? key_fb_r : key_kb_r;
+    wire [4:0] decoded_key = fb_mode_i ? key_fb_r : key_kb_r;
     //   ⭐ `key_sel` 已在上面 `case` 那段声明并赋值（⭐ 2026-10-16 改：⛔ 不再用变步长部分选择）✅
     //   ⭐ 有效 = ⭐ 在范围内 **且** ⭐ 查到了键（⭐ 哨兵 ⇒ 无效 ⇒ 不点灯）✅
-    wire        key_valid = in_range && (key_sel != KEY_NONE);
+    wire decoded_valid = in_range && (decoded_key != KEY_NONE);
+    wire [4:0] key_sel;
+    wire key_valid;
+    localparam integer SLOT_W = (HELD_SLOTS > 1) ? $clog2(HELD_SLOTS) : 1;
+    localparam integer TREE_N = 1 << SLOT_W;
+    localparam integer BANK_W = (SLOT_W > 3) ? 3 : SLOT_W;
+    localparam integer BANK_SIZE = 1 << BANK_W;
+    localparam integer BANK_N = (HELD_SLOTS + BANK_SIZE - 1) / BANK_SIZE;
+    localparam integer BANK_ROOT = TREE_N / BANK_SIZE;
+    wire [3:0] bank_event_axis [0:BANK_N-1];
+    wire [4:0] bank_event_note [0:BANK_N-1];
+    wire [4:0] bank_event_key [0:BANK_N-1];
+    genvar sample_bank;
+    generate
+        if (DECODE_PIPELINE != 0) begin: g_decode_pipeline
+            reg valid_r, mapped_r, alive_r;
+            reg [4:0] key_r, note_r;
+            reg [3:0] axis_r;
+            reg [1:0] kind_r;
+            always @(posedge clk_i) begin
+                if (!rst_n_i) begin
+                    valid_r <= 0; mapped_r <= 0; alive_r <= 1;
+                    key_r <= 0; note_r <= 0; axis_r <= 0; kind_r <= 0;
+                end else begin
+                    valid_r <= note_valid_i; mapped_r <= decoded_valid;
+                    alive_r <= stream_alive_i; key_r <= decoded_key;
+                    note_r <= note_off5_i; axis_r <= note_data_i[AXIS_SH +: 4];
+                    kind_r <= note_data_i[KIND_SH +: 2];
+                end
+            end
+            assign event_valid = valid_r;
+            assign event_stream_alive = alive_r;
+            assign event_kind = kind_r;
+            assign event_note = note_r;
+            assign event_axis = axis_r;
+            assign key_sel = key_r;
+            assign key_valid = mapped_r;
+            // Identical samples on the existing boundary: no extra cycle.
+            // Keep each bank's drivers local to eight match/payload slots.
+            for (sample_bank=0; sample_bank<BANK_N; sample_bank=sample_bank+1) begin: g_bank_sample
+                (* syn_preserve = 1, syn_keep = 1 *) reg [3:0] axis_copy;
+                (* syn_preserve = 1, syn_keep = 1 *) reg [4:0] note_copy;
+                (* syn_preserve = 1, syn_keep = 1 *) reg [4:0] key_copy;
+                always @(posedge clk_i) begin
+                    if (!rst_n_i) begin
+                        axis_copy <= 0; note_copy <= 0; key_copy <= 0;
+                    end else begin
+                        axis_copy <= note_data_i[AXIS_SH +: 4];
+                        note_copy <= note_off5_i;
+                        key_copy <= decoded_key;
+                    end
+                end
+                assign bank_event_axis[sample_bank] = axis_copy;
+                assign bank_event_note[sample_bank] = note_copy;
+                assign bank_event_key[sample_bank] = key_copy;
+            end
+        end else begin: g_direct_decode
+            assign event_valid = note_valid_i;
+            assign event_stream_alive = stream_alive_i;
+            assign event_kind = note_data_i[KIND_SH +: 2];
+            assign event_note = note_off5_i;
+            assign event_axis = note_data_i[AXIS_SH +: 4];
+            assign key_sel = decoded_key;
+            assign key_valid = decoded_valid;
+            for (sample_bank=0; sample_bank<BANK_N; sample_bank=sample_bank+1) begin: g_bank_direct
+                assign bank_event_axis[sample_bank] = event_axis;
+                assign bank_event_note[sample_bank] = event_note;
+                assign bank_event_key[sample_bank] = key_sel;
+            end
+        end
+    endgenerate
 
-    // ── 指引位图寄存器 ────────────────────────────────────────────────────
-    //   ⭐ one-hot 生成：⭐ `note_on` → 置位 `key_sel`；⭐ `note_off` → 清零 `key_sel`。
-    //   ⚠️ **ON 与 OFF 用【同一套推导】**（⭐ `key_sel` / `key_valid` 都是组合的、
-    //      同一个表达式）⇒ ⭐ **亮哪一盏、就灭哪一盏**（⭐ 否则灯灭不掉 ✅）
-    //   📌 ⭐ 用索引赋值（`guide_key_o[key_sel[3:0]]`），⛔ 不用移位 ——
-    //      ⭐ 保证「每个键号 → 一个灯位」的满射、非空洞 ✅
-    //      ⚠️ ⭐ 只取 `key_sel` 的**低 4 位**当索引：⭐ `key_valid = 0` 时
-    //         （⭐ 含 `key_sel = 5'd16`）⭐ **整段都不执行** ⇒ ⭐ 取不取都无所谓 ✅
-    //   📌 ⭐ `key_valid = 0` 时**什么都不做**（⭐ 也不发 commit）——
-    //      ⚠️ 这才是"**表里没有这个音 ⇒ 不点灯**"的正确写法 ✅
-    //   ⭐⭐ 2026-10-16（灭灯 LAMPKILL）：⭐ **超时清零插在事件分支【之前】**
-    //     🔴 **为什么必须优先于事件分支**：
-    //        ⭐ 超时那一拍**可能同时**在吐一条 `note_on`（⭐ 例如停播 1 秒后又灌了新曲，
-    //        ⭐ 缓冲刚好在这一拍变非空 ⇒ `stream_alive_i` 这一拍才抬起来 ✅）
-    //        ⇒ ⚠️ 若把超时放在**事件分支之后** ⇒ ⭐ `note_on` 会把刚清掉的位置**又点亮**
-    //        ⇒ 🔴 那个键**下个超时才清** ⇒ ⭐ 表现成"闪一下又挂住"（⭐ 更难查 ✅）
-    //        ⭐ 放在**之前** ⇒ ⭐ **先整片清、再点亮这一拍该亮的** ⇒ ⭐ 干净 ✅
-    //     📌 ⭐ **这也保证"停播后重新灌谱"是对的**：⭐ 灯先全灭、⭐ 只亮新曲要的那几盏 ✅
-    // ══════════════════════════════════════════════════════════════════════
-    //  ⭐⭐ 2026-10-17（Q4）：⭐ **每键引用计数**（3 位饱和）✅
-    //
-    //  🔴 **缺陷（改前）**：`guide_key_o[k]` 是**直接写位**的 ——
-    //       note_on  ⇒ `<= 1'b1`（置位）
-    //       note_off ⇒ `<= 1'b0`（清位）
-    //     ⇒ ⚠️ **第一个 `note_off` 就把灯灭了**，哪怕**同音高还有别的 voice 在响** ✅
-    //  📌 **实测比例**（`build/score/*/events.csv`）：OFF 到达时"同音高仍有别的 voice"
-    //     = **61~77%** ⇒ ⭐ 按音高指键之后，这**就是主行为**（⛔ 不是角落）✅
-    //
-    //  ✅ **改法**：⭐ 每个键一个 3 位**饱和**计数，**只有最后一根引用才熄灯**：
-    //       ON  : `if (cnt != 7) cnt <= cnt + 1;`  且 `guide_key_o[k] <= 1'b1;`
-    //       OFF : `if (cnt != 0) cnt <= cnt - 1;`
-    //             `if (cnt == 1) guide_key_o[k] <= 1'b0;`   ← 🔴 **只有这一种情况才熄灯** ✅
-    //      超时: **清全部计数 + 清全部灯**（⭐ 与"停播即清"同一条路径 ✅）
-    //      复位: **清全部计数**（⛔ 不留 X）✅
-    //
-    //  ⭐ **为什么 3 位 / 饱和 7 就够，而且会自愈**：
-    //     · ⭐ 同音高最多几个 voice：键盘表里 E3 同指**键 0 与键 3** 两个轴
-    //       ＋ 曲谱/手弹两路 ⇒ ⭐ 实测远 < 7 ✅
-    //     · ⭐ 饱和丢的是"**多余的引用**" ⇒ 之后 OFF 逐个减到底（⭐ 第 7 个 OFF 就熄灯）
-    //       ⇒ ⚠️ 只会让灯**晚灭一点点**，⛔ **不会**变成"永久灭不掉" ✅
-    //
-    //  ⚠️ **一个 reg 只能在一个 always 里赋值**：`key_cnt` **只在下面那个
-    //     `always @(posedge clk_i)`**（唯一时序块）里被写 —— 复位/超时/ON/OFF 四处**全在同一个块内**
-    //     ⇒ ⭐ 结构上不可能 `EX2000/EX1999` ✅
-    //  ⚠️ **⛔ 不新增任何输入端口** ⇒ 不牵动本文件既有的 `=== 1'b1` Z-safe 口径 ✅
-    //  📌 `guide_vis_o = guide_key_o & ~key_active_i`（⭐ 本文件 L216，`P0-28` 钉着）
-    //     ⛔ **一个字都不改** —— 它本来就是"从 `guide_key_o` 派生"的 ✅
-    reg [2:0] key_cnt [0:AXIS_N-1];
-    integer   kc_i;                  // ⭐ 复位 / 超时的清零循环变量（⭐ Verilog-2001 要声明在块外 ✅）
+    // Keep each ON's original identity and mapped key until its matching OFF.
+    // Repeated identical ONs share a 32-bit count; different mapped identities
+    // retain independent slots. OFF consumes the first matching identity.
+    reg [HELD_SLOTS-1:0] held_valid;
+    wire [HELD_SLOTS-1:0] next_valid;
+    reg [3:0] held_axis [0:HELD_SLOTS-1];
+    reg [4:0] held_note [0:HELD_SLOTS-1];
+    reg [4:0] held_key [0:HELD_SLOTS-1];
+    // Bank-local read/modify/write keeps the global identity priority tree
+    // out of the count-data path. Preload invalid slots with 1: allocation
+    // only changes their valid/identity state, not their 32-bit count data.
+    reg [31:0] held_count [0:HELD_SLOTS-1];
 
+    // Balanced selection: each level halves the candidates. A linear
+    // first-match loop otherwise chains all 64 identity comparators/muxes.
+    wire [SLOT_W:0] free_tree [1:2*TREE_N-1];
+    wire [SLOT_W:0] off_tree [1:2*TREE_N-1];
+    wire [SLOT_W:0] same_tree [1:2*TREE_N-1];
+    genvar ti;
+    generate
+        for (ti=0; ti<TREE_N; ti=ti+1) begin: g_lookup_leaf
+            if (ti<HELD_SLOTS) begin: g_used
+                wire match_id = held_valid[ti]
+                    && held_axis[ti] == bank_event_axis[ti/BANK_SIZE]
+                    && held_note[ti] == bank_event_note[ti/BANK_SIZE];
+                assign free_tree[TREE_N+ti] = {!held_valid[ti], ti[SLOT_W-1:0]};
+                assign off_tree[TREE_N+ti] = {match_id, ti[SLOT_W-1:0]};
+                // Valid stored keys are 0..15; mapped_on_event retains the full
+                // incoming validity check before any observable ledger update.
+                assign same_tree[TREE_N+ti] = {match_id && held_key[ti][3:0] == bank_event_key[ti/BANK_SIZE][3:0], ti[SLOT_W-1:0]};
+            end else begin: g_padding
+                assign free_tree[TREE_N+ti] = 0;
+                assign off_tree[TREE_N+ti] = 0;
+                // Valid stored keys are 0..15; mapped_on_event retains the full
+                // incoming validity check before any observable ledger update.
+                assign same_tree[TREE_N+ti] = 0;
+            end
+        end
+        for (ti=1; ti<TREE_N; ti=ti+1) begin: g_lookup_branch
+            assign free_tree[ti] = free_tree[2*ti][SLOT_W] ? free_tree[2*ti] : free_tree[2*ti+1];
+            assign off_tree[ti] = off_tree[2*ti][SLOT_W] ? off_tree[2*ti] : off_tree[2*ti+1];
+            assign same_tree[ti] = same_tree[2*ti][SLOT_W] ? same_tree[2*ti] : same_tree[2*ti+1];
+        end
+    endgenerate
+    // Preserve the eight-slot reduction boundary, as in note_manager's
+    // scan_group/env_grp nets. Otherwise global match and prefix selection
+    // may share a long, spatially distributed chain after synthesis.
+    (* syn_keep = 1 *) wire [BANK_N-1:0] same_bank_present;
+    (* syn_keep = 1 *) wire [BANK_N-1:0] off_bank_present;
+    (* syn_keep = 1 *) wire [BANK_N-1:0] free_bank_present;
+    genvar match_bank;
+    generate
+        for (match_bank=0; match_bank<BANK_N; match_bank=match_bank+1) begin: g_same_bank
+            assign same_bank_present[match_bank] = same_tree[BANK_ROOT+match_bank][SLOT_W];
+            assign off_bank_present[match_bank] = off_tree[BANK_ROOT+match_bank][SLOT_W];
+            assign free_bank_present[match_bank] = free_tree[BANK_ROOT+match_bank][SLOT_W];
+        end
+    endgenerate
+    wire same_present = |same_bank_present;
+    // Timeout invalidates the ledger at the update boundary, rather than
+    // feeding all identity comparators and priority selectors. In that same
+    // cycle an ON allocates slot zero; an OFF has no previous live identity.
+    wire mapped_on_event = event_valid && is_note_on && key_valid;
+    // Free-slot selection below already rejects a full ledger; its root
+    // need not be serially included in the global allocation gate.
+    wire allocate = mapped_on_event && (stream_timeout || !same_present);
+    wire repeat_event = mapped_on_event && !stream_timeout;
+    wire release_event = event_valid && is_note_off && !stream_timeout;
+    wire next_commit = (mapped_on_event &&
+        (stream_timeout || same_present || free_tree[1][SLOT_W]))
+        || (release_event && off_tree[1][SLOT_W]);
+    // Evaluate the terminal-count predicate before selecting the OFF slot.
+    // This removes the 64:1 count-data mux from the lamp/valid update path.
+    wire [HELD_SLOTS-1:0] accepted_on_slot;
+    reg [HELD_SLOTS-1:0] accepted_on_state;
+    (* syn_keep = 1 *) wire [BANK_N-1:0] accepted_on_bank;
+    // Register existing slot controls before reduction. R(OR(x)) equals
+    // OR(R(x)) here: same clock, same zero reset, same visible event cycle.
+    always @(posedge clk_i) begin
+        if (!rst_n_i) accepted_on_state <= {HELD_SLOTS{1'b0}};
+        else accepted_on_state <= accepted_on_slot;
+    end
+    assign guide_on_valid_o = |accepted_on_bank;
+    genvar accept_bank;
+    generate
+        for (accept_bank=0; accept_bank<BANK_N; accept_bank=accept_bank+1) begin: g_on_report
+            localparam integer FIRST = accept_bank * BANK_SIZE;
+            localparam integer LAST = ((FIRST + BANK_SIZE) < HELD_SLOTS)
+                ? FIRST + BANK_SIZE - 1 : HELD_SLOTS - 1;
+            assign accepted_on_bank[accept_bank] = |accepted_on_state[LAST:FIRST];
+        end
+    endgenerate
+    wire [HELD_SLOTS-1:0] release_slot;
+    wire [HELD_SLOTS-1:0] count_enable;
+    wire [HELD_SLOTS-1:0] free_mask, off_mask, same_mask;
+    genvar vi;
+    generate
+        for (vi=0; vi<HELD_SLOTS; vi=vi+1) begin: g_valid_update
+            assign free_mask[vi] = free_tree[TREE_N+vi][SLOT_W];
+            assign off_mask[vi] = off_tree[TREE_N+vi][SLOT_W];
+            assign same_mask[vi] = same_tree[TREE_N+vi][SLOT_W];
+            wire free_pick, off_pick, same_pick;
+            localparam integer THIS_BANK = vi / BANK_SIZE;
+            localparam integer FIRST_IN_BANK = THIS_BANK * BANK_SIZE;
+            (* syn_keep = 1 *) wire earlier_bank;
+            (* syn_keep = 1 *) wire earlier_local;
+            if (THIS_BANK == 0) begin: g_bank_first
+                assign earlier_bank = 1'b0;
+            end else begin: g_bank_later
+                assign earlier_bank = |same_bank_present[THIS_BANK-1:0];
+            end
+            if (vi == FIRST_IN_BANK) begin: g_local_first
+                assign earlier_local = 1'b0;
+            end else begin: g_local_later
+                assign earlier_local = |same_mask[vi-1:FIRST_IN_BANK];
+            end
+            // Keep the global lowest-slot rule, using two bounded eight-way
+            // selections instead of a synthesis-created 64-slot carry chain.
+            assign same_pick = same_mask[vi] && !earlier_bank && !earlier_local;
+            (* syn_keep = 1 *) wire earlier_off_bank, earlier_free_bank;
+            (* syn_keep = 1 *) wire earlier_off_local, earlier_free_local;
+            if (THIS_BANK == 0) begin: g_prefix_first_bank
+                assign earlier_off_bank = 1'b0;
+                assign earlier_free_bank = 1'b0;
+            end else begin: g_prefix_later_bank
+                assign earlier_off_bank = |off_bank_present[THIS_BANK-1:0];
+                assign earlier_free_bank = |free_bank_present[THIS_BANK-1:0];
+            end
+            if (vi == FIRST_IN_BANK) begin: g_prefix_first_local
+                assign earlier_off_local = 1'b0;
+                assign earlier_free_local = 1'b0;
+            end else begin: g_prefix_later_local
+                assign earlier_off_local = |off_mask[vi-1:FIRST_IN_BANK];
+                assign earlier_free_local = |free_mask[vi-1:FIRST_IN_BANK];
+            end
+            assign free_pick = free_mask[vi] && !earlier_free_bank && !earlier_free_local;
+            assign off_pick = off_mask[vi] && !earlier_off_bank && !earlier_off_local;
+            wire chosen_free = stream_timeout ? (vi==0) : free_pick;
+            wire alloc_here = allocate && chosen_free;
+            // A selected free slot may preload metadata even for a duplicate
+            // ON. It stays invalid in that case, so these dead payloads cannot
+            // participate in matching or lamp output. Real allocation writes
+            // the same event payload before that slot becomes observable.
+            wire payload_load = mapped_on_event && chosen_free;
+            wire off_here = release_event && off_pick;
+            // Observe the existing slot write controls locally. Do not add
+            // a new consumer to the global next_commit priority path.
+            assign accepted_on_slot[vi] = alloc_here || (repeat_event && same_pick);
+            assign count_enable[vi] = (repeat_event && same_pick) || off_here;
+            assign release_slot[vi] = off_here && held_count[vi] == 32'd1;
+            assign next_valid[vi] = alloc_here
+                || (held_valid[vi] && !stream_timeout && !release_slot[vi]);
+            always @(posedge clk_i) begin
+                if (!rst_n_i) begin
+                    held_axis[vi] <= 4'd0;
+                    held_note[vi] <= 5'd0;
+                    held_key[vi] <= KEY_NONE;
+                end else if (payload_load) begin
+                    held_axis[vi] <= bank_event_axis[THIS_BANK];
+                    held_note[vi] <= bank_event_note[THIS_BANK];
+                    held_key[vi] <= bank_event_key[THIS_BANK];
+                end
+            end
+        end
+    endgenerate
+
+    // Derive the bitmap from the registered ledger at the same boundary.
+    // No timeout mask here: clearing happens when held_valid is updated.
+    genvar lamp, slot;
+    generate
+        for (lamp=0; lamp<AXIS_N; lamp=lamp+1) begin: g_lamp_reduce
+            wire [HELD_SLOTS-1:0] hit;
+            for (slot=0; slot<HELD_SLOTS; slot=slot+1) begin: g_slot
+                assign hit[slot] = held_valid[slot] && (held_key[slot] == lamp);
+            end
+            assign guide_key_o[lamp] = |hit;
+        end
+    endgenerate
+
+    // Each bank has its own eight-way count read and one 32-bit adder.
+    // The subtree still chooses the lowest matching slot within that bank;
+    // the prefix masks enable only the globally winning slot's write.
+    genvar bank, bi;
+    generate
+        for (bank=0; bank<BANK_N; bank=bank+1) begin: g_count_bank
+            wire [BANK_W-1:0] read_slot = is_note_off
+                ? off_tree[BANK_ROOT+bank][BANK_W-1:0]
+                : same_tree[BANK_ROOT+bank][BANK_W-1:0];
+            wire [31:0] values [0:BANK_SIZE-1];
+            wire [31:0] delta = is_note_off ? 32'hffffffff : 32'd1;
+            wire [31:0] write_value = values[read_slot] + delta;
+            for (bi=0; bi<BANK_SIZE; bi=bi+1) begin: g_slot
+                if (bank*BANK_SIZE+bi < HELD_SLOTS) begin: g_used
+                    assign values[bi] = held_count[bank*BANK_SIZE+bi];
+                    always @(posedge clk_i) begin
+                        if (rst_n_i) begin
+                            // The old valid bit is sampled here. An allocation
+                            // into an invalid slot therefore gets count 1 in
+                            // the very same cycle, including back-to-back reuse.
+                            // Timeout + ON likewise starts a fresh slot at 1.
+                            if (!held_valid[bank*BANK_SIZE+bi] || stream_timeout)
+                                held_count[bank*BANK_SIZE+bi] <= 32'd1;
+                            else if (count_enable[bank*BANK_SIZE+bi])
+                                held_count[bank*BANK_SIZE+bi] <= write_value;
+                        end
+                    end
+                end else begin: g_padding
+                    assign values[bi] = 32'd0;
+                end
+            end
+        end
+    endgenerate
+
+    // Keep the pitch decoder out of the ledger acceptance path. Downstream
+    // display logic decodes this registered key in the following cycle.
     always @(posedge clk_i) begin
         if (!rst_n_i) begin
-            guide_key_o    <= {AXIS_N{1'b0}};
-            //  ⭐⭐ 2026-10-17（Q4）：⭐ 引用计数也要**逐个清零**（⛔ 留 X 会让首次 ON 后
-            //     的 `cnt == 1` 判据拿到 x ⇒ 🔴 灯永远熄不掉 ✅）
-            for (kc_i = 0; kc_i < AXIS_N; kc_i = kc_i + 1)
-                key_cnt[kc_i] <= 3'd0;
-            guide_commit_o <= 1'b0;
-            stream_idle_cnt <= {CNT_W{1'b0}};
-        end
-        else begin
-            // 默认：commit 单周期脉冲每拍清零
-            guide_commit_o <= 1'b0;
-
-            // ⭐⭐ 2026-10-16（灭灯 LAMPKILL）：⭐ **超时计数 + "停播即清"** ✅
-            //   · ⭐ `stream_alive_i = 1` ⇒ **计数归零**（⭐ 流在走，⛔ 绝不清 ✅）
-            //   · ⭐ `stream_alive_i = 0` ⇒ **每拍 +1**，⭐ 到点**整片清零** ✅
-            //   ⚠️ **Z-safe**（⭐ `=== 1'b1` ✅）：⭐ 悬空 `z` 一律当**假**（= 流停了）
-            //     ⇒ ⚠️ 那不是我们想要的失败方向 ⇒ 🔴 **接线必须给真信号**
-            //     （⭐ `top.v` 接 `eb_rd_valid | ps_note_valid` ✅）
-            //     📌 ⭐ **已有的 tb 为什么不会被它影响**：⭐ `tb_guide_lamp` 等 tb 的例化
-            //        **没接这个端口** ⇒ 输入 `z` ⇒ 计数器会涨 ⇒ ⭐ 但每个 tb 都在**远短于
-            //        1 秒**的时间内跑完 ⇒ ⭐ **超时不可能触发** ⇒ 判据逐位不变 ✅
-            if (stream_alive_i === 1'b1)
-                stream_idle_cnt <= {CNT_W{1'b0}};
-            else if (stream_idle_cnt != TIMEOUT_CLKS - 1)
-                stream_idle_cnt <= stream_idle_cnt + {{(CNT_W-1){1'b0}}, 1'b1};
-
-            //  ⭐ 停播且超时 ⇒ **整片清零**（⭐ 治 M1/M2/M3 三条"挂灯"机理 ✅）
-            //  ⭐⭐ 2026-10-17（Q4）：⭐ **引用计数也要一起清**（⭐ 否则灯灭了但计数还留着
-            //     ⇒ ⚠️ 下一首曲的同音高 ON 会把计数叠加上去 ⇒ 🔴 那盏灯**永远熄不掉**）✅
-            //  📌 顺序：⭐ 先清计数、再清灯，⛔ 都在"事件分支"**之前**（⭐ 保持原有优先级 ✅）
-            if (stream_timeout) begin
-                guide_key_o <= {AXIS_N{1'b0}};
-                for (kc_i = 0; kc_i < AXIS_N; kc_i = kc_i + 1)
-                    key_cnt[kc_i] <= 3'd0;
-            end
-
-            if (note_valid_i) begin
-                if (is_note_on) begin
-                    // ⭐ note_on → 点亮"该按的那个键"（⭐ 音高查表得到）
-                    if (key_valid) begin
-                        //  ⭐⭐ 2026-10-17（Q4）：⭐ **引用 +1（3 位饱和到 7）**
-                        //     📌 `!= 3'd7` 守卫 ⇒ ⭐ 溢出时**停在 7**（⛔ 不回绕成 0 ⇒
-                        //        否则会把灯误灭 ✅）
-                        if (key_cnt[key_sel[3:0]] != 3'd7)
-                            key_cnt[key_sel[3:0]] <= key_cnt[key_sel[3:0]] + 3'd1;
-                        guide_key_o[key_sel[3:0]] <= 1'b1;
-                        guide_commit_o            <= 1'b1;
-                    end
-                end
-                else if (is_note_off) begin
-                    // ⭐ note_off → 熄灭同一个键（⭐ 与 ON 逐位相同的推导）
-                    if (key_valid) begin
-                        //  ⭐⭐ 2026-10-17（Q4）：⭐ **引用 −1，⭐ 只有最后一根引用才熄灯** ✅
-                        //  🔴 `if (key_cnt == 3'd1)` 是这条改动的**全部意义**：
-                        //     · 计数 2 ⇒ 减到 1，**灯保持亮**（⭐ 同音高还有 voice 在响 ✅）
-                        //     · 计数 1 ⇒ 减到 0，**这才熄灯** ✅
-                        //     · 计数 0 ⇒ **减法和熄灯都不做**（⭐ 野 `note_off` 不许造出负计数 ✅）
-                        //  ⚠️ ⛔ 不要写成 `if (key_cnt != 3'd0)` —— 那等于"任何一根引用就熄灯"，
-                        //     ⭐ 就是改动前的老行为（⭐ 本改动要修的正是它 ✅）
-                        if (key_cnt[key_sel[3:0]] != 3'd0)
-                            key_cnt[key_sel[3:0]] <= key_cnt[key_sel[3:0]] - 3'd1;
-                        if (key_cnt[key_sel[3:0]] == 3'd1)
-                            guide_key_o[key_sel[3:0]] <= 1'b0;
-                        guide_commit_o            <= 1'b1;
-                    end
-                end
-                // ⭐ tempo（kind=2）→ 忽略，不改任何灯位
-            end
+            guide_on_key_o <= 4'd0;
+        end else begin
+            guide_on_key_o <= key_sel[3:0];
         end
     end
 
+    always @(posedge clk_i) begin
+        if (!rst_n_i) begin
+            held_valid <= {HELD_SLOTS{1'b0}};
+            guide_commit_o <= 1'b0;
+            stream_idle_cnt <= {CNT_W{1'b0}};
+        end else begin
+            held_valid <= next_valid;
+            guide_commit_o <= next_commit;
+            if (event_stream_alive === 1'b1)
+                stream_idle_cnt <= {CNT_W{1'b0}};
+            else if (stream_idle_cnt != TIMEOUT_CLKS-1)
+                stream_idle_cnt <= stream_idle_cnt + 1'b1;
+        end
+    end
 endmodule

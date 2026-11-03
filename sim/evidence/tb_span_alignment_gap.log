@@ -10,6 +10,6 @@ ok  : 璺ㄩ€氶亾鏋佸樊 762 涓嬶紝16 杞翠粛鍏ㄩ儴鏍囧畾鎴愬
       => 鉁?閫氶亾杩囨护銆愭湁鏁堛€?> 璺ㄩ€氶亾璺冲彉銆愪笉鏄€戞牴鍥?
 ==================================================
 PASS: 姝ｇ‘鐨勯€氶亾杩囨护鑳介殧绂昏法閫氶亾璺冲彉
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_alignment_gap.sv:155: $finish called at 25600240000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_span_alignment_gap.sv:155: $finish called at 25600240000 (1ps)
 
 

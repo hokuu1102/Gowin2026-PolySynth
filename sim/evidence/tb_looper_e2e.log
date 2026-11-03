@@ -15,7 +15,7 @@ NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
-VCD info: dumpfile build/sim/tb_looper_e2e/tb_looper_e2e.vcd opened for output.
+VCD info: dumping is suppressed.
   [tare ] at_done=1 after ~50000 cycles
   [baseline] evt_cnt=0 lay_st=0 rec_on=0 play_on=0 rd_lock=0 n_live=0 n_play=0
   ok  : baseline: looper_evt_cnt is 0 before any recording
@@ -40,6 +40,6 @@ VCD info: dumpfile build/sim/tb_looper_e2e/tb_looper_e2e.vcd opened for output.
   ok  : rd_lock is still 0 at the end (never got stuck)
 
 PASS: looper end-to-end (top level) -- 'R' starts recording, a hand-played note is really captured (evt_cnt>0), 'R' stops, 'L' starts playback and the looper enters its PLAYING state; an 'L' on an EMPTY loop is REJECTED instead of silently playing silence. The replay payload itself is covered by tb_looper.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\e2e\tb_looper_e2e.sv:333: $finish called at 2048360000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\e2e\tb_looper_e2e.sv:333: $finish called at 2048360000 (1ps)
 
 

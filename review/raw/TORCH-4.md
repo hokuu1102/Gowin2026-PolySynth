@@ -1269,7 +1269,7 @@ initial if (DRUM_PATTERN_ID < 0 || DRUM_PATTERN_ID > 3)
 deliver(右手板): 联调档时序达标 —— 一个能上板的版本（=1 档 0/0 · ≈57.0 MHz · 余量 +0.642 ns）
 ```
 而 `sim/evidence/rightboard-vibrato-fix-20261008/` 下**没有** `timing.txt`
-（对比 `final-batch-20261008/` 与 `a3-proper-20261008/` 都有）。
+（对比 `sim/evidence/final-batch-20261008/` 与 `sim/evidence/a3-proper-20261008/` 都有）。
 ⇒ `+0.642` 这个数**无法与 `18.181` 反算校核**（若按 55.313 的口径，
 `Fmax = 1000/(18.181 − slack)` ⇒ `slack = 0.642` ⇒ `Fmax = 57.06 MHz` ✅ **自洽**），
 但**没有原始报告**可复核，也没有 CLS 81% 的出处。

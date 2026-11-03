@@ -1,0 +1,57 @@
+[
+  {
+    "name": "tb_guide_lamp",
+    "pass": true,
+    "seconds": 1.39
+  },
+  {
+    "name": "tb_guide_lamp_local_equiv",
+    "pass": true,
+    "seconds": 15.61
+  },
+  {
+    "name": "tb_guide_lamp_state_equiv",
+    "pass": true,
+    "seconds": 17.59
+  },
+  {
+    "name": "tb_guide_lamp_capacity",
+    "pass": true,
+    "seconds": 1.46
+  },
+  {
+    "name": "tb_guide_lamp_cycle_equiv",
+    "pass": true,
+    "seconds": 14.08
+  },
+  {
+    "name": "tb_lamp_stuck_clear",
+    "pass": true,
+    "seconds": 1.39
+  },
+  {
+    "name": "tb_top_guide_axes",
+    "pass": true,
+    "seconds": 48.78
+  },
+  {
+    "name": "tb_top_guide_bit6",
+    "pass": true,
+    "seconds": 60.85
+  },
+  {
+    "name": "tb_guide_lamp_identity",
+    "pass": true,
+    "seconds": 22.14
+  },
+  {
+    "name": "tb_score_chain",
+    "pass": true,
+    "seconds": 0.48
+  },
+  {
+    "name": "tb_top_keydrum_score_isolation",
+    "pass": true,
+    "seconds": 3.23
+  }
+]

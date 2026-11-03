@@ -19,6 +19,6 @@ NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). O
   INFO: TRIG=64 REL=32 TRAVEL=744 CALIB_FULL=4095 POS_FULL(passed down)=744
 PASS: integration_consts -- top's self-checks hold AND the value really reaches param_extract
 INFO: checks=6 errors=0
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_integration_consts.sv:131: $finish called at 290000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_integration_consts.sv:131: $finish called at 290000 (1ps)
 
 

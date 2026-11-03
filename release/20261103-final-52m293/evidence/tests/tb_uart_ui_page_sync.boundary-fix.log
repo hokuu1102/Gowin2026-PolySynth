@@ -1,0 +1,11 @@
+ok: page1 corrects global memory from actual DSP mask
+ok: page1 headers restore gray
+ok: page1 does not address private page0 controls
+ok: external changes correct all remembered bits
+ok: external changes correct loaded header colors
+ok: page0 refresh restores real LEDs
+ok: page0 refresh retains actual memory
+ok: page0 does not address private page1 headers
+ok: invalid page announcement ignored
+PASS: page-scoped effect synchronization (9 checks)
+D:\ChatGPT\Projects\FPGA\fix-hmi-protocol-boundary-20261103\tb\w3c\tb_uart_ui_page_sync.sv:61: $finish called at 481040000 (1ps)

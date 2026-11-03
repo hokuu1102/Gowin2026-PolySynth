@@ -1,5 +1,5 @@
 ﻿NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118
 PASS: fx_delay production 16384x18 memory priming, exact nine-sample echo and three feedback decays, 16416 outputs
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_fx_delay_production.sv:51: $finish called at 2626860000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_fx_delay_production.sv:51: $finish called at 2626860000 (1ps)
 
 

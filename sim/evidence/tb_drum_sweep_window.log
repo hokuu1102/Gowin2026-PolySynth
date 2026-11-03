@@ -26,6 +26,6 @@
   ok  : W3 tom->kick (WINDOW: base_inc refreshes AFTER the onset tick) : per-sample phase step == NEW_INC + depth<<8 (end-to-end)
 
 PASS: tb_drum_sweep_window - 6/6 judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_drum_sweep_window.sv:338: $finish called at 24700000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_drum_sweep_window.sv:338: $finish called at 24700000 (1ps)
 
 

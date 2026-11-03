@@ -1,0 +1,3 @@
+PASS document parent resolution, dot directories and escape/missing controls
+PASS exact production timing gate: 9 positive/negative fixtures, including shorter CDC budget
+PASS production process guard accepts measured vendor default and rejects unsupported modes

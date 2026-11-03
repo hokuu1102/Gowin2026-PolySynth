@@ -1,0 +1,33 @@
+WARNING [note_manager] FIFO_DEPTH=8 < 鏈€鍧忕獊鍙?18 (=16 杞?+1 鑺傛媿鍣?+1 榧撴満) => 浜嬩欢浼氭孩鍑轰涪寮冿紙猸?宸茬敱 event_lost_o 鎸囩ず锛屼絾浼氫涪闊筹級
+VCD info: dumpfile build/sim/tb_vel_pos_follow/tb_vel_pos_follow.vcd opened for output.
+  INFO: 浣嶇疆 鈫?鍔涘害鏄犲皠锛堚瓙 vel = 64 + ((pos脳263)>>10)锛岄ケ鍜?255锛?
+  INFO:   P_PRESS(192) = 113
+  INFO:   P_DEEP (600) = 218
+  INFO:   P_HALF (300) = 141
+  INFO:   P_FULL (744) = 255
+  ok  : J1a: note_on -> exactly ONE voice gate is high
+  ok  : J1b: that voice carries axis 0
+  ok  : J1c: attack velocity == pos_to_vel(pos at trigger)
+  ok  : J1d: env settled at sustain_of(that velocity)  [= vel * 64]
+  ok  : J2a: pressing DEEPER made vel LARGER
+  ok  : J2b: vel_upd did NOT touch gate (params never make notes)
+  ok  : J2c: env became LARGER
+  ok  : J2d: and it settled at the NEW sustain (not rising forever)
+  ok  : J3a: easing BACK made vel SMALLER (positional = up AND down)
+  ok  : J3b: *** env became SMALLER ***  [MUST FAIL on the un-fixed note_manager]
+  ok  : J3c: and it settled at the NEW sustain
+  INFO: 鍖呯粶鐢靛钩  L1(pos=192)=7232  L2(pos=600)=13952  L3(pos=300)=9024
+  ok  : J6: vel_upd on ANOTHER axis must NOT change this voice
+== K: per-axis targets must survive interleaved updates ==
+  ok  : K0: axis0 target 200 applied
+  ok  : K1: axis0 still reaches ITS OWN target 100 (not overwritten by axis4)
+  ok  : J4a: note_off dropped the gate
+  ok  : J4b: env started to DECAY (release path is live)
+  ok  : J4c: env decayed all the way to 0
+  ok  : J4d: env_active fell
+  ok  : J5a: after note_off a vel_upd must NOT change vel (FROZEN)
+  ok  : J5b: and env was not pushed back up (still 0)
+PASS: vel_pos_follow acceptance - volume follows position (up AND down), frozen on release
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3b\tb_vel_pos_follow.sv:420: $finish called at 666360000 (1ps)
+
+

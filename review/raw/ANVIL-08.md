@@ -128,7 +128,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File sim\gowin_build.ps1
 Verilog 的自决定位宽规则：`drop_cnt_o`(16) `+` `push_n`(2) ⇒ 和是 **16 位**；
 `>` 的两个操作数都是 16 位无符号 ⇒ **`x > 16'hFFFF` 恒为假**。
 ⇒ 三元的真分支（那个 `16'hFFFF`）是**永远取不到的死代码**，计数器就是裸的 16 位加法 ⇒ 回绕。
-**本机 iverilog 实测**（`%TEMP%\anvil08_probe\t1.v`）：
+**本机 iverilog 实测**（「%TEMP%\anvil08_probe\t1.v」（本地临时路径））：
 
 ```
 drop=ffff push=3 -> r=0002  (sat would be FFFF)
@@ -281,7 +281,7 @@ Select-String -Path impl\pnr\Gowin2026.timing_paths -Pattern 'u_looper' |
 交付参数 `DEPTH=6`（`rtl/top.v:3677`）⇒ `PTR_W=3`、`SUM_W=4`、`DEPTH_C=4'd6`。
 `r = t + n` 的最大值 = `(6-1)+3 = 8` ⇒ **第一次减法后 r ≤ 2 < 6** ⇒
 **第 2、3 次 `if` 的比较结果恒假**（对 `DEPTH=9` 亦然：`8+3=11 → 2 < 9`）。
-本机穷举验证（`%TEMP%\anvil08_probe\t5.v`，`DEPTH` 3..16 × `t` 0..D-1 × `n` 0..3）：
+本机穷举验证（「%TEMP%\anvil08_probe\t5.v」（本地临时路径），`DEPTH` 3..16 × `t` 0..D-1 × `n` 0..3）：
 
 ```
 T5 one-subtract vs three-subtract mismatches = 0 / 532
@@ -430,7 +430,7 @@ T5 one-subtract vs three-subtract mismatches = 0 / 532
 `ramp_pw` / `pa_pw` 在整个文件里**只有上面两处用到**（`ramp_pw` 定义 + `pa_pw` 装载 + 2 次使用），
 它的唯一作用就是 `+2^f-1` 这个"向上取整"项。
 数学恒等式：对 `x ≥ 1`，`ceil(x/2^f) = ((x-1) >> f) + 1`（**精确相等，不是近似**）。
-本机穷举验证（`%TEMP%\anvil08_probe\t2.v`，`f` 0..6 × `x` 1..400）：
+本机穷举验证（「%TEMP%\anvil08_probe\t2.v」（本地临时路径），`f` 0..6 × `x` 1..400）：
 
 ```
 T2 ceil-identity mismatches = 0 / 2800
@@ -534,7 +534,7 @@ T2 ceil-identity mismatches = 0 / 2800
 当 `rtgt == ramp` 时 `dinc = 0` ⇒ 由 `looper.v:528-535` 的守卫得 `sinc = 0` ⇒
 `pb_inc - 0 = pb_inc`，而 `pb_inc == pb_tgt` ⇒ `(pb_inc <= pb_tgt)` 为真 ⇒ 输出 `pb_tgt == pb_inc`。
 ⇒ **"都不动"这一支与"dn 支"的输出完全相同**，`pb_dn` 那一臂可以删掉。
-本机穷举验证（`%TEMP%\anvil08_probe\t4.v`，`f` 0..4 × `cur` 0..60 × `tgt` 0..60，步长 3）：
+本机穷举验证（「%TEMP%\anvil08_probe\t4.v」（本地临时路径），`f` 0..4 × `cur` 0..60 × `tgt` 0..60，步长 3）：
 
 ```
 T4 two-arm equivalence mismatches = 0 / 2205
@@ -1056,7 +1056,7 @@ T4 two-arm equivalence mismatches = 0 / 2205
 | **9（两个 tb 的 DEPTH9 段）** | 4 | 4 | **0** | 🔴 **是** |
 | 10~13 | 4 | 4 | 0 | 🔴 是 |
 
-本机 iverilog 实测（`%TEMP%\anvil08_probe\t3.v`）：
+本机 iverilog 实测（「%TEMP%\anvil08_probe\t3.v」（本地临时路径））：
 
 ```
 T3 DEPTH=4 CNT_W=3 SUM_W=3  zero-repl width = 0 -> z=3

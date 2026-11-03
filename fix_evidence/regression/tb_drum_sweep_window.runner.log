@@ -1,0 +1,61 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_drum_sweep_window ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_drum_sweep_window.sv:129: warning: Instantiating module oscillator_bank with dangling input port 21 (osc_rd_addr0_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_drum_sweep_window.sv:129: warning: Instantiating module oscillator_bank with dangling input port 22 (osc_rd_addr1_i) floating.
+=== 运行 tb_drum_sweep_window ===
+    === tb_drum_sweep_window (P0-31: 榧撴壂棰戞繁搴?32 鎷嶈疆杞獥鍙? ===
+   KICK=5368709 TOM=17895697 路 LSB_SH=8 KICK_SH=0 TOM_SH=3
+
+== W1 kick->tom (WINDOW: base_inc refreshes AFTER the onset tick) ==
+   info: 鏃ч煶楂?5368709 鏂伴煶楂?17895697 路 绐楀彛=1
+   info: 鏈熸湜娣卞害=8738 路 鏈慨澶嶄細鎷垮埌=2621
+   info: 瀹炴祴 璧烽煶鎷?sweep_q=0 路 绐楀彛鍐?max sweep_q=8738
+   info: 鏈熸湜鐩镐綅澧為噺=20132625 路 鏈慨澶嶄細鏄?18566673 路 瀹炴祴 max=20132625
+  ok  : W1 kick->tom (WINDOW: base_inc refreshes AFTER the onset tick) : sweep_q loaded from the NEW pitch (not the stale one)
+  ok  : W1 kick->tom (WINDOW: base_inc refreshes AFTER the onset tick) : per-sample phase step == NEW_INC + depth<<8 (end-to-end)
+
+== W2 kick->tom (NO WINDOW: base_inc refreshes BEFORE the onset tick) ==
+   info: 鏃ч煶楂?5368709 鏂伴煶楂?17895697 路 绐楀彛=0
+   info: 鏈熸湜娣卞害=8738 路 鏈慨澶嶄細鎷垮埌=2621
+   info: 瀹炴祴 璧烽煶鎷?sweep_q=0 路 绐楀彛鍐?max sweep_q=8738
+   info: 鏈熸湜鐩镐綅澧為噺=20132625 路 鏈慨澶嶄細鏄?18566673 路 瀹炴祴 max=20132625
+  ok  : W2 kick->tom (NO WINDOW: base_inc refreshes BEFORE the onset tick) : sweep_q loaded from the NEW pitch (not the stale one)
+  ok  : W2 kick->tom (NO WINDOW: base_inc refreshes BEFORE the onset tick) : per-sample phase step == NEW_INC + depth<<8 (end-to-end)
+
+== W3 tom->kick (WINDOW: base_inc refreshes AFTER the onset tick) ==
+   info: 鏃ч煶楂?17895697 鏂伴煶楂?5368709 路 绐楀彛=1
+   info: 鏈熸湜娣卞害=20971 路 鏈慨澶嶄細鎷垮埌=4369
+   info: 瀹炴祴 璧烽煶鎷?sweep_q=0 路 绐楀彛鍐?max sweep_q=20971
+   info: 鏈熸湜鐩镐綅澧為噺=10737285 路 鏈慨澶嶄細鏄?6487173 路 瀹炴祴 max=10737285
+  ok  : W3 tom->kick (WINDOW: base_inc refreshes AFTER the onset tick) : sweep_q loaded from the NEW pitch (not the stale one)
+  ok  : W3 tom->kick (WINDOW: base_inc refreshes AFTER the onset tick) : per-sample phase step == NEW_INC + depth<<8 (end-to-end)
+
+PASS: tb_drum_sweep_window - 6/6 judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_drum_sweep_window.sv:338: $finish called at 24700000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

@@ -1,0 +1,4 @@
+PASS: all 64 FFT N headers, 5376 public RGB checks, atomic metadata and zero drops
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\hdmi\tb_fft_header_digits.sv:64: $finish called at 16596600000 (1ps)
+
+

@@ -81,12 +81,12 @@ module uart_tx_fifo #(
 );
 
     // ── ⭐ 常量（⛔ 不对 integer 参数做位选 —— `K-91`）──────────────────────
-    localparam integer  AW   = 3;                    // ⭐ DEPTH=8 ⇒ 3 位地址
+    localparam integer  AW   = (DEPTH < 2) ? 1 : $clog2(DEPTH);
     localparam [AW:0]   DEPTHV = DEPTH[AW:0];        // ⭐ 先算，再赋值给定宽
     localparam [AW-1:0] ONE  = {{(AW-1){1'b0}}, 1'b1};
 
     // ── ⭐ 声明（⭐ 全部先于使用 —— `L66`）────────────────────────────────
-    reg [7:0]    mem [0:DEPTH-1];
+    reg [7:0]    mem [0:DEPTH-1] /* synthesis syn_ramstyle = "block_ram" */;
     reg [AW-1:0] wr_ptr;
     reg [AW-1:0] rd_ptr;
     reg [AW:0]   cnt;               // ⭐ 多一位 ⇒ 能表示 0..DEPTH

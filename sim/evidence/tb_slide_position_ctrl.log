@@ -11,6 +11,6 @@ PASS_CHECK: re-enable does not revive a cancelled session
 PASS_CHECK: unsigned 32-bit endpoints use a full-width weighted sum
 PASS_CHECK: A8 detects no unknown public output
 PASS: position slide follows calibrated ratios, owns its voice, and cancels atomically
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_slide_position_ctrl.sv:93: $finish called at 20720000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_slide_position_ctrl.sv:93: $finish called at 20720000 (1ps)
 
 

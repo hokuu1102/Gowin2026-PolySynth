@@ -14,7 +14,7 @@ module tb_test_mode_top;
     wire HP_BCK, HP_WS, HP_DIN, PA_EN_n, led_heartbeat;
     wire I2S2_BCK, I2S2_LRCK, I2S2_DIN;
 
-    top #(
+    top #(.MAIN_UART_BAUD(500000),
         //  ⭐ 2026-10-09：本 tb 只测音频/控制，⛔ 不测 HDMI ⇒ 剪掉李萨如渲染器。
         //     ⚠️ 必须显式传 0：`top.v` 交付默认已是 SCOPE_MODE=1，否则本 tb 会超时。
         .SCOPE_MODE        (0),

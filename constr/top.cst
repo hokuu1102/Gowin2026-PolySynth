@@ -519,8 +519,6 @@ IO_PORT "hpd_en" PULL_MODE=UP DRIVE=12 BANK_VCCIO=3.3;
 // Deliberately NOT exclusive: the design is already ~91% CLS-occupied, so a
 // loose (non-exclusive) region is used first.
 // ---------------------------------------------------------------------------
-GROUP h5_ret = { "tx_byte_*" "u_tx_fifo/*" "g_sound.u_calib_span/reject_o_*" };
-GRP_LOC h5_ret R[45:73]C[1:148];
 
 // ---------------------------------------------------------------------------
 // ⭐⭐ 2026-10-11（乙）：⭐ **把李萨如渲染器 `u_scope` 圈到标定区【之外】** ✅
@@ -529,8 +527,12 @@ GRP_LOC h5_ret R[45:73]C[1:148];
 //    📌 实测：origin/main 单独 = 56.180/0违例/BSRAM 33 ✅
 // ✅ 前置修复：`waveform_scope.v` 里 `fy * FB_WPR` / `by * FB_WPR` 已改成【移位加法】
 //    ⇒ ⛔ 不再实例化 MULT12X12 ⇒ 区域约束不再与 DSP 固定位置冲突（原报 CT1005）
-// ✅ 本约束：`u_scope` 圈在 R[1:44]（芯片行范围只有 R[1:75]）
-//    📌 依据 Gowin SUG1018 2.4.1：GROUP + GRP_LOC 两条都必须写
+// 本轮使用工具默认合法区域放置 u_scope，保留引脚及 SDC 要求。
+// R[1:44] 对照出现 CT1094；R[1:75] 试验出现 CT2065，不能当作合法全片。
+// 移除此模块的硬编码区域限定，使用同一 RTL 与原生时序要求重新验证。
 // ---------------------------------------------------------------------------
-GROUP  h5_scope = { "u_hdmi/u_scope/*" };
-GRP_LOC h5_scope R[1:44]C[1:148];   // ⭐ A：36 行装不下 BSRAM（CT1005）⇒ 回到 44
+
+// Keep the OSER reset launch register beside TMDS IOR22/24/26/39.
+// This limits actual reset routing delay; recovery/removal remain fully timed.
+GROUP h5_oser_reset = { "u_hdmi/u_serializer/reset_release*" };
+GRP_LOC h5_oser_reset R[22:40]C[140:148];

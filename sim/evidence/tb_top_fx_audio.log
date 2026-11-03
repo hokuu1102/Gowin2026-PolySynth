@@ -50,6 +50,6 @@ NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
 NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
 PASS: top FX public I2S/UART: 79101 cycles unity bit-exact, board/external effect differences 12122/12138, live ones=17776
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_fx_audio.sv:51: $finish called at 1582420000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_fx_audio.sv:51: $finish called at 1582420000 (1ps)
 
 

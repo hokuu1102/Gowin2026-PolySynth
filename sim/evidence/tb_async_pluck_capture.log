@@ -28,6 +28,6 @@
   ok  :  event latency is ZERO added by the blank: <= 4 clocks (80 ns) from edge to event (spec: <=5 ms)
   ok  : g [REGRESSION] after the release window EXPIRES the same rail fires again (no permanent lockout)
 PASS: async pluck capture synchronizes edges, prioritizes UP, applies refractory, imposes no position restriction on a genuine pluck, and suppresses the release-threshold re-crossing on the same rail with ZERO added latency
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_async_pluck_capture.sv:542: $finish called at 10370000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_async_pluck_capture.sv:542: $finish called at 10370000 (1ps)
 
 

@@ -1,0 +1,7 @@
+{
+  "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+  "orchestration": "physical build runs concurrently against immutable source; impl outputs independent of build/sim and per-test logs",
+  "simulation_completion_claimed": false,
+  "cleanup_targets_verified_inside_audit_workspace": true,
+  "recorded_utc": "2026-10-20T06:36:33.0773479Z"
+}

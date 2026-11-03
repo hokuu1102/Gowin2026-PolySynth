@@ -21,6 +21,6 @@
   ok  : S6b pedal pressed AFTER release => NO resurrection
 
 PASS: tb_note_manager_sus 鈥?19/19 judgements held (T5 寤堕煶韪忔澘璇箟)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_note_manager_sus.sv:407: $finish called at 1504880000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_note_manager_sus.sv:407: $finish called at 1504880000 (1ps)
 
 

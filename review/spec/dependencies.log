@@ -1,0 +1,14 @@
+Collecting pyserial
+  Using cached pyserial-3.5-py2.py3-none-any.whl.metadata (1.6 kB)
+Collecting mido
+  Using cached mido-1.3.3-py3-none-any.whl.metadata (6.4 kB)
+Collecting packaging (from mido)
+  Using cached packaging-26.3-py3-none-any.whl.metadata (3.5 kB)
+Using cached pyserial-3.5-py2.py3-none-any.whl (90 kB)
+Using cached mido-1.3.3-py3-none-any.whl (54 kB)
+Using cached packaging-26.3-py3-none-any.whl (129 kB)
+Installing collected packages: pyserial, packaging, mido
+Successfully installed mido-1.3.3 packaging-26.3 pyserial-3.5
+
+[notice] A new release of pip is available: 25.0.1 -> 26.2.1
+[notice] To update, run: C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\review\spec\venv\Scripts\python.exe -m pip install --upgrade pip

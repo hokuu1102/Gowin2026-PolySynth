@@ -1200,11 +1200,21 @@ def main(argv=None):
     ap = argparse.ArgumentParser(
         description="鼓/旋律分离判据检查器（手册 §六 / §7.3，位域本文件独立写死）")
     src = ap.add_mutually_exclusive_group(required=True)
+    src.add_argument("--selftest", action="store_true", help="run baseline and negative fixtures without hardware")
     src.add_argument("--hex", help="events.hex（一行一个 64 位十六进制字）")
     src.add_argument("--mid", help=".mid 文件：先调 tools/mid2evt.py 转临时 hex 再读")
     ap.add_argument("--csv", default=None, help="events.csv（可选，用于反查原始音高做精确校验）")
     ap.add_argument("--keep-temp", action="store_true", help="--mid 模式下保留临时目录")
     args = ap.parse_args(argv)
+    if args.selftest:
+        result = run_selftest()
+        checks = crit6(decode_all(baseline_words()), result)
+        for msg in checks.reds:
+            print("RED: " + msg)
+        good = checks.ok and not result["baseline_reds"]
+        print("结论：" + ("全部通过" if good else "有失败项"))
+        return 0 if good else 1
+
 
     print("=" * 78)
     print("check_drum_split.py —— 鼓与旋律分离判据检查（手册 §六 / §7.3；2026-10-16 第三轮：4 件）")

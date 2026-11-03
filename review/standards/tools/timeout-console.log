@@ -1,0 +1,16 @@
+[
+  {
+    "repeat": 1,
+    "actual_exit": 1,
+    "expected_exit": 1,
+    "stale_pass_hint": true,
+    "result_log": "FAIL: TIMEOUT after 1 s -- testbench hung (no verdict is a FAILURE, see K-94)  [!!] \u4f46\u65e5\u5fd7\u91cc\u5df2\u51fa\u73b0 PASS: \u2014\u2014 \u5f88\u53ef\u80fd\u662f\u3010\u8d85\u65f6\u9884\u7b97\u592a\u7d27\u3011\u800c\u4e0d\u662f\u771f\u6302\u6b7b\uff0c\u8bf7\u4eba\u5de5\u786e\u8ba4\n"
+  },
+  {
+    "repeat": 2,
+    "actual_exit": 1,
+    "expected_exit": 1,
+    "stale_pass_hint": true,
+    "result_log": "FAIL: TIMEOUT after 1 s -- testbench hung (no verdict is a FAILURE, see K-94)  [!!] \u4f46\u65e5\u5fd7\u91cc\u5df2\u51fa\u73b0 PASS: \u2014\u2014 \u5f88\u53ef\u80fd\u662f\u3010\u8d85\u65f6\u9884\u7b97\u592a\u7d27\u3011\u800c\u4e0d\u662f\u771f\u6302\u6b7b\uff0c\u8bf7\u4eba\u5de5\u786e\u8ba4\n"
+  }
+]

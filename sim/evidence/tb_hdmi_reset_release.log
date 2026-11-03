@@ -1,0 +1,4 @@
+﻿PASS: OSER reset starts asserted and releases at a synchronized word boundary
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\control\tb_hdmi_reset_release.sv:24: $finish called at 350000 (1ps)
+
+

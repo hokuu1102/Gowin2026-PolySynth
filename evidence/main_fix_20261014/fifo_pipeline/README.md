@@ -25,7 +25,7 @@ are in ../fifo_uart_isolation/README.md. Main and board remain untouched.
 
 ## Verification snapshot 4f522c4
 
-- `fifo_targeted/summary.json`: all 12 selected tests explicit PASS, 279 source
+- `evidence/main_fix_20261014/fifo_targeted/summary.json`: all 12 selected tests explicit PASS, 279 source
   blobs checked against the pinned commit. This is NOT the complete suite.
 - Public top pin trace is identical to AY: 155,459 cycles, 2,331,885 bytes,
   SHA256 E80E96100E5EC6C8058FEC0A60903324028CC6F4126214702A88D78A79A6CD1E.

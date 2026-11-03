@@ -93,6 +93,11 @@ size_t up_ring_push(const uint8_t *src, size_t n);
  */
 size_t up_ring_pop(uint8_t *dst, size_t cap);
 
+/* Single consumer: inspect without consuming, then commit accepted bytes.
+ * The UART producer/notify consumer are the same task. Reset ends a session. */
+size_t up_ring_peek(uint8_t *dst, size_t cap);
+size_t up_ring_discard(size_t n);
+
 /* 取状态快照。 */
 void   up_ring_stats(up_ring_stats_t *out);
 

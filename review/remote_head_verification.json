@@ -1,0 +1,7 @@
+{
+  "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+  "observed_remote_main": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+  "command": "git ls-remote origin refs/heads/main",
+  "checked_local_time": "2026-10-20T15:14:26+08:00",
+  "observation": "remote main still equals the frozen audit source"
+}

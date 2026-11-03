@@ -1,0 +1,7 @@
+{
+    "source":  "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+    "started_utc":  "2026-10-20T05:21:43.3750542Z",
+    "finished_utc":  "2026-10-20T07:55:12.6660206Z",
+    "actual_exit_code":  1,
+    "command":  "powershell.exe -NoProfile -ExecutionPolicy Bypass -File sim/tb_all.ps1"
+}

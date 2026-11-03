@@ -473,7 +473,7 @@ Select-String -Path impl\pnr\Gowin2026_tr_content.html -Pattern 'vibrato_lfo'
 
 ⇒ 底鼓的起音频率 = 标称 × (1 + 深度/标称) 里那个"深度"直接错 ⇒ **起音扫频要么完全听不出、要么过度到糊**。这正是 `A3` 想消灭的"鼓不像鼓"家族缺陷的**另一半**。
 
-**为什么 `A3` 的记录没发现它**：`a3-proper-20261008/README.md` 的 6 条判据（`tb_osc_drum_cls.sv` 的 A1/A2/A3/B1/B2/B3）**全部只驱动 `base_phase_inc_i` 的静态值**，没有"同一 voice 上先后两件不同鼓"的时序场景 ⇒ **分类对了、深度错了，判据照样全绿**。
+**为什么 `A3` 的记录没发现它**：`sim/evidence/a3-proper-20261008/README.md` 的 6 条判据（`tb_osc_drum_cls.sv` 的 A1/A2/A3/B1/B2/B3）**全部只驱动 `base_phase_inc_i` 的静态值**，没有"同一 voice 上先后两件不同鼓"的时序场景 ⇒ **分类对了、深度错了，判据照样全绿**。
 
 ### 具体怎么改
 

@@ -1,0 +1,465 @@
+['Recovery_Slack_Table', 'Recovery_Analysis', 'Recovery_Analysis_Exceptions']
+>u_hdmi/u_serializer/lanes[1].u_oser/RESET 
+ pixel_clk:[R] 
+ serial_clk:[R] 
+ 8.000 
+ 1.898 
+ 2.630 
+ 
+ 
+ 7 
+ 3.299 
+ u_hdmi/rstn_pix_2_s0/Q 
+ u_hdmi/u_serializer/lanes[2].u_oser/RESET 
+ pixel_clk:[R] 
+ serial_clk:[R] 
+ 8.000 
+ 1.898 
+ 2.630 
+ 
+ 
+ 8 
+ 3.299 
+ u_hdmi/rstn_pix_2_s0/Q 
+ u_hdmi/u_serializer/lanes[3].u_oser/RESET 
+ pixel_clk:[R] 
+ serial_clk:[R] 
+ 8.000 
+ 1.898 
+ 2.630 
+ 
+ 
+ 9 
+ 37.240 
+ u_hdmi/rstn_pix_2_s0/Q 
+ u_hdmi/u_serializer/lanes[0].u_oser/RESET 
+ pixel_clk:[R] 
+ pixel_clk:[R] 
+ 40.000 
+ -0.008 
+ 2.630 
+ 
+ 
+ 10 
+ 37.240 
+ u_hdmi/rstn_pix_2_s0/Q 
+ u_hdmi/u_serializer/lanes[1].u_oser/RESET 
+ pixel_clk:[R] 
+ pixel_clk:[R] 
+ 40.000 
+ -0.008 
+ 2.630 
+ 
+ 
+ 11 
+ 37.240 
+ u_hdmi/rstn_pix_2_s0/Q 
+ u_hdmi/u_serializer/lanes[2].u_oser/RESET 
+ pixel_clk:[R] 
+ pixel_clk:[R] 
+ 40.000 
+ -0.008 
+ 2.630 
+ 
+ 
+ 12 
+ 37.240 
+ u_hdmi/rstn_pix_2_s0/Q 
+ u_hdmi/u_serializer/lanes[3].u_oser/RESET 
+ pixel_clk:[R] 
+ pixel_clk:[R] 
+ 40.000 
+ -0.008 
+ 2.630 
+ 
+ 
+  Removal Paths Table  
+ Report Command:report_timing -removal -max_paths 25 -max_common_paths 1 
+ 
+ 
+ Path Number 
+ Path Slack 
+ From Node 
+ To Node 
+ From Clock 
+ To Clock 
+ Relation 
+ Clock Skew 
+ Data Delay 
+ 
+ 
+ 1 
+ 0.795 
+ u_hdmi/rstn_pix_2_s0/Q 
+ u_hdmi/u_serializer/lanes[3].u_oser/RESET 
+ pixel_clk:[R] 
+ pixel_clk:[R] 
+ 0.000 
+ -0.003 
+ 0.936 
+ 
+ 
+ 2 
+ 0.795 
+ u_hdmi/rstn_pix_2_s0/Q 
+ u_hdmi/u_serializer/lanes[2].u_oser/RESET 
+ pixel_clk:[R] 
+ pixel_clk:[R] 
+ 0.000 
+ -0.003 
+ 0.936 
+ 
+ 
+ 3 
+ 0.795 
+ u_hdmi/rstn_pix_2_s0/Q 
+ u_hdmi/u_serializer/lanes[1].u_oser/RESET 
+ pixel_clk:[R] 
+ pixel_clk:[R] 
+ 0.000 
+ -0.003 
+ 0.936 
+ 
+ 
+ 4 
+ 0.795 
+ u_hdmi/r
+/td>
+  
+  
+ active clock edge time 
+ 
+ 
+ 0.000 
+ 0.000 
+  
+  
+  
+  
+ pixel_clk 
+ 
+ 
+ 2.186 
+ 2.186 
+ tCL 
+ RR 
+ 441 
+ PLL_R[1] 
+ u_hdmi/u_clk/u_pll/CLKOUT1 
+ 
+ 
+ 2.795 
+ 0.609 
+ tNET 
+ RR 
+ 1 
+ R7C86[1][B] 
+ u_hdmi/rstn_pix_2_s0/CLK 
+ 
+ 
+ 2.925 
+ 0.130 
+ tC2Q 
+ RR 
+ 303 
+ R7C86[1][B] 
+ u_hdmi/rstn_pix_2_s0/Q 
+ 
+ 
+ 3.731 
+ 0.806 
+ tNET 
+ RR 
+ 1 
+ IOR24[A] 
+ u_hdmi/u_serializer/lanes[3].u_oser/RESET 
+ 
+ 
+  Data Required Path:  
+ 
+ 
+ AT 
+ DELAY 
+ TYPE 
+ RF 
+ FANOUT 
+ LOC 
+ NODE 
+ 
+ 
+ -4.000 
+ -4.000 
+  
+  
+  
+  
+ active clock edge time 
+ 
+ 
+ -4.000 
+ 0.000 
+  
+  
+  
+  
+ serial_clk 
+ 
+ 
+ -1.814 
+ 2.186 
+ tCL 
+ FF 
+ 4 
+ PLL_R[1] 
+ u_hdmi/u_clk/u_pll/CLKOUT0 
+ 
+ 
+ -1.814 
+ 0.000 
+ tNET 
+ FF 
+ 1 
+ IOR24[A] 
+ u_hdmi/u_serializer/lanes[3].u_oser/FCLK 
+ 
+ 
+ -1.779 
+ 0.035 
+ tUnc 
+  
+  
+  
+  
+ 
+ 
+ -1.643 
+ 0.136 
+ tHld 
+  
+ 1 
+ IOR24[A] 
+ u_hdmi/u_serializer/lanes[3].u_oser 
+ 
+ 
+  Path Statistics:  
+ 
+ 
+ Clock Skew 
+ -0.609 
+ 
+ 
+ Hold Relationship  
+ -4.000 
+ 
+ 
+ Logic Level 
+ 1 
+ 
+ 
+ Arrival Clock Path Delay 
+ cell: 0.000, 0.000%; route: 0.609, 100.000% 
+ 
+ 
+ Arrival Data Path Delay 
+ cell: 0.000, 0.000%; route: 0.806, 86.154%; tC2Q: 0.130, 13.846% 
+ 
+ 
+ Required Clock Path Delay 
+ cell: 0.000, 0.000%; route: 0.000, 0.000% 
+ 
+ 
+  Minimum Pulse Width Report:  
+ Report Command:report_min_pulse_width -nworst 10 -detail 
+ MPW1 
+  MPW Summary:  
+ 
+ 
+ Slack: 
+ 6.809 
+ 
+ 
+ Actual Width: 
+ 7.709 
+ 
+ 
+ Required Width: 
+ 0.900 
+ 
+ 
+ Type: 
+ Low Pulse Width 
+ 
+ 
+ Clock: 
+ clk_sys 
+ 
+ 
+ Objects: 
+ u_hdmi/g_fft.u_fft/u_core/capture_mem_capture_mem_0_0_s</t
+
+ 
+ 2.186 
+ 2.186 
+ tCL 
+ RR 
+ 441 
+ PLL_R[1] 
+ u_hdmi/u_clk/u_pll/CLKOUT1 
+ 
+ 
+ 2.795 
+ 0.609 
+ tNET 
+ RR 
+ 1 
+ R7C86[1][B] 
+ u_hdmi/rstn_pix_2_s0/CLK 
+ 
+ 
+ 2.925 
+ 0.130 
+ tC2Q 
+ RR 
+ 303 
+ R7C86[1][B] 
+ u_hdmi/rstn_pix_2_s0/Q 
+ 
+ 
+ 3.731 
+ 0.806 
+ tNET 
+ RR 
+ 1 
+ IOR24[A] 
+ u_hdmi/u_serializer/lanes[3].u_oser/RESET 
+ 
+ 
+  Data Required Path:  
+ 
+ 
+ AT 
+ DELAY 
+ TYPE 
+ RF 
+ FANOUT 
+ LOC 
+ NODE 
+ 
+ 
+ -4.000 
+ -4.000 
+  
+  
+  
+  
+ active clock edge time 
+ 
+ 
+ -4.000 
+ 0.000 
+  
+  
+  
+  
+ serial_clk 
+ 
+ 
+ -1.814 
+ 2.186 
+ tCL 
+ FF 
+ 4 
+ PLL_R[1] 
+ u_hdmi/u_clk/u_pll/CLKOUT0 
+ 
+ 
+ -1.814 
+ 0.000 
+ tNET 
+ FF 
+ 1 
+ IOR24[A] 
+ u_hdmi/u_serializer/lanes[3].u_oser/FCLK 
+ 
+ 
+ -1.779 
+ 0.035 
+ tUnc 
+  
+  
+  
+  
+ 
+ 
+ -1.643 
+ 0.136 
+ tHld 
+  
+ 1 
+ IOR24[A] 
+ u_hdmi/u_serializer/lanes[3].u_oser 
+ 
+ 
+  Path Statistics:  
+ 
+ 
+ Clock Skew 
+ -0.609 
+ 
+ 
+ Hold Relationship  
+ -4.000 
+ 
+ 
+ Logic Level 
+ 1 
+ 
+ 
+ Arrival Clock Path Delay 
+ cell: 0.000, 0.000%; route: 0.609, 100.000% 
+ 
+ 
+ Arrival Data Path Delay 
+ cell: 0.000, 0.000%; route: 0.806, 86.154%; tC2Q: 0.130, 13.846% 
+ 
+ 
+ Required Clock Path Delay 
+ cell: 0.000, 0.000%; route: 0.000, 0.000% 
+ 
+ 
+  Minimum Pulse Width Report:  
+ Report Command:report_min_pulse_width -nworst 10 -detail 
+ MPW1 
+  MPW Summary:  
+ 
+ 
+ Slack: 
+ 6.809 
+ 
+ 
+ Actual Width: 
+ 7.709 
+ 
+ 
+ Required Width: 
+ 0.900 
+ 
+ 
+ Type: 
+ Low Pulse Width 
+ 
+ 
+ Clock: 
+ clk_sys 
+ 
+ 
+ Objects: 
+ u_hdmi/g_fft.u_fft/u_core/capture_mem_capture_mem_0_0_s 
+ 
+ 
+  Late clock Path:  
+ 
+ 
+ AT 
+ DELAY 
+ TYPE</

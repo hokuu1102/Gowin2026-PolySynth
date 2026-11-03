@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_master_mix/tb_master_mix.vcd opened for output.
+﻿VCD info: dumping is suppressed.
   ok  : baseline: output is 0 right after reset (mute-safe), even with a huge input
   ok  : baseline: valid_o still passes through (chain not stalled)
   ok  : full gain: ramp has settled to the target

@@ -32,8 +32,8 @@ const doc = {
 const fn = new Function("document", "window", "navigator", "performance", "console",
   "setTimeout", "clearInterval", "setInterval", "requestAnimationFrame",
   "location", "localStorage", "URLSearchParams",
-  blk + "\n; return { DRUM_VEL, drumNameOfInc, midiToWords, parseMidi, DRUM_INC, " +
-  "isDrumAxis, DRUM_AXIS_OF, DRUM_AXIS_BASE, MELODY_AXIS_MAX, GM_DRUM_MAP, " +
+  blk + "\n; return { DRUM_VEL, midiToWords, parseMidi, DRUM_INC, " +
+  "isDrumAxis, DRUM_AXIS_OF, MELODY_AXIS_MAX, GM_DRUM_MAP, " +
   "gmToDrum, wordsForSelected, buildPayload, TIMBRE_NAMES, midiName, KIND_ON, KIND_OFF, " +
   "setTrackSel: (s) => { trackSel = s; }, getTrackSel: () => trackSel };");
 let API;
@@ -125,8 +125,8 @@ const drumIncs = new Set(drumWords.map(w =>
 /* ⭐ 2026-10-14 口径更正后：鼓事件里读回的 inc 应【正好等于】DRUM_INC 的值。
  *   （原判据假设"会被 21 位截断" —— 那是错的前提，已作废。） */
 const wantIncs = new Set(Object.values(API.DRUM_INC));
-chk("⭐ 鼓事件读回的 inc 正好是 DRUM_INC 的值（⛔ 没有被截断）",
-    [...drumIncs].every(v => wantIncs.has(v)),
+chk("⭐ 鼓事件的 inc 为 0，由显式 drum_type 决定鼓件",
+    [...drumIncs].every(v => v === 0),
     [...drumIncs].join(",") + " vs " + [...wantIncs].join(","));
 chk("⭐ 鼓事件的轴全部落在 12..15（方案 B：一件一轴）",
     drumAxes.size > 0 && [...drumAxes].every(a => API.isDrumAxis(a)),
@@ -142,7 +142,7 @@ const badMap = [];
 for (const w of drumWords) {
   const inc = Number((w >> 23n) & 0x1FFFFFn);
   const ax = Number((w >> 19n) & 0xFn);
-  if (incToAxis[inc] !== ax) badMap.push(inc + "→轴" + ax + "(应 " + incToAxis[inc] + ")");
+  if (12 + Number((w >> 7n) & 3n) !== ax) badMap.push(inc + "→轴" + ax + "(应 " + incToAxis[inc] + ")");
 }
 chk("非空洞：每条鼓事件的轴 = 协议表里该件的轴（inc↔axis 一一对应）",
     badMap.length === 0, badMap.join(",") || "全部对");
@@ -245,7 +245,7 @@ console.log("---- 鼓力度（必须与鼓机一致，⛔ 不是 MIDI 原始力�
   const byPiece = new Map();
   drumWords.forEach(w => {
     if (Number((w >> 9n) & 0x3n) !== API.KIND_ON) return;
-    const k = API.drumNameOfInc(Number((w >> 23n) & 0x1FFFFFn));
+    const k = ["kick", "snare", "hihat", "tom"][Number((w >> 7n) & 3n)];
     const v = Number((w >> 11n) & 0xFFn);
     if (k) { if (!byPiece.has(k)) byPiece.set(k, new Set()); byPiece.get(k).add(v); }
   });

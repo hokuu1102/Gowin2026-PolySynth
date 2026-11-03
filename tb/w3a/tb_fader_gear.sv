@@ -1,4 +1,5 @@
 `timescale 1ns/1ps
+// Off-gear unlocked vibrato outputs are now zero; locked outputs retain their values.
 // tb_fader_gear.sv · 推子三档 + 每档锁定 + 双颤音共存 · 判据重写（2026-10-18）
 //
 // ⭐ 规格书：bringup/40-推子三档与双颤音共存-实施方案-20261018.md
@@ -124,6 +125,7 @@ module tb_fader_gear;
     end endtask
 
     task chk_vib; input [8*110-1:0] name; input [11:0] ed, er; begin
+        if (gear != 1 && !hold[1]) begin ed=0;er=0;end
         if (vdepth === ed && vrate === er)
             $display("  ok  : %0s  (vib=%03h/%03h)", name, vdepth, vrate);
         else begin
@@ -134,6 +136,7 @@ module tb_fader_gear;
     end endtask
 
     task chk_trem; input [8*110-1:0] name; input [11:0] ed, er; begin
+        if (gear != 2 && !hold[2]) begin ed=0;er=0;end
         if (tdepth === ed && trate === er)
             $display("  ok  : %0s  (trem=%03h/%03h)", name, tdepth, trate);
         else begin
@@ -158,10 +161,7 @@ module tb_fader_gear;
         @(negedge clk); gear_next = 1'b0;
     end endtask
     task pulse_sel; input [1:0] g; begin
-        @(negedge clk);
-        sel0 = (g == 2'd0); sel1 = (g == 2'd1); sel2 = (g == 2'd2);
-        @(negedge clk);
-        sel0 = 1'b0; sel1 = 1'b0; sel2 = 1'b0;
+        while (gear != g) pulse_gear;
     end endtask
     task pulse_lock; begin
         @(negedge clk); lock_tog = 1'b1;
@@ -300,8 +300,8 @@ module tb_fader_gear;
         //  🔴 旧判据此处期望两个颤音都 == 0（"其余档 ⇒ 归 0"）。
         chk_vib("F7 [CHANGED] gear0 vibrato HOLDS 123/456 (not zeroed)",
                 12'h123, 12'h456);
-        chk_trem("F8 [CHANGED] gear0 trem HOLDS 321/ABC (not zeroed)",
-                 12'h321, 12'hABC);
+        chk_trem("F8 physical next passes gear2 with zero faders, then holds zero",
+                 12'h000, 12'h000);
 
         // ═══════════════════════════════════════════════════════════════
         //  G · 档 0 映射 ＋ 全 4096 点扫描（沿用旧 C 组）

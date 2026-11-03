@@ -22,6 +22,6 @@
   ok  : P2-27 with a CONSTANT position every snapshot delta is 0 (the first frame must not emit)
 
 PASS: axis_snapshot maps (adc,ch)->axis, commits all chips in one cycle, emits a per-frame pulse, and produces a SIGNED per-axis delta (the raw material for slide/two-note detection)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_axis_snapshot.sv:330: $finish called at 3530000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_axis_snapshot.sv:330: $finish called at 3530000 (1ps)
 
 

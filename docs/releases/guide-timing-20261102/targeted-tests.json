@@ -1,0 +1,39 @@
+[
+  {
+    "name": "tb_guide_bank_fanout_equiv",
+    "pass": true,
+    "tag": "fanout"
+  },
+  {
+    "name": "tb_guide_lamp_state_equiv",
+    "pass": true
+  },
+  {
+    "name": "tb_guide_flash",
+    "pass": true
+  },
+  {
+    "name": "tb_top_guide_input_snapshot",
+    "pass": true
+  },
+  {
+    "name": "tb_top_guide_flash",
+    "pass": true
+  },
+  {
+    "name": "tb_top_guide_axes",
+    "pass": true
+  },
+  {
+    "name": "tb_top_guide_bit6",
+    "pass": true
+  },
+  {
+    "name": "tb_top_score_path",
+    "pass": true
+  },
+  {
+    "name": "tb_top_keydrum_score_isolation",
+    "pass": true
+  }
+]

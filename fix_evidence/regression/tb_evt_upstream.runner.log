@@ -1,0 +1,78 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_evt_upstream ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\evt_upstream.v:204: warning: @* is sensitive to all 16 words in array 'mem'.
+=== 运行 tb_evt_upstream ===
+    VCD info: dumping is suppressed.
+  ok  : reset: frame_cnt is 0
+  ok  : reset: FIFO level is 0
+  ok  : reset: overflow is 0
+  ok  : disabled: NO bytes emitted
+  ok  : disabled: the event is NOT even buffered
+  ok  : disabled: frame_cnt stays 0
+  ok  : one event => exactly 14 bytes
+  ok  : byte[0] is the 0xA5 header
+  ok  : kind=0 (note_on) maps to type 0x01
+  ok  : first frame carries seq 0
+  ok  : byte[7] carries axis 5 (timbre is 0 here => byte unchanged)
+  ok  : byte[12] carries velocity 200
+  ok  :  byte[8..11] carry the FULL 32-bit phase_inc (A4 = 38702840) ***
+  ok  : non-vacuity: the value really exceeds the old 21-bit wire field
+  ok  : *** NOT the 21-bit truncation (the old format's bug) ***
+  ok  : byte[3..6] carry the tick latched AT CAPTURE TIME (=7)
+  ok  : byte[13] equals XOR of bytes [0..12] (INCLUDING the 0xA5 header)
+  ok  : non-vacuity: the checksum is not a constant 0
+  ok  : kind=1 (note_off) maps to type 0x02
+  ok  : seq increments per event (now 1)
+  ok  : axis 9 survived
+  ok  : checksum still holds for the second frame
+  ok  : kind=2 (pluck) is treated as note_on (0x01)
+  ok  : a second, larger inc survives intact
+  ok  : non-vacuity: different events give DIFFERENT checksums
+  ok  : checksum holds for the third frame
+  ok  : overflow: drop_cnt is non-zero (loss is COUNTED)
+  ok  : overflow: the sticky flag is set (loss is VISIBLE)
+  ok  : after draining, busy_o returns low
+  ok  : * timbre=2 + axis=5 => byte[7] = 0x25 (timbre in bits [5:4]) ***
+  ok  : byte[7] low nibble still carries the axis (5)
+  ok  : byte[7] bits [5:4] carry the timbre (2)
+  ok  : checksum follows the new byte[7] (logic unchanged)
+  ok  : vacuity: the timbre did NOT change the frame length (still 14 B)
+  ok  : PITCH EVENT: byte[7] bit[6] = 0
+  ok  : pitch event => byte[7] = 0x13 (timbre 1, axis 3, no drum bit)
+  ok  : UM EVENT: byte[7] bit[6] = 1 *** (this is the bit ESP32 decodes)
+  ok  : e[7] = 0x53 (same timbre/axis, ONLY bit6 differs => NON-VACUOUS)
+  ok  : cuity: the drum bit did NOT change the frame length (still 14 B)
+  ok  : checksum follows the drum bit (XOR logic untouched)
+  ok  : the drum bit did NOT disturb bits [5:4] (timbre)
+  ok  : the drum bit did NOT disturb the axis in [3:0]
+  ok  : re-disabled: no further frames are emitted
+
+PASS: evt_upstream -- v1.1 14-byte frames with the FULL 32-bit phase_inc, correct type/seq/tick/axis/vel/XOR, gated by enable, and overflow is counted and sticky
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_evt_upstream.sv:323: $finish called at 18100000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

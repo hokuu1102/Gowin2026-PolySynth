@@ -1,0 +1,4 @@
+PASS: upstream full queue preserves accepted events and capture timestamps
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3c\tb_evt_upstream_queue.sv:52: $finish called at 4680000 (1ps)
+
+

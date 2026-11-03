@@ -55,37 +55,25 @@ if (-not (Test-Path $GwSh)) {
 
 Push-Location $root
 
-# ---- GUARD: PnR algorithm options must be the project defaults (0/0) ----
-#   WHY (2026-10-15): impl/Gowin2026_process_config.json was silently changed to
-#   Place_Option=2 / Route_Option=2 -- a "timing-first" algorithm this project has
-#   ALREADY measured as unusable (3906 unrouted nets in a 97-minute run).  The build
-#   then took 53m19s and produced 676 unrouted nets (ERROR PR0004) with no obvious
-#   cause, because this .json is NOT wiped by this script and the .gprj does not
-#   carry these fields.  They are ALGORITHM choices, not random seeds; defaults are
-#   0/0.  Fail fast here instead of burning an hour.
-#
-#   ⭐⭐ 2026-10-16（⭐ 补漏）：⭐ **`Map_Option` 也必须钉住** ✅
-#      🔴 **原 guard 只挡了 Place/Route 两个**，漏了第三个算法选项 `Map_Option`
-#         （⭐ 即 `set_option -tm`，Technology Mapping Option）✅
-#      🔴 **实测**：当前那份 json 里 `Map_Option = "1"`（⛔ 非 0），
-#         而这份 json 是 Gowin 自己写的、本脚本从不擦它 ⇒ ⭐ 它会一直生效 ✅
-#      📌 三个 PnR 算法选项（`Map` / `Place` / `Route`）必须【一起】钉住：
-#         ⛔ 只钉两个 = 留一个后门 ⇒ 又是"静默非默认算法"✅
+# ---- GUARD: known mapping modes, fixed place/route algorithms ----
+# 2026-10-20 correction: V1.9.12.03 creates Map_Option=1 itself on a clean
+# build. The clean candidate1 completed routing without PR0004 using that
+# generated configuration. Treating 1 as corruption made the next build fail.
+# Keep explicit mapping 0 compatible; reject unknown mapping modes and keep
+# Place/Route at 0. Actual setup/hold/recovery/removal remain separately gated.
 $pcPath = Join-Path $root "impl\Gowin2026_process_config.json"
 if (Test-Path $pcPath) {
   $pcRaw   = [IO.File]::ReadAllText($pcPath)
   $pcMap   = [regex]::Match($pcRaw, '"Map_Option"\s*:\s*"([^"]*)"').Groups[1].Value
   $pcPlace = [regex]::Match($pcRaw, '"Place_Option"\s*:\s*"([^"]*)"').Groups[1].Value
   $pcRoute = [regex]::Match($pcRaw, '"Route_Option"\s*:\s*"([^"]*)"').Groups[1].Value
-  if (($pcMap -ne "0") -or ($pcPlace -ne "0") -or ($pcRoute -ne "0")) {
-    Write-Host "ERROR: impl/Gowin2026_process_config.json has Map='$pcMap' Place='$pcPlace' Route='$pcRoute' -- all three must be 0" -ForegroundColor Red
-    Write-Host "       Non-default algorithm options caused 676 unrouted nets (PR0004) on 2026-10-15." -ForegroundColor Red
-    Write-Host "       Map_Option = set_option -tm (Technology Mapping) -- it was NOT guarded before 2026-10-16." -ForegroundColor Red
+  if (($pcMap -notin @("0", "1")) -or ($pcPlace -ne "0") -or ($pcRoute -ne "0")) {
+    Write-Host "ERROR: impl/Gowin2026_process_config.json has Map='$pcMap' Place='$pcPlace' Route='$pcRoute' -- Map must be 0 or 1; Place/Route must be 0" -ForegroundColor Red
     exit 3
   }
-  Write-Host "OK  PnR options are the project defaults (Map=$pcMap Place=$pcPlace Route=$pcRoute)"
+  Write-Host "OK  PnR options are supported (Map=$pcMap Place=$pcPlace Route=$pcRoute)"
 } else {
-  Write-Host "NOTE: impl/Gowin2026_process_config.json absent -- Gowin will use its own defaults (0/0)"
+  Write-Host "NOTE: impl/Gowin2026_process_config.json absent -- Gowin will generate its tool defaults; retain the generated config as evidence"
 }
 
 # ---- ⭐ GUARD: files instantiated by top.v must be registered in the .gprj ----
@@ -901,15 +889,61 @@ foreach ($r in $p030Rows) {
   Write-Host ("  {0,-12} setup EP={1,4}   TNS={2}" -f $r.Clock, $r.Ep, $r.Tns)
 }
 Write-Host ("  TOTAL setup EP = {0}   TNS = {1}   worst path slack = {2}" -f $p030EpTotal, $p030TnsTotal, $p030WorstTxt)
-Write-Host ("  REAL slack (vs the actual clock) = {0}" -f $p030RealTxt) -ForegroundColor Cyan
+Write-Host ("  clk_sys placement-budget estimate = {0}" -f $p030RealTxt) -ForegroundColor Cyan
 if (($null -ne $p030Budget) -and ($null -ne $p030Period) -and ($p030Budget -lt $p030Period)) {
   Write-Host ("  NOTE: the {0} ns figure is an over-constraint (see top.sdc); the physical clock is {1} ns." -f $p030Budget, $p030Period) -ForegroundColor DarkGray
-  Write-Host ("        Violations against {0} ns are printed above for visibility but do NOT fail this gate." -f $p030Budget) -ForegroundColor DarkGray
+  Write-Host ("        Only native clk_sys R->R paths with relation {0} ns receive that placement margin." -f $p030Budget) -ForegroundColor DarkGray
 }
 
 # ---- decision: judged against the REAL clock ----
 $p030Bad = $false
 $p030Reason = ""
+$p030NonSysBad = @($p030Rows | Where-Object {
+  $_.Clock -ne 'clk_sys' -and ($_.Ep -ne 0 -or $_.Tns -lt 0)
+}).Count -gt 0
+# Recovery/removal are absent from the flat SETUP timing_paths stream.
+# They must be checked in the native HTML, without any placement credit.
+$p030Raw = Get-Content $p030Tr -Raw
+$p030ResetBad = $false
+foreach ($p030Kind in @('Setup', 'Hold', 'Recovery', 'Removal')) {
+  $p030Anchor = $p030Kind + '_Slack_Table'
+  $p030Pattern = '(?is)name=["'']' + $p030Anchor + '["''][^>]*>.*?<table\b[^>]*>(.*?)</table>'
+  $p030Table = [regex]::Match($p030Raw, $p030Pattern)
+  $p030Count = 0
+  if ($p030Table.Success) {
+    foreach ($p030Row in [regex]::Matches($p030Table.Groups[1].Value, '(?is)<tr\b[^>]*>(.*?)</tr>')) {
+      $p030Cells = [regex]::Matches($p030Row.Groups[1].Value, '(?is)<t[dh]\b[^>]*>(.*?)</t[dh]>')
+      $p030Texts = @($p030Cells | ForEach-Object { ($_.Groups[1].Value -replace '<[^>]+>', '').Trim() })
+      if ($p030Texts.Count -eq 0 -or $p030Texts[0] -eq 'Path Number') { continue }
+      if ($p030Texts.Count -lt 2) { $p030ResetBad = $true; continue }
+      $p030Cell = $p030Texts[1]
+      $p030Value = 0.0
+      if (-not [double]::TryParse($p030Cell, [ref]$p030Value) -or
+          [double]::IsNaN($p030Value) -or [double]::IsInfinity($p030Value)) {
+        $p030ResetBad = $true; continue
+      }
+      $p030Count++
+      if ($p030Value -eq 0 -and $p030Cell.StartsWith('-')) { $p030ResetBad = $true }
+      # Only a proven clk_sys R->R path constrained to the 16.4 ns budget
+      # may receive the difference to its actual 20 ns clock period.
+      # Shorter CDC max-delay exceptions and every other clock keep raw slack.
+      if ($p030Kind -eq 'Setup' -and $p030Texts.Count -ge 7 -and
+          $p030Texts[4] -eq 'clk_sys:[R]' -and $p030Texts[5] -eq 'clk_sys:[R]') {
+        $p030Relation = 0.0
+        if ($null -ne $p030Budget -and $null -ne $p030Period -and
+            [double]::TryParse($p030Texts[6], [ref]$p030Relation) -and
+            [math]::Abs($p030Relation - $p030Budget) -lt 0.001) {
+          $p030Value += $p030Period - $p030Budget
+        }
+      }
+      $p030Floor = if ($p030Kind -eq 'Hold') { 0.05 } else { 0.0 }
+      if ($p030Value -lt $p030Floor) { $p030ResetBad = $true }
+    }
+  }
+  if ($p030Count -eq 0) { $p030ResetBad = $true }
+  Write-Host ("  {0} native path checks = {1}" -f $p030Kind, $p030Count)
+}
+
 $p030Contradiction = ($p030EpTotal -eq 0 -and $null -ne $p030Worst -and $p030Worst -lt 0)
 if ($p030Contradiction) {
   Write-Host "ERROR: P0-30 -- TNS table says 0 setup endpoints but timing_paths has a" -ForegroundColor Red
@@ -917,6 +951,12 @@ if ($p030Contradiction) {
   Write-Host "       that is not a pass.  FAIL CLOSED." -ForegroundColor Red
   $p030Bad = $true
   $p030Reason = "the two timing reports disagree (TNS says 0 EP, timing_paths says negative slack)"
+} elseif ($p030NonSysBad) {
+  $p030Bad = $true
+  $p030Reason = "non-system clock violations cannot borrow the clk_sys placement margin"
+} elseif ($p030ResetBad) {
+  $p030Bad = $true
+  $p030Reason = "native setup/hold/recovery/removal violates its own constraint, is absent, or is unparseable"
 } elseif ($null -eq $p030RealSlack) {
   Write-Host "ERROR: P0-30 -- cannot compute the slack against the real clock:" -ForegroundColor Red
   Write-Host "       top.sdc create_clock(clk_sys) / set_max_delay(clk_sys->clk_sys) / timing_paths" -ForegroundColor Red

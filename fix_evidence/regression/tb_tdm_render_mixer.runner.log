@@ -1,0 +1,84 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_tdm_render_mixer ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3b\tdm_render_mixer.v:623: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_tdm_render_mixer.sv:61: warning: Instantiating module tdm_render_mixer with dangling input port 12 (osc_rd_data0_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_tdm_render_mixer.sv:61: warning: Instantiating module tdm_render_mixer with dangling input port 13 (osc_rd_data1_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3b\tdm_render_mixer.v:623: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_tdm_render_mixer.sv:78: warning: Instantiating module tdm_render_mixer with dangling input port 12 (osc_rd_data0_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_tdm_render_mixer.sv:78: warning: Instantiating module tdm_render_mixer with dangling input port 13 (osc_rd_data1_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3b\tdm_render_mixer.v:623: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_tdm_render_mixer.sv:156: warning: Instantiating module tdm_render_mixer with dangling input port 12 (osc_rd_data0_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_tdm_render_mixer.sv:156: warning: Instantiating module tdm_render_mixer with dangling input port 13 (osc_rd_data1_i) floating.
+=== 运行 tb_tdm_render_mixer ===
+    INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=0 => 鍗曢煶宄?鈮?50% FS
+ERROR [tdm_render_mixer] POLY_TARGET+2=34 > RENDER_DEADLINE_CYC=4 => 姣忓抚閮戒細瓒呮椂锛圓6 澶辨晥锛?
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=0 => 鍗曢煶宄?鈮?50% FS
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=0 => 鍗曢煶宄?鈮?50% FS
+== 1: deadline_fault stays 0 (A6) ==
+  ok  : worst case 5 frames: deadline_fault stays 0
+== 2: one dry_valid per frame, fixed latency ==
+  ok  : exactly 1 dry_valid pulse per frame
+  ok  : latency identical across two frames (determinism)
+  ok  : latency is a fixed POLY_TARGET+7 (incl. 3-stage norm + registered output)
+== 3: single-voice mixing ==
+     [sv] 2-lane 3000 @env0x8000 => 91904
+  ok  : 2-lane 1000/2000 @env 0x8000 => 91904 (weighted (9L0+7L1)>>4, gain=64)
+     [sv] 2-lane 1000/2000 @env0xFFFF => 183808
+  ok  : full env => 183808 (weighted lane sum, gain=64)
+  ok  : zero env => 0 (silence)
+     [wgt] same-phase = 383872   anti-phase = 47872
+  ok  : WEIGHT: anti/same ~= 1/8 (=-18 dB) => the beat no longer cancels to ZERO
+  ok  : negative input => negative output (signed ok)
+     [sv] neg 1000/2000 @env0xFFFF => -184064
+  ok  : negative magnitude 184064 (weighted lane sum, gain=64)
+== 4: multi-voice summing (with 1/sqrt(N) normalization) ==
+     [sum] 1v=71808  2v=101070  3v=124690
+  ok  : summing is monotonic (more voices => louder)
+  ok  : 2 voices => ~1.42x (sqrt(2) w/ fixed-point), NOT 2x  [power norm]
+  ok  : 3 voices => ~1.73x (sqrt(3) w/ fixed-point), NOT 3x  [power norm]
+  ok  : NORMALIZATION: 3 voices are NOT 3x (would clip)
+  ok  : NORMALIZATION: 3 voices stay WITHIN signed24 (no clipping)
+== 5: max input, no wrap ==
+  ok  : max input stays POSITIVE (no wrap)
+  ok  : max input clamps to soft-knee ceiling 0x780000 (not wrap)
+     [dbgMax] sSat=7864320 (鏈熸湜杞啙澶╄姳鏉?7864320) acc=68716331040 sh=1048528
+  ok  : min input stays NEGATIVE (no wrap)
+     [dbgMin] sSat=-7864320 (鏈熸湜杞啙澶╄姳鏉?-7864320) acc=-68718428160 sh=-1048560
+  ok  : min input clamps to soft-knee ceiling -0x780000 (not wrap)
+== 6: deadline_fault is sticky ==
+  ok  : tight-deadline instance: fault set after one frame
+  ok  : sticky: fault still 1 after several frames
+  ok  : fault clears only on reset
+== 7: real saturation via wide samples ==
+  ok  : wide positive overflow clamps to soft-knee ceiling (no wrap)
+  ok  : wide negative overflow clamps to soft-knee ceiling (no wrap)
+PASS: tdm_render_mixer acceptance (T56) - all judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_tdm_render_mixer.sv:476: $finish called at 20620000 (1ps)
+
+
+    ℹ️ 日志含 1 行 ERROR —— 负向测试的预期结果，不算失败
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

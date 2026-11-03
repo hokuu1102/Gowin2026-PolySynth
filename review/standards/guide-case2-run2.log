@@ -1,0 +1,3 @@
+NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
+FATAL: review/standards/tb_guide_review.sv:21: EIGHT_OVERLAPS_AFTER_SEVEN_OFF expected=0020 actual=0000
+       Time: 660000  Scope: tb_guide_review

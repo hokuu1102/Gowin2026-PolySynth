@@ -121,6 +121,6 @@
      [evt #2] axis=9 kind=2 (depth=700)
   ok  : H5 CONTRACT pluck FSM emits ascending axis order (lowest set bit first): 2, 5, 9
 PASS: play-mode controller enforces keyboard and fretboard semantics
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_play_mode_ctrl.sv:631: $finish called at 9890000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_play_mode_ctrl.sv:631: $finish called at 9890000 (1ps)
 
 

@@ -1,0 +1,4 @@
+PASS: six real-input FFT frames match independent direct DFT, exact ordering and no drops
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\hdmi\tb_fft_spectrum_core.sv:53: $finish called at 1028040000 (1ps)
+
+

@@ -1,0 +1,152 @@
+﻿file,lines,coverage
+esp32/ble/_tools/rename_bridge_to_ble.py,115,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/ble/main/ble_config.h,601,inventory/static only; hardware/SDK behavior not executed
+esp32/ble/main/ble_main.c,2050,actual notify drain block compiled/run; other paths static only
+esp32/ble/main/gatt_svc.c,325,inventory/static only; hardware/SDK behavior not executed
+esp32/ble/main/gatt_svc.h,56,inventory/static only; hardware/SDK behavior not executed
+esp32/ble/main/hmi.c,647,inventory/static only; hardware/SDK behavior not executed
+esp32/ble/main/hmi.h,161,inventory/static only; hardware/SDK behavior not executed
+esp32/ble/main/pool.c,1156,unchanged actual C compiled/run; STOP/RESET interleave host probe
+esp32/ble/main/pool.h,122,inventory/static only; hardware/SDK behavior not executed
+esp32/ble/main/up_ring.c,266,unchanged actual C compiled/run; notify host probe
+esp32/ble/main/up_ring.h,109,inventory/static only; hardware/SDK behavior not executed
+esp32/ble/main/ws2812.c,234,inventory/static only; hardware/SDK behavior not executed
+esp32/ble/main/ws2812.h,56,inventory/static only; hardware/SDK behavior not executed
+esp32/bridge/main/bridge_config.h,276,inventory/static only; hardware/SDK behavior not executed
+esp32/bridge/main/bridge_main.c,708,inventory/static only; hardware/SDK behavior not executed
+esp32/bridge/main/hmi.c,391,inventory/static only; hardware/SDK behavior not executed
+esp32/bridge/main/hmi.h,110,inventory/static only; hardware/SDK behavior not executed
+esp32/bridge/main/pool.c,623,unchanged actual C compiled/run; STOP/RESET interleave host probe
+esp32/bridge/main/pool.h,71,inventory/static only; hardware/SDK behavior not executed
+esp32/evidence/四音色鼓机变速测试曲-20261015/check_guide.js,2667,inventory/static only; hardware/SDK behavior not executed
+esp32/evidence/四音色鼓机变速测试曲-20261015/check_roll.js,835,inventory/static only; hardware/SDK behavior not executed
+esp32/evidence/四音色鼓机变速测试曲-20261015/gen_drum_probe.py,113,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/evidence/四音色鼓机变速测试曲-20261015/gen_test_piece.py,310,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/evidence/四音色鼓机变速测试曲-20261015/verify_piece.js,917,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_axis_dep_check.py,129,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_bidir_check.py,104,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_ble_poll_stress.py,170,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_check_html_js.py,69,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_check_user_midi.js,96,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_chord_axis_check.js,177,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_crash_capture.py,97,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_deadlock_check.js,93,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_diag_bpm.js,84,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_diag_chord.js,123,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_diag_chord5.js,82,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_diag_concurrency.js,80,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_diag_timbre_override.js,140,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_display_check.js,164,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_display_lane_check.js,140,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_doc_cmd_check.py,83,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_drum_inc_options.py,78,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_drum_track_check.js,263,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_dur_check.js,136,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_exception_paths_check.py,224,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_gatt_queue_check.js,109,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_gen_inc_probe.py,314,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_gen_simul_probe.py,242,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_gen_web_midi_demo.js,76,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_hmi_probe.py,82,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_hmi_vis.py,66,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_idle_probe.py,165,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_inc_scale_probe.py,141,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_inspect_midi.js,92,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_lead_model_check.py,230,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_lead_probe.py,191,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_midi_parse_check.js,467,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_migrate_devname.py,103,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_score_play_probe.py,276,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_serial_tap.py,58,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_stat_parse_check.js,150,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_stress_cycles.py,262,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_uart1_send_path_check.py,288,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_uart1_wire_check.py,339,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_undef_check.js,189,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_upstream_loop_check.py,322,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/_upstream_parse_check.js,305,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/_zoom_check.js,334,inventory/static only; hardware/SDK behavior not executed
+esp32/tools/check_drum_split.py,1312,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/demo_midi_roundtrip.py,306,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/drum_map.py,289,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/e2e_accept.py,671,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/evt2midi/_e2e_check.py,313,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/evt2midi/_find_real_risk.py,127,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/evt2midi/_live_test.py,83,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/evt2midi/_mutation_check.py,235,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/evt2midi/evt2midi.py,1446,runtime selftests and true full-width upstream phase probe
+esp32/tools/evt2midi/frame_format.py,906,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/evt2midi/midi_verify.py,474,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/evt2midi/rec_upstream.py,207,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/hmi_song_check.py,319,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/hmi_states_check.py,566,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/link_test.html,534,HTML inventory; 3 live pages script syntax in html-syntax.log
+esp32/tools/loopback_check.py,531,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/pool_math_check.py,242,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/pool_pace_check.py,665,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/read_log.py,309,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/regress_live.py,383,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/run_all_tests.py,511,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/score_studio.html,4941,real inline JS Node execution; web_probe.js plus existing suite
+esp32/tools/score_uploader.py,945,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/score_word.py,1238,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/screen_demo.py,417,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/selftest_all.py,255,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/send_frames.py,422,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/send_frames_ble.py,442,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/stat_read.py,254,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/trigger_and_capture.py,829,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/uart_rx_check.py,277,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/uart_timing_check.py,333,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/tools/upstream_studio.html,695,HTML inventory; 3 live pages script syntax in html-syntax.log
+esp32/tools/wrappers_check.py,285,Python AST syntax PASS; runtime only if named in selftest-complete.log
+esp32/uart_test/main/uart_test_main.c,168,inventory/static only; hardware/SDK behavior not executed
+tools/_mbi.py,48,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/_samples.py,187,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/add_mutants_w3a.py,190,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/analyze_pos_capture.py,178,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/archive/gp2evt-过时-已改用MIDI方案.py,499,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/audition_t31b_wavetables.py,74,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/board_probe.py,178,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/check_doc_refs.py,360,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/check_evidence.py,139,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/check_names.py,141,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/csv_fft.py,322,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/evt2uart.py,347,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/evt2wav.py,483,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/exp/adsr_release_time.py,45,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/exp/adsr_timing.py,27,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/exp/analyze_distortion.py,96,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/exp/analyze_ds0004.py,109,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/exp/check_kb_inc.py,50,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/exp/check_pitch_const.py,73,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/exp/find_waveform_shape.py,92,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/exp/gain_chain.py,137,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/exp/kb_map.py,131,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/exp/parse_leak_vcd.py,66,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/exp/reason_adsr_stuck.py,44,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/exp/reason_retrig.py,73,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/exp/trace_events.py,88,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/exp/trace_stuck_adsr.py,143,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/fx_ctrl.py,403,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/gen_fft_assets.py,64,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/gen_t31b_wavetable.py,389,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/gen_wavetable_bank.py,179,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/h5_build_candidate.py,43,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/h5_collect_timing.py,59,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/h5_compare_bringup.py,25,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/h5_run_regressions.py,35,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/h5_scope_mutations.py,36,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/latency_stats.py,255,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/mid2evt.py,1586,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/peak_count.py,235,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/probe_q.py,141,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/remove_mutant.py,79,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/renumber_w3a_mutants.py,169,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/selftest_all.py,81,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/selftest_evt2uart.py,186,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/uart_probe_fpga.py,71,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/uart_probe_strict.py,56,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/uart_probe_strict2.py,73,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/vcd2csv.py,408,Python AST syntax PASS; runtime only if named in selftest-complete.log
+tools/wav_from_samples.py,182,Python AST syntax PASS; runtime only if named in selftest-complete.log

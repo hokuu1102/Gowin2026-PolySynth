@@ -1,0 +1,8 @@
+{
+  "staged": "FAIL: staged contamination\n",
+  "working": "PASS: clean working file\n",
+  "actual_exit": 0,
+  "expected_exit": 1,
+  "stdout": "OK: evidence looks clean (1 tracked file(s), none empty, none staged with FAIL)\n",
+  "stderr": ""
+}

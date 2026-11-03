@@ -1,42 +1,45 @@
-﻿iverilog.exe : C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom in
-herited from another file.
-At C:\Users\hokuu\Desktop\FPGA\FPGA2026\sim\tb_all.ps1:124 char:18
+﻿iverilog.exe : C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale fo
+r fft_coeff_rom inherited from another file.
+At C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\sim\tb_all.ps1:126 char:18
 +   $compileOut  = & $iverilog @compileArgs 2>&1
 +                  ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    + CategoryInfo          : NotSpecified: (C:\Users\hokuu\...m another file.:String) [], RemoteException
+    + CategoryInfo          : NotSpecified: (C:\Users\cyx\Do...m another file.:String) [], RemoteException
     + FullyQualifiedErrorId : NativeCommandError
  
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file
-.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from anot
-her file.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited fro
-m another file.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from anot
-her file.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another
- file.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another fi
-le.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another 
-file.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from anot
-her file.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_referen
-ce inherited from another file.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_play_mode_merge_collision.sv:12: warning: Instantiating module play_mode
-_ctrl with dangling input port 10 (axis_clr_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_play_mode_merge_collision.sv:12: warning: Instantiating module play_mode
-_ctrl with dangling input port 11 (slide_active_i) floating.
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_play_mode_merge_collision.sv:12: warning: Instantiating module play_mode
-_ctrl with dangling input port 12 (slide_axis_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is
+ here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited
+ from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is 
+here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder i
+nherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serial
+izer inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing i
+nherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inhe
+rited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherit
+ed from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inher
+ited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo i
+nherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for ua
+rt_tx_fifo_reference inherited from another file.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited 
+timescale is here.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_play_mode_merge_collision.sv:12: warning: Instantiatin
+g module play_mode_ctrl with dangling input port 10 (axis_clr_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_play_mode_merge_collision.sv:12: warning: Instantiatin
+g module play_mode_ctrl with dangling input port 11 (slide_active_i) floating.
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_play_mode_merge_collision.sv:12: warning: Instantiatin
+g module play_mode_ctrl with dangling input port 12 (slide_axis_i) floating.

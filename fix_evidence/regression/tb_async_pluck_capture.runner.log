@@ -1,0 +1,61 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_async_pluck_capture ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+=== 运行 tb_async_pluck_capture ===
+    WARNING [async_pluck_capture] BLANK_CYC=0 => the same-rail blank is OFF, so a release-threshold re-crossing WILL retrigger (the 'one down stroke, two notes' bug).
+  ok  : UP edge produces exactly one pluck
+  ok  : UP edge is labelled UP
+  ok  : H10 armed_o is ALWAYS 1'b1 (post-gate semantics: only refractory throttles)
+  ok  : refractory suppresses a second immediate edge
+  ok  : edge is accepted again after refractory
+  ok  : DOWN edge is labelled DOWN
+  ok  : simultaneous UP and DOWN create one event
+  ok  : simultaneous UP and DOWN chooses UP
+  ok  : alternating pluck: a genuine DOWN stroke fires (no position gate in the way)
+  ok  : alternating pluck: the following genuine UP stroke ALSO fires (no extra restriction)
+  ok  : both_low_o still reports the centred state after both strokes settle
+  ok  : H9 setup: both_low_o is FALSE while the UP line is held (so a position gate could never re-arm)
+  ok  : H9 a genuine DOWN edge fires even though both_low_o is NEVER true (no position gate)
+  ok  : H10b armed_o is still 1'b1 while both_low_o is false (no gate to disarm it)
+  ok  : H9b setup: both_low_o is FALSE while the DOWN line is held
+  ok  : H9b a genuine UP edge fires even though both_low_o is NEVER true (no position gate)
+  ok  : P0-4-2 setup: both rails low is observable before the stroke
+  ok  : P0-4-2a the genuine DOWN stroke fires exactly once
+  ok  : P0-4-2b [BUG] a release-threshold RE-CROSSING on the SAME rail emits NO second event
+  ok  : P0-4-2c the ONE event is still the genuine DOWN stroke
+  ok  : 0,BLANK=6] with refractory OFF the blank ALONE still suppresses the rebound (attribution proven)
+  ok  : rm instance] the SAME rebound sequence DOES emit a 2nd event without the fix (judgement is live)
+  ok  : C83 canary b both events are DOWN (the rebound is not a spurious UP)
+  ok  : P0-4-2d the genuine UP stroke fires exactly once
+  ok  : 4-2e [BUG] UP rail release-threshold re-crossing also emits NO second event (both rails guarded)
+  ok  : [REGRESSION] a genuine UP edge right after DOWN release STILL fires (per-rail blank, not global)
+  ok  :  event latency is ZERO added by the blank: <= 4 clocks (80 ns) from edge to event (spec: <=5 ms)
+  ok  : g [REGRESSION] after the release window EXPIRES the same rail fires again (no permanent lockout)
+PASS: async pluck capture synchronizes edges, prioritizes UP, applies refractory, imposes no position restriction on a genuine pluck, and suppresses the release-threshold re-crossing on the same rail with ZERO added latency
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_async_pluck_capture.sv:542: $finish called at 10370000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

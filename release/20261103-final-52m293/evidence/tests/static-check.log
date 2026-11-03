@@ -1,0 +1,9 @@
+[PASS] A1  HDL sources have no UTF-8 BOM
+[PASS] A2  .ps1 encoding (BOM or pure ASCII)
+[PASS] A3  P0-23: 0 async-reset sensitivity lists
+[PASS] A4  P0-29: all 14 observability wires have a consumer
+[PASS] A5  .gprj: every top.v-instantiated module is registered
+[PASS] A6  PnR options: process config absent (Gowin generates its defaults)
+[PASS] A7  .gprj XML comments free of bare '--'
+
+STATIC CHECK: 7 passed / 7  ->  all static gates green

@@ -11,6 +11,6 @@
   ok  : B3 swap: DRUM_CLS_EXT=0 still follows bv (kick)
 
 PASS: tb_osc_drum_cls 鈥?6/6 judgements held (A3 鍙傛暟闂ㄦ帶 + 闆剁獥鍙?
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_osc_drum_cls.sv:175: $finish called at 1000000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_osc_drum_cls.sv:175: $finish called at 1000000 (1ps)
 
 

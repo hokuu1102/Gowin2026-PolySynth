@@ -1,0 +1,4 @@
+PASS: burst overflow counted without capture overwrite; disable/reset cancel partial frames
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\hdmi\tb_fft_spectrum_overrun.sv:45: $finish called at 305380000 (1ps)
+
+

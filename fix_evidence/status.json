@@ -1,0 +1,21 @@
+{
+  "native_exit": 12,
+  "timing_accepted": false,
+  "user_requested_functionality_first": true,
+  "bitstream_sha256": "df1479cd2797f9138b07ae1f9ddad44063b19b9b83d5862eda4463049af8eccb",
+  "physical_report": "physical-latest/report.html",
+  "full_regression": {
+    "executed": 218,
+    "failed": 0
+  },
+  "additional_new_benches": 5,
+  "offline_tools": {
+    "executed": 44,
+    "failed": 0
+  },
+  "limitations": [
+    "ESP-IDF target build not run",
+    "No board or live BLE acceptance",
+    "Setup convergence deferred"
+  ]
+}

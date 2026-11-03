@@ -1,0 +1,3 @@
+PASS actual Python parser/export: A4, four timbres/programs, four GM drums, zero-inc OFF pairing
+PASS overlapping drums retain independent open state and truncated-tail cleanup
+PASS legacy collapsed-axis chord matches OFF pitch and preserves named tracks

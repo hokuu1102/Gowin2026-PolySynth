@@ -1,5 +1,5 @@
-﻿VCD info: dumpfile build/sim/mcp3208/mcp3208_scanner_tb.vcd opened for output.
+﻿VCD info: dumping is suppressed.
 PASS: 2 frames, 16 samples, frame period=500000 ns
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\drivers\tb_mcp3208_scanner.sv:285: $finish called at 696541000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\drivers\tb_mcp3208_scanner.sv:285: $finish called at 696541000 (1ps)
 
 

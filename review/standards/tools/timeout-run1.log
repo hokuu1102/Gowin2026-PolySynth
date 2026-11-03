@@ -1,0 +1,11 @@
+RTL 0 个 · 模型 0 个 · 检查器 0 个 · tb 1 个
+
+=== 编译 tb_stale_review ===
+=== 运行 tb_stale_review ===
+    ⛔ 超时 1 s（本 tb 预算）—— 判失败（挂死不是通过，见 K-94）
+      [!!] 但日志里已出现 PASS: —— 很可能是【超时预算太紧】而不是真挂死，请人工确认
+    FAIL: TIMEOUT after 1 s -- testbench hung (no verdict is a FAILURE, see K-94)  [!!] 但日志里已出现 PASS: —— 很可能是【超时预算太紧】而不是真挂死，请人工确认
+
+================ 汇总 ================
+通过 0 / 共 1
+失败: tb_stale_review

@@ -1,0 +1,44 @@
+[
+  {
+    "Map": "0",
+    "Place": "0",
+    "Route": "0",
+    "expected": 0,
+    "actual": 0
+  },
+  {
+    "Map": "1",
+    "Place": "0",
+    "Route": "0",
+    "expected": 0,
+    "actual": 0
+  },
+  {
+    "Map": "2",
+    "Place": "0",
+    "Route": "0",
+    "expected": 3,
+    "actual": 3
+  },
+  {
+    "Map": "1",
+    "Place": "2",
+    "Route": "0",
+    "expected": 3,
+    "actual": 3
+  },
+  {
+    "Map": "1",
+    "Place": "0",
+    "Route": "2",
+    "expected": 3,
+    "actual": 3
+  },
+  {
+    "Map": "",
+    "Place": "0",
+    "Route": "0",
+    "expected": 3,
+    "actual": 3
+  }
+]

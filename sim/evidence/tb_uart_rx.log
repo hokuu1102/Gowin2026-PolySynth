@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_uart_rx/tb_uart_rx.vcd opened for output.
+﻿VCD info: dumping is suppressed.
   ok  : baseline: NO rx_done while the line is idle (rx held high)
   ok  : baseline: rx data stays 0 with no traffic
   ok  : all 10 bytes at the REAL configured baud were received

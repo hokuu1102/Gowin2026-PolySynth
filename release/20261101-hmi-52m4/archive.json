@@ -1,0 +1,12 @@
+{
+  "archive_date": "2026-11-01",
+  "compiled_source_commit": "c062ec9f122265199f144678e684d67ba16c48dd",
+  "base_commit": "fd5d1a2522514a7af6a05d3f0f3de00ec80f6ce3",
+  "feature_source_commit": "2bbb3761440b5bccff13b160ce882fd112bd89bb",
+  "delivery_branch": "codex/delivery-hmi-20261101",
+  "source_tag": "archive/hmi-52m4-source-20261031",
+  "delivery_tag": "release/hmi-52m4-20261101",
+  "original_51_branch_unchanged": true,
+  "main_branch_unchanged": true,
+  "board_validation": "pending"
+}

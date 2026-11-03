@@ -1,7 +1,10 @@
 `timescale 1ns/1ps
-// Directed diagnostics, NOT an ADC/gesture/board acceptance test.
-// Drive real top module boundaries; observe public UI and voice outputs.
-// Known inherited failures are expected. Never classify this as a PASS test.
+// Historical pre-position-follower diagnostic, NOT a current acceptance test.
+// This fixture leaves the peer axis unspecified and initially positions=0;
+// it also forces am_inc_b, now the multiplexed A/B lookup result, to one target.
+// Its three failures therefore do not establish bugs in the current contract.
+// Retain the FAIL log as historical evidence; never relabel it as a PASS.
+// Current coverage: tb_slide_position_ctrl and tb_slide_position_e2e.
 module tb_at_merge_known_bugs;
  reg clk=0, rst=0, pc_rx=1;
  always #10 clk=~clk;

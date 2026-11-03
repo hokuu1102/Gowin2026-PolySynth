@@ -255,23 +255,10 @@ module tb_top_upstream_timbre;
             chk(rxn == 14, "one hand-play event => exactly 14 bytes");
             chk(rxq[0] === 8'hA5, "byte[0] is the 0xA5 header");
             chk(rxq[1] === 8'h01, "kind=0 (note_on) => type 0x01");
-            //  ⭐⭐ 2026-10-16（`CALIBRATE-R` 重订口径）：⭐ **`[7]` 的低半字节 = 【鼓标记】，
-            //     ⛔ 不再是轴号** ✅
-            //  🔴 **为什么改**：⭐ 2026-10-16 为了给 ESP32 上行帧加"鼓"标记，
-            //     `seq_arb` 拆出了**第二条输出** `evt_up_axis_o`（⭐ 只给上行帧）：
-            //       · 鼓（`pop_src == SRC_KDRUM`）⇒ 回传 `drum_type`（0..3）
-            //       · 其余一切来源 ⇒ 回传 **0**
-            //     ⚠️ 而 `evt_axis_o`（⭐ 下行 voice 定位键）**原样透传轴号、⛔ 一个字都没动** ✅
-            //     ⇒ ⭐ **本 tb 的激励是"手弹"（`SRC_LIVE`）⇒ 低半字节必然是 0** ✅
-            //  📌 ⭐ 于是 `[7]` 的新口径（⭐⭐ 2026-10-17 起）：
-            //       `bit[7] = 0`（留位）· `bit[6] = is_drum` · `bit[5:4] = 音色` · `bit[3:0] = 鼓标记` ✅
-            //       ⚠️ 本条是**手弹**（⭐ `SRC_LIVE`）⇒ `is_drum = 0` ⇒ `bit[6]` 也是 0 ✅
-            //          ⇒ ⭐ 下面那几条**精确到整字节**的断言（`0x20`/`0x10`/`0x30`）**值不变** ✅
-            //  📌 ⭐ 轴号**没有丢**：⭐ 它在 `[8..11]` 的 `phase_inc` 里
-            //     （⭐ ESP32 侧 `note_from_axis_inc` 用它反算音高 ⇒ ⭐ 这才是权威音高 ✅）
-            //  ⭐ **鼓标记（非零）由 `tb_seq_arb` 覆盖**（⭐ `evt_up_axis_o` 的出处）✅
-            chk(rxq[7][3:0] === 4'd0,
-                "*** byte[7] low nibble is the DRUM MARKER, and a hand-play event is NOT a drum => it is 0 ***");
+            // Byte7 retains melody identity in bits 3:0 and timbre in 5:4.
+            // Bit6 explicitly discriminates drums; pitch alone is not identity.
+            chk(rxq[7][3:0] === 4'd5,
+                "*** byte[7] low nibble preserves hand-play identity => it keeps axis 5 ***");
             chk({rxq[8], rxq[9], rxq[10], rxq[11]} === A4_INC,
                 "byte[8..11] carry the FULL 32-bit phase_inc");
             chk(rxq[13] === ck_of(0),
@@ -282,8 +269,8 @@ module tb_top_upstream_timbre;
              *     ⇒ ⭐ `[7] = {4'b0, 鼓标记} = 8'h00`（⭐ 现在 `[7]` 已不再含轴号 ✅）
              *  ⭐ 修好后：⭐ 回传取"**发声实际用的音色**" = `timbre_sel_r` = 2
              *     ⇒ ⭐ `[7] = (2<<4)|0 = 8'h20` ✅ */
-            chk(rxq[7] === 8'h20,
-                "*** hand-play frame: byte[7] = 0x20 => timbre 2 in bits[5:4], drum marker 0 in bits[3:0] ***");
+            chk(rxq[7] === 8'h25,
+                "*** hand-play frame: byte[7] = 0x25 => timbre 2 in bits[5:4], original melody axis in bits[3:0] ***");
             chk(((rxq[7] >> 4) & 8'h03) === 2'd2,
                 "*** the FRAME's timbre field == 2, i.e. the timbre that actually SOUNDED ***");
             chk(rxq[7] !== 8'h00,
@@ -298,8 +285,8 @@ module tb_top_upstream_timbre;
             force_event(4'd9, A4_INC, 8'd100, 2'd0);
             wait_bytes(14);
             idle(20);
-            chk(rxq[7] === 8'h10,
-                "*** a DIFFERENT timbre (1) + a hand-play (drum marker 0) => byte[7] = 0x10 ***");
+            chk(rxq[7] === 8'h19,
+                "*** a DIFFERENT timbre (1) + a hand-play (original melody axis) => byte[7] = 0x19 ***");
             chk(((rxq[7] >> 4) & 8'h03) === 2'd1,
                 "*** and the frame's timbre field tracks it (now 1) ***");
         end
@@ -325,10 +312,10 @@ module tb_top_upstream_timbre;
             idle(20);
 
             chk(rxn == 28, "two back-to-back events => exactly 2 frames (28 bytes)");
-            chk(rxq[7] === 8'h30,
-                "*** burst frame #1 keeps ITS OWN timbre: [7] = 0x30 (timbre 3, drum marker 0) ***");
-            chk(rxq[21] === 8'h10,
-                "*** burst frame #2 carries ITS OWN timbre: [7] = 0x10 (timbre 1, drum marker 0) ***");
+            chk(rxq[7] === 8'h31,
+                "*** burst frame #1 keeps ITS OWN timbre: [7] = 0x31 (timbre 3, original melody axis) ***");
+            chk(rxq[21] === 8'h12,
+                "*** burst frame #2 carries ITS OWN timbre: [7] = 0x12 (timbre 1, original melody axis) ***");
             chk(rxq[21] !== 8'h20,
                 "*** and it did NOT pick up the later timbre 2 (the timbre travels WITH the event) ***");
             chk(rxq[13] === ck_of(0),  "frame #1 checksum holds with the new byte[7]");
@@ -480,7 +467,7 @@ module tb_top_upstream_timbre;
             wait_bytes(14);
             idle(20);
             chk(rxn == 14, "hand-play: exactly one 14-byte frame came out");
-            chk(rxq[7][3:0] === 4'd0,
+            chk(rxq[7][3:0] === 4'd5,
                 "hand-play (is_drum=0) => byte[7] low nibble is 0 -- a hand-play is NEVER marked as a drum upstream");
             release dut.timbre_sel_r;
         end

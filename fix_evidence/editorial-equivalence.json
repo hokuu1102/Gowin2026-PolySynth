@@ -1,0 +1,17 @@
+[
+  {
+    "file": "rtl\\w3c\\guide_lamp.v",
+    "logic_unchanged": true,
+    "semantic_sha256": "ddfed9d8991318e4071e8897e071287454f4136483bc90b27b3ff91b21df2afd"
+  },
+  {
+    "file": "rtl\\hdmi\\hdmi_scope.v",
+    "logic_unchanged": true,
+    "semantic_sha256": "0cda4c475fc8a8dc9dae9928cd4b64c02dc8d7ef4e825c25d7c88a7475d93137"
+  },
+  {
+    "file": "Gowin2026.gprj",
+    "unique_source_set_unchanged": true,
+    "removed_duplicate_entries": 2
+  }
+]

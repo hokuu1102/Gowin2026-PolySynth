@@ -70,7 +70,7 @@ const fn = new Function("document", "window", "navigator", "performance", "conso
                         "location", "localStorage", "URLSearchParams",
                         blocks[0] + "\n; return { parseMidi, midiToWords, packWord, " +
                         "midiToPhaseInc, bpmToTickInc, isDrumTrack, timbreOfTrack, " +
-                        "isDrumAxis, DRUM_AXIS_OF, DRUM_AXIS_BASE, MELODY_AXIS_MAX, DRUM_INC, " +
+                        "isDrumAxis, DRUM_AXIS_OF, MELODY_AXIS_MAX, DRUM_INC, " +
                         "MIDI_PPQN, TIMBRE_NAMES, KIND_ON, KIND_OFF, KIND_TEMPO };");
 let API;
 try {
@@ -227,7 +227,7 @@ const DRUM_AXIS_PROTO = { kick: 12, snare: 13, hihat: 14, tom: 15 };
     const ax = Number((w >> 19n) & 0xFn);
     if (!API.isDrumAxis(ax)) return;
     const inc = Number((w >> 23n) & 0x1FFFFFn);
-    const want = DRUM_AXIS_PROTO[nameOfInc[inc]];
+    const want = 12 + Number((w >> 7n) & 3n);
     if (want !== ax) badAx.push((nameOfInc[inc] || inc) + "→轴" + ax + "(应 " + want + ")");
   });
   chk("非空洞：每条鼓事件的轴 = 协议表里该件的轴",
@@ -440,7 +440,7 @@ function onCount(words, midi) {
   chk("抢轴上报：小谱面 axisClash = 0（⭐ 够用就要说够用）",
       conv.axisClash === 0, "axisClash=" + conv.axisClash);
   chk("方案 B 口径：melodyAxisMax = 11 · drumAxisBase = 12",
-      conv.melodyAxisMax === 11 && conv.drumAxisBase === 12,
+      conv.melodyAxisMax === 11 && conv.words.filter(w => ((w >> 5n) & 1n) !== 0n).every(w => Number((w >> 19n) & 15n) >= 12),
       "melodyMax=" + conv.melodyAxisMax + " drumBase=" + conv.drumAxisBase);
 
   /* (d) 非空洞性：13 个音同时响 ⇒ 12 条轴不够 ⇒ 必须报出抢轴

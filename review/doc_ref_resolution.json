@@ -1,0 +1,119 @@
+{
+  "cases": [
+    {
+      "reference": "rtl/hdmi/video_timing.v",
+      "document_directory": "bringup/hdmi_640x480",
+      "canonical": "rtl/hdmi/video_timing.v",
+      "expected": true,
+      "actual": true
+    },
+    {
+      "reference": "../../rtl/hdmi/video_timing.v",
+      "document_directory": "bringup/hdmi_640x480",
+      "canonical": "rtl/hdmi/video_timing.v",
+      "expected": true,
+      "actual": false
+    },
+    {
+      "reference": "../../rtl/hdmi/tmds_encoder.v",
+      "document_directory": "bringup/hdmi_640x480",
+      "canonical": "rtl/hdmi/tmds_encoder.v",
+      "expected": true,
+      "actual": false
+    },
+    {
+      "reference": "../../rtl/hdmi/no_such_file.v",
+      "document_directory": "bringup/hdmi_640x480",
+      "canonical": "rtl/hdmi/no_such_file.v",
+      "expected": false,
+      "actual": false
+    }
+  ],
+  "real_document_parent_reference_rejected": true,
+  "tracked_valid_parent_links_wrongly_rejected": [
+    {
+      "document": "bringup/hdmi_640x480/README.md",
+      "line": 7,
+      "reference": "../../rtl/hdmi/video_timing.v",
+      "tracked_target": "rtl/hdmi/video_timing.v"
+    },
+    {
+      "document": "bringup/hdmi_640x480/README.md",
+      "line": 9,
+      "reference": "../../rtl/hdmi/tmds_encoder.v",
+      "tracked_target": "rtl/hdmi/tmds_encoder.v"
+    },
+    {
+      "document": "bringup/hdmi_640x480/README.md",
+      "line": 10,
+      "reference": "../../rtl/hdmi/tmds_serializer.v",
+      "tracked_target": "rtl/hdmi/tmds_serializer.v"
+    },
+    {
+      "document": "bringup/hdmi_640x480/README.md",
+      "line": 11,
+      "reference": "../../rtl/hdmi/hdmi_clk.v",
+      "tracked_target": "rtl/hdmi/hdmi_clk.v"
+    },
+    {
+      "document": "bringup/hdmi_640x480/README.md",
+      "line": 58,
+      "reference": "../../rtl/hdmi/hdmi_clk.v",
+      "tracked_target": "rtl/hdmi/hdmi_clk.v"
+    },
+    {
+      "document": "bringup/hdmi_640x480/README.md",
+      "line": 115,
+      "reference": "../../rtl/hdmi/tmds_encoder.v",
+      "tracked_target": "rtl/hdmi/tmds_encoder.v"
+    },
+    {
+      "document": "bringup/hdmi_640x480/tools/README.md",
+      "line": 4,
+      "reference": "../上板调试记录-20260930.md",
+      "tracked_target": "bringup/hdmi_640x480/上板调试记录-20260930.md"
+    },
+    {
+      "document": "evidence/h5/REPORT.md",
+      "line": 31,
+      "reference": "../../rtl/hdmi/README.md",
+      "tracked_target": "rtl/hdmi/README.md"
+    },
+    {
+      "document": "evidence/main_fix_20261014/runner/README.md",
+      "line": 9,
+      "reference": "../run_snapshot.py",
+      "tracked_target": "evidence/main_fix_20261014/run_snapshot.py"
+    },
+    {
+      "document": "review/fx-version-review-20261015.md",
+      "line": 56,
+      "reference": "../evidence/fx_review_20261015/README.md",
+      "tracked_target": "evidence/fx_review_20261015/README.md"
+    },
+    {
+      "document": "sim/evidence/a3-drum-raw-20261008/README.md",
+      "line": 4,
+      "reference": "../a3-proper-20261008/README.md",
+      "tracked_target": "sim/evidence/a3-proper-20261008/README.md"
+    },
+    {
+      "document": "sim/evidence/a3-proper-20261008/README.md",
+      "line": 4,
+      "reference": "../a3-drum-raw-20261008/README.md",
+      "tracked_target": "sim/evidence/a3-drum-raw-20261008/README.md"
+    },
+    {
+      "document": "sim/evidence/a3-proper-20261008/README.md",
+      "line": 5,
+      "reference": "../final-batch-20261008/README.md",
+      "tracked_target": "sim/evidence/final-batch-20261008/README.md"
+    },
+    {
+      "document": "sim/evidence/final-batch-20261008/README.md",
+      "line": 58,
+      "reference": "../a3-drum-raw-20261008/README.md",
+      "tracked_target": "sim/evidence/a3-drum-raw-20261008/README.md"
+    }
+  ]
+}

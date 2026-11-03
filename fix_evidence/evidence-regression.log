@@ -1,0 +1,10 @@
+warning: in the working copy of 'sim/evidence/probe.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'sim/evidence/probe.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'sim/evidence/probe.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'sim/evidence/probe.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'sim/evidence/probe.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'sim/evidence/other name.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'sim/evidence/pass name.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'sim/evidence/other name.log', LF will be replaced by CRLF the next time Git touches it
+warning: in the working copy of 'sim/evidence/pass name.log', LF will be replaced by CRLF the next time Git touches it
+PASS index-only evidence guard: 12 cases, including UTF16, missing working files, stderr and batch blobs

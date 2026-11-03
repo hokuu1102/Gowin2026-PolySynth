@@ -7,6 +7,6 @@ INFO: timbre=1 velocity=200 samples=700 osc=32767 env=51200 max_abs=1540672 (183
 INFO: timbre=2 velocity=200 samples=700 osc=32767 env=51200 max_abs=1467328 (174/1000 FS) knee=0 rail=0
 INFO: timbre=3 velocity=200 samples=700 osc=32767 env=31455 max_abs=354176 (42/1000 FS) knee=0 rail=0
 PASS: velocity headroom stays below the digital limiter for all timbres
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3b\tb_velocity_headroom.sv:157: $finish called at 4900700000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3b\tb_velocity_headroom.sv:157: $finish called at 4900700000 (1ps)
 
 

@@ -1,0 +1,23 @@
+
+================================================================
+ tb_rot32_diff 路 ROT32 閫愭媿閫愪綅宸垎锛堟柊 note_manager vs 鏀瑰姩鍓嶅壇鏈級
+================================================================
+
+=== A: 闈欐€侊紙鉀?鍏ㄧ▼涓嶆崲妗?路 base_oct_r 鎭?0锛?0000 鎷?===
+=== B: 鎹㈡。 0 -> 1锛堥潤闊筹細鐩镐綅琛ㄥ叏 0锛?0000 鎷?===
+=== C: 鎹㈡。 1 -> 2锛堥潤闊筹級10000 鎷?===
+=== D: 鎹㈡。 2 -> 0锛堥潤闊筹級10000 鎷?===
+
+  閫愭媿姣旇緝鎬绘媿鏁?= 50266锛堥潤鎬?20094 锛?鎹㈡。鍚?30172锛?
+  phase_inc 涓嶅悓鎷嶆暟 = 0
+  鍏跺畠杈撳嚭  涓嶅悓鎷嶆暟 = 0
+  ok  : D1: voice_phase_inc_o is bit-identical EVERY cycle (static + silent octave switches)
+  ok  : D2: the other 6 output groups are bit-identical EVERY cycle too
+  ok  : D3 non-vacuous: a real number of cycles was compared (> 40000)
+
+================================================================
+PASS: tb_rot32_diff 鈥斺€?50266 鎷嶉€愭媿閫愪綅鐩稿悓锛? 澶勪笉鍚?
+================================================================
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3b\tb_opt04_rot32_current_af.sv:331: $finish called at 1005960000 (1ps)
+
+

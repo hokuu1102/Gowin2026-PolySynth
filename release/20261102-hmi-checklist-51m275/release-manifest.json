@@ -1,0 +1,20 @@
+{
+  "source_commit": "81072fae6740ef92770ab414c17e8e0805266783",
+  "bitstream_sha256": "3bb7098687c8327da23dbef7019d09e1b6b49bcd93f5408d6caa9935395520f4",
+  "Fmax_MHz": 51.275,
+  "actual_50MHz_setup_ns": 0.498,
+  "native_slack": {
+    "SETUP": -3.102,
+    "HOLD": 0.179,
+    "RECOVERY": 0.25,
+    "REMOVAL": 0.27
+  },
+  "targeted_tests": 10,
+  "delivery_branch": "codex/delivery-hmi-checklist-20261102",
+  "release_tag": "release/hmi-checklist-51m275-20261102",
+  "previous_remote_delivery": "4de7845178403f32e417168d74353733473e3f27",
+  "production_inputs_match_compiled_version": true,
+  "screen_HMI_modified": false,
+  "board_verified": false,
+  "historical_evidence_note": "Evidence preserves pre-publication local status; publication uses this branch and tag."
+}

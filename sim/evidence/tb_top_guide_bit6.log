@@ -56,6 +56,6 @@ NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class
   ok  : 5d a REPLAY still lit key 4  <-- RED before the fix: the clear was on met_start only
 
 PASS: tb_top_guide_bit6 - 32/32 judgements held
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_top_guide_bit6.sv:428: $finish called at 2357610000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_bit6.sv:428: $finish called at 2357610000 (1ps)
 
 

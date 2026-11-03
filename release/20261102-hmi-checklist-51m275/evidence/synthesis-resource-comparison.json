@@ -1,0 +1,37 @@
+{
+  "T_Alu": {
+    "baseline": 10973,
+    "new": 10973,
+    "delta": 0
+  },
+  "T_Bsram": {
+    "baseline": 104,
+    "new": 104,
+    "delta": 0
+  },
+  "T_Lut": {
+    "baseline": 43147,
+    "new": 43170,
+    "delta": 23
+  },
+  "T_MULT12X12": {
+    "baseline": 11,
+    "new": 11,
+    "delta": 0
+  },
+  "T_MULT27X36": {
+    "baseline": 5,
+    "new": 5,
+    "delta": 0
+  },
+  "T_MULTALU27X18": {
+    "baseline": 25,
+    "new": 25,
+    "delta": 0
+  },
+  "T_Register": {
+    "baseline": 26670,
+    "new": 26673,
+    "delta": 3
+  }
+}

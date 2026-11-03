@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_i2s_tx/tb_i2s_tx.vcd opened for output.
+﻿VCD info: dumping is suppressed.
   路 宸?#0 瑙ｄ覆=0 鏈熸湜=0锛堥珮 16 浣嶄竴鑷达級
   路 宸?#1 瑙ｄ覆=410880 鏈熸湜=411113锛堥珮 16 浣嶄竴鑷达級
   路 宸?#2 瑙ｄ覆=818176 鏈熸湜=818268锛堥珮 16 浣嶄竴鑷达級
@@ -20,6 +20,6 @@
   ok : A8 鏃?X/Z 浼犳挱锛圚P_BCK/HP_WS/HP_DIN锛?
 
 PASS: i2s_tx + S2 瑙ｄ覆閫愮偣涓€鑷达紙M1 鐨勬牳蹇冨垽鎹€氳繃锛?
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_i2s_tx.sv:222: $finish called at 5325051000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_i2s_tx.sv:222: $finish called at 5325051000 (1ps)
 
 

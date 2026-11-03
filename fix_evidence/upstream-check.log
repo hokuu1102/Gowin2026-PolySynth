@@ -1,0 +1,54 @@
+==========================================================================
+回传（上行）解析器自检 —— 整合进 score_studio.html 后的验证
+==========================================================================
+  合成时钟是 48828.125 Hz（⛔ 不是 50 MHz）                         OK   U_FS = 48828.125
+  PPQN = 960（⛔ 不是 480）                                    OK   U_PPQN = 960
+  A4 的 inc 反算 = 440 Hz（⭐ 用权威值验口径）                         OK   440.000 Hz
+  A4 的 inc 判为 MIDI 69（音名 A4）                              OK   A4
+  ⭐ 钉住：两种校验口径给出【不同的值】（所以这不是小事）                            OK   代码=0x13 文档=0xb6
+  我方解析器按【代码口径】认帧（与发送端一致）                                  OK   （下一节实测）
+  解析：收到 2 帧                                               OK   实测 2
+  解析：2 个音符事件                                              OK   实测 2
+  解析：无坏校验                                                 OK   实测 0
+  解析：无未知类型                                                OK
+  解析：首个事件 tick=1000                                       OK   实测 1000
+  解析：首个事件 axis=3                                          OK
+  解析：首个事件音高 = A4                                          OK   A4
+  解析：首个事件 vel=100                                         OK
+  解析：[7]=0x2F ⇒ axis=15（⛔ 不是 47）                          OK   实测 axis=15 · fr[7]=47
+  解析：同一字节 ⇒ timbre=2                                      OK   实测 timbre=2
+  非空洞：裸读 fr[7] 会得到 47（⭐ 证明掩码不是摆设）                         OK   fr[7]=47
+  现状兼容：timbre=0 时 axis 仍是 3（⭐ 与改前一致）                      OK   axis=3 timbre=0
+  口径一致：frame_format.py 定义 AXIS_MASK=0x0F，且两处解析都用它         OK   命中 1 处
+  口径一致：score_studio.html 的 fr[7] 掩码 0x0F + 取 timbre       OK
+  口径一致：upstream_studio.html 的 fr[7] 掩码 0x0F + 取 timbre    OK
+  口径一致：两页的 TIMBRE_COLORS 色板完全相同                           OK   score="#fb923c","#4ea1ff","#3ddc84","#ff7ab2" · upstream="#fb923c","#4ea1ff","#3ddc84","#ff7ab2"
+  口径一致：两页的 DRUM_COLOR 相同                                  OK
+  配色：两页都改成按 timbre 上色（⛔ 不再定义 axis 色板）                     OK
+  配色：鼓（axis 12..15）单独给 DRUM_COLOR（⛔ 不落进 timbre=0）         OK
+  byte7=c explicit drum flag/type                         OK
+  byte7=40 explicit drum flag/type                        OK
+  byte7=50 explicit drum flag/type                        OK
+  byte7=60 explicit drum flag/type                        OK
+  byte7=70 explicit drum flag/type                        OK
+  分通道：4 个音色分别落到通道 0/1/2/3                                 OK   命中通道 0,1,2,3（字节数 169）
+  分通道：鼓（axis 12）走 GM 通道 9（0x99）                           OK
+  非空洞：通道 1/2/3 与鼓通道都不是「恒为 0x90」能碰上的                       OK
+  边界：axis 11 不算鼓（isDrumAxis(11) === false）                OK
+  边界：axis 12 算鼓（isDrumAxis(12) === true）                  OK
+  锚点帧：被识别（⛔ 不算未知类型）                                       OK
+  锚点帧：ppqn 被读到 = 960                                      OK   实测 960
+  ⭐ 锚点帧【不】计入音符数（它没音高）                                     OK   实测 0
+  非空洞：坏校验 => 计数 +1                                        OK   实测 1
+  非空洞：坏校验帧【不】计入音符                                         OK
+  非空洞：未知类型 => unk 计数                                      OK   实测 1
+  分片：半帧时不计音符（等后续）                                         OK   实测 0
+  分片：拼齐后计 1 个音符                                           OK   实测 1
+  分片：拼齐后音高对                                               OK
+  表同步：帧长按 68 收（⛔ 不是 14）                                   OK   实测 1
+  表同步：16 项都读出来                                            OK
+  表同步：inc[0] 读对                                           OK   38702840
+  表同步：表号 = 7                                              OK
+  导出：uBuildMidi 有产物                                       OK
+
+结论：全部通过

@@ -1,8 +1,8 @@
-﻿VCD info: dumpfile build/sim/mcp3208_model/tb_mcp3208_model.vcd opened for output.
+﻿VCD info: dumping is suppressed.
 PASS CH0: model returned 400
 PASS CH1: model returned 401
 PASS CH7: model returned 407
 PASS: mcp3208_model returns IDVAL+channel correctly
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\models\tb_mcp3208_model.sv:92: $finish called at 72260000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tb_mcp3208_model.sv:92: $finish called at 72260000 (1ps)
 
 

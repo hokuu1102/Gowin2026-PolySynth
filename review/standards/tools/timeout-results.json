@@ -1,0 +1,16 @@
+[
+  {
+    "repeat": 1,
+    "actual_exit": 1,
+    "expected_exit": 1,
+    "stale_pass_hint": true,
+    "result_log": "FAIL: TIMEOUT after 1 s -- testbench hung (no verdict is a FAILURE, see K-94)  [!!] 但日志里已出现 PASS: —— 很可能是【超时预算太紧】而不是真挂死，请人工确认\n"
+  },
+  {
+    "repeat": 2,
+    "actual_exit": 1,
+    "expected_exit": 1,
+    "stale_pass_hint": true,
+    "result_log": "FAIL: TIMEOUT after 1 s -- testbench hung (no verdict is a FAILURE, see K-94)  [!!] 但日志里已出现 PASS: —— 很可能是【超时预算太紧】而不是真挂死，请人工确认\n"
+  }
+]

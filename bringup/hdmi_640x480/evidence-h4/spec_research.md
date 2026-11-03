@@ -39,9 +39,9 @@ DS981 的器件表列 GW5AT-60，封装表列 PG484A，表 3-44 列 C1/I0；与�
 
 - `IDE\doc\CN\UG304-1.3.5_Arora V可编程通用管脚(GPIO)用户指南.pdf` 与 `IDE\doc\EN\UG304-1.3.5E_Arora Ⅴ Programmable IO (GPIO) User Guide.pdf`：OSER10/16 结构与时钟关系，无速率极限。
 - `IDE\doc\CN\UG306-1.0.7_Arora V时钟资源(Clock)用户指南.pdf` 与 EN 对应版：时钟资源说明，无本型号 OSER10 FCLK 最高额定值。
-- `IDE\doc\CN\SUG283-3.6_Gowin原语用户指南.pdf` 与 EN 对应版：原语端口说明，无本型号最高速率。
-- `IDE\doc\CN\UG289-2.2.1_Gowin可编程通用管脚(GPIO)用户指南.pdf` 与 EN 对应版：其他系列 GPIO 说明，不能替代 GW5AT 额定值。
+- 「IDE\doc\CN\SUG283-3.6_Gowin原语用户指南.pdf」（工具安装目录路径） 与 EN 对应版：原语端口说明，无本型号最高速率。
+- 「IDE\doc\CN\UG289-2.2.1_Gowin可编程通用管脚(GPIO)用户指南.pdf」（工具安装目录路径） 与 EN 对应版：其他系列 GPIO 说明，不能替代 GW5AT 额定值。
 - `Programmer\doc\CN\UG718-1.0.4_Arora Ⅴ 60K FPGA产品编程配置手册 .pdf` 与 EN 对应版：编程配置内容，无所求 I/O AC 指标。
-- `IDE\data\hardware_core\gw5at\prim_syn.v`、`IDE\bin\prim_syns\gw5a\primitive.xml`、`IDE\ipcore\DVI_TX\dvi_tx.ipspec` 等文本：含原语或 IP 描述，无可引用的本型号 AC 上限。
+- 「IDE\data\hardware_core\gw5at\prim_syn.v」（工具安装目录路径）、`IDE\bin\prim_syns\gw5a\primitive.xml`、`IDE\ipcore\DVI_TX\dvi_tx.ipspec` 等文本：含原语或 IP 描述，无可引用的本型号 AC 上限。
 
 **本地文档无此数据**：本机安装目录没有 DS981 GW5AT 数据手册；本地 PDF/文本中未找到 GW5AT-60 OSER10 最高串行输出速率、LVDS TX 最高数据率或明列的 OSER10 最高 FCLK。上述 2000 Mb/s / 2.0 Gb/s 均来自在线官方 DS981，不能误写成安装目录原有资料。官方文档库将该手册列为 [DS981 v1.1.3E，2026-07-15](https://www.gowinsemi.com/en/document/main/database/2914/)；其文档库点击需会员登录，但官方 CDN 的 [DS981E.pdf](https://cdn.gowinsemi.com.cn/DS981E.pdf) 可直接读取，封面/页脚版本为 DS981-1.1.3E。

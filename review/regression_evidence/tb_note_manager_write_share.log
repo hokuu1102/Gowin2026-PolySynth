@@ -1,0 +1,4 @@
+PASS: tb_note_manager_write_share P=32 T3=0 cycles=24324 commits=561 retriggers=173 collisions=734 drops=8180 all_voice_mask=ffffffff
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3b\tb_note_manager_write_share.sv:355: $finish called at 243240000 (1ps)
+
+

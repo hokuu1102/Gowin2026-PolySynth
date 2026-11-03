@@ -1,0 +1,55 @@
+NOTE: impl/Gowin2026_process_config.json absent -- Gowin will use its own defaults (0/0)
+=== gowin build (synthesis + PnR + bitstream) ===
+OK  wiped impl/gwsynthesis (2 files) -- full synthesis, numbers are comparable
+OK  impl/pnr already absent (clean place & route)
+NOTE: gw_sh exit code =  (informational only -- see the freshness check below)
+NOTE: no pre-build timestamp (first build) -- accepting the report as fresh
+NOTE: gw_sh exit code =  -- IGNORED (killed after the build finished; the PnR report is fresh)
+WARN: PR1014 present -- see K-45 / the toolchain doc before judging the result
+OK  sim/evidence/gowin_m0_timing.txt
+OK  sim/evidence/gowin_m0_pins.txt
+OK  sim/evidence/gowin_m0_rsc.xml
+OK  NL0002 gate: 3 swept module(s), all whitelisted
+OK  P1-53 gate: 0 parameter-guard violations (EX3793 absent)
+  HOLD worst slack = 0.148 ns  (review baseline 0.137)   u_looper hits = 0
+OK  P0-25 gate: HOLD worst slack 0.148 ns >= 0.05 ns
+OK  P0-23 gate: 0 async-reset sensitivity lists
+OK  P0-26 gate: all 2 generated clock(s) have an Fmax row: serial_clk, pixel_clk
+OK  P0-29 gate: all 14 critical observability wires have a consumer
+OK  check_no_bom: 0 BOM in 347 HDL file(s)
+
+== P0-30 setup gate ==
+  clk_sys      setup EP=2094   TNS=-5336.735
+  serial_clk   setup EP=   0   TNS=0
+  pixel_clk    setup EP=   0   TNS=0
+  TOTAL setup EP = 2094   TNS = -5336.735   worst path slack = -10.18 ns
+  clk_sys placement-budget estimate = -6.58 ns  (real clock 20 ns, over-constraint 16.4 ns)
+  NOTE: the 16.4 ns figure is an over-constraint (see top.sdc); the physical clock is 20 ns.
+        Only native clk_sys R->R paths with relation 16.4 ns receive that placement margin.
+  Setup native path checks = 25
+  Hold native path checks = 25
+  Recovery native path checks = 12
+  Removal native path checks = 12
+
+########################################################################
+##  TIMING FAIL -- NOT A TIMING-CLEAN BUILD
+########################################################################
+  reason                   : native setup/hold/recovery/removal violates its own constraint, is absent, or is unparseable
+  setup-violated endpoints : 2094
+  total negative slack     : -5336.735 ns
+  worst setup path slack   : -10.18 ns
+  REAL slack (vs clock)    : -6.58 ns  (real clock 20 ns, over-constraint 16.4 ns)
+
+  This build did NOT converge.  Bitstream on disk:
+    path   : C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\impl\pnr\Gowin2026.fs
+    size   : 19.82 MB
+    sha256 : DF1479CD2797F9138B07AE1F9DDAD44063B19B9B83D5862EDA4463049AF8ECCB
+
+  MAY be burned to the board for bench testing -- the hardware still runs.
+  NOT a timing-clean release: do NOT archive it, do NOT ship it, and do
+  NOT use it as the baseline for a comparison table.
+
+  Where to look: impl/pnr/Gowin2026_tr_content.html -> Setup Paths Table.
+  Evidence that would otherwise be lost: tools/archive_pnr_evidence.ps1.
+
+  P0-30 FAIL (exit 12).

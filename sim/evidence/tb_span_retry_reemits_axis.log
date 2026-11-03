@@ -12,6 +12,6 @@
 ok  : 姣忔閲嶈瘯閮介噸鏂板彂浜嗚酱鍙凤紙9 娆?/ 9 娆¤繘 PROMPT锛?
 ==================================================
 PASS: 閲嶈瘯鏃惰酱鍙蜂細閲嶆柊鍥炲彂锛圞-132 宸蹭慨锛?
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_span_retry_reemits_axis.sv:145: $finish called at 120240000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_span_retry_reemits_axis.sv:145: $finish called at 120240000 (1ps)
 
 

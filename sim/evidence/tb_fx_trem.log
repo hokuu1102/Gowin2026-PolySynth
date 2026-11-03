@@ -15,6 +15,6 @@
   ok  : T9d no X on gain_o
   ok  : T10 non-vacuous: depth=0 and depth=255 give DIFFERENT outputs
 PASS: fx_trem -- bypass bit-exact, depth swings, rate controls LFO
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_fx_trem.sv:275: $finish called at 232120000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_fx_trem.sv:275: $finish called at 232120000 (1ps)
 
 

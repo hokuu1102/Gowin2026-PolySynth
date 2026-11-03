@@ -1,0 +1,62 @@
+[
+  {
+    "case": "indexed_fail",
+    "expected": 1,
+    "actual": 1
+  },
+  {
+    "case": "indexed_empty",
+    "expected": 1,
+    "actual": 1
+  },
+  {
+    "case": "indexed_utf16_fail",
+    "expected": 1,
+    "actual": 1
+  },
+  {
+    "case": "indexed_leak",
+    "expected": 1,
+    "actual": 1
+  },
+  {
+    "case": "disk_fail_only",
+    "expected": 0,
+    "actual": 0
+  },
+  {
+    "case": "disk_missing",
+    "expected": 0,
+    "actual": 0
+  },
+  {
+    "case": "indexed_bad_disk_missing",
+    "expected": 1,
+    "actual": 1
+  },
+  {
+    "case": "empty_probe.compile.log",
+    "expected": 0,
+    "actual": 0
+  },
+  {
+    "case": "empty_probe.stderr.log",
+    "expected": 0,
+    "actual": 0
+  },
+  {
+    "case": "empty_probe.err",
+    "expected": 0,
+    "actual": 0
+  },
+  {
+    "case": "multiple_blobs_1",
+    "expected": 1,
+    "actual": 1
+  },
+  {
+    "case": "multiple_blobs_0",
+    "expected": 0,
+    "actual": 0
+  }
+]

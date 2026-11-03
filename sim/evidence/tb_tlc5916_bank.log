@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_tlc5916_bank/tb_tlc5916_bank.vcd opened for output.
+﻿VCD info: dumping is suppressed.
   ok  : reset: OE all high (all blanked)
   ok  : reset: SDI/CLK/LE all 0
   ok  : reset: busy 0

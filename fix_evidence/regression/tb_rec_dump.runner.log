@@ -1,0 +1,58 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_rec_dump ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_rec_dump.sv:63: warning: Instantiating module rec_dump with dangling input port 8 (reject_count_i) floating.
+=== 运行 tb_rec_dump ===
+    === tb_rec_dump锛堝綍鍒跺洖浼犵殑瀵煎嚭 FSM锛?==
+== D 姝ｅ父瀵煎嚭锛? 鏉′簨浠?鈬?42 瀛楄妭锛?4 脳 3 = v1.1 甯э級==
+  ok  : D1 3 events => exactly 42 bytes pushed (14 each = v1.1 frame)
+  ok  : D4 frame_cnt counts 3 frames
+  ok  : D8a frame0 byte[7][5:4] == 1 (word0 timbre)
+  ok  : D8b frame1 byte[7][5:4] == 2 (word1 timbre)
+  ok  : D8c frame2 byte[7][5:4] == 3 (word2 timbre)
+  ok  : D8d byte[7][6] (is_drum) == 0 -- looper never records drums
+  ok  : D8e byte[7][7] (pad) == 0
+  ok  : D8f byte[7][3:0] still carries the axis (5)
+  ok  : D5 clip_cnt counts 1 clipped entry (index 2)
+  ok  : D6 the read port is RELEASED after the dump (dump_en back to 0)
+  ok  : D7 busy is low after the dump
+== E ready_i 鑺傛祦锛氫腑閫旀媺浣?鈬?涓€涓瓧鑺傞兘涓嶈涓?==
+  ok  : E1 ready_i throttling loses NO byte (4 events => 56 bytes = 14 x 4)
+  ok  : E2 the stream still starts with the header after the stall
+== F 涓や釜鍓嶆彁锛氣瓙 灞備笉绌洪棽 / 猸?绌哄眰 鈬?鉀?閮戒笉璁稿惎鍔?==
+  ok  : F1 NOT idle => the dump must NOT start (the read port is in use)
+  ok  : F2 ...and dump_en must stay 0
+  ok  : F3 empty layer (cnt=0) => no dump at all
+== G 浜屾瀵煎嚭锛氣瓙 蹇呴』鑳介噸澶嶈Е鍙?==
+  ok  : G1 first dump pushed 28 bytes (14 x 2)
+  ok  : G2 the dump can be triggered AGAIN (no stuck state)
+  ok  : G3 the second dump is well-formed too
+
+PASS: tb_rec_dump - 61/61 judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_rec_dump.sv:282: $finish called at 8260000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

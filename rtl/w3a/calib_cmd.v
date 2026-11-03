@@ -435,7 +435,7 @@ module calib_cmd #(
     // ⭐ 任一命令字母
     wire byte_is_cmd   = byte_is_tare | byte_is_span | byte_is_abort |
                          byte_is_probe | byte_is_vstat | byte_is_posprobe |
-                         byte_is_test_mode |
+                         byte_is_test_mode | byte_is_fxstat |
                          byte_is_loop_rec | byte_is_loop_play | byte_is_loop_clr |
                          byte_is_timbre | byte_is_scope | byte_is_met | byte_is_drum_pat |
                          byte_is_keydrum |

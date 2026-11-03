@@ -1,0 +1,107 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 1 个
+
+=== 编译 tb_ctrl_key_map ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+=== 运行 tb_ctrl_key_map ===
+    NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=1000 LONG_MS=600 LONG_CYC=600 HW=10)
+
+=== A) idx 13 (loop send): short press => exactly ONE pulse ===
+  ok  : A1: idx 13 fires loop_send_req exactly once
+  ok  : A2: non-vacuity -- it DID fire (not silently zero)
+  ok  : A3: and it fired NO other command
+
+=== B) idx 13 held DOWN (long): still exactly ONE pulse ===
+  ok  : B1: after holding far past LONG_MS, still exactly ONE pulse
+  ok  : B2: holding even longer does NOT repeat it (one-shot)
+  ok  : B3: releasing does NOT produce a second pulse either
+
+=== C) all OTHER keys still map bit-for-bit as before ===
+  ok  : C: idx 0  -> met_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 1  -> timbre_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 2  -> slide_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 3  -> scope_mode_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 4  -> keydrum_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 5  -> gear_next_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 6  -> trans_up_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 7  -> mode_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 8  -> drum_pattern_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 9  -> fx_req once (placeholder)
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 10 -> trans_down_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 11 -> test_mode_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 13 -> loop_send_req once
+  ok  : C: that key fired exactly ONE command total
+  ok  : C: idx 14 -> trans_reset_req once
+  ok  : C: cross-check -- that key did NOT fire loop_send
+  ok  : C: that key fired exactly ONE command total
+
+=== D) reverse disproof: other keys must NOT fire loop_send ===
+  ok  : D1: idx 9 (fx placeholder) fires fx_req
+  ok  : D2: idx 9 (fx placeholder) does NOT fire loop_send
+  ok  : D3: idx 12 SHORT press does NOT clear the looper
+  ok  : D4: idx 12 SHORT press does NOT fire loop_send either
+  ok  : D5: idx 12 LONG press fires loop_clear_req exactly once
+  ok  : D6: idx 12 LONG press still does NOT fire loop_send
+  ok  : D7: idx 12 holding longer is still one-shot (clear)
+  ok  : D8: ...and still zero loop_send
+  ok  : D9:  idx 15 SHORT press -> tare once (unchanged)
+  ok  : D10: idx 15 SHORT press -> NO span (unchanged)
+  ok  : D11: idx 15 SHORT press -> no loop_send
+  ok  : D12: idx 15 LONG press -> span NEVER fires (span removed 2026-10-17)
+  ok  : D13: idx 15 LONG press -> no loop_send
+  ok  : D14: after idx 15 long press, release DOES fire tare (span removed => long press no longer suppresses tare)
+
+=== E) nothing pressed at all => no pulse anywhere ===
+  ok  : E1: idle key_level produces no key_down/key_up
+  ok  : E2: idle produces NO command pulse at all (incl. loop_send)
+
+PASS: ctrl_key_map -- idx 13 loop_send is a one-cycle short-press pulse (no long-press guard), every other key still maps bit-for-bit, and no other key can fire loop_send
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_ctrl_key_map.sv:347: $finish called at 155730000 (1ps)
+
+
+
+================ 汇总 ================
+通过 1 / 共 1
+✅ 全部通过（证据在 sim/evidence/）

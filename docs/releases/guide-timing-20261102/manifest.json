@@ -1,0 +1,65 @@
+{
+  "status": "improved; real50MHz gate PASS; board test pending",
+  "candidate": "trial05-local-metadata-p1",
+  "source_commit": "470be0e326f7a1c5f9c553d093d0bb26891c2d33",
+  "base": {
+    "preserved_tag": "archive/guide-fix-50m905-local-20261101",
+    "preserved_commit": "97a50966d71b775e086177936b7bec7b50b8d601",
+    "compiled_source_commit": "6560f67bfcae0e8c31d9e00635266ca71942c361",
+    "bitstream": "D:\\ChatGPT\\Outputs\\FPGA-guide-fix-20261101\\delivery\\Gowin2026-51-HMI-guide-fix-50MHz-pass-20261101.fs",
+    "sha256": "9812b0ba0dfac4098310f7465e35ee67fcde1b8ef876ea6e93dc20ff22812270",
+    "Fmax_MHz": 50.905,
+    "actual_setup_ns": 0.356,
+    "native_slack": {
+      "SETUP": -3.244,
+      "HOLD": 0.178,
+      "RECOVERY": 0.284,
+      "REMOVAL": 0.203
+    },
+    "remote_push": false
+  },
+  "Fmax_MHz": 52.015,
+  "Fmax_gain_MHz": 1.11,
+  "actual_50MHz_setup_ns": 0.775,
+  "actual_setup_gain_ns": 0.419,
+  "native_slack": {
+    "SETUP": -2.825,
+    "HOLD": 0.186,
+    "RECOVERY": 0.25,
+    "REMOVAL": 0.203
+  },
+  "strict_native_16p4ns_setup_clean": false,
+  "original_gate_exit": 0,
+  "fresh_affected_checks": 9,
+  "reused_identical_input_checks": 0,
+  "test_validation": {
+    "source_commit": "470be0e326f7a1c5f9c553d093d0bb26891c2d33",
+    "checks": 9,
+    "fresh_checks": 9,
+    "reused_checks": 0,
+    "paired_reference_commit": "8ffd0c23940d4eab7a928e3fa601278dd3439dda",
+    "paired_configurations": [
+      1,
+      3,
+      9,
+      64,
+      65
+    ],
+    "paired_checked_clock_transitions": 11280,
+    "negative_control_rejected": true,
+    "root": "D:\\ChatGPT\\Projects\\FPGA\\timing-guide-bank-fanout-20261101",
+    "board_test": "pending",
+    "paired_reference_matches_original_commit": true,
+    "paired_reference_model_sha256": "40a7a28a2b2d538de23696d85b7ddcae10366b535111bb9e7c5ab3e6495cd678"
+  },
+  "full_regression_run": false,
+  "original_repro_after_fix": "PASS",
+  "board_test": "pending",
+  "extra_latency_vs_preserved_version_clocks": 0,
+  "bitstream": "Gowin2026-51-HMI-guide-timing-opt-50MHz-20261102.fs",
+  "bitstream_sha256": "4a02c537225732897088bea5b1898b016e868dfec7031647d6454aa81091585c",
+  "source_zip": "FPGA-guide-timing-opt-source-20261102.zip",
+  "source_zip_sha256": "1312b47b9f65adf34c34cbb5ca3d612dddd0cb50f6a843c34c0bd7066ffe6b5e",
+  "synthesized_netlist_sha256": "ccc8452c58e499bb248d79fa604849f747f232741dfb241b5c0ad94375c7aced",
+  "remote_push": false
+}

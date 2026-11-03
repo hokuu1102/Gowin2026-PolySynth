@@ -1,0 +1,31 @@
+{
+  "status": "10 targeted regressions PASS; actual 50MHz timing gate PASS; board verification pending; screen HMI edits pending source file",
+  "source_commit": "81072fae6740ef92770ab414c17e8e0805266783",
+  "source_worktree": "D:\\ChatGPT\\Projects\\FPGA\\hmi-checklist-integration-20261102",
+  "baseline": "4c714ee59803fcf3a9c3f1dddb325e5ca30e44d7",
+  "Fmax_MHz": 51.275,
+  "actual_50MHz_setup_ns": 0.498,
+  "native_slack": {
+    "SETUP": -3.102,
+    "HOLD": 0.179,
+    "RECOVERY": 0.25,
+    "REMOVAL": 0.27
+  },
+  "targeted_tests": 10,
+  "remote_push": false,
+  "screen_HMI_modified": false,
+  "bitstream": "D:\\ChatGPT\\Outputs\\FPGA-hmi-checklist-20261102\\delivery\\Gowin2026-51-HMI-checklist-50MHz-20261102.fs",
+  "bitstream_sha256": "3bb7098687c8327da23dbef7019d09e1b6b49bcd93f5408d6caa9935395520f4",
+  "files": {
+    "build-inputs.json": "6a26a4141a021b20c956164dc1a11d6eb40fd3f6a7ec3aeb2b2961b81a1483c4",
+    "FPGA-hmi-checklist-exact-build-inputs-20261102.zip": "3b70e0bf0cea5528926ec8a5a07a04a3bf4ea2bf223cab1f1d74c666c3f8798f",
+    "FPGA-hmi-checklist-source-20261102.zip": "9656a563b34726264dc25a05e4c8287efd5f1dedaf9f9ecf207476e94391c92a",
+    "Gowin2026-51-HMI-checklist-50MHz-20261102.fs": "3bb7098687c8327da23dbef7019d09e1b6b49bcd93f5408d6caa9935395520f4",
+    "native-result.json": "0537bd7d88344d36b096aba437ba77cb8fb51488f014be011907d55c6912a7cb",
+    "regression-summary.json": "045208da438eb253dd2c493018d25e576b838472c07b0443c26648effc6ea496",
+    "synthesis-resource-comparison.json": "7fdd8ca99a18c8a6ea7cc30da899095032eeb9d961a1cce16a78e23383d5b71d",
+    "timing-gate.log": "59b957d5ea93a694d4cd741006852bacd74e1ead4ccd17ecec6e2d4576296de3",
+    "交付说明.md": "66ff2ee0cabe3e2d0c26a04189b793f043d50cc8978c93516bae30428130df5e",
+    "清单实现及屏端配套说明.md": "d6e876d4ee1c949b4db39c17e3316c8f8544cf025774aaaf4bd57a33a4523bcb"
+  }
+}

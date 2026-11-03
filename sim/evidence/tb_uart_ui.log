@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_uart_ui/tb_uart_ui.vcd opened for output.
+﻿VCD info: dumping is suppressed.
   ok  : reset: mode=MODE_PIANO_DEFAULT (???惔)
   ok  : reset: base_semi=0 (C4)
   ok  : reset: hb_ready=0
@@ -69,6 +69,6 @@
   ok  : ?????懜 mode=~??
   ok  : ?? frame_cnt ??
 PASS: tb_uart_ui (69 checks)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_uart_ui.sv:575: $finish called at 48220000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_uart_ui.sv:575: $finish called at 48220000 (1ps)
 
 

@@ -1,4 +1,4 @@
 ﻿PASS: real FFT to pixel bars, vertical-blank commit and atomic N/frame metadata
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\hdmi\tb_fft_spectrum_view.sv:50: $finish called at 246480000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\hdmi\tb_fft_spectrum_view.sv:50: $finish called at 246480000 (1ps)
 
 

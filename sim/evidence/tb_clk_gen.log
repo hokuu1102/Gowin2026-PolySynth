@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_clk_gen/tb_clk_gen.vcd opened for output.
+﻿VCD info: dumping is suppressed.
 
 ================ clk_gen 鏃跺熀瀹炴祴 ================
   绐楀彛        : 8192 涓?clk锛?63840 ns锛屾湡鏈?8 甯э級
@@ -32,6 +32,6 @@
   ok : 姣忓抚鎭板ソ涓€涓?frame_start锛? 甯?鈫?8 娆″悓鎷嶏級
 
 PASS: clk_gen 鏃跺熀鍏ㄩ儴绗﹀悎锛堝垎棰戦摼绮剧‘ + 鏋佸樊涓?0 + 鐩镐綅鍏崇郴姝ｇ‘ + 鏃?X锛?
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\clk_gen\tb_clk_gen.sv:280: $finish called at 164011000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\clk_gen\tb_clk_gen.sv:280: $finish called at 164011000 (1ps)
 
 

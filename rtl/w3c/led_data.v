@@ -51,7 +51,9 @@ module led_data #(
     // 键灯数（左手板，16 = 2 片 TLC5916）
     parameter integer KEY_N    = 16,
     // 状态灯数（右手板，8 = 1 片 TLC5916 × 4 双色灯）
-    parameter integer STATUS_N = 8
+    parameter integer STATUS_N = 8,
+    // 50 ms at the unchanged 50 MHz board clock.
+    parameter integer GUIDE_PULSE_CLKS = 2_500_000
 ) (
     input  wire                     clk_i,
     input  wire                     rst_n_i,          // ⭐ 同步复位、低有效（约定 2）
@@ -64,19 +66,65 @@ module led_data #(
 
     // ── 输出 · 24 bit 图案（16 键灯 + 8 状态灯）─────────────────────────────
     output wire [KEY_N+STATUS_N-1:0] pattern_o,
-    output wire                      pattern_commit_o // ⭐ 图案变化那一拍，单周期脉冲
+    output wire                      pattern_commit_o, // ⭐ 图案变化那一拍，单周期脉冲
+    // Optional for legacy users: unconnected inputs do not create pulses.
+    input wire [KEY_N-1:0] guide_on_i,
+    input wire             guide_clear_i
+
 );
 
-    // ── ⭐ 键灯合并逻辑（组合，⛔ 无状态）────────────────────────────────────
+    // ── ⭐ 逐键显示计时与图案合并────────────────────────────────────
     //   · 常亮 = 当前按下的键（优先级最高，⛔ 不闪烁）
     //   · 闪烁 = 指引要按、但还没按的键（在 blink 高电平那一拍亮）
     wire [KEY_N-1:0] blink_keys = guide_key_i & ~key_active_i;
     wire [KEY_N-1:0] key_pattern;
-    genvar ki;
+    localparam integer PULSE_W = (GUIDE_PULSE_CLKS > 1)
+        ? $clog2(GUIDE_PULSE_CLKS + 1) : 1;
+    // One shared phase counter and independent per-key deadlines replace
+    // sixteen wide decrementers. The modulo period is larger than a pulse.
+    reg [PULSE_W-1:0] pulse_phase;
+    wire [PULSE_W-1:0] pulse_deadline = pulse_phase + GUIDE_PULSE_CLKS;
+    always @(posedge clk_i) begin
+        if (!rst_n_i) pulse_phase <= {PULSE_W{1'b0}};
+        else pulse_phase <= pulse_phase + 1'b1;
+    end
+    genvar ki, pair;
     generate
         for (ki = 0; ki < KEY_N; ki = ki + 1) begin : gen_key
             // ⭐ 当前按下 ⇒ 常亮；否则若是"要按还没按" ⇒ 跟随 blink 闪烁
-            assign key_pattern[ki] = key_active_i[ki] | (blink_keys[ki] & blink_i);
+            reg [PULSE_W-1:0] deadline;
+            reg pulse_active;
+            localparam integer EQ_PAIRS = (PULSE_W + 1) / 2;
+            // Each preserved two-bit comparison fits one four-input LUT.
+            // Avoid inferring sixteen long carry-based equality chains.
+            (* syn_keep = 1 *) wire [EQ_PAIRS-1:0] expiry_pair;
+            for (pair=0; pair<EQ_PAIRS; pair=pair+1) begin: g_expiry_pair
+                if (2*pair+1 < PULSE_W) begin: g_two
+                    assign expiry_pair[pair] =
+                        ~(pulse_phase[2*pair] ^ deadline[2*pair])
+                        & ~(pulse_phase[2*pair+1] ^ deadline[2*pair+1]);
+                end else begin: g_one
+                    assign expiry_pair[pair] =
+                        ~(pulse_phase[2*pair] ^ deadline[2*pair]);
+                end
+            end
+            always @(posedge clk_i) begin
+                if (!rst_n_i) begin
+                    deadline <= {PULSE_W{1'b0}};
+                    pulse_active <= 1'b0;
+                end else if (guide_clear_i === 1'b1)
+                    pulse_active <= 1'b0;
+                else if (guide_on_i[ki] === 1'b1) begin
+                    deadline <= pulse_deadline;
+                    pulse_active <= 1'b1;
+                end else if (&expiry_pair)
+                    pulse_active <= 1'b0;
+            end
+            // A note's own pulse survives an early OFF, but never modifies
+            // the held ledger. Repeated ONs reload only this key's timer.
+            assign key_pattern[ki] = key_active_i[ki]
+                | ((blink_keys[ki] & blink_i)
+                   | (pulse_active & ~key_active_i[ki]));
         end
     endgenerate
 
@@ -108,6 +156,8 @@ module led_data #(
     // ── 参数自检（与 `clk_gen`/`tlc5916`/`top` 的 `PARAM_OK` 同一套路）──────
     //   ⚠️ 这些组合会**静默失效**，且现象极难定位
     initial begin
+        if (GUIDE_PULSE_CLKS < 1)
+            $display("ERROR [led_data] GUIDE_PULSE_CLKS must be >= 1");
         if (KEY_N < 1)
             $display("ERROR [led_data] KEY_N=%0d 必须 >= 1", KEY_N);
         if (STATUS_N < 0)

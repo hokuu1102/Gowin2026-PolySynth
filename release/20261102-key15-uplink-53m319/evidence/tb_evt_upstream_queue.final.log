@@ -1,0 +1,2 @@
+PASS: upstream full queue preserves accepted events and capture timestamps
+D:\ChatGPT\Projects\FPGA\key15-uplink-disable-fix-20261102\tb\w3c\tb_evt_upstream_queue.sv:52: $finish called at 4680000 (1ps)

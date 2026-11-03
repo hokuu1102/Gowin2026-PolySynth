@@ -41,7 +41,7 @@ const fn = new Function("document", "window", "navigator", "performance", "conso
   "location", "localStorage", "URLSearchParams", "Blob", "URL",
   blocks[0] + "\n; return { U, uReset, uPushBytes, uParse, uBuildMidi, " +
   "uIncToHz, uHzToMidi, uHzToNote, U_FS, U_PPQN, U_T_ON, U_T_OFF, U_T_TAB, " +
-  "U_T_TRANSPORT, midiName, isDrumAxis, DRUM_AXIS_OF, DRUM_AXIS_BASE };");
+  "U_T_TRANSPORT, midiName, isDrumAxis, DRUM_AXIS_OF };");
 let API;
 try {
   API = fn(doc, { addEventListener() {} }, { bluetooth: null }, { now: () => 0 },
@@ -75,13 +75,13 @@ function chk(name, cond, extra) {
 const cksumCode = b => { let c = 0; for (let i = 0; i < b.length - 1; i++) c ^= b[i]; return c & 0xFF; };
 const cksumDoc  = b => { let c = 0; for (let i = 1; i < b.length - 1; i++) c ^= b[i]; return c & 0xFF; };
 
-function frame(type, seq, tick, axis, inc, vel, timbre = 0) {
+function frame(type, seq, tick, axis, inc, vel, timbre = 0, isDrum = false) {
   const b = [0xA5, type, seq & 0xFF,
              (tick >>> 24) & 0xFF, (tick >>> 16) & 0xFF, (tick >>> 8) & 0xFF, tick & 0xFF,
              /* ⭐⭐ 2026-10-15：`[7]` 一字节两字段 = `timbre[5:4] | axis[3:0]`
               * （口径与 frame_format.py 的 AXIS_MASK/TIMBRE_SH 一致）。
               * 🔴 造帧侧也必须打包，⛔ 不能只改解析侧 —— 否则本自检就【验不到】掩码。 */
-             ((axis & 0x0F) | ((timbre & 0x03) << 4)),
+             ((axis & 0x0F) | ((timbre & 0x03) << 4) | (isDrum ? 0x40 : 0)),
              (inc >>> 24) & 0xFF, (inc >>> 16) & 0xFF, (inc >>> 8) & 0xFF, inc & 0xFF,
              vel & 0xFF, 0];
   b[13] = cksumCode(b);          /* ⭐ 与我方发送端一致（含 0xA5） */
@@ -167,13 +167,13 @@ chk("解析：首个事件 vel=100", API.U.events[0].vel === 100);
   const up = fs.readFileSync(path.join(__dirname, "upstream_studio.html"), "utf8");
   const nPy = (py.match(/f\[OFF_AXIS\] & AXIS_MASK/g) || []).length;
   chk("口径一致：frame_format.py 定义 AXIS_MASK=0x0F，且两处解析都用它",
-      /AXIS_MASK\s*=\s*0x0F/.test(py) && nPy === 2, "命中 " + nPy + " 处");
+      /AXIS_MASK\s*=\s*0x0F/.test(py) && nPy === 1 && /def decode_uplink_byte7/.test(py), "命中 " + nPy + " 处");
   chk("口径一致：score_studio.html 的 fr[7] 掩码 0x0F + 取 timbre",
-      /const axis = fr\[7\] & 0x0F;/.test(html) &&
-      /const timbre = \(fr\[7\] >> 4\) & 0x03;/.test(html));
+      /const (uint30|u30) = fr\[7\] & 0x0F;/.test(html) &&
+      /const timbre = isDrumUp \? null : (uint54|u54);/.test(html));
   chk("口径一致：upstream_studio.html 的 fr[7] 掩码 0x0F + 取 timbre",
-      /const axis = fr\[7\] & 0x0F;/.test(up) &&
-      /const timbre = \(fr\[7\] >> 4\) & 0x03;/.test(up));
+      /const (uint30|u30) = fr\[7\] & 0x0F;/.test(up) &&
+      /const timbre = isDrumUp \? null : (uint54|u54);/.test(up));
   /* ⭐ 2026-10-15：配色也必须在两页一致（用户："不需要 axis 配色，只用 timbre 配色"）
    *   ⚠️ 两页各有一份色板 ⇒ ⛔ 只改一页 ⇒ 同一份数据在两个页面看起来不一样。*/
   const palOf = t => {
@@ -191,21 +191,21 @@ chk("解析：首个事件 vel=100", API.U.events[0].vel === 100);
       /* ⚠️ 判【定义】而不是判名字 —— 注释里提到 AXIS_COLORS 是允许的 */
       !/const (U_)?AXIS_COLORS/.test(html) && !/const AXIS_COLORS/.test(up));
   chk("配色：鼓（axis 12..15）单独给 DRUM_COLOR（⛔ 不落进 timbre=0）",
-      /if \(isDrumAxis\(e\.axis\)\) return DRUM_COLOR;/.test(html) &&
-      /if \(isDrumAxis\(e\.axis\)\) return DRUM_COLOR;/.test(up));
+      /if \(e\.drumType !== undefined && e\.drumType !== null\) return DRUM_COLOR;/.test(html) &&
+      /if \(e\.drumType !== undefined && e\.drumType !== null\) return DRUM_COLOR;/.test(up));
   /* ⭐⭐ 2026-10-15 方案 B：鼓轴口径（12..15 / isDrumAxis）在两页必须一致 ——
    *   ⛔ 只改一处 ⇒ 同一份数据两个页面判"是不是鼓"不一样（同族 C91）。 */
-  const drumOf = t => {
-    const m = t.match(/const DRUM_AXIS_OF = \{([^}]*)\}/);
-    return m ? m[1].replace(/\s/g, "") : null;
-  };
-  chk("口径一致：两页的 DRUM_AXIS_OF 完全相同",
-      drumOf(html) !== null && drumOf(html) === drumOf(up),
-      "score=" + drumOf(html) + " · upstream=" + drumOf(up));
-  chk("口径一致：两页的 isDrumAxis 判据都是 `>= 12`",
-      /const isDrumAxis = a => a >= DRUM_AXIS_BASE;/.test(html) &&
-      /const isDrumAxis = a => a >= DRUM_AXIS_BASE;/.test(up) &&
-      /const DRUM_AXIS_BASE = 12;/.test(html) && /const DRUM_AXIS_BASE = 12;/.test(up));
+  // Exercise the current upstream discriminator rather than obsolete axis globals.
+  for (const byte7 of [0x0c, 0x40, 0x50, 0x60, 0x70]) {
+    API.uReset();
+    const isDrum = (byte7 & 0x40) !== 0;
+    API.uPushBytes(new Uint8Array(frame(API.U_T_ON, 0, 0, byte7 & 15,
+                                     A4_INC, 100, (byte7 >> 4) & 3, isDrum)));
+    const e = API.U.events[0];
+    chk("byte7=" + byte7.toString(16) + " explicit drum flag/type",
+        isDrum ? e.drumType === ((byte7 >> 4) & 3) : e.drumType === null);
+  }
+
 }
 
 // ---- ②d ⭐⭐ 分通道：timbre -> MIDI channel（用户："要分通道"）----
@@ -223,8 +223,8 @@ chk("解析：首个事件 vel=100", API.U.events[0].vel === 100);
   }
   /* ⭐ 方案 B：鼓在 12..15 四条轴上（这里用 12 = kick），另加一条【边界】：
    *   axis 11 是旋律上限，⛔ 绝不能落进鼓通道 9。 */
-  buf = buf.concat(frame(API.U_T_ON, 90, 2000, 12, incA4, 0x40, 0));   /* 鼓 = axis 12 */
-  buf = buf.concat(frame(API.U_T_OFF, 91, 2100, 12, incA4, 0, 0));
+  buf = buf.concat(frame(API.U_T_ON, 90, 2000, 0, incA4, 0x40, 0, true));   /* 鼓 = axis 12 */
+  buf = buf.concat(frame(API.U_T_OFF, 91, 2100, 0, incA4, 0, 0, true));
   buf = buf.concat(frame(API.U_T_ON, 92, 3000, 11, incA4, 0x40, 0));   /* 边界：11 = 旋律 */
   buf = buf.concat(frame(API.U_T_OFF, 93, 3100, 11, incA4, 0, 0));
   API.uPushBytes(new Uint8Array(buf));

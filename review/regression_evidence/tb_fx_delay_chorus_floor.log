@@ -1,0 +1,15 @@
+NOTE [fx_delay] DEPTH=1024 samples = 20 ms @48828.125Hz | MEM_W=18 => 18432 bit / 18432 bit-per-block = 1 BSRAM block(s) of 118
+C14 chorus read floor: AW=10 DEPTH=1024 MOD=128 LFO_INC=2048 sel=1 delay_i=0(clamped) mix=128 fb=0
+  ok  : C14a wet == ramp(n - (MOD+1)) within TOL for every checked sample
+  ok  : C14b non-vacuous: the LFO peak (f = MOD-1 = +127) was visited >= 2 times
+  ok  : C14c enough samples were checked (>= 64)
+  ok  : C14d delay_i = 0 was clamped to the chorus floor (clamp_cnt_o != 0)
+  ok  : C14e the delay line is primed (2 laps pushed)
+  ok  : C14f no saturation on this ramp (sat_cnt_o == 0)
+  ok  : C14g no X on sample_o
+  ok  : C14h write pointer advanced once per sample
+NOTE C14: checked=96 peak_samples=3 failures=0 worst_abs_err=8192 TOL=16384 D_expected=129
+PASS: fx_delay chorus read floor -- MOD+1 = 129 samples of guard, no lap-around at the LFO peak
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3c\tb_fx_delay_chorus_floor.sv:200: $finish called at 343360000 (1ps)
+
+

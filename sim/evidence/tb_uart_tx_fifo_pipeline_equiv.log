@@ -1,4 +1,4 @@
 ﻿PASS: FIFO cycle equivalence 50412 cycles, 8372 launches
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_uart_tx_fifo_pipeline_equiv.sv:52: $finish called at 1008240000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_uart_tx_fifo_pipeline_equiv.sv:52: $finish called at 1008240000 (1ps)
 
 

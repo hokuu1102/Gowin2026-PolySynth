@@ -261,6 +261,7 @@ def selftest():
     #  D. 一次性排查脚本（人工判读、无关键字判据，跑不了自动化）
     NOT_TESTS = {
         # A
+        "check_drum_split.py",
         "score_word.py",          # 库：位布局与帧层的唯一定义处
         "selftest_all.py",        # 它就是"跑别人"的
         "run_all_tests.py",       # 本文件

@@ -1,0 +1,35 @@
+VCD info: dumpfile build/sim/tb_perc_env_bank/tb_perc_env_bank.vcd opened for output.
+  ok  : baseline: all levels are 0 with no trigger
+  ok  : baseline: active_o is all 0 with no trigger
+  ok  : baseline: busy_o is all 0 with no trigger
+  ok  : trigger: level jumps straight to the velocity peak (200<<8 = 51200)
+  ok  : trigger: active_o sets on the trigger
+  ok  : trigger: other instruments stay silent (independence)
+  ok  : decay is monotonic non-increasing (no underflow wrap)
+  ok  : decay took exactly 765 sample ticks (= 15.67 ms at 48828 Hz)
+  ok  : decay: level reaches exactly 0
+  ok  : decay: active_o CLEARS when the envelope finishes (no hung voice)
+  ok  : decay: busy_o clears too
+  ok  : velocity: vel=255 gives peak 65280
+  ok  : velocity: vel=128 gives peak 32768 (half of 255's, within rounding)
+  ok  : velocity: instruments 1 and 2 ring independently while 0 is silent
+  ok  : independence: instrument 1 decayed
+  ok  : independence: instrument 2 ALSO decayed (neither stalled)
+  ok  : independence: both decay at the same rate (200 ticks x 67)
+  ok  : retrigger: instrument 3 is ringing after a fresh trigger (precondition)
+  ok  : retrigger: it has already decayed below the peak
+  ok  : retrigger: level jumps back to the peak
+  ok  : retrigger: still active
+  ok  : retrigger: the retrigger COUNT is observable and incremented (K-106 style)
+  ok  : async fire: all instruments finished before this test
+  ok  : async fire: a trigger BETWEEN sample ticks is NOT lost (level = peak)
+  ok  : async fire: active_o set without any sample_tick
+  ok  : velocity latch: clean slate before this test
+  ok  : velocity latch: peak loaded from velocity at trigger time
+  ok  : velocity latch: changing velocity MID-NOTE does NOT change the ringing peak
+  ok  : velocity latch: the note keeps decaying from its ORIGINAL peak
+  ok  : velocity latch: previous note finished
+  ok  : velocity latch: the NEXT trigger picks up the NEW velocity (255 => 65280)
+PASS: perc_env_bank one-shot decay (peak / monotonic / exact length / active clears / independent / retriggerable)
+
+

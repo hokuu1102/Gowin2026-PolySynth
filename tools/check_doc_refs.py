@@ -44,6 +44,7 @@
 
 from __future__ import annotations
 
+import posixpath
 import argparse
 import os
 import re
@@ -238,6 +239,9 @@ def resolve(ref: str, md_rel_dir: str, tracked: set[str]) -> bool:
     candidates.append(f"files/{rel}")
 
     for cand in candidates:
+        cand = posixpath.normpath(cand)
+        if cand == ".." or cand.startswith("../") or cand.startswith("/"):
+            continue
         if cand in tracked:                       # 文件
             return True
         prefix = cand + "/"

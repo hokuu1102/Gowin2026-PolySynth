@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_checkers/tb_checkers.vcd opened for output.
+﻿VCD info: dumping is suppressed.
 --- A8 / A3 骞插噣绐楀彛锛堜笉搴旀湁浠讳綍杩濊锛?--
 ERROR [A3] led_clk 涓?spi_sck 鍚勭炕杞?8/8 娆″嵈鍏ㄧ▼鍙栧€肩浉鍚?鈥斺€?鐤戜技鍚屼竴鏍圭綉绾匡紙鉀?鐏?CLK 涓?SPI SCK 蹇呴』鍚勮嚜鐙珛锛?
   ok : A8 骞插噣绐楀彛鍐呮棤 X 浼犳挱锛堜笉璇姤锛?
@@ -63,6 +63,6 @@ ERROR [A7] phase_acc 鐩镐綅澧為噺寮傚父锛氬疄娴?4294937296锛屾湡
   ok : A7 鍚堟硶鐨勭浉浣嶉噸鍚紙jump_ok锛夋湭琚鎶?
 
 PASS: A1/A2/A3/A4/A5/A6/A7/A8 缁撴瀯绫绘柇瑷€鍏ㄩ儴鎸夐鏈熷伐浣滐紙鍚礋鍚戞祴璇曪級
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\checkers\tb_checkers.sv:393: $finish called at 78620000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\checkers\tb_checkers.sv:393: $finish called at 78620000 (1ps)
 
 

@@ -1,0 +1,162 @@
+[
+  {
+    "name": "tb_axis_snapshot",
+    "pass": true
+  },
+  {
+    "name": "tb_axis_snapshot_cycle_equiv",
+    "pass": true
+  },
+  {
+    "name": "tb_bpm_o_probe",
+    "pass": true
+  },
+  {
+    "name": "tb_ee_adj",
+    "pass": true
+  },
+  {
+    "name": "tb_ee_multineighbor",
+    "pass": true
+  },
+  {
+    "name": "tb_ee_slide_noise",
+    "pass": true
+  },
+  {
+    "name": "tb_ee_slide_slow",
+    "pass": true
+  },
+  {
+    "name": "tb_event_extract",
+    "pass": true
+  },
+  {
+    "name": "tb_event_extract_slide",
+    "pass": true
+  },
+  {
+    "name": "tb_guide_lamp",
+    "pass": true
+  },
+  {
+    "name": "tb_guide_lamp_capacity",
+    "pass": true
+  },
+  {
+    "name": "tb_guide_lamp_cycle_equiv",
+    "pass": true
+  },
+  {
+    "name": "tb_guide_lamp_identity",
+    "pass": true
+  },
+  {
+    "name": "tb_guide_lamp_local_equiv",
+    "pass": true
+  },
+  {
+    "name": "tb_lamp_stuck_clear",
+    "pass": true
+  },
+  {
+    "name": "tb_looper_e2e",
+    "pass": true
+  },
+  {
+    "name": "tb_play_seq",
+    "pass": true
+  },
+  {
+    "name": "tb_right_analog_ctrl",
+    "pass": true
+  },
+  {
+    "name": "tb_score_chain",
+    "pass": true
+  },
+  {
+    "name": "tb_slide_position_e2e",
+    "pass": true
+  },
+  {
+    "name": "tb_test_mode_top",
+    "pass": true
+  },
+  {
+    "name": "tb_top_ctrl_wire",
+    "pass": true
+  },
+  {
+    "name": "tb_top_diag_upstream_atomic",
+    "pass": true
+  },
+  {
+    "name": "tb_top_dump_atomic",
+    "pass": true
+  },
+  {
+    "name": "tb_top_ec11_param",
+    "pass": true
+  },
+  {
+    "name": "tb_top_fx_audio",
+    "pass": true
+  },
+  {
+    "name": "tb_top_fx_runtime",
+    "pass": true
+  },
+  {
+    "name": "tb_top_fxstat_uart",
+    "pass": true
+  },
+  {
+    "name": "tb_top_guide_axes",
+    "pass": true
+  },
+  {
+    "name": "tb_top_guide_bit6",
+    "pass": true
+  },
+  {
+    "name": "tb_top_hmi_bpm",
+    "pass": true
+  },
+  {
+    "name": "tb_top_hmi_integration",
+    "pass": true
+  },
+  {
+    "name": "tb_top_keydrum_score_isolation",
+    "pass": true
+  },
+  {
+    "name": "tb_top_looper_pedals",
+    "pass": true
+  },
+  {
+    "name": "tb_top_reject_notice_queue",
+    "pass": true
+  },
+  {
+    "name": "tb_top_score_path",
+    "pass": true
+  },
+  {
+    "name": "tb_top_uart_isolation",
+    "pass": true
+  },
+  {
+    "name": "tb_top_ui_snapshot",
+    "pass": true
+  },
+  {
+    "name": "tb_top_upstream_timbre",
+    "pass": true
+  },
+  {
+    "name": "tb_uart_ui",
+    "pass": true
+  }
+]

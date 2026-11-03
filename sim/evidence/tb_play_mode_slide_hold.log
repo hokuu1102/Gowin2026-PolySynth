@@ -1,4 +1,4 @@
 ﻿PASS: slide sustains across the original key release and ends exactly once
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_play_mode_slide_hold.sv:58: $finish called at 1320000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_play_mode_slide_hold.sv:58: $finish called at 1320000 (1ps)
 
 

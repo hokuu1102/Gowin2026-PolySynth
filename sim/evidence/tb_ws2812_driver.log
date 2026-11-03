@@ -18,6 +18,6 @@
   ok  : (8) per-LED addressing: LED1 is all-ones while LED0 is not
   ok  : (7) no X/Z on dout_o/busy_o after reset (A8)
 PASS: ws2812_driver -- 1 channel, GRB, 800 kHz, reset gap, busy handshake
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_ws2812_driver.sv:256: $finish called at 2229970000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_ws2812_driver.sv:256: $finish called at 2229970000 (1ps)
 
 

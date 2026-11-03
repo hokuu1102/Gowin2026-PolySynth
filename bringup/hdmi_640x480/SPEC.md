@@ -105,7 +105,7 @@
 > - **为什么之前没抓到**：tb 的 `token()` 参照表与解码模型 `tmds_decoder.sv` **抄了同一张错表**，
 >   编码/解码往返自洽 ⇒ 判据"证明"了错误实现；对抗式复核也只对照了本表。
 >   ⇒ 教训：**协议常量必须对照外部权威实现核对，不能只靠往返自证**。
-> - **核对来源**：`nand2mario/tangcore` 的 `src/hdmi2/tmds_channel.sv`（hdl-util/HDMI，在本 Console 上实测跑通），
+> - **核对来源**：`nand2mario/tangcore` 的 「src/hdmi2/tmds_channel.sv」（外部参考路径）（hdl-util/HDMI，在本 Console 上实测跑通），
 >   其 `control_data = {vsync, hsync}`（即 `{c1,c0}`）配合同一张表。
 
 通道与控制的对应（DVI 规范）：
@@ -163,7 +163,7 @@ hpd_en           K13                PULL_MODE=UP DRIVE=12 BANK_VCCIO=3.3
 | **A（默认）** | 25.000 / 125.000 MHz | 0.70% | `MDIV=20 / ODIV0=8 / ODIV1=40` | ✅ 已构建，0 setup / 0 hold |
 | **B（备选）** | 25.200 / 126.000 MHz | 0.099% | `MDIV=63 / ODIV0=25 / ODIV1=125` | 已生成 bitstream，但 PnR 报 `PA1019`：VCO 3150 MHz 超出 700–1400 MHz，硬件时钟不可据此视为已验证；切换时仍需同步修改 SDC |
 
-要求：**把时钟源隔离成一个独立模块**（`rtl/hdmi_clk.v`），顶层只依赖它输出的
+要求：**把时钟源隔离成一个独立模块**（`rtl/hdmi/hdmi_clk.v`），顶层只依赖它输出的
 `pixel_clk` / `serial_clk` / `lock`，两版可互换。默认走方案 A；`USE_252=1` 切方案 B。
 
 ---

@@ -27,6 +27,6 @@ NOTE [fx_delay] DEPTH=1024 samples = 20 ms @48828.125Hz | MEM_W=18 => 18432 bit 
   ok  : C9d no X on chor_active_o
   ok  : C10 non-vacuous: all-off and distortion-only give DIFFERENT outputs
 PASS: fx_chain -- all-off bit-exact, reverb placeholder, delay+chorus run TOGETHER in series
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_fx_chain.sv:510: $finish called at 9422860000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_fx_chain.sv:510: $finish called at 9422860000 (1ps)
 
 

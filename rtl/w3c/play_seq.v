@@ -452,14 +452,18 @@ module play_seq #(
             end else if (bpm_up_i === 1'b1) begin
                 tick_inc_o      <= inc_up;
                 // ⭐ 与 `inc_up` 的 INC_MAX 限幅**同步**：到顶就不再涨
-                if (bpm_o != 8'd240) bpm_o <= bpm_o + 8'd1;
+                if (inc_up >= INC_MAX) bpm_o <= 8'd240;
+                else if (tick_inc_o < 32'd47) bpm_o <= 8'd0;
+                else bpm_o <= bpm_o + 8'd1;
                 div_run         <= 1'b0;
                 tempo_applied_o <= 1'b1;
                 tempo_cnt_o     <= tempo_cnt_o + 16'd1;
             end else if (bpm_dn_i === 1'b1) begin
                 tick_inc_o      <= inc_dn;
                 // ⭐ 与 `inc_dn` 的 INC_MIN 限幅**同步**：到底就不再降
-                if (bpm_o != 8'd40) bpm_o <= bpm_o - 8'd1;
+                if (inc_dn >= 32'd350417) bpm_o <= 8'd255;
+                else if (inc_dn <= INC_MIN) bpm_o <= 8'd40;
+                else bpm_o <= bpm_o - 8'd1;
                 div_run         <= 1'b0;
                 tempo_applied_o <= 1'b1;
                 tempo_cnt_o     <= tempo_cnt_o + 16'd1;

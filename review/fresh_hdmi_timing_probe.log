@@ -1,0 +1,68 @@
+{
+  "source": "cd63b0773480e43b19d47f7b541d202a0a66df4d",
+  "physical_wrapper_exit": 0,
+  "fresh_report": "C:\\Users\\cyx\\Documents\\ChatGPT\\FPGA\\audit-latest-20261020-cd63b07\\impl\\pnr\\Gowin2026_tr_content.html",
+  "report_sha256": "8c5772d37ee951bd45cfd5ad7202a60760139f812880746b6eb138a310b65edd",
+  "real_serial_period_ns": 8,
+  "native_recovery_negative_count": 4,
+  "negative_paths": [
+    {
+      "Path Number": "1",
+      "Path Slack": "-0.675",
+      "From Node": "u_hdmi/rstn_ser_2_s0/Q",
+      "To Node": "u_hdmi/u_serializer/lanes[1].u_oser/RESET",
+      "From Clock": "serial_clk:[R]",
+      "To Clock": "serial_clk:[F]",
+      "Relation": "4.000",
+      "Clock Skew": "2.671",
+      "Data Delay": "1.869",
+      "numeric_slack_ns": -0.675,
+      "negative_rounded_zero": false
+    },
+    {
+      "Path Number": "2",
+      "Path Slack": "-0.621",
+      "From Node": "u_hdmi/rstn_ser_2_s0/Q",
+      "To Node": "u_hdmi/u_serializer/lanes[3].u_oser/RESET",
+      "From Clock": "serial_clk:[R]",
+      "To Clock": "serial_clk:[F]",
+      "Relation": "4.000",
+      "Clock Skew": "2.671",
+      "Data Delay": "1.815",
+      "numeric_slack_ns": -0.621,
+      "negative_rounded_zero": false
+    },
+    {
+      "Path Number": "3",
+      "Path Slack": "-0.559",
+      "From Node": "u_hdmi/rstn_ser_2_s0/Q",
+      "To Node": "u_hdmi/u_serializer/lanes[0].u_oser/RESET",
+      "From Clock": "serial_clk:[R]",
+      "To Clock": "serial_clk:[F]",
+      "Relation": "4.000",
+      "Clock Skew": "2.671",
+      "Data Delay": "1.753",
+      "numeric_slack_ns": -0.559,
+      "negative_rounded_zero": false
+    },
+    {
+      "Path Number": "4",
+      "Path Slack": "-0.411",
+      "From Node": "u_hdmi/rstn_ser_2_s0/Q",
+      "To Node": "u_hdmi/u_serializer/lanes[2].u_oser/RESET",
+      "From Clock": "serial_clk:[R]",
+      "To Clock": "serial_clk:[F]",
+      "Relation": "4.000",
+      "Clock Skew": "2.671",
+      "Data Delay": "1.604",
+      "numeric_slack_ns": -0.411,
+      "negative_rounded_zero": false
+    }
+  ],
+  "cross_checked_with_independent_HTMLParser": true,
+  "flat_timing_paths_contains_recovery": false,
+  "expected_all_recovery_nonnegative": true,
+  "actual_all_recovery_nonnegative": false,
+  "hold_and_removal_positive_controls": true,
+  "limitation": "Vendor STA violation on the original constraints; no physical display failure claimed."
+}

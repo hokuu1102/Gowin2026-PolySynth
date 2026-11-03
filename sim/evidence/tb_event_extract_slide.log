@@ -1,5 +1,5 @@
 ﻿NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x400 REL_TH=0x300 DELTA_TH=8 REFRACT_N=150)
-VCD info: dumpfile build/sim/tb_event_extract_slide/tb_event_extract_slide.vcd opened for output.
+VCD info: dumping is suppressed.
 --- 鍒ゆ嵁鈶狅細猸?涓€鍑忎竴澧?锛?鐩搁偦 锛?鍦ㄧ獥鍙ｅ唴 鈬?**蹇呴』鍑烘粦闊?* ---
   ok  : _b_o must name the ADJACENT axis B (4 here), not A+/-1 by number
   ok  : xis 3 + a tiny press on adjacent axis 4 MUST raise slide_valid_o
@@ -13,6 +13,6 @@ VCD info: dumpfile build/sim/tb_event_extract_slide/tb_event_extract_slide.vcd o
   ok  : us) the slide monitor can actually increment (proved by SLIDE-1)
 
 PASS: event_extract slide detection -- release+tiny-adjacent-press within the window is a slide, two-note/far/plain-release are NOT
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_event_extract_slide.sv:246: $finish called at 3270000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_event_extract_slide.sv:246: $finish called at 3270000 (1ps)
 
 

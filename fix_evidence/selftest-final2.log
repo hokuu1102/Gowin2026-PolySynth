@@ -1,0 +1,399 @@
+==========================================================================
+全工具离线自检（⛔ 不需要硬件）
+==========================================================================
+发现 44 个脚本（⭐ 排除 `_` 开头的辅助脚本）
+
+  OK   rc=0   OK=28   RED=0    _axis_dep_check.py
+      
+        OK  uart_rx_check.py             硬断言 0 处  读 axis 10 处
+              L48    读 axis: "axis":   (w >> 18) & 0xF,
+              L80    读 axis: def pack(tick, inc, axis, vel, kind, timbre, rsvd=0):
+              L82    读 axis: ((axis & 0xF) << 18) | ((vel & 0x7F) << 11) | \
+              ...（共 10 处）
+      
+        结论：只有软读用，无硬断言 => 不会因动态分配假红
+  OK   rc=0   OK=10   RED=0    _chord_axis_check.js
+        鼓 inc=0，鼓件由 timbre[8:7] 给出                                OK   0
+        非空洞：旋律【没有】落在 axis 15 上                                    OK
+        ⭐ 6 个和弦音的音高都在（分轴⛔ 不影响音高）                                  OK   找到 3/3 个（Guitar I）
+        🔴 回归：只有 on 没 off 的音 => 音高仍是 C4（⛔ 不是 MIDI 0/702）          OK   实测 inc = 22473
+        🔴 回归：且它【也配了 off】（⛔ 不能只发 on 造成挂音）                         OK   off 数 = 1
+        非空洞：单轨 3 音和弦 => 3 条不同轴                                    OK   0,1,2
+      
+      结论：全部通过
+  OK   rc=0   OK=6    RED=0    _deadlock_check.js
+        ⭐ sendCmd 代码里【不】再入队（注释不算）                               OK   干净
+        ⭐ readStat 代码里【不】再入队（注释不算）                              OK   干净
+        ⭐ 三个顺序操作全部执行完                                           OK   1,2,3
+        ⭐ 前一个抛错，后一个仍执行                                          OK   a,b
+        ⭐ 队列内再入队 => 不会死锁（内层任务最终执行）                              OK   耗时 94 ms, done=true
+        ⭐ 前一个任务永不返回，后一个仍能跑                                      OK
+      
+      结论：全部通过
+  OK   rc=0   OK=18   RED=0    _display_check.js
+        非空洞：轴的标签里【不】出现 'BASS · 轴15'                               OK   鼓 · Tom(轴15)
+        轴 15 的标签写件名 Tom（方案 B：一件一轴）                                OK   鼓 · Tom(轴15)
+        轴 12 的标签写件名 Kick                                          OK   鼓 · Kick(轴12)
+        非空洞：12 与 15 的标签【不同】（否则说明还在按'四件合计'写）                       OK   鼓 · Kick(轴12) vs 鼓 · Tom(轴15)
+        轴 11（旋律上限）不是鼓                                             OK   isDrumAxis(11)=false
+        轴 12 是鼓（与 seq_arb 的 axis>=12 逐字一致）                        OK
+      
+      结论：全部通过
+  OK   rc=0   OK=32   RED=0    _drum_track_check.js
+      ---- 鼓力度（必须与鼓机一致，⛔ 不是 MIDI 原始力度）----
+        非空洞：确实取到了鼓的 note_on 样本                                    OK   3 种力度值
+        ⭐ 鼓 note_on 的 vel 全部是鼓机的那四个常数                             OK   175,230,235  期望 230,235,175,220
+        非空洞：鼓力度【高于】MIDI 原始力度上限 127（证明确实抬过）                        OK   最小 175
+        DRUM_VEL 四个值与 FPGA 生效值一致（230/235/175/220）                 OK   {"kick":230,"snare":235,"hihat":175,"tom":220}
+        ⭐ 每件用的正是【它自己】的力度（⛔ 不串）                                    OK   kick=230 snare=235 hihat=175
+      
+      结论：全部通过
+  OK   rc=0   OK=14   RED=0    _gatt_queue_check.js
+        link_test.html：叶子函数只被【入队的】调用方调用                       OK   无裸调用
+      
+        btnPlay.onclick 里若发 GATT 则必须入队                        OK
+        btnStop.onclick 里若发 GATT 则必须入队                        OK
+        btnClear.onclick 里若发 GATT 则必须入队                       OK
+        btnConn.onclick 里若发 GATT 则必须入队                        OK
+      
+      结论：全部通过
+  OK   rc=0   OK=17   RED=0    _gen_inc_probe.py
+        上行口径：A4 的 phase_inc = 38702840（32 位，⭐ FPGA 侧报的数）     OK   反算频率 = 440.0 Hz
+        ⭐ 且它确实 > 21 位上限（所以 9 B 上行帧塞不下）                       OK   38702840 > 2097151
+        越界检测：上行 32 位口径的 A4 判越界                               OK
+        非空洞：inc=1 不越界（⭐ 证明上一条不是恒真）                           OK
+        打包：帧长 9 字节                                           OK
+        打包：帧头 0xA5                                           OK
+      
+      结论：全部通过
+  OK   rc=0   OK=9    RED=0    _gen_simul_probe.py
+        ⭐ 同时起音的 3 个音符在【3 个不同 axis】                             OK   axis = [0, 1, 2]
+        有 3 个 axis 参与                                          OK   [0, 1, 2]
+        ⭐ 三条轨的 tick 区间【真的重叠】（lo < hi）                          OK   重叠区 [0, 8640]
+        ⭐ 所有 on/off 完全配对（探针自身不挂音）                              OK
+        末帧是 note_off                                           OK   末帧 kind=1
+        非空洞：去掉一个 off => 配对判据必须红                                OK
+      
+      结论：全部通过
+  OK   rc=0   OK=7    RED=0    _inc_scale_probe.py
+        倍率接近 2 的整数次幂（误差 < 1%）                                  OK   2^10 = 1024，相对误差 0.0007%
+        该幂次落在合理区间 8..12                                        OK   2^10
+        用该倍率放大 A4 => 频率 ≈ 440 Hz                               OK   440.00 Hz
+        用该倍率放大 C4 => 频率 ≈ 261.6 Hz                             OK   261.62 Hz
+        非空洞：倍率多一倍 => 频率也高一倍（⭐ 证明上面不是恒真）                        OK   523.24 vs 523.24
+        最高的 MIDI 音(127) 的曲谱 inc 仍在 21 位内                       OK   inc = 1077509, 上限 2097151
+      
+      结论：全部通过
+  OK   rc=0   OK=7    RED=0    _lead_model_check.py
+        第二版对任意 E 都给同一个数（⭐ E 被约掉了 => 模型没信息）                       OK   192 == 192
+        第三版对稀谱面 < 1 秒                                            OK   0.62 秒（常数（抗一次 100 ms 停顿））
+        第三版对极密谱面取 hi（768/1.0 = 768 tick）                         OK   768 tick（⚠️ 太密：hi=768 < base，取 hi（缓冲会满））
+        非空洞：第三版对稀/极密给出不同值                                        OK   1200 vs 768
+        ⭐ 任何密度下，存货事件数都不超 HIGH_WM=768                             OK   最大 768.0 事件
+        第三版比旧固定值快（⭐ 这就是收益）                                       OK   0.62 秒 vs 10.42 秒
+      
+      结论：全部通过
+  OK   rc=0   OK=49   RED=0    _midi_parse_check.js
+        ⭐ 去重【必须含音色】：跨音色齐奏保留 2 个 on（⛔ 不能丢一件乐器）                 OK   on=2
+        非空洞：跨音色时 dupRemoved = 0（⭐ 证明 key 里确实带了音色）             OK   dupRemoved=0
+        抢轴上报：小谱面 axisClash = 0（⭐ 够用就要说够用）                     OK   axisClash=0
+        方案 B 口径：melodyAxisMax = 11 · drumAxisBase = 12        OK   melodyMax=11 drumBase=undefined
+        ⭐ 非空洞：13 个同时音 > 12 条轴 ⇒ axisClash > 0（抢轴确实会被报出来）      OK   axisClash=1
+        非空洞：正好 12 个同时音 ⇒ axisClash = 0（⭐ 边界不写松）               OK   axisClash=0
+      
+      结论：全部通过
+  OK   rc=0   OK=27   RED=0    _stat_parse_check.js
+        非空洞：确实没有直接拿累计值当增量用                                      OK
+        有 ev/tf 帧数核对（判谱面收齐没有）                                   OK
+        ⭐ ev/tf 解析不到时【明确报错】而不是静默跳过                              OK
+        核对失败时【明确报错】而不是静默                                        OK
+        上传有节流 PACING_MS                                         OK
+        上传循环里有进度条（宽度/文本/速率）                                     OK
+      
+      结论：全部通过
+  OK   rc=0   OK=6    RED=0    _stress_cycles.py
+        好样本 => 全绿                                            OK   5 条判据
+        非空洞性：放完 坏了必须判红                                       OK   且只有它红
+        非空洞性：不丢帧 坏了必须判红                                      OK   且只有它红
+        非空洞性：不溢出 坏了必须判红                                      OK   且只有它红
+        非空洞性：不失配 坏了必须判红                                      OK   且只有它红
+        非空洞性：重启必须判红（即使放完了）                                   OK   up 归零 = 板子重启
+      
+      结论：全部通过
+  OK   rc=0   OK=12   RED=0    _uart1_send_path_check.py
+        非空洞：空采样 => 判 bad                                     OK
+        解析：sent = 32                                         OK
+        解析：play = 31078                                      OK
+        解析：lead = 20000                                      OK
+        解析：不会把别的字段当 sent（⭐ 正则已锚定）                            OK
+        非空洞：缺 play 字段 => None（⛔ 不默认 0）                       OK
+      
+      结论：全部通过
+  OK   rc=0   OK=10   RED=0    _uart1_wire_check.py
+        非空洞：载荷改一位 => 判出不一致                                 OK     首个坏帧 = 1
+        非空洞：帧头坏 => 被丢弃且计数                                  OK     坏头 1 / 有效 2
+        非空洞：空输入 => 0 帧 0 字节                                OK
+        非空洞：少一帧 => 只比 2 帧（⭐ 不是假装通过）                        OK     比对 2 帧
+        载荷含 0xA5 时，定长切分仍正确（⛔ 不扫描）                          OK     帧 3 坏头 0
+        载荷含 0xA5 时，逐帧仍一致                                   OK
+      
+      结论：全部通过
+  OK   rc=0   OK=12   RED=0    _undef_check.js
+        upstream_studio.html 顶层处理器采集数 3（期望 ≥ 2）           OK
+        upstream_studio.html 处理器不越作用域引用别的处理器的局部量          OK
+        link_test.html 无未定义的顶层函数引用                        OK
+        link_test.html sendCmd/readStat 不自嵌套              OK
+        link_test.html 顶层处理器采集数 0（期望 ≥ 0）                 OK
+        link_test.html 处理器不越作用域引用别的处理器的局部量                OK
+      
+      结论：全部通过
+  OK   rc=0   OK=9    RED=0    _upstream_loop_check.py
+        好样本：切分覆盖整个流（无残留）                                   OK     覆盖 124 / 共 124
+        表帧（68 B）切成【1 帧】而不是 4 个假帧                           OK     切出 1 帧，首帧 68 B
+        非空洞：表帧确实比 14 B 长（⭐ 证明上一条不是恒真）                      OK     68 B
+        非空洞：打坏校验 => 至少一帧被判坏                                OK     坏校验帧 2
+        非空洞：空输入 => 0 帧                                     OK
+        非空洞：半帧 => 标记为 None（⛔ 不假装完整）                        OK     None
+      
+      结论：全部通过
+  OK   rc=0   OK=49   RED=0    _upstream_parse_check.js
+        分片：拼齐后音高对                                               OK
+        表同步：帧长按 68 收（⛔ 不是 14）                                   OK   实测 1
+        表同步：16 项都读出来                                            OK
+        表同步：inc[0] 读对                                           OK   38702840
+        表同步：表号 = 7                                              OK
+        导出：uBuildMidi 有产物                                       OK
+      
+      结论：全部通过
+  OK   rc=0   OK=0    RED=0    check_drum_split.py
+      结论：全部通过
+  OK   rc=0   OK=29   RED=0    demo_midi_roundtrip.py
+      
+      ==========================================================================
+      结论：全部通过 —— 这条链【离线端到端】是通的 ✅
+      ==========================================================================
+      
+      产物：
+        C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\esp32\tools\_demo_upstream.bin   （模拟 FPGA 回传的原始字节）
+        C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\esp32\tools\_demo_upstream.mid   （转出来的 MIDI，可直接播放）
+  OK   rc=0   OK=24   RED=0    drum_map.py
+        方向性：音高 36 => kick（⛔ 不是 hihat）                            OK
+        方向性：音高 42 => hihat（⛔ 不是 kick）                            OK
+        四件各占一条轴 12/13/14/15（⭐ FPGA 侧 seq_arb 的口径）                OK   {'kick': 12, 'snare': 13, 'hihat': 14, 'tom': 15}
+        非空洞：轴号【互不相同】（⛔ 若又变回'四件共用一条'这条立刻红）                        OK
+        判据边界：axis >= 12 才是鼓（11 是旋律上限）                            OK
+        件序与 step_mask 位序一致（kick,snare,hihat,tom）                 OK
+      
+      结论：全部通过
+  OK   rc=0   OK=5    RED=0    e2e_accept.py
+      ======================================================================
+      ① 整包 1845 字节: OK
+      ② 9N 对齐: OK
+      ③ kind 只含 0/1（⛔ 无换速）: OK  实际=[0, 1]  事件数=200
+      ④ inc 恒定: OK  实际 1 个值
+      ⑤ tick 严格递增: OK
+      
+      结论：全部通过
+  OK   rc=0   OK=23   RED=0    hmi_song_check.py
+        hmi.c 净化含判据：控制字符                                 OK
+        hmi.c 里有 hmi_set_song 的净化块                       OK
+        反例：hmi.c 不含 0x99 判据                              OK
+        ⭐ ble_main.c 有 case 0x22                         OK
+        ⭐⭐ case 0x22 里确实调用了 hmi_set_song                 OK
+        反例：case 0x99 不存在                                 OK
+      
+      结论：全部通过
+  OK   rc=0   OK=9    RED=0    hmi_states_check.py
+        hmi.c 含状态字 就绪     (READY)                      OK
+        hmi.c 含状态字 播放中    (PLAYING)                    OK
+        hmi.c 含状态字 播完     (DONE)                       OK
+        hmi.c 含状态字 断链     (LINK_LOST)                  OK
+        反例：hmi.c 不含「不存在」                               OK
+        反例：错期望会被抓到                                     OK
+      
+      结论：全部通过
+  OK   rc=0   OK=4    RED=0    loopback_check.py
+          [1] 帧内无空隙        max_gap=   86.81 us  -> 绿 OK
+          [2] 帧间停 500ms      max_gap=   86.81 us  -> 绿 OK   <- ⭐ 必须绿
+          [3] 帧中途插大空隙    max_gap=4166666666.67 us  -> 红 CAUGHT   <- 🔴 必须红
+        baud=1000000  一字节=10.00 us  归位门限=160.0 us  判据门限=80.0 us
+          [1] 帧内无空隙        max_gap=   10.00 us  -> 绿 OK
+          [2] 帧间停 500ms      max_gap=   10.00 us  -> 绿 OK   <- ⭐ 必须绿
+          [3] 帧中途插大空隙    max_gap=480000000.00 us  -> 红 CAUGHT   <- 🔴 必须红
+      [selftest] 全部符合预期 ✅
+  OK   rc=0   OK=20   RED=0    pool_math_check.py
+      
+      [6] 🔴 溢出算术：全速灌多久灌满 FPGA 缓冲
+          线速 = 11111 事件/s；1024 事件缓冲 => 灌满只需 92 ms
+          => 结论：必须限速；开环下只能靠【可观测 + 可归因】
+      
+      ================================================================================
+      结果：全部通过 ✅
+      ================================================================================
+  OK   rc=0   OK=21   RED=0    pool_pace_check.py
+           单调不减                                        OK
+      
+      [5] ⭐⭐ 反例：改坏必须能被发现
+           翻 kind 位后 kind 变化                           OK
+           错期望值会被判红（⭐ 非空洞）                             OK
+           倒序输入的分位数与正序一致                               OK
+      
+      结论：全部通过
+  OK   rc=0   OK=35   RED=0    read_log.py
+           不存在的源码标记找不到（⭐ 'in msrc' 判据能失败）              OK
+      
+      ⚠️ 重申：以上全部是【结构检查】。
+         🔴 它【不能】证明抓日志这件事本身是对的 ——
+            那只能靠实机跑一次：python read_log.py --port COMxx --seconds 8
+         ⭐ 但至少：参数面错了 / 代码写崩了 / DTR-RTS 意图被删了，这里会红。
+      
+      结论：全部通过
+  OK   rc=0   OK=7    RED=0    regress_live.py
+        ② 9N 对齐                                        OK
+        ③ 前 4 帧是复位标记                                   OK
+        ④ 第 5 帧是总数帧                                    OK
+        ⑤ kind 只含 0/1（⛔ 无换速）                           OK  实际=[0, 1]
+        ⑥ 反例：错期望值会被判红                                  OK
+        ⑦ 反例：build_score(1) 长度与 200 不同                 OK
+      
+      结论：全部通过
+  OK   rc=0   OK=18   RED=0    run_all_tests.py
+        真失败的子进程 => 判失败                                       OK  失败 rc=3
+        真成功的子进程 => 判通过                                       OK  通过 rc=0
+        退出码 0 但判据关键字不在 => 判失败                                OK  失败
+        汇总行里的「0 项 RED」不能判红                                   OK  通过
+        判据位的 RED 必须判红                                        OK  失败
+        unk 累计导致的 e2e 红 => 判「前置」而非「失败」                       OK  前置
+      
+      结论：全部通过
+  OK   rc=0   OK=11   RED=0    score_uploader.py
+        真实谱面存在（跳过则说明那份 events.hex 不在这台机器上）                     OK  跳过
+        合成谱面 64 事件 / 64 帧                                      OK
+        合成谱面 0 个变速点                                            OK
+        时长 ≈ 31.5 s（64*960/1920）                               OK  31.50 s
+        非空洞：旧位域 => 解出的 inc 不是 164927                           OK  解出 82463
+        正确位域 => 解回 164927                                      OK
+      
+      结论：全部通过
+  OK   rc=0   OK=124  RED=0    score_word.py
+           反例：每一件的【其余 15 条轴】全部被拒（4 件 × 15 = 60 种）            OK  漏过的=[]
+           字层：四件鼓（轴 12..15，bits[8:7] 与件号一致）0 个问题             OK
+           反例（字层）：轴落在旋律区（4）却标 is_drum=1 => 被拒（点名 axis）       OK  ['is_drum=1 但 axis=4 不在鼓轴区 12..15：鼓是一件一轴（Kick 12 · Snare 13 · HiHat 14 · Tom 15）']
+           反例（字层）：轴 13（Snare）配 bits[8:7]=0（Kick）=> 被拒（点名 axis） OK  ['is_drum=1 但 axis=13 与 bits[8:7]=0（drum_type）不配对：该件鼓的轴是 12（即 axis - 12 必须 == drum_type），否则同一条轴上的两件鼓会互相清 voice']
+           非空洞：两条反例改成【配对】的写法，问题必须消失（判据不是恒红）                  OK
+           旋律写在鼓轴 12 上也不是鼓（判鼓只看 bit5，⛔ 不许按轴号猜）               OK  is_drum=0 problems=[]
+      
+      结论：全部通过
+  OK   rc=0   OK=18   RED=0    screen_demo.py
+        ⭐ inc 不超 21 位（新布局 [43:23]）                         OK  37796
+        ⭐ inc 打包后按 FPGA 切片解回原值                             OK  解回 37796
+        ⭐ 保留位为 0（契约）                                       OK
+        ⭐⭐ 非空洞：A5=880 ⇒ inc 约为 A4 的两倍                      OK  75591
+        ⭐ tick 严格递增                                        OK  [0, 24, 48, 72]
+        ⭐ 第 0 帧 tick = 0                                   OK
+      
+      结论：全部通过
+  OK   rc=0   OK=12   RED=0    send_frames.py
+      ⑨ 非空洞：按旧布局打包 => FPGA 解出的 inc != 164927  OK   FPGA 会解出 82463
+      ⑩ --hex 路径：读回 5 个字、0 个问题  OK   problems=[]
+      ⑩ --hex 路径：整包 = 36 + 9 + 5*9 = 90 字节  OK   实测 90
+      ⑩ 两种来源的整包【不一样】（证明 --hex 真的换了数据）  OK
+      
+      ==================================================================
+      结论：全部通过
+      ==================================================================
+  OK   rc=0   OK=17   RED=0    send_frames_ble.py
+        ⑤ tick 严格单调递增                                      OK
+        ⑥ 非空洞：按旧布局打包 => FPGA 解出的 inc != 164927             OK  FPGA 会解出 82463
+        ⑦ --hex 路径：读回 5 个字、0 个问题                           OK  problems=[]
+        ⑦ --hex 路径：整包 = 36 + 9 + 5*9 = 90 字节               OK  实测 90
+        ⑦ --hex 路径：总数帧写的是 5                                OK
+        ⑦ 两种来源的整包【不一样】（证明 --hex 真的换了数据）                    OK
+      
+      结论：全部通过
+  OK   rc=0   OK=13   RED=0    stat_read.py
+        ② 反例：删掉 cmd 组 ⇒ 判红                             OK
+        ② 反例问题里点名 cmd                                  OK
+        ② 反例：空输入 ⇒ 判红                                  OK
+        ② 反例：V1 去掉 req/up ⇒ 判红（⭐ 陈旧不可判定）               OK
+        ② 反例问题里点名 req                                  OK
+        ② 反例：半截状态 ⇒ 判红                                 OK
+      
+      结论：全部通过
+  OK   rc=0   OK=34   RED=0    trigger_and_capture.py
+      
+      [7] ⚠️ 本自检【不覆盖】的部分
+         ⛔ open_no_reset() / capture_with_trigger() —— 需要真实串口 + ESP32
+         ⛔ main() 里的 _stamp_at() 分块查戳（二分）—— ⚠️ 它是 main() 的
+            【内嵌闭包】，拿不到引用 ⇒ 本自检【无法直接测它】。
+            ⚠️ 本文件 500k 下 read(1) 丢整条流的教训（见文件头）也只能实机复验。
+      
+      结论：全部通过
+  OK   rc=0   OK=18   RED=0    uart_rx_check.py
+           错期望值会被判红（⭐ 非空洞）                           OK
+           只有 tick=1 时其余字段全 0                        OK
+      
+      [4] ⭐ 帧头常量
+           HDR_EVENT = 0xA5                          OK
+           FRAME_BYTES = 9                           OK
+      
+      结论：全部通过
+  OK   rc=0   OK=24   RED=0    uart_timing_check.py
+           错期望值 999 会被判红（⭐ 非空洞）                        OK
+           错期望值 20.5 µs 会被判红（⭐ 非空洞）                    OK
+           倒序输入的分位数与正序一致（⭐ 证明它排序）                      OK  正序 p50=51 / 倒序 p50=51
+           换数据分位数必须变（⭐ 不是常量）                           OK
+           超门限的帧内间隔会被判红（⭐ 结论判据能失败）                     OK
+           未超门限的帧内间隔不会被误判                              OK
+      
+      结论：全部通过
+  OK   rc=0   OK=7    RED=0    wrappers_check.py
+        合成③：带豁免标记 ⇒ 放行且记录                                  OK  allowed=1
+        读到 ble_main.c                                      OK  2012 行
+        真实源码：无绕过（除豁免）                                      OK  bad=0 allowed=1 inside=3
+            ⭐ L1993 豁免: pool_reset();   /* ALLOW-DIRECT-POOL-CALL: 开机初始化，屏尚未就绪 */
+        ⭐⭐ 非空洞：真源码里确有封装内调用                                 OK  inside=3
+        ⭐ 确有 1 处显式豁免（开机初始化）                                OK  allowed=1
+      
+      结论：全部通过
+  OK   rc=0   OK=95   RED=0    evt2midi\evt2midi.py
+        ⑮ 解析：6 帧 + 1 ASCII，⛔ 0 坏帧                      OK  ok=6 bad_csum=0 bad_type=0 trunc=0 resync=0/0 unk_hi=0
+        ⑮ 读回：6 个音符事件（3 on + 3 off）                     OK  实为 6（on=3）
+        ⑮ ⭐ 音高逐项对（期望 [69, 72, 76]）                     OK  实为 [69, 72, 76]
+        ⑮ ⭐ 力度逐项对（期望 [100, 110, 120]）                  OK  实为 [100, 110, 120]
+        ⑮ ⭐ 音间 Δt = 480（⭐ 0.25 秒 @120BPM/960PPQN）      OK  实测 [480, 480]
+        ⑮ ⭐ 文件头对【而且】内容对（⛔ 不是只看 MThd 的假绿）               OK
+      
+      结论：全部通过
+  OK   rc=0   OK=110  RED=0    evt2midi\frame_format.py
+           14 B 音符帧补成 68 B ⇒ 拒收（⚠️ 长度不符）               OK
+           68 B 表帧截成 14 B ⇒ 拒收                         OK
+           长度 15（多 1 字节）⇒ 拒收                           OK
+           合法 14 B 帧【不】抛错                              OK
+           合法 68 B 表帧【不】抛错                             OK
+           非空洞：_raises 对【正常输入】返回 False                 OK
+      
+      结论：全部通过
+  OK   rc=0   OK=41   RED=0    evt2midi\midi_verify.py
+          写侧 tempo = 120 BPM（⭐ 加固新增）                     OK
+          读回 2 个音符事件                                     OK
+          note_on = 69（440 Hz）                           OK
+          vel 200 -> 100                                 OK
+          250000 tick @50MHz = 5 ms -> 9.6 -> 10 MIDI tick OK  实测 10
+          ⭐ 非空洞：改 tempo 后 BPM 反算随之变                      OK
+      
+      结论：全部通过
+  OK   rc=0   OK=21   RED=0    evt2midi\rec_upstream.py
+        ② 源码里⛔ 没有 frame_checksum（⭐ 录制不解析）              OK
+        ② 源码里⛔ 没有 decode_frame（⭐ 录制不解析）                OK
+        ② 源码里⛔ 没有 inc_to_hz（⭐ 录制不解析）                   OK
+        ② 确实以二进制写文件（⭐ 原样落盘）                            OK
+        ② 非空洞：grep 确实能命中（⭐ 用已知存在的串验证）                  OK
+      
+      结论：全部通过
+      ⚠️ 未覆盖（⭐ 需要硬件/BLE）：run() 的连接、订阅、落盘
+
+==========================================================================
+合计：44 个工具（不通过 0 个），1062 项 OK，0 项 RED
+结论：全部通过 ✅
+==========================================================================

@@ -96,6 +96,8 @@ module tb_ctrl_keypad;
     wire met_req, timbre_req, slide_req, scope_req, keydrum_req, gear_req;
     wire trans_up_req, trans_dn_req, drum_pat_req, testmode_req, loop_clr_req;
     wire mode_req, fb_piano, tare_req, span_req, fx_req;
+    wire uplink_req;
+    integer n_uplink;
     //  ⭐⭐ 2026-10-15：⭐ idx 14（列 2 / 行 3）= 一键恢复默认音高 ✅
     wire trans_reset_req;
 
@@ -123,6 +125,7 @@ module tb_ctrl_keypad;
         .loop_clear_req_o  (loop_clr_req),
         .mode_req_o        (mode_req),
         .fb_piano_o        (fb_piano),
+        .uplink_toggle_req_o(uplink_req),
         .tare_req_o        (tare_req),
         .span_req_o        (span_req),
         .fx_req_o          (fx_req)
@@ -149,6 +152,7 @@ module tb_ctrl_keypad;
             if (testmode_req)  n_tmode   = n_tmode   + 1;
             if (loop_clr_req)  n_lclr    = n_lclr    + 1;
             if (mode_req)      n_mode    = n_mode    + 1;
+            if (uplink_req) n_uplink = n_uplink + 1;
             if (tare_req)      n_tare    = n_tare    + 1;
             if (span_req)      n_span    = n_span    + 1;
             if (fx_req)        n_fx      = n_fx      + 1;
@@ -162,7 +166,7 @@ module tb_ctrl_keypad;
         begin
             n_met=0; n_timbre=0; n_slide=0; n_scope=0; n_keydrum=0; n_gear=0;
             n_up=0; n_dn=0; n_dpat=0; n_tmode=0; n_lclr=0; n_mode=0;
-            n_tare=0; n_span=0; n_fx=0; n_kdown=0; n_kup=0; n_treset=0;
+            n_uplink=0; n_tare=0; n_span=0; n_fx=0; n_kdown=0; n_kup=0; n_treset=0;
         end
     endtask
 
@@ -253,7 +257,7 @@ module tb_ctrl_keypad;
         chk("2b: and NO key_down / key_up pulse appears", (n_kdown == 0) && (n_kup == 0));
         chk("2c: and NO command pulse appears either",
             (n_met+n_timbre+n_slide+n_scope+n_keydrum+n_gear+n_up+n_dn+n_dpat
-             +n_tmode+n_lclr+n_mode+n_tare+n_span+n_fx+n_treset) == 0);
+             +n_tmode+n_lclr+n_mode+n_uplink+n_tare+n_span+n_fx+n_treset) == 0);
 
         // ═════════════════════════════════════════════════════════════════
         $display("");
@@ -353,11 +357,11 @@ module tb_ctrl_keypad;
                     //  ⭐ idx 13（列 1 / 行 3）是**唯一剩下的备用位** ⇒ ⭐ 必须真的什么都不发 ✅
                     default: chk("6: idx 13 (the last spare) -> fires NOTHING at all",
                         (n_met+n_timbre+n_slide+n_scope+n_keydrum+n_gear+n_up+n_dn
-                         +n_dpat+n_tmode+n_lclr+n_mode+n_tare+n_span+n_fx+n_treset) == 0);
+                         +n_dpat+n_tmode+n_lclr+n_mode+n_uplink+n_tare+n_span+n_fx+n_treset) == 0);
                 endcase
                 chk("6x: that key fired exactly ONE command total",
                     (n_met+n_timbre+n_slide+n_scope+n_keydrum+n_gear+n_up+n_dn
-                     +n_dpat+n_tmode+n_lclr+n_mode+n_tare+n_span+n_treset) <= 1);
+                     +n_dpat+n_tmode+n_lclr+n_mode+n_uplink+n_tare+n_span+n_treset) <= 1);
                 release_all;
                 end
             end
@@ -384,16 +388,16 @@ module tb_ctrl_keypad;
 
         // ═════════════════════════════════════════════════════════════════
         $display("");
-        $display("=== 8) calibration key (idx 15): short = tare, long = span ===");
+        $display("=== 8) live uplink key (idx 15): toggle on release ===");
         // ═════════════════════════════════════════════════════════════════
         zero_counters;
         pressed[15] = 1'b1;
         wait_clk(DEB_CYC * 2);                  // 已过抖，但远未到长按阈值
         chk("8a: while still held short, no command yet",
-            (n_tare == 0) && (n_span == 0));
+            (n_uplink == 0) && (n_tare == 0) && (n_span == 0));
         pressed[15] = 1'b0;
         wait_clk(DEB_CYC * 3);
-        chk("8b: SHORT press -> tare_req once", n_tare == 1);
+        chk("8b: SHORT release -> uplink once, no calibration", n_uplink == 1 && n_tare == 0);
         chk("8c: SHORT press -> NO span_req (the two are mutually exclusive)",
             n_span == 0);
 
@@ -410,13 +414,13 @@ module tb_ctrl_keypad;
         //     🔴 原期望 `n_tare == 0`（长按被 span 吃掉 ⇒ 松手不再发 tare）
         //     ✅ 现在没有长按分支 ⇒ `cal_long_fired` 恒 0 ⇒ 松手必发 `tare_req_o`
         //        ⭐ 这正是用户要的"标定键只相当于发 T" ✅
-        chk("8e: after a long press, releasing DOES fire tare (span removed => long press no longer suppresses tare)",
-            n_tare == 1);
+        chk("8e: LONG release -> uplink once, no tare",
+            n_uplink == 1 && n_tare == 0);
 
         // ═════════════════════════════════════════════════════════════════
         $display("");
         if (errors == 0)
-            $display("PASS: ctrl keypad -- one-row-low scan, scan-based debounce (jitter rejected), every key maps to exactly its own command, same-column pairs resolved, long-press protected clear, and calib key fires tare on release (span removed 2026-10-17)");
+            $display("PASS: ctrl keypad -- one-row-low scan, scan-based debounce (jitter rejected), every key maps to exactly its own command, same-column pairs resolved, long-press protected clear, and idx15 toggles uplink once on release");
         else
             $fatal(1, "FAIL: ctrl keypad had %0d error(s)", errors);
 

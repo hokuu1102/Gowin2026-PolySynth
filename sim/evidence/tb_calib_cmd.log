@@ -101,6 +101,6 @@
   ok  : a PAUSE (no bytes at all) between 'Q' and the frame still works -- arm survives
 
 PASS: calib_cmd parses T/S/X/M/F/G/H/J only at frame boundaries, ignores payload letters, counts what it drops, takes the 'H' framed value from the next frame's first payload byte, self-heals after a half frame, and voids an unfulfilled arm as soon as any non-header byte breaks the promise
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_calib_cmd.sv:751: $finish called at 99050000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_calib_cmd.sv:751: $finish called at 99050000 (1ps)
 
 

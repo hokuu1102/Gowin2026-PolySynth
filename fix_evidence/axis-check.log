@@ -1,0 +1,147 @@
+==============================================================================
+自查：真机/离线工具对 axis 的显式依赖（本轮改成动态分配后必须核）
+==============================================================================
+  跳过本轮自己改过的页面自检：13 个
+
+  OK  _ble_poll_stress.py          硬断言 0 处  读 axis 2 处
+        L58    读 axis: def word(tick, inc, axis, vel, kind, timbre):
+        L60    读 axis: ((axis & 0xF) << 19) | ((vel & 0xFF) << 11) |
+
+  OK  _check_user_midi.js          硬断言 0 处  读 axis 1 处
+        L46    读 axis: " 音色=" + String(t.timbre).padEnd(7) + " 轴=" + String(t.axis).padEnd(4) +
+
+  OK  _diag_timbre_override.js     硬断言 0 处  读 axis 3 处
+        L127   读 axis: Math.min(...sc.notes.filter(n => !API.isDrumAxis(n.axis))
+        L129   读 axis: Math.max(...sc.notes.filter(n => !API.isDrumAxis(n.axis))
+        L135   读 axis: [...new Set(sc.notes.filter(n => !API.isDrumAxis(n.axis))
+
+  OK  _display_lane_check.js       硬断言 0 处  读 axis 2 处
+        L118   读 axis: axis: Number((w >> 19n) & 0xFn), inc: Number((w >> 23n) & 0x1FFFFFn),
+        L121   读 axis: const k = e.axis + "|" + e.inc;
+
+  OK  _drum_inc_options.py         硬断言 0 处  读 axis 1 处
+        L35    读 axis: print("方案 A：FPGA 改 —— 收到 axis=15 时，用 inc 低 2 位查表换真 inc")
+
+  OK  _dur_check.js                硬断言 0 处  读 axis 7 处
+        L59    读 axis: /* ---- ② 转换后的时值（按 axis+inc 配对）---- */
+        L63    读 axis: axis: Number((w >> 19n) & 0xFn), inc: Number((w >> 23n) & 0x1FFFFFn),
+        L69    读 axis: const k = e.axis + "|" + e.inc;
+        ...（共 7 处）
+
+  OK  _gen_inc_probe.py            硬断言 0 处  读 axis 16 处
+        L18    读 axis: ② `<名字>.csv`      —— 逐帧核对表：帧号 / tick / axis / kind / vel /
+        L74    读 axis: 事件 = (tick, inc, axis, vel, kind, timbre, 备注)
+        L80    读 axis: def add(tick, inc, axis, vel, kind, timbre, why):
+        ...（共 16 处）
+
+  OK  _gen_simul_probe.py          硬断言 0 处  读 axis 37 处
+        L9     读 axis: axis 0 (BASS)   : tick      0 .. 7200
+        L10    读 axis: axis 2 (PIANO)  : tick   3840 .. 19200
+        L11    读 axis: axis 1 (GUITAR) : tick   8160 .. 100320
+        ...（共 37 处）
+
+  OK  _gen_web_midi_demo.js        硬断言 0 处  读 axis 1 处
+        L75    读 axis: console.log("    " + a.name + " -> axis " + a.axis + " · " + a.kind + " · " + a.notes + " 音符");
+
+  OK  _inspect_midi.js             硬断言 0 处  读 axis 4 处
+        L66    读 axis: console.log("  axis | 轨名             | 类型   | 音符数");
+        L68    读 axis: console.log("  " + String(a.axis).padEnd(5) + "| " + String(a.name).padEnd(17) +
+        L78    读 axis: /* ⭐ 2026-10-15 方案 B：鼓【一件一轴】12/13/14/15 ⇒ assign 里 `axis` 是"用到的轴"列表串
+        ...（共 4 处）
+
+  OK  _midi_parse_check.js         硬断言 0 处  读 axis 16 处
+        L197   读 axis: *   ⭐ 旋律轨从 axis 0 起，只用 0..11
+        L198   读 axis: * ⚠️ `assign` 里鼓那一条的 `axis` 现在是"用到的轴列表"字符串（如 "12/13"），
+        L201   读 axis: for (const a of conv.assign) if (typeof a.axis === "number") byAxis[a.axis] = a;
+        ...（共 16 处）
+
+  OK  _stress_cycles.py            硬断言 0 处  读 axis 1 处
+        L60    读 axis: return [SW.pack_word(tick=1000 + i * 37, inc=164927, axis=i % 16,
+
+  OK  _uart1_wire_check.py         硬断言 0 处  读 axis 2 处
+        L72    读 axis: axis=i % 16, vel=60 + (i % 60),
+        L180   读 axis: w[1] = SW.pack_word(tick=0xA5A5, inc=0xA5A5A5, axis=5, vel=0xA5,
+
+  OK  _upstream_loop_check.py      硬断言 0 处  读 axis 3 处
+        L17    读 axis: type/seq/tick32/axis/inc32/vel/cksum），另加一个 68 字节表同步帧，
+        L67    读 axis: fr = FF.build_frame(ftype, seq=i & 0xFF, tick=t, axis=i % 16,
+        L76    读 axis: axis=1, inc=37796, vel=100))
+
+  OK  _upstream_parse_check.js     硬断言 0 处  读 axis 21 处
+        L78    读 axis: function frame(type, seq, tick, axis, inc, vel, timbre = 0) {
+        L81    读 axis: /* ⭐⭐ 2026-10-15：`[7]` 一字节两字段 = `timbre[5:4] | axis[3:0]`
+        L84    读 axis: ((axis & 0x0F) | ((timbre & 0x03) << 4)),
+        ...（共 21 处）
+
+  OK  check_drum_split.py          硬断言 0 处  读 axis 63 处
+        L12    读 axis: §4.1 鼓的 note_off 按 (axis, src) 配对 => 四件鼓必须一件一轴（否则同轴互掐）
+        L24    读 axis: ② 鼓的 axis 回到 12..15（一件一轴，方案 B）：
+        L26    读 axis: => 硬判据：axis - 12 == drum_type（判据⑦，有鉴别力，配反例）
+        ...（共 63 处）
+
+  OK  demo_midi_roundtrip.py       硬断言 0 处  读 axis 8 处
+        L63    读 axis: 🔴🔴 2026-10-13 重要修正：**只取 axis=0 那一条轴**。
+        L65    读 axis: · 事件 1..37   axis=0，tick 0..19200
+        L66    读 axis: · 事件 38..78  axis=1，tick 23520..100320   <- 另一条轴/另一段
+        ...（共 8 处）
+
+  OK  drum_map.py                  硬断言 0 处  读 axis 1 处
+        L276   读 axis: "（判据 axis >= %d）" % DRUM_AXIS_BASE)
+
+  RED evt2midi\evt2midi.py         硬断言 2 处  读 axis 24 处
+        L1254  硬断言: st_dg.frames_ok == 1 and len(evs_dg) == 1 and evs_dg[0].axis == 0,
+        L1262  硬断言: len(evs_ok) == 1 and evs_ok[0].axis == 13,
+
+  OK  evt2midi\frame_format.py     硬断言 0 处  读 axis 83 处
+        L33    读 axis: [7] axis/is_drum 一个字节装三种东西（2026-10-17 新增 is_drum 位）
+        L188   读 axis: axis        bit[3:0]，仅当 is_drum_up 为假；鼓事件返回 0
+        L211   读 axis: "axis": 0 if is_drum_up else u30,
+        ...（共 83 处）
+
+  OK  pool_pace_check.py           硬断言 0 处  读 axis 6 处
+        L41    读 axis: axis   [21:18]   4 bit
+        L196   读 axis: "axis": bits(body, B_AXIS_MSB, B_AXIS_LSB),
+        L232   读 axis: tick, inc, axis, vel, kind, timbre, rsvd = (
+        ...（共 6 处）
+
+  OK  score_uploader.py            硬断言 0 处  读 axis 5 处
+        L139   读 axis: self.notes.append((d["tick"], d["axis"], hz_to_midi_float(hz),
+        L433   读 axis: tick, axis, m, vel, kind, timbre = sc.notes[i]
+        L436   读 axis: c = AXIS_COLORS[axis % len(AXIS_COLORS)]
+        ...（共 5 处）
+
+  OK  score_word.py                硬断言 0 处  读 axis 117 处
+        L14    读 axis: send_frames.py:108-113        inc<<23 / axis<<19 / vel<<11 8bit / timbre<<7 2bit
+        L15    读 axis: send_frames_ble.py:151-156    inc<<22 / axis<<18 / vel<<11 7bit / timbre<<8 1bit
+        L19    读 axis: FPGA2026/rtl/top.v:3594-3616   inc[43:23] axis[22:19] vel[18:11] kind[10:9] timbre[8:7]
+        ...（共 117 处）
+
+  OK  screen_demo.py               硬断言 0 处  读 axis 2 处
+        L134   读 axis: word = SW.pack_word(tick=tick, inc=inc, axis=0, vel=90,
+        L382   读 axis: _w = SW.pack_word(tick=0, inc=inc440, axis=0, vel=90,
+
+  OK  send_frames.py               硬断言 0 处  读 axis 10 处
+        L57    读 axis: 本文件的 `make_event` 本来就是新布局（inc<<23 / axis<<19 / vel 8bit /
+        L140   读 axis: def make_event(tick: int, inc: int, axis: int, vel: int,
+        L145   读 axis: tick[63:44] 20b | inc[43:23] 21b | axis[22:19] 4b |
+        ...（共 10 处）
+
+  OK  send_frames_ble.py           硬断言 0 处  读 axis 7 处
+        L24    读 axis: 旧： inc<<22(22bit) / axis<<18 / vel 7bit / timbre<<8(1bit)
+        L25    读 axis: 新： inc[43:23](21bit) / axis[22:19] / vel[18:11](8bit) / timbre[8:7](2bit)
+        L29    读 axis: 会渗进 axis 字段把轴号污染。
+        ...（共 7 处）
+
+  OK  trigger_and_capture.py       硬断言 0 处  读 axis 7 处
+        L82    读 axis: axis   [21:18]   4 bit
+        L318   读 axis: "axis": bits(body, B_AXIS_MSB, B_AXIS_LSB),
+        L357   读 axis: tick, inc, axis, vel, kind, timbre, rsvd = (0xABCDE, 0x123456, 0xA, 0x55, 2, 1, 0)
+        ...（共 7 处）
+
+  OK  uart_rx_check.py             硬断言 0 处  读 axis 10 处
+        L48    读 axis: "axis":   (w >> 18) & 0xF,
+        L80    读 axis: def pack(tick, inc, axis, vel, kind, timbre, rsvd=0):
+        L82    读 axis: ((axis & 0xF) << 18) | ((vel & 0x7F) << 11) | \
+        ...（共 10 处）
+
+  结论：有硬断言 => 需逐条判是否仍成立

@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_i2s_tx_timing/tb_i2s_tx_timing.vcd opened for output.
+﻿VCD info: dumping is suppressed.
 
 ================ i2s_tx vs PT8211 timing ================
   [manual] DAC samples DIN on BCK RISING edge; Fbck<=18.4MHz; tH>=25ns
@@ -20,6 +20,6 @@
   ok : A8 no X/Z
 
 PASS: I2S output timing has >=100ns setup/hold around the DAC sampling edge (PT8211 manual limits met)
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3c\tb_i2s_tx_timing.sv:184: $finish called at 368891000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_i2s_tx_timing.sv:184: $finish called at 368891000 (1ps)
 
 

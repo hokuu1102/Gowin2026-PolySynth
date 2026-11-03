@@ -1,0 +1,73 @@
+{
+  "all_native_checks_accepted": false,
+  "checks": {
+    "Setup": {
+      "paths": 25,
+      "worst": {
+        "Path Number": "1",
+        "Path Slack": "0.032",
+        "From Node": "g_sound.u_note_manager/age_r[12]_1_s1/Q",
+        "To Node": "g_sound.u_note_manager/best_age_0_s0/CE",
+        "From Clock": "clk_sys:[R]",
+        "To Clock": "clk_sys:[R]",
+        "Relation": "16.400",
+        "Clock Skew": "-0.008",
+        "Data Delay": "16.096",
+        "numeric_slack_ns": 0.032,
+        "negative_rounded_zero": false
+      },
+      "accepted": true
+    },
+    "Hold": {
+      "paths": 25,
+      "worst": {
+        "Path Number": "1",
+        "Path Slack": "0.047",
+        "From Node": "g_sound.u_envelope_bank/lvl_sr_496_s10/Q",
+        "To Node": "g_sound.u_envelope_bank/lvl_sr_lvl_sr_0_0_s/ADB[9]",
+        "From Clock": "clk_sys:[R]",
+        "To Clock": "clk_sys:[R]",
+        "Relation": "0.000",
+        "Clock Skew": "-0.185",
+        "Data Delay": "0.263",
+        "numeric_slack_ns": 0.047,
+        "negative_rounded_zero": false
+      },
+      "accepted": false
+    },
+    "Recovery": {
+      "paths": 12,
+      "worst": {
+        "Path Number": "1",
+        "Path Slack": "1.030",
+        "From Node": "u_hdmi/u_serializer/lanes[1].lane_reset_s1/Q",
+        "To Node": "u_hdmi/u_serializer/lanes[1].u_oser/RESET",
+        "From Clock": "serial_clk:[R]",
+        "To Clock": "serial_clk:[F]",
+        "Relation": "4.000",
+        "Clock Skew": "1.898",
+        "Data Delay": "0.936",
+        "numeric_slack_ns": 1.03,
+        "negative_rounded_zero": false
+      },
+      "accepted": true
+    },
+    "Removal": {
+      "paths": 12,
+      "worst": {
+        "Path Number": "1",
+        "Path Slack": "0.123",
+        "From Node": "u_hdmi/u_serializer/lanes[3].lane_reset_s1/Q",
+        "To Node": "u_hdmi/u_serializer/lanes[3].u_oser/RESET",
+        "From Clock": "serial_clk:[R]",
+        "To Clock": "pixel_clk:[R]",
+        "Relation": "0.000",
+        "Clock Skew": "0.007",
+        "Data Delay": "0.288",
+        "numeric_slack_ns": 0.123,
+        "negative_rounded_zero": false
+      },
+      "accepted": true
+    }
+  }
+}

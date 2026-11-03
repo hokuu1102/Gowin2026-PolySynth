@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_score_looper_coexist/tb_score_looper_coexist.vcd opened for output.
+﻿VCD info: dumping is suppressed.
 == A: score path with an EMPTY looper ==
   ok  : score_path_unchanged_when_looper_empty: note_on allocates exactly ONE voice
   ok  : score_path_unchanged_when_looper_empty: note_off releases it again

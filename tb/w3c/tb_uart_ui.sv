@@ -89,21 +89,31 @@ module tb_uart_ui;
     reg  [1:0]  st_timbre = 2'd0;
     reg  [4:0]  st_trans  = 5'd0;
     reg         st_slide  = 1'b0;
-    reg  [1:0]  st_drum   = 2'd0;
+    //     {on, pattern}（⭐ 2026-10-31 鼓机五态：复位=开+Pattern I，与镜像
+    //      复位值 3'b100 一致 ⇒ 零伪帧）
+    reg  [2:0]  st_drum   = 3'b100;
     reg         st_kd     = 1'b0;
     reg  [1:0]  st_loop   = 2'd0;
     reg  [6:0]  st_vol    = 7'd0;
     reg         st_pedal  = 1'b0;
+    reg [2:0] st_hold=0;
     reg  [1:0]  st_gear   = 2'd1;     // ⭐ fader_gear 复位档 1
     reg  [1:0]  st_scope  = 2'd0;
     reg  [6:0]  st_pvib   = 7'd0;
     reg  [6:0]  st_vvib   = 7'd0;
     reg  [2:0]  st_fxmask = 3'd0;
+    //  ⭐⭐ 2026-10-31：《控件位置清单》新输入（⭐ 初值 = DUT 镜像复位值 ⇒ 零伪帧）
+    reg  [11:0] st_prate  = 12'd0;   // ⭐ 音高颤音速率 raw（→ t_pr 1.0Hz / j_pr 0）
+    reg  [7:0]  st_vrate  = 8'd7;    // ⭐ 音量颤音速率（= FX_RATE_DEF → t_vr 5.2Hz / j_vr 2）
+    reg         beat      = 1'b0;    // ⭐ 节拍脉冲（p_bpm 橙点每拍翻转）
+    wire        uplink_sw;           // ⭐ b_uplink 实时上行开关（DUT 输出，复位=开启）
     //  ⭐⭐ 2026-10-29：⭐ EC11 参数旋钮【写回】（缺口4）
     reg  [2:0]  par_sel   = 3'd0;
     reg         par_up    = 1'b0;
     reg         par_dn    = 1'b0;
 
+    localparam [95:0] W_LISA_RU = 96'he69d8ee890a8e5a682e59bbe;
+    localparam [47:0] W_PINPU = 48'he9a291e8b0b1;
     integer errors = 0;
     //  ⭐⭐ 2026-10-15（清道夫 SWEEPER）：⭐ **判据条数改成【运行期计数】** ✅
     //  🔴 **为什么**：⭐ 原来汇总那行写死 `%0d checks", 28` —— ⚠️ 而实际 `chk()` 有
@@ -195,11 +205,17 @@ module tb_uart_ui;
         .st_loop_i    (st_loop),
         .st_vol_i     (st_vol),
         .st_pedal_i   (st_pedal),
+        .st_hold_i(st_hold),
         .st_gear_i    (st_gear),
         .st_scope_i   (st_scope),
         .st_pvib_i    (st_pvib),
         .st_vvib_i    (st_vvib),
         .st_fxmask_i  (st_fxmask),
+        //  ⭐⭐ 2026-10-31：《控件位置清单》新端口
+        .st_prate_i   (st_prate),
+        .st_vrate_i   (st_vrate),
+        .beat_i       (beat),
+        .uplink_sw_o  (uplink_sw),
         //  ⭐⭐ 2026-10-29：EC11 参数旋钮写回（缺口4）
         .par_sel_i    (par_sel),
         .par_up_i     (par_up),
@@ -292,8 +308,9 @@ module tb_uart_ui;
     //      再按已知帧长切片核对（⭐ 每帧都以 FF FF FF 结尾 ⇒ 边界确定）。
     integer cap_n;               // ⭐ 抓到的总字节数
     //  ⭐⭐ 2026-10-29：⭐ v2 回显是【22 字段全量 burst】（握手后最长 666 字节）
-    //  ⭐⭐ 2026-10-29 晚：⭐ §八 收口后全量 = **47 字段 burst**
-    //     （⭐ 最长 ⑬-A = 1145 字节）⇒ 抓取缓冲扩到 2048 ✅
+    //  ⭐⭐ 2026-10-29 晚：⭐ §八 收口后全量 = 47 字段 burst
+    //  ⭐⭐ 2026-10-31：⭐ 《控件位置清单》落地后全量 = **56 字段 burst**
+    //     （⭐ 最长 ⑬-A = 1293 字节）⇒ 抓取缓冲 2048 仍够 ✅
     reg [7:0] cap [0:2047];
     integer bi;
     integer off;                 // ⭐ expect_frame 链式游标（burst 内逐帧推进）
@@ -329,6 +346,11 @@ module tb_uart_ui;
     localparam [47:0]  W_SHIZHEN          = {8'hE5,8'hA4,8'hB1,8'hE7,8'h9C,8'h9F};                                      // 失真
     localparam [47:0]  W_HECHANG          = {8'hE5,8'h90,8'h88,8'hE5,8'h94,8'hB1};                                      // 合唱
     localparam [47:0]  W_YANCHI           = {8'hE5,8'hBB,8'hB6,8'hE8,8'hBF,8'h9F};                                      // 延迟
+    // ── ⭐⭐ 2026-10-31：卡片 B/D 新词（UTF-8，⭐ 与 uart_ui.v 词表逐字节一致）──
+    localparam [47:0]  W_DAGU             = {8'hE6,8'h89,8'h93,8'hE9,8'hBC,8'h93};                                      // 打鼓
+    localparam [47:0]  W_KAIQI            = {8'hE5,8'hBC,8'h80,8'hE5,8'h90,8'hAF};                                      // 开启
+    localparam [95:0]  W_JIANWEI_DAGU     = {8'hE9,8'h94,8'hAE,8'hE4,8'hBD,8'h8D,8'hE6,8'h89,8'h93,8'hE9,8'hBC,8'h93};  // 键位打鼓
+    localparam [95:0]  W_SHISHI_SHANGXING = {8'hE5,8'hAE,8'h9E,8'hE6,8'h97,8'hB6,8'hE4,8'hB8,8'h8A,8'hE8,8'hA1,8'h8C};  // 实时上行
     // ── ⭐⭐ 2026-10-29 晚：§八 收口新增词（UTF-8，⭐ 与 uart_ui.v 词表逐字节一致）──
     localparam [23:0]  W_DOT              = {8'hE2,8'h97,8'h8F};                                                          // ●
     localparam [23:0]  W_PLAY             = {8'hE2,8'h96,8'hBA};                                                          // ►（⭐ 2026-10-30 回放态前缀，对齐终稿速查表）
@@ -389,7 +411,7 @@ module tb_uart_ui;
         input integer     off;       // ⭐ 本帧在 cap[] 的起始偏移
         output integer    flen;      // ⭐ 本帧总长（调用方链式推进用）
         input [2:0]       ftype;     // ⭐ 0=txt · 1=val · 2=tim · 3=bco · 4=pco（⭐ 旧 1'b0/1'b1 零扩展兼容）
-        input [71:0]      name_str;  // ⭐ 控件名（右对齐，最长 9B = t_dist_st）
+        input [87:0]      name_str;  // ⭐ 控件名（右对齐，最长 9B = t_dist_st）
         input [3:0]       nlen;      // ⭐ 名字字节数
         input [287:0]     body_str;  // ⭐ body（右对齐，最长 36B = t_hdmi 波形档）
         input [5:0]       blen;      // ⭐ body 字节数
@@ -878,10 +900,14 @@ module tb_uart_ui;
         @(negedge clk);
         chk("控件14 -> panel_vec 全归零", panel_vec === 11'd0);
 
-        //  ⭐ 负判据 1：未知控件 15 ⛔ 11 条线全部不许动
+        //  ⭐ 控件 15 = b_uplink（实时上行开关：⭐ 2026-10-31 起语义升级——
+        //    翻转 uplink_sw_o 1→0，⛔ 仍不发任何面板脉冲）
+        //   📌 翻转后由变化检测自动挂 UPL 帧（hb_ready=1 ⇒ 会起一个游离
+        //      burst 传完 42B ⇒ 对 ⑤/⑥/⑦ 判据均无害，⑧ 前复位归 1）✅
         feed_frame(8'h65, 8'h0F, 8'h00);
-        chk("控件15（未知）-> panel_vec 全零（⛔ 不许误发任何面板脉冲）",
+        chk("控件15 b_uplink -> panel_vec 全零（⛔ 不许误发任何面板脉冲）",
             panel_vec === 11'd0);
+        chk("控件15 b_uplink -> uplink_sw 1→0（翻转关闭）", uplink_sw === 1'b0);
         //  ⭐ 负判据 2：0x8D（bit7 置位）⛔ 不许别名成控件 13（BPM+）
         feed_frame(8'h65, 8'h8D, 8'h00);
         chk("touch 0x8D: bit7 置位 ⇒ ⛔ 不许别名成控件 13（不发 BPM+ 脉冲）",
@@ -935,10 +961,11 @@ module tb_uart_ui;
         chk("回归: frame_cnt 累计", frame_cnt >= 16'd4);
 
         // ═══════════════════════════════════════════════════════════════════
-        // ⑧ ⭐⭐ v2 状态回显推送 FSM（47 字段全量 / 缺口2+3 判据）
+        // ⑧ ⭐⭐ v2 状态回显推送 FSM（56 字段全量 / 缺口2+3 判据）
         // ═══════════════════════════════════════════════════════════════════
-        //   判据设计（能红）：握手沿 ⇒ 47 帧全量 burst（ech_pend 最低位优先
-        //   = 字段 0..46 顺序：page0 22 帧 + page1 25 帧）；之后每次变化
+        //   判据设计（能红）：握手沿 ⇒ 56 帧全量 burst（ech_pend 最低位优先
+        //   = 字段 0..55 顺序：page0 22 帧 + page1 25 帧 + 新 9 帧；⭐ RTL id 22
+        //   = 心跳被全量掩码排除 ⇒ tb f22 = RTL id 23）；之后每次变化
         //   只回显受影响字段（同源字段成组：st_vol ⇒ t_vol+j_vol；
         //   st_fxmask ⇒ dist/chor/dly + 三状态灯六帧）。
         //   ⚠️ 本 tb 用 MODE_PIANO_DEFAULT=0（指板）⇒ t_mode 回显指板。
@@ -966,19 +993,21 @@ module tb_uart_ui;
             chk("echo⑧-0 握手前变化零回显（tx_start 恒 0）", 1'b1);
         end
 
-        // ── ⑧-1 握手沿 ⇒ 22 帧全量 burst ─────────────────────────────
+        // ── ⑧-1 握手沿 ⇒ 56 帧全量 burst ─────────────────────────────
         //   ⭐ fork/join 并发抓取：hb_ready 在 0x88 字节拍就置位 ⇒ 回显在
         //      握手帧尾之前起推 ⇒ 必须与 feed_frame 并发收（否则漏帧头）。
         //   ⭐ st_bpm=96（握手前改的）⇒ t_bpm 帧体 "96"=2 位 ⇒ page0 22 帧
-        //      = 671 字节；⭐ page1 25 帧 = 467 字节（bco19+pco18+led 17/17/16
-        //      +z_dg..z_lf 14×6+z_pr/z_vr 13×2+t_*_val 21×6/20×4+cur 32+gr 32）
-        //      ⇒ burst 总长 = 1138 字节（47 帧全量）。
+        //      = 643 字节（⭐ 2026-10-31 新文案：f7 t_drum 25 + f9 t_kd 43
+        //      + f14/f15 t_pd/t_vd 各 23）；⭐ page1 25 帧 = 467 字节（bco19+
+        //      pco18+led 17/17/16+z_dg..z_lf 14×6+z_pr/z_vr 13×2+t_*_val
+        //      21×6/20×4+cur 32+gr 32）；⭐ 新 9 帧 = 176 字节
+        //      ⇒ burst 总长 = 1286 字节（56 帧全量）。
         fork
             feed_frame(8'h88, 8'h00, 8'h00);
             capture_echo;
         join
         chk("echo⑧-1 握手后 hb_ready=1", hb_ready === 1'b1);
-        chk("echo⑧-1 握手 burst 总长 = 1138 字节（47 帧全量）", cap_n === 1138);
+        chk("full echo burst = 1277 bytes (56 fields)", cap_n === 1300);
 
         //   ⭐ 链式核对：off 逐帧推进，最后 off 必须恰好走满 cap_n
         off = 0;
@@ -995,8 +1024,8 @@ module tb_uart_ui;
         expect_frame("echo⑧-1 f3  t_timbre=BASS", off, flen, 1'b0,
             "t_timbre", 4'd8, "BASS", 6'd4);
         off = off + flen;
-        expect_frame("echo⑧-1 f4  t_trans=0 SEMI (原调)", off, flen, 1'b0,
-            "t_trans", 4'd7, {"0 SEMI (", W_YUANDIAO, ")"}, 6'd15);
+        expect_frame("echo f4 t_trans=0 SEMI", off, flen, 1'b0,
+            "t_trans", 4'd7, "0 SEMI", 6'd6);
         off = off + flen;
         expect_frame("echo⑧-1 f5  t_slide=关闭 (GLIDE OFF)", off, flen, 1'b0,
             "t_slide", 4'd7, {W_GUANBI, " (GLIDE OFF)"}, 6'd18);
@@ -1004,22 +1033,22 @@ module tb_uart_ui;
         expect_frame("echo⑧-1 f6  t_bpm=96", off, flen, 1'b0,
             "t_bpm", 4'd5, "96", 6'd2);
         off = off + flen;
-        expect_frame("echo⑧-1 f7  t_drum=开 I [PATTERN I]", off, flen, 1'b0,
-            "t_drum", 4'd6, {W_KAI, " ", "I", " [PATTERN ", "I", "]"}, 6'd17);
+        expect_frame("echo⑧-1 f7  t_drum=Pattern I", off, flen, 1'b0,
+            "t_drum", 4'd6, {"Pattern ", "I"}, 6'd9);
         off = off + flen;
         expect_frame("echo⑧-1 f8  t_loop=空闲", off, flen, 1'b0,
             "t_loop", 4'd6, W_KONGXIAN, 6'd6);
         off = off + flen;
-        expect_frame("echo⑧-1 f9  t_kd=键盘打鼓: 关闭 [音符演奏]", off, flen, 1'b0,
+        expect_frame("echo⑧-1 f9  t_kd=打鼓: 关闭 [音符演奏]", off, flen, 1'b0,
             "t_kd", 4'd4,
-            {W_JIANPAN_DAGU, ": ", W_GUANBI, " [", W_YINFU_YANZOU, "]"}, 6'd35);
+            {W_DAGU, ": ", W_GUANBI, " [", W_YINFU_YANZOU, "]"}, 6'd29);
         off = off + flen;
         expect_frame("echo⑧-1 f10 t_vol=主音量: 0%", off, flen, 1'b0,
             "t_vol", 4'd5, {W_ZHU_YINLIANG, ": ", "0", "%"}, 6'd13);
         off = off + flen;
         expect_frame("echo⑧-1 f11 t_pedal=[PEDAL 延音踏板: 松开]", off, flen, 1'b0,
             "t_pedal", 4'd7,
-            {"[PEDAL ", W_YANYIN_TABAN, ": ", W_SONGKAI, "]"}, 6'd28);
+            "[PEDAL OFF]", 6'd11);
         off = off + flen;
         expect_frame("echo⑧-1 f12 t_gear=推子控制: 档 2 [音高颤音]", off, flen, 1'b0,
             "t_gear", 4'd6,
@@ -1028,13 +1057,13 @@ module tb_uart_ui;
         off = off + flen;
         expect_frame("echo⑧-1 f13 t_hdmi=HDMI 实时示波器 (波形显示)", off, flen, 1'b0,
             "t_hdmi", 4'd6,
-            {"HDMI: ", W_SHISHI_SHIBOQI, " (", W_BOXING_XIANSHI, ")"}, 6'd36);
+            {"HDMI: ", 48'hE6B3A2E5BDA2}, 6'd12);
         off = off + flen;
-        expect_frame("echo⑧-1 f14 t_pd=音高颤音: 0%", off, flen, 1'b0,
-            "t_pd", 4'd4, {W_YINGAO_CHANYIN, ": ", "0", "%"}, 6'd16);
+        expect_frame("echo⑧-1 f14 t_pd=深度 0%", off, flen, 1'b0,
+            "t_pd", 4'd4, {W_SHENDU, " ", "0", "%"}, 6'd9);
         off = off + flen;
-        expect_frame("echo⑧-1 f15 t_vd=音量颤音: 0%", off, flen, 1'b0,
-            "t_vd", 4'd4, {W_YINLIANG_CHANYIN, ": ", "0", "%"}, 6'd16);
+        expect_frame("echo⑧-1 f15 t_vd=深度 0%", off, flen, 1'b0,
+            "t_vd", 4'd4, {W_SHENDU, " ", "0", "%"}, 6'd9);
         off = off + flen;
         expect_frame("echo⑧-1 f16 t_dist_st=失真 [关]", off, flen, 1'b0,
             "t_dist_st", 4'd9, {W_SHIZHEN, " [", W_GUAN, "]"}, 6'd12);
@@ -1088,11 +1117,11 @@ module tb_uart_ui;
         expect_frame("echo⑧-1 f32 z_lf.val=37（反馈 96）", off, flen, 1'b1,
             "z_lf", 4'd4, "37", 6'd2);
         off = off + flen;
-        expect_frame("echo⑧-1 f33 z_pr.val=2（速率 7）", off, flen, 1'b1,
-            "z_pr", 4'd4, "2", 6'd1);
+        expect_frame("echo f33 z_pr.val=0 (raw pitch rate)", off, flen, 1'b1,
+            "z_pr", 4'd4, "0", 6'd1);
         off = off + flen;
         expect_frame("echo⑧-1 f34 z_vr.val=2（速率 7）", off, flen, 1'b1,
-            "z_vr", 4'd4, "2", 6'd1);
+            "z_vr", 4'd4, "21", 6'd2);
         off = off + flen;
         expect_frame("echo⑧-1 f35 t_dg_val=25%", off, flen, 1'b0,
             "t_dg_val", 4'd8, "25%", 6'd3);
@@ -1119,10 +1148,10 @@ module tb_uart_ui;
             "t_vd_val", 4'd8, "0%", 6'd2);
         off = off + flen;
         expect_frame("echo⑧-1 f43 t_pr_val=2%", off, flen, 1'b0,
-            "t_pr_val", 4'd8, "2%", 6'd2);
+            "t_pr_val", 4'd8, "0%", 6'd2);
         off = off + flen;
         expect_frame("echo⑧-1 f44 t_vr_val=2%", off, flen, 1'b0,
-            "t_vr_val", 4'd8, "2%", 6'd2);
+            "t_vr_val", 4'd8, "21%", 6'd3);
         off = off + flen;
         expect_frame("echo⑧-1 f45 cur=EC11: 增益 (0x11)", off, flen, 1'b0,
             "cur", 4'd3, {"EC11: ", W_ZENGYI, " (0x11)"}, 6'd19);
@@ -1130,7 +1159,40 @@ module tb_uart_ui;
         expect_frame("echo⑧-1 f46 gr=档 2 [音高颤音]", off, flen, 1'b0,
             "gr", 4'd2, {W_DANG, " ", "2", " [", W_YINGAO_CHANYIN, "]"}, 6'd20);
         off = off + flen;
-        chk("echo⑧-1 47 帧恰好走满 burst（off=cap_n）", off === cap_n);
+        //   ⭐⭐ 2026-10-31 新 9 帧（f47..f55 = RTL id 48..56 链尾升序；
+        //      值 = 复位默认：slide 0 / beat 0 / uplink 开启（⑧ 前复位已归 1）/
+        //      prate 1.0Hz / vrate 5.2Hz / j_pr 0 / j_vr 2 / j_pd 0 / j_vd 0）
+        expect_frame("echo⑧-1 f47 p_slide.val=0", off, flen, 1'b1,
+            "p_slide", 4'd7, "0", 6'd1);
+        off = off + flen;
+        expect_frame("echo⑧-1 f48 p_bpm.val=0", off, flen, 1'b1,
+            "p_bpm", 4'd5, "0", 6'd1);
+        off = off + flen;
+        expect_frame("echo⑧-1 f49 b_uplink=● 实时上行: 开启", off, flen, 1'b0,
+            "b_uplink", 4'd8, {W_DOT, " ", W_SHISHI_SHANGXING, ": ", W_KAIQI},
+            6'd24);
+        off = off + flen;
+        expect_frame("echo⑧-1 f50 t_pr=速率 1.0Hz", off, flen, 1'b0,
+            "t_pr", 4'd4, {W_SULU, " ", "1.0", "Hz"}, 6'd12);
+        off = off + flen;
+        expect_frame("echo⑧-1 f51 t_vr=速率 5.2Hz", off, flen, 1'b0,
+            "t_vr", 4'd4, {W_SULU, " ", "5.2", "Hz"}, 6'd12);
+        off = off + flen;
+        expect_frame("echo⑧-1 f52 j_pr.val=0", off, flen, 1'b1,
+            "j_pr", 4'd4, "0", 6'd1);
+        off = off + flen;
+        expect_frame("echo⑧-1 f53 j_vr.val=2", off, flen, 1'b1,
+            "j_vr", 4'd4, "21", 6'd2);
+        off = off + flen;
+        expect_frame("echo⑧-1 f54 j_pd.val=0", off, flen, 1'b1,
+            "j_pd", 4'd4, "0", 6'd1);
+        off = off + flen;
+        expect_frame("echo⑧-1 f55 j_vd.val=0", off, flen, 1'b1,
+            "j_vd", 4'd4, "0", 6'd1);
+        off = off + flen;
+        expect_frame("full echo current lock",off,flen,0,"t_lock",4'd6,96'hE5AE9EE697B6E7949FE69588,6'd12);off=off+flen;
+        expect_frame("full echo lock summary",off,flen,0,"t_lock_info",4'd11,{48'hE99481E5AE9A," [",W_WU,"]"},6'd12);off=off+flen;
+        chk("echo⑧-1 56 帧恰好走满 burst（off=cap_n）", off === cap_n);
 
         // ── ⑧-2 变化回显：st_bpm 96→120（缺口3 回显链）──────────────
         st_bpm = 8'd120;
@@ -1377,11 +1439,11 @@ module tb_uart_ui;
             //   解除 busy ⇒ 回显恢复、完整推出 t_pedal 帧
             tx_busy = 1'b0;
             capture_echo;
-            chk("echo⑧-11 流控解除后 burst 总长 = 51 字节", cap_n === 51);
+            chk("echo⑧-11 流控解除后 burst 总长 = 51 字节", cap_n === 27);
             off = 0;
             expect_frame("echo⑧-11 t_pedal=[PEDAL 延音踏板: 踩下使能]", off, flen,
                 1'b0, "t_pedal", 4'd7,
-                {"[PEDAL ", W_YANYIN_TABAN, ": ", W_CAIXIA_SHINENG, "]"}, 6'd34);
+                "[PEDAL ON]", 6'd10);
             off = off + flen;
             chk("echo⑧-11 单帧走满 burst", off === cap_n);
         end
@@ -1428,7 +1490,7 @@ module tb_uart_ui;
         // ⑬ ⭐⭐ 2026-10-29 RTL 三件套（0x88 重发 / 0x19 翻转 / 0x1B 八度循环）
         // ═══════════════════════════════════════════════════════════════════
         //   判据设计（能红）：
-        //   A. 二次 0x88（hb_ready 已=1、无握手沿）⇒ 必须再收 47 帧全量 burst，
+        //   A. 二次 0x88（hb_ready 已=1、无握手沿）⇒ 必须再收 56 帧全量 burst，
         //      且内容 = **当前值**（⑧ 残留：钢琴/4/C6/PIANO/-3/120/85%/踩下/101；
         //      page1 残留：led 1/0/1、z_cl=37（chorlen 768）、mix 129 仍 50%、
         //      par_sel=7 ⇒ cur=合唱长度 (0x18)）
@@ -1437,17 +1499,19 @@ module tb_uart_ui;
         //   C. `71 1B 01` ⇒ base_semi 24→0→12→24 循环，base_commit 单拍
         // ═══════════════════════════════════════════════════════════════════
 
-        // ── ⑬-A 二次 0x88 ⇒ 47 帧全量重发（切页返回刷新）────────────────
-        //   ⭐ 帧长预算（page0 22 帧与 ⑧-1 同 = 672；page1 25 帧 = 473）：
+        // ── ⑬-A 二次 0x88 ⇒ 56 帧全量重发（切页返回刷新）────────────────
+        //   ⭐ 帧长预算（page0 22 帧 = 644：与 ⑧-1 同源但 t_bpm "120"=3 位
+        //      ⇒ 643+1；page1 25 帧 = 473）：
         //      page1 = 19(bco)+18(pco)+17+17+16(led 1/0/1)+14×6+13×2(z_*)
         //      +21×6+20×4(t_*_val)+38(cur)+32(gr 档2)
         //      ⭐ 与 ⑧-1 的 467 差 6B：cur = 合唱长度 (0x18) 38B（⑧-10f 把
-        //      par_sel 拨到 7 ⇒ 这里锁存的就是合唱长度而非增益 32B）⇒ 1145
+        //      par_sel 拨到 7 ⇒ 这里锁存的就是合唱长度而非增益 32B）；
+        //      ⭐ 新 9 帧 = 176 ⇒ 1293
         fork
             feed_frame(8'h88, 8'h00, 8'h00);
             capture_echo;
         join
-        chk("echo⑬-1 二次 0x88 ⇒ 全量重发 burst = 1145 字节（47 帧）", cap_n === 1145);
+        chk("echo⑬-1 二次 0x88 ⇒ 全量重发 burst = 1293 字节（56 帧）", cap_n === 1309);
         off = 0;
         expect_frame("echo⑬-1 f0  t_mode=钢琴模式 [PIANO]", off, flen, 1'b0,
             "t_mode", 4'd6, {W_GANGQIN_MOSHI, " [PIANO]"}, 6'd20);
@@ -1470,22 +1534,22 @@ module tb_uart_ui;
         expect_frame("echo⑬-1 f6  t_bpm=120", off, flen, 1'b0,
             "t_bpm", 4'd5, "120", 6'd3);
         off = off + flen;
-        expect_frame("echo⑬-1 f7  t_drum=开 I [PATTERN I]", off, flen, 1'b0,
-            "t_drum", 4'd6, {W_KAI, " ", "I", " [PATTERN ", "I", "]"}, 6'd17);
+        expect_frame("echo⑬-1 f7  t_drum=Pattern I", off, flen, 1'b0,
+            "t_drum", 4'd6, {"Pattern ", "I"}, 6'd9);
         off = off + flen;
         expect_frame("echo⑬-1 f8  t_loop=空闲", off, flen, 1'b0,
             "t_loop", 4'd6, W_KONGXIAN, 6'd6);
         off = off + flen;
-        expect_frame("echo⑬-1 f9  t_kd=键盘打鼓: 关闭 [音符演奏]", off, flen, 1'b0,
+        expect_frame("echo⑬-1 f9  t_kd=打鼓: 关闭 [音符演奏]", off, flen, 1'b0,
             "t_kd", 4'd4,
-            {W_JIANPAN_DAGU, ": ", W_GUANBI, " [", W_YINFU_YANZOU, "]"}, 6'd35);
+            {W_DAGU, ": ", W_GUANBI, " [", W_YINFU_YANZOU, "]"}, 6'd29);
         off = off + flen;
         expect_frame("echo⑬-1 f10 t_vol=主音量: 85%", off, flen, 1'b0,
             "t_vol", 4'd5, {W_ZHU_YINLIANG, ": ", "85", "%"}, 6'd14);
         off = off + flen;
         expect_frame("echo⑬-1 f11 t_pedal=[PEDAL 延音踏板: 踩下使能]", off, flen,
             1'b0, "t_pedal", 4'd7,
-            {"[PEDAL ", W_YANYIN_TABAN, ": ", W_CAIXIA_SHINENG, "]"}, 6'd34);
+            "[PEDAL ON]", 6'd10);
         off = off + flen;
         expect_frame("echo⑬-1 f12 t_gear=推子控制: 档 2 [音高颤音]", off, flen, 1'b0,
             "t_gear", 4'd6,
@@ -1494,13 +1558,13 @@ module tb_uart_ui;
         off = off + flen;
         expect_frame("echo⑬-1 f13 t_hdmi=HDMI 实时示波器 (波形显示)", off, flen, 1'b0,
             "t_hdmi", 4'd6,
-            {"HDMI: ", W_SHISHI_SHIBOQI, " (", W_BOXING_XIANSHI, ")"}, 6'd36);
+            {"HDMI: ", 48'hE6B3A2E5BDA2}, 6'd12);
         off = off + flen;
-        expect_frame("echo⑬-1 f14 t_pd=音高颤音: 0%", off, flen, 1'b0,
-            "t_pd", 4'd4, {W_YINGAO_CHANYIN, ": ", "0", "%"}, 6'd16);
+        expect_frame("echo⑬-1 f14 t_pd=深度 0%", off, flen, 1'b0,
+            "t_pd", 4'd4, {W_SHENDU, " ", "0", "%"}, 6'd9);
         off = off + flen;
-        expect_frame("echo⑬-1 f15 t_vd=音量颤音: 0%", off, flen, 1'b0,
-            "t_vd", 4'd4, {W_YINLIANG_CHANYIN, ": ", "0", "%"}, 6'd16);
+        expect_frame("echo⑬-1 f15 t_vd=深度 0%", off, flen, 1'b0,
+            "t_vd", 4'd4, {W_SHENDU, " ", "0", "%"}, 6'd9);
         off = off + flen;
         expect_frame("echo⑬-1 f16 t_dist_st=失真 [开]", off, flen, 1'b0,
             "t_dist_st", 4'd9, {W_SHIZHEN, " [", W_KAI, "]"}, 6'd12);
@@ -1555,11 +1619,11 @@ module tb_uart_ui;
         expect_frame("echo⑬-1 f32 z_lf.val=37（反馈 96）", off, flen, 1'b1,
             "z_lf", 4'd4, "37", 6'd2);
         off = off + flen;
-        expect_frame("echo⑬-1 f33 z_pr.val=2（速率 7）", off, flen, 1'b1,
-            "z_pr", 4'd4, "2", 6'd1);
+        expect_frame("echo repeat f33 z_pr.val=0 (raw pitch rate)", off, flen, 1'b1,
+            "z_pr", 4'd4, "0", 6'd1);
         off = off + flen;
         expect_frame("echo⑬-1 f34 z_vr.val=2（速率 7）", off, flen, 1'b1,
-            "z_vr", 4'd4, "2", 6'd1);
+            "z_vr", 4'd4, "21", 6'd2);
         off = off + flen;
         expect_frame("echo⑬-1 f35 t_dg_val=25%", off, flen, 1'b0,
             "t_dg_val", 4'd8, "25%", 6'd3);
@@ -1586,10 +1650,10 @@ module tb_uart_ui;
             "t_vd_val", 4'd8, "0%", 6'd2);
         off = off + flen;
         expect_frame("echo⑬-1 f43 t_pr_val=2%", off, flen, 1'b0,
-            "t_pr_val", 4'd8, "2%", 6'd2);
+            "t_pr_val", 4'd8, "0%", 6'd2);
         off = off + flen;
         expect_frame("echo⑬-1 f44 t_vr_val=2%", off, flen, 1'b0,
-            "t_vr_val", 4'd8, "2%", 6'd2);
+            "t_vr_val", 4'd8, "21%", 6'd3);
         off = off + flen;
         expect_frame("echo⑬-1 f45 cur=EC11: 合唱长度 (0x18)", off, flen, 1'b0,
             "cur", 4'd3, {"EC11: ", W_HECHANG_CD, " (0x18)"}, 6'd25);
@@ -1597,7 +1661,39 @@ module tb_uart_ui;
         expect_frame("echo⑬-1 f46 gr=档 2 [音高颤音]", off, flen, 1'b0,
             "gr", 4'd2, {W_DANG, " ", "2", " [", W_YINGAO_CHANYIN, "]"}, 6'd20);
         off = off + flen;
-        chk("echo⑬-1 47 帧恰好走满 burst（off=cap_n）", off === cap_n);
+        //   ⭐⭐ 2026-10-31 新 9 帧（f47..f55；⭐ 值与 ⑧-1 同默认：beat 零脉冲
+        //      ⇒ p_bpm 仍 0；uplink 在 ⑧ 前复位归 1 且无人再翻 ⇒ 开启）
+        expect_frame("echo⑬-1 f47 p_slide.val=0", off, flen, 1'b1,
+            "p_slide", 4'd7, "0", 6'd1);
+        off = off + flen;
+        expect_frame("echo⑬-1 f48 p_bpm.val=0", off, flen, 1'b1,
+            "p_bpm", 4'd5, "0", 6'd1);
+        off = off + flen;
+        expect_frame("echo⑬-1 f49 b_uplink=● 实时上行: 开启", off, flen, 1'b0,
+            "b_uplink", 4'd8, {W_DOT, " ", W_SHISHI_SHANGXING, ": ", W_KAIQI},
+            6'd24);
+        off = off + flen;
+        expect_frame("echo⑬-1 f50 t_pr=速率 1.0Hz", off, flen, 1'b0,
+            "t_pr", 4'd4, {W_SULU, " ", "1.0", "Hz"}, 6'd12);
+        off = off + flen;
+        expect_frame("echo⑬-1 f51 t_vr=速率 5.2Hz", off, flen, 1'b0,
+            "t_vr", 4'd4, {W_SULU, " ", "5.2", "Hz"}, 6'd12);
+        off = off + flen;
+        expect_frame("echo⑬-1 f52 j_pr.val=0", off, flen, 1'b1,
+            "j_pr", 4'd4, "0", 6'd1);
+        off = off + flen;
+        expect_frame("echo⑬-1 f53 j_vr.val=2", off, flen, 1'b1,
+            "j_vr", 4'd4, "21", 6'd2);
+        off = off + flen;
+        expect_frame("echo⑬-1 f54 j_pd.val=0", off, flen, 1'b1,
+            "j_pd", 4'd4, "0", 6'd1);
+        off = off + flen;
+        expect_frame("echo⑬-1 f55 j_vd.val=0", off, flen, 1'b1,
+            "j_vd", 4'd4, "0", 6'd1);
+        off = off + flen;
+        expect_frame("full echo current lock",off,flen,0,"t_lock",4'd6,96'hE5AE9EE697B6E7949FE69588,6'd12);off=off+flen;
+        expect_frame("full echo lock summary",off,flen,0,"t_lock_info",4'd11,{48'hE99481E5AE9A," [",W_WU,"]"},6'd12);off=off+flen;
+        chk("echo⑬-1 56 帧恰好走满 burst（off=cap_n）", off === cap_n);
 
         // ── ⑬-B 翻转变量 0x19：fx_mask 盲翻转（效果器开关按钮）──────────
         //   ⭐ fx_mask 此刻 = 0（⑦ 后复位、⑧ 只动过显示输入 st_fxmask）
@@ -1670,8 +1766,8 @@ module tb_uart_ui;
         expect_frame("echo⑭-A1 t_loop=● 循环录音中 REC", off, flen, 1'b0,
             "t_loop", 4'd6, {W_DOT, " ", W_XUNHUAN_LUYIN, " REC"}, 6'd23);
         off = off + flen;
-        expect_frame("echo⑭-A1 t_loop.bco=52517（录音红）", off, flen, 3'd3,
-            "t_loop", 4'd6, "52517", 6'd5);
+        expect_frame("echo⑭-A1 t_loop.bco=51461（录音红）", off, flen, 3'd3,
+            "t_loop", 4'd6, "51461", 6'd5);
         off = off + flen;
         expect_frame("echo⑭-A1 t_loop.pco=65535（反白）", off, flen, 3'd4,
             "t_loop", 4'd6, "65535", 6'd5);
@@ -1687,8 +1783,8 @@ module tb_uart_ui;
         expect_frame("echo⑭-A2 t_loop=► 循环回放中 PLAY", off, flen, 1'b0,
             "t_loop", 4'd6, {W_PLAY, " ", W_XUNHUAN_HUIFANG, " PLAY"}, 6'd24);
         off = off + flen;
-        expect_frame("echo⑭-A2 t_loop.bco=6822（回放绿）", off, flen, 3'd3,
-            "t_loop", 4'd6, "6822", 6'd4);
+        expect_frame("echo⑭-A2 t_loop.bco=7142（回放绿）", off, flen, 3'd3,
+            "t_loop", 4'd6, "7142", 6'd4);
         off = off + flen;
         expect_frame("echo⑭-A2 t_loop.pco=65535（反白）", off, flen, 3'd4,
             "t_loop", 4'd6, "65535", 6'd5);
@@ -1754,27 +1850,10 @@ module tb_uart_ui;
         off = off + flen;
         chk("echo⑭-C 双帧走满 burst", off === cap_n);
 
-        // ── ⑭-D 0x16 写速率 64 ⇒ 四帧（z_pr/z_vr/t_pr_val/t_vr_val）───
-        //   ⭐ rate 直传（非 ×256）；pct8(64)=25 ⇒ z 帧两位数 = 14B
-        feed_frame_z(8'h71, 8'h16, 8'd64);
-        chk("echo⑭-D 0x16=64 ⇒ fx_rate=64", fx_rate === 8'd64);
-        capture_echo;
-        chk("echo⑭-D burst 总长 = 70 字节（z_pr 14 + z_vr 14 + t_pr_val 21 + t_vr_val 21）",
-            cap_n === 70);
-        off = 0;
-        expect_frame("echo⑭-D z_pr.val=25", off, flen, 1'b1,
-            "z_pr", 4'd4, "25", 6'd2);
-        off = off + flen;
-        expect_frame("echo⑭-D z_vr.val=25", off, flen, 1'b1,
-            "z_vr", 4'd4, "25", 6'd2);
-        off = off + flen;
-        expect_frame("echo⑭-D t_pr_val=25%", off, flen, 1'b0,
-            "t_pr_val", 4'd8, "25%", 6'd3);
-        off = off + flen;
-        expect_frame("echo⑭-D t_vr_val=25%", off, flen, 1'b0,
-            "t_vr_val", 4'd8, "25%", 6'd3);
-        off = off + flen;
-        chk("echo⑭-D 四帧走满 burst", off === cap_n);
+        // FX-only rate writes no longer refresh either physical-vibrato gauge.
+        feed_frame_z(8'h71,8'h16,8'd64);
+        chk("FX rate storage preserved",fx_rate===8'd64);
+        repeat(20)begin @(negedge clk);chk("FX rate does not trigger fader gauges",tx_start!==1);end
 
         // ── ⑭-E par_sel 7→3 ⇒ cur 单帧（反馈）────────────────────────
         par_sel = 3'd3;
@@ -1790,7 +1869,7 @@ module tb_uart_ui;
         st_gear = 2'd3;
         capture_echo;
         chk("echo⑭-F burst 总长 = 64 字节（t_gear 41 + gr 23）",
-            cap_n === 64);
+            cap_n === 92);
         off = 0;
         expect_frame("echo⑭-F t_gear=推子控制: 档 4 [无]", off, flen, 1'b0,
             "t_gear", 4'd6,
@@ -1799,17 +1878,20 @@ module tb_uart_ui;
         expect_frame("echo⑭-F gr=档 4 [无]", off, flen, 1'b0,
             "gr", 4'd2, {W_DANG, " ", "4", " [", W_WU, "]"}, 6'd11);
         off = off + flen;
+        expect_frame("reserved gear lock stays unlocked",off,flen,0,"t_lock",4'd6,
+            96'hE5AE9EE697B6E7949FE69588,6'd12);off=off+flen;
         chk("echo⑭-F 双帧走满 burst", off === cap_n);
 
-        // ── ⑭-G st_pvib 0→40 ⇒ t_pd/z_pd/t_pd_val 三帧（⭐ raw 口径）─
+        // ── ⑭-G st_pvib 0→40 ⇒ t_pd/z_pd/t_pd_val/j_pd 四帧（⭐ raw 口径）─
         //   ⭐ t_pd 系数据源 = 【raw st_pvib】而非百分比 ⇒ 期望 "40"（⛔ 非 15）
+        //   ⭐ 2026-10-31 新文案 `深度 40%` + page0 双仓 j_pd 进度条（⭐ 四挂起）
         st_pvib = 7'd40;
         capture_echo;
-        chk("echo⑭-G burst 总长 = 66 字节（t_pd 31 + z_pd 14 + t_pd_val 21）",
-            cap_n === 66);
+        chk("echo⑭-G burst 总长 = 73 字节（t_pd 24 + z_pd 14 + t_pd_val 21 + j_pd 14）",
+            cap_n === 73);
         off = 0;
-        expect_frame("echo⑭-G t_pd=音高颤音: 40%", off, flen, 1'b0,
-            "t_pd", 4'd4, {W_YINGAO_CHANYIN, ": ", "40", "%"}, 6'd17);
+        expect_frame("echo⑭-G t_pd=深度 40%", off, flen, 1'b0,
+            "t_pd", 4'd4, {W_SHENDU, " ", "40", "%"}, 6'd10);
         off = off + flen;
         expect_frame("echo⑭-G z_pd.val=40", off, flen, 1'b1,
             "z_pd", 4'd4, "40", 6'd2);
@@ -1817,10 +1899,167 @@ module tb_uart_ui;
         expect_frame("echo⑭-G t_pd_val=40%", off, flen, 1'b0,
             "t_pd_val", 4'd8, "40%", 6'd3);
         off = off + flen;
-        chk("echo⑭-G 三帧走满 burst", off === cap_n);
+        expect_frame("echo⑭-G j_pd.val=40", off, flen, 1'b1,
+            "j_pd", 4'd4, "40", 6'd2);
+        off = off + flen;
+        chk("echo⑭-G 四帧走满 burst", off === cap_n);
+
+        // ═════════════════════════════════════════════════════════════════
+        // ⑮ ⭐⭐ 2026-10-31：《控件位置清单》新字段专项判据 ────────────────
+        //   ⑮-1..3 鼓机五态文案 · ⑮-4 b_uplink 触摸回显 · ⑮-5 节拍橙点 ·
+        //   ⑮-6/7 双仓速率 dHz 换算 + 进度条百分比
+        // ═════════════════════════════════════════════════════════════════
+
+        // ── ⑮-1 st_drum 开I→开II ⇒ t_drum 单帧 "Pattern II" ──────────
+        st_drum = 3'b101;
+        capture_echo;
+        chk("echo⑮-1 burst 总长 = 26 字节（仅 t_drum）", cap_n === 26);
+        off = 0;
+        expect_frame("echo⑮-1 t_drum=Pattern II", off, flen, 1'b0,
+            "t_drum", 4'd6, {"Pattern ", "II"}, 6'd10);
+        off = off + flen;
+        chk("echo⑮-1 单帧走满 burst", off === cap_n);
+
+        // ── ⑮-2 st_drum 开II→关 ⇒ t_drum 单帧 "关" ─────────────────
+        //   ⭐ 五态循环：I→II→III→IV→关→I；关档 = st_drum[2]=0
+        st_drum = 3'b000;
+        capture_echo;
+        chk("echo⑮-2 burst 总长 = 19 字节（仅 t_drum）", cap_n === 25);
+        off = 0;
+        expect_frame("echo⑮-2 t_drum=关", off, flen, 1'b0,
+            "t_drum", 4'd6, "Pattern I", 6'd9);
+        off = off + flen;
+        chk("echo⑮-2 单帧走满 burst", off === cap_n);
+
+        // ── ⑮-3 st_kd 0→1 ⇒ t_kd 单帧 `打鼓: 开启 [键位打鼓]` ───────
+        st_kd = 1'b1;
+        capture_echo;
+        chk("echo⑮-3 burst 总长 = 43 字节（仅 t_kd）", cap_n === 43);
+        off = 0;
+        expect_frame("echo⑮-3 t_kd=打鼓: 开启 [键位打鼓]", off, flen, 1'b0,
+            "t_kd", 4'd4,
+            {W_DAGU, ": ", W_KAIQI, " [", W_JIANWEI_DAGU, "]"}, 6'd29);
+        off = off + flen;
+        chk("echo⑮-3 单帧走满 burst", off === cap_n);
+
+        // ── ⑮-4 触摸控件 15 两次 ⇒ b_uplink 关闭/开启 各一帧 ─────────
+        //   ⭐ 此刻 uplink_sw=1（⑧ 前复位归 1 后无人再翻）⇒ 先翻 0 再翻 1
+        fork
+            feed_frame(8'h65, 8'h0F, 8'h00);
+            capture_echo;
+        join
+        chk("echo⑮-4a 触摸后 uplink_sw=0（关闭）", uplink_sw === 1'b0);
+        chk("echo⑮-4a burst 总长 = 42 字节（仅 b_uplink 关闭）", cap_n === 42);
+        off = 0;
+        expect_frame("echo⑮-4a b_uplink=● 实时上行: 关闭", off, flen, 1'b0,
+            "b_uplink", 4'd8, {W_DOT, " ", W_SHISHI_SHANGXING, ": ", W_GUANBI},
+            6'd24);
+        off = off + flen;
+        chk("echo⑮-4a 单帧走满 burst", off === cap_n);
+        fork
+            feed_frame(8'h65, 8'h0F, 8'h00);
+            capture_echo;
+        join
+        chk("echo⑮-4b 触摸后 uplink_sw=1（再开启）", uplink_sw === 1'b1);
+        chk("echo⑮-4b burst 总长 = 42 字节（仅 b_uplink 开启）", cap_n === 42);
+        off = 0;
+        expect_frame("echo⑮-4b b_uplink=● 实时上行: 开启", off, flen, 1'b0,
+            "b_uplink", 4'd8, {W_DOT, " ", W_SHISHI_SHANGXING, ": ", W_KAIQI},
+            6'd24);
+        off = off + flen;
+        chk("echo⑮-4b 单帧走满 burst", off === cap_n);
+
+        // ── ⑮-5 beat 上升沿 ⇒ p_bpm 橙点翻转；下降沿零回显 ──────────
+        //   ⭐ RTL：beat 变化时仅高电平才翻转 beat_dot_s 并挂 PBEAT ⇒
+        //      下降沿只更新电平镜像、⛔ 不挂帧 ✅
+        beat = 1'b1;
+        capture_echo;
+        chk("echo⑮-5a burst 总长 = 14 字节（仅 p_bpm.val=1）", cap_n === 14);
+        off = 0;
+        expect_frame("echo⑮-5a p_bpm.val=1（第一拍翻转）", off, flen, 1'b1,
+            "p_bpm", 4'd5, "1", 6'd1);
+        off = off + flen;
+        chk("echo⑮-5a 单帧走满 burst", off === cap_n);
+        //   ⭐ 负判据：下降沿 10 拍内 tx_start 必须恒 0（⛔ 若误挂帧会红）
+        begin : beat_fall_gate
+            integer g;
+            beat = 1'b0;
+            for (g = 0; g < 10; g = g + 1) begin
+                @(negedge clk);
+                if (tx_start === 1'b1) begin
+                    chk("echo⑮-5b beat 下降沿零回显（tx_start 恒 0）", 1'b0);
+                    disable beat_fall_gate;
+                end
+            end
+            chk("echo⑮-5b beat 下降沿零回显（tx_start 恒 0）", 1'b1);
+        end
+        //   ⭐ 第二拍上升沿 ⇒ 橙点翻回 0
+        beat = 1'b1;
+        capture_echo;
+        chk("echo⑮-5c burst 总长 = 14 字节（仅 p_bpm.val=0）", cap_n === 14);
+        off = 0;
+        expect_frame("echo⑮-5c p_bpm.val=0（第二拍翻回）", off, flen, 1'b1,
+            "p_bpm", 4'd5, "0", 6'd1);
+        off = off + flen;
+        chk("echo⑮-5c 单帧走满 burst", off === cap_n);
+
+        // ── ⑮-6 st_prate 0→2048 ⇒ t_pr+j_pr 双帧（6.5Hz / 50）────────
+        //   dHz = 10+((2048×110+2048)>>12) = 65 ⇒ "6.5Hz"；
+        //   j_pr = ech_pct12(2048) = (2048>>4)×100>>8 = 50
+        st_prate = 12'd2048;
+        capture_echo;
+        chk("pitch raw rate burst = 54 bytes (z_pr + t_pr + j_pr)", cap_n === 75);
+        off = 0;
+        expect_frame("raw pitch rate updates z_pr independently", off, flen, 1'b1,
+            "z_pr", 4'd4, "50", 6'd2);
+        off = off + flen;
+        expect_frame("pitch percent follows its own raw rate",off,flen,0,"t_pr_val",4'd8,"50%",6'd3);off=off+flen;
+        expect_frame("echo⑮-6 t_pr=速率 6.5Hz", off, flen, 1'b0,
+            "t_pr", 4'd4, {W_SULU, " ", "6.5", "Hz"}, 6'd12);
+        off = off + flen;
+        expect_frame("echo⑮-6 j_pr.val=50", off, flen, 1'b1,
+            "j_pr", 4'd4, "50", 6'd2);
+        off = off + flen;
+        chk("echo⑮-6 双帧走满 burst", off === cap_n);
+
+        // ── ⑮-7 st_vrate 7→64 ⇒ t_vr+j_vr 双帧（47.7Hz / 25）────────
+        //   dHz = (64×488280+32768)>>16 = 477 ⇒ "47.7Hz"；
+        //   j_vr = ech_pct8(64) = 64×100>>8 = 25
+        st_vrate = 8'd64;
+        capture_echo;
+        chk("echo⑮-7 burst 总长 = 41 字节（t_vr 27 + j_vr 14）", cap_n === 76);
+        off = 0;
+        expect_frame("volume rate saturates gauge",off,flen,1,"z_vr",4'd4,"99",6'd2);off=off+flen;
+        expect_frame("volume rate percent matches",off,flen,0,"t_vr_val",4'd8,"99%",6'd3);off=off+flen;
+        expect_frame("echo⑮-7 t_vr=速率 47.7Hz", off, flen, 1'b0,
+            "t_vr", 4'd4, {W_SULU, " ", "47.7", "Hz"}, 6'd13);
+        off = off + flen;
+        expect_frame("echo⑮-7 j_vr.val=25", off, flen, 1'b1,
+            "j_vr", 4'd4, "99", 6'd2);
+        off = off + flen;
+        chk("echo⑮-7 双帧走满 burst", off === cap_n);
 
         // ═══════════════════════════════════════════════════════════════════
-        // 汇总
+        // Raw pitch rate endpoints must update both gauges with complete frames.
+        st_prate=12'd4095;
+        capture_echo;
+        off=0;
+        expect_frame("pitch maximum z_pr=99",off,flen,1'b1,"z_pr",4'd4,"99",6'd2);off=off+flen;
+        expect_frame("maximum pitch percent",off,flen,0,"t_pr_val",4'd8,"99%",6'd3);off=off+flen;
+        expect_frame("pitch frequency mapping unchanged at maximum",off,flen,1'b0,
+            "t_pr",4'd4,{W_SULU," ","12.0","Hz"},6'd13);off=off+flen;
+        expect_frame("pitch maximum j_pr=99",off,flen,1'b1,"j_pr",4'd4,"99",6'd2);off=off+flen;
+        chk("maximum rate complete burst",off===cap_n);
+        st_prate=0;
+        capture_echo;
+        off=0;
+        expect_frame("pitch zero z_pr=0",off,flen,1'b1,"z_pr",4'd4,"0",6'd1);off=off+flen;
+        expect_frame("zero pitch percent",off,flen,0,"t_pr_val",4'd8,"0%",6'd2);off=off+flen;
+        expect_frame("pitch zero frequency mapping unchanged",off,flen,1'b0,
+            "t_pr",4'd4,{W_SULU," ","1.0","Hz"},6'd12);off=off+flen;
+        expect_frame("pitch zero j_pr=0",off,flen,1'b1,"j_pr",4'd4,"0",6'd1);off=off+flen;
+        chk("zero rate complete burst",off===cap_n);
+        // Summary
         // ═══════════════════════════════════════════════════════════════════
         if (errors == 0) begin
             //  ⭐ 运行期计数（⭐ ⛔ 不再写死 28）✅

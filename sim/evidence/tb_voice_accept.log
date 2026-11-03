@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_voice_accept/tb_voice_accept.vcd opened for output.
+﻿VCD info: dumping is suppressed.
 
 ============ T10 鐪熷疄 voice 楠屾敹 ============
   DUT = voice锛圖DS + pROM 娉㈣〃 + ADSR + 骞呭害缂╂斁锛?
@@ -18,6 +18,6 @@
   ok : 杈撳嚭纭疄鏈夐潪闆舵牱鐐癸紙96259 鎷嶏級鈥斺€?涓嶆槸銆屽亣瑁呭湪宸ヤ綔銆?
 
 PASS: T10 鐪熷疄 voice 鐨?A6/A7/A8 涓庢椿鍔ㄦ牱鐐归獙鏀跺叏閮ㄩ€氳繃
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\voice\tb_voice_accept.sv:271: $finish called at 2007251000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\voice\tb_voice_accept.sv:271: $finish called at 2007251000 (1ps)
 
 

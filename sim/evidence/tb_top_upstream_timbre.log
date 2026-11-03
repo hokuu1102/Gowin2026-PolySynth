@@ -15,24 +15,24 @@ NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
 NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
 NOTE [top] PA_ON_AFTER_RESET=1 => PA_EN_n held HIGH forever (0 falling edges). On Console SD_MODE=Left => SOUNDS (U-25b). On NEO Dock high = shutdown, so only use 0 there.
-VCD info: dumpfile build/sim/tb_top_upstream_timbre/tb_top_upstream_timbre.vcd opened for output.
+VCD info: dumping is suppressed.
   ok  : non-vacuity): with the upstream DISABLED, ZERO bytes are emitted
   ok  : and up_enable_r really is 0 at this point
   ok  : 'O' (0x4F) turns the real-time upstream ON
   ok  : one hand-play event => exactly 14 bytes
   ok  : byte[0] is the 0xA5 header
   ok  : kind=0 (note_on) => type 0x01
-  ok  :  DRUM MARKER, and a hand-play event is NOT a drum => it is 0 ***
+  ok  : ] low nibble preserves hand-play identity => it keeps axis 5 ***
   ok  : byte[8..11] carry the FULL 32-bit phase_inc
   ok  : byte[13] equals XOR of bytes [0..12] (INCLUDING the 0xA5 header)
-  ok  :  = 0x20 => timbre 2 in bits[5:4], drum marker 0 in bits[3:0] ***
+  ok  :  => timbre 2 in bits[5:4], original melody axis in bits[3:0] ***
   ok  : E's timbre field == 2, i.e. the timbre that actually SOUNDED ***
   ok  : n-vacuity: the timbre field is NOT the old hard-zero form (0x00)
-  ok  : T timbre (1) + a hand-play (drum marker 0) => byte[7] = 0x10 ***
+  ok  : e (1) + a hand-play (original melody axis) => byte[7] = 0x19 ***
   ok  : *** and the frame's timbre field tracks it (now 1) ***
   ok  : two back-to-back events => exactly 2 frames (28 bytes)
-  ok  : 1 keeps ITS OWN timbre: [7] = 0x30 (timbre 3, drum marker 0) ***
-  ok  : carries ITS OWN timbre: [7] = 0x10 (timbre 1, drum marker 0) ***
+  ok  :  ITS OWN timbre: [7] = 0x31 (timbre 3, original melody axis) ***
+  ok  :  ITS OWN timbre: [7] = 0x12 (timbre 1, original melody axis) ***
   ok  : ck up the later timbre 2 (the timbre travels WITH the event) ***
   ok  : frame #1 checksum holds with the new byte[7]
   ok  : frame #2 checksum holds with the new byte[7]
@@ -72,6 +72,6 @@ VCD info: dumpfile build/sim/tb_top_upstream_timbre/tb_top_upstream_timbre.vcd o
   ok  : 0x11 is the value BEFORE is_drum was added -- bit[6] must differ
 
 PASS: top-level upstream timbre -- a hand-play event's frame carries the timbre that actually SOUNDED in bits[5:4] (bits[3:0] is now the DRUM MARKER, which is 0 for hand-play), and the timbre travels with its own event through the FIFO
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\top\tb_top_upstream_timbre.sv:552: $finish called at 2937320000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\top\tb_top_upstream_timbre.sv:539: $finish called at 2937320000 (1ps)
 
 

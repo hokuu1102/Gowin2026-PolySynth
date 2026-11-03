@@ -11,10 +11,10 @@ the T31b wavetable ROM. They are not PCM phrases or instrument recordings.
 
 | Synth timbre | Imported file | Upstream path |
 |---|---|---|
-| BASS | `AKWF_dbass_0050_256.h` | `AKWF--Teensy/AKWF_dbass/AKWF_dbass_0050_256.h` |
-| GUITAR | `AKWF_eguitar_0015_256.h` | `AKWF--Teensy/AKWF_eguitar/AKWF_eguitar_0015_256.h` |
-| PIANO | `AKWF_clavinet_0005_256.h` | `AKWF--Teensy/AKWF_clavinet/AKWF_clavinet_0005_256.h` |
-| PAD | `AKWF_eorgan_0020_256.h` | `AKWF--Teensy/AKWF_eorgan/AKWF_eorgan_0020_256.h` |
+| BASS | `AKWF_dbass_0050_256.h` | upstream path: AKWF--Teensy/AKWF_dbass/AKWF_dbass_0050_256.h |
+| GUITAR | `AKWF_eguitar_0015_256.h` | upstream path: AKWF--Teensy/AKWF_eguitar/AKWF_eguitar_0015_256.h |
+| PIANO | `AKWF_clavinet_0005_256.h` | upstream path: AKWF--Teensy/AKWF_clavinet/AKWF_clavinet_0005_256.h |
+| PAD | `AKWF_eorgan_0020_256.h` | upstream path: AKWF--Teensy/AKWF_eorgan/AKWF_eorgan_0020_256.h |
 
 `tools/gen_t31b_wavetable.py` removes each source's DC component, creates the
 existing quiet endpoint with a cyclic 5-tap low-pass repeated three times,

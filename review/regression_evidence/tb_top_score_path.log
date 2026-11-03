@@ -1,0 +1,51 @@
+NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=1000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
+NOTE [fx_delay] DEPTH=2048 samples = 41 ms @48828.125Hz | MEM_W=18 => 36864 bit / 18432 bit-per-block = 2 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=26 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [ctrl_keypad] PARAM_OK=1 (SCAN_DIV=12500 DEB_N=8 CLK_HZ=50000000 scan_us=0 db_ms=8)
+NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=50000000 LONG_MS=2000 LONG_CYC=100000000 HW=27)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+=== tb_top_score_path (鏇茶氨閾捐矾銆愰《灞傘€戝垽鎹? ===
+   play_seq 澶嶄綅榛樿 tick_inc = 164927锛堚瓙 120 BPM = 164927锛?
+  ok  : 0a tick_inc default is 120 BPM (beat_gen tempo now comes from play_seq)
+== A 鏈潵浜嬩欢蹇呴』琚€愮紦鍐层€戜綇锛坱ick=1锛夛紝鉀?涓嶈绔嬪埢鍙?==
+  ok  : Aa the event is sitting in u_evt_buf (rd_valid == 1)
+  ok  : Ab play_seq has emitted NOTHING yet (tick has not arrived) <-- the key change
+  ok  : Ac no note yet
+  ok  : Ad no overflow for a single event
+== B/C/D 鍒扮偣鑷繁鍑烘潵 + LED 鎸囧紩鐐逛寒 + 缂撳啿鎺掔┖ ==
+   info: 绛変簡 16631 鎷嶏紙猸?tick=1 @120 BPM 鈮?26041 鎷嶏級
+  ok  : Ba play_seq emitted the event once its tick arrived
+  ok  : Bb exactly ONE note was emitted (no duplicate)
+  ok  : Bc the emitted event carries axis 5 (fields survived the whole chain)
+  ok  : Ca guide_lamp lit key 5 (C3's key -- the LED guide half is ALIVE) <-- the whole point
+  ok  : Cb other keys are NOT lit (one-hot, no crosstalk)
+  ok  : Da u_evt_buf drained after the event was consumed
+== F kind=2 鎹㈤€燂細猸?鐪熺殑杩涗簡 beat_gen锛屸瓙 涓斾笉浜х敓闊崇 ==
+  ok  : Fa tick_inc_o now carries the tempo from the kind=2 event
+  ok  : Fb tempo applied exactly once
+  ok  : Fc a kind=2 event produces NO note (count still 1)
+  ok  : Fd it was still counted as consumed
+== G 涓ゆ潯 UART 蹇呴』銆愬悇褰掑悇銆戯細鏇茶氨鍙 ESP32 閭ｄ竴璺?==
+  ok  : Ga the BOARD uart must NOT feed the score receiver (frame_cnt unchanged)
+  ok  : Ga2 no score event was consumed from the board uart
+  ok  : Gb the ESP32 uart TX is ALIVE (a start bit appeared) -- not tied to 1
+== H 猸愨瓙 鏇茶氨闊抽珮鐨勩€愰噺绾层€戯細inc 蹇呴』鎸夈€愰噰鏍风巼銆戣В閲?==
+   info: 鏇茶氨浜嬩欢鐨?inc=38697984 鈬?鎸夐噰鏍风巼鎹㈢畻 = 439 Hz锛堚瓙 鏈熸湜 440锛?
+  ok  : H1 the score note's phase_inc yields 440 Hz at the SAMPLE rate (not 50 MHz)
+  ok  : H2 non-vacuity: the value must have been SCALED up past the 21-bit wire field
+
+PASS: tb_top_score_path - 20/20 judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3b\tb_top_score_path.sv:336: $finish called at 1136930000 (1ps)
+
+

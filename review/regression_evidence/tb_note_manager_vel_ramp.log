@@ -1,0 +1,5 @@
+  checks=123904  new-vs-old mismatches=0  red(no-valid-gate) mismatches=30855  spec mismatches=0
+PASS: tb_note_manager_vel_ramp 123904 cases, 0 mismatches; red detected in 30855; spec-conformant
+C:\Users\cyx\Documents\ChatGPT\FPGA\audit-latest-20261020-cd63b07\tb\w3b\tb_note_manager_vel_ramp.sv:130: $finish called at 123904000 (1ps)
+
+

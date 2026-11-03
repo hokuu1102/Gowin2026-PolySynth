@@ -1,4 +1,4 @@
-﻿VCD info: dumpfile build/sim/tb_envelope_bank/tb_envelope_bank.vcd opened for output.
+﻿VCD info: dumping is suppressed.
 == P1-03锛氣瓙 澶氭媿 `sample_tick` 蹇呴』涓庡崟鎷嶃€愮瓑浠枫€?=
   ok  : P1-03 a 2-cycle sample_tick == a 1-cycle one (env0=32768)
 == P1-03b锛氣瓙 **鎸佺画涓洪珮**鐨?`sample_tick`锛堚瓙 宸茬煡缂哄彛锛屸瓙 鏈疆銆愪笉淇€戯級==

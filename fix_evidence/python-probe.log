@@ -1,0 +1,10 @@
+PASS Python decodes full-width A4 phase_inc at sample rate: (440.000349044567, 69)
+PASS byte7 00 survives Event parse timbre/drum metadata: '<note_on tick=100 axis=0 inc=38702840 vel=100>'
+PASS byte7 11 survives Event parse timbre/drum metadata: '<note_on tick=100 axis=1 inc=38702840 vel=100>'
+PASS byte7 22 survives Event parse timbre/drum metadata: '<note_on tick=100 axis=2 inc=38702840 vel=100>'
+PASS byte7 33 survives Event parse timbre/drum metadata: '<note_on tick=100 axis=3 inc=38702840 vel=100>'
+PASS byte7 40 survives Event parse timbre/drum metadata: '<note_on tick=100 axis=0 inc=38702840 vel=100>'
+PASS byte7 50 survives Event parse timbre/drum metadata: '<note_on tick=100 axis=0 inc=38702840 vel=100>'
+PASS byte7 60 survives Event parse timbre/drum metadata: '<note_on tick=100 axis=0 inc=38702840 vel=100>'
+PASS byte7 70 survives Event parse timbre/drum metadata: '<note_on tick=100 axis=0 inc=38702840 vel=100>'
+FAILURES=0

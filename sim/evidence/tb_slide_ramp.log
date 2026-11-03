@@ -32,6 +32,6 @@
   ok  : 6b: and immediately deactivates (no endless micro-stepping)
 
 PASS: slide ramp -- a trig starts at A's pitch and walks toward B's pitch in many small monotonic steps (both directions), lands exactly on the target, retargeting continues from the current value instead of jumping back, and sub-EPS moves snap cleanly
-C:\Users\hokuu\Desktop\FPGA\FPGA2026\tb\w3a\tb_slide_ramp.sv:229: $finish called at 10311000 (1ps)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3a\tb_slide_ramp.sv:229: $finish called at 10311000 (1ps)
 
 

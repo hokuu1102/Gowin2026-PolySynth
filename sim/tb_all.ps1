@@ -18,7 +18,9 @@
 #       ⛔ **不把 `ERROR` 当失败**：T3 的负向测试会**故意**打印 `ERROR [A3]/[A6]/[A8]`，
 #          那正是"断言确实会触发"的证据。ERROR 行只做计数与展示。
 #       X 传播由 `tb/checkers/chk_xprop.sv`（A8）在每个 tb 里主动监视。
-param([string]$Filter = "", [int]$TimeoutSec = 120)
+param([string]$Filter = "", [int]$TimeoutSec = 120,
+      [switch]$ExactFilter, [switch]$NoWave,
+      [ValidateRange(1,20)][double]$TimeoutScale = 1)
 
 $ErrorActionPreference = "Continue"
 
@@ -63,7 +65,7 @@ $rtl    = @($rtl) + $rtlDac
 $models = Get-HdlSources (Join-Path $root "tb\models")
 $chk    = Get-HdlSources (Join-Path $root "tb\checkers")   # T3 的断言 A1~A8
 $tbs    = @(Get-ChildItem -Path $tbDir -Recurse -Include tb_*.sv -File -ErrorAction SilentlyContinue |
-            Where-Object { $Filter -eq "" -or $_.Name -like "*$Filter*" } |
+            Where-Object { $Filter -eq "" -or ($ExactFilter -and $_.BaseName -eq $Filter) -or (-not $ExactFilter -and $_.Name -like "*$Filter*") } |
             Sort-Object FullName)
 
 if ($tbs.Count -eq 0) {
@@ -236,15 +238,11 @@ foreach ($tb in $tbs) {
   #      （⭐ `-Filter` 显式选中时不跳过）
   #   ⚠️ **它们仍要能编译** —— ⭐ 所以⛔ 不是"从工程里删掉"，⭐ 只是不每轮跑。
   # ═══════════════════════════════════════════════════════════════════════════
-  #  ⭐⭐ 2026-10-14：⭐ **`tb_at_merge_known_bugs` 也进本表**（⭐ AT 集成交付带来）✅
-  #     🔴 **为什么**：⭐ 它是**诊断**，⭐ 而且**按设计就失败** ✅ ——
-  #        ⭐ 它自己的文件头原文：*"Known inherited failures are expected.
-  #           Never classify this as a PASS test."* ✅
-  #        ⭐ 且 `n_errors` 非零就 `$fatal` ⇒ ⚠️ 非零退出 ⇒ 🔴 会被算成"失败" ✅
-  #     📌 ⭐ 与 `tb_export_*` **同类**：⭐ 都是"有判据、⛔ 但不是验收"的 tb ✅
-  #        ⚠️ 它复现的是**继承来的已知缺陷**（⭐ AT 交付原文："Not a full-suite
-  #           or board acceptance claim"）⇒ ⭐ 拿它当验收判据会**误报回归** ✅
-  #     📌 **要单独看它**：⭐ `powershell -File sim\tb_all.ps1 -Filter tb_at_merge_known_bugs` ✅
+  # Historical pre-position-follower diagnostic: its old autonomous-glide
+  # requirements and forced multiplexed lookup input do not represent the
+  # current controller. Preserve its FAIL log; do not count it as PASS.
+  # Current acceptance uses tb_slide_position_ctrl / tb_slide_position_e2e.
+  # The two export benches generate listening files rather than verdicts.
   $skipByDefault = @('tb_export_wav', 'tb_export_key_wav', 'tb_at_merge_known_bugs')
   if (($Filter -eq "") -and ($skipByDefault -contains $name)) {
     Write-Host ("  [skip] {0}  (工具 tb，默认跳过；用 -Filter {0} 单独跑)" -f $name) -ForegroundColor DarkYellow
@@ -346,18 +344,25 @@ foreach ($tb in $tbs) {
                   #        （⭐ 而日志里已有 `PASS:` ✅）⇒ ⭐ 这是 `K-94` 的**反面误报** ⚠️
                   #     ⇒ ⭐ 给 **600 s**（⭐ 5× 余量）⛔ 否则机器负载高时必误报
                   elseif ($name -eq 'tb_demo_stall_diag') { 600 }
+                  # 64 ledger slots, 65,536 ONs and 65,535 OFFs: measured
+                  # 512-reference sample ~1.2 s; retain the full count boundary.
+                  elseif ($name -eq 'tb_guide_lamp_identity') { 480 }
+                  elseif ($name -eq 'tb_top_fx_runtime') { 600 }
                   elseif ($heavyTb -contains $name) { 300 }
                   else { $TimeoutSec }
 
+  $tbTimeoutSec = [int][Math]::Ceiling($tbTimeoutSec * $TimeoutScale)
   $job = Start-Job -ScriptBlock {
-    param($exe, $img, $wd)
+    param($exe, $img, $wd, $noWave)
     Set-Location -LiteralPath $wd      # ⭐ 关键：让相对 $dumpfile 落在仓库根下
-    $o = & $exe $img 2>&1 | Out-String
+    $vvpArgs = @($img)
+    if ($noWave) { $vvpArgs += "-none" }
+    $o = & $exe @vvpArgs 2>&1 | Out-String
     $c = $LASTEXITCODE
     if ($null -eq $c) { $c = 0 }
     # ⭐ 把真实退出码用标记行带出来（⛔ 不能用 $LASTEXITCODE 跨 job 边界）
     "$o`n__VVP_EXIT__=$c"
-  } -ArgumentList $vvp, $vvpFile, $root
+  } -ArgumentList $vvp, $vvpFile, $root, ([bool]$NoWave)
 
   $done = Wait-Job -Job $job -Timeout $tbTimeoutSec
   if (-not $done) {
@@ -372,22 +377,10 @@ foreach ($tb in $tbs) {
       Where-Object { $_.CreationDate -ge $stamp -and $_.CommandLine -match $imageArg } |
       ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
     # END SCOPED VVP CLEANUP
-    # ⭐⭐ 2026-09-24：超时消息里带上【已产出的日志】——
-    #    ⚠️ 若里面已经有 `PASS:` ⇒ 说明**仿真其实成功了**，只是没在预算内返回
-    #    ⇒ ⭐ 一眼就能区分"真挂死"和"预算太紧"（⭐ 这正是第四次修复要防的误判）
-    $partial = ""
-    if (Test-Path $runLog) {
-      $tail = (Get-Content $runLog -Tail 40 -ErrorAction SilentlyContinue) -join "`n"
-      if ($tail -match "(?m)^PASS:") {
-        $partial = "  [!!] 但日志里已出现 PASS: —— 很可能是【超时预算太紧】而不是真挂死，请人工确认"
-      } elseif ($tail -match "(?m)^FAIL:") {
-        $partial = "  [!!] 日志里有 FAIL: —— 这是真失败"
-      }
-    }
-    $runOut  = @("FAIL: TIMEOUT after $tbTimeoutSec s -- testbench hung (no verdict is a FAILURE, see K-94)$partial")
+    # The job buffers stdout; an existing runLog belongs to an older run.
+    $runOut = @("FAIL: TIMEOUT after $tbTimeoutSec s -- no verdict before deadline")
     $runExit = 124
-    Write-Host ("    ⛔ 超时 " + $tbTimeoutSec + " s（本 tb 预算）—— 判失败（挂死不是通过，见 K-94）") -ForegroundColor Red
-    if ($partial) { Write-Host ("    " + $partial) -ForegroundColor Yellow }
+    Write-Host ("    TIMEOUT after $tbTimeoutSec s -- no verdict before deadline") -ForegroundColor Red
   } else {
     $raw = Receive-Job -Job $job
     Remove-Job -Job $job -Force -ErrorAction SilentlyContinue

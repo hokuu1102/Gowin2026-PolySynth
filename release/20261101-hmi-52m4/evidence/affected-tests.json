@@ -1,0 +1,82 @@
+[
+  {
+    "name": "tb_axis_snapshot_cycle_equiv",
+    "pass": true,
+    "seconds": 1.84
+  },
+  {
+    "name": "tb_axis_snapshot",
+    "pass": true,
+    "seconds": 0.54
+  },
+  {
+    "name": "tb_event_extract_slide",
+    "pass": true,
+    "seconds": 0.53
+  },
+  {
+    "name": "tb_ee_slide_slow",
+    "pass": true,
+    "seconds": 0.64
+  },
+  {
+    "name": "tb_top_hmi_integration",
+    "pass": true,
+    "seconds": 170.92
+  },
+  {
+    "name": "tb_uart_ui",
+    "pass": true,
+    "seconds": 2.11
+  },
+  {
+    "name": "tb_slide_position_e2e",
+    "pass": true,
+    "seconds": 91.4
+  },
+  {
+    "name": "tb_top_ui_snapshot",
+    "pass": true,
+    "seconds": 2.93
+  },
+  {
+    "name": "tb_top_guide_axes",
+    "pass": true,
+    "seconds": 53.06
+  },
+  {
+    "name": "tb_top_guide_bit6",
+    "pass": true,
+    "seconds": 65.75
+  },
+  {
+    "name": "tb_top_keydrum_score_isolation",
+    "pass": true,
+    "seconds": 3.36
+  },
+  {
+    "name": "tb_top_fx_audio",
+    "pass": true,
+    "seconds": 139.82
+  },
+  {
+    "name": "tb_event_extract",
+    "pass": true,
+    "seconds": 0.54
+  },
+  {
+    "name": "tb_ee_adj",
+    "pass": true,
+    "seconds": 0.53
+  },
+  {
+    "name": "tb_ee_multineighbor",
+    "pass": true,
+    "seconds": 0.53
+  },
+  {
+    "name": "tb_ee_slide_noise",
+    "pass": true,
+    "seconds": 0.52
+  }
+]

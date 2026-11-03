@@ -1,0 +1,282 @@
+cd63b07 deliver(2026-10-18-cycle): 大部分功能完成 —— 上行帧带音色 + 灌谱指引灯换颗 + 合并 ESP32 线；时序 Fmax 59.245 / 真实余量 +3.121 ns
+fe20f1a feat: 上行帧带上音色 + 灌谱指引灯改点同音另一颗；时序回正 Fmax 59.245 / 真实余量 +3.121 ns
+8c70d4a deliver(2026-10-18): 时序定版(真实 50MHz 达标) + 推子三档/锁定/双颤音共存 + 串口屏定稿
+1ea543d deliver(2026-10-17-cycle4): 删 span 标定 + 时序定版(真实 50 MHz 达标) + P0-30 setup 门 + 全项目上机手册
+8070884 源码对齐位流 + Q4 结论 + 上板卡
+65aa3c7 Q3 鼓池超订修好(RESERVED_N 5到8) + Q8 订正 + 文档
+9057ac9 时序收敛 + PnR 破卡死 + LED 重播修复：0 setup / 0 hold 位流出炉
+8209c24 fix(时序+审计): calib 夹紧寄存器化 · 滑音 A 判据改用 key_on · 9 处静默失效 + 6 处卫生
+ef74973 fix(滑音+LED) + docs(排查): 滑音被噪声抢 A · LED 示范段不亮 · 六路只读审计结论
+b0cac59 fix(时序+约束+鼓标记): 滑音判定链 67→9 级 · 恢复 h5_scope 约束 · 上行鼓标记三路统一
+af9f2cd feat: 鼓机多声部 + 逐事件引导 + 效果器运行时参数 + 三刀时序修复
+4a669c7 ﻿merge: 队友 BJ 冻结版 + ESP32 两项需求 + 效果器链；并修 4 处问题
+bebfc26 ﻿feat(fx): 效果器链（失真/合唱/延迟/音量颤音）+ 控制板灯序按第 3 版重排
+1440e51 ﻿docs(效果器): 澄清 led_indicator 是三层结构里的指示层（不是 WS2812）；灯序一起改
+48717e2 ﻿docs(效果器): 按用户四条再修订 —— 串口编译期二选一、2 位 gear、控制板 8 颗灯
+d41823d ﻿docs(效果器): 按用户新裁定重排路径 —— 不用 EC11，改推子参数页 + 串口屏
+28b3bf0 ﻿feat(guide): LED 提前一拍 + 构建超时提到 40 分钟；补齐本轮文档
+9806f0f ﻿docs(效果器): 整合方案 —— 按用户六条裁定更新，并清掉装饰 emoji
+5e038e8 ﻿docs(上机手册): 更新到全绿版位流 + 标注 LED 是【同拍】不是提前
+458c6a9 ﻿fix(top): Z-safe ctrl_col_i; add the missing evt_upstream.v; green the suite
+691e971 ﻿docs(上机手册): 2026-10-14 合并版 —— 可测功能清单
+74ff957 Merge remote-tracking branch 'origin/feat/s3-ble'
+0806534 网页 UI 三项：鼓换青色 + 图例只留音色 + 音色网页上直接改
+6be0818 ﻿fix(play_mode_ctrl): drop the pluck_d dual-driver so synthesis passes
+04928b4 交接 prompt 更新基线数字并加上机清单指引
+ce05420 夜间第二轮：双向验证四组判据 + 修写死端口 + 清单命令可粘贴化
+08946d5 ﻿fretboard multi-axis voice tracking + keypad/LED/guide-mode/14B upstream
+432a17c 夜间自检工具三件套 + 待上机验证清单；确认无工具依赖固定 axis
+943eace ﻿🔴 修 BPM：全局 BPM 的谱子被兜底成 120（tempo 轨没音符 ⇒ 整个被丢）
+80af256 ﻿修两个用户报告的问题：GATT operation already in progress + 一键上传只有 3.6 KB/s
+4f3ac98 ﻿同步交接文档：补本轮四条新事实（axis 语义 / 鼓 / 提前量 / 上行状态）
+f8c384a 修和弦没被识别（FPGA same_hit 顶音）+ 鼓单独一栏 + 追问同时敲鼓
+a4ca437 按 FPGA 第3版答复修正：inc = phase_inc>>10（我方位宽结论作废）；回退 F_CLK 误改
+ad5b33a 修网页显示层：C10（采样时钟写错）+ 鼓显示成 BASS；并同步 FPGA 侧校验口径更正
+b78643e 新增需求文档：让 PC 灌的鼓谱正确发声（下行 inc 21 位装不下鼓机 32 位）
+2e4bbeb 鼓谱转换（GM->鼓机四件）+ 选轨播放 + 轴图例显示音色 + 发现下行 inc 位宽硬冲突
+8307080 回传整合进灌谱页（共用一条 BLE）+ 修 pool_stop 挂音 + 修三处口径/缓存问题
+8aea7ef 起播等待 10.4 秒 -> 1.81 秒；动态提前量模型推演与两版失败记录
+be08c0e 交付 FPGA 侧 §十 请求：inc 探针 + 回函；并补登记 4 个新工具
+9d30dd3 deliver: 'A' + vibrato board-verified; bar-aligned manual BPM; absorb the ESP32 and AT lines
+7cdede3 修进度条分母(ttot) + 修 pump 周期(tick 100->1000Hz) + 给 FPGA 的问题清单
+eece6e3 落文档 §7.8：真机验收状态 + 连续 3 轮零抖动证据 + 4 条独立判据
+1fc4a19 判据粒度：把「缺硬件」与「被测对象坏了」分开（regress_live + e2e）
+6e6842c 新增「只靠 BLE 验 UART1 发送路径」—— 把"ESP32 没发"与"线没接"分开
+bed3fee 补 3 个「有判据但没人跑」的工具 + 修 selftest_all 的收录缺口
+b13969a 落文档：BLE 根因（§7.6）+ 下行贯通 + 给 FPGA 侧的回函
+d2a4d69 🔴 根因修复：BLE 服务发现只有 4 个 —— Windows 按 MAC 缓存 GATT 表，改用随机地址
+64c1532 🔴 修 BLE 广播包长度错误（导致 PC 扫不到设备）+ 网页进度真值
+9bf2de6 deliver(slide): real portamento ramp + fretboard/piano mode toggle; CLS +6 only
+c88b690 新增 ESP32 上机手册 + 修线上校验的抓取窗口（会偶发假红）
+0c77cd4 MIDI 回传端到端演示 + 修两个真缺陷（tick 单位 / 变长量无上限）+ 答 FPGA 侧
+7ef73f4 deliver(merged): integrate E scope with teammate BPM and slide; archive candidate STA
+eda1a71 ﻿本周期交付（2026-10-10 ~ 10-13）：滑音判据+开关+音高通路、BPM 串口入口、P0-25 根治、4 条 P1、2 道新机械门、ESP32 协议对齐
+07be382 答 FPGA 侧两个确认 + 补 last_seq 口径的判据 + 记下 9B 回传帧这个新发现
+5009851 落实 FPGA 侧「上行帧格式 v1.1」+ 同步 5 份回复 + 修端口探测的一个真缺陷
+69efd43 ﻿ESP32线：断链后重连恢复「就绪」+ 断连事件竞态 + 状态计数器
+c0c2a78 ESP32线：修 6 个真缺陷 + 曲谱/回传上位机 + 全量测试执行器
+7a861b4 ﻿deliver: ESP32 独立 UART + 曲谱链路打通（含 1024 倍音高量纲修复）+ 录制回传 + P1-18/P1-59
+2d545b8 ESP32线：曲谱灌流通路打通 + 修两个会让真谱面放不出来的真缺陷 + 文档一致性审计
+d5f1d68 deliver(timing+审查): 余量标定 17.8 ns（真实余量 +2.2 ns）+ P0-25 改法4 实测无效已回退
+49a04e5 ﻿deliver(审查+P0+P1): 全量审查 306 条 + P0 修 28 条 + P1 修 3 条 + 位流归档 + 4 道机械门
+a99e038 ﻿deliver(审查+P0): 时序/逻辑全量审查（306 条）+ P0 修复 10 条 + 交付树默认切右手板档 —— Fmax 60.784 MHz
+026ed21 deliver(右手板): 联调档时序达标 —— 一个能上板的版本（=1 档 0/0 · ≈57.0 MHz · 余量 +0.642 ns）
+6c44aff Merge remote-tracking branch 'origin/main' into converge-merge
+5a89305 Merge remote-tracking branch 'origin/main' into timing/converge-h5-20261003
+2b51784 docs: 上板清单 + SHA-256（Z_merged_base_T5.fs）—— 按队友建议「一次上板把该验的都验掉」
+5ddecbe revert(docs): 撤回误推的第三周组会报告 —— 组会材料按惯例走 meeting-<日期>/ + .git/info/exclude（本地私有，⛔ 不入库）
+5de5447 Merge remote-tracking branch 'origin/main' into converge-merge
+eff0c98 docs(hdmi): K-41 PLL 见证归档 + 上板记录表回填（用户指定 ① ③）
+f342e4b chore(evidence): 合并 main（7c5ad7e）后聚焦验证 10/10 全绿的 tb 日志
+10a348a docs: 第三周组会报告（2026-10-01~10-08）—— 对照第三周计划逐项盘点 + 未完成分类 + 7 条改进项 + 下周优先级
+cb07a6d docs(丙): guide_lamp 接线说明给甲 —— 曲谱→LED指引最后拼图（只写方案不改代码）
+529b212 chore(evidence): 合并 main（7c5ad7e）后重跑聚焦验证的 tb 日志刷新
+7c5ad7e docs: 基线+T5 交付归档 —— Z_merged_base_T5.fs (55.060MHz/0-0)；说明 56.351 是不含 T5 的版本，T5 实打实吃时序
+9d6b0b4 revert(audio): 回退到合并版 56.351 的 RTL 状态（保留队友 T5）
+8fbcf23 docs(audio): C保留/A回退归档 —— Y_merged_Conly.fs (55.406MHz)；锁定根因=霍尔读数持续变化，列出被排除方向与三种修法
+938239a revert(audio): 回退 A 方案（电平项 100/n → 115/n），保留 C 方案
+7b2143a docs(audio): A 方案落地归档 —— X_merged_A.fs (55.899MHz/0-0)；含不可兼得取舍说明与两条残留候选的30秒验证法
+1188ab6 feat(audio): A 方案 —— 电平感知归一化目标 115/n → 100/n（余量优先）
+5ef9828 docs(audio): C 方案落地归档 —— W_merged_atomic.fs (55.406MHz/0-0, +527FF)，含根因契约、tb 加强说明与全量回归清单
+d7ec2dc fix(audio): C 方案 —— envelope_bank 包络总线【原子提交】，消除帧内 32 拍新旧混合
+fcef2e2 docs(audio): 修法3 第二次修正归档 —— V_merged_levelaware2.fs (55.294MHz/0-0)，含边界抖动量化表与三个自身失误记录
+9dde07a fix(audio): 修法3 第二次修正 —— n_eff 四舍五入 + 迟滞 + 目标改 115/n
+02cf6ee docs(audio): 修法3 落地归档 —— U_merged_levelaware.fs (55.301MHz/0-0)，含量化对照表、门控纪律与调试记录
+e6de855 feat(audio): 修法3 电平感知归一化 —— 治 3+复音 × 高持续比音色(0/3) 的软限幅削顶
+ae4cc6e exp(audio): 修法3（电平感知归一化）第一次尝试——已实现但 tb_tdm_render_mixer 红2项，回退并归档设计与失败现象
+27494d6 Merge remote-tracking branch 'origin/main' into converge-merge
+a03a206 revert(audio): OUTPUT_HEADROOM_SH 2 -> 1（用户拒绝整体音量降 6dB）；改走修法3（电平感知归一化）
+0d0c168 chore(evidence): 合并队友（限幅裕量/右手板诊断）后重跑的门③④证据
+340f193 feat(T5): 延音踏板语义 ＋ 合并队友（限幅裕量/右手板诊断）
+b72e3bf exp(audio): 限幅前裕量 -6dB -> -12dB（修法1）—— 针对 3+复音 x 高持续比音色(0/3) 的软限幅爆破音；clk_sys 55.143 / 0-0；待上板验证
+e3c1152 docs(hw): 右手板拨弦诊断收尾 —— 实测证明极性正确、UP 不触发、DOWN 响应前推；结论=板子/接线问题，附硬件侧最小复现步骤与 RTL 勿改清单
+6bf4312 docs: 上板指南补右手板 A 章节（甲文档未覆盖）—— 通道映射/接线/RIGHT_ADC_ENABLE 编译期限制/46.613 MHz 时序障碍/4 个码流对照
+8c417b8 docs(timing): RIGHT_ADC_ENABLE=1（右手板联调档）时序不达标（46.613 MHz / 1630 违例）—— 记录结论并回退参数到 0
+f63fdb2 docs: 上板操作指南（合并版 R_merged_56p351.fs）—— 引脚/参数/命令均对着源码逐条核对
+2be631f verify(timing): 独立复现合并版 56.351 MHz（与甲报告逐项一致）+ 交付 R_merged_56p351.fs
+5458da8 docs(timing): 更正判断——阶段 2 是被甲的 P5-② 超集取代（非丢失），无需恢复；开始独立复现合并版
+d6d6e6e docs(timing): 记录阶段 2（扫频共享）在合并甲分支时被覆盖，附恢复方法与归档位置
+25c0681 Merge remote-tracking branch 'origin/main' into converge-merge
+338b3ac chore: 归档回退后的重建日志（恢复 56.399 交付状态）
+97e16bf fix(merge): 补回被本线早先删除的 26 个 evidence/h5 文件（⭐ 队友的 H5 实验证据）—— 使本线成为 main 的超集，快进/合并都不会删掉队友的东西
+2b29fac timing/converge-h5-20261003：逻辑优化（ADSR 共享 + P5-② + T3 变调 + 灯带指示层）＋ 合并队友时序线
+16e0e5f revert(timing): 回退 note_manager 降 CLS 尝试（CLS 反增 +87、clk_sys 56.399→55.054）；归档 codex 过程物与两个未实施候选
+5396a10 docs(timing): 下一轮降 CLS 的靶子分析与实施任务规格（xats 派发受阻，规格先落仓）
+b769e27 docs(h5): 确认上板的是正式版（56.399 MHz / TEST_MODE_EN=0）；记录下一步为继续降 CLS
+dfe6ded docs(h5): 上板验证通过 —— 交付闭环（56.399 MHz 正式版 + 55.198 MHz 诊断版）
+7b1182c docs(h5): H5 显示修复按用户决定结案（不需要）；记录时序攻坚最终成果与一个独立 CDC 遗留项
+38760ae feat(timing): 正式版码流重建交付（56.399 MHz 逐项复现）+ 双码流归档
+df0912a feat(timing): 双码流配齐 —— 诊断版 TEST_MODE_EN=1 也通过 55 MHz 预算（55.198 MHz）
+d1da5d4 perf(timing): 55 MHz 余量预算挑战通过 —— clk_sys 53.652 → 56.399 MHz（+9.5% 余量）
+f38c509 perf(timing): 阶段 2 鼓扫频 per-lane→per-voice 共享 —— clk_sys 51.551 → 53.652 MHz（首次真正超过基线）
+b39680f docs(timing): 阶段 2（鼓扫频 per-lane→per-voice）前置检查通过 + 待执行设计规格
+6796257 feat(timing): 阶段 0 余量约束 + 阶段 1 TEST_MODE_EN 双码流（按 codex 评审计划执行）
+f1632be docs(h5): 继续提升时序的完整实验记录（6 次实验全部按判据回退）+ 关键发现"降 CLS 方向正确"
+53bf40e docs(h5): 候选三第 1 步（ADSR 算术共享）试做并回退；记录"增量优化空间已用尽"的最终结论
+adbac77 docs(h5): 路线一① 试做并回退 —— 结构成功但全局 Fmax 反降；保留逐拍差分测试台
+cb242f4 丙 P4: 效果器延迟预研（delay 环形缓冲 BSRAM 预算 + 挂载点 + 选型路线）
+9d969c7 feat(c/guide_lamp): 音符事件→灯位指引映射层 (P1) + tb + 变异体 M137~M139
+292a7e7 docs(h5): 合并队友 converge-h5 分支并验证其时序（独立复现 SETUP#1 0.850）
+f9737d0 Merge remote-tracking branch 'origin/timing/converge-h5-20261003' into converge-merge
+2df37f9 docs(h5): 对照实验闭环 —— 证明"一根线"显示修复就是时序变差的原因；并记录 set_option 持久化陷阱
+46a5f6b docs(h5): 收口记录 —— 显示修复离线有效但代价是时序，交付停在 53.425 MHz 达标版
+375d176 timing/converge-h5-20261003：BATCH5 音高判据 + T3 参数门控 + 串口 F/G/H/J + 推子档位状态机(含 A'/防抖动) + 20 根引脚 + 硬件交接
+7946604 docs(plan): 更正第三周计划 v1/v2 里 Fmax 数字的器件档位前提（AC2/I1 ≠ 实物 AC1/I0）
+01ac96b docs(timing): 记录时序修复 + H5 的上板功能验证（都正常）
+d449504 fix(timing): clk_sys 50.040 → 53.425 MHz（+6.85%）—— note_manager 扫描预译码 + test_mode_ctrl 译码去共享【代修】
+7c79643 fix(timing): 合并后 clk_sys 21 条 setup 违例 → 0（回传锥定向区域约束）+ 交给时序优化线的收敛请求
+2780907 Merge branch 'timing/evt_merge-20261002' into main（保留 H5）
+d9a5808 perf(timing): 两轮队列减宽（seq_arb / evt_merge）+ 口径统一与符号锚点
+d0cb8b4 hw(hdmi): H5 波形显示接入主设计（旁接 master_mix）—— 上板验证通过
+f91cc21 T2 起始音(BA) + 器件修正：PnR 改用实物器件 AC1/I0，真实 Fmax 50.137 MHz
+80ff3af ESP32线：串口屏HMI全链路修复 + 19工具/317项离线自检 + 上行帧解析（含68B表同步）
+4bb6353 Merge branch 'feat/s3-ble' into main (ESP32 line: firmware, tools, evidence, docs)
+4ed027f data: PnR evidence for the kick/tom second pass (bitstream AZ)
+78c21e4 fix: restore the teammate's H4 HDMI files that my previous commit deleted
+03b130d 周期交付（2026-10-01 夜）：底鼓/嗵鼓二次拉开 + 键盘打鼓全套（含队友 H4 HDMI 之上）
+b41adf8 hw(hdmi): H4 上板验收通过 —— 1920×1200@60（OSER10 768.75MHz / 1.5375Gb/s 实测可用）
+465673f 周期交付（2026-10-01 晚）：键盘打鼓模式 + 鼓音高拉开 + ESP32 回函 + 任务清单
+f37e3f7 周期交付（2026-10-01）：量纲返工修复 4 条上板回归 + T3 复核 + Verilator 评估
+f1afda1 ESP32 线：安全关闭板载 WS2812 + PC 端 MIDI 回传工具链
+1d9093d ESP32 线：CMD 命令集 + 上行蓄水/放水缓冲 + 一键验收 + 用户裁定落地
+afaacc3 ESP32 线：反向通路打通 + 上行蓄水/放水缓冲 + 一键端到端验收
+3365ee6 docs(hdmi): 归档 H2 上板调试记录与对照实验脚本
+afd5cdf docs(hdmi): 记录 H2 上板验收通过（640×480 彩条实测出图）
+f5a6f36 fix(hdmi): TMDS 控制码表 2'b01/2'b10 写反 —— 上板全黑的真根因
+1699490 fix(hdmi): TMDS 输出改 ELVDS_OBUF + IO_TYPE=LVCMOS33D（LVDS25 是黑屏头号嫌疑）
+e486fbe hw(hdmi): H1 官方 720p 参考也加 V13 心跳 LED（做同灯的对照实验）
+9482047 hw(hdmi): 加 V13 心跳 LED（活体见证 + PLL 锁定指示）
+7a32935 交付线整合：合并 origin/main（HDMI H2/H3 + 鼓机用户节奏表 + looper T41）＋ 修A/K-127/阶段3/诊断码/at_done 门控
+de49604 fix(sim): pnr_run.ps1 read the wrong line for Actual Fmax (the label row is followed by 'Logic Level', so the value row was missed and a successful PnR was reported as FAIL)
+86a1ed4 ESP32 线：放水打通 + 三个真缺陷修复 + 500k 对齐 + 验收工具
+e1d36bf 交付线第一批：修A（calib 水位闸 + autotare 静止守卫）+ K-127（raw 按轴选片）+ 阶段3 + 拒绝原因码 + at_done 门控
+75af982 revise(hdmi): 方案 B 的 PLL VCO 3150 MHz 超出 700–1400 MHz，B 不是可用时钟方案
+5277e14 fix(hdmi): DC 平衡判据少算一半（ones-5 应为 2*ones-10）
+f67ff19 docs(hdmi): 记录方案 B 的构建结果（0 setup / 0 hold，pixel_clk 25.200 MHz）
+51bcb4b revise(第三周计划): H2 的「免 PLL」做不到，更正为必须用 PLL
+4299ca9 hw(hdmi): 新增 H2/H3 —— 640×480 参数化彩条 + 自写 TMDS 编码器
+e7c1395 改动：本周期合并交付 —— 步进二分基准与步 B/C 工作树 + 时序修复 + 引脚/鼓机/looper 收尾 + 两条诊断判据（全部待上板验证）
+19bcef2 改动：note_manager 入口给 env_level_i/env_active_i 打一拍 + 同轴重触发加 ST_RETRIG 流水级（修 25 条同源 setup 违例：逻辑 2.8ns / 布线 20.7ns，32 路写译码 CE 扇出约 4500 端点）（待上板验证）
+9ccf742 改动：曲谱 UART 与 looper 同时可用 —— looper 改走 evt_merge 源 C，来源标签加宽到 3 位（待上板验证）
+938598c 新增：鼓机音高包络（阶段 2b）—— 鼓 voice 起音向下扫频，tb_drum_pitch_env 双 DUT 非空洞性判据（待上板验证）
+957f35e 改动：looper 插值步长引擎三级流水 + ADSR 音色持续比乘法打一拍，收敛时序（待上板验证）
+396eb22 上板手册新增 2026-09-30 更新节：S2 改音色键、节拍器改串口 'B'、新增串口 'D' 切鼓机节奏型、四音色与 Test Mode 已实装（旧文说空桩作废）、SEL_DRUM 默认 0=节拍器（听鼓机另编 1）、looper 回放带录制音色、鼓机第4件为嗵鼓、已知未修项、烧录前必查时序
+d4c319c 改动：SEL_DRUM 默认档还原为 0（节拍器）—— 鼓机诊断档 1 曾被 cherry-pick 带进主树，导致默认配置下节拍器事件到不了下游（tb_met_start_top T6 红）；tb_met_start_top 显式 SEL_DRUM(0)、tb_drum_timbre_top 显式 SEL_DRUM(1)（待上板验证）
+b83bc49 变异测试：7 个失效锚点重新定位 + 新注册 M135/M136（135/135 锚点字节级复验）
+6364412 新增鼓机宽带噪声波表（第 10 张 pROM）并按保留轴位路由（待上板验证）
+5f580e8 证据：K-169 与锚点修复的聚焦 tb 日志（tb_note_manager / tb_oscillator_bank / tb_retrig_reset_span 等）
+7dc0474 鼓机：分类改 4 类（大鼓/小鼓/嗵鼓/镲）、串口 'D' 切节奏型、源 B 固定音色（待上板验证）
+b991ae2 K-169：起音相位复位改挂 note_on 事件边沿（待上板验证）
+7d15a8e 总账 §25.8：U-5 延迟预算重算结论 —— ≤10ms 已能从 RTL 证明（通路 A 759.36us 余量 13.2 倍 / 通路 B 62.88us 159 倍）；结构性发现现行有两条控制通路（轴位过 ADC、拨弦 LM393 直采）；确定性无抖动在轴位口径不成立（极差 692.6us）需裁定；并记 RTL 打脸旧文档的关键 5 条（ADC 事务 196us、ADSR 起振晚一帧、note_manager 实为 37 拍、效果器无实例、DAC 依据作废）
+5f501b0 新增《端到端延迟预算-重算-20260930》：从现行 RTL 逐段重算（①ADC 采样时隙 500us ②ADC 事务+帧收齐 196.18us ③事件提取 0.42us ④仲裁与分配 1.02us ⑤ADSR+TDM+混音 43.10us ⑥效果器无实例 ⑦I2S 18.64us）；合计最坏 759.36us（≤10ms 有 13.2 倍余量）；并列出与旧文档的 12 条矛盾（ADSR 起振晚一帧、note_manager 实为 37 拍、拨弦通路不过 ADC 等）；确定性无抖动待裁定通路口径
+004f429 looper：on_open_r 泄漏 —— ST_REC 的两个入口清零 on_open_r（待上板验证）
+f728f20 总账 §25.7：push 完成记录 —— 合并队友 HDMI 参考提交无冲突、37 个提交压成 1 个（7863b40，措辞待上板验证）、HEAD 与 origin/main 一致、备份 tag 与 bundle 已就位且 tag 未泄露
+7863b40 looper 事件通路改造与鼓机收尾（待上板验证）
+0cf8ac8 feat(hdmi): add H1 reference research and minimal 720p bring-up
+e651612 W3a/W3b：串口切换音色 + looper 退出修复 + 诊断证据补齐
+4121c12 丙线: FPGA 侧串口屏(TJC X2) UI 控件规划文档
+d0f3f65 失谐音量平衡 + FMAX 修复 + 构建脚本缺陷修复 + vu_* 判据补齐 + 节拍器方案
+9656008 位置式力度反馈 + FMAX 修复（slack 2 皮秒 -> 1.289 ns）+ 构建脚本缺陷修复
+f2f9a18 失谐音量平衡方案 + 修 CI 文档交叉引用
+3d82667 修复 B2「偶发尖音」+ B3「挂音」：11 项 RTL 修复 + 判据入库 + 审计文档
+f9aa700 feat(c): A1 test-mode UI switch on serial screen (touch control 2)
+6b2738b 钢琴模式实装: kb_inc 真实音高表 + 烧录默认钢琴模式
+72217ae feat(t31b): add four timbres to voice synthesis
+5d79ff6 feat(t15): add keyboard and fretboard play modes
+b9f757d docs: 补全 K-149 中 RTL 路径缺失的 rtl/ 前缀
+b444ef0 修复"水怪低吼"真因（开机竞态）+ 增益链定案 + 缺口清单校正
+226f7eb docs(board): 校正 Console 引脚与串口说明
+c764489 feat(volume): 接入右手 CH1 对数主音量 (T17)
+06f538a feat(vibrato): 右手板 ADC 控制 + 颤音 LFO 接入 (T18)
+14e9c68 T43: merge Test Mode into main
+ef15de3 上板验证批次: 复音归一化 + 时序流水 + 音高表重排 + 事件对齐 + 节拍器/迟滞修复
+cea6452 fix(文档): 修复两处断链的交叉引用 (#7)
+854b252 docs: fix broken cross references
+ad29ea3 feat: wire UART test mode into synth top
+f917308 T43: 完成 Test Mode 4/8/16/32 声部频谱验收
+a16c2b6 丙线 uart_ui：串口屏(TJC X2)人机交互层 + tb + 变异体 M128~M131
+da34d6c 丙线 LED 链：tlc5916_bank（CH→OUT 重映射+共享总线三片驱动）+ tb + 接入 top.v + 变异体 M126/M127
+763a1a1 自动功能集成：源A三级仲裁(seq_arb) + 纯合成鼓机(drum_gen) + 外置DAC通路
+9210d1d 修复 'S' 只回 s 不回轴号（K-132）+ 帧周期口径更正（K-128）
+bf88e9c UART 上板打通：搬引脚/降波特率/K-126 发送队列/时序与诊断命令
+e387aa5 修正 sdkconfig.defaults：BLE 5.0 与 MAX_ACT 均为广播必需项（实测确认）
+bf9b39f 合并 origin/main（队友已把 BLE 分支合入 main）
+a98549b 新增 send_frames_ble.py：PC 侧 BLE 直连灌数据（绕开虚拟串口）
+575e391 上机记录：4 个缺陷的完整分析 + 指南补 BLE 连接实操
+c7d03ad 修复 BLE 广播无法启动（3 个缺陷叠加）
+b32ba1c ﻿合并 ESP32 BLE 分支 + 修"验收误报"超时 + 重写上板操作卡
+522c215 上机指南更正端口/esptool + 新增上机实测问题分析文档
+a310700 修复上机实测缺陷：小延时塌成 vTaskDelay(0) 导致看门狗触发
+152a122 ﻿Console 器件型号确认 + K-124 力度修复 + 组合环修复 + 编码纪律
+6807c26 通知修正：纠正音色方案理解错误 + 2 处过时数字 + 加'先拉远端'
+2cd2b57 ﻿上板前准备批次：11 份设计文档 + 全量变异测试（88 caught / 0 LEAK）+ 上板操作卡
+7438b60 新增 ESP32 线当前断点：上机入口 + 三个已知坑 + 两件未决事项
+d6bc112 ESP32 通路：S3/BLE 版固件 + 串口屏三件套 + 上机指南 + 协议对接文档
+c6aa509 W3a 标定链：阶段B+C 全接进 top.v（含 uart_tx 新增 + 修 4 个真缺陷）
+effd810 W3a 标定链 + 阶段A验证 + 长任务方法 + 过时文档修正
+f8a0ab1 引脚重排：SPI 改 6 片预留向量 + 每片 MISO|CS 同排左右 + LED 组挪到 J9
+4439625 PnR 证据（引脚重排后）：0 setup / 0 hold，Fmax 53.782 MHz，22 个新引脚 ball 全部核对一致
+0c2bf9f 回归 44/44 全过（SPI 端口改成 6 片预留向量 + 引脚重排后）
+50dc954 新增 07-Console 上机指南（2026-09-24 上板版）：按今晚新引脚表重写
+0928866 上板前修复：极性顺序 / 开机误触发 / 演示和弦不停 + calib_span + LED 引脚
+42ed989 端到端"按琴键出声"tb + 上电自动 tare + 修 K-121（ssh 不在 PATH）
+0ee536c 第二周 W3a 采集链完成 + 合并丙线 master_mix + 板卡实测校正
+066d484 Merge pull request #4 from hokuu1102/wip/c-master_mix
+63f12c9 fix(top): 基于 main 最新(2626462)重新接入 master_mix，消除合并冲突
+3040327 fix(变异测试): 修正 perc_env_bank/master_mix 变异体编号 M60~M64 -> M81~M85，避开与 play_seq/evt_merge 的撞号
+2626462 ESP32 通路 + W3a 语义层 + 板卡修复：本周主线一并入库
+da01cf6 丙线第二周验收硬化：T52(A4b→A4c) + T48(pROM 变体编译进回归) + perc_env_bank 补 M60 + 新增 master_mix(主音量+静音斜坡) 及 M61~M64 变异体
+dd5dd08 ﻿第二周：曲谱/蓝牙/上位机规划 + 板卡定案 + 工具修复 + 换板 RTL 改动
+b3c8c7d T33b: port uart_rx (score-download front end) + fix a real test blind spot
+c68cd76 第二周设计文档批次：Looper 控制逻辑 / 曲谱自动演奏 / top.v 集成方案 / 进度小结
+a25558c T33: metronome (synthetic click on the event path) + perc_env_bank
+2acd8b2 docs(week2): mark T33/T33b/T37 prerequisites as ready after the K-106 fix
+a5fef87 K-106 fix: make event-queue overflow observable (+ depth 16 -> 32)
+7cae3d1 docs(week2): refresh progress + consolidate the teammate notice (add the pull-before-you-code rule)
+93b9c29 第二周 C 组：接通出声链 + 音乐时钟 beat_gen + 文档口径修正
+9c3bba1 evidence: regenerate from clean RTL after the full 40-mutant run
+9374712 T62 + gitignore + M32 re-point
+6be5cb3 docs(week2): list exactly which teammate files I changed (for the team chat)
+ac2902a docs: note_manager latency contract 4 -> 34 cycles (K-103 fix), plus K-104/K-105
+cfdc8f0 T66: fix K-103 -- pipeline note_manager's candidate scan (Fmax 8.4 -> 58.6 MHz)
+9a1770e T57: wire the real sound chain into top.v (board finally makes sound)
+0448d98 mutation_test: add -File/-Changed selection, concurrency lock, crash recovery
+ac23754 T55+T56: de-stub oscillator_bank (64 lanes) and tdm_render_mixer
+111e6ca T54: note_manager.v (32-voice allocation) + watchdog for tb_all
+655a074 docs(week2): K-91/K-90 into 分工 and 队友反馈
+42e1257 T47: acquisition chain into Gowin project; fix K-91 (calib never synthesised)
+3ec0746 docs(week2): 统一三处口径不一致
+8bb7847 fix + docs: K-89 别名越界 + K-86 四大件参数 + 第二周计划 v2（含出声链）
+6c8a3b4 审查: 队友代码与 TB 五步审查完成 + K-89
+952ad02 fix(验证): K-87 —— 变异测试把"跳过"当"通过"，adc_farm 曾静默失去全部保护
+202a28b decide(第二周·自动功能与接口修正): 鼓机/节拍器/Looper 设计 + adc_farm 参数化 + timbre 语义修正
+10d6d49 Merge pull request #3 from hokuu1102/wip/debounce-calib
+f557103 feat(w1): complete synth voice and pitch acceptance
+2a6b8ee chore(采集): 落地 L8 三片并行采集 adc_farm + S1 从机模型 + A4p 口径裁决
+54fc709 docs(w1-2): mark board validation deferred
+bacbbf7 chore(采集): 补丙线 T13 calib + T14 debounce（含单元 tb、抖动模型、变异体 M19/M20）
+1b24328 feat(w1-2): add pROM DDS-to-I2S board proof
+45e79e3 feat(w1-2): land deterministic Gowin wavetable pROM
+4e480f9 feat(w1): freeze W3b synthesis interfaces
+291c729 基石板上板验证 + 合规口径收口（主办方答复已入档）
+d89340a chore(采集): 加入 MCP3208 驱动与扫描回归 (#2)
+63ec79a B6+B10：修 PA_ON_AFTER_RESET 交付默认值隐患（K-69）+ 给乙的验收判据包（K-70）
+38e4ebc 查实 V22 = 50 MHz（三处官方原件一致 + 反证），并记录「要不要换高速时钟」的量化结论（K-68）
+aae2200 给队友的交接说明：这批改了别人什么（丙的 TLC5916 驱动 +244 行但接口未变、共用地基三处、乙/丙的新结论）+ force push 后拉代码方式
+65fcef4 ﻿硬件核对：实际 PCB 网表 + 拓展板连接方案 + 上拉/亚稳态口径（K-60、K-64、K-65）
+a1c2fbf 芯片手册原件核对：TLC5916 / MCP3208 / PT8211 / NS4263（K-57~K-59、K-63）
+5709185 审查与修复：把现有全部模块验证到位（R-01~R-21 / K-47~K-67）
+ca5ca9b 新增 bringup/ 验证专用文件夹：现有代码逐文件「能验什么」清单 + 基石板上板阶梯 + 一键验收矩阵
+e8fab5e K-46：高云 .gprj 文件 type 写错会静默跳过（.sv 也是 file.verilog）+ 澄清「被解析 ≠ 被综合」
+d39cbcf T3 完成：A1~A8 八个检查器全部就册 + 每个都有一正一反负向自检
+a576ec5 feat(第一周·M0达成/工具链跑通): 顶层安全态 + M2 延迟实测 + Gowin 全流程（P1）
+ed51c0f feat(第一周·板卡与出声): 板卡/DAC 事实收口 + 时基与 I2S 落地（M0 时基 + M1 判据通过）
+43c8b9e feat(第一周地基): 文档口径裁决 + 回归与工具链地基（T1/T3/T4）+ 任务清单只留第一周
+bcb1c9f docs(总览): 第一周分工与迁移方案定稿；文档引用检查归零
+cdc56ef ﻿docs(总览): 分工.md 里的 wip/ 写法改为"wip/ 前缀分支"，引用检查归零
+d133cce ﻿docs(总览): 第一周新增分工.md（四条线 + 你负责的硬件与协调部分 + 新会话启动 Prompt）
+7020c77 ﻿docs(约定): 路径对照表的旧路径列改为裸文件名，引用检查归零
+d72b35e ﻿docs(约定): CONTRIBUTING 新增"队友视角：远端已被推进怎么办"
+04a81c2 ﻿docs(代码): 作废引用改为不含路径的字面写法，文档检查归零
+6dc5379 ﻿docs(代码): 队友架构文档里作废的旧延迟预算引用改为"已作废"提示（方案 2）
+2999a37 ﻿docs(整理): 归档 10 份冗余/过时文档；新建"第一周"任务文件夹；建 sim/tb_all.ps1

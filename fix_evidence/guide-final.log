@@ -1,0 +1,331 @@
+RTL 77 个 · 模型 14 个 · 检查器 8 个 · tb 4 个
+
+=== 编译 tb_guide_lamp_identity ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:501: warning: @* is sensitive to all 16 words in array 'held_count'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:502: warning: @* is sensitive to all 16 words in array 'held_axis'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:503: warning: @* is sensitive to all 16 words in array 'held_note'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:504: warning: @* is sensitive to all 16 words in array 'held_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:506: warning: @* is sensitive to all 16 words in array 'held_axis'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:507: warning: @* is sensitive to all 16 words in array 'held_note'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:509: warning: @* is sensitive to all 16 words in array 'held_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:514: warning: @* is sensitive to all 16 words in array 'held_count'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:524: warning: @* is sensitive to all 16 words in array 'held_count'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:525: warning: @* is sensitive to all 16 words in array 'held_count'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:530: warning: @* is sensitive to all 16 words in array 'next_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:531: warning: @* is sensitive to all 16 words in array 'next_key'.
+=== 运行 tb_guide_lamp_identity ===
+    NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=20 CNT_W=5)
+PASS: guide identity, 16 overlaps, repeated ONs and timeout
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\control\tb_guide_lamp_identity.sv:40: $finish called at 5244880000 (1ps)
+
+
+
+=== 编译 tb_guide_lamp ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:501: warning: @* is sensitive to all 16 words in array 'held_count'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:502: warning: @* is sensitive to all 16 words in array 'held_axis'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:503: warning: @* is sensitive to all 16 words in array 'held_note'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:504: warning: @* is sensitive to all 16 words in array 'held_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:506: warning: @* is sensitive to all 16 words in array 'held_axis'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:507: warning: @* is sensitive to all 16 words in array 'held_note'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:509: warning: @* is sensitive to all 16 words in array 'held_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:514: warning: @* is sensitive to all 16 words in array 'held_count'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:524: warning: @* is sensitive to all 16 words in array 'held_count'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:525: warning: @* is sensitive to all 16 words in array 'held_count'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:530: warning: @* is sensitive to all 16 words in array 'next_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:531: warning: @* is sensitive to all 16 words in array 'next_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_guide_lamp.sv:108: warning: Instantiating module guide_lamp with dangling input port 9 (stream_alive_i) floating.
+=== 运行 tb_guide_lamp ===
+    NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
+VCD info: dumping is suppressed.
+=== tb_guide_lamp (鐏綅 = 闊抽珮鏌ヨ〃 + 杩愯鏈熷彉璋? ===
+   kb: E3=52 F#3=54 C3=48 B3=59 A3=57 | fb: A2=45 D4=62
+  ok  : baseline: guide all 0 right after reset
+  ok  : baseline: commit is 0 (no spurious)
+  ok  : note_on C3(kb) -> guide[5] lit (key 5, NOT the axis)
+  ok  : note_on C3(kb) -> one-hot (only bit5)
+  ok  : note_on C3(kb) -> commit pulsed
+  ok  : note_off C3(kb) -> guide[5] off
+  ok  : note_off C3(kb) -> all 0 again
+  ok  : tempo ignored -> guide stays 0
+  ok  : tempo ignored -> no commit
+  ok  : non-vacuity: every physical key 0..15 is reachable & lights its own lamp
+  ok  : commit high on change
+  ok  : commit falls back to 0 next cycle
+  ok  : multi: two different PITCHES light two lamps
+  ok  : multi: only those two bits
+  ok  : multi: both cleared -> all 0
+  ok  : table inverse: all 2 modes x 32 offsets match axis_map's forward table
+  ok  : 9a transpose=0 : A3 (off 12) -> key 12
+  ok  : 9b transpose=+2 : A3+2 = B3 -> key 11  <-- the pitch moved, not the key index
+  ok  : 9b' transpose=+2 did NOT just shift the key index (12+2=14 must be dark)
+  ok  : 9c transpose=-2 : A3-2 = G3 -> key 13
+  ok  : 9d transpose=+1 : E3+1 = F3 -> key 2  (NOT key 0+1=1)
+  ok  : 9e out of range (off 31 + 12) -> NOTHING lit
+  ok  : 9e' out of range -> no commit
+  ok  : 9f out of range (off 0 - 12) -> NOTHING lit
+  ok  : 9g in range but unmapped (kb C#5) -> NOTHING lit
+  ok  : 10a unmapped pitch (kb A2) lights NOTHING
+  ok  : 10b unmapped pitch must NOT light key 0 (sentinel is 5'd16, not 0)
+  ok  : 10c unmapped pitch (kb B2) lights NOTHING
+  ok  : 10d the SAME pitch in fretboard mode -> key 5 (mode really selects the table)
+  ok  : P0-28 a PRESSED key is blanked: guide_key[3]=1 but guide_vis[3]=0
+  ok  : P0-28 blanking does not disturb other axes: guide_vis == guide_key & ~key_active
+  ok  : P0-28 after release the guide bit is visible again
+== 鈶?Q4 refcount: one note_off must NOT kill a shared lamp ==
+  ok  : Q4-0 precondition: key 9 is dark before the test
+  ok  : Q4-a two voices on the SAME pitch still light exactly one lamp
+  ok  : Q4-b *** the FIRST note_off KEEPS the lamp ON (this is the Q4 fix) ***
+  ok  : Q4-c the LAST note_off finally clears it
+  ok  : Q4-d ... and nothing else is lit
+  ok  : Q4-e NON-VACUOUS: another pitch's note_off DOES clear its own lamp (key0 dark, key9 lit)
+  ok  : Q4-f clean at the end
+  ok  : Q4-g count saturates at 7 but the lamp is still on
+  ok  : Q4-h saturation SELF-HEALS: 8 ONs + 8 OFFs leaves every lamp dark (no hanging lamp)
+PASS: tb_guide_lamp (41 checks)
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_guide_lamp.sv:595: $finish called at 4371000 (1ps)
+
+
+
+=== 编译 tb_top_guide_axes ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\evt_upstream.v:204: warning: @* is sensitive to all 16 words in array 'mem'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3b\tdm_render_mixer.v:623: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:501: warning: @* is sensitive to all 16 words in array 'held_count'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:502: warning: @* is sensitive to all 16 words in array 'held_axis'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:503: warning: @* is sensitive to all 16 words in array 'held_note'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:504: warning: @* is sensitive to all 16 words in array 'held_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:506: warning: @* is sensitive to all 16 words in array 'held_axis'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:507: warning: @* is sensitive to all 16 words in array 'held_note'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:509: warning: @* is sensitive to all 16 words in array 'held_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:514: warning: @* is sensitive to all 16 words in array 'held_count'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:524: warning: @* is sensitive to all 16 words in array 'held_count'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:525: warning: @* is sensitive to all 16 words in array 'held_count'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:530: warning: @* is sensitive to all 16 words in array 'next_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:531: warning: @* is sensitive to all 16 words in array 'next_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_axes.sv:66: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_axes.sv:66: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_axes.sv:66: warning: Instantiating module top with dangling input port 30 (ctrl_col_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_axes.sv:66: warning: Instantiating module top with dangling input port 31 (enc_a_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_axes.sv:66: warning: Instantiating module top with dangling input port 32 (enc_b_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_axes.sv:66: warning: Instantiating module top with dangling input port 33 (enc_sw_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_axes.sv:66: warning: Instantiating module top with dangling input port 35 (pedal_sus_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_axes.sv:66: warning: Instantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_axes.sv:66: warning: Instantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+=== 运行 tb_top_guide_axes ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=1000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
+NOTE [fx_delay] DEPTH=2048 samples = 41 ms @48828.125Hz | MEM_W=18 => 36864 bit / 18432 bit-per-block = 2 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=26 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [ctrl_keypad] PARAM_OK=1 (SCAN_DIV=12500 DEB_N=8 CLK_HZ=50000000 scan_us=0 db_ms=8)
+NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=50000000 LONG_MS=2000 LONG_CYC=100000000 HW=27)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+=== tb_top_guide_axes (LED 鎸囧紩锛氫笉鍚岄煶楂?鈬?涓嶅悓鐨勭伅) ===
+  ok  : 0a global 'U' guide mode is OFF
+  ok  : 0b the bit6 sticky flag is still 0 (normal score stream)
+  ok  : 0c guide bitmap is all 0 after reset
+  ok  : 0d default mode is PIANO => guide_lamp uses the keyboard (kb) table
+== 1  six different PITCHES (same axis) => six different lamps ==
+  ok  : 1a all six events were consumed by play_seq
+  ok  : 1b the six pitches lit EXACTLY their own keys (0xB228)
+  ok  : 1c popcount == 6  <-- NOT all collapsed onto one lamp (the user's symptom)
+  ok  : 1d each of the six pitches has its OWN lamp lit at the same time
+  ok  : 1e the keys we never asked for (0,1,2,4,6,7,8,10,11,14) stayed OFF
+  ok  : 1f u_led_data.guide_key_i is wired to (guide_key_o & ~ee_key_on)  <-- the LED path
+  ok  : 1g led_data sees all six guide bits (no key is pressed in this tb)
+== 2  one note_off clears exactly ONE lamp ==
+  ok  : 2a the note_off was consumed
+  ok  : 2b C3's lamp (key 5) went OFF on its note_off
+  ok  : 2c ONLY that lamp cleared -- the other five are still lit (0xB201)
+  ok  : 2d popcount == 5 (a single note_off must not wipe the whole bitmap)
+== 3  SAME axis, different pitches => DIFFERENT lamps (the user's bug) ==
+  ok  : 3a the same-axis note_on was consumed
+  ok  : 3b same axis (0), new pitch (G#3) => a DIFFERENT lamp (key 14) lit
+  ok  : 3c only bit14 was added -- the five still-lit lamps are untouched (0xF201)
+  ok  : 3d a third pitch on the SAME axis lit yet another lamp (key 4)
+  ok  : 3e popcount == 7  <-- a single track drove SEVEN different lamps (was 1 before)
+  ok  : 3f its note_off cleared ONLY key 14 (key 4 and the rest untouched)
+
+PASS: tb_top_guide_axes - 21/21 judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_axes.sv:330: $finish called at 1880110000 (1ps)
+
+
+
+=== 编译 tb_top_guide_bit6 ===
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_coeff_rom.v:2: warning: timescale for fft_coeff_rom inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\drivers\tlc5916_driver.sv:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_clk.v:4: warning: timescale for hdmi_clk inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\fft_spectrum_view.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_encoder.v:2: warning: timescale for tmds_encoder inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\tmds_serializer.v:2: warning: timescale for tmds_serializer inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\video_timing.v:1: warning: timescale for video_timing inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\hdmi\hdmi_scope.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:149: warning: timescale for guide_lamp inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\fx_trem.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\pos_probe.v:73: warning: timescale for pos_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\play_seq.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\span_probe.v:71: warning: timescale for span_probe inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\seq_arb.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx_fifo.v:54: warning: timescale for uart_tx_fifo inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\uart_tx.v:1: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\uart_tx_fifo_reference.v:55: warning: timescale for uart_tx_fifo_reference inherited from another file.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\models\tdm_render_mixer_bg_reference.v:2: ...: The inherited timescale is here.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\evt_upstream.v:204: warning: @* is sensitive to all 16 words in array 'mem'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3b\tdm_render_mixer.v:623: warning: @* is sensitive to all 16 words in array 'pc_l1'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:501: warning: @* is sensitive to all 16 words in array 'held_count'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:502: warning: @* is sensitive to all 16 words in array 'held_axis'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:503: warning: @* is sensitive to all 16 words in array 'held_note'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:504: warning: @* is sensitive to all 16 words in array 'held_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:506: warning: @* is sensitive to all 16 words in array 'held_axis'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:507: warning: @* is sensitive to all 16 words in array 'held_note'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:509: warning: @* is sensitive to all 16 words in array 'held_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:514: warning: @* is sensitive to all 16 words in array 'held_count'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:524: warning: @* is sensitive to all 16 words in array 'held_count'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:525: warning: @* is sensitive to all 16 words in array 'held_count'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:530: warning: @* is sensitive to all 16 words in array 'next_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\rtl\w3c\guide_lamp.v:531: warning: @* is sensitive to all 16 words in array 'next_key'.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_bit6.sv:65: warning: Instantiating module top with dangling input port 11 (pluck_up_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_bit6.sv:65: warning: Instantiating module top with dangling input port 12 (pluck_down_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_bit6.sv:65: warning: Instantiating module top with dangling input port 30 (ctrl_col_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_bit6.sv:65: warning: Instantiating module top with dangling input port 31 (enc_a_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_bit6.sv:65: warning: Instantiating module top with dangling input port 32 (enc_b_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_bit6.sv:65: warning: Instantiating module top with dangling input port 33 (enc_sw_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_bit6.sv:65: warning: Instantiating module top with dangling input port 35 (pedal_sus_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_bit6.sv:65: warning: Instantiating module top with dangling input port 36 (pedal_loop_rec_i) floating.
+    C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_bit6.sv:65: warning: Instantiating module top with dangling input port 37 (pedal_loop_play_i) floating.
+=== 运行 tb_top_guide_bit6 ===
+    NOTE [calib_autotare] PARAM_OK=1 (NCH=8 N_ADC=2 DELAY_CLK=100 STILL_EN=1 STILL_TOL=48 STILL_FRAMES=4 WAIT_MS=1000 CLK_HZ=50000000)
+NOTE [calib_span] PARAM_OK=1 (NCH=8 N_ADC=2 AXIS_TOTAL=16 STABLE_NEED=8 STABLE_TOL=48 VOTE_N=8 VOTE_TOL=96 REJECT_MAX=8 WAIT_TIMEOUT_CLK=1000)
+NOTE [axis_snapshot] PARAM_OK=1 (AXIS_N=16 N_ADC=2 POS_W=12 DW=13)
+NOTE [event_extract] PARAM_OK=1 (AXIS_N=16 TRIG_TH=0x040 REL_TH=0x020 DELTA_TH=8 REFRACT_N=60)
+NOTE [axis_map] PARAM_OK=1 (AXIS_W=4 POS_W=12 PHASE_W=32 N_KEY=16 SHIFT=8 FRAC_W=8)
+NOTE [param_extract] PARAM_OK=1 (AXIS_N=16 VEL_T1=0x200 VEL_T2=0x600 DT_MIN=1 DT_MAX=64)
+NOTE [vibrato_lfo] PARAM_OK=1 (DEPTH_OFF=64 DEPTH_ON=96 DEPTH_MAX_RAW=120, shift decomposition matches)
+INFO  [tdm_render_mixer] P0-32 浜や粯鍙ｅ緞: 鍩哄噯=64 路 OUTPUT_HEADROOM_SH=1 => 鍗曢煶宄?鈮?25% FS
+NOTE [fx_delay] DEPTH=2048 samples = 41 ms @48828.125Hz | MEM_W=18 => 36864 bit / 18432 bit-per-block = 2 BSRAM block(s) of 118
+NOTE [fx_delay] DEPTH=16384 samples = 335 ms @48828.125Hz | MEM_W=18 => 294912 bit / 18432 bit-per-block = 16 BSRAM block(s) of 118
+NOTE [calib_cmd] PARAM_OK=1 (CLK_HZ=50000000 BAUD=500000 GAP_BYTES=16 BYTE_CLK=1000 HEADER=a5 N_CMD=26 T=54 S=53 X=58 M=4d R=52 L=4c C=43 I=49 D=44 F=46 G=47 H=48 J=4a Y=59)
+NOTE [ctrl_keypad] PARAM_OK=1 (SCAN_DIV=12500 DEB_N=8 CLK_HZ=50000000 scan_us=0 db_ms=8)
+NOTE [ctrl_key_map] PARAM_OK=1 (CLK_HZ=50000000 LONG_MS=2000 LONG_CYC=100000000 HW=27)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [uart_tx] PARAM_OK=1 (BAUD_DIV=100 => 500000 bps at 50 MHz)
+NOTE [guide_lamp] PARAM_OK=1 (TIMEOUT_CLKS=50000000 CNT_W=26)
+NOTE [top] PA_ON_AFTER_RESET=0 => PA_EN_n held LOW. On NEO Dock that is AB-class (SOUNDS). On Console that is SD_MODE<0.16V = Shutdown = NO SOUND (U-25b). Use 1 for Console.
+=== tb_top_guide_bit6 (閫愪簨浠?bit6 = 鍙寒鐏笉鍑哄０) ===
+   play_seq 澶嶄綅榛樿 tick_inc = 164927锛堚瓙 120 BPM = 164927锛?
+  ok  : 0a tick_inc default is 120 BPM (beat_gen tempo comes from play_seq)
+  ok  : 0b global 'U' guide mode is OFF -- we are testing the PER-EVENT path
+  ok  : 0c bit6 decode is 0 at reset
+== 1  bit6=1  =>  LED 浜?+ 涓嶅嚭澹帮紙涓嶈繘 seq_arb锛?=
+  ok  : 1a the bit6=1 event fired (the per-event 1-beat lead actually reached play_seq)
+  ok  : 1b exactly one note event was emitted by play_seq (the LED half sees it)
+  ok  : 1c the emitted event really carries bit6=1 (fields survived the whole chain)
+  ok  : 1d guide_lamp LIT key 5 (C3)  <-- the LED guide half is ALIVE for bit6=1
+  ok  : 1e seq_arb.score_valid_i was NEVER high  <-- bit6=1 did NOT reach the audio path
+  ok  : 1f seq_arb score_cnt_o is still 0  <-- bit6=1 did NOT occupy a voice
+  ok  : 1h nothing at all came out of the arbiter yet (no dangling note to release)
+  ok  : 1i the buffer is drained (the event was consumed exactly once)
+== 2  bit6=0  =>  鐓у父鍑哄０锛堟病鎶婃暣鏉℃祦闂ㄦ帀锛?=
+  ok  : 2a the bit6=0 event fired
+  ok  : 2b exactly two note events emitted so far
+  ok  : 2c seq_arb.score_valid_i WAS high once  <-- bit6=0 DID reach the audio path
+  ok  : 2d seq_arb score_cnt_o is now 1  <-- it DID occupy a voice (normal note)
+  ok  : 2e the bit6=0 note did NOT light the GUIDE lamp (key 6 stays dark)
+== 3  mixed stream: bit6=1 / bit6=0 alternating ==
+  ok  : 3a all five events were consumed (the stream itself was NOT blocked)
+  ok  : 3b five note events emitted by play_seq
+  ok  : 3c three of them carried bit6=1 (2 from the mixed batch + 1 from phase 1)
+  ok  : 3d ONLY the bit6=0 ones reached seq_arb (2 total: 1 in phase 2 + 1 in the mix)
+  ok  : 3e ONLY the bit6=0 ones took a voice (score_cnt_o == 2)
+  ok  : 3f the LAST bit6=1 event (C#4 => key 9) still lit its LED  <-- guide survives in a mix
+  ok  : 3g the bit6=0 event (B3 => key 8) did NOT light the GUIDE lamp  <-- per-event is per-event
+  ok  : 3h no evt_buf overflow for the whole stream
+== 4  an UNMARKED note_off must still clear the lamp ==
+  ok  : 4a the bit6=1 note_on fired
+  ok  : 4b the bit6=1 note_on lit key 4's guide lamp (D3)
+  ok  : 4c the unmarked note_off was consumed
+  ok  : 4d the lamp is NOT stuck: an unmarked note_off cleared it  <-- no hanging lamp
+== 5  a REPLAY (metronome left ON) must still light bit6=0 events ==
+  ok  : 5a the latch is set by the earlier bit6=1 event (replay precondition)
+  ok  : 5b' the head tempo frame (kind=2, tick=0) cleared the latch  <-- the fix
+  ok  : 5c the replayed bit6=0 note_on fired
+  ok  : 5d a REPLAY still lit key 4  <-- RED before the fix: the clear was on met_start only
+
+PASS: tb_top_guide_bit6 - 32/32 judgements held
+C:\Users\cyx\Documents\ChatGPT\FPGA\fix-audit-20261020\tb\w3c\tb_top_guide_bit6.sv:428: $finish called at 2357610000 (1ps)
+
+
+
+================ 汇总 ================
+通过 4 / 共 4
+✅ 全部通过（证据在 sim/evidence/）

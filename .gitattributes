@@ -1,0 +1,3 @@
+# Preserve the exact mixed/LF endings used by the qualified FPGA build.
+/rtl/top.v -text
+/rtl/w3c/hmi_tx_diag.v -text
